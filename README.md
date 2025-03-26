@@ -17,15 +17,12 @@ discoveryDbUrl='postgresql://postgres:somepassword@someip:5432/audius_discovery'
 
 ```
 make setup
-wgo go run main.go
+make
 ```
 
 http://localhost:1323/v2/users/stereosteve
 
-## Queries
-
-- Edit `sql/queries/user.sql`
-- Run `sqlc generate`
+> This will watch sql files + re-run `sqlc generate` + restart server when go files change.
 
 ## Schema dump
 

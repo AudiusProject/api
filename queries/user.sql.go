@@ -10,56 +10,43 @@ import (
 )
 
 const getUserByHandle = `-- name: GetUserByHandle :one
-SELECT blockhash, user_id, is_current, handle, wallet, name, profile_picture, cover_photo, bio, location, metadata_multihash, creator_node_endpoint, blocknumber, is_verified, created_at, updated_at, handle_lc, cover_photo_sizes, profile_picture_sizes, primary_id, secondary_ids, replica_set_update_signer, has_collectibles, txhash, playlist_library, is_deactivated, slot, user_storage_account, user_authority_account, artist_pick_track_id, is_available, is_storage_v2, allow_ai_attribution, spl_usdc_payout_wallet, twitter_handle, instagram_handle, tiktok_handle, verified_with_twitter, verified_with_instagram, verified_with_tiktok, website, donation FROM users
+SELECT
+  u.user_id,
+  handle,
+  wallet,
+  name,
+  bio,
+  location,
+  follower_count,
+  track_count
+FROM users u
+JOIN aggregate_user using (user_id)
 WHERE handle_lc = lower($1) LIMIT 1
 `
 
-func (q *Queries) GetUserByHandle(ctx context.Context, lower string) (User, error) {
+type GetUserByHandleRow struct {
+	UserID        int32   `json:"user_id"`
+	Handle        *string `json:"handle"`
+	Wallet        *string `json:"wallet"`
+	Name          *string `json:"name"`
+	Bio           *string `json:"bio"`
+	Location      *string `json:"location"`
+	FollowerCount *int64  `json:"follower_count"`
+	TrackCount    *int64  `json:"track_count"`
+}
+
+func (q *Queries) GetUserByHandle(ctx context.Context, lower string) (GetUserByHandleRow, error) {
 	row := q.db.QueryRow(ctx, getUserByHandle, lower)
-	var i User
+	var i GetUserByHandleRow
 	err := row.Scan(
-		&i.Blockhash,
 		&i.UserID,
-		&i.IsCurrent,
 		&i.Handle,
 		&i.Wallet,
 		&i.Name,
-		&i.ProfilePicture,
-		&i.CoverPhoto,
 		&i.Bio,
 		&i.Location,
-		&i.MetadataMultihash,
-		&i.CreatorNodeEndpoint,
-		&i.Blocknumber,
-		&i.IsVerified,
-		&i.CreatedAt,
-		&i.UpdatedAt,
-		&i.HandleLc,
-		&i.CoverPhotoSizes,
-		&i.ProfilePictureSizes,
-		&i.PrimaryID,
-		&i.SecondaryIds,
-		&i.ReplicaSetUpdateSigner,
-		&i.HasCollectibles,
-		&i.Txhash,
-		&i.PlaylistLibrary,
-		&i.IsDeactivated,
-		&i.Slot,
-		&i.UserStorageAccount,
-		&i.UserAuthorityAccount,
-		&i.ArtistPickTrackID,
-		&i.IsAvailable,
-		&i.IsStorageV2,
-		&i.AllowAiAttribution,
-		&i.SplUsdcPayoutWallet,
-		&i.TwitterHandle,
-		&i.InstagramHandle,
-		&i.TiktokHandle,
-		&i.VerifiedWithTwitter,
-		&i.VerifiedWithInstagram,
-		&i.VerifiedWithTiktok,
-		&i.Website,
-		&i.Donation,
+		&i.FollowerCount,
+		&i.TrackCount,
 	)
 	return i, err
 }

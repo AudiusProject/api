@@ -1,7 +1,7 @@
 
 dev::
-	wgo go run main.go
+	modd
 
 setup::
-	go install -v github.com/sqlc-dev/sqlc/cmd/sqlc@latest
+	go install github.com/cortesi/modd/cmd/modd@latest
 	go install -v github.com/sqlc-dev/sqlc/cmd/sqlc@latest

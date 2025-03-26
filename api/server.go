@@ -9,6 +9,7 @@ import (
 	"bridgerton.audius.co/queries"
 	"github.com/jackc/pgx/v5"
 	"github.com/labstack/echo/v4"
+	"github.com/labstack/echo/v4/middleware"
 
 	_ "github.com/joho/godotenv/autoload"
 )
@@ -25,6 +26,9 @@ func NewApiServer() *ApiServer {
 		conn,
 		queries.New(conn),
 	}
+
+	as.Use(middleware.Logger())
+
 	as.Debug = true
 	as.HideBanner = true
 	as.HTTPErrorHandler = as.errHandler
@@ -41,7 +45,7 @@ type ApiServer struct {
 }
 
 func (as *ApiServer) Home(c echo.Context) error {
-	return c.String(http.StatusOK, "OK")
+	return c.String(http.StatusOK, "OK2")
 }
 
 func (as *ApiServer) SayHello(c echo.Context) error {
@@ -54,6 +58,7 @@ func (as *ApiServer) GetUser(c echo.Context) error {
 	if err != nil {
 		return err
 	}
+	// personalize for current user
 	return c.JSON(200, user)
 }
 
@@ -68,7 +73,11 @@ func (as *ApiServer) errHandler(err error, c echo.Context) {
 	} else if he, ok := err.(*echo.HTTPError); ok {
 		code = he.Code
 	}
-	c.Logger().Error(err)
+
+	if code >= 500 {
+		c.Logger().Error(err)
+	}
+
 	c.JSON(code, map[string]any{
 		"code":  code,
 		"error": err.Error(),
