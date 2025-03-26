@@ -5,7 +5,9 @@ import (
 	"log/slog"
 	"net/http"
 	"os"
+	"time"
 
+	v2 "bridgerton.audius.co/api/v2"
 	"bridgerton.audius.co/queries"
 	"github.com/jackc/pgx/v5"
 	"github.com/labstack/echo/v4"
@@ -14,23 +16,56 @@ import (
 )
 
 func NewApiServer() *ApiServer {
+	logger := slog.New(slog.NewJSONHandler(os.Stdout, &slog.HandlerOptions{}))
+	slog.SetDefault(logger)
+
 	dbUrl := os.Getenv("discoveryDbUrl")
 	conn, err := pgx.Connect(context.Background(), dbUrl)
 	if err != nil {
 		slog.Warn("db connect failed", "err", err)
 	}
 
+	queries := queries.New(conn)
 	as := &ApiServer{
 		echo.New(),
 		conn,
-		queries.New(conn),
+		queries,
 	}
 	as.Debug = true
 	as.HideBanner = true
 	as.HTTPErrorHandler = as.errHandler
-	as.GET("/", as.Home)
-	as.GET("/hello/:name", as.SayHello)
-	as.GET("/v2/users/:handle", as.GetUser)
+
+	// Add logging middleware
+	as.Use(func(next echo.HandlerFunc) echo.HandlerFunc {
+		return func(c echo.Context) error {
+			start := time.Now()
+			err := next(c)
+			duration := time.Since(start)
+			status := c.Response().Status
+
+			entry := slog.Info
+			if status >= 500 {
+				entry = slog.Error
+			}
+
+			entry("request completed",
+				"method", c.Request().Method,
+				"path", c.Path(),
+				"status", status,
+				"duration", duration.Milliseconds(),
+			)
+
+			return err
+		}
+	})
+
+	// Register routes
+	as.GET("/", v2.Home)
+
+	// Register user routes
+	userHandler := v2.NewUserHandler(queries)
+	as.GET("/v2/users/:handle", userHandler.GetUser)
+
 	return as
 }
 
@@ -38,23 +73,6 @@ type ApiServer struct {
 	*echo.Echo
 	conn    *pgx.Conn
 	queries *queries.Queries
-}
-
-func (as *ApiServer) Home(c echo.Context) error {
-	return c.String(http.StatusOK, "OK")
-}
-
-func (as *ApiServer) SayHello(c echo.Context) error {
-	return c.String(http.StatusOK, "hello "+c.Param("name"))
-}
-
-func (as *ApiServer) GetUser(c echo.Context) error {
-	handle := c.Param("handle")
-	user, err := as.queries.GetUserByHandle(c.Request().Context(), handle)
-	if err != nil {
-		return err
-	}
-	return c.JSON(200, user)
 }
 
 func (as *ApiServer) errHandler(err error, c echo.Context) {
