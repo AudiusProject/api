@@ -1,0 +1,15 @@
+
+services:
+
+  db:
+    image: postgres:17
+    shm_size: 128mb
+    environment:
+      POSTGRES_PASSWORD: example
+    ports:
+      - 21300:5432
+
+  adminer:
+    image: adminer
+    ports:
+      - 21301:8080
