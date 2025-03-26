@@ -4,6 +4,7 @@ import (
 	"fmt"
 
 	"bridgerton.audius.co/api"
+	_ "github.com/joho/godotenv/autoload"
 )
 
 func main() {
