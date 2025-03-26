@@ -1,3 +1,3 @@
 -- name: GetUserByHandle :one
 SELECT * FROM users
-WHERE handle_lc = $1 LIMIT 1;
+WHERE handle_lc = lower($1) LIMIT 1;

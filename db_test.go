@@ -46,7 +46,7 @@ func TestProdDB(t *testing.T) {
 	// use sqlc
 	q := queries.New(conn)
 	h := "stereosteve"
-	user, err := q.GetUserByHandle(ctx, &h)
+	user, err := q.GetUserByHandle(ctx, h)
 	assert.NoError(t, err)
 	assert.Equal(t, *user.Wallet, "0x613d83f44970ead52afc256b4e81766304f1d0fc")
 

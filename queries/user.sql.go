@@ -11,11 +11,11 @@ import (
 
 const getUserByHandle = `-- name: GetUserByHandle :one
 SELECT blockhash, user_id, is_current, handle, wallet, name, profile_picture, cover_photo, bio, location, metadata_multihash, creator_node_endpoint, blocknumber, is_verified, created_at, updated_at, handle_lc, cover_photo_sizes, profile_picture_sizes, primary_id, secondary_ids, replica_set_update_signer, has_collectibles, txhash, playlist_library, is_deactivated, slot, user_storage_account, user_authority_account, artist_pick_track_id, is_available, is_storage_v2, allow_ai_attribution, spl_usdc_payout_wallet, twitter_handle, instagram_handle, tiktok_handle, verified_with_twitter, verified_with_instagram, verified_with_tiktok, website, donation FROM users
-WHERE handle_lc = $1 LIMIT 1
+WHERE handle_lc = lower($1) LIMIT 1
 `
 
-func (q *Queries) GetUserByHandle(ctx context.Context, handleLc *string) (User, error) {
-	row := q.db.QueryRow(ctx, getUserByHandle, handleLc)
+func (q *Queries) GetUserByHandle(ctx context.Context, lower string) (User, error) {
+	row := q.db.QueryRow(ctx, getUserByHandle, lower)
 	var i User
 	err := row.Scan(
 		&i.Blockhash,

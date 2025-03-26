@@ -50,7 +50,7 @@ func (as *ApiServer) SayHello(c echo.Context) error {
 
 func (as *ApiServer) GetUser(c echo.Context) error {
 	handle := c.Param("handle")
-	user, err := as.queries.GetUserByHandle(c.Request().Context(), &handle)
+	user, err := as.queries.GetUserByHandle(c.Request().Context(), handle)
 	if err != nil {
 		return err
 	}
