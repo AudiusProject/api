@@ -2,6 +2,9 @@
 dev::
 	modd
 
+test::
+	go test ./...
+
 psql::
 	docker compose exec db psql -U postgres
 

@@ -4,7 +4,7 @@ run tests:
 
 ```
 docker compose up -d
-go test ./...
+make test
 ```
 
 run server:
