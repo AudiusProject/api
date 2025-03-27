@@ -10,6 +10,7 @@ services:
       - 21300:5432
     volumes:
       - ./sql:/sql
+      - ./sql/schema1.sql:/docker-entrypoint-initdb.d/init.sql
 
   adminer:
     image: adminer

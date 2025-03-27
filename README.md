@@ -29,5 +29,12 @@ http://localhost:1323/v2/users/stereosteve
 ```
 docker compose exec db bash
 export discoveryDbUrl='a_db_url'
-pg_dump $discoveryDbUrl --schema-only --no-owner > /sql/schema1.sql
+pg_dump $discoveryDbUrl --schema-only --no-owner --no-acl > /sql/schema1.sql
+```
+
+If you re-dump schema, reset dev postgres state:
+
+```
+docker compose down --volumes
+docker compose up -d
 ```

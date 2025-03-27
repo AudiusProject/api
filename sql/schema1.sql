@@ -4797,12 +4797,11 @@ CREATE TABLE public.alembic_version (
 
 
 --
--- Name: anti_abuse_users; Type: TABLE; Schema: public; Owner: -
+-- Name: anti_abuse_blocked_users; Type: TABLE; Schema: public; Owner: -
 --
 
-CREATE TABLE public.anti_abuse_users (
-    handle character varying(255) NOT NULL,
-    is_allowed boolean DEFAULT false NOT NULL,
+CREATE TABLE public.anti_abuse_blocked_users (
+    handle_lc character varying(255) NOT NULL,
     is_blocked boolean DEFAULT false NOT NULL,
     created_at timestamp without time zone DEFAULT CURRENT_TIMESTAMP,
     updated_at timestamp without time zone DEFAULT CURRENT_TIMESTAMP
@@ -7415,11 +7414,11 @@ ALTER TABLE ONLY public.alembic_version
 
 
 --
--- Name: anti_abuse_users anti_abuse_users_pkey; Type: CONSTRAINT; Schema: public; Owner: -
+-- Name: anti_abuse_blocked_users anti_abuse_blocked_users_pkey; Type: CONSTRAINT; Schema: public; Owner: -
 --
 
-ALTER TABLE ONLY public.anti_abuse_users
-    ADD CONSTRAINT anti_abuse_users_pkey PRIMARY KEY (handle);
+ALTER TABLE ONLY public.anti_abuse_blocked_users
+    ADD CONSTRAINT anti_abuse_blocked_users_pkey PRIMARY KEY (handle_lc);
 
 
 --
@@ -8805,6 +8804,13 @@ CREATE INDEX ix_aggregate_user_tips_receiver_user_id ON public.aggregate_user_ti
 
 
 --
+-- Name: ix_announcement; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX ix_announcement ON public.notification USING btree (type, "timestamp") WHERE ((type)::text = 'announcement'::text);
+
+
+--
 -- Name: ix_associated_wallets_user_id; Type: INDEX; Schema: public; Owner: -
 --
 
@@ -9690,98 +9696,6 @@ ALTER TABLE ONLY public.user_payout_wallet_history
 
 ALTER TABLE ONLY public.users
     ADD CONSTRAINT users_blocknumber_fkey FOREIGN KEY (blocknumber) REFERENCES public.blocks(number) ON DELETE CASCADE;
-
-
---
--- Name: SCHEMA public; Type: ACL; Schema: -; Owner: -
---
-
-REVOKE USAGE ON SCHEMA public FROM PUBLIC;
-GRANT ALL ON SCHEMA public TO PUBLIC;
-
-
---
--- Name: FUNCTION pg_replication_origin_advance(text, pg_lsn); Type: ACL; Schema: pg_catalog; Owner: -
---
-
-GRANT ALL ON FUNCTION pg_catalog.pg_replication_origin_advance(text, pg_lsn) TO cloudsqlsuperuser;
-
-
---
--- Name: FUNCTION pg_replication_origin_create(text); Type: ACL; Schema: pg_catalog; Owner: -
---
-
-GRANT ALL ON FUNCTION pg_catalog.pg_replication_origin_create(text) TO cloudsqlsuperuser;
-
-
---
--- Name: FUNCTION pg_replication_origin_drop(text); Type: ACL; Schema: pg_catalog; Owner: -
---
-
-GRANT ALL ON FUNCTION pg_catalog.pg_replication_origin_drop(text) TO cloudsqlsuperuser;
-
-
---
--- Name: FUNCTION pg_replication_origin_oid(text); Type: ACL; Schema: pg_catalog; Owner: -
---
-
-GRANT ALL ON FUNCTION pg_catalog.pg_replication_origin_oid(text) TO cloudsqlsuperuser;
-
-
---
--- Name: FUNCTION pg_replication_origin_progress(text, boolean); Type: ACL; Schema: pg_catalog; Owner: -
---
-
-GRANT ALL ON FUNCTION pg_catalog.pg_replication_origin_progress(text, boolean) TO cloudsqlsuperuser;
-
-
---
--- Name: FUNCTION pg_replication_origin_session_is_setup(); Type: ACL; Schema: pg_catalog; Owner: -
---
-
-GRANT ALL ON FUNCTION pg_catalog.pg_replication_origin_session_is_setup() TO cloudsqlsuperuser;
-
-
---
--- Name: FUNCTION pg_replication_origin_session_progress(boolean); Type: ACL; Schema: pg_catalog; Owner: -
---
-
-GRANT ALL ON FUNCTION pg_catalog.pg_replication_origin_session_progress(boolean) TO cloudsqlsuperuser;
-
-
---
--- Name: FUNCTION pg_replication_origin_session_reset(); Type: ACL; Schema: pg_catalog; Owner: -
---
-
-GRANT ALL ON FUNCTION pg_catalog.pg_replication_origin_session_reset() TO cloudsqlsuperuser;
-
-
---
--- Name: FUNCTION pg_replication_origin_session_setup(text); Type: ACL; Schema: pg_catalog; Owner: -
---
-
-GRANT ALL ON FUNCTION pg_catalog.pg_replication_origin_session_setup(text) TO cloudsqlsuperuser;
-
-
---
--- Name: FUNCTION pg_replication_origin_xact_reset(); Type: ACL; Schema: pg_catalog; Owner: -
---
-
-GRANT ALL ON FUNCTION pg_catalog.pg_replication_origin_xact_reset() TO cloudsqlsuperuser;
-
-
---
--- Name: FUNCTION pg_replication_origin_xact_setup(pg_lsn, timestamp with time zone); Type: ACL; Schema: pg_catalog; Owner: -
---
-
-GRANT ALL ON FUNCTION pg_catalog.pg_replication_origin_xact_setup(pg_lsn, timestamp with time zone) TO cloudsqlsuperuser;
-
-
---
--- Name: FUNCTION pg_show_replication_origin_status(OUT local_id oid, OUT external_id text, OUT remote_lsn pg_lsn, OUT local_lsn pg_lsn); Type: ACL; Schema: pg_catalog; Owner: -
---
-
-GRANT ALL ON FUNCTION pg_catalog.pg_show_replication_origin_status(OUT local_id oid, OUT external_id text, OUT remote_lsn pg_lsn, OUT local_lsn pg_lsn) TO cloudsqlsuperuser;
 
 
 --
