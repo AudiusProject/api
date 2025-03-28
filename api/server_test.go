@@ -171,6 +171,7 @@ func TestFixtures(t *testing.T) {
 		})
 		assert.NoError(t, err)
 		user := users[0]
+		assert.Equal(t, int32(1), user.UserID)
 		assert.Equal(t, "rayjacobson", *user.Handle)
 		assert.False(t, user.DoesCurrentUserFollow)
 		assert.False(t, user.DoesFollowCurrentUser)
@@ -225,6 +226,8 @@ func TestGetUser(t *testing.T) {
 	status, body := testGet(t, "/v2/users/rayjacobson")
 	assert.Equal(t, 200, status)
 	assert.True(t, strings.Contains(string(body), `"handle":"rayjacobson"`))
+	assert.True(t, strings.Contains(string(body), `"user_id":1`))
+	assert.True(t, strings.Contains(string(body), `"id":"7eP5n"`))
 }
 
 func TestGetBadUser(t *testing.T) {

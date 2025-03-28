@@ -7,6 +7,7 @@ import (
 	"strconv"
 
 	"bridgerton.audius.co/queries"
+	"bridgerton.audius.co/trashid"
 	"github.com/gofiber/fiber/v2"
 	"github.com/gofiber/fiber/v2/middleware/logger"
 	"github.com/jackc/pgx/v5"
@@ -69,7 +70,18 @@ func (app *ApiServer) GetUser(c *fiber.Ctx) error {
 	if len(users) == 0 {
 		return pgx.ErrNoRows
 	}
-	return c.JSON(users[0])
+
+	// add hash id :vomitemoji:
+	user := users[0]
+
+	withHashId := struct {
+		queries.GetUsersRow
+		ID string `json:"id"`
+	}{
+		user,
+		trashid.MustEncodeHashID(int(user.UserID)),
+	}
+	return c.JSON(withHashId)
 }
 
 func errorHandler(ctx *fiber.Ctx, err error) error {
