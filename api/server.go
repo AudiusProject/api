@@ -7,9 +7,9 @@ import (
 	"os"
 
 	"bridgerton.audius.co/queries"
+	"github.com/gofiber/fiber/v2"
+	"github.com/gofiber/fiber/v2/middleware/logger"
 	"github.com/jackc/pgx/v5"
-	"github.com/labstack/echo/v4"
-	"github.com/labstack/echo/v4/middleware"
 
 	_ "github.com/joho/godotenv/autoload"
 )
@@ -21,69 +21,65 @@ func NewApiServer() *ApiServer {
 		slog.Warn("db connect failed", "err", err)
 	}
 
-	as := &ApiServer{
-		echo.New(),
+	app := &ApiServer{
+		fiber.New(fiber.Config{
+			ErrorHandler: errorHandler,
+		}),
 		conn,
 		queries.New(conn),
 	}
 
-	as.Use(middleware.Logger())
+	// todo: structured request logger
+	app.Use(logger.New())
 
-	as.Debug = true
-	as.HideBanner = true
-	as.HTTPErrorHandler = as.errHandler
-	as.GET("/", as.Home)
-	as.GET("/hello/:name", as.SayHello)
-	as.GET("/v2/users/:handle", as.GetUser)
-	return as
+	app.Get("/", app.Home)
+	app.Get("/hello/:name", app.SayHello)
+	app.Get("/v2/users/:handle", app.GetUser)
+	return app
 }
 
 type ApiServer struct {
-	*echo.Echo
+	*fiber.App
 	conn    *pgx.Conn
 	queries *queries.Queries
 }
 
-func (as *ApiServer) Home(c echo.Context) error {
-	return c.String(http.StatusOK, "OK2")
+func (app *ApiServer) Home(c *fiber.Ctx) error {
+	return c.SendString("OK Fiber 4")
 }
 
-func (as *ApiServer) SayHello(c echo.Context) error {
-	return c.String(http.StatusOK, "hello "+c.Param("name"))
+func (app *ApiServer) SayHello(c *fiber.Ctx) error {
+	return c.SendString("hello " + c.Params("name"))
 }
 
-func (as *ApiServer) GetUser(c echo.Context) error {
-	handle := c.Param("handle")
-	user, err := as.queries.GetUserByHandle(c.Request().Context(), handle)
+func (app *ApiServer) GetUser(c *fiber.Ctx) error {
+	handle := c.Params("handle")
+	user, err := app.queries.GetUserByHandle(c.Context(), handle)
 	if err != nil {
 		return err
 	}
 	// personalize for current user
-	return c.JSON(200, user)
+	return c.JSON(user)
 }
 
-func (as *ApiServer) errHandler(err error, c echo.Context) {
-	if c.Response().Committed {
-		return
-	}
+func errorHandler(ctx *fiber.Ctx, err error) error {
 
 	code := http.StatusInternalServerError
 	if err == pgx.ErrNoRows {
 		code = 404
-	} else if he, ok := err.(*echo.HTTPError); ok {
-		code = he.Code
 	}
 
 	if code >= 500 {
-		c.Logger().Error(err)
+		slog.Error(ctx.OriginalURL(), "err", err)
 	}
 
-	c.JSON(code, map[string]any{
+	return ctx.Status(code).JSON(&fiber.Map{
 		"code":  code,
 		"error": err.Error(),
 	})
+
 }
 
 func (as *ApiServer) Serve() {
-	as.Logger.Fatal(as.Start(":1323"))
+	as.Listen(":1323")
 }

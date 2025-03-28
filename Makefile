@@ -3,6 +3,7 @@ dev::
 	modd
 
 test::
+	sqlc generate
 	go test ./...
 
 psql::

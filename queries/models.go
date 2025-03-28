@@ -610,9 +610,8 @@ type AlembicVersion struct {
 	VersionNum string `json:"version_num"`
 }
 
-type AntiAbuseUser struct {
-	Handle    string           `json:"handle"`
-	IsAllowed bool             `json:"is_allowed"`
+type AntiAbuseBlockedUser struct {
+	HandleLc  string           `json:"handle_lc"`
 	IsBlocked bool             `json:"is_blocked"`
 	CreatedAt pgtype.Timestamp `json:"created_at"`
 	UpdatedAt pgtype.Timestamp `json:"updated_at"`
