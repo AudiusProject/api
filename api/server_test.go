@@ -104,6 +104,80 @@ func TestMain(m *testing.M) {
 		checkErr(err)
 	}
 
+	// track fixtures
+	trackFixtures := []struct {
+		id          int
+		owner_id    int
+		title       string
+		is_unlisted bool
+	}{
+		{
+			id:       200,
+			owner_id: 2,
+			title:    "Culca Canyon",
+		},
+		{
+			id:          201,
+			owner_id:    2,
+			title:       "Turkey Time DEMO",
+			is_unlisted: true,
+		},
+	}
+	for _, t := range trackFixtures {
+		_, err := tx.Exec(ctx, `
+		INSERT INTO public.tracks (
+			blockhash,
+			track_id,
+			is_current,
+			is_delete,
+			owner_id,
+			title,
+			genre,
+			mood,
+			created_at,
+			updated_at,
+			txhash,
+			is_unlisted,
+			is_available,
+			track_segments,
+			is_scheduled_release,
+			is_downloadable,
+			is_original_available,
+			playlists_containing_track,
+			playlists_previously_containing_track,
+			audio_analysis_error_count,
+			is_owned_by_user
+		) VALUES (
+			'block_abc123',                    -- blockhash
+			@track_id,                              -- track_id
+			true,                              -- is_current
+			false,                             -- is_delete
+			@owner_id,                                 -- owner_id
+			@title,                  -- title
+			'Electronic',                      -- genre
+			'Energetic',                       -- mood
+			CURRENT_TIMESTAMP,                 -- created_at
+			CURRENT_TIMESTAMP,                 -- updated_at
+			'tx_123abc',                       -- txhash
+			@is_unlisted,                             -- is_unlisted
+			true,                              -- is_available
+			'[]'::jsonb,                       -- track_segments
+			false,                             -- is_scheduled_release
+			false,                             -- is_downloadable
+			false,                             -- is_original_available
+			'{}',                              -- playlists_containing_track
+			jsonb_build_object(),              -- playlists_previously_containing_track
+			0,                                 -- audio_analysis_error_count
+			false                              -- is_owned_by_user
+		);`, pgx.NamedArgs{
+			"track_id":    t.id,
+			"owner_id":    t.owner_id,
+			"title":       t.title,
+			"is_unlisted": t.is_unlisted,
+		})
+		checkErr(err)
+	}
+
 	// stupid block fixture
 	_, err = tx.Exec(ctx, `
 	INSERT INTO public.blocks (
@@ -152,6 +226,49 @@ func TestMain(m *testing.M) {
 			500               -- slot
 		);
 		`, f.actorId, f.targetId)
+		checkErr(err)
+	}
+
+	// reposts
+	repostFixtures := []struct {
+		user_id        int
+		repost_type    string
+		repost_item_id int
+	}{
+		{1, "track", 200},
+	}
+	for _, r := range repostFixtures {
+		_, err := tx.Exec(ctx, `
+		INSERT INTO public.reposts (
+			blockhash,
+			blocknumber,
+			user_id,
+			repost_item_id,
+			repost_type,
+			is_current,
+			is_delete,
+			created_at,
+			txhash,
+			slot,
+			is_repost_of_repost
+		) VALUES (
+			'block_abc123',       -- blockhash
+			101,                  -- blocknumber
+			@user_id,                   -- user_id
+			@repost_item_id,                 -- repost_item_id (e.g., track ID or playlist ID)
+			@repost_type,              -- repost_type (must be a valid value from reposttype enum)
+			true,                 -- is_current
+			false,                -- is_delete
+			CURRENT_TIMESTAMP,    -- created_at
+			'tx_456def',          -- txhash
+			500,                  -- slot
+			false                 -- is_repost_of_repost
+		);
+		`, pgx.NamedArgs{
+			"user_id":        r.user_id,
+			"repost_type":    r.repost_type,
+			"repost_item_id": r.repost_item_id,
+		})
 		checkErr(err)
 	}
 
@@ -213,6 +330,29 @@ func TestFixtures(t *testing.T) {
 		assert.Len(t, users, 2)
 		assert.Equal(t, "rayjacobson", *users[0].Handle)
 		assert.Equal(t, "stereosteve", *users[1].Handle)
+	}
+}
+
+func TestGetTracks(t *testing.T) {
+	// someone else can only see public tracks
+	{
+		tracks, err := app.queries.GetTracks(t.Context(), queries.GetTracksParams{
+			MyID:    1,
+			OwnerID: 2,
+		})
+		assert.NoError(t, err)
+		assert.Len(t, tracks, 1)
+		assert.True(t, tracks[0].HasCurrentUserReposted)
+	}
+
+	// I can see all my tracks
+	{
+		tracks, err := app.queries.GetTracks(t.Context(), queries.GetTracksParams{
+			MyID:    2,
+			OwnerID: 2,
+		})
+		assert.NoError(t, err)
+		assert.Len(t, tracks, 2)
 	}
 }
 
