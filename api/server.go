@@ -38,6 +38,7 @@ func NewApiServer(config Config) *ApiServer {
 	app.Get("/", app.home)
 	app.Get("/v2/users/:handle", app.getUser)
 	app.Get("/v1/full/users", app.getUsers)
+	app.Get("/v1/full/tracks", app.getTracks)
 	return app
 }
 
@@ -52,16 +53,10 @@ func (app *ApiServer) home(c *fiber.Ctx) error {
 }
 
 func (app *ApiServer) getUsers(c *fiber.Ctx) error {
-
 	myId, _ := trashid.DecodeHashId(c.Query("user_id"))
+	ids := decodeIdList(c)
 
-	var userIds []int32
-	for _, b := range c.Request().URI().QueryArgs().PeekMulti("id") {
-		if id, err := trashid.DecodeHashId(string(b)); err == nil {
-			userIds = append(userIds, int32(id))
-		}
-	}
-	if len(userIds) == 0 {
+	if len(ids) == 0 {
 		return c.Status(400).JSON(fiber.Map{
 			"status": 400,
 			"error":  "id query param required",
@@ -70,7 +65,7 @@ func (app *ApiServer) getUsers(c *fiber.Ctx) error {
 
 	users, err := app.queries.GetUsers(c.Context(), queries.GetUsersParams{
 		MyID: int32(myId),
-		Ids:  userIds,
+		Ids:  ids,
 	})
 	if err != nil {
 		return err
@@ -80,6 +75,20 @@ func (app *ApiServer) getUsers(c *fiber.Ctx) error {
 	return c.JSON(fiber.Map{
 		"data": users,
 	})
+}
+
+func (app *ApiServer) getTracks(c *fiber.Ctx) error {
+	myId, _ := trashid.DecodeHashId(c.Query("user_id"))
+	ids := decodeIdList(c)
+
+	tracks, err := app.queries.GetTracks(c.Context(), queries.GetTracksParams{
+		MyID: int32(myId),
+		Ids:  ids,
+	})
+	if err != nil {
+		return err
+	}
+	return c.JSON(tracks)
 }
 
 func (app *ApiServer) getUser(c *fiber.Ctx) error {
@@ -103,11 +112,15 @@ func (app *ApiServer) getUser(c *fiber.Ctx) error {
 
 	withHashId := struct {
 		queries.GetUsersRow
+		// hash id
 		ID string `json:"id"`
+		// todo: computed image fields
+		// todo: computed wallet balance stuff
 	}{
-		user,
-		trashid.MustEncodeHashID(int(user.UserID)),
+		GetUsersRow: user,
+		ID:          trashid.MustEncodeHashID(int(user.UserID)),
 	}
+
 	return c.JSON(fiber.Map{
 		"data": withHashId,
 	})
@@ -128,7 +141,16 @@ func errorHandler(ctx *fiber.Ctx, err error) error {
 		"code":  code,
 		"error": err.Error(),
 	})
+}
 
+func decodeIdList(c *fiber.Ctx) []int32 {
+	var ids []int32
+	for _, b := range c.Request().URI().QueryArgs().PeekMulti("id") {
+		if id, err := trashid.DecodeHashId(string(b)); err == nil {
+			ids = append(ids, int32(id))
+		}
+	}
+	return ids
 }
 
 func (as *ApiServer) Serve() {

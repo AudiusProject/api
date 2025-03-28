@@ -7,17 +7,51 @@ package queries
 
 import (
 	"context"
+	"encoding/json"
+
+	"github.com/jackc/pgx/v5/pgtype"
 )
 
 const getTracks = `-- name: GetTracks :many
 SELECT
-  t.track_id,
-  owner_id,
-  title,
-  is_unlisted,
-
+  -- artwork,
+  description,
+  genre,
+  -- id,
+  track_cid,
+  preview_cid,
+  orig_file_cid,
+  orig_filename,
+  is_original_available,
+  mood,
+  release_date,
+  remix_of,
   repost_count,
   save_count as favorite_count,
+  comment_count,
+  tags,
+  title,
+  -- user,
+  duration,
+  is_downloadable,
+  -- play_count,
+  -- permalink,
+  -- is_streamable,
+  ddex_app,
+  -- playlists_containing_track,
+  pinned_comment_id,
+  -- album_backlink,
+  -- access,
+  blocknumber,
+  create_date,
+  cover_art_sizes,
+  -- cover_art_cids,
+  credits_splits,
+  isrc,
+  license,
+  iswc,
+  field_visibility,
+  -- followee_reposts,
 
   (
     SELECT count(*) > 0
@@ -27,7 +61,52 @@ SELECT
       AND repost_type = 'track'
       AND repost_item_id = t.track_id
       AND is_delete = false
-  ) AS has_current_user_reposted
+  ) AS has_current_user_reposted,
+
+  is_scheduled_release,
+  is_unlisted,
+
+  -- has_current_user_saved,
+  -- followee_favorites,
+  -- route_id,
+  stem_of,
+  -- track_segments, todo: can we just get rid of this now?
+  t.updated_at,
+  owner_id as user_id,
+  is_delete,
+  cover_art,
+  is_available,
+  ai_attribution_user_id,
+  allowed_api_keys,
+  audio_upload_id,
+  preview_start_seconds,
+  bpm,
+  is_custom_bpm,
+  musical_key,
+  is_custom_musical_key,
+  audio_analysis_error_count,
+  comments_disabled,
+  ddex_release_ids,
+  artists,
+  resource_contributors,
+  indirect_resource_contributors,
+  rights_controller,
+  copyright_line,
+  producer_copyright_line,
+  parental_warning_type,
+  is_stream_gated,
+  stream_conditions,
+  is_download_gated,
+  download_conditions,
+  cover_original_song_title,
+  is_owned_by_user
+
+  -- stream,
+  -- download,
+  -- preview
+
+
+
 
 FROM tracks t
 JOIN aggregate_track using (track_id)
@@ -36,6 +115,7 @@ WHERE is_available = true
   AND (
     t.track_id = $2
     OR t.owner_id = $3
+    OR t.track_id = ANY($4::int[])
   )
 ORDER BY t.track_id
 `
@@ -44,20 +124,79 @@ type GetTracksParams struct {
 	MyID    interface{} `json:"my_id"`
 	TrackID int32       `json:"track_id"`
 	OwnerID int32       `json:"owner_id"`
+	Ids     []int32     `json:"ids"`
 }
 
 type GetTracksRow struct {
-	TrackID                int32   `json:"track_id"`
-	OwnerID                int32   `json:"owner_id"`
-	Title                  *string `json:"title"`
-	IsUnlisted             bool    `json:"is_unlisted"`
-	RepostCount            int32   `json:"repost_count"`
-	FavoriteCount          int32   `json:"favorite_count"`
-	HasCurrentUserReposted bool    `json:"has_current_user_reposted"`
+	Description                  *string          `json:"description"`
+	Genre                        *string          `json:"genre"`
+	TrackCid                     *string          `json:"track_cid"`
+	PreviewCid                   *string          `json:"preview_cid"`
+	OrigFileCid                  *string          `json:"orig_file_cid"`
+	OrigFilename                 *string          `json:"orig_filename"`
+	IsOriginalAvailable          bool             `json:"is_original_available"`
+	Mood                         *string          `json:"mood"`
+	ReleaseDate                  pgtype.Timestamp `json:"release_date"`
+	RemixOf                      []byte           `json:"remix_of"`
+	RepostCount                  int32            `json:"repost_count"`
+	FavoriteCount                int32            `json:"favorite_count"`
+	CommentCount                 *int32           `json:"comment_count"`
+	Tags                         *string          `json:"tags"`
+	Title                        *string          `json:"title"`
+	Duration                     *int32           `json:"duration"`
+	IsDownloadable               bool             `json:"is_downloadable"`
+	DdexApp                      *string          `json:"ddex_app"`
+	PinnedCommentID              *int32           `json:"pinned_comment_id"`
+	Blocknumber                  *int32           `json:"blocknumber"`
+	CreateDate                   *string          `json:"create_date"`
+	CoverArtSizes                *string          `json:"cover_art_sizes"`
+	CreditsSplits                *string          `json:"credits_splits"`
+	Isrc                         *string          `json:"isrc"`
+	License                      *string          `json:"license"`
+	Iswc                         *string          `json:"iswc"`
+	FieldVisibility              json.RawMessage  `json:"field_visibility"`
+	HasCurrentUserReposted       bool             `json:"has_current_user_reposted"`
+	IsScheduledRelease           bool             `json:"is_scheduled_release"`
+	IsUnlisted                   bool             `json:"is_unlisted"`
+	StemOf                       []byte           `json:"stem_of"`
+	UpdatedAt                    pgtype.Timestamp `json:"updated_at"`
+	UserID                       int32            `json:"user_id"`
+	IsDelete                     bool             `json:"is_delete"`
+	CoverArt                     *string          `json:"cover_art"`
+	IsAvailable                  bool             `json:"is_available"`
+	AiAttributionUserID          *int32           `json:"ai_attribution_user_id"`
+	AllowedApiKeys               []string         `json:"allowed_api_keys"`
+	AudioUploadID                *string          `json:"audio_upload_id"`
+	PreviewStartSeconds          *float64         `json:"preview_start_seconds"`
+	Bpm                          *float64         `json:"bpm"`
+	IsCustomBpm                  *bool            `json:"is_custom_bpm"`
+	MusicalKey                   *string          `json:"musical_key"`
+	IsCustomMusicalKey           *bool            `json:"is_custom_musical_key"`
+	AudioAnalysisErrorCount      int32            `json:"audio_analysis_error_count"`
+	CommentsDisabled             *bool            `json:"comments_disabled"`
+	DdexReleaseIds               []byte           `json:"ddex_release_ids"`
+	Artists                      []byte           `json:"artists"`
+	ResourceContributors         []byte           `json:"resource_contributors"`
+	IndirectResourceContributors []byte           `json:"indirect_resource_contributors"`
+	RightsController             json.RawMessage  `json:"rights_controller"`
+	CopyrightLine                []byte           `json:"copyright_line"`
+	ProducerCopyrightLine        []byte           `json:"producer_copyright_line"`
+	ParentalWarningType          *string          `json:"parental_warning_type"`
+	IsStreamGated                *bool            `json:"is_stream_gated"`
+	StreamConditions             json.RawMessage  `json:"stream_conditions"`
+	IsDownloadGated              *bool            `json:"is_download_gated"`
+	DownloadConditions           json.RawMessage  `json:"download_conditions"`
+	CoverOriginalSongTitle       *string          `json:"cover_original_song_title"`
+	IsOwnedByUser                bool             `json:"is_owned_by_user"`
 }
 
 func (q *Queries) GetTracks(ctx context.Context, arg GetTracksParams) ([]GetTracksRow, error) {
-	rows, err := q.db.Query(ctx, getTracks, arg.MyID, arg.TrackID, arg.OwnerID)
+	rows, err := q.db.Query(ctx, getTracks,
+		arg.MyID,
+		arg.TrackID,
+		arg.OwnerID,
+		arg.Ids,
+	)
 	if err != nil {
 		return nil, err
 	}
@@ -66,13 +205,66 @@ func (q *Queries) GetTracks(ctx context.Context, arg GetTracksParams) ([]GetTrac
 	for rows.Next() {
 		var i GetTracksRow
 		if err := rows.Scan(
-			&i.TrackID,
-			&i.OwnerID,
-			&i.Title,
-			&i.IsUnlisted,
+			&i.Description,
+			&i.Genre,
+			&i.TrackCid,
+			&i.PreviewCid,
+			&i.OrigFileCid,
+			&i.OrigFilename,
+			&i.IsOriginalAvailable,
+			&i.Mood,
+			&i.ReleaseDate,
+			&i.RemixOf,
 			&i.RepostCount,
 			&i.FavoriteCount,
+			&i.CommentCount,
+			&i.Tags,
+			&i.Title,
+			&i.Duration,
+			&i.IsDownloadable,
+			&i.DdexApp,
+			&i.PinnedCommentID,
+			&i.Blocknumber,
+			&i.CreateDate,
+			&i.CoverArtSizes,
+			&i.CreditsSplits,
+			&i.Isrc,
+			&i.License,
+			&i.Iswc,
+			&i.FieldVisibility,
 			&i.HasCurrentUserReposted,
+			&i.IsScheduledRelease,
+			&i.IsUnlisted,
+			&i.StemOf,
+			&i.UpdatedAt,
+			&i.UserID,
+			&i.IsDelete,
+			&i.CoverArt,
+			&i.IsAvailable,
+			&i.AiAttributionUserID,
+			&i.AllowedApiKeys,
+			&i.AudioUploadID,
+			&i.PreviewStartSeconds,
+			&i.Bpm,
+			&i.IsCustomBpm,
+			&i.MusicalKey,
+			&i.IsCustomMusicalKey,
+			&i.AudioAnalysisErrorCount,
+			&i.CommentsDisabled,
+			&i.DdexReleaseIds,
+			&i.Artists,
+			&i.ResourceContributors,
+			&i.IndirectResourceContributors,
+			&i.RightsController,
+			&i.CopyrightLine,
+			&i.ProducerCopyrightLine,
+			&i.ParentalWarningType,
+			&i.IsStreamGated,
+			&i.StreamConditions,
+			&i.IsDownloadGated,
+			&i.DownloadConditions,
+			&i.CoverOriginalSongTitle,
+			&i.IsOwnedByUser,
 		); err != nil {
 			return nil, err
 		}

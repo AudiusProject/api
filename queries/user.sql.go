@@ -7,6 +7,7 @@ package queries
 
 import (
 	"context"
+	"encoding/json"
 
 	"github.com/jackc/pgx/v5/pgtype"
 )
@@ -155,7 +156,7 @@ type GetUsersRow struct {
 	CoverPhotoSizes             *string          `json:"cover_photo_sizes"`
 	ProfilePictureSizes         *string          `json:"profile_picture_sizes"`
 	HasCollectibles             bool             `json:"has_collectibles"`
-	PlaylistLibrary             []byte           `json:"playlist_library"`
+	PlaylistLibrary             json.RawMessage  `json:"playlist_library"`
 	AllowAiAttribution          bool             `json:"allow_ai_attribution"`
 }
 

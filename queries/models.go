@@ -6,6 +6,7 @@ package queries
 
 import (
 	"database/sql/driver"
+	"encoding/json"
 	"fmt"
 
 	"github.com/jackc/pgx/v5/pgtype"
@@ -1449,14 +1450,14 @@ type Track struct {
 	UpdatedAt                          pgtype.Timestamp `json:"updated_at"`
 	CoverArtSizes                      *string          `json:"cover_art_sizes"`
 	IsUnlisted                         bool             `json:"is_unlisted"`
-	FieldVisibility                    []byte           `json:"field_visibility"`
+	FieldVisibility                    json.RawMessage  `json:"field_visibility"`
 	RouteID                            *string          `json:"route_id"`
 	StemOf                             []byte           `json:"stem_of"`
 	RemixOf                            []byte           `json:"remix_of"`
 	Txhash                             string           `json:"txhash"`
 	Slot                               *int32           `json:"slot"`
 	IsAvailable                        bool             `json:"is_available"`
-	StreamConditions                   []byte           `json:"stream_conditions"`
+	StreamConditions                   json.RawMessage  `json:"stream_conditions"`
 	TrackCid                           *string          `json:"track_cid"`
 	IsPlaylistUpload                   bool             `json:"is_playlist_upload"`
 	Duration                           *int32           `json:"duration"`
@@ -1468,7 +1469,7 @@ type Track struct {
 	TrackSegments                      []byte           `json:"track_segments"`
 	IsScheduledRelease                 bool             `json:"is_scheduled_release"`
 	IsDownloadable                     bool             `json:"is_downloadable"`
-	DownloadConditions                 []byte           `json:"download_conditions"`
+	DownloadConditions                 json.RawMessage  `json:"download_conditions"`
 	IsOriginalAvailable                bool             `json:"is_original_available"`
 	OrigFileCid                        *string          `json:"orig_file_cid"`
 	OrigFilename                       *string          `json:"orig_filename"`
@@ -1479,7 +1480,7 @@ type Track struct {
 	Artists                            []byte           `json:"artists"`
 	ResourceContributors               []byte           `json:"resource_contributors"`
 	IndirectResourceContributors       []byte           `json:"indirect_resource_contributors"`
-	RightsController                   []byte           `json:"rights_controller"`
+	RightsController                   json.RawMessage  `json:"rights_controller"`
 	CopyrightLine                      []byte           `json:"copyright_line"`
 	ProducerCopyrightLine              []byte           `json:"producer_copyright_line"`
 	ParentalWarningType                *string          `json:"parental_warning_type"`
@@ -1647,7 +1648,7 @@ type User struct {
 	ReplicaSetUpdateSigner *string          `json:"replica_set_update_signer"`
 	HasCollectibles        bool             `json:"has_collectibles"`
 	Txhash                 string           `json:"txhash"`
-	PlaylistLibrary        []byte           `json:"playlist_library"`
+	PlaylistLibrary        json.RawMessage  `json:"playlist_library"`
 	IsDeactivated          bool             `json:"is_deactivated"`
 	Slot                   *int32           `json:"slot"`
 	UserStorageAccount     *string          `json:"user_storage_account"`

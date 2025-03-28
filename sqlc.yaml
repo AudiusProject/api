@@ -11,3 +11,24 @@ sql:
         package: "queries"
         out: "queries"
         sql_package: "pgx/v5"
+        "overrides":
+          - column: "users.playlist_library"
+            go_type:
+              import: "encoding/json"
+              type: "RawMessage"
+          - column: "tracks.field_visibility"
+            go_type:
+              import: "encoding/json"
+              type: "RawMessage"
+          - column: "tracks.rights_controller"
+            go_type:
+              import: "encoding/json"
+              type: "RawMessage"
+          - column: "tracks.stream_conditions"
+            go_type:
+              import: "encoding/json"
+              type: "RawMessage"
+          - column: "tracks.download_conditions"
+            go_type:
+              import: "encoding/json"
+              type: "RawMessage"
