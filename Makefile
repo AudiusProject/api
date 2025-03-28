@@ -4,7 +4,7 @@ dev::
 
 test::
 	sqlc generate
-	go test ./...
+	go test -count=1 ./...
 
 psql::
 	docker compose exec db psql -U postgres

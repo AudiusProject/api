@@ -29,4 +29,6 @@ SELECT
 
 FROM users u
 JOIN aggregate_user using (user_id)
-WHERE handle_lc = lower(@handle) LIMIT 1;
+WHERE handle_lc = lower(@handle)
+  AND is_deactivated = false
+LIMIT 1;

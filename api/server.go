@@ -4,20 +4,21 @@ import (
 	"context"
 	"log/slog"
 	"net/http"
-	"os"
 	"strconv"
 
 	"bridgerton.audius.co/queries"
 	"github.com/gofiber/fiber/v2"
 	"github.com/gofiber/fiber/v2/middleware/logger"
 	"github.com/jackc/pgx/v5"
-
-	_ "github.com/joho/godotenv/autoload"
 )
 
-func NewApiServer() *ApiServer {
-	dbUrl := os.Getenv("discoveryDbUrl")
-	conn, err := pgx.Connect(context.Background(), dbUrl)
+type Config struct {
+	DBURL string
+}
+
+func NewApiServer(config Config) *ApiServer {
+
+	conn, err := pgx.Connect(context.Background(), config.DBURL)
 	if err != nil {
 		slog.Warn("db connect failed", "err", err)
 	}

@@ -40,7 +40,9 @@ SELECT
 
 FROM users u
 JOIN aggregate_user using (user_id)
-WHERE handle_lc = lower($2) LIMIT 1
+WHERE handle_lc = lower($2)
+  AND is_deactivated = false
+LIMIT 1
 `
 
 type GetUserByHandleParams struct {
