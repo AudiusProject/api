@@ -18,25 +18,51 @@ SELECT
   bio,
   location,
   follower_count,
-  track_count
+  track_count,
+
+  (
+    SELECT count(*) > 0
+    FROM follows
+    WHERE $1 > 0
+      AND follower_user_id = $1
+      AND followee_user_id = u.user_id
+      AND is_delete = false
+  ) AS does_current_user_follow,
+
+  (
+    SELECT count(*) > 0
+    FROM follows
+    WHERE $1 > 0
+      AND followee_user_id = $1
+      AND follower_user_id = u.user_id
+      AND is_delete = false
+  ) AS does_follow_current_user
+
 FROM users u
 JOIN aggregate_user using (user_id)
-WHERE handle_lc = lower($1) LIMIT 1
+WHERE handle_lc = lower($2) LIMIT 1
 `
 
-type GetUserByHandleRow struct {
-	UserID        int32   `json:"user_id"`
-	Handle        *string `json:"handle"`
-	Wallet        *string `json:"wallet"`
-	Name          *string `json:"name"`
-	Bio           *string `json:"bio"`
-	Location      *string `json:"location"`
-	FollowerCount *int64  `json:"follower_count"`
-	TrackCount    *int64  `json:"track_count"`
+type GetUserByHandleParams struct {
+	MyID   interface{} `json:"my_id"`
+	Handle string      `json:"handle"`
 }
 
-func (q *Queries) GetUserByHandle(ctx context.Context, lower string) (GetUserByHandleRow, error) {
-	row := q.db.QueryRow(ctx, getUserByHandle, lower)
+type GetUserByHandleRow struct {
+	UserID                int32   `json:"user_id"`
+	Handle                *string `json:"handle"`
+	Wallet                *string `json:"wallet"`
+	Name                  *string `json:"name"`
+	Bio                   *string `json:"bio"`
+	Location              *string `json:"location"`
+	FollowerCount         *int64  `json:"follower_count"`
+	TrackCount            *int64  `json:"track_count"`
+	DoesCurrentUserFollow bool    `json:"does_current_user_follow"`
+	DoesFollowCurrentUser bool    `json:"does_follow_current_user"`
+}
+
+func (q *Queries) GetUserByHandle(ctx context.Context, arg GetUserByHandleParams) (GetUserByHandleRow, error) {
+	row := q.db.QueryRow(ctx, getUserByHandle, arg.MyID, arg.Handle)
 	var i GetUserByHandleRow
 	err := row.Scan(
 		&i.UserID,
@@ -47,6 +73,8 @@ func (q *Queries) GetUserByHandle(ctx context.Context, lower string) (GetUserByH
 		&i.Location,
 		&i.FollowerCount,
 		&i.TrackCount,
+		&i.DoesCurrentUserFollow,
+		&i.DoesFollowCurrentUser,
 	)
 	return i, err
 }

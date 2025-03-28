@@ -5,6 +5,7 @@ import (
 	"log/slog"
 	"net/http"
 	"os"
+	"strconv"
 
 	"bridgerton.audius.co/queries"
 	"github.com/gofiber/fiber/v2"
@@ -53,12 +54,17 @@ func (app *ApiServer) SayHello(c *fiber.Ctx) error {
 }
 
 func (app *ApiServer) GetUser(c *fiber.Ctx) error {
+	// todo: hashid decode crap
+	myId, _ := strconv.Atoi(c.Query("user_id"))
+
 	handle := c.Params("handle")
-	user, err := app.queries.GetUserByHandle(c.Context(), handle)
+	user, err := app.queries.GetUserByHandle(c.Context(), queries.GetUserByHandleParams{
+		MyID:   int32(myId),
+		Handle: handle,
+	})
 	if err != nil {
 		return err
 	}
-	// personalize for current user
 	return c.JSON(user)
 }
 
