@@ -59,14 +59,17 @@ func (app *ApiServer) GetUser(c *fiber.Ctx) error {
 	myId, _ := strconv.Atoi(c.Query("user_id"))
 
 	handle := c.Params("handle")
-	user, err := app.queries.GetUserByHandle(c.Context(), queries.GetUserByHandleParams{
+	users, err := app.queries.GetUsers(c.Context(), queries.GetUsersParams{
 		MyID:   int32(myId),
 		Handle: handle,
 	})
 	if err != nil {
 		return err
 	}
-	return c.JSON(user)
+	if len(users) == 0 {
+		return pgx.ErrNoRows
+	}
+	return c.JSON(users[0])
 }
 
 func errorHandler(ctx *fiber.Ctx, err error) error {

@@ -1,13 +1,9 @@
 package main
 
 import (
-	"context"
-	"encoding/json"
 	"fmt"
-	"os"
 	"testing"
 
-	"bridgerton.audius.co/queries"
 	"github.com/jackc/pgx/v5"
 	"github.com/stretchr/testify/assert"
 
@@ -153,32 +149,4 @@ func TestDB(t *testing.T) {
 		assert.NoError(t, err)
 		assert.Equal(t, 0, trackCount)
 	}
-}
-
-func TestProdDB(t *testing.T) {
-	t.Skip()
-	ctx := context.Background()
-	dbUrl := os.Getenv("discoveryDbUrl")
-	conn, err := pgx.Connect(ctx, dbUrl)
-	assert.NoError(t, err)
-	defer conn.Close(ctx)
-
-	var handle string
-	err = conn.QueryRow(ctx, "select handle from users where user_id = $1", 1).Scan(&handle)
-	assert.NoError(t, err)
-	assert.Equal(t, "rayjacobson", handle)
-
-	// use sqlc
-	q := queries.New(conn)
-	h := "stereosteve"
-	user, err := q.GetUserByHandle(ctx, queries.GetUserByHandleParams{
-		Handle: h,
-	})
-	assert.NoError(t, err)
-	assert.Equal(t, *user.Wallet, "0x613d83f44970ead52afc256b4e81766304f1d0fc")
-
-	u, err := json.MarshalIndent(user, "", "  ")
-	assert.NoError(t, err)
-	fmt.Println(string(u))
-
 }

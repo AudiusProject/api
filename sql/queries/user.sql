@@ -1,4 +1,4 @@
--- name: GetUserByHandle :one
+-- name: GetUsers :many
 SELECT
   u.user_id,
   handle,
@@ -29,6 +29,10 @@ SELECT
 
 FROM users u
 JOIN aggregate_user using (user_id)
-WHERE handle_lc = lower(@handle)
-  AND is_deactivated = false
-LIMIT 1;
+WHERE is_deactivated = false
+  AND (
+    handle_lc = lower(@handle)
+    OR u.user_id = ANY(@ids::int[])
+  )
+ORDER BY u.user_id
+;

@@ -9,7 +9,7 @@ import (
 	"context"
 )
 
-const getUserByHandle = `-- name: GetUserByHandle :one
+const getUsers = `-- name: GetUsers :many
 SELECT
   u.user_id,
   handle,
@@ -40,17 +40,21 @@ SELECT
 
 FROM users u
 JOIN aggregate_user using (user_id)
-WHERE handle_lc = lower($2)
-  AND is_deactivated = false
-LIMIT 1
+WHERE is_deactivated = false
+  AND (
+    handle_lc = lower($2)
+    OR u.user_id = ANY($3::int[])
+  )
+ORDER BY u.user_id
 `
 
-type GetUserByHandleParams struct {
+type GetUsersParams struct {
 	MyID   interface{} `json:"my_id"`
 	Handle string      `json:"handle"`
+	Ids    []int32     `json:"ids"`
 }
 
-type GetUserByHandleRow struct {
+type GetUsersRow struct {
 	UserID                int32   `json:"user_id"`
 	Handle                *string `json:"handle"`
 	Wallet                *string `json:"wallet"`
@@ -63,20 +67,33 @@ type GetUserByHandleRow struct {
 	DoesFollowCurrentUser bool    `json:"does_follow_current_user"`
 }
 
-func (q *Queries) GetUserByHandle(ctx context.Context, arg GetUserByHandleParams) (GetUserByHandleRow, error) {
-	row := q.db.QueryRow(ctx, getUserByHandle, arg.MyID, arg.Handle)
-	var i GetUserByHandleRow
-	err := row.Scan(
-		&i.UserID,
-		&i.Handle,
-		&i.Wallet,
-		&i.Name,
-		&i.Bio,
-		&i.Location,
-		&i.FollowerCount,
-		&i.TrackCount,
-		&i.DoesCurrentUserFollow,
-		&i.DoesFollowCurrentUser,
-	)
-	return i, err
+func (q *Queries) GetUsers(ctx context.Context, arg GetUsersParams) ([]GetUsersRow, error) {
+	rows, err := q.db.Query(ctx, getUsers, arg.MyID, arg.Handle, arg.Ids)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []GetUsersRow
+	for rows.Next() {
+		var i GetUsersRow
+		if err := rows.Scan(
+			&i.UserID,
+			&i.Handle,
+			&i.Wallet,
+			&i.Name,
+			&i.Bio,
+			&i.Location,
+			&i.FollowerCount,
+			&i.TrackCount,
+			&i.DoesCurrentUserFollow,
+			&i.DoesFollowCurrentUser,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
 }

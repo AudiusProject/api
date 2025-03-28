@@ -166,10 +166,11 @@ func TestMain(m *testing.M) {
 func TestFixtures(t *testing.T) {
 	// as anon
 	{
-		user, err := app.queries.GetUserByHandle(t.Context(), queries.GetUserByHandleParams{
+		users, err := app.queries.GetUsers(t.Context(), queries.GetUsersParams{
 			Handle: "rayjacobson",
 		})
 		assert.NoError(t, err)
+		user := users[0]
 		assert.Equal(t, "rayjacobson", *user.Handle)
 		assert.False(t, user.DoesCurrentUserFollow)
 		assert.False(t, user.DoesFollowCurrentUser)
@@ -177,14 +178,40 @@ func TestFixtures(t *testing.T) {
 
 	// as stereosteve
 	{
-		user, err := app.queries.GetUserByHandle(t.Context(), queries.GetUserByHandleParams{
+		users, err := app.queries.GetUsers(t.Context(), queries.GetUsersParams{
 			MyID:   2,
 			Handle: "rayjacobson",
 		})
 		assert.NoError(t, err)
+		user := users[0]
 		assert.Equal(t, "rayjacobson", *user.Handle)
 		assert.True(t, user.DoesCurrentUserFollow)
 		assert.True(t, user.DoesFollowCurrentUser)
+	}
+
+	// stereosteve views stereosteve
+	{
+		users, err := app.queries.GetUsers(t.Context(), queries.GetUsersParams{
+			MyID: 2,
+			Ids:  []int32{2},
+		})
+		assert.NoError(t, err)
+		user := users[0]
+		assert.Equal(t, "stereosteve", *user.Handle)
+		assert.False(t, user.DoesCurrentUserFollow)
+		assert.False(t, user.DoesFollowCurrentUser)
+	}
+
+	// multiple users
+	{
+		users, err := app.queries.GetUsers(t.Context(), queries.GetUsersParams{
+			MyID: 2,
+			Ids:  []int32{1, 2, -1},
+		})
+		assert.NoError(t, err)
+		assert.Len(t, users, 2)
+		assert.Equal(t, "rayjacobson", *users[0].Handle)
+		assert.Equal(t, "stereosteve", *users[1].Handle)
 	}
 }
 
