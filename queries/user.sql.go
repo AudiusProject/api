@@ -7,18 +7,55 @@ package queries
 
 import (
 	"context"
+
+	"github.com/jackc/pgx/v5/pgtype"
 )
 
 const getUsers = `-- name: GetUsers :many
 SELECT
-  u.user_id,
-  handle,
-  wallet,
-  name,
+  album_count,
+  artist_pick_track_id,
   bio,
-  location,
   follower_count,
+  following_count as followee_count,
+  handle,
+  u.user_id,
+  is_verified,
+  twitter_handle,
+  instagram_handle,
+  tiktok_handle,
+  verified_with_twitter,
+  verified_with_instagram,
+  verified_with_tiktok,
+  website,
+  donation,
+  location,
+  name,
+  playlist_count,
+  -- profile_picture todo
+  repost_count,
   track_count,
+  is_deactivated,
+  is_available,
+  -- erc_wallet,
+  -- spl_wallet,
+  -- spl_usdc_payout_wallet,
+  supporter_count,
+  supporting_count,
+  -- total_audio_balance,
+  wallet,
+  balance,
+  associated_wallets_balance,
+  -- total_balance,
+  -- waudio_balance,
+  associated_sol_wallets_balance,
+  blocknumber,
+  u.created_at,
+  is_storage_v2,
+  creator_node_endpoint,
+  -- current_user_followee_follow_count,  TODO: kill this
+
+
 
   (
     SELECT count(*) > 0
@@ -31,15 +68,37 @@ SELECT
 
   (
     SELECT count(*) > 0
+    FROM subscriptions
+    WHERE $1 > 0
+      AND subscriber_id = $1
+      AND user_id = u.user_id
+      AND is_delete = false
+  ) AS does_current_user_subscribe,
+
+  (
+    SELECT count(*) > 0
     FROM follows
     WHERE $1 > 0
       AND followee_user_id = $1
       AND follower_user_id = u.user_id
       AND is_delete = false
-  ) AS does_follow_current_user
+  ) AS does_follow_current_user,
+
+  handle_lc,
+  u.updated_at,
+  cover_photo_sizes,
+  -- cover_photo_cids,
+  -- cover_photo_legacy,
+  profile_picture_sizes,
+  -- profile_picture_cids,
+  -- profile_picture_legacy,
+  has_collectibles,
+  playlist_library,
+  allow_ai_attribution
 
 FROM users u
 JOIN aggregate_user using (user_id)
+LEFT JOIN user_balances using (user_id)
 WHERE is_deactivated = false
   AND (
     handle_lc = lower($2)
@@ -55,16 +114,49 @@ type GetUsersParams struct {
 }
 
 type GetUsersRow struct {
-	UserID                int32   `json:"user_id"`
-	Handle                *string `json:"handle"`
-	Wallet                *string `json:"wallet"`
-	Name                  *string `json:"name"`
-	Bio                   *string `json:"bio"`
-	Location              *string `json:"location"`
-	FollowerCount         *int64  `json:"follower_count"`
-	TrackCount            *int64  `json:"track_count"`
-	DoesCurrentUserFollow bool    `json:"does_current_user_follow"`
-	DoesFollowCurrentUser bool    `json:"does_follow_current_user"`
+	AlbumCount                  *int64           `json:"album_count"`
+	ArtistPickTrackID           *int32           `json:"artist_pick_track_id"`
+	Bio                         *string          `json:"bio"`
+	FollowerCount               *int64           `json:"follower_count"`
+	FolloweeCount               *int64           `json:"followee_count"`
+	Handle                      *string          `json:"handle"`
+	UserID                      int32            `json:"user_id"`
+	IsVerified                  bool             `json:"is_verified"`
+	TwitterHandle               *string          `json:"twitter_handle"`
+	InstagramHandle             *string          `json:"instagram_handle"`
+	TiktokHandle                *string          `json:"tiktok_handle"`
+	VerifiedWithTwitter         *bool            `json:"verified_with_twitter"`
+	VerifiedWithInstagram       *bool            `json:"verified_with_instagram"`
+	VerifiedWithTiktok          *bool            `json:"verified_with_tiktok"`
+	Website                     *string          `json:"website"`
+	Donation                    *string          `json:"donation"`
+	Location                    *string          `json:"location"`
+	Name                        *string          `json:"name"`
+	PlaylistCount               *int64           `json:"playlist_count"`
+	RepostCount                 *int64           `json:"repost_count"`
+	TrackCount                  *int64           `json:"track_count"`
+	IsDeactivated               bool             `json:"is_deactivated"`
+	IsAvailable                 bool             `json:"is_available"`
+	SupporterCount              int32            `json:"supporter_count"`
+	SupportingCount             int32            `json:"supporting_count"`
+	Wallet                      *string          `json:"wallet"`
+	Balance                     *string          `json:"balance"`
+	AssociatedWalletsBalance    *string          `json:"associated_wallets_balance"`
+	AssociatedSolWalletsBalance *string          `json:"associated_sol_wallets_balance"`
+	Blocknumber                 *int32           `json:"blocknumber"`
+	CreatedAt                   pgtype.Timestamp `json:"created_at"`
+	IsStorageV2                 bool             `json:"is_storage_v2"`
+	CreatorNodeEndpoint         *string          `json:"creator_node_endpoint"`
+	DoesCurrentUserFollow       bool             `json:"does_current_user_follow"`
+	DoesCurrentUserSubscribe    bool             `json:"does_current_user_subscribe"`
+	DoesFollowCurrentUser       bool             `json:"does_follow_current_user"`
+	HandleLc                    *string          `json:"handle_lc"`
+	UpdatedAt                   pgtype.Timestamp `json:"updated_at"`
+	CoverPhotoSizes             *string          `json:"cover_photo_sizes"`
+	ProfilePictureSizes         *string          `json:"profile_picture_sizes"`
+	HasCollectibles             bool             `json:"has_collectibles"`
+	PlaylistLibrary             []byte           `json:"playlist_library"`
+	AllowAiAttribution          bool             `json:"allow_ai_attribution"`
 }
 
 func (q *Queries) GetUsers(ctx context.Context, arg GetUsersParams) ([]GetUsersRow, error) {
@@ -77,16 +169,49 @@ func (q *Queries) GetUsers(ctx context.Context, arg GetUsersParams) ([]GetUsersR
 	for rows.Next() {
 		var i GetUsersRow
 		if err := rows.Scan(
-			&i.UserID,
-			&i.Handle,
-			&i.Wallet,
-			&i.Name,
+			&i.AlbumCount,
+			&i.ArtistPickTrackID,
 			&i.Bio,
-			&i.Location,
 			&i.FollowerCount,
+			&i.FolloweeCount,
+			&i.Handle,
+			&i.UserID,
+			&i.IsVerified,
+			&i.TwitterHandle,
+			&i.InstagramHandle,
+			&i.TiktokHandle,
+			&i.VerifiedWithTwitter,
+			&i.VerifiedWithInstagram,
+			&i.VerifiedWithTiktok,
+			&i.Website,
+			&i.Donation,
+			&i.Location,
+			&i.Name,
+			&i.PlaylistCount,
+			&i.RepostCount,
 			&i.TrackCount,
+			&i.IsDeactivated,
+			&i.IsAvailable,
+			&i.SupporterCount,
+			&i.SupportingCount,
+			&i.Wallet,
+			&i.Balance,
+			&i.AssociatedWalletsBalance,
+			&i.AssociatedSolWalletsBalance,
+			&i.Blocknumber,
+			&i.CreatedAt,
+			&i.IsStorageV2,
+			&i.CreatorNodeEndpoint,
 			&i.DoesCurrentUserFollow,
+			&i.DoesCurrentUserSubscribe,
 			&i.DoesFollowCurrentUser,
+			&i.HandleLc,
+			&i.UpdatedAt,
+			&i.CoverPhotoSizes,
+			&i.ProfilePictureSizes,
+			&i.HasCollectibles,
+			&i.PlaylistLibrary,
+			&i.AllowAiAttribution,
 		); err != nil {
 			return nil, err
 		}

@@ -149,9 +149,9 @@ func TestGetTracks(t *testing.T) {
 }
 
 func TestHome(t *testing.T) {
-	status, body := testGet(t, "/hello/asdf")
+	status, body := testGet(t, "/")
 	assert.Equal(t, 200, status)
-	assert.Equal(t, "hello asdf", string(body))
+	assert.Equal(t, "OK", string(body))
 }
 
 func TestGetUser(t *testing.T) {
