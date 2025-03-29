@@ -11,7 +11,9 @@ import (
 func main() {
 	fmt.Println("hello bridgerton")
 	as := api.NewApiServer(api.Config{
-		DBURL: os.Getenv("discoveryDbUrl"),
+		DbUrl:        os.Getenv("discoveryDbUrl"),
+		AxiomToken:   os.Getenv("axiomToken"),
+		AxiomDataset: os.Getenv("axiomDataset"),
 	})
 	as.Serve()
 }
