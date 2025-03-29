@@ -40,7 +40,7 @@ func TestMain(m *testing.M) {
 	}
 
 	app = NewApiServer(Config{
-		DBURL: "postgres://postgres:example@localhost:21300/test",
+		DbUrl: "postgres://postgres:example@localhost:21300/test",
 	})
 
 	// seed db
