@@ -2,43 +2,96 @@ package api
 
 import (
 	"context"
-	"log/slog"
 	"net/http"
+	"os"
+	"os/signal"
 	"strconv"
+	"time"
 
 	"bridgerton.audius.co/queries"
 	"bridgerton.audius.co/trashid"
+	adapter "github.com/axiomhq/axiom-go/adapters/zap"
+	"github.com/axiomhq/axiom-go/axiom"
+	"github.com/gofiber/contrib/fiberzap/v2"
 	"github.com/gofiber/fiber/v2"
-	"github.com/gofiber/fiber/v2/middleware/logger"
 	"github.com/jackc/pgx/v5"
+	"go.uber.org/zap"
+	"go.uber.org/zap/zapcore"
 )
 
 type Config struct {
-	DBURL string
+	DbUrl        string
+	AxiomToken   string
+	AxiomDataset string
+}
+
+func InitLogger(config Config) *zap.Logger {
+	// stdout core
+	encoderConfig := zap.NewProductionEncoderConfig()
+	encoderConfig.EncodeTime = zapcore.ISO8601TimeEncoder
+	consoleEncoder := zapcore.NewJSONEncoder(encoderConfig)
+	stdoutCore := zapcore.NewCore(
+		consoleEncoder,
+		zapcore.AddSync(os.Stdout),
+		zapcore.InfoLevel,
+	)
+
+	var core zapcore.Core = stdoutCore
+
+	// axiom core, if token and dataset are provided
+	if config.AxiomToken != "" && config.AxiomDataset != "" {
+		axiomAdapter, err := adapter.New(
+			adapter.SetClientOptions(
+				axiom.SetAPITokenConfig(config.AxiomToken),
+				axiom.SetOrganizationID("audius-Lu52"),
+			),
+			adapter.SetDataset(config.AxiomDataset),
+		)
+		if err != nil {
+			panic(err)
+		}
+
+		core = zapcore.NewTee(stdoutCore, axiomAdapter)
+	}
+
+	logger := zap.New(core)
+	return logger
 }
 
 func NewApiServer(config Config) *ApiServer {
+	logger := InitLogger(config)
 
-	conn, err := pgx.Connect(context.Background(), config.DBURL)
+	conn, err := pgx.Connect(context.Background(), config.DbUrl)
 	if err != nil {
-		slog.Warn("db connect failed", "err", err)
+		logger.Error("db connect failed", zap.Error(err))
 	}
 
 	app := &ApiServer{
 		fiber.New(fiber.Config{
-			ErrorHandler: errorHandler,
+			ErrorHandler: errorHandler(logger),
 		}),
 		conn,
 		queries.New(conn),
+		logger,
 	}
 
-	// todo: structured request logger
-	app.Use(logger.New())
+	app.Use(fiberzap.New(fiberzap.Config{
+		Logger: logger,
+	}))
 
 	app.Get("/", app.home)
 	app.Get("/v2/users/:handle", app.getUser)
 	app.Get("/v1/full/users", app.getUsers)
 	app.Get("/v1/full/tracks", app.getTracks)
+
+	// gracefully handle 404
+	app.Use(func(c *fiber.Ctx) error {
+		return c.Status(http.StatusNotFound).JSON(fiber.Map{
+			"code":  http.StatusNotFound,
+			"error": "Route not found",
+		})
+	})
+
 	return app
 }
 
@@ -46,6 +99,7 @@ type ApiServer struct {
 	*fiber.App
 	conn    *pgx.Conn
 	queries *queries.Queries
+	logger  *zap.Logger
 }
 
 func (app *ApiServer) home(c *fiber.Ctx) error {
@@ -126,21 +180,18 @@ func (app *ApiServer) getUser(c *fiber.Ctx) error {
 	})
 }
 
-func errorHandler(ctx *fiber.Ctx, err error) error {
+func errorHandler(logger *zap.Logger) func(*fiber.Ctx, error) error {
+	return func(ctx *fiber.Ctx, err error) error {
+		code := http.StatusInternalServerError
+		if err == pgx.ErrNoRows {
+			code = http.StatusNotFound
+		}
 
-	code := http.StatusInternalServerError
-	if err == pgx.ErrNoRows {
-		code = 404
+		return ctx.Status(code).JSON(&fiber.Map{
+			"code":  code,
+			"error": err.Error(),
+		})
 	}
-
-	if code >= 500 {
-		slog.Error(ctx.OriginalURL(), "err", err)
-	}
-
-	return ctx.Status(code).JSON(&fiber.Map{
-		"code":  code,
-		"error": err.Error(),
-	})
 }
 
 func decodeIdList(c *fiber.Ctx) []int32 {
@@ -154,5 +205,25 @@ func decodeIdList(c *fiber.Ctx) []int32 {
 }
 
 func (as *ApiServer) Serve() {
-	as.Listen(":1323")
+	flushTicker := time.NewTicker(time.Second * 15)
+	go func() {
+		for range flushTicker.C {
+			as.logger.Sync()
+		}
+	}()
+
+	// Graceful shutdown
+	c := make(chan os.Signal, 1)
+	signal.Notify(c, os.Interrupt)
+	go func() {
+		<-c
+		flushTicker.Stop()
+		as.Shutdown()
+		as.conn.Close(context.Background())
+		as.logger.Sync()
+	}()
+
+	if err := as.Listen(":1323"); err != nil && err != http.ErrServerClosed {
+		as.logger.Fatal("Failed to start server", zap.Error(err))
+	}
 }
