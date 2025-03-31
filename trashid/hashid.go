@@ -1,6 +1,8 @@
 package trashid
 
 import (
+	"errors"
+
 	"github.com/speps/go-hashids/v2"
 )
 
@@ -17,6 +19,9 @@ func DecodeHashId(id string) (int, error) {
 	ids, err := hashIdUtil.DecodeWithError(id)
 	if err != nil {
 		return 0, err
+	}
+	if len(ids) == 0 {
+		return 0, errors.New("invalid hashid")
 	}
 	return ids[0], err
 }

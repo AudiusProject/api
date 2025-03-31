@@ -117,7 +117,7 @@ func (app *ApiServer) getUsers(c *fiber.Ctx) error {
 		})
 	}
 
-	users, err := app.queries.GetUsers(c.Context(), queries.GetUsersParams{
+	users, err := app.queries.FullUsers(c.Context(), queries.GetUsersParams{
 		MyID: int32(myId),
 		Ids:  ids,
 	})
@@ -125,7 +125,6 @@ func (app *ApiServer) getUsers(c *fiber.Ctx) error {
 		return err
 	}
 
-	// todo: need to do id encode (intermediate query layer above sqlc)
 	return c.JSON(fiber.Map{
 		"data": users,
 	})
@@ -135,7 +134,7 @@ func (app *ApiServer) getTracks(c *fiber.Ctx) error {
 	myId, _ := trashid.DecodeHashId(c.Query("user_id"))
 	ids := decodeIdList(c)
 
-	tracks, err := app.queries.GetTracks(c.Context(), queries.GetTracksParams{
+	tracks, err := app.queries.FullTracks(c.Context(), queries.GetTracksParams{
 		MyID: int32(myId),
 		Ids:  ids,
 	})
@@ -150,7 +149,7 @@ func (app *ApiServer) getUser(c *fiber.Ctx) error {
 	myId, _ := strconv.Atoi(c.Query("user_id"))
 
 	handle := c.Params("handle")
-	users, err := app.queries.GetUsers(c.Context(), queries.GetUsersParams{
+	users, err := app.queries.FullUsers(c.Context(), queries.GetUsersParams{
 		MyID:   int32(myId),
 		Handle: handle,
 	})
@@ -161,22 +160,10 @@ func (app *ApiServer) getUser(c *fiber.Ctx) error {
 		return pgx.ErrNoRows
 	}
 
-	// add hash id :vomitemoji:
 	user := users[0]
 
-	withHashId := struct {
-		queries.GetUsersRow
-		// hash id
-		ID string `json:"id"`
-		// todo: computed image fields
-		// todo: computed wallet balance stuff
-	}{
-		GetUsersRow: user,
-		ID:          trashid.MustEncodeHashID(int(user.UserID)),
-	}
-
 	return c.JSON(fiber.Map{
-		"data": withHashId,
+		"data": user,
 	})
 }
 
@@ -198,6 +185,9 @@ func decodeIdList(c *fiber.Ctx) []int32 {
 	var ids []int32
 	for _, b := range c.Request().URI().QueryArgs().PeekMulti("id") {
 		if id, err := trashid.DecodeHashId(string(b)); err == nil {
+			ids = append(ids, int32(id))
+		}
+		if id, err := strconv.Atoi(string(b)); err == nil {
 			ids = append(ids, int32(id))
 		}
 	}

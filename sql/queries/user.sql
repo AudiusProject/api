@@ -3,9 +3,15 @@ SELECT
   album_count,
   artist_pick_track_id,
   bio,
+
+  -- todo: this can sometimes be a Qm cid
+  -- sometiems be a json string...
+  cover_photo,
+
   follower_count,
   following_count as followee_count,
   handle,
+  'hashid' as id,
   u.user_id,
   is_verified,
   twitter_handle,
@@ -19,14 +25,18 @@ SELECT
   location,
   name,
   playlist_count,
-  -- profile_picture todo
+
+  -- todo: this can sometimes be a Qm cid
+  -- sometiems be a json string...
+  profile_picture,
+
   repost_count,
   track_count,
   is_deactivated,
   is_available,
-  -- erc_wallet,
+  wallet as erc_wallet,
   -- spl_wallet,
-  -- spl_usdc_payout_wallet,
+  spl_usdc_payout_wallet,
   supporter_count,
   supporting_count,
   -- total_audio_balance,

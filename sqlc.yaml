@@ -26,9 +26,7 @@ sql:
               type: "RawMessage"
           - column: "tracks.stream_conditions"
             go_type:
-              import: "encoding/json"
-              type: "RawMessage"
+              type: "UsageConditions"
           - column: "tracks.download_conditions"
             go_type:
-              import: "encoding/json"
-              type: "RawMessage"
+              type: "UsageConditions"

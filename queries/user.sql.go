@@ -17,9 +17,15 @@ SELECT
   album_count,
   artist_pick_track_id,
   bio,
+
+  -- todo: this can sometimes be a Qm cid
+  -- sometiems be a json string...
+  cover_photo,
+
   follower_count,
   following_count as followee_count,
   handle,
+  'hashid' as id,
   u.user_id,
   is_verified,
   twitter_handle,
@@ -33,14 +39,18 @@ SELECT
   location,
   name,
   playlist_count,
-  -- profile_picture todo
+
+  -- todo: this can sometimes be a Qm cid
+  -- sometiems be a json string...
+  profile_picture,
+
   repost_count,
   track_count,
   is_deactivated,
   is_available,
-  -- erc_wallet,
+  wallet as erc_wallet,
   -- spl_wallet,
-  -- spl_usdc_payout_wallet,
+  spl_usdc_payout_wallet,
   supporter_count,
   supporting_count,
   -- total_audio_balance,
@@ -118,9 +128,11 @@ type GetUsersRow struct {
 	AlbumCount                  *int64           `json:"album_count"`
 	ArtistPickTrackID           *int32           `json:"artist_pick_track_id"`
 	Bio                         *string          `json:"bio"`
+	CoverPhoto                  *string          `json:"cover_photo"`
 	FollowerCount               *int64           `json:"follower_count"`
 	FolloweeCount               *int64           `json:"followee_count"`
 	Handle                      *string          `json:"handle"`
+	ID                          string           `json:"id"`
 	UserID                      int32            `json:"user_id"`
 	IsVerified                  bool             `json:"is_verified"`
 	TwitterHandle               *string          `json:"twitter_handle"`
@@ -134,10 +146,13 @@ type GetUsersRow struct {
 	Location                    *string          `json:"location"`
 	Name                        *string          `json:"name"`
 	PlaylistCount               *int64           `json:"playlist_count"`
+	ProfilePicture              *string          `json:"profile_picture"`
 	RepostCount                 *int64           `json:"repost_count"`
 	TrackCount                  *int64           `json:"track_count"`
 	IsDeactivated               bool             `json:"is_deactivated"`
 	IsAvailable                 bool             `json:"is_available"`
+	ErcWallet                   *string          `json:"erc_wallet"`
+	SplUsdcPayoutWallet         *string          `json:"spl_usdc_payout_wallet"`
 	SupporterCount              int32            `json:"supporter_count"`
 	SupportingCount             int32            `json:"supporting_count"`
 	Wallet                      *string          `json:"wallet"`
@@ -173,9 +188,11 @@ func (q *Queries) GetUsers(ctx context.Context, arg GetUsersParams) ([]GetUsersR
 			&i.AlbumCount,
 			&i.ArtistPickTrackID,
 			&i.Bio,
+			&i.CoverPhoto,
 			&i.FollowerCount,
 			&i.FolloweeCount,
 			&i.Handle,
+			&i.ID,
 			&i.UserID,
 			&i.IsVerified,
 			&i.TwitterHandle,
@@ -189,10 +206,13 @@ func (q *Queries) GetUsers(ctx context.Context, arg GetUsersParams) ([]GetUsersR
 			&i.Location,
 			&i.Name,
 			&i.PlaylistCount,
+			&i.ProfilePicture,
 			&i.RepostCount,
 			&i.TrackCount,
 			&i.IsDeactivated,
 			&i.IsAvailable,
+			&i.ErcWallet,
+			&i.SplUsdcPayoutWallet,
 			&i.SupporterCount,
 			&i.SupportingCount,
 			&i.Wallet,

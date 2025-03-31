@@ -75,12 +75,13 @@ func TestMain(m *testing.M) {
 func TestFixtures(t *testing.T) {
 	// as anon
 	{
-		users, err := app.queries.GetUsers(t.Context(), queries.GetUsersParams{
+		users, err := app.queries.FullUsers(t.Context(), queries.GetUsersParams{
 			Handle: "rayjacobson",
 		})
 		assert.NoError(t, err)
 		user := users[0]
 		assert.Equal(t, int32(1), user.UserID)
+		assert.Equal(t, "7eP5n", user.ID)
 		assert.Equal(t, "rayjacobson", *user.Handle)
 		assert.False(t, user.DoesCurrentUserFollow)
 		assert.False(t, user.DoesFollowCurrentUser)
@@ -88,7 +89,7 @@ func TestFixtures(t *testing.T) {
 
 	// as stereosteve
 	{
-		users, err := app.queries.GetUsers(t.Context(), queries.GetUsersParams{
+		users, err := app.queries.FullUsers(t.Context(), queries.GetUsersParams{
 			MyID:   2,
 			Handle: "rayjacobson",
 		})
@@ -101,7 +102,7 @@ func TestFixtures(t *testing.T) {
 
 	// stereosteve views stereosteve
 	{
-		users, err := app.queries.GetUsers(t.Context(), queries.GetUsersParams{
+		users, err := app.queries.FullUsers(t.Context(), queries.GetUsersParams{
 			MyID: 2,
 			Ids:  []int32{2},
 		})
@@ -114,7 +115,7 @@ func TestFixtures(t *testing.T) {
 
 	// multiple users
 	{
-		users, err := app.queries.GetUsers(t.Context(), queries.GetUsersParams{
+		users, err := app.queries.FullUsers(t.Context(), queries.GetUsersParams{
 			MyID: 2,
 			Ids:  []int32{1, 2, -1},
 		})
@@ -128,7 +129,7 @@ func TestFixtures(t *testing.T) {
 func TestGetTracks(t *testing.T) {
 	// someone else can only see public tracks
 	{
-		tracks, err := app.queries.GetTracks(t.Context(), queries.GetTracksParams{
+		tracks, err := app.queries.FullTracks(t.Context(), queries.GetTracksParams{
 			MyID:    1,
 			OwnerID: 2,
 		})
@@ -139,12 +140,23 @@ func TestGetTracks(t *testing.T) {
 
 	// I can see all my tracks
 	{
-		tracks, err := app.queries.GetTracks(t.Context(), queries.GetTracksParams{
+		tracks, err := app.queries.FullTracks(t.Context(), queries.GetTracksParams{
 			MyID:    2,
 			OwnerID: 2,
 		})
 		assert.NoError(t, err)
 		assert.Len(t, tracks, 2)
+	}
+
+	{
+		tracks, err := app.queries.FullTracks(t.Context(), queries.GetTracksParams{
+			MyID: 2,
+			Ids:  []int32{301},
+		})
+		assert.NoError(t, err)
+		track := tracks[0]
+		assert.Equal(t, 135.0, track.DownloadConditions.UsdcPurchase.Price)
+
 	}
 }
 

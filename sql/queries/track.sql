@@ -3,7 +3,7 @@ SELECT
   -- artwork,
   description,
   genre,
-  -- id,
+  'hashid' as id,
   track_cid,
   preview_cid,
   orig_file_cid,

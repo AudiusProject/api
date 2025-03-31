@@ -1457,7 +1457,7 @@ type Track struct {
 	Txhash                             string           `json:"txhash"`
 	Slot                               *int32           `json:"slot"`
 	IsAvailable                        bool             `json:"is_available"`
-	StreamConditions                   json.RawMessage  `json:"stream_conditions"`
+	StreamConditions                   UsageConditions  `json:"stream_conditions"`
 	TrackCid                           *string          `json:"track_cid"`
 	IsPlaylistUpload                   bool             `json:"is_playlist_upload"`
 	Duration                           *int32           `json:"duration"`
@@ -1469,7 +1469,7 @@ type Track struct {
 	TrackSegments                      []byte           `json:"track_segments"`
 	IsScheduledRelease                 bool             `json:"is_scheduled_release"`
 	IsDownloadable                     bool             `json:"is_downloadable"`
-	DownloadConditions                 json.RawMessage  `json:"download_conditions"`
+	DownloadConditions                 UsageConditions  `json:"download_conditions"`
 	IsOriginalAvailable                bool             `json:"is_original_available"`
 	OrigFileCid                        *string          `json:"orig_file_cid"`
 	OrigFilename                       *string          `json:"orig_filename"`

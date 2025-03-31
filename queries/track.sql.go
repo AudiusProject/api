@@ -17,7 +17,7 @@ SELECT
   -- artwork,
   description,
   genre,
-  -- id,
+  'hashid' as id,
   track_cid,
   preview_cid,
   orig_file_cid,
@@ -130,6 +130,7 @@ type GetTracksParams struct {
 type GetTracksRow struct {
 	Description                  *string          `json:"description"`
 	Genre                        *string          `json:"genre"`
+	ID                           string           `json:"id"`
 	TrackCid                     *string          `json:"track_cid"`
 	PreviewCid                   *string          `json:"preview_cid"`
 	OrigFileCid                  *string          `json:"orig_file_cid"`
@@ -183,9 +184,9 @@ type GetTracksRow struct {
 	ProducerCopyrightLine        []byte           `json:"producer_copyright_line"`
 	ParentalWarningType          *string          `json:"parental_warning_type"`
 	IsStreamGated                *bool            `json:"is_stream_gated"`
-	StreamConditions             json.RawMessage  `json:"stream_conditions"`
+	StreamConditions             UsageConditions  `json:"stream_conditions"`
 	IsDownloadGated              *bool            `json:"is_download_gated"`
-	DownloadConditions           json.RawMessage  `json:"download_conditions"`
+	DownloadConditions           UsageConditions  `json:"download_conditions"`
 	CoverOriginalSongTitle       *string          `json:"cover_original_song_title"`
 	IsOwnedByUser                bool             `json:"is_owned_by_user"`
 }
@@ -207,6 +208,7 @@ func (q *Queries) GetTracks(ctx context.Context, arg GetTracksParams) ([]GetTrac
 		if err := rows.Scan(
 			&i.Description,
 			&i.Genre,
+			&i.ID,
 			&i.TrackCid,
 			&i.PreviewCid,
 			&i.OrigFileCid,
