@@ -69,7 +69,7 @@ SELECT
   u.created_at,
   is_storage_v2,
   creator_node_endpoint,
-  -- current_user_followee_follow_count,  TODO: kill this
+  10 as current_user_followee_follow_count,  -- TODO: either compute or remove this
 
 
 
@@ -103,11 +103,13 @@ SELECT
   handle_lc,
   u.updated_at,
   cover_photo_sizes,
-  -- cover_photo_cids,
-  -- cover_photo_legacy,
+  null as cover_photo_cids, -- todo: what goes in here?
+  null as cover_photo_legacy, -- todo:
+
   profile_picture_sizes,
-  -- profile_picture_cids,
-  -- profile_picture_legacy,
+  null as profile_picture_cids, -- todo
+  null as profile_picture_legacy, -- todo
+
   has_collectibles,
   playlist_library,
   allow_ai_attribution

@@ -83,7 +83,7 @@ SELECT
   u.created_at,
   is_storage_v2,
   creator_node_endpoint,
-  -- current_user_followee_follow_count,  TODO: kill this
+  10 as current_user_followee_follow_count,  -- TODO: either compute or remove this
 
 
 
@@ -117,11 +117,13 @@ SELECT
   handle_lc,
   u.updated_at,
   cover_photo_sizes,
-  -- cover_photo_cids,
-  -- cover_photo_legacy,
+  null as cover_photo_cids, -- todo: what goes in here?
+  null as cover_photo_legacy, -- todo:
+
   profile_picture_sizes,
-  -- profile_picture_cids,
-  -- profile_picture_legacy,
+  null as profile_picture_cids, -- todo
+  null as profile_picture_legacy, -- todo
+
   has_collectibles,
   playlist_library,
   allow_ai_attribution
@@ -145,58 +147,63 @@ type GetUsersParams struct {
 }
 
 type GetUsersRow struct {
-	AlbumCount                  *int64           `json:"album_count"`
-	ArtistPickTrackID           *int32           `json:"artist_pick_track_id"`
-	Bio                         *string          `json:"bio"`
-	CoverPhoto                  *string          `json:"cover_photo"`
-	FollowerCount               *int64           `json:"follower_count"`
-	FolloweeCount               *int64           `json:"followee_count"`
-	Handle                      *string          `json:"handle"`
-	ID                          string           `json:"id"`
-	UserID                      int32            `json:"user_id"`
-	IsVerified                  bool             `json:"is_verified"`
-	TwitterHandle               *string          `json:"twitter_handle"`
-	InstagramHandle             *string          `json:"instagram_handle"`
-	TiktokHandle                *string          `json:"tiktok_handle"`
-	VerifiedWithTwitter         *bool            `json:"verified_with_twitter"`
-	VerifiedWithInstagram       *bool            `json:"verified_with_instagram"`
-	VerifiedWithTiktok          *bool            `json:"verified_with_tiktok"`
-	Website                     *string          `json:"website"`
-	Donation                    *string          `json:"donation"`
-	Location                    *string          `json:"location"`
-	Name                        *string          `json:"name"`
-	PlaylistCount               *int64           `json:"playlist_count"`
-	ProfilePicture              *string          `json:"profile_picture"`
-	RepostCount                 *int64           `json:"repost_count"`
-	TrackCount                  *int64           `json:"track_count"`
-	IsDeactivated               bool             `json:"is_deactivated"`
-	IsAvailable                 bool             `json:"is_available"`
-	ErcWallet                   *string          `json:"erc_wallet"`
-	SplWallet                   *string          `json:"spl_wallet"`
-	SplUsdcPayoutWallet         *string          `json:"spl_usdc_payout_wallet"`
-	SupporterCount              int32            `json:"supporter_count"`
-	SupportingCount             int32            `json:"supporting_count"`
-	Wallet                      *string          `json:"wallet"`
-	Balance                     *string          `json:"balance"`
-	AssociatedWalletsBalance    *string          `json:"associated_wallets_balance"`
-	TotalBalance                string           `json:"total_balance"`
-	TotalAudioBalance           int32            `json:"total_audio_balance"`
-	WaudioBalance               string           `json:"waudio_balance"`
-	AssociatedSolWalletsBalance string           `json:"associated_sol_wallets_balance"`
-	Blocknumber                 *int32           `json:"blocknumber"`
-	CreatedAt                   pgtype.Timestamp `json:"created_at"`
-	IsStorageV2                 bool             `json:"is_storage_v2"`
-	CreatorNodeEndpoint         *string          `json:"creator_node_endpoint"`
-	DoesCurrentUserFollow       bool             `json:"does_current_user_follow"`
-	DoesCurrentUserSubscribe    bool             `json:"does_current_user_subscribe"`
-	DoesFollowCurrentUser       bool             `json:"does_follow_current_user"`
-	HandleLc                    *string          `json:"handle_lc"`
-	UpdatedAt                   pgtype.Timestamp `json:"updated_at"`
-	CoverPhotoSizes             *string          `json:"cover_photo_sizes"`
-	ProfilePictureSizes         *string          `json:"profile_picture_sizes"`
-	HasCollectibles             bool             `json:"has_collectibles"`
-	PlaylistLibrary             json.RawMessage  `json:"playlist_library"`
-	AllowAiAttribution          bool             `json:"allow_ai_attribution"`
+	AlbumCount                     *int64           `json:"album_count"`
+	ArtistPickTrackID              *int32           `json:"artist_pick_track_id"`
+	Bio                            *string          `json:"bio"`
+	CoverPhoto                     *string          `json:"cover_photo"`
+	FollowerCount                  *int64           `json:"follower_count"`
+	FolloweeCount                  *int64           `json:"followee_count"`
+	Handle                         *string          `json:"handle"`
+	ID                             string           `json:"id"`
+	UserID                         int32            `json:"user_id"`
+	IsVerified                     bool             `json:"is_verified"`
+	TwitterHandle                  *string          `json:"twitter_handle"`
+	InstagramHandle                *string          `json:"instagram_handle"`
+	TiktokHandle                   *string          `json:"tiktok_handle"`
+	VerifiedWithTwitter            *bool            `json:"verified_with_twitter"`
+	VerifiedWithInstagram          *bool            `json:"verified_with_instagram"`
+	VerifiedWithTiktok             *bool            `json:"verified_with_tiktok"`
+	Website                        *string          `json:"website"`
+	Donation                       *string          `json:"donation"`
+	Location                       *string          `json:"location"`
+	Name                           *string          `json:"name"`
+	PlaylistCount                  *int64           `json:"playlist_count"`
+	ProfilePicture                 *string          `json:"profile_picture"`
+	RepostCount                    *int64           `json:"repost_count"`
+	TrackCount                     *int64           `json:"track_count"`
+	IsDeactivated                  bool             `json:"is_deactivated"`
+	IsAvailable                    bool             `json:"is_available"`
+	ErcWallet                      *string          `json:"erc_wallet"`
+	SplWallet                      *string          `json:"spl_wallet"`
+	SplUsdcPayoutWallet            *string          `json:"spl_usdc_payout_wallet"`
+	SupporterCount                 int32            `json:"supporter_count"`
+	SupportingCount                int32            `json:"supporting_count"`
+	Wallet                         *string          `json:"wallet"`
+	Balance                        *string          `json:"balance"`
+	AssociatedWalletsBalance       *string          `json:"associated_wallets_balance"`
+	TotalBalance                   string           `json:"total_balance"`
+	TotalAudioBalance              int32            `json:"total_audio_balance"`
+	WaudioBalance                  string           `json:"waudio_balance"`
+	AssociatedSolWalletsBalance    string           `json:"associated_sol_wallets_balance"`
+	Blocknumber                    *int32           `json:"blocknumber"`
+	CreatedAt                      pgtype.Timestamp `json:"created_at"`
+	IsStorageV2                    bool             `json:"is_storage_v2"`
+	CreatorNodeEndpoint            *string          `json:"creator_node_endpoint"`
+	CurrentUserFolloweeFollowCount int32            `json:"current_user_followee_follow_count"`
+	DoesCurrentUserFollow          bool             `json:"does_current_user_follow"`
+	DoesCurrentUserSubscribe       bool             `json:"does_current_user_subscribe"`
+	DoesFollowCurrentUser          bool             `json:"does_follow_current_user"`
+	HandleLc                       *string          `json:"handle_lc"`
+	UpdatedAt                      pgtype.Timestamp `json:"updated_at"`
+	CoverPhotoSizes                *string          `json:"cover_photo_sizes"`
+	CoverPhotoCids                 interface{}      `json:"cover_photo_cids"`
+	CoverPhotoLegacy               interface{}      `json:"cover_photo_legacy"`
+	ProfilePictureSizes            *string          `json:"profile_picture_sizes"`
+	ProfilePictureCids             interface{}      `json:"profile_picture_cids"`
+	ProfilePictureLegacy           interface{}      `json:"profile_picture_legacy"`
+	HasCollectibles                bool             `json:"has_collectibles"`
+	PlaylistLibrary                json.RawMessage  `json:"playlist_library"`
+	AllowAiAttribution             bool             `json:"allow_ai_attribution"`
 }
 
 func (q *Queries) GetUsers(ctx context.Context, arg GetUsersParams) ([]GetUsersRow, error) {
@@ -251,13 +258,18 @@ func (q *Queries) GetUsers(ctx context.Context, arg GetUsersParams) ([]GetUsersR
 			&i.CreatedAt,
 			&i.IsStorageV2,
 			&i.CreatorNodeEndpoint,
+			&i.CurrentUserFolloweeFollowCount,
 			&i.DoesCurrentUserFollow,
 			&i.DoesCurrentUserSubscribe,
 			&i.DoesFollowCurrentUser,
 			&i.HandleLc,
 			&i.UpdatedAt,
 			&i.CoverPhotoSizes,
+			&i.CoverPhotoCids,
+			&i.CoverPhotoLegacy,
 			&i.ProfilePictureSizes,
+			&i.ProfilePictureCids,
+			&i.ProfilePictureLegacy,
 			&i.HasCollectibles,
 			&i.PlaylistLibrary,
 			&i.AllowAiAttribution,
