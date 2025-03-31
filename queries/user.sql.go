@@ -49,17 +49,36 @@ SELECT
   is_deactivated,
   is_available,
   wallet as erc_wallet,
-  -- spl_wallet,
+  user_bank_accounts.bank_account as spl_wallet,
   spl_usdc_payout_wallet,
   supporter_count,
   supporting_count,
-  -- total_audio_balance,
   wallet,
   balance,
   associated_wallets_balance,
-  -- total_balance,
-  -- waudio_balance,
-  associated_sol_wallets_balance,
+
+  -- total_balance
+  (
+    coalesce(balance, '0')::numeric +
+    coalesce(associated_wallets_balance, '0')::numeric +
+    -- to wei
+    (coalesce(associated_sol_wallets_balance, '0')::numeric * 10^10) +
+    (coalesce(waudio, '0')::numeric * 10^10)
+  )::numeric::text as total_balance,
+
+  -- total_audio_balance,
+  (
+    (
+      coalesce(balance, '0')::numeric +
+      coalesce(associated_wallets_balance, '0')::numeric +
+      -- to wei
+      (coalesce(associated_sol_wallets_balance, '0')::numeric * 10^10) +
+      (coalesce(waudio, '0')::numeric * 10^10)
+    ) / 1e18
+  )::int as total_audio_balance,
+
+  coalesce(waudio, '0') as waudio_balance,
+  coalesce(associated_sol_wallets_balance, '0') as associated_sol_wallets_balance,
   blocknumber,
   u.created_at,
   is_storage_v2,
@@ -110,6 +129,7 @@ SELECT
 FROM users u
 JOIN aggregate_user using (user_id)
 LEFT JOIN user_balances using (user_id)
+LEFT JOIN user_bank_accounts on u.wallet = user_bank_accounts.ethereum_address
 WHERE is_deactivated = false
   AND (
     handle_lc = lower($2)
@@ -152,13 +172,17 @@ type GetUsersRow struct {
 	IsDeactivated               bool             `json:"is_deactivated"`
 	IsAvailable                 bool             `json:"is_available"`
 	ErcWallet                   *string          `json:"erc_wallet"`
+	SplWallet                   *string          `json:"spl_wallet"`
 	SplUsdcPayoutWallet         *string          `json:"spl_usdc_payout_wallet"`
 	SupporterCount              int32            `json:"supporter_count"`
 	SupportingCount             int32            `json:"supporting_count"`
 	Wallet                      *string          `json:"wallet"`
 	Balance                     *string          `json:"balance"`
 	AssociatedWalletsBalance    *string          `json:"associated_wallets_balance"`
-	AssociatedSolWalletsBalance *string          `json:"associated_sol_wallets_balance"`
+	TotalBalance                string           `json:"total_balance"`
+	TotalAudioBalance           int32            `json:"total_audio_balance"`
+	WaudioBalance               string           `json:"waudio_balance"`
+	AssociatedSolWalletsBalance string           `json:"associated_sol_wallets_balance"`
 	Blocknumber                 *int32           `json:"blocknumber"`
 	CreatedAt                   pgtype.Timestamp `json:"created_at"`
 	IsStorageV2                 bool             `json:"is_storage_v2"`
@@ -212,12 +236,16 @@ func (q *Queries) GetUsers(ctx context.Context, arg GetUsersParams) ([]GetUsersR
 			&i.IsDeactivated,
 			&i.IsAvailable,
 			&i.ErcWallet,
+			&i.SplWallet,
 			&i.SplUsdcPayoutWallet,
 			&i.SupporterCount,
 			&i.SupportingCount,
 			&i.Wallet,
 			&i.Balance,
 			&i.AssociatedWalletsBalance,
+			&i.TotalBalance,
+			&i.TotalAudioBalance,
+			&i.WaudioBalance,
 			&i.AssociatedSolWalletsBalance,
 			&i.Blocknumber,
 			&i.CreatedAt,

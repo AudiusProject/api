@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/csv"
 	"os"
+	"slices"
 	"time"
 
 	"github.com/jackc/pgx/v5"
@@ -48,8 +49,6 @@ var (
 		"playlists_previously_containing_track": map[string]any{},
 		"audio_analysis_error_count":            0,
 		"is_owned_by_user":                      false,
-		"stream_conditions":                     nil,
-		"download_conditions":                   nil,
 	}
 
 	followBaseRow = map[string]any{
@@ -84,18 +83,23 @@ func insertFixtures(table string, baseRow map[string]any, csvFile string) {
 	checkErr(err)
 	defer file.Close()
 
+	reader := csv.NewReader(file)
+	rows, err := reader.ReadAll()
+	checkErr(err)
+	csvHeader := rows[0]
+
+	// union baseRow keys with csv header for field list
 	fieldList := []string{}
 	for f := range baseRow {
 		fieldList = append(fieldList, f)
 	}
-
-	reader := csv.NewReader(file)
-	rows, err := reader.ReadAll()
-	checkErr(err)
+	for _, f := range csvHeader {
+		if !slices.Contains(fieldList, f) {
+			fieldList = append(fieldList, f)
+		}
+	}
 
 	var records [][]any
-
-	csvHeader := rows[0]
 	for _, row := range rows[1:] {
 		for i, field := range csvHeader {
 			if row[i] != "" {
