@@ -14,6 +14,7 @@ import (
 	"github.com/axiomhq/axiom-go/axiom"
 	"github.com/gofiber/contrib/fiberzap/v2"
 	"github.com/gofiber/fiber/v2"
+	"github.com/gofiber/fiber/v2/middleware/cors"
 	"github.com/jackc/pgx/v5"
 	"go.uber.org/zap"
 	"go.uber.org/zap/zapcore"
@@ -74,6 +75,8 @@ func NewApiServer(config Config) *ApiServer {
 		queries.New(conn),
 		logger,
 	}
+
+	app.Use(cors.New())
 
 	app.Use(fiberzap.New(fiberzap.Config{
 		Logger: logger,
