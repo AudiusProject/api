@@ -44,15 +44,8 @@ func (app *ApiServer) v1PlaylistsReposts(c *fiber.Ctx) error {
 		return err
 	}
 
-	users, err := app.queryFullUsers(c, sql, pgx.NamedArgs{
+	return app.queryFullUsers(c, sql, pgx.NamedArgs{
 		"playlistId": playlistId,
-	})
-	if err != nil {
-		return err
-	}
-
-	return c.JSON(fiber.Map{
-		"data": users,
 	})
 }
 
@@ -76,14 +69,7 @@ func (app *ApiServer) v1PlaylistsFavorites(c *fiber.Ctx) error {
 		return err
 	}
 
-	users, err := app.queryFullUsers(c, sql, pgx.NamedArgs{
+	return app.queryFullUsers(c, sql, pgx.NamedArgs{
 		"playlistId": playlistId,
-	})
-	if err != nil {
-		return err
-	}
-
-	return c.JSON(fiber.Map{
-		"data": users,
 	})
 }

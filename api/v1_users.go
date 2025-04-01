@@ -51,12 +51,8 @@ func (app *ApiServer) v1UsersFollowers(c *fiber.Ctx) error {
 		return err
 	}
 
-	users, err := app.queryFullUsers(c, sql, pgx.NamedArgs{
+	return app.queryFullUsers(c, sql, pgx.NamedArgs{
 		"userId": userId,
-	})
-
-	return c.JSON(fiber.Map{
-		"data": users,
 	})
 }
 
@@ -80,19 +76,41 @@ func (app *ApiServer) v1UsersFollowing(c *fiber.Ctx) error {
 		return err
 	}
 
-	users, err := app.queryFullUsers(c, sql, pgx.NamedArgs{
+	return app.queryFullUsers(c, sql, pgx.NamedArgs{
 		"userId": userId,
 	})
+}
+
+func (app *ApiServer) v1UsersMutuals(c *fiber.Ctx) error {
+	myId, _ := trashid.DecodeHashId(c.Query("user_id"))
+
+	sql := `
+	SELECT x.follower_user_id
+	FROM follows x
+	JOIN aggregate_user au on x.follower_user_id = au.user_id
+	JOIN follows me
+	  ON me.follower_user_id = @myId
+	 AND me.followee_user_id = x.follower_user_id
+	 AND me.is_delete = false
+	WHERE x.followee_user_id = @userId
+	  AND x.is_delete = false
+	ORDER BY follower_count DESC
+	LIMIT @limit
+	OFFSET @offset
+	`
+
+	userId, err := trashid.DecodeHashId(c.Params("userId"))
 	if err != nil {
 		return err
 	}
 
-	return c.JSON(fiber.Map{
-		"data": users,
+	return app.queryFullUsers(c, sql, pgx.NamedArgs{
+		"myId":   myId,
+		"userId": userId,
 	})
 }
 
-func (app *ApiServer) queryFullUsers(c *fiber.Ctx, sql string, args pgx.NamedArgs) ([]queries.FullUser, error) {
+func (app *ApiServer) queryFullUsers(c *fiber.Ctx, sql string, args pgx.NamedArgs) error {
 	myId, _ := trashid.DecodeHashId(c.Query("user_id"))
 
 	args["limit"] = c.Query("limit", "20")
@@ -100,12 +118,12 @@ func (app *ApiServer) queryFullUsers(c *fiber.Ctx, sql string, args pgx.NamedArg
 
 	rows, err := app.pool.Query(c.Context(), sql, args)
 	if err != nil {
-		return nil, err
+		return err
 	}
 
 	userIds, err := pgx.CollectRows(rows, pgx.RowTo[int32])
 	if err != nil {
-		return nil, err
+		return err
 	}
 
 	users, err := app.queries.FullUsers(c.Context(), queries.GetUsersParams{
@@ -113,7 +131,7 @@ func (app *ApiServer) queryFullUsers(c *fiber.Ctx, sql string, args pgx.NamedArg
 		Ids:  userIds,
 	})
 	if err != nil {
-		return nil, err
+		return err
 	}
 
 	userMap := map[int32]queries.FullUser{}
@@ -125,5 +143,7 @@ func (app *ApiServer) queryFullUsers(c *fiber.Ctx, sql string, args pgx.NamedArg
 		users[idx] = userMap[id]
 	}
 
-	return users, nil
+	return c.JSON(fiber.Map{
+		"data": users,
+	})
 }

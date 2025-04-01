@@ -43,15 +43,8 @@ func (app *ApiServer) v1TrackReposts(c *fiber.Ctx) error {
 		return err
 	}
 
-	users, err := app.queryFullUsers(c, sql, pgx.NamedArgs{
+	return app.queryFullUsers(c, sql, pgx.NamedArgs{
 		"trackId": trackId,
-	})
-	if err != nil {
-		return err
-	}
-
-	return c.JSON(fiber.Map{
-		"data": users,
 	})
 }
 
@@ -75,14 +68,7 @@ func (app *ApiServer) v1TrackFavorites(c *fiber.Ctx) error {
 		return err
 	}
 
-	users, err := app.queryFullUsers(c, sql, pgx.NamedArgs{
+	return app.queryFullUsers(c, sql, pgx.NamedArgs{
 		"trackId": trackId,
-	})
-	if err != nil {
-		return err
-	}
-
-	return c.JSON(fiber.Map{
-		"data": users,
 	})
 }

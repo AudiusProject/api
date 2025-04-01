@@ -90,6 +90,7 @@ func NewApiServer(config Config) *ApiServer {
 	app.Get("/v1/full/users", app.v1Users)
 	app.Get("/v1/full/users/:userId/followers", app.v1UsersFollowers)
 	app.Get("/v1/full/users/:userId/following", app.v1UsersFollowing)
+	app.Get("/v1/full/users/:userId/mutuals", app.v1UsersMutuals)
 
 	app.Get("/v1/full/tracks", app.v1Tracks)
 	app.Get("/v1/full/tracks/:trackId/reposts", app.v1TrackReposts)
