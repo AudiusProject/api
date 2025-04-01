@@ -57,28 +57,7 @@ func (q *Queries) FullUsers(ctx context.Context, arg GetUsersParams) ([]FullUser
 		}
 
 		// profile_picture
-		var profilePicture SquareImage
-		{
-			cid := ""
-			if user.ProfilePictureSizes != nil {
-				cid = *user.ProfilePictureSizes
-			}
-			if cid == "" && user.ProfilePicture != nil && !strings.HasPrefix(*user.ProfilePicture, "{") {
-				cid = *user.ProfilePicture
-			}
-
-			// rendezvous for cid
-			rankedHosts := rendezvous.GlobalHasher.Rank(cid)
-			first := rankedHosts[0]
-			rest := rankedHosts[1:3]
-
-			profilePicture = SquareImage{
-				X150x150:   fmt.Sprintf("%s/content/%s/150x150.jpg", first, cid),
-				X480x480:   fmt.Sprintf("%s/content/%s/480x480.jpg", first, cid),
-				X1000x1000: fmt.Sprintf("%s/content/%s/1000x1000.jpg", first, cid),
-				Mirrors:    rest,
-			}
-		}
+		var profilePicture = squareImageStruct(user.ProfilePictureSizes, user.ProfilePicture)
 
 		var artistPickTrackID *string
 		if user.ArtistPickTrackID != nil {
@@ -95,4 +74,31 @@ func (q *Queries) FullUsers(ctx context.Context, arg GetUsersParams) ([]FullUser
 	}
 
 	return fullUsers, nil
+}
+
+func squareImageStruct(maybeCids ...*string) SquareImage {
+	cid := ""
+	for _, m := range maybeCids {
+		if m != nil && !strings.HasPrefix(*m, "{") {
+			cid = *m
+			break
+		}
+	}
+
+	if cid == "" {
+		// todo: what to do here?
+		return SquareImage{}
+	}
+
+	// rendezvous for cid
+	rankedHosts := rendezvous.GlobalHasher.Rank(cid)
+	first := rankedHosts[0]
+	rest := rankedHosts[1:3]
+
+	return SquareImage{
+		X150x150:   fmt.Sprintf("%s/content/%s/150x150.jpg", first, cid),
+		X480x480:   fmt.Sprintf("%s/content/%s/480x480.jpg", first, cid),
+		X1000x1000: fmt.Sprintf("%s/content/%s/1000x1000.jpg", first, cid),
+		Mirrors:    rest,
+	}
 }

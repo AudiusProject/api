@@ -16,6 +16,32 @@ sql:
             go_type:
               import: "encoding/json"
               type: "RawMessage"
+
+          - column: "tracks.copyright_line"
+            go_type:
+              import: "encoding/json"
+              type: "RawMessage"
+          - column: "tracks.ddex_release_ids"
+            go_type:
+              import: "encoding/json"
+              type: "RawMessage"
+          - column: "tracks.artists"
+            go_type:
+              import: "encoding/json"
+              type: "RawMessage"
+          - column: "tracks.indirect_resource_contributors"
+            go_type:
+              import: "encoding/json"
+              type: "RawMessage"
+          - column: "tracks.resource_contributors"
+            go_type:
+              import: "encoding/json"
+              type: "RawMessage"
+          - column: "tracks.producer_copyright_line"
+            go_type:
+              import: "encoding/json"
+              type: "RawMessage"
+
           - column: "tracks.field_visibility"
             go_type:
               import: "encoding/json"

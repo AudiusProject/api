@@ -1476,13 +1476,13 @@ type Track struct {
 	PlaylistsContainingTrack           []int32          `json:"playlists_containing_track"`
 	PlacementHosts                     *string          `json:"placement_hosts"`
 	DdexApp                            *string          `json:"ddex_app"`
-	DdexReleaseIds                     []byte           `json:"ddex_release_ids"`
-	Artists                            []byte           `json:"artists"`
-	ResourceContributors               []byte           `json:"resource_contributors"`
-	IndirectResourceContributors       []byte           `json:"indirect_resource_contributors"`
+	DdexReleaseIds                     json.RawMessage  `json:"ddex_release_ids"`
+	Artists                            json.RawMessage  `json:"artists"`
+	ResourceContributors               json.RawMessage  `json:"resource_contributors"`
+	IndirectResourceContributors       json.RawMessage  `json:"indirect_resource_contributors"`
 	RightsController                   json.RawMessage  `json:"rights_controller"`
-	CopyrightLine                      []byte           `json:"copyright_line"`
-	ProducerCopyrightLine              []byte           `json:"producer_copyright_line"`
+	CopyrightLine                      json.RawMessage  `json:"copyright_line"`
+	ProducerCopyrightLine              json.RawMessage  `json:"producer_copyright_line"`
 	ParentalWarningType                *string          `json:"parental_warning_type"`
 	PlaylistsPreviouslyContainingTrack []byte           `json:"playlists_previously_containing_track"`
 	AllowedApiKeys                     []string         `json:"allowed_api_keys"`

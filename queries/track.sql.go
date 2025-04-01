@@ -14,6 +14,7 @@ import (
 
 const getTracks = `-- name: GetTracks :many
 SELECT
+  t.track_id,
   -- artwork,
   description,
   genre,
@@ -34,7 +35,7 @@ SELECT
   -- user,
   duration,
   is_downloadable,
-  -- play_count,
+  aggregate_plays.count as play_count,
   -- permalink,
   -- is_streamable,
   ddex_app,
@@ -44,6 +45,7 @@ SELECT
   -- access,
   blocknumber,
   create_date,
+  t.created_at,
   cover_art_sizes,
   -- cover_art_cids,
   credits_splits,
@@ -63,10 +65,19 @@ SELECT
       AND is_delete = false
   ) AS has_current_user_reposted,
 
+  (
+    SELECT count(*) > 0
+    FROM saves
+    WHERE $1 > 0
+      AND user_id = $1
+      AND save_type = 'track'
+      AND save_item_id = t.track_id
+      AND is_delete = false
+  ) AS has_current_user_saved,
+
   is_scheduled_release,
   is_unlisted,
 
-  -- has_current_user_saved,
   -- followee_favorites,
   -- route_id,
   stem_of,
@@ -94,6 +105,7 @@ SELECT
   copyright_line,
   producer_copyright_line,
   parental_warning_type,
+  -- is_streamable,
   is_stream_gated,
   stream_conditions,
   is_download_gated,
@@ -110,6 +122,7 @@ SELECT
 
 FROM tracks t
 JOIN aggregate_track using (track_id)
+LEFT JOIN aggregate_plays on play_item_id = t.track_id
 WHERE is_available = true
   AND (is_unlisted = false OR owner_id = $1)
   AND (
@@ -128,6 +141,7 @@ type GetTracksParams struct {
 }
 
 type GetTracksRow struct {
+	TrackID                      int32            `json:"track_id"`
 	Description                  *string          `json:"description"`
 	Genre                        *string          `json:"genre"`
 	ID                           string           `json:"id"`
@@ -146,10 +160,12 @@ type GetTracksRow struct {
 	Title                        *string          `json:"title"`
 	Duration                     *int32           `json:"duration"`
 	IsDownloadable               bool             `json:"is_downloadable"`
+	PlayCount                    *int64           `json:"play_count"`
 	DdexApp                      *string          `json:"ddex_app"`
 	PinnedCommentID              *int32           `json:"pinned_comment_id"`
 	Blocknumber                  *int32           `json:"blocknumber"`
 	CreateDate                   *string          `json:"create_date"`
+	CreatedAt                    pgtype.Timestamp `json:"created_at"`
 	CoverArtSizes                *string          `json:"cover_art_sizes"`
 	CreditsSplits                *string          `json:"credits_splits"`
 	Isrc                         *string          `json:"isrc"`
@@ -157,6 +173,7 @@ type GetTracksRow struct {
 	Iswc                         *string          `json:"iswc"`
 	FieldVisibility              json.RawMessage  `json:"field_visibility"`
 	HasCurrentUserReposted       bool             `json:"has_current_user_reposted"`
+	HasCurrentUserSaved          bool             `json:"has_current_user_saved"`
 	IsScheduledRelease           bool             `json:"is_scheduled_release"`
 	IsUnlisted                   bool             `json:"is_unlisted"`
 	StemOf                       []byte           `json:"stem_of"`
@@ -175,13 +192,13 @@ type GetTracksRow struct {
 	IsCustomMusicalKey           *bool            `json:"is_custom_musical_key"`
 	AudioAnalysisErrorCount      int32            `json:"audio_analysis_error_count"`
 	CommentsDisabled             *bool            `json:"comments_disabled"`
-	DdexReleaseIds               []byte           `json:"ddex_release_ids"`
-	Artists                      []byte           `json:"artists"`
-	ResourceContributors         []byte           `json:"resource_contributors"`
-	IndirectResourceContributors []byte           `json:"indirect_resource_contributors"`
+	DdexReleaseIds               json.RawMessage  `json:"ddex_release_ids"`
+	Artists                      json.RawMessage  `json:"artists"`
+	ResourceContributors         json.RawMessage  `json:"resource_contributors"`
+	IndirectResourceContributors json.RawMessage  `json:"indirect_resource_contributors"`
 	RightsController             json.RawMessage  `json:"rights_controller"`
-	CopyrightLine                []byte           `json:"copyright_line"`
-	ProducerCopyrightLine        []byte           `json:"producer_copyright_line"`
+	CopyrightLine                json.RawMessage  `json:"copyright_line"`
+	ProducerCopyrightLine        json.RawMessage  `json:"producer_copyright_line"`
 	ParentalWarningType          *string          `json:"parental_warning_type"`
 	IsStreamGated                *bool            `json:"is_stream_gated"`
 	StreamConditions             UsageConditions  `json:"stream_conditions"`
@@ -206,6 +223,7 @@ func (q *Queries) GetTracks(ctx context.Context, arg GetTracksParams) ([]GetTrac
 	for rows.Next() {
 		var i GetTracksRow
 		if err := rows.Scan(
+			&i.TrackID,
 			&i.Description,
 			&i.Genre,
 			&i.ID,
@@ -224,10 +242,12 @@ func (q *Queries) GetTracks(ctx context.Context, arg GetTracksParams) ([]GetTrac
 			&i.Title,
 			&i.Duration,
 			&i.IsDownloadable,
+			&i.PlayCount,
 			&i.DdexApp,
 			&i.PinnedCommentID,
 			&i.Blocknumber,
 			&i.CreateDate,
+			&i.CreatedAt,
 			&i.CoverArtSizes,
 			&i.CreditsSplits,
 			&i.Isrc,
@@ -235,6 +255,7 @@ func (q *Queries) GetTracks(ctx context.Context, arg GetTracksParams) ([]GetTrac
 			&i.Iswc,
 			&i.FieldVisibility,
 			&i.HasCurrentUserReposted,
+			&i.HasCurrentUserSaved,
 			&i.IsScheduledRelease,
 			&i.IsUnlisted,
 			&i.StemOf,

@@ -11,7 +11,9 @@ type FullTracksParams GetTracksParams
 type FullTrack struct {
 	GetTracksRow
 
-	User FullUser `json:"user"`
+	Artwork SquareImage `json:"artwork"`
+	UserID  string      `json:"user_id"`
+	User    FullUser    `json:"user"`
 }
 
 func (q *Queries) FullTracks(ctx context.Context, arg GetTracksParams) ([]FullTrack, error) {
@@ -40,7 +42,7 @@ func (q *Queries) FullTracks(ctx context.Context, arg GetTracksParams) ([]FullTr
 
 	fullTracks := make([]FullTrack, 0, len(rawTracks))
 	for _, track := range rawTracks {
-		track.ID, _ = trashid.EncodeHashId(int(track.UserID))
+		track.ID, _ = trashid.EncodeHashId(int(track.TrackID))
 		user, ok := userMap[track.UserID]
 
 		// GetUser will omit deactivated users
@@ -51,7 +53,9 @@ func (q *Queries) FullTracks(ctx context.Context, arg GetTracksParams) ([]FullTr
 		}
 		fullTracks = append(fullTracks, FullTrack{
 			GetTracksRow: track,
+			Artwork:      squareImageStruct(track.CoverArtSizes, track.CoverArt),
 			User:         user,
+			UserID:       user.ID,
 		})
 	}
 

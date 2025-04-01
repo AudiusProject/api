@@ -1,5 +1,6 @@
 -- name: GetTracks :many
 SELECT
+  t.track_id,
   -- artwork,
   description,
   genre,
@@ -20,7 +21,7 @@ SELECT
   -- user,
   duration,
   is_downloadable,
-  -- play_count,
+  aggregate_plays.count as play_count,
   -- permalink,
   -- is_streamable,
   ddex_app,
@@ -30,6 +31,7 @@ SELECT
   -- access,
   blocknumber,
   create_date,
+  t.created_at,
   cover_art_sizes,
   -- cover_art_cids,
   credits_splits,
@@ -49,10 +51,19 @@ SELECT
       AND is_delete = false
   ) AS has_current_user_reposted,
 
+  (
+    SELECT count(*) > 0
+    FROM saves
+    WHERE @my_id > 0
+      AND user_id = @my_id
+      AND save_type = 'track'
+      AND save_item_id = t.track_id
+      AND is_delete = false
+  ) AS has_current_user_saved,
+
   is_scheduled_release,
   is_unlisted,
 
-  -- has_current_user_saved,
   -- followee_favorites,
   -- route_id,
   stem_of,
@@ -80,6 +91,7 @@ SELECT
   copyright_line,
   producer_copyright_line,
   parental_warning_type,
+  -- is_streamable,
   is_stream_gated,
   stream_conditions,
   is_download_gated,
@@ -96,6 +108,7 @@ SELECT
 
 FROM tracks t
 JOIN aggregate_track using (track_id)
+LEFT JOIN aggregate_plays on play_item_id = t.track_id
 WHERE is_available = true
   AND (is_unlisted = false OR owner_id = @my_id)
   AND (

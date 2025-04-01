@@ -146,7 +146,9 @@ func (app *ApiServer) getTracks(c *fiber.Ctx) error {
 	if err != nil {
 		return err
 	}
-	return c.JSON(tracks)
+	return c.JSON(fiber.Map{
+		"data": tracks,
+	})
 }
 
 func (app *ApiServer) getUser(c *fiber.Ctx) error {
