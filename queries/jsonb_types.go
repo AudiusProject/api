@@ -24,3 +24,11 @@ type SquareImage struct {
 	X1000x1000 string   `json:"1000x1000"`
 	Mirrors    []string `json:"mirrors"`
 }
+
+type PlaylistContents struct {
+	TrackIDs []struct {
+		Time         int64 `json:"time"`
+		Track        int64 `json:"track"`
+		MetadataTime int64 `json:"metadata_time"`
+	} `json:"track_ids"`
+}

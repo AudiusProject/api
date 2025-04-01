@@ -14,6 +14,7 @@ SELECT
   p.playlist_id,
   p.playlist_name,
   p.playlist_owner_id,
+  p.playlist_contents,
 
   (
     SELECT count(*) > 0
@@ -46,11 +47,12 @@ type GetPlaylistsParams struct {
 }
 
 type GetPlaylistsRow struct {
-	PlaylistID             int32   `json:"playlist_id"`
-	PlaylistName           *string `json:"playlist_name"`
-	PlaylistOwnerID        int32   `json:"playlist_owner_id"`
-	HasCurrentUserReposted bool    `json:"has_current_user_reposted"`
-	HasCurrentUserSaved    bool    `json:"has_current_user_saved"`
+	PlaylistID             int32            `json:"playlist_id"`
+	PlaylistName           *string          `json:"playlist_name"`
+	PlaylistOwnerID        int32            `json:"playlist_owner_id"`
+	PlaylistContents       PlaylistContents `json:"playlist_contents"`
+	HasCurrentUserReposted bool             `json:"has_current_user_reposted"`
+	HasCurrentUserSaved    bool             `json:"has_current_user_saved"`
 }
 
 func (q *Queries) GetPlaylists(ctx context.Context, arg GetPlaylistsParams) ([]GetPlaylistsRow, error) {
@@ -66,6 +68,7 @@ func (q *Queries) GetPlaylists(ctx context.Context, arg GetPlaylistsParams) ([]G
 			&i.PlaylistID,
 			&i.PlaylistName,
 			&i.PlaylistOwnerID,
+			&i.PlaylistContents,
 			&i.HasCurrentUserReposted,
 			&i.HasCurrentUserSaved,
 		); err != nil {

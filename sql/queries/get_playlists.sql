@@ -3,6 +3,7 @@ SELECT
   p.playlist_id,
   p.playlist_name,
   p.playlist_owner_id,
+  p.playlist_contents,
 
   (
     SELECT count(*) > 0

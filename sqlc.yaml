@@ -41,7 +41,6 @@ sql:
             go_type:
               import: "encoding/json"
               type: "RawMessage"
-
           - column: "tracks.field_visibility"
             go_type:
               import: "encoding/json"
@@ -56,3 +55,7 @@ sql:
           - column: "tracks.download_conditions"
             go_type:
               type: "UsageConditions"
+
+          - column: "playlists.playlist_contents"
+            go_type:
+              type: "PlaylistContents"

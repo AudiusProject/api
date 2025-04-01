@@ -1140,7 +1140,7 @@ type Playlist struct {
 	IsAlbum                     bool             `json:"is_album"`
 	IsPrivate                   bool             `json:"is_private"`
 	PlaylistName                *string          `json:"playlist_name"`
-	PlaylistContents            []byte           `json:"playlist_contents"`
+	PlaylistContents            PlaylistContents `json:"playlist_contents"`
 	PlaylistImageMultihash      *string          `json:"playlist_image_multihash"`
 	IsCurrent                   bool             `json:"is_current"`
 	IsDelete                    bool             `json:"is_delete"`
