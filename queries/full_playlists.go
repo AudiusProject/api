@@ -4,6 +4,7 @@ import (
 	"context"
 
 	"bridgerton.audius.co/trashid"
+	"golang.org/x/sync/errgroup"
 )
 
 type FullPlaylist struct {
@@ -32,32 +33,37 @@ func (q *Queries) FullPlaylists(ctx context.Context, arg GetPlaylistsParams) ([]
 		}
 	}
 
-	// fetch users
-	users, err := q.FullUsers(ctx, GetUsersParams{
-		MyID: arg.MyID,
-		Ids:  userIds,
-	})
-	if err != nil {
-		return nil, err
-	}
-
+	// fetch users + tracks in parallel
+	g, ctx := errgroup.WithContext(ctx)
 	userMap := map[int32]FullUser{}
-	for _, user := range users {
-		userMap[user.UserID] = user
-	}
+	trackMap := map[int32]FullTrack{}
+
+	// fetch users
+	g.Go(func() error {
+		users, err := q.FullUsers(ctx, GetUsersParams{
+			MyID: arg.MyID,
+			Ids:  userIds,
+		})
+		for _, user := range users {
+			userMap[user.UserID] = user
+		}
+		return err
+	})
 
 	// fetch tracks
-	tracks, err := q.FullTracks(ctx, GetTracksParams{
-		MyID: arg.MyID,
-		Ids:  trackIds,
+	g.Go(func() error {
+		tracks, err := q.FullTracks(ctx, GetTracksParams{
+			MyID: arg.MyID,
+			Ids:  trackIds,
+		})
+		for _, track := range tracks {
+			trackMap[track.TrackID] = track
+		}
+		return err
 	})
-	if err != nil {
-		return nil, err
-	}
 
-	trackMap := map[int32]FullTrack{}
-	for _, track := range tracks {
-		trackMap[track.TrackID] = track
+	if err := g.Wait(); err != nil {
+		return nil, err
 	}
 
 	fullPlaylists := make([]FullPlaylist, 0, len(rawPlaylists))

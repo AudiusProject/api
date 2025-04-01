@@ -46,7 +46,7 @@ func TestMain(m *testing.M) {
 	// seed db
 
 	// stupid block fixture
-	_, err = app.conn.Exec(ctx, `
+	_, err = app.pool.Exec(ctx, `
 	INSERT INTO public.blocks (
 		blockhash,
 		parenthash,

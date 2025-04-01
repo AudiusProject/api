@@ -17,6 +17,7 @@ import (
 	"github.com/gofiber/fiber/v2/middleware/cors"
 	"github.com/gofiber/fiber/v2/middleware/recover"
 	"github.com/jackc/pgx/v5"
+	"github.com/jackc/pgx/v5/pgxpool"
 	"go.uber.org/zap"
 	"go.uber.org/zap/zapcore"
 )
@@ -63,7 +64,7 @@ func InitLogger(config Config) *zap.Logger {
 func NewApiServer(config Config) *ApiServer {
 	logger := InitLogger(config)
 
-	conn, err := pgx.Connect(context.Background(), config.DbUrl)
+	pool, err := pgxpool.New(context.Background(), config.DbUrl)
 	if err != nil {
 		logger.Error("db connect failed", zap.Error(err))
 	}
@@ -72,8 +73,8 @@ func NewApiServer(config Config) *ApiServer {
 		fiber.New(fiber.Config{
 			ErrorHandler: errorHandler(logger),
 		}),
-		conn,
-		queries.New(conn),
+		pool,
+		queries.New(pool),
 		logger,
 	}
 
@@ -102,7 +103,7 @@ func NewApiServer(config Config) *ApiServer {
 
 type ApiServer struct {
 	*fiber.App
-	conn    *pgx.Conn
+	pool    *pgxpool.Pool
 	queries *queries.Queries
 	logger  *zap.Logger
 }
@@ -158,7 +159,7 @@ func (as *ApiServer) Serve() {
 		<-c
 		flushTicker.Stop()
 		as.Shutdown()
-		as.conn.Close(context.Background())
+		as.pool.Close()
 		as.logger.Sync()
 	}()
 

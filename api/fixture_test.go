@@ -114,7 +114,7 @@ func insertFixtures(table string, baseRow map[string]any, csvFile string) {
 		records = append(records, vals)
 	}
 
-	_, err = app.conn.CopyFrom(
+	_, err = app.pool.CopyFrom(
 		context.Background(),
 		pgx.Identifier{table},
 		fieldList,
