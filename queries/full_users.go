@@ -12,8 +12,9 @@ import (
 type FullUser struct {
 	GetUsersRow
 
-	ProfilePicture SquareImage    `json:"profile_picture"`
-	CoverPhoto     RectangleImage `json:"cover_photo"`
+	ArtistPickTrackID *string        `json:"artist_pick_track_id"`
+	ProfilePicture    SquareImage    `json:"profile_picture"`
+	CoverPhoto        RectangleImage `json:"cover_photo"`
 }
 
 func (q *Queries) FullUsers(ctx context.Context, arg GetUsersParams) ([]FullUser, error) {
@@ -49,8 +50,8 @@ func (q *Queries) FullUsers(ctx context.Context, arg GetUsersParams) ([]FullUser
 			rest := rankedHosts[1:3]
 
 			coverPhoto = RectangleImage{
-				X640:    fmt.Sprintf("%s/content/%s/x640.jpg", first, cid),
-				X2000:   fmt.Sprintf("%s/content/%s/x2000.jpg", first, cid),
+				X640:    fmt.Sprintf("%s/content/%s/640x.jpg", first, cid),
+				X2000:   fmt.Sprintf("%s/content/%s/2000x.jpg", first, cid),
 				Mirrors: rest,
 			}
 		}
@@ -79,10 +80,17 @@ func (q *Queries) FullUsers(ctx context.Context, arg GetUsersParams) ([]FullUser
 			}
 		}
 
+		var artistPickTrackID *string
+		if user.ArtistPickTrackID != nil {
+			id, _ := trashid.EncodeHashId(int(*user.ArtistPickTrackID))
+			artistPickTrackID = &id
+		}
+
 		fullUsers[idx] = FullUser{
-			GetUsersRow:    user,
-			CoverPhoto:     coverPhoto,
-			ProfilePicture: profilePicture,
+			GetUsersRow:       user,
+			ArtistPickTrackID: artistPickTrackID,
+			CoverPhoto:        coverPhoto,
+			ProfilePicture:    profilePicture,
 		}
 	}
 

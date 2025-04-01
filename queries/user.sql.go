@@ -59,23 +59,23 @@ SELECT
 
   -- total_balance
   (
-    coalesce(balance, '0')::numeric +
-    coalesce(associated_wallets_balance, '0')::numeric +
+    coalesce(balance, '0')::NUMERIC +
+    coalesce(associated_wallets_balance, '0')::NUMERIC +
     -- to wei
-    (coalesce(associated_sol_wallets_balance, '0')::numeric * 10^10) +
-    (coalesce(waudio, '0')::numeric * 10^10)
-  )::numeric::text as total_balance,
+    (coalesce(associated_sol_wallets_balance, '0')::NUMERIC * 10^10) +
+    (coalesce(waudio, '0')::NUMERIC * 10^10)
+  )::NUMERIC::TEXT AS total_balance,
 
   -- total_audio_balance,
-  (
+  FLOOR(
     (
-      coalesce(balance, '0')::numeric +
-      coalesce(associated_wallets_balance, '0')::numeric +
+      coalesce(balance, '0')::NUMERIC +
+      coalesce(associated_wallets_balance, '0')::NUMERIC +
       -- to wei
-      (coalesce(associated_sol_wallets_balance, '0')::numeric * 10^10) +
-      (coalesce(waudio, '0')::numeric * 10^10)
+      (coalesce(associated_sol_wallets_balance, '0')::NUMERIC * 10^10) +
+      (coalesce(waudio, '0')::NUMERIC * 10^10)
     ) / 1e18
-  )::int as total_audio_balance,
+  )::INT AS total_audio_balance,
 
   coalesce(waudio, '0') as waudio_balance,
   coalesce(associated_sol_wallets_balance, '0') as associated_sol_wallets_balance,

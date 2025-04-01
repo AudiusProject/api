@@ -15,6 +15,7 @@ import (
 	"github.com/gofiber/contrib/fiberzap/v2"
 	"github.com/gofiber/fiber/v2"
 	"github.com/gofiber/fiber/v2/middleware/cors"
+	"github.com/gofiber/fiber/v2/middleware/recover"
 	"github.com/jackc/pgx/v5"
 	"go.uber.org/zap"
 	"go.uber.org/zap/zapcore"
@@ -76,6 +77,7 @@ func NewApiServer(config Config) *ApiServer {
 		logger,
 	}
 
+	app.Use(recover.New())
 	app.Use(cors.New())
 
 	app.Use(fiberzap.New(fiberzap.Config{
@@ -175,6 +177,11 @@ func errorHandler(logger *zap.Logger) func(*fiber.Ctx, error) error {
 		code := http.StatusInternalServerError
 		if err == pgx.ErrNoRows {
 			code = http.StatusNotFound
+		}
+
+		if code > 499 {
+			logger.Error(err.Error(),
+				zap.String("url", ctx.OriginalURL()))
 		}
 
 		return ctx.Status(code).JSON(&fiber.Map{
