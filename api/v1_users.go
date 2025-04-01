@@ -134,28 +134,21 @@ func (app *ApiServer) v1UsersSupporting(c *fiber.Ctx) error {
 	}
 
 	sql := `
-	WITH ranked_donations AS (
-		SELECT
-			sender_user_id,
-			receiver_user_id,
-			MAX(amount) AS amount,
-			RANK() OVER (
-				PARTITION BY receiver_user_id
-				ORDER BY MAX(amount) DESC
-			) AS rank
-		FROM aggregate_user_tips
-		JOIN users ON receiver_user_id = user_id
-		WHERE is_deactivated = false
-		GROUP BY receiver_user_id, sender_user_id
-	)
 	SELECT
 		sender_user_id,
 		receiver_user_id,
-		ranked_donations.amount || '0000000000' as amount,
-		rank
-	FROM ranked_donations
+		amount || '0000000000' as amount,
+		(
+			SELECT count(*) + 1
+			FROM aggregate_user_tips b
+			WHERE b.receiver_user_id = a.receiver_user_id
+			  AND b.amount > a.amount
+		) as rank
+	FROM aggregate_user_tips a
+	JOIN users ON a.receiver_user_id = user_id
 	WHERE sender_user_id = @userId
-	ORDER BY ranked_donations.amount DESC, receiver_user_id ASC
+	AND is_deactivated = false
+	ORDER BY amount DESC, receiver_user_id ASC
 	LIMIT @limit
 	OFFSET @offset
 	`
