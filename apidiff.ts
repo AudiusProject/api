@@ -11,9 +11,12 @@ async function fetchJson(url: string): Promise<any> {
   if (Array.isArray(resp.data)) {
     const keyedData = resp.data.reduce(
       (acc: Record<string, any>, item: any) => {
-        if (item.id) {
-          acc[item.id] = item;
+        const id = item.id || item.receiver?.id;
+        if (!id) {
+          console.log("unable to key", item);
+          throw new Error(`unalbe to key item`);
         }
+        acc[id] = item;
         return acc;
       },
       {}
@@ -50,7 +53,10 @@ const testPaths = [
 
   // "/v1/full/users/PWgX8NR/followers?limit=15&offset=0&user_id=aNzoj",
   // "/v1/full/users/PWgX8NR/following?limit=15&offset=0&user_id=aNzoj"
-  "/v1/full/users/PWgX8NR/mutuals?limit=5&offset=0&user_id=aNzoj",
+  // "/v1/full/users/PWgX8NR/mutuals?limit=5&offset=0&user_id=aNzoj",
+
+  "/v1/full/users/7KVbP/supporting?limit=100&offset=0&user_id=aNzoj",
+  // "/v1/full/users/7KVbP/supporters?limit=100&offset=0&user_id=aNzoj",
 
   // "/v1/full/playlists/P5abMZp/reposts?limit=15&offset=0&user_id=aNzoj",
   // "/v1/full/playlists/P5abMZp/favorites?limit=15&offset=0&user_id=aNzoj",
