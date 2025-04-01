@@ -167,19 +167,11 @@ func TestHome(t *testing.T) {
 }
 
 func TestGetUser(t *testing.T) {
-	status, body := testGet(t, "/v2/users/rayjacobson")
+	status, body := testGet(t, "/v1/full/users?id=1")
 	assert.Equal(t, 200, status)
 	assert.True(t, strings.Contains(string(body), `"handle":"rayjacobson"`))
 	assert.True(t, strings.Contains(string(body), `"user_id":1`))
 	assert.True(t, strings.Contains(string(body), `"id":"7eP5n"`))
-}
-
-func TestGetBadUser(t *testing.T) {
-	status, _ := testGet(t, "/v2/users/badguy")
-	assert.Equal(t, 404, status)
-
-	status, _ = testGet(t, "/v2/users/no_exist")
-	assert.Equal(t, 404, status)
 }
 
 func testGet(t *testing.T, path string) (int, []byte) {

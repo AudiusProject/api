@@ -85,9 +85,9 @@ func NewApiServer(config Config) *ApiServer {
 	}))
 
 	app.Get("/", app.home)
-	app.Get("/v2/users/:handle", app.getUser)
-	app.Get("/v1/full/users", app.getUsers)
-	app.Get("/v1/full/tracks", app.getTracks)
+	app.Get("/v1/full/users", app.v1Users)
+	app.Get("/v1/full/tracks", app.v1Tracks)
+	app.Get("/v1/full/playlists", app.v1playlists)
 
 	// gracefully handle 404
 	app.Use(func(c *fiber.Ctx) error {
@@ -109,69 +109,6 @@ type ApiServer struct {
 
 func (app *ApiServer) home(c *fiber.Ctx) error {
 	return c.SendString("OK")
-}
-
-func (app *ApiServer) getUsers(c *fiber.Ctx) error {
-	myId, _ := trashid.DecodeHashId(c.Query("user_id"))
-	ids := decodeIdList(c)
-
-	if len(ids) == 0 {
-		return c.Status(400).JSON(fiber.Map{
-			"status": 400,
-			"error":  "id query param required",
-		})
-	}
-
-	users, err := app.queries.FullUsers(c.Context(), queries.GetUsersParams{
-		MyID: int32(myId),
-		Ids:  ids,
-	})
-	if err != nil {
-		return err
-	}
-
-	return c.JSON(fiber.Map{
-		"data": users,
-	})
-}
-
-func (app *ApiServer) getTracks(c *fiber.Ctx) error {
-	myId, _ := trashid.DecodeHashId(c.Query("user_id"))
-	ids := decodeIdList(c)
-
-	tracks, err := app.queries.FullTracks(c.Context(), queries.GetTracksParams{
-		MyID: int32(myId),
-		Ids:  ids,
-	})
-	if err != nil {
-		return err
-	}
-	return c.JSON(fiber.Map{
-		"data": tracks,
-	})
-}
-
-func (app *ApiServer) getUser(c *fiber.Ctx) error {
-	// todo: hashid decode crap
-	myId, _ := strconv.Atoi(c.Query("user_id"))
-
-	handle := c.Params("handle")
-	users, err := app.queries.FullUsers(c.Context(), queries.GetUsersParams{
-		MyID:   int32(myId),
-		Handle: handle,
-	})
-	if err != nil {
-		return err
-	}
-	if len(users) == 0 {
-		return pgx.ErrNoRows
-	}
-
-	user := users[0]
-
-	return c.JSON(fiber.Map{
-		"data": user,
-	})
 }
 
 func errorHandler(logger *zap.Logger) func(*fiber.Ctx, error) error {
