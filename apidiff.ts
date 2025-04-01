@@ -43,7 +43,17 @@ const testPaths = [
   // "/v1/full/tracks?id=ZaXp01y&user_id=aNzoj&api_key=8acf5eb7436ea403ee536a7334faa5e9ada4b50f&app_name=audius-client",
   // "/v1/full/tracks?id=ZaXp01y&id=5zdbywJ&id=Pb4MbAX&id=YVog04p&id=7Mv7ZMP&id=g5yzMy2&id=P7dlqNR&id=RR7krAG&id=O7OdxYV&id=72oXyvr&id=jYWyGG0&id=W6KOm8k&id=Xj554dq&id=gbOmq7k&id=G0z4Ap7&id=Yo0XYMm&id=80jlRwP&id=X63z9Wq&id=lZYWRKb&id=JEz6V0o&id=JZq6550&id=b9rbNdM&id=yy71xr7&id=JGNob5Z&id=VpxQ2Aa&id=qGbEZdz&id=B94qO0j&id=oRGgBka&id=jzwlVj0&id=Y5PNmOr&id=5zRm7dx&id=r3KjOg&id=WVP8qav&id=Nvayj1Y&id=V6GZJ3b&id=YoWO0MJ&id=JboVK8Y&id=9bbRG02&id=QRgjAJR&id=gWaBbkW&id=79q1xY7&id=51o1r9J&id=AMJ7d3k&id=O6ZKK0V&id=RpVzBx1&id=VPdaGdQ&id=lv7Obol&id=GQpBNxw&id=83xb96v&id=BJoM2Qx&id=bQoMKlK&id=8E1QjMW&id=O5OVlK4&id=63Gz0yQ&user_id=aNzoj&api_key=8acf5eb7436ea403ee536a7334faa5e9ada4b50f&app_name=audius-client",
 
-  "/v1/full/playlists?id=K99x4MB&id=Akkz9wv&id=kKdggMN&id=k2J9Na3&id=NVr4gVN&id=1E87V7Q&user_id=aNzoj&api_key=8acf5eb7436ea403ee536a7334faa5e9ada4b50f&app_name=audius-client",
+  // "/v1/full/playlists?id=K99x4MB&id=Akkz9wv&id=kKdggMN&id=k2J9Na3&id=NVr4gVN&id=1E87V7Q&user_id=aNzoj&api_key=8acf5eb7436ea403ee536a7334faa5e9ada4b50f&app_name=audius-client",
+
+  // "/v1/full/tracks/OvyMAV1/reposts?limit=15&offset=0&user_id=aNzoj&api_key=8acf5eb7436ea403ee536a7334faa5e9ada4b50f&app_name=audius-client",
+  "/v1/full/tracks/0dgQM/favorites?limit=15&offset=0&user_id=aNzoj&api_key=8acf5eb7436ea403ee536a7334faa5e9ada4b50f&app_name=audius-client",
+
+  // "/v1/full/users/PWgX8NR/followers?limit=15&offset=0&user_id=aNzoj&api_key=8acf5eb7436ea403ee536a7334faa5e9ada4b50f&app_name=audius-client",
+
+  // "/v1/full/users/PWgX8NR/following?limit=15&offset=0&user_id=aNzoj&api_key=8acf5eb7436ea403ee536a7334faa5e9ada4b50f&app_name=audius-client"
+
+  // "/v1/full/playlists/P5abMZp/reposts?limit=15&offset=0&user_id=aNzoj&api_key=8acf5eb7436ea403ee536a7334faa5e9ada4b50f&app_name=audius-client",
+  // "/v1/full/playlists/P5abMZp/favorites?limit=15&offset=0&user_id=aNzoj&api_key=8acf5eb7436ea403ee536a7334faa5e9ada4b50f&app_name=audius-client",
 ];
 
 for (const path of testPaths) {

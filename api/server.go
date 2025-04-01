@@ -86,9 +86,18 @@ func NewApiServer(config Config) *ApiServer {
 	}))
 
 	app.Get("/", app.home)
+
 	app.Get("/v1/full/users", app.v1Users)
+	app.Get("/v1/full/users/:userId/followers", app.v1UsersFollowers)
+	app.Get("/v1/full/users/:userId/following", app.v1UsersFollowing)
+
 	app.Get("/v1/full/tracks", app.v1Tracks)
+	app.Get("/v1/full/tracks/:trackId/reposts", app.v1TrackReposts)
+	app.Get("/v1/full/tracks/:trackId/favorites", app.v1TrackFavorites)
+
 	app.Get("/v1/full/playlists", app.v1playlists)
+	app.Get("/v1/full/playlists/:playlistId/reposts", app.v1PlaylistsReposts)
+	app.Get("/v1/full/playlists/:playlistId/favorites", app.v1PlaylistsFavorites)
 
 	// gracefully handle 404
 	app.Use(func(c *fiber.Ctx) error {
