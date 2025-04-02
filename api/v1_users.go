@@ -148,7 +148,7 @@ func (app *ApiServer) v1UsersSupporting(c *fiber.Ctx) error {
 	JOIN users ON a.receiver_user_id = user_id
 	WHERE sender_user_id = @userId
 	AND is_deactivated = false
-	ORDER BY amount DESC, receiver_user_id ASC
+	ORDER BY a.amount DESC, receiver_user_id ASC
 	LIMIT @limit
 	OFFSET @offset
 	`

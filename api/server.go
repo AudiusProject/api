@@ -15,6 +15,7 @@ import (
 	"github.com/gofiber/contrib/fiberzap/v2"
 	"github.com/gofiber/fiber/v2"
 	"github.com/gofiber/fiber/v2/middleware/cors"
+	"github.com/gofiber/fiber/v2/middleware/proxy"
 	"github.com/gofiber/fiber/v2/middleware/recover"
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgxpool"
@@ -101,7 +102,26 @@ func NewApiServer(config Config) *ApiServer {
 	app.Get("/v1/full/playlists/:playlistId/reposts", app.v1PlaylistsReposts)
 	app.Get("/v1/full/playlists/:playlistId/favorites", app.v1PlaylistsFavorites)
 
+	// proxy unhandled requests thru to existing discovery API
+	{
+		upstreams := []string{
+			"https://discoveryprovider.audius.co",
+			"https://discoveryprovider2.audius.co",
+			"https://discoveryprovider3.audius.co",
+		}
+		if os.Getenv("ENV") == "stage" {
+			upstreams = []string{
+				"https://discoveryprovider.staging.audius.co",
+				"https://discoveryprovider2.staging.audius.co",
+				"https://discoveryprovider3.staging.audius.co",
+				"https://discoveryprovider5.staging.audius.co",
+			}
+		}
+		app.Use(proxy.BalancerForward(upstreams))
+	}
+
 	// gracefully handle 404
+	// (this won't get hit so long as above proxy is in place)
 	app.Use(func(c *fiber.Ctx) error {
 		return c.Status(http.StatusNotFound).JSON(fiber.Map{
 			"code":  http.StatusNotFound,
