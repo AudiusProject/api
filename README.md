@@ -24,6 +24,14 @@ http://localhost:1323/v2/users/stereosteve
 
 > This will watch sql files + re-run `sqlc generate` + restart server when go files change.
 
+
+## API diff
+
+test diffs from v1/ endpoints
+```
+make apidiff
+```
+
 ## Schema dump
 
 ```

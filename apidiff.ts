@@ -1,4 +1,4 @@
-// deno run -A apidiff.ts
+// npx deno run -A apidiff.ts
 
 import { assertEquals } from "jsr:@std/assert";
 
@@ -14,7 +14,7 @@ async function fetchJson(url: string): Promise<any> {
         const id = item.id || item.receiver?.id;
         if (!id) {
           console.log("unable to key", item);
-          throw new Error(`unalbe to key item`);
+          throw new Error(`unable to key item`);
         }
         acc[id] = item;
         return acc;

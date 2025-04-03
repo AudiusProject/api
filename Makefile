@@ -17,3 +17,6 @@ psql::
 setup::
 	go install github.com/bokwoon95/wgo@latest
 	go install -v github.com/sqlc-dev/sqlc/cmd/sqlc@latest
+
+apidiff::
+	npx deno run -A apidiff.ts

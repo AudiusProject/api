@@ -11,94 +11,47 @@ import (
 	"github.com/jackc/pgx/v5/pgtype"
 )
 
-const getDeveloperAppByAddress = `-- name: GetDeveloperAppByAddress :one
+const getDeveloperApps = `-- name: GetDeveloperApps :many
 SELECT
   address,
-  blockhash,
-  blocknumber,
   user_id,
   name,
-  is_personal_access,
-  is_delete,
-  created_at,
-  txhash,
-  is_current,
-  updated_at,
   description,
   image_url
 FROM developer_apps
 WHERE 
-  LOWER(address) = LOWER($1)
-  AND is_current = true
-  AND is_delete = false
-LIMIT 1
-`
-
-func (q *Queries) GetDeveloperAppByAddress(ctx context.Context, address string) (DeveloperApp, error) {
-	row := q.db.QueryRow(ctx, getDeveloperAppByAddress, address)
-	var i DeveloperApp
-	err := row.Scan(
-		&i.Address,
-		&i.Blockhash,
-		&i.Blocknumber,
-		&i.UserID,
-		&i.Name,
-		&i.IsPersonalAccess,
-		&i.IsDelete,
-		&i.CreatedAt,
-		&i.Txhash,
-		&i.IsCurrent,
-		&i.UpdatedAt,
-		&i.Description,
-		&i.ImageUrl,
-	)
-	return i, err
-}
-
-const getDeveloperAppsByUser = `-- name: GetDeveloperAppsByUser :many
-SELECT
-  address,
-  blockhash,
-  blocknumber,
-  user_id,
-  name,
-  is_personal_access,
-  is_delete,
-  created_at,
-  txhash,
-  is_current,
-  updated_at,
-  description,
-  image_url
-FROM developer_apps
-WHERE 
-  user_id = $1
+  (user_id = $1 OR address = $2)
   AND is_current = true
   AND is_delete = false
 ORDER BY created_at DESC
 `
 
-func (q *Queries) GetDeveloperAppsByUser(ctx context.Context, userID *int32) ([]DeveloperApp, error) {
-	rows, err := q.db.Query(ctx, getDeveloperAppsByUser, userID)
+type GetDeveloperAppsParams struct {
+	UserID  *int32 `json:"user_id"`
+	Address string `json:"address"`
+}
+
+type GetDeveloperAppsRow struct {
+	Address     string  `json:"address"`
+	UserID      *int32  `json:"user_id"`
+	Name        string  `json:"name"`
+	Description *string `json:"description"`
+	ImageUrl    *string `json:"image_url"`
+}
+
+func (q *Queries) GetDeveloperApps(ctx context.Context, arg GetDeveloperAppsParams) ([]GetDeveloperAppsRow, error) {
+	rows, err := q.db.Query(ctx, getDeveloperApps, arg.UserID, arg.Address)
 	if err != nil {
 		return nil, err
 	}
 	defer rows.Close()
-	var items []DeveloperApp
+	var items []GetDeveloperAppsRow
 	for rows.Next() {
-		var i DeveloperApp
+		var i GetDeveloperAppsRow
 		if err := rows.Scan(
 			&i.Address,
-			&i.Blockhash,
-			&i.Blocknumber,
 			&i.UserID,
 			&i.Name,
-			&i.IsPersonalAccess,
-			&i.IsDelete,
-			&i.CreatedAt,
-			&i.Txhash,
-			&i.IsCurrent,
-			&i.UpdatedAt,
 			&i.Description,
 			&i.ImageUrl,
 		); err != nil {
@@ -112,7 +65,7 @@ func (q *Queries) GetDeveloperAppsByUser(ctx context.Context, userID *int32) ([]
 	return items, nil
 }
 
-const getDeveloperAppsWithGrantForUser = `-- name: GetDeveloperAppsWithGrantForUser :many
+const getDeveloperAppsWithGrants = `-- name: GetDeveloperAppsWithGrants :many
 SELECT
   developer_apps.address,
   developer_apps.name,
@@ -124,7 +77,7 @@ SELECT
 FROM developer_apps
 LEFT JOIN grants ON grants.grantee_address = developer_apps.address
 WHERE
-  grants.user_id = $1
+  (grants.user_id = $1 OR developer_apps.address = $2)
   AND grants.is_revoked = false
   AND grants.is_current = true
   AND developer_apps.is_current = true
@@ -132,7 +85,12 @@ WHERE
 ORDER BY grants.updated_at ASC
 `
 
-type GetDeveloperAppsWithGrantForUserRow struct {
+type GetDeveloperAppsWithGrantsParams struct {
+	UserID  int32  `json:"user_id"`
+	Address string `json:"address"`
+}
+
+type GetDeveloperAppsWithGrantsRow struct {
 	Address        string           `json:"address"`
 	Name           string           `json:"name"`
 	Description    *string          `json:"description"`
@@ -142,15 +100,15 @@ type GetDeveloperAppsWithGrantForUserRow struct {
 	GrantUpdatedAt pgtype.Timestamp `json:"grant_updated_at"`
 }
 
-func (q *Queries) GetDeveloperAppsWithGrantForUser(ctx context.Context, userID int32) ([]GetDeveloperAppsWithGrantForUserRow, error) {
-	rows, err := q.db.Query(ctx, getDeveloperAppsWithGrantForUser, userID)
+func (q *Queries) GetDeveloperAppsWithGrants(ctx context.Context, arg GetDeveloperAppsWithGrantsParams) ([]GetDeveloperAppsWithGrantsRow, error) {
+	rows, err := q.db.Query(ctx, getDeveloperAppsWithGrants, arg.UserID, arg.Address)
 	if err != nil {
 		return nil, err
 	}
 	defer rows.Close()
-	var items []GetDeveloperAppsWithGrantForUserRow
+	var items []GetDeveloperAppsWithGrantsRow
 	for rows.Next() {
-		var i GetDeveloperAppsWithGrantForUserRow
+		var i GetDeveloperAppsWithGrantsRow
 		if err := rows.Scan(
 			&i.Address,
 			&i.Name,

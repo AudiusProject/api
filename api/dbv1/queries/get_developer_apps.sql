@@ -1,48 +1,18 @@
--- name: GetDeveloperAppByAddress :one
+-- name: GetDeveloperApps :many
 SELECT
   address,
-  blockhash,
-  blocknumber,
   user_id,
   name,
-  is_personal_access,
-  is_delete,
-  created_at,
-  txhash,
-  is_current,
-  updated_at,
   description,
   image_url
 FROM developer_apps
 WHERE 
-  LOWER(address) = LOWER(@address)
-  AND is_current = true
-  AND is_delete = false
-LIMIT 1;
-
--- name: GetDeveloperAppsByUser :many
-SELECT
-  address,
-  blockhash,
-  blocknumber,
-  user_id,
-  name,
-  is_personal_access,
-  is_delete,
-  created_at,
-  txhash,
-  is_current,
-  updated_at,
-  description,
-  image_url
-FROM developer_apps
-WHERE 
-  user_id = @user_id
+  (user_id = @user_id OR address = @address)
   AND is_current = true
   AND is_delete = false
 ORDER BY created_at DESC;
 
--- name: GetDeveloperAppsWithGrantForUser :many
+-- name: GetDeveloperAppsWithGrants :many
 SELECT
   developer_apps.address,
   developer_apps.name,
@@ -54,7 +24,7 @@ SELECT
 FROM developer_apps
 LEFT JOIN grants ON grants.grantee_address = developer_apps.address
 WHERE
-  grants.user_id = @user_id
+  (grants.user_id = @user_id OR developer_apps.address = @address)
   AND grants.is_revoked = false
   AND grants.is_current = true
   AND developer_apps.is_current = true
