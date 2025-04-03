@@ -63,6 +63,7 @@ func TestMain(m *testing.M) {
 
 	insertFixtures("users", userBaseRow, "testdata/user_fixtures.csv")
 	insertFixtures("tracks", trackBaseRow, "testdata/track_fixtures.csv")
+	insertFixtures("playlists", playlistBaseRow, "testdata/playlist_fixtures.csv")
 	insertFixtures("follows", followBaseRow, "testdata/follow_fixtures.csv")
 	insertFixtures("reposts", repostBaseRow, "testdata/repost_fixtures.csv")
 	insertFixtures("developer_apps", developerAppBaseRow, "testdata/developer_app_fixtures.csv")
@@ -90,6 +91,10 @@ func Test200(t *testing.T) {
 		"/v1/full/tracks?id=eYJyn",
 		"/v1/full/tracks/eYJyn/reposts",
 		"/v1/full/tracks/eYJyn/favorites",
+
+		"/v1/full/playlists?id=7eP5n",
+		"/v1/full/playlists/7eP5n/reposts",
+		"/v1/full/playlists/7eP5n/favorites",
 	}
 
 	for _, u := range urls {
