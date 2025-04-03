@@ -3,7 +3,7 @@
 //   sqlc v1.28.0
 // source: get_users.sql
 
-package queries
+package dbv1
 
 import (
 	"context"

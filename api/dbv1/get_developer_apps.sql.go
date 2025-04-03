@@ -3,7 +3,7 @@
 //   sqlc v1.28.0
 // source: get_developer_apps.sql
 
-package queries
+package dbv1
 
 import (
 	"context"
