@@ -76,6 +76,20 @@ var (
 		"slot":                500,
 		"is_repost_of_repost": false,
 	}
+
+	developerAppBaseRow = map[string]any{
+		"blockhash":   "block1",
+		"blocknumber": 101,
+		"user_id":     nil,
+		"address":     "0x7d7b6b7a97d1deefe3a1ccc5a13c48e8f055e0b6",
+		"name":        "Test Developer App",
+		"description": "Test Description",
+		"created_at":  time.Now(),
+		"txhash":      "tx123",
+		"is_current":  true,
+		"updated_at":  time.Now(),
+		"image_url":   nil,
+	}
 )
 
 func insertFixtures(table string, baseRow map[string]any, csvFile string) {

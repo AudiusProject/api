@@ -65,6 +65,7 @@ func TestMain(m *testing.M) {
 	insertFixtures("tracks", trackBaseRow, "testdata/track_fixtures.csv")
 	insertFixtures("follows", followBaseRow, "testdata/follow_fixtures.csv")
 	insertFixtures("reposts", repostBaseRow, "testdata/repost_fixtures.csv")
+	insertFixtures("developer_apps", developerAppBaseRow, "testdata/developer_app_fixtures.csv")
 
 	code := m.Run()
 
@@ -158,6 +159,20 @@ func TestGetTracks(t *testing.T) {
 		assert.Equal(t, 135.0, track.DownloadConditions.UsdcPurchase.Price)
 
 	}
+}
+
+func TestGetDeveloperAppsQueries(t *testing.T) {
+	userId := int32(1)
+	developerApps, err := app.queries.GetDeveloperAppsByUser(t.Context(), &userId)
+	assert.NoError(t, err)
+	assert.Len(t, developerApps, 1)
+	assert.Equal(t, "0x7d7b6b7a97d1deefe3a1ccc5a13c48e8f055e0b6", developerApps[0].Address)
+}
+
+func TestGetDeveloperApp(t *testing.T) {
+	status, body := testGet(t, "/v1/developer_apps/0x7d7b6b7a97d1deefe3a1ccc5a13c48e8f055e0b6")
+	assert.Equal(t, 200, status)
+	assert.True(t, strings.Contains(string(body), `"user_id":"7eP5n"`))
 }
 
 func TestHome(t *testing.T) {
