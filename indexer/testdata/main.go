@@ -2,17 +2,19 @@ package main
 
 import (
 	"context"
+	"encoding/binary"
 	"fmt"
 	"os"
 
 	"github.com/AudiusProject/audiusd/pkg/core/gen/core_proto"
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgxpool"
-	_ "github.com/joho/godotenv/autoload"
 	"google.golang.org/protobuf/proto"
+
+	_ "github.com/joho/godotenv/autoload"
 )
 
-func main() {
+func writeStuff() {
 	ctx := context.Background()
 	dbUrl := os.Getenv("discoveryDbUrl")
 	pool, err := pgxpool.New(context.Background(), dbUrl)
@@ -20,9 +22,15 @@ func main() {
 		panic(err)
 	}
 
-	startBlock := 0
+	file, err := os.Create("indexer/testdata/take1.pb")
+	if err != nil {
+		panic(err)
+	}
 
-	for {
+	startBlock := 0
+	count := 0
+
+	for startBlock < 5000 {
 		fmt.Println("START BLOCK", startBlock)
 
 		rows, err := pool.Query(ctx, `
@@ -30,7 +38,7 @@ func main() {
 		from core_transactions
 		where block_id > $1
 		order by block_id asc
-		limit 100`, startBlock)
+		limit 1000`, startBlock)
 		if err != nil {
 			panic(err)
 		}
@@ -40,6 +48,16 @@ func main() {
 		_, err = pgx.ForEachRow(rows, []any{&blockId, &pb}, func() error {
 			startBlock = blockId
 
+			// Serialize the protobuf message length and data to the file
+			length := uint32(len(pb))
+			if err := binary.Write(file, binary.LittleEndian, length); err != nil {
+				return err
+			}
+			if _, err := file.Write(pb); err != nil {
+				return err
+			}
+			count++
+
 			var signedTx core_proto.SignedTransaction
 			if err := proto.Unmarshal(pb, &signedTx); err != nil {
 				return err
@@ -47,11 +65,13 @@ func main() {
 
 			switch signedTx.GetTransaction().(type) {
 			case *core_proto.SignedTransaction_Plays:
-				play := signedTx.GetPlays()
-				fmt.Println("PLAY", play)
+				// play := signedTx.GetPlays()
+				// fmt.Println("PLAY", play)
 			case *core_proto.SignedTransaction_ManageEntity:
-				em := signedTx.GetManageEntity()
-				fmt.Println("EM", em)
+				// em := signedTx.GetManageEntity()
+				// fmt.Println("-------------")
+				// fmt.Println("EM", em.UserId, em.Action, em.EntityType, em.EntityId)
+				// fmt.Println(em.Metadata)
 			}
 
 			return nil
@@ -61,4 +81,13 @@ func main() {
 		}
 
 	}
+
+	file.Close()
+
+	fmt.Println("WROTE", count)
+}
+
+func main() {
+	writeStuff()
+	// readStuff()
 }
