@@ -6,6 +6,7 @@ import (
 	"io"
 	"net/http/httptest"
 	"os"
+	"strings"
 	"testing"
 
 	"github.com/jackc/pgx/v5"
@@ -76,6 +77,35 @@ func TestHome(t *testing.T) {
 	status, body := testGet(t, "/")
 	assert.Equal(t, 200, status)
 	assert.Equal(t, "OK", string(body))
+}
+
+func Test200(t *testing.T) {
+	urls := []string{
+		"/v1/full/users?id=7eP5n&id=_some_invalid_hash_id",
+		"/v1/full/users/7eP5n/followers",
+		"/v1/full/users/7eP5n/following",
+		"/v1/full/users/7eP5n/mutuals",
+		"/v1/full/users/7eP5n/supporting",
+
+		"/v1/full/tracks?id=eYJyn",
+		"/v1/full/tracks/eYJyn/reposts",
+		"/v1/full/tracks/eYJyn/favorites",
+	}
+
+	for _, u := range urls {
+		status, _ := testGet(t, u)
+		assert.Equal(t, 200, status, u)
+
+		// also test as a user
+		if strings.Contains(u, "?") {
+			u += "&user_id=7eP5n"
+		} else {
+			u += "?user_id=7eP5n"
+		}
+
+		status, _ = testGet(t, u)
+		assert.Equal(t, 200, status, u)
+	}
 }
 
 func testGet(t *testing.T, path string, dest ...any) (int, []byte) {
