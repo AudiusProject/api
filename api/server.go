@@ -88,6 +88,7 @@ func NewApiServer(config Config) *ApiServer {
 
 	app.Get("/", app.home)
 
+	// v1/full
 	app.Get("/v1/full/users", app.v1Users)
 	app.Get("/v1/full/users/:userId/followers", app.v1UsersFollowers)
 	app.Get("/v1/full/users/:userId/following", app.v1UsersFollowing)
@@ -101,6 +102,9 @@ func NewApiServer(config Config) *ApiServer {
 	app.Get("/v1/full/playlists", app.v1playlists)
 	app.Get("/v1/full/playlists/:playlistId/reposts", app.v1PlaylistsReposts)
 	app.Get("/v1/full/playlists/:playlistId/favorites", app.v1PlaylistsFavorites)
+
+	// v1
+	app.Get("/v1/developer_apps/:address", app.v1DeveloperAppByAddress)
 
 	// proxy unhandled requests thru to existing discovery API
 	{

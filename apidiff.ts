@@ -55,11 +55,13 @@ const testPaths = [
   // "/v1/full/users/PWgX8NR/following?limit=15&offset=0&user_id=aNzoj"
   // "/v1/full/users/PWgX8NR/mutuals?limit=5&offset=0&user_id=aNzoj",
 
-  "/v1/full/users/7KVbP/supporting?limit=100&offset=0&user_id=aNzoj",
+  // "/v1/full/users/7KVbP/supporting?limit=100&offset=0&user_id=aNzoj",
   // "/v1/full/users/7KVbP/supporters?limit=100&offset=0&user_id=aNzoj",
 
   // "/v1/full/playlists/P5abMZp/reposts?limit=15&offset=0&user_id=aNzoj",
   // "/v1/full/playlists/P5abMZp/favorites?limit=15&offset=0&user_id=aNzoj",
+
+  "/v1/developer_apps/7d7b6b7a97d1deefe3a1ccc5a13c48e8f055e0b6"
 ];
 
 for (const path of testPaths) {
