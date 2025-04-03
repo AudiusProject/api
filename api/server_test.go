@@ -2,6 +2,7 @@ package api
 
 import (
 	"context"
+	"encoding/json"
 	"io"
 	"net/http/httptest"
 	"os"
@@ -77,10 +78,16 @@ func TestHome(t *testing.T) {
 	assert.Equal(t, "OK", string(body))
 }
 
-func testGet(t *testing.T, path string) (int, []byte) {
+func testGet(t *testing.T, path string, dest ...any) (int, []byte) {
 	req := httptest.NewRequest("GET", path, nil)
 	res, err := app.Test(req, -1)
 	assert.NoError(t, err)
 	body, _ := io.ReadAll(res.Body)
+
+	if len(dest) > 0 {
+		err = json.Unmarshal(body, &dest[0])
+		assert.NoError(t, err)
+	}
+
 	return res.StatusCode, body
 }
