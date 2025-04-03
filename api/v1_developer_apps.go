@@ -1,12 +1,10 @@
 package api
 
 import (
-	"context"
 	"strings"
 
 	"bridgerton.audius.co/trashid"
 	"github.com/gofiber/fiber/v2"
-	"go.uber.org/zap"
 )
 
 func (as *ApiServer) v1DeveloperAppByAddress(c *fiber.Ctx) error {
@@ -20,11 +18,8 @@ func (as *ApiServer) v1DeveloperAppByAddress(c *fiber.Ctx) error {
 		address = "0x" + address
 	}
 
-	developerApp, err := as.queries.GetDeveloperAppByAddress(context.Background(), address)
+	developerApp, err := as.queries.GetDeveloperAppByAddress(c.Context(), address)
 	if err != nil {
-		as.logger.Error("Failed to get developer app",
-			zap.String("address", address),
-			zap.Error(err))
 		return err
 	}
 
