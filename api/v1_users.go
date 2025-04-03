@@ -1,7 +1,7 @@
 package api
 
 import (
-	"bridgerton.audius.co/queries"
+	"bridgerton.audius.co/api/dbv1"
 	"bridgerton.audius.co/trashid"
 	"github.com/gofiber/fiber/v2"
 	"github.com/jackc/pgx/v5"
@@ -18,7 +18,7 @@ func (app *ApiServer) v1Users(c *fiber.Ctx) error {
 		})
 	}
 
-	users, err := app.queries.FullUsers(c.Context(), queries.GetUsersParams{
+	users, err := app.queries.FullUsers(c.Context(), dbv1.GetUsersParams{
 		MyID: int32(myId),
 		Ids:  ids,
 	})
@@ -126,11 +126,11 @@ func (app *ApiServer) v1UsersSupporting(c *fiber.Ctx) error {
 	args["offset"] = c.Query("offset", "0")
 
 	type supportedUser struct {
-		Rank           int              `json:"rank" db:"rank"`
-		SenderUserID   int32            `json:"-" db:"sender_user_id"`
-		ReceiverUserID int32            `json:"-" db:"receiver_user_id"`
-		Amount         string           `json:"amount" db:"amount"`
-		Receiver       queries.FullUser `json:"receiver" db:"-"`
+		Rank           int           `json:"rank" db:"rank"`
+		SenderUserID   int32         `json:"-" db:"sender_user_id"`
+		ReceiverUserID int32         `json:"-" db:"receiver_user_id"`
+		Amount         string        `json:"amount" db:"amount"`
+		Receiver       dbv1.FullUser `json:"receiver" db:"-"`
 	}
 
 	sql := `
@@ -167,7 +167,7 @@ func (app *ApiServer) v1UsersSupporting(c *fiber.Ctx) error {
 	for _, s := range supported {
 		userIds = append(userIds, s.ReceiverUserID)
 	}
-	users, err := app.queries.FullUsers(c.Context(), queries.GetUsersParams{
+	users, err := app.queries.FullUsers(c.Context(), dbv1.GetUsersParams{
 		MyID: myId,
 		Ids:  userIds,
 	})
@@ -175,7 +175,7 @@ func (app *ApiServer) v1UsersSupporting(c *fiber.Ctx) error {
 		return err
 	}
 
-	userMap := map[int32]queries.FullUser{}
+	userMap := map[int32]dbv1.FullUser{}
 	for _, user := range users {
 		userMap[user.UserID] = user
 	}
@@ -207,7 +207,7 @@ func (app *ApiServer) queryFullUsers(c *fiber.Ctx, sql string, args pgx.NamedArg
 		return err
 	}
 
-	users, err := app.queries.FullUsers(c.Context(), queries.GetUsersParams{
+	users, err := app.queries.FullUsers(c.Context(), dbv1.GetUsersParams{
 		MyID: myId,
 		Ids:  userIds,
 	})
@@ -215,7 +215,7 @@ func (app *ApiServer) queryFullUsers(c *fiber.Ctx, sql string, args pgx.NamedArg
 		return err
 	}
 
-	userMap := map[int32]queries.FullUser{}
+	userMap := map[int32]dbv1.FullUser{}
 	for _, user := range users {
 		userMap[user.UserID] = user
 	}

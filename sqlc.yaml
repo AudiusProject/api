@@ -1,15 +1,15 @@
 version: "2"
 sql:
   - engine: "postgresql"
-    queries: "sql/queries"
+    queries: "api/dbv1/queries"
     schema: "sql/schema1.sql"
     gen:
       go:
         emit_pointers_for_null_types: true
         emit_json_tags: true
         json_tags_case_style: snake
-        package: "queries"
-        out: "queries"
+        package: "dbv1"
+        out: "api/dbv1"
         sql_package: "pgx/v5"
         "overrides":
           - column: "users.playlist_library"

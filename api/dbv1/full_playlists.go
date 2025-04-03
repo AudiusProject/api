@@ -1,4 +1,4 @@
-package queries
+package dbv1
 
 import (
 	"context"

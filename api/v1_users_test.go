@@ -4,14 +4,14 @@ import (
 	"strings"
 	"testing"
 
-	"bridgerton.audius.co/queries"
+	"bridgerton.audius.co/api/dbv1"
 	"github.com/stretchr/testify/assert"
 )
 
 func TestUserQuery(t *testing.T) {
 	// as anon
 	{
-		users, err := app.queries.FullUsers(t.Context(), queries.GetUsersParams{
+		users, err := app.queries.FullUsers(t.Context(), dbv1.GetUsersParams{
 			Handle: "rayjacobson",
 		})
 		assert.NoError(t, err)
@@ -25,7 +25,7 @@ func TestUserQuery(t *testing.T) {
 
 	// as stereosteve
 	{
-		users, err := app.queries.FullUsers(t.Context(), queries.GetUsersParams{
+		users, err := app.queries.FullUsers(t.Context(), dbv1.GetUsersParams{
 			MyID:   2,
 			Handle: "rayjacobson",
 		})
@@ -38,7 +38,7 @@ func TestUserQuery(t *testing.T) {
 
 	// stereosteve views stereosteve
 	{
-		users, err := app.queries.FullUsers(t.Context(), queries.GetUsersParams{
+		users, err := app.queries.FullUsers(t.Context(), dbv1.GetUsersParams{
 			MyID: 2,
 			Ids:  []int32{2},
 		})
@@ -51,7 +51,7 @@ func TestUserQuery(t *testing.T) {
 
 	// multiple users
 	{
-		users, err := app.queries.FullUsers(t.Context(), queries.GetUsersParams{
+		users, err := app.queries.FullUsers(t.Context(), dbv1.GetUsersParams{
 			MyID: 2,
 			Ids:  []int32{1, 2, -1},
 		})

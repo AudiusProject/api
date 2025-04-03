@@ -8,7 +8,7 @@ import (
 	"strconv"
 	"time"
 
-	"bridgerton.audius.co/queries"
+	"bridgerton.audius.co/api/dbv1"
 	"bridgerton.audius.co/trashid"
 	adapter "github.com/axiomhq/axiom-go/adapters/zap"
 	"github.com/axiomhq/axiom-go/axiom"
@@ -75,7 +75,7 @@ func NewApiServer(config Config) *ApiServer {
 			ErrorHandler: errorHandler(logger),
 		}),
 		pool,
-		queries.New(pool),
+		dbv1.New(pool),
 		logger,
 	}
 
@@ -139,7 +139,7 @@ func NewApiServer(config Config) *ApiServer {
 type ApiServer struct {
 	*fiber.App
 	pool    *pgxpool.Pool
-	queries *queries.Queries
+	queries *dbv1.Queries
 	logger  *zap.Logger
 }
 

@@ -3,14 +3,14 @@ package api
 import (
 	"testing"
 
-	"bridgerton.audius.co/queries"
+	"bridgerton.audius.co/api/dbv1"
 	"github.com/stretchr/testify/assert"
 )
 
 func TestGetTracks(t *testing.T) {
 	// someone else can only see public tracks
 	{
-		tracks, err := app.queries.FullTracks(t.Context(), queries.GetTracksParams{
+		tracks, err := app.queries.FullTracks(t.Context(), dbv1.GetTracksParams{
 			MyID:    1,
 			OwnerID: 2,
 		})
@@ -21,7 +21,7 @@ func TestGetTracks(t *testing.T) {
 
 	// I can see all my tracks
 	{
-		tracks, err := app.queries.FullTracks(t.Context(), queries.GetTracksParams{
+		tracks, err := app.queries.FullTracks(t.Context(), dbv1.GetTracksParams{
 			MyID:    2,
 			OwnerID: 2,
 		})
@@ -30,7 +30,7 @@ func TestGetTracks(t *testing.T) {
 	}
 
 	{
-		tracks, err := app.queries.FullTracks(t.Context(), queries.GetTracksParams{
+		tracks, err := app.queries.FullTracks(t.Context(), dbv1.GetTracksParams{
 			MyID: 2,
 			Ids:  []int32{301},
 		})
