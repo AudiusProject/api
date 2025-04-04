@@ -62,13 +62,13 @@ func InitLogger(config Config) *zap.Logger {
 	return logger
 }
 
-func Handler(handler func(*fiber.Ctx, bool) error, minResponse bool) fiber.Handler {
+func Min(handler func(*fiber.Ctx, bool) error) fiber.Handler {
 	return func(c *fiber.Ctx) error {
-		return handler(c, minResponse)
+		return handler(c, true)
 	}
 }
 
-func FullHandler(handler func(*fiber.Ctx, bool) error) fiber.Handler {
+func Full(handler func(*fiber.Ctx, bool) error) fiber.Handler {
 	return func(c *fiber.Ctx) error {
 		return handler(c, false)
 	}
@@ -101,38 +101,38 @@ func NewApiServer(config Config) *ApiServer {
 	app.Get("/", app.home)
 
 	// v1/full
-	app.Get("/v1/full/users", FullHandler(app.v1Users))
-	app.Get("/v1/full/users/:userId/followers", FullHandler(app.v1UsersFollowers))
-	app.Get("/v1/full/users/:userId/following", FullHandler(app.v1UsersFollowing))
-	app.Get("/v1/full/users/:userId/mutuals", FullHandler(app.v1UsersMutuals))
-	app.Get("/v1/full/users/:userId/supporting", FullHandler(app.v1UsersSupporting))
+	app.Get("/v1/full/users", Full(app.v1Users))
+	app.Get("/v1/full/users/:userId/followers", Full(app.v1UsersFollowers))
+	app.Get("/v1/full/users/:userId/following", Full(app.v1UsersFollowing))
+	app.Get("/v1/full/users/:userId/mutuals", Full(app.v1UsersMutuals))
+	app.Get("/v1/full/users/:userId/supporting", Full(app.v1UsersSupporting))
 
-	app.Get("/v1/full/tracks", FullHandler(app.v1Tracks))
-	app.Get("/v1/full/tracks/:trackId/reposts", FullHandler(app.v1TrackReposts))
-	app.Get("/v1/full/tracks/:trackId/favorites", FullHandler(app.v1TrackFavorites))
+	app.Get("/v1/full/tracks", Full(app.v1Tracks))
+	app.Get("/v1/full/tracks/:trackId/reposts", Full(app.v1TrackReposts))
+	app.Get("/v1/full/tracks/:trackId/favorites", Full(app.v1TrackFavorites))
 
-	app.Get("/v1/full/playlists", FullHandler(app.v1playlists))
-	app.Get("/v1/full/playlists/:playlistId/reposts", FullHandler(app.v1PlaylistsReposts))
-	app.Get("/v1/full/playlists/:playlistId/favorites", FullHandler(app.v1PlaylistsFavorites))
+	app.Get("/v1/full/playlists", Full(app.v1playlists))
+	app.Get("/v1/full/playlists/:playlistId/reposts", Full(app.v1PlaylistsReposts))
+	app.Get("/v1/full/playlists/:playlistId/favorites", Full(app.v1PlaylistsFavorites))
 
-	app.Get("/v1/full/developer_apps/:address", FullHandler(app.v1DeveloperApps))
+	app.Get("/v1/full/developer_apps/:address", Full(app.v1DeveloperApps))
 
-	// v1 - using the same handlers but with automatic conversion via middleware
-	app.Get("/v1/users", Handler(app.v1Users, true))
-	app.Get("/v1/users/:userId/followers", Handler(app.v1UsersFollowers, true))
-	app.Get("/v1/users/:userId/following", Handler(app.v1UsersFollowing, true))
-	app.Get("/v1/users/:userId/mutuals", Handler(app.v1UsersMutuals, true))
-	app.Get("/v1/users/:userId/supporting", Handler(app.v1UsersSupporting, true))
+	// v1
+	app.Get("/v1/users", Min(app.v1Users))
+	app.Get("/v1/users/:userId/followers", Min(app.v1UsersFollowers))
+	app.Get("/v1/users/:userId/following", Min(app.v1UsersFollowing))
+	app.Get("/v1/users/:userId/mutuals", Min(app.v1UsersMutuals))
+	app.Get("/v1/users/:userId/supporting", Min(app.v1UsersSupporting))
 
-	app.Get("/v1/tracks", Handler(app.v1Tracks, true))
-	app.Get("/v1/tracks/:trackId/reposts", Handler(app.v1TrackReposts, true))
-	app.Get("/v1/tracks/:trackId/favorites", Handler(app.v1TrackFavorites, true))
+	app.Get("/v1/tracks", Min(app.v1Tracks))
+	app.Get("/v1/tracks/:trackId/reposts", Min(app.v1TrackReposts))
+	app.Get("/v1/tracks/:trackId/favorites", Min(app.v1TrackFavorites))
 
-	app.Get("/v1/playlists", Handler(app.v1playlists, true))
-	app.Get("/v1/playlists/:playlistId/reposts", Handler(app.v1PlaylistsReposts, true))
-	app.Get("/v1/playlists/:playlistId/favorites", Handler(app.v1PlaylistsFavorites, true))
+	app.Get("/v1/playlists", Min(app.v1playlists))
+	app.Get("/v1/playlists/:playlistId/reposts", Min(app.v1PlaylistsReposts))
+	app.Get("/v1/playlists/:playlistId/favorites", Min(app.v1PlaylistsFavorites))
 
-	app.Get("/v1/developer_apps/:address", Handler(app.v1DeveloperApps, true))
+	app.Get("/v1/developer_apps/:address", Min(app.v1DeveloperApps))
 
 	// proxy unhandled requests thru to existing discovery API
 	{
