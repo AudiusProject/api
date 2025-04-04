@@ -102,3 +102,83 @@ func squareImageStruct(maybeCids ...*string) SquareImage {
 		Mirrors:    rest,
 	}
 }
+
+type MinUser struct {
+	ID                    string         `json:"id"`
+	AlbumCount            *int64         `json:"album_count"`
+	ArtistPickTrackID     *string        `json:"artist_pick_track_id"`
+	Bio                   *string        `json:"bio"`
+	CoverPhoto            RectangleImage `json:"cover_photo"`
+	FolloweeCount         *int64         `json:"followee_count"`
+	FollowerCount         *int64         `json:"follower_count"`
+	Handle                *string        `json:"handle"`
+	IsVerified            bool           `json:"is_verified"`
+	TwitterHandle         *string        `json:"twitter_handle"`
+	InstagramHandle       *string        `json:"instagram_handle"`
+	TiktokHandle          *string        `json:"tiktok_handle"`
+	VerifiedWithTwitter   *bool          `json:"verified_with_twitter"`
+	VerifiedWithInstagram *bool          `json:"verified_with_instagram"`
+	VerifiedWithTiktok    *bool          `json:"verified_with_tiktok"`
+	Website               *string        `json:"website"`
+	Donation              *string        `json:"donation"`
+	Location              *string        `json:"location"`
+	Name                  *string        `json:"name"`
+	PlaylistCount         *int64         `json:"playlist_count"`
+	ProfilePicture        SquareImage    `json:"profile_picture"`
+	RepostCount           *int64         `json:"repost_count"`
+	TrackCount            *int64         `json:"track_count"`
+	IsDeactivated         bool           `json:"is_deactivated"`
+	IsAvailable           bool           `json:"is_available"`
+	ErcWallet             *string        `json:"erc_wallet"`
+	SplWallet             *string        `json:"spl_wallet"`
+	SplUsdcPayoutWallet   *string        `json:"spl_usdc_payout_wallet"`
+	SupporterCount        int32          `json:"supporter_count"`
+	SupportingCount       int32          `json:"supporting_count"`
+	TotalAudioBalance     int32          `json:"total_audio_balance"`
+	Wallet                *string        `json:"wallet"`
+}
+
+func ToMinUser(fullUser FullUser) MinUser {
+	return MinUser{
+		ID:                    fullUser.ID,
+		AlbumCount:            fullUser.AlbumCount,
+		ArtistPickTrackID:     fullUser.ArtistPickTrackID,
+		Bio:                   fullUser.Bio,
+		CoverPhoto:            fullUser.CoverPhoto,
+		FolloweeCount:         fullUser.FolloweeCount,
+		FollowerCount:         fullUser.FollowerCount,
+		Handle:                fullUser.Handle,
+		IsVerified:            fullUser.IsVerified,
+		TwitterHandle:         fullUser.TwitterHandle,
+		InstagramHandle:       fullUser.InstagramHandle,
+		TiktokHandle:          fullUser.TiktokHandle,
+		VerifiedWithTwitter:   fullUser.VerifiedWithTwitter,
+		VerifiedWithInstagram: fullUser.VerifiedWithInstagram,
+		VerifiedWithTiktok:    fullUser.VerifiedWithTiktok,
+		Website:               fullUser.Website,
+		Donation:              fullUser.Donation,
+		Location:              fullUser.Location,
+		Name:                  fullUser.Name,
+		PlaylistCount:         fullUser.PlaylistCount,
+		ProfilePicture:        fullUser.ProfilePicture,
+		RepostCount:           fullUser.RepostCount,
+		TrackCount:            fullUser.TrackCount,
+		IsDeactivated:         fullUser.IsDeactivated,
+		IsAvailable:           fullUser.IsAvailable,
+		ErcWallet:             fullUser.ErcWallet,
+		SplWallet:             fullUser.SplWallet,
+		SplUsdcPayoutWallet:   fullUser.SplUsdcPayoutWallet,
+		SupporterCount:        fullUser.SupporterCount,
+		SupportingCount:       fullUser.SupportingCount,
+		TotalAudioBalance:     fullUser.TotalAudioBalance,
+		Wallet:                fullUser.Wallet,
+	}
+}
+
+func ToMinUsers(fullUsers []FullUser) []MinUser {
+	result := make([]MinUser, len(fullUsers))
+	for i, user := range fullUsers {
+		result[i] = ToMinUser(user)
+	}
+	return result
+}

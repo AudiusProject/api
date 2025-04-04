@@ -97,3 +97,52 @@ func (q *Queries) FullPlaylists(ctx context.Context, arg GetPlaylistsParams) ([]
 
 	return fullPlaylists, nil
 }
+
+type MinPlaylist struct {
+	ID               string      `json:"id"`
+	PlaylistName     *string     `json:"playlist_name"`
+	PlaylistOwnerID  int32       `json:"playlist_owner_id"`
+	PlaylistID       int32       `json:"playlist_id"`
+	Artwork          SquareImage `json:"artwork"`
+	Description      *string     `json:"description"`
+	PlaylistContents interface{} `json:"playlist_contents"`
+	IsAlbum          bool        `json:"is_album"`
+	IsPrivate        bool        `json:"is_private"`
+	FavoriteCount    int32       `json:"favorite_count"`
+	RepostCount      int32       `json:"repost_count"`
+	UserID           string      `json:"user_id"`
+	User             MinUser     `json:"user"`
+	Tracks           []MinTrack  `json:"tracks"`
+}
+
+func ToMinPlaylist(fullPlaylist FullPlaylist) MinPlaylist {
+	minTracks := make([]MinTrack, len(fullPlaylist.Tracks))
+	for i, track := range fullPlaylist.Tracks {
+		minTracks[i] = ToMinTrack(track)
+	}
+
+	return MinPlaylist{
+		ID:               fullPlaylist.ID,
+		PlaylistName:     fullPlaylist.PlaylistName,
+		PlaylistOwnerID:  fullPlaylist.PlaylistOwnerID,
+		PlaylistID:       fullPlaylist.PlaylistID,
+		Artwork:          fullPlaylist.Artwork,
+		PlaylistContents: fullPlaylist.PlaylistContents,
+		Description:      nil,
+		IsAlbum:          false,
+		IsPrivate:        false,
+		FavoriteCount:    0,
+		RepostCount:      0,
+		UserID:           fullPlaylist.UserID,
+		User:             ToMinUser(fullPlaylist.User),
+		Tracks:           minTracks,
+	}
+}
+
+func ToMinPlaylists(fullPlaylists []FullPlaylist) []MinPlaylist {
+	result := make([]MinPlaylist, len(fullPlaylists))
+	for i, playlist := range fullPlaylists {
+		result[i] = ToMinPlaylist(playlist)
+	}
+	return result
+}

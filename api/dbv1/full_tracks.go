@@ -2,8 +2,10 @@ package dbv1
 
 import (
 	"context"
+	"fmt"
 
 	"bridgerton.audius.co/trashid"
+	"bridgerton.audius.co/utils"
 )
 
 type FullTracksParams GetTracksParams
@@ -60,4 +62,72 @@ func (q *Queries) FullTracks(ctx context.Context, arg GetTracksParams) ([]FullTr
 	}
 
 	return fullTracks, nil
+}
+
+type MinTrack struct {
+	ID                       string        `json:"id"`
+	Title                    *string       `json:"title"`
+	User                     MinUser       `json:"user"`
+	Artwork                  SquareImage   `json:"artwork"`
+	Duration                 *int32        `json:"duration"`
+	Description              *string       `json:"description"`
+	Genre                    *string       `json:"genre"`
+	TrackCid                 *string       `json:"track_cid"`
+	PreviewCid               *string       `json:"preview_cid"`
+	OrigFileCid              *string       `json:"orig_file_cid"`
+	OrigFilename             *string       `json:"orig_filename"`
+	IsOriginalAvailable      bool          `json:"is_original_available"`
+	Mood                     *string       `json:"mood"`
+	ReleaseDate              interface{}   `json:"release_date"`
+	RemixOf                  interface{}   `json:"remix_of"`
+	RepostCount              int32         `json:"repost_count"`
+	FavoriteCount            int32         `json:"favorite_count"`
+	CommentCount             *int32        `json:"comment_count"`
+	Tags                     *string       `json:"tags"`
+	IsDownloadable           bool          `json:"is_downloadable"`
+	PlayCount                *int64        `json:"play_count"`
+	PinnedCommentID          *int32        `json:"pinned_comment_id"`
+	PlaylistsContainingTrack []interface{} `json:"playlists_containing_track"`
+	AlbumBacklink            interface{}   `json:"album_backlink"`
+	IsStreamable             bool          `json:"is_streamable"`
+	Permalink                string        `json:"permalink"`
+}
+
+func ToMinTrack(fullTrack FullTrack) MinTrack {
+	return MinTrack{
+		ID:                       fullTrack.ID,
+		Title:                    fullTrack.Title,
+		User:                     ToMinUser(fullTrack.User),
+		Artwork:                  fullTrack.Artwork,
+		Duration:                 fullTrack.Duration,
+		Description:              fullTrack.Description,
+		Genre:                    fullTrack.Genre,
+		TrackCid:                 fullTrack.TrackCid,
+		PreviewCid:               fullTrack.PreviewCid,
+		OrigFileCid:              fullTrack.OrigFileCid,
+		OrigFilename:             fullTrack.OrigFilename,
+		IsOriginalAvailable:      fullTrack.IsOriginalAvailable,
+		Mood:                     fullTrack.Mood,
+		ReleaseDate:              fullTrack.ReleaseDate,
+		RemixOf:                  fullTrack.RemixOf,
+		RepostCount:              fullTrack.RepostCount,
+		FavoriteCount:            fullTrack.FavoriteCount,
+		CommentCount:             fullTrack.CommentCount,
+		Tags:                     fullTrack.Tags,
+		IsDownloadable:           fullTrack.IsDownloadable,
+		PlayCount:                fullTrack.PlayCount,
+		PinnedCommentID:          fullTrack.PinnedCommentID,
+		PlaylistsContainingTrack: []interface{}{}, // TODO
+		AlbumBacklink:            nil,
+		IsStreamable:             !fullTrack.IsDelete && !fullTrack.User.IsDeactivated,
+		Permalink:                fmt.Sprintf("/%s/%s", utils.String(fullTrack.User.Handle), utils.String(fullTrack.Slug)),
+	}
+}
+
+func ToMinTracks(fullTracks []FullTrack) []MinTrack {
+	result := make([]MinTrack, len(fullTracks))
+	for i, track := range fullTracks {
+		result[i] = ToMinTrack(track)
+	}
+	return result
 }
