@@ -7,7 +7,7 @@ import (
 	"github.com/gofiber/fiber/v2"
 )
 
-func (as *ApiServer) v1DeveloperApps(c *fiber.Ctx) error {
+func (as *ApiServer) v1DeveloperApps(c *fiber.Ctx, minResponse bool) error {
 	address := c.Params("address")
 	if address == "" {
 		return fiber.NewError(fiber.StatusBadRequest, "Missing address parameter")
@@ -27,6 +27,12 @@ func (as *ApiServer) v1DeveloperApps(c *fiber.Ctx) error {
 
 	if len(developerApps) == 0 {
 		return fiber.NewError(fiber.StatusNotFound, "Developer app not found")
+	}
+
+	if minResponse {
+		return c.JSON(fiber.Map{
+			"data": dbv1.ToMinDeveloperApps(developerApps)[0],
+		})
 	}
 
 	return c.JSON(fiber.Map{

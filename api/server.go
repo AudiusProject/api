@@ -6,7 +6,6 @@ import (
 	"os"
 	"os/signal"
 	"strconv"
-	"strings"
 	"time"
 
 	"bridgerton.audius.co/api/dbv1"
@@ -63,6 +62,18 @@ func InitLogger(config Config) *zap.Logger {
 	return logger
 }
 
+func Handler(handler func(*fiber.Ctx, bool) error, minResponse bool) fiber.Handler {
+	return func(c *fiber.Ctx) error {
+		return handler(c, minResponse)
+	}
+}
+
+func FullHandler(handler func(*fiber.Ctx, bool) error) fiber.Handler {
+	return func(c *fiber.Ctx) error {
+		return handler(c, false)
+	}
+}
+
 func NewApiServer(config Config) *ApiServer {
 	logger := InitLogger(config)
 
@@ -90,34 +101,38 @@ func NewApiServer(config Config) *ApiServer {
 	app.Get("/", app.home)
 
 	// v1/full
-	app.Get("/v1/full/users", app.v1Users)
-	app.Get("/v1/full/users/:userId/followers", app.v1UsersFollowers)
-	app.Get("/v1/full/users/:userId/following", app.v1UsersFollowing)
-	app.Get("/v1/full/users/:userId/mutuals", app.v1UsersMutuals)
-	app.Get("/v1/full/users/:userId/supporting", app.v1UsersSupporting)
+	app.Get("/v1/full/users", FullHandler(app.v1Users))
+	app.Get("/v1/full/users/:userId/followers", FullHandler(app.v1UsersFollowers))
+	app.Get("/v1/full/users/:userId/following", FullHandler(app.v1UsersFollowing))
+	app.Get("/v1/full/users/:userId/mutuals", FullHandler(app.v1UsersMutuals))
+	app.Get("/v1/full/users/:userId/supporting", FullHandler(app.v1UsersSupporting))
 
-	app.Get("/v1/full/tracks", app.v1Tracks)
-	app.Get("/v1/full/tracks/:trackId/reposts", app.v1TrackReposts)
-	app.Get("/v1/full/tracks/:trackId/favorites", app.v1TrackFavorites)
+	app.Get("/v1/full/tracks", FullHandler(app.v1Tracks))
+	app.Get("/v1/full/tracks/:trackId/reposts", FullHandler(app.v1TrackReposts))
+	app.Get("/v1/full/tracks/:trackId/favorites", FullHandler(app.v1TrackFavorites))
 
-	app.Get("/v1/full/playlists", app.v1playlists)
-	app.Get("/v1/full/playlists/:playlistId/reposts", app.v1PlaylistsReposts)
-	app.Get("/v1/full/playlists/:playlistId/favorites", app.v1PlaylistsFavorites)
+	app.Get("/v1/full/playlists", FullHandler(app.v1playlists))
+	app.Get("/v1/full/playlists/:playlistId/reposts", FullHandler(app.v1PlaylistsReposts))
+	app.Get("/v1/full/playlists/:playlistId/favorites", FullHandler(app.v1PlaylistsFavorites))
 
-	app.Get("/v1/full/developer_apps/:address", app.v1DeveloperApps)
+	app.Get("/v1/full/developer_apps/:address", FullHandler(app.v1DeveloperApps))
 
 	// v1 - using the same handlers but with automatic conversion via middleware
-	app.Get("/v1/users", app.v1Users)
-	app.Get("/v1/users/:userId/followers", app.v1UsersFollowers)
-	app.Get("/v1/users/:userId/following", app.v1UsersFollowing)
-	app.Get("/v1/users/:userId/mutuals", app.v1UsersMutuals)
-	app.Get("/v1/users/:userId/supporting", app.v1UsersSupporting)
+	app.Get("/v1/users", Handler(app.v1Users, true))
+	app.Get("/v1/users/:userId/followers", Handler(app.v1UsersFollowers, true))
+	app.Get("/v1/users/:userId/following", Handler(app.v1UsersFollowing, true))
+	app.Get("/v1/users/:userId/mutuals", Handler(app.v1UsersMutuals, true))
+	app.Get("/v1/users/:userId/supporting", Handler(app.v1UsersSupporting, true))
 
-	app.Get("/v1/tracks", app.v1Tracks)
-	app.Get("/v1/tracks/:trackId/reposts", app.v1TrackReposts)
-	app.Get("/v1/tracks/:trackId/favorites", app.v1TrackFavorites)
+	app.Get("/v1/tracks", Handler(app.v1Tracks, true))
+	app.Get("/v1/tracks/:trackId/reposts", Handler(app.v1TrackReposts, true))
+	app.Get("/v1/tracks/:trackId/favorites", Handler(app.v1TrackFavorites, true))
 
-	app.Get("/v1/developer_apps/:address", app.v1DeveloperApps)
+	app.Get("/v1/playlists", Handler(app.v1playlists, true))
+	app.Get("/v1/playlists/:playlistId/reposts", Handler(app.v1PlaylistsReposts, true))
+	app.Get("/v1/playlists/:playlistId/favorites", Handler(app.v1PlaylistsFavorites, true))
+
+	app.Get("/v1/developer_apps/:address", Handler(app.v1DeveloperApps, true))
 
 	// proxy unhandled requests thru to existing discovery API
 	{
@@ -158,28 +173,6 @@ type ApiServer struct {
 
 func (app *ApiServer) home(c *fiber.Ctx) error {
 	return c.SendString("OK")
-}
-
-// JSON is a helper function that automatically applies conversion for v1 (non-full) routes
-// If converter is nil, no conversion happens
-func JSON[T any, R any](c *fiber.Ctx, data interface{}, converter func(T) R) error {
-	if converter != nil && strings.HasPrefix(c.Path(), "/v1/") && !strings.HasPrefix(c.Path(), "/v1/full/") {
-		if m, ok := data.(fiber.Map); ok {
-			if dataField, exists := m["data"]; exists {
-				if items, ok := dataField.([]T); ok {
-					converted := make([]R, len(items))
-					for i, item := range items {
-						converted[i] = converter(item)
-					}
-					m["data"] = converted
-				} else if item, ok := dataField.(T); ok {
-					m["data"] = converter(item)
-				}
-			}
-		}
-	}
-
-	return c.JSON(data)
 }
 
 func errorHandler(logger *zap.Logger) func(*fiber.Ctx, error) error {

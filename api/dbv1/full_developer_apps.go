@@ -29,3 +29,21 @@ func (q *Queries) FullDeveloperApps(ctx context.Context, arg GetDeveloperAppsPar
 
 	return fullDeveloperApps, nil
 }
+
+type MinDeveloperApp struct {
+	FullDeveloperApp
+}
+
+func ToMinDeveloperApp(fullDeveloperApp FullDeveloperApp) MinDeveloperApp {
+	return MinDeveloperApp{
+		FullDeveloperApp: fullDeveloperApp,
+	}
+}
+
+func ToMinDeveloperApps(fullDeveloperApps []FullDeveloperApp) []MinDeveloperApp {
+	result := make([]MinDeveloperApp, len(fullDeveloperApps))
+	for i, d := range fullDeveloperApps {
+		result[i] = ToMinDeveloperApp(d)
+	}
+	return result
+}

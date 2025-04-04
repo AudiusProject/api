@@ -8,7 +8,7 @@ import (
 )
 
 // v1Users is a handler that retrieves full user data
-func (app *ApiServer) v1Users(c *fiber.Ctx) error {
+func (app *ApiServer) v1Users(c *fiber.Ctx, minResponse bool) error {
 	myId, _ := trashid.DecodeHashId(c.Query("user_id"))
 	ids := decodeIdList(c)
 
@@ -27,13 +27,18 @@ func (app *ApiServer) v1Users(c *fiber.Ctx) error {
 		return err
 	}
 
-	// Return users with conversion function
-	return JSON(c, fiber.Map{
+	if minResponse {
+		return c.JSON(fiber.Map{
+			"data": dbv1.ToMinUsers(users),
+		})
+	}
+
+	return c.JSON(fiber.Map{
 		"data": users,
-	}, dbv1.ToMinUser)
+	})
 }
 
-func (app *ApiServer) v1UsersFollowers(c *fiber.Ctx) error {
+func (app *ApiServer) v1UsersFollowers(c *fiber.Ctx, minResponse bool) error {
 
 	sql := `
 	SELECT follower_user_id
@@ -55,10 +60,10 @@ func (app *ApiServer) v1UsersFollowers(c *fiber.Ctx) error {
 
 	return app.queryFullUsers(c, sql, pgx.NamedArgs{
 		"userId": userId,
-	})
+	}, minResponse)
 }
 
-func (app *ApiServer) v1UsersFollowing(c *fiber.Ctx) error {
+func (app *ApiServer) v1UsersFollowing(c *fiber.Ctx, minResponse bool) error {
 
 	sql := `
 	SELECT followee_user_id
@@ -80,10 +85,10 @@ func (app *ApiServer) v1UsersFollowing(c *fiber.Ctx) error {
 
 	return app.queryFullUsers(c, sql, pgx.NamedArgs{
 		"userId": userId,
-	})
+	}, minResponse)
 }
 
-func (app *ApiServer) v1UsersMutuals(c *fiber.Ctx) error {
+func (app *ApiServer) v1UsersMutuals(c *fiber.Ctx, minResponse bool) error {
 	myId, _ := trashid.DecodeHashId(c.Query("user_id"))
 
 	sql := `
@@ -109,10 +114,10 @@ func (app *ApiServer) v1UsersMutuals(c *fiber.Ctx) error {
 	return app.queryFullUsers(c, sql, pgx.NamedArgs{
 		"myId":   myId,
 		"userId": userId,
-	})
+	}, minResponse)
 }
 
-func (app *ApiServer) v1UsersSupporting(c *fiber.Ctx) error {
+func (app *ApiServer) v1UsersSupporting(c *fiber.Ctx, minResponse bool) error {
 	myId, _ := trashid.DecodeHashId(c.Query("user_id"))
 
 	userId, err := trashid.DecodeHashId(c.Params("userId"))
@@ -187,12 +192,32 @@ func (app *ApiServer) v1UsersSupporting(c *fiber.Ctx) error {
 		supported[idx] = s
 	}
 
-	return JSON(c, fiber.Map{
+	if minResponse {
+		// Create a new array with MinUsers
+		type minSupportedUser struct {
+			supportedUser
+			Receiver dbv1.MinUser `json:"receiver"`
+		}
+
+		minSupported := make([]minSupportedUser, len(supported))
+		for i, user := range supported {
+			minSupported[i] = minSupportedUser{
+				supportedUser: user,
+				Receiver:      dbv1.ToMinUser(user.Receiver),
+			}
+		}
+
+		return c.JSON(fiber.Map{
+			"data": minSupported,
+		})
+	}
+
+	return c.JSON(fiber.Map{
 		"data": supported,
-	}, dbv1.ToMinUser)
+	})
 }
 
-func (app *ApiServer) queryFullUsers(c *fiber.Ctx, sql string, args pgx.NamedArgs) error {
+func (app *ApiServer) queryFullUsers(c *fiber.Ctx, sql string, args pgx.NamedArgs, minResponse bool) error {
 	myId, _ := trashid.DecodeHashId(c.Query("user_id"))
 
 	args["limit"] = c.Query("limit", "20")
@@ -225,7 +250,13 @@ func (app *ApiServer) queryFullUsers(c *fiber.Ctx, sql string, args pgx.NamedArg
 		users[idx] = userMap[id]
 	}
 
-	return JSON(c, fiber.Map{
+	if minResponse {
+		return c.JSON(fiber.Map{
+			"data": dbv1.ToMinUsers(users),
+		})
+	}
+
+	return c.JSON(fiber.Map{
 		"data": users,
-	}, dbv1.ToMinUser)
+	})
 }
