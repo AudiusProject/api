@@ -6,6 +6,7 @@ import (
 	"os"
 	"os/signal"
 	"strconv"
+	"strings"
 	"time"
 
 	"bridgerton.audius.co/api/dbv1"
@@ -105,8 +106,17 @@ func NewApiServer(config Config) *ApiServer {
 
 	app.Get("/v1/full/developer_apps/:address", app.v1DeveloperApps)
 
-	// v1
-	app.Get("/v1/users", withConverter(dbv1.ToMinUser), app.v1Users)
+	// v1 - using the same handlers but with automatic conversion via middleware
+	app.Get("/v1/users", app.v1Users)
+	app.Get("/v1/users/:userId/followers", app.v1UsersFollowers)
+	app.Get("/v1/users/:userId/following", app.v1UsersFollowing)
+	app.Get("/v1/users/:userId/mutuals", app.v1UsersMutuals)
+	app.Get("/v1/users/:userId/supporting", app.v1UsersSupporting)
+
+	app.Get("/v1/tracks", app.v1Tracks)
+	app.Get("/v1/tracks/:trackId/reposts", app.v1TrackReposts)
+	app.Get("/v1/tracks/:trackId/favorites", app.v1TrackFavorites)
+
 	app.Get("/v1/developer_apps/:address", app.v1DeveloperApps)
 
 	// proxy unhandled requests thru to existing discovery API
@@ -150,6 +160,28 @@ func (app *ApiServer) home(c *fiber.Ctx) error {
 	return c.SendString("OK")
 }
 
+// JSON is a helper function that automatically applies conversion for v1 (non-full) routes
+// If converter is nil, no conversion happens
+func JSON[T any, R any](c *fiber.Ctx, data interface{}, converter func(T) R) error {
+	if converter != nil && strings.HasPrefix(c.Path(), "/v1/") && !strings.HasPrefix(c.Path(), "/v1/full/") {
+		if m, ok := data.(fiber.Map); ok {
+			if dataField, exists := m["data"]; exists {
+				if items, ok := dataField.([]T); ok {
+					converted := make([]R, len(items))
+					for i, item := range items {
+						converted[i] = converter(item)
+					}
+					m["data"] = converted
+				} else if item, ok := dataField.(T); ok {
+					m["data"] = converter(item)
+				}
+			}
+		}
+	}
+
+	return c.JSON(data)
+}
+
 func errorHandler(logger *zap.Logger) func(*fiber.Ctx, error) error {
 	return func(ctx *fiber.Ctx, err error) error {
 		code := http.StatusInternalServerError
@@ -180,13 +212,6 @@ func decodeIdList(c *fiber.Ctx) []int32 {
 		}
 	}
 	return ids
-}
-
-func withConverter[From, To any](converter func(From) To) fiber.Handler {
-	return func(c *fiber.Ctx) error {
-		c.Locals("converter", converter)
-		return c.Next()
-	}
 }
 
 func (as *ApiServer) Serve() {

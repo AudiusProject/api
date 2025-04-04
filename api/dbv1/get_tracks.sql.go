@@ -32,6 +32,7 @@ SELECT
   comment_count,
   tags,
   title,
+  track_routes.slug as slug,
   -- user,
   duration,
   is_downloadable,
@@ -43,7 +44,7 @@ SELECT
   pinned_comment_id,
   -- album_backlink,
   -- access,
-  blocknumber,
+  t.blocknumber,
   create_date,
   t.created_at,
   cover_art_sizes,
@@ -83,8 +84,8 @@ SELECT
   stem_of,
   -- track_segments, todo: can we just get rid of this now?
   t.updated_at,
-  owner_id as user_id,
-  is_delete,
+  t.owner_id as user_id,
+  t.is_delete,
   cover_art,
   is_available,
   ai_attribution_user_id,
@@ -123,12 +124,16 @@ SELECT
 FROM tracks t
 JOIN aggregate_track using (track_id)
 LEFT JOIN aggregate_plays on play_item_id = t.track_id
+LEFT JOIN track_routes using (track_id)
 WHERE is_available = true
-  AND (is_unlisted = false OR owner_id = $1)
+  AND (is_unlisted = false OR t.owner_id = $1)
   AND (
     t.track_id = $2
     OR t.owner_id = $3
     OR t.track_id = ANY($4::int[])
+  )
+  AND (
+    track_routes.is_current = true
   )
 ORDER BY t.track_id
 `
@@ -158,6 +163,7 @@ type GetTracksRow struct {
 	CommentCount                 *int32           `json:"comment_count"`
 	Tags                         *string          `json:"tags"`
 	Title                        *string          `json:"title"`
+	Slug                         *string          `json:"slug"`
 	Duration                     *int32           `json:"duration"`
 	IsDownloadable               bool             `json:"is_downloadable"`
 	PlayCount                    *int64           `json:"play_count"`
@@ -240,6 +246,7 @@ func (q *Queries) GetTracks(ctx context.Context, arg GetTracksParams) ([]GetTrac
 			&i.CommentCount,
 			&i.Tags,
 			&i.Title,
+			&i.Slug,
 			&i.Duration,
 			&i.IsDownloadable,
 			&i.PlayCount,

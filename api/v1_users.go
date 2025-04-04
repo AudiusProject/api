@@ -7,11 +7,7 @@ import (
 	"github.com/jackc/pgx/v5"
 )
 
-// ConverterKey is the key used to store the converter function in the context locals
-const ConverterKey = "converter"
-
 // v1Users is a handler that retrieves full user data
-// It checks for a converter function in the context locals and applies it if present
 func (app *ApiServer) v1Users(c *fiber.Ctx) error {
 	myId, _ := trashid.DecodeHashId(c.Query("user_id"))
 	ids := decodeIdList(c)
@@ -31,24 +27,10 @@ func (app *ApiServer) v1Users(c *fiber.Ctx) error {
 		return err
 	}
 
-	// Check if a converter function is provided in the context
-	if converter := c.Locals(ConverterKey); converter != nil {
-		if minConverter, ok := converter.(func(dbv1.FullUser) dbv1.MinUser); ok {
-			// Convert FullUser to MinUser
-			minUsers := make([]dbv1.MinUser, len(users))
-			for i, user := range users {
-				minUsers[i] = minConverter(user)
-			}
-			return c.JSON(fiber.Map{
-				"data": minUsers,
-			})
-		}
-	}
-
-	// No converter or unsupported converter type, return full users
-	return c.JSON(fiber.Map{
+	// Return users with conversion function
+	return JSON(c, fiber.Map{
 		"data": users,
-	})
+	}, dbv1.ToMinUser)
 }
 
 func (app *ApiServer) v1UsersFollowers(c *fiber.Ctx) error {
@@ -205,10 +187,9 @@ func (app *ApiServer) v1UsersSupporting(c *fiber.Ctx) error {
 		supported[idx] = s
 	}
 
-	return c.JSON(fiber.Map{
+	return JSON(c, fiber.Map{
 		"data": supported,
-	})
-
+	}, dbv1.ToMinUser)
 }
 
 func (app *ApiServer) queryFullUsers(c *fiber.Ctx, sql string, args pgx.NamedArgs) error {
@@ -244,7 +225,7 @@ func (app *ApiServer) queryFullUsers(c *fiber.Ctx, sql string, args pgx.NamedArg
 		users[idx] = userMap[id]
 	}
 
-	return c.JSON(fiber.Map{
+	return JSON(c, fiber.Map{
 		"data": users,
-	})
+	}, dbv1.ToMinUser)
 }

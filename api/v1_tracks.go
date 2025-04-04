@@ -18,9 +18,9 @@ func (app *ApiServer) v1Tracks(c *fiber.Ctx) error {
 	if err != nil {
 		return err
 	}
-	return c.JSON(fiber.Map{
+	return JSON(c, fiber.Map{
 		"data": tracks,
-	})
+	}, dbv1.ToMinTrack)
 }
 
 func (app *ApiServer) v1TrackReposts(c *fiber.Ctx) error {
