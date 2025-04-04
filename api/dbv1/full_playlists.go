@@ -17,23 +17,6 @@ type FullPlaylist struct {
 	Tracks  []FullTrack `json:"tracks"`
 }
 
-type MinPlaylist struct {
-	ID               string      `json:"id"`
-	PlaylistName     *string     `json:"playlist_name"`
-	PlaylistOwnerID  int32       `json:"playlist_owner_id"`
-	PlaylistID       int32       `json:"playlist_id"`
-	Artwork          SquareImage `json:"artwork"`
-	Description      *string     `json:"description"`
-	PlaylistContents interface{} `json:"playlist_contents"`
-	IsAlbum          bool        `json:"is_album"`
-	IsPrivate        bool        `json:"is_private"`
-	FavoriteCount    int32       `json:"favorite_count"`
-	RepostCount      int32       `json:"repost_count"`
-	UserID           string      `json:"user_id"`
-	User             MinUser     `json:"user"`
-	Tracks           []MinTrack  `json:"tracks"`
-}
-
 func (q *Queries) FullPlaylists(ctx context.Context, arg GetPlaylistsParams) ([]FullPlaylist, error) {
 	rawPlaylists, err := q.GetPlaylists(ctx, arg)
 	if err != nil {
@@ -113,6 +96,23 @@ func (q *Queries) FullPlaylists(ctx context.Context, arg GetPlaylistsParams) ([]
 	}
 
 	return fullPlaylists, nil
+}
+
+type MinPlaylist struct {
+	ID               string      `json:"id"`
+	PlaylistName     *string     `json:"playlist_name"`
+	PlaylistOwnerID  int32       `json:"playlist_owner_id"`
+	PlaylistID       int32       `json:"playlist_id"`
+	Artwork          SquareImage `json:"artwork"`
+	Description      *string     `json:"description"`
+	PlaylistContents interface{} `json:"playlist_contents"`
+	IsAlbum          bool        `json:"is_album"`
+	IsPrivate        bool        `json:"is_private"`
+	FavoriteCount    int32       `json:"favorite_count"`
+	RepostCount      int32       `json:"repost_count"`
+	UserID           string      `json:"user_id"`
+	User             MinUser     `json:"user"`
+	Tracks           []MinTrack  `json:"tracks"`
 }
 
 func ToMinPlaylist(fullPlaylist FullPlaylist) MinPlaylist {
