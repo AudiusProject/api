@@ -2,6 +2,7 @@ package dbv1
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
 	"strings"
 
@@ -100,5 +101,60 @@ func squareImageStruct(maybeCids ...*string) SquareImage {
 		X480x480:   fmt.Sprintf("%s/content/%s/480x480.jpg", first, cid),
 		X1000x1000: fmt.Sprintf("%s/content/%s/1000x1000.jpg", first, cid),
 		Mirrors:    rest,
+	}
+}
+
+type MinUser struct {
+	User FullUser
+}
+
+func (m MinUser) MarshalJSON() ([]byte, error) {
+	result := map[string]interface{}{
+		"id":                      m.User.ID,
+		"album_count":             m.User.AlbumCount,
+		"artist_pick_track_id":    m.User.ArtistPickTrackID,
+		"bio":                     m.User.Bio,
+		"cover_photo":             m.User.CoverPhoto,
+		"followee_count":          m.User.FolloweeCount,
+		"follower_count":          m.User.FollowerCount,
+		"handle":                  m.User.Handle,
+		"is_verified":             m.User.IsVerified,
+		"twitter_handle":          m.User.TwitterHandle,
+		"instagram_handle":        m.User.InstagramHandle,
+		"tiktok_handle":           m.User.TiktokHandle,
+		"verified_with_twitter":   m.User.VerifiedWithTwitter,
+		"verified_with_instagram": m.User.VerifiedWithInstagram,
+		"verified_with_tiktok":    m.User.VerifiedWithTiktok,
+		"website":                 m.User.Website,
+		"donation":                m.User.Donation,
+		"location":                m.User.Location,
+		"name":                    m.User.Name,
+		"playlist_count":          m.User.PlaylistCount,
+		"profile_picture":         m.User.ProfilePicture,
+		"repost_count":            m.User.RepostCount,
+		"track_count":             m.User.TrackCount,
+		"is_deactivated":          m.User.IsDeactivated,
+		"is_available":            m.User.IsAvailable,
+		"erc_wallet":              m.User.ErcWallet,
+		"spl_wallet":              m.User.SplWallet,
+		"spl_usdc_payout_wallet":  m.User.SplUsdcPayoutWallet,
+		"supporter_count":         m.User.SupporterCount,
+		"supporting_count":        m.User.SupportingCount,
+		"total_audio_balance":     m.User.TotalAudioBalance,
+		"wallet":                  m.User.Wallet,
+	}
+
+	for key, value := range result {
+		if value == nil {
+			delete(result, key)
+		}
+	}
+
+	return json.Marshal(result)
+}
+
+func ToMinUser(fullUser FullUser) MinUser {
+	return MinUser{
+		User: fullUser,
 	}
 }

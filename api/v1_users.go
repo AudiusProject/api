@@ -7,6 +7,11 @@ import (
 	"github.com/jackc/pgx/v5"
 )
 
+// ConverterKey is the key used to store the converter function in the context locals
+const ConverterKey = "converter"
+
+// v1Users is a handler that retrieves full user data
+// It checks for a converter function in the context locals and applies it if present
 func (app *ApiServer) v1Users(c *fiber.Ctx) error {
 	myId, _ := trashid.DecodeHashId(c.Query("user_id"))
 	ids := decodeIdList(c)
@@ -26,6 +31,21 @@ func (app *ApiServer) v1Users(c *fiber.Ctx) error {
 		return err
 	}
 
+	// Check if a converter function is provided in the context
+	if converter := c.Locals(ConverterKey); converter != nil {
+		if minConverter, ok := converter.(func(dbv1.FullUser) dbv1.MinUser); ok {
+			// Convert FullUser to MinUser
+			minUsers := make([]dbv1.MinUser, len(users))
+			for i, user := range users {
+				minUsers[i] = minConverter(user)
+			}
+			return c.JSON(fiber.Map{
+				"data": minUsers,
+			})
+		}
+	}
+
+	// No converter or unsupported converter type, return full users
 	return c.JSON(fiber.Map{
 		"data": users,
 	})

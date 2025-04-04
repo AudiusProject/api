@@ -106,6 +106,7 @@ func NewApiServer(config Config) *ApiServer {
 	app.Get("/v1/full/developer_apps/:address", app.v1DeveloperApps)
 
 	// v1
+	app.Get("/v1/users", withConverter(dbv1.ToMinUser), app.v1Users)
 	app.Get("/v1/developer_apps/:address", app.v1DeveloperApps)
 
 	// proxy unhandled requests thru to existing discovery API
@@ -179,6 +180,13 @@ func decodeIdList(c *fiber.Ctx) []int32 {
 		}
 	}
 	return ids
+}
+
+func withConverter[From, To any](converter func(From) To) fiber.Handler {
+	return func(c *fiber.Ctx) error {
+		c.Locals("converter", converter)
+		return c.Next()
+	}
 }
 
 func (as *ApiServer) Serve() {
