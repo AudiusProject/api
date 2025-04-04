@@ -3,6 +3,7 @@ package indexer
 import (
 	"context"
 	"encoding/binary"
+	"encoding/json"
 	"fmt"
 	"os"
 	"testing"
@@ -48,6 +49,9 @@ func TestMain(m *testing.M) {
 	_, err = ci.pool.Exec(ci.ctx, `
 	alter table follows drop constraint follows_blocknumber_fkey;
 	alter table reposts drop constraint reposts_blocknumber_fkey;
+	alter table saves drop constraint saves_blocknumber_fkey;
+	alter table notification_seen drop constraint notification_seen_blocknumber_fkey;
+	alter table track_downloads drop constraint track_downloads_blocknumber_fkey;
 	`)
 	checkErr(err)
 
@@ -62,6 +66,7 @@ func TestIndexer(t *testing.T) {
 }
 
 func TestReadProtoFile(t *testing.T) {
+	// t.Skip()
 
 	file, err := os.Open("testdata/take1.pb")
 	if err != nil {
@@ -96,4 +101,19 @@ func TestReadProtoFile(t *testing.T) {
 
 	}
 
+}
+
+func assertCount(t *testing.T, expected int, sql string) {
+	count := -1
+	err := ci.pool.QueryRow(ci.ctx, sql).Scan(&count)
+	assert.NoError(t, err)
+	assert.Equal(t, expected, count)
+}
+
+func toMetadata(data map[string]any) string {
+	b, err := json.Marshal(GenericMetadata{Data: data})
+	if err != nil {
+		panic(err)
+	}
+	return string(b)
 }

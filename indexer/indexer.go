@@ -2,8 +2,8 @@ package indexer
 
 import (
 	"context"
-	"encoding/json"
 	"fmt"
+	"maps"
 	"strings"
 	"time"
 
@@ -46,6 +46,7 @@ func (ci *CoreIndexer) handleTx(signedTx *core_proto.SignedTransaction) error {
 		txhash:      signedTx.TxHash(),
 		blockhash:   "todo",
 		blocknumber: 123,
+		timestamp:   time.Now(),
 	}
 
 	switch signedTx.GetTransaction().(type) {
@@ -58,13 +59,41 @@ func (ci *CoreIndexer) handleTx(signedTx *core_proto.SignedTransaction) error {
 		action := em.Action + em.EntityType
 		var err error
 
+		// TODO: verify signature
+		// TODO: and that em.Signer is authorized for em.UserId
+
 		switch action {
 		case "CreateUser":
 			err = ci.createUser(txInfo, em)
+		case "UpdateUser":
+			err = ci.updateUser(txInfo, em)
+
 		case "CreateTrack":
 			err = ci.createTrack(txInfo, em)
+		case "UpdateTrack":
+			err = ci.updateTrack(txInfo, em)
+		case "DeleteTrack":
+			err = ci.deleteTrack(txInfo, em)
+		case "DownloadTrack":
+			err = ci.downloadTrack(txInfo, em)
+
+		case "CreatePlaylist":
+			err = ci.createPlaylist(txInfo, em)
+		case "UpdatePlaylist":
+			err = ci.updatePlaylist(txInfo, em)
+
 		case "FollowUser":
 			err = ci.followUser(txInfo, em)
+		case "UnfollowUser":
+			err = ci.unfollowUser(txInfo, em)
+		case "RepostPlaylist", "RepostTrack":
+			err = ci.repost(txInfo, em)
+		case "SaveTrack", "SavePlaylist":
+			err = ci.favorite(txInfo, em)
+		case "UnsaveTrack", "UnsavePlaylist":
+			err = ci.unfavorite(txInfo, em)
+		case "ViewNotification":
+			err = ci.viewNotification(txInfo, em)
 		default:
 			fmt.Println("no handler for ", action)
 		}
@@ -78,90 +107,11 @@ func (ci *CoreIndexer) handleTx(signedTx *core_proto.SignedTransaction) error {
 	return nil
 }
 
-func (ci *CoreIndexer) createUser(txInfo TxInfo, em *core_proto.ManageEntityLegacy) error {
-
-	var um GenericMetadata
-	json.Unmarshal([]byte(em.Metadata), &um)
-
-	args := pgx.NamedArgs{
-		"user_id":              em.EntityId,
-		"handle_lc":            strings.ToLower(um.Data["handle"].(string)),
-		"is_current":           true,
-		"is_verified":          false,
-		"created_at":           time.Now(),
-		"updated_at":           time.Now(),
-		"has_collectibles":     false,
-		"txhash":               txInfo.txhash,
-		"is_deactivated":       false,
-		"is_available":         true,
-		"is_storage_v2":        false,
-		"allow_ai_attribution": false,
-	}
-
-	for k, v := range um.Data {
-		if k == "events" {
-			continue
-		}
-		args[k] = v
-	}
-
-	return ci.doInsert("users", args)
-}
-
-func (ci *CoreIndexer) createTrack(txInfo TxInfo, em *core_proto.ManageEntityLegacy) error {
-	var meta GenericMetadata
-	json.Unmarshal([]byte(em.Metadata), &meta)
-
-	args := pgx.NamedArgs{
-		"blockhash":                             txInfo.blockhash,
-		"track_id":                              em.EntityId,
-		"is_current":                            true,
-		"is_delete":                             false,
-		"owner_id":                              "@owner_id",
-		"title":                                 "@title",
-		"created_at":                            time.Now(),
-		"updated_at":                            time.Now(),
-		"txhash":                                txInfo.txhash,
-		"is_unlisted":                           false,
-		"is_available":                          true,
-		"track_segments":                        "[]", // JSONB string
-		"is_scheduled_release":                  false,
-		"is_downloadable":                       false,
-		"is_original_available":                 false,
-		"playlists_containing_track":            "{}", // JSONB string
-		"playlists_previously_containing_track": map[string]any{},
-		"audio_analysis_error_count":            0,
-		"is_owned_by_user":                      false,
-	}
-
-	for k, v := range meta.Data {
-		args[k] = v
-	}
-
-	return ci.doInsert("tracks", args)
-}
-
-func (ci *CoreIndexer) followUser(txInfo TxInfo, em *core_proto.ManageEntityLegacy) error {
-
-	args := pgx.NamedArgs{
-		"blockhash":        txInfo.blockhash,
-		"blocknumber":      txInfo.blocknumber,
-		"follower_user_id": em.UserId,
-		"followee_user_id": em.EntityId,
-		"is_current":       true,
-		"is_delete":        false,
-		"created_at":       time.Now(), // TODO
-		"txhash":           txInfo.txhash,
-		"slot":             500, // TODO
-	}
-
-	return ci.doInsert("follows", args)
-}
-
 type TxInfo struct {
 	blockhash   string
 	blocknumber int
 	txhash      string
+	timestamp   time.Time
 }
 
 type GenericMetadata struct {
@@ -182,6 +132,31 @@ func (ci *CoreIndexer) doInsert(tableName string, args pgx.NamedArgs) error {
 		strings.Join(placeholders, ", "),
 	)
 
-	_, err := ci.pool.Exec(context.Background(), stmt, args)
+	_, err := ci.pool.Exec(ci.ctx, stmt, args)
+	return err
+}
+
+func (ci *CoreIndexer) doUpdate(tableName string, args pgx.NamedArgs, where pgx.NamedArgs) error {
+	fields := []string{}
+	for field := range args {
+		fields = append(fields, fmt.Sprintf("%s = @%s", field, field))
+	}
+
+	wheres := []string{}
+	for field := range where {
+		wheres = append(wheres, fmt.Sprintf("%s = @%s", field, field))
+	}
+
+	stmt := fmt.Sprintf("update %s set %s where %s",
+		tableName,
+		strings.Join(fields, ", "),
+		strings.Join(wheres, " AND "),
+	)
+
+	maps.Copy(args, where)
+
+	// fmt.Println(stmt, args)
+
+	_, err := ci.pool.Exec(ci.ctx, stmt, args)
 	return err
 }
