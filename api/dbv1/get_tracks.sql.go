@@ -124,16 +124,13 @@ SELECT
 FROM tracks t
 JOIN aggregate_track using (track_id)
 LEFT JOIN aggregate_plays on play_item_id = t.track_id
-LEFT JOIN track_routes using (track_id)
+LEFT JOIN track_routes on t.track_id = track_routes.track_id and track_routes.is_current = true
 WHERE is_available = true
   AND (is_unlisted = false OR t.owner_id = $1)
   AND (
     t.track_id = $2
     OR t.owner_id = $3
     OR t.track_id = ANY($4::int[])
-  )
-  AND (
-    track_routes.is_current = true
   )
 ORDER BY t.track_id
 `
