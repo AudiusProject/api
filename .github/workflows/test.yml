@@ -1,0 +1,44 @@
+name: Go Tests with Docker Compose
+
+on:
+  push:
+    branches: [ main ]
+  pull_request:
+    branches: [ main ]
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Docker Compose
+        run: docker compose version
+
+      - name: Build and run services
+        run: docker compose up -d --build
+
+      - name: Wait for Postgres to be ready
+        run: |
+          until docker compose exec -T db pg_isready -U testuser; do
+            echo "Waiting for Postgres..."
+            sleep 2
+          done
+
+
+      - name: Set up Go
+        uses: actions/setup-go@v5
+        with:
+          go-version: '1.22'
+
+      - name: Install dependencies
+        run: go mod tidy
+
+      - name: Run tests
+        run: go test -cover ./...
+
+
+      - name: Shutdown
+        if: always()
+        run: docker compose down
