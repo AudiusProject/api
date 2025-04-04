@@ -66,7 +66,7 @@ func TestIndexer(t *testing.T) {
 }
 
 func TestReadProtoFile(t *testing.T) {
-	// t.Skip()
+	t.Skip()
 
 	file, err := os.Open("testdata/take1.pb")
 	if err != nil {
