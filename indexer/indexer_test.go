@@ -52,6 +52,7 @@ func TestMain(m *testing.M) {
 	alter table saves drop constraint saves_blocknumber_fkey;
 	alter table notification_seen drop constraint notification_seen_blocknumber_fkey;
 	alter table track_downloads drop constraint track_downloads_blocknumber_fkey;
+	alter table comments drop constraint comments_blocknumber_fkey;
 	`)
 	checkErr(err)
 

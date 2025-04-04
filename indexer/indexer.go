@@ -82,6 +82,9 @@ func (ci *CoreIndexer) handleTx(signedTx *core_proto.SignedTransaction) error {
 		case "UpdatePlaylist":
 			err = ci.updatePlaylist(txInfo, em)
 
+		case "CreateComment":
+			err = ci.createComment(txInfo, em)
+
 		case "FollowUser":
 			err = ci.followUser(txInfo, em)
 		case "UnfollowUser":
