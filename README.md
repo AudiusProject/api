@@ -32,6 +32,10 @@ test diffs from v1/ endpoints
 make apidiff
 ```
 
+## adminer
+
+http://localhost:21301/?pgsql=db&username=postgres
+
 ## Schema dump
 
 ```

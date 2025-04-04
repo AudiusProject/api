@@ -4,7 +4,7 @@ dev::
 
 test::
 	sqlc generate
-	go test -count=1 ./...
+	go test -count=1 -cover ./...
 
 staging::
 	CGO_ENABLED=0 GOOS=linux GOARCH=amd64 go build -o build/bridge-amd64
