@@ -501,7 +501,7 @@ type AggregateDailyTotalUsersMetric struct {
 	Timestamp     pgtype.Date      `json:"timestamp"`
 	CreatedAt     pgtype.Timestamp `json:"created_at"`
 	UpdatedAt     pgtype.Timestamp `json:"updated_at"`
-	PersonalCount *int32           `json:"personal_count"`
+	PersonalCount pgtype.Int4      `json:"personal_count"`
 }
 
 type AggregateDailyUniqueUsersMetric struct {
@@ -510,13 +510,13 @@ type AggregateDailyUniqueUsersMetric struct {
 	Timestamp     pgtype.Date      `json:"timestamp"`
 	CreatedAt     pgtype.Timestamp `json:"created_at"`
 	UpdatedAt     pgtype.Timestamp `json:"updated_at"`
-	SummedCount   *int32           `json:"summed_count"`
-	PersonalCount *int32           `json:"personal_count"`
+	SummedCount   pgtype.Int4      `json:"summed_count"`
+	PersonalCount pgtype.Int4      `json:"personal_count"`
 }
 
 type AggregateIntervalPlay struct {
 	TrackID           int32            `json:"track_id"`
-	Genre             *string          `json:"genre"`
+	Genre             pgtype.Text      `json:"genre"`
 	CreatedAt         pgtype.Timestamp `json:"created_at"`
 	WeekListenCounts  int64            `json:"week_listen_counts"`
 	MonthListenCounts int64            `json:"month_listen_counts"`
@@ -544,7 +544,7 @@ type AggregateMonthlyTotalUsersMetric struct {
 	Timestamp     pgtype.Date      `json:"timestamp"`
 	CreatedAt     pgtype.Timestamp `json:"created_at"`
 	UpdatedAt     pgtype.Timestamp `json:"updated_at"`
-	PersonalCount *int32           `json:"personal_count"`
+	PersonalCount pgtype.Int4      `json:"personal_count"`
 }
 
 type AggregateMonthlyUniqueUsersMetric struct {
@@ -553,43 +553,43 @@ type AggregateMonthlyUniqueUsersMetric struct {
 	Timestamp     pgtype.Date      `json:"timestamp"`
 	CreatedAt     pgtype.Timestamp `json:"created_at"`
 	UpdatedAt     pgtype.Timestamp `json:"updated_at"`
-	SummedCount   *int32           `json:"summed_count"`
-	PersonalCount *int32           `json:"personal_count"`
+	SummedCount   pgtype.Int4      `json:"summed_count"`
+	PersonalCount pgtype.Int4      `json:"personal_count"`
 }
 
 type AggregatePlay struct {
-	PlayItemID int32  `json:"play_item_id"`
-	Count      *int64 `json:"count"`
+	PlayItemID int32       `json:"play_item_id"`
+	Count      pgtype.Int8 `json:"count"`
 }
 
 type AggregatePlaylist struct {
-	PlaylistID  int32  `json:"playlist_id"`
-	IsAlbum     *bool  `json:"is_album"`
-	RepostCount *int32 `json:"repost_count"`
-	SaveCount   *int32 `json:"save_count"`
+	PlaylistID  int32       `json:"playlist_id"`
+	IsAlbum     pgtype.Bool `json:"is_album"`
+	RepostCount pgtype.Int4 `json:"repost_count"`
+	SaveCount   pgtype.Int4 `json:"save_count"`
 }
 
 type AggregateTrack struct {
-	TrackID      int32  `json:"track_id"`
-	RepostCount  int32  `json:"repost_count"`
-	SaveCount    int32  `json:"save_count"`
-	CommentCount *int32 `json:"comment_count"`
+	TrackID      int32       `json:"track_id"`
+	RepostCount  int32       `json:"repost_count"`
+	SaveCount    int32       `json:"save_count"`
+	CommentCount pgtype.Int4 `json:"comment_count"`
 }
 
 type AggregateUser struct {
-	UserID             int32   `json:"user_id"`
-	TrackCount         *int64  `json:"track_count"`
-	PlaylistCount      *int64  `json:"playlist_count"`
-	AlbumCount         *int64  `json:"album_count"`
-	FollowerCount      *int64  `json:"follower_count"`
-	FollowingCount     *int64  `json:"following_count"`
-	RepostCount        *int64  `json:"repost_count"`
-	TrackSaveCount     *int64  `json:"track_save_count"`
-	SupporterCount     int32   `json:"supporter_count"`
-	SupportingCount    int32   `json:"supporting_count"`
-	DominantGenre      *string `json:"dominant_genre"`
-	DominantGenreCount *int32  `json:"dominant_genre_count"`
-	Score              *int32  `json:"score"`
+	UserID             int32       `json:"user_id"`
+	TrackCount         pgtype.Int8 `json:"track_count"`
+	PlaylistCount      pgtype.Int8 `json:"playlist_count"`
+	AlbumCount         pgtype.Int8 `json:"album_count"`
+	FollowerCount      pgtype.Int8 `json:"follower_count"`
+	FollowingCount     pgtype.Int8 `json:"following_count"`
+	RepostCount        pgtype.Int8 `json:"repost_count"`
+	TrackSaveCount     pgtype.Int8 `json:"track_save_count"`
+	SupporterCount     int32       `json:"supporter_count"`
+	SupportingCount    int32       `json:"supporting_count"`
+	DominantGenre      pgtype.Text `json:"dominant_genre"`
+	DominantGenreCount pgtype.Int4 `json:"dominant_genre_count"`
+	Score              pgtype.Int4 `json:"score"`
 }
 
 type AggregateUserTip struct {
@@ -625,7 +625,7 @@ type AppNameMetric struct {
 	CreatedAt       pgtype.Timestamp `json:"created_at"`
 	UpdatedAt       pgtype.Timestamp `json:"updated_at"`
 	ID              int64            `json:"id"`
-	Ip              *string          `json:"ip"`
+	Ip              pgtype.Text      `json:"ip"`
 }
 
 type AppNameMetricsAllTime struct {
@@ -665,7 +665,7 @@ type AudioTransactionsHistory struct {
 	TransactionCreatedAt pgtype.Timestamp `json:"transaction_created_at"`
 	Change               pgtype.Numeric   `json:"change"`
 	Balance              pgtype.Numeric   `json:"balance"`
-	TxMetadata           *string          `json:"tx_metadata"`
+	TxMetadata           pgtype.Text      `json:"tx_metadata"`
 }
 
 type AudiusDataTx struct {
@@ -674,21 +674,21 @@ type AudiusDataTx struct {
 }
 
 type Block struct {
-	Blockhash  string  `json:"blockhash"`
-	Parenthash *string `json:"parenthash"`
-	IsCurrent  *bool   `json:"is_current"`
-	Number     *int32  `json:"number"`
+	Blockhash  string      `json:"blockhash"`
+	Parenthash pgtype.Text `json:"parenthash"`
+	IsCurrent  pgtype.Bool `json:"is_current"`
+	Number     pgtype.Int4 `json:"number"`
 }
 
 type Bmg struct {
-	CopyTitle    *string `json:"copy_title"`
-	CopyMediaUrl *string `json:"copy_media_url"`
-	ID           *string `json:"id"`
-	Permalink    *string `json:"permalink"`
-	Acr          *string `json:"acr"`
-	Available    *string `json:"available"`
-	Plays        *string `json:"plays"`
-	AssetTitle   *string `json:"asset_title"`
+	CopyTitle    pgtype.Text `json:"copy_title"`
+	CopyMediaUrl pgtype.Text `json:"copy_media_url"`
+	ID           pgtype.Text `json:"id"`
+	Permalink    pgtype.Text `json:"permalink"`
+	Acr          pgtype.Text `json:"acr"`
+	Available    pgtype.Text `json:"available"`
+	Plays        pgtype.Text `json:"plays"`
+	AssetTitle   pgtype.Text `json:"asset_title"`
 }
 
 type Challenge struct {
@@ -696,10 +696,10 @@ type Challenge struct {
 	Type          Challengetype `json:"type"`
 	Amount        string        `json:"amount"`
 	Active        bool          `json:"active"`
-	StepCount     *int32        `json:"step_count"`
-	StartingBlock *int32        `json:"starting_block"`
-	WeeklyPool    *int32        `json:"weekly_pool"`
-	CooldownDays  *int32        `json:"cooldown_days"`
+	StepCount     pgtype.Int4   `json:"step_count"`
+	StartingBlock pgtype.Int4   `json:"starting_block"`
+	WeeklyPool    pgtype.Int4   `json:"weekly_pool"`
+	CooldownDays  pgtype.Int4   `json:"cooldown_days"`
 }
 
 type ChallengeDisbursement struct {
@@ -733,8 +733,8 @@ type Chat struct {
 	ChatID                 string           `json:"chat_id"`
 	CreatedAt              pgtype.Timestamp `json:"created_at"`
 	LastMessageAt          pgtype.Timestamp `json:"last_message_at"`
-	LastMessage            *string          `json:"last_message"`
-	LastMessageIsPlaintext *bool            `json:"last_message_is_plaintext"`
+	LastMessage            pgtype.Text      `json:"last_message"`
+	LastMessageIsPlaintext pgtype.Bool      `json:"last_message_is_plaintext"`
 }
 
 type ChatBan struct {
@@ -747,10 +747,10 @@ type ChatBlast struct {
 	BlastID             string             `json:"blast_id"`
 	FromUserID          int32              `json:"from_user_id"`
 	Audience            string             `json:"audience"`
-	AudienceContentID   *int32             `json:"audience_content_id"`
+	AudienceContentID   pgtype.Int4        `json:"audience_content_id"`
 	Plaintext           string             `json:"plaintext"`
 	CreatedAt           pgtype.Timestamptz `json:"created_at"`
-	AudienceContentType *string            `json:"audience_content_type"`
+	AudienceContentType pgtype.Text        `json:"audience_content_type"`
 }
 
 type ChatBlockedUser struct {
@@ -776,8 +776,8 @@ type ChatMessage struct {
 	ChatID     string           `json:"chat_id"`
 	UserID     int32            `json:"user_id"`
 	CreatedAt  pgtype.Timestamp `json:"created_at"`
-	Ciphertext *string          `json:"ciphertext"`
-	BlastID    *string          `json:"blast_id"`
+	Ciphertext pgtype.Text      `json:"ciphertext"`
+	BlastID    pgtype.Text      `json:"blast_id"`
 }
 
 type ChatMessageReaction struct {
@@ -796,9 +796,9 @@ type ChatPermission struct {
 }
 
 type CidDatum struct {
-	Cid  string  `json:"cid"`
-	Type *string `json:"type"`
-	Data []byte  `json:"data"`
+	Cid  string      `json:"cid"`
+	Type pgtype.Text `json:"type"`
+	Data []byte      `json:"data"`
 }
 
 // Stores collectibles data for users
@@ -821,15 +821,15 @@ type Comment struct {
 	UserID          int32            `json:"user_id"`
 	EntityID        int32            `json:"entity_id"`
 	EntityType      string           `json:"entity_type"`
-	TrackTimestampS *int64           `json:"track_timestamp_s"`
+	TrackTimestampS pgtype.Int8      `json:"track_timestamp_s"`
 	CreatedAt       pgtype.Timestamp `json:"created_at"`
 	UpdatedAt       pgtype.Timestamp `json:"updated_at"`
-	IsDelete        *bool            `json:"is_delete"`
-	IsVisible       *bool            `json:"is_visible"`
-	IsEdited        *bool            `json:"is_edited"`
+	IsDelete        pgtype.Bool      `json:"is_delete"`
+	IsVisible       pgtype.Bool      `json:"is_visible"`
+	IsEdited        pgtype.Bool      `json:"is_edited"`
 	Txhash          string           `json:"txhash"`
 	Blockhash       string           `json:"blockhash"`
-	Blocknumber     *int32           `json:"blocknumber"`
+	Blocknumber     pgtype.Int4      `json:"blocknumber"`
 }
 
 type CommentMention struct {
@@ -837,17 +837,17 @@ type CommentMention struct {
 	UserID      int32            `json:"user_id"`
 	CreatedAt   pgtype.Timestamp `json:"created_at"`
 	UpdatedAt   pgtype.Timestamp `json:"updated_at"`
-	IsDelete    *bool            `json:"is_delete"`
+	IsDelete    pgtype.Bool      `json:"is_delete"`
 	Txhash      string           `json:"txhash"`
 	Blockhash   string           `json:"blockhash"`
-	Blocknumber *int32           `json:"blocknumber"`
+	Blocknumber pgtype.Int4      `json:"blocknumber"`
 }
 
 type CommentNotificationSetting struct {
 	UserID     int32            `json:"user_id"`
 	EntityID   int32            `json:"entity_id"`
 	EntityType string           `json:"entity_type"`
-	IsMuted    *bool            `json:"is_muted"`
+	IsMuted    pgtype.Bool      `json:"is_muted"`
 	CreatedAt  pgtype.Timestamp `json:"created_at"`
 	UpdatedAt  pgtype.Timestamp `json:"updated_at"`
 }
@@ -857,10 +857,10 @@ type CommentReaction struct {
 	UserID      int32            `json:"user_id"`
 	CreatedAt   pgtype.Timestamp `json:"created_at"`
 	UpdatedAt   pgtype.Timestamp `json:"updated_at"`
-	IsDelete    *bool            `json:"is_delete"`
+	IsDelete    pgtype.Bool      `json:"is_delete"`
 	Txhash      string           `json:"txhash"`
 	Blockhash   string           `json:"blockhash"`
-	Blocknumber *int32           `json:"blocknumber"`
+	Blocknumber pgtype.Int4      `json:"blocknumber"`
 }
 
 type CommentReport struct {
@@ -868,10 +868,10 @@ type CommentReport struct {
 	UserID      int32            `json:"user_id"`
 	CreatedAt   pgtype.Timestamp `json:"created_at"`
 	UpdatedAt   pgtype.Timestamp `json:"updated_at"`
-	IsDelete    *bool            `json:"is_delete"`
+	IsDelete    pgtype.Bool      `json:"is_delete"`
 	Txhash      string           `json:"txhash"`
 	Blockhash   string           `json:"blockhash"`
-	Blocknumber *int32           `json:"blocknumber"`
+	Blocknumber pgtype.Int4      `json:"blocknumber"`
 }
 
 type CommentThread struct {
@@ -900,12 +900,12 @@ type CoreDbMigration struct {
 }
 
 type CoreIndexedBlock struct {
-	Blockhash  string  `json:"blockhash"`
-	Parenthash *string `json:"parenthash"`
-	ChainID    string  `json:"chain_id"`
-	Height     int32   `json:"height"`
-	PlaysSlot  *int32  `json:"plays_slot"`
-	EmBlock    *int32  `json:"em_block"`
+	Blockhash  string      `json:"blockhash"`
+	Parenthash pgtype.Text `json:"parenthash"`
+	ChainID    string      `json:"chain_id"`
+	Height     int32       `json:"height"`
+	PlaysSlot  pgtype.Int4 `json:"plays_slot"`
+	EmBlock    pgtype.Int4 `json:"em_block"`
 }
 
 type CoreTransaction struct {
@@ -934,9 +934,9 @@ type CoreTxDecodedPlay struct {
 	TrackID   string             `json:"track_id"`
 	PlayedAt  pgtype.Timestamptz `json:"played_at"`
 	Signature string             `json:"signature"`
-	City      *string            `json:"city"`
-	Region    *string            `json:"region"`
-	Country   *string            `json:"country"`
+	City      pgtype.Text        `json:"city"`
+	Region    pgtype.Text        `json:"region"`
+	Country   pgtype.Text        `json:"country"`
 	CreatedAt pgtype.Timestamptz `json:"created_at"`
 }
 
@@ -961,12 +961,12 @@ type CoreValidator struct {
 }
 
 type Country struct {
-	Iso       string  `json:"iso"`
-	Name      string  `json:"name"`
-	Nicename  string  `json:"nicename"`
-	Iso3      *string `json:"iso3"`
-	Numcode   *int16  `json:"numcode"`
-	Phonecode int32   `json:"phonecode"`
+	Iso       string      `json:"iso"`
+	Name      string      `json:"name"`
+	Nicename  string      `json:"nicename"`
+	Iso3      pgtype.Text `json:"iso3"`
+	Numcode   pgtype.Int2 `json:"numcode"`
+	Phonecode int32       `json:"phonecode"`
 }
 
 type DashboardWalletUser struct {
@@ -975,8 +975,8 @@ type DashboardWalletUser struct {
 	IsDelete    bool             `json:"is_delete"`
 	UpdatedAt   pgtype.Timestamp `json:"updated_at"`
 	CreatedAt   pgtype.Timestamp `json:"created_at"`
-	Blockhash   *string          `json:"blockhash"`
-	Blocknumber *int32           `json:"blocknumber"`
+	Blockhash   pgtype.Text      `json:"blockhash"`
+	Blocknumber pgtype.Int4      `json:"blocknumber"`
 	Txhash      string           `json:"txhash"`
 }
 
@@ -988,9 +988,9 @@ type DelistStatusCursor struct {
 
 type DeveloperApp struct {
 	Address          string           `json:"address"`
-	Blockhash        *string          `json:"blockhash"`
-	Blocknumber      *int32           `json:"blocknumber"`
-	UserID           *int32           `json:"user_id"`
+	Blockhash        pgtype.Text      `json:"blockhash"`
+	Blocknumber      pgtype.Int4      `json:"blocknumber"`
+	UserID           pgtype.Int4      `json:"user_id"`
 	Name             string           `json:"name"`
 	IsPersonalAccess bool             `json:"is_personal_access"`
 	IsDelete         bool             `json:"is_delete"`
@@ -998,8 +998,8 @@ type DeveloperApp struct {
 	Txhash           string           `json:"txhash"`
 	IsCurrent        bool             `json:"is_current"`
 	UpdatedAt        pgtype.Timestamp `json:"updated_at"`
-	Description      *string          `json:"description"`
-	ImageUrl         *string          `json:"image_url"`
+	Description      pgtype.Text      `json:"description"`
+	ImageUrl         pgtype.Text      `json:"image_url"`
 }
 
 // Tracks who has access to encrypted emails
@@ -1036,25 +1036,25 @@ type EthBlock struct {
 }
 
 type Follow struct {
-	Blockhash      *string          `json:"blockhash"`
-	Blocknumber    *int32           `json:"blocknumber"`
+	Blockhash      pgtype.Text      `json:"blockhash"`
+	Blocknumber    pgtype.Int4      `json:"blocknumber"`
 	FollowerUserID int32            `json:"follower_user_id"`
 	FolloweeUserID int32            `json:"followee_user_id"`
 	IsCurrent      bool             `json:"is_current"`
 	IsDelete       bool             `json:"is_delete"`
 	CreatedAt      pgtype.Timestamp `json:"created_at"`
 	Txhash         string           `json:"txhash"`
-	Slot           *int32           `json:"slot"`
+	Slot           pgtype.Int4      `json:"slot"`
 }
 
 type Grant struct {
-	Blockhash      *string          `json:"blockhash"`
-	Blocknumber    *int32           `json:"blocknumber"`
+	Blockhash      pgtype.Text      `json:"blockhash"`
+	Blocknumber    pgtype.Int4      `json:"blocknumber"`
 	GranteeAddress string           `json:"grantee_address"`
 	UserID         int32            `json:"user_id"`
 	IsRevoked      bool             `json:"is_revoked"`
 	IsCurrent      bool             `json:"is_current"`
-	IsApproved     *bool            `json:"is_approved"`
+	IsApproved     pgtype.Bool      `json:"is_approved"`
 	UpdatedAt      pgtype.Timestamp `json:"updated_at"`
 	CreatedAt      pgtype.Timestamp `json:"created_at"`
 	Txhash         string           `json:"txhash"`
@@ -1066,17 +1066,17 @@ type HourlyPlayCount struct {
 }
 
 type IndexingCheckpoint struct {
-	Tablename      string  `json:"tablename"`
-	LastCheckpoint int32   `json:"last_checkpoint"`
-	Signature      *string `json:"signature"`
+	Tablename      string      `json:"tablename"`
+	LastCheckpoint int32       `json:"last_checkpoint"`
+	Signature      pgtype.Text `json:"signature"`
 }
 
 type Milestone struct {
 	ID          int32            `json:"id"`
 	Name        string           `json:"name"`
 	Threshold   int32            `json:"threshold"`
-	Blocknumber *int32           `json:"blocknumber"`
-	Slot        *int32           `json:"slot"`
+	Blocknumber pgtype.Int4      `json:"blocknumber"`
+	Slot        pgtype.Int4      `json:"slot"`
 	Timestamp   pgtype.Timestamp `json:"timestamp"`
 }
 
@@ -1085,10 +1085,10 @@ type MutedUser struct {
 	UserID      int32            `json:"user_id"`
 	CreatedAt   pgtype.Timestamp `json:"created_at"`
 	UpdatedAt   pgtype.Timestamp `json:"updated_at"`
-	IsDelete    *bool            `json:"is_delete"`
+	IsDelete    pgtype.Bool      `json:"is_delete"`
 	Txhash      string           `json:"txhash"`
 	Blockhash   string           `json:"blockhash"`
-	Blocknumber *int32           `json:"blocknumber"`
+	Blocknumber pgtype.Int4      `json:"blocknumber"`
 }
 
 type Notification struct {
@@ -1096,20 +1096,20 @@ type Notification struct {
 	Specifier   string           `json:"specifier"`
 	GroupID     string           `json:"group_id"`
 	Type        string           `json:"type"`
-	Slot        *int32           `json:"slot"`
-	Blocknumber *int32           `json:"blocknumber"`
+	Slot        pgtype.Int4      `json:"slot"`
+	Blocknumber pgtype.Int4      `json:"blocknumber"`
 	Timestamp   pgtype.Timestamp `json:"timestamp"`
 	Data        []byte           `json:"data"`
 	UserIds     []int32          `json:"user_ids"`
-	TypeV2      *string          `json:"type_v2"`
+	TypeV2      pgtype.Text      `json:"type_v2"`
 }
 
 type NotificationSeen struct {
 	UserID      int32            `json:"user_id"`
 	SeenAt      pgtype.Timestamp `json:"seen_at"`
-	Blocknumber *int32           `json:"blocknumber"`
-	Blockhash   *string          `json:"blockhash"`
-	Txhash      *string          `json:"txhash"`
+	Blocknumber pgtype.Int4      `json:"blocknumber"`
+	Blockhash   pgtype.Text      `json:"blockhash"`
+	Txhash      pgtype.Text      `json:"txhash"`
 }
 
 type PaymentRouterTx struct {
@@ -1120,50 +1120,50 @@ type PaymentRouterTx struct {
 
 type Play struct {
 	ID         int32            `json:"id"`
-	UserID     *int32           `json:"user_id"`
-	Source     *string          `json:"source"`
+	UserID     pgtype.Int4      `json:"user_id"`
+	Source     pgtype.Text      `json:"source"`
 	PlayItemID int32            `json:"play_item_id"`
 	CreatedAt  pgtype.Timestamp `json:"created_at"`
 	UpdatedAt  pgtype.Timestamp `json:"updated_at"`
-	Slot       *int32           `json:"slot"`
-	Signature  *string          `json:"signature"`
-	City       *string          `json:"city"`
-	Region     *string          `json:"region"`
-	Country    *string          `json:"country"`
+	Slot       pgtype.Int4      `json:"slot"`
+	Signature  pgtype.Text      `json:"signature"`
+	City       pgtype.Text      `json:"city"`
+	Region     pgtype.Text      `json:"region"`
+	Country    pgtype.Text      `json:"country"`
 }
 
 type Playlist struct {
-	Blockhash                   *string          `json:"blockhash"`
-	Blocknumber                 *int32           `json:"blocknumber"`
+	Blockhash                   pgtype.Text      `json:"blockhash"`
+	Blocknumber                 pgtype.Int4      `json:"blocknumber"`
 	PlaylistID                  int32            `json:"playlist_id"`
 	PlaylistOwnerID             int32            `json:"playlist_owner_id"`
 	IsAlbum                     bool             `json:"is_album"`
 	IsPrivate                   bool             `json:"is_private"`
-	PlaylistName                *string          `json:"playlist_name"`
+	PlaylistName                pgtype.Text      `json:"playlist_name"`
 	PlaylistContents            PlaylistContents `json:"playlist_contents"`
-	PlaylistImageMultihash      *string          `json:"playlist_image_multihash"`
+	PlaylistImageMultihash      pgtype.Text      `json:"playlist_image_multihash"`
 	IsCurrent                   bool             `json:"is_current"`
 	IsDelete                    bool             `json:"is_delete"`
-	Description                 *string          `json:"description"`
+	Description                 pgtype.Text      `json:"description"`
 	CreatedAt                   pgtype.Timestamp `json:"created_at"`
-	Upc                         *string          `json:"upc"`
+	Upc                         pgtype.Text      `json:"upc"`
 	UpdatedAt                   pgtype.Timestamp `json:"updated_at"`
-	PlaylistImageSizesMultihash *string          `json:"playlist_image_sizes_multihash"`
+	PlaylistImageSizesMultihash pgtype.Text      `json:"playlist_image_sizes_multihash"`
 	Txhash                      string           `json:"txhash"`
 	LastAddedTo                 pgtype.Timestamp `json:"last_added_to"`
-	Slot                        *int32           `json:"slot"`
-	MetadataMultihash           *string          `json:"metadata_multihash"`
+	Slot                        pgtype.Int4      `json:"slot"`
+	MetadataMultihash           pgtype.Text      `json:"metadata_multihash"`
 	IsImageAutogenerated        bool             `json:"is_image_autogenerated"`
 	StreamConditions            []byte           `json:"stream_conditions"`
-	DdexApp                     *string          `json:"ddex_app"`
+	DdexApp                     pgtype.Text      `json:"ddex_app"`
 	DdexReleaseIds              []byte           `json:"ddex_release_ids"`
 	Artists                     []byte           `json:"artists"`
 	CopyrightLine               []byte           `json:"copyright_line"`
 	ProducerCopyrightLine       []byte           `json:"producer_copyright_line"`
-	ParentalWarningType         *string          `json:"parental_warning_type"`
+	ParentalWarningType         pgtype.Text      `json:"parental_warning_type"`
 	IsScheduledRelease          bool             `json:"is_scheduled_release"`
 	ReleaseDate                 pgtype.Timestamp `json:"release_date"`
-	IsStreamGated               *bool            `json:"is_stream_gated"`
+	IsStreamGated               pgtype.Bool      `json:"is_stream_gated"`
 }
 
 type PlaylistRoute struct {
@@ -1183,9 +1183,9 @@ type PlaylistSeen struct {
 	PlaylistID  int32            `json:"playlist_id"`
 	SeenAt      pgtype.Timestamp `json:"seen_at"`
 	IsCurrent   bool             `json:"is_current"`
-	Blocknumber *int32           `json:"blocknumber"`
-	Blockhash   *string          `json:"blockhash"`
-	Txhash      *string          `json:"txhash"`
+	Blocknumber pgtype.Int4      `json:"blocknumber"`
+	Blockhash   pgtype.Text      `json:"blockhash"`
+	Txhash      pgtype.Text      `json:"txhash"`
 }
 
 type PlaylistTrack struct {
@@ -1203,7 +1203,7 @@ type Reaction struct {
 	ReactionType  string           `json:"reaction_type"`
 	ReactedTo     string           `json:"reacted_to"`
 	Timestamp     pgtype.Timestamp `json:"timestamp"`
-	Blocknumber   *int32           `json:"blocknumber"`
+	Blocknumber   pgtype.Int4      `json:"blocknumber"`
 }
 
 type RelatedArtist struct {
@@ -1225,12 +1225,12 @@ type ReportedComment struct {
 	UpdatedAt         pgtype.Timestamp `json:"updated_at"`
 	Txhash            string           `json:"txhash"`
 	Blockhash         string           `json:"blockhash"`
-	Blocknumber       *int32           `json:"blocknumber"`
+	Blocknumber       pgtype.Int4      `json:"blocknumber"`
 }
 
 type Repost struct {
-	Blockhash        *string          `json:"blockhash"`
-	Blocknumber      *int32           `json:"blocknumber"`
+	Blockhash        pgtype.Text      `json:"blockhash"`
+	Blocknumber      pgtype.Int4      `json:"blocknumber"`
 	UserID           int32            `json:"user_id"`
 	RepostItemID     int32            `json:"repost_item_id"`
 	RepostType       Reposttype       `json:"repost_type"`
@@ -1238,7 +1238,7 @@ type Repost struct {
 	IsDelete         bool             `json:"is_delete"`
 	CreatedAt        pgtype.Timestamp `json:"created_at"`
 	Txhash           string           `json:"txhash"`
-	Slot             *int32           `json:"slot"`
+	Slot             pgtype.Int4      `json:"slot"`
 	IsRepostOfRepost bool             `json:"is_repost_of_repost"`
 }
 
@@ -1262,7 +1262,7 @@ type RouteMetric struct {
 	CreatedAt   pgtype.Timestamp `json:"created_at"`
 	UpdatedAt   pgtype.Timestamp `json:"updated_at"`
 	ID          int64            `json:"id"`
-	Ip          *string          `json:"ip"`
+	Ip          pgtype.Text      `json:"ip"`
 }
 
 type RouteMetricsAllTime struct {
@@ -1315,8 +1315,8 @@ type RpcLog struct {
 }
 
 type Safe struct {
-	Blockhash      *string          `json:"blockhash"`
-	Blocknumber    *int32           `json:"blocknumber"`
+	Blockhash      pgtype.Text      `json:"blockhash"`
+	Blocknumber    pgtype.Int4      `json:"blocknumber"`
 	UserID         int32            `json:"user_id"`
 	SaveItemID     int32            `json:"save_item_id"`
 	SaveType       Savetype         `json:"save_type"`
@@ -1324,7 +1324,7 @@ type Safe struct {
 	IsDelete       bool             `json:"is_delete"`
 	CreatedAt      pgtype.Timestamp `json:"created_at"`
 	Txhash         string           `json:"txhash"`
-	Slot           *int32           `json:"slot"`
+	Slot           pgtype.Int4      `json:"slot"`
 	IsSaveOfRepost bool             `json:"is_save_of_repost"`
 }
 
@@ -1334,7 +1334,7 @@ type SchemaMigration struct {
 
 type SchemaVersion struct {
 	FileName  string             `json:"file_name"`
-	Md5       *string            `json:"md5"`
+	Md5       pgtype.Text        `json:"md5"`
 	AppliedAt pgtype.Timestamptz `json:"applied_at"`
 }
 
@@ -1359,10 +1359,10 @@ type SlaAuditorVersionDatum struct {
 }
 
 type SlaNodeReport struct {
-	ID             int32  `json:"id"`
-	Address        string `json:"address"`
-	BlocksProposed int32  `json:"blocks_proposed"`
-	SlaRollupID    *int32 `json:"sla_rollup_id"`
+	ID             int32       `json:"id"`
+	Address        string      `json:"address"`
+	BlocksProposed int32       `json:"blocks_proposed"`
+	SlaRollupID    pgtype.Int4 `json:"sla_rollup_id"`
 }
 
 type SlaRollup struct {
@@ -1389,9 +1389,9 @@ type StorageProof struct {
 	ID              int32       `json:"id"`
 	BlockHeight     int64       `json:"block_height"`
 	Address         string      `json:"address"`
-	Cid             *string     `json:"cid"`
-	ProofSignature  *string     `json:"proof_signature"`
-	Proof           *string     `json:"proof"`
+	Cid             pgtype.Text `json:"cid"`
+	ProofSignature  pgtype.Text `json:"proof_signature"`
+	Proof           pgtype.Text `json:"proof"`
 	ProverAddresses []string    `json:"prover_addresses"`
 	Status          ProofStatus `json:"status"`
 }
@@ -1403,8 +1403,8 @@ type StorageProofPeer struct {
 }
 
 type Subscription struct {
-	Blockhash    *string          `json:"blockhash"`
-	Blocknumber  *int32           `json:"blocknumber"`
+	Blockhash    pgtype.Text      `json:"blockhash"`
+	Blocknumber  pgtype.Int4      `json:"blocknumber"`
 	SubscriberID int32            `json:"subscriber_id"`
 	UserID       int32            `json:"user_id"`
 	IsCurrent    bool             `json:"is_current"`
@@ -1427,55 +1427,55 @@ type TagTrackUser struct {
 }
 
 type Track struct {
-	Blockhash                          *string          `json:"blockhash"`
+	Blockhash                          pgtype.Text      `json:"blockhash"`
 	TrackID                            int32            `json:"track_id"`
 	IsCurrent                          bool             `json:"is_current"`
 	IsDelete                           bool             `json:"is_delete"`
 	OwnerID                            int32            `json:"owner_id"`
-	Title                              *string          `json:"title"`
-	CoverArt                           *string          `json:"cover_art"`
-	Tags                               *string          `json:"tags"`
-	Genre                              *string          `json:"genre"`
-	Mood                               *string          `json:"mood"`
-	CreditsSplits                      *string          `json:"credits_splits"`
-	CreateDate                         *string          `json:"create_date"`
-	FileType                           *string          `json:"file_type"`
-	MetadataMultihash                  *string          `json:"metadata_multihash"`
-	Blocknumber                        *int32           `json:"blocknumber"`
+	Title                              pgtype.Text      `json:"title"`
+	CoverArt                           pgtype.Text      `json:"cover_art"`
+	Tags                               pgtype.Text      `json:"tags"`
+	Genre                              pgtype.Text      `json:"genre"`
+	Mood                               pgtype.Text      `json:"mood"`
+	CreditsSplits                      pgtype.Text      `json:"credits_splits"`
+	CreateDate                         pgtype.Text      `json:"create_date"`
+	FileType                           pgtype.Text      `json:"file_type"`
+	MetadataMultihash                  pgtype.Text      `json:"metadata_multihash"`
+	Blocknumber                        pgtype.Int4      `json:"blocknumber"`
 	CreatedAt                          pgtype.Timestamp `json:"created_at"`
-	Description                        *string          `json:"description"`
-	Isrc                               *string          `json:"isrc"`
-	Iswc                               *string          `json:"iswc"`
-	License                            *string          `json:"license"`
+	Description                        pgtype.Text      `json:"description"`
+	Isrc                               pgtype.Text      `json:"isrc"`
+	Iswc                               pgtype.Text      `json:"iswc"`
+	License                            pgtype.Text      `json:"license"`
 	UpdatedAt                          pgtype.Timestamp `json:"updated_at"`
-	CoverArtSizes                      *string          `json:"cover_art_sizes"`
+	CoverArtSizes                      pgtype.Text      `json:"cover_art_sizes"`
 	IsUnlisted                         bool             `json:"is_unlisted"`
 	FieldVisibility                    json.RawMessage  `json:"field_visibility"`
-	RouteID                            *string          `json:"route_id"`
+	RouteID                            pgtype.Text      `json:"route_id"`
 	StemOf                             []byte           `json:"stem_of"`
 	RemixOf                            []byte           `json:"remix_of"`
 	Txhash                             string           `json:"txhash"`
-	Slot                               *int32           `json:"slot"`
+	Slot                               pgtype.Int4      `json:"slot"`
 	IsAvailable                        bool             `json:"is_available"`
 	StreamConditions                   UsageConditions  `json:"stream_conditions"`
-	TrackCid                           *string          `json:"track_cid"`
+	TrackCid                           pgtype.Text      `json:"track_cid"`
 	IsPlaylistUpload                   bool             `json:"is_playlist_upload"`
-	Duration                           *int32           `json:"duration"`
-	AiAttributionUserID                *int32           `json:"ai_attribution_user_id"`
-	PreviewCid                         *string          `json:"preview_cid"`
-	AudioUploadID                      *string          `json:"audio_upload_id"`
-	PreviewStartSeconds                *float64         `json:"preview_start_seconds"`
+	Duration                           pgtype.Int4      `json:"duration"`
+	AiAttributionUserID                pgtype.Int4      `json:"ai_attribution_user_id"`
+	PreviewCid                         pgtype.Text      `json:"preview_cid"`
+	AudioUploadID                      pgtype.Text      `json:"audio_upload_id"`
+	PreviewStartSeconds                pgtype.Float8    `json:"preview_start_seconds"`
 	ReleaseDate                        pgtype.Timestamp `json:"release_date"`
 	TrackSegments                      []byte           `json:"track_segments"`
 	IsScheduledRelease                 bool             `json:"is_scheduled_release"`
 	IsDownloadable                     bool             `json:"is_downloadable"`
 	DownloadConditions                 UsageConditions  `json:"download_conditions"`
 	IsOriginalAvailable                bool             `json:"is_original_available"`
-	OrigFileCid                        *string          `json:"orig_file_cid"`
-	OrigFilename                       *string          `json:"orig_filename"`
+	OrigFileCid                        pgtype.Text      `json:"orig_file_cid"`
+	OrigFilename                       pgtype.Text      `json:"orig_filename"`
 	PlaylistsContainingTrack           []int32          `json:"playlists_containing_track"`
-	PlacementHosts                     *string          `json:"placement_hosts"`
-	DdexApp                            *string          `json:"ddex_app"`
+	PlacementHosts                     pgtype.Text      `json:"placement_hosts"`
+	DdexApp                            pgtype.Text      `json:"ddex_app"`
 	DdexReleaseIds                     json.RawMessage  `json:"ddex_release_ids"`
 	Artists                            json.RawMessage  `json:"artists"`
 	ResourceContributors               json.RawMessage  `json:"resource_contributors"`
@@ -1483,24 +1483,24 @@ type Track struct {
 	RightsController                   json.RawMessage  `json:"rights_controller"`
 	CopyrightLine                      json.RawMessage  `json:"copyright_line"`
 	ProducerCopyrightLine              json.RawMessage  `json:"producer_copyright_line"`
-	ParentalWarningType                *string          `json:"parental_warning_type"`
+	ParentalWarningType                pgtype.Text      `json:"parental_warning_type"`
 	PlaylistsPreviouslyContainingTrack []byte           `json:"playlists_previously_containing_track"`
 	AllowedApiKeys                     []string         `json:"allowed_api_keys"`
-	Bpm                                *float64         `json:"bpm"`
-	MusicalKey                         *string          `json:"musical_key"`
+	Bpm                                pgtype.Float8    `json:"bpm"`
+	MusicalKey                         pgtype.Text      `json:"musical_key"`
 	AudioAnalysisErrorCount            int32            `json:"audio_analysis_error_count"`
-	IsCustomBpm                        *bool            `json:"is_custom_bpm"`
-	IsCustomMusicalKey                 *bool            `json:"is_custom_musical_key"`
-	CommentsDisabled                   *bool            `json:"comments_disabled"`
-	PinnedCommentID                    *int32           `json:"pinned_comment_id"`
+	IsCustomBpm                        pgtype.Bool      `json:"is_custom_bpm"`
+	IsCustomMusicalKey                 pgtype.Bool      `json:"is_custom_musical_key"`
+	CommentsDisabled                   pgtype.Bool      `json:"comments_disabled"`
+	PinnedCommentID                    pgtype.Int4      `json:"pinned_comment_id"`
 	// Title of the original song if this track is a cover
-	CoverOriginalSongTitle *string `json:"cover_original_song_title"`
+	CoverOriginalSongTitle pgtype.Text `json:"cover_original_song_title"`
 	// Artist of the original song if this track is a cover
-	CoverOriginalArtist *string `json:"cover_original_artist"`
+	CoverOriginalArtist pgtype.Text `json:"cover_original_artist"`
 	// Indicates whether the track is owned by the user for publishing payouts
-	IsOwnedByUser   bool  `json:"is_owned_by_user"`
-	IsStreamGated   *bool `json:"is_stream_gated"`
-	IsDownloadGated *bool `json:"is_download_gated"`
+	IsOwnedByUser   bool        `json:"is_owned_by_user"`
+	IsStreamGated   pgtype.Bool `json:"is_stream_gated"`
+	IsDownloadGated pgtype.Bool `json:"is_download_gated"`
 }
 
 type TrackDelistStatus struct {
@@ -1517,11 +1517,11 @@ type TrackDownload struct {
 	Blocknumber   int32            `json:"blocknumber"`
 	ParentTrackID int32            `json:"parent_track_id"`
 	TrackID       int32            `json:"track_id"`
-	UserID        *int32           `json:"user_id"`
+	UserID        pgtype.Int4      `json:"user_id"`
 	CreatedAt     pgtype.Timestamp `json:"created_at"`
-	City          *string          `json:"city"`
-	Region        *string          `json:"region"`
-	Country       *string          `json:"country"`
+	City          pgtype.Text      `json:"city"`
+	Region        pgtype.Text      `json:"region"`
+	Country       pgtype.Text      `json:"country"`
 }
 
 type TrackPriceHistory struct {
@@ -1549,7 +1549,7 @@ type TrackRoute struct {
 type TrackTrendingScore struct {
 	TrackID   int32            `json:"track_id"`
 	Type      string           `json:"type"`
-	Genre     *string          `json:"genre"`
+	Genre     pgtype.Text      `json:"genre"`
 	Version   string           `json:"version"`
 	TimeRange string           `json:"time_range"`
 	Score     float64          `json:"score"`
@@ -1559,10 +1559,10 @@ type TrackTrendingScore struct {
 type TrendingParam struct {
 	TrackID            int32            `json:"track_id"`
 	ReleaseDate        pgtype.Timestamp `json:"release_date"`
-	Genre              *string          `json:"genre"`
+	Genre              pgtype.Text      `json:"genre"`
 	OwnerID            int32            `json:"owner_id"`
-	PlayCount          *int64           `json:"play_count"`
-	OwnerFollowerCount *int64           `json:"owner_follower_count"`
+	PlayCount          pgtype.Int8      `json:"play_count"`
+	OwnerFollowerCount pgtype.Int8      `json:"owner_follower_count"`
 	RepostCount        int32            `json:"repost_count"`
 	SaveCount          int32            `json:"save_count"`
 	RepostWeekCount    int64            `json:"repost_week_count"`
@@ -1576,7 +1576,7 @@ type TrendingParam struct {
 
 type TrendingResult struct {
 	UserID  int32       `json:"user_id"`
-	ID      *string     `json:"id"`
+	ID      pgtype.Text `json:"id"`
 	Rank    int32       `json:"rank"`
 	Type    string      `json:"type"`
 	Version string      `json:"version"`
@@ -1595,10 +1595,10 @@ type UsdcPurchase struct {
 	UpdatedAt    pgtype.Timestamp        `json:"updated_at"`
 	ExtraAmount  int64                   `json:"extra_amount"`
 	Access       UsdcPurchaseAccessType  `json:"access"`
-	City         *string                 `json:"city"`
-	Region       *string                 `json:"region"`
-	Country      *string                 `json:"country"`
-	Vendor       *string                 `json:"vendor"`
+	City         pgtype.Text             `json:"city"`
+	Region       pgtype.Text             `json:"region"`
+	Country      pgtype.Text             `json:"country"`
+	Vendor       pgtype.Text             `json:"vendor"`
 	Splits       []byte                  `json:"splits"`
 }
 
@@ -1613,7 +1613,7 @@ type UsdcTransactionsHistory struct {
 	TransactionCreatedAt pgtype.Timestamp `json:"transaction_created_at"`
 	Change               pgtype.Numeric   `json:"change"`
 	Balance              pgtype.Numeric   `json:"balance"`
-	TxMetadata           *string          `json:"tx_metadata"`
+	TxMetadata           pgtype.Text      `json:"tx_metadata"`
 }
 
 type UsdcUserBankAccount struct {
@@ -1624,48 +1624,48 @@ type UsdcUserBankAccount struct {
 }
 
 type User struct {
-	Blockhash              *string          `json:"blockhash"`
+	Blockhash              pgtype.Text      `json:"blockhash"`
 	UserID                 int32            `json:"user_id"`
 	IsCurrent              bool             `json:"is_current"`
-	Handle                 *string          `json:"handle"`
-	Wallet                 *string          `json:"wallet"`
-	Name                   *string          `json:"name"`
-	ProfilePicture         *string          `json:"profile_picture"`
-	CoverPhoto             *string          `json:"cover_photo"`
-	Bio                    *string          `json:"bio"`
-	Location               *string          `json:"location"`
-	MetadataMultihash      *string          `json:"metadata_multihash"`
-	CreatorNodeEndpoint    *string          `json:"creator_node_endpoint"`
-	Blocknumber            *int32           `json:"blocknumber"`
+	Handle                 pgtype.Text      `json:"handle"`
+	Wallet                 pgtype.Text      `json:"wallet"`
+	Name                   pgtype.Text      `json:"name"`
+	ProfilePicture         pgtype.Text      `json:"profile_picture"`
+	CoverPhoto             pgtype.Text      `json:"cover_photo"`
+	Bio                    pgtype.Text      `json:"bio"`
+	Location               pgtype.Text      `json:"location"`
+	MetadataMultihash      pgtype.Text      `json:"metadata_multihash"`
+	CreatorNodeEndpoint    pgtype.Text      `json:"creator_node_endpoint"`
+	Blocknumber            pgtype.Int4      `json:"blocknumber"`
 	IsVerified             bool             `json:"is_verified"`
 	CreatedAt              pgtype.Timestamp `json:"created_at"`
 	UpdatedAt              pgtype.Timestamp `json:"updated_at"`
-	HandleLc               *string          `json:"handle_lc"`
-	CoverPhotoSizes        *string          `json:"cover_photo_sizes"`
-	ProfilePictureSizes    *string          `json:"profile_picture_sizes"`
-	PrimaryID              *int32           `json:"primary_id"`
+	HandleLc               pgtype.Text      `json:"handle_lc"`
+	CoverPhotoSizes        pgtype.Text      `json:"cover_photo_sizes"`
+	ProfilePictureSizes    pgtype.Text      `json:"profile_picture_sizes"`
+	PrimaryID              pgtype.Int4      `json:"primary_id"`
 	SecondaryIds           []int32          `json:"secondary_ids"`
-	ReplicaSetUpdateSigner *string          `json:"replica_set_update_signer"`
+	ReplicaSetUpdateSigner pgtype.Text      `json:"replica_set_update_signer"`
 	HasCollectibles        bool             `json:"has_collectibles"`
 	Txhash                 string           `json:"txhash"`
 	PlaylistLibrary        json.RawMessage  `json:"playlist_library"`
 	IsDeactivated          bool             `json:"is_deactivated"`
-	Slot                   *int32           `json:"slot"`
-	UserStorageAccount     *string          `json:"user_storage_account"`
-	UserAuthorityAccount   *string          `json:"user_authority_account"`
-	ArtistPickTrackID      *int32           `json:"artist_pick_track_id"`
+	Slot                   pgtype.Int4      `json:"slot"`
+	UserStorageAccount     pgtype.Text      `json:"user_storage_account"`
+	UserAuthorityAccount   pgtype.Text      `json:"user_authority_account"`
+	ArtistPickTrackID      pgtype.Int4      `json:"artist_pick_track_id"`
 	IsAvailable            bool             `json:"is_available"`
 	IsStorageV2            bool             `json:"is_storage_v2"`
 	AllowAiAttribution     bool             `json:"allow_ai_attribution"`
-	SplUsdcPayoutWallet    *string          `json:"spl_usdc_payout_wallet"`
-	TwitterHandle          *string          `json:"twitter_handle"`
-	InstagramHandle        *string          `json:"instagram_handle"`
-	TiktokHandle           *string          `json:"tiktok_handle"`
-	VerifiedWithTwitter    *bool            `json:"verified_with_twitter"`
-	VerifiedWithInstagram  *bool            `json:"verified_with_instagram"`
-	VerifiedWithTiktok     *bool            `json:"verified_with_tiktok"`
-	Website                *string          `json:"website"`
-	Donation               *string          `json:"donation"`
+	SplUsdcPayoutWallet    pgtype.Text      `json:"spl_usdc_payout_wallet"`
+	TwitterHandle          pgtype.Text      `json:"twitter_handle"`
+	InstagramHandle        pgtype.Text      `json:"instagram_handle"`
+	TiktokHandle           pgtype.Text      `json:"tiktok_handle"`
+	VerifiedWithTwitter    pgtype.Bool      `json:"verified_with_twitter"`
+	VerifiedWithInstagram  pgtype.Bool      `json:"verified_with_instagram"`
+	VerifiedWithTiktok     pgtype.Bool      `json:"verified_with_tiktok"`
+	Website                pgtype.Text      `json:"website"`
+	Donation               pgtype.Text      `json:"donation"`
 }
 
 type UserBalance struct {
@@ -1674,7 +1674,7 @@ type UserBalance struct {
 	CreatedAt                   pgtype.Timestamp `json:"created_at"`
 	UpdatedAt                   pgtype.Timestamp `json:"updated_at"`
 	AssociatedWalletsBalance    string           `json:"associated_wallets_balance"`
-	Waudio                      *string          `json:"waudio"`
+	Waudio                      pgtype.Text      `json:"waudio"`
 	AssociatedSolWalletsBalance string           `json:"associated_sol_wallets_balance"`
 }
 
@@ -1705,8 +1705,8 @@ type UserChallenge struct {
 	UserID               int32              `json:"user_id"`
 	Specifier            string             `json:"specifier"`
 	IsComplete           bool               `json:"is_complete"`
-	CurrentStepCount     *int32             `json:"current_step_count"`
-	CompletedBlocknumber *int32             `json:"completed_blocknumber"`
+	CurrentStepCount     pgtype.Int4        `json:"current_step_count"`
+	CompletedBlocknumber pgtype.Int4        `json:"completed_blocknumber"`
 	Amount               int32              `json:"amount"`
 	CreatedAt            pgtype.Timestamptz `json:"created_at"`
 	CompletedAt          pgtype.Timestamp   `json:"completed_at"`
@@ -1720,14 +1720,14 @@ type UserDelistStatus struct {
 }
 
 type UserEvent struct {
-	ID           int32   `json:"id"`
-	Blockhash    *string `json:"blockhash"`
-	Blocknumber  *int32  `json:"blocknumber"`
-	IsCurrent    bool    `json:"is_current"`
-	UserID       int32   `json:"user_id"`
-	Referrer     *int32  `json:"referrer"`
-	IsMobileUser bool    `json:"is_mobile_user"`
-	Slot         *int32  `json:"slot"`
+	ID           int32       `json:"id"`
+	Blockhash    pgtype.Text `json:"blockhash"`
+	Blocknumber  pgtype.Int4 `json:"blocknumber"`
+	IsCurrent    bool        `json:"is_current"`
+	UserID       int32       `json:"user_id"`
+	Referrer     pgtype.Int4 `json:"referrer"`
+	IsMobileUser bool        `json:"is_mobile_user"`
+	Slot         pgtype.Int4 `json:"slot"`
 }
 
 type UserListeningHistory struct {
@@ -1737,7 +1737,7 @@ type UserListeningHistory struct {
 
 type UserPayoutWalletHistory struct {
 	UserID              int32            `json:"user_id"`
-	SplUsdcPayoutWallet *string          `json:"spl_usdc_payout_wallet"`
+	SplUsdcPayoutWallet pgtype.Text      `json:"spl_usdc_payout_wallet"`
 	Blocknumber         int32            `json:"blocknumber"`
 	BlockTimestamp      pgtype.Timestamp `json:"block_timestamp"`
 	CreatedAt           pgtype.Timestamp `json:"created_at"`

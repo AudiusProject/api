@@ -7,6 +7,7 @@ import (
 
 	"bridgerton.audius.co/rendezvous"
 	"bridgerton.audius.co/trashid"
+	"github.com/jackc/pgx/v5/pgtype"
 )
 
 type FullUser struct {
@@ -37,11 +38,10 @@ func (q *Queries) FullUsers(ctx context.Context, arg GetUsersParams) ([]FullUser
 		var coverPhoto RectangleImage
 		{
 			cid := ""
-			if user.CoverPhotoSizes != nil {
-				cid = *user.CoverPhotoSizes
-			}
-			if cid == "" && user.CoverPhoto != nil && !strings.HasPrefix(*user.CoverPhoto, "{") {
-				cid = *user.CoverPhoto
+			if user.CoverPhotoSizes.Valid {
+				cid = user.CoverPhotoSizes.String
+			} else if user.CoverPhoto.Valid && !strings.HasPrefix(user.CoverPhoto.String, "{") {
+				cid = user.CoverPhoto.String
 			}
 
 			// rendezvous for cid
@@ -60,8 +60,8 @@ func (q *Queries) FullUsers(ctx context.Context, arg GetUsersParams) ([]FullUser
 		var profilePicture = squareImageStruct(user.ProfilePictureSizes, user.ProfilePicture)
 
 		var artistPickTrackID *string
-		if user.ArtistPickTrackID != nil {
-			id, _ := trashid.EncodeHashId(int(*user.ArtistPickTrackID))
+		if user.ArtistPickTrackID.Valid {
+			id, _ := trashid.EncodeHashId(int(user.ArtistPickTrackID.Int32))
 			artistPickTrackID = &id
 		}
 
@@ -76,11 +76,11 @@ func (q *Queries) FullUsers(ctx context.Context, arg GetUsersParams) ([]FullUser
 	return fullUsers, nil
 }
 
-func squareImageStruct(maybeCids ...*string) SquareImage {
+func squareImageStruct(maybeCids ...pgtype.Text) SquareImage {
 	cid := ""
 	for _, m := range maybeCids {
-		if m != nil && !strings.HasPrefix(*m, "{") {
-			cid = *m
+		if m.Valid && !strings.HasPrefix(m.String, "{") {
+			cid = m.String
 			break
 		}
 	}
@@ -105,37 +105,37 @@ func squareImageStruct(maybeCids ...*string) SquareImage {
 
 type MinUser struct {
 	ID                    string         `json:"id"`
-	AlbumCount            *int64         `json:"album_count"`
+	AlbumCount            pgtype.Int8    `json:"album_count"`
 	ArtistPickTrackID     *string        `json:"artist_pick_track_id"`
-	Bio                   *string        `json:"bio"`
+	Bio                   pgtype.Text    `json:"bio"`
 	CoverPhoto            RectangleImage `json:"cover_photo"`
-	FolloweeCount         *int64         `json:"followee_count"`
-	FollowerCount         *int64         `json:"follower_count"`
-	Handle                *string        `json:"handle"`
+	FolloweeCount         pgtype.Int8    `json:"followee_count"`
+	FollowerCount         pgtype.Int8    `json:"follower_count"`
+	Handle                pgtype.Text    `json:"handle"`
 	IsVerified            bool           `json:"is_verified"`
-	TwitterHandle         *string        `json:"twitter_handle"`
-	InstagramHandle       *string        `json:"instagram_handle"`
-	TiktokHandle          *string        `json:"tiktok_handle"`
-	VerifiedWithTwitter   *bool          `json:"verified_with_twitter"`
-	VerifiedWithInstagram *bool          `json:"verified_with_instagram"`
-	VerifiedWithTiktok    *bool          `json:"verified_with_tiktok"`
-	Website               *string        `json:"website"`
-	Donation              *string        `json:"donation"`
-	Location              *string        `json:"location"`
-	Name                  *string        `json:"name"`
-	PlaylistCount         *int64         `json:"playlist_count"`
+	TwitterHandle         pgtype.Text    `json:"twitter_handle"`
+	InstagramHandle       pgtype.Text    `json:"instagram_handle"`
+	TiktokHandle          pgtype.Text    `json:"tiktok_handle"`
+	VerifiedWithTwitter   pgtype.Bool    `json:"verified_with_twitter"`
+	VerifiedWithInstagram pgtype.Bool    `json:"verified_with_instagram"`
+	VerifiedWithTiktok    pgtype.Bool    `json:"verified_with_tiktok"`
+	Website               pgtype.Text    `json:"website"`
+	Donation              pgtype.Text    `json:"donation"`
+	Location              pgtype.Text    `json:"location"`
+	Name                  pgtype.Text    `json:"name"`
+	PlaylistCount         pgtype.Int8    `json:"playlist_count"`
 	ProfilePicture        SquareImage    `json:"profile_picture"`
-	RepostCount           *int64         `json:"repost_count"`
-	TrackCount            *int64         `json:"track_count"`
+	RepostCount           pgtype.Int8    `json:"repost_count"`
+	TrackCount            pgtype.Int8    `json:"track_count"`
 	IsDeactivated         bool           `json:"is_deactivated"`
 	IsAvailable           bool           `json:"is_available"`
-	ErcWallet             *string        `json:"erc_wallet"`
-	SplWallet             *string        `json:"spl_wallet"`
-	SplUsdcPayoutWallet   *string        `json:"spl_usdc_payout_wallet"`
+	ErcWallet             pgtype.Text    `json:"erc_wallet"`
+	SplWallet             pgtype.Text    `json:"spl_wallet"`
+	SplUsdcPayoutWallet   pgtype.Text    `json:"spl_usdc_payout_wallet"`
 	SupporterCount        int32          `json:"supporter_count"`
 	SupportingCount       int32          `json:"supporting_count"`
 	TotalAudioBalance     int32          `json:"total_audio_balance"`
-	Wallet                *string        `json:"wallet"`
+	Wallet                pgtype.Text    `json:"wallet"`
 }
 
 func ToMinUser(fullUser FullUser) MinUser {

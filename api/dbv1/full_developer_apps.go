@@ -20,7 +20,7 @@ func (q *Queries) FullDeveloperApps(ctx context.Context, arg GetDeveloperAppsPar
 
 	fullDeveloperApps := make([]FullDeveloperApp, 0, len(rawDeveloperApps))
 	for _, d := range rawDeveloperApps {
-		id, _ := trashid.EncodeHashId(int(*d.UserID))
+		id, _ := trashid.EncodeHashId(int(d.UserID.Int32))
 		fullDeveloperApps = append(fullDeveloperApps, FullDeveloperApp{
 			GetDeveloperAppsRow: d,
 			UserID:              id,

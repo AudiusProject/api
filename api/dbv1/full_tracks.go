@@ -5,7 +5,7 @@ import (
 	"fmt"
 
 	"bridgerton.audius.co/trashid"
-	"bridgerton.audius.co/utils"
+	"github.com/jackc/pgx/v5/pgtype"
 )
 
 type FullTracksParams GetTracksParams
@@ -16,6 +16,10 @@ type FullTrack struct {
 	Artwork SquareImage `json:"artwork"`
 	UserID  string      `json:"user_id"`
 	User    FullUser    `json:"user"`
+
+	// todo: fill this out
+	FolloweeFavorites []FullUser `json:"followee_favorites"`
+	FolloweeReposts   []FullUser `json:"followee_reposts"`
 }
 
 func (q *Queries) FullTracks(ctx context.Context, arg GetTracksParams) ([]FullTrack, error) {
@@ -66,27 +70,27 @@ func (q *Queries) FullTracks(ctx context.Context, arg GetTracksParams) ([]FullTr
 
 type MinTrack struct {
 	ID                       string        `json:"id"`
-	Title                    *string       `json:"title"`
+	Title                    pgtype.Text   `json:"title"`
 	User                     MinUser       `json:"user"`
 	Artwork                  SquareImage   `json:"artwork"`
-	Duration                 *int32        `json:"duration"`
-	Description              *string       `json:"description"`
-	Genre                    *string       `json:"genre"`
-	TrackCid                 *string       `json:"track_cid"`
-	PreviewCid               *string       `json:"preview_cid"`
-	OrigFileCid              *string       `json:"orig_file_cid"`
-	OrigFilename             *string       `json:"orig_filename"`
+	Duration                 pgtype.Int4   `json:"duration"`
+	Description              pgtype.Text   `json:"description"`
+	Genre                    pgtype.Text   `json:"genre"`
+	TrackCid                 pgtype.Text   `json:"track_cid"`
+	PreviewCid               pgtype.Text   `json:"preview_cid"`
+	OrigFileCid              pgtype.Text   `json:"orig_file_cid"`
+	OrigFilename             pgtype.Text   `json:"orig_filename"`
 	IsOriginalAvailable      bool          `json:"is_original_available"`
-	Mood                     *string       `json:"mood"`
+	Mood                     pgtype.Text   `json:"mood"`
 	ReleaseDate              interface{}   `json:"release_date"`
 	RemixOf                  interface{}   `json:"remix_of"`
 	RepostCount              int32         `json:"repost_count"`
 	FavoriteCount            int32         `json:"favorite_count"`
-	CommentCount             *int32        `json:"comment_count"`
-	Tags                     *string       `json:"tags"`
+	CommentCount             pgtype.Int4   `json:"comment_count"`
+	Tags                     pgtype.Text   `json:"tags"`
 	IsDownloadable           bool          `json:"is_downloadable"`
-	PlayCount                *int64        `json:"play_count"`
-	PinnedCommentID          *int32        `json:"pinned_comment_id"`
+	PlayCount                pgtype.Int8   `json:"play_count"`
+	PinnedCommentID          pgtype.Int4   `json:"pinned_comment_id"`
 	PlaylistsContainingTrack []interface{} `json:"playlists_containing_track"`
 	AlbumBacklink            interface{}   `json:"album_backlink"`
 	IsStreamable             bool          `json:"is_streamable"`
@@ -120,7 +124,7 @@ func ToMinTrack(fullTrack FullTrack) MinTrack {
 		PlaylistsContainingTrack: []interface{}{}, // TODO
 		AlbumBacklink:            nil,
 		IsStreamable:             !fullTrack.IsDelete && !fullTrack.User.IsDeactivated,
-		Permalink:                fmt.Sprintf("/%s/%s", utils.String(fullTrack.User.Handle), utils.String(fullTrack.Slug)),
+		Permalink:                fmt.Sprintf("/%s/%s", fullTrack.User.Handle.String, fullTrack.Slug.String),
 	}
 }
 

@@ -27,16 +27,16 @@ ORDER BY created_at DESC
 `
 
 type GetDeveloperAppsParams struct {
-	UserID  *int32 `json:"user_id"`
-	Address string `json:"address"`
+	UserID  pgtype.Int4 `json:"user_id"`
+	Address string      `json:"address"`
 }
 
 type GetDeveloperAppsRow struct {
-	Address     string  `json:"address"`
-	UserID      *int32  `json:"user_id"`
-	Name        string  `json:"name"`
-	Description *string `json:"description"`
-	ImageUrl    *string `json:"image_url"`
+	Address     string      `json:"address"`
+	UserID      pgtype.Int4 `json:"user_id"`
+	Name        string      `json:"name"`
+	Description pgtype.Text `json:"description"`
+	ImageUrl    pgtype.Text `json:"image_url"`
 }
 
 func (q *Queries) GetDeveloperApps(ctx context.Context, arg GetDeveloperAppsParams) ([]GetDeveloperAppsRow, error) {
@@ -93,9 +93,9 @@ type GetDeveloperAppsWithGrantsParams struct {
 type GetDeveloperAppsWithGrantsRow struct {
 	Address        string           `json:"address"`
 	Name           string           `json:"name"`
-	Description    *string          `json:"description"`
-	ImageUrl       *string          `json:"image_url"`
-	GrantorUserID  *int32           `json:"grantor_user_id"`
+	Description    pgtype.Text      `json:"description"`
+	ImageUrl       pgtype.Text      `json:"image_url"`
+	GrantorUserID  pgtype.Int4      `json:"grantor_user_id"`
 	GrantCreatedAt pgtype.Timestamp `json:"grant_created_at"`
 	GrantUpdatedAt pgtype.Timestamp `json:"grant_updated_at"`
 }

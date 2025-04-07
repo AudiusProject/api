@@ -18,7 +18,7 @@ func TestUserQuery(t *testing.T) {
 		user := users[0]
 		assert.Equal(t, int32(1), user.UserID)
 		assert.Equal(t, "7eP5n", user.ID)
-		assert.Equal(t, "rayjacobson", *user.Handle)
+		assert.Equal(t, "rayjacobson", user.Handle.String)
 		assert.False(t, user.DoesCurrentUserFollow)
 		assert.False(t, user.DoesFollowCurrentUser)
 	}
@@ -31,7 +31,7 @@ func TestUserQuery(t *testing.T) {
 		})
 		assert.NoError(t, err)
 		user := users[0]
-		assert.Equal(t, "rayjacobson", *user.Handle)
+		assert.Equal(t, "rayjacobson", user.Handle.String)
 		assert.True(t, user.DoesCurrentUserFollow)
 		assert.True(t, user.DoesFollowCurrentUser)
 	}
@@ -44,7 +44,7 @@ func TestUserQuery(t *testing.T) {
 		})
 		assert.NoError(t, err)
 		user := users[0]
-		assert.Equal(t, "stereosteve", *user.Handle)
+		assert.Equal(t, "stereosteve", user.Handle.String)
 		assert.False(t, user.DoesCurrentUserFollow)
 		assert.False(t, user.DoesFollowCurrentUser)
 	}
@@ -57,8 +57,8 @@ func TestUserQuery(t *testing.T) {
 		})
 		assert.NoError(t, err)
 		assert.Len(t, users, 2)
-		assert.Equal(t, "rayjacobson", *users[0].Handle)
-		assert.Equal(t, "stereosteve", *users[1].Handle)
+		assert.Equal(t, "rayjacobson", users[0].Handle.String)
+		assert.Equal(t, "stereosteve", users[1].Handle.String)
 	}
 }
 
