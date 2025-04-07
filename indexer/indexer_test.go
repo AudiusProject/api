@@ -75,33 +75,52 @@ func TestReadProtoFile(t *testing.T) {
 	}
 	defer file.Close()
 
-	for {
-		var length uint32
-		err := binary.Read(file, binary.LittleEndian, &length)
-		if err != nil {
-			if err.Error() == "EOF" {
-				break
-			}
-			panic(err)
-		}
+	dr := NewDumpReader(file)
 
-		data := make([]byte, length)
-		_, err = file.Read(data)
-		if err != nil {
-			fmt.Println(err)
-			break
-		}
-
-		var signedTx core_proto.SignedTransaction
-		if err := proto.Unmarshal(data, &signedTx); err != nil {
-			assert.NoError(t, err)
-		}
-
-		err = ci.handleTx(&signedTx)
+	for dr.Next() {
+		signedTx := &dr.signedTx
+		fmt.Println(signedTx)
+		err := ci.handleTx(signedTx)
 		assert.NoError(t, err)
+	}
+}
 
+type DumpReader struct {
+	file     *os.File
+	buf      []byte
+	signedTx core_proto.SignedTransaction
+	err      error
+}
+
+func NewDumpReader(file *os.File) *DumpReader {
+	return &DumpReader{
+		file: file,
+		buf:  make([]byte, 8000),
+	}
+}
+
+func (dr *DumpReader) Next() bool {
+	var length uint32
+	err := binary.Read(dr.file, binary.LittleEndian, &length)
+	if err != nil {
+		if err.Error() == "EOF" {
+			return false
+		}
+		panic(err)
 	}
 
+	data := dr.buf[:length]
+	_, err = dr.file.Read(data)
+	if err != nil {
+		panic(err)
+	}
+
+	err = proto.Unmarshal(data, &dr.signedTx)
+	if err != nil {
+		panic(err)
+	}
+
+	return true
 }
 
 func assertCount(t *testing.T, expected int, sql string) {
