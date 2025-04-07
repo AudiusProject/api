@@ -15,7 +15,6 @@ import (
 	"github.com/gofiber/contrib/fiberzap/v2"
 	"github.com/gofiber/fiber/v2"
 	"github.com/gofiber/fiber/v2/middleware/cors"
-	"github.com/gofiber/fiber/v2/middleware/proxy"
 	"github.com/gofiber/fiber/v2/middleware/recover"
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgxpool"
@@ -96,6 +95,18 @@ func NewApiServer(config Config) *ApiServer {
 
 	app.Use(fiberzap.New(fiberzap.Config{
 		Logger: logger,
+		FieldsFunc: func(c *fiber.Ctx) []zap.Field {
+			fields := []zap.Field{}
+
+			// Add upstream server to logs, if found
+			if upstream, ok := c.Locals("upstream").(string); ok && upstream != "" {
+				fields = append(fields,
+					zap.String("upstream", upstream),
+				)
+			}
+
+			return fields
+		},
 	}))
 
 	app.Get("/", app.home)
@@ -149,7 +160,8 @@ func NewApiServer(config Config) *ApiServer {
 				"https://discoveryprovider5.staging.audius.co",
 			}
 		}
-		app.Use(proxy.BalancerForward(upstreams))
+
+		app.Use(BalancerForward(upstreams))
 	}
 
 	// gracefully handle 404
