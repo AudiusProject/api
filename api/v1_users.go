@@ -27,14 +27,28 @@ func (app *ApiServer) v1Users(c *fiber.Ctx, minResponse bool) error {
 		return err
 	}
 
+	// return users in same order as input list of ids
+	// some ids may be not found...
+	userMap := map[int32]dbv1.FullUser{}
+	for _, user := range users {
+		userMap[user.UserID] = user
+	}
+
+	orderedUsers := make([]dbv1.FullUser, 0, len(users))
+	for _, id := range ids {
+		if user, ok := userMap[id]; ok {
+			orderedUsers = append(orderedUsers, user)
+		}
+	}
+
 	if minResponse {
 		return c.JSON(fiber.Map{
-			"data": dbv1.ToMinUsers(users),
+			"data": dbv1.ToMinUsers(orderedUsers),
 		})
 	}
 
 	return c.JSON(fiber.Map{
-		"data": users,
+		"data": orderedUsers,
 	})
 }
 

@@ -5,13 +5,16 @@ import (
 	"testing"
 
 	"bridgerton.audius.co/api/dbv1"
+	"github.com/jackc/pgx/v5/pgtype"
 	"github.com/stretchr/testify/assert"
 )
 
 func TestGetDeveloperAppsQueries(t *testing.T) {
-	userId := int32(1)
 	developerApps, err := app.queries.GetDeveloperApps(t.Context(), dbv1.GetDeveloperAppsParams{
-		UserID: &userId,
+		UserID: pgtype.Int4{
+			Int32: 1,
+			Valid: true,
+		},
 	})
 	assert.NoError(t, err)
 	assert.Len(t, developerApps, 1)

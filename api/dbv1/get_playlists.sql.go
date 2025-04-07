@@ -7,6 +7,8 @@ package dbv1
 
 import (
 	"context"
+
+	"github.com/jackc/pgx/v5/pgtype"
 )
 
 const getPlaylists = `-- name: GetPlaylists :many
@@ -48,7 +50,7 @@ type GetPlaylistsParams struct {
 
 type GetPlaylistsRow struct {
 	PlaylistID             int32            `json:"playlist_id"`
-	PlaylistName           *string          `json:"playlist_name"`
+	PlaylistName           pgtype.Text      `json:"playlist_name"`
 	PlaylistOwnerID        int32            `json:"playlist_owner_id"`
 	PlaylistContents       PlaylistContents `json:"playlist_contents"`
 	HasCurrentUserReposted bool             `json:"has_current_user_reposted"`

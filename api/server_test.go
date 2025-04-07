@@ -68,6 +68,8 @@ func TestMain(m *testing.M) {
 	insertFixtures("reposts", repostBaseRow, "testdata/repost_fixtures.csv")
 	insertFixtures("developer_apps", developerAppBaseRow, "testdata/developer_app_fixtures.csv")
 
+	// index to es / os
+
 	code := m.Run()
 
 	// shutdown()

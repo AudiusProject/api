@@ -144,36 +144,36 @@ type GetTracksParams struct {
 
 type GetTracksRow struct {
 	TrackID                      int32            `json:"track_id"`
-	Description                  *string          `json:"description"`
-	Genre                        *string          `json:"genre"`
+	Description                  pgtype.Text      `json:"description"`
+	Genre                        pgtype.Text      `json:"genre"`
 	ID                           string           `json:"id"`
-	TrackCid                     *string          `json:"track_cid"`
-	PreviewCid                   *string          `json:"preview_cid"`
-	OrigFileCid                  *string          `json:"orig_file_cid"`
-	OrigFilename                 *string          `json:"orig_filename"`
+	TrackCid                     pgtype.Text      `json:"track_cid"`
+	PreviewCid                   pgtype.Text      `json:"preview_cid"`
+	OrigFileCid                  pgtype.Text      `json:"orig_file_cid"`
+	OrigFilename                 pgtype.Text      `json:"orig_filename"`
 	IsOriginalAvailable          bool             `json:"is_original_available"`
-	Mood                         *string          `json:"mood"`
+	Mood                         pgtype.Text      `json:"mood"`
 	ReleaseDate                  pgtype.Timestamp `json:"release_date"`
 	RemixOf                      []byte           `json:"remix_of"`
 	RepostCount                  int32            `json:"repost_count"`
 	FavoriteCount                int32            `json:"favorite_count"`
-	CommentCount                 *int32           `json:"comment_count"`
-	Tags                         *string          `json:"tags"`
-	Title                        *string          `json:"title"`
-	Slug                         *string          `json:"slug"`
-	Duration                     *int32           `json:"duration"`
+	CommentCount                 pgtype.Int4      `json:"comment_count"`
+	Tags                         pgtype.Text      `json:"tags"`
+	Title                        pgtype.Text      `json:"title"`
+	Slug                         pgtype.Text      `json:"slug"`
+	Duration                     pgtype.Int4      `json:"duration"`
 	IsDownloadable               bool             `json:"is_downloadable"`
-	PlayCount                    *int64           `json:"play_count"`
-	DdexApp                      *string          `json:"ddex_app"`
-	PinnedCommentID              *int32           `json:"pinned_comment_id"`
-	Blocknumber                  *int32           `json:"blocknumber"`
-	CreateDate                   *string          `json:"create_date"`
+	PlayCount                    pgtype.Int8      `json:"play_count"`
+	DdexApp                      pgtype.Text      `json:"ddex_app"`
+	PinnedCommentID              pgtype.Int4      `json:"pinned_comment_id"`
+	Blocknumber                  pgtype.Int4      `json:"blocknumber"`
+	CreateDate                   pgtype.Text      `json:"create_date"`
 	CreatedAt                    pgtype.Timestamp `json:"created_at"`
-	CoverArtSizes                *string          `json:"cover_art_sizes"`
-	CreditsSplits                *string          `json:"credits_splits"`
-	Isrc                         *string          `json:"isrc"`
-	License                      *string          `json:"license"`
-	Iswc                         *string          `json:"iswc"`
+	CoverArtSizes                pgtype.Text      `json:"cover_art_sizes"`
+	CreditsSplits                pgtype.Text      `json:"credits_splits"`
+	Isrc                         pgtype.Text      `json:"isrc"`
+	License                      pgtype.Text      `json:"license"`
+	Iswc                         pgtype.Text      `json:"iswc"`
 	FieldVisibility              json.RawMessage  `json:"field_visibility"`
 	HasCurrentUserReposted       bool             `json:"has_current_user_reposted"`
 	HasCurrentUserSaved          bool             `json:"has_current_user_saved"`
@@ -183,18 +183,18 @@ type GetTracksRow struct {
 	UpdatedAt                    pgtype.Timestamp `json:"updated_at"`
 	UserID                       int32            `json:"user_id"`
 	IsDelete                     bool             `json:"is_delete"`
-	CoverArt                     *string          `json:"cover_art"`
+	CoverArt                     pgtype.Text      `json:"cover_art"`
 	IsAvailable                  bool             `json:"is_available"`
-	AiAttributionUserID          *int32           `json:"ai_attribution_user_id"`
+	AiAttributionUserID          pgtype.Int4      `json:"ai_attribution_user_id"`
 	AllowedApiKeys               []string         `json:"allowed_api_keys"`
-	AudioUploadID                *string          `json:"audio_upload_id"`
-	PreviewStartSeconds          *float64         `json:"preview_start_seconds"`
-	Bpm                          *float64         `json:"bpm"`
-	IsCustomBpm                  *bool            `json:"is_custom_bpm"`
-	MusicalKey                   *string          `json:"musical_key"`
-	IsCustomMusicalKey           *bool            `json:"is_custom_musical_key"`
+	AudioUploadID                pgtype.Text      `json:"audio_upload_id"`
+	PreviewStartSeconds          pgtype.Float8    `json:"preview_start_seconds"`
+	Bpm                          pgtype.Float8    `json:"bpm"`
+	IsCustomBpm                  pgtype.Bool      `json:"is_custom_bpm"`
+	MusicalKey                   pgtype.Text      `json:"musical_key"`
+	IsCustomMusicalKey           pgtype.Bool      `json:"is_custom_musical_key"`
 	AudioAnalysisErrorCount      int32            `json:"audio_analysis_error_count"`
-	CommentsDisabled             *bool            `json:"comments_disabled"`
+	CommentsDisabled             pgtype.Bool      `json:"comments_disabled"`
 	DdexReleaseIds               json.RawMessage  `json:"ddex_release_ids"`
 	Artists                      json.RawMessage  `json:"artists"`
 	ResourceContributors         json.RawMessage  `json:"resource_contributors"`
@@ -202,12 +202,12 @@ type GetTracksRow struct {
 	RightsController             json.RawMessage  `json:"rights_controller"`
 	CopyrightLine                json.RawMessage  `json:"copyright_line"`
 	ProducerCopyrightLine        json.RawMessage  `json:"producer_copyright_line"`
-	ParentalWarningType          *string          `json:"parental_warning_type"`
-	IsStreamGated                *bool            `json:"is_stream_gated"`
+	ParentalWarningType          pgtype.Text      `json:"parental_warning_type"`
+	IsStreamGated                pgtype.Bool      `json:"is_stream_gated"`
 	StreamConditions             UsageConditions  `json:"stream_conditions"`
-	IsDownloadGated              *bool            `json:"is_download_gated"`
+	IsDownloadGated              pgtype.Bool      `json:"is_download_gated"`
 	DownloadConditions           UsageConditions  `json:"download_conditions"`
-	CoverOriginalSongTitle       *string          `json:"cover_original_song_title"`
+	CoverOriginalSongTitle       pgtype.Text      `json:"cover_original_song_title"`
 	IsOwnedByUser                bool             `json:"is_owned_by_user"`
 }
 

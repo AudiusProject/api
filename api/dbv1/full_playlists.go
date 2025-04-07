@@ -4,6 +4,7 @@ import (
 	"context"
 
 	"bridgerton.audius.co/trashid"
+	"github.com/jackc/pgx/v5/pgtype"
 	"golang.org/x/sync/errgroup"
 )
 
@@ -100,7 +101,7 @@ func (q *Queries) FullPlaylists(ctx context.Context, arg GetPlaylistsParams) ([]
 
 type MinPlaylist struct {
 	ID               string      `json:"id"`
-	PlaylistName     *string     `json:"playlist_name"`
+	PlaylistName     pgtype.Text `json:"playlist_name"`
 	PlaylistOwnerID  int32       `json:"playlist_owner_id"`
 	PlaylistID       int32       `json:"playlist_id"`
 	Artwork          SquareImage `json:"artwork"`
