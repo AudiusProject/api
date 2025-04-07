@@ -61,6 +61,13 @@ func InitLogger(config Config) *zap.Logger {
 	return logger
 }
 
+func RequestTimer() fiber.Handler {
+	return func(c *fiber.Ctx) error {
+		c.Locals("start", time.Now())
+		return c.Next()
+	}
+}
+
 func Min(handler func(*fiber.Ctx, bool) error) fiber.Handler {
 	return func(c *fiber.Ctx) error {
 		return handler(c, true)
@@ -92,21 +99,27 @@ func NewApiServer(config Config) *ApiServer {
 
 	app.Use(recover.New())
 	app.Use(cors.New())
+	app.Use(RequestTimer())
 
 	app.Use(fiberzap.New(fiberzap.Config{
 		Logger: logger,
+		// Define custom fields to add to the logs
 		FieldsFunc: func(c *fiber.Ctx) []zap.Field {
 			fields := []zap.Field{}
 
+			if startTime, ok := c.Locals("start").(time.Time); ok {
+				latencyMs := float64(time.Since(startTime).Nanoseconds()) / float64(time.Millisecond)
+				fields = append(fields, zap.Float64("latency_ms", latencyMs))
+			}
+
 			// Add upstream server to logs, if found
 			if upstream, ok := c.Locals("upstream").(string); ok && upstream != "" {
-				fields = append(fields,
-					zap.String("upstream", upstream),
-				)
+				fields = append(fields, zap.String("upstream", upstream))
 			}
 
 			return fields
 		},
+		Fields: []string{"status", "method", "url", "route"},
 	}))
 
 	app.Get("/", app.home)
