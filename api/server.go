@@ -103,7 +103,6 @@ func NewApiServer(config Config) *ApiServer {
 
 	app.Use(fiberzap.New(fiberzap.Config{
 		Logger: logger,
-		// Define custom fields to add to the logs
 		FieldsFunc: func(c *fiber.Ctx) []zap.Field {
 			fields := []zap.Field{}
 
