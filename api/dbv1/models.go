@@ -600,7 +600,7 @@ type AggregateUserTip struct {
 
 type AlbumPriceHistory struct {
 	PlaylistID      int32            `json:"playlist_id"`
-	Splits          []byte           `json:"splits"`
+	Splits          json.RawMessage  `json:"splits"`
 	TotalPriceCents int64            `json:"total_price_cents"`
 	Blocknumber     int32            `json:"blocknumber"`
 	BlockTimestamp  pgtype.Timestamp `json:"block_timestamp"`
@@ -806,7 +806,7 @@ type Collectible struct {
 	// User ID of the person who owns the collectibles
 	UserID int32 `json:"user_id"`
 	// Data about the collectibles
-	Data []byte `json:"data"`
+	Data json.RawMessage `json:"data"`
 	// Blockhash of the most recent block that changed the collectibles data
 	Blockhash string `json:"blockhash"`
 	// Block number of the most recent block that changed the collectibles data
@@ -923,7 +923,7 @@ type CoreTxDecoded struct {
 	TxIndex     int32              `json:"tx_index"`
 	TxHash      string             `json:"tx_hash"`
 	TxType      string             `json:"tx_type"`
-	TxData      []byte             `json:"tx_data"`
+	TxData      json.RawMessage    `json:"tx_data"`
 	CreatedAt   pgtype.Timestamptz `json:"created_at"`
 }
 
@@ -1243,8 +1243,8 @@ type Repost struct {
 }
 
 type RevertBlock struct {
-	Blocknumber int32  `json:"blocknumber"`
-	PrevRecords []byte `json:"prev_records"`
+	Blocknumber int32           `json:"blocknumber"`
+	PrevRecords json.RawMessage `json:"prev_records"`
 }
 
 type RewardManagerTx struct {
@@ -1299,7 +1299,7 @@ type RpcCursor struct {
 
 type RpcError struct {
 	Sig         string           `json:"sig"`
-	RpcLogJson  []byte           `json:"rpc_log_json"`
+	RpcLogJson  json.RawMessage  `json:"rpc_log_json"`
 	ErrorText   string           `json:"error_text"`
 	ErrorCount  int32            `json:"error_count"`
 	LastAttempt pgtype.Timestamp `json:"last_attempt"`
@@ -1466,7 +1466,7 @@ type Track struct {
 	AudioUploadID                      pgtype.Text      `json:"audio_upload_id"`
 	PreviewStartSeconds                pgtype.Float8    `json:"preview_start_seconds"`
 	ReleaseDate                        pgtype.Timestamp `json:"release_date"`
-	TrackSegments                      []byte           `json:"track_segments"`
+	TrackSegments                      json.RawMessage  `json:"track_segments"`
 	IsScheduledRelease                 bool             `json:"is_scheduled_release"`
 	IsDownloadable                     bool             `json:"is_downloadable"`
 	DownloadConditions                 UsageConditions  `json:"download_conditions"`
@@ -1484,7 +1484,7 @@ type Track struct {
 	CopyrightLine                      json.RawMessage  `json:"copyright_line"`
 	ProducerCopyrightLine              json.RawMessage  `json:"producer_copyright_line"`
 	ParentalWarningType                pgtype.Text      `json:"parental_warning_type"`
-	PlaylistsPreviouslyContainingTrack []byte           `json:"playlists_previously_containing_track"`
+	PlaylistsPreviouslyContainingTrack json.RawMessage  `json:"playlists_previously_containing_track"`
 	AllowedApiKeys                     []string         `json:"allowed_api_keys"`
 	Bpm                                pgtype.Float8    `json:"bpm"`
 	MusicalKey                         pgtype.Text      `json:"musical_key"`
@@ -1526,7 +1526,7 @@ type TrackDownload struct {
 
 type TrackPriceHistory struct {
 	TrackID         int32                  `json:"track_id"`
-	Splits          []byte                 `json:"splits"`
+	Splits          json.RawMessage        `json:"splits"`
 	TotalPriceCents int64                  `json:"total_price_cents"`
 	Blocknumber     int32                  `json:"blocknumber"`
 	BlockTimestamp  pgtype.Timestamp       `json:"block_timestamp"`
@@ -1599,7 +1599,7 @@ type UsdcPurchase struct {
 	Region       pgtype.Text             `json:"region"`
 	Country      pgtype.Text             `json:"country"`
 	Vendor       pgtype.Text             `json:"vendor"`
-	Splits       []byte                  `json:"splits"`
+	Splits       json.RawMessage         `json:"splits"`
 }
 
 type UsdcTransactionsHistory struct {
@@ -1731,8 +1731,8 @@ type UserEvent struct {
 }
 
 type UserListeningHistory struct {
-	UserID           int32  `json:"user_id"`
-	ListeningHistory []byte `json:"listening_history"`
+	UserID           int32           `json:"user_id"`
+	ListeningHistory json.RawMessage `json:"listening_history"`
 }
 
 type UserPayoutWalletHistory struct {

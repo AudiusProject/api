@@ -2,6 +2,7 @@ package dbv1
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
 
 	"bridgerton.audius.co/trashid"
@@ -17,12 +18,8 @@ type FullTrack struct {
 	UserID  string      `json:"user_id"`
 	User    FullUser    `json:"user"`
 
-	// hide these GetTrackRow fields
-	FolloweeFavoriteIds any `json:"followee_favorite_ids,omitempty"`
-	FolloweeRepostIds   any `json:"followee_repost_ids,omitempty"`
-
-	FolloweeFavorites []FullUser `json:"followee_favorites"`
-	FolloweeReposts   []FullUser `json:"followee_reposts"`
+	FolloweeReposts   []*FolloweeRepost   `json:"followee_reposts"`
+	FolloweeFavorites []*FolloweeFavorite `json:"followee_favorites"`
 }
 
 func (q *Queries) FullTracks(ctx context.Context, arg GetTracksParams) ([]FullTrack, error) {
@@ -34,12 +31,6 @@ func (q *Queries) FullTracks(ctx context.Context, arg GetTracksParams) ([]FullTr
 	userIds := []int32{}
 	for _, track := range rawTracks {
 		userIds = append(userIds, track.UserID)
-		for _, id := range track.FolloweeFavoriteIds {
-			userIds = append(userIds, id)
-		}
-		for _, id := range track.FolloweeRepostIds {
-			userIds = append(userIds, id)
-		}
 	}
 
 	users, err := q.FullUsers(ctx, GetUsersParams{
@@ -67,17 +58,20 @@ func (q *Queries) FullTracks(ctx context.Context, arg GetTracksParams) ([]FullTr
 			continue
 		}
 
-		followeeFavorites := []FullUser{}
-		for _, id := range track.FolloweeFavoriteIds {
-			if user, ok := userMap[id]; ok {
-				followeeFavorites = append(followeeFavorites, user)
+		// re-encode ids for followee_favorites + followee_reposts
+		var followeeReposts []*FolloweeRepost
+		if err = json.Unmarshal(track.FolloweeReposts, &followeeReposts); err == nil {
+			for _, r := range followeeReposts {
+				r.RepostItemId = trashid.StringEncode(r.RepostItemId)
+				r.UserId = trashid.StringEncode(r.UserId)
 			}
 		}
 
-		followeeReposts := []FullUser{}
-		for _, id := range track.FolloweeFavoriteIds {
-			if user, ok := userMap[id]; ok {
-				followeeReposts = append(followeeReposts, user)
+		var followeeFavorites []*FolloweeFavorite
+		if err = json.Unmarshal(track.FolloweeFavorites, &followeeFavorites); err == nil {
+			for _, r := range followeeFavorites {
+				r.FavoriteItemId = trashid.StringEncode(r.FavoriteItemId)
+				r.UserId = trashid.StringEncode(r.UserId)
 			}
 		}
 

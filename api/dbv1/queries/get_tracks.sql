@@ -65,33 +65,50 @@ SELECT
   is_scheduled_release,
   is_unlisted,
 
-  ARRAY(
-    SELECT user_id
-    FROM saves
-    JOIN follows ON followee_user_id = saves.user_id AND follower_user_id = @my_id
-    JOIN aggregate_user USING (user_id)
-    -- todo: join users, filter out deactivated
-    WHERE @my_id > 0
-      AND save_item_id = t.track_id
-      AND save_type = 'track'
-      AND saves.is_delete = false
-    ORDER BY follower_count DESC
-    LIMIT 10
-  )::int[] as followee_favorite_ids,
+  (
+    SELECT json_agg(
+      json_build_object(
+        'user_id', r.user_id::text,
+        'repost_item_id', repost_item_id::text, -- this is redundant
+        'repost_type', 'RepostType.track', -- some sqlalchemy bs
+        'created_at', r.created_at -- this is not actually present in python response?
+      )
+    )
+    FROM (
+      SELECT user_id, repost_item_id, reposts.created_at
+      FROM reposts
+      JOIN follows ON followee_user_id = reposts.user_id AND follower_user_id = @my_id
+      JOIN aggregate_user USING (user_id)
+      WHERE repost_item_id = t.track_id
+        AND repost_type = 'track'
+        AND reposts.is_delete = false
+      ORDER BY follower_count DESC
+      LIMIT 3
+    ) r
+  )::jsonb as followee_reposts,
 
-  ARRAY(
-    SELECT user_id
-    FROM reposts
-    JOIN follows ON followee_user_id = reposts.user_id AND follower_user_id = @my_id
-    JOIN aggregate_user USING (user_id)
-    -- todo: join users, filter out deactivated
-    WHERE @my_id > 0
-      AND repost_item_id = t.track_id
-      AND repost_type = 'track'
-      AND reposts.is_delete = false
-    ORDER BY follower_count DESC
-    LIMIT 10
-  )::int[] as followee_repost_ids,
+  (
+    SELECT json_agg(
+      json_build_object(
+        'user_id', r.user_id::text,
+        'favorite_item_id', r.save_item_id::text, -- this is redundant
+        'favorite_type', 'SaveType.track', -- some sqlalchemy bs
+        'created_at', r.created_at -- this is not actually present in python response?
+      )
+    )
+    FROM (
+      SELECT user_id, save_item_id, saves.created_at
+      FROM saves
+      JOIN follows ON followee_user_id = saves.user_id AND follower_user_id = @my_id
+      JOIN aggregate_user USING (user_id)
+      WHERE save_item_id = t.track_id
+        AND save_type = 'track'
+        AND saves.is_delete = false
+      ORDER BY follower_count DESC
+      LIMIT 3
+    ) r
+  )::jsonb as followee_favorites,
+
 
   -- followee_favorites,
   -- route_id,

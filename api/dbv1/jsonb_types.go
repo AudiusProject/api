@@ -32,3 +32,17 @@ type PlaylistContents struct {
 		MetadataTime int64 `json:"metadata_time"`
 	} `json:"track_ids"`
 }
+
+type FolloweeRepost struct {
+	RepostItemId string `json:"repost_item_id"`
+	RepostType   string `json:"repost_type"`
+	UserId       string `json:"user_id"`
+	CreatedAt    string `json:"created_at"`
+}
+
+type FolloweeFavorite struct {
+	FavoriteItemId string `json:"favorite_item_id"`
+	FavoriteType   string `json:"favorite_type"`
+	UserId         string `json:"user_id"`
+	CreatedAt      string `json:"created_at"`
+}
