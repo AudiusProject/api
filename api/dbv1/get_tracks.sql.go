@@ -79,6 +79,30 @@ SELECT
   is_scheduled_release,
   is_unlisted,
 
+  ARRAY(
+    SELECT user_id
+    FROM saves
+    JOIN follows ON followee_user_id = saves.user_id AND follower_user_id = $1
+    JOIN aggregate_user USING (user_id)
+    WHERE $1 > 0
+      AND save_item_id = t.track_id
+      AND saves.is_delete = false
+    ORDER BY follower_count DESC
+    LIMIT 10
+  )::int[] as followee_favorite_ids,
+
+  ARRAY(
+    SELECT user_id
+    FROM reposts
+    JOIN follows ON followee_user_id = reposts.user_id AND follower_user_id = $1
+    JOIN aggregate_user USING (user_id)
+    WHERE $1 > 0
+      AND repost_item_id = t.track_id
+      AND reposts.is_delete = false
+    ORDER BY follower_count DESC
+    LIMIT 10
+  )::int[] as followee_repost_ids,
+
   -- followee_favorites,
   -- route_id,
   stem_of,
@@ -179,6 +203,8 @@ type GetTracksRow struct {
 	HasCurrentUserSaved          bool             `json:"has_current_user_saved"`
 	IsScheduledRelease           bool             `json:"is_scheduled_release"`
 	IsUnlisted                   bool             `json:"is_unlisted"`
+	FolloweeFavoriteIds          []int32          `json:"followee_favorite_ids"`
+	FolloweeRepostIds            []int32          `json:"followee_repost_ids"`
 	StemOf                       []byte           `json:"stem_of"`
 	UpdatedAt                    pgtype.Timestamp `json:"updated_at"`
 	UserID                       int32            `json:"user_id"`
@@ -262,6 +288,8 @@ func (q *Queries) GetTracks(ctx context.Context, arg GetTracksParams) ([]GetTrac
 			&i.HasCurrentUserSaved,
 			&i.IsScheduledRelease,
 			&i.IsUnlisted,
+			&i.FolloweeFavoriteIds,
+			&i.FolloweeRepostIds,
 			&i.StemOf,
 			&i.UpdatedAt,
 			&i.UserID,
