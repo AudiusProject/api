@@ -172,19 +172,13 @@ LEFT JOIN aggregate_plays on play_item_id = t.track_id
 LEFT JOIN track_routes on t.track_id = track_routes.track_id and track_routes.is_current = true
 WHERE is_available = true
   AND (is_unlisted = false OR t.owner_id = $1)
-  AND (
-    t.track_id = $2
-    OR t.owner_id = $3
-    OR t.track_id = ANY($4::int[])
-  )
+  AND t.track_id = ANY($2::int[])
 ORDER BY t.track_id
 `
 
 type GetTracksParams struct {
-	MyID    interface{} `json:"my_id"`
-	TrackID int32       `json:"track_id"`
-	OwnerID int32       `json:"owner_id"`
-	Ids     []int32     `json:"ids"`
+	MyID interface{} `json:"my_id"`
+	Ids  []int32     `json:"ids"`
 }
 
 type GetTracksRow struct {
@@ -259,12 +253,7 @@ type GetTracksRow struct {
 }
 
 func (q *Queries) GetTracks(ctx context.Context, arg GetTracksParams) ([]GetTracksRow, error) {
-	rows, err := q.db.Query(ctx, getTracks,
-		arg.MyID,
-		arg.TrackID,
-		arg.OwnerID,
-		arg.Ids,
-	)
+	rows, err := q.db.Query(ctx, getTracks, arg.MyID, arg.Ids)
 	if err != nil {
 		return nil, err
 	}

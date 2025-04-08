@@ -158,10 +158,6 @@ LEFT JOIN aggregate_plays on play_item_id = t.track_id
 LEFT JOIN track_routes on t.track_id = track_routes.track_id and track_routes.is_current = true
 WHERE is_available = true
   AND (is_unlisted = false OR t.owner_id = @my_id)
-  AND (
-    t.track_id = @track_id
-    OR t.owner_id = @owner_id
-    OR t.track_id = ANY(@ids::int[])
-  )
+  AND t.track_id = ANY(@ids::int[])
 ORDER BY t.track_id
 ;
