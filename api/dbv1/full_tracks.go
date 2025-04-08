@@ -46,7 +46,7 @@ func (q *Queries) FullTracks(ctx context.Context, arg GetTracksParams) ([]FullTr
 		userMap[user.UserID] = user
 	}
 
-	fullTracks := make([]FullTrack, 0, len(rawTracks))
+	trackMap := map[int32]FullTrack{}
 	for _, track := range rawTracks {
 		track.ID, _ = trashid.EncodeHashId(int(track.TrackID))
 		user, ok := userMap[track.UserID]
@@ -75,14 +75,24 @@ func (q *Queries) FullTracks(ctx context.Context, arg GetTracksParams) ([]FullTr
 			}
 		}
 
-		fullTracks = append(fullTracks, FullTrack{
+		fullTrack := FullTrack{
 			GetTracksRow:      track,
 			Artwork:           squareImageStruct(track.CoverArtSizes, track.CoverArt),
 			User:              user,
 			UserID:            user.ID,
 			FolloweeFavorites: followeeFavorites,
 			FolloweeReposts:   followeeReposts,
-		})
+		}
+		trackMap[track.TrackID] = fullTrack
+	}
+
+	// return in same order as input list of ids
+	// some ids may be not found...
+	fullTracks := []FullTrack{}
+	for _, id := range arg.Ids {
+		if t, found := trackMap[id]; found {
+			fullTracks = append(fullTracks, t)
+		}
 	}
 
 	return fullTracks, nil

@@ -130,6 +130,8 @@ func NewApiServer(config Config) *ApiServer {
 	app.Get("/v1/full/users/:userId/mutuals", Full(app.v1UsersMutuals))
 	app.Get("/v1/full/users/:userId/supporting", Full(app.v1UsersSupporting))
 
+	app.Get("/v1/full/users/handle/:handle/tracks", Full(app.v1UserTracks))
+
 	app.Get("/v1/full/tracks", Full(app.v1Tracks))
 	app.Get("/v1/full/tracks/:trackId/reposts", Full(app.v1TrackReposts))
 	app.Get("/v1/full/tracks/:trackId/favorites", Full(app.v1TrackFavorites))
