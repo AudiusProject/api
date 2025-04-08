@@ -19,6 +19,22 @@ func (app *ApiServer) v1playlists(c *fiber.Ctx, minResponse bool) error {
 		return err
 	}
 
+	// return in same order as input list of ids
+	// some ids may be not found...
+	orderedPlaylists := []dbv1.FullPlaylist{}
+	playlistMap := map[int32]dbv1.FullPlaylist{}
+	for _, playlist := range playlists {
+		playlistMap[playlist.PlaylistID] = playlist
+	}
+
+	for _, id := range ids {
+		if playlist, found := playlistMap[id]; found {
+			orderedPlaylists = append(orderedPlaylists, playlist)
+		}
+	}
+
+	playlists = orderedPlaylists
+
 	if minResponse {
 		return c.JSON(fiber.Map{
 			"data": dbv1.ToMinPlaylists(playlists),
