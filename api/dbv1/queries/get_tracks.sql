@@ -70,8 +70,10 @@ SELECT
     FROM saves
     JOIN follows ON followee_user_id = saves.user_id AND follower_user_id = @my_id
     JOIN aggregate_user USING (user_id)
+    -- todo: join users, filter out deactivated
     WHERE @my_id > 0
       AND save_item_id = t.track_id
+      AND save_type = 'track'
       AND saves.is_delete = false
     ORDER BY follower_count DESC
     LIMIT 10
@@ -82,8 +84,10 @@ SELECT
     FROM reposts
     JOIN follows ON followee_user_id = reposts.user_id AND follower_user_id = @my_id
     JOIN aggregate_user USING (user_id)
+    -- todo: join users, filter out deactivated
     WHERE @my_id > 0
       AND repost_item_id = t.track_id
+      AND repost_type = 'track'
       AND reposts.is_delete = false
     ORDER BY follower_count DESC
     LIMIT 10
