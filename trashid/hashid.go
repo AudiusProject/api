@@ -2,6 +2,7 @@ package trashid
 
 import (
 	"errors"
+	"strconv"
 
 	"github.com/speps/go-hashids/v2"
 )
@@ -28,6 +29,15 @@ func DecodeHashId(id string) (int, error) {
 
 func EncodeHashId(id int) (string, error) {
 	return hashIdUtil.Encode([]int{id})
+}
+
+func StringEncode(id string) string {
+	if num, err := strconv.Atoi(id); err == nil {
+		if result, err := hashIdUtil.Encode([]int{num}); err == nil {
+			return result
+		}
+	}
+	return id
 }
 
 func MustEncodeHashID(id int) string {
