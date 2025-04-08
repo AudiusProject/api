@@ -17,7 +17,10 @@ type FullTrack struct {
 	UserID  string      `json:"user_id"`
 	User    FullUser    `json:"user"`
 
-	// todo: fill this out
+	// hide these GetTrackRow fields
+	FolloweeFavoriteIds any `json:"followee_favorite_ids,omitempty"`
+	FolloweeRepostIds   any `json:"followee_repost_ids,omitempty"`
+
 	FolloweeFavorites []FullUser `json:"followee_favorites"`
 	FolloweeReposts   []FullUser `json:"followee_reposts"`
 }
@@ -28,9 +31,15 @@ func (q *Queries) FullTracks(ctx context.Context, arg GetTracksParams) ([]FullTr
 		return nil, err
 	}
 
-	userIds := make([]int32, len(rawTracks))
-	for idx, track := range rawTracks {
-		userIds[idx] = track.UserID
+	userIds := []int32{}
+	for _, track := range rawTracks {
+		userIds = append(userIds, track.UserID)
+		for _, id := range track.FolloweeFavoriteIds {
+			userIds = append(userIds, id)
+		}
+		for _, id := range track.FolloweeRepostIds {
+			userIds = append(userIds, id)
+		}
 	}
 
 	users, err := q.FullUsers(ctx, GetUsersParams{
@@ -57,11 +66,28 @@ func (q *Queries) FullTracks(ctx context.Context, arg GetTracksParams) ([]FullTr
 		if !ok {
 			continue
 		}
+
+		followeeFavorites := []FullUser{}
+		for _, id := range track.FolloweeFavoriteIds {
+			if user, ok := userMap[id]; ok {
+				followeeFavorites = append(followeeFavorites, user)
+			}
+		}
+
+		followeeReposts := []FullUser{}
+		for _, id := range track.FolloweeFavoriteIds {
+			if user, ok := userMap[id]; ok {
+				followeeReposts = append(followeeReposts, user)
+			}
+		}
+
 		fullTracks = append(fullTracks, FullTrack{
-			GetTracksRow: track,
-			Artwork:      squareImageStruct(track.CoverArtSizes, track.CoverArt),
-			User:         user,
-			UserID:       user.ID,
+			GetTracksRow:      track,
+			Artwork:           squareImageStruct(track.CoverArtSizes, track.CoverArt),
+			User:              user,
+			UserID:            user.ID,
+			FolloweeFavorites: followeeFavorites,
+			FolloweeReposts:   followeeReposts,
 		})
 	}
 
