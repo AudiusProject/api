@@ -2,7 +2,6 @@ package dbv1
 
 import (
 	"context"
-	"encoding/json"
 	"fmt"
 
 	"bridgerton.audius.co/trashid"
@@ -22,7 +21,7 @@ type FullTrack struct {
 	FolloweeFavorites []*FolloweeFavorite `json:"followee_favorites"`
 }
 
-func (q *Queries) FullTracks(ctx context.Context, arg GetTracksParams) ([]FullTrack, error) {
+func (q *Queries) FullTracksKeyed(ctx context.Context, arg GetTracksParams) (map[int32]FullTrack, error) {
 	rawTracks, err := q.GetTracks(ctx, GetTracksParams(arg))
 	if err != nil {
 		return nil, err
@@ -33,17 +32,12 @@ func (q *Queries) FullTracks(ctx context.Context, arg GetTracksParams) ([]FullTr
 		userIds = append(userIds, track.UserID)
 	}
 
-	users, err := q.FullUsers(ctx, GetUsersParams{
+	userMap, err := q.FullUsersKeyed(ctx, GetUsersParams{
 		MyID: arg.MyID,
 		Ids:  userIds,
 	})
 	if err != nil {
 		return nil, err
-	}
-
-	userMap := map[int32]FullUser{}
-	for _, user := range users {
-		userMap[user.UserID] = user
 	}
 
 	trackMap := map[int32]FullTrack{}
@@ -58,32 +52,24 @@ func (q *Queries) FullTracks(ctx context.Context, arg GetTracksParams) ([]FullTr
 			continue
 		}
 
-		// re-encode ids for followee_favorites + followee_reposts
-		var followeeReposts []*FolloweeRepost
-		if err = json.Unmarshal(track.FolloweeReposts, &followeeReposts); err == nil {
-			for _, r := range followeeReposts {
-				r.RepostItemId = trashid.StringEncode(r.RepostItemId)
-				r.UserId = trashid.StringEncode(r.UserId)
-			}
-		}
-
-		var followeeFavorites []*FolloweeFavorite
-		if err = json.Unmarshal(track.FolloweeFavorites, &followeeFavorites); err == nil {
-			for _, r := range followeeFavorites {
-				r.FavoriteItemId = trashid.StringEncode(r.FavoriteItemId)
-				r.UserId = trashid.StringEncode(r.UserId)
-			}
-		}
-
 		fullTrack := FullTrack{
 			GetTracksRow:      track,
 			Artwork:           squareImageStruct(track.CoverArtSizes, track.CoverArt),
 			User:              user,
 			UserID:            user.ID,
-			FolloweeFavorites: followeeFavorites,
-			FolloweeReposts:   followeeReposts,
+			FolloweeFavorites: fullFolloweeFavorites(track.FolloweeFavorites),
+			FolloweeReposts:   fullFolloweeReposts(track.FolloweeReposts),
 		}
 		trackMap[track.TrackID] = fullTrack
+	}
+
+	return trackMap, nil
+}
+
+func (q *Queries) FullTracks(ctx context.Context, arg GetTracksParams) ([]FullTrack, error) {
+	trackMap, err := q.FullTracksKeyed(ctx, arg)
+	if err != nil {
+		return nil, err
 	}
 
 	// return in same order as input list of ids

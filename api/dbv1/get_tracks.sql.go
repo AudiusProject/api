@@ -97,7 +97,7 @@ SELECT
         AND repost_type = 'track'
         AND reposts.is_delete = false
       ORDER BY follower_count DESC
-      LIMIT 3
+      LIMIT 6
     ) r
   )::jsonb as followee_reposts,
 
@@ -119,7 +119,7 @@ SELECT
         AND save_type = 'track'
         AND saves.is_delete = false
       ORDER BY follower_count DESC
-      LIMIT 3
+      LIMIT 6
     ) r
   )::jsonb as followee_favorites,
 

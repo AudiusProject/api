@@ -16,9 +16,12 @@ type FullPlaylist struct {
 	UserID  string      `json:"user_id"`
 	User    FullUser    `json:"user"`
 	Tracks  []FullTrack `json:"tracks"`
+
+	FolloweeReposts   []*FolloweeRepost   `json:"followee_reposts"`
+	FolloweeFavorites []*FolloweeFavorite `json:"followee_favorites"`
 }
 
-func (q *Queries) FullPlaylists(ctx context.Context, arg GetPlaylistsParams) ([]FullPlaylist, error) {
+func (q *Queries) FullPlaylistsKeyed(ctx context.Context, arg GetPlaylistsParams) (map[int32]FullPlaylist, error) {
 	rawPlaylists, err := q.GetPlaylists(ctx, arg)
 	if err != nil {
 		return nil, err
@@ -41,25 +44,21 @@ func (q *Queries) FullPlaylists(ctx context.Context, arg GetPlaylistsParams) ([]
 
 	// fetch users
 	g.Go(func() error {
-		users, err := q.FullUsers(ctx, GetUsersParams{
+		var err error
+		userMap, err = q.FullUsersKeyed(ctx, GetUsersParams{
 			MyID: arg.MyID,
 			Ids:  userIds,
 		})
-		for _, user := range users {
-			userMap[user.UserID] = user
-		}
 		return err
 	})
 
 	// fetch tracks
 	g.Go(func() error {
-		tracks, err := q.FullTracks(ctx, GetTracksParams{
+		var err error
+		trackMap, err = q.FullTracksKeyed(ctx, GetTracksParams{
 			MyID: arg.MyID,
 			Ids:  trackIds,
 		})
-		for _, track := range tracks {
-			trackMap[track.TrackID] = track
-		}
 		return err
 	})
 
@@ -67,7 +66,7 @@ func (q *Queries) FullPlaylists(ctx context.Context, arg GetPlaylistsParams) ([]
 		return nil, err
 	}
 
-	fullPlaylists := make([]FullPlaylist, 0, len(rawPlaylists))
+	playlistMap := map[int32]FullPlaylist{}
 	for _, playlist := range rawPlaylists {
 		id, _ := trashid.EncodeHashId(int(playlist.PlaylistID))
 		user, ok := userMap[playlist.PlaylistOwnerID]
@@ -86,14 +85,34 @@ func (q *Queries) FullPlaylists(ctx context.Context, arg GetPlaylistsParams) ([]
 			}
 		}
 
-		fullPlaylists = append(fullPlaylists, FullPlaylist{
+		playlistMap[playlist.PlaylistID] = FullPlaylist{
 			GetPlaylistsRow: playlist,
 			ID:              id,
 			// Artwork:         squareImageStruct(track.CoverArtSizes, track.CoverArt),
-			User:   user,
-			UserID: user.ID,
-			Tracks: tracks,
-		})
+			User:              user,
+			UserID:            user.ID,
+			Tracks:            tracks,
+			FolloweeFavorites: fullFolloweeFavorites(playlist.FolloweeFavorites),
+			FolloweeReposts:   fullFolloweeReposts(playlist.FolloweeReposts),
+		}
+	}
+
+	return playlistMap, nil
+}
+
+func (q *Queries) FullPlaylists(ctx context.Context, arg GetPlaylistsParams) ([]FullPlaylist, error) {
+	playlistMap, err := q.FullPlaylistsKeyed(ctx, arg)
+	if err != nil {
+		return nil, err
+	}
+
+	// return in same order as input list of ids
+	// some ids may be not found...
+	fullPlaylists := []FullPlaylist{}
+	for _, id := range arg.Ids {
+		if t, found := playlistMap[id]; found {
+			fullPlaylists = append(fullPlaylists, t)
+		}
 	}
 
 	return fullPlaylists, nil

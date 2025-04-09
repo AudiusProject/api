@@ -16,7 +16,6 @@ import (
 	"github.com/gofiber/fiber/v2"
 	"github.com/gofiber/fiber/v2/middleware/cors"
 	"github.com/gofiber/fiber/v2/middleware/recover"
-	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgxpool"
 	"go.uber.org/zap"
 	"go.uber.org/zap/zapcore"
@@ -123,14 +122,23 @@ func NewApiServer(config Config) *ApiServer {
 
 	app.Get("/", app.home)
 
+	// resolve myId
+	app.Use(app.resolveMyIdMiddleware)
+
 	// v1/full
 	app.Get("/v1/full/users", Full(app.v1Users))
+
+	app.Use("/v1/full/users/handle/:handle", app.requireHandleMiddleware)
+	app.Get("/v1/full/users/handle/:handle/tracks", Full(app.v1UserTracks))
+	app.Get("/v1/full/users/handle/:handle/reposts", Full(app.v1UsersReposts))
+
+	app.Use("/v1/full/users/:userId", app.requireUserIdMiddleware)
 	app.Get("/v1/full/users/:userId/followers", Full(app.v1UsersFollowers))
 	app.Get("/v1/full/users/:userId/following", Full(app.v1UsersFollowing))
 	app.Get("/v1/full/users/:userId/mutuals", Full(app.v1UsersMutuals))
+	app.Get("/v1/full/users/:userId/reposts", Full(app.v1UsersReposts))
 	app.Get("/v1/full/users/:userId/supporting", Full(app.v1UsersSupporting))
-
-	app.Get("/v1/full/users/handle/:handle/tracks", Full(app.v1UserTracks))
+	app.Get("/v1/full/users/:userId/tracks", Full(app.v1UserTracks))
 
 	app.Get("/v1/full/tracks", Full(app.v1Tracks))
 	app.Get("/v1/full/tracks/:trackId/reposts", Full(app.v1TrackReposts))
@@ -181,10 +189,7 @@ func NewApiServer(config Config) *ApiServer {
 	// gracefully handle 404
 	// (this won't get hit so long as above proxy is in place)
 	app.Use(func(c *fiber.Ctx) error {
-		return c.Status(http.StatusNotFound).JSON(fiber.Map{
-			"code":  http.StatusNotFound,
-			"error": "Route not found",
-		})
+		return sendError(c, 404, "Route not found")
 	})
 
 	return app
@@ -201,25 +206,6 @@ func (app *ApiServer) home(c *fiber.Ctx) error {
 	return c.SendString("OK")
 }
 
-func errorHandler(logger *zap.Logger) func(*fiber.Ctx, error) error {
-	return func(ctx *fiber.Ctx, err error) error {
-		code := http.StatusInternalServerError
-		if err == pgx.ErrNoRows {
-			code = http.StatusNotFound
-		}
-
-		if code > 499 {
-			logger.Error(err.Error(),
-				zap.String("url", ctx.OriginalURL()))
-		}
-
-		return ctx.Status(code).JSON(&fiber.Map{
-			"code":  code,
-			"error": err.Error(),
-		})
-	}
-}
-
 func decodeIdList(c *fiber.Ctx) []int32 {
 	var ids []int32
 	for _, b := range c.Request().URI().QueryArgs().PeekMulti("id") {
@@ -231,6 +217,14 @@ func decodeIdList(c *fiber.Ctx) []int32 {
 		}
 	}
 	return ids
+}
+
+func (app *ApiServer) resolveUserHandleToId(handle string) (int32, error) {
+	// todo: can do some in memory cache here
+	var userId int32
+	sql := `select user_id from users where handle_lc = lower($1)`
+	err := app.pool.QueryRow(context.Background(), sql, handle).Scan(&userId)
+	return userId, err
 }
 
 func (as *ApiServer) Serve() {

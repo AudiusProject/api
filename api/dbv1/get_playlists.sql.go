@@ -7,6 +7,7 @@ package dbv1
 
 import (
 	"context"
+	"encoding/json"
 
 	"github.com/jackc/pgx/v5/pgtype"
 )
@@ -57,7 +58,52 @@ SELECT
       AND save_type != 'track'
       AND save_item_id = p.playlist_id
       AND is_delete = false
-  ) AS has_current_user_saved
+  ) AS has_current_user_saved,
+
+
+  (
+    SELECT json_agg(
+      json_build_object(
+        'user_id', r.user_id::text,
+        'repost_item_id', repost_item_id::text, -- this is redundant
+        'repost_type', 'RepostType.track', -- some sqlalchemy bs
+        'created_at', r.created_at -- this is not actually present in python response?
+      )
+    )
+    FROM (
+      SELECT user_id, repost_item_id, reposts.created_at
+      FROM reposts
+      JOIN follows ON followee_user_id = reposts.user_id AND follower_user_id = $1
+      JOIN aggregate_user USING (user_id)
+      WHERE repost_item_id = p.playlist_id
+        AND repost_type != 'track'
+        AND reposts.is_delete = false
+      ORDER BY follower_count DESC
+      LIMIT 6
+    ) r
+  )::jsonb as followee_reposts,
+
+  (
+    SELECT json_agg(
+      json_build_object(
+        'user_id', r.user_id::text,
+        'favorite_item_id', r.save_item_id::text, -- this is redundant
+        'favorite_type', 'SaveType.track', -- some sqlalchemy bs
+        'created_at', r.created_at -- this is not actually present in python response?
+      )
+    )
+    FROM (
+      SELECT user_id, save_item_id, saves.created_at
+      FROM saves
+      JOIN follows ON followee_user_id = saves.user_id AND follower_user_id = $1
+      JOIN aggregate_user USING (user_id)
+      WHERE save_item_id = p.playlist_id
+        AND save_type != 'track'
+        AND saves.is_delete = false
+      ORDER BY follower_count DESC
+      LIMIT 6
+    ) r
+  )::jsonb as followee_favorites
 
 FROM playlists p
 JOIN aggregate_playlist using (playlist_id)
@@ -90,6 +136,8 @@ type GetPlaylistsRow struct {
 	ReleaseDate            pgtype.Timestamp `json:"release_date"`
 	HasCurrentUserReposted bool             `json:"has_current_user_reposted"`
 	HasCurrentUserSaved    bool             `json:"has_current_user_saved"`
+	FolloweeReposts        json.RawMessage  `json:"followee_reposts"`
+	FolloweeFavorites      json.RawMessage  `json:"followee_favorites"`
 }
 
 func (q *Queries) GetPlaylists(ctx context.Context, arg GetPlaylistsParams) ([]GetPlaylistsRow, error) {
@@ -121,6 +169,8 @@ func (q *Queries) GetPlaylists(ctx context.Context, arg GetPlaylistsParams) ([]G
 			&i.ReleaseDate,
 			&i.HasCurrentUserReposted,
 			&i.HasCurrentUserSaved,
+			&i.FolloweeReposts,
+			&i.FolloweeFavorites,
 		); err != nil {
 			return nil, err
 		}

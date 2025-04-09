@@ -6,15 +6,17 @@ import (
 
 	"bridgerton.audius.co/api/dbv1"
 	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 )
 
 func TestUserQuery(t *testing.T) {
 	// as anon
 	{
 		users, err := app.queries.FullUsers(t.Context(), dbv1.GetUsersParams{
-			Handle: "rayjacobson",
+			Ids: []int32{1},
 		})
 		assert.NoError(t, err)
+		require.Len(t, users, 1)
 		user := users[0]
 		assert.Equal(t, int32(1), user.UserID)
 		assert.Equal(t, "7eP5n", user.ID)
@@ -26,8 +28,8 @@ func TestUserQuery(t *testing.T) {
 	// as stereosteve
 	{
 		users, err := app.queries.FullUsers(t.Context(), dbv1.GetUsersParams{
-			MyID:   2,
-			Handle: "rayjacobson",
+			MyID: 2,
+			Ids:  []int32{1},
 		})
 		assert.NoError(t, err)
 		user := users[0]
