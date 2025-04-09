@@ -79,7 +79,7 @@ func TestMain(m *testing.M) {
 func TestHome(t *testing.T) {
 	status, body := testGet(t, "/")
 	assert.Equal(t, 200, status)
-	assert.Equal(t, "OK", string(body))
+	assert.True(t, strings.Contains(string(body), "uptime"))
 }
 
 func Test200(t *testing.T) {

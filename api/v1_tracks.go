@@ -7,7 +7,7 @@ import (
 	"github.com/jackc/pgx/v5"
 )
 
-func (app *ApiServer) v1Tracks(c *fiber.Ctx, minResponse bool) error {
+func (app *ApiServer) v1Tracks(c *fiber.Ctx) error {
 	myId, _ := trashid.DecodeHashId(c.Query("user_id"))
 	ids := decodeIdList(c)
 
@@ -18,18 +18,11 @@ func (app *ApiServer) v1Tracks(c *fiber.Ctx, minResponse bool) error {
 	if err != nil {
 		return err
 	}
-	if minResponse {
-		return c.JSON(fiber.Map{
-			"data": dbv1.ToMinTracks(tracks),
-		})
-	}
 
-	return c.JSON(fiber.Map{
-		"data": tracks,
-	})
+	return v1TrackResponse(c, tracks)
 }
 
-func (app *ApiServer) v1TrackReposts(c *fiber.Ctx, minResponse bool) error {
+func (app *ApiServer) v1TrackReposts(c *fiber.Ctx) error {
 	sql := `
 	SELECT user_id
 	FROM reposts r
@@ -51,10 +44,10 @@ func (app *ApiServer) v1TrackReposts(c *fiber.Ctx, minResponse bool) error {
 
 	return app.queryFullUsers(c, sql, pgx.NamedArgs{
 		"trackId": trackId,
-	}, minResponse)
+	})
 }
 
-func (app *ApiServer) v1TrackFavorites(c *fiber.Ctx, minResponse bool) error {
+func (app *ApiServer) v1TrackFavorites(c *fiber.Ctx) error {
 	sql := `
 	SELECT user_id
 	FROM saves
@@ -76,5 +69,5 @@ func (app *ApiServer) v1TrackFavorites(c *fiber.Ctx, minResponse bool) error {
 
 	return app.queryFullUsers(c, sql, pgx.NamedArgs{
 		"trackId": trackId,
-	}, minResponse)
+	})
 }

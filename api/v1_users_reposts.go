@@ -9,7 +9,7 @@ import (
 	"golang.org/x/sync/errgroup"
 )
 
-func (app *ApiServer) v1UsersReposts(c *fiber.Ctx, minResponse bool) error {
+func (app *ApiServer) v1UsersReposts(c *fiber.Ctx) error {
 	myId := c.Locals("myId")
 	userId := c.Locals("userId")
 

@@ -7,7 +7,7 @@ import (
 	"github.com/jackc/pgx/v5"
 )
 
-func (app *ApiServer) v1playlists(c *fiber.Ctx, minResponse bool) error {
+func (app *ApiServer) v1playlists(c *fiber.Ctx) error {
 	myId, _ := trashid.DecodeHashId(c.Query("user_id"))
 	ids := decodeIdList(c)
 
@@ -19,18 +19,10 @@ func (app *ApiServer) v1playlists(c *fiber.Ctx, minResponse bool) error {
 		return err
 	}
 
-	if minResponse {
-		return c.JSON(fiber.Map{
-			"data": dbv1.ToMinPlaylists(playlists),
-		})
-	}
-
-	return c.JSON(fiber.Map{
-		"data": playlists,
-	})
+	return v1PlaylistResponse(c, playlists)
 }
 
-func (app *ApiServer) v1PlaylistsReposts(c *fiber.Ctx, minResponse bool) error {
+func (app *ApiServer) v1PlaylistsReposts(c *fiber.Ctx) error {
 	sql := `
 	SELECT user_id
 	FROM reposts r
@@ -52,10 +44,10 @@ func (app *ApiServer) v1PlaylistsReposts(c *fiber.Ctx, minResponse bool) error {
 
 	return app.queryFullUsers(c, sql, pgx.NamedArgs{
 		"playlistId": playlistId,
-	}, minResponse)
+	})
 }
 
-func (app *ApiServer) v1PlaylistsFavorites(c *fiber.Ctx, minResponse bool) error {
+func (app *ApiServer) v1PlaylistsFavorites(c *fiber.Ctx) error {
 	sql := `
 	SELECT user_id
 	FROM saves
@@ -77,5 +69,5 @@ func (app *ApiServer) v1PlaylistsFavorites(c *fiber.Ctx, minResponse bool) error
 
 	return app.queryFullUsers(c, sql, pgx.NamedArgs{
 		"playlistId": playlistId,
-	}, minResponse)
+	})
 }

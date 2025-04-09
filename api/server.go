@@ -67,18 +67,6 @@ func RequestTimer() fiber.Handler {
 	}
 }
 
-func Min(handler func(*fiber.Ctx, bool) error) fiber.Handler {
-	return func(c *fiber.Ctx) error {
-		return handler(c, true)
-	}
-}
-
-func Full(handler func(*fiber.Ctx, bool) error) fiber.Handler {
-	return func(c *fiber.Ctx) error {
-		return handler(c, false)
-	}
-}
-
 func NewApiServer(config Config) *ApiServer {
 	logger := InitLogger(config)
 
@@ -124,49 +112,50 @@ func NewApiServer(config Config) *ApiServer {
 	app.Get("/", app.home)
 
 	// resolve myId
+	app.Use(app.isFullMiddleware)
 	app.Use(app.resolveMyIdMiddleware)
 
 	// v1/full
-	app.Get("/v1/full/users", Full(app.v1Users))
+	app.Get("/v1/full/users", app.v1Users)
 
 	app.Use("/v1/full/users/handle/:handle", app.requireHandleMiddleware)
-	app.Get("/v1/full/users/handle/:handle/tracks", Full(app.v1UserTracks))
-	app.Get("/v1/full/users/handle/:handle/reposts", Full(app.v1UsersReposts))
+	app.Get("/v1/full/users/handle/:handle/tracks", app.v1UserTracks)
+	app.Get("/v1/full/users/handle/:handle/reposts", app.v1UsersReposts)
 
 	app.Use("/v1/full/users/:userId", app.requireUserIdMiddleware)
-	app.Get("/v1/full/users/:userId/followers", Full(app.v1UsersFollowers))
-	app.Get("/v1/full/users/:userId/following", Full(app.v1UsersFollowing))
-	app.Get("/v1/full/users/:userId/mutuals", Full(app.v1UsersMutuals))
-	app.Get("/v1/full/users/:userId/reposts", Full(app.v1UsersReposts))
-	app.Get("/v1/full/users/:userId/supporting", Full(app.v1UsersSupporting))
-	app.Get("/v1/full/users/:userId/tracks", Full(app.v1UserTracks))
+	app.Get("/v1/full/users/:userId/followers", app.v1UsersFollowers)
+	app.Get("/v1/full/users/:userId/following", app.v1UsersFollowing)
+	app.Get("/v1/full/users/:userId/mutuals", app.v1UsersMutuals)
+	app.Get("/v1/full/users/:userId/reposts", app.v1UsersReposts)
+	app.Get("/v1/full/users/:userId/supporting", app.v1UsersSupporting)
+	app.Get("/v1/full/users/:userId/tracks", app.v1UserTracks)
 
-	app.Get("/v1/full/tracks", Full(app.v1Tracks))
-	app.Get("/v1/full/tracks/:trackId/reposts", Full(app.v1TrackReposts))
-	app.Get("/v1/full/tracks/:trackId/favorites", Full(app.v1TrackFavorites))
+	app.Get("/v1/full/tracks", app.v1Tracks)
+	app.Get("/v1/full/tracks/:trackId/reposts", app.v1TrackReposts)
+	app.Get("/v1/full/tracks/:trackId/favorites", app.v1TrackFavorites)
 
-	app.Get("/v1/full/playlists", Full(app.v1playlists))
-	app.Get("/v1/full/playlists/:playlistId/reposts", Full(app.v1PlaylistsReposts))
-	app.Get("/v1/full/playlists/:playlistId/favorites", Full(app.v1PlaylistsFavorites))
+	app.Get("/v1/full/playlists", app.v1playlists)
+	app.Get("/v1/full/playlists/:playlistId/reposts", app.v1PlaylistsReposts)
+	app.Get("/v1/full/playlists/:playlistId/favorites", app.v1PlaylistsFavorites)
 
-	app.Get("/v1/full/developer_apps/:address", Full(app.v1DeveloperApps))
+	app.Get("/v1/full/developer_apps/:address", app.v1DeveloperApps)
 
 	// v1
-	app.Get("/v1/users", Min(app.v1Users))
-	app.Get("/v1/users/:userId/followers", Min(app.v1UsersFollowers))
-	app.Get("/v1/users/:userId/following", Min(app.v1UsersFollowing))
-	app.Get("/v1/users/:userId/mutuals", Min(app.v1UsersMutuals))
-	app.Get("/v1/users/:userId/supporting", Min(app.v1UsersSupporting))
+	app.Get("/v1/users", app.v1Users)
+	app.Get("/v1/users/:userId/followers", app.v1UsersFollowers)
+	app.Get("/v1/users/:userId/following", app.v1UsersFollowing)
+	app.Get("/v1/users/:userId/mutuals", app.v1UsersMutuals)
+	app.Get("/v1/users/:userId/supporting", app.v1UsersSupporting)
 
-	app.Get("/v1/tracks", Min(app.v1Tracks))
-	app.Get("/v1/tracks/:trackId/reposts", Min(app.v1TrackReposts))
-	app.Get("/v1/tracks/:trackId/favorites", Min(app.v1TrackFavorites))
+	app.Get("/v1/tracks", app.v1Tracks)
+	app.Get("/v1/tracks/:trackId/reposts", app.v1TrackReposts)
+	app.Get("/v1/tracks/:trackId/favorites", app.v1TrackFavorites)
 
-	app.Get("/v1/playlists", Min(app.v1playlists))
-	app.Get("/v1/playlists/:playlistId/reposts", Min(app.v1PlaylistsReposts))
-	app.Get("/v1/playlists/:playlistId/favorites", Min(app.v1PlaylistsFavorites))
+	app.Get("/v1/playlists", app.v1playlists)
+	app.Get("/v1/playlists/:playlistId/reposts", app.v1PlaylistsReposts)
+	app.Get("/v1/playlists/:playlistId/favorites", app.v1PlaylistsFavorites)
 
-	app.Get("/v1/developer_apps/:address", Min(app.v1DeveloperApps))
+	app.Get("/v1/developer_apps/:address", app.v1DeveloperApps)
 
 	// proxy unhandled requests thru to existing discovery API
 	{

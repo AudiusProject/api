@@ -1,9 +1,18 @@
 package api
 
 import (
+	"strings"
+
 	"bridgerton.audius.co/trashid"
 	"github.com/gofiber/fiber/v2"
 )
+
+func (app *ApiServer) isFullMiddleware(c *fiber.Ctx) error {
+	u := c.OriginalURL()
+	isFull := strings.Contains(u, "/full/")
+	c.Locals("isFull", isFull)
+	return c.Next()
+}
 
 // will set myId if valid, defaults to 0
 func (app *ApiServer) resolveMyIdMiddleware(c *fiber.Ctx) error {
