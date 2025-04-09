@@ -22,7 +22,7 @@ type FullTrack struct {
 	FolloweeFavorites []*FolloweeFavorite `json:"followee_favorites"`
 }
 
-func (q *Queries) FullTracks(ctx context.Context, arg GetTracksParams) ([]FullTrack, error) {
+func (q *Queries) FullTracksKeyed(ctx context.Context, arg GetTracksParams) (map[int32]FullTrack, error) {
 	rawTracks, err := q.GetTracks(ctx, GetTracksParams(arg))
 	if err != nil {
 		return nil, err
@@ -33,17 +33,12 @@ func (q *Queries) FullTracks(ctx context.Context, arg GetTracksParams) ([]FullTr
 		userIds = append(userIds, track.UserID)
 	}
 
-	users, err := q.FullUsers(ctx, GetUsersParams{
+	userMap, err := q.FullUsersKeyed(ctx, GetUsersParams{
 		MyID: arg.MyID,
 		Ids:  userIds,
 	})
 	if err != nil {
 		return nil, err
-	}
-
-	userMap := map[int32]FullUser{}
-	for _, user := range users {
-		userMap[user.UserID] = user
 	}
 
 	trackMap := map[int32]FullTrack{}
@@ -84,6 +79,15 @@ func (q *Queries) FullTracks(ctx context.Context, arg GetTracksParams) ([]FullTr
 			FolloweeReposts:   followeeReposts,
 		}
 		trackMap[track.TrackID] = fullTrack
+	}
+
+	return trackMap, nil
+}
+
+func (q *Queries) FullTracks(ctx context.Context, arg GetTracksParams) ([]FullTrack, error) {
+	trackMap, err := q.FullTracksKeyed(ctx, arg)
+	if err != nil {
+		return nil, err
 	}
 
 	// return in same order as input list of ids

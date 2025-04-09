@@ -119,9 +119,6 @@ JOIN aggregate_user using (user_id)
 LEFT JOIN user_balances using (user_id)
 LEFT JOIN user_bank_accounts on u.wallet = user_bank_accounts.ethereum_address
 WHERE is_deactivated = false
-  AND (
-    handle_lc = lower(@handle)
-    OR u.user_id = ANY(@ids::int[])
-  )
+  AND u.user_id = ANY(@ids::int[])
 ORDER BY u.user_id
 ;

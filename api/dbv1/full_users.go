@@ -18,14 +18,14 @@ type FullUser struct {
 	CoverPhoto        RectangleImage `json:"cover_photo"`
 }
 
-func (q *Queries) FullUsers(ctx context.Context, arg GetUsersParams) ([]FullUser, error) {
+func (q *Queries) FullUsersKeyed(ctx context.Context, arg GetUsersParams) (map[int32]FullUser, error) {
 	rawUsers, err := q.GetUsers(ctx, arg)
 	if err != nil {
 		return nil, err
 	}
 
-	fullUsers := make([]FullUser, len(rawUsers))
-	for idx, user := range rawUsers {
+	userMap := map[int32]FullUser{}
+	for _, user := range rawUsers {
 
 		// playlist_library only populated for current user
 		if user.UserID != arg.MyID {
@@ -65,11 +65,31 @@ func (q *Queries) FullUsers(ctx context.Context, arg GetUsersParams) ([]FullUser
 			artistPickTrackID = &id
 		}
 
-		fullUsers[idx] = FullUser{
+		userMap[user.UserID] = FullUser{
 			GetUsersRow:       user,
 			ArtistPickTrackID: artistPickTrackID,
 			CoverPhoto:        coverPhoto,
 			ProfilePicture:    profilePicture,
+		}
+	}
+
+	return userMap, nil
+}
+
+func (q *Queries) FullUsers(ctx context.Context, arg GetUsersParams) ([]FullUser, error) {
+	userMap, err := q.FullUsersKeyed(ctx, arg)
+	if err != nil {
+		return nil, err
+	}
+
+	fullUsers := []FullUser{}
+
+	// return in same order as input list of ids
+	// kinda gross because we support handle param too...
+	// which we should get rid if in favor of resolveUserHandle stuff
+	for _, id := range arg.Ids {
+		if u, found := userMap[id]; found {
+			fullUsers = append(fullUsers, u)
 		}
 	}
 

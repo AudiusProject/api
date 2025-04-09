@@ -133,17 +133,13 @@ JOIN aggregate_user using (user_id)
 LEFT JOIN user_balances using (user_id)
 LEFT JOIN user_bank_accounts on u.wallet = user_bank_accounts.ethereum_address
 WHERE is_deactivated = false
-  AND (
-    handle_lc = lower($2)
-    OR u.user_id = ANY($3::int[])
-  )
+  AND u.user_id = ANY($2::int[])
 ORDER BY u.user_id
 `
 
 type GetUsersParams struct {
-	MyID   interface{} `json:"my_id"`
-	Handle string      `json:"handle"`
-	Ids    []int32     `json:"ids"`
+	MyID interface{} `json:"my_id"`
+	Ids  []int32     `json:"ids"`
 }
 
 type GetUsersRow struct {
@@ -207,7 +203,7 @@ type GetUsersRow struct {
 }
 
 func (q *Queries) GetUsers(ctx context.Context, arg GetUsersParams) ([]GetUsersRow, error) {
-	rows, err := q.db.Query(ctx, getUsers, arg.MyID, arg.Handle, arg.Ids)
+	rows, err := q.db.Query(ctx, getUsers, arg.MyID, arg.Ids)
 	if err != nil {
 		return nil, err
 	}

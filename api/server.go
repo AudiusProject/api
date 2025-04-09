@@ -131,6 +131,7 @@ func NewApiServer(config Config) *ApiServer {
 	app.Get("/v1/full/users/:userId/supporting", Full(app.v1UsersSupporting))
 
 	app.Get("/v1/full/users/handle/:handle/tracks", Full(app.v1UserTracks))
+	app.Get("/v1/full/users/handle/:handle/reposts", Full(app.v1UsersHandleReposts))
 
 	app.Get("/v1/full/tracks", Full(app.v1Tracks))
 	app.Get("/v1/full/tracks/:trackId/reposts", Full(app.v1TrackReposts))
@@ -231,6 +232,14 @@ func decodeIdList(c *fiber.Ctx) []int32 {
 		}
 	}
 	return ids
+}
+
+func (app *ApiServer) resolveUserHandleToId(handle string) (int32, error) {
+	// todo: can do some in memory cache here
+	var userId int32
+	sql := `select user_id from users where handle_lc = lower($1)`
+	err := app.pool.QueryRow(context.Background(), sql, handle).Scan(&userId)
+	return userId, err
 }
 
 func (as *ApiServer) Serve() {
