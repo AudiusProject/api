@@ -88,7 +88,12 @@ func Test200(t *testing.T) {
 		"/v1/full/users/7eP5n/followers",
 		"/v1/full/users/7eP5n/following",
 		"/v1/full/users/7eP5n/mutuals",
+		"/v1/full/users/7eP5n/reposts",
 		"/v1/full/users/7eP5n/supporting",
+		"/v1/full/users/7eP5n/tracks",
+
+		"/v1/full/users/handle/rayjacobson/tracks",
+		"/v1/full/users/handle/rayjacobson/reposts",
 
 		"/v1/full/tracks?id=eYJyn",
 		"/v1/full/tracks/eYJyn/reposts",

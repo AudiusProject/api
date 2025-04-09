@@ -123,15 +123,23 @@ func NewApiServer(config Config) *ApiServer {
 
 	app.Get("/", app.home)
 
+	// resolve myId
+	app.Use(app.resolveMyIdMiddleware)
+
 	// v1/full
 	app.Get("/v1/full/users", Full(app.v1Users))
+
+	app.Use("/v1/full/users/handle/:handle", app.requireHandleMiddleware)
+	app.Get("/v1/full/users/handle/:handle/tracks", Full(app.v1UserTracks))
+	app.Get("/v1/full/users/handle/:handle/reposts", Full(app.v1UsersReposts))
+
+	app.Use("/v1/full/users/:userId", app.requireUserIdMiddleware)
 	app.Get("/v1/full/users/:userId/followers", Full(app.v1UsersFollowers))
 	app.Get("/v1/full/users/:userId/following", Full(app.v1UsersFollowing))
 	app.Get("/v1/full/users/:userId/mutuals", Full(app.v1UsersMutuals))
+	app.Get("/v1/full/users/:userId/reposts", Full(app.v1UsersReposts))
 	app.Get("/v1/full/users/:userId/supporting", Full(app.v1UsersSupporting))
-
-	app.Get("/v1/full/users/handle/:handle/tracks", Full(app.v1UserTracks))
-	app.Get("/v1/full/users/handle/:handle/reposts", Full(app.v1UsersHandleReposts))
+	app.Get("/v1/full/users/:userId/tracks", Full(app.v1UserTracks))
 
 	app.Get("/v1/full/tracks", Full(app.v1Tracks))
 	app.Get("/v1/full/tracks/:trackId/reposts", Full(app.v1TrackReposts))

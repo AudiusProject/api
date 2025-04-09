@@ -2,14 +2,13 @@ package api
 
 import (
 	"bridgerton.audius.co/api/dbv1"
-	"bridgerton.audius.co/trashid"
 	"github.com/gofiber/fiber/v2"
 	"github.com/jackc/pgx/v5"
 )
 
 // v1Users is a handler that retrieves full user data
 func (app *ApiServer) v1Users(c *fiber.Ctx, minResponse bool) error {
-	myId, _ := trashid.DecodeHashId(c.Query("user_id"))
+	myId := c.Locals("myId").(int)
 	ids := decodeIdList(c)
 
 	if len(ids) == 0 {
@@ -67,11 +66,7 @@ func (app *ApiServer) v1UsersFollowers(c *fiber.Ctx, minResponse bool) error {
 	OFFSET @offset
 	`
 
-	userId, err := trashid.DecodeHashId(c.Params("userId"))
-	if err != nil {
-		return err
-	}
-
+	userId := c.Locals("userId").(int)
 	return app.queryFullUsers(c, sql, pgx.NamedArgs{
 		"userId": userId,
 	}, minResponse)
@@ -92,18 +87,14 @@ func (app *ApiServer) v1UsersFollowing(c *fiber.Ctx, minResponse bool) error {
 	OFFSET @offset
 	`
 
-	userId, err := trashid.DecodeHashId(c.Params("userId"))
-	if err != nil {
-		return err
-	}
-
+	userId := c.Locals("userId").(int)
 	return app.queryFullUsers(c, sql, pgx.NamedArgs{
 		"userId": userId,
 	}, minResponse)
 }
 
 func (app *ApiServer) v1UsersMutuals(c *fiber.Ctx, minResponse bool) error {
-	myId, _ := trashid.DecodeHashId(c.Query("user_id"))
+	myId := c.Locals("myId")
 
 	sql := `
 	SELECT x.follower_user_id
@@ -120,11 +111,7 @@ func (app *ApiServer) v1UsersMutuals(c *fiber.Ctx, minResponse bool) error {
 	OFFSET @offset
 	`
 
-	userId, err := trashid.DecodeHashId(c.Params("userId"))
-	if err != nil {
-		return err
-	}
-
+	userId := c.Locals("userId").(int)
 	return app.queryFullUsers(c, sql, pgx.NamedArgs{
 		"myId":   myId,
 		"userId": userId,
@@ -132,7 +119,7 @@ func (app *ApiServer) v1UsersMutuals(c *fiber.Ctx, minResponse bool) error {
 }
 
 func (app *ApiServer) v1UserTracks(c *fiber.Ctx, minResponse bool) error {
-	myId, _ := trashid.DecodeHashId(c.Query("user_id"))
+	myId := c.Locals("myId")
 
 	sortDir := "DESC"
 	if c.Query("sort_direction") == "asc" {
@@ -194,12 +181,8 @@ func (app *ApiServer) v1UserTracks(c *fiber.Ctx, minResponse bool) error {
 }
 
 func (app *ApiServer) v1UsersSupporting(c *fiber.Ctx, minResponse bool) error {
-	myId, _ := trashid.DecodeHashId(c.Query("user_id"))
-
-	userId, err := trashid.DecodeHashId(c.Params("userId"))
-	if err != nil {
-		return err
-	}
+	myId := c.Locals("myId")
+	userId := c.Locals("userId").(int)
 
 	args := pgx.NamedArgs{
 		"userId": userId,
@@ -294,7 +277,7 @@ func (app *ApiServer) v1UsersSupporting(c *fiber.Ctx, minResponse bool) error {
 }
 
 func (app *ApiServer) queryFullUsers(c *fiber.Ctx, sql string, args pgx.NamedArgs, minResponse bool) error {
-	myId, _ := trashid.DecodeHashId(c.Query("user_id"))
+	myId := c.Locals("myId")
 
 	args["limit"] = c.Query("limit", "20")
 	args["offset"] = c.Query("offset", "0")

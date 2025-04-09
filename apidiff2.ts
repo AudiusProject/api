@@ -55,6 +55,8 @@ const testPaths = [
   "/v1/full/users/handle/stereosteve/tracks?filter_tracks=all&limit=10&offset=0&sort=date&user_id=7eP5n",
 
   "/v1/full/users/handle/froootmusic/reposts?limit=10&offset=0&user_id=aNzoj",
+  "/v1/full/users/aNzoj/reposts?limit=10&offset=0&user_id=aNzoj",
+  "/v1/full/users/7eP5n/reposts?limit=10&offset=0&user_id=aNzoj",
 ];
 
 import { html } from "https://deno.land/x/html/mod.ts";

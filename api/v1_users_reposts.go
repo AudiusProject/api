@@ -4,18 +4,14 @@ import (
 	"time"
 
 	"bridgerton.audius.co/api/dbv1"
-	"bridgerton.audius.co/trashid"
 	"github.com/gofiber/fiber/v2"
 	"github.com/jackc/pgx/v5"
 	"golang.org/x/sync/errgroup"
 )
 
-func (app *ApiServer) v1UsersHandleReposts(c *fiber.Ctx, minResponse bool) error {
-	myId, _ := trashid.DecodeHashId(c.Query("user_id"))
-	userId, err := app.resolveUserHandleToId(c.Params("handle"))
-	if err != nil {
-		return err
-	}
+func (app *ApiServer) v1UsersReposts(c *fiber.Ctx, minResponse bool) error {
+	myId := c.Locals("myId")
+	userId := c.Locals("userId")
 
 	sql := `
 	SELECT repost_type, repost_item_id, created_at
