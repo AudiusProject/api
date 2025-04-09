@@ -4,7 +4,6 @@ import (
 	"bridgerton.audius.co/api/dbv1"
 	"bridgerton.audius.co/trashid"
 	"github.com/gofiber/fiber/v2"
-	"github.com/jackc/pgx/v5"
 )
 
 func (app *ApiServer) v1playlists(c *fiber.Ctx) error {
@@ -20,54 +19,4 @@ func (app *ApiServer) v1playlists(c *fiber.Ctx) error {
 	}
 
 	return v1PlaylistResponse(c, playlists)
-}
-
-func (app *ApiServer) v1PlaylistsReposts(c *fiber.Ctx) error {
-	sql := `
-	SELECT user_id
-	FROM reposts r
-	JOIN users u using (user_id)
-	JOIN aggregate_user au using (user_id)
-	WHERE repost_type != 'track'
-	  AND repost_item_id = @playlistId
-	  AND is_delete = false
-	  AND u.is_deactivated = false
-	ORDER BY follower_count desc
-	LIMIT @limit
-	OFFSET @offset
-	`
-
-	playlistId, err := trashid.DecodeHashId(c.Params("playlistId"))
-	if err != nil {
-		return err
-	}
-
-	return app.queryFullUsers(c, sql, pgx.NamedArgs{
-		"playlistId": playlistId,
-	})
-}
-
-func (app *ApiServer) v1PlaylistsFavorites(c *fiber.Ctx) error {
-	sql := `
-	SELECT user_id
-	FROM saves
-	JOIN users u using (user_id)
-	JOIN aggregate_user au using (user_id)
-	WHERE save_type != 'track'
-	  AND save_item_id = @playlistId
-	  AND is_delete = false
-	  AND u.is_deactivated = false
-	ORDER BY follower_count desc
-	LIMIT @limit
-	OFFSET @offset
-	`
-
-	playlistId, err := trashid.DecodeHashId(c.Params("playlistId"))
-	if err != nil {
-		return err
-	}
-
-	return app.queryFullUsers(c, sql, pgx.NamedArgs{
-		"playlistId": playlistId,
-	})
 }

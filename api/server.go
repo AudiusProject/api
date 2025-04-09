@@ -131,8 +131,8 @@ func NewApiServer(config Config) *ApiServer {
 	app.Get("/v1/full/users/:userId/tracks", app.v1UserTracks)
 
 	app.Get("/v1/full/tracks", app.v1Tracks)
-	app.Get("/v1/full/tracks/:trackId/reposts", app.v1TrackReposts)
-	app.Get("/v1/full/tracks/:trackId/favorites", app.v1TrackFavorites)
+	app.Get("/v1/full/tracks/:trackId/reposts", app.v1TracksReposts)
+	app.Get("/v1/full/tracks/:trackId/favorites", app.v1TracksFavorites)
 
 	app.Get("/v1/full/playlists", app.v1playlists)
 	app.Get("/v1/full/playlists/:playlistId/reposts", app.v1PlaylistsReposts)
@@ -148,8 +148,8 @@ func NewApiServer(config Config) *ApiServer {
 	app.Get("/v1/users/:userId/supporting", app.v1UsersSupporting)
 
 	app.Get("/v1/tracks", app.v1Tracks)
-	app.Get("/v1/tracks/:trackId/reposts", app.v1TrackReposts)
-	app.Get("/v1/tracks/:trackId/favorites", app.v1TrackFavorites)
+	app.Get("/v1/tracks/:trackId/reposts", app.v1TracksReposts)
+	app.Get("/v1/tracks/:trackId/favorites", app.v1TracksFavorites)
 
 	app.Get("/v1/playlists", app.v1playlists)
 	app.Get("/v1/playlists/:playlistId/reposts", app.v1PlaylistsReposts)
