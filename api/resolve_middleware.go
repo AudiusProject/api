@@ -1,8 +1,6 @@
 package api
 
 import (
-	"net/http"
-
 	"bridgerton.audius.co/trashid"
 	"github.com/gofiber/fiber/v2"
 )
@@ -16,11 +14,8 @@ func (app *ApiServer) resolveMyIdMiddleware(c *fiber.Ctx) error {
 
 func (app *ApiServer) requireUserIdMiddleware(c *fiber.Ctx) error {
 	userId, err := trashid.DecodeHashId(c.Params("userId"))
-	if err != nil {
-		return c.Status(http.StatusBadRequest).JSON(fiber.Map{
-			"code":  http.StatusBadRequest,
-			"error": "Invalid userId",
-		})
+	if err != nil || userId == 0 {
+		return sendError(c, 400, "invalid userId")
 	}
 	c.Locals("userId", userId)
 	return c.Next()

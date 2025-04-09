@@ -16,6 +16,9 @@ type FullPlaylist struct {
 	UserID  string      `json:"user_id"`
 	User    FullUser    `json:"user"`
 	Tracks  []FullTrack `json:"tracks"`
+
+	FolloweeReposts   []*FolloweeRepost   `json:"followee_reposts"`
+	FolloweeFavorites []*FolloweeFavorite `json:"followee_favorites"`
 }
 
 func (q *Queries) FullPlaylistsKeyed(ctx context.Context, arg GetPlaylistsParams) (map[int32]FullPlaylist, error) {
@@ -86,9 +89,11 @@ func (q *Queries) FullPlaylistsKeyed(ctx context.Context, arg GetPlaylistsParams
 			GetPlaylistsRow: playlist,
 			ID:              id,
 			// Artwork:         squareImageStruct(track.CoverArtSizes, track.CoverArt),
-			User:   user,
-			UserID: user.ID,
-			Tracks: tracks,
+			User:              user,
+			UserID:            user.ID,
+			Tracks:            tracks,
+			FolloweeFavorites: fullFolloweeFavorites(playlist.FolloweeFavorites),
+			FolloweeReposts:   fullFolloweeReposts(playlist.FolloweeReposts),
 		}
 	}
 

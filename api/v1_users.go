@@ -12,10 +12,7 @@ func (app *ApiServer) v1Users(c *fiber.Ctx, minResponse bool) error {
 	ids := decodeIdList(c)
 
 	if len(ids) == 0 {
-		return c.Status(400).JSON(fiber.Map{
-			"status": 400,
-			"error":  "id query param required",
-		})
+		return sendError(c, 400, "id query param required")
 	}
 
 	users, err := app.queries.FullUsers(c.Context(), dbv1.GetUsersParams{
@@ -26,28 +23,14 @@ func (app *ApiServer) v1Users(c *fiber.Ctx, minResponse bool) error {
 		return err
 	}
 
-	// return users in same order as input list of ids
-	// some ids may be not found...
-	userMap := map[int32]dbv1.FullUser{}
-	for _, user := range users {
-		userMap[user.UserID] = user
-	}
-
-	orderedUsers := make([]dbv1.FullUser, 0, len(users))
-	for _, id := range ids {
-		if user, ok := userMap[id]; ok {
-			orderedUsers = append(orderedUsers, user)
-		}
-	}
-
 	if minResponse {
 		return c.JSON(fiber.Map{
-			"data": dbv1.ToMinUsers(orderedUsers),
+			"data": dbv1.ToMinUsers(users),
 		})
 	}
 
 	return c.JSON(fiber.Map{
-		"data": orderedUsers,
+		"data": users,
 	})
 }
 

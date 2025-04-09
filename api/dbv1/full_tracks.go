@@ -2,7 +2,6 @@ package dbv1
 
 import (
 	"context"
-	"encoding/json"
 	"fmt"
 
 	"bridgerton.audius.co/trashid"
@@ -53,30 +52,13 @@ func (q *Queries) FullTracksKeyed(ctx context.Context, arg GetTracksParams) (map
 			continue
 		}
 
-		// re-encode ids for followee_favorites + followee_reposts
-		var followeeReposts []*FolloweeRepost
-		if err = json.Unmarshal(track.FolloweeReposts, &followeeReposts); err == nil {
-			for _, r := range followeeReposts {
-				r.RepostItemId = trashid.StringEncode(r.RepostItemId)
-				r.UserId = trashid.StringEncode(r.UserId)
-			}
-		}
-
-		var followeeFavorites []*FolloweeFavorite
-		if err = json.Unmarshal(track.FolloweeFavorites, &followeeFavorites); err == nil {
-			for _, r := range followeeFavorites {
-				r.FavoriteItemId = trashid.StringEncode(r.FavoriteItemId)
-				r.UserId = trashid.StringEncode(r.UserId)
-			}
-		}
-
 		fullTrack := FullTrack{
 			GetTracksRow:      track,
 			Artwork:           squareImageStruct(track.CoverArtSizes, track.CoverArt),
 			User:              user,
 			UserID:            user.ID,
-			FolloweeFavorites: followeeFavorites,
-			FolloweeReposts:   followeeReposts,
+			FolloweeFavorites: fullFolloweeFavorites(track.FolloweeFavorites),
+			FolloweeReposts:   fullFolloweeReposts(track.FolloweeReposts),
 		}
 		trackMap[track.TrackID] = fullTrack
 	}

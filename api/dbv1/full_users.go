@@ -85,8 +85,6 @@ func (q *Queries) FullUsers(ctx context.Context, arg GetUsersParams) ([]FullUser
 	fullUsers := []FullUser{}
 
 	// return in same order as input list of ids
-	// kinda gross because we support handle param too...
-	// which we should get rid if in favor of resolveUserHandle stuff
 	for _, id := range arg.Ids {
 		if u, found := userMap[id]; found {
 			fullUsers = append(fullUsers, u)
