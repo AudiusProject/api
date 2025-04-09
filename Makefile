@@ -10,6 +10,7 @@ staging::
 	CGO_ENABLED=0 GOOS=linux GOARCH=amd64 go build -o build/bridge-amd64
 	rsync -ravz build/ stage-discovery-4:bridgerton
 	ssh stage-discovery-4 -t 'cd bridgerton && docker compose up -d --build && docker compose restart bridge'
+	curl 'https://bridgerton.staging.audius.co'
 
 psql::
 	docker compose exec db psql -U postgres

@@ -94,6 +94,7 @@ func NewApiServer(config Config) *ApiServer {
 		pool,
 		dbv1.New(pool),
 		logger,
+		time.Now(),
 	}
 
 	app.Use(recover.New())
@@ -200,10 +201,14 @@ type ApiServer struct {
 	pool    *pgxpool.Pool
 	queries *dbv1.Queries
 	logger  *zap.Logger
+	started time.Time
 }
 
 func (app *ApiServer) home(c *fiber.Ctx) error {
-	return c.SendString("OK")
+	return c.JSON(fiber.Map{
+		"started": app.started,
+		"uptime":  time.Since(app.started).Truncate(time.Second).String(),
+	})
 }
 
 func decodeIdList(c *fiber.Ctx) []int32 {
