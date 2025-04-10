@@ -8,6 +8,7 @@ package dbv1
 import (
 	"context"
 	"encoding/json"
+	"time"
 
 	"github.com/jackc/pgx/v5/pgtype"
 )
@@ -131,9 +132,9 @@ type GetPlaylistsRow struct {
 	Blocknumber            pgtype.Int4      `json:"blocknumber"`
 	RepostCount            pgtype.Int4      `json:"repost_count"`
 	FavoriteCount          pgtype.Int4      `json:"favorite_count"`
-	CreatedAt              pgtype.Timestamp `json:"created_at"`
-	UpdatedAt              pgtype.Timestamp `json:"updated_at"`
-	ReleaseDate            pgtype.Timestamp `json:"release_date"`
+	CreatedAt              time.Time        `json:"created_at"`
+	UpdatedAt              time.Time        `json:"updated_at"`
+	ReleaseDate            time.Time        `json:"release_date"`
 	HasCurrentUserReposted bool             `json:"has_current_user_reposted"`
 	HasCurrentUserSaved    bool             `json:"has_current_user_saved"`
 	FolloweeReposts        json.RawMessage  `json:"followee_reposts"`

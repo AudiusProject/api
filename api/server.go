@@ -17,6 +17,7 @@ import (
 	"github.com/gofiber/fiber/v2/middleware/cors"
 	"github.com/gofiber/fiber/v2/middleware/recover"
 	"github.com/jackc/pgx/v5/pgxpool"
+	"github.com/segmentio/encoding/json"
 	"go.uber.org/zap"
 	"go.uber.org/zap/zapcore"
 )
@@ -77,6 +78,8 @@ func NewApiServer(config Config) *ApiServer {
 
 	app := &ApiServer{
 		fiber.New(fiber.Config{
+			JSONEncoder:  json.Marshal,
+			JSONDecoder:  json.Unmarshal,
 			ErrorHandler: errorHandler(logger),
 		}),
 		pool,
