@@ -128,7 +128,7 @@ SELECT
   -- followee_favorites,
   -- route_id,
   stem_of,
-  -- track_segments, todo: can we just get rid of this now?
+  track_segments, -- todo: can we just get rid of this now?
   t.updated_at,
   t.owner_id as user_id,
   t.is_delete,
@@ -222,6 +222,7 @@ type GetTracksRow struct {
 	FolloweeReposts              json.RawMessage `json:"followee_reposts"`
 	FolloweeFavorites            json.RawMessage `json:"followee_favorites"`
 	StemOf                       []byte          `json:"stem_of"`
+	TrackSegments                json.RawMessage `json:"track_segments"`
 	UpdatedAt                    time.Time       `json:"updated_at"`
 	UserID                       int32           `json:"user_id"`
 	IsDelete                     bool            `json:"is_delete"`
@@ -302,6 +303,7 @@ func (q *Queries) GetTracks(ctx context.Context, arg GetTracksParams) ([]GetTrac
 			&i.FolloweeReposts,
 			&i.FolloweeFavorites,
 			&i.StemOf,
+			&i.TrackSegments,
 			&i.UpdatedAt,
 			&i.UserID,
 			&i.IsDelete,

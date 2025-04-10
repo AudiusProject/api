@@ -7,7 +7,7 @@ import (
 )
 
 func fullFolloweeReposts(raw json.RawMessage) []*FolloweeRepost {
-	var followeeReposts []*FolloweeRepost
+	followeeReposts := []*FolloweeRepost{}
 	if err := json.Unmarshal(raw, &followeeReposts); err == nil {
 		for _, r := range followeeReposts {
 			r.RepostItemId = trashid.StringEncode(r.RepostItemId)
@@ -18,7 +18,7 @@ func fullFolloweeReposts(raw json.RawMessage) []*FolloweeRepost {
 }
 
 func fullFolloweeFavorites(raw json.RawMessage) []*FolloweeFavorite {
-	var followeeFavorites []*FolloweeFavorite
+	followeeFavorites := []*FolloweeFavorite{}
 	if err := json.Unmarshal(raw, &followeeFavorites); err == nil {
 		for _, r := range followeeFavorites {
 			r.FavoriteItemId = trashid.StringEncode(r.FavoriteItemId)
