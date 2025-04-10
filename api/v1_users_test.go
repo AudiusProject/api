@@ -64,7 +64,7 @@ func TestUserQuery(t *testing.T) {
 	}
 }
 
-func TestGetUser(t *testing.T) {
+func TestGetUsers(t *testing.T) {
 	var userResponse struct {
 		Data []dbv1.FullUser
 	}

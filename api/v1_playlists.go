@@ -18,5 +18,5 @@ func (app *ApiServer) v1playlists(c *fiber.Ctx) error {
 		return err
 	}
 
-	return v1PlaylistResponse(c, playlists)
+	return v1PlaylistsResponse(c, playlists)
 }

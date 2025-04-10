@@ -5,7 +5,18 @@ import (
 	"github.com/gofiber/fiber/v2"
 )
 
-func v1UserResponse(c *fiber.Ctx, users []dbv1.FullUser) error {
+func v1UserResponse(c *fiber.Ctx, user dbv1.FullUser) error {
+	if c.Locals("isFull").(bool) {
+		return c.JSON(fiber.Map{
+			"data": user,
+		})
+	}
+	return c.JSON(fiber.Map{
+		"data": dbv1.ToMinUser(user),
+	})
+}
+
+func v1UsersResponse(c *fiber.Ctx, users []dbv1.FullUser) error {
 	if c.Locals("isFull").(bool) {
 		return c.JSON(fiber.Map{
 			"data": users,
@@ -16,7 +27,18 @@ func v1UserResponse(c *fiber.Ctx, users []dbv1.FullUser) error {
 	})
 }
 
-func v1PlaylistResponse(c *fiber.Ctx, playlists []dbv1.FullPlaylist) error {
+func v1PlaylistResponse(c *fiber.Ctx, playlist dbv1.FullPlaylist) error {
+	if c.Locals("isFull").(bool) {
+		return c.JSON(fiber.Map{
+			"data": playlist,
+		})
+	}
+	return c.JSON(fiber.Map{
+		"data": dbv1.ToMinPlaylist(playlist),
+	})
+}
+
+func v1PlaylistsResponse(c *fiber.Ctx, playlists []dbv1.FullPlaylist) error {
 	if c.Locals("isFull").(bool) {
 		return c.JSON(fiber.Map{
 			"data": playlists,
@@ -27,7 +49,18 @@ func v1PlaylistResponse(c *fiber.Ctx, playlists []dbv1.FullPlaylist) error {
 	})
 }
 
-func v1TrackResponse(c *fiber.Ctx, tracks []dbv1.FullTrack) error {
+func v1TrackResponse(c *fiber.Ctx, track dbv1.FullTrack) error {
+	if c.Locals("isFull").(bool) {
+		return c.JSON(fiber.Map{
+			"data": track,
+		})
+	}
+	return c.JSON(fiber.Map{
+		"data": dbv1.ToMinTrack(track),
+	})
+}
+
+func v1TracksResponse(c *fiber.Ctx, tracks []dbv1.FullTrack) error {
 	if c.Locals("isFull").(bool) {
 		return c.JSON(fiber.Map{
 			"data": tracks,

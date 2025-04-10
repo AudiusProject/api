@@ -23,7 +23,7 @@ func (app *ApiServer) v1Users(c *fiber.Ctx) error {
 		return err
 	}
 
-	return v1UserResponse(c, users)
+	return v1UsersResponse(c, users)
 }
 
 // a generic responder for all the simple user lists:
@@ -61,5 +61,5 @@ func (app *ApiServer) queryFullUsers(c *fiber.Ctx, sql string, args pgx.NamedArg
 		users[idx] = userMap[id]
 	}
 
-	return v1UserResponse(c, users)
+	return v1UsersResponse(c, users)
 }

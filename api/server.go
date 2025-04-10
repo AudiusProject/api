@@ -115,47 +115,45 @@ func NewApiServer(config Config) *ApiServer {
 	app.Use(app.isFullMiddleware)
 	app.Use(app.resolveMyIdMiddleware)
 
-	// v1/full
-	app.Get("/v1/full/users", app.v1Users)
+	v1 := app.Group("/v1")
+	v1Full := app.Group("/v1/full")
 
-	app.Use("/v1/full/users/handle/:handle", app.requireHandleMiddleware)
-	app.Get("/v1/full/users/handle/:handle/tracks", app.v1UserTracks)
-	app.Get("/v1/full/users/handle/:handle/reposts", app.v1UsersReposts)
+	for _, g := range []fiber.Router{v1, v1Full} {
+		// Users
+		g.Get("/users", app.v1Users)
 
-	app.Use("/v1/full/users/:userId", app.requireUserIdMiddleware)
-	app.Get("/v1/full/users/:userId/followers", app.v1UsersFollowers)
-	app.Get("/v1/full/users/:userId/following", app.v1UsersFollowing)
-	app.Get("/v1/full/users/:userId/mutuals", app.v1UsersMutuals)
-	app.Get("/v1/full/users/:userId/reposts", app.v1UsersReposts)
-	app.Get("/v1/full/users/:userId/supporting", app.v1UsersSupporting)
-	app.Get("/v1/full/users/:userId/tracks", app.v1UserTracks)
+		g.Use("/users/handle/:handle", app.requireHandleMiddleware)
+		g.Get("/users/handle/:handle/tracks", app.v1UserTracks)
+		g.Get("/users/handle/:handle/reposts", app.v1UsersReposts)
 
-	app.Get("/v1/full/tracks", app.v1Tracks)
-	app.Get("/v1/full/tracks/:trackId/reposts", app.v1TracksReposts)
-	app.Get("/v1/full/tracks/:trackId/favorites", app.v1TracksFavorites)
+		g.Use("/users/:userId", app.requireUserIdMiddleware)
+		g.Get("/users/:userId", app.v1User)
+		g.Get("/users/:userId/followers", app.v1UsersFollowers)
+		g.Get("/users/:userId/following", app.v1UsersFollowing)
+		g.Get("/users/:userId/mutuals", app.v1UsersMutuals)
+		g.Get("/users/:userId/reposts", app.v1UsersReposts)
+		g.Get("/users/:userId/supporting", app.v1UsersSupporting)
+		g.Get("/users/:userId/tracks", app.v1UserTracks)
 
-	app.Get("/v1/full/playlists", app.v1playlists)
-	app.Get("/v1/full/playlists/:playlistId/reposts", app.v1PlaylistsReposts)
-	app.Get("/v1/full/playlists/:playlistId/favorites", app.v1PlaylistsFavorites)
+		// Tracks
+		g.Get("/tracks", app.v1Tracks)
 
-	app.Get("/v1/full/developer_apps/:address", app.v1DeveloperApps)
+		g.Use("/tracks/:trackId", app.requireTrackIdMiddleware)
+		g.Get("/tracks/:trackId", app.v1Track)
+		g.Get("/tracks/:trackId/reposts", app.v1TracksReposts)
+		g.Get("/tracks/:trackId/favorites", app.v1TracksFavorites)
 
-	// v1
-	app.Get("/v1/users", app.v1Users)
-	app.Get("/v1/users/:userId/followers", app.v1UsersFollowers)
-	app.Get("/v1/users/:userId/following", app.v1UsersFollowing)
-	app.Get("/v1/users/:userId/mutuals", app.v1UsersMutuals)
-	app.Get("/v1/users/:userId/supporting", app.v1UsersSupporting)
+		// Playlists
+		g.Get("/playlists", app.v1playlists)
 
-	app.Get("/v1/tracks", app.v1Tracks)
-	app.Get("/v1/tracks/:trackId/reposts", app.v1TracksReposts)
-	app.Get("/v1/tracks/:trackId/favorites", app.v1TracksFavorites)
+		g.Use("/playlists/:playlistId", app.requirePlaylistIdMiddleware)
+		g.Get("/playlists/:playlistId", app.v1Playlist)
+		g.Get("/playlists/:playlistId/reposts", app.v1PlaylistsReposts)
+		g.Get("/playlists/:playlistId/favorites", app.v1PlaylistsFavorites)
 
-	app.Get("/v1/playlists", app.v1playlists)
-	app.Get("/v1/playlists/:playlistId/reposts", app.v1PlaylistsReposts)
-	app.Get("/v1/playlists/:playlistId/favorites", app.v1PlaylistsFavorites)
-
-	app.Get("/v1/developer_apps/:address", app.v1DeveloperApps)
+		// Developer Apps
+		g.Get("/developer_apps/:address", app.v1DeveloperApps)
+	}
 
 	// proxy unhandled requests thru to existing discovery API
 	{
