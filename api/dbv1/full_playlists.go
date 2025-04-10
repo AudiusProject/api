@@ -5,7 +5,6 @@ import (
 
 	"bridgerton.audius.co/trashid"
 	"github.com/jackc/pgx/v5/pgtype"
-	"golang.org/x/sync/errgroup"
 )
 
 type FullPlaylist struct {
@@ -17,8 +16,15 @@ type FullPlaylist struct {
 	User    FullUser    `json:"user"`
 	Tracks  []FullTrack `json:"tracks"`
 
-	FolloweeReposts   []*FolloweeRepost   `json:"followee_reposts"`
-	FolloweeFavorites []*FolloweeFavorite `json:"followee_favorites"`
+	FolloweeReposts   []*FolloweeRepost          `json:"followee_reposts"`
+	FolloweeFavorites []*FolloweeFavorite        `json:"followee_favorites"`
+	PlaylistContents  []FullPlaylistContentsItem `json:"playlist_contents"`
+}
+
+type FullPlaylistContentsItem struct {
+	Time         int64  `json:"timestamp"`
+	TrackId      string `json:"track_id"`
+	MetadataTime int64  `json:"metadata_timestamp"`
 }
 
 func (q *Queries) FullPlaylistsKeyed(ctx context.Context, arg GetPlaylistsParams) (map[int32]FullPlaylist, error) {
@@ -38,38 +44,19 @@ func (q *Queries) FullPlaylistsKeyed(ctx context.Context, arg GetPlaylistsParams
 	}
 
 	// fetch users + tracks in parallel
-	g, ctx := errgroup.WithContext(ctx)
-	userMap := map[int32]FullUser{}
-	trackMap := map[int32]FullTrack{}
-
-	// fetch users
-	g.Go(func() error {
-		var err error
-		userMap, err = q.FullUsersKeyed(ctx, GetUsersParams{
-			MyID: arg.MyID,
-			Ids:  userIds,
-		})
-		return err
+	loaded, err := q.Parallel(ctx, ParallelParams{
+		UserIds:  userIds,
+		TrackIds: trackIds,
+		MyID:     arg.MyID,
 	})
-
-	// fetch tracks
-	g.Go(func() error {
-		var err error
-		trackMap, err = q.FullTracksKeyed(ctx, GetTracksParams{
-			MyID: arg.MyID,
-			Ids:  trackIds,
-		})
-		return err
-	})
-
-	if err := g.Wait(); err != nil {
+	if err != nil {
 		return nil, err
 	}
 
 	playlistMap := map[int32]FullPlaylist{}
 	for _, playlist := range rawPlaylists {
 		id, _ := trashid.EncodeHashId(int(playlist.PlaylistID))
-		user, ok := userMap[playlist.PlaylistOwnerID]
+		user, ok := loaded.UserMap[playlist.PlaylistOwnerID]
 
 		// GetUser will omit deactivated users
 		// so skip tracks if user doesn't come back.
@@ -80,9 +67,20 @@ func (q *Queries) FullPlaylistsKeyed(ctx context.Context, arg GetPlaylistsParams
 
 		var tracks = make([]FullTrack, 0, len(playlist.PlaylistContents.TrackIDs))
 		for _, t := range playlist.PlaylistContents.TrackIDs {
-			if track, ok := trackMap[int32(t.Track)]; ok {
+			if track, ok := loaded.TrackMap[int32(t.Track)]; ok {
 				tracks = append(tracks, track)
 			}
+		}
+
+		// slightly change playlist_contents
+		fullPlaylistContents := []FullPlaylistContentsItem{}
+		for _, item := range playlist.PlaylistContents.TrackIDs {
+			trackId, _ := trashid.EncodeHashId(int(item.Track))
+			fullPlaylistContents = append(fullPlaylistContents, FullPlaylistContentsItem{
+				Time:         item.Time,
+				MetadataTime: item.MetadataTime,
+				TrackId:      trackId,
+			})
 		}
 
 		playlistMap[playlist.PlaylistID] = FullPlaylist{
@@ -94,6 +92,7 @@ func (q *Queries) FullPlaylistsKeyed(ctx context.Context, arg GetPlaylistsParams
 			Tracks:            tracks,
 			FolloweeFavorites: fullFolloweeFavorites(playlist.FolloweeFavorites),
 			FolloweeReposts:   fullFolloweeReposts(playlist.FolloweeReposts),
+			PlaylistContents:  fullPlaylistContents,
 		}
 	}
 

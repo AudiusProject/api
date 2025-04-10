@@ -6,7 +6,6 @@ import (
 	"bridgerton.audius.co/api/dbv1"
 	"github.com/gofiber/fiber/v2"
 	"github.com/jackc/pgx/v5"
-	"golang.org/x/sync/errgroup"
 )
 
 func (app *ApiServer) v1UsersReposts(c *fiber.Ctx) error {
@@ -71,28 +70,11 @@ func (app *ApiServer) v1UsersReposts(c *fiber.Ctx) error {
 		}
 	}
 
-	// populate stubs
-	g, ctx := errgroup.WithContext(c.Context())
-
-	var trackMap map[int32]dbv1.FullTrack
-	var playlistMap map[int32]dbv1.FullPlaylist
-	g.Go(func() error {
-		var err error
-		trackMap, err = app.queries.FullTracksKeyed(ctx, dbv1.GetTracksParams{
-			Ids:  trackIds,
-			MyID: myId,
-		})
-		return err
+	loaded, err := app.queries.Parallel(c.Context(), dbv1.ParallelParams{
+		TrackIds:    trackIds,
+		PlaylistIds: playlistIds,
+		MyID:        myId,
 	})
-	g.Go(func() error {
-		var err error
-		playlistMap, err = app.queries.FullPlaylistsKeyed(ctx, dbv1.GetPlaylistsParams{
-			Ids:  playlistIds,
-			MyID: myId,
-		})
-		return err
-	})
-	err = g.Wait()
 	if err != nil {
 		return err
 	}
@@ -100,11 +82,11 @@ func (app *ApiServer) v1UsersReposts(c *fiber.Ctx) error {
 	//
 	for idx, r := range reposts {
 		if r.RepostType == "track" {
-			if t, ok := trackMap[r.RepostItemId]; ok {
+			if t, ok := loaded.TrackMap[r.RepostItemId]; ok {
 				r.Item = t
 			}
 		} else {
-			if t, ok := playlistMap[r.RepostItemId]; ok {
+			if t, ok := loaded.PlaylistMap[r.RepostItemId]; ok {
 				r.Item = t
 			}
 		}
