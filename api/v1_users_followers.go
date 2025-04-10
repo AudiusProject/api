@@ -1,8 +1,6 @@
 package api
 
 import (
-	"fmt"
-
 	"github.com/gofiber/fiber/v2"
 	"github.com/jackc/pgx/v5"
 )
@@ -26,6 +24,5 @@ func (app *ApiServer) v1UsersFollowers(c *fiber.Ctx) error {
 	res := app.queryFullUsers(c, sql, pgx.NamedArgs{
 		"userId": userId,
 	})
-	fmt.Println(res)
 	return res
 }

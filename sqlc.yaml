@@ -5,7 +5,6 @@ sql:
     schema: "sql/schema1.sql"
     gen:
       go:
-        emit_pointers_for_null_types: false
         emit_json_tags: true
         json_tags_case_style: snake
         package: "dbv1"
