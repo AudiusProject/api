@@ -18,5 +18,5 @@ func (app *ApiServer) v1Tracks(c *fiber.Ctx) error {
 		return err
 	}
 
-	return v1TrackResponse(c, tracks)
+	return v1TracksResponse(c, tracks)
 }

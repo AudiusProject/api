@@ -38,3 +38,21 @@ func (app *ApiServer) requireHandleMiddleware(c *fiber.Ctx) error {
 	c.Locals("userId", userId)
 	return c.Next()
 }
+
+func (app *ApiServer) requireTrackIdMiddleware(c *fiber.Ctx) error {
+	trackId, err := trashid.DecodeHashId(c.Params("trackId"))
+	if err != nil || trackId == 0 {
+		return sendError(c, 400, "invalid trackId")
+	}
+	c.Locals("trackId", trackId)
+	return c.Next()
+}
+
+func (app *ApiServer) requirePlaylistIdMiddleware(c *fiber.Ctx) error {
+	playlistId, err := trashid.DecodeHashId(c.Params("playlistId"))
+	if err != nil || playlistId == 0 {
+		return sendError(c, 400, "invalid playlistId")
+	}
+	c.Locals("playlistId", playlistId)
+	return c.Next()
+}
