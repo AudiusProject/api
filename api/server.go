@@ -159,6 +159,8 @@ func NewApiServer(config Config) *ApiServer {
 		g.Get("/developer_apps/:address", app.v1DeveloperApps)
 	}
 
+	app.Static("/", "./static")
+
 	// proxy unhandled requests thru to existing discovery API
 	{
 		upstreams := []string{

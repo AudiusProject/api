@@ -1,0 +1,162 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>APIDIFF</title>
+    <link
+      rel="stylesheet"
+      href="https://esm.sh/jsondiffpatch@0.6.0/lib/formatters/styles/html.css"
+      type="text/css"
+    />
+    <style>
+      del {
+        background: #ffbbbb;
+        text-decoration: none;
+      }
+      ins {
+        background: #bbffbb;
+      }
+    </style>
+  </head>
+  <body>
+    <div id="controls"></div>
+    <div id="output">⏳</div>
+  </body>
+</html>
+
+<script type="module">
+  const testPaths = [
+    "/v1/full/playlists?id=K99x4MB&id=Akkz9wv&id=kKdggMN&id=k2J9Na3&id=NVr4gVN&id=1E87V7Q&user_id=aNzoj",
+    "/v1/full/playlists/P5abMZp/favorites?limit=15&offset=0&user_id=aNzoj",
+    "/v1/full/playlists/P5abMZp/reposts?limit=15&offset=0&user_id=aNzoj",
+    "/v1/full/tracks?id=ZaXp01y&id=5zdbywJ&id=Pb4MbAX&id=YVog04p&id=7Mv7ZMP&id=g5yzMy2&id=P7dlqNR&id=RR7krAG&id=O7OdxYV&id=72oXyvr&id=jYWyGG0&id=W6KOm8k&id=Xj554dq&id=gbOmq7k&id=G0z4Ap7&id=Yo0XYMm&id=80jlRwP&id=X63z9Wq&id=lZYWRKb&id=JEz6V0o&id=JZq6550&id=b9rbNdM&id=yy71xr7&id=JGNob5Z&id=VpxQ2Aa&id=qGbEZdz&id=B94qO0j&id=oRGgBka&id=jzwlVj0&id=Y5PNmOr&id=5zRm7dx&id=r3KjOg&id=WVP8qav&id=Nvayj1Y&id=V6GZJ3b&id=YoWO0MJ&id=JboVK8Y&id=9bbRG02&id=QRgjAJR&id=gWaBbkW&id=79q1xY7&id=51o1r9J&id=AMJ7d3k&id=O6ZKK0V&id=RpVzBx1&id=VPdaGdQ&id=lv7Obol&id=GQpBNxw&id=83xb96v&id=BJoM2Qx&id=bQoMKlK&id=8E1QjMW&id=O5OVlK4&id=63Gz0yQ&user_id=aNzoj",
+    "/v1/full/tracks?id=ZaXp01y&user_id=7eP5n",
+    "/v1/full/tracks?id=ZaXp01y&user_id=aNzoj",
+    "/v1/full/tracks/0dgQM/favorites?limit=15&offset=0&user_id=aNzoj",
+    "/v1/full/tracks/OvyMAV1/reposts?limit=15&offset=0&user_id=aNzoj",
+    "/v1/full/tracks/ZaXp01y",
+    "/v1/full/users?id=0EoAm&id=7eP5n&id=aWvp71&id=Wem1e&user_id=aNzoj",
+    "/v1/full/users?id=0EoAm&user_id=aNzoj",
+    "/v1/full/users?id=invalid_id1&id=aNzoj",
+    "/v1/full/users/7eP5n/reposts?limit=10&offset=0&user_id=aNzoj",
+    "/v1/full/users/7KVbP/supporters?limit=100&offset=0&user_id=aNzoj",
+    "/v1/full/users/7KVbP/supporting?limit=100&offset=0&user_id=aNzoj",
+    "/v1/full/users/aNzoj/reposts?limit=10&offset=0&user_id=aNzoj",
+    "/v1/full/users/handle/froootmusic/reposts?limit=10&offset=0&user_id=aNzoj",
+    "/v1/full/users/handle/sammiezonana/tracks?filter_tracks=all&limit=10&offset=0&sort=date&user_id=aNzoj",
+    "/v1/full/users/handle/stereosteve",
+    "/v1/full/users/handle/stereosteve/tracks?filter_tracks=all&limit=10&offset=0&sort=date&user_id=7eP5n",
+    "/v1/full/users/PWgX8NR/followers?limit=15&offset=0&user_id=aNzoj",
+    "/v1/full/users/PWgX8NR/following?limit=15&offset=0&user_id=aNzoj",
+    "/v1/full/users/PWgX8NR/mutuals?limit=5&offset=0&user_id=aNzoj",
+    "/v1/playlists?id=K99x4MB&id=Akkz9wv&id=kKdggMN&id=k2J9Na3&id=NVr4gVN&id=1E87V7Q&user_id=aNzoj",
+    "/v1/playlists/P5abMZp/favorites?limit=15&offset=0&user_id=aNzoj",
+    "/v1/playlists/P5abMZp/reposts?limit=15&offset=0&user_id=aNzoj",
+    "/v1/tracks?id=ZaXp01y&id=5zdbywJ&id=Pb4MbAX&id=YVog04p&id=7Mv7ZMP&id=g5yzMy2&id=P7dlqNR&id=RR7krAG&id=O7OdxYV&id=72oXyvr&id=jYWyGG0&id=W6KOm8k&id=Xj554dq&id=gbOmq7k&id=G0z4Ap7&id=Yo0XYMm&id=80jlRwP&id=X63z9Wq&id=lZYWRKb&id=JEz6V0o&id=JZq6550&id=b9rbNdM&id=yy71xr7&id=JGNob5Z&id=VpxQ2Aa&id=qGbEZdz&id=B94qO0j&id=oRGgBka&id=jzwlVj0&id=Y5PNmOr&id=5zRm7dx&id=r3KjOg&id=WVP8qav&id=Nvayj1Y&id=V6GZJ3b&id=YoWO0MJ&id=JboVK8Y&id=9bbRG02&id=QRgjAJR&id=gWaBbkW&id=79q1xY7&id=51o1r9J&id=AMJ7d3k&id=O6ZKK0V&id=RpVzBx1&id=VPdaGdQ&id=lv7Obol&id=GQpBNxw&id=83xb96v&id=BJoM2Qx&id=bQoMKlK&id=8E1QjMW&id=O5OVlK4&id=63Gz0yQ&user_id=aNzoj",
+    "/v1/tracks?id=ZaXp01y&user_id=aNzoj",
+    "/v1/tracks/0dgQM/favorites?limit=15&offset=0&user_id=aNzoj",
+    "/v1/tracks/OvyMAV1/reposts?limit=15&offset=0&user_id=aNzoj",
+    "/v1/users?id=0EoAm&id=7eP5n&id=aWvp71&id=Wem1e&user_id=aNzoj",
+    "/v1/users?id=0EoAm&user_id=aNzoj",
+    "/v1/users/0EoAm",
+    "/v1/users/7KVbP/supporters?limit=100&offset=0&user_id=aNzoj",
+    "/v1/users/7KVbP/supporting?limit=100&offset=0&user_id=aNzoj",
+    "/v1/users/PWgX8NR/followers?limit=15&offset=0&user_id=aNzoj",
+    "/v1/users/PWgX8NR/following?limit=15&offset=0&user_id=aNzoj",
+    "/v1/users/PWgX8NR/mutuals?limit=5&offset=0&user_id=aNzoj",
+
+    "/v1/developer_apps/7d7b6b7a97d1deefe3a1ccc5a13c48e8f055e0b6",
+  ];
+
+  const html = (strings, ...values) => String.raw({ raw: strings }, ...values);
+  import * as jsondiffpatch from "https://esm.sh/jsondiffpatch@0.6.0";
+  import * as htmlFormatter from "https://esm.sh/jsondiffpatch@0.6.0/formatters/html";
+
+  const searchParams = new URLSearchParams(window.location.search);
+
+  let path =
+    searchParams.get("example") || searchParams.get("path") || testPaths[0];
+  if (path.startsWith("http://") || path.startsWith("https://")) {
+    const url = new URL(path);
+    path = url.pathname + url.search;
+    window.location.search = `?path=${encodeURIComponent(path)}`;
+  }
+
+  const oldHost = "https://discoveryprovider.audius.co";
+  const newHost = "http://localhost:1323";
+
+  // for
+
+  // for toggle full button
+  const isFull = path.includes("/full/");
+  window.toggleFull = function () {
+    const toggleFullPath = isFull
+      ? path.replace("/v1/full/", "/v1/")
+      : path.replace("/v1/", "/v1/full/");
+    window.location.search = `?path=${encodeURIComponent(toggleFullPath)}`;
+  };
+
+  document.querySelector("#controls").innerHTML = html`
+    <form style="display: flex; gap: 10px;">
+      <input type="text" name="path" value="${path}" style="flex-grow: 1" />
+      <select name="example" onchange="this.form.submit()" style="width: 100px">
+        <option value="" disabled selected>Examples</option>
+        ${testPaths.map((p, i) => html`<option value="${p}">${p}</option>`)}
+      </select>
+      <label>
+        <input
+          type="checkbox"
+          ${isFull ? "checked" : ""}
+          onChange="toggleFull()"
+        />
+        Full
+      </label>
+    </form>
+  `;
+
+  // fetch...
+  const outputDiv = document.querySelector("#output");
+  try {
+    const [r1, r2] = await Promise.all([
+      fetchJson(oldHost + path),
+      fetchJson(newHost + path),
+    ]);
+    const json1 = r1.data;
+    const json2 = r2.data;
+    const delta = jsondiffpatch.diff(json1, json2);
+
+    outputDiv.innerHTML = html`
+      <div>
+        <a href="${oldHost + path}" target="_blank">
+          <del>${r1.took}ms</del>
+        </a>
+        <a href="${newHost + path}" target="_blank">
+          <ins>${r2.took}ms</ins>
+        </a>
+      </div>
+      <div>${htmlFormatter.format(delta, json1)}</div>
+    `;
+  } catch (e) {
+    outputDiv.innerHTML = html`
+      <h1>Bad News</h1>
+      <pre>${e}</pre>
+    `;
+    throw e;
+  }
+
+  async function fetchJson(url) {
+    const start = performance.now();
+    const response = await fetch(url);
+    const took = (performance.now() - start).toFixed(0);
+    if (!response.ok) {
+      // throw new Error(`Failed to fetch ${url}: ${response.statusText}`);
+      console.log(response.status, url);
+    }
+    const resp = await response.json();
+    return {
+      data: resp.data,
+      took,
+    };
+  }
+</script>
