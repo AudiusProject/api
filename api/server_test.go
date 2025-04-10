@@ -92,6 +92,7 @@ func Test200(t *testing.T) {
 		"/v1/full/users/7eP5n/supporting",
 		"/v1/full/users/7eP5n/tracks",
 
+		"/v1/full/users/handle/rayjacobson",
 		"/v1/full/users/handle/rayjacobson/tracks",
 		"/v1/full/users/handle/rayjacobson/reposts",
 

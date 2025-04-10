@@ -10,7 +10,7 @@ import (
 
 func TestGetUser(t *testing.T) {
 	var userResponse struct {
-		Data dbv1.FullUser
+		Data []dbv1.FullUser
 	}
 
 	status, body := testGet(t, "/v1/full/users/7eP5n", &userResponse)
@@ -23,5 +23,5 @@ func TestGetUser(t *testing.T) {
 
 	// but we also unmarshaled into userResponse
 	// for structured testing
-	assert.Equal(t, userResponse.Data.ID, "7eP5n")
+	assert.Equal(t, userResponse.Data[0].ID, "7eP5n")
 }

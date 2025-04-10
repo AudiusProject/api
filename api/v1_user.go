@@ -22,7 +22,5 @@ func (app *ApiServer) v1User(c *fiber.Ctx) error {
 		return sendError(c, 404, "user not found")
 	}
 
-	user := users[0]
-
-	return v1UserResponse(c, user)
+	return v1UsersResponse(c, users)
 }

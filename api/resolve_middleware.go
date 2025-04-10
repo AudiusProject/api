@@ -35,7 +35,7 @@ func (app *ApiServer) requireHandleMiddleware(c *fiber.Ctx) error {
 	if err != nil {
 		return err
 	}
-	c.Locals("userId", userId)
+	c.Locals("userId", int(userId))
 	return c.Next()
 }
 

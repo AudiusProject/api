@@ -126,6 +126,7 @@ func NewApiServer(config Config) *ApiServer {
 		g.Get("/users", app.v1Users)
 
 		g.Use("/users/handle/:handle", app.requireHandleMiddleware)
+		g.Get("/users/handle/:handle", app.v1User)
 		g.Get("/users/handle/:handle/tracks", app.v1UserTracks)
 		g.Get("/users/handle/:handle/reposts", app.v1UsersReposts)
 
