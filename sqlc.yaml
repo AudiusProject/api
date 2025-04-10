@@ -18,6 +18,7 @@ sql:
             go_type:
               import: "time"
               type: "Time"
+              pointer: true
 
           - db_type: "pg_catalog.timestamp"
             engine: "postgresql"

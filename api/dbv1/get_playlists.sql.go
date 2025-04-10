@@ -134,7 +134,7 @@ type GetPlaylistsRow struct {
 	FavoriteCount          pgtype.Int4      `json:"favorite_count"`
 	CreatedAt              time.Time        `json:"created_at"`
 	UpdatedAt              time.Time        `json:"updated_at"`
-	ReleaseDate            time.Time        `json:"release_date"`
+	ReleaseDate            *time.Time       `json:"release_date"`
 	HasCurrentUserReposted bool             `json:"has_current_user_reposted"`
 	HasCurrentUserSaved    bool             `json:"has_current_user_saved"`
 	FolloweeReposts        json.RawMessage  `json:"followee_reposts"`

@@ -193,7 +193,7 @@ type GetTracksRow struct {
 	OrigFilename                 pgtype.Text     `json:"orig_filename"`
 	IsOriginalAvailable          bool            `json:"is_original_available"`
 	Mood                         pgtype.Text     `json:"mood"`
-	ReleaseDate                  time.Time       `json:"release_date"`
+	ReleaseDate                  *time.Time      `json:"release_date"`
 	RemixOf                      []byte          `json:"remix_of"`
 	RepostCount                  int32           `json:"repost_count"`
 	FavoriteCount                int32           `json:"favorite_count"`

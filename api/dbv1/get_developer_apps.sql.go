@@ -97,8 +97,8 @@ type GetDeveloperAppsWithGrantsRow struct {
 	Description    pgtype.Text `json:"description"`
 	ImageUrl       pgtype.Text `json:"image_url"`
 	GrantorUserID  pgtype.Int4 `json:"grantor_user_id"`
-	GrantCreatedAt time.Time   `json:"grant_created_at"`
-	GrantUpdatedAt time.Time   `json:"grant_updated_at"`
+	GrantCreatedAt *time.Time  `json:"grant_created_at"`
+	GrantUpdatedAt *time.Time  `json:"grant_updated_at"`
 }
 
 func (q *Queries) GetDeveloperAppsWithGrants(ctx context.Context, arg GetDeveloperAppsWithGrantsParams) ([]GetDeveloperAppsWithGrantsRow, error) {
