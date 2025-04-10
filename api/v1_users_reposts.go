@@ -14,11 +14,24 @@ func (app *ApiServer) v1UsersReposts(c *fiber.Ctx) error {
 	userId := c.Locals("userId")
 
 	sql := `
-	SELECT repost_type, repost_item_id, created_at
+	SELECT repost_type, repost_item_id, reposts.created_at
 	FROM reposts
-	WHERE user_id = @userId
-	  AND is_delete = false
-	ORDER BY created_at DESC
+	LEFT JOIN tracks
+		ON repost_type = 'track'
+		AND repost_item_id = track_id
+		AND tracks.is_delete = false
+		AND tracks.is_unlisted = false
+		AND tracks.is_available = true
+	LEFT JOIN playlists
+		ON repost_type != 'track'
+		AND repost_item_id = playlist_id
+		AND playlists.is_delete = false
+		AND playlists.is_private = false
+	WHERE
+		user_id = @userId
+		AND reposts.is_delete = false
+		AND (tracks.track_id IS NOT NULL OR playlists.playlist_id IS NOT NULL)
+	ORDER BY reposts.created_at DESC
 	LIMIT @limit
 	OFFSET @offset
 	`
