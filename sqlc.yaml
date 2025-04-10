@@ -11,13 +11,28 @@ sql:
         package: "dbv1"
         out: "api/dbv1"
         sql_package: "pgx/v5"
-        "overrides":
-          - column: "users.playlist_library"
+        overrides:
+          - db_type: "pg_catalog.timestamp"
+            engine: "postgresql"
+            nullable: true
+            go_type:
+              import: "time"
+              type: "Time"
+
+          - db_type: "pg_catalog.timestamp"
+            engine: "postgresql"
+            nullable: false
+            go_type:
+              import: "time"
+              type: "Time"
+
+
+          - db_type: "jsonb"
             go_type:
               import: "encoding/json"
               type: "RawMessage"
 
-          - db_type: "jsonb"
+          - column: "users.playlist_library"
             go_type:
               import: "encoding/json"
               type: "RawMessage"

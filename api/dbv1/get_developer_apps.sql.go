@@ -7,6 +7,7 @@ package dbv1
 
 import (
 	"context"
+	"time"
 
 	"github.com/jackc/pgx/v5/pgtype"
 )
@@ -91,13 +92,13 @@ type GetDeveloperAppsWithGrantsParams struct {
 }
 
 type GetDeveloperAppsWithGrantsRow struct {
-	Address        string           `json:"address"`
-	Name           string           `json:"name"`
-	Description    pgtype.Text      `json:"description"`
-	ImageUrl       pgtype.Text      `json:"image_url"`
-	GrantorUserID  pgtype.Int4      `json:"grantor_user_id"`
-	GrantCreatedAt pgtype.Timestamp `json:"grant_created_at"`
-	GrantUpdatedAt pgtype.Timestamp `json:"grant_updated_at"`
+	Address        string      `json:"address"`
+	Name           string      `json:"name"`
+	Description    pgtype.Text `json:"description"`
+	ImageUrl       pgtype.Text `json:"image_url"`
+	GrantorUserID  pgtype.Int4 `json:"grantor_user_id"`
+	GrantCreatedAt time.Time   `json:"grant_created_at"`
+	GrantUpdatedAt time.Time   `json:"grant_updated_at"`
 }
 
 func (q *Queries) GetDeveloperAppsWithGrants(ctx context.Context, arg GetDeveloperAppsWithGrantsParams) ([]GetDeveloperAppsWithGrantsRow, error) {

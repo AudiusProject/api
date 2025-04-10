@@ -8,6 +8,7 @@ package dbv1
 import (
 	"context"
 	"encoding/json"
+	"time"
 
 	"github.com/jackc/pgx/v5/pgtype"
 )
@@ -143,63 +144,63 @@ type GetUsersParams struct {
 }
 
 type GetUsersRow struct {
-	AlbumCount                     pgtype.Int8      `json:"album_count"`
-	ArtistPickTrackID              pgtype.Int4      `json:"artist_pick_track_id"`
-	Bio                            pgtype.Text      `json:"bio"`
-	CoverPhoto                     pgtype.Text      `json:"cover_photo"`
-	FollowerCount                  pgtype.Int8      `json:"follower_count"`
-	FolloweeCount                  pgtype.Int8      `json:"followee_count"`
-	Handle                         pgtype.Text      `json:"handle"`
-	ID                             string           `json:"id"`
-	UserID                         int32            `json:"user_id"`
-	IsVerified                     bool             `json:"is_verified"`
-	TwitterHandle                  pgtype.Text      `json:"twitter_handle"`
-	InstagramHandle                pgtype.Text      `json:"instagram_handle"`
-	TiktokHandle                   pgtype.Text      `json:"tiktok_handle"`
-	VerifiedWithTwitter            pgtype.Bool      `json:"verified_with_twitter"`
-	VerifiedWithInstagram          pgtype.Bool      `json:"verified_with_instagram"`
-	VerifiedWithTiktok             pgtype.Bool      `json:"verified_with_tiktok"`
-	Website                        pgtype.Text      `json:"website"`
-	Donation                       pgtype.Text      `json:"donation"`
-	Location                       pgtype.Text      `json:"location"`
-	Name                           pgtype.Text      `json:"name"`
-	PlaylistCount                  pgtype.Int8      `json:"playlist_count"`
-	ProfilePicture                 pgtype.Text      `json:"profile_picture"`
-	RepostCount                    pgtype.Int8      `json:"repost_count"`
-	TrackCount                     pgtype.Int8      `json:"track_count"`
-	IsDeactivated                  bool             `json:"is_deactivated"`
-	IsAvailable                    bool             `json:"is_available"`
-	ErcWallet                      pgtype.Text      `json:"erc_wallet"`
-	SplWallet                      pgtype.Text      `json:"spl_wallet"`
-	SplUsdcPayoutWallet            pgtype.Text      `json:"spl_usdc_payout_wallet"`
-	SupporterCount                 int32            `json:"supporter_count"`
-	SupportingCount                int32            `json:"supporting_count"`
-	Wallet                         pgtype.Text      `json:"wallet"`
-	Balance                        pgtype.Text      `json:"balance"`
-	AssociatedWalletsBalance       pgtype.Text      `json:"associated_wallets_balance"`
-	TotalBalance                   string           `json:"total_balance"`
-	TotalAudioBalance              int32            `json:"total_audio_balance"`
-	WaudioBalance                  string           `json:"waudio_balance"`
-	AssociatedSolWalletsBalance    string           `json:"associated_sol_wallets_balance"`
-	Blocknumber                    pgtype.Int4      `json:"blocknumber"`
-	CreatedAt                      pgtype.Timestamp `json:"created_at"`
-	IsStorageV2                    bool             `json:"is_storage_v2"`
-	CreatorNodeEndpoint            pgtype.Text      `json:"creator_node_endpoint"`
-	CurrentUserFolloweeFollowCount int32            `json:"current_user_followee_follow_count"`
-	DoesCurrentUserFollow          bool             `json:"does_current_user_follow"`
-	DoesCurrentUserSubscribe       bool             `json:"does_current_user_subscribe"`
-	DoesFollowCurrentUser          bool             `json:"does_follow_current_user"`
-	HandleLc                       pgtype.Text      `json:"handle_lc"`
-	UpdatedAt                      pgtype.Timestamp `json:"updated_at"`
-	CoverPhotoSizes                pgtype.Text      `json:"cover_photo_sizes"`
-	CoverPhotoCids                 interface{}      `json:"cover_photo_cids"`
-	CoverPhotoLegacy               interface{}      `json:"cover_photo_legacy"`
-	ProfilePictureSizes            pgtype.Text      `json:"profile_picture_sizes"`
-	ProfilePictureCids             interface{}      `json:"profile_picture_cids"`
-	ProfilePictureLegacy           interface{}      `json:"profile_picture_legacy"`
-	HasCollectibles                bool             `json:"has_collectibles"`
-	PlaylistLibrary                json.RawMessage  `json:"playlist_library"`
-	AllowAiAttribution             bool             `json:"allow_ai_attribution"`
+	AlbumCount                     pgtype.Int8     `json:"album_count"`
+	ArtistPickTrackID              pgtype.Int4     `json:"artist_pick_track_id"`
+	Bio                            pgtype.Text     `json:"bio"`
+	CoverPhoto                     pgtype.Text     `json:"cover_photo"`
+	FollowerCount                  pgtype.Int8     `json:"follower_count"`
+	FolloweeCount                  pgtype.Int8     `json:"followee_count"`
+	Handle                         pgtype.Text     `json:"handle"`
+	ID                             string          `json:"id"`
+	UserID                         int32           `json:"user_id"`
+	IsVerified                     bool            `json:"is_verified"`
+	TwitterHandle                  pgtype.Text     `json:"twitter_handle"`
+	InstagramHandle                pgtype.Text     `json:"instagram_handle"`
+	TiktokHandle                   pgtype.Text     `json:"tiktok_handle"`
+	VerifiedWithTwitter            pgtype.Bool     `json:"verified_with_twitter"`
+	VerifiedWithInstagram          pgtype.Bool     `json:"verified_with_instagram"`
+	VerifiedWithTiktok             pgtype.Bool     `json:"verified_with_tiktok"`
+	Website                        pgtype.Text     `json:"website"`
+	Donation                       pgtype.Text     `json:"donation"`
+	Location                       pgtype.Text     `json:"location"`
+	Name                           pgtype.Text     `json:"name"`
+	PlaylistCount                  pgtype.Int8     `json:"playlist_count"`
+	ProfilePicture                 pgtype.Text     `json:"profile_picture"`
+	RepostCount                    pgtype.Int8     `json:"repost_count"`
+	TrackCount                     pgtype.Int8     `json:"track_count"`
+	IsDeactivated                  bool            `json:"is_deactivated"`
+	IsAvailable                    bool            `json:"is_available"`
+	ErcWallet                      pgtype.Text     `json:"erc_wallet"`
+	SplWallet                      pgtype.Text     `json:"spl_wallet"`
+	SplUsdcPayoutWallet            pgtype.Text     `json:"spl_usdc_payout_wallet"`
+	SupporterCount                 int32           `json:"supporter_count"`
+	SupportingCount                int32           `json:"supporting_count"`
+	Wallet                         pgtype.Text     `json:"wallet"`
+	Balance                        pgtype.Text     `json:"balance"`
+	AssociatedWalletsBalance       pgtype.Text     `json:"associated_wallets_balance"`
+	TotalBalance                   string          `json:"total_balance"`
+	TotalAudioBalance              int32           `json:"total_audio_balance"`
+	WaudioBalance                  string          `json:"waudio_balance"`
+	AssociatedSolWalletsBalance    string          `json:"associated_sol_wallets_balance"`
+	Blocknumber                    pgtype.Int4     `json:"blocknumber"`
+	CreatedAt                      time.Time       `json:"created_at"`
+	IsStorageV2                    bool            `json:"is_storage_v2"`
+	CreatorNodeEndpoint            pgtype.Text     `json:"creator_node_endpoint"`
+	CurrentUserFolloweeFollowCount int32           `json:"current_user_followee_follow_count"`
+	DoesCurrentUserFollow          bool            `json:"does_current_user_follow"`
+	DoesCurrentUserSubscribe       bool            `json:"does_current_user_subscribe"`
+	DoesFollowCurrentUser          bool            `json:"does_follow_current_user"`
+	HandleLc                       pgtype.Text     `json:"handle_lc"`
+	UpdatedAt                      time.Time       `json:"updated_at"`
+	CoverPhotoSizes                pgtype.Text     `json:"cover_photo_sizes"`
+	CoverPhotoCids                 interface{}     `json:"cover_photo_cids"`
+	CoverPhotoLegacy               interface{}     `json:"cover_photo_legacy"`
+	ProfilePictureSizes            pgtype.Text     `json:"profile_picture_sizes"`
+	ProfilePictureCids             interface{}     `json:"profile_picture_cids"`
+	ProfilePictureLegacy           interface{}     `json:"profile_picture_legacy"`
+	HasCollectibles                bool            `json:"has_collectibles"`
+	PlaylistLibrary                json.RawMessage `json:"playlist_library"`
+	AllowAiAttribution             bool            `json:"allow_ai_attribution"`
 }
 
 func (q *Queries) GetUsers(ctx context.Context, arg GetUsersParams) ([]GetUsersRow, error) {
