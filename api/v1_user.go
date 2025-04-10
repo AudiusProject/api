@@ -22,5 +22,11 @@ func (app *ApiServer) v1User(c *fiber.Ctx) error {
 		return sendError(c, 404, "user not found")
 	}
 
-	return v1UsersResponse(c, users)
+	// full returns an array
+	// non-full returns an object
+	// wild
+	if c.Locals("isFull").(bool) {
+		return v1UsersResponse(c, users)
+	}
+	return v1UserResponse(c, users[0])
 }
