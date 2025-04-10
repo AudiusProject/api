@@ -7,6 +7,7 @@ const testPaths = [
   "/v1/full/users?id=0EoAm&user_id=aNzoj",
   "/v1/full/users?id=0EoAm&id=7eP5n&id=aWvp71&id=Wem1e&user_id=aNzoj",
 
+  "/v1/users/0EoAm",
   "/v1/full/users?id=invalid_id1&id=aNzoj",
 
   "/v1/full/tracks?id=ZaXp01y&user_id=aNzoj",

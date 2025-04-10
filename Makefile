@@ -20,4 +20,4 @@ setup::
 	go install -v github.com/sqlc-dev/sqlc/cmd/sqlc@latest
 
 apidiff::
-	npx deno run -A --watch apidiff2.ts
+	npx deno run -A --watch apidiff.ts
