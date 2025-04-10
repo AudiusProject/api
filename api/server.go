@@ -145,6 +145,8 @@ func NewApiServer(config Config) *ApiServer {
 		// Tracks
 		g.Get("/tracks", app.v1Tracks)
 
+		g.Get("/tracks/trending", app.v1Trending)
+
 		g.Use("/tracks/:trackId", app.requireTrackIdMiddleware)
 		g.Get("/tracks/:trackId", app.v1Track)
 		g.Get("/tracks/:trackId/reposts", app.v1TracksReposts)
