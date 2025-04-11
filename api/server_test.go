@@ -67,6 +67,7 @@ func TestMain(m *testing.M) {
 	insertFixtures("follows", followBaseRow, "testdata/follow_fixtures.csv")
 	insertFixtures("reposts", repostBaseRow, "testdata/repost_fixtures.csv")
 	insertFixtures("developer_apps", developerAppBaseRow, "testdata/developer_app_fixtures.csv")
+	insertFixtures("track_trending_scores", trackTrendingScoreBaseRow, "testdata/track_trending_scores_fixtures.csv")
 	insertFixtures("associated_wallets", connectedWalletsBaseRow, "testdata/connected_wallets_fixtures.csv")
 
 	// index to es / os

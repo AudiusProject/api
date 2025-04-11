@@ -1,6 +1,7 @@
-track_id,owner_id,title,is_unlisted,stream_conditions,download_conditions
-200,2,Culca Canyon,f,,
-201,2,Turkey Time DEMO,t,,
-300,3,Follow Gated Download,f,,"{""follow_user_id"": 3}"
-301,3,Pay Gated Download,f,,"{""usdc_purchase"": {""price"": 135, ""splits"": [{""user_id"": 3, ""percentage"": 100.0}]}}"
-302,3,Tip Gated Stream,f," {""tip_user_id"": 859175075}",
+track_id,genre,owner_id,title,is_unlisted,stream_conditions,download_conditions
+200,Electronic,2,Culca Canyon,f,,
+201,Alternative,2,Turkey Time DEMO,t,,
+202,Alternative,2,Turkey Time (live),f,,
+300,Electronic,3,Follow Gated Download,f,,"{""follow_user_id"": 3}"
+301,Electronic,3,Pay Gated Download,f,,"{""usdc_purchase"": {""price"": 135, ""splits"": [{""user_id"": 3, ""percentage"": 100.0}]}}"
+302,Electronic,3,Tip Gated Stream,f," {""tip_user_id"": 859175075}",

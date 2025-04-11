@@ -106,6 +106,16 @@ var (
 		"image_url":   nil,
 	}
 
+	trackTrendingScoreBaseRow = map[string]any{
+		"track_id":   nil,
+		"type":       "TRACKS",
+		"genre":      nil,
+		"version":    "pnagD",
+		"time_range": nil,
+		"score":      nil,
+		"created_at": time.Now(),
+	}
+
 	connectedWalletsBaseRow = map[string]any{
 		"id":          nil,
 		"user_id":     nil,
