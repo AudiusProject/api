@@ -13,9 +13,9 @@ type FullTracksParams GetTracksParams
 type FullTrack struct {
 	GetTracksRow
 
-	Artwork SquareImage `json:"artwork"`
-	UserID  string      `json:"user_id"`
-	User    FullUser    `json:"user"`
+	Artwork *SquareImage `json:"artwork"`
+	UserID  string       `json:"user_id"`
+	User    FullUser     `json:"user"`
 
 	FolloweeReposts   []*FolloweeRepost   `json:"followee_reposts"`
 	FolloweeFavorites []*FolloweeFavorite `json:"followee_favorites"`
@@ -88,7 +88,7 @@ type MinTrack struct {
 	ID                       string        `json:"id"`
 	Title                    pgtype.Text   `json:"title"`
 	User                     MinUser       `json:"user"`
-	Artwork                  SquareImage   `json:"artwork"`
+	Artwork                  *SquareImage  `json:"artwork"`
 	Duration                 pgtype.Int4   `json:"duration"`
 	Description              pgtype.Text   `json:"description"`
 	Genre                    pgtype.Text   `json:"genre"`

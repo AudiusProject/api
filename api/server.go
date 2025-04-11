@@ -139,6 +139,7 @@ func NewApiServer(config Config) *ApiServer {
 		g.Get("/users/:userId/mutuals", app.v1UsersMutuals)
 		g.Get("/users/:userId/reposts", app.v1UsersReposts)
 		g.Get("/users/:userId/supporting", app.v1UsersSupporting)
+		g.Get("/users/:userId/supporters", app.v1UsersSupporters)
 		g.Get("/users/:userId/tracks", app.v1UserTracks)
 		g.Get("/users/:userId/feed", app.v1UsersFeed)
 		g.Get("/users/:userId/connected_wallets", app.v1UsersConnectedWallets)
