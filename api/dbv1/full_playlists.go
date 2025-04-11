@@ -19,6 +19,7 @@ type FullPlaylist struct {
 	FolloweeReposts   []*FolloweeRepost          `json:"followee_reposts"`
 	FolloweeFavorites []*FolloweeFavorite        `json:"followee_favorites"`
 	PlaylistContents  []FullPlaylistContentsItem `json:"playlist_contents"`
+	AddedTimestamps   []FullPlaylistContentsItem `json:"added_timestamps"`
 }
 
 type FullPlaylistContentsItem struct {
@@ -84,15 +85,16 @@ func (q *Queries) FullPlaylistsKeyed(ctx context.Context, arg GetPlaylistsParams
 		}
 
 		playlistMap[playlist.PlaylistID] = FullPlaylist{
-			GetPlaylistsRow: playlist,
-			ID:              id,
-			// Artwork:         squareImageStruct(track.CoverArtSizes, track.CoverArt),
+			GetPlaylistsRow:   playlist,
+			ID:                id,
+			Artwork:           squareImageStruct(playlist.Artwork),
 			User:              user,
 			UserID:            user.ID,
 			Tracks:            tracks,
 			FolloweeFavorites: fullFolloweeFavorites(playlist.FolloweeFavorites),
 			FolloweeReposts:   fullFolloweeReposts(playlist.FolloweeReposts),
 			PlaylistContents:  fullPlaylistContents,
+			AddedTimestamps:   fullPlaylistContents,
 		}
 	}
 
