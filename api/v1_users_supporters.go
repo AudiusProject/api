@@ -81,14 +81,14 @@ func (app *ApiServer) v1UsersSupporters(c *fiber.Ctx) error {
 		// Create a new array with MinUsers
 		type minSupportedUser struct {
 			supportedUser
-			Receiver dbv1.MinUser `json:"receiver"`
+			Sender dbv1.MinUser `json:"sender"`
 		}
 
 		minSupported := make([]minSupportedUser, len(supported))
 		for i, user := range supported {
 			minSupported[i] = minSupportedUser{
 				supportedUser: user,
-				Receiver:      dbv1.ToMinUser(user.Sender),
+				Sender:        dbv1.ToMinUser(user.Sender),
 			}
 		}
 
