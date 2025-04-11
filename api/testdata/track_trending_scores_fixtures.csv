@@ -1,0 +1,7 @@
+track_id,genre,time_range,score
+200,Electronic,week,1.0
+200,Electronic,allTime,5.0
+201,Alternative,week,2.0
+202,Alternative,week,2.0
+300,Electronic,week,3.0
+300,Electronic,allTime,3.0

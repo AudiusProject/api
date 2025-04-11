@@ -9,6 +9,7 @@ import (
 func (app *ApiServer) v1Trending(c *fiber.Ctx) error {
 	myId := c.Locals("myId")
 
+	// SQL query with conditional genre filter
 	sql := `
 	SELECT track_trending_scores.track_id
 	FROM track_trending_scores
@@ -19,7 +20,8 @@ func (app *ApiServer) v1Trending(c *fiber.Ctx) error {
 		AND tracks.is_available = true
 	WHERE type = 'TRACKS'
 		AND version = 'pnagD'
-		AND time_range = 'week'
+		AND time_range = @timeRange
+		AND (@genre = '' OR track_trending_scores.genre = @genre)
 	ORDER BY
 		score DESC,
 		track_id DESC
@@ -27,10 +29,11 @@ func (app *ApiServer) v1Trending(c *fiber.Ctx) error {
 	OFFSET @offset
 	`
 
-	args := pgx.NamedArgs{
-		"limit":  100,
-		"offset": 0,
-	}
+	args := pgx.NamedArgs{}
+	args["limit"] = c.Query("limit", "100")
+	args["offset"] = c.Query("offset", "0")
+	args["timeRange"] = c.Query("timeRange", "week")
+	args["genre"] = c.Query("genre", "")
 
 	rows, err := app.pool.Query(c.Context(), sql, args)
 	if err != nil {

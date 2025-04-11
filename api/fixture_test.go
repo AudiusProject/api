@@ -105,6 +105,16 @@ var (
 		"updated_at":  time.Now(),
 		"image_url":   nil,
 	}
+
+	trackTrendingScoreBaseRow = map[string]any{
+		"track_id":   nil,
+		"type":       "TRACKS",
+		"genre":      nil,
+		"version":    "pnagD",
+		"time_range": nil,
+		"score":      nil,
+		"created_at": time.Now(),
+	}
 )
 
 func insertFixtures(table string, baseRow map[string]any, csvFile string) {
