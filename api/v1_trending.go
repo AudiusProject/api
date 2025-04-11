@@ -44,14 +44,9 @@ func (app *ApiServer) v1Trending(c *fiber.Ctx) error {
 		TrackId int32 `json:"track_id"`
 	}
 
-	trackTrendingRows, err := pgx.CollectRows(rows, pgx.RowToStructByName[trackTrendingRow])
+	trackIds, err := pgx.CollectRows(rows, pgx.RowTo[int32])
 	if err != nil {
 		return err
-	}
-
-	trackIds := []int32{}
-	for _, t := range trackTrendingRows {
-		trackIds = append(trackIds, t.TrackId)
 	}
 
 	tracks, err := app.queries.FullTracks(c.Context(), dbv1.GetTracksParams{
