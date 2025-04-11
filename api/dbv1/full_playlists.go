@@ -10,15 +10,16 @@ import (
 type FullPlaylist struct {
 	GetPlaylistsRow
 
-	ID      string      `json:"id"`
-	Artwork SquareImage `json:"artwork"`
-	UserID  string      `json:"user_id"`
-	User    FullUser    `json:"user"`
-	Tracks  []FullTrack `json:"tracks"`
+	ID      string       `json:"id"`
+	Artwork *SquareImage `json:"artwork"`
+	UserID  string       `json:"user_id"`
+	User    FullUser     `json:"user"`
+	Tracks  []FullTrack  `json:"tracks"`
 
 	FolloweeReposts   []*FolloweeRepost          `json:"followee_reposts"`
 	FolloweeFavorites []*FolloweeFavorite        `json:"followee_favorites"`
 	PlaylistContents  []FullPlaylistContentsItem `json:"playlist_contents"`
+	AddedTimestamps   []FullPlaylistContentsItem `json:"added_timestamps"`
 }
 
 type FullPlaylistContentsItem struct {
@@ -84,15 +85,16 @@ func (q *Queries) FullPlaylistsKeyed(ctx context.Context, arg GetPlaylistsParams
 		}
 
 		playlistMap[playlist.PlaylistID] = FullPlaylist{
-			GetPlaylistsRow: playlist,
-			ID:              id,
-			// Artwork:         squareImageStruct(track.CoverArtSizes, track.CoverArt),
+			GetPlaylistsRow:   playlist,
+			ID:                id,
+			Artwork:           squareImageStruct(playlist.Artwork),
 			User:              user,
 			UserID:            user.ID,
 			Tracks:            tracks,
 			FolloweeFavorites: fullFolloweeFavorites(playlist.FolloweeFavorites),
 			FolloweeReposts:   fullFolloweeReposts(playlist.FolloweeReposts),
 			PlaylistContents:  fullPlaylistContents,
+			AddedTimestamps:   fullPlaylistContents,
 		}
 	}
 
@@ -118,20 +120,20 @@ func (q *Queries) FullPlaylists(ctx context.Context, arg GetPlaylistsParams) ([]
 }
 
 type MinPlaylist struct {
-	ID               string      `json:"id"`
-	PlaylistName     pgtype.Text `json:"playlist_name"`
-	PlaylistOwnerID  int32       `json:"playlist_owner_id"`
-	PlaylistID       int32       `json:"playlist_id"`
-	Artwork          SquareImage `json:"artwork"`
-	Description      *string     `json:"description"`
-	PlaylistContents interface{} `json:"playlist_contents"`
-	IsAlbum          bool        `json:"is_album"`
-	IsPrivate        bool        `json:"is_private"`
-	FavoriteCount    int32       `json:"favorite_count"`
-	RepostCount      int32       `json:"repost_count"`
-	UserID           string      `json:"user_id"`
-	User             MinUser     `json:"user"`
-	Tracks           []MinTrack  `json:"tracks"`
+	ID               string       `json:"id"`
+	PlaylistName     pgtype.Text  `json:"playlist_name"`
+	PlaylistOwnerID  int32        `json:"playlist_owner_id"`
+	PlaylistID       int32        `json:"playlist_id"`
+	Artwork          *SquareImage `json:"artwork"`
+	Description      *string      `json:"description"`
+	PlaylistContents interface{}  `json:"playlist_contents"`
+	IsAlbum          bool         `json:"is_album"`
+	IsPrivate        bool         `json:"is_private"`
+	FavoriteCount    int32        `json:"favorite_count"`
+	RepostCount      int32        `json:"repost_count"`
+	UserID           string       `json:"user_id"`
+	User             MinUser      `json:"user"`
+	Tracks           []MinTrack   `json:"tracks"`
 }
 
 func ToMinPlaylist(fullPlaylist FullPlaylist) MinPlaylist {

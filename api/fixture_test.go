@@ -115,6 +115,17 @@ var (
 		"score":      nil,
 		"created_at": time.Now(),
 	}
+
+	connectedWalletsBaseRow = map[string]any{
+		"id":          nil,
+		"user_id":     nil,
+		"wallet":      nil,
+		"blockhash":   "block_abc123",
+		"blocknumber": 101,
+		"is_current":  true,
+		"is_delete":   false,
+		"chain":       nil,
+	}
 )
 
 func insertFixtures(table string, baseRow map[string]any, csvFile string) {

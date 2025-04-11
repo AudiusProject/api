@@ -6,7 +6,7 @@ import (
 	"github.com/jackc/pgx/v5"
 )
 
-func (app *ApiServer) v1UsersSupporting(c *fiber.Ctx) error {
+func (app *ApiServer) v1UsersSupporters(c *fiber.Ctx) error {
 	myId := c.Locals("myId")
 	userId := c.Locals("userId").(int)
 
@@ -22,7 +22,7 @@ func (app *ApiServer) v1UsersSupporting(c *fiber.Ctx) error {
 		SenderUserID   int32         `json:"-" db:"sender_user_id"`
 		ReceiverUserID int32         `json:"-" db:"receiver_user_id"`
 		Amount         string        `json:"amount" db:"amount"`
-		Receiver       dbv1.FullUser `json:"receiver" db:"-"`
+		Sender         dbv1.FullUser `json:"sender" db:"-"`
 	}
 
 	sql := `
@@ -37,16 +37,15 @@ func (app *ApiServer) v1UsersSupporting(c *fiber.Ctx) error {
 			  AND b.amount > a.amount
 		) as rank
 	FROM aggregate_user_tips a
-	-- JOIN users ON a.receiver_user_id = user_id
+	-- JOIN users ON a.sender_user_id = user_id
 	WHERE
-		sender_user_id = @userId
+		receiver_user_id = @userId
 		-- todo:
-		-- these conditions should be here:
-		-- but python will actually show deactivate / unavailable users
-		-- so to minimize apidiff, skip the join above and do the wrong thing here
+		-- do the wrong thing here to match python reponse
+		-- (see comment in v1_users_supporting.go)
 		-- AND is_deactivated = false
 		-- AND is_available = true
-	ORDER BY a.amount DESC, receiver_user_id ASC
+	ORDER BY a.amount DESC, sender_user_id ASC
 	LIMIT @limit
 	OFFSET @offset
 	`
@@ -63,9 +62,9 @@ func (app *ApiServer) v1UsersSupporting(c *fiber.Ctx) error {
 
 	userIds := []int32{}
 	for _, s := range supported {
-		userIds = append(userIds, s.ReceiverUserID)
+		userIds = append(userIds, s.SenderUserID)
 	}
-	users, err := app.queries.FullUsers(c.Context(), dbv1.GetUsersParams{
+	userMap, err := app.queries.FullUsersKeyed(c.Context(), dbv1.GetUsersParams{
 		MyID: myId,
 		Ids:  userIds,
 	})
@@ -73,13 +72,8 @@ func (app *ApiServer) v1UsersSupporting(c *fiber.Ctx) error {
 		return err
 	}
 
-	userMap := map[int32]dbv1.FullUser{}
-	for _, user := range users {
-		userMap[user.UserID] = user
-	}
-
 	for idx, s := range supported {
-		s.Receiver = userMap[s.ReceiverUserID]
+		s.Sender = userMap[s.SenderUserID]
 		supported[idx] = s
 	}
 
@@ -87,14 +81,14 @@ func (app *ApiServer) v1UsersSupporting(c *fiber.Ctx) error {
 		// Create a new array with MinUsers
 		type minSupportedUser struct {
 			supportedUser
-			Receiver dbv1.MinUser `json:"receiver"`
+			Sender dbv1.MinUser `json:"sender"`
 		}
 
 		minSupported := make([]minSupportedUser, len(supported))
 		for i, user := range supported {
 			minSupported[i] = minSupportedUser{
 				supportedUser: user,
-				Receiver:      dbv1.ToMinUser(user.Receiver),
+				Sender:        dbv1.ToMinUser(user.Sender),
 			}
 		}
 

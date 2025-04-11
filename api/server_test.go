@@ -68,6 +68,7 @@ func TestMain(m *testing.M) {
 	insertFixtures("reposts", repostBaseRow, "testdata/repost_fixtures.csv")
 	insertFixtures("developer_apps", developerAppBaseRow, "testdata/developer_app_fixtures.csv")
 	insertFixtures("track_trending_scores", trackTrendingScoreBaseRow, "testdata/track_trending_scores_fixtures.csv")
+	insertFixtures("associated_wallets", connectedWalletsBaseRow, "testdata/connected_wallets_fixtures.csv")
 
 	// index to es / os
 
@@ -91,6 +92,7 @@ func Test200(t *testing.T) {
 		"/v1/full/users/7eP5n/mutuals",
 		"/v1/full/users/7eP5n/reposts",
 		"/v1/full/users/7eP5n/supporting",
+		"/v1/full/users/7eP5n/supporters",
 		"/v1/full/users/7eP5n/tracks",
 		"/v1/full/users/7eP5n/feed",
 

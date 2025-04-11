@@ -12,6 +12,8 @@ SELECT
   p.is_stream_gated,
   -- is_streamable,
 
+  coalesce(playlist_image_sizes_multihash, playlist_image_multihash) as artwork,
+
   p.playlist_name,
 
   p.playlist_id,

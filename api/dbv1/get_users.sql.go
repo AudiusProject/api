@@ -133,8 +133,7 @@ FROM users u
 JOIN aggregate_user using (user_id)
 LEFT JOIN user_balances using (user_id)
 LEFT JOIN user_bank_accounts on u.wallet = user_bank_accounts.ethereum_address
-WHERE is_deactivated = false
-  AND u.user_id = ANY($2::int[])
+WHERE u.user_id = ANY($2::int[])
 ORDER BY u.user_id
 `
 
