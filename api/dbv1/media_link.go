@@ -21,15 +21,9 @@ type MediaLink struct {
 }
 
 func mediaLink(cid string, trackId int32, userId int32) *MediaLink {
-	rankedHosts := rendezvous.GlobalHasher.Rank(cid)
+	ranked := rendezvous.GlobalHasher.Rank(cid)
 	randIdx := rand.Intn(3)
-	first := rankedHosts[randIdx]
-	rest := make([]string, 0, 2)
-	for i := range 3 {
-		if i != randIdx {
-			rest = append(rest, rankedHosts[i])
-		}
-	}
+	first, rest := ranked[randIdx], append(ranked[:randIdx], ranked[randIdx+1:]...)[:2]
 
 	timestamp := time.Now().Unix() * 1000
 	data := map[string]interface{}{
