@@ -3,7 +3,6 @@ package dbv1
 import (
 	"context"
 	"fmt"
-	"math/rand"
 	"strings"
 
 	"bridgerton.audius.co/rendezvous"
@@ -47,9 +46,7 @@ func (q *Queries) FullUsersKeyed(ctx context.Context, arg GetUsersParams) (map[i
 
 			if cid != "" {
 				// rendezvous for cid
-				ranked := rendezvous.GlobalHasher.Rank(cid)
-				randIdx := rand.Intn(3)
-				first, rest := ranked[randIdx], append(ranked[:randIdx], ranked[randIdx+1:]...)[:2]
+				first, rest := rendezvous.GlobalHasher.ReplicaSet3(cid)
 
 				coverPhoto = &RectangleImage{
 					X640:    fmt.Sprintf("%s/content/%s/640x.jpg", first, cid),
@@ -111,9 +108,7 @@ func squareImageStruct(maybeCids ...pgtype.Text) *SquareImage {
 	}
 
 	// rendezvous for cid
-	ranked := rendezvous.GlobalHasher.Rank(cid)
-	randIdx := rand.Intn(3)
-	first, rest := ranked[randIdx], append(ranked[:randIdx], ranked[randIdx+1:]...)[:2]
+	first, rest := rendezvous.GlobalHasher.ReplicaSet3(cid)
 
 	return &SquareImage{
 		X150x150:   fmt.Sprintf("%s/content/%s/150x150.jpg", first, cid),
