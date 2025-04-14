@@ -61,6 +61,7 @@ func TestMain(m *testing.M) {
 	`)
 	checkErr(err)
 
+	insertFixtures("aggregate_user", map[string]any{}, "testdata/aggregate_user_fixtures.csv")
 	insertFixtures("users", userBaseRow, "testdata/user_fixtures.csv")
 	insertFixtures("tracks", trackBaseRow, "testdata/track_fixtures.csv")
 	insertFixtures("playlists", playlistBaseRow, "testdata/playlist_fixtures.csv")
@@ -91,6 +92,7 @@ func Test200(t *testing.T) {
 		"/v1/full/users/7eP5n/following",
 		"/v1/full/users/7eP5n/mutuals",
 		"/v1/full/users/7eP5n/reposts",
+		"/v1/full/users/7eP5n/related",
 		"/v1/full/users/7eP5n/supporting",
 		"/v1/full/users/7eP5n/supporters",
 		"/v1/full/users/7eP5n/tracks",
