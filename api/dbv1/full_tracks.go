@@ -13,12 +13,14 @@ type FullTracksParams GetTracksParams
 type FullTrack struct {
 	GetTracksRow
 
-	Artwork  *SquareImage `json:"artwork"`
-	Stream   *MediaLink   `json:"stream"`
-	Download *MediaLink   `json:"download"`
-	Preview  *MediaLink   `json:"preview"`
-	UserID   string       `json:"user_id"`
-	User     FullUser     `json:"user"`
+	Permalink    string       `json:"permalink"`
+	IsStreamable bool         `json:"is_streamable"`
+	Artwork      *SquareImage `json:"artwork"`
+	Stream       *MediaLink   `json:"stream"`
+	Download     *MediaLink   `json:"download"`
+	Preview      *MediaLink   `json:"preview"`
+	UserID       string       `json:"user_id"`
+	User         FullUser     `json:"user"`
 
 	FolloweeReposts   []*FolloweeRepost   `json:"followee_reposts"`
 	FolloweeFavorites []*FolloweeFavorite `json:"followee_favorites"`
@@ -58,22 +60,24 @@ func (q *Queries) FullTracksKeyed(ctx context.Context, arg GetTracksParams) (map
 		// Collect media links
 		// TODO(API-49): support self-access via grants
 		// see https://github.com/AudiusProject/audius-protocol/blob/4bd9fe80d8cca519844596061505ad8737579019/packages/discovery-provider/src/queries/query_helpers.py#L905
-		stream := mediaLink(track.TrackCid.String, track.TrackID, getInt32FromInterface(arg.MyID))
+		stream := mediaLink(track.TrackCid.String, track.TrackID, arg.MyID.(int32))
 		download := func() *MediaLink {
 			if track.IsDownloadable {
-				return mediaLink(track.OrigFileCid.String, track.TrackID, getInt32FromInterface(arg.MyID))
+				return mediaLink(track.OrigFileCid.String, track.TrackID, arg.MyID.(int32))
 			}
 			return nil
 		}()
 		preview := func() *MediaLink {
 			if track.PreviewCid.String != "" {
-				return mediaLink(track.PreviewCid.String, track.TrackID, getInt32FromInterface(arg.MyID))
+				return mediaLink(track.PreviewCid.String, track.TrackID, arg.MyID.(int32))
 			}
 			return nil
 		}()
 
 		fullTrack := FullTrack{
 			GetTracksRow:      track,
+			IsStreamable:      !track.IsDelete && !user.IsDeactivated,
+			Permalink:         fmt.Sprintf("/%s/%s", user.Handle.String, track.Slug.String),
 			Artwork:           squareImageStruct(track.CoverArtSizes, track.CoverArt),
 			Stream:            stream,
 			Download:          download,
@@ -173,26 +177,4 @@ func ToMinTracks(fullTracks []FullTrack) []MinTrack {
 		result[i] = ToMinTrack(track)
 	}
 	return result
-}
-
-// Helper function to convert interface{} to int32 safely
-func getInt32FromInterface(v interface{}) int32 {
-	if v == nil {
-		return 0
-	}
-
-	switch value := v.(type) {
-	case int:
-		return int32(value)
-	case int32:
-		return value
-	case int64:
-		return int32(value)
-	case float32:
-		return int32(value)
-	case float64:
-		return int32(value)
-	default:
-		return 0
-	}
 }
