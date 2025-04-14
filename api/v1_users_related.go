@@ -1,7 +1,6 @@
 package api
 
 import (
-	"fmt"
 	"strconv"
 
 	"github.com/gofiber/fiber/v2"
@@ -56,7 +55,6 @@ func (app *ApiServer) v1UsersRelated(c *fiber.Ctx) error {
 	`
 
 	filterFollowed, _ := strconv.ParseBool(c.Query("filter_followed"))
-	fmt.Println("_________________ FILT FOLL", filterFollowed)
 	return app.queryFullUsers(c, sql, pgx.NamedArgs{
 		"myId":           c.Locals("myId"),
 		"userId":         c.Locals("userId"),

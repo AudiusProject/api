@@ -8,11 +8,6 @@ import (
 )
 
 func TestV1UsersRelated(t *testing.T) {
-	// todo: there's got to be a better way!
-	{
-		_, err := app.pool.Exec(t.Context(), `update aggregate_user set dominant_genre = 'Electronic'`)
-		assert.NoError(t, err)
-	}
 
 	var userResponse struct {
 		Data []dbv1.FullUser

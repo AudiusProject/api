@@ -61,6 +61,7 @@ func TestMain(m *testing.M) {
 	`)
 	checkErr(err)
 
+	insertFixtures("aggregate_user", map[string]any{}, "testdata/aggregate_user_fixtures.csv")
 	insertFixtures("users", userBaseRow, "testdata/user_fixtures.csv")
 	insertFixtures("tracks", trackBaseRow, "testdata/track_fixtures.csv")
 	insertFixtures("playlists", playlistBaseRow, "testdata/playlist_fixtures.csv")
