@@ -8,7 +8,7 @@ import (
 
 // v1Users is a handler that retrieves full user data
 func (app *ApiServer) v1Users(c *fiber.Ctx) error {
-	myId := c.Locals("myId").(int)
+	myId := app.getMyId(c)
 	ids := decodeIdList(c)
 
 	if len(ids) == 0 {
@@ -16,7 +16,7 @@ func (app *ApiServer) v1Users(c *fiber.Ctx) error {
 	}
 
 	users, err := app.queries.FullUsers(c.Context(), dbv1.GetUsersParams{
-		MyID: int32(myId),
+		MyID: myId,
 		Ids:  ids,
 	})
 	if err != nil {
@@ -29,7 +29,7 @@ func (app *ApiServer) v1Users(c *fiber.Ctx) error {
 // a generic responder for all the simple user lists:
 // followers, followees, reposters, savers, etc.
 func (app *ApiServer) queryFullUsers(c *fiber.Ctx, sql string, args pgx.NamedArgs) error {
-	myId := c.Locals("myId")
+	myId := app.getMyId(c)
 
 	args["limit"] = c.Query("limit", "20")
 	args["offset"] = c.Query("offset", "0")

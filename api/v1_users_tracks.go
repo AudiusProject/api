@@ -7,7 +7,7 @@ import (
 )
 
 func (app *ApiServer) v1UserTracks(c *fiber.Ctx) error {
-	myId := c.Locals("myId")
+	myId := app.getMyId(c)
 
 	sortDir := "DESC"
 	if c.Query("sort_direction") == "asc" {

@@ -83,7 +83,10 @@ func NewApiServer(config config.Config) *ApiServer {
 		time.Now(),
 	}
 
-	app.Use(recover.New())
+	app.Use(recover.New(recover.Config{
+		EnableStackTrace: true,
+	}))
+
 	app.Use(cors.New())
 	app.Use(RequestTimer())
 

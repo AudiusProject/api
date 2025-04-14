@@ -7,7 +7,7 @@ import (
 )
 
 func (app *ApiServer) v1UsersSupporting(c *fiber.Ctx) error {
-	myId := c.Locals("myId")
+	myId := app.getMyId(c)
 	userId := c.Locals("userId").(int)
 
 	args := pgx.NamedArgs{
