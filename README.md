@@ -24,13 +24,16 @@ http://localhost:1323/v2/users/stereosteve
 
 > This will watch sql files + re-run `sqlc generate` + restart server when go files change.
 
+other env vars:
+```
+delegatePrivateKey: key to sign stream/download requests with
+axiomToken: axiom api token to pipe logs to axiom
+axiomDataset: axiom dataset name
+```
 
 ## API diff
 
-test diffs from v1/ endpoints
-```
-make apidiff
-```
+http://localhost:1323/apidiff.html
 
 ## adminer
 

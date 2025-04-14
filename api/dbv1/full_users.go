@@ -3,6 +3,7 @@ package dbv1
 import (
 	"context"
 	"fmt"
+	"math/rand"
 	"strings"
 
 	"bridgerton.audius.co/rendezvous"
@@ -111,8 +112,14 @@ func squareImageStruct(maybeCids ...pgtype.Text) *SquareImage {
 
 	// rendezvous for cid
 	rankedHosts := rendezvous.GlobalHasher.Rank(cid)
-	first := rankedHosts[0]
-	rest := rankedHosts[1:3]
+	randIdx := rand.Intn(3)
+	first := rankedHosts[randIdx]
+	rest := make([]string, 0, 2)
+	for i := 0; i < 3; i++ {
+		if i != randIdx {
+			rest = append(rest, rankedHosts[i])
+		}
+	}
 
 	return &SquareImage{
 		X150x150:   fmt.Sprintf("%s/content/%s/150x150.jpg", first, cid),

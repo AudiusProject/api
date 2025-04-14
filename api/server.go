@@ -9,6 +9,7 @@ import (
 	"time"
 
 	"bridgerton.audius.co/api/dbv1"
+	"bridgerton.audius.co/config"
 	"bridgerton.audius.co/trashid"
 	adapter "github.com/axiomhq/axiom-go/adapters/zap"
 	"github.com/axiomhq/axiom-go/axiom"
@@ -22,13 +23,7 @@ import (
 	"go.uber.org/zap/zapcore"
 )
 
-type Config struct {
-	DbUrl        string
-	AxiomToken   string
-	AxiomDataset string
-}
-
-func InitLogger(config Config) *zap.Logger {
+func InitLogger(config config.Config) *zap.Logger {
 	// stdout core
 	encoderConfig := zap.NewProductionEncoderConfig()
 	encoderConfig.EncodeTime = zapcore.ISO8601TimeEncoder
@@ -68,7 +63,7 @@ func RequestTimer() fiber.Handler {
 	}
 }
 
-func NewApiServer(config Config) *ApiServer {
+func NewApiServer(config config.Config) *ApiServer {
 	logger := InitLogger(config)
 
 	pool, err := pgxpool.New(context.Background(), config.DbUrl)
