@@ -49,10 +49,13 @@ func (app *ApiServer) v1UsersLibraryTracks(c *fiber.Ctx) error {
 			AND buyer_user_id = @userId
 	)
 	SELECT
+		'track_activity_full' as class,
 		item_id,
 		max(item_created_at) as item_created_at,
 		bool_or(is_purchase) as is_purchase
 	FROM library_items
+	JOIN tracks ON track_id = item_id
+	WHERE is_unlisted = false OR is_purchase = true
 	GROUP BY item_id
 	ORDER BY item_created_at DESC
 	LIMIT @limit
@@ -61,17 +64,18 @@ func (app *ApiServer) v1UsersLibraryTracks(c *fiber.Ctx) error {
 
 	rows, err := app.pool.Query(c.Context(), sql, pgx.NamedArgs{
 		"userId": c.Locals("userId"),
-		"limit":  c.Query("limit"),
-		"offset": c.Query("offset"),
+		"limit":  c.Query("limit", "50"),
+		"offset": c.Query("offset", "0"),
 	})
 	if err != nil {
 		return err
 	}
 
 	type Activity struct {
-		ItemID        int32
-		ItemCreatedAt time.Time
-		IsPurchase    bool
+		Class         string    `json:"class"`
+		ItemID        int32     `json:"-"`
+		ItemCreatedAt time.Time `json:"timestamp"`
+		IsPurchase    bool      `json:"-"`
 
 		Item any `db:"-" json:"item"`
 	}
