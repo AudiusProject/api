@@ -1,6 +1,7 @@
 package api
 
 import (
+	"fmt"
 	"strconv"
 
 	"github.com/gofiber/fiber/v2"
@@ -31,9 +32,12 @@ func (app *ApiServer) v1UsersRelated(c *fiber.Ctx) error {
 	)
 	SELECT user_id
 	FROM aggregate_user AS au
+	JOIN users USING (user_id)
 	JOIN inp ON dominant_genre = inp.genre
 	AND au.follower_count < (SELECT follower_count * 3 FROM aggregate_user WHERE user_id = @userId)
 	WHERE user_id != @userId
+	AND is_deactivated = false
+	AND is_available = true
 	AND (
 		@filterFollowed = false
 		OR @myId = 0
@@ -52,6 +56,7 @@ func (app *ApiServer) v1UsersRelated(c *fiber.Ctx) error {
 	`
 
 	filterFollowed, _ := strconv.ParseBool(c.Query("filter_followed"))
+	fmt.Println("_________________ FILT FOLL", filterFollowed)
 	return app.queryFullUsers(c, sql, pgx.NamedArgs{
 		"myId":           c.Locals("myId"),
 		"userId":         c.Locals("userId"),
