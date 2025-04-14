@@ -21,6 +21,10 @@ func (app *ApiServer) resolveMyIdMiddleware(c *fiber.Ctx) error {
 	return c.Next()
 }
 
+func (app *ApiServer) getMyId(c *fiber.Ctx) int32 {
+	return int32(c.Locals("myId").(int))
+}
+
 func (app *ApiServer) requireUserIdMiddleware(c *fiber.Ctx) error {
 	userId, err := trashid.DecodeHashId(c.Params("userId"))
 	if err != nil || userId == 0 {

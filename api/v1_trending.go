@@ -7,7 +7,7 @@ import (
 )
 
 func (app *ApiServer) v1Trending(c *fiber.Ctx) error {
-	myId := c.Locals("myId")
+	myId := app.getMyId(c)
 
 	// SQL query with conditional genre filter
 	sql := `

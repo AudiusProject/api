@@ -6,11 +6,11 @@ import (
 )
 
 func (app *ApiServer) v1Track(c *fiber.Ctx) error {
-	myId := c.Locals("myId").(int)
+	myId := app.getMyId(c)
 	trackId := c.Locals("trackId").(int)
 
 	tracks, err := app.queries.FullTracks(c.Context(), dbv1.GetTracksParams{
-		MyID: int32(myId),
+		MyID: myId,
 		Ids:  []int32{int32(trackId)},
 	})
 	if err != nil {

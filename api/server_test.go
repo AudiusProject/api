@@ -9,6 +9,7 @@ import (
 	"strings"
 	"testing"
 
+	"bridgerton.audius.co/config"
 	"github.com/jackc/pgx/v5"
 	"github.com/stretchr/testify/assert"
 )
@@ -39,7 +40,7 @@ func TestMain(m *testing.M) {
 		checkErr(err)
 	}
 
-	app = NewApiServer(Config{
+	app = NewApiServer(config.Config{
 		DbUrl: "postgres://postgres:example@localhost:21300/test",
 	})
 

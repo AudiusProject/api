@@ -10,7 +10,7 @@ import (
 
 // todo: some dedupe stuff
 func (app *ApiServer) v1UsersFeed(c *fiber.Ctx) error {
-
+	myId := app.getMyId(c)
 	sql := `
 	WITH
 	follow_set AS (
@@ -130,7 +130,7 @@ func (app *ApiServer) v1UsersFeed(c *fiber.Ctx) error {
 	loaded, err := app.queries.Parallel(c.Context(), dbv1.ParallelParams{
 		TrackIds:    trackIds,
 		PlaylistIds: playlistIds,
-		MyID:        c.Locals("myId"),
+		MyID:        myId,
 	})
 	if err != nil {
 		return err

@@ -13,9 +13,14 @@ type FullTracksParams GetTracksParams
 type FullTrack struct {
 	GetTracksRow
 
-	Artwork *SquareImage `json:"artwork"`
-	UserID  string       `json:"user_id"`
-	User    FullUser     `json:"user"`
+	Permalink    string       `json:"permalink"`
+	IsStreamable bool         `json:"is_streamable"`
+	Artwork      *SquareImage `json:"artwork"`
+	Stream       *MediaLink   `json:"stream"`
+	Download     *MediaLink   `json:"download"`
+	Preview      *MediaLink   `json:"preview"`
+	UserID       string       `json:"user_id"`
+	User         FullUser     `json:"user"`
 
 	FolloweeReposts   []*FolloweeRepost   `json:"followee_reposts"`
 	FolloweeFavorites []*FolloweeFavorite `json:"followee_favorites"`
@@ -52,9 +57,27 @@ func (q *Queries) FullTracksKeyed(ctx context.Context, arg GetTracksParams) (map
 			continue
 		}
 
+		// Collect media links
+		// TODO(API-49): support self-access via grants
+		// see https://github.com/AudiusProject/audius-protocol/blob/4bd9fe80d8cca519844596061505ad8737579019/packages/discovery-provider/src/queries/query_helpers.py#L905
+		stream := mediaLink(track.TrackCid.String, track.TrackID, arg.MyID.(int32))
+		var download *MediaLink
+		if track.IsDownloadable {
+			download = mediaLink(track.OrigFileCid.String, track.TrackID, arg.MyID.(int32))
+		}
+		var preview *MediaLink
+		if track.PreviewCid.String != "" {
+			preview = mediaLink(track.PreviewCid.String, track.TrackID, arg.MyID.(int32))
+		}
+
 		fullTrack := FullTrack{
 			GetTracksRow:      track,
+			IsStreamable:      !track.IsDelete && !user.IsDeactivated,
+			Permalink:         fmt.Sprintf("/%s/%s", user.Handle.String, track.Slug.String),
 			Artwork:           squareImageStruct(track.CoverArtSizes, track.CoverArt),
+			Stream:            stream,
+			Download:          download,
+			Preview:           preview,
 			User:              user,
 			UserID:            user.ID,
 			FolloweeFavorites: fullFolloweeFavorites(track.FolloweeFavorites),
