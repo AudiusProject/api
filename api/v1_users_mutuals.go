@@ -6,7 +6,6 @@ import (
 )
 
 func (app *ApiServer) v1UsersMutuals(c *fiber.Ctx) error {
-	myId := c.Locals("myId")
 
 	sql := `
 	SELECT x.follower_user_id
@@ -23,6 +22,7 @@ func (app *ApiServer) v1UsersMutuals(c *fiber.Ctx) error {
 	OFFSET @offset
 	`
 
+	myId := c.Locals("myId")
 	userId := c.Locals("userId").(int)
 	return app.queryFullUsers(c, sql, pgx.NamedArgs{
 		"myId":   myId,
