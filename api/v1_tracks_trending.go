@@ -6,7 +6,7 @@ import (
 	"github.com/jackc/pgx/v5"
 )
 
-func (app *ApiServer) v1Trending(c *fiber.Ctx) error {
+func (app *ApiServer) v1TracksTrending(c *fiber.Ctx) error {
 	myId := app.getMyId(c)
 
 	// SQL query with conditional genre filter
@@ -38,10 +38,6 @@ func (app *ApiServer) v1Trending(c *fiber.Ctx) error {
 	rows, err := app.pool.Query(c.Context(), sql, args)
 	if err != nil {
 		return err
-	}
-
-	type trackTrendingRow struct {
-		TrackId int32 `json:"track_id"`
 	}
 
 	trackIds, err := pgx.CollectRows(rows, pgx.RowTo[int32])
