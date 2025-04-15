@@ -10,12 +10,26 @@ import (
 
 func (app *ApiServer) v1UsersLibraryPlaylists(c *fiber.Ctx) error {
 
-	itemType := "playlist" // or album
+	playlistType := "playlist"
+	if c.Params("playlistType") == "albums" {
+		playlistType = "album"
+	}
+
 	sortField := "item_created_at"
+	switch c.Query("sort_method") {
+	case "reposts":
+		sortField = "aggregate_playlist.repost_count"
+	case "saves":
+		sortField = "aggregate_playlist.save_count"
+	}
+
 	sortDirection := "DESC"
+	if c.Query("sort_direction") == "asc" {
+		sortDirection = "ASC"
+	}
 
 	sql := `
-	WITH playlist_stuff AS (
+	WITH playlist_actions AS (
 		-- include "own" playlists
 		SELECT
 			playlist_id as item_id,
@@ -23,9 +37,9 @@ func (app *ApiServer) v1UsersLibraryPlaylists(c *fiber.Ctx) error {
 			false as is_purchase
 		FROM playlists
 		WHERE playlist_owner_id = @userId
-			AND is_album = (@itemType = 'album')
+			AND is_album = (@playlistType = 'album')
 			AND is_delete = false
-			AND @verb in ('favorite', 'all')
+			AND @actionType in ('favorite', 'all')
 
 		UNION ALL
 
@@ -37,7 +51,7 @@ func (app *ApiServer) v1UsersLibraryPlaylists(c *fiber.Ctx) error {
 		WHERE save_type != 'track'
 			AND user_id = @userId
 			AND is_delete = false
-			AND @verb in ('favorite', 'all')
+			AND @actionType in ('favorite', 'all')
 
 		UNION ALL
 
@@ -49,7 +63,7 @@ func (app *ApiServer) v1UsersLibraryPlaylists(c *fiber.Ctx) error {
 		WHERE repost_type != 'track'
 			AND user_id = @userId
 			AND is_delete = false
-			AND @verb in ('repost', 'all')
+			AND @actionType in ('repost', 'all')
 
 		UNION ALL
 
@@ -58,9 +72,9 @@ func (app *ApiServer) v1UsersLibraryPlaylists(c *fiber.Ctx) error {
 			created_at as item_created_at,
 			true as is_purchase
 		FROM usdc_purchases
-		WHERE content_type = @itemType::usdc_purchase_content_type
+		WHERE content_type = @playlistType::usdc_purchase_content_type
 			AND buyer_user_id = @userId
-			AND @verb in ('purchase', 'all')
+			AND @actionType in ('purchase', 'all')
 
 	),
 	deduped as (
@@ -68,23 +82,25 @@ func (app *ApiServer) v1UsersLibraryPlaylists(c *fiber.Ctx) error {
 			item_id,
 			max(item_created_at) as item_created_at,
 			bool_or(is_purchase) as is_purchase
-		FROM playlist_stuff
+		FROM playlist_actions
 		GROUP BY item_id
 	)
-	SELECT deduped.* FROM deduped
+	SELECT deduped.*
+	FROM deduped
 	JOIN playlists ON playlist_id = item_id
-	WHERE is_album = (@itemType = 'album')
+	LEFT JOIN aggregate_playlist USING (playlist_id)
+	WHERE playlists.is_album = (@playlistType = 'album')
 	ORDER BY ` + sortField + ` ` + sortDirection + `, item_id desc
 	LIMIT @limit
 	OFFSET @offset
 	`
 
 	rows, err := app.pool.Query(c.Context(), sql, pgx.NamedArgs{
-		"itemType": itemType,
-		"userId":   c.Locals("userId"),
-		"verb":     c.Query("type", "all"),
-		"limit":    c.Query("limit", "50"),
-		"offset":   c.Query("offset", "0"),
+		"playlistType": playlistType,
+		"userId":       c.Locals("userId"),
+		"actionType":   c.Query("type", "all"),
+		"limit":        c.Query("limit", "50"),
+		"offset":       c.Query("offset", "0"),
 	})
 	if err != nil {
 		return err
@@ -119,6 +135,11 @@ func (app *ApiServer) v1UsersLibraryPlaylists(c *fiber.Ctx) error {
 	// attach
 	for idx, item := range items {
 		if t, ok := playlists[item.ItemID]; ok {
+			// todo: python code does: exclude playlists with only hidden tracks and empty playlists
+
+			// python API doesn't attach tracks???
+			t.Tracks = nil
+
 			item.Item = t
 			items[idx] = item
 		}

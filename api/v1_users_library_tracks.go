@@ -1,7 +1,6 @@
 package api
 
 import (
-	"strings"
 	"time"
 
 	"bridgerton.audius.co/api/dbv1"
@@ -16,49 +15,6 @@ import (
 */
 
 func (app *ApiServer) v1UsersLibraryTracks(c *fiber.Ctx) error {
-
-	// favorite, repost, purchase, all
-	typeFilter := c.Query("type", "all")
-
-	selects := []string{}
-
-	if typeFilter == "all" || typeFilter == "favorite" {
-		selects = append(selects, `
-		SELECT
-			save_item_id as item_id,
-			created_at as item_created_at,
-			false as is_purchase
-		FROM saves
-		WHERE save_type = 'track'
-			AND user_id = @userId
-			AND is_delete = false
-		`)
-	}
-
-	if typeFilter == "all" || typeFilter == "repost" {
-		selects = append(selects, `
-		SELECT
-			repost_item_id as item_id,
-			created_at as item_created_at,
-			false as is_purchase
-		FROM reposts
-		WHERE repost_type = 'track'
-			AND user_id = @userId
-			AND is_delete = false
-		`)
-	}
-
-	if typeFilter == "all" || typeFilter == "purchase" {
-		selects = append(selects, `
-		SELECT
-			content_id as item_id,
-			created_at as item_created_at,
-			true as is_purchase
-		FROM usdc_purchases
-		WHERE content_type = 'track'
-			AND buyer_user_id = @userId
-		`)
-	}
 
 	sortField := "item_created_at"
 	switch c.Query("sort_method") {
@@ -81,7 +37,40 @@ func (app *ApiServer) v1UsersLibraryTracks(c *fiber.Ctx) error {
 	}
 
 	sql := `
-	WITH library_items AS (` + strings.Join(selects, " UNION ALL ") + `),
+	WITH library_items AS (
+		SELECT
+			save_item_id as item_id,
+			created_at as item_created_at,
+			false as is_purchase
+		FROM saves
+		WHERE save_type = 'track'
+			AND user_id = @userId
+			AND is_delete = false
+			AND @actionType in ('favorite', 'all')
+
+		UNION ALL
+
+		SELECT
+			repost_item_id as item_id,
+			created_at as item_created_at,
+			false as is_purchase
+		FROM reposts
+		WHERE repost_type = 'track'
+			AND user_id = @userId
+			AND is_delete = false
+			AND @actionType in ('repost', 'all')
+
+		UNION ALL
+
+		SELECT
+			content_id as item_id,
+			created_at as item_created_at,
+			true as is_purchase
+		FROM usdc_purchases
+		WHERE content_type = 'track'
+			AND buyer_user_id = @userId
+			AND @actionType in ('purchase', 'all')
+	),
 	deduped as (
 		SELECT
 			item_id,
@@ -109,9 +98,10 @@ func (app *ApiServer) v1UsersLibraryTracks(c *fiber.Ctx) error {
 	`
 
 	rows, err := app.pool.Query(c.Context(), sql, pgx.NamedArgs{
-		"userId": c.Locals("userId"),
-		"limit":  c.Query("limit", "50"),
-		"offset": c.Query("offset", "0"),
+		"userId":     c.Locals("userId"),
+		"limit":      c.Query("limit", "50"),
+		"offset":     c.Query("offset", "0"),
+		"actionType": c.Query("type", "all"),
 	})
 	if err != nil {
 		return err

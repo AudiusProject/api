@@ -12,6 +12,7 @@ import (
 	"bridgerton.audius.co/config"
 	"github.com/jackc/pgx/v5"
 	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 )
 
 var (
@@ -93,7 +94,14 @@ func Test200(t *testing.T) {
 		"/v1/full/users/7eP5n/following",
 
 		"/v1/full/users/7eP5n/library/tracks",
+		"/v1/full/users/7eP5n/library/tracks?type=repost&sort_method=plays&sort_direction=asc",
+		"/v1/full/users/7eP5n/library/tracks?type=favorite&sort_method=reposts&sort_direction=desc",
+		"/v1/full/users/7eP5n/library/tracks?type=purchase",
+
 		"/v1/full/users/7eP5n/library/playlists",
+		"/v1/full/users/7eP5n/library/playlists?type=repost&sort_method=plays&sort_direction=asc",
+		"/v1/full/users/7eP5n/library/playlists?type=favorite&sort_method=reposts&sort_direction=desc",
+		"/v1/full/users/7eP5n/library/albums?type=purchase&sort_method=saves",
 
 		"/v1/full/users/7eP5n/mutuals",
 		"/v1/full/users/7eP5n/reposts",
@@ -119,8 +127,8 @@ func Test200(t *testing.T) {
 	}
 
 	for _, u := range urls {
-		status, _ := testGet(t, u)
-		assert.Equal(t, 200, status, u)
+		status, body := testGet(t, u)
+		require.Equal(t, 200, status, u+" "+string(body))
 
 		// also test as a user
 		if strings.Contains(u, "?") {
@@ -130,7 +138,7 @@ func Test200(t *testing.T) {
 		}
 
 		status, _ = testGet(t, u)
-		assert.Equal(t, 200, status, u)
+		require.Equal(t, 200, status, u+" "+string(body))
 	}
 }
 
