@@ -1454,7 +1454,7 @@ type Track struct {
 	FieldVisibility                    json.RawMessage `json:"field_visibility"`
 	RouteID                            pgtype.Text     `json:"route_id"`
 	StemOf                             []byte          `json:"stem_of"`
-	RemixOf                            FullRemixOf     `json:"remix_of"`
+	RemixOf                            []byte          `json:"remix_of"`
 	Txhash                             string          `json:"txhash"`
 	Slot                               pgtype.Int4     `json:"slot"`
 	IsAvailable                        bool            `json:"is_available"`
