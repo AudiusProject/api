@@ -6,11 +6,11 @@ import (
 )
 
 func (app *ApiServer) v1Playlist(c *fiber.Ctx) error {
-	myId := c.Locals("myId").(int)
+	myId := app.getMyId(c)
 	playlistId := c.Locals("playlistId").(int)
 
 	playlists, err := app.queries.FullPlaylists(c.Context(), dbv1.GetPlaylistsParams{
-		MyID: int32(myId),
+		MyID: myId,
 		Ids:  []int32{int32(playlistId)},
 	})
 	if err != nil {

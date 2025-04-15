@@ -46,9 +46,7 @@ func (q *Queries) FullUsersKeyed(ctx context.Context, arg GetUsersParams) (map[i
 
 			if cid != "" {
 				// rendezvous for cid
-				rankedHosts := rendezvous.GlobalHasher.Rank(cid)
-				first := rankedHosts[0]
-				rest := rankedHosts[1:3]
+				first, rest := rendezvous.GlobalHasher.ReplicaSet3(cid)
 
 				coverPhoto = &RectangleImage{
 					X640:    fmt.Sprintf("%s/content/%s/640x.jpg", first, cid),
@@ -110,9 +108,7 @@ func squareImageStruct(maybeCids ...pgtype.Text) *SquareImage {
 	}
 
 	// rendezvous for cid
-	rankedHosts := rendezvous.GlobalHasher.Rank(cid)
-	first := rankedHosts[0]
-	rest := rankedHosts[1:3]
+	first, rest := rendezvous.GlobalHasher.ReplicaSet3(cid)
 
 	return &SquareImage{
 		X150x150:   fmt.Sprintf("%s/content/%s/150x150.jpg", first, cid),

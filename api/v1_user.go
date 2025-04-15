@@ -6,7 +6,7 @@ import (
 )
 
 func (app *ApiServer) v1User(c *fiber.Ctx) error {
-	myId := c.Locals("myId")
+	myId := app.getMyId(c)
 	userId := c.Locals("userId").(int)
 
 	users, err := app.queries.FullUsers(c.Context(), dbv1.GetUsersParams{

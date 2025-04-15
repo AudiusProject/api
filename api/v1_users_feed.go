@@ -8,8 +8,11 @@ import (
 	"github.com/jackc/pgx/v5"
 )
 
-// todo: some dedupe stuff
+// todo: time range beyond 30 days
+// - how + when to expand time range,
+// - how to de-dupe items from appearing twice when expanding time range... is tricky
 func (app *ApiServer) v1UsersFeed(c *fiber.Ctx) error {
+	myId := app.getMyId(c)
 
 	sql := `
 	WITH
@@ -41,7 +44,8 @@ func (app *ApiServer) v1UsersFeed(c *fiber.Ctx) error {
 				AND playlists.is_delete = false
 				AND playlists.is_private = false
 			WHERE
-				reposts.created_at < @before
+				@filter in ('all', 'repost')
+				AND reposts.created_at < @before
 				AND reposts.created_at >= @before - INTERVAL '30 DAYS'
 				AND reposts.is_delete = false
 				AND (tracks.track_id IS NOT NULL OR playlists.playlist_id IS NOT NULL)
@@ -57,11 +61,12 @@ func (app *ApiServer) v1UsersFeed(c *fiber.Ctx) error {
 				created_at
 			from tracks
 			join follow_set on owner_id = user_id
-			where created_at < @before
-				and created_at >= @before::timestamp - INTERVAL '30 DAYS'
-				and is_unlisted = false
-				and is_delete = false
-				and stem_of is null
+			where @filter in ('all', 'original')
+				AND created_at < @before
+				AND created_at >= @before::timestamp - INTERVAL '30 DAYS'
+				AND is_unlisted = false
+				AND is_delete = false
+				AND stem_of is null
 		)
 
 		UNION ALL
@@ -73,9 +78,10 @@ func (app *ApiServer) v1UsersFeed(c *fiber.Ctx) error {
 				created_at
 			from playlists
 			join follow_set on playlist_owner_id = user_id
-			where created_at < @before
-				and created_at >= @before - INTERVAL '30 DAYS'
-				and is_delete = false
+			where @filter in ('all', 'original')
+				AND created_at < @before
+				AND created_at >= @before - INTERVAL '30 DAYS'
+				AND is_delete = false
 				AND is_private = false
 		)
 
@@ -97,6 +103,7 @@ func (app *ApiServer) v1UsersFeed(c *fiber.Ctx) error {
 		// "limit":  c.Query("limit", "50"),
 		"limit":  40,
 		"offset": c.Query("offset", "0"),
+		"filter": c.Query("filter", "all"), // original, repost
 	})
 	if err != nil {
 		return err
@@ -130,7 +137,7 @@ func (app *ApiServer) v1UsersFeed(c *fiber.Ctx) error {
 	loaded, err := app.queries.Parallel(c.Context(), dbv1.ParallelParams{
 		TrackIds:    trackIds,
 		PlaylistIds: playlistIds,
-		MyID:        c.Locals("myId"),
+		MyID:        myId,
 	})
 	if err != nil {
 		return err

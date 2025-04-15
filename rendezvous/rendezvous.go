@@ -6,6 +6,7 @@ import (
 	"bytes"
 	"crypto/sha256"
 	"io"
+	"math/rand"
 	"net/url"
 	"os"
 	"slices"
@@ -173,4 +174,20 @@ func (rh *RendezvousHasher) Rank(key string) []string {
 		result[idx] = tup.host
 	}
 	return result
+}
+
+// Get a replica set of 3 nodes with random order
+func (rh *RendezvousHasher) ReplicaSet3(key string) (string, []string) {
+	ranked := rh.Rank(key)
+	n := min(len(ranked), 3)
+	if n == 0 {
+		return "", []string{}
+	}
+
+	candidates := append([]string(nil), ranked[:n]...)
+	rand.Shuffle(n, func(i, j int) {
+		candidates[i], candidates[j] = candidates[j], candidates[i]
+	})
+
+	return candidates[0], candidates[1:]
 }

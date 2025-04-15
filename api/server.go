@@ -9,6 +9,7 @@ import (
 	"time"
 
 	"bridgerton.audius.co/api/dbv1"
+	"bridgerton.audius.co/config"
 	"bridgerton.audius.co/trashid"
 	adapter "github.com/axiomhq/axiom-go/adapters/zap"
 	"github.com/axiomhq/axiom-go/axiom"
@@ -22,13 +23,7 @@ import (
 	"go.uber.org/zap/zapcore"
 )
 
-type Config struct {
-	DbUrl        string
-	AxiomToken   string
-	AxiomDataset string
-}
-
-func InitLogger(config Config) *zap.Logger {
+func InitLogger(config config.Config) *zap.Logger {
 	// stdout core
 	encoderConfig := zap.NewProductionEncoderConfig()
 	encoderConfig.EncodeTime = zapcore.ISO8601TimeEncoder
@@ -68,7 +63,7 @@ func RequestTimer() fiber.Handler {
 	}
 }
 
-func NewApiServer(config Config) *ApiServer {
+func NewApiServer(config config.Config) *ApiServer {
 	logger := InitLogger(config)
 
 	pool, err := pgxpool.New(context.Background(), config.DbUrl)
@@ -88,7 +83,10 @@ func NewApiServer(config Config) *ApiServer {
 		time.Now(),
 	}
 
-	app.Use(recover.New())
+	app.Use(recover.New(recover.Config{
+		EnableStackTrace: true,
+	}))
+
 	app.Use(cors.New())
 	app.Use(RequestTimer())
 
@@ -136,10 +134,14 @@ func NewApiServer(config Config) *ApiServer {
 		g.Get("/users/:userId", app.v1User)
 		g.Get("/users/:userId/followers", app.v1UsersFollowers)
 		g.Get("/users/:userId/following", app.v1UsersFollowing)
+		g.Get("/users/:userId/library/tracks", app.v1UsersLibraryTracks)
+		g.Get("/users/:userId/library/:playlistType", app.v1UsersLibraryPlaylists)
 		g.Get("/users/:userId/mutuals", app.v1UsersMutuals)
 		g.Get("/users/:userId/reposts", app.v1UsersReposts)
+		g.Get("/users/:userId/related", app.v1UsersRelated)
 		g.Get("/users/:userId/supporting", app.v1UsersSupporting)
 		g.Get("/users/:userId/supporters", app.v1UsersSupporters)
+		g.Get("/users/:userId/tags", app.v1UsersTags)
 		g.Get("/users/:userId/tracks", app.v1UserTracks)
 		g.Get("/users/:userId/feed", app.v1UsersFeed)
 		g.Get("/users/:userId/connected_wallets", app.v1UsersConnectedWallets)
@@ -147,7 +149,8 @@ func NewApiServer(config Config) *ApiServer {
 		// Tracks
 		g.Get("/tracks", app.v1Tracks)
 
-		g.Get("/tracks/trending", app.v1Trending)
+		g.Get("/tracks/trending", app.v1TracksTrending)
+		g.Get("/tracks/recommended", app.v1TracksTrending)
 
 		g.Use("/tracks/:trackId", app.requireTrackIdMiddleware)
 		g.Get("/tracks/:trackId", app.v1Track)

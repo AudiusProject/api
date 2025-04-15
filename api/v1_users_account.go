@@ -10,6 +10,8 @@ import (
 // todo: in python this route requires auth
 // todo: fill out additional fields: track_save_count, playlists, playlist_library
 func (app *ApiServer) v1UsersAccount(c *fiber.Ctx) error {
+	myId := app.getMyId(c)
+
 	// resolve wallet to user id
 	var userId int32
 	err := app.pool.QueryRow(c.Context(),
@@ -22,7 +24,7 @@ func (app *ApiServer) v1UsersAccount(c *fiber.Ctx) error {
 
 	users, err := app.queries.FullUsers(c.Context(), dbv1.GetUsersParams{
 		Ids:  []int32{userId},
-		MyID: c.Locals("myId"),
+		MyID: myId,
 	})
 	if err != nil {
 		return err
