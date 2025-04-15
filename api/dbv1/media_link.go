@@ -4,7 +4,6 @@ import (
 	"bytes"
 	"encoding/json"
 	"fmt"
-	"math/rand"
 	"net/url"
 	"strings"
 	"time"
@@ -21,9 +20,7 @@ type MediaLink struct {
 }
 
 func mediaLink(cid string, trackId int32, userId int32) *MediaLink {
-	ranked := rendezvous.GlobalHasher.Rank(cid)
-	randIdx := rand.Intn(3)
-	first, rest := ranked[randIdx], append(ranked[:randIdx], ranked[randIdx+1:]...)[:2]
+	first, rest := rendezvous.GlobalHasher.ReplicaSet3(cid)
 
 	timestamp := time.Now().Unix() * 1000
 	data := map[string]interface{}{
