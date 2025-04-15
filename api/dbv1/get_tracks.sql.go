@@ -26,7 +26,6 @@ SELECT
   is_original_available,
   mood,
   release_date,
-  remix_of,
   repost_count,
   save_count as favorite_count,
   comment_count,
@@ -118,6 +117,31 @@ SELECT
     ) r
   )::jsonb as followee_favorites,
 
+  (
+    SELECT json_build_object(
+      'tracks', json_agg(
+        json_build_object(
+          'has_remix_author_reposted', repost_item_id is not null,
+          'has_remix_author_saved', save_item_id is not null,
+          'parent_track_id', r.parent_track_id,
+          'parent_user_id', r.parent_owner_id
+        )
+      )
+    )
+    FROM (
+      SELECT
+        track_id as parent_track_id,
+        owner_id as parent_owner_id,
+        repost_item_id,
+        save_item_id
+      FROM remixes
+      JOIN tracks parent_track ON parent_track_id = parent_track.track_id AND child_track_id = t.track_id
+      LEFT JOIN reposts ON repost_type = 'track' AND repost_item_id = t.track_id AND reposts.user_id = parent_track.owner_id AND reposts.is_delete = false
+      LEFT JOIN saves ON save_type = 'track' AND save_item_id = t.track_id AND saves.user_id = parent_track.owner_id AND saves.is_delete = false
+      LIMIT 10
+    ) r
+  )::jsonb as remix_of,
+
 
   -- followee_favorites,
   -- route_id,
@@ -187,7 +211,6 @@ type GetTracksRow struct {
 	IsOriginalAvailable          bool            `json:"is_original_available"`
 	Mood                         pgtype.Text     `json:"mood"`
 	ReleaseDate                  *time.Time      `json:"release_date"`
-	RemixOf                      json.RawMessage `json:"remix_of"`
 	RepostCount                  int32           `json:"repost_count"`
 	FavoriteCount                int32           `json:"favorite_count"`
 	CommentCount                 pgtype.Int4     `json:"comment_count"`
@@ -214,6 +237,7 @@ type GetTracksRow struct {
 	IsUnlisted                   bool            `json:"is_unlisted"`
 	FolloweeReposts              json.RawMessage `json:"followee_reposts"`
 	FolloweeFavorites            json.RawMessage `json:"followee_favorites"`
+	RemixOf                      json.RawMessage `json:"remix_of"`
 	StemOf                       []byte          `json:"stem_of"`
 	TrackSegments                json.RawMessage `json:"track_segments"`
 	UpdatedAt                    time.Time       `json:"updated_at"`
@@ -268,7 +292,6 @@ func (q *Queries) GetTracks(ctx context.Context, arg GetTracksParams) ([]GetTrac
 			&i.IsOriginalAvailable,
 			&i.Mood,
 			&i.ReleaseDate,
-			&i.RemixOf,
 			&i.RepostCount,
 			&i.FavoriteCount,
 			&i.CommentCount,
@@ -295,6 +318,7 @@ func (q *Queries) GetTracks(ctx context.Context, arg GetTracksParams) ([]GetTrac
 			&i.IsUnlisted,
 			&i.FolloweeReposts,
 			&i.FolloweeFavorites,
+			&i.RemixOf,
 			&i.StemOf,
 			&i.TrackSegments,
 			&i.UpdatedAt,

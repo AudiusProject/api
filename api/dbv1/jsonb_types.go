@@ -46,3 +46,23 @@ type FolloweeFavorite struct {
 	UserId         string `json:"user_id"`
 	CreatedAt      string `json:"created_at"`
 }
+
+type RemixOf struct {
+	Tracks []struct {
+		HasRemixAuthorReposted bool  `json:"has_remix_author_reposted"`
+		HasRemixAuthorSaved    bool  `json:"has_remix_author_saved"`
+		ParentTrackId          int32 `json:"parent_track_id"`
+		ParentUserId           int32 `json:"parent_user_id"`
+	}
+}
+
+type FullRemixOfTrack struct {
+	HasRemixAuthorReposted bool     `json:"has_remix_author_reposted"`
+	HasRemixAuthorSaved    bool     `json:"has_remix_author_saved"`
+	ParentTrackId          string   `json:"parent_track_id"`
+	User                   FullUser `json:"user"`
+}
+
+type FullRemixOf struct {
+	Tracks []FullRemixOfTrack `json:"tracks"`
+}
