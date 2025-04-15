@@ -38,9 +38,9 @@ func (q *Queries) FullTracksKeyed(ctx context.Context, arg GetTracksParams) (map
 	for _, track := range rawTracks {
 		userIds = append(userIds, track.UserID)
 
-		var fullRemixOf FullRemixOf
-		json.Unmarshal(track.RemixOf, &fullRemixOf)
-		for _, r := range fullRemixOf.Tracks {
+		var remixOf RemixOf
+		json.Unmarshal(track.RemixOf, &remixOf)
+		for _, r := range remixOf.Tracks {
 			userIds = append(userIds, r.ParentUserId)
 		}
 	}
@@ -85,12 +85,20 @@ func (q *Queries) FullTracksKeyed(ctx context.Context, arg GetTracksParams) (map
 		}
 
 		// remix_of
+		var remixOf RemixOf
 		var fullRemixOf FullRemixOf
-		json.Unmarshal(track.RemixOf, &fullRemixOf)
-		for idx, r := range fullRemixOf.Tracks {
-			r.ParentTrackId = trashid.StringEncode(r.ParentTrackId)
-			r.User = userMap[r.ParentUserId]
-			fullRemixOf.Tracks[idx] = r
+		json.Unmarshal(track.RemixOf, &remixOf)
+		fullRemixOf = FullRemixOf{
+			Tracks: make([]FullRemixOfTrack, len(remixOf.Tracks)),
+		}
+		for idx, r := range remixOf.Tracks {
+			trackId, _ := trashid.EncodeHashId(int(r.ParentTrackId))
+			fullRemixOf.Tracks[idx] = FullRemixOfTrack{
+				HasRemixAuthorReposted: r.HasRemixAuthorReposted,
+				HasRemixAuthorSaved:    r.HasRemixAuthorSaved,
+				ParentTrackId:          trackId,
+				User:                   userMap[r.ParentUserId],
+			}
 		}
 
 		fullTrack := FullTrack{

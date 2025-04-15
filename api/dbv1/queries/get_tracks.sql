@@ -108,7 +108,7 @@ SELECT
         json_build_object(
           'has_remix_author_reposted', repost_item_id is not null,
           'has_remix_author_saved', save_item_id is not null,
-          'parent_track_id', r.parent_track_id::text,
+          'parent_track_id', r.parent_track_id,
           'parent_user_id', r.parent_owner_id
         )
       )
