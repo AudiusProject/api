@@ -26,7 +26,7 @@ SELECT
   is_original_available,
   mood,
   release_date,
-  null as remix_of,
+  remix_of,
   repost_count,
   save_count as favorite_count,
   comment_count,
@@ -187,7 +187,7 @@ type GetTracksRow struct {
 	IsOriginalAvailable          bool            `json:"is_original_available"`
 	Mood                         pgtype.Text     `json:"mood"`
 	ReleaseDate                  *time.Time      `json:"release_date"`
-	RemixOf                      interface{}     `json:"remix_of"`
+	RemixOf                      json.RawMessage `json:"remix_of"`
 	RepostCount                  int32           `json:"repost_count"`
 	FavoriteCount                int32           `json:"favorite_count"`
 	CommentCount                 pgtype.Int4     `json:"comment_count"`

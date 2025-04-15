@@ -134,13 +134,13 @@ func (app *ApiServer) v1UsersLibraryPlaylists(c *fiber.Ctx) error {
 
 	// attach
 	for idx, item := range items {
-		if t, ok := playlists[item.ItemID]; ok {
+		if p, ok := playlists[item.ItemID]; ok {
 			// todo: python code does: exclude playlists with only hidden tracks and empty playlists
 
 			// python API doesn't attach tracks???
-			t.Tracks = nil
+			p.Tracks = nil
 
-			item.Item = t
+			item.Item = p
 			items[idx] = item
 		}
 	}

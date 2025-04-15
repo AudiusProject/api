@@ -11,7 +11,7 @@ SELECT
   is_original_available,
   mood,
   release_date,
-  null as remix_of,
+  remix_of,
   repost_count,
   save_count as favorite_count,
   comment_count,

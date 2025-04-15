@@ -102,6 +102,7 @@ func (app *ApiServer) v1UsersLibraryTracks(c *fiber.Ctx) error {
 		"limit":      c.Query("limit", "50"),
 		"offset":     c.Query("offset", "0"),
 		"actionType": c.Query("type", "all"),
+		// todo: support search / query param
 	})
 	if err != nil {
 		return err
