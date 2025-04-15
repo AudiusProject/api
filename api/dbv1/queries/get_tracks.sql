@@ -11,7 +11,7 @@ SELECT
   is_original_available,
   mood,
   release_date,
-  remix_of,
+  null as remix_of,
   repost_count,
   save_count as favorite_count,
   comment_count,
@@ -150,8 +150,7 @@ FROM tracks t
 JOIN aggregate_track using (track_id)
 LEFT JOIN aggregate_plays on play_item_id = t.track_id
 LEFT JOIN track_routes on t.track_id = track_routes.track_id and track_routes.is_current = true
-WHERE is_available = true
-  AND (is_unlisted = false OR t.owner_id = @my_id)
+WHERE (is_unlisted = false OR t.owner_id = @my_id)
   AND t.track_id = ANY(@ids::int[])
 ORDER BY t.track_id
 ;

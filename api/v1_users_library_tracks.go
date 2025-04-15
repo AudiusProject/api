@@ -1,6 +1,7 @@
 package api
 
 import (
+	"strings"
 	"time"
 
 	"bridgerton.audius.co/api/dbv1"
@@ -10,14 +11,19 @@ import (
 
 /*
 /v1/full/users/aNzoj/library/tracks?limit=50&offset=50&query=&sort_direction=desc&sort_method=added_date&type=all&user_id=aNzoj
+
+/v1/full/users/aNzoj/library/tracks?limit=50&offset=0&query=&sort_direction=desc&sort_method=added_date&type=favorite&user_id=aNzoj
 */
 
 func (app *ApiServer) v1UsersLibraryTracks(c *fiber.Ctx) error {
-	// sortMethod := c.Query("sort_method", "added_date")
-	// sortDirection := c.Query("sort_direction", "desc")
 
-	sql := `
-	WITH library_items AS (
+	// favorite, repost, purchase, all
+	typeFilter := c.Query("type", "all")
+
+	selects := []string{}
+
+	if typeFilter == "all" || typeFilter == "favorite" {
+		selects = append(selects, `
 		SELECT
 			save_item_id as item_id,
 			created_at as item_created_at,
@@ -26,9 +32,11 @@ func (app *ApiServer) v1UsersLibraryTracks(c *fiber.Ctx) error {
 		WHERE save_type = 'track'
 			AND user_id = @userId
 			AND is_delete = false
+		`)
+	}
 
-		UNION ALL
-
+	if typeFilter == "all" || typeFilter == "repost" {
+		selects = append(selects, `
 		SELECT
 			repost_item_id as item_id,
 			created_at as item_created_at,
@@ -37,9 +45,11 @@ func (app *ApiServer) v1UsersLibraryTracks(c *fiber.Ctx) error {
 		WHERE repost_type = 'track'
 			AND user_id = @userId
 			AND is_delete = false
+		`)
+	}
 
-		UNION ALL
-
+	if typeFilter == "all" || typeFilter == "purchase" {
+		selects = append(selects, `
 		SELECT
 			content_id as item_id,
 			created_at as item_created_at,
@@ -47,17 +57,53 @@ func (app *ApiServer) v1UsersLibraryTracks(c *fiber.Ctx) error {
 		FROM usdc_purchases
 		WHERE content_type = 'track'
 			AND buyer_user_id = @userId
+		`)
+	}
+
+	sortField := "item_created_at"
+	switch c.Query("sort_method") {
+	case "plays":
+		sortField = "aggregate_plays.count"
+	case "reposts":
+		sortField = "aggregate_track.repost_count"
+	case "saves":
+		sortField = "aggregate_track.save_count"
+	case "title":
+		sortField = "tracks.title"
+	case "artist_name":
+		sortField = "users.name"
+
+	}
+
+	sortDirection := "DESC"
+	if c.Query("sort_direction") == "asc" {
+		sortDirection = "ASC"
+	}
+
+	sql := `
+	WITH library_items AS (` + strings.Join(selects, " UNION ALL ") + `),
+	deduped as (
+		SELECT
+			item_id,
+			max(item_created_at) as item_created_at,
+			bool_or(is_purchase) as is_purchase
+		FROM library_items
+		JOIN tracks ON track_id = item_id
+		WHERE is_unlisted = false OR is_purchase = true
+		GROUP BY item_id
 	)
 	SELECT
 		'track_activity_full' as class,
 		item_id,
-		max(item_created_at) as item_created_at,
-		bool_or(is_purchase) as is_purchase
-	FROM library_items
+		item_created_at,
+		is_purchase
+	FROM deduped
 	JOIN tracks ON track_id = item_id
+	JOIN users ON owner_id = user_id
+	LEFT JOIN aggregate_plays ON track_id = play_item_id
+	LEFT JOIN aggregate_track USING (track_id)
 	WHERE is_unlisted = false OR is_purchase = true
-	GROUP BY item_id
-	ORDER BY item_created_at DESC
+	ORDER BY ` + sortField + ` ` + sortDirection + `
 	LIMIT @limit
 	OFFSET @offset
 	`
@@ -73,7 +119,7 @@ func (app *ApiServer) v1UsersLibraryTracks(c *fiber.Ctx) error {
 
 	type Activity struct {
 		Class         string    `json:"class"`
-		ItemID        int32     `json:"-"`
+		ItemID        int32     `json:"item_id"`
 		ItemCreatedAt time.Time `json:"timestamp"`
 		IsPurchase    bool      `json:"-"`
 
@@ -94,13 +140,15 @@ func (app *ApiServer) v1UsersLibraryTracks(c *fiber.Ctx) error {
 	// get tracks
 	tracks, err := app.queries.FullTracksKeyed(c.Context(), dbv1.GetTracksParams{
 		Ids:  trackIds,
-		MyID: c.Locals("myId"),
+		MyID: app.getMyId(c),
 	})
 
 	// attach
 	for idx, item := range items {
-		item.Item = tracks[item.ItemID]
-		items[idx] = item
+		if t, ok := tracks[item.ItemID]; ok {
+			item.Item = t
+			items[idx] = item
+		}
 	}
 
 	return c.JSON(fiber.Map{

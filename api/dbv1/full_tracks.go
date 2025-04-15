@@ -70,6 +70,12 @@ func (q *Queries) FullTracksKeyed(ctx context.Context, arg GetTracksParams) (map
 			preview = mediaLink(track.PreviewCid.String, track.TrackID, arg.MyID.(int32))
 		}
 
+		// client dies if this field is nil
+		// todo: what are default field visibility values?
+		if track.FieldVisibility == nil {
+			track.FieldVisibility = []byte(`{}`)
+		}
+
 		fullTrack := FullTrack{
 			GetTracksRow:      track,
 			IsStreamable:      !track.IsDelete && !user.IsDeactivated,
