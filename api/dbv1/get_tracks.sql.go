@@ -165,8 +165,7 @@ FROM tracks t
 JOIN aggregate_track using (track_id)
 LEFT JOIN aggregate_plays on play_item_id = t.track_id
 LEFT JOIN track_routes on t.track_id = track_routes.track_id and track_routes.is_current = true
-WHERE is_available = true
-  AND (is_unlisted = false OR t.owner_id = $1)
+WHERE (is_unlisted = false OR t.owner_id = $1)
   AND t.track_id = ANY($2::int[])
 ORDER BY t.track_id
 `
@@ -188,7 +187,7 @@ type GetTracksRow struct {
 	IsOriginalAvailable          bool            `json:"is_original_available"`
 	Mood                         pgtype.Text     `json:"mood"`
 	ReleaseDate                  *time.Time      `json:"release_date"`
-	RemixOf                      []byte          `json:"remix_of"`
+	RemixOf                      json.RawMessage `json:"remix_of"`
 	RepostCount                  int32           `json:"repost_count"`
 	FavoriteCount                int32           `json:"favorite_count"`
 	CommentCount                 pgtype.Int4     `json:"comment_count"`
