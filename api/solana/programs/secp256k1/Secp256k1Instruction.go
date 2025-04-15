@@ -1,8 +1,6 @@
 package secp256k1
 
 import (
-	"fmt"
-
 	ag_binary "github.com/gagliardetto/binary"
 	"github.com/gagliardetto/solana-go"
 )
@@ -15,7 +13,7 @@ const (
 	DataStart                      = SignatureOffsetsSerializedSize + 1
 )
 
-type Create struct {
+type Secp256k1Instruction struct {
 	SignatureDatas []Secp256k1SignatureData
 }
 
@@ -37,42 +35,37 @@ type Secp256k1SignatureData struct {
 	InstructionIndex uint8
 }
 
-func (data *Secp256k1SignatureData) String() string {
-	return fmt.Sprintf("EthAddress: %x, Message: %x, Signature: %x, Instruction Index: %d", data.EthAddress, data.Message, data.Signature, data.InstructionIndex)
-}
-
-func NewCreateBuilder() *Create {
-	nd := &Create{SignatureDatas: make([]Secp256k1SignatureData, 0)}
+func NewSecp256k1InstructionBuilder() *Secp256k1Instruction {
+	nd := &Secp256k1Instruction{SignatureDatas: make([]Secp256k1SignatureData, 0)}
 	return nd
 }
 
-func (inst *Create) AddSignatureData(ethAddress []byte, message []byte, signature []byte, instructionIndex uint8) *Create {
+func (inst *Secp256k1Instruction) AddSignatureData(ethAddress []byte, message []byte, signature []byte, instructionIndex uint8) *Secp256k1Instruction {
 	inst.SignatureDatas = append(inst.SignatureDatas, Secp256k1SignatureData{
 		EthAddress:       ethAddress,
 		Message:          message,
 		Signature:        signature,
 		InstructionIndex: instructionIndex,
 	})
-	fmt.Println("AddSignatureData:", inst.SignatureDatas)
 	return inst
 }
 
-func (obj *Create) SetAccounts(accounts []*solana.AccountMeta) error {
+func (obj *Secp256k1Instruction) SetAccounts(accounts []*solana.AccountMeta) error {
 	return nil
 }
 
-func (slice Create) GetAccounts() (accounts []*solana.AccountMeta) {
+func (slice Secp256k1Instruction) GetAccounts() (accounts []*solana.AccountMeta) {
 	return
 }
 
-func (inst Create) Build() *Instruction {
+func (inst Secp256k1Instruction) Build() *Instruction {
 	return &Instruction{BaseVariant: ag_binary.BaseVariant{
 		Impl:   inst,
 		TypeID: ag_binary.NoTypeIDDefaultID,
 	}}
 }
 
-func (obj Create) MarshalWithEncoder(encoder *ag_binary.Encoder) (err error) {
+func (obj Secp256k1Instruction) MarshalWithEncoder(encoder *ag_binary.Encoder) (err error) {
 	numSignatures := len(obj.SignatureDatas)
 	err = encoder.Encode(uint8(numSignatures))
 	if err != nil {
@@ -80,9 +73,9 @@ func (obj Create) MarshalWithEncoder(encoder *ag_binary.Encoder) (err error) {
 	}
 
 	for _, signatureData := range obj.SignatureDatas {
-		ethAddressOffset := encoder.Written()
+		ethAddressOffset := encoder.Written() + SignatureOffsetsSerializedSize
 		signatureOffset := ethAddressOffset + len(signatureData.EthAddress)
-		messageDataOffset := signatureOffset + len(signatureData.Signature) + 1
+		messageDataOffset := signatureOffset + len(signatureData.Signature)
 
 		offsets := Secp256k1SignatureOffsets{
 			SignatureOffset:            uint16(signatureOffset),
@@ -118,7 +111,7 @@ func (obj Create) MarshalWithEncoder(encoder *ag_binary.Encoder) (err error) {
 	return nil
 }
 
-func (obj *Create) UnmarshalWithDecoder(decoder *ag_binary.Decoder) (err error) {
+func (obj *Secp256k1Instruction) UnmarshalWithDecoder(decoder *ag_binary.Decoder) (err error) {
 	numSignatures, err := decoder.ReadUint8()
 	if err != nil {
 		return err
@@ -144,13 +137,11 @@ func (obj *Create) UnmarshalWithDecoder(decoder *ag_binary.Decoder) (err error) 
 			return err
 		}
 
-		fmt.Println(offsets)
-
 		obj.AddSignatureData(ethAddress, message, signature, offsets.EthAddressInstructionIndex)
 	}
 	return nil
 }
 
-func NewCreateInstruction(ethAddress []byte, message []byte, signature []byte, instructionIndex uint8) *Create {
-	return NewCreateBuilder().AddSignatureData(ethAddress, message, signature, instructionIndex)
+func NewSecp256k1Instruction(ethAddress []byte, message []byte, signature []byte, instructionIndex uint8) *Secp256k1Instruction {
+	return NewSecp256k1InstructionBuilder().AddSignatureData(ethAddress, message, signature, instructionIndex)
 }

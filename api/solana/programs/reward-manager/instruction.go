@@ -1,4 +1,4 @@
-package secp256k1
+package reward_manager
 
 import (
 	"bytes"
@@ -9,16 +9,30 @@ import (
 	ag_text "github.com/gagliardetto/solana-go/text"
 )
 
-type Instruction struct {
-	bin.BaseVariant
+var ProgramID = solana.MustPublicKeyFromBase58("CDpzvz7DfgbF95jSSCHLX3ERkugyfgn9Fw8ypNZ1hfXp")
+
+func SetProgramID(pubkey solana.PublicKey) {
+	ProgramID = pubkey
+	solana.RegisterInstructionDecoder(ProgramID, registryDecodeInstruction)
 }
 
 func init() {
-	solana.RegisterInstructionDecoder(solana.Secp256k1ProgramID, registryDecodeInstruction)
+	solana.RegisterInstructionDecoder(ProgramID, registryDecodeInstruction)
 }
 
-func (inst *Instruction) ProgramID() solana.PublicKey {
-	return solana.Secp256k1ProgramID
+const (
+	Instruction_Init uint8 = iota
+	Instruction_ChangeManagerAccount
+	Instruction_CreateSender
+	Instruction_DeleteSender
+	Instruction_CreateSenderPublic
+	Instruction_DeleteSenderPublic
+	Instruction_SubmitAttestation
+	Instruction_EvaluateAttestations
+)
+
+type Instruction struct {
+	bin.BaseVariant
 }
 
 func (inst *Instruction) Accounts() (out []*solana.AccountMeta) {
@@ -27,7 +41,7 @@ func (inst *Instruction) Accounts() (out []*solana.AccountMeta) {
 
 func (inst *Instruction) Data() ([]byte, error) {
 	buf := new(bytes.Buffer)
-	if err := bin.NewBinEncoder(buf).Encode(inst); err != nil {
+	if err := bin.NewBorshEncoder(buf).Encode(inst); err != nil {
 		return nil, fmt.Errorf("unable to encode instruction: %w", err)
 	}
 	return buf.Bytes(), nil
@@ -38,19 +52,48 @@ func (inst *Instruction) TextEncode(encoder *ag_text.Encoder, option *ag_text.Op
 }
 
 var InstructionImplDef = bin.NewVariantDefinition(
-	bin.NoTypeIDEncoding,
+	bin.Uint8TypeIDEncoding,
 	[]bin.VariantType{
 		{
-			Name: "Create", Type: (*Secp256k1Instruction)(nil),
+			Name: "Init", Type: (*SubmitAttestation)(nil),
+		},
+		{
+			Name: "ChangeManagerAccount", Type: (*SubmitAttestation)(nil),
+		},
+		{
+			Name: "CreateSender", Type: (*SubmitAttestation)(nil),
+		},
+		{
+			Name: "DeleteSender", Type: (*SubmitAttestation)(nil),
+		},
+		{
+			Name: "CreateSenderPublic", Type: (*SubmitAttestation)(nil),
+		},
+		{
+			Name: "DeleteSenderPublic", Type: (*SubmitAttestation)(nil),
+		},
+		{
+			Name: "SubmitAttestation", Type: (*SubmitAttestation)(nil),
+		},
+		{
+			Name: "EvaluateAttestation", Type: (*SubmitAttestation)(nil),
 		},
 	},
 )
+
+func (inst *Instruction) ProgramID() solana.PublicKey {
+	return ProgramID
+}
 
 func (inst *Instruction) UnmarshalWithDecoder(decoder *bin.Decoder) error {
 	return inst.BaseVariant.UnmarshalBinaryVariant(decoder, InstructionImplDef)
 }
 
 func (inst Instruction) MarshalWithEncoder(encoder *bin.Encoder) error {
+	err := encoder.WriteUint8(inst.TypeID.Uint8())
+	if err != nil {
+		return fmt.Errorf("unable to write variant type: %w", err)
+	}
 	return encoder.Encode(inst.Impl)
 }
 
@@ -64,7 +107,7 @@ func registryDecodeInstruction(accounts []*solana.AccountMeta, data []byte) (int
 
 func DecodeInstruction(accounts []*solana.AccountMeta, data []byte) (*Instruction, error) {
 	inst := new(Instruction)
-	if err := bin.NewBinDecoder(data).Decode(inst); err != nil {
+	if err := bin.NewBorshDecoder(data).Decode(inst); err != nil {
 		return nil, fmt.Errorf("unable to decode instruction: %w", err)
 	}
 	if v, ok := inst.Impl.(solana.AccountsSettable); ok {
