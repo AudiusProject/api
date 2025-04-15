@@ -1,4 +1,21 @@
 -- name: GetTracks :many
+WITH album_backlinks AS (
+  SELECT DISTINCT ON (pt.track_id)
+    pt.track_id,
+    p.playlist_id,
+    p.playlist_name,
+    u.handle,
+    pr.slug
+  FROM playlist_tracks pt
+  JOIN playlists p ON p.playlist_id = pt.playlist_id
+  JOIN users u ON u.user_id = p.playlist_owner_id AND u.is_current = true
+  JOIN playlist_routes pr ON pr.playlist_id = p.playlist_id AND pr.is_current = true
+  WHERE pt.is_removed = false
+    AND p.is_album = true
+    AND p.is_delete = false
+    AND p.is_current = true
+  ORDER BY pt.track_id, p.created_at DESC
+)
 SELECT
   t.track_id,
   description,
@@ -21,9 +38,17 @@ SELECT
   is_downloadable,
   aggregate_plays.count as play_count,
   ddex_app,
-  -- playlists_containing_track,
+  playlists_containing_track,
   pinned_comment_id,
-  -- album_backlink,
+  (
+    SELECT json_build_object(
+      'playlist_id', ab.playlist_id,
+      'playlist_name', ab.playlist_name,
+      'permalink', '/' || ab.handle || '/album/' || ab.slug
+    )
+    FROM album_backlinks ab
+    WHERE ab.track_id = t.track_id
+  )::jsonb as album_backlink,
   t.blocknumber,
   create_date,
   t.created_at,
@@ -161,6 +186,7 @@ SELECT
   is_download_gated,
   download_conditions,
   cover_original_song_title,
+  cover_original_artist,
   is_owned_by_user
 
   -- stream,
