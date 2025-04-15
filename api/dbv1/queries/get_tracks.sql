@@ -70,7 +70,7 @@ SELECT
     FROM (
       SELECT user_id, repost_item_id, reposts.created_at
       FROM reposts
-      JOIN follows ON followee_user_id = reposts.user_id AND follower_user_id = @my_id
+      JOIN follows ON followee_user_id = reposts.user_id AND follower_user_id = @my_id AND follows.is_delete = false
       JOIN aggregate_user USING (user_id)
       WHERE repost_item_id = t.track_id
         AND repost_type = 'track'
@@ -92,7 +92,7 @@ SELECT
     FROM (
       SELECT user_id, save_item_id, saves.created_at
       FROM saves
-      JOIN follows ON followee_user_id = saves.user_id AND follower_user_id = @my_id
+      JOIN follows ON followee_user_id = saves.user_id AND follower_user_id = @my_id AND follows.is_delete = false
       JOIN aggregate_user USING (user_id)
       WHERE save_item_id = t.track_id
         AND save_type = 'track'
