@@ -39,8 +39,7 @@ sql:
 
           - column: "tracks.remix_of"
             go_type:
-              import: "encoding/json"
-              type: "RawMessage"
+              type: "FullRemixOf"
           - column: "tracks.copyright_line"
             go_type:
               import: "encoding/json"

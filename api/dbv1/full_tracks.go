@@ -2,6 +2,7 @@ package dbv1
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
 
 	"bridgerton.audius.co/trashid"
@@ -24,6 +25,7 @@ type FullTrack struct {
 
 	FolloweeReposts   []*FolloweeRepost   `json:"followee_reposts"`
 	FolloweeFavorites []*FolloweeFavorite `json:"followee_favorites"`
+	RemixOf           FullRemixOf         `json:"remix_of"`
 }
 
 func (q *Queries) FullTracksKeyed(ctx context.Context, arg GetTracksParams) (map[int32]FullTrack, error) {
@@ -35,6 +37,12 @@ func (q *Queries) FullTracksKeyed(ctx context.Context, arg GetTracksParams) (map
 	userIds := []int32{}
 	for _, track := range rawTracks {
 		userIds = append(userIds, track.UserID)
+
+		var fullRemixOf FullRemixOf
+		json.Unmarshal(track.RemixOf, &fullRemixOf)
+		for _, r := range fullRemixOf.Tracks {
+			userIds = append(userIds, r.ParentUserId)
+		}
 	}
 
 	userMap, err := q.FullUsersKeyed(ctx, GetUsersParams{
@@ -76,6 +84,15 @@ func (q *Queries) FullTracksKeyed(ctx context.Context, arg GetTracksParams) (map
 			track.FieldVisibility = []byte(`{}`)
 		}
 
+		// remix_of
+		var fullRemixOf FullRemixOf
+		json.Unmarshal(track.RemixOf, &fullRemixOf)
+		for idx, r := range fullRemixOf.Tracks {
+			r.ParentTrackId = trashid.StringEncode(r.ParentTrackId)
+			r.User = userMap[r.ParentUserId]
+			fullRemixOf.Tracks[idx] = r
+		}
+
 		fullTrack := FullTrack{
 			GetTracksRow:      track,
 			IsStreamable:      !track.IsDelete && !user.IsDeactivated,
@@ -88,6 +105,7 @@ func (q *Queries) FullTracksKeyed(ctx context.Context, arg GetTracksParams) (map
 			UserID:            user.ID,
 			FolloweeFavorites: fullFolloweeFavorites(track.FolloweeFavorites),
 			FolloweeReposts:   fullFolloweeReposts(track.FolloweeReposts),
+			RemixOf:           fullRemixOf,
 		}
 		trackMap[track.TrackID] = fullTrack
 	}

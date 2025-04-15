@@ -11,7 +11,6 @@ SELECT
   is_original_available,
   mood,
   release_date,
-  remix_of,
   repost_count,
   save_count as favorite_count,
   comment_count,
@@ -102,6 +101,31 @@ SELECT
       LIMIT 6
     ) r
   )::jsonb as followee_favorites,
+
+  (
+    SELECT json_build_object(
+      'tracks', json_agg(
+        json_build_object(
+          'has_remix_author_reposted', repost_item_id is not null,
+          'has_remix_author_saved', save_item_id is not null,
+          'parent_track_id', r.parent_track_id::text,
+          'parent_user_id', r.parent_owner_id
+        )
+      )
+    )
+    FROM (
+      SELECT
+        track_id as parent_track_id,
+        owner_id as parent_owner_id,
+        repost_item_id,
+        save_item_id
+      FROM remixes
+      JOIN tracks parent_track ON parent_track_id = parent_track.track_id AND child_track_id = t.track_id
+      LEFT JOIN reposts ON repost_type = 'track' AND repost_item_id = t.track_id AND reposts.user_id = parent_track.owner_id AND reposts.is_delete = false
+      LEFT JOIN saves ON save_type = 'track' AND save_item_id = t.track_id AND saves.user_id = parent_track.owner_id AND saves.is_delete = false
+      LIMIT 10
+    ) r
+  )::jsonb as remix_of,
 
 
   -- followee_favorites,
