@@ -1,5 +1,5 @@
-user_id,handle,handle_lc,is_deactivated
-1,rayjacobson,rayjacobson,f
-2,stereosteve,stereosteve,f
-3,someseller,someseller,f
-91,badguy,badguy,t
+user_id,handle,handle_lc,is_deactivated,wallet
+1,rayjacobson,rayjacobson,f,0x7d273271690538cf855e5b3002a0dd8c154bb060
+2,stereosteve,stereosteve,f,
+3,someseller,someseller,f,
+91,badguy,badguy,t,
