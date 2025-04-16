@@ -115,6 +115,7 @@ func NewApiServer(config config.Config) *ApiServer {
 	// resolve myId
 	app.Use(app.isFullMiddleware)
 	app.Use(app.resolveMyIdMiddleware)
+	app.Use(app.authMiddleware)
 
 	v1 := app.Group("/v1")
 	v1Full := app.Group("/v1/full")
