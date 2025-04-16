@@ -36,9 +36,37 @@ SELECT
   is_downloadable,
   aggregate_plays.count as play_count,
   ddex_app,
-  -- playlists_containing_track,
   pinned_comment_id,
-  -- album_backlink,
+  playlists_containing_track,
+
+  (
+    SELECT json_build_object(
+      'playlist_id', ab.playlist_id,
+      'playlist_name', ab.playlist_name,
+      'permalink', '/' || ab.handle || '/album/' || ab.slug
+    )
+    FROM (
+      SELECT
+        pt.track_id,
+        p.playlist_id,
+        p.playlist_name,
+        u.handle,
+        pr.slug
+      FROM playlist_tracks pt
+      JOIN playlists p ON p.playlist_id = pt.playlist_id
+      JOIN users u ON u.user_id = p.playlist_owner_id AND u.is_current = true
+      JOIN playlist_routes pr ON pr.playlist_id = p.playlist_id AND pr.is_current = true
+      WHERE
+        pt.track_id = t.track_id
+        AND pt.is_removed = false
+        AND p.is_album = true
+        AND p.is_delete = false
+        AND p.is_current = true
+      ORDER BY pt.track_id, p.created_at DESC
+      LIMIT 1
+    ) ab
+  )::jsonb AS album_backlink,
+
   t.blocknumber,
   create_date,
   t.created_at,
@@ -176,6 +204,7 @@ SELECT
   is_download_gated,
   download_conditions,
   cover_original_song_title,
+  cover_original_artist,
   is_owned_by_user
 
   -- stream,
@@ -222,6 +251,8 @@ type GetTracksRow struct {
 	PlayCount                    pgtype.Int8     `json:"play_count"`
 	DdexApp                      pgtype.Text     `json:"ddex_app"`
 	PinnedCommentID              pgtype.Int4     `json:"pinned_comment_id"`
+	PlaylistsContainingTrack     []int32         `json:"playlists_containing_track"`
+	AlbumBacklink                json.RawMessage `json:"album_backlink"`
 	Blocknumber                  pgtype.Int4     `json:"blocknumber"`
 	CreateDate                   pgtype.Text     `json:"create_date"`
 	CreatedAt                    time.Time       `json:"created_at"`
@@ -268,6 +299,7 @@ type GetTracksRow struct {
 	IsDownloadGated              pgtype.Bool     `json:"is_download_gated"`
 	DownloadConditions           UsageConditions `json:"download_conditions"`
 	CoverOriginalSongTitle       pgtype.Text     `json:"cover_original_song_title"`
+	CoverOriginalArtist          pgtype.Text     `json:"cover_original_artist"`
 	IsOwnedByUser                bool            `json:"is_owned_by_user"`
 }
 
@@ -303,6 +335,8 @@ func (q *Queries) GetTracks(ctx context.Context, arg GetTracksParams) ([]GetTrac
 			&i.PlayCount,
 			&i.DdexApp,
 			&i.PinnedCommentID,
+			&i.PlaylistsContainingTrack,
+			&i.AlbumBacklink,
 			&i.Blocknumber,
 			&i.CreateDate,
 			&i.CreatedAt,
@@ -349,6 +383,7 @@ func (q *Queries) GetTracks(ctx context.Context, arg GetTracksParams) ([]GetTrac
 			&i.IsDownloadGated,
 			&i.DownloadConditions,
 			&i.CoverOriginalSongTitle,
+			&i.CoverOriginalArtist,
 			&i.IsOwnedByUser,
 		); err != nil {
 			return nil, err
