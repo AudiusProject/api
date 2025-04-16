@@ -23,9 +23,11 @@ type FullTrack struct {
 	UserID       string       `json:"user_id"`
 	User         FullUser     `json:"user"`
 
-	FolloweeReposts   []*FolloweeRepost   `json:"followee_reposts"`
-	FolloweeFavorites []*FolloweeFavorite `json:"followee_favorites"`
-	RemixOf           FullRemixOf         `json:"remix_of"`
+	FolloweeReposts    []*FolloweeRepost    `json:"followee_reposts"`
+	FolloweeFavorites  []*FolloweeFavorite  `json:"followee_favorites"`
+	RemixOf            FullRemixOf          `json:"remix_of"`
+	StreamConditions   *FullUsageConditions `json:"stream_conditions"`
+	DownloadConditions *FullUsageConditions `json:"download_conditions"`
 }
 
 func (q *Queries) FullTracksKeyed(ctx context.Context, arg GetTracksParams) (map[int32]FullTrack, error) {
@@ -35,6 +37,15 @@ func (q *Queries) FullTracksKeyed(ctx context.Context, arg GetTracksParams) (map
 	}
 
 	userIds := []int32{}
+	collectSplitUserIds := func(usage *UsageConditions) {
+		if usage == nil || usage.UsdcPurchase == nil {
+			return
+		}
+		for _, split := range usage.UsdcPurchase.Splits {
+			userIds = append(userIds, split.UserID)
+		}
+	}
+
 	for _, track := range rawTracks {
 		userIds = append(userIds, track.UserID)
 
@@ -43,6 +54,9 @@ func (q *Queries) FullTracksKeyed(ctx context.Context, arg GetTracksParams) (map
 		for _, r := range remixOf.Tracks {
 			userIds = append(userIds, r.ParentUserId)
 		}
+
+		collectSplitUserIds(track.StreamConditions)
+		collectSplitUserIds(track.DownloadConditions)
 	}
 
 	userMap, err := q.FullUsersKeyed(ctx, GetUsersParams{
@@ -57,10 +71,6 @@ func (q *Queries) FullTracksKeyed(ctx context.Context, arg GetTracksParams) (map
 	for _, track := range rawTracks {
 		track.ID, _ = trashid.EncodeHashId(int(track.TrackID))
 		user, ok := userMap[track.UserID]
-
-		// GetUser will omit deactivated users
-		// so skip tracks if user doesn't come back.
-		// .. todo: in get_tracks query we should join users and filter out tracks if user is deactivated at query time.
 		if !ok {
 			continue
 		}
@@ -101,19 +111,50 @@ func (q *Queries) FullTracksKeyed(ctx context.Context, arg GetTracksParams) (map
 			}
 		}
 
+		toFullUsageConditions := func(usage *UsageConditions) *FullUsageConditions {
+			if usage == nil {
+				return nil
+			}
+			if usage.UsdcPurchase != nil {
+				priceInUsdc := usage.UsdcPurchase.Price * 10000
+				networkCut := priceInUsdc * 0.1
+				price := priceInUsdc - networkCut
+				splitMap := map[string]float64{
+					"7vGA3fcjvxa3A11MAxmyhFtYowPLLCNyvoxxgN3NN2Vf": networkCut,
+				}
+				for _, split := range track.DownloadConditions.UsdcPurchase.Splits {
+					user := userMap[split.UserID]
+					if user.PayoutWallet != "" {
+						splitMap[user.PayoutWallet] = price * (split.Percentage / 100)
+					}
+				}
+				return &FullUsageConditions{
+					UsdcPurchase: &FullUsdcPurchase{
+						Price:  usage.UsdcPurchase.Price,
+						Splits: splitMap,
+					},
+				}
+			}
+			return &FullUsageConditions{
+				UsageConditions: *usage,
+			}
+		}
+
 		fullTrack := FullTrack{
-			GetTracksRow:      track,
-			IsStreamable:      !track.IsDelete && !user.IsDeactivated,
-			Permalink:         fmt.Sprintf("/%s/%s", user.Handle.String, track.Slug.String),
-			Artwork:           squareImageStruct(track.CoverArtSizes, track.CoverArt),
-			Stream:            stream,
-			Download:          download,
-			Preview:           preview,
-			User:              user,
-			UserID:            user.ID,
-			FolloweeFavorites: fullFolloweeFavorites(track.FolloweeFavorites),
-			FolloweeReposts:   fullFolloweeReposts(track.FolloweeReposts),
-			RemixOf:           fullRemixOf,
+			GetTracksRow:       track,
+			IsStreamable:       !track.IsDelete && !user.IsDeactivated,
+			Permalink:          fmt.Sprintf("/%s/%s", user.Handle.String, track.Slug.String),
+			Artwork:            squareImageStruct(track.CoverArtSizes, track.CoverArt),
+			Stream:             stream,
+			Download:           download,
+			Preview:            preview,
+			User:               user,
+			UserID:             user.ID,
+			FolloweeFavorites:  fullFolloweeFavorites(track.FolloweeFavorites),
+			FolloweeReposts:    fullFolloweeReposts(track.FolloweeReposts),
+			RemixOf:            fullRemixOf,
+			StreamConditions:   toFullUsageConditions(track.StreamConditions),
+			DownloadConditions: toFullUsageConditions(track.DownloadConditions),
 		}
 		trackMap[track.TrackID] = fullTrack
 	}

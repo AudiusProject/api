@@ -63,15 +63,22 @@ SELECT
     ) / 1e18
   )::INT AS total_audio_balance,
 
+  -- payout wallet
+  coalesce(
+    (SELECT spl_usdc_payout_wallet FROM user_payout_wallet_history pwh WHERE pwh.user_id = u.user_id AND spl_usdc_payout_wallet IS NOT NULL ORDER BY block_timestamp DESC LIMIT 1),
+    (SELECT bank_account FROM usdc_user_bank_accounts WHERE ethereum_address = u.wallet),
+    ''
+  )::text as payout_wallet,
+
   coalesce(waudio, '0') as waudio_balance,
   coalesce(associated_sol_wallets_balance, '0') as associated_sol_wallets_balance,
   blocknumber,
   u.created_at,
   is_storage_v2,
   creator_node_endpoint,
-  10 as current_user_followee_follow_count,  -- TODO: either compute or remove this
 
-
+  -- TODO: either compute or remove this
+  10 as current_user_followee_follow_count,
 
   (
     SELECT count(*) > 0
