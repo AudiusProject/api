@@ -18,8 +18,6 @@ const (
 func (app *ApiServer) recoverAuthorityFromSignatureHeaders(c *fiber.Ctx) (int32, string) {
 	message := c.Get(messageHeader)
 	signature := c.Get(signatureHeader)
-	fmt.Println("message", message)
-	fmt.Println("signature", signature)
 	if message == "" || signature == "" {
 		return 0, ""
 	}
@@ -71,7 +69,6 @@ func (app *ApiServer) getAuthedWallet(c *fiber.Ctx) string {
 
 // Middleware to set authedUserId and authedWallet in context
 func (app *ApiServer) authMiddleware(c *fiber.Ctx) error {
-	fmt.Println("authMiddleware")
 	userId, wallet := app.recoverAuthorityFromSignatureHeaders(c)
 	c.Locals("authedUserId", userId)
 	c.Locals("authedWallet", wallet)
