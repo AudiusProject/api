@@ -8,7 +8,7 @@ import (
 )
 
 // todo: in python this route requires auth
-// todo: fill out additional fields: track_save_count, playlists, playlist_library
+// todo: fill out additional fields: track_save_count, playlists
 func (app *ApiServer) v1UsersAccount(c *fiber.Ctx) error {
 	// resolve wallet to user id
 	var userId int32
@@ -50,13 +50,19 @@ func (app *ApiServer) v1UsersAccount(c *fiber.Ctx) error {
 
 	// Extract playlist_library from user record
 	playlistLibrary := users[0].PlaylistLibrary
-	// Create a copy of the user without playlist_library
+	// Create a copy of the user without playlist_library as it's a
+	// deprecated field and we will return it as a sibling
 	userWithoutLibrary := users[0]
 	userWithoutLibrary.PlaylistLibrary = nil
 
+	trackSaveCount, err := app.queries.GetExtendedAccountFields(c.Context(), userId)
+	if err != nil {
+		return err
+	}
+
 	return c.JSON(fiber.Map{
 		"data": fiber.Map{
-			"track_save_count": 0,              // todo
+			"track_save_count": trackSaveCount,
 			"playlists":        todoEmptyArray, // todo
 			"playlist_library": playlistLibrary,
 			"user": userWithoutLibrary,

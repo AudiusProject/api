@@ -19,7 +19,9 @@ type FullUser struct {
 	CoverPhoto        *RectangleImage `json:"cover_photo"`
 }
 
-func processPlaylist(v any) any {
+// Recursively process playlists in the library and hashify playlist_ids for
+// non-explore playlists.
+func processPlaylistLibraryItem(v any) any {
 	switch val := v.(type) {
 	case map[string]any:
 		// Handle playlist_id if this is a playlist
@@ -30,16 +32,11 @@ func processPlaylist(v any) any {
 			}
 		}
 
-		// Process contents field if it exists (whether at top level or nested)
+		// Process nested contents
 		if contents, ok := val["contents"].([]any); ok {
 			for i, item := range contents {
-				contents[i] = processPlaylist(item)
+				contents[i] = processPlaylistLibraryItem(item)
 			}
-		}
-		return val
-	case []any:
-		for i, item := range val {
-			val[i] = processPlaylist(item)
 		}
 		return val
 	default:
@@ -47,13 +44,14 @@ func processPlaylist(v any) any {
 	}
 }
 
+// TODO: tests
 func processPlaylistLibrary(library []byte) ([]byte, error) {
 	var playlistLibrary any
 	if err := json.Unmarshal(library, &playlistLibrary); err != nil {
 		return nil, err
 	}
 
-	processedLibrary := processPlaylist(playlistLibrary)
+	processedLibrary := processPlaylistLibraryItem(playlistLibrary)
 	return json.Marshal(processedLibrary)
 }
 
