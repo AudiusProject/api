@@ -9,15 +9,10 @@ import (
 	"github.com/gofiber/fiber/v2"
 )
 
-const (
-	messageHeader   = "Encoded-Data-Message"
-	signatureHeader = "Encoded-Data-Signature"
-)
-
 // Recover user id and wallet from signature headers
 func (app *ApiServer) recoverAuthorityFromSignatureHeaders(c *fiber.Ctx) (int32, string) {
-	message := c.Get(messageHeader)
-	signature := c.Get(signatureHeader)
+	message := c.Get("Encoded-Data-Message")
+	signature := c.Get("Encoded-Data-Signature")
 	if message == "" || signature == "" {
 		return 0, ""
 	}
@@ -46,7 +41,7 @@ func (app *ApiServer) recoverAuthorityFromSignatureHeaders(c *fiber.Ctx) (int32,
 		WHERE
 			wallet = $1 
 			AND is_current = true 
-		ORDER BY created_at ASC 
+		ORDER BY handle_lc IS NOT NULL, created_at ASC 
 		LIMIT 1
 		`,
 		walletLower,
