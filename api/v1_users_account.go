@@ -10,13 +10,22 @@ import (
 // todo: in python this route requires auth
 // todo: fill out additional fields: track_save_count, playlists, playlist_library
 func (app *ApiServer) v1UsersAccount(c *fiber.Ctx) error {
-	myId := app.getMyId(c)
-
 	// resolve wallet to user id
 	var userId int32
-	err := app.pool.QueryRow(c.Context(),
-		"select user_id from users where wallet = lower($1)", c.Params("wallet")).
-		Scan(&userId)
+
+	// todo: this is a duplicate of the authMiddleware, make it common?
+	err := app.pool.QueryRow(
+		c.Context(),
+		`
+		SELECT user_id FROM users
+		WHERE
+			wallet = lower($1)
+			AND is_current = true
+		ORDER BY handle_lc IS NOT NULL, created_at ASC
+		LIMIT 1
+		`,
+		c.Params("wallet"),
+	).Scan(&userId)
 
 	if err != nil {
 		return err
@@ -24,7 +33,7 @@ func (app *ApiServer) v1UsersAccount(c *fiber.Ctx) error {
 
 	users, err := app.queries.FullUsers(c.Context(), dbv1.GetUsersParams{
 		Ids:  []int32{userId},
-		MyID: myId,
+		MyID: userId,
 	})
 	if err != nil {
 		return err
@@ -38,14 +47,19 @@ func (app *ApiServer) v1UsersAccount(c *fiber.Ctx) error {
 	// and there are some additional fields
 	// so we don't use the v1UserResponse helper
 	todoEmptyArray := json.RawMessage([]byte(`[]`))
+
+	// Extract playlist_library from user record
+	playlistLibrary := users[0].PlaylistLibrary
+	// Create a copy of the user without playlist_library
+	userWithoutLibrary := users[0]
+	userWithoutLibrary.PlaylistLibrary = nil
+
 	return c.JSON(fiber.Map{
 		"data": fiber.Map{
 			"track_save_count": 0,              // todo
 			"playlists":        todoEmptyArray, // todo
-			"playlist_library": fiber.Map{
-				"contents": todoEmptyArray,
-			},
-			"user": users[0],
+			"playlist_library": playlistLibrary,
+			"user": userWithoutLibrary,
 		},
 	})
 }

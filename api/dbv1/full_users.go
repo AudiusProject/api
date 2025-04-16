@@ -2,6 +2,7 @@ package dbv1
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
 	"strings"
 
@@ -18,6 +19,44 @@ type FullUser struct {
 	CoverPhoto        *RectangleImage `json:"cover_photo"`
 }
 
+func processPlaylist(v any) any {
+	switch val := v.(type) {
+	case map[string]any:
+		// Handle playlist_id if this is a playlist
+		if playlistType, ok := val["type"].(string); ok && playlistType == "playlist" {
+			if playlistID, ok := val["playlist_id"].(float64); ok {
+				encodedID, _ := trashid.EncodeHashId(int(playlistID))
+				val["playlist_id"] = encodedID
+			}
+		}
+
+		// Process contents field if it exists (whether at top level or nested)
+		if contents, ok := val["contents"].([]any); ok {
+			for i, item := range contents {
+				contents[i] = processPlaylist(item)
+			}
+		}
+		return val
+	case []any:
+		for i, item := range val {
+			val[i] = processPlaylist(item)
+		}
+		return val
+	default:
+		return v
+	}
+}
+
+func processPlaylistLibrary(library []byte) ([]byte, error) {
+	var playlistLibrary any
+	if err := json.Unmarshal(library, &playlistLibrary); err != nil {
+		return nil, err
+	}
+
+	processedLibrary := processPlaylist(playlistLibrary)
+	return json.Marshal(processedLibrary)
+}
+
 func (q *Queries) FullUsersKeyed(ctx context.Context, arg GetUsersParams) (map[int32]FullUser, error) {
 	rawUsers, err := q.GetUsers(ctx, arg)
 	if err != nil {
@@ -30,6 +69,11 @@ func (q *Queries) FullUsersKeyed(ctx context.Context, arg GetUsersParams) (map[i
 		// playlist_library only populated for current user
 		if user.UserID != arg.MyID {
 			user.PlaylistLibrary = []byte("null")
+		} else {
+			processedLibrary, err := processPlaylistLibrary(user.PlaylistLibrary)
+			if err == nil {
+				user.PlaylistLibrary = processedLibrary
+			}
 		}
 
 		user.ID, _ = trashid.EncodeHashId(int(user.UserID))
