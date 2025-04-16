@@ -14,23 +14,6 @@ import (
 )
 
 const getTracks = `-- name: GetTracks :many
-WITH album_backlinks AS (
-  SELECT DISTINCT ON (pt.track_id)
-    pt.track_id,
-    p.playlist_id,
-    p.playlist_name,
-    u.handle,
-    pr.slug
-  FROM playlist_tracks pt
-  JOIN playlists p ON p.playlist_id = pt.playlist_id
-  JOIN users u ON u.user_id = p.playlist_owner_id AND u.is_current = true
-  JOIN playlist_routes pr ON pr.playlist_id = p.playlist_id AND pr.is_current = true
-  WHERE pt.is_removed = false
-    AND p.is_album = true
-    AND p.is_delete = false
-    AND p.is_current = true
-  ORDER BY pt.track_id, p.created_at DESC
-)
 SELECT
   t.track_id,
   description,
@@ -53,17 +36,37 @@ SELECT
   is_downloadable,
   aggregate_plays.count as play_count,
   ddex_app,
-  playlists_containing_track,
   pinned_comment_id,
+  playlists_containing_track,
+
   (
     SELECT json_build_object(
       'playlist_id', ab.playlist_id,
       'playlist_name', ab.playlist_name,
       'permalink', '/' || ab.handle || '/album/' || ab.slug
     )
-    FROM album_backlinks ab
-    WHERE ab.track_id = t.track_id
-  )::jsonb as album_backlink,
+    FROM (
+      SELECT
+        pt.track_id,
+        p.playlist_id,
+        p.playlist_name,
+        u.handle,
+        pr.slug
+      FROM playlist_tracks pt
+      JOIN playlists p ON p.playlist_id = pt.playlist_id
+      JOIN users u ON u.user_id = p.playlist_owner_id AND u.is_current = true
+      JOIN playlist_routes pr ON pr.playlist_id = p.playlist_id AND pr.is_current = true
+      WHERE
+        pt.track_id = t.track_id
+        AND pt.is_removed = false
+        AND p.is_album = true
+        AND p.is_delete = false
+        AND p.is_current = true
+      ORDER BY pt.track_id, p.created_at DESC
+      LIMIT 1
+    ) ab
+  )::jsonb AS album_backlink,
+
   t.blocknumber,
   create_date,
   t.created_at,
@@ -247,8 +250,8 @@ type GetTracksRow struct {
 	IsDownloadable               bool            `json:"is_downloadable"`
 	PlayCount                    pgtype.Int8     `json:"play_count"`
 	DdexApp                      pgtype.Text     `json:"ddex_app"`
-	PlaylistsContainingTrack     []int32         `json:"playlists_containing_track"`
 	PinnedCommentID              pgtype.Int4     `json:"pinned_comment_id"`
+	PlaylistsContainingTrack     []int32         `json:"playlists_containing_track"`
 	AlbumBacklink                json.RawMessage `json:"album_backlink"`
 	Blocknumber                  pgtype.Int4     `json:"blocknumber"`
 	CreateDate                   pgtype.Text     `json:"create_date"`
@@ -331,8 +334,8 @@ func (q *Queries) GetTracks(ctx context.Context, arg GetTracksParams) ([]GetTrac
 			&i.IsDownloadable,
 			&i.PlayCount,
 			&i.DdexApp,
-			&i.PlaylistsContainingTrack,
 			&i.PinnedCommentID,
+			&i.PlaylistsContainingTrack,
 			&i.AlbumBacklink,
 			&i.Blocknumber,
 			&i.CreateDate,
