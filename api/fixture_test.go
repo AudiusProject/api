@@ -15,6 +15,7 @@ var (
 		"user_id":              nil,
 		"handle":               nil,
 		"handle_lc":            nil,
+		"wallet":               nil,
 		"is_current":           true,
 		"is_verified":          false,
 		"created_at":           time.Now(),
