@@ -15,8 +15,9 @@ func (app *ApiServer) v1UsersAccount(c *fiber.Ctx) error {
 	// resolve wallet to user id
 	var userId int32
 	err := app.pool.QueryRow(c.Context(),
-		"select user_id from users where wallet = lower($1)", c.Params("wallet")).
-		Scan(&userId)
+		`SELECT user_id FROM users where wallet = lower($1) ORDER BY (handle IS NOT NULL) DESC, created_at ASC`,
+		c.Params("wallet"),
+	).Scan(&userId)
 
 	if err != nil {
 		return err
