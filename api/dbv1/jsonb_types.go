@@ -10,6 +10,10 @@ type UsageConditions *struct {
 	} `json:"usdc_purchase,omitempty"`
 
 	FollowUserID *int64 `json:"follow_user_id,omitempty"`
+
+	TipUserID *int64 `json:"tip_user_id,omitempty"`
+
+	NftCollection *map[string]any `json:"nft_collection,omitempty"`
 }
 
 type RectangleImage struct {

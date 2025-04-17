@@ -90,6 +90,10 @@ func TestHome(t *testing.T) {
 func Test200(t *testing.T) {
 	urls := []string{
 		"/v1/full/users?id=7eP5n&id=_some_invalid_hash_id",
+
+		"/v1/full/users/account/0x7d273271690538cf855e5b3002a0dd8c154bb060",
+
+		"/v1/full/users/7eP5n",
 		"/v1/full/users/7eP5n/followers",
 		"/v1/full/users/7eP5n/following",
 
@@ -110,6 +114,7 @@ func Test200(t *testing.T) {
 		"/v1/full/users/7eP5n/supporters",
 		"/v1/full/users/7eP5n/tracks",
 		"/v1/full/users/7eP5n/feed",
+		"/v1/full/users/7eP5n/connected_wallets",
 
 		"/v1/users/7eP5n/tags",
 
@@ -120,6 +125,7 @@ func Test200(t *testing.T) {
 		"/v1/full/tracks?id=eYJyn",
 		"/v1/full/tracks/eYJyn/reposts",
 		"/v1/full/tracks/eYJyn/favorites",
+		"/v1/full/tracks/trending",
 
 		"/v1/full/playlists?id=7eP5n",
 		"/v1/full/playlists/7eP5n/reposts",
