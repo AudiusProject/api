@@ -6,7 +6,6 @@ import (
 )
 
 // todo: in python this route requires auth
-// todo: fill out additional fields: track_save_count, playlists
 func (app *ApiServer) v1UsersAccount(c *fiber.Ctx) error {
 	// resolve wallet to user id
 	var userId int32
@@ -19,7 +18,7 @@ func (app *ApiServer) v1UsersAccount(c *fiber.Ctx) error {
 		WHERE
 			wallet = lower($1)
 			AND is_current = true
-		ORDER BY handle_lc IS NOT NULL, created_at ASC
+		ORDER BY handle IS NOT NULL, created_at ASC
 		LIMIT 1
 		`,
 		c.Params("wallet"),

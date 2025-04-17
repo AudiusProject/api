@@ -32,6 +32,6 @@ SELECT * FROM (
          AND p.is_delete = FALSE
          AND p.playlist_id IN (SELECT save_item_id FROM saved_playlists))
     )
-    ORDER BY p.playlist_id, p.created_at DESC
+    ORDER BY p.playlist_id
 ) subquery
 ORDER BY created_at DESC;
