@@ -9,6 +9,7 @@ import (
 	"strings"
 	"testing"
 
+	"bridgerton.audius.co/api/testdata"
 	"bridgerton.audius.co/config"
 	"github.com/jackc/pgx/v5"
 	"github.com/stretchr/testify/assert"
@@ -87,11 +88,9 @@ func TestHome(t *testing.T) {
 	assert.True(t, strings.Contains(string(body), "uptime"))
 }
 
-func Test200(t *testing.T) {
+func Test200UnAuthed(t *testing.T) {
 	urls := []string{
 		"/v1/full/users?id=7eP5n&id=_some_invalid_hash_id",
-
-		"/v1/full/users/account/0x7d273271690538cf855e5b3002a0dd8c154bb060",
 
 		"/v1/full/users/7eP5n",
 		"/v1/full/users/7eP5n/followers",
@@ -148,8 +147,55 @@ func Test200(t *testing.T) {
 	}
 }
 
+func Test200Authed(t *testing.T) {
+	urls := []string{
+		"/v1/full/users/account/0x7d273271690538cf855e5b3002a0dd8c154bb060",
+	}
+
+	for _, u := range urls {
+		status, body := testGetWithWallet(t, u, "0x7d273271690538cf855e5b3002a0dd8c154bb060")
+		require.Equal(t, 200, status, u+" "+string(body))
+
+		// also test as a user
+		if strings.Contains(u, "?") {
+			u += "&user_id=7eP5n"
+		} else {
+			u += "?user_id=7eP5n"
+		}
+
+		status, _ = testGetWithWallet(t, u, "0x7d273271690538cf855e5b3002a0dd8c154bb060")
+		require.Equal(t, 200, status, u+" "+string(body))
+	}
+
+}
+
 func testGet(t *testing.T, path string, dest ...any) (int, []byte) {
 	req := httptest.NewRequest("GET", path, nil)
+	res, err := app.Test(req, -1)
+	assert.NoError(t, err)
+	body, _ := io.ReadAll(res.Body)
+
+	if len(dest) > 0 {
+		err = json.Unmarshal(body, &dest[0])
+		assert.NoError(t, err)
+	}
+
+	return res.StatusCode, body
+}
+
+// testGetWithWallet makes a GET request with authentication headers for the given wallet address
+func testGetWithWallet(t *testing.T, path string, walletAddress string, dest ...any) (int, []byte) {
+	req := httptest.NewRequest("GET", path, nil)
+
+	// Add signature headers if wallet address is provided
+	if walletAddress != "" {
+		sigData, exists := testdata.GetSignatureData(walletAddress)
+		if exists {
+			req.Header.Set("Encoded-Data-Message", sigData.Message)
+			req.Header.Set("Encoded-Data-Signature", sigData.Signature)
+		}
+	}
+
 	res, err := app.Test(req, -1)
 	assert.NoError(t, err)
 	body, _ := io.ReadAll(res.Body)
