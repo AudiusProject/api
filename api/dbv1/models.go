@@ -1627,7 +1627,7 @@ type UsdcUserBankAccount struct {
 
 type User struct {
 	Blockhash              pgtype.Text     `json:"blockhash"`
-	UserID                 int32           `json:"user_id"`
+	UserID                 trashid.TrashId `json:"user_id"`
 	IsCurrent              bool            `json:"is_current"`
 	Handle                 pgtype.Text     `json:"handle"`
 	Wallet                 pgtype.Text     `json:"wallet"`

@@ -37,6 +37,11 @@ sql:
               import: "encoding/json"
               type: "RawMessage"
 
+          - column: "users.user_id"
+            go_type:
+              import: "bridgerton.audius.co/trashid"
+              type: "TrashId"
+
           - column: "developer_apps.user_id"
             go_type:
               import: "bridgerton.audius.co/trashid"

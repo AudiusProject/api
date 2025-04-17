@@ -4,6 +4,7 @@ import (
 	"testing"
 
 	"bridgerton.audius.co/api/dbv1"
+	"bridgerton.audius.co/trashid"
 	"github.com/stretchr/testify/assert"
 )
 
@@ -18,5 +19,5 @@ func TestPlaylistsEndpoint(t *testing.T) {
 	pl := resp.Data[0]
 	assert.Equal(t, pl.ID, "7eP5n")
 	assert.Len(t, pl.Tracks, 2)
-	assert.Equal(t, "ML51L", pl.Tracks[0].User.ID)
+	assert.Equal(t, trashid.TrashId(2), pl.Tracks[0].User.ID)
 }

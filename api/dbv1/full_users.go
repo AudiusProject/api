@@ -32,7 +32,7 @@ func (q *Queries) FullUsersKeyed(ctx context.Context, arg GetUsersParams) (map[i
 			user.PlaylistLibrary = []byte("null")
 		}
 
-		user.ID, _ = trashid.EncodeHashId(int(user.UserID))
+		// user.ID, _ = trashid.EncodeHashId(int(user.UserID))
 
 		// profile picture + cover photo
 		var coverPhoto *RectangleImage
@@ -119,7 +119,7 @@ func squareImageStruct(maybeCids ...pgtype.Text) *SquareImage {
 }
 
 type MinUser struct {
-	ID                    string          `json:"id"`
+	ID                    trashid.TrashId `json:"id"`
 	AlbumCount            pgtype.Int8     `json:"album_count"`
 	ArtistPickTrackID     *string         `json:"artist_pick_track_id"`
 	Bio                   pgtype.Text     `json:"bio"`
