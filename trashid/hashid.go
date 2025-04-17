@@ -17,6 +17,9 @@ func init() {
 }
 
 func DecodeHashId(id string) (int, error) {
+	if val, err := strconv.Atoi(id); err == nil {
+		return val, nil
+	}
 	ids, err := hashIdUtil.DecodeWithError(id)
 	if err != nil {
 		return 0, err
