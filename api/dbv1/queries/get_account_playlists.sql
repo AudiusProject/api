@@ -31,4 +31,4 @@ WHERE (
         AND p.is_delete = FALSE
         AND p.playlist_id IN (SELECT save_item_id FROM saved_playlists))
 )
-ORDER BY created_at DESC;
+ORDER BY p.created_at DESC;
