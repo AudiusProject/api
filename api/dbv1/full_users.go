@@ -17,6 +17,7 @@ type FullUser struct {
 	ArtistPickTrackID *string         `json:"artist_pick_track_id"`
 	ProfilePicture    *SquareImage    `json:"profile_picture"`
 	CoverPhoto        *RectangleImage `json:"cover_photo"`
+	TrackSaveCount    *int64          `json:"track_save_count,omitempty"`
 }
 
 // Recursively process playlists in the library and hashify playlist_ids for
@@ -64,10 +65,13 @@ func (q *Queries) FullUsersKeyed(ctx context.Context, arg GetUsersParams) (map[i
 	userMap := map[int32]FullUser{}
 	for _, user := range rawUsers {
 
+		var trackSaveCount *int64 = nil
+
 		// playlist_library only populated for current user
 		if user.UserID != arg.MyID {
 			user.PlaylistLibrary = []byte("null")
 		} else {
+			trackSaveCount = &user.TrackSaveCount.Int64
 			processedLibrary, err := processPlaylistLibrary(user.PlaylistLibrary)
 			if err == nil {
 				user.PlaylistLibrary = processedLibrary
@@ -112,6 +116,7 @@ func (q *Queries) FullUsersKeyed(ctx context.Context, arg GetUsersParams) (map[i
 			ArtistPickTrackID: artistPickTrackID,
 			CoverPhoto:        coverPhoto,
 			ProfilePicture:    profilePicture,
+			TrackSaveCount:    trackSaveCount,
 		}
 	}
 

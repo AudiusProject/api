@@ -54,6 +54,7 @@ SELECT
   spl_usdc_payout_wallet,
   supporter_count,
   supporting_count,
+  track_save_count,
   wallet,
   balance,
   associated_wallets_balance,
@@ -174,6 +175,7 @@ type GetUsersRow struct {
 	SplUsdcPayoutWallet            pgtype.Text     `json:"spl_usdc_payout_wallet"`
 	SupporterCount                 int32           `json:"supporter_count"`
 	SupportingCount                int32           `json:"supporting_count"`
+	TrackSaveCount                 pgtype.Int8     `json:"track_save_count"`
 	Wallet                         pgtype.Text     `json:"wallet"`
 	Balance                        pgtype.Text     `json:"balance"`
 	AssociatedWalletsBalance       pgtype.Text     `json:"associated_wallets_balance"`
@@ -243,6 +245,7 @@ func (q *Queries) GetUsers(ctx context.Context, arg GetUsersParams) ([]GetUsersR
 			&i.SplUsdcPayoutWallet,
 			&i.SupporterCount,
 			&i.SupportingCount,
+			&i.TrackSaveCount,
 			&i.Wallet,
 			&i.Balance,
 			&i.AssociatedWalletsBalance,

@@ -39,6 +39,7 @@ SELECT
   spl_usdc_payout_wallet,
   supporter_count,
   supporting_count,
+  track_save_count,
   wallet,
   balance,
   associated_wallets_balance,

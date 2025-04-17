@@ -1,8 +1,6 @@
 package api
 
 import (
-	"encoding/json"
-
 	"bridgerton.audius.co/api/dbv1"
 	"github.com/gofiber/fiber/v2"
 )
@@ -42,30 +40,30 @@ func (app *ApiServer) v1UsersAccount(c *fiber.Ctx) error {
 		return sendError(c, 404, "wallet not found")
 	}
 
-	// this route does not have a non-full version...
-	// and also nests user under data.user
-	// and there are some additional fields
-	// so we don't use the v1UserResponse helper
-	todoEmptyArray := json.RawMessage([]byte(`[]`))
-
-	// Extract playlist_library from user record
-	playlistLibrary := users[0].PlaylistLibrary
-	// Create a copy of the user without playlist_library as it's a
-	// deprecated field and we will return it as a sibling
-	userWithoutLibrary := users[0]
-	userWithoutLibrary.PlaylistLibrary = nil
-
-	trackSaveCount, err := app.queries.GetExtendedAccountFields(c.Context(), userId)
+	playlists, err := app.queries.FullAccountPlaylists(c.Context(), userId)
 	if err != nil {
 		return err
 	}
 
+	// Extract playlist_library from user record
+	playlistLibrary := users[0].PlaylistLibrary
+	trackSaveCount := users[0].TrackSaveCount
+	// Create a copy of the user without playlist_library/track_save_count as
+	// they are deprecated fields and we will return them as siblings
+	userWithoutLibrary := users[0]
+	userWithoutLibrary.PlaylistLibrary = nil
+	userWithoutLibrary.TrackSaveCount = nil
+
+	// this route does not have a non-full version...
+	// and also nests user under data.user
+	// and there are some additional fields
+	// so we don't use the v1UserResponse helper
 	return c.JSON(fiber.Map{
 		"data": fiber.Map{
 			"track_save_count": trackSaveCount,
-			"playlists":        todoEmptyArray, // todo
+			"playlists":        playlists,
 			"playlist_library": playlistLibrary,
-			"user": userWithoutLibrary,
+			"user":             userWithoutLibrary,
 		},
 	})
 }
