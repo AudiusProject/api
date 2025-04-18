@@ -9,6 +9,7 @@ import (
 	"context"
 	"time"
 
+	"bridgerton.audius.co/trashid"
 	"github.com/jackc/pgx/v5/pgtype"
 )
 
@@ -28,16 +29,16 @@ ORDER BY created_at DESC
 `
 
 type GetDeveloperAppsParams struct {
-	UserID  pgtype.Int4 `json:"user_id"`
-	Address string      `json:"address"`
+	UserID  trashid.HashId `json:"user_id"`
+	Address string         `json:"address"`
 }
 
 type GetDeveloperAppsRow struct {
-	Address     string      `json:"address"`
-	UserID      pgtype.Int4 `json:"user_id"`
-	Name        string      `json:"name"`
-	Description pgtype.Text `json:"description"`
-	ImageUrl    pgtype.Text `json:"image_url"`
+	Address     string         `json:"address"`
+	UserID      trashid.HashId `json:"user_id"`
+	Name        string         `json:"name"`
+	Description pgtype.Text    `json:"description"`
+	ImageUrl    pgtype.Text    `json:"image_url"`
 }
 
 func (q *Queries) GetDeveloperApps(ctx context.Context, arg GetDeveloperAppsParams) ([]GetDeveloperAppsRow, error) {

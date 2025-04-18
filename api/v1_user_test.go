@@ -5,6 +5,7 @@ import (
 	"testing"
 
 	"bridgerton.audius.co/api/dbv1"
+	"bridgerton.audius.co/trashid"
 	"github.com/stretchr/testify/assert"
 )
 
@@ -23,5 +24,5 @@ func TestGetUser(t *testing.T) {
 
 	// but we also unmarshaled into userResponse
 	// for structured testing
-	assert.Equal(t, userResponse.Data[0].ID, "7eP5n")
+	assert.Equal(t, userResponse.Data[0].ID, trashid.HashId(1))
 }

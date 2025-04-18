@@ -9,6 +9,7 @@ import (
 	"context"
 	"time"
 
+	"bridgerton.audius.co/trashid"
 	"github.com/jackc/pgx/v5/pgtype"
 )
 
@@ -49,13 +50,13 @@ ORDER BY p.created_at DESC
 `
 
 type GetAccountPlaylistsRow struct {
-	PlaylistID    int32       `json:"playlist_id"`
-	IsAlbum       bool        `json:"is_album"`
-	PlaylistName  pgtype.Text `json:"playlist_name"`
-	UserID        int32       `json:"user_id"`
-	Handle        pgtype.Text `json:"handle"`
-	IsDeactivated bool        `json:"is_deactivated"`
-	CreatedAt     time.Time   `json:"created_at"`
+	PlaylistID    int32          `json:"playlist_id"`
+	IsAlbum       bool           `json:"is_album"`
+	PlaylistName  pgtype.Text    `json:"playlist_name"`
+	UserID        trashid.HashId `json:"user_id"`
+	Handle        pgtype.Text    `json:"handle"`
+	IsDeactivated bool           `json:"is_deactivated"`
+	CreatedAt     time.Time      `json:"created_at"`
 }
 
 func (q *Queries) GetAccountPlaylists(ctx context.Context, userID int32) ([]GetAccountPlaylistsRow, error) {

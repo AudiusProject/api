@@ -7,6 +7,8 @@ package dbv1
 
 import (
 	"context"
+
+	"bridgerton.audius.co/trashid"
 )
 
 const getUserForWallet = `-- name: GetUserForWallet :one
@@ -18,9 +20,9 @@ ORDER BY handle IS NOT NULL, created_at ASC
 LIMIT 1
 `
 
-func (q *Queries) GetUserForWallet(ctx context.Context, wallet string) (int32, error) {
+func (q *Queries) GetUserForWallet(ctx context.Context, wallet string) (trashid.HashId, error) {
 	row := q.db.QueryRow(ctx, getUserForWallet, wallet)
-	var user_id int32
+	var user_id trashid.HashId
 	err := row.Scan(&user_id)
 	return user_id, err
 }

@@ -43,7 +43,7 @@ func TestGetTrendingAllTime(t *testing.T) {
 	var resp struct {
 		Data []dbv1.FullTrack
 	}
-	status, _ := testGet(t, "/v1/tracks/trending?timeRange=allTime", &resp)
+	status, _ := testGet(t, "/v1/tracks/trending?time=allTime", &resp)
 	assert.Equal(t, 200, status)
 
 	assert.Equal(t, "eYJyn", resp.Data[0].ID)

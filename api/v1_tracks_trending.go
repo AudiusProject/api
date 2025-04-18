@@ -20,7 +20,7 @@ func (app *ApiServer) v1TracksTrending(c *fiber.Ctx) error {
 		AND tracks.is_available = true
 	WHERE type = 'TRACKS'
 		AND version = 'pnagD'
-		AND time_range = @timeRange
+		AND time_range = @time
 		AND (@genre = '' OR track_trending_scores.genre = @genre)
 	ORDER BY
 		score DESC,
@@ -32,7 +32,7 @@ func (app *ApiServer) v1TracksTrending(c *fiber.Ctx) error {
 	args := pgx.NamedArgs{}
 	args["limit"] = c.Query("limit", "100")
 	args["offset"] = c.Query("offset", "0")
-	args["timeRange"] = c.Query("timeRange", "week")
+	args["time"] = c.Query("time", "week")
 	args["genre"] = c.Query("genre", "")
 
 	rows, err := app.pool.Query(c.Context(), sql, args)

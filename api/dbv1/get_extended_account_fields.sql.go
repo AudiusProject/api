@@ -9,6 +9,7 @@ import (
 	"context"
 	"encoding/json"
 
+	"bridgerton.audius.co/trashid"
 	"github.com/jackc/pgx/v5/pgtype"
 )
 
@@ -26,7 +27,7 @@ type GetExtendedAccountFieldsRow struct {
 	TrackSaveCount  pgtype.Int8     `json:"track_save_count"`
 }
 
-func (q *Queries) GetExtendedAccountFields(ctx context.Context, userID int32) (GetExtendedAccountFieldsRow, error) {
+func (q *Queries) GetExtendedAccountFields(ctx context.Context, userID trashid.HashId) (GetExtendedAccountFieldsRow, error) {
 	row := q.db.QueryRow(ctx, getExtendedAccountFields, userID)
 	var i GetExtendedAccountFieldsRow
 	err := row.Scan(&i.PlaylistLibrary, &i.TrackSaveCount)

@@ -7,15 +7,35 @@ import (
 )
 
 type Config struct {
+	Env                string
 	DbUrl              string
 	DelegatePrivateKey string
 	AxiomToken         string
 	AxiomDataset       string
+	PythonUpstreams    []string
 }
 
 var Cfg = Config{
+	Env:                os.Getenv("ENV"),
 	DbUrl:              os.Getenv("discoveryDbUrl"),
 	DelegatePrivateKey: os.Getenv("delegatePrivateKey"),
 	AxiomToken:         os.Getenv("axiomToken"),
 	AxiomDataset:       os.Getenv("axiomDataset"),
+}
+
+func init() {
+	if os.Getenv("ENV") == "stage" {
+		Cfg.PythonUpstreams = []string{
+			"https://discoveryprovider.staging.audius.co",
+			"https://discoveryprovider2.staging.audius.co",
+			"https://discoveryprovider3.staging.audius.co",
+			"https://discoveryprovider5.staging.audius.co",
+		}
+	} else {
+		Cfg.PythonUpstreams = []string{
+			"https://discoveryprovider.audius.co",
+			"https://discoveryprovider2.audius.co",
+			"https://discoveryprovider3.audius.co",
+		}
+	}
 }
