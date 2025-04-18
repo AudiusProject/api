@@ -1,2 +1,3 @@
 playlist_id,playlist_name,playlist_owner_id,is_album,playlist_contents
 1,First,1,f,"{""track_ids"": [{""time"": 1722451644, ""track"": 200, ""metadata_time"": 1722451644},{""time"": 1722451644, ""track"": -1, ""metadata_time"": 1722451644},{""time"": 1722451644, ""track"": 300, ""metadata_time"": 1722451644}]}"
+2,SecondAlbum,1,t,"{""track_ids"": [{""time"": 1722451644, ""track"": 200, ""metadata_time"": 1722451644},{""time"": 1722451644, ""track"": -1, ""metadata_time"": 1722451644},{""time"": 1722451644, ""track"": 300, ""metadata_time"": 1722451644}]}"

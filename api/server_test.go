@@ -189,11 +189,9 @@ func testGetWithWallet(t *testing.T, path string, walletAddress string, dest ...
 
 	// Add signature headers if wallet address is provided
 	if walletAddress != "" {
-		sigData, exists := testdata.GetSignatureData(walletAddress)
-		if exists {
-			req.Header.Set("Encoded-Data-Message", sigData.Message)
-			req.Header.Set("Encoded-Data-Signature", sigData.Signature)
-		}
+		sigData := testdata.GetSignatureData(walletAddress)
+		req.Header.Set("Encoded-Data-Message", sigData.Message)
+		req.Header.Set("Encoded-Data-Signature", sigData.Signature)
 	}
 
 	res, err := app.Test(req, -1)

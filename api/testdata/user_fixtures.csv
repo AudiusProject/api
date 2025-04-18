@@ -1,5 +1,5 @@
 user_id,handle,handle_lc,is_deactivated,wallet,playlist_library
-1,rayjacobson,rayjacobson,f,0x7d273271690538cf855e5b3002a0dd8c154bb060,"{""contents"":[{""type"":""playlist123"",""playlist_id"":""123""},{""type"":""explore_playlist"",""playlist_id"":""Audio NFTs""},{""type"":""folder"",""id"":""bbcae31a-7cd2-4a1a-8b54-fdc979a34435"",""name"":""My Nested Playlists"",""contents"":[{""type"":""playlist"",""playlist_id"":""345""}]}]}"
+1,rayjacobson,rayjacobson,f,0x7d273271690538cf855e5b3002a0dd8c154bb060,"{""contents"":[{""type"":""playlist"",""playlist_id"":""123""},{""type"":""explore_playlist"",""playlist_id"":""Audio NFTs""},{""type"":""folder"",""id"":""bbcae31a-7cd2-4a1a-8b54-fdc979a34435"",""name"":""My Nested Playlists"",""contents"":[{""type"":""playlist"",""playlist_id"":""345""}]}]}"
 2,stereosteve,stereosteve,f,0x1234567890abcdef,
 3,someseller,someseller,f,0x234567890abcdef1,
 91,badguy,badguy,t,0x4567890abcdef123,

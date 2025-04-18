@@ -31,7 +31,6 @@ func (q *Queries) FullAccount(ctx context.Context, wallet string) (*FullAccount,
 	}
 
 	if len(users) == 0 {
-		// todo: better error? Need a 404 for this
 		return nil, pgx.ErrNoRows
 	}
 

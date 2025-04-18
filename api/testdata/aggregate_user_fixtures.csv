@@ -1,4 +1,4 @@
-user_id,follower_count,dominant_genre
-1,100,Electronic
-2,50,Electronic
-3,20,Electronic
+user_id,follower_count,dominant_genre,track_save_count
+1,100,Electronic,20
+2,50,Electronic,0
+3,20,Electronic,0

@@ -15,7 +15,10 @@ var TestSignatures = map[string]SignatureData{
 }
 
 // GetSignatureData returns the message and signature for a given test wallet address
-func GetSignatureData(walletAddress string) (SignatureData, bool) {
+func GetSignatureData(walletAddress string) SignatureData {
 	data, exists := TestSignatures[walletAddress]
-	return data, exists
+	if !exists {
+		panic("no signature data found for wallet address: " + walletAddress)
+	}
+	return data
 }
