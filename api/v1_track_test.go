@@ -19,3 +19,33 @@ func TestGetTrack(t *testing.T) {
 	assert.True(t, strings.Contains(string(body), `"title":"Culca Canyon"`))
 	assert.True(t, strings.Contains(string(body), `"id":"eYJyn"`))
 }
+
+func TestGetTrackFollowDownloadAcess(t *testing.T) {
+	var trackResponse struct {
+		Data dbv1.FullTrack
+	}
+	// No access
+	_, body1 := testGet(t, "/v1/full/tracks/eYRWn", &trackResponse)
+	assert.True(t, strings.Contains(string(body1), `"title":"Follow Gated Download"`))
+	assert.True(t, strings.Contains(string(body1), `"access":{"stream":true,"download":false}`))
+
+	// With access
+	_, body2 := testGet(t, "/v1/full/tracks/eYRWn?user_id=7eP5n", &trackResponse)
+	assert.True(t, strings.Contains(string(body2), `"title":"Follow Gated Download"`))
+	assert.True(t, strings.Contains(string(body2), `"access":{"stream":true,"download":true}`))
+}
+
+func TestGetTrackTipStreamAccess(t *testing.T) {
+	var trackResponse struct {
+		Data dbv1.FullTrack
+	}
+	// No access
+	_, body1 := testGet(t, "/v1/full/tracks/L5x7n", &trackResponse)
+	assert.True(t, strings.Contains(string(body1), `"title":"Tip Gated Stream"`))
+	assert.True(t, strings.Contains(string(body1), `"access":{"stream":false,"download":false}`))
+
+	// With access
+	_, body2 := testGet(t, "/v1/full/tracks/L5x7n?user_id=7eP5n", &trackResponse)
+	assert.True(t, strings.Contains(string(body2), `"title":"Tip Gated Stream"`))
+	assert.True(t, strings.Contains(string(body2), `"access":{"stream":true,"download":false}`))
+}

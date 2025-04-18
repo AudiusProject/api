@@ -1,6 +1,8 @@
 package dbv1
 
-import "context"
+import (
+	"context"
+)
 
 type Access struct {
 	Stream   bool `json:"stream"`

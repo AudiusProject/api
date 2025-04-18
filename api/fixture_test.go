@@ -127,6 +127,12 @@ var (
 		"is_delete":   false,
 		"chain":       nil,
 	}
+
+	aggregateUserTipsBaseRow = map[string]any{
+		"sender_user_id":   nil,
+		"receiver_user_id": nil,
+		"amount":           1000,
+	}
 )
 
 func insertFixtures(table string, baseRow map[string]any, csvFile string) {
