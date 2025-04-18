@@ -72,12 +72,12 @@ sql:
 
           - column: "tracks.stream_conditions"
             go_type:
-              type: "UsageConditions"
+              type: "AccessGate"
               pointer: true
 
           - column: "tracks.download_conditions"
             go_type:
-              type: "UsageConditions"
+              type: "AccessGate"
               pointer: true
 
           - column: "playlists.playlist_contents"

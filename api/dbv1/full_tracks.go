@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"fmt"
 
+	"bridgerton.audius.co/config"
 	"bridgerton.audius.co/trashid"
 	"github.com/jackc/pgx/v5/pgtype"
 )
@@ -23,11 +24,11 @@ type FullTrack struct {
 	UserID       string       `json:"user_id"`
 	User         FullUser     `json:"user"`
 
-	FolloweeReposts    []*FolloweeRepost    `json:"followee_reposts"`
-	FolloweeFavorites  []*FolloweeFavorite  `json:"followee_favorites"`
-	RemixOf            FullRemixOf          `json:"remix_of"`
-	StreamConditions   *FullUsageConditions `json:"stream_conditions"`
-	DownloadConditions *FullUsageConditions `json:"download_conditions"`
+	FolloweeReposts    []*FolloweeRepost   `json:"followee_reposts"`
+	FolloweeFavorites  []*FolloweeFavorite `json:"followee_favorites"`
+	RemixOf            FullRemixOf         `json:"remix_of"`
+	StreamConditions   *FullAccessGate     `json:"stream_conditions"`
+	DownloadConditions *FullAccessGate     `json:"download_conditions"`
 }
 
 func (q *Queries) FullTracksKeyed(ctx context.Context, arg GetTracksParams) (map[int32]FullTrack, error) {
@@ -37,7 +38,7 @@ func (q *Queries) FullTracksKeyed(ctx context.Context, arg GetTracksParams) (map
 	}
 
 	userIds := []int32{}
-	collectSplitUserIds := func(usage *UsageConditions) {
+	collectSplitUserIds := func(usage *AccessGate) {
 		if usage == nil || usage.UsdcPurchase == nil {
 			return
 		}
@@ -111,35 +112,6 @@ func (q *Queries) FullTracksKeyed(ctx context.Context, arg GetTracksParams) (map
 			}
 		}
 
-		toFullUsageConditions := func(usage *UsageConditions) *FullUsageConditions {
-			if usage == nil {
-				return nil
-			}
-			if usage.UsdcPurchase != nil {
-				priceInUsdc := usage.UsdcPurchase.Price * 10000
-				networkCut := priceInUsdc * 0.1
-				price := priceInUsdc - networkCut
-				splitMap := map[string]float64{
-					"7vGA3fcjvxa3A11MAxmyhFtYowPLLCNyvoxxgN3NN2Vf": networkCut,
-				}
-				for _, split := range track.DownloadConditions.UsdcPurchase.Splits {
-					user := userMap[split.UserID]
-					if user.PayoutWallet != "" {
-						splitMap[user.PayoutWallet] = price * (split.Percentage / 100)
-					}
-				}
-				return &FullUsageConditions{
-					UsdcPurchase: &FullUsdcPurchase{
-						Price:  usage.UsdcPurchase.Price,
-						Splits: splitMap,
-					},
-				}
-			}
-			return &FullUsageConditions{
-				UsageConditions: *usage,
-			}
-		}
-
 		fullTrack := FullTrack{
 			GetTracksRow:       track,
 			IsStreamable:       !track.IsDelete && !user.IsDeactivated,
@@ -153,8 +125,8 @@ func (q *Queries) FullTracksKeyed(ctx context.Context, arg GetTracksParams) (map
 			FolloweeFavorites:  fullFolloweeFavorites(track.FolloweeFavorites),
 			FolloweeReposts:    fullFolloweeReposts(track.FolloweeReposts),
 			RemixOf:            fullRemixOf,
-			StreamConditions:   toFullUsageConditions(track.StreamConditions),
-			DownloadConditions: toFullUsageConditions(track.DownloadConditions),
+			StreamConditions:   track.StreamConditions.toFullAccessGate(config.Cfg, userMap),
+			DownloadConditions: track.DownloadConditions.toFullAccessGate(config.Cfg, userMap),
 		}
 		trackMap[track.TrackID] = fullTrack
 	}
