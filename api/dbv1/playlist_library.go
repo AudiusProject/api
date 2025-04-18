@@ -102,6 +102,7 @@ func (pl *PlaylistLibrary) UnmarshalJSON(data []byte) error {
 
 	pl.Contents = make([]PlaylistLibraryItem, 0, len(rawLibrary.Contents))
 
+	// TODO: Move this into unmarshaler for item and share it between library/folder unmarshalers
 	for _, item := range rawLibrary.Contents {
 		// First, determine the type of item
 		var typeWrapper struct {
