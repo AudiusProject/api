@@ -2,7 +2,6 @@ package dbv1
 
 import (
 	"context"
-	"encoding/json"
 	"fmt"
 	"strings"
 
@@ -17,43 +16,6 @@ type FullUser struct {
 	ArtistPickTrackID *string         `json:"artist_pick_track_id"`
 	ProfilePicture    *SquareImage    `json:"profile_picture"`
 	CoverPhoto        *RectangleImage `json:"cover_photo"`
-	TrackSaveCount    *int64          `json:"track_save_count,omitempty"`
-}
-
-// Recursively process playlists in the library and hashify playlist_ids for
-// non-explore playlists.
-func processPlaylistLibraryItem(v any) any {
-	switch val := v.(type) {
-	case map[string]any:
-		// Handle playlist_id if this is a playlist
-		if playlistType, ok := val["type"].(string); ok && playlistType == "playlist" {
-			if playlistID, ok := val["playlist_id"].(float64); ok {
-				encodedID, _ := trashid.EncodeHashId(int(playlistID))
-				val["playlist_id"] = encodedID
-			}
-		}
-
-		// Process nested contents
-		if contents, ok := val["contents"].([]any); ok {
-			for i, item := range contents {
-				contents[i] = processPlaylistLibraryItem(item)
-			}
-		}
-		return val
-	default:
-		return v
-	}
-}
-
-// TODO: tests
-func processPlaylistLibrary(library []byte) ([]byte, error) {
-	var playlistLibrary any
-	if err := json.Unmarshal(library, &playlistLibrary); err != nil {
-		return nil, err
-	}
-
-	processedLibrary := processPlaylistLibraryItem(playlistLibrary)
-	return json.Marshal(processedLibrary)
 }
 
 func (q *Queries) FullUsersKeyed(ctx context.Context, arg GetUsersParams) (map[int32]FullUser, error) {
@@ -64,20 +26,6 @@ func (q *Queries) FullUsersKeyed(ctx context.Context, arg GetUsersParams) (map[i
 
 	userMap := map[int32]FullUser{}
 	for _, user := range rawUsers {
-
-		var trackSaveCount *int64 = nil
-
-		// playlist_library only populated for current user
-		if user.UserID != arg.MyID {
-			user.PlaylistLibrary = []byte("null")
-		} else {
-			trackSaveCount = &user.TrackSaveCount.Int64
-			processedLibrary, err := processPlaylistLibrary(user.PlaylistLibrary)
-			if err == nil {
-				user.PlaylistLibrary = processedLibrary
-			}
-		}
-
 		user.ID, _ = trashid.EncodeHashId(int(user.UserID))
 
 		// profile picture + cover photo
@@ -116,7 +64,6 @@ func (q *Queries) FullUsersKeyed(ctx context.Context, arg GetUsersParams) (map[i
 			ArtistPickTrackID: artistPickTrackID,
 			CoverPhoto:        coverPhoto,
 			ProfilePicture:    profilePicture,
-			TrackSaveCount:    trackSaveCount,
 		}
 	}
 

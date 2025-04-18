@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/json"
 
+	"bridgerton.audius.co/trashid"
 	"github.com/jackc/pgx/v5"
 )
 
@@ -12,6 +13,42 @@ type FullAccount struct {
 	Playlists       []FullAccountPlaylist `json:"playlists"`
 	PlaylistLibrary json.RawMessage       `json:"playlist_library"`
 	TrackSaveCount  int64                 `json:"track_save_count"`
+}
+
+// Recursively process playlists in the library and hashify playlist_ids for
+// non-explore playlists.
+func processPlaylistLibraryItem(v any) any {
+	switch val := v.(type) {
+	case map[string]any:
+		// Handle playlist_id if this is a playlist
+		if playlistType, ok := val["type"].(string); ok && playlistType == "playlist" {
+			if playlistID, ok := val["playlist_id"].(float64); ok {
+				encodedID, _ := trashid.EncodeHashId(int(playlistID))
+				val["playlist_id"] = encodedID
+			}
+		}
+
+		// Process nested contents
+		if contents, ok := val["contents"].([]any); ok {
+			for i, item := range contents {
+				contents[i] = processPlaylistLibraryItem(item)
+			}
+		}
+		return val
+	default:
+		return v
+	}
+}
+
+// TODO: tests
+func processPlaylistLibrary(library []byte) ([]byte, error) {
+	var playlistLibrary any
+	if err := json.Unmarshal(library, &playlistLibrary); err != nil {
+		return nil, err
+	}
+
+	processedLibrary := processPlaylistLibraryItem(playlistLibrary)
+	return json.Marshal(processedLibrary)
 }
 
 func (q *Queries) FullAccount(ctx context.Context, wallet string) (*FullAccount, error) {
@@ -39,19 +76,18 @@ func (q *Queries) FullAccount(ctx context.Context, wallet string) (*FullAccount,
 		return nil, err
 	}
 
-	// Extract playlist_library from user record
-	playlistLibrary := users[0].PlaylistLibrary
-	trackSaveCount := users[0].TrackSaveCount
-	// Create a copy of the user without playlist_library/track_save_count as
-	// they are deprecated fields and we will return them as siblings
-	userWithoutLibrary := users[0]
-	userWithoutLibrary.PlaylistLibrary = nil
-	userWithoutLibrary.TrackSaveCount = nil
+	accountFields, err := q.GetExtendedAccountFields(ctx, userId)
+
+	playlistLibrary, err := processPlaylistLibrary(accountFields.PlaylistLibrary)
+
+	if err != nil {
+		return nil, err
+	}
 
 	return &FullAccount{
-		User:            userWithoutLibrary,
+		User:            users[0],
 		Playlists:       playlists,
 		PlaylistLibrary: playlistLibrary,
-		TrackSaveCount:  *trackSaveCount,
+		TrackSaveCount:  accountFields.TrackSaveCount.Int64,
 	}, nil
 }

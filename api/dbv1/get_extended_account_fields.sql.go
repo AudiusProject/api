@@ -7,20 +7,28 @@ package dbv1
 
 import (
 	"context"
+	"encoding/json"
 
 	"github.com/jackc/pgx/v5/pgtype"
 )
 
 const getExtendedAccountFields = `-- name: GetExtendedAccountFields :one
 SELECT
+  playlist_library,
   track_save_count
-FROM aggregate_user
-WHERE user_id = $1
+FROM users
+JOIN aggregate_user ON users.user_id = aggregate_user.user_id
+WHERE users.user_id = $1
 `
 
-func (q *Queries) GetExtendedAccountFields(ctx context.Context, userID int32) (pgtype.Int8, error) {
+type GetExtendedAccountFieldsRow struct {
+	PlaylistLibrary json.RawMessage `json:"playlist_library"`
+	TrackSaveCount  pgtype.Int8     `json:"track_save_count"`
+}
+
+func (q *Queries) GetExtendedAccountFields(ctx context.Context, userID int32) (GetExtendedAccountFieldsRow, error) {
 	row := q.db.QueryRow(ctx, getExtendedAccountFields, userID)
-	var track_save_count pgtype.Int8
-	err := row.Scan(&track_save_count)
-	return track_save_count, err
+	var i GetExtendedAccountFieldsRow
+	err := row.Scan(&i.PlaylistLibrary, &i.TrackSaveCount)
+	return i, err
 }

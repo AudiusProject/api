@@ -39,7 +39,6 @@ SELECT
   spl_usdc_payout_wallet,
   supporter_count,
   supporting_count,
-  track_save_count,
   wallet,
   balance,
   associated_wallets_balance,
@@ -112,7 +111,6 @@ SELECT
   null as profile_picture_legacy, -- todo
 
   has_collectibles,
-  playlist_library,
   allow_ai_attribution
 
 FROM users u
