@@ -3,6 +3,7 @@ package dbv1
 import (
 	"encoding/json"
 	"fmt"
+	"runtime"
 
 	"bridgerton.audius.co/trashid"
 )
@@ -43,38 +44,46 @@ func (f *Folder) UnmarshalJSON(data []byte) error {
 		Contents []json.RawMessage `json:"contents"`
 	}
 	if err := json.Unmarshal(data, &raw); err != nil {
-		return err
+		_, file, line, _ := runtime.Caller(0)
+		return fmt.Errorf("%s:%d: %w", file, line, err)
 	}
 	f.Type = raw.Type
 	f.ID = raw.ID
 	f.Name = raw.Name
 	f.Contents = make([]PlaylistLibraryItem, 0, len(raw.Contents))
 	for _, item := range raw.Contents {
-		var itemType string
-		if err := json.Unmarshal(item, &itemType); err != nil {
-			return err
+		// First, determine the type of item
+		var typeWrapper struct {
+			Type string `json:"type"`
 		}
-		switch itemType {
+		if err := json.Unmarshal(item, &typeWrapper); err != nil {
+			_, file, line, _ := runtime.Caller(0)
+			return fmt.Errorf("%s:%d: %w", file, line, err)
+		}
+		switch typeWrapper.Type {
 		case "playlist":
 			var playlist RegularPlaylist
 			if err := json.Unmarshal(item, &playlist); err != nil {
-				return err
+				_, file, line, _ := runtime.Caller(0)
+				return fmt.Errorf("%s:%d: %w", file, line, err)
 			}
 			f.Contents = append(f.Contents, playlist)
 		case "explore_playlist":
 			var explorePlaylist ExplorePlaylist
 			if err := json.Unmarshal(item, &explorePlaylist); err != nil {
-				return err
+				_, file, line, _ := runtime.Caller(0)
+				return fmt.Errorf("%s:%d: %w", file, line, err)
 			}
 			f.Contents = append(f.Contents, explorePlaylist)
 		case "folder":
 			var folder Folder
 			if err := json.Unmarshal(item, &folder); err != nil {
-				return err
+				_, file, line, _ := runtime.Caller(0)
+				return fmt.Errorf("%s:%d: %w", file, line, err)
 			}
 			f.Contents = append(f.Contents, folder)
 		default:
-			return fmt.Errorf("unknown item type: %s", itemType)
+			return fmt.Errorf("unknown item type: %s", typeWrapper.Type)
 		}
 	}
 	return nil
@@ -87,7 +96,8 @@ func (pl *PlaylistLibrary) UnmarshalJSON(data []byte) error {
 
 	var rawLibrary RawLibrary
 	if err := json.Unmarshal(data, &rawLibrary); err != nil {
-		return err
+		_, file, line, _ := runtime.Caller(0)
+		return fmt.Errorf("%s:%d: %w", file, line, err)
 	}
 
 	pl.Contents = make([]PlaylistLibraryItem, 0, len(rawLibrary.Contents))
@@ -98,7 +108,8 @@ func (pl *PlaylistLibrary) UnmarshalJSON(data []byte) error {
 			Type string `json:"type"`
 		}
 		if err := json.Unmarshal(item, &typeWrapper); err != nil {
-			return err
+			_, file, line, _ := runtime.Caller(0)
+			return fmt.Errorf("%s:%d: %w", file, line, err)
 		}
 
 		// Parse based on the type
@@ -106,26 +117,22 @@ func (pl *PlaylistLibrary) UnmarshalJSON(data []byte) error {
 		case "playlist":
 			var playlist RegularPlaylist
 			if err := json.Unmarshal(item, &playlist); err != nil {
-				return err
+				_, file, line, _ := runtime.Caller(0)
+				return fmt.Errorf("%s:%d: %w", file, line, err)
 			}
 			pl.Contents = append(pl.Contents, playlist)
 		case "explore_playlist":
 			var explorePlaylist ExplorePlaylist
 			if err := json.Unmarshal(item, &explorePlaylist); err != nil {
-				return err
+				_, file, line, _ := runtime.Caller(0)
+				return fmt.Errorf("%s:%d: %w", file, line, err)
 			}
 			pl.Contents = append(pl.Contents, explorePlaylist)
 		case "folder":
-			type RawFolder struct {
-				Contents []json.RawMessage `json:"contents"`
-			}
-			var rawFolder RawFolder
-			if err := json.Unmarshal(item, &rawFolder); err != nil {
-				return err
-			}
 			var folder Folder
 			if err := json.Unmarshal(item, &folder); err != nil {
-				return err
+				_, file, line, _ := runtime.Caller(0)
+				return fmt.Errorf("%s:%d: %w", file, line, err)
 			}
 			pl.Contents = append(pl.Contents, folder)
 		default:

@@ -3,6 +3,7 @@ package dbv1
 import (
 	"context"
 	"encoding/json"
+	"fmt"
 
 	"github.com/jackc/pgx/v5"
 )
@@ -44,6 +45,7 @@ func (q *Queries) FullAccount(ctx context.Context, wallet string) (*FullAccount,
 	err = json.Unmarshal(accountFields.PlaylistLibrary, &playlistLibrary)
 
 	if err != nil {
+		fmt.Printf("error unmarshalling playlist library: %+v\n", err)
 		return nil, err
 	}
 
