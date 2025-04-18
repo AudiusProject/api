@@ -138,8 +138,7 @@ func TestPurchaseGateMath(t *testing.T) {
 	}
 
 	// test 4
-	// this fails because we don't distribute rounding error based on remainder...
-	if false {
+	{
 		gate := PurchaseGate{
 			Price: 202,
 			Splits: []struct {
