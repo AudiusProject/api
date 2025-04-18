@@ -40,12 +40,12 @@ sql:
           - column: "users.user_id"
             go_type:
               import: "bridgerton.audius.co/trashid"
-              type: "TrashId"
+              type: "HashId"
 
           - column: "developer_apps.user_id"
             go_type:
               import: "bridgerton.audius.co/trashid"
-              type: "TrashId"
+              type: "HashId"
 
           - column: "tracks.copyright_line"
             go_type:

@@ -151,7 +151,7 @@ type GetUsersRow struct {
 	FollowerCount                  pgtype.Int8     `json:"follower_count"`
 	FolloweeCount                  pgtype.Int8     `json:"followee_count"`
 	Handle                         pgtype.Text     `json:"handle"`
-	ID                             trashid.TrashId `json:"id"`
+	ID                             trashid.HashId  `json:"id"`
 	UserID                         int32           `json:"user_id"`
 	IsVerified                     bool            `json:"is_verified"`
 	TwitterHandle                  pgtype.Text     `json:"twitter_handle"`

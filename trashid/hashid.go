@@ -52,19 +52,28 @@ func MustEncodeHashID(id int) string {
 	return enc
 }
 
-type TrashId int
+// type alias for int that will do hashid on the way out the door
+type HashId int
 
-func (num TrashId) MarshalJSON() ([]byte, error) {
+func (num HashId) MarshalJSON() ([]byte, error) {
 	hid, err := EncodeHashId(int(num))
 	return []byte(`"` + hid + `"`), err
 }
 
-func (num *TrashId) UnmarshalJSON(data []byte) error {
-	idStr := strings.Trim(string(data), `"`)
-	id, err := DecodeHashId(idStr)
-	if err != nil {
-		return err
+func (num *HashId) UnmarshalJSON(data []byte) error {
+	// if we have a string, it should be hashid encoded
+	// so we decode to a number
+	if data[0] == '"' {
+		idStr := strings.Trim(string(data), `"`)
+		id, err := DecodeHashId(idStr)
+		if err != nil {
+			return err
+		}
+		*num = HashId(id)
+		return nil
 	}
-	*num = TrashId(id)
-	return nil
+	// if not a string parse to int
+	val, err := strconv.Atoi(string(data))
+	*num = HashId(val)
+	return err
 }

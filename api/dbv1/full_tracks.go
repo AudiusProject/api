@@ -14,14 +14,14 @@ type FullTracksParams GetTracksParams
 type FullTrack struct {
 	GetTracksRow
 
-	Permalink    string          `json:"permalink"`
-	IsStreamable bool            `json:"is_streamable"`
-	Artwork      *SquareImage    `json:"artwork"`
-	Stream       *MediaLink      `json:"stream"`
-	Download     *MediaLink      `json:"download"`
-	Preview      *MediaLink      `json:"preview"`
-	UserID       trashid.TrashId `json:"user_id"`
-	User         FullUser        `json:"user"`
+	Permalink    string         `json:"permalink"`
+	IsStreamable bool           `json:"is_streamable"`
+	Artwork      *SquareImage   `json:"artwork"`
+	Stream       *MediaLink     `json:"stream"`
+	Download     *MediaLink     `json:"download"`
+	Preview      *MediaLink     `json:"preview"`
+	UserID       trashid.HashId `json:"user_id"`
+	User         FullUser       `json:"user"`
 
 	FolloweeReposts   []*FolloweeRepost   `json:"followee_reposts"`
 	FolloweeFavorites []*FolloweeFavorite `json:"followee_favorites"`

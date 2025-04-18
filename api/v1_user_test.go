@@ -24,5 +24,5 @@ func TestGetUser(t *testing.T) {
 
 	// but we also unmarshaled into userResponse
 	// for structured testing
-	assert.Equal(t, userResponse.Data[0].ID, trashid.TrashId(1))
+	assert.Equal(t, userResponse.Data[0].ID, trashid.HashId(1))
 }
