@@ -10,6 +10,7 @@ import (
 	"fmt"
 	"time"
 
+	"bridgerton.audius.co/trashid"
 	"github.com/jackc/pgx/v5/pgtype"
 )
 
@@ -988,19 +989,19 @@ type DelistStatusCursor struct {
 }
 
 type DeveloperApp struct {
-	Address          string      `json:"address"`
-	Blockhash        pgtype.Text `json:"blockhash"`
-	Blocknumber      pgtype.Int4 `json:"blocknumber"`
-	UserID           pgtype.Int4 `json:"user_id"`
-	Name             string      `json:"name"`
-	IsPersonalAccess bool        `json:"is_personal_access"`
-	IsDelete         bool        `json:"is_delete"`
-	CreatedAt        time.Time   `json:"created_at"`
-	Txhash           string      `json:"txhash"`
-	IsCurrent        bool        `json:"is_current"`
-	UpdatedAt        time.Time   `json:"updated_at"`
-	Description      pgtype.Text `json:"description"`
-	ImageUrl         pgtype.Text `json:"image_url"`
+	Address          string         `json:"address"`
+	Blockhash        pgtype.Text    `json:"blockhash"`
+	Blocknumber      pgtype.Int4    `json:"blocknumber"`
+	UserID           trashid.HashId `json:"user_id"`
+	Name             string         `json:"name"`
+	IsPersonalAccess bool           `json:"is_personal_access"`
+	IsDelete         bool           `json:"is_delete"`
+	CreatedAt        time.Time      `json:"created_at"`
+	Txhash           string         `json:"txhash"`
+	IsCurrent        bool           `json:"is_current"`
+	UpdatedAt        time.Time      `json:"updated_at"`
+	Description      pgtype.Text    `json:"description"`
+	ImageUrl         pgtype.Text    `json:"image_url"`
 }
 
 // Tracks who has access to encrypted emails
@@ -1626,7 +1627,7 @@ type UsdcUserBankAccount struct {
 
 type User struct {
 	Blockhash              pgtype.Text     `json:"blockhash"`
-	UserID                 int32           `json:"user_id"`
+	UserID                 trashid.HashId  `json:"user_id"`
 	IsCurrent              bool            `json:"is_current"`
 	Handle                 pgtype.Text     `json:"handle"`
 	Wallet                 pgtype.Text     `json:"wallet"`

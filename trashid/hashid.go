@@ -3,6 +3,7 @@ package trashid
 import (
 	"errors"
 	"strconv"
+	"strings"
 
 	"github.com/speps/go-hashids/v2"
 )
@@ -49,4 +50,30 @@ func MustEncodeHashID(id int) string {
 		panic(err)
 	}
 	return enc
+}
+
+// type alias for int that will do hashid on the way out the door
+type HashId int
+
+func (num HashId) MarshalJSON() ([]byte, error) {
+	hid, err := EncodeHashId(int(num))
+	return []byte(`"` + hid + `"`), err
+}
+
+func (num *HashId) UnmarshalJSON(data []byte) error {
+	// if we have a string, it should be hashid encoded
+	// so we decode to a number
+	if data[0] == '"' {
+		idStr := strings.Trim(string(data), `"`)
+		id, err := DecodeHashId(idStr)
+		if err != nil {
+			return err
+		}
+		*num = HashId(id)
+		return nil
+	}
+	// if not a string parse to int
+	val, err := strconv.Atoi(string(data))
+	*num = HashId(val)
+	return err
 }

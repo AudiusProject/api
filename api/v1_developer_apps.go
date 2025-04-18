@@ -18,7 +18,7 @@ func (as *ApiServer) v1DeveloperApps(c *fiber.Ctx) error {
 		address = "0x" + address
 	}
 
-	developerApps, err := as.queries.FullDeveloperApps(c.Context(), dbv1.GetDeveloperAppsParams{
+	developerApps, err := as.queries.GetDeveloperApps(c.Context(), dbv1.GetDeveloperAppsParams{
 		Address: address,
 	})
 	if err != nil {
@@ -27,12 +27,6 @@ func (as *ApiServer) v1DeveloperApps(c *fiber.Ctx) error {
 
 	if len(developerApps) == 0 {
 		return fiber.NewError(fiber.StatusNotFound, "Developer app not found")
-	}
-
-	if !c.Locals("isFull").(bool) {
-		return c.JSON(fiber.Map{
-			"data": dbv1.ToMinDeveloperApps(developerApps)[0],
-		})
 	}
 
 	return c.JSON(fiber.Map{

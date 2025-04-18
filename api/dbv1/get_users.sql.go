@@ -10,6 +10,7 @@ import (
 	"encoding/json"
 	"time"
 
+	"bridgerton.audius.co/trashid"
 	"github.com/jackc/pgx/v5/pgtype"
 )
 
@@ -26,8 +27,8 @@ SELECT
   follower_count,
   following_count as followee_count,
   handle,
-  'hashid' as id,
-  u.user_id,
+  u.user_id as id,
+  u.user_id::int as user_id,
   is_verified,
   twitter_handle,
   instagram_handle,
@@ -150,7 +151,7 @@ type GetUsersRow struct {
 	FollowerCount                  pgtype.Int8     `json:"follower_count"`
 	FolloweeCount                  pgtype.Int8     `json:"followee_count"`
 	Handle                         pgtype.Text     `json:"handle"`
-	ID                             string          `json:"id"`
+	ID                             trashid.HashId  `json:"id"`
 	UserID                         int32           `json:"user_id"`
 	IsVerified                     bool            `json:"is_verified"`
 	TwitterHandle                  pgtype.Text     `json:"twitter_handle"`
