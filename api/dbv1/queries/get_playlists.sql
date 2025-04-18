@@ -10,6 +10,7 @@ SELECT
   p.is_private,
   p.is_scheduled_release,
   p.is_stream_gated,
+  p.stream_conditions,
   -- is_streamable,
 
   coalesce(playlist_image_sizes_multihash, playlist_image_multihash) as artwork,

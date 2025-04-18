@@ -22,6 +22,7 @@ type FullTrack struct {
 	Preview      *MediaLink     `json:"preview"`
 	UserID       trashid.HashId `json:"user_id"`
 	User         FullUser       `json:"user"`
+	Access       Access         `json:"access"`
 
 	FolloweeReposts   []*FolloweeRepost   `json:"followee_reposts"`
 	FolloweeFavorites []*FolloweeFavorite `json:"followee_favorites"`
@@ -101,6 +102,14 @@ func (q *Queries) FullTracksKeyed(ctx context.Context, arg GetTracksParams) (map
 			}
 		}
 
+		downloadAccess := q.GetTrackAccess(ctx, arg.MyID.(int32), track.DownloadConditions, &track, &user)
+		// if you can download it, you can stream it
+		streamAccess := downloadAccess || q.GetTrackAccess(ctx, arg.MyID.(int32), track.StreamConditions, &track, &user)
+		access := Access{
+			Download: downloadAccess,
+			Stream:   streamAccess,
+		}
+
 		fullTrack := FullTrack{
 			GetTracksRow:      track,
 			IsStreamable:      !track.IsDelete && !user.IsDeactivated,
@@ -114,6 +123,7 @@ func (q *Queries) FullTracksKeyed(ctx context.Context, arg GetTracksParams) (map
 			FolloweeFavorites: fullFolloweeFavorites(track.FolloweeFavorites),
 			FolloweeReposts:   fullFolloweeReposts(track.FolloweeReposts),
 			RemixOf:           fullRemixOf,
+			Access:            access,
 		}
 		trackMap[track.TrackID] = fullTrack
 	}

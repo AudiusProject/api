@@ -15,6 +15,7 @@ type FullPlaylist struct {
 	UserID  trashid.HashId `json:"user_id"`
 	User    FullUser       `json:"user"`
 	Tracks  []FullTrack    `json:"tracks"`
+	Access  Access         `json:"access"`
 
 	FolloweeReposts   []*FolloweeRepost          `json:"followee_reposts"`
 	FolloweeFavorites []*FolloweeFavorite        `json:"followee_favorites"`
@@ -84,6 +85,10 @@ func (q *Queries) FullPlaylistsKeyed(ctx context.Context, arg GetPlaylistsParams
 			})
 		}
 
+		// For playlists, download access is the same as stream access
+		streamAccess := q.GetPlaylistAccess(ctx, arg.MyID.(int32), playlist.StreamConditions, &playlist, &user)
+		downloadAccess := streamAccess
+
 		playlistMap[playlist.PlaylistID] = FullPlaylist{
 			GetPlaylistsRow:   playlist,
 			ID:                id,
@@ -95,6 +100,10 @@ func (q *Queries) FullPlaylistsKeyed(ctx context.Context, arg GetPlaylistsParams
 			FolloweeReposts:   fullFolloweeReposts(playlist.FolloweeReposts),
 			PlaylistContents:  fullPlaylistContents,
 			AddedTimestamps:   fullPlaylistContents,
+			Access: Access{
+				Stream:   streamAccess,
+				Download: downloadAccess,
+			},
 		}
 	}
 
