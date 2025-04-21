@@ -118,7 +118,6 @@ SELECT
   null as profile_picture_legacy, -- todo
 
   has_collectibles,
-  playlist_library,
   allow_ai_attribution
 
 FROM users u
