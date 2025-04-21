@@ -47,5 +47,5 @@ func TestGetTrackTipStreamAccess(t *testing.T) {
 	// With access
 	_, body2 := testGet(t, "/v1/full/tracks/L5x7n?user_id=ELKzn", &trackResponse)
 	assert.True(t, strings.Contains(string(body2), `"title":"Tip Gated Stream"`))
-	assert.True(t, strings.Contains(string(body2), `"access":{"stream":true,"download":false}`))
+	assert.True(t, strings.Contains(string(body2), `"access":{"stream":true,"download":true}`))
 }
