@@ -9,11 +9,13 @@ import (
 )
 
 func TestPlaylistsEndpoint(t *testing.T) {
+	app := fixturesTestApp(t)
+
 	var resp struct {
 		Data []dbv1.FullPlaylist
 	}
 
-	status, _ := testGet(t, "/v1/full/playlists?id=7eP5n", &resp)
+	status, _ := testGet(t, app, "/v1/full/playlists?id=7eP5n", &resp)
 	assert.Equal(t, 200, status)
 
 	pl := resp.Data[0]

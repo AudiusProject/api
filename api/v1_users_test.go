@@ -10,6 +10,8 @@ import (
 )
 
 func TestUserQuery(t *testing.T) {
+	app := fixturesTestApp(t)
+
 	// as anon
 	{
 		users, err := app.queries.FullUsers(t.Context(), dbv1.GetUsersParams{
@@ -65,11 +67,13 @@ func TestUserQuery(t *testing.T) {
 }
 
 func TestGetUsers(t *testing.T) {
+	app := fixturesTestApp(t)
+
 	var userResponse struct {
 		Data []dbv1.FullUser
 	}
 
-	status, body := testGet(t, "/v1/full/users?id=1", &userResponse)
+	status, body := testGet(t, app, "/v1/full/users?id=1", &userResponse)
 	assert.Equal(t, 200, status)
 
 	// body is response json
@@ -85,11 +89,13 @@ func TestGetUsers(t *testing.T) {
 }
 
 func TestFollowerEndpoint(t *testing.T) {
+	app := fixturesTestApp(t)
+
 	var userResponse struct {
 		Data []dbv1.FullUser
 	}
 
-	status, _ := testGet(t, "/v1/full/users/7eP5n/followers", &userResponse)
+	status, _ := testGet(t, app, "/v1/full/users/7eP5n/followers", &userResponse)
 	assert.Equal(t, 200, status)
 	// assert.Equal(t, userResponse.Data[0].ID, "ML51L")
 }

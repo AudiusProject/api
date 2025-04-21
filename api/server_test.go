@@ -1,23 +1,19 @@
 package api
 
 import (
-	"context"
 	"encoding/json"
 	"io"
 	"net/http/httptest"
-	"os"
 	"strings"
 	"testing"
 
-	"bridgerton.audius.co/config"
-	"github.com/jackc/pgx/v5"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
 
-var (
-	app *ApiServer
-)
+// var (
+// 	app *ApiServer
+// )
 
 func checkErr(err error) {
 	if err != nil {
@@ -25,70 +21,73 @@ func checkErr(err error) {
 	}
 }
 
-func TestMain(m *testing.M) {
-	ctx := context.Background()
-	var err error
+// func TestMain(m *testing.M) {
+// 	ctx := context.Background()
+// 	var err error
 
-	// create a test db from template
-	{
-		conn, err := pgx.Connect(ctx, "postgres://postgres:example@localhost:21300/postgres")
-		checkErr(err)
+// 	// create a test db from template
+// 	{
+// 		conn, err := pgx.Connect(ctx, "postgres://postgres:example@localhost:21300/postgres")
+// 		checkErr(err)
 
-		_, err = conn.Exec(ctx, "DROP DATABASE IF EXISTS test")
-		checkErr(err)
+// 		_, err = conn.Exec(ctx, "DROP DATABASE IF EXISTS test")
+// 		checkErr(err)
 
-		_, err = conn.Exec(ctx, "CREATE DATABASE test TEMPLATE postgres")
-		checkErr(err)
-	}
+// 		_, err = conn.Exec(ctx, "CREATE DATABASE test TEMPLATE postgres")
+// 		checkErr(err)
+// 	}
 
-	app = NewApiServer(config.Config{
-		DbUrl: "postgres://postgres:example@localhost:21300/test",
-	})
+// 	app = NewApiServer(config.Config{
+// 		DbUrl: "postgres://postgres:example@localhost:21300/test",
+// 	})
 
-	// seed db
+// 	// seed db
 
-	// stupid block fixture
-	_, err = app.pool.Exec(ctx, `
-	INSERT INTO public.blocks (
-		blockhash,
-		parenthash,
-		is_current,
-		number
-	) VALUES (
-		'block1',   -- blockhash
-		'block0',   -- parenthash
-		true,
-		101
-	);
-	`)
-	checkErr(err)
+// 	// stupid block fixture
+// 	_, err = app.pool.Exec(ctx, `
+// 	INSERT INTO public.blocks (
+// 		blockhash,
+// 		parenthash,
+// 		is_current,
+// 		number
+// 	) VALUES (
+// 		'block1',   -- blockhash
+// 		'block0',   -- parenthash
+// 		true,
+// 		101
+// 	);
+// 	`)
+// 	checkErr(err)
 
-	insertFixtures("aggregate_user", map[string]any{}, "testdata/aggregate_user_fixtures.csv")
-	insertFixtures("users", userBaseRow, "testdata/user_fixtures.csv")
-	insertFixtures("tracks", trackBaseRow, "testdata/track_fixtures.csv")
-	insertFixtures("playlists", playlistBaseRow, "testdata/playlist_fixtures.csv")
-	insertFixtures("follows", followBaseRow, "testdata/follow_fixtures.csv")
-	insertFixtures("reposts", repostBaseRow, "testdata/repost_fixtures.csv")
-	insertFixtures("developer_apps", developerAppBaseRow, "testdata/developer_app_fixtures.csv")
-	insertFixtures("track_trending_scores", trackTrendingScoreBaseRow, "testdata/track_trending_scores_fixtures.csv")
-	insertFixtures("associated_wallets", connectedWalletsBaseRow, "testdata/connected_wallets_fixtures.csv")
-	insertFixtures("aggregate_user_tips", aggregateUserTipsBaseRow, "testdata/aggregate_user_tips_fixtures.csv")
+// 	insertFixtures("aggregate_user", map[string]any{}, "testdata/aggregate_user_fixtures.csv")
+// 	insertFixtures("users", userBaseRow, "testdata/user_fixtures.csv")
+// 	insertFixtures("tracks", trackBaseRow, "testdata/track_fixtures.csv")
+// 	insertFixtures("playlists", playlistBaseRow, "testdata/playlist_fixtures.csv")
+// 	insertFixtures("follows", followBaseRow, "testdata/follow_fixtures.csv")
+// 	insertFixtures("reposts", repostBaseRow, "testdata/repost_fixtures.csv")
+// 	insertFixtures("developer_apps", developerAppBaseRow, "testdata/developer_app_fixtures.csv")
+// 	insertFixtures("track_trending_scores", trackTrendingScoreBaseRow, "testdata/track_trending_scores_fixtures.csv")
+// 	insertFixtures("associated_wallets", connectedWalletsBaseRow, "testdata/connected_wallets_fixtures.csv")
+// 	insertFixtures("aggregate_user_tips", aggregateUserTipsBaseRow, "testdata/aggregate_user_tips_fixtures.csv")
 
-	// index to es / os
+// 	// index to es / os
 
-	code := m.Run()
+// 	code := m.Run()
 
-	// shutdown()
-	os.Exit(code)
-}
+// 	// shutdown()
+// 	os.Exit(code)
+// }
 
 func TestHome(t *testing.T) {
-	status, body := testGet(t, "/")
+	app := emptyTestApp(t)
+	status, body := testGet(t, app, "/")
 	assert.Equal(t, 200, status)
 	assert.True(t, strings.Contains(string(body), "uptime"))
 }
 
 func Test200(t *testing.T) {
+	app := fixturesTestApp(t)
+
 	urls := []string{
 		"/v1/full/users?id=7eP5n&id=_some_invalid_hash_id",
 
@@ -134,7 +133,7 @@ func Test200(t *testing.T) {
 	}
 
 	for _, u := range urls {
-		status, body := testGet(t, u)
+		status, body := testGet(t, app, u)
 		require.Equal(t, 200, status, u+" "+string(body))
 
 		// also test as a user
@@ -144,12 +143,12 @@ func Test200(t *testing.T) {
 			u += "?user_id=7eP5n"
 		}
 
-		status, _ = testGet(t, u)
+		status, _ = testGet(t, app, u)
 		require.Equal(t, 200, status, u+" "+string(body))
 	}
 }
 
-func testGet(t *testing.T, path string, dest ...any) (int, []byte) {
+func testGet(t *testing.T, app *ApiServer, path string, dest ...any) (int, []byte) {
 	req := httptest.NewRequest("GET", path, nil)
 	res, err := app.Test(req, -1)
 	assert.NoError(t, err)

@@ -11,7 +11,7 @@ SET idle_in_transaction_session_timeout = 0;
 SET transaction_timeout = 0;
 SET client_encoding = 'UTF8';
 SET standard_conforming_strings = on;
-SELECT pg_catalog.set_config('search_path', '', false);
+-- SELECT pg_catalog.set_config('search_path', '', false);
 SET check_function_bodies = false;
 SET xmloption = content;
 SET client_min_messages = warning;
@@ -35,56 +35,56 @@ CREATE SCHEMA hashids;
 -- Name: amcheck; Type: EXTENSION; Schema: -; Owner: -
 --
 
-CREATE EXTENSION IF NOT EXISTS amcheck WITH SCHEMA public;
+-- CREATE EXTENSION IF NOT EXISTS amcheck WITH SCHEMA public;
 
 
 --
 -- Name: EXTENSION amcheck; Type: COMMENT; Schema: -; Owner: -
 --
 
-COMMENT ON EXTENSION amcheck IS 'functions for verifying relation integrity';
+-- COMMENT ON EXTENSION amcheck IS 'functions for verifying relation integrity';
 
 
 --
 -- Name: pg_stat_statements; Type: EXTENSION; Schema: -; Owner: -
 --
 
-CREATE EXTENSION IF NOT EXISTS pg_stat_statements WITH SCHEMA public;
+-- CREATE EXTENSION IF NOT EXISTS pg_stat_statements WITH SCHEMA public;
 
 
 --
 -- Name: EXTENSION pg_stat_statements; Type: COMMENT; Schema: -; Owner: -
 --
 
-COMMENT ON EXTENSION pg_stat_statements IS 'track planning and execution statistics of all SQL statements executed';
+-- COMMENT ON EXTENSION pg_stat_statements IS 'track planning and execution statistics of all SQL statements executed';
 
 
 --
 -- Name: pg_trgm; Type: EXTENSION; Schema: -; Owner: -
 --
 
-CREATE EXTENSION IF NOT EXISTS pg_trgm WITH SCHEMA public;
+-- CREATE EXTENSION IF NOT EXISTS pg_trgm WITH SCHEMA public;
 
 
 --
 -- Name: EXTENSION pg_trgm; Type: COMMENT; Schema: -; Owner: -
 --
 
-COMMENT ON EXTENSION pg_trgm IS 'text similarity measurement and index searching based on trigrams';
+-- COMMENT ON EXTENSION pg_trgm IS 'text similarity measurement and index searching based on trigrams';
 
 
 --
 -- Name: tsm_system_rows; Type: EXTENSION; Schema: -; Owner: -
 --
 
-CREATE EXTENSION IF NOT EXISTS tsm_system_rows WITH SCHEMA public;
+-- CREATE EXTENSION IF NOT EXISTS tsm_system_rows WITH SCHEMA public;
 
 
 --
 -- Name: EXTENSION tsm_system_rows; Type: COMMENT; Schema: -; Owner: -
 --
 
-COMMENT ON EXTENSION tsm_system_rows IS 'TABLESAMPLE method which accepts number of rows as a limit';
+-- COMMENT ON EXTENSION tsm_system_rows IS 'TABLESAMPLE method which accepts number of rows as a limit';
 
 
 --
@@ -933,8 +933,8 @@ BEGIN
       -- Logging the action
       RAISE NOTICE 'Adding foreign key constraint to table %', _table_name;
 
-      EXECUTE format('ALTER TABLE %s ADD CONSTRAINT %s FOREIGN KEY (blocknumber) REFERENCES blocks (number) ON DELETE CASCADE', 
-                     quote_ident(_table_name), 
+      EXECUTE format('ALTER TABLE %s ADD CONSTRAINT %s FOREIGN KEY (blocknumber) REFERENCES blocks (number) ON DELETE CASCADE',
+                     quote_ident(_table_name),
                      quote_ident(_table_name || '_blocknumber_fkey'));
 
    END LOOP;
@@ -1536,9 +1536,9 @@ BEGIN
       -- Logging the deletion
       RAISE NOTICE 'Deleting rows from table % where is_current is false', _table_name;
 
-      EXECUTE format('DELETE FROM %s WHERE is_current = false', 
+      EXECUTE format('DELETE FROM %s WHERE is_current = false',
                      quote_ident(_table_name));
-                     
+
    END LOOP;
 END
 $$;
@@ -1558,7 +1558,7 @@ BEGIN
    LOOP
       RAISE NOTICE 'Deleting rows from table % where is_current is false', _table_name;
 
-      EXECUTE format('DELETE FROM %s WHERE is_current = false', 
+      EXECUTE format('DELETE FROM %s WHERE is_current = false',
                      quote_ident(_table_name));
 
    END LOOP;
@@ -1579,11 +1579,11 @@ BEGIN
    FOREACH _table_name IN ARRAY _table_names
    LOOP
       RAISE NOTICE 'Dropping foreign key constraint to table %', _table_name;
-      EXECUTE format('LOCK TABLE %s IN ACCESS EXCLUSIVE MODE', 
+      EXECUTE format('LOCK TABLE %s IN ACCESS EXCLUSIVE MODE',
                      quote_ident(_table_name));
 
-      EXECUTE format('ALTER TABLE %s DROP CONSTRAINT IF EXISTS %s', 
-                     quote_ident(_table_name), 
+      EXECUTE format('ALTER TABLE %s DROP CONSTRAINT IF EXISTS %s',
+                     quote_ident(_table_name),
                      quote_ident(_table_name || '_blocknumber_fkey'));
 
    END LOOP;
@@ -1727,14 +1727,14 @@ begin
   select * into reward_manager_tx from reward_manager_txs where reward_manager_txs.signature = new.signature limit 1;
 
   if reward_manager_tx is not null then
-		select id into existing_notification 
+		select id into existing_notification
 		from notification
 		where
 		type = 'challenge_reward' and
 		new.user_id = any(user_ids) and
 		timestamp >= (new.created_at - interval '1 hour')
 		limit 1;
-		
+
 		if existing_notification is null then
 			-- create a notification for the challenge disbursement
 			insert into notification
@@ -1772,14 +1772,14 @@ CREATE FUNCTION public.handle_comment() RETURNS trigger
     AS $$
 begin
   if new.entity_type = 'Track' then
-    insert into aggregate_track (track_id) 
-    values (new.entity_id) 
+    insert into aggregate_track (track_id)
+    values (new.entity_id)
     on conflict do nothing;
   end if;
 
   -- update agg track
   if new.entity_type = 'Track' then
-    update aggregate_track 
+    update aggregate_track
     set comment_count = (
       select count(*)
       from comments c
@@ -1817,12 +1817,12 @@ declare
 begin
   select comments.user_id, comments.entity_id, comments.entity_type
   into comment_user_id , entity_id, entity_type
-  from comments 
+  from comments
   where comment_id = new.comment_id;
 
-  select tracks.owner_id 
-  into entity_user_id 
-  from tracks 
+  select tracks.owner_id
+  into entity_user_id
+  from tracks
   where track_id = entity_id;
 
   begin
@@ -1830,10 +1830,10 @@ begin
       insert into notification
         (blocknumber, user_ids, timestamp, type, specifier, group_id, data)
         values
-        ( 
+        (
           new.blocknumber,
-          ARRAY [new.user_id], 
-          new.created_at, 
+          ARRAY [new.user_id],
+          new.created_at,
           'comment_mention',
           comment_user_id,
           'comment_mention:' || entity_id || ':type:' || entity_type,
@@ -1876,25 +1876,25 @@ declare
   created_at timestamp without time zone;
   notification_muted boolean;
 begin
-  select comments.user_id, comments.entity_id, comments.entity_type 
-  into parent_comment_user_id, entity_id, entity_type 
-  from comments 
+  select comments.user_id, comments.entity_id, comments.entity_type
+  into parent_comment_user_id, entity_id, entity_type
+  from comments
   where comment_id = new.parent_comment_id;
 
   select comments.user_id, comments.blocknumber, comments.created_at
   into comment_user_id, blocknumber, created_at
-  from comments 
+  from comments
   where comment_id = new.comment_id;
 
-  select tracks.owner_id 
-  into entity_user_id 
-  from tracks 
+  select tracks.owner_id
+  into entity_user_id
+  from tracks
   where track_id = entity_id;
 
   select comment_notification_settings.is_muted
   into notification_muted
   from comment_notification_settings
-  where user_id = parent_comment_user_id 
+  where user_id = parent_comment_user_id
   and comment_notification_settings.entity_id = new.parent_comment_id
   and comment_notification_settings.entity_type = 'Comment';
 
@@ -1903,10 +1903,10 @@ begin
       insert into notification
         (blocknumber, user_ids, timestamp, type, specifier, group_id, data)
         values
-        ( 
+        (
           blocknumber,
           ARRAY [parent_comment_user_id],
-          created_at, 
+          created_at,
           'comment_thread',
           comment_user_id,
           'comment_thread:' || new.parent_comment_id,
@@ -1955,11 +1955,11 @@ begin
     delta := 1;
   end if;
 
-  update aggregate_user 
-  set following_count = following_count + delta 
+  update aggregate_user
+  set following_count = following_count + delta
   where user_id = new.follower_user_id;
 
-  update aggregate_user 
+  update aggregate_user
   set follower_count = follower_count + delta
   where user_id = new.followee_user_id
   returning follower_count into new_follower_count;
@@ -1968,7 +1968,7 @@ begin
   select new_follower_count into milestone where new_follower_count in (10, 25, 50, 100, 250, 500, 1000, 5000, 10000, 20000, 50000, 100000, 1000000);
   select score < 0 into is_shadowbanned from aggregate_user where user_id = new.follower_user_id;
   if milestone is not null and new.is_delete is false and is_shadowbanned = false then
-      insert into milestones 
+      insert into milestones
         (id, name, threshold, blocknumber, slot, timestamp)
       values
         (new.followee_user_id, 'FOLLOWER_COUNT', milestone, new.blocknumber, new.slot, new.created_at)
@@ -2017,7 +2017,7 @@ exception
     raise warning 'An error occurred in %: %', tg_name, sqlerrm;
     raise;
 
-end; 
+end;
 $$;
 
 
@@ -2073,7 +2073,7 @@ begin
                 'challenge_reward',
                 'challenge_reward:' || new.user_id || ':challenge:' || new.challenge_id || ':specifier:' || new.specifier,
                 new.user_id,
-                case 
+                case
                     when new.challenge_id = 'e' then
                         json_build_object(
                             'specifier', new.specifier,
@@ -2091,9 +2091,9 @@ begin
             )
             on conflict do nothing;
         else
-            -- transactional notifications cover this 
+            -- transactional notifications cover this
             if (new.challenge_id != 'b' and new.challenge_id != 's') then
-                select id into existing_notification 
+                select id into existing_notification
                 from notification
                 where
                 type = 'reward_in_cooldown' and
@@ -2143,7 +2143,7 @@ begin
     insert into aggregate_plays (play_item_id, count) values (new.play_item_id, 0) on conflict do nothing;
 
     update aggregate_plays
-        set count = count + 1 
+        set count = count + 1
         where play_item_id = new.play_item_id
         returning count into new_listen_count;
 
@@ -2159,8 +2159,8 @@ begin
         and country = coalesce(new.country, '')
         returning count into new_listen_count;
 
-    select new_listen_count 
-        into milestone 
+    select new_listen_count
+        into milestone
         where new_listen_count in (10,25,50,100,250,500,1000,2500,5000,10000,25000,50000,100000,250000,500000,1000000);
 
     if milestone is not null then
@@ -2361,7 +2361,7 @@ begin
           json_build_object('track_id', new.track_id, 'playlist_id', new.playlist_id, 'playlist_owner_id', playlist_record.playlist_owner_id)
         from album_purchasers as album_purchaser;
   end if;
-  
+
   return null;
 
 exception
@@ -2388,16 +2388,16 @@ declare
 begin
 
   raise NOTICE 'start';
-  
+
   if new.reaction_type = 'tip' then
 
     raise NOTICE 'is tip';
 
-    SELECT amount, sender_user_id, receiver_user_id 
-    INTO tip_amount, tip_sender_user_id, tip_receiver_user_id 
-    FROM user_tips ut 
+    SELECT amount, sender_user_id, receiver_user_id
+    INTO tip_amount, tip_sender_user_id, tip_receiver_user_id
+    FROM user_tips ut
     WHERE ut.signature = new.reacted_to;
-    
+
     raise NOTICE 'did select % %', tip_sender_user_id, tip_receiver_user_id;
     raise NOTICE 'did select %', new.reacted_to;
 
@@ -2492,7 +2492,7 @@ begin
   end if;
 
   -- update agg user
-  update aggregate_user 
+  update aggregate_user
   set repost_count = (
     select count(*)
     from reposts r
@@ -2505,7 +2505,7 @@ begin
   -- update agg track or playlist
   if new.repost_type = 'track' then
     milestone_name := 'TRACK_REPOST_COUNT';
-    update aggregate_track 
+    update aggregate_track
     set repost_count = (
       select count(*)
       from reposts r
@@ -2531,7 +2531,7 @@ begin
           and r.is_delete is false
           and r.repost_type = new.repost_type
           and r.repost_item_id = new.repost_item_id
-    )    
+    )
     where playlist_id = new.repost_item_id
     returning repost_count into new_val;
 
@@ -2545,7 +2545,7 @@ begin
   select score < 0 into is_shadowbanned from aggregate_user where user_id = new.user_id;
 
   if new.is_delete = false and milestone is not null and owner_user_id is not null and is_shadowbanned = false then
-    insert into milestones 
+    insert into milestones
       (id, name, threshold, blocknumber, slot, timestamp)
     values
       (new.repost_item_id, milestone_name, milestone, new.blocknumber, new.slot, new.created_at)
@@ -2646,7 +2646,7 @@ begin
 				'user_id',
 				new.user_id,
 				'type',
-        case 
+        case
           when is_album then 'album'
           else new.repost_type
         end
@@ -2750,7 +2750,7 @@ begin
     where p.playlist_id = new.save_item_id
     and p.is_current
     on conflict do nothing;
-    
+
     select ap.is_album into is_album
     from aggregate_playlist ap
     where ap.playlist_id = new.save_item_id;
@@ -2775,7 +2775,7 @@ begin
   if new.save_type = 'track' then
     milestone_name := 'TRACK_SAVE_COUNT';
 
-    update aggregate_track 
+    update aggregate_track
     set save_count = (
       select count(*)
       from saves r
@@ -2789,7 +2789,7 @@ begin
     returning save_count into new_val;
 
     -- update agg user
-    update aggregate_user 
+    update aggregate_user
     set track_save_count = (
       select count(*)
       from saves r
@@ -2799,7 +2799,7 @@ begin
         and r.save_type = new.save_type
     )
     where user_id = new.user_id;
-    
+
   	if new.is_delete IS FALSE then
 		  select tracks.owner_id, tracks.remix_of into owner_user_id, track_remix_of from tracks where is_current and track_id = new.save_item_id;
 	  end if;
@@ -2830,7 +2830,7 @@ begin
   select score < 0 into is_shadowbanned from aggregate_user where user_id = new.user_id;
 
   if new.is_delete = false and milestone is not null and is_shadowbanned = false then
-    insert into milestones 
+    insert into milestones
       (id, name, threshold, blocknumber, slot, timestamp)
     values
       (new.save_item_id, milestone_name, milestone, new.blocknumber, new.slot, new.created_at)
@@ -2874,10 +2874,10 @@ begin
       insert into notification
         (blocknumber, user_ids, timestamp, type, specifier, group_id, data)
         values
-        ( 
+        (
           new.blocknumber,
-          ARRAY [owner_user_id], 
-          new.created_at, 
+          ARRAY [owner_user_id],
+          new.created_at,
           'save',
           new.user_id,
           'save:' || new.save_item_id || ':type:'|| new.save_type,
@@ -2936,7 +2936,7 @@ begin
           'user_id',
           new.user_id,
           'type',
-          case 
+          case
             when is_album then 'album'
             else new.save_type
           end
@@ -2950,16 +2950,16 @@ begin
     if new.is_delete is false and new.save_type = 'track' and track_remix_of is not null and is_shadowbanned = false then
       select
         case when tracks.owner_id = new.user_id then TRUE else FALSE end as boolean into is_remix_cosign
-        from tracks 
+        from tracks
         where is_current and track_id = (track_remix_of->'tracks'->0->>'parent_track_id')::int;
       if is_remix_cosign then
         insert into notification
           (blocknumber, user_ids, timestamp, type, specifier, group_id, data)
           values
-          ( 
+          (
             new.blocknumber,
-            ARRAY [owner_user_id], 
-            new.created_at, 
+            ARRAY [owner_user_id],
+            new.created_at,
             'cosign',
             new.user_id,
             'cosign:parent_track' || (track_remix_of->'tracks'->0->>'parent_track_id')::int || ':original_track:'|| new.save_item_id,
@@ -2981,7 +2981,7 @@ exception
       raise warning 'An error occurred in %: %', tg_name, sqlerrm;
       raise;
 
-end; 
+end;
 $$;
 
 
@@ -3209,7 +3209,7 @@ begin
     when others then
         raise warning 'An error occurred in %: %', tg_name, sqlerrm;
         return null;
-end; 
+end;
 $$;
 
 
@@ -3308,7 +3308,7 @@ begin
   ) as tier (label, val)
   WHERE
     substr(new.current_balance, 1, GREATEST(1, length(new.current_balance) - 18))::bigint >= tier.val
-  ORDER BY 
+  ORDER BY
     tier.val DESC
   limit 1;
 
@@ -3318,7 +3318,7 @@ begin
   ) as tier (label, val)
   WHERE
     substr(new.previous_balance, 1, GREATEST(1, length(new.previous_balance) - 18))::bigint >= tier.val
-  ORDER BY 
+  ORDER BY
     tier.val DESC
   limit 1;
 
@@ -3327,10 +3327,10 @@ begin
     insert into notification
       (blocknumber, user_ids, timestamp, type, specifier, group_id, data)
     values
-      ( 
+      (
         new.blocknumber,
-        ARRAY [new.user_id], 
-        new.updated_at, 
+        ARRAY [new.user_id],
+        new.updated_at,
         'tier_change',
         new.user_id,
         'tier_change:user_id:' || new.user_id ||  ':tier:' || new_tier || ':blocknumber:' || new.blocknumber,
@@ -3366,10 +3366,10 @@ begin
   insert into notification
     (slot, user_ids, timestamp, type, specifier, group_id, data)
   values
-    ( 
+    (
       new.slot,
-      ARRAY [new.receiver_user_id], 
-      new.created_at, 
+      ARRAY [new.receiver_user_id],
+      new.created_at,
       'tip_receive',
       new.receiver_user_id,
       'tip_receive:user_id:' || new.receiver_user_id || ':signature:' || new.signature,
@@ -3380,10 +3380,10 @@ begin
         'tx_signature', new.signature
       )
     ),
-    ( 
+    (
       new.slot,
-      ARRAY [new.sender_user_id], 
-      new.created_at, 
+      ARRAY [new.sender_user_id],
+      new.created_at,
       'tip_send',
       new.sender_user_id,
       'tip_send:user_id:' || new.sender_user_id || ':signature:' || new.signature,
@@ -3809,7 +3809,7 @@ CREATE FUNCTION public.on_new_notification_row() RETURNS trigger
 begin
   PERFORM pg_notify(TG_TABLE_NAME, json_build_object('notification_id', new.id)::text);
   return null;
-end; 
+end;
 $$;
 
 
@@ -3823,7 +3823,7 @@ CREATE FUNCTION public.on_new_notification_seen_row() RETURNS trigger
 begin
   PERFORM pg_notify(TG_TABLE_NAME, json_build_object('user_id', new.user_id)::text);
   return null;
-end; 
+end;
 $$;
 
 
@@ -3862,7 +3862,7 @@ declare
 begin
     -- fetch the user_id where wallet matches grantee_address
     select user_id into matched_user_id from users where lower(wallet) = lower(NEW.grantee_address);
-    
+
     if matched_user_id is not null then
         -- if the grant is newly created (i.e. the grant is not deleted, is not approved yet, and was just created indicated by created timestamp = last updated timestamp) OR grant went from deleted (revoked) to not deleted and is not approved yet...
         if (TG_OP = 'INSERT' and NEW.is_revoked = FALSE and NEW.is_approved is null and NEW.created_at = NEW.updated_at or
@@ -3916,7 +3916,7 @@ exception
   when others then
       raise warning 'An error occurred in %: %', tg_name, sqlerrm;
       return null;
-end; 
+end;
 $$;
 
 

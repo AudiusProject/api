@@ -9,6 +9,8 @@ import (
 )
 
 func TestRecoverAuthorityFromSignatureHeaders(t *testing.T) {
+	app := fixturesTestApp(t)
+
 	var userId int32
 	var wallet string
 

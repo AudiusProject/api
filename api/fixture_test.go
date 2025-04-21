@@ -136,7 +136,7 @@ var (
 	}
 )
 
-func insertFixtures(table string, baseRow map[string]any, csvFile string) {
+func insertFixtures(app *ApiServer, table string, baseRow map[string]any, csvFile string) {
 	file, err := os.Open(csvFile)
 	checkErr(err)
 	defer file.Close()
@@ -159,15 +159,20 @@ func insertFixtures(table string, baseRow map[string]any, csvFile string) {
 
 	var records [][]any
 	for _, row := range rows[1:] {
+		thisRow := map[string]any{}
 		for i, field := range csvHeader {
 			if row[i] != "" {
-				baseRow[field] = row[i]
+				thisRow[field] = row[i]
 			}
 		}
 
 		vals := []any{}
 		for _, field := range fieldList {
-			vals = append(vals, baseRow[field])
+			val := baseRow[field]
+			if v, ok := thisRow[field]; ok {
+				val = v
+			}
+			vals = append(vals, val)
 		}
 		records = append(records, vals)
 	}

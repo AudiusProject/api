@@ -9,6 +9,8 @@ import (
 )
 
 func TestGetUserConnectedWalletsQuery(t *testing.T) {
+	app := fixturesTestApp(t)
+
 	connectedWallets, err := app.queries.FullConnectedWallets(t.Context(), 2)
 	assert.NoError(t, err)
 	assert.Len(t, connectedWallets.ErcWallets, 2)
@@ -22,7 +24,9 @@ func TestGetUserConnectedWalletsQuery(t *testing.T) {
 }
 
 func TestGetUserConnectedWallets(t *testing.T) {
-	status, body := testGet(t, "/v1/users/"+trashid.MustEncodeHashID(2)+"/connected_wallets")
+	app := fixturesTestApp(t)
+
+	status, body := testGet(t, app, "/v1/users/"+trashid.MustEncodeHashID(2)+"/connected_wallets")
 	assert.Equal(t, 200, status)
 	assert.True(t, strings.Contains(string(body), `spl_wallets`))
 	assert.True(t, strings.Contains(string(body), `erc_wallets`))

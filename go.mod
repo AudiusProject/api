@@ -46,6 +46,9 @@ require (
 	github.com/mattn/go-isatty v0.0.20 // indirect
 	github.com/mattn/go-runewidth v0.0.16 // indirect
 	github.com/oasisprotocol/curve25519-voi v0.0.0-20230904125328-1f23a7beb09a // indirect
+	github.com/peterldowns/pgmigrate v0.0.5 // indirect
+	github.com/peterldowns/pgtestdb v0.1.1 // indirect
+	github.com/peterldowns/pgtestdb/migrators/pgmigrator v0.1.1 // indirect
 	github.com/petermattis/goid v0.0.0-20250319124200-ccd6737f222a // indirect
 	github.com/pkg/errors v0.9.1 // indirect
 	github.com/pmezard/go-difflib v1.0.1-0.20181226105442-5d4384ee4fb2 // indirect
