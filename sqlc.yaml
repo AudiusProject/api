@@ -79,15 +79,22 @@ sql:
             go_type:
               import: "encoding/json"
               type: "RawMessage"
+
           - column: "tracks.stream_conditions"
             go_type:
-              type: "UsageConditions"
+              type: "AccessGate"
+              pointer: true
+
           - column: "tracks.download_conditions"
             go_type:
-              type: "UsageConditions"
+              type: "AccessGate"
+              pointer: true
+
           - column: "playlists.stream_conditions"
             go_type:
-              type: "UsageConditions"
+              type: "AccessGate"
+              pointer: true
+
           - column: "playlists.playlist_contents"
             go_type:
               type: "PlaylistContents"

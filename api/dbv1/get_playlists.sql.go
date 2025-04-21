@@ -128,7 +128,7 @@ type GetPlaylistsRow struct {
 	IsPrivate              bool             `json:"is_private"`
 	IsScheduledRelease     bool             `json:"is_scheduled_release"`
 	IsStreamGated          pgtype.Bool      `json:"is_stream_gated"`
-	StreamConditions       UsageConditions  `json:"stream_conditions"`
+	StreamConditions       *AccessGate      `json:"stream_conditions"`
 	Artwork                pgtype.Text      `json:"artwork"`
 	PlaylistName           pgtype.Text      `json:"playlist_name"`
 	PlaylistID             int32            `json:"playlist_id"`

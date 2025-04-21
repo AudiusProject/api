@@ -9,7 +9,7 @@ type Access struct {
 	Download bool `json:"download"`
 }
 
-func (q *Queries) GetTrackAccess(ctx context.Context, myId int32, conditions UsageConditions, track *GetTracksRow, user *FullUser) bool {
+func (q *Queries) GetTrackAccess(ctx context.Context, myId int32, conditions *AccessGate, track *GetTracksRow, user *FullUser) bool {
 	if track == nil || user == nil {
 		return false
 	}
@@ -27,10 +27,10 @@ func (q *Queries) GetTrackAccess(ctx context.Context, myId int32, conditions Usa
 		var hasTipped bool
 		err := q.db.QueryRow(ctx, `
 			SELECT EXISTS (
-				SELECT 1 
-				FROM aggregate_user_tips 
-				WHERE sender_user_id = $1 
-				AND receiver_user_id = $2 
+				SELECT 1
+				FROM aggregate_user_tips
+				WHERE sender_user_id = $1
+				AND receiver_user_id = $2
 				AND amount >= 0
 			)
 		`, myId, tipUserId).Scan(&hasTipped)
@@ -45,7 +45,7 @@ func (q *Queries) GetTrackAccess(ctx context.Context, myId int32, conditions Usa
 	return false
 }
 
-func (q *Queries) GetPlaylistAccess(ctx context.Context, myId int32, conditions UsageConditions, playlist *GetPlaylistsRow, user *FullUser) bool {
+func (q *Queries) GetPlaylistAccess(ctx context.Context, myId int32, conditions *AccessGate, playlist *GetPlaylistsRow, user *FullUser) bool {
 	if conditions == nil {
 		return true
 	}
@@ -58,10 +58,10 @@ func (q *Queries) GetPlaylistAccess(ctx context.Context, myId int32, conditions 
 		var hasTipped bool
 		err := q.db.QueryRow(ctx, `
 			SELECT EXISTS (
-				SELECT 1 
-				FROM aggregate_user_tips 
-				WHERE sender_user_id = $1 
-				AND receiver_user_id = $2 
+				SELECT 1
+				FROM aggregate_user_tips
+				WHERE sender_user_id = $1
+				AND receiver_user_id = $2
 				AND amount >= 0
 			)
 		`, myId, tipUserId).Scan(&hasTipped)

@@ -1,21 +1,5 @@
 package dbv1
 
-type UsageConditions *struct {
-	UsdcPurchase *struct {
-		Price  float64 `json:"price"`
-		Splits []struct {
-			UserID     int32   `json:"user_id"`
-			Percentage float64 `json:"percentage"`
-		} `json:"splits"`
-	} `json:"usdc_purchase,omitempty"`
-
-	FollowUserID *int64 `json:"follow_user_id,omitempty"`
-
-	TipUserID *int64 `json:"tip_user_id,omitempty"`
-
-	NftCollection *map[string]any `json:"nft_collection,omitempty"`
-}
-
 type RectangleImage struct {
 	X640    string   `json:"640x"`
 	X2000   string   `json:"2000x"`
