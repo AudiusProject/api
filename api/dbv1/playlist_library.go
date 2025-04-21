@@ -36,6 +36,42 @@ type Folder struct {
 	Contents []PlaylistLibraryItem `json:"contents"`
 }
 
+func unmarshalPlaylistLibraryItem(data []byte) (PlaylistLibraryItem, error) {
+	// First, determine the type of item
+	var typeWrapper struct {
+		Type string `json:"type"`
+	}
+	if err := json.Unmarshal(data, &typeWrapper); err != nil {
+		_, file, line, _ := runtime.Caller(0)
+		return nil, fmt.Errorf("%s:%d: %w", file, line, err)
+	}
+	switch typeWrapper.Type {
+	case "playlist":
+		var playlist RegularPlaylist
+		if err := json.Unmarshal(data, &playlist); err != nil {
+			_, file, line, _ := runtime.Caller(0)
+			return nil, fmt.Errorf("%s:%d: %w", file, line, err)
+		}
+		return playlist, nil
+	case "explore_playlist":
+		var explorePlaylist ExplorePlaylist
+		if err := json.Unmarshal(data, &explorePlaylist); err != nil {
+			_, file, line, _ := runtime.Caller(0)
+			return nil, fmt.Errorf("%s:%d: %w", file, line, err)
+		}
+		return explorePlaylist, nil
+	case "folder":
+		var folder Folder
+		if err := json.Unmarshal(data, &folder); err != nil {
+			_, file, line, _ := runtime.Caller(0)
+			return nil, fmt.Errorf("%s:%d: %w", file, line, err)
+		}
+		return folder, nil
+	default:
+		return nil, fmt.Errorf("unknown item type: %s", typeWrapper.Type)
+	}
+}
+
 func (f *Folder) UnmarshalJSON(data []byte) error {
 	var raw struct {
 		Type     string            `json:"type"`
@@ -52,39 +88,12 @@ func (f *Folder) UnmarshalJSON(data []byte) error {
 	f.Name = raw.Name
 	f.Contents = make([]PlaylistLibraryItem, 0, len(raw.Contents))
 	for _, item := range raw.Contents {
-		// First, determine the type of item
-		var typeWrapper struct {
-			Type string `json:"type"`
-		}
-		if err := json.Unmarshal(item, &typeWrapper); err != nil {
+		pli, err := unmarshalPlaylistLibraryItem(item)
+		if err != nil {
 			_, file, line, _ := runtime.Caller(0)
 			return fmt.Errorf("%s:%d: %w", file, line, err)
 		}
-		switch typeWrapper.Type {
-		case "playlist":
-			var playlist RegularPlaylist
-			if err := json.Unmarshal(item, &playlist); err != nil {
-				_, file, line, _ := runtime.Caller(0)
-				return fmt.Errorf("%s:%d: %w", file, line, err)
-			}
-			f.Contents = append(f.Contents, playlist)
-		case "explore_playlist":
-			var explorePlaylist ExplorePlaylist
-			if err := json.Unmarshal(item, &explorePlaylist); err != nil {
-				_, file, line, _ := runtime.Caller(0)
-				return fmt.Errorf("%s:%d: %w", file, line, err)
-			}
-			f.Contents = append(f.Contents, explorePlaylist)
-		case "folder":
-			var folder Folder
-			if err := json.Unmarshal(item, &folder); err != nil {
-				_, file, line, _ := runtime.Caller(0)
-				return fmt.Errorf("%s:%d: %w", file, line, err)
-			}
-			f.Contents = append(f.Contents, folder)
-		default:
-			return fmt.Errorf("unknown item type: %s", typeWrapper.Type)
-		}
+		f.Contents = append(f.Contents, pli)
 	}
 	return nil
 }
@@ -102,43 +111,13 @@ func (pl *PlaylistLibrary) UnmarshalJSON(data []byte) error {
 
 	pl.Contents = make([]PlaylistLibraryItem, 0, len(rawLibrary.Contents))
 
-	// TODO: Move this into unmarshaler for item and share it between library/folder unmarshalers
 	for _, item := range rawLibrary.Contents {
-		// First, determine the type of item
-		var typeWrapper struct {
-			Type string `json:"type"`
-		}
-		if err := json.Unmarshal(item, &typeWrapper); err != nil {
+		pli, err := unmarshalPlaylistLibraryItem(item)
+		if err != nil {
 			_, file, line, _ := runtime.Caller(0)
 			return fmt.Errorf("%s:%d: %w", file, line, err)
 		}
-
-		// Parse based on the type
-		switch typeWrapper.Type {
-		case "playlist":
-			var playlist RegularPlaylist
-			if err := json.Unmarshal(item, &playlist); err != nil {
-				_, file, line, _ := runtime.Caller(0)
-				return fmt.Errorf("%s:%d: %w", file, line, err)
-			}
-			pl.Contents = append(pl.Contents, playlist)
-		case "explore_playlist":
-			var explorePlaylist ExplorePlaylist
-			if err := json.Unmarshal(item, &explorePlaylist); err != nil {
-				_, file, line, _ := runtime.Caller(0)
-				return fmt.Errorf("%s:%d: %w", file, line, err)
-			}
-			pl.Contents = append(pl.Contents, explorePlaylist)
-		case "folder":
-			var folder Folder
-			if err := json.Unmarshal(item, &folder); err != nil {
-				_, file, line, _ := runtime.Caller(0)
-				return fmt.Errorf("%s:%d: %w", file, line, err)
-			}
-			pl.Contents = append(pl.Contents, folder)
-		default:
-			return fmt.Errorf("unknown item type: %s", typeWrapper.Type)
-		}
+		pl.Contents = append(pl.Contents, pli)
 	}
 
 	return nil

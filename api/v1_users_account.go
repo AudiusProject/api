@@ -4,7 +4,6 @@ import (
 	"github.com/gofiber/fiber/v2"
 )
 
-// todo: in python this route requires auth
 func (app *ApiServer) v1UsersAccount(c *fiber.Ctx) error {
 	wallet := c.Params("wallet")
 	if wallet == "" {
