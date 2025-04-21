@@ -22,4 +22,33 @@ func TestGetUsersAccount(t *testing.T) {
 	assert.Equal(t, "SecondAlbum", accountResponse.Data.Playlists[0].Name)
 	assert.Equal(t, true, accountResponse.Data.Playlists[0].IsAlbum)
 	assert.Equal(t, "rayjacobson", accountResponse.Data.User.Handle.String)
+
+	// Check playlist library
+	assert.Equal(t, 3, len(accountResponse.Data.PlaylistLibrary.Contents))
+
+	// Check first item (regular playlist)
+	playlist, ok := accountResponse.Data.PlaylistLibrary.Contents[0].(dbv1.RegularPlaylist)
+	assert.True(t, ok)
+	assert.Equal(t, "playlist", playlist.Type)
+	assert.Equal(t, 123, int(playlist.PlaylistID))
+
+	// Check second item (explore playlist)
+	explorePlaylist, ok := accountResponse.Data.PlaylistLibrary.Contents[1].(dbv1.ExplorePlaylist)
+	assert.True(t, ok)
+	assert.Equal(t, "explore_playlist", explorePlaylist.Type)
+	assert.Equal(t, "Audio NFTs", explorePlaylist.PlaylistID)
+
+	// Check third item (folder)
+	folder, ok := accountResponse.Data.PlaylistLibrary.Contents[2].(dbv1.Folder)
+	assert.True(t, ok)
+	assert.Equal(t, "folder", folder.Type)
+	assert.Equal(t, "bbcae31a-7cd2-4a1a-8b54-fdc979a34435", folder.ID)
+	assert.Equal(t, "My Nested Playlists", folder.Name)
+	assert.Equal(t, 1, len(folder.Contents))
+
+	// Check nested playlist in folder
+	nestedPlaylist, ok := folder.Contents[0].(dbv1.RegularPlaylist)
+	assert.True(t, ok)
+	assert.Equal(t, "playlist", nestedPlaylist.Type)
+	assert.Equal(t, 345, int(nestedPlaylist.PlaylistID))
 }
