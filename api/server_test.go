@@ -14,6 +14,7 @@ import (
 	"github.com/jackc/pgx/v5"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+	"github.com/tidwall/gjson"
 )
 
 var (
@@ -182,6 +183,12 @@ func testGet(t *testing.T, path string, dest ...any) (int, []byte) {
 	}
 
 	return res.StatusCode, body
+}
+
+func jsonAssert(t *testing.T, body []byte, expectations map[string]string) {
+	for path, expectation := range expectations {
+		assert.Equal(t, expectation, gjson.GetBytes(body, path).String())
+	}
 }
 
 // testGetWithWallet makes a GET request with authentication headers for the given wallet address

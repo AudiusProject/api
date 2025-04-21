@@ -1,7 +1,6 @@
 package api
 
 import (
-	"strings"
 	"testing"
 
 	"bridgerton.audius.co/api/dbv1"
@@ -18,9 +17,11 @@ func TestGetUser(t *testing.T) {
 	assert.Equal(t, 200, status)
 
 	// body is response json
-	assert.True(t, strings.Contains(string(body), `"handle":"rayjacobson"`))
-	assert.True(t, strings.Contains(string(body), `"user_id":1`))
-	assert.True(t, strings.Contains(string(body), `"id":"7eP5n"`))
+	jsonAssert(t, body, map[string]string{
+		"data.0.handle":  "rayjacobson",
+		"data.0.user_id": "1",
+		"data.0.id":      "7eP5n",
+	})
 
 	// but we also unmarshaled into userResponse
 	// for structured testing
