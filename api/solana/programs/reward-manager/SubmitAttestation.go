@@ -2,7 +2,6 @@ package reward_manager
 
 import (
 	"encoding/hex"
-	"fmt"
 
 	bin "github.com/gagliardetto/binary"
 	"github.com/gagliardetto/solana-go"
@@ -131,8 +130,6 @@ func (inst SubmitAttestation) Build() *Instruction {
 }
 
 func (inst SubmitAttestation) MarshalWithEncoder(encoder *bin.Encoder) error {
-	fmt.Println("isborsh:", encoder.IsBorsh())
-	fmt.Println("isbin:", encoder.IsBin())
 	return encoder.WriteString(inst.DisbursementID)
 }
 
