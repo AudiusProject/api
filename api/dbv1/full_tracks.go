@@ -15,14 +15,15 @@ type FullTracksParams GetTracksParams
 type FullTrack struct {
 	GetTracksRow
 
-	Permalink    string       `json:"permalink"`
-	IsStreamable bool         `json:"is_streamable"`
-	Artwork      *SquareImage `json:"artwork"`
-	Stream       *MediaLink   `json:"stream"`
-	Download     *MediaLink   `json:"download"`
-	Preview      *MediaLink   `json:"preview"`
-	UserID       string       `json:"user_id"`
-	User         FullUser     `json:"user"`
+	Permalink    string         `json:"permalink"`
+	IsStreamable bool           `json:"is_streamable"`
+	Artwork      *SquareImage   `json:"artwork"`
+	Stream       *MediaLink     `json:"stream"`
+	Download     *MediaLink     `json:"download"`
+	Preview      *MediaLink     `json:"preview"`
+	UserID       trashid.HashId `json:"user_id"`
+	User         FullUser       `json:"user"`
+	Access       Access         `json:"access"`
 
 	FolloweeReposts    []*FolloweeRepost   `json:"followee_reposts"`
 	FolloweeFavorites  []*FolloweeFavorite `json:"followee_favorites"`
@@ -112,6 +113,14 @@ func (q *Queries) FullTracksKeyed(ctx context.Context, arg GetTracksParams) (map
 			}
 		}
 
+		downloadAccess := q.GetTrackAccess(ctx, arg.MyID.(int32), track.DownloadConditions, &track, &user)
+		// if you can download it, you can stream it
+		streamAccess := downloadAccess || q.GetTrackAccess(ctx, arg.MyID.(int32), track.StreamConditions, &track, &user)
+		access := Access{
+			Download: downloadAccess,
+			Stream:   streamAccess,
+		}
+
 		fullTrack := FullTrack{
 			GetTracksRow:       track,
 			IsStreamable:       !track.IsDelete && !user.IsDeactivated,
@@ -127,6 +136,7 @@ func (q *Queries) FullTracksKeyed(ctx context.Context, arg GetTracksParams) (map
 			RemixOf:            fullRemixOf,
 			StreamConditions:   track.StreamConditions.toFullAccessGate(config.Cfg, userMap),
 			DownloadConditions: track.DownloadConditions.toFullAccessGate(config.Cfg, userMap),
+			Access:             access,
 		}
 		trackMap[track.TrackID] = fullTrack
 	}

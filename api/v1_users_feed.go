@@ -100,8 +100,7 @@ func (app *ApiServer) v1UsersFeed(c *fiber.Ctx) error {
 	rows, err := app.pool.Query(c.Context(), sql, pgx.NamedArgs{
 		"userId": c.Locals("userId"),
 		"before": time.Now(),
-		// "limit":  c.Query("limit", "50"),
-		"limit":  40,
+		"limit":  c.Query("limit", "50"),
 		"offset": c.Query("offset", "0"),
 		"filter": c.Query("filter", "all"), // original, repost
 	})

@@ -37,6 +37,16 @@ sql:
               import: "encoding/json"
               type: "RawMessage"
 
+          - column: "users.user_id"
+            go_type:
+              import: "bridgerton.audius.co/trashid"
+              type: "HashId"
+
+          - column: "developer_apps.user_id"
+            go_type:
+              import: "bridgerton.audius.co/trashid"
+              type: "HashId"
+
           - column: "tracks.copyright_line"
             go_type:
               import: "encoding/json"
@@ -76,6 +86,11 @@ sql:
               pointer: true
 
           - column: "tracks.download_conditions"
+            go_type:
+              type: "AccessGate"
+              pointer: true
+
+          - column: "playlists.stream_conditions"
             go_type:
               type: "AccessGate"
               pointer: true
