@@ -78,15 +78,22 @@ SELECT
     ) / 1e18
   )::INT AS total_audio_balance,
 
+  -- payout wallet
+  coalesce(
+    (SELECT spl_usdc_payout_wallet FROM user_payout_wallet_history pwh WHERE pwh.user_id = u.user_id AND spl_usdc_payout_wallet IS NOT NULL ORDER BY block_timestamp DESC LIMIT 1),
+    (SELECT bank_account FROM usdc_user_bank_accounts WHERE ethereum_address = u.wallet),
+    ''
+  )::text as payout_wallet,
+
   coalesce(waudio, '0') as waudio_balance,
   coalesce(associated_sol_wallets_balance, '0') as associated_sol_wallets_balance,
   blocknumber,
   u.created_at,
   is_storage_v2,
   creator_node_endpoint,
-  10 as current_user_followee_follow_count,  -- TODO: either compute or remove this
 
-
+  -- TODO: either compute or remove this
+  10 as current_user_followee_follow_count,
 
   (
     SELECT count(*) > 0
@@ -178,6 +185,7 @@ type GetUsersRow struct {
 	AssociatedWalletsBalance       pgtype.Text    `json:"associated_wallets_balance"`
 	TotalBalance                   string         `json:"total_balance"`
 	TotalAudioBalance              int32          `json:"total_audio_balance"`
+	PayoutWallet                   string         `json:"payout_wallet"`
 	WaudioBalance                  string         `json:"waudio_balance"`
 	AssociatedSolWalletsBalance    string         `json:"associated_sol_wallets_balance"`
 	Blocknumber                    pgtype.Int4    `json:"blocknumber"`
@@ -246,6 +254,7 @@ func (q *Queries) GetUsers(ctx context.Context, arg GetUsersParams) ([]GetUsersR
 			&i.AssociatedWalletsBalance,
 			&i.TotalBalance,
 			&i.TotalAudioBalance,
+			&i.PayoutWallet,
 			&i.WaudioBalance,
 			&i.AssociatedSolWalletsBalance,
 			&i.Blocknumber,

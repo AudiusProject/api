@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"fmt"
 
+	"bridgerton.audius.co/config"
 	"bridgerton.audius.co/trashid"
 	"github.com/jackc/pgx/v5/pgtype"
 )
@@ -22,10 +23,13 @@ type FullTrack struct {
 	Preview      *MediaLink     `json:"preview"`
 	UserID       trashid.HashId `json:"user_id"`
 	User         FullUser       `json:"user"`
+	Access       Access         `json:"access"`
 
-	FolloweeReposts   []*FolloweeRepost   `json:"followee_reposts"`
-	FolloweeFavorites []*FolloweeFavorite `json:"followee_favorites"`
-	RemixOf           FullRemixOf         `json:"remix_of"`
+	FolloweeReposts    []*FolloweeRepost   `json:"followee_reposts"`
+	FolloweeFavorites  []*FolloweeFavorite `json:"followee_favorites"`
+	RemixOf            FullRemixOf         `json:"remix_of"`
+	StreamConditions   *FullAccessGate     `json:"stream_conditions"`
+	DownloadConditions *FullAccessGate     `json:"download_conditions"`
 }
 
 func (q *Queries) FullTracksKeyed(ctx context.Context, arg GetTracksParams) (map[int32]FullTrack, error) {
@@ -35,6 +39,15 @@ func (q *Queries) FullTracksKeyed(ctx context.Context, arg GetTracksParams) (map
 	}
 
 	userIds := []int32{}
+	collectSplitUserIds := func(usage *AccessGate) {
+		if usage == nil || usage.UsdcPurchase == nil {
+			return
+		}
+		for _, split := range usage.UsdcPurchase.Splits {
+			userIds = append(userIds, split.UserID)
+		}
+	}
+
 	for _, track := range rawTracks {
 		userIds = append(userIds, track.UserID)
 
@@ -43,6 +56,9 @@ func (q *Queries) FullTracksKeyed(ctx context.Context, arg GetTracksParams) (map
 		for _, r := range remixOf.Tracks {
 			userIds = append(userIds, r.ParentUserId)
 		}
+
+		collectSplitUserIds(track.StreamConditions)
+		collectSplitUserIds(track.DownloadConditions)
 	}
 
 	userMap, err := q.FullUsersKeyed(ctx, GetUsersParams{
@@ -57,10 +73,6 @@ func (q *Queries) FullTracksKeyed(ctx context.Context, arg GetTracksParams) (map
 	for _, track := range rawTracks {
 		track.ID, _ = trashid.EncodeHashId(int(track.TrackID))
 		user, ok := userMap[track.UserID]
-
-		// GetUser will omit deactivated users
-		// so skip tracks if user doesn't come back.
-		// .. todo: in get_tracks query we should join users and filter out tracks if user is deactivated at query time.
 		if !ok {
 			continue
 		}
@@ -101,19 +113,30 @@ func (q *Queries) FullTracksKeyed(ctx context.Context, arg GetTracksParams) (map
 			}
 		}
 
+		downloadAccess := q.GetTrackAccess(ctx, arg.MyID.(int32), track.DownloadConditions, &track, &user)
+		// if you can download it, you can stream it
+		streamAccess := downloadAccess || q.GetTrackAccess(ctx, arg.MyID.(int32), track.StreamConditions, &track, &user)
+		access := Access{
+			Download: downloadAccess,
+			Stream:   streamAccess,
+		}
+
 		fullTrack := FullTrack{
-			GetTracksRow:      track,
-			IsStreamable:      !track.IsDelete && !user.IsDeactivated,
-			Permalink:         fmt.Sprintf("/%s/%s", user.Handle.String, track.Slug.String),
-			Artwork:           squareImageStruct(track.CoverArtSizes, track.CoverArt),
-			Stream:            stream,
-			Download:          download,
-			Preview:           preview,
-			User:              user,
-			UserID:            user.ID,
-			FolloweeFavorites: fullFolloweeFavorites(track.FolloweeFavorites),
-			FolloweeReposts:   fullFolloweeReposts(track.FolloweeReposts),
-			RemixOf:           fullRemixOf,
+			GetTracksRow:       track,
+			IsStreamable:       !track.IsDelete && !user.IsDeactivated,
+			Permalink:          fmt.Sprintf("/%s/%s", user.Handle.String, track.Slug.String),
+			Artwork:            squareImageStruct(track.CoverArtSizes, track.CoverArt),
+			Stream:             stream,
+			Download:           download,
+			Preview:            preview,
+			User:               user,
+			UserID:             user.ID,
+			FolloweeFavorites:  fullFolloweeFavorites(track.FolloweeFavorites),
+			FolloweeReposts:    fullFolloweeReposts(track.FolloweeReposts),
+			RemixOf:            fullRemixOf,
+			StreamConditions:   track.StreamConditions.toFullAccessGate(config.Cfg, userMap),
+			DownloadConditions: track.DownloadConditions.toFullAccessGate(config.Cfg, userMap),
+			Access:             access,
 		}
 		trackMap[track.TrackID] = fullTrack
 	}
