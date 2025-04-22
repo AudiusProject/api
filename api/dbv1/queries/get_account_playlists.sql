@@ -1,11 +1,15 @@
 -- name: GetAccountPlaylists :many
-WITH saved_playlists AS (
-    SELECT save_item_id
+WITH playlist_ids AS (
+    SELECT save_item_id as id
     FROM saves
-    WHERE user_id = @user_id
-      AND is_current = TRUE
+    WHERE saves.user_id = @user_id
       AND is_delete = FALSE
       AND (save_type = 'playlist' OR save_type = 'album')
+    UNION
+    SELECT p.playlist_id AS id
+    FROM playlists p
+    WHERE p.is_delete = FALSE
+      AND p.playlist_owner_id = @user_id
 )
 SELECT
     p.playlist_id,
@@ -18,17 +22,6 @@ SELECT
     p.created_at
 FROM playlists p
 JOIN users u ON p.playlist_owner_id = u.user_id
-WHERE (
-    -- Owned playlists
-    (p.is_current = TRUE
-        AND p.is_delete = FALSE
-        AND p.playlist_owner_id = @user_id)
-
-    OR
-
-    -- Saved playlists
-    (p.is_current = TRUE
-        AND p.is_delete = FALSE
-        AND p.playlist_id IN (SELECT save_item_id FROM saved_playlists))
-)
-ORDER BY p.created_at DESC;
+WHERE p.is_delete = false
+  AND p.playlist_id IN (SELECT id FROM playlist_ids)
+ORDER BY p.created_at DESC, p.playlist_id ASC;
