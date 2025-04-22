@@ -20,6 +20,7 @@ import (
 	pgxzap "github.com/jackc/pgx-zap"
 	"github.com/jackc/pgx/v5/pgxpool"
 	"github.com/jackc/pgx/v5/tracelog"
+	"github.com/maypok86/otter"
 	"github.com/segmentio/encoding/json"
 	"go.uber.org/zap"
 	"go.uber.org/zap/zapcore"
@@ -80,19 +81,35 @@ func NewApiServer(config config.Config) *ApiServer {
 
 	pool, err := pgxpool.NewWithConfig(context.Background(), connConfig)
 	if err != nil {
-		logger.Error("db connect failed", zap.Error(err))
+		logger.Fatal("db connect failed", zap.Error(err))
+	}
+
+	resolveHandleCache, err := otter.MustBuilder[string, int32](50_000).
+		CollectStats().
+		Build()
+	if err != nil {
+		panic(err)
+	}
+
+	resolveWalletCache, err := otter.MustBuilder[string, int32](50_000).
+		CollectStats().
+		Build()
+	if err != nil {
+		panic(err)
 	}
 
 	app := &ApiServer{
-		fiber.New(fiber.Config{
+		App: fiber.New(fiber.Config{
 			JSONEncoder:  json.Marshal,
 			JSONDecoder:  json.Unmarshal,
 			ErrorHandler: errorHandler(logger),
 		}),
-		pool,
-		dbv1.New(pool),
-		logger,
-		time.Now(),
+		pool:               pool,
+		queries:            dbv1.New(pool),
+		logger:             logger,
+		started:            time.Now(),
+		resolveHandleCache: resolveHandleCache,
+		resolveWalletCache: resolveWalletCache,
 	}
 
 	app.Use(recover.New(recover.Config{
@@ -218,10 +235,12 @@ func NewApiServer(config config.Config) *ApiServer {
 
 type ApiServer struct {
 	*fiber.App
-	pool    *pgxpool.Pool
-	queries *dbv1.Queries
-	logger  *zap.Logger
-	started time.Time
+	pool               *pgxpool.Pool
+	queries            *dbv1.Queries
+	logger             *zap.Logger
+	started            time.Time
+	resolveHandleCache otter.Cache[string, int32]
+	resolveWalletCache otter.Cache[string, int32]
 }
 
 func (app *ApiServer) home(c *fiber.Ctx) error {
@@ -246,10 +265,13 @@ func decodeIdList(c *fiber.Ctx) []int32 {
 }
 
 func (app *ApiServer) resolveUserHandleToId(handle string) (int32, error) {
-	// todo: can do some in memory cache here
+	if hit, ok := app.resolveHandleCache.Get(handle); ok {
+		return hit, nil
+	}
 	var userId int32
 	sql := `select user_id from users where handle_lc = lower($1)`
 	err := app.pool.QueryRow(context.Background(), sql, handle).Scan(&userId)
+	app.resolveHandleCache.Set(handle, userId)
 	return userId, err
 }
 
