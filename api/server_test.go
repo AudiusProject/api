@@ -9,10 +9,12 @@ import (
 	"strings"
 	"testing"
 
+	"bridgerton.audius.co/api/testdata"
 	"bridgerton.audius.co/config"
 	"github.com/jackc/pgx/v5"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+	"github.com/tidwall/gjson"
 )
 
 var (
@@ -72,6 +74,7 @@ func TestMain(m *testing.M) {
 	insertFixtures("developer_apps", developerAppBaseRow, "testdata/developer_app_fixtures.csv")
 	insertFixtures("track_trending_scores", trackTrendingScoreBaseRow, "testdata/track_trending_scores_fixtures.csv")
 	insertFixtures("associated_wallets", connectedWalletsBaseRow, "testdata/connected_wallets_fixtures.csv")
+	insertFixtures("aggregate_user_tips", aggregateUserTipsBaseRow, "testdata/aggregate_user_tips_fixtures.csv")
 
 	// index to es / os
 
@@ -87,9 +90,11 @@ func TestHome(t *testing.T) {
 	assert.True(t, strings.Contains(string(body), "uptime"))
 }
 
-func Test200(t *testing.T) {
+func Test200UnAuthed(t *testing.T) {
 	urls := []string{
 		"/v1/full/users?id=7eP5n&id=_some_invalid_hash_id",
+
+		"/v1/full/users/7eP5n",
 		"/v1/full/users/7eP5n/followers",
 		"/v1/full/users/7eP5n/following",
 
@@ -110,6 +115,7 @@ func Test200(t *testing.T) {
 		"/v1/full/users/7eP5n/supporters",
 		"/v1/full/users/7eP5n/tracks",
 		"/v1/full/users/7eP5n/feed",
+		"/v1/full/users/7eP5n/connected_wallets",
 
 		"/v1/users/7eP5n/tags",
 
@@ -120,6 +126,7 @@ func Test200(t *testing.T) {
 		"/v1/full/tracks?id=eYJyn",
 		"/v1/full/tracks/eYJyn/reposts",
 		"/v1/full/tracks/eYJyn/favorites",
+		"/v1/full/tracks/trending",
 
 		"/v1/full/playlists?id=7eP5n",
 		"/v1/full/playlists/7eP5n/reposts",
@@ -142,8 +149,59 @@ func Test200(t *testing.T) {
 	}
 }
 
+func Test200Authed(t *testing.T) {
+	urls := []string{
+		"/v1/full/users/account/0x7d273271690538cf855e5b3002a0dd8c154bb060",
+	}
+
+	for _, u := range urls {
+		status, body := testGetWithWallet(t, u, "0x7d273271690538cf855e5b3002a0dd8c154bb060")
+		require.Equal(t, 200, status, u+" "+string(body))
+
+		// also test as a user
+		if strings.Contains(u, "?") {
+			u += "&user_id=7eP5n"
+		} else {
+			u += "?user_id=7eP5n"
+		}
+
+		status, _ = testGetWithWallet(t, u, "0x7d273271690538cf855e5b3002a0dd8c154bb060")
+		require.Equal(t, 200, status, u+" "+string(body))
+	}
+
+}
+
 func testGet(t *testing.T, path string, dest ...any) (int, []byte) {
 	req := httptest.NewRequest("GET", path, nil)
+	res, err := app.Test(req, -1)
+	assert.NoError(t, err)
+	body, _ := io.ReadAll(res.Body)
+
+	if len(dest) > 0 {
+		err = json.Unmarshal(body, &dest[0])
+		assert.NoError(t, err)
+	}
+
+	return res.StatusCode, body
+}
+
+func jsonAssert(t *testing.T, body []byte, expectations map[string]string) {
+	for path, expectation := range expectations {
+		assert.Equal(t, expectation, gjson.GetBytes(body, path).String())
+	}
+}
+
+// testGetWithWallet makes a GET request with authentication headers for the given wallet address
+func testGetWithWallet(t *testing.T, path string, walletAddress string, dest ...any) (int, []byte) {
+	req := httptest.NewRequest("GET", path, nil)
+
+	// Add signature headers if wallet address is provided
+	if walletAddress != "" {
+		sigData := testdata.GetSignatureData(walletAddress)
+		req.Header.Set("Encoded-Data-Message", sigData.Message)
+		req.Header.Set("Encoded-Data-Signature", sigData.Signature)
+	}
+
 	res, err := app.Test(req, -1)
 	assert.NoError(t, err)
 	body, _ := io.ReadAll(res.Body)

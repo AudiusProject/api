@@ -1,7 +1,6 @@
 package api
 
 import (
-	"strings"
 	"testing"
 
 	"bridgerton.audius.co/api/dbv1"
@@ -19,7 +18,7 @@ func TestUserQuery(t *testing.T) {
 		require.Len(t, users, 1)
 		user := users[0]
 		assert.Equal(t, int32(1), user.UserID)
-		assert.Equal(t, "7eP5n", user.ID)
+		// assert.Equal(t, "7eP5n", user.ID)
 		assert.Equal(t, "rayjacobson", user.Handle.String)
 		assert.False(t, user.DoesCurrentUserFollow)
 		assert.False(t, user.DoesFollowCurrentUser)
@@ -72,14 +71,23 @@ func TestGetUsers(t *testing.T) {
 	status, body := testGet(t, "/v1/full/users?id=1", &userResponse)
 	assert.Equal(t, 200, status)
 
-	// body is response json
-	assert.True(t, strings.Contains(string(body), `"handle":"rayjacobson"`))
-	assert.True(t, strings.Contains(string(body), `"user_id":1`))
-	assert.True(t, strings.Contains(string(body), `"id":"7eP5n"`))
+	// jsonAssert helps testing the response body
+	jsonAssert(t, body, map[string]string{
+		"data.0.id":      "7eP5n",
+		"data.0.user_id": "1",
+		"data.0.handle":  "rayjacobson",
+	})
 
 	// but we also unmarshaled into userResponse
 	// for structured testing
-	assert.Equal(t, userResponse.Data[0].ID, "7eP5n")
+	assert.Equal(t, "rayjacobson", userResponse.Data[0].Handle.String)
+
+	// this assert won't work:
+	// because we have custom json marshal functions
+	// assert.Equal(t, userResponse.Data[0].ID, "7eP5n")
+
+	// because it got parsed back to int:
+	assert.Equal(t, 1, int(userResponse.Data[0].ID))
 }
 
 func TestFollowerEndpoint(t *testing.T) {
@@ -87,7 +95,13 @@ func TestFollowerEndpoint(t *testing.T) {
 		Data []dbv1.FullUser
 	}
 
-	status, _ := testGet(t, "/v1/full/users/7eP5n/followers", &userResponse)
+	status, body := testGet(t, "/v1/full/users/7eP5n/followers", &userResponse)
 	assert.Equal(t, 200, status)
-	assert.Equal(t, userResponse.Data[0].ID, "ML51L")
+
+	jsonAssert(t, body, map[string]string{
+		"data.0.id":     "ML51L",
+		"data.0.handle": "stereosteve",
+	})
+
+	assert.Equal(t, "stereosteve", userResponse.Data[0].Handle.String)
 }

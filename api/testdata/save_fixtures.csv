@@ -1,0 +1,4 @@
+user_id,save_item_id,save_item_type
+1,1,'playlist'
+1,2,'album'
+1,100,'track'

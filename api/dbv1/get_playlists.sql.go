@@ -25,6 +25,7 @@ SELECT
   p.is_private,
   p.is_scheduled_release,
   p.is_stream_gated,
+  p.stream_conditions,
   -- is_streamable,
 
   coalesce(playlist_image_sizes_multihash, playlist_image_multihash) as artwork,
@@ -127,6 +128,7 @@ type GetPlaylistsRow struct {
 	IsPrivate              bool             `json:"is_private"`
 	IsScheduledRelease     bool             `json:"is_scheduled_release"`
 	IsStreamGated          pgtype.Bool      `json:"is_stream_gated"`
+	StreamConditions       *AccessGate      `json:"stream_conditions"`
 	Artwork                pgtype.Text      `json:"artwork"`
 	PlaylistName           pgtype.Text      `json:"playlist_name"`
 	PlaylistID             int32            `json:"playlist_id"`
@@ -161,6 +163,7 @@ func (q *Queries) GetPlaylists(ctx context.Context, arg GetPlaylistsParams) ([]G
 			&i.IsPrivate,
 			&i.IsScheduledRelease,
 			&i.IsStreamGated,
+			&i.StreamConditions,
 			&i.Artwork,
 			&i.PlaylistName,
 			&i.PlaylistID,

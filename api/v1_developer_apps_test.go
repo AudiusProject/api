@@ -5,16 +5,12 @@ import (
 	"testing"
 
 	"bridgerton.audius.co/api/dbv1"
-	"github.com/jackc/pgx/v5/pgtype"
 	"github.com/stretchr/testify/assert"
 )
 
 func TestGetDeveloperAppsQueries(t *testing.T) {
 	developerApps, err := app.queries.GetDeveloperApps(t.Context(), dbv1.GetDeveloperAppsParams{
-		UserID: pgtype.Int4{
-			Int32: 1,
-			Valid: true,
-		},
+		UserID: 1,
 	})
 	assert.NoError(t, err)
 	assert.Len(t, developerApps, 1)
@@ -23,7 +19,7 @@ func TestGetDeveloperAppsQueries(t *testing.T) {
 
 func TestGetDeveloperApp(t *testing.T) {
 	var resp struct {
-		Data dbv1.FullDeveloperApp
+		Data dbv1.GetDeveloperAppsRow
 	}
 	status, body := testGet(t, "/v1/developer_apps/0x7d7b6b7a97d1deefe3a1ccc5a13c48e8f055e0b6", &resp)
 	assert.Equal(t, 200, status)

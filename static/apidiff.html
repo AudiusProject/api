@@ -96,10 +96,25 @@
       ? path.replace("/v1/full/", "/v1/")
       : path.replace("/v1/", "/v1/full/");
     window.location.search = `?path=${encodeURIComponent(toggleFullPath)}`;
+
   };
 
+  // for toggle auth headers button
+  const sendAuthHeaders = localStorage.getItem('sendAuthHeaders') === 'true' || false;
+  window.toggleAuthHeaders = function () {
+    const newSendAuthHeaders = sendAuthHeaders ? 'false' : 'true';
+    localStorage.setItem('sendAuthHeaders', newSendAuthHeaders);
+    setTimeout(() => {
+      window.location.reload();
+    });
+  };
+
+  const encodedDataMessage = localStorage.getItem('encodedDataMessage') || '';
+  const encodedDataSignature = localStorage.getItem('encodedDataSignature') || '';
+
   document.querySelector("#controls").innerHTML = html`
-    <form style="display: flex; gap: 10px;">
+    <form style="display: flex; flex-direction: column; gap: 10px; margin-bottom: 10px;">
+      <div style="display: flex; gap: 10px;">
       <input type="text" name="path" value="${path}" style="flex-grow: 1" />
       <select name="example" onchange="this.form.submit()" style="width: 100px">
         <option value="" disabled selected>Examples</option>
@@ -113,8 +128,32 @@
         />
         Full
       </label>
+      </div>
+      <div style="display: flex; flex-direction: column; gap: 10px;">
+        <label>
+          <input
+            type="checkbox"
+            ${sendAuthHeaders ? "checked" : ""}
+            name="sendAuthHeaders"
+            onChange="toggleAuthHeaders()"
+          />
+          Send auth headers
+        </label>
+        <input type="text" name="encodedDataMessage" placeholder="Encoded-Data-Message" style="width: 200px" value="${encodedDataMessage}" />
+        <input type="text" name="encodedDataSignature" placeholder="Encoded-Data-Signature" style="width: 1000px" value="${encodedDataSignature}" />
+        <input type="submit" style="display: none" />
+      </div>
     </form>
   `;
+
+  // Add event listeners for localStorage
+  document.querySelector('input[name="encodedDataMessage"]').addEventListener('change', (e) => {
+    localStorage.setItem('encodedDataMessage', e.target.value);
+  });
+
+  document.querySelector('input[name="encodedDataSignature"]').addEventListener('change', (e) => {
+    localStorage.setItem('encodedDataSignature', e.target.value);
+  });
 
   // fetch...
   const outputDiv = document.querySelector("#output");
@@ -148,7 +187,16 @@
 
   async function fetchJson(url) {
     const start = performance.now();
-    const response = await fetch(url);
+    const headers = {};
+
+    if (encodedDataMessage && sendAuthHeaders) {
+      headers['Encoded-Data-Message'] = encodedDataMessage;
+    }
+    if (encodedDataSignature && sendAuthHeaders) {
+      headers['Encoded-Data-Signature'] = encodedDataSignature;
+    }
+
+    const response = await fetch(url, { headers });
     const took = (performance.now() - start).toFixed(0);
     if (!response.ok) {
       // throw new Error(`Failed to fetch ${url}: ${response.statusText}`);
