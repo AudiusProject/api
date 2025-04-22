@@ -33,15 +33,20 @@ func (app *ApiServer) recoverAuthorityFromSignatureHeaders(c *fiber.Ctx) (int32,
 	recoveredAddr := crypto.PubkeyToAddress(*publicKey)
 	walletLower := strings.ToLower(recoveredAddr.Hex())
 
+	// check cache
+	if hit, ok := app.resolveWalletCache.Get(walletLower); ok {
+		return hit, walletLower
+	}
+
 	var userId int32
 	err = app.pool.QueryRow(
 		c.Context(),
 		`
-		SELECT user_id FROM users 
+		SELECT user_id FROM users
 		WHERE
-			wallet = $1 
-			AND is_current = true 
-		ORDER BY handle_lc IS NOT NULL, created_at ASC 
+			wallet = $1
+			AND is_current = true
+		ORDER BY handle_lc IS NOT NULL, created_at ASC
 		LIMIT 1
 		`,
 		walletLower,
@@ -50,6 +55,8 @@ func (app *ApiServer) recoverAuthorityFromSignatureHeaders(c *fiber.Ctx) (int32,
 	if err != nil {
 		return 0, walletLower
 	}
+
+	app.resolveWalletCache.Set(walletLower, userId)
 
 	return userId, walletLower
 }
