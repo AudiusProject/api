@@ -17,7 +17,9 @@ import (
 	"github.com/gofiber/fiber/v2"
 	"github.com/gofiber/fiber/v2/middleware/cors"
 	"github.com/gofiber/fiber/v2/middleware/recover"
+	pgxzap "github.com/jackc/pgx-zap"
 	"github.com/jackc/pgx/v5/pgxpool"
+	"github.com/jackc/pgx/v5/tracelog"
 	"github.com/segmentio/encoding/json"
 	"go.uber.org/zap"
 	"go.uber.org/zap/zapcore"
@@ -66,7 +68,17 @@ func RequestTimer() fiber.Handler {
 func NewApiServer(config config.Config) *ApiServer {
 	logger := InitLogger(config)
 
-	pool, err := pgxpool.New(context.Background(), config.DbUrl)
+	connConfig, err := pgxpool.ParseConfig(config.DbUrl)
+	if err != nil {
+		logger.Error("db connect failed", zap.Error(err))
+	}
+
+	connConfig.ConnConfig.Tracer = &tracelog.TraceLog{
+		Logger:   pgxzap.NewLogger(logger),
+		LogLevel: tracelog.LogLevelInfo,
+	}
+
+	pool, err := pgxpool.NewWithConfig(context.Background(), connConfig)
 	if err != nil {
 		logger.Error("db connect failed", zap.Error(err))
 	}
