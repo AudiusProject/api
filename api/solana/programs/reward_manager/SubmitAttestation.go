@@ -1,24 +1,20 @@
 package reward_manager
 
 import (
-	"encoding/hex"
-
 	bin "github.com/gagliardetto/binary"
 	"github.com/gagliardetto/solana-go"
 )
 
-const (
-	SenderSeedPrefix       = "S_"
-	EthAddressByteLength   = 20
-	AttestationsSeedPrefix = "V_"
-)
-
 type SubmitAttestation struct {
-	DisbursementID     string
+	// Instruction Data
+	DisbursementID string
+
+	// Used for derivations
 	SenderEthAddress   string           `bin:"-" borsh_skip:"true"`
 	RewardManagerState solana.PublicKey `bin:"-" borsh_skip:"true"`
 	Payer              solana.PublicKey `bin:"-" borsh_skip:"true"`
 
+	// Accounts
 	solana.AccountMetaSlice `bin:"-" borsh_skip:"true"`
 }
 
@@ -45,34 +41,6 @@ func (inst *SubmitAttestation) SetRewardManagerState(state solana.PublicKey) *Su
 func (inst *SubmitAttestation) SetPayer(payer solana.PublicKey) *SubmitAttestation {
 	inst.Payer = payer
 	return inst
-}
-
-func deriveAuthority(programId solana.PublicKey, state solana.PublicKey) (solana.PublicKey, uint8, error) {
-	seeds := make([][]byte, 1)
-	seeds[0] = state.Bytes()[0:32]
-	return solana.FindProgramAddress(seeds, programId)
-}
-
-func deriveSender(programId solana.PublicKey, authority solana.PublicKey, ethAddress string) (solana.PublicKey, uint8, error) {
-
-	senderSeedPrefix := []byte(SenderSeedPrefix)
-	// Remove 0x and decode hex
-	decodedEthAddress, err := hex.DecodeString(ethAddress[2:])
-	if err != nil {
-		return solana.PublicKey{}, 0, err
-	}
-	// Pad the eth address if necessary w/ leading 0
-	senderSeed := make([]byte, len(senderSeedPrefix)+EthAddressByteLength)
-	copy(senderSeed, senderSeedPrefix)
-	copy(senderSeed[len(senderSeed)-len(decodedEthAddress):], decodedEthAddress)
-	return solana.FindProgramAddress([][]byte{authority.Bytes()[0:32], senderSeed}, programId)
-}
-
-func deriveAttestations(programId solana.PublicKey, authority solana.PublicKey, disbursementId string) (solana.PublicKey, uint8, error) {
-	attestationsSeed := make([]byte, len(AttestationsSeedPrefix)+len(disbursementId))
-	copy(attestationsSeed, []byte(AttestationsSeedPrefix))
-	copy(attestationsSeed[len([]byte(AttestationsSeedPrefix)):], disbursementId)
-	return solana.FindProgramAddress([][]byte{authority.Bytes()[0:32], attestationsSeed}, programId)
 }
 
 func (inst SubmitAttestation) Build() *Instruction {

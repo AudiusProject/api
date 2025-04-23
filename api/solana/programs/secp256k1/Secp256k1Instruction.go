@@ -128,7 +128,7 @@ func (obj *Secp256k1Instruction) UnmarshalWithDecoder(decoder *ag_binary.Decoder
 		if err != nil {
 			return err
 		}
-		signature, err := decoder.ReadBytes(int(offsets.MessageDataOffset) - int(offsets.SignatureOffset) - 1)
+		signature, err := decoder.ReadBytes(int(offsets.MessageDataOffset) - int(offsets.SignatureOffset))
 		if err != nil {
 			return err
 		}
