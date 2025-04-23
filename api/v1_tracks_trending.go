@@ -9,7 +9,6 @@ import (
 func (app *ApiServer) v1TracksTrending(c *fiber.Ctx) error {
 	myId := app.getMyId(c)
 
-	// SQL query with conditional genre filter
 	sql := `
 	SELECT track_trending_scores.track_id
 	FROM track_trending_scores

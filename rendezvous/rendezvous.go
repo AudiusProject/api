@@ -97,13 +97,11 @@ func init() {
 	}
 	if os.Getenv("ENV") == "stage" {
 		hostList = []string{
-			"https://creatornode10.staging.audius.co",
 			"https://creatornode11.staging.audius.co",
 			"https://creatornode12.staging.audius.co",
 			"https://creatornode5.staging.audius.co",
 			"https://creatornode6.staging.audius.co",
 			"https://creatornode7.staging.audius.co",
-			"https://creatornode8.staging.audius.co",
 			"https://creatornode9.staging.audius.co",
 		}
 	}
