@@ -7,3 +7,4 @@ track_id,genre,owner_id,title,is_unlisted,stream_conditions,download_conditions
 300,Electronic,3,Follow Gated Download,f,,"{""follow_user_id"": 3}"
 301,Electronic,3,Pay Gated Download,f,,"{""usdc_purchase"": {""price"": 135, ""splits"": [{""user_id"": 3, ""percentage"": 100.0}]}}"
 302,Electronic,3,Tip Gated Stream,f," {""tip_user_id"": 3}"," {""tip_user_id"": 3}"
+400,Folk,5,Trending Month Folk,f,,
