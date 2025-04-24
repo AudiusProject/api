@@ -13,7 +13,10 @@ func (q *Queries) FullConnectedWallets(ctx context.Context, userId int32) (*Full
 		return nil, err
 	}
 
-	fullConnectedWallets := FullConnectedWallets{}
+	fullConnectedWallets := FullConnectedWallets{
+		ErcWallets: []string{},
+		SplWallets: []string{},
+	}
 	for _, row := range rows {
 		if row.Chain == WalletChainEth {
 			fullConnectedWallets.ErcWallets = append(fullConnectedWallets.ErcWallets, row.Wallet)
