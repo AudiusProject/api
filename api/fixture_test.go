@@ -185,3 +185,46 @@ func insertFixtures(table string, baseRow map[string]any, csvFile string) {
 	)
 	checkErr(err)
 }
+
+func insertFixturesFromArray(table string, baseRow map[string]any, data []map[string]any) {
+	// union baseRow keys with data keys for field list
+	fieldList := []string{}
+	for f := range baseRow {
+		fieldList = append(fieldList, f)
+	}
+	for _, row := range data {
+		for f := range row {
+			if !slices.Contains(fieldList, f) {
+				fieldList = append(fieldList, f)
+			}
+		}
+	}
+
+	var records [][]any
+	for _, row := range data {
+		thisRow := map[string]any{}
+		for field, value := range row {
+			if value != nil {
+				thisRow[field] = value
+			}
+		}
+
+		vals := []any{}
+		for _, field := range fieldList {
+			val := baseRow[field]
+			if v, ok := thisRow[field]; ok {
+				val = v
+			}
+			vals = append(vals, val)
+		}
+		records = append(records, vals)
+	}
+
+	_, err := app.pool.CopyFrom(
+		context.Background(),
+		pgx.Identifier{table},
+		fieldList,
+		pgx.CopyFromRows(records),
+	)
+	checkErr(err)
+}
