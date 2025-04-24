@@ -55,19 +55,26 @@ const (
 )
 
 func init() {
-	walletKeys := strings.Split(os.Getenv("solanaFeePayerKeys"), ",")
-	SolCfg.FeePayers = make([]solana.Wallet, len(walletKeys))
-	for i, privkeyString := range walletKeys {
-		privkey := solana.MustPrivateKeyFromBase58(privkeyString)
-		SolCfg.FeePayers[i] = solana.Wallet{
-			PrivateKey: privkey,
+	keyString := os.Getenv("solanaFeePayerKeys")
+	if keyString != "" {
+		walletKeys := strings.Split(keyString, ",")
+		SolCfg.FeePayers = make([]solana.Wallet, len(walletKeys))
+		for i, privkeyString := range walletKeys {
+			privkey := solana.MustPrivateKeyFromBase58(privkeyString)
+			SolCfg.FeePayers[i] = solana.Wallet{
+				PrivateKey: privkey,
+			}
 		}
+	} else {
+		SolCfg.FeePayers = make([]solana.Wallet, 0)
 	}
 
 	switch env := os.Getenv("ENV"); env {
 	case "dev":
 		fallthrough
 	case "development":
+		fallthrough
+	case "":
 		SolCfg.SolanaRelay = DevSolanaRelay
 		SolCfg.MintAudio = solana.MustPublicKeyFromBase58(DevMintAudio)
 		SolCfg.RewardManagerProgramID = solana.MustPublicKeyFromBase58(DevRewardManagerProgramID)

@@ -36,10 +36,15 @@ func init() {
 	case "dev":
 		fallthrough
 	case "development":
+		fallthrough
+	case "":
 		Cfg.AntiAbuseOracles = []string{"http://audius-protocol-discovery-provider-1"}
 	case "stage":
 		fallthrough
 	case "staging":
+		if Cfg.DelegatePrivateKey == "" {
+			log.Fatalf("Missing required %s env var: delegatePrivateKey", env)
+		}
 		Cfg.AntiAbuseOracles = []string{"https://discoveryprovider.staging.audius.co"}
 		Cfg.PythonUpstreams = []string{
 			"https://discoveryprovider.staging.audius.co",
@@ -50,6 +55,9 @@ func init() {
 	case "prod":
 		fallthrough
 	case "production":
+		if Cfg.DelegatePrivateKey == "" {
+			log.Fatalf("Missing required %s env var: delegatePrivateKey", env)
+		}
 		Cfg.AntiAbuseOracles = []string{"https://discoveryprovider.audius.co"}
 		Cfg.PythonUpstreams = []string{
 			"https://discoveryprovider.audius.co",
