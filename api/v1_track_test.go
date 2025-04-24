@@ -34,12 +34,12 @@ func TestGetTrackFollowDownloadAcess(t *testing.T) {
 	})
 
 	// With access
-	// _, body2 := testGet(t, "/v1/full/tracks/eYRWn?user_id=ELKzn", &trackResponse)
-	// jsonAssert(t, body2, map[string]string{
-	// 	"data.title":           "Follow Gated Download",
-	// 	"data.access.stream":   "true",
-	// 	"data.access.download": "true",
-	// })
+	_, body2 := testGet(t, "/v1/full/tracks/eYRWn?user_id=ELKzn", &trackResponse)
+	jsonAssert(t, body2, map[string]string{
+		"data.title":           "Follow Gated Download",
+		"data.access.stream":   "true",
+		"data.access.download": "true",
+	})
 }
 
 func TestGetTrackTipStreamAccess(t *testing.T) {

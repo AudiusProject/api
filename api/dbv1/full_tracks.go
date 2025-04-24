@@ -127,7 +127,6 @@ func (q *Queries) FullTracksKeyed(ctx context.Context, arg GetTracksParams) (map
 			Download: downloadAccess,
 			Stream:   streamAccess,
 		}
-		fmt.Println("access", access)
 
 		fullTrack := FullTrack{
 			GetTracksRow:       track,
