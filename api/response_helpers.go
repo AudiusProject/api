@@ -27,14 +27,16 @@ func v1UsersResponse(c *fiber.Ctx, users []dbv1.FullUser) error {
 	})
 }
 
+// Note: playlist response returned an array even though it's a single playlist
+// Done for backwards compatibility. Would be nice to get rid of this.
 func v1PlaylistResponse(c *fiber.Ctx, playlist dbv1.FullPlaylist) error {
 	if c.Locals("isFull").(bool) {
 		return c.JSON(fiber.Map{
-			"data": playlist,
+			"data": []dbv1.FullPlaylist{playlist},
 		})
 	}
 	return c.JSON(fiber.Map{
-		"data": dbv1.ToMinPlaylist(playlist),
+		"data": []dbv1.MinPlaylist{dbv1.ToMinPlaylist(playlist)},
 	})
 }
 

@@ -17,7 +17,6 @@ const getPlaylists = `-- name: GetPlaylists :many
 SELECT
   -- artwork
   p.description,
-  -- permalink
   -- id
   p.is_album,
   p.is_delete,
@@ -26,6 +25,8 @@ SELECT
   p.is_scheduled_release,
   p.is_stream_gated,
   p.stream_conditions,
+  p.upc,
+  p.ddex_app,
   -- is_streamable,
 
   coalesce(playlist_image_sizes_multihash, playlist_image_multihash) as artwork,
@@ -35,6 +36,7 @@ SELECT
   p.playlist_id,
   p.playlist_owner_id,
   p.playlist_contents,
+  playlist_routes.slug as slug,
 
   p.blocknumber,
 
@@ -111,8 +113,9 @@ SELECT
 
 FROM playlists p
 JOIN aggregate_playlist using (playlist_id)
+LEFT JOIN playlist_routes on p.playlist_id = playlist_routes.playlist_id and playlist_routes.is_current = true
 WHERE is_delete = false
-  and playlist_id = ANY($2::int[])
+  and p.playlist_id = ANY($2::int[])
 `
 
 type GetPlaylistsParams struct {
@@ -129,11 +132,14 @@ type GetPlaylistsRow struct {
 	IsScheduledRelease     bool             `json:"is_scheduled_release"`
 	IsStreamGated          pgtype.Bool      `json:"is_stream_gated"`
 	StreamConditions       *AccessGate      `json:"stream_conditions"`
+	Upc                    pgtype.Text      `json:"upc"`
+	DdexApp                pgtype.Text      `json:"ddex_app"`
 	Artwork                pgtype.Text      `json:"artwork"`
 	PlaylistName           pgtype.Text      `json:"playlist_name"`
 	PlaylistID             int32            `json:"playlist_id"`
 	PlaylistOwnerID        int32            `json:"playlist_owner_id"`
 	PlaylistContents       PlaylistContents `json:"playlist_contents"`
+	Slug                   pgtype.Text      `json:"slug"`
 	Blocknumber            pgtype.Int4      `json:"blocknumber"`
 	RepostCount            pgtype.Int4      `json:"repost_count"`
 	FavoriteCount          pgtype.Int4      `json:"favorite_count"`
@@ -164,11 +170,14 @@ func (q *Queries) GetPlaylists(ctx context.Context, arg GetPlaylistsParams) ([]G
 			&i.IsScheduledRelease,
 			&i.IsStreamGated,
 			&i.StreamConditions,
+			&i.Upc,
+			&i.DdexApp,
 			&i.Artwork,
 			&i.PlaylistName,
 			&i.PlaylistID,
 			&i.PlaylistOwnerID,
 			&i.PlaylistContents,
+			&i.Slug,
 			&i.Blocknumber,
 			&i.RepostCount,
 			&i.FavoriteCount,
