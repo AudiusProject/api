@@ -12,7 +12,7 @@ func TestGetTracksByPermalink(t *testing.T) {
 		Data []dbv1.FullTrack
 	}
 
-	status, body := testGet(t, "/v1/full/tracks?permalink=/tracksbypermalink/track-by-permalink", &tracksResponse)
+	status, body := testGet(t, "/v1/full/tracks?permalink=/TracksByPermalink/track-by-permalink", &tracksResponse)
 	assert.Equal(t, 200, status)
 
 	jsonAssert(t, body, map[string]string{

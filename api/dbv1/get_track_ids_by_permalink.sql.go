@@ -15,7 +15,7 @@ FROM track_routes
 JOIN users ON users.user_id = track_routes.owner_id
 WHERE handle_lc = ANY($1::text[])
     AND slug = ANY($2::text[])
-	AND CONCAT(handle_lc, '/', slug) = ANY($3::text[]) -- in case of conflicts across users
+    AND CONCAT(handle_lc, '/', slug) = ANY($3::text[]) -- in case of conflicts across users
 `
 
 type GetTrackIdsByPermalinkParams struct {

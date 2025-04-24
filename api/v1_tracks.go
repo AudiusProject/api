@@ -18,7 +18,7 @@ func (app *ApiServer) v1Tracks(c *fiber.Ctx) error {
 		handles := make([]string, len(permalinks))
 		slugs := make([]string, len(permalinks))
 		for i, permalink := range permalinks {
-			permalinks[i] = strings.TrimPrefix(permalink, "/")
+			permalinks[i] = strings.ToLower(strings.TrimPrefix(permalink, "/"))
 			splits := strings.Split(permalinks[i], "/")
 			handles[i] = splits[0]
 			slugs[i] = splits[1]
