@@ -16,7 +16,7 @@ const (
 	DisbursementSeedPrefix = "T_"
 )
 
-var ProgramID = solana.MustPublicKeyFromBase58("CDpzvz7DfgbF95jSSCHLX3ERkugyfgn9Fw8ypNZ1hfXp")
+var ProgramID = solana.MustPublicKeyFromBase58("DDZDcYdQFEMwcu2Mwo75yGFjJ1mUQyyXLWzhZLEVFcei")
 
 func SetProgramID(pubkey solana.PublicKey) {
 	ProgramID = pubkey
