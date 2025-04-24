@@ -2,7 +2,6 @@
 SELECT
   -- artwork
   p.description,
-  -- permalink
   -- id
   p.is_album,
   p.is_delete,
@@ -11,6 +10,8 @@ SELECT
   p.is_scheduled_release,
   p.is_stream_gated,
   p.stream_conditions,
+  p.upc,
+  p.ddex_app,
   -- is_streamable,
 
   coalesce(playlist_image_sizes_multihash, playlist_image_multihash) as artwork,
@@ -20,6 +21,7 @@ SELECT
   p.playlist_id,
   p.playlist_owner_id,
   p.playlist_contents,
+  playlist_routes.slug as slug,
 
   p.blocknumber,
 
@@ -96,6 +98,7 @@ SELECT
 
 FROM playlists p
 JOIN aggregate_playlist using (playlist_id)
+LEFT JOIN playlist_routes on p.playlist_id = playlist_routes.playlist_id and playlist_routes.is_current = true
 WHERE is_delete = false
-  and playlist_id = ANY(@ids::int[])
+  and p.playlist_id = ANY(@ids::int[])
 ;
