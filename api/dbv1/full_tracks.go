@@ -90,13 +90,17 @@ func (q *Queries) FullTracksKeyed(ctx context.Context, arg GetTracksParams) (map
 			preview = mediaLink(track.PreviewCid.String, track.TrackID, arg.MyID.(int32))
 		}
 
-		// client dies if this field is nil
-		// todo: what are default field visibility values?
-		if track.FieldVisibility == nil {
-			track.FieldVisibility = []byte(`{}`)
+		if track.FieldVisibility == nil || string(track.FieldVisibility) == "null" {
+			track.FieldVisibility = []byte(`{
+			"mood":null,
+			"tags":null,
+			"genre":null,
+			"share":null,
+			"play_count":null,
+			"remixes":null
+			}`)
 		}
 
-		// remix_of
 		var remixOf RemixOf
 		var fullRemixOf FullRemixOf
 		json.Unmarshal(track.RemixOf, &remixOf)
