@@ -39,3 +39,24 @@ func TestGetPlaylistFollowDownloadAccess(t *testing.T) {
 		"data.0.access":        `{"stream":true,"download":true}`,
 	})
 }
+
+func TestGetPlaylistUsdcPurchaseStreamAccess(t *testing.T) {
+	var playlistResponse struct {
+		Data dbv1.FullPlaylist
+	}
+	// No access
+	_, body1 := testGet(t, "/v1/full/playlists/ELKzn", &playlistResponse)
+	jsonAssert(t, body1, map[string]string{
+		"data.playlist_name":   "Purchase Gated Stream",
+		"data.access.stream":   "false",
+		"data.access.download": "false",
+	})
+
+	// With access
+	_, body2 := testGet(t, "/v1/full/playlists/ELKzn?user_id=1D9On", &playlistResponse)
+	jsonAssert(t, body2, map[string]string{
+		"data.playlist_name":   "Purchase Gated Stream",
+		"data.access.stream":   "true",
+		"data.access.download": "true",
+	})
+}

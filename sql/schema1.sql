@@ -3,7 +3,7 @@
 --
 
 -- Dumped from database version 15.12
--- Dumped by pg_dump version 17.4 (Debian 17.4-1.pgdg120+2)
+-- Dumped by pg_dump version 17.0
 
 SET statement_timeout = 0;
 SET lock_timeout = 0;
@@ -132,6 +132,40 @@ CREATE TYPE public.delist_user_reason AS ENUM (
     'STRIKE_THRESHOLD',
     'COPYRIGHT_SCHOOL',
     'MANUAL'
+);
+
+
+--
+-- Name: event_entity_type; Type: TYPE; Schema: public; Owner: -
+--
+
+CREATE TYPE public.event_entity_type AS ENUM (
+    'track',
+    'collection',
+    'user'
+);
+
+
+--
+-- Name: event_type; Type: TYPE; Schema: public; Owner: -
+--
+
+CREATE TYPE public.event_type AS ENUM (
+    'remix_contest',
+    'live_event',
+    'new_release'
+);
+
+
+--
+-- Name: parental_warning_type; Type: TYPE; Schema: public; Owner: -
+--
+
+CREATE TYPE public.parental_warning_type AS ENUM (
+    'explicit',
+    'explicit_content_edited',
+    'not_explicit',
+    'no_advice_available'
 );
 
 
@@ -1713,6 +1747,104 @@ $$;
 
 
 --
+-- Name: get_user_scores(integer[]); Type: FUNCTION; Schema: public; Owner: -
+--
+
+CREATE FUNCTION public.get_user_scores(target_user_ids integer[] DEFAULT NULL::integer[]) RETURNS TABLE(user_id integer, handle_lc text, play_count bigint, distinct_tracks_played bigint, follower_count bigint, challenge_count bigint, following_count bigint, chat_block_count bigint, is_audius_impersonator boolean, score bigint)
+    LANGUAGE sql
+    AS $$ with play_activity as (
+        select plays.user_id,
+            count(distinct (date_trunc('hour', plays.created_at))) as play_count,
+            count(distinct(plays.play_item_id)) as distinct_tracks_played
+        from plays
+            join users on plays.user_id = users.user_id
+        where target_user_ids is null
+            or plays.user_id = any(target_user_ids)
+        group by plays.user_id
+    ),
+    fast_challenge_completion as (
+        select users.user_id,
+            handle_lc,
+            users.created_at,
+            count(*) as challenge_count,
+            array_agg(user_challenges.challenge_id) as challenge_ids
+        from users
+            left join user_challenges on users.user_id = user_challenges.user_id
+        where user_challenges.is_complete
+            and user_challenges.completed_at - users.created_at <= interval '3 minutes'
+            and user_challenges.challenge_id not in ('m', 'b')
+            and (
+                target_user_ids is null
+                or users.user_id = any(target_user_ids)
+            )
+        group by users.user_id,
+            users.handle_lc,
+            users.created_at
+    ),
+    chat_blocks as (
+        select chat_blocked_users.blockee_user_id as user_id,
+            count(*) as block_count
+        from chat_blocked_users
+            join users on chat_blocked_users.blockee_user_id = users.user_id
+        where target_user_ids is null
+            or chat_blocked_users.blockee_user_id = any(target_user_ids)
+        group by chat_blocked_users.blockee_user_id
+    ),
+    aggregate_scores as (
+        select users.user_id,
+            users.handle_lc,
+            users.created_at,
+            case
+                when (
+                    users.handle_lc ilike '%audius%'
+                    or lower(users.name) ilike '%audius%'
+                )
+                and users.is_verified = false then true
+                else false
+            end as is_audius_impersonator,
+            coalesce(play_activity.play_count, 0) as play_count,
+            coalesce(play_activity.distinct_tracks_played, 0) as distinct_tracks_played,
+            coalesce(fast_challenge_completion.challenge_count, 0) as challenge_count,
+            coalesce(aggregate_user.following_count, 0) as following_count,
+            coalesce(aggregate_user.follower_count, 0) as follower_count,
+            coalesce(chat_blocks.block_count, 0) as chat_block_count
+        from users
+            left join play_activity on users.user_id = play_activity.user_id
+            left join fast_challenge_completion on users.user_id = fast_challenge_completion.user_id
+            left join chat_blocks on users.user_id = chat_blocks.user_id
+            left join aggregate_user on aggregate_user.user_id = users.user_id
+        where users.handle_lc is not null
+            and (
+                target_user_ids is null
+                or users.user_id = any(target_user_ids)
+            )
+    )
+select a.user_id,
+    a.handle_lc,
+    a.play_count,
+    a.distinct_tracks_played,
+    a.follower_count,
+    a.challenge_count,
+    a.following_count,
+    a.chat_block_count,
+    a.is_audius_impersonator,
+    (
+        (a.play_count / 2) + a.follower_count - a.challenge_count - (a.chat_block_count * 100) + case
+            when a.following_count < 5 then -1
+            else 0
+        end + case
+            when a.is_audius_impersonator then -1000
+            else 0
+        end + case
+            when a.distinct_tracks_played <= 3 then -10
+            else 0
+        end
+    ) as score
+from aggregate_scores a;
+$$;
+
+
+--
 -- Name: handle_challenge_disbursement(); Type: FUNCTION; Schema: public; Owner: -
 --
 
@@ -2156,8 +2288,7 @@ begin
         set count = count + 1
         where play_item_id = new.play_item_id
         and timestamp = date_trunc('month', new.created_at)
-        and country = coalesce(new.country, '')
-        returning count into new_listen_count;
+        and country = coalesce(new.country, '');
 
     select new_listen_count 
         into milestone 
@@ -4249,6 +4380,36 @@ end
 $$;
 
 
+--
+-- Name: validate_territory_codes(text[]); Type: FUNCTION; Schema: public; Owner: -
+--
+
+CREATE FUNCTION public.validate_territory_codes(codes text[]) RETURNS boolean
+    LANGUAGE plpgsql
+    AS $_$
+begin
+    -- null is valid
+    if codes is null then
+        return true;
+    end if;
+    
+    -- array must have at least one element
+    if array_length(codes, 1) is null then
+        return false;
+    end if;
+    
+    -- check each element to make sure it's a 2 letter ISO code
+    for i in 1..array_length(codes, 1) loop
+        if codes[i] !~ '^[A-Z]{2}$' then
+            return false;
+        end if;
+    end loop;
+    
+    return true;
+end;
+$_$;
+
+
 SET default_tablespace = '';
 
 SET default_table_access_method = heap;
@@ -4328,7 +4489,11 @@ CREATE TABLE public.tracks (
     cover_original_artist character varying,
     is_owned_by_user boolean DEFAULT false NOT NULL,
     is_stream_gated boolean DEFAULT false,
-    is_download_gated boolean DEFAULT false
+    is_download_gated boolean DEFAULT false,
+    no_ai_use boolean DEFAULT false,
+    parental_warning public.parental_warning_type,
+    territory_codes text[],
+    CONSTRAINT check_territory_codes CHECK (public.validate_territory_codes(territory_codes))
 );
 
 
@@ -4953,22 +5118,6 @@ CREATE TABLE public.blocks (
 
 
 --
--- Name: bmg; Type: TABLE; Schema: public; Owner: -
---
-
-CREATE TABLE public.bmg (
-    copy_title character varying,
-    copy_media_url character varying,
-    id character varying,
-    permalink character varying,
-    acr character varying,
-    available character varying,
-    plays character varying,
-    asset_title character varying
-);
-
-
---
 -- Name: challenge_disbursements; Type: TABLE; Schema: public; Owner: -
 --
 
@@ -5381,6 +5530,316 @@ CREATE TABLE public.core_db_migrations (
 
 
 --
+-- Name: core_etl_tx; Type: TABLE; Schema: public; Owner: -
+--
+
+CREATE TABLE public.core_etl_tx (
+    id bigint NOT NULL,
+    block_height bigint NOT NULL,
+    tx_index integer NOT NULL,
+    tx_hash text NOT NULL,
+    tx_type text NOT NULL,
+    tx_data jsonb NOT NULL,
+    created_at timestamp with time zone NOT NULL
+);
+
+
+--
+-- Name: core_etl_tx_duplicates; Type: TABLE; Schema: public; Owner: -
+--
+
+CREATE TABLE public.core_etl_tx_duplicates (
+    id bigint NOT NULL,
+    tx_hash text NOT NULL,
+    table_name text NOT NULL,
+    duplicate_type text NOT NULL,
+    created_at timestamp with time zone DEFAULT now() NOT NULL
+);
+
+
+--
+-- Name: core_etl_tx_duplicates_id_seq; Type: SEQUENCE; Schema: public; Owner: -
+--
+
+CREATE SEQUENCE public.core_etl_tx_duplicates_id_seq
+    START WITH 1
+    INCREMENT BY 1
+    NO MINVALUE
+    NO MAXVALUE
+    CACHE 1;
+
+
+--
+-- Name: core_etl_tx_duplicates_id_seq; Type: SEQUENCE OWNED BY; Schema: public; Owner: -
+--
+
+ALTER SEQUENCE public.core_etl_tx_duplicates_id_seq OWNED BY public.core_etl_tx_duplicates.id;
+
+
+--
+-- Name: core_etl_tx_id_seq; Type: SEQUENCE; Schema: public; Owner: -
+--
+
+CREATE SEQUENCE public.core_etl_tx_id_seq
+    START WITH 1
+    INCREMENT BY 1
+    NO MINVALUE
+    NO MAXVALUE
+    CACHE 1;
+
+
+--
+-- Name: core_etl_tx_id_seq; Type: SEQUENCE OWNED BY; Schema: public; Owner: -
+--
+
+ALTER SEQUENCE public.core_etl_tx_id_seq OWNED BY public.core_etl_tx.id;
+
+
+--
+-- Name: core_etl_tx_manage_entity; Type: TABLE; Schema: public; Owner: -
+--
+
+CREATE TABLE public.core_etl_tx_manage_entity (
+    id bigint NOT NULL,
+    tx_hash text NOT NULL,
+    user_id bigint NOT NULL,
+    entity_type text NOT NULL,
+    entity_id bigint NOT NULL,
+    action text NOT NULL,
+    metadata text NOT NULL,
+    signature text NOT NULL,
+    signer text NOT NULL,
+    nonce text NOT NULL,
+    created_at timestamp with time zone NOT NULL
+);
+
+
+--
+-- Name: core_etl_tx_manage_entity_id_seq; Type: SEQUENCE; Schema: public; Owner: -
+--
+
+CREATE SEQUENCE public.core_etl_tx_manage_entity_id_seq
+    START WITH 1
+    INCREMENT BY 1
+    NO MINVALUE
+    NO MAXVALUE
+    CACHE 1;
+
+
+--
+-- Name: core_etl_tx_manage_entity_id_seq; Type: SEQUENCE OWNED BY; Schema: public; Owner: -
+--
+
+ALTER SEQUENCE public.core_etl_tx_manage_entity_id_seq OWNED BY public.core_etl_tx_manage_entity.id;
+
+
+--
+-- Name: core_etl_tx_plays; Type: TABLE; Schema: public; Owner: -
+--
+
+CREATE TABLE public.core_etl_tx_plays (
+    id bigint NOT NULL,
+    tx_hash text NOT NULL,
+    user_id text NOT NULL,
+    track_id text NOT NULL,
+    played_at timestamp with time zone NOT NULL,
+    signature text NOT NULL,
+    city text,
+    region text,
+    country text,
+    created_at timestamp with time zone NOT NULL
+);
+
+
+--
+-- Name: core_etl_tx_plays_id_seq; Type: SEQUENCE; Schema: public; Owner: -
+--
+
+CREATE SEQUENCE public.core_etl_tx_plays_id_seq
+    START WITH 1
+    INCREMENT BY 1
+    NO MINVALUE
+    NO MAXVALUE
+    CACHE 1;
+
+
+--
+-- Name: core_etl_tx_plays_id_seq; Type: SEQUENCE OWNED BY; Schema: public; Owner: -
+--
+
+ALTER SEQUENCE public.core_etl_tx_plays_id_seq OWNED BY public.core_etl_tx_plays.id;
+
+
+--
+-- Name: core_etl_tx_sla_rollup; Type: TABLE; Schema: public; Owner: -
+--
+
+CREATE TABLE public.core_etl_tx_sla_rollup (
+    id bigint NOT NULL,
+    tx_hash text NOT NULL,
+    block_start bigint NOT NULL,
+    block_end bigint NOT NULL,
+    "timestamp" timestamp with time zone NOT NULL,
+    created_at timestamp with time zone NOT NULL
+);
+
+
+--
+-- Name: core_etl_tx_sla_rollup_id_seq; Type: SEQUENCE; Schema: public; Owner: -
+--
+
+CREATE SEQUENCE public.core_etl_tx_sla_rollup_id_seq
+    START WITH 1
+    INCREMENT BY 1
+    NO MINVALUE
+    NO MAXVALUE
+    CACHE 1;
+
+
+--
+-- Name: core_etl_tx_sla_rollup_id_seq; Type: SEQUENCE OWNED BY; Schema: public; Owner: -
+--
+
+ALTER SEQUENCE public.core_etl_tx_sla_rollup_id_seq OWNED BY public.core_etl_tx_sla_rollup.id;
+
+
+--
+-- Name: core_etl_tx_storage_proof; Type: TABLE; Schema: public; Owner: -
+--
+
+CREATE TABLE public.core_etl_tx_storage_proof (
+    id bigint NOT NULL,
+    tx_hash text NOT NULL,
+    height bigint NOT NULL,
+    address text NOT NULL,
+    cid text,
+    proof_signature bytea,
+    prover_addresses text[] NOT NULL,
+    created_at timestamp with time zone NOT NULL
+);
+
+
+--
+-- Name: core_etl_tx_storage_proof_id_seq; Type: SEQUENCE; Schema: public; Owner: -
+--
+
+CREATE SEQUENCE public.core_etl_tx_storage_proof_id_seq
+    START WITH 1
+    INCREMENT BY 1
+    NO MINVALUE
+    NO MAXVALUE
+    CACHE 1;
+
+
+--
+-- Name: core_etl_tx_storage_proof_id_seq; Type: SEQUENCE OWNED BY; Schema: public; Owner: -
+--
+
+ALTER SEQUENCE public.core_etl_tx_storage_proof_id_seq OWNED BY public.core_etl_tx_storage_proof.id;
+
+
+--
+-- Name: core_etl_tx_storage_proof_verification; Type: TABLE; Schema: public; Owner: -
+--
+
+CREATE TABLE public.core_etl_tx_storage_proof_verification (
+    id bigint NOT NULL,
+    tx_hash text NOT NULL,
+    height bigint NOT NULL,
+    proof bytea NOT NULL,
+    created_at timestamp with time zone NOT NULL
+);
+
+
+--
+-- Name: core_etl_tx_storage_proof_verification_id_seq; Type: SEQUENCE; Schema: public; Owner: -
+--
+
+CREATE SEQUENCE public.core_etl_tx_storage_proof_verification_id_seq
+    START WITH 1
+    INCREMENT BY 1
+    NO MINVALUE
+    NO MAXVALUE
+    CACHE 1;
+
+
+--
+-- Name: core_etl_tx_storage_proof_verification_id_seq; Type: SEQUENCE OWNED BY; Schema: public; Owner: -
+--
+
+ALTER SEQUENCE public.core_etl_tx_storage_proof_verification_id_seq OWNED BY public.core_etl_tx_storage_proof_verification.id;
+
+
+--
+-- Name: core_etl_tx_validator_deregistration; Type: TABLE; Schema: public; Owner: -
+--
+
+CREATE TABLE public.core_etl_tx_validator_deregistration (
+    id bigint NOT NULL,
+    tx_hash text NOT NULL,
+    comet_address text NOT NULL,
+    pub_key bytea NOT NULL,
+    created_at timestamp with time zone NOT NULL
+);
+
+
+--
+-- Name: core_etl_tx_validator_deregistration_id_seq; Type: SEQUENCE; Schema: public; Owner: -
+--
+
+CREATE SEQUENCE public.core_etl_tx_validator_deregistration_id_seq
+    START WITH 1
+    INCREMENT BY 1
+    NO MINVALUE
+    NO MAXVALUE
+    CACHE 1;
+
+
+--
+-- Name: core_etl_tx_validator_deregistration_id_seq; Type: SEQUENCE OWNED BY; Schema: public; Owner: -
+--
+
+ALTER SEQUENCE public.core_etl_tx_validator_deregistration_id_seq OWNED BY public.core_etl_tx_validator_deregistration.id;
+
+
+--
+-- Name: core_etl_tx_validator_registration; Type: TABLE; Schema: public; Owner: -
+--
+
+CREATE TABLE public.core_etl_tx_validator_registration (
+    id bigint NOT NULL,
+    tx_hash text NOT NULL,
+    endpoint text NOT NULL,
+    comet_address text NOT NULL,
+    eth_block text NOT NULL,
+    node_type text NOT NULL,
+    sp_id text NOT NULL,
+    pub_key bytea NOT NULL,
+    power bigint NOT NULL,
+    created_at timestamp with time zone NOT NULL
+);
+
+
+--
+-- Name: core_etl_tx_validator_registration_id_seq; Type: SEQUENCE; Schema: public; Owner: -
+--
+
+CREATE SEQUENCE public.core_etl_tx_validator_registration_id_seq
+    START WITH 1
+    INCREMENT BY 1
+    NO MINVALUE
+    NO MAXVALUE
+    CACHE 1;
+
+
+--
+-- Name: core_etl_tx_validator_registration_id_seq; Type: SEQUENCE OWNED BY; Schema: public; Owner: -
+--
+
+ALTER SEQUENCE public.core_etl_tx_validator_registration_id_seq OWNED BY public.core_etl_tx_validator_registration.id;
+
+
+--
 -- Name: core_indexed_blocks; Type: TABLE; Schema: public; Owner: -
 --
 
@@ -5425,77 +5884,6 @@ CREATE SEQUENCE public.core_transactions_rowid_seq
 --
 
 ALTER SEQUENCE public.core_transactions_rowid_seq OWNED BY public.core_transactions.rowid;
-
-
---
--- Name: core_tx_decoded; Type: TABLE; Schema: public; Owner: -
---
-
-CREATE TABLE public.core_tx_decoded (
-    id bigint NOT NULL,
-    block_height bigint NOT NULL,
-    tx_index integer NOT NULL,
-    tx_hash text NOT NULL,
-    tx_type text NOT NULL,
-    tx_data jsonb NOT NULL,
-    created_at timestamp with time zone NOT NULL
-);
-
-
---
--- Name: core_tx_decoded_id_seq; Type: SEQUENCE; Schema: public; Owner: -
---
-
-CREATE SEQUENCE public.core_tx_decoded_id_seq
-    START WITH 1
-    INCREMENT BY 1
-    NO MINVALUE
-    NO MAXVALUE
-    CACHE 1;
-
-
---
--- Name: core_tx_decoded_id_seq; Type: SEQUENCE OWNED BY; Schema: public; Owner: -
---
-
-ALTER SEQUENCE public.core_tx_decoded_id_seq OWNED BY public.core_tx_decoded.id;
-
-
---
--- Name: core_tx_decoded_plays; Type: TABLE; Schema: public; Owner: -
---
-
-CREATE TABLE public.core_tx_decoded_plays (
-    id bigint NOT NULL,
-    tx_hash text NOT NULL,
-    user_id text NOT NULL,
-    track_id text NOT NULL,
-    played_at timestamp with time zone NOT NULL,
-    signature text NOT NULL,
-    city text,
-    region text,
-    country text,
-    created_at timestamp with time zone NOT NULL
-);
-
-
---
--- Name: core_tx_decoded_plays_id_seq; Type: SEQUENCE; Schema: public; Owner: -
---
-
-CREATE SEQUENCE public.core_tx_decoded_plays_id_seq
-    START WITH 1
-    INCREMENT BY 1
-    NO MINVALUE
-    NO MAXVALUE
-    CACHE 1;
-
-
---
--- Name: core_tx_decoded_plays_id_seq; Type: SEQUENCE OWNED BY; Schema: public; Owner: -
---
-
-ALTER SEQUENCE public.core_tx_decoded_plays_id_seq OWNED BY public.core_tx_decoded_plays.id;
 
 
 --
@@ -5784,6 +6172,27 @@ CREATE SEQUENCE public.eth_blocks_last_scanned_block_seq
 --
 
 ALTER SEQUENCE public.eth_blocks_last_scanned_block_seq OWNED BY public.eth_blocks.last_scanned_block;
+
+
+--
+-- Name: events; Type: TABLE; Schema: public; Owner: -
+--
+
+CREATE TABLE public.events (
+    event_id integer NOT NULL,
+    event_type public.event_type NOT NULL,
+    user_id integer NOT NULL,
+    entity_type public.event_entity_type,
+    entity_id integer,
+    end_date timestamp without time zone,
+    is_deleted boolean DEFAULT false,
+    event_data jsonb,
+    created_at timestamp without time zone DEFAULT CURRENT_TIMESTAMP NOT NULL,
+    updated_at timestamp without time zone DEFAULT CURRENT_TIMESTAMP NOT NULL,
+    txhash text NOT NULL,
+    blockhash text NOT NULL,
+    blocknumber integer
+);
 
 
 --
@@ -7163,24 +7572,73 @@ ALTER TABLE ONLY public.core_blocks ALTER COLUMN rowid SET DEFAULT nextval('publ
 
 
 --
+-- Name: core_etl_tx id; Type: DEFAULT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.core_etl_tx ALTER COLUMN id SET DEFAULT nextval('public.core_etl_tx_id_seq'::regclass);
+
+
+--
+-- Name: core_etl_tx_duplicates id; Type: DEFAULT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.core_etl_tx_duplicates ALTER COLUMN id SET DEFAULT nextval('public.core_etl_tx_duplicates_id_seq'::regclass);
+
+
+--
+-- Name: core_etl_tx_manage_entity id; Type: DEFAULT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.core_etl_tx_manage_entity ALTER COLUMN id SET DEFAULT nextval('public.core_etl_tx_manage_entity_id_seq'::regclass);
+
+
+--
+-- Name: core_etl_tx_plays id; Type: DEFAULT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.core_etl_tx_plays ALTER COLUMN id SET DEFAULT nextval('public.core_etl_tx_plays_id_seq'::regclass);
+
+
+--
+-- Name: core_etl_tx_sla_rollup id; Type: DEFAULT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.core_etl_tx_sla_rollup ALTER COLUMN id SET DEFAULT nextval('public.core_etl_tx_sla_rollup_id_seq'::regclass);
+
+
+--
+-- Name: core_etl_tx_storage_proof id; Type: DEFAULT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.core_etl_tx_storage_proof ALTER COLUMN id SET DEFAULT nextval('public.core_etl_tx_storage_proof_id_seq'::regclass);
+
+
+--
+-- Name: core_etl_tx_storage_proof_verification id; Type: DEFAULT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.core_etl_tx_storage_proof_verification ALTER COLUMN id SET DEFAULT nextval('public.core_etl_tx_storage_proof_verification_id_seq'::regclass);
+
+
+--
+-- Name: core_etl_tx_validator_deregistration id; Type: DEFAULT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.core_etl_tx_validator_deregistration ALTER COLUMN id SET DEFAULT nextval('public.core_etl_tx_validator_deregistration_id_seq'::regclass);
+
+
+--
+-- Name: core_etl_tx_validator_registration id; Type: DEFAULT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.core_etl_tx_validator_registration ALTER COLUMN id SET DEFAULT nextval('public.core_etl_tx_validator_registration_id_seq'::regclass);
+
+
+--
 -- Name: core_transactions rowid; Type: DEFAULT; Schema: public; Owner: -
 --
 
 ALTER TABLE ONLY public.core_transactions ALTER COLUMN rowid SET DEFAULT nextval('public.core_transactions_rowid_seq'::regclass);
-
-
---
--- Name: core_tx_decoded id; Type: DEFAULT; Schema: public; Owner: -
---
-
-ALTER TABLE ONLY public.core_tx_decoded ALTER COLUMN id SET DEFAULT nextval('public.core_tx_decoded_id_seq'::regclass);
-
-
---
--- Name: core_tx_decoded_plays id; Type: DEFAULT; Schema: public; Owner: -
---
-
-ALTER TABLE ONLY public.core_tx_decoded_plays ALTER COLUMN id SET DEFAULT nextval('public.core_tx_decoded_plays_id_seq'::regclass);
 
 
 --
@@ -7654,6 +8112,158 @@ ALTER TABLE ONLY public.core_db_migrations
 
 
 --
+-- Name: core_etl_tx core_etl_tx_block_height_tx_index_key; Type: CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.core_etl_tx
+    ADD CONSTRAINT core_etl_tx_block_height_tx_index_key UNIQUE (block_height, tx_index);
+
+
+--
+-- Name: core_etl_tx_duplicates core_etl_tx_duplicates_pkey; Type: CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.core_etl_tx_duplicates
+    ADD CONSTRAINT core_etl_tx_duplicates_pkey PRIMARY KEY (id);
+
+
+--
+-- Name: core_etl_tx_duplicates core_etl_tx_duplicates_tx_hash_table_name_key; Type: CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.core_etl_tx_duplicates
+    ADD CONSTRAINT core_etl_tx_duplicates_tx_hash_table_name_key UNIQUE (tx_hash, table_name);
+
+
+--
+-- Name: core_etl_tx_manage_entity core_etl_tx_manage_entity_pkey; Type: CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.core_etl_tx_manage_entity
+    ADD CONSTRAINT core_etl_tx_manage_entity_pkey PRIMARY KEY (id);
+
+
+--
+-- Name: core_etl_tx_manage_entity core_etl_tx_manage_entity_tx_hash_key; Type: CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.core_etl_tx_manage_entity
+    ADD CONSTRAINT core_etl_tx_manage_entity_tx_hash_key UNIQUE (tx_hash);
+
+
+--
+-- Name: core_etl_tx core_etl_tx_pkey; Type: CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.core_etl_tx
+    ADD CONSTRAINT core_etl_tx_pkey PRIMARY KEY (id);
+
+
+--
+-- Name: core_etl_tx_plays core_etl_tx_plays_pkey; Type: CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.core_etl_tx_plays
+    ADD CONSTRAINT core_etl_tx_plays_pkey PRIMARY KEY (id);
+
+
+--
+-- Name: core_etl_tx_plays core_etl_tx_plays_tx_hash_user_id_track_id_key; Type: CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.core_etl_tx_plays
+    ADD CONSTRAINT core_etl_tx_plays_tx_hash_user_id_track_id_key UNIQUE (tx_hash, user_id, track_id);
+
+
+--
+-- Name: core_etl_tx_sla_rollup core_etl_tx_sla_rollup_pkey; Type: CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.core_etl_tx_sla_rollup
+    ADD CONSTRAINT core_etl_tx_sla_rollup_pkey PRIMARY KEY (id);
+
+
+--
+-- Name: core_etl_tx_sla_rollup core_etl_tx_sla_rollup_tx_hash_key; Type: CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.core_etl_tx_sla_rollup
+    ADD CONSTRAINT core_etl_tx_sla_rollup_tx_hash_key UNIQUE (tx_hash);
+
+
+--
+-- Name: core_etl_tx_storage_proof core_etl_tx_storage_proof_pkey; Type: CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.core_etl_tx_storage_proof
+    ADD CONSTRAINT core_etl_tx_storage_proof_pkey PRIMARY KEY (id);
+
+
+--
+-- Name: core_etl_tx_storage_proof core_etl_tx_storage_proof_tx_hash_key; Type: CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.core_etl_tx_storage_proof
+    ADD CONSTRAINT core_etl_tx_storage_proof_tx_hash_key UNIQUE (tx_hash);
+
+
+--
+-- Name: core_etl_tx_storage_proof_verification core_etl_tx_storage_proof_verification_pkey; Type: CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.core_etl_tx_storage_proof_verification
+    ADD CONSTRAINT core_etl_tx_storage_proof_verification_pkey PRIMARY KEY (id);
+
+
+--
+-- Name: core_etl_tx_storage_proof_verification core_etl_tx_storage_proof_verification_tx_hash_key; Type: CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.core_etl_tx_storage_proof_verification
+    ADD CONSTRAINT core_etl_tx_storage_proof_verification_tx_hash_key UNIQUE (tx_hash);
+
+
+--
+-- Name: core_etl_tx core_etl_tx_tx_hash_key; Type: CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.core_etl_tx
+    ADD CONSTRAINT core_etl_tx_tx_hash_key UNIQUE (tx_hash);
+
+
+--
+-- Name: core_etl_tx_validator_deregistration core_etl_tx_validator_deregistration_pkey; Type: CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.core_etl_tx_validator_deregistration
+    ADD CONSTRAINT core_etl_tx_validator_deregistration_pkey PRIMARY KEY (id);
+
+
+--
+-- Name: core_etl_tx_validator_deregistration core_etl_tx_validator_deregistration_tx_hash_key; Type: CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.core_etl_tx_validator_deregistration
+    ADD CONSTRAINT core_etl_tx_validator_deregistration_tx_hash_key UNIQUE (tx_hash);
+
+
+--
+-- Name: core_etl_tx_validator_registration core_etl_tx_validator_registration_pkey; Type: CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.core_etl_tx_validator_registration
+    ADD CONSTRAINT core_etl_tx_validator_registration_pkey PRIMARY KEY (id);
+
+
+--
+-- Name: core_etl_tx_validator_registration core_etl_tx_validator_registration_tx_hash_key; Type: CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.core_etl_tx_validator_registration
+    ADD CONSTRAINT core_etl_tx_validator_registration_tx_hash_key UNIQUE (tx_hash);
+
+
+--
 -- Name: core_transactions core_transactions_block_id_index_key; Type: CONSTRAINT; Schema: public; Owner: -
 --
 
@@ -7667,46 +8277,6 @@ ALTER TABLE ONLY public.core_transactions
 
 ALTER TABLE ONLY public.core_transactions
     ADD CONSTRAINT core_transactions_pkey PRIMARY KEY (rowid);
-
-
---
--- Name: core_tx_decoded core_tx_decoded_block_height_tx_index_key; Type: CONSTRAINT; Schema: public; Owner: -
---
-
-ALTER TABLE ONLY public.core_tx_decoded
-    ADD CONSTRAINT core_tx_decoded_block_height_tx_index_key UNIQUE (block_height, tx_index);
-
-
---
--- Name: core_tx_decoded core_tx_decoded_pkey; Type: CONSTRAINT; Schema: public; Owner: -
---
-
-ALTER TABLE ONLY public.core_tx_decoded
-    ADD CONSTRAINT core_tx_decoded_pkey PRIMARY KEY (id);
-
-
---
--- Name: core_tx_decoded_plays core_tx_decoded_plays_pkey; Type: CONSTRAINT; Schema: public; Owner: -
---
-
-ALTER TABLE ONLY public.core_tx_decoded_plays
-    ADD CONSTRAINT core_tx_decoded_plays_pkey PRIMARY KEY (id);
-
-
---
--- Name: core_tx_decoded_plays core_tx_decoded_plays_tx_hash_user_id_track_id_key; Type: CONSTRAINT; Schema: public; Owner: -
---
-
-ALTER TABLE ONLY public.core_tx_decoded_plays
-    ADD CONSTRAINT core_tx_decoded_plays_tx_hash_user_id_track_id_key UNIQUE (tx_hash, user_id, track_id);
-
-
---
--- Name: core_tx_decoded core_tx_decoded_tx_hash_key; Type: CONSTRAINT; Schema: public; Owner: -
---
-
-ALTER TABLE ONLY public.core_tx_decoded
-    ADD CONSTRAINT core_tx_decoded_tx_hash_key UNIQUE (tx_hash);
 
 
 --
@@ -7803,6 +8373,14 @@ ALTER TABLE ONLY public.encrypted_emails
 
 ALTER TABLE ONLY public.eth_blocks
     ADD CONSTRAINT eth_blocks_pkey PRIMARY KEY (last_scanned_block);
+
+
+--
+-- Name: events events_pkey; Type: CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.events
+    ADD CONSTRAINT events_pkey PRIMARY KEY (event_id);
 
 
 --
@@ -8370,73 +8948,150 @@ CREATE INDEX chat_member_user_idx ON public.chat_member USING btree (user_id);
 
 
 --
--- Name: core_tx_decoded_block_height_idx; Type: INDEX; Schema: public; Owner: -
+-- Name: core_etl_tx_block_height_idx; Type: INDEX; Schema: public; Owner: -
 --
 
-CREATE INDEX core_tx_decoded_block_height_idx ON public.core_tx_decoded USING btree (block_height);
-
-
---
--- Name: core_tx_decoded_plays_city_idx; Type: INDEX; Schema: public; Owner: -
---
-
-CREATE INDEX core_tx_decoded_plays_city_idx ON public.core_tx_decoded_plays USING btree (city);
+CREATE INDEX core_etl_tx_block_height_idx ON public.core_etl_tx USING btree (block_height);
 
 
 --
--- Name: core_tx_decoded_plays_country_idx; Type: INDEX; Schema: public; Owner: -
+-- Name: core_etl_tx_created_at_idx; Type: INDEX; Schema: public; Owner: -
 --
 
-CREATE INDEX core_tx_decoded_plays_country_idx ON public.core_tx_decoded_plays USING btree (country);
-
-
---
--- Name: core_tx_decoded_plays_played_at_idx; Type: INDEX; Schema: public; Owner: -
---
-
-CREATE INDEX core_tx_decoded_plays_played_at_idx ON public.core_tx_decoded_plays USING btree (played_at);
+CREATE INDEX core_etl_tx_created_at_idx ON public.core_etl_tx USING btree (created_at);
 
 
 --
--- Name: core_tx_decoded_plays_region_idx; Type: INDEX; Schema: public; Owner: -
+-- Name: core_etl_tx_manage_entity_action_idx; Type: INDEX; Schema: public; Owner: -
 --
 
-CREATE INDEX core_tx_decoded_plays_region_idx ON public.core_tx_decoded_plays USING btree (region);
-
-
---
--- Name: core_tx_decoded_plays_track_id_idx; Type: INDEX; Schema: public; Owner: -
---
-
-CREATE INDEX core_tx_decoded_plays_track_id_idx ON public.core_tx_decoded_plays USING btree (track_id);
+CREATE INDEX core_etl_tx_manage_entity_action_idx ON public.core_etl_tx_manage_entity USING btree (action);
 
 
 --
--- Name: core_tx_decoded_plays_user_id_idx; Type: INDEX; Schema: public; Owner: -
+-- Name: core_etl_tx_manage_entity_entity_type_idx; Type: INDEX; Schema: public; Owner: -
 --
 
-CREATE INDEX core_tx_decoded_plays_user_id_idx ON public.core_tx_decoded_plays USING btree (user_id);
-
-
---
--- Name: core_tx_decoded_tx_hash_idx; Type: INDEX; Schema: public; Owner: -
---
-
-CREATE INDEX core_tx_decoded_tx_hash_idx ON public.core_tx_decoded USING btree (tx_hash);
+CREATE INDEX core_etl_tx_manage_entity_entity_type_idx ON public.core_etl_tx_manage_entity USING btree (entity_type);
 
 
 --
--- Name: core_tx_decoded_tx_type_idx; Type: INDEX; Schema: public; Owner: -
+-- Name: core_etl_tx_manage_entity_user_id_idx; Type: INDEX; Schema: public; Owner: -
 --
 
-CREATE INDEX core_tx_decoded_tx_type_idx ON public.core_tx_decoded USING btree (tx_type);
+CREATE INDEX core_etl_tx_manage_entity_user_id_idx ON public.core_etl_tx_manage_entity USING btree (user_id);
 
 
 --
--- Name: fix_tracks_status_flags_idx; Type: INDEX; Schema: public; Owner: -
+-- Name: core_etl_tx_plays_city_idx; Type: INDEX; Schema: public; Owner: -
 --
 
-CREATE INDEX fix_tracks_status_flags_idx ON public.tracks USING btree (track_id, is_unlisted, is_delete);
+CREATE INDEX core_etl_tx_plays_city_idx ON public.core_etl_tx_plays USING btree (city);
+
+
+--
+-- Name: core_etl_tx_plays_country_idx; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX core_etl_tx_plays_country_idx ON public.core_etl_tx_plays USING btree (country);
+
+
+--
+-- Name: core_etl_tx_plays_played_at_idx; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX core_etl_tx_plays_played_at_idx ON public.core_etl_tx_plays USING btree (played_at);
+
+
+--
+-- Name: core_etl_tx_plays_region_idx; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX core_etl_tx_plays_region_idx ON public.core_etl_tx_plays USING btree (region);
+
+
+--
+-- Name: core_etl_tx_plays_track_id_idx; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX core_etl_tx_plays_track_id_idx ON public.core_etl_tx_plays USING btree (track_id);
+
+
+--
+-- Name: core_etl_tx_plays_user_id_idx; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX core_etl_tx_plays_user_id_idx ON public.core_etl_tx_plays USING btree (user_id);
+
+
+--
+-- Name: core_etl_tx_sla_rollup_block_range_idx; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX core_etl_tx_sla_rollup_block_range_idx ON public.core_etl_tx_sla_rollup USING btree (block_start, block_end);
+
+
+--
+-- Name: core_etl_tx_sla_rollup_timestamp_idx; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX core_etl_tx_sla_rollup_timestamp_idx ON public.core_etl_tx_sla_rollup USING btree ("timestamp");
+
+
+--
+-- Name: core_etl_tx_storage_proof_address_idx; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX core_etl_tx_storage_proof_address_idx ON public.core_etl_tx_storage_proof USING btree (address);
+
+
+--
+-- Name: core_etl_tx_storage_proof_height_idx; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX core_etl_tx_storage_proof_height_idx ON public.core_etl_tx_storage_proof USING btree (height);
+
+
+--
+-- Name: core_etl_tx_storage_proof_verification_height_idx; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX core_etl_tx_storage_proof_verification_height_idx ON public.core_etl_tx_storage_proof_verification USING btree (height);
+
+
+--
+-- Name: core_etl_tx_tx_type_idx; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX core_etl_tx_tx_type_idx ON public.core_etl_tx USING btree (tx_type);
+
+
+--
+-- Name: core_etl_tx_validator_deregistration_comet_address_idx; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX core_etl_tx_validator_deregistration_comet_address_idx ON public.core_etl_tx_validator_deregistration USING btree (comet_address);
+
+
+--
+-- Name: core_etl_tx_validator_registration_comet_address_idx; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX core_etl_tx_validator_registration_comet_address_idx ON public.core_etl_tx_validator_registration USING btree (comet_address);
+
+
+--
+-- Name: core_etl_tx_validator_registration_endpoint_idx; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX core_etl_tx_validator_registration_endpoint_idx ON public.core_etl_tx_validator_registration USING btree (endpoint);
+
+
+--
+-- Name: core_etl_tx_validator_registration_node_type_idx; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX core_etl_tx_validator_registration_node_type_idx ON public.core_etl_tx_validator_registration USING btree (node_type);
 
 
 --
@@ -8465,6 +9120,13 @@ CREATE INDEX follows_inbound_idx ON public.follows USING btree (followee_user_id
 --
 
 CREATE INDEX idx_aggregate_user_follower_count ON public.aggregate_user USING btree (user_id, follower_count);
+
+
+--
+-- Name: idx_chain_blockhash; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX idx_chain_blockhash ON public.core_indexed_blocks USING btree (blockhash);
 
 
 --
@@ -8650,6 +9312,41 @@ CREATE INDEX idx_encrypted_emails_email_address_owner_user_id ON public.encrypte
 
 
 --
+-- Name: idx_events_created_at; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX idx_events_created_at ON public.events USING btree (created_at);
+
+
+--
+-- Name: idx_events_end_date; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX idx_events_end_date ON public.events USING btree (end_date);
+
+
+--
+-- Name: idx_events_entity_id; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX idx_events_entity_id ON public.events USING btree (entity_id);
+
+
+--
+-- Name: idx_events_entity_type; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX idx_events_entity_type ON public.events USING btree (entity_type);
+
+
+--
+-- Name: idx_events_event_type; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX idx_events_event_type ON public.events USING btree (event_type);
+
+
+--
 -- Name: idx_genre_related_artists; Type: INDEX; Schema: public; Owner: -
 --
 
@@ -8668,6 +9365,13 @@ CREATE INDEX idx_lower_wallet ON public.users USING btree (lower((wallet)::text)
 --
 
 CREATE INDEX idx_payment_router_txs_slot ON public.payment_router_txs USING btree (slot);
+
+
+--
+-- Name: idx_playlist_status; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX idx_playlist_status ON public.playlists USING btree (playlist_id, is_album, is_private, is_delete, is_current);
 
 
 --
@@ -8710,6 +9414,13 @@ CREATE INDEX idx_storage_proofs_block_height ON public.storage_proofs USING btre
 --
 
 CREATE INDEX idx_time ON public.sla_rollups USING btree ("time" DESC);
+
+
+--
+-- Name: idx_track_status; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX idx_track_status ON public.tracks USING btree (track_id, is_unlisted, is_available, is_delete, is_current);
 
 
 --
@@ -8766,6 +9477,13 @@ CREATE INDEX idx_user_bank_eth_address ON public.user_bank_accounts USING btree 
 --
 
 CREATE INDEX idx_user_bank_txs_slot ON public.user_bank_txs USING btree (slot);
+
+
+--
+-- Name: idx_user_status; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX idx_user_status ON public.users USING btree (user_id, is_deactivated, is_available, is_current);
 
 
 --
@@ -8944,6 +9662,20 @@ CREATE INDEX ix_track_trending_scores_track_id ON public.track_trending_scores U
 
 
 --
+-- Name: ix_trending_scores; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX ix_trending_scores ON public.track_trending_scores USING btree (type, version, time_range, score DESC, track_id);
+
+
+--
+-- Name: ix_user_created_at; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX ix_user_created_at ON public.users USING btree (created_at, user_id, is_current);
+
+
+--
 -- Name: ix_user_tips_receiver_user_id; Type: INDEX; Schema: public; Owner: -
 --
 
@@ -8993,10 +9725,10 @@ CREATE INDEX playlist_created_at_idx ON public.playlists USING btree (created_at
 
 
 --
--- Name: playlist_owner_id_idx; Type: INDEX; Schema: public; Owner: -
+-- Name: playlist_owner_idx; Type: INDEX; Schema: public; Owner: -
 --
 
-CREATE INDEX playlist_owner_id_idx ON public.playlists USING btree (playlist_owner_id);
+CREATE INDEX playlist_owner_idx ON public.playlists USING btree (playlist_owner_id, created_at);
 
 
 --
@@ -9018,6 +9750,13 @@ CREATE INDEX playlists_blocknumber_idx ON public.playlists USING btree (blocknum
 --
 
 CREATE INDEX related_artists_related_artist_id_idx ON public.related_artists USING btree (related_artist_user_id, user_id);
+
+
+--
+-- Name: remixes_child_idx; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX remixes_child_idx ON public.remixes USING btree (child_track_id, parent_track_id);
 
 
 --
@@ -9056,6 +9795,13 @@ CREATE INDEX rpc_log_applied_at_idx ON public.rpc_log USING brin (applied_at);
 
 
 --
+-- Name: saves_item_idx; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX saves_item_idx ON public.saves USING btree (save_item_id, save_type, user_id, is_delete);
+
+
+--
 -- Name: saves_new_blocknumber_idx; Type: INDEX; Schema: public; Owner: -
 --
 
@@ -9063,17 +9809,17 @@ CREATE INDEX saves_new_blocknumber_idx ON public.saves USING btree (blocknumber)
 
 
 --
--- Name: saves_new_save_item_id_save_type_idx; Type: INDEX; Schema: public; Owner: -
---
-
-CREATE INDEX saves_new_save_item_id_save_type_idx ON public.saves USING btree (save_item_id, save_type);
-
-
---
 -- Name: saves_new_user_id_save_type_idx; Type: INDEX; Schema: public; Owner: -
 --
 
 CREATE INDEX saves_new_user_id_save_type_idx ON public.saves USING btree (user_id, save_type);
+
+
+--
+-- Name: saves_user_idx; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX saves_user_idx ON public.saves USING btree (user_id, save_type, save_item_id, created_at, is_delete);
 
 
 --
@@ -9123,6 +9869,13 @@ CREATE INDEX track_delist_statuses_track_cid_created_at ON public.track_delist_s
 --
 
 CREATE INDEX track_owner_id_idx ON public.tracks USING btree (owner_id);
+
+
+--
+-- Name: track_owner_idx; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX track_owner_idx ON public.tracks USING btree (owner_id, created_at);
 
 
 --
@@ -9193,27 +9946,6 @@ CREATE INDEX users_new_blocknumber_idx ON public.users USING btree (blocknumber)
 --
 
 CREATE INDEX users_new_handle_lc_idx ON public.users USING btree (handle_lc);
-
-
---
--- Name: users_new_is_available_idx; Type: INDEX; Schema: public; Owner: -
---
-
-CREATE INDEX users_new_is_available_idx ON public.users USING btree (is_available) WHERE (is_available = false);
-
-
---
--- Name: users_new_is_deactivated_handle_lc_is_available_idx; Type: INDEX; Schema: public; Owner: -
---
-
-CREATE INDEX users_new_is_deactivated_handle_lc_is_available_idx ON public.users USING btree (is_deactivated, handle_lc, is_available) WHERE ((is_deactivated = false) AND (handle_lc IS NOT NULL) AND (is_available = true));
-
-
---
--- Name: users_new_is_deactivated_idx; Type: INDEX; Schema: public; Owner: -
---
-
-CREATE INDEX users_new_is_deactivated_idx ON public.users USING btree (is_deactivated);
 
 
 --
@@ -9515,14 +10247,6 @@ ALTER TABLE ONLY public.comments
 
 
 --
--- Name: core_tx_decoded_plays core_tx_decoded_plays_tx_hash_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
---
-
-ALTER TABLE ONLY public.core_tx_decoded_plays
-    ADD CONSTRAINT core_tx_decoded_plays_tx_hash_fkey FOREIGN KEY (tx_hash) REFERENCES public.core_tx_decoded(tx_hash);
-
-
---
 -- Name: dashboard_wallet_users dashboard_wallet_users_blocknumber_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
 --
 
@@ -9536,6 +10260,14 @@ ALTER TABLE ONLY public.dashboard_wallet_users
 
 ALTER TABLE ONLY public.developer_apps
     ADD CONSTRAINT developer_apps_blocknumber_fkey FOREIGN KEY (blocknumber) REFERENCES public.blocks(number) ON DELETE CASCADE;
+
+
+--
+-- Name: events events_blocknumber_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.events
+    ADD CONSTRAINT events_blocknumber_fkey FOREIGN KEY (blocknumber) REFERENCES public.blocks(number);
 
 
 --

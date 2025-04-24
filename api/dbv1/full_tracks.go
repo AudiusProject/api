@@ -115,11 +115,17 @@ func (q *Queries) FullTracksKeyed(ctx context.Context, arg GetTracksParams) (map
 
 		downloadAccess := q.GetTrackAccess(ctx, arg.MyID.(int32), track.DownloadConditions, &track, &user)
 		// if you can download it, you can stream it
-		streamAccess := downloadAccess || q.GetTrackAccess(ctx, arg.MyID.(int32), track.StreamConditions, &track, &user)
+		var streamAccess bool
+		if downloadAccess {
+			streamAccess = true
+		} else {
+			streamAccess = q.GetTrackAccess(ctx, arg.MyID.(int32), track.StreamConditions, &track, &user)
+		}
 		access := Access{
 			Download: downloadAccess,
 			Stream:   streamAccess,
 		}
+		fmt.Println("access", access)
 
 		fullTrack := FullTrack{
 			GetTracksRow:       track,
@@ -163,32 +169,32 @@ func (q *Queries) FullTracks(ctx context.Context, arg GetTracksParams) ([]FullTr
 }
 
 type MinTrack struct {
-	ID                       string        `json:"id"`
-	Title                    pgtype.Text   `json:"title"`
-	User                     MinUser       `json:"user"`
-	Artwork                  *SquareImage  `json:"artwork"`
-	Duration                 pgtype.Int4   `json:"duration"`
-	Description              pgtype.Text   `json:"description"`
-	Genre                    pgtype.Text   `json:"genre"`
-	TrackCid                 pgtype.Text   `json:"track_cid"`
-	PreviewCid               pgtype.Text   `json:"preview_cid"`
-	OrigFileCid              pgtype.Text   `json:"orig_file_cid"`
-	OrigFilename             pgtype.Text   `json:"orig_filename"`
-	IsOriginalAvailable      bool          `json:"is_original_available"`
-	Mood                     pgtype.Text   `json:"mood"`
-	ReleaseDate              interface{}   `json:"release_date"`
-	RemixOf                  interface{}   `json:"remix_of"`
-	RepostCount              int32         `json:"repost_count"`
-	FavoriteCount            int32         `json:"favorite_count"`
-	CommentCount             pgtype.Int4   `json:"comment_count"`
-	Tags                     pgtype.Text   `json:"tags"`
-	IsDownloadable           bool          `json:"is_downloadable"`
-	PlayCount                pgtype.Int8   `json:"play_count"`
-	PinnedCommentID          pgtype.Int4   `json:"pinned_comment_id"`
-	PlaylistsContainingTrack []interface{} `json:"playlists_containing_track"`
-	AlbumBacklink            interface{}   `json:"album_backlink"`
-	IsStreamable             bool          `json:"is_streamable"`
-	Permalink                string        `json:"permalink"`
+	ID                       string       `json:"id"`
+	Title                    pgtype.Text  `json:"title"`
+	User                     MinUser      `json:"user"`
+	Artwork                  *SquareImage `json:"artwork"`
+	Duration                 pgtype.Int4  `json:"duration"`
+	Description              pgtype.Text  `json:"description"`
+	Genre                    pgtype.Text  `json:"genre"`
+	TrackCid                 pgtype.Text  `json:"track_cid"`
+	PreviewCid               pgtype.Text  `json:"preview_cid"`
+	OrigFileCid              pgtype.Text  `json:"orig_file_cid"`
+	OrigFilename             pgtype.Text  `json:"orig_filename"`
+	IsOriginalAvailable      bool         `json:"is_original_available"`
+	Mood                     pgtype.Text  `json:"mood"`
+	ReleaseDate              interface{}  `json:"release_date"`
+	RemixOf                  interface{}  `json:"remix_of"`
+	RepostCount              int32        `json:"repost_count"`
+	FavoriteCount            int32        `json:"favorite_count"`
+	CommentCount             pgtype.Int4  `json:"comment_count"`
+	Tags                     pgtype.Text  `json:"tags"`
+	IsDownloadable           bool         `json:"is_downloadable"`
+	PlayCount                pgtype.Int8  `json:"play_count"`
+	PinnedCommentID          pgtype.Int4  `json:"pinned_comment_id"`
+	PlaylistsContainingTrack []int32      `json:"playlists_containing_track"`
+	AlbumBacklink            interface{}  `json:"album_backlink"`
+	IsStreamable             bool         `json:"is_streamable"`
+	Permalink                string       `json:"permalink"`
 }
 
 func ToMinTrack(fullTrack FullTrack) MinTrack {
@@ -215,7 +221,7 @@ func ToMinTrack(fullTrack FullTrack) MinTrack {
 		IsDownloadable:           fullTrack.IsDownloadable,
 		PlayCount:                fullTrack.PlayCount,
 		PinnedCommentID:          fullTrack.PinnedCommentID,
-		PlaylistsContainingTrack: []interface{}{}, // TODO
+		PlaylistsContainingTrack: fullTrack.PlaylistsContainingTrack,
 		AlbumBacklink:            nil,
 		IsStreamable:             !fullTrack.IsDelete && !fullTrack.User.IsDeactivated,
 		Permalink:                fmt.Sprintf("/%s/%s", fullTrack.User.Handle.String, fullTrack.Slug.String),
