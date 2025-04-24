@@ -50,8 +50,8 @@ var (
 		"playlists_previously_containing_track": map[string]any{},
 		"audio_analysis_error_count":            0,
 		"is_owned_by_user":                      false,
-		"stream_conditions":                     "{}",
-		"download_conditions":                   "{}",
+		"stream_conditions":                     nil,
+		"download_conditions":                   nil,
 	}
 
 	playlistBaseRow = map[string]any{

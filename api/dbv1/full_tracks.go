@@ -113,14 +113,16 @@ func (q *Queries) FullTracksKeyed(ctx context.Context, arg GetTracksParams) (map
 			}
 		}
 
-		downloadAccess := q.GetTrackAccess(ctx, arg.MyID.(int32), track.DownloadConditions, &track, &user)
-		// if you can download it, you can stream it
-		var streamAccess bool
-		if downloadAccess {
-			streamAccess = true
+		// Use download conditions if available, otherwise use stream conditions
+		var downloadConditions *AccessGate
+		if track.DownloadConditions != nil {
+			downloadConditions = track.DownloadConditions
 		} else {
-			streamAccess = q.GetTrackAccess(ctx, arg.MyID.(int32), track.StreamConditions, &track, &user)
+			downloadConditions = track.StreamConditions
 		}
+		downloadAccess := q.GetTrackAccess(ctx, arg.MyID.(int32), downloadConditions, &track, &user)
+		// If you can download it, you can stream it
+		streamAccess := downloadAccess || q.GetTrackAccess(ctx, arg.MyID.(int32), track.StreamConditions, &track, &user)
 		access := Access{
 			Download: downloadAccess,
 			Stream:   streamAccess,

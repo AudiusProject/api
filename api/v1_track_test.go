@@ -80,6 +80,6 @@ func TestGetTrackUsdcPurchaseStreamAccess(t *testing.T) {
 	jsonAssert(t, body2, map[string]string{
 		"data.title":           "Pay Gated Stream",
 		"data.access.stream":   "true",
-		"data.access.download": "false",
+		"data.access.download": "true",
 	})
 }
