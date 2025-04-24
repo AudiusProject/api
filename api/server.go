@@ -265,6 +265,14 @@ func decodeIdList(c *fiber.Ctx) []int32 {
 	return ids
 }
 
+func queryMutli(c *fiber.Ctx, key string) []string {
+	var values []string
+	for _, v := range c.Request().URI().QueryArgs().PeekMulti(key) {
+		values = append(values, string(v))
+	}
+	return values
+}
+
 func (app *ApiServer) resolveUserHandleToId(handle string) (int32, error) {
 	if hit, ok := app.resolveHandleCache.Get(handle); ok {
 		return hit, nil
