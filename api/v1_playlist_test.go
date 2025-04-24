@@ -15,7 +15,6 @@ func TestGetPlaylist(t *testing.T) {
 	status, body := testGet(t, "/v1/full/playlists/7eP5n", &playlistResponse)
 	assert.Equal(t, 200, status)
 
-	// Also check with jsonAssert for debugging
 	jsonAssert(t, body, map[string]string{
 		"data.0.id":            "7eP5n",
 		"data.0.playlist_name": "First",
