@@ -20,6 +20,9 @@ func (app *ApiServer) v1Tracks(c *fiber.Ctx) error {
 		for i, permalink := range permalinks {
 			permalinks[i] = strings.ToLower(strings.TrimPrefix(permalink, "/"))
 			splits := strings.Split(permalinks[i], "/")
+			if len(splits) != 2 {
+				return fiber.NewError(fiber.StatusBadRequest, "Invalid permalink: "+permalink)
+			}
 			handles[i] = splits[0]
 			slugs[i] = splits[1]
 		}
