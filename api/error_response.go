@@ -1,6 +1,7 @@
 package api
 
 import (
+	"errors"
 	"net/http"
 
 	"github.com/gofiber/fiber/v2"
@@ -20,6 +21,11 @@ func errorHandler(logger *zap.Logger) func(*fiber.Ctx, error) error {
 		code := http.StatusInternalServerError
 		if err == pgx.ErrNoRows {
 			code = http.StatusNotFound
+		}
+
+		var e *fiber.Error
+		if errors.As(err, &e) {
+			code = e.Code
 		}
 
 		if code > 499 {

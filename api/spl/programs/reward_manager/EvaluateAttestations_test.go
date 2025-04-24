@@ -4,7 +4,7 @@ import (
 	"encoding/hex"
 	"testing"
 
-	"bridgerton.audius.co/api/solana/programs/reward_manager"
+	"bridgerton.audius.co/api/spl/programs/reward_manager"
 	"github.com/gagliardetto/solana-go"
 	"github.com/stretchr/testify/require"
 )
