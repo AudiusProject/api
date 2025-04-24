@@ -11,8 +11,10 @@ import (
 	"bridgerton.audius.co/api/dbv1"
 	"bridgerton.audius.co/config"
 	"bridgerton.audius.co/trashid"
+	"github.com/AudiusProject/audiusd/pkg/rewards"
 	adapter "github.com/axiomhq/axiom-go/adapters/zap"
 	"github.com/axiomhq/axiom-go/axiom"
+	"github.com/ethereum/go-ethereum/crypto"
 	"github.com/gofiber/contrib/fiberzap/v2"
 	"github.com/gofiber/fiber/v2"
 	"github.com/gofiber/fiber/v2/middleware/cors"
@@ -98,6 +100,11 @@ func NewApiServer(config config.Config) *ApiServer {
 		panic(err)
 	}
 
+	privateKey, err := crypto.HexToECDSA(config.DelegatePrivateKey)
+	if err != nil {
+		panic(err)
+	}
+
 	app := &ApiServer{
 		App: fiber.New(fiber.Config{
 			JSONEncoder:  json.Marshal,
@@ -110,6 +117,9 @@ func NewApiServer(config config.Config) *ApiServer {
 		started:            time.Now(),
 		resolveHandleCache: resolveHandleCache,
 		resolveWalletCache: resolveWalletCache,
+		rewardAttester:     *rewards.NewRewardAttester(privateKey, []rewards.Reward{}),
+		solanaConfig:       config.SolanaConfig,
+		antiAbuseOracles:   config.AntiAbuseOracles,
 	}
 
 	app.Use(recover.New(recover.Config{
@@ -218,6 +228,9 @@ func NewApiServer(config config.Config) *ApiServer {
 
 		// Developer Apps
 		g.Get("/developer_apps/:address", app.v1DeveloperApps)
+
+		// Rewards
+		g.Get("/rewards/claim", app.v1ClaimRewards)
 	}
 
 	app.Static("/", "./static")
@@ -242,6 +255,9 @@ type ApiServer struct {
 	started            time.Time
 	resolveHandleCache otter.Cache[string, int32]
 	resolveWalletCache otter.Cache[string, int32]
+	rewardAttester     rewards.RewardAttester
+	solanaConfig       config.SolanaConfig
+	antiAbuseOracles   []string
 }
 
 func (app *ApiServer) home(c *fiber.Ctx) error {
