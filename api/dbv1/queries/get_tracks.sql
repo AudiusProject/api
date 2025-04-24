@@ -35,6 +35,7 @@ SELECT
   ddex_app,
   pinned_comment_id,
   playlists_containing_track,
+  playlists_previously_containing_track,
 
   (
     SELECT json_build_object(

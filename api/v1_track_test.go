@@ -62,3 +62,24 @@ func TestGetTrackTipStreamAccess(t *testing.T) {
 		"data.access.download": "true",
 	})
 }
+
+func TestGetTrackUsdcPurchaseStreamAccess(t *testing.T) {
+	var trackResponse struct {
+		Data dbv1.FullTrack
+	}
+	// No access
+	_, body1 := testGet(t, "/v1/full/tracks/ebdJL", &trackResponse)
+	jsonAssert(t, body1, map[string]string{
+		"data.title":           "Pay Gated Stream",
+		"data.access.stream":   "false",
+		"data.access.download": "false",
+	})
+
+	// With access
+	_, body2 := testGet(t, "/v1/full/tracks/ebdJL?user_id=1D9On", &trackResponse)
+	jsonAssert(t, body2, map[string]string{
+		"data.title":           "Pay Gated Stream",
+		"data.access.stream":   "true",
+		"data.access.download": "true",
+	})
+}

@@ -50,6 +50,8 @@ var (
 		"playlists_previously_containing_track": map[string]any{},
 		"audio_analysis_error_count":            0,
 		"is_owned_by_user":                      false,
+		"stream_conditions":                     nil,
+		"download_conditions":                   nil,
 	}
 
 	playlistBaseRow = map[string]any{
@@ -133,6 +135,18 @@ var (
 		"sender_user_id":   nil,
 		"receiver_user_id": nil,
 		"amount":           1000,
+	}
+
+	usdcPurchaseBaseRow = map[string]any{
+		"buyer_user_id":  nil,
+		"seller_user_id": nil,
+		"content_id":     nil,
+		"content_type":   "track",
+		"amount":         nil,
+		"slot":           101,
+		"signature":      nil,
+		"splits":         "[]",
+		"created_at":     time.Now(),
 	}
 )
 

@@ -190,6 +190,136 @@ func (ns NullDelistUserReason) Value() (driver.Value, error) {
 	return string(ns.DelistUserReason), nil
 }
 
+type EventEntityType string
+
+const (
+	EventEntityTypeTrack      EventEntityType = "track"
+	EventEntityTypeCollection EventEntityType = "collection"
+	EventEntityTypeUser       EventEntityType = "user"
+)
+
+func (e *EventEntityType) Scan(src interface{}) error {
+	switch s := src.(type) {
+	case []byte:
+		*e = EventEntityType(s)
+	case string:
+		*e = EventEntityType(s)
+	default:
+		return fmt.Errorf("unsupported scan type for EventEntityType: %T", src)
+	}
+	return nil
+}
+
+type NullEventEntityType struct {
+	EventEntityType EventEntityType `json:"event_entity_type"`
+	Valid           bool            `json:"valid"` // Valid is true if EventEntityType is not NULL
+}
+
+// Scan implements the Scanner interface.
+func (ns *NullEventEntityType) Scan(value interface{}) error {
+	if value == nil {
+		ns.EventEntityType, ns.Valid = "", false
+		return nil
+	}
+	ns.Valid = true
+	return ns.EventEntityType.Scan(value)
+}
+
+// Value implements the driver Valuer interface.
+func (ns NullEventEntityType) Value() (driver.Value, error) {
+	if !ns.Valid {
+		return nil, nil
+	}
+	return string(ns.EventEntityType), nil
+}
+
+type EventType string
+
+const (
+	EventTypeRemixContest EventType = "remix_contest"
+	EventTypeLiveEvent    EventType = "live_event"
+	EventTypeNewRelease   EventType = "new_release"
+)
+
+func (e *EventType) Scan(src interface{}) error {
+	switch s := src.(type) {
+	case []byte:
+		*e = EventType(s)
+	case string:
+		*e = EventType(s)
+	default:
+		return fmt.Errorf("unsupported scan type for EventType: %T", src)
+	}
+	return nil
+}
+
+type NullEventType struct {
+	EventType EventType `json:"event_type"`
+	Valid     bool      `json:"valid"` // Valid is true if EventType is not NULL
+}
+
+// Scan implements the Scanner interface.
+func (ns *NullEventType) Scan(value interface{}) error {
+	if value == nil {
+		ns.EventType, ns.Valid = "", false
+		return nil
+	}
+	ns.Valid = true
+	return ns.EventType.Scan(value)
+}
+
+// Value implements the driver Valuer interface.
+func (ns NullEventType) Value() (driver.Value, error) {
+	if !ns.Valid {
+		return nil, nil
+	}
+	return string(ns.EventType), nil
+}
+
+type ParentalWarningType string
+
+const (
+	ParentalWarningTypeExplicit              ParentalWarningType = "explicit"
+	ParentalWarningTypeExplicitContentEdited ParentalWarningType = "explicit_content_edited"
+	ParentalWarningTypeNotExplicit           ParentalWarningType = "not_explicit"
+	ParentalWarningTypeNoAdviceAvailable     ParentalWarningType = "no_advice_available"
+)
+
+func (e *ParentalWarningType) Scan(src interface{}) error {
+	switch s := src.(type) {
+	case []byte:
+		*e = ParentalWarningType(s)
+	case string:
+		*e = ParentalWarningType(s)
+	default:
+		return fmt.Errorf("unsupported scan type for ParentalWarningType: %T", src)
+	}
+	return nil
+}
+
+type NullParentalWarningType struct {
+	ParentalWarningType ParentalWarningType `json:"parental_warning_type"`
+	Valid               bool                `json:"valid"` // Valid is true if ParentalWarningType is not NULL
+}
+
+// Scan implements the Scanner interface.
+func (ns *NullParentalWarningType) Scan(value interface{}) error {
+	if value == nil {
+		ns.ParentalWarningType, ns.Valid = "", false
+		return nil
+	}
+	ns.Valid = true
+	return ns.ParentalWarningType.Scan(value)
+}
+
+// Value implements the driver Valuer interface.
+func (ns NullParentalWarningType) Value() (driver.Value, error) {
+	if !ns.Valid {
+		return nil, nil
+	}
+	return string(ns.ParentalWarningType), nil
+}
+
 type ProofStatus string
 
 const (
@@ -682,17 +812,6 @@ type Block struct {
 	Number     pgtype.Int4 `json:"number"`
 }
 
-type Bmg struct {
-	CopyTitle    pgtype.Text `json:"copy_title"`
-	CopyMediaUrl pgtype.Text `json:"copy_media_url"`
-	ID           pgtype.Text `json:"id"`
-	Permalink    pgtype.Text `json:"permalink"`
-	Acr          pgtype.Text `json:"acr"`
-	Available    pgtype.Text `json:"available"`
-	Plays        pgtype.Text `json:"plays"`
-	AssetTitle   pgtype.Text `json:"asset_title"`
-}
-
 type Challenge struct {
 	ID            string        `json:"id"`
 	Type          Challengetype `json:"type"`
@@ -901,6 +1020,100 @@ type CoreDbMigration struct {
 	AppliedAt pgtype.Timestamptz `json:"applied_at"`
 }
 
+type CoreEtlTx struct {
+	ID          int64              `json:"id"`
+	BlockHeight int64              `json:"block_height"`
+	TxIndex     int32              `json:"tx_index"`
+	TxHash      string             `json:"tx_hash"`
+	TxType      string             `json:"tx_type"`
+	TxData      json.RawMessage    `json:"tx_data"`
+	CreatedAt   pgtype.Timestamptz `json:"created_at"`
+}
+
+type CoreEtlTxDuplicate struct {
+	ID            int64              `json:"id"`
+	TxHash        string             `json:"tx_hash"`
+	TableName     string             `json:"table_name"`
+	DuplicateType string             `json:"duplicate_type"`
+	CreatedAt     pgtype.Timestamptz `json:"created_at"`
+}
+
+type CoreEtlTxManageEntity struct {
+	ID         int64              `json:"id"`
+	TxHash     string             `json:"tx_hash"`
+	UserID     int64              `json:"user_id"`
+	EntityType string             `json:"entity_type"`
+	EntityID   int64              `json:"entity_id"`
+	Action     string             `json:"action"`
+	Metadata   string             `json:"metadata"`
+	Signature  string             `json:"signature"`
+	Signer     string             `json:"signer"`
+	Nonce      string             `json:"nonce"`
+	CreatedAt  pgtype.Timestamptz `json:"created_at"`
+}
+
+type CoreEtlTxPlay struct {
+	ID        int64              `json:"id"`
+	TxHash    string             `json:"tx_hash"`
+	UserID    string             `json:"user_id"`
+	TrackID   string             `json:"track_id"`
+	PlayedAt  pgtype.Timestamptz `json:"played_at"`
+	Signature string             `json:"signature"`
+	City      pgtype.Text        `json:"city"`
+	Region    pgtype.Text        `json:"region"`
+	Country   pgtype.Text        `json:"country"`
+	CreatedAt pgtype.Timestamptz `json:"created_at"`
+}
+
+type CoreEtlTxSlaRollup struct {
+	ID         int64              `json:"id"`
+	TxHash     string             `json:"tx_hash"`
+	BlockStart int64              `json:"block_start"`
+	BlockEnd   int64              `json:"block_end"`
+	Timestamp  pgtype.Timestamptz `json:"timestamp"`
+	CreatedAt  pgtype.Timestamptz `json:"created_at"`
+}
+
+type CoreEtlTxStorageProof struct {
+	ID              int64              `json:"id"`
+	TxHash          string             `json:"tx_hash"`
+	Height          int64              `json:"height"`
+	Address         string             `json:"address"`
+	Cid             pgtype.Text        `json:"cid"`
+	ProofSignature  []byte             `json:"proof_signature"`
+	ProverAddresses []string           `json:"prover_addresses"`
+	CreatedAt       pgtype.Timestamptz `json:"created_at"`
+}
+
+type CoreEtlTxStorageProofVerification struct {
+	ID        int64              `json:"id"`
+	TxHash    string             `json:"tx_hash"`
+	Height    int64              `json:"height"`
+	Proof     []byte             `json:"proof"`
+	CreatedAt pgtype.Timestamptz `json:"created_at"`
+}
+
+type CoreEtlTxValidatorDeregistration struct {
+	ID           int64              `json:"id"`
+	TxHash       string             `json:"tx_hash"`
+	CometAddress string             `json:"comet_address"`
+	PubKey       []byte             `json:"pub_key"`
+	CreatedAt    pgtype.Timestamptz `json:"created_at"`
+}
+
+type CoreEtlTxValidatorRegistration struct {
+	ID           int64              `json:"id"`
+	TxHash       string             `json:"tx_hash"`
+	Endpoint     string             `json:"endpoint"`
+	CometAddress string             `json:"comet_address"`
+	EthBlock     string             `json:"eth_block"`
+	NodeType     string             `json:"node_type"`
+	SpID         string             `json:"sp_id"`
+	PubKey       []byte             `json:"pub_key"`
+	Power        int64              `json:"power"`
+	CreatedAt    pgtype.Timestamptz `json:"created_at"`
+}
+
 type CoreIndexedBlock struct {
 	Blockhash  string      `json:"blockhash"`
 	Parenthash pgtype.Text `json:"parenthash"`
@@ -917,29 +1130,6 @@ type CoreTransaction struct {
 	TxHash      string    `json:"tx_hash"`
 	Transaction []byte    `json:"transaction"`
 	CreatedAt   time.Time `json:"created_at"`
-}
-
-type CoreTxDecoded struct {
-	ID          int64              `json:"id"`
-	BlockHeight int64              `json:"block_height"`
-	TxIndex     int32              `json:"tx_index"`
-	TxHash      string             `json:"tx_hash"`
-	TxType      string             `json:"tx_type"`
-	TxData      json.RawMessage    `json:"tx_data"`
-	CreatedAt   pgtype.Timestamptz `json:"created_at"`
-}
-
-type CoreTxDecodedPlay struct {
-	ID        int64              `json:"id"`
-	TxHash    string             `json:"tx_hash"`
-	UserID    string             `json:"user_id"`
-	TrackID   string             `json:"track_id"`
-	PlayedAt  pgtype.Timestamptz `json:"played_at"`
-	Signature string             `json:"signature"`
-	City      pgtype.Text        `json:"city"`
-	Region    pgtype.Text        `json:"region"`
-	Country   pgtype.Text        `json:"country"`
-	CreatedAt pgtype.Timestamptz `json:"created_at"`
 }
 
 type CoreTxStat struct {
@@ -1035,6 +1225,22 @@ type EthBlock struct {
 	LastScannedBlock int32     `json:"last_scanned_block"`
 	CreatedAt        time.Time `json:"created_at"`
 	UpdatedAt        time.Time `json:"updated_at"`
+}
+
+type Event struct {
+	EventID     int32               `json:"event_id"`
+	EventType   EventType           `json:"event_type"`
+	UserID      int32               `json:"user_id"`
+	EntityType  NullEventEntityType `json:"entity_type"`
+	EntityID    pgtype.Int4         `json:"entity_id"`
+	EndDate     *time.Time          `json:"end_date"`
+	IsDeleted   pgtype.Bool         `json:"is_deleted"`
+	EventData   []byte              `json:"event_data"`
+	CreatedAt   time.Time           `json:"created_at"`
+	UpdatedAt   time.Time           `json:"updated_at"`
+	Txhash      string              `json:"txhash"`
+	Blockhash   string              `json:"blockhash"`
+	Blocknumber pgtype.Int4         `json:"blocknumber"`
 }
 
 type Follow struct {
@@ -1500,9 +1706,12 @@ type Track struct {
 	// Artist of the original song if this track is a cover
 	CoverOriginalArtist pgtype.Text `json:"cover_original_artist"`
 	// Indicates whether the track is owned by the user for publishing payouts
-	IsOwnedByUser   bool        `json:"is_owned_by_user"`
-	IsStreamGated   pgtype.Bool `json:"is_stream_gated"`
-	IsDownloadGated pgtype.Bool `json:"is_download_gated"`
+	IsOwnedByUser   bool                    `json:"is_owned_by_user"`
+	IsStreamGated   pgtype.Bool             `json:"is_stream_gated"`
+	IsDownloadGated pgtype.Bool             `json:"is_download_gated"`
+	NoAiUse         pgtype.Bool             `json:"no_ai_use"`
+	ParentalWarning NullParentalWarningType `json:"parental_warning"`
+	TerritoryCodes  []string                `json:"territory_codes"`
 }
 
 type TrackDelistStatus struct {

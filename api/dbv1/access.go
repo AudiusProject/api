@@ -22,6 +22,7 @@ func (q *Queries) GetTrackAccess(ctx context.Context, myId int32, conditions *Ac
 	switch {
 	case conditions.FollowUserID != nil:
 		return user.DoesCurrentUserFollow
+
 	case conditions.TipUserID != nil:
 		tipUserId := *conditions.TipUserID
 		var hasTipped bool
@@ -40,6 +41,74 @@ func (q *Queries) GetTrackAccess(ctx context.Context, myId int32, conditions *Ac
 		}
 
 		return hasTipped
+
+	case conditions.UsdcPurchase != nil:
+		// Purchased the track directly
+		var hasPurchased bool
+		err := q.db.QueryRow(ctx, `
+			SELECT EXISTS (
+				SELECT 1
+				FROM usdc_purchases
+				WHERE buyer_user_id = $1
+				AND content_id = $2
+				AND seller_user_id = $3
+				AND content_type = 'track'
+			)
+		`, myId, track.TrackID, user.ID).Scan(&hasPurchased)
+
+		if err != nil {
+			return false
+		}
+
+		if hasPurchased {
+			return true
+		}
+
+		// Purchased an album containing the track
+		if len(track.PlaylistsContainingTrack) > 0 {
+			var albumPurchaseExists bool
+			err := q.db.QueryRow(ctx, `
+				SELECT EXISTS (
+					SELECT 1
+					FROM usdc_purchases
+					WHERE buyer_user_id = $1
+					AND content_id = ANY($2)
+					AND content_type = 'album'
+				)
+			`, myId, track.PlaylistsContainingTrack).Scan(&albumPurchaseExists)
+
+			if err != nil {
+				return false
+			}
+
+			if albumPurchaseExists {
+				return true
+			}
+		}
+
+		// Purchased an album containing the track before it was removed
+		if len(track.PlaylistsPreviouslyContainingTrack) > 0 {
+			var hasPreviousAlbumPurchase bool
+			err := q.db.QueryRow(ctx, `
+				SELECT EXISTS (
+					SELECT 1
+					FROM usdc_purchases up
+					JOIN jsonb_each_text($2) AS prev_playlists(playlist_id, removal_time)
+					ON up.content_id = prev_playlists.playlist_id::integer
+					WHERE up.buyer_user_id = $1
+					AND up.content_type = 'album'
+					AND up.created_at <= to_timestamp(prev_playlists.removal_time::numeric)
+				)
+			`, myId, track.PlaylistsPreviouslyContainingTrack).Scan(&hasPreviousAlbumPurchase)
+
+			if err != nil {
+				return false
+			}
+
+			if hasPreviousAlbumPurchase {
+				return true
+			}
+		}
 	}
 
 	return false
@@ -71,6 +140,25 @@ func (q *Queries) GetPlaylistAccess(ctx context.Context, myId int32, conditions 
 		}
 
 		return hasTipped
+
+	case conditions.UsdcPurchase != nil:
+		// Purchased the album directly
+		var hasPurchased bool
+		err := q.db.QueryRow(ctx, `
+			SELECT EXISTS (
+				SELECT 1
+				FROM usdc_purchases
+				WHERE buyer_user_id = $1
+				AND content_id = $2
+				AND content_type = 'album'
+			)
+		`, myId, playlist.PlaylistID).Scan(&hasPurchased)
+
+		if err != nil {
+			return false
+		}
+
+		return hasPurchased
 	}
 
 	return false
