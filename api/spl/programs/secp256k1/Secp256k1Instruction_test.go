@@ -4,7 +4,7 @@ import (
 	"encoding/hex"
 	"testing"
 
-	"bridgerton.audius.co/api/solana/programs/secp256k1"
+	"bridgerton.audius.co/api/spl/programs/secp256k1"
 	"github.com/ethereum/go-ethereum/crypto"
 	bin "github.com/gagliardetto/binary"
 	"github.com/gagliardetto/solana-go"

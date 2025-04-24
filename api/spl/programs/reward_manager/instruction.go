@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"encoding/hex"
 	"fmt"
+	"strings"
 
 	bin "github.com/gagliardetto/binary"
 	"github.com/gagliardetto/solana-go"
@@ -136,7 +137,7 @@ func deriveAuthority(programId solana.PublicKey, state solana.PublicKey) (solana
 func deriveSender(programId solana.PublicKey, authority solana.PublicKey, ethAddress string) (solana.PublicKey, uint8, error) {
 	senderSeedPrefix := []byte(SenderSeedPrefix)
 	// Remove 0x and decode hex
-	decodedEthAddress, err := hex.DecodeString(ethAddress[2:])
+	decodedEthAddress, err := hex.DecodeString(strings.TrimPrefix(ethAddress, "0x"))
 	if err != nil {
 		return solana.PublicKey{}, 0, err
 	}
