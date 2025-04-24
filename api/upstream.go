@@ -21,6 +21,10 @@ func (r *roundrobin) get() string {
 	r.Lock()
 	defer r.Unlock()
 
+	if len(r.pool) == 0 {
+		return ""
+	}
+
 	if r.current >= len(r.pool) {
 		r.current %= len(r.pool)
 	}
@@ -32,6 +36,12 @@ func (r *roundrobin) get() string {
 
 // Modified BalancerForward to add upstream server to fiber context
 func BalancerForward(servers []string, clients ...*fasthttp.Client) fiber.Handler {
+	if len(servers) == 0 {
+		return func(c *fiber.Ctx) error {
+			return c.SendStatus(fiber.StatusServiceUnavailable)
+		}
+	}
+
 	r := &roundrobin{
 		current: 0,
 		pool:    servers,
