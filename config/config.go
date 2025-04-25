@@ -10,7 +10,7 @@ import (
 type Config struct {
 	Env                           string
 	DbUrl                         string
-	Nodes                         []string
+	Nodes                         []Node
 	DeadNodes                     []string
 	DelegatePrivateKey            string
 	AxiomToken                    string
@@ -31,6 +31,17 @@ var Cfg = Config{
 	NetworkTakeRate:               10,
 	StakingBridgeUsdcPayoutWallet: "7vGA3fcjvxa3A11MAxmyhFtYowPLLCNyvoxxgN3NN2Vf",
 	SolanaConfig:                  SolCfg,
+}
+
+type Node struct {
+	// Full origin URL (including protoocol)
+	Endpoint string
+	// The individual wallet address for the node
+	// a.k.a. delegateOwnerWallet or wallet
+	EthAddress string
+	// The wallet address for the owner
+	// a.k.a. ownerWallet or spOwnerWallet
+	OperatorEthAddress string
 }
 
 func init() {
@@ -54,13 +65,37 @@ func init() {
 			"https://discoveryprovider3.staging.audius.co",
 			"https://discoveryprovider5.staging.audius.co",
 		}
-		Cfg.Nodes = []string{
-			"https://creatornode11.staging.audius.co",
-			"https://creatornode12.staging.audius.co",
-			"https://creatornode5.staging.audius.co",
-			"https://creatornode6.staging.audius.co",
-			"https://creatornode7.staging.audius.co",
-			"https://creatornode9.staging.audius.co",
+		Cfg.Nodes = []Node{
+			{
+				EthAddress:         "0x6b52969934076318863243fb92E9C4b3A08267b5",
+				Endpoint:           "https://creatornode12.staging.audius.co",
+				OperatorEthAddress: "0x5E98cBEEAA2aCEDEc0833AC3D1634E2A7aE0f3c2",
+			},
+			{
+				EthAddress:         "0xDC2BDF1F23381CA2eC9e9c70D4FD96CD8645D090",
+				Endpoint:           "https://creatornode5.staging.audius.co",
+				OperatorEthAddress: "0xf7C96916bd37Ad76D4EEDd6536B81c29706C8056",
+			},
+			{
+				EthAddress:         "0x68039d001D87E7A5E6B06fe0825EA7871C1Cd6C2",
+				Endpoint:           "https://creatornode6.staging.audius.co",
+				OperatorEthAddress: "0xf7C96916bd37Ad76D4EEDd6536B81c29706C8056",
+			},
+			{
+				EthAddress:         "0x1F8e7aF58086992Ef4c4fc0371446974BBbC0D9F",
+				Endpoint:           "https://creatornode7.staging.audius.co",
+				OperatorEthAddress: "0x5E98cBEEAA2aCEDEc0833AC3D1634E2A7aE0f3c2",
+			},
+			{
+				EthAddress:         "0x140eD283b33be2145ed7d9d15f1fE7bF1E0B2Ac3",
+				Endpoint:           "https://creatornode9.staging.audius.co",
+				OperatorEthAddress: "0x5E98cBEEAA2aCEDEc0833AC3D1634E2A7aE0f3c2",
+			},
+			{
+				EthAddress:         "0x4c88d2c0f4c4586b41621aD6e98882ae904B98f6",
+				Endpoint:           "https://creatornode11.staging.audius.co",
+				OperatorEthAddress: "0x5E98cBEEAA2aCEDEc0833AC3D1634E2A7aE0f3c2",
+			},
 		}
 		Cfg.DeadNodes = []string{}
 	case "prod":
@@ -75,83 +110,382 @@ func init() {
 			"https://discoveryprovider2.audius.co",
 			"https://discoveryprovider3.audius.co",
 		}
-		Cfg.Nodes = []string{
-			"https://creatornode.audius.co",
-			"https://creatornode2.audius.co",
-			"https://creatornode3.audius.co",
-			"https://audius-content-1.figment.io",
-			"https://creatornode.audius.prod-eks-ap-northeast-1.staked.cloud",
-			"https://audius-content-2.figment.io",
-			"https://audius-content-3.figment.io",
-			"https://audius-content-4.figment.io",
-			"https://audius-content-5.figment.io",
-			"https://creatornode.audius1.prod-eks-ap-northeast-1.staked.cloud",
-			"https://creatornode.audius2.prod-eks-ap-northeast-1.staked.cloud",
-			"https://creatornode.audius3.prod-eks-ap-northeast-1.staked.cloud",
-			"https://audius-content-6.figment.io",
-			"https://audius-content-7.figment.io",
-			"https://audius-content-8.figment.io",
-			"https://audius-content-9.figment.io",
-			"https://audius-content-10.figment.io",
-			"https://audius-content-11.figment.io",
-			"https://content.grassfed.network",
-			"https://blockdaemon-audius-content-01.bdnodes.net",
-			"https://audius-content-1.cultur3stake.com",
-			"https://audius-content-2.cultur3stake.com",
-			"https://audius-content-3.cultur3stake.com",
-			"https://audius-content-4.cultur3stake.com",
-			"https://audius-content-5.cultur3stake.com",
-			"https://audius-content-6.cultur3stake.com",
-			"https://audius-content-7.cultur3stake.com",
-			"https://blockdaemon-audius-content-02.bdnodes.net",
-			"https://blockdaemon-audius-content-03.bdnodes.net",
-			"https://blockdaemon-audius-content-04.bdnodes.net",
-			"https://blockdaemon-audius-content-05.bdnodes.net",
-			"https://blockdaemon-audius-content-06.bdnodes.net",
-			"https://blockdaemon-audius-content-07.bdnodes.net",
-			"https://blockdaemon-audius-content-08.bdnodes.net",
-			"https://blockdaemon-audius-content-09.bdnodes.net",
-			"https://audius-content-8.cultur3stake.com",
-			"https://blockchange-audius-content-01.bdnodes.net",
-			"https://blockchange-audius-content-02.bdnodes.net",
-			"https://blockchange-audius-content-03.bdnodes.net",
-			"https://audius-content-9.cultur3stake.com",
-			"https://audius-content-10.cultur3stake.com",
-			"https://audius-content-11.cultur3stake.com",
-			"https://audius-content-12.cultur3stake.com",
-			"https://audius-content-13.cultur3stake.com",
-			"https://audius-content-14.cultur3stake.com",
-			"https://audius-content-15.cultur3stake.com",
-			"https://audius-content-16.cultur3stake.com",
-			"https://audius-content-17.cultur3stake.com",
-			"https://audius-content-18.cultur3stake.com",
-			"https://audius-content-12.figment.io",
-			"https://cn0.mainnet.audiusindex.org",
-			"https://cn1.mainnet.audiusindex.org",
-			"https://cn2.mainnet.audiusindex.org",
-			"https://cn3.mainnet.audiusindex.org",
-			"https://audius-content-13.figment.io",
-			"https://audius-content-14.figment.io",
-			"https://cn4.mainnet.audiusindex.org",
-			"https://audius-creator-1.theblueprint.xyz",
-			"https://audius-creator-2.theblueprint.xyz",
-			"https://audius-creator-3.theblueprint.xyz",
-			"https://audius-creator-4.theblueprint.xyz",
-			"https://audius-creator-5.theblueprint.xyz",
-			"https://audius-creator-6.theblueprint.xyz",
-			"https://creatornode.audius8.prod-eks-ap-northeast-1.staked.cloud",
-			"https://cn1.stuffisup.com",
-			"https://audius-cn1.tikilabs.com",
-			"https://audius-creator-7.theblueprint.xyz",
-			"https://cn1.shakespearetech.com",
-			"https://cn2.shakespearetech.com",
-			"https://cn3.shakespearetech.com",
-			"https://audius-creator-8.theblueprint.xyz",
-			"https://audius-creator-9.theblueprint.xyz",
-			"https://audius-creator-10.theblueprint.xyz",
-			"https://audius-creator-11.theblueprint.xyz",
-			"https://audius-creator-12.theblueprint.xyz",
-			"https://audius-creator-13.theblueprint.xyz",
+		Cfg.Nodes = []Node{
+			{
+				EthAddress:         "0xc8d0C29B6d540295e8fc8ac72456F2f4D41088c8",
+				Endpoint:           "https://creatornode.audius.co",
+				OperatorEthAddress: "0xe5b256d302ea2f4e04b8f3bfd8695ade147ab68d",
+			},
+			{
+				EthAddress:         "0xf686647E3737d595C60c6DE2f5F90463542FE439",
+				Endpoint:           "https://creatornode2.audius.co",
+				OperatorEthAddress: "0xe5b256d302ea2f4e04b8f3bfd8695ade147ab68d",
+			},
+			{
+				EthAddress:         "0x0C32BE6328578E99b6F06E0e7A6B385EB8FC13d1",
+				Endpoint:           "https://creatornode3.audius.co",
+				OperatorEthAddress: "0xe5b256d302ea2f4e04b8f3bfd8695ade147ab68d",
+			},
+			{
+				EthAddress:         "0xBfdE9a7DD3620CB6428463E9A9e9932B4d10fdc5",
+				Endpoint:           "https://audius-content-1.figment.io",
+				OperatorEthAddress: "0xc1f351FE81dFAcB3541e59177AC71Ed237BD15D0",
+			},
+			{
+				EthAddress:         "0x675086B880260D217963cF14F503272AEb44b2E9",
+				Endpoint:           "https://creatornode.audius.prod-eks-ap-northeast-1.staked.cloud",
+				OperatorEthAddress: "0x8C860adb28CA8A33dB5571536BFCF7D6522181e5",
+			},
+			{
+				EthAddress:         "0x6444212FFc23a4CcF7460f8Fe6D0e6074db59036",
+				Endpoint:           "https://audius-content-2.figment.io",
+				OperatorEthAddress: "0xc1f351FE81dFAcB3541e59177AC71Ed237BD15D0",
+			},
+			{
+				EthAddress:         "0xECEDCaABecb40ef4bE733BA47FaD612aeA1F396F",
+				Endpoint:           "https://audius-content-3.figment.io",
+				OperatorEthAddress: "0xc1f351FE81dFAcB3541e59177AC71Ed237BD15D0",
+			},
+			{
+				EthAddress:         "0x08fEF3884Db16E2E6211272cdC9Eee68E8b63b09",
+				Endpoint:           "https://audius-content-4.figment.io",
+				OperatorEthAddress: "0xc1f351FE81dFAcB3541e59177AC71Ed237BD15D0",
+			},
+			{
+				EthAddress:         "0x10fF8197f2e94eF880d940D2414E0A14983c3bFE",
+				Endpoint:           "https://audius-content-5.figment.io",
+				OperatorEthAddress: "0xc1f351FE81dFAcB3541e59177AC71Ed237BD15D0",
+			},
+			{
+				EthAddress:         "0xC23Ee959E0B22a9B0F5dF18D7e7875cA4B6c4236",
+				Endpoint:           "https://creatornode.audius1.prod-eks-ap-northeast-1.staked.cloud",
+				OperatorEthAddress: "0x8C860adb28CA8A33dB5571536BFCF7D6522181e5",
+			},
+			{
+				EthAddress:         "0x51a5575dc04c1f5f2e39390d090aaf78554F5f7B",
+				Endpoint:           "https://creatornode.audius2.prod-eks-ap-northeast-1.staked.cloud",
+				OperatorEthAddress: "0x8C860adb28CA8A33dB5571536BFCF7D6522181e5",
+			},
+			{
+				EthAddress:         "0xe0b56BAe2276E016d3DB314Dd7374e596B0457ac",
+				Endpoint:           "https://creatornode.audius3.prod-eks-ap-northeast-1.staked.cloud",
+				OperatorEthAddress: "0x8C860adb28CA8A33dB5571536BFCF7D6522181e5",
+			},
+			{
+				EthAddress:         "0x68a4Bd6b4177ffB025AF9844cBE4Fe31348AEE1D",
+				Endpoint:           "https://audius-content-6.figment.io",
+				OperatorEthAddress: "0xc1f351FE81dFAcB3541e59177AC71Ed237BD15D0",
+			},
+			{
+				EthAddress:         "0xf45a6DBf3ce0201F4012a19b1fB04D4f05B53a37",
+				Endpoint:           "https://audius-content-7.figment.io",
+				OperatorEthAddress: "0xc1f351FE81dFAcB3541e59177AC71Ed237BD15D0",
+			},
+			{
+				EthAddress:         "0x9708Fb04DeA029212126255B311a21F1F884cCB4",
+				Endpoint:           "https://audius-content-8.figment.io",
+				OperatorEthAddress: "0xc1f351FE81dFAcB3541e59177AC71Ed237BD15D0",
+			},
+			{
+				EthAddress:         "0x7c34c9709ed69513D55dF2020e799DA44fC52E6e",
+				Endpoint:           "https://audius-content-9.figment.io",
+				OperatorEthAddress: "0xc1f351FE81dFAcB3541e59177AC71Ed237BD15D0",
+			},
+			{
+				EthAddress:         "0xff753331CEa586DD5B23bd21222a3c902909F2dd",
+				Endpoint:           "https://audius-content-10.figment.io",
+				OperatorEthAddress: "0xc1f351FE81dFAcB3541e59177AC71Ed237BD15D0",
+			},
+			{
+				EthAddress:         "0xC9721F892BcC8822eb34237E875BE93904f11073",
+				Endpoint:           "https://audius-content-11.figment.io",
+				OperatorEthAddress: "0xc1f351FE81dFAcB3541e59177AC71Ed237BD15D0",
+			},
+			{
+				EthAddress:         "0x807C0fba7405aeb8b6a37A974df6259C6aB9bB1e",
+				Endpoint:           "https://blockdaemon-audius-content-01.bdnodes.net",
+				OperatorEthAddress: "0x091D2190e93A9C09f99dA05ec3F82ef5D8aa4a07",
+			},
+			{
+				EthAddress:         "0xCEb6a23d6132Cfe329b3c8E3c45f9DDc28A62Bd4",
+				Endpoint:           "https://audius-content-1.cultur3stake.com",
+				OperatorEthAddress: "0x2168990Cd51c7C7DdE4b16Ac4fe7dbA269768990",
+			},
+			{
+				EthAddress:         "0x2e9e7A4e35C3136fB651a0dBF8f91c9f5C27BBf7",
+				Endpoint:           "https://audius-content-2.cultur3stake.com",
+				OperatorEthAddress: "0x2168990Cd51c7C7DdE4b16Ac4fe7dbA269768990",
+			},
+			{
+				EthAddress:         "0x742da6cAc2782FeA961bB7B9150a048F5167D1e1",
+				Endpoint:           "https://audius-content-3.cultur3stake.com",
+				OperatorEthAddress: "0x2168990Cd51c7C7DdE4b16Ac4fe7dbA269768990",
+			},
+			{
+				EthAddress:         "0xcbb0cE7481685587b0988195Ff0cD6AA1A701657",
+				Endpoint:           "https://audius-content-4.cultur3stake.com",
+				OperatorEthAddress: "0x2168990Cd51c7C7DdE4b16Ac4fe7dbA269768990",
+			},
+			{
+				EthAddress:         "0xFec4708155277D35d568aD6Ca322262577683584",
+				Endpoint:           "https://audius-content-5.cultur3stake.com",
+				OperatorEthAddress: "0x2168990Cd51c7C7DdE4b16Ac4fe7dbA269768990",
+			},
+			{
+				EthAddress:         "0x3Db0E61591063310eEd22fd57E6f7F1ab2Bb538E",
+				Endpoint:           "https://audius-content-6.cultur3stake.com",
+				OperatorEthAddress: "0x2168990Cd51c7C7DdE4b16Ac4fe7dbA269768990",
+			},
+			{
+				EthAddress:         "0xE6C00e7E8d582fD2856718a5439f1aeEB68e27E5",
+				Endpoint:           "https://audius-content-7.cultur3stake.com",
+				OperatorEthAddress: "0x2168990Cd51c7C7DdE4b16Ac4fe7dbA269768990",
+			},
+			{
+				EthAddress:         "0x4Ad694B3fC34b3cC245aF6AA7B43C52ddD0d7AAE",
+				Endpoint:           "https://blockdaemon-audius-content-02.bdnodes.net",
+				OperatorEthAddress: "0x091D2190e93A9C09f99dA05ec3F82ef5D8aa4a07",
+			},
+			{
+				EthAddress:         "0x8ea81225013719950E968DE0602c4Eca458fA9f4",
+				Endpoint:           "https://blockdaemon-audius-content-03.bdnodes.net",
+				OperatorEthAddress: "0x091D2190e93A9C09f99dA05ec3F82ef5D8aa4a07",
+			},
+			{
+				EthAddress:         "0xcfFA8ACF0b04d9278eEE13928be264b2E9aaab97",
+				Endpoint:           "https://blockdaemon-audius-content-04.bdnodes.net",
+				OperatorEthAddress: "0xEe39B44cE36384157585C19df17d9B28D5637C4D",
+			},
+			{
+				EthAddress:         "0xB4Ff0cab630FB05a7fcEfec9E979a968b8f4fE55",
+				Endpoint:           "https://blockdaemon-audius-content-05.bdnodes.net",
+				OperatorEthAddress: "0xEe39B44cE36384157585C19df17d9B28D5637C4D",
+			},
+			{
+				EthAddress:         "0x7449da7d1548C11c481b87667EC9b2A8F20C13A0",
+				Endpoint:           "https://blockdaemon-audius-content-06.bdnodes.net",
+				OperatorEthAddress: "0xEe39B44cE36384157585C19df17d9B28D5637C4D",
+			},
+			{
+				EthAddress:         "0x00B1CA1A34257860f66e742eF163Ad30bF42d075",
+				Endpoint:           "https://blockdaemon-audius-content-07.bdnodes.net",
+				OperatorEthAddress: "0x447E3572B5511cc6ea0700e34D2443017D081d7e",
+			},
+			{
+				EthAddress:         "0x16650eDB44C720ea627d5a59ff0b4f74c37fe419",
+				Endpoint:           "https://blockdaemon-audius-content-08.bdnodes.net",
+				OperatorEthAddress: "0x447E3572B5511cc6ea0700e34D2443017D081d7e",
+			},
+			{
+				EthAddress:         "0xD5Cfcf4149c683516239fc653D5a470F3F4A606D",
+				Endpoint:           "https://blockdaemon-audius-content-09.bdnodes.net",
+				OperatorEthAddress: "0x447E3572B5511cc6ea0700e34D2443017D081d7e",
+			},
+			{
+				EthAddress:         "0xff432F81D0eb77DA5973Cf55e24A897882fdd3E6",
+				Endpoint:           "https://audius-content-8.cultur3stake.com",
+				OperatorEthAddress: "0x2168990Cd51c7C7DdE4b16Ac4fe7dbA269768990",
+			},
+			{
+				EthAddress:         "0x8464c88502925a0076c381962F8B70b6EC892861",
+				Endpoint:           "https://blockchange-audius-content-01.bdnodes.net",
+				OperatorEthAddress: "0x59938DF0F43DC520404e4aafDdae688a455Be870",
+			},
+			{
+				EthAddress:         "0x5e0D0BeDC11F0B512457f6f707A35703b1447Fb5",
+				Endpoint:           "https://blockchange-audius-content-02.bdnodes.net",
+				OperatorEthAddress: "0x59938DF0F43DC520404e4aafDdae688a455Be870",
+			},
+			{
+				EthAddress:         "0xe3F1c416c3919bB2ffD78F1e38b9E81E8c80815F",
+				Endpoint:           "https://blockchange-audius-content-03.bdnodes.net",
+				OperatorEthAddress: "0x59938DF0F43DC520404e4aafDdae688a455Be870",
+			},
+			{
+				EthAddress:         "0xB6f506557B2e9026743FeA6157e52F204D26690F",
+				Endpoint:           "https://audius-content-9.cultur3stake.com",
+				OperatorEthAddress: "0x2168990Cd51c7C7DdE4b16Ac4fe7dbA269768990",
+			},
+			{
+				EthAddress:         "0x2AF4598D3CF95D8e76987c02BC8A8D71F58d49d5",
+				Endpoint:           "https://audius-content-10.cultur3stake.com",
+				OperatorEthAddress: "0x2168990Cd51c7C7DdE4b16Ac4fe7dbA269768990",
+			},
+			{
+				EthAddress:         "0xB2684Cca5281d2bA6D9Ce66Cca215635FF2Ba466",
+				Endpoint:           "https://audius-content-11.cultur3stake.com",
+				OperatorEthAddress: "0x2168990Cd51c7C7DdE4b16Ac4fe7dbA269768990",
+			},
+			{
+				EthAddress:         "0x28924C99822eA08bFCeDdE3a411308633948b349",
+				Endpoint:           "https://audius-content-12.cultur3stake.com",
+				OperatorEthAddress: "0x2168990Cd51c7C7DdE4b16Ac4fe7dbA269768990",
+			},
+			{
+				EthAddress:         "0xcb23908aa0dCDef762ebEaA38391D8fFC69E6e8F",
+				Endpoint:           "https://audius-content-13.cultur3stake.com",
+				OperatorEthAddress: "0x2168990Cd51c7C7DdE4b16Ac4fe7dbA269768990",
+			},
+			{
+				EthAddress:         "0xCbDa351492e52fdb2f0E7FBc440cA2047738b71C",
+				Endpoint:           "https://audius-content-14.cultur3stake.com",
+				OperatorEthAddress: "0x2168990Cd51c7C7DdE4b16Ac4fe7dbA269768990",
+			},
+			{
+				EthAddress:         "0x2fE2652296c40BB22D33C6379558Bf63A25b4f9a",
+				Endpoint:           "https://audius-content-15.cultur3stake.com",
+				OperatorEthAddress: "0x2168990Cd51c7C7DdE4b16Ac4fe7dbA269768990",
+			},
+			{
+				EthAddress:         "0x47367ED3Db5D9691d866cb09545DE7cccD571579",
+				Endpoint:           "https://audius-content-16.cultur3stake.com",
+				OperatorEthAddress: "0x2168990Cd51c7C7DdE4b16Ac4fe7dbA269768990",
+			},
+			{
+				EthAddress:         "0xb472c555Ab9eA1D33543383d6d1F8885c97eF83A",
+				Endpoint:           "https://audius-content-17.cultur3stake.com",
+				OperatorEthAddress: "0x2168990Cd51c7C7DdE4b16Ac4fe7dbA269768990",
+			},
+			{
+				EthAddress:         "0x4F62C17Dc54E58289354847974E1F246c8EAcf11",
+				Endpoint:           "https://audius-content-18.cultur3stake.com",
+				OperatorEthAddress: "0x2168990Cd51c7C7DdE4b16Ac4fe7dbA269768990",
+			},
+			{
+				EthAddress:         "0x780641e157621621658F118375dc1B36Ea514d46",
+				Endpoint:           "https://audius-content-12.figment.io",
+				OperatorEthAddress: "0x700a11aE95E34fBC769f8EAD063403987Bd0C502",
+			},
+			{
+				EthAddress:         "0xf9b373E223b73473C59034072263f52aEF60133B",
+				Endpoint:           "https://cn0.mainnet.audiusindex.org",
+				OperatorEthAddress: "0x528D6Fe7dF9356C8EabEC850B0f908F53075B382",
+			},
+			{
+				EthAddress:         "0x9b0D01bd7F01BD6916Ba139743Ce9C524B9375Dd",
+				Endpoint:           "https://cn1.mainnet.audiusindex.org",
+				OperatorEthAddress: "0x528D6Fe7dF9356C8EabEC850B0f908F53075B382",
+			},
+			{
+				EthAddress:         "0xf6e297203c0086dc229DAE17F5b61a15F42A1A00",
+				Endpoint:           "https://cn2.mainnet.audiusindex.org",
+				OperatorEthAddress: "0x528D6Fe7dF9356C8EabEC850B0f908F53075B382",
+			},
+			{
+				EthAddress:         "0x24C4b2cb6eC4c87a03F66723d8750dbe98Fa3e4f",
+				Endpoint:           "https://cn3.mainnet.audiusindex.org",
+				OperatorEthAddress: "0x528D6Fe7dF9356C8EabEC850B0f908F53075B382",
+			},
+			{
+				EthAddress:         "0x33a2da466B14990E0124383204b06F9196f62d8e",
+				Endpoint:           "https://audius-content-13.figment.io",
+				OperatorEthAddress: "0xc1f351FE81dFAcB3541e59177AC71Ed237BD15D0",
+			},
+			{
+				EthAddress:         "0x817c513C1B702eA0BdD4F8C1204C60372f715006",
+				Endpoint:           "https://audius-content-14.figment.io",
+				OperatorEthAddress: "0xc1f351FE81dFAcB3541e59177AC71Ed237BD15D0",
+			},
+			{
+				EthAddress:         "0x69e749266C59757dA81F8C659Be6B07ce5Bac6C9",
+				Endpoint:           "https://cn4.mainnet.audiusindex.org",
+				OperatorEthAddress: "0x528D6Fe7dF9356C8EabEC850B0f908F53075B382",
+			},
+			{
+				EthAddress:         "0x0E0aF7035581C615d07372be16D99A9B64E5B2e9",
+				Endpoint:           "https://audius-creator-1.theblueprint.xyz",
+				OperatorEthAddress: "0x68f656d19AC6d14dF209B1dd6E543b2E81d53D7B",
+			},
+			{
+				EthAddress:         "0x3D0dD2Cd46c2658d228769f4a394662946A28987",
+				Endpoint:           "https://audius-creator-2.theblueprint.xyz",
+				OperatorEthAddress: "0x68f656d19AC6d14dF209B1dd6E543b2E81d53D7B",
+			},
+			{
+				EthAddress:         "0x292B0d5987a7DE879909C48a54f0853C211da5f3",
+				Endpoint:           "https://audius-creator-3.theblueprint.xyz",
+				OperatorEthAddress: "0x68f656d19AC6d14dF209B1dd6E543b2E81d53D7B",
+			},
+			{
+				EthAddress:         "0xA815f8108C2772D24D7DCB866c861148f043224D",
+				Endpoint:           "https://audius-creator-4.theblueprint.xyz",
+				OperatorEthAddress: "0x68f656d19AC6d14dF209B1dd6E543b2E81d53D7B",
+			},
+			{
+				EthAddress:         "0x65Fe5BEf65A0E0b0520d6beE7767ea6Da7f792f6",
+				Endpoint:           "https://audius-creator-5.theblueprint.xyz",
+				OperatorEthAddress: "0x68f656d19AC6d14dF209B1dd6E543b2E81d53D7B",
+			},
+			{
+				EthAddress:         "0x19B026B0f0Dbf619DBf8C4Efb0190308ace56366",
+				Endpoint:           "https://audius-creator-6.theblueprint.xyz",
+				OperatorEthAddress: "0x68f656d19AC6d14dF209B1dd6E543b2E81d53D7B",
+			},
+			{
+				EthAddress:         "0xc69F344FCDbc9D747559c968562f682ABfBa442C",
+				Endpoint:           "https://creatornode.audius8.prod-eks-ap-northeast-1.staked.cloud",
+				OperatorEthAddress: "0x8C860adb28CA8A33dB5571536BFCF7D6522181e5",
+			},
+			{
+				EthAddress:         "0x0D16f8bBfFF114B1a525Bf8b8d98ED177FA74AD3",
+				Endpoint:           "https://cn1.stuffisup.com",
+				OperatorEthAddress: "0x3E2Cd6d498b412Da182Ef25837F72355f8918BE9",
+			},
+			{
+				EthAddress:         "0x159200F84c2cF000b3A014cD4D8244500CCc36ca",
+				Endpoint:           "https://audius-cn1.tikilabs.com",
+				OperatorEthAddress: "0xe4882D9A38A2A1fc652996719AF0fb15CB968d0a",
+			},
+			{
+				EthAddress:         "0x720758adEa33433833c14e2516fA421261D0875e",
+				Endpoint:           "https://audius-creator-7.theblueprint.xyz",
+				OperatorEthAddress: "0x68f656d19AC6d14dF209B1dd6E543b2E81d53D7B",
+			},
+			{
+				EthAddress:         "0x44955AD360652c302644F564B42D1458C584A4ec",
+				Endpoint:           "https://cn1.shakespearetech.com",
+				OperatorEthAddress: "0x45FC5529a17f0c5285173Ad08359C53Fa8a674b4",
+			},
+			{
+				EthAddress:         "0x68835714d9c208f9d6F4953F0555507e492fd898",
+				Endpoint:           "https://cn2.shakespearetech.com",
+				OperatorEthAddress: "0x45FC5529a17f0c5285173Ad08359C53Fa8a674b4",
+			},
+			{
+				EthAddress:         "0x7162Ee2b7F0cB9651fd2FA2838B0CAF225B2a8D3",
+				Endpoint:           "https://cn3.shakespearetech.com",
+				OperatorEthAddress: "0x45FC5529a17f0c5285173Ad08359C53Fa8a674b4",
+			},
+			{
+				EthAddress:         "0x078842E88B82e6a69549043269AE3aADD5581105",
+				Endpoint:           "https://audius-creator-8.theblueprint.xyz",
+				OperatorEthAddress: "0x68f656d19AC6d14dF209B1dd6E543b2E81d53D7B",
+			},
+			{
+				EthAddress:         "0x2DfC8152eF49e91b83638ad2bd0D2F9efC6f65b5",
+				Endpoint:           "https://audius-creator-9.theblueprint.xyz",
+				OperatorEthAddress: "0x68f656d19AC6d14dF209B1dd6E543b2E81d53D7B",
+			},
+			{
+				EthAddress:         "0x97BcBFA8289731d694440795094E831599Ab7A11",
+				Endpoint:           "https://audius-creator-10.theblueprint.xyz",
+				OperatorEthAddress: "0x68f656d19AC6d14dF209B1dd6E543b2E81d53D7B",
+			},
+			{
+				EthAddress:         "0xfe38c5Ea3579c9333fE302414fe1895F7a320beF",
+				Endpoint:           "https://audius-creator-11.theblueprint.xyz",
+				OperatorEthAddress: "0x68f656d19AC6d14dF209B1dd6E543b2E81d53D7B",
+			},
+			{
+				EthAddress:         "0x8C78ef541135e2cb037f91109fb8EE780fa4709d",
+				Endpoint:           "https://audius-creator-12.theblueprint.xyz",
+				OperatorEthAddress: "0x68f656d19AC6d14dF209B1dd6E543b2E81d53D7B",
+			},
+			{
+				EthAddress:         "0x75D2269D18C59CC2ED00a63a40367AC495E3F330",
+				Endpoint:           "https://audius-creator-13.theblueprint.xyz",
+				OperatorEthAddress: "0x68f656d19AC6d14dF209B1dd6E543b2E81d53D7B",
+			},
 		}
 		Cfg.DeadNodes = []string{
 			"https://content.grassfed.network",
