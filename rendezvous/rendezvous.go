@@ -20,7 +20,9 @@ var GlobalHasher *RendezvousHasher
 func init() {
 	hosts := make([]string, len(config.Cfg.Nodes))
 	for i, node := range config.Cfg.Nodes {
-		hosts[i] = node.Endpoint
+		if !node.IsStorageDisabled {
+			hosts[i] = node.Endpoint
+		}
 	}
 	GlobalHasher = NewRendezvousHasher(hosts)
 }

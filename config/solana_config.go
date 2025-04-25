@@ -24,10 +24,6 @@ type SolanaConfig struct {
 	ClaimableTokensProgramID solana.PublicKey
 }
 
-var SolCfg = SolanaConfig{
-	RpcProviders: strings.Split(os.Getenv("solanaRpcProviders"), ","),
-}
-
 const (
 	// Dev
 	DevSolanaRelay              = "http://audius-protocol-discovery-provider-1/solana/relay"
@@ -54,19 +50,22 @@ const (
 	ProdClaimableTokensProgramID = "Ewkv3JahEFRKkcJmpoKB7pXbnUHwjAyXiwEo4ZY2rezQ"
 )
 
-func init() {
+func NewSolanaConfig() SolanaConfig {
+	cfg := SolanaConfig{
+		RpcProviders: strings.Split(os.Getenv("solanaRpcProviders"), ","),
+	}
 	keyString := os.Getenv("solanaFeePayerKeys")
 	if keyString != "" {
 		walletKeys := strings.Split(keyString, ",")
-		SolCfg.FeePayers = make([]solana.Wallet, len(walletKeys))
+		cfg.FeePayers = make([]solana.Wallet, len(walletKeys))
 		for i, privkeyString := range walletKeys {
 			privkey := solana.MustPrivateKeyFromBase58(privkeyString)
-			SolCfg.FeePayers[i] = solana.Wallet{
+			cfg.FeePayers[i] = solana.Wallet{
 				PrivateKey: privkey,
 			}
 		}
 	} else {
-		SolCfg.FeePayers = make([]solana.Wallet, 0)
+		cfg.FeePayers = make([]solana.Wallet, 0)
 	}
 
 	switch env := os.Getenv("ENV"); env {
@@ -75,34 +74,35 @@ func init() {
 	case "development":
 		fallthrough
 	case "":
-		SolCfg.SolanaRelay = DevSolanaRelay
-		SolCfg.MintAudio = solana.MustPublicKeyFromBase58(DevMintAudio)
-		SolCfg.RewardManagerProgramID = solana.MustPublicKeyFromBase58(DevRewardManagerProgramID)
-		SolCfg.RewardManagerState = solana.MustPublicKeyFromBase58(DevRewardManagerState)
-		SolCfg.RewardManagerLookupTable = solana.MustPublicKeyFromBase58(DevRewardManagerLookupTable)
-		SolCfg.ClaimableTokensProgramID = solana.MustPublicKeyFromBase58(DevClaimableTokensProgramID)
+		cfg.SolanaRelay = DevSolanaRelay
+		cfg.MintAudio = solana.MustPublicKeyFromBase58(DevMintAudio)
+		cfg.RewardManagerProgramID = solana.MustPublicKeyFromBase58(DevRewardManagerProgramID)
+		cfg.RewardManagerState = solana.MustPublicKeyFromBase58(DevRewardManagerState)
+		cfg.RewardManagerLookupTable = solana.MustPublicKeyFromBase58(DevRewardManagerLookupTable)
+		cfg.ClaimableTokensProgramID = solana.MustPublicKeyFromBase58(DevClaimableTokensProgramID)
 	case "stage":
 		fallthrough
 	case "staging":
-		SolCfg.SolanaRelay = StageSolanaRelay
-		SolCfg.MintAudio = solana.MustPublicKeyFromBase58(StageMintAudio)
-		SolCfg.RewardManagerProgramID = solana.MustPublicKeyFromBase58(StageRewardManagerProgramID)
-		SolCfg.RewardManagerState = solana.MustPublicKeyFromBase58(StageRewardManagerState)
-		SolCfg.RewardManagerLookupTable = solana.MustPublicKeyFromBase58(StageRewardManagerLookupTable)
-		SolCfg.ClaimableTokensProgramID = solana.MustPublicKeyFromBase58(StageClaimableTokensProgramID)
+		cfg.SolanaRelay = StageSolanaRelay
+		cfg.MintAudio = solana.MustPublicKeyFromBase58(StageMintAudio)
+		cfg.RewardManagerProgramID = solana.MustPublicKeyFromBase58(StageRewardManagerProgramID)
+		cfg.RewardManagerState = solana.MustPublicKeyFromBase58(StageRewardManagerState)
+		cfg.RewardManagerLookupTable = solana.MustPublicKeyFromBase58(StageRewardManagerLookupTable)
+		cfg.ClaimableTokensProgramID = solana.MustPublicKeyFromBase58(StageClaimableTokensProgramID)
 	case "prod":
 		fallthrough
 	case "production":
-		SolCfg.SolanaRelay = ProdSolanaRelay
-		SolCfg.MintAudio = solana.MustPublicKeyFromBase58(ProdMintAudio)
-		SolCfg.RewardManagerProgramID = solana.MustPublicKeyFromBase58(ProdRewardManagerProgramID)
-		SolCfg.RewardManagerState = solana.MustPublicKeyFromBase58(ProdRewardManagerState)
-		SolCfg.RewardManagerLookupTable = solana.MustPublicKeyFromBase58(ProdRewardManagerLookupTable)
-		SolCfg.ClaimableTokensProgramID = solana.MustPublicKeyFromBase58(ProdClaimableTokensProgramID)
+		cfg.SolanaRelay = ProdSolanaRelay
+		cfg.MintAudio = solana.MustPublicKeyFromBase58(ProdMintAudio)
+		cfg.RewardManagerProgramID = solana.MustPublicKeyFromBase58(ProdRewardManagerProgramID)
+		cfg.RewardManagerState = solana.MustPublicKeyFromBase58(ProdRewardManagerState)
+		cfg.RewardManagerLookupTable = solana.MustPublicKeyFromBase58(ProdRewardManagerLookupTable)
+		cfg.ClaimableTokensProgramID = solana.MustPublicKeyFromBase58(ProdClaimableTokensProgramID)
 	default:
 		log.Fatalf("Unknown environment: %s", env)
 	}
 
-	reward_manager.SetProgramID(SolCfg.RewardManagerProgramID)
-	claimable_tokens.SetProgramID(SolCfg.ClaimableTokensProgramID)
+	reward_manager.SetProgramID(cfg.RewardManagerProgramID)
+	claimable_tokens.SetProgramID(cfg.ClaimableTokensProgramID)
+	return cfg
 }
