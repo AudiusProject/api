@@ -14,10 +14,12 @@ require (
 	github.com/jackc/pgx/v5 v5.7.4
 	github.com/joho/godotenv v1.5.1
 	github.com/maypok86/otter v1.2.4
+	github.com/mr-tron/base58 v1.2.0
 	github.com/segmentio/encoding v0.4.1
 	github.com/speps/go-hashids/v2 v2.0.1
 	github.com/stretchr/testify v1.10.0
 	github.com/tidwall/gjson v1.18.0
+	github.com/tidwall/sjson v1.2.5
 	github.com/valyala/fasthttp v1.59.0
 	go.uber.org/zap v1.27.0
 	golang.org/x/sync v0.13.0
@@ -63,7 +65,6 @@ require (
 	github.com/modern-go/concurrent v0.0.0-20180306012644-bacd9c7ef1dd // indirect
 	github.com/modern-go/reflect2 v1.0.2 // indirect
 	github.com/mostynb/zstdpool-freelist v0.0.0-20201229113212-927304c0c3b1 // indirect
-	github.com/mr-tron/base58 v1.2.0 // indirect
 	github.com/oasisprotocol/curve25519-voi v0.0.0-20230904125328-1f23a7beb09a // indirect
 	github.com/petermattis/goid v0.0.0-20250319124200-ccd6737f222a // indirect
 	github.com/pkg/errors v0.9.1 // indirect

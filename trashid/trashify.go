@@ -7,7 +7,7 @@ import (
 	"strconv"
 )
 
-var re = regexp.MustCompile(`"(?P<key>\w+_id|id)"\s*:\s*(?P<val>\d+)`)
+var re = regexp.MustCompile(`"(?P<key>\w+_id|id|specifier)"\s*:\s*(?P<val>\d+)`)
 var skipKeys = [][]byte{
 	[]byte(`special_id`),
 }
@@ -35,7 +35,6 @@ func Trashify(jsonBytes []byte) []byte {
 
 		// Replace with hex string
 		hashed, err := EncodeHashId(num)
-		fmt.Println("ok", num, hashed, err)
 		if err != nil {
 			return match
 		}

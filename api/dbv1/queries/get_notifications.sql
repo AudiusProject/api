@@ -25,7 +25,7 @@ SELECT
     json_agg(
       json_build_object(
         'type', type,
-        'specifier', specifier,
+        'specifier', specifier::int,
         'timestamp', EXTRACT(EPOCH FROM timestamp),
         'data', data
       )

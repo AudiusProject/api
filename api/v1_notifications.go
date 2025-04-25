@@ -2,6 +2,7 @@ package api
 
 import (
 	"bridgerton.audius.co/api/dbv1"
+	"bridgerton.audius.co/trashid"
 	"github.com/gofiber/fiber/v2"
 )
 
@@ -14,7 +15,11 @@ func (app *ApiServer) v1Notifications(c *fiber.Ctx) error {
 		return err
 	}
 
-	// todo: trashid junk
+	// trashify!
+	for idx, notif := range notifs {
+		notif.Actions = trashid.Trashify(notif.Actions)
+		notifs[idx] = notif
+	}
 
 	return c.JSON(fiber.Map{
 		"data": fiber.Map{
