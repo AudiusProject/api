@@ -229,6 +229,9 @@ func NewApiServer(config config.Config) *ApiServer {
 		// Developer Apps
 		g.Get("/developer_apps/:address", app.v1DeveloperApps)
 
+		// g.Use("/users/:userId", )
+		g.Get("/notifications/:userId", app.requireUserIdMiddleware, app.v1Notifications)
+
 		// Rewards
 		g.Get("/rewards/claim", app.v1ClaimRewards)
 	}
