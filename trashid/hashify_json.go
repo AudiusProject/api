@@ -12,7 +12,7 @@ var skipKeys = [][]byte{
 	[]byte(`special_id`),
 }
 
-func Trashify(jsonBytes []byte) []byte {
+func HashifyJson(jsonBytes []byte) []byte {
 	return re.ReplaceAllFunc(jsonBytes, func(match []byte) []byte {
 		submatches := re.FindSubmatchIndex(match)
 		if submatches == nil || len(submatches) < 6 {

@@ -17,7 +17,7 @@ func (app *ApiServer) v1Notifications(c *fiber.Ctx) error {
 
 	// trashify!
 	for idx, notif := range notifs {
-		notif.Actions = trashid.Trashify(notif.Actions)
+		notif.Actions = trashid.HashifyJson(notif.Actions)
 		notifs[idx] = notif
 	}
 
