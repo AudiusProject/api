@@ -8,9 +8,15 @@ import (
 	"github.com/jackc/pgx/v5"
 )
 
-// todo: time range beyond 30 days
-// - how + when to expand time range,
-// - how to de-dupe items from appearing twice when expanding time range... is tricky
+// todo: feed currently hard coded to go back: 1 YEAR
+// this is probably fine for now, as ES feed only went back 1 MONTH.
+// BUT if we want to support going back further:
+// - in a loop... start with @before = now()
+// - if len(rows) < limit, expand time range until limit is reached.
+// this could also work better if client sent some date hints...
+//
+// we could also get rid of date range filter... it would make feed slower...
+// but maybe it'd be okay?
 func (app *ApiServer) v1UsersFeed(c *fiber.Ctx) error {
 	myId := app.getMyId(c)
 
@@ -46,7 +52,7 @@ func (app *ApiServer) v1UsersFeed(c *fiber.Ctx) error {
 			WHERE
 				@filter in ('all', 'repost')
 				AND reposts.created_at < @before
-				AND reposts.created_at >= @before - INTERVAL '30 DAYS'
+				AND reposts.created_at >= @before - INTERVAL '1 YEAR'
 				AND reposts.is_delete = false
 				AND (tracks.track_id IS NOT NULL OR playlists.playlist_id IS NOT NULL)
 			GROUP BY entity_type, entity_id
@@ -63,7 +69,7 @@ func (app *ApiServer) v1UsersFeed(c *fiber.Ctx) error {
 			join follow_set on owner_id = user_id
 			where @filter in ('all', 'original')
 				AND created_at < @before
-				AND created_at >= @before::timestamp - INTERVAL '30 DAYS'
+				AND created_at >= @before::timestamp - INTERVAL '1 YEAR'
 				AND is_unlisted = false
 				AND is_delete = false
 				AND stem_of is null
@@ -80,7 +86,7 @@ func (app *ApiServer) v1UsersFeed(c *fiber.Ctx) error {
 			join follow_set on playlist_owner_id = user_id
 			where @filter in ('all', 'original')
 				AND created_at < @before
-				AND created_at >= @before - INTERVAL '30 DAYS'
+				AND created_at >= @before - INTERVAL '1 YEAR'
 				AND is_delete = false
 				AND is_private = false
 		)
