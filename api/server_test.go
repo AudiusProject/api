@@ -78,6 +78,7 @@ func TestMain(m *testing.M) {
 	insertFixtures("aggregate_user_tips", aggregateUserTipsBaseRow, "testdata/aggregate_user_tips_fixtures.csv")
 	insertFixtures("usdc_purchases", usdcPurchaseBaseRow, "testdata/usdc_purchases_fixtures.csv")
 	insertFixtures("track_routes", map[string]any{}, "testdata/track_routes_fixtures.csv")
+	insertFixtures("grants", grantBaseRow, "testdata/grants_fixtures.csv")
 
 	// index to es / os
 

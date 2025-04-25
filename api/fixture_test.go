@@ -148,6 +148,19 @@ var (
 		"splits":         "[]",
 		"created_at":     time.Now(),
 	}
+
+	grantBaseRow = map[string]any{
+		"blockhash":       "block1",
+		"blocknumber":     101,
+		"user_id":         nil,
+		"is_current":      true,
+		"grantee_address": nil,
+		"is_approved":     false,
+		"is_revoked":      false,
+		"created_at":      time.Now(),
+		"updated_at":      time.Now(),
+		"txhash":          "tx123",
+	}
 )
 
 func insertFixtures(table string, baseRow map[string]any, csvFile string) {
