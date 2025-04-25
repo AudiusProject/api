@@ -44,9 +44,9 @@ func (inst *SubmitAttestation) SetPayer(payer solana.PublicKey) *SubmitAttestati
 }
 
 func (inst SubmitAttestation) Build() *Instruction {
-	authority, _, _ := deriveAuthority(ProgramID, inst.RewardManagerState)
+	authority, _, _ := DeriveAuthorityAccount(ProgramID, inst.RewardManagerState)
 	sender, _, _ := deriveSender(ProgramID, authority, inst.SenderEthAddress)
-	attestations, _, _ := deriveAttestations(ProgramID, authority, inst.DisbursementID)
+	attestations, _, _ := DeriveAttestationsAccount(ProgramID, authority, inst.DisbursementID)
 
 	inst.AccountMetaSlice = []*solana.AccountMeta{
 		{
