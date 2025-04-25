@@ -1,0 +1,3 @@
+user_id,grantee_address,is_approved,is_revoked
+1,0x5f1a372b28956c8363f8bc3a231a6e9e1186ead8,true,false
+1,0xc451c1f8943b575158310552b41230c61844a1c1,false,true

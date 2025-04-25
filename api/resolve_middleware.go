@@ -22,7 +22,11 @@ func (app *ApiServer) resolveMyIdMiddleware(c *fiber.Ctx) error {
 }
 
 func (app *ApiServer) getMyId(c *fiber.Ctx) int32 {
-	return int32(c.Locals("myId").(int))
+	myId := c.Locals("myId")
+	if myId == nil {
+		return 0
+	}
+	return int32(myId.(int))
 }
 
 func (app *ApiServer) requireUserIdMiddleware(c *fiber.Ctx) error {
