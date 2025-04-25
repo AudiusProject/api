@@ -63,6 +63,11 @@ func (app *ApiServer) recoverAuthorityFromSignatureHeaders(c *fiber.Ctx) (int32,
 
 // Checks if authedWallet is authorized to act on behalf of userId
 func (app *ApiServer) isAuthorizedRequest(c *fiber.Ctx, userId int32, authedWallet string) bool {
+	cacheKey := fmt.Sprintf("%d:%s", userId, authedWallet)
+	if hit, ok := app.resolveGrantCache.Get(cacheKey); ok {
+		return hit
+	}
+
 	var isAuthorized bool
 	err := app.pool.QueryRow(c.Context(), `
 			SELECT EXISTS (
@@ -81,6 +86,7 @@ func (app *ApiServer) isAuthorizedRequest(c *fiber.Ctx, userId int32, authedWall
 		return false
 	}
 
+	app.resolveGrantCache.Set(cacheKey, isAuthorized)
 	return isAuthorized
 }
 

@@ -82,6 +82,9 @@ func NewApiServer(config config.Config) *ApiServer {
 	}
 
 	pool, err := pgxpool.NewWithConfig(context.Background(), connConfig)
+	// To turn off pgx logging, use this:
+	// pool, err := pgxpool.New(context.Background(), config.DbUrl)
+
 	if err != nil {
 		logger.Fatal("db connect failed", zap.Error(err))
 	}
@@ -94,6 +97,14 @@ func NewApiServer(config config.Config) *ApiServer {
 	}
 
 	resolveWalletCache, err := otter.MustBuilder[string, int32](50_000).
+		CollectStats().
+		Build()
+	if err != nil {
+		panic(err)
+	}
+
+	resolveGrantCache, err := otter.MustBuilder[string, bool](50_000).
+		WithTTL(10 * time.Minute).
 		CollectStats().
 		Build()
 	if err != nil {
@@ -117,6 +128,7 @@ func NewApiServer(config config.Config) *ApiServer {
 		started:            time.Now(),
 		resolveHandleCache: resolveHandleCache,
 		resolveWalletCache: resolveWalletCache,
+		resolveGrantCache:  resolveGrantCache,
 		rewardAttester:     *rewards.NewRewardAttester(privateKey, []rewards.Reward{}),
 		solanaConfig:       config.SolanaConfig,
 		antiAbuseOracles:   config.AntiAbuseOracles,
@@ -255,6 +267,7 @@ type ApiServer struct {
 	started            time.Time
 	resolveHandleCache otter.Cache[string, int32]
 	resolveWalletCache otter.Cache[string, int32]
+	resolveGrantCache  otter.Cache[string, bool]
 	rewardAttester     rewards.RewardAttester
 	solanaConfig       config.SolanaConfig
 	antiAbuseOracles   []string
