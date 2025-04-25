@@ -120,6 +120,7 @@ func NewApiServer(config config.Config) *ApiServer {
 		rewardAttester:     *rewards.NewRewardAttester(privateKey, []rewards.Reward{}),
 		solanaConfig:       config.SolanaConfig,
 		antiAbuseOracles:   config.AntiAbuseOracles,
+		validators:         config.Nodes,
 	}
 
 	app.Use(recover.New(recover.Config{
@@ -258,6 +259,7 @@ type ApiServer struct {
 	rewardAttester     rewards.RewardAttester
 	solanaConfig       config.SolanaConfig
 	antiAbuseOracles   []string
+	validators         []config.Node
 }
 
 func (app *ApiServer) home(c *fiber.Ctx) error {

@@ -10,6 +10,7 @@ import (
 	"net/http"
 	"net/url"
 	"path"
+	"slices"
 	"strconv"
 	"strings"
 	"time"
@@ -111,14 +112,21 @@ func getAntiAbuseOracleAttestation(args GetAntiAbuseOracleAttestationParams) (*S
 }
 
 // Selects three uniquely owned, healthy validators at random
-// TODO: Remove hardcoded list, add health checks?
-func getValidators(count int) ([]string, error) {
-	validators := []string{
-		"https://discoveryprovider.staging.audius.co",
-		"https://discoveryprovider2.staging.audius.co",
-		"https://discoveryprovider3.staging.audius.co",
+// TODO: add health checks?
+func getValidators(validators []config.Node, count int, excludedOperators []string) ([]string, error) {
+	shuffled := slices.Clone(validators)
+	rand.Shuffle(min(len(validators), count), func(i, j int) {
+		shuffled[i], shuffled[j] = shuffled[j], shuffled[i]
+	})
+
+	selected := make([]string, 0)
+	for _, node := range shuffled {
+		if !slices.Contains(excludedOperators, node.OperatorEthAddress) {
+			selected = append(selected, node.Endpoint)
+			excludedOperators = append(excludedOperators, node.OperatorEthAddress)
+		}
 	}
-	return validators[:count], nil
+	return selected, nil
 }
 
 type GetValidatorAttestationParams struct {
@@ -407,7 +415,7 @@ func relayTransaction(relay string, transaction *solana.Transaction) (string, er
 }
 
 // Claims an individual reward.
-func claimReward(ctx context.Context, row dbv1.GetUndisbursedChallengesRow, antiAbuseOracleAddress string, antiAbuseOracleEndpoint string, rewardAttester *rewards.RewardAttester, solanaConfig config.SolanaConfig) (string, error) {
+func claimReward(ctx context.Context, row dbv1.GetUndisbursedChallengesRow, antiAbuseOracleAddress string, antiAbuseOracleEndpoint string, rewardAttester *rewards.RewardAttester, solanaConfig config.SolanaConfig, validators []config.Node) (string, error) {
 	feePayer := solanaConfig.FeePayers[rand.IntN(len(solanaConfig.FeePayers))]
 
 	rewardClaim := rewards.RewardClaim{
@@ -439,6 +447,28 @@ func claimReward(ctx context.Context, row dbv1.GetUndisbursedChallengesRow, anti
 		}
 	}
 
+	// Get current claim state
+	disbursementId := rewardClaim.RewardID + ":" + rewardClaim.Specifier
+	authority, _, err := reward_manager.DeriveAuthorityAccount(reward_manager.ProgramID, solanaConfig.RewardManagerState)
+	if err != nil {
+		return "", err
+	}
+	attestationsAccountAddress, _, err := reward_manager.DeriveAttestationsAccount(reward_manager.ProgramID, authority, disbursementId)
+	if err != nil {
+		return "", err
+	}
+	attestationsData := reward_manager.AttestationsAccountData{}
+	err = client.GetAccountDataInto(ctx, attestationsAccountAddress, &attestationsData)
+	if err != nil {
+		return "", err
+	}
+	existingOwners := make([]string, 0)
+	for _, attestation := range attestationsData.Messages {
+		if attestation.Claim.AntiAbuseOracleEthAddress == "" {
+			existingOwners = append(existingOwners, attestation.OperatorEthAddress)
+		}
+	}
+
 	// Attest from Bridge to get authority signature
 	_, signature, err := rewardAttester.Attest(rewardClaim)
 	if err != nil {
@@ -446,7 +476,7 @@ func claimReward(ctx context.Context, row dbv1.GetUndisbursedChallengesRow, anti
 	}
 
 	// Fetch AAO and  validator attestations
-	validators, err := getValidators(int(rewardManagerStateData.MinVotes))
+	selectedValidators, err := getValidators(validators, int(rewardManagerStateData.MinVotes), existingOwners)
 	if err != nil {
 		return "", err
 	}
@@ -454,7 +484,7 @@ func claimReward(ctx context.Context, row dbv1.GetUndisbursedChallengesRow, anti
 		ctx,
 		rewardClaim,
 		handle,
-		validators,
+		selectedValidators,
 		antiAbuseOracleEndpoint,
 		antiAbuseOracleAddress,
 		signature,
@@ -487,6 +517,7 @@ func claimReward(ctx context.Context, row dbv1.GetUndisbursedChallengesRow, anti
 	}
 
 	return txSig, nil
+	return "", nil
 }
 
 type HealthCheckResponse struct {
@@ -575,6 +606,7 @@ func (api *ApiServer) v1ClaimRewards(c *fiber.Ctx) error {
 				antiAbuseOracleEndpoint,
 				&api.rewardAttester,
 				api.solanaConfig,
+				api.validators,
 			)
 			signatures[i] = sig
 			return err
