@@ -121,9 +121,9 @@ func getValidators(validators []config.Node, count int, excludedOperators []stri
 
 	selected := make([]string, 0)
 	for _, node := range shuffled {
-		if !slices.Contains(excludedOperators, node.OperatorEthAddress) {
+		if !slices.Contains(excludedOperators, node.OwnerWallet) {
 			selected = append(selected, node.Endpoint)
-			excludedOperators = append(excludedOperators, node.OperatorEthAddress)
+			excludedOperators = append(excludedOperators, node.OwnerWallet)
 		}
 	}
 	return selected, nil
