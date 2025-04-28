@@ -10,7 +10,31 @@ import (
 	"github.com/jackc/pgx/v5"
 )
 
-func (app *ApiServer) v1UsersComments(c *fiber.Ctx) error {
+// this handler currently serves both tracks + user comment routes
+// but should probably split apart and use "list of ids" pattern
+// and follow the app.queries.FullComments pattern
+// which is needed to attach replies
+
+// TODO: need to attach replies + reply_count
+// TODO: properly do tombstone field
+func (app *ApiServer) v1Comments(c *fiber.Ctx) error {
+
+	whereClause := ``
+	args := pgx.NamedArgs{
+		"user_id": c.Locals("userId"),
+		"my_id":   app.getMyId(c),
+		"limit":   c.QueryInt("limit", 10),
+		"offset":  c.QueryInt("offset", 0),
+	}
+	if c.Locals("trackId") != nil {
+		whereClause = "parent_comment_id IS NULL AND entity_id = @track_id"
+		args["track_id"] = c.Locals("trackId")
+	} else if c.Locals("userId") != nil {
+		whereClause = "user_id = @user_id"
+		args["user_id"] = c.Locals("userId")
+	} else {
+		return fiber.NewError(400, "userId or trackId is required")
+	}
 
 	type Comment struct {
 		Id         trashid.HashId `json:"id"`
@@ -103,19 +127,16 @@ func (app *ApiServer) v1UsersComments(c *fiber.Ctx) error {
 		-- replies
 	FROM comments
 	JOIN tracks ON entity_id = track_id
-	WHERE user_id = @user_id
+	LEFT JOIN comment_threads USING (comment_id)
+	WHERE ` + whereClause + `
 	AND entity_type = 'Track'
+	AND comments.is_delete = false
 	ORDER BY comments.created_at DESC
 	LIMIT @limit
 	OFFSET @offset
 	`
 
-	rows, err := app.pool.Query(c.Context(), sql, pgx.NamedArgs{
-		"user_id": c.Locals("userId"),
-		"my_id":   app.getMyId(c),
-		"limit":   c.QueryInt("limit", 10),
-		"offset":  c.QueryInt("offset", 0),
-	})
+	rows, err := app.pool.Query(c.Context(), sql, args)
 	if err != nil {
 		return err
 	}

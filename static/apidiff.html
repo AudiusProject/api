@@ -68,8 +68,9 @@
     "/v1/users/PWgX8NR/mutuals?limit=5&offset=0&user_id=aNzoj",
     "/v1/developer_apps/7d7b6b7a97d1deefe3a1ccc5a13c48e8f055e0b6",
     "/v1/full/users/account/0x7d273271690538cf855e5b3002a0dd8c154bb060",
-    "/v1/full/tracks/449Gz30/comments?limit=15&offset=0&sort_method=top&user_id=aNzoj",
-    "/v1/full/users/7eP5n/comments?limit=15&offset=0&user_id=aNzoj",
+    "/v1/full/tracks/449Gz30/comments?limit=15&offset=0&sort_method=top&user_id=197005",
+    "/v1/full/tracks/449Gz30/comments?limit=15&offset=0&sort_method=newest&user_id=197005",
+    "/v1/full/users/7eP5n/comments?limit=15&offset=0&user_id=197005",
   ];
 
   const html = (strings, ...values) => String.raw({ raw: strings }, ...values);
@@ -86,7 +87,7 @@
     window.location.search = `?path=${encodeURIComponent(path)}`;
   }
 
-  const oldHost = "https://discoveryprovider.audius.co";
+  const oldHost = "https://discoveryprovider2.audius.co";
   const newHost = "http://localhost:1323";
 
   // for
