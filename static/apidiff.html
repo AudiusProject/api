@@ -67,7 +67,9 @@
     "/v1/users/PWgX8NR/following?limit=15&offset=0&user_id=aNzoj",
     "/v1/users/PWgX8NR/mutuals?limit=5&offset=0&user_id=aNzoj",
     "/v1/developer_apps/7d7b6b7a97d1deefe3a1ccc5a13c48e8f055e0b6",
-    "/v1/full/users/account/0x7d273271690538cf855e5b3002a0dd8c154bb060"
+    "/v1/full/users/account/0x7d273271690538cf855e5b3002a0dd8c154bb060",
+    "/v1/full/tracks/449Gz30/comments?limit=15&offset=0&sort_method=top&user_id=aNzoj",
+    "/v1/full/users/7eP5n/comments?limit=15&offset=0&user_id=aNzoj",
   ];
 
   const html = (strings, ...values) => String.raw({ raw: strings }, ...values);
@@ -96,38 +98,45 @@
       ? path.replace("/v1/full/", "/v1/")
       : path.replace("/v1/", "/v1/full/");
     window.location.search = `?path=${encodeURIComponent(toggleFullPath)}`;
-
   };
 
   // for toggle auth headers button
-  const sendAuthHeaders = localStorage.getItem('sendAuthHeaders') === 'true' || false;
+  const sendAuthHeaders =
+    localStorage.getItem("sendAuthHeaders") === "true" || false;
   window.toggleAuthHeaders = function () {
-    const newSendAuthHeaders = sendAuthHeaders ? 'false' : 'true';
-    localStorage.setItem('sendAuthHeaders', newSendAuthHeaders);
+    const newSendAuthHeaders = sendAuthHeaders ? "false" : "true";
+    localStorage.setItem("sendAuthHeaders", newSendAuthHeaders);
     setTimeout(() => {
       window.location.reload();
     });
   };
 
-  const encodedDataMessage = localStorage.getItem('encodedDataMessage') || '';
-  const encodedDataSignature = localStorage.getItem('encodedDataSignature') || '';
+  const encodedDataMessage = localStorage.getItem("encodedDataMessage") || "";
+  const encodedDataSignature =
+    localStorage.getItem("encodedDataSignature") || "";
 
   document.querySelector("#controls").innerHTML = html`
-    <form style="display: flex; flex-direction: column; gap: 10px; margin-bottom: 10px;">
+    <form
+      style="display: flex; flex-direction: column; gap: 10px; margin-bottom: 10px;"
+    >
       <div style="display: flex; gap: 10px;">
-      <input type="text" name="path" value="${path}" style="flex-grow: 1" />
-      <select name="example" onchange="this.form.submit()" style="width: 100px">
-        <option value="" disabled selected>Examples</option>
-        ${testPaths.map((p, i) => html`<option value="${p}">${p}</option>`)}
-      </select>
-      <label>
-        <input
-          type="checkbox"
-          ${isFull ? "checked" : ""}
-          onChange="toggleFull()"
-        />
-        Full
-      </label>
+        <input type="text" name="path" value="${path}" style="flex-grow: 1" />
+        <select
+          name="example"
+          onchange="this.form.submit()"
+          style="width: 100px"
+        >
+          <option value="" disabled selected>Examples</option>
+          ${testPaths.map((p, i) => html`<option value="${p}">${p}</option>`)}
+        </select>
+        <label>
+          <input
+            type="checkbox"
+            ${isFull ? "checked" : ""}
+            onChange="toggleFull()"
+          />
+          Full
+        </label>
       </div>
       <div style="display: flex; flex-direction: column; gap: 10px;">
         <label>
@@ -139,21 +148,37 @@
           />
           Send auth headers
         </label>
-        <input type="text" name="encodedDataMessage" placeholder="Encoded-Data-Message" style="width: 200px" value="${encodedDataMessage}" />
-        <input type="text" name="encodedDataSignature" placeholder="Encoded-Data-Signature" style="width: 1000px" value="${encodedDataSignature}" />
+        <input
+          type="text"
+          name="encodedDataMessage"
+          placeholder="Encoded-Data-Message"
+          style="width: 200px"
+          value="${encodedDataMessage}"
+        />
+        <input
+          type="text"
+          name="encodedDataSignature"
+          placeholder="Encoded-Data-Signature"
+          style="width: 1000px"
+          value="${encodedDataSignature}"
+        />
         <input type="submit" style="display: none" />
       </div>
     </form>
   `;
 
   // Add event listeners for localStorage
-  document.querySelector('input[name="encodedDataMessage"]').addEventListener('change', (e) => {
-    localStorage.setItem('encodedDataMessage', e.target.value);
-  });
+  document
+    .querySelector('input[name="encodedDataMessage"]')
+    .addEventListener("change", (e) => {
+      localStorage.setItem("encodedDataMessage", e.target.value);
+    });
 
-  document.querySelector('input[name="encodedDataSignature"]').addEventListener('change', (e) => {
-    localStorage.setItem('encodedDataSignature', e.target.value);
-  });
+  document
+    .querySelector('input[name="encodedDataSignature"]')
+    .addEventListener("change", (e) => {
+      localStorage.setItem("encodedDataSignature", e.target.value);
+    });
 
   // fetch...
   const outputDiv = document.querySelector("#output");
@@ -190,10 +215,10 @@
     const headers = {};
 
     if (encodedDataMessage && sendAuthHeaders) {
-      headers['Encoded-Data-Message'] = encodedDataMessage;
+      headers["Encoded-Data-Message"] = encodedDataMessage;
     }
     if (encodedDataSignature && sendAuthHeaders) {
-      headers['Encoded-Data-Signature'] = encodedDataSignature;
+      headers["Encoded-Data-Signature"] = encodedDataSignature;
     }
 
     const response = await fetch(url, { headers });

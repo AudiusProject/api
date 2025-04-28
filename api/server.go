@@ -204,6 +204,7 @@ func NewApiServer(config config.Config) *ApiServer {
 
 		g.Use("/users/:userId", app.requireUserIdMiddleware)
 		g.Get("/users/:userId", app.v1User)
+		g.Get("/users/:userId/comments", app.v1UsersComments)
 		g.Get("/users/:userId/followers", app.v1UsersFollowers)
 		g.Get("/users/:userId/following", app.v1UsersFollowing)
 		g.Get("/users/:userId/library/tracks", app.v1UsersLibraryTracks)
