@@ -10,6 +10,7 @@ import (
 	"net/http"
 	"net/url"
 	"path"
+	"slices"
 	"strconv"
 	"strings"
 	"time"
@@ -111,14 +112,21 @@ func getAntiAbuseOracleAttestation(args GetAntiAbuseOracleAttestationParams) (*S
 }
 
 // Selects three uniquely owned, healthy validators at random
-// TODO: Remove hardcoded list, add health checks?
-func getValidators(count int) ([]string, error) {
-	validators := []string{
-		"https://discoveryprovider.staging.audius.co",
-		"https://discoveryprovider2.staging.audius.co",
-		"https://discoveryprovider3.staging.audius.co",
+// TODO: add health checks?
+func getValidators(validators []config.Node, count int, excludedOperators []string) ([]string, error) {
+	shuffled := slices.Clone(validators)
+	rand.Shuffle(min(len(validators), count), func(i, j int) {
+		shuffled[i], shuffled[j] = shuffled[j], shuffled[i]
+	})
+
+	selected := make([]string, 0)
+	for _, node := range shuffled {
+		if !slices.Contains(excludedOperators, node.OwnerWallet) {
+			selected = append(selected, node.Endpoint)
+			excludedOperators = append(excludedOperators, node.OwnerWallet)
+		}
 	}
-	return validators[:count], nil
+	return selected, nil
 }
 
 type GetValidatorAttestationParams struct {
@@ -184,28 +192,31 @@ func fetchAttestations(
 	antiAbuseOracleEndpoint string,
 	antiAbuseOracleAddress string,
 	signature string,
-) (SenderAttestation, []SenderAttestation, error) {
-	aaoAttestation := SenderAttestation{}
+	hasAntiAbuseOracleAttestation bool,
+) (*SenderAttestation, []SenderAttestation, error) {
+	var aaoAttestation *SenderAttestation
 	validatorAttestations := make([]SenderAttestation, len(validators))
 
 	ctx, cancel := context.WithTimeout(ctx, 10*time.Second)
 	defer cancel()
 	innerGroup, _ := errgroup.WithContext(ctx)
 
-	innerGroup.Go(func() error {
-		getAntiAbuseAttestationParams := GetAntiAbuseOracleAttestationParams{
-			ChallengeID:             rewardClaim.RewardID,
-			Specifier:               rewardClaim.Specifier,
-			Amount:                  rewardClaim.Amount,
-			Handle:                  handle,
-			AntiAbuseOracleEndpoint: antiAbuseOracleEndpoint,
-		}
-		res, err := getAntiAbuseOracleAttestation(getAntiAbuseAttestationParams)
-		if err == nil {
-			aaoAttestation = *res
-		}
-		return err
-	})
+	if !hasAntiAbuseOracleAttestation {
+		innerGroup.Go(func() error {
+			getAntiAbuseAttestationParams := GetAntiAbuseOracleAttestationParams{
+				ChallengeID:             rewardClaim.RewardID,
+				Specifier:               rewardClaim.Specifier,
+				Amount:                  rewardClaim.Amount,
+				Handle:                  handle,
+				AntiAbuseOracleEndpoint: antiAbuseOracleEndpoint,
+			}
+			res, err := getAntiAbuseOracleAttestation(getAntiAbuseAttestationParams)
+			if err == nil {
+				aaoAttestation = res
+			}
+			return err
+		})
+	}
 
 	for i, validator := range validators {
 		innerGroup.Go(func() error {
@@ -228,7 +239,7 @@ func fetchAttestations(
 
 	err := innerGroup.Wait()
 	if err != nil {
-		return SenderAttestation{}, nil, err
+		return nil, nil, err
 	}
 	return aaoAttestation, validatorAttestations, nil
 }
@@ -236,7 +247,7 @@ func fetchAttestations(
 // Builds a Solana transaction to claim a reward from the attestations.
 func buildRewardClaimTransaction(
 	rewardClaim rewards.RewardClaim,
-	aaoAttestation SenderAttestation,
+	aaoAttestation *SenderAttestation,
 	validatorAttestations []SenderAttestation,
 	solanaConfig config.SolanaConfig,
 	client *rpc.Client,
@@ -248,53 +259,55 @@ func buildRewardClaimTransaction(
 		return nil, err
 	}
 
-	aaoAddressBytes, err := hex.DecodeString(strings.TrimPrefix(aaoAttestation.Address, "0x"))
-	if err != nil {
-		return nil, err
+	// Build the transaction
+	tx := solana.TransactionBuilder{}
+
+	if aaoAttestation != nil {
+		aaoAddressBytes, err := hex.DecodeString(strings.TrimPrefix(aaoAttestation.Address, "0x"))
+		if err != nil {
+			return nil, err
+		}
+
+		// Pad the start if there's a missing leading zero
+		if len(aaoAttestation.Signature)%2 == 1 {
+			aaoAttestation.Signature = "0" + aaoAttestation.Signature
+		}
+		aaoSignatureBytes, err := hex.DecodeString(aaoAttestation.Signature)
+		if err != nil {
+			return nil, err
+		}
+
+		aaoClaim := rewardClaim
+		// AAO claims don't have the oracle appended
+		aaoClaim.AntiAbuseOracleEthAddress = ""
+		aaoAttestationBytes, err := aaoClaim.Compile()
+		if err != nil {
+			return nil, err
+		}
+
+		// Add AAO attestation instructions
+		aaoSubmitAttestationSecpInstruction := secp256k1.NewSecp256k1Instruction(
+			aaoAddressBytes,
+			aaoAttestationBytes,
+			aaoSignatureBytes,
+			0,
+		).Build()
+		aaoSubmitAttestationInstruction := reward_manager.NewSubmitAttestationInstruction(
+			rewardClaim.RewardID,
+			rewardClaim.Specifier,
+			aaoAttestation.Address,
+			solanaConfig.RewardManagerState,
+			feePayer.PublicKey(),
+		).Build()
+		tx.AddInstruction(aaoSubmitAttestationSecpInstruction)
+		tx.AddInstruction(aaoSubmitAttestationInstruction)
 	}
 
-	// Pad the start if there's a missing leading zero
-	if len(aaoAttestation.Signature)%2 == 1 {
-		aaoAttestation.Signature = "0" + aaoAttestation.Signature
-	}
-	aaoSignatureBytes, err := hex.DecodeString(aaoAttestation.Signature)
-	if err != nil {
-		return nil, err
-	}
-
-	aaoClaim := rewardClaim
-	// AAO claims don't have the oracle appended
-	aaoClaim.AntiAbuseOracleEthAddress = ""
+	// Add Validator attestation instructions
 	attestationBytes, err := rewardClaim.Compile()
 	if err != nil {
 		return nil, err
 	}
-	aaoAttestationBytes, err := aaoClaim.Compile()
-	if err != nil {
-		return nil, err
-	}
-
-	// Build the transaction
-	tx := solana.TransactionBuilder{}
-
-	// Add AAO attestation instructions
-	aaoSubmitAttestationSecpInstruction := secp256k1.NewSecp256k1Instruction(
-		aaoAddressBytes,
-		aaoAttestationBytes,
-		aaoSignatureBytes,
-		0,
-	).Build()
-	aaoSubmitAttestationInstruction := reward_manager.NewSubmitAttestationInstruction(
-		rewardClaim.RewardID,
-		rewardClaim.Specifier,
-		aaoAttestation.Address,
-		solanaConfig.RewardManagerState,
-		feePayer.PublicKey(),
-	).Build()
-	tx.AddInstruction(aaoSubmitAttestationSecpInstruction)
-	tx.AddInstruction(aaoSubmitAttestationInstruction)
-
-	// Add Validator attestation instructions
 	for i, attestation := range validatorAttestations {
 		instructionIndex := uint8(i*2 + 2)
 
@@ -407,7 +420,7 @@ func relayTransaction(relay string, transaction *solana.Transaction) (string, er
 }
 
 // Claims an individual reward.
-func claimReward(ctx context.Context, row dbv1.GetUndisbursedChallengesRow, antiAbuseOracleAddress string, antiAbuseOracleEndpoint string, rewardAttester *rewards.RewardAttester, solanaConfig config.SolanaConfig) (string, error) {
+func claimReward(ctx context.Context, row dbv1.GetUndisbursedChallengesRow, antiAbuseOracleAddress string, antiAbuseOracleEndpoint string, rewardAttester *rewards.RewardAttester, solanaConfig config.SolanaConfig, validators []config.Node) (string, error) {
 	feePayer := solanaConfig.FeePayers[rand.IntN(len(solanaConfig.FeePayers))]
 
 	rewardClaim := rewards.RewardClaim{
@@ -439,6 +452,31 @@ func claimReward(ctx context.Context, row dbv1.GetUndisbursedChallengesRow, anti
 		}
 	}
 
+	// Get current claim state to do minimum work to claim
+	disbursementId := rewardClaim.RewardID + ":" + rewardClaim.Specifier
+	authority, _, err := reward_manager.DeriveAuthorityAccount(reward_manager.ProgramID, solanaConfig.RewardManagerState)
+	if err != nil {
+		return "", err
+	}
+	attestationsAccountAddress, _, err := reward_manager.DeriveAttestationsAccount(reward_manager.ProgramID, authority, disbursementId)
+	if err != nil {
+		return "", err
+	}
+	attestationsData := reward_manager.AttestationsAccountData{}
+	err = client.GetAccountDataInto(ctx, attestationsAccountAddress, &attestationsData)
+	if err != nil {
+		return "", err
+	}
+	hasAntiAbuseOracleAttestation := false
+	existingValidatorOwners := make([]string, 0)
+	for _, attestation := range attestationsData.Messages {
+		if attestation.Claim.AntiAbuseOracleEthAddress != "" {
+			existingValidatorOwners = append(existingValidatorOwners, attestation.OperatorEthAddress)
+		} else {
+			hasAntiAbuseOracleAttestation = true
+		}
+	}
+
 	// Attest from Bridge to get authority signature
 	_, signature, err := rewardAttester.Attest(rewardClaim)
 	if err != nil {
@@ -446,7 +484,7 @@ func claimReward(ctx context.Context, row dbv1.GetUndisbursedChallengesRow, anti
 	}
 
 	// Fetch AAO and  validator attestations
-	validators, err := getValidators(int(rewardManagerStateData.MinVotes))
+	selectedValidators, err := getValidators(validators, int(rewardManagerStateData.MinVotes), existingValidatorOwners)
 	if err != nil {
 		return "", err
 	}
@@ -454,10 +492,11 @@ func claimReward(ctx context.Context, row dbv1.GetUndisbursedChallengesRow, anti
 		ctx,
 		rewardClaim,
 		handle,
-		validators,
+		selectedValidators,
 		antiAbuseOracleEndpoint,
 		antiAbuseOracleAddress,
 		signature,
+		hasAntiAbuseOracleAttestation,
 	)
 	if err != nil {
 		return "", err
@@ -575,6 +614,7 @@ func (api *ApiServer) v1ClaimRewards(c *fiber.Ctx) error {
 				antiAbuseOracleEndpoint,
 				&api.rewardAttester,
 				api.solanaConfig,
+				api.validators,
 			)
 			signatures[i] = sig
 			return err

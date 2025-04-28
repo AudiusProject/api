@@ -71,8 +71,8 @@ func (inst *EvaluateAttestation) SetPayer(payer solana.PublicKey) *EvaluateAttes
 }
 
 func (inst EvaluateAttestation) Build() *Instruction {
-	authority, _, _ := deriveAuthority(ProgramID, inst.RewardManagerState)
-	attestations, _, _ := deriveAttestations(ProgramID, authority, inst.DisbursementID)
+	authority, _, _ := DeriveAuthorityAccount(ProgramID, inst.RewardManagerState)
+	attestations, _, _ := DeriveAttestationsAccount(ProgramID, authority, inst.DisbursementID)
 	disbursement, _, _ := deriveDisbursement(ProgramID, authority, inst.DisbursementID)
 	antiAbuseOracle, _, _ := deriveSender(ProgramID, authority, inst.AntiAbuseOracleEthAddress)
 
