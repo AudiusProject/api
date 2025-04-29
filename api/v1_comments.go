@@ -6,42 +6,26 @@ import (
 	"github.com/jackc/pgx/v5"
 )
 
-// this handler currently serves both tracks + user comment routes
-// but should probably split apart and use "list of ids" pattern
-// and follow the app.queries.FullComments pattern
-// which is needed to attach replies
+func (app *ApiServer) queryFullComments(c *fiber.Ctx, sql string, args pgx.NamedArgs) error {
 
-// TODO: properly do tombstone field
-func (app *ApiServer) v1Comments(c *fiber.Ctx) error {
-
-	whereClause := ``
-	args := pgx.NamedArgs{
-		"user_id": c.Locals("userId"),
-		"my_id":   app.getMyId(c),
-		"limit":   c.QueryInt("limit", 10),
-		"offset":  c.QueryInt("offset", 0),
-	}
-	if c.Locals("trackId") != nil {
-		whereClause = "parent_comment_id IS NULL AND entity_id = @track_id"
-		args["track_id"] = c.Locals("trackId")
-	} else if c.Locals("userId") != nil {
-		whereClause = "user_id = @user_id"
-		args["user_id"] = c.Locals("userId")
-	} else {
-		return fiber.NewError(400, "userId or trackId is required")
+	// sort
+	switch c.Query("sort_method") {
+	case "top":
+		sql += ` ORDER BY (SELECT count(*) FROM comment_reactions WHERE comment_id = comments.comment_id) DESC, comments.created_at DESC `
+	case "timestamp":
+		sql += ` ORDER BY comments.created_at ASC `
+	default:
+		sql += ` ORDER BY comments.created_at DESC `
 	}
 
-	sql := `
-	SELECT comment_id as id
-	FROM comments
-	LEFT JOIN comment_threads USING (comment_id)
-	WHERE ` + whereClause + `
-	AND entity_type = 'Track'
-	AND comments.is_delete = false
-	ORDER BY comments.created_at DESC
+	// pagination
+	sql += `
 	LIMIT @limit
 	OFFSET @offset
 	`
+
+	args["limit"] = c.QueryInt("limit", 10)
+	args["offset"] = c.QueryInt("offset", 0)
 
 	rows, err := app.pool.Query(c.Context(), sql, args)
 	if err != nil {
@@ -62,14 +46,11 @@ func (app *ApiServer) v1Comments(c *fiber.Ctx) error {
 	}
 
 	// related
-	// todo: add CommentIds to Parallel
-	// todo: do this in FullComments with a parallel call
 	userIds := []int32{}
 	trackIds := []int32{}
 	for _, c := range comments {
 		userIds = append(userIds, int32(c.UserId))
 		trackIds = append(trackIds, int32(c.EntityId))
-
 		for _, m := range c.Mentions {
 			userIds = append(userIds, int32(m.UserId))
 		}

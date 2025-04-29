@@ -204,7 +204,7 @@ func NewApiServer(config config.Config) *ApiServer {
 
 		g.Use("/users/:userId", app.requireUserIdMiddleware)
 		g.Get("/users/:userId", app.v1User)
-		g.Get("/users/:userId/comments", app.v1Comments)
+		g.Get("/users/:userId/comments", app.v1UsersComments)
 		g.Get("/users/:userId/followers", app.v1UsersFollowers)
 		g.Get("/users/:userId/following", app.v1UsersFollowing)
 		g.Get("/users/:userId/library/tracks", app.v1UsersLibraryTracks)
@@ -230,7 +230,7 @@ func NewApiServer(config config.Config) *ApiServer {
 		g.Get("/tracks/:trackId", app.v1Track)
 		g.Get("/tracks/:trackId/reposts", app.v1TracksReposts)
 		g.Get("/tracks/:trackId/favorites", app.v1TracksFavorites)
-		g.Get("/tracks/:trackId/comments", app.v1Comments)
+		g.Get("/tracks/:trackId/comments", app.v1TracksComments)
 
 		// Playlists
 		g.Get("/playlists", app.v1playlists)

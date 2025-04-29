@@ -2,7 +2,6 @@ package dbv1
 
 import (
 	"context"
-	"fmt"
 	"time"
 
 	"bridgerton.audius.co/trashid"
@@ -30,19 +29,21 @@ type FullComment struct {
 	IsEdited             bool        `json:"is_edited"`
 	IsCurrentUserReacted bool        `json:"is_current_user_reacted"`
 	IsArtistReacted      bool        `json:"is_artist_reacted"`
+	IsDelete             bool        `json:"-"`
 	IsTombstone          bool        `json:"is_tombstone"`
 	ReactCount           int         `json:"react_count"`
 	CreatedAt            time.Time   `json:"created_at"`
 	UpdatedAt            time.Time   `json:"updated_at"`
 
-	Replies []FullComment `json:"replies"`
+	ReplyCount int           `json:"reply_count"`
+	Replies    []FullComment `json:"replies"`
 
 	// this should be omitted
 	ReplyIds        []int32     `db:"reply_ids" json:"-"`
 	ParentCommentId pgtype.Int4 `json:"-"`
 }
 
-func (q *Queries) FullComments(ctx context.Context, arg GetCommentsParams) ([]FullComment, error) {
+func (q *Queries) FullCommentsKeyed(ctx context.Context, arg GetCommentsParams) (map[int32]FullComment, error) {
 	if len(arg.Ids) == 0 {
 		return nil, nil
 	}
@@ -80,7 +81,6 @@ func (q *Queries) FullComments(ctx context.Context, arg GetCommentsParams) ([]Fu
 		) as react_count,
 
 
-		-- reply_count
 		(
 			SELECT array_agg(comment_id)
 			FROM comment_threads
@@ -107,7 +107,7 @@ func (q *Queries) FullComments(ctx context.Context, arg GetCommentsParams) ([]Fu
 			AND is_delete = false
 		) AS is_artist_reacted,
 
-		-- is_tombstone
+		comments.is_delete,
 
 		coalesce((
 			SELECT is_muted
@@ -122,7 +122,6 @@ func (q *Queries) FullComments(ctx context.Context, arg GetCommentsParams) ([]Fu
 		comments.created_at,
 		comments.updated_at
 
-		-- replies
 	FROM comments
 	JOIN tracks ON entity_id = track_id
 	LEFT JOIN comment_threads USING (comment_id)
@@ -143,33 +142,57 @@ func (q *Queries) FullComments(ctx context.Context, arg GetCommentsParams) ([]Fu
 		return nil, err
 	}
 
+	commentMap := map[int32]FullComment{}
+	for _, comment := range comments {
+		commentMap[int32(comment.Id)] = comment
+	}
+
 	// fetch replies
 	replyIds := []int32{}
 	for _, comment := range comments {
 		replyIds = append(replyIds, comment.ReplyIds...)
 	}
-	if len(replyIds) > 0 {
-		replies, err := q.FullComments(ctx, GetCommentsParams{
-			MyID: arg.MyID,
-			Ids:  replyIds,
-		})
-		if err != nil {
-			return nil, err
-		}
-
-		for _, r := range replies {
-			for idx, comment := range comments {
-				if r.ParentCommentId.Int32 == int32(comment.Id) {
-					fmt.Println("REPLY", r, r.Id, r.ParentCommentId.Int32)
-					comment.Replies = append(comment.Replies, r)
-				}
-				comments[idx] = comment
-			}
-		}
-
-		// todo: sort replies
+	replyMap, err := q.FullCommentsKeyed(ctx, GetCommentsParams{
+		MyID: arg.MyID,
+		Ids:  replyIds,
+	})
+	if err != nil {
+		return nil, err
 	}
 
-	return comments, nil
+	for id, comment := range commentMap {
+		for _, replyId := range comment.ReplyIds {
+			if reply, ok := replyMap[replyId]; ok {
+				comment.Replies = append(comment.Replies, reply)
+			}
+		}
+		// todo: sort replies?
+		comment.ReplyCount = len(comment.Replies)
 
+		if comment.IsDelete {
+			comment.Message = "[Removed]"
+			if comment.ReplyCount > 0 {
+				comment.IsTombstone = true
+			}
+		}
+		commentMap[id] = comment
+	}
+
+	return commentMap, nil
+
+}
+
+func (q *Queries) FullComments(ctx context.Context, arg GetCommentsParams) ([]FullComment, error) {
+	commentMap, err := q.FullCommentsKeyed(ctx, arg)
+	if err != nil {
+		return nil, err
+	}
+
+	comments := make([]FullComment, 0, len(arg.Ids))
+	for _, id := range arg.Ids {
+		if c, ok := commentMap[id]; ok {
+			comments = append(comments, c)
+		}
+	}
+	return comments, nil
 }
