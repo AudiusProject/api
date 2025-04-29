@@ -244,6 +244,9 @@ func NewApiServer(config config.Config) *ApiServer {
 
 		// Rewards
 		g.Get("/rewards/claim", app.v1ClaimRewards)
+
+		// Resolve
+		g.Get("/resolve", app.v1Resolve)
 	}
 
 	app.Static("/", "./static")
@@ -308,11 +311,9 @@ func (app *ApiServer) resolveUserHandleToId(handle string) (int32, error) {
 	if hit, ok := app.resolveHandleCache.Get(handle); ok {
 		return hit, nil
 	}
-	var userId int32
-	sql := `select user_id from users where handle_lc = lower($1)`
-	err := app.pool.QueryRow(context.Background(), sql, handle).Scan(&userId)
-	app.resolveHandleCache.Set(handle, userId)
-	return userId, err
+	user_id, err := app.queries.GetUserForHandle(context.Background(), handle)
+	app.resolveHandleCache.Set(handle, int32(user_id))
+	return int32(user_id), err
 }
 
 func (as *ApiServer) Serve() {

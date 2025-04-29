@@ -25,7 +25,7 @@ func (app *ApiServer) v1User(c *fiber.Ctx) error {
 	// full returns an array
 	// non-full returns an object
 	// wild
-	if c.Locals("isFull").(bool) {
+	if app.getIsFull(c) {
 		return v1UsersResponse(c, users)
 	}
 	return v1UserResponse(c, users[0])

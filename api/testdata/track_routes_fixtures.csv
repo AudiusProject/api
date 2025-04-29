@@ -1,2 +1,2 @@
-"slug","title_slug","collision_id","owner_id","track_id","is_current","blockhash","blocknumber","txhash"
-"track-by-permalink","track-by-permalink",0,6,500,TRUE,"0x24f1465e4bd8803b79b2cbcfad695363a640623053563ffd20fdeaf4656a7b89",23200013,"0x76dcea2bf98e56f683b95a071f5c87405a864eea87243920e60cbc7b96ad565b"
+slug,title_slug,collision_id,owner_id,track_id
+track-by-permalink,track-by-permalink,0,6,500

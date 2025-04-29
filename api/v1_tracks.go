@@ -18,13 +18,13 @@ func (app *ApiServer) v1Tracks(c *fiber.Ctx) error {
 		handles := make([]string, len(permalinks))
 		slugs := make([]string, len(permalinks))
 		for i, permalink := range permalinks {
-			permalinks[i] = strings.ToLower(strings.TrimPrefix(permalink, "/"))
-			splits := strings.Split(permalinks[i], "/")
-			if len(splits) != 2 {
+			if match := trackURLRegex.FindStringSubmatch(permalink); match != nil {
+				handles[i] = strings.ToLower(match[1])
+				slugs[i] = match[2]
+				permalinks[i] = handles[i] + "/" + slugs[i]
+			} else {
 				return fiber.NewError(fiber.StatusBadRequest, "Invalid permalink: "+permalink)
 			}
-			handles[i] = splits[0]
-			slugs[i] = splits[1]
 		}
 		newIds, err := app.queries.GetTrackIdsByPermalink(c.Context(), dbv1.GetTrackIdsByPermalinkParams{
 			Handles:    handles,

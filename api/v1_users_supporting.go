@@ -83,7 +83,7 @@ func (app *ApiServer) v1UsersSupporting(c *fiber.Ctx) error {
 		supported[idx] = s
 	}
 
-	if !c.Locals("isFull").(bool) {
+	if !app.getIsFull(c) {
 		// Create a new array with MinUsers
 		type minSupportedUser struct {
 			supportedUser
