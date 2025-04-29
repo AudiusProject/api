@@ -76,14 +76,15 @@ func NewApiServer(config config.Config) *ApiServer {
 		logger.Error("db connect failed", zap.Error(err))
 	}
 
-	connConfig.ConnConfig.Tracer = &tracelog.TraceLog{
-		Logger:   pgxzap.NewLogger(logger),
-		LogLevel: tracelog.LogLevelInfo,
+	// disable sql logging in ENV "test"
+	if config.Env != "test" {
+		connConfig.ConnConfig.Tracer = &tracelog.TraceLog{
+			Logger:   pgxzap.NewLogger(logger),
+			LogLevel: tracelog.LogLevelInfo,
+		}
 	}
 
 	pool, err := pgxpool.NewWithConfig(context.Background(), connConfig)
-	// To turn off pgx logging, use this:
-	// pool, err := pgxpool.New(context.Background(), config.DbUrl)
 
 	if err != nil {
 		logger.Fatal("db connect failed", zap.Error(err))
