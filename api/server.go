@@ -194,7 +194,7 @@ func NewApiServer(config config.Config) *ApiServer {
 	for _, g := range []fiber.Router{v1, v1Full} {
 		// Users
 		g.Get("/users", app.v1Users)
-
+		g.Get("/users/unclaimed_id", app.v1UsersUnclaimedId)
 		g.Get("/users/account/:wallet", app.requireAuthMiddleware, app.v1UsersAccount)
 
 		g.Use("/users/handle/:handle", app.requireHandleMiddleware)
@@ -221,6 +221,7 @@ func NewApiServer(config config.Config) *ApiServer {
 
 		// Tracks
 		g.Get("/tracks", app.v1Tracks)
+		g.Get("/tracks/unclaimed_id", app.v1TracksUnclaimedId)
 
 		g.Get("/tracks/trending", app.v1TracksTrending)
 		g.Get("/tracks/trending/ids", app.v1TracksTrendingIds)
@@ -234,6 +235,7 @@ func NewApiServer(config config.Config) *ApiServer {
 
 		// Playlists
 		g.Get("/playlists", app.v1playlists)
+		g.Get("/playlists/unclaimed_id", app.v1PlaylistsUnclaimedId)
 
 		g.Use("/playlists/:playlistId", app.requirePlaylistIdMiddleware)
 		g.Get("/playlists/:playlistId", app.v1Playlist)
@@ -245,6 +247,9 @@ func NewApiServer(config config.Config) *ApiServer {
 
 		// Rewards
 		g.Get("/rewards/claim", app.v1ClaimRewards)
+
+		// Comments
+		g.Get("/comments/unclaimed_id", app.v1CommentsUnclaimedId)
 	}
 
 	app.Static("/", "./static")

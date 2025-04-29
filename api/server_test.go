@@ -135,6 +135,12 @@ func Test200UnAuthed(t *testing.T) {
 		"/v1/full/playlists?id=7eP5n",
 		"/v1/full/playlists/7eP5n/reposts",
 		"/v1/full/playlists/7eP5n/favorites",
+
+		// unclaimed ids
+		"/v1/users/unclaimed_id",
+		"/v1/tracks/unclaimed_id",
+		"/v1/playlists/unclaimed_id",
+		"/v1/comments/unclaimed_id",
 	}
 
 	for _, u := range urls {
