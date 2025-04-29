@@ -161,6 +161,14 @@ var (
 		"updated_at":      time.Now(),
 		"txhash":          "tx123",
 	}
+
+	commentBaseRow = map[string]any{
+		"entity_type": "Track",
+		"created_at":  time.Now(),
+		"updated_at":  time.Now(),
+		"txhash":      "0x1",
+		"blockhash":   "0x2",
+	}
 )
 
 func insertFixtures(table string, baseRow map[string]any, csvFile string) {

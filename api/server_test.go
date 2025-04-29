@@ -44,6 +44,7 @@ func TestMain(m *testing.M) {
 	}
 
 	app = NewApiServer(config.Config{
+		Env:                "test",
 		DbUrl:              "postgres://postgres:example@localhost:21300/test",
 		DelegatePrivateKey: "0633fddb74e32b3cbc64382e405146319c11a1a52dc96598e557c5dbe2f31468",
 	})
@@ -79,6 +80,8 @@ func TestMain(m *testing.M) {
 	insertFixtures("usdc_purchases", usdcPurchaseBaseRow, "testdata/usdc_purchases_fixtures.csv")
 	insertFixtures("track_routes", map[string]any{}, "testdata/track_routes_fixtures.csv")
 	insertFixtures("grants", grantBaseRow, "testdata/grants_fixtures.csv")
+	insertFixtures("comments", commentBaseRow, "testdata/comment_fixtures.csv")
+	insertFixtures("comment_threads", map[string]any{}, "testdata/comment_thread_fixtures.csv")
 
 	// index to es / os
 
@@ -135,6 +138,12 @@ func Test200UnAuthed(t *testing.T) {
 		"/v1/full/playlists?id=7eP5n",
 		"/v1/full/playlists/7eP5n/reposts",
 		"/v1/full/playlists/7eP5n/favorites",
+
+		// unclaimed ids
+		"/v1/users/unclaimed_id",
+		"/v1/tracks/unclaimed_id",
+		"/v1/playlists/unclaimed_id",
+		"/v1/comments/unclaimed_id",
 	}
 
 	for _, u := range urls {

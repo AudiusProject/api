@@ -76,14 +76,15 @@ func NewApiServer(config config.Config) *ApiServer {
 		logger.Error("db connect failed", zap.Error(err))
 	}
 
-	connConfig.ConnConfig.Tracer = &tracelog.TraceLog{
-		Logger:   pgxzap.NewLogger(logger),
-		LogLevel: tracelog.LogLevelInfo,
+	// disable sql logging in ENV "test"
+	if config.Env != "test" {
+		connConfig.ConnConfig.Tracer = &tracelog.TraceLog{
+			Logger:   pgxzap.NewLogger(logger),
+			LogLevel: tracelog.LogLevelInfo,
+		}
 	}
 
 	pool, err := pgxpool.NewWithConfig(context.Background(), connConfig)
-	// To turn off pgx logging, use this:
-	// pool, err := pgxpool.New(context.Background(), config.DbUrl)
 
 	if err != nil {
 		logger.Fatal("db connect failed", zap.Error(err))
@@ -195,7 +196,7 @@ func NewApiServer(config config.Config) *ApiServer {
 	for _, g := range []fiber.Router{v1, v1Full} {
 		// Users
 		g.Get("/users", app.v1Users)
-
+		g.Get("/users/unclaimed_id", app.v1UsersUnclaimedId)
 		g.Get("/users/account/:wallet", app.requireAuthMiddleware, app.v1UsersAccount)
 
 		g.Use("/users/handle/:handle", app.requireHandleMiddleware)
@@ -205,6 +206,7 @@ func NewApiServer(config config.Config) *ApiServer {
 
 		g.Use("/users/:userId", app.requireUserIdMiddleware)
 		g.Get("/users/:userId", app.v1User)
+		g.Get("/users/:userId/comments", app.v1UsersComments)
 		g.Get("/users/:userId/followers", app.v1UsersFollowers)
 		g.Get("/users/:userId/following", app.v1UsersFollowing)
 		g.Get("/users/:userId/library/tracks", app.v1UsersLibraryTracks)
@@ -221,6 +223,7 @@ func NewApiServer(config config.Config) *ApiServer {
 
 		// Tracks
 		g.Get("/tracks", app.v1Tracks)
+		g.Get("/tracks/unclaimed_id", app.v1TracksUnclaimedId)
 
 		g.Get("/tracks/trending", app.v1TracksTrending)
 		g.Get("/tracks/trending/ids", app.v1TracksTrendingIds)
@@ -230,9 +233,11 @@ func NewApiServer(config config.Config) *ApiServer {
 		g.Get("/tracks/:trackId", app.v1Track)
 		g.Get("/tracks/:trackId/reposts", app.v1TracksReposts)
 		g.Get("/tracks/:trackId/favorites", app.v1TracksFavorites)
+		g.Get("/tracks/:trackId/comments", app.v1TracksComments)
 
 		// Playlists
 		g.Get("/playlists", app.v1playlists)
+		g.Get("/playlists/unclaimed_id", app.v1PlaylistsUnclaimedId)
 
 		g.Use("/playlists/:playlistId", app.requirePlaylistIdMiddleware)
 		g.Get("/playlists/:playlistId", app.v1Playlist)
@@ -244,6 +249,9 @@ func NewApiServer(config config.Config) *ApiServer {
 
 		// Rewards
 		g.Get("/rewards/claim", app.v1ClaimRewards)
+
+		// Comments
+		g.Get("/comments/unclaimed_id", app.v1CommentsUnclaimedId)
 	}
 
 	app.Static("/", "./static")

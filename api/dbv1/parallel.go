@@ -72,3 +72,27 @@ func (q *Queries) Parallel(ctx context.Context, arg ParallelParams) (*ParallelRe
 
 	return result, nil
 }
+
+func (r *ParallelResult) UserList() []FullUser {
+	userList := make([]FullUser, 0, len(r.UserMap))
+	for _, u := range r.UserMap {
+		userList = append(userList, u)
+	}
+	return userList
+}
+
+func (r *ParallelResult) TrackList() []FullTrack {
+	trackList := make([]FullTrack, 0, len(r.TrackMap))
+	for _, t := range r.TrackMap {
+		trackList = append(trackList, t)
+	}
+	return trackList
+}
+
+func (r *ParallelResult) PlaylistList() []FullPlaylist {
+	playlistList := make([]FullPlaylist, 0, len(r.PlaylistMap))
+	for _, p := range r.PlaylistMap {
+		playlistList = append(playlistList, p)
+	}
+	return playlistList
+}
