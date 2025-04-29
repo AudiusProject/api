@@ -14,6 +14,10 @@ func (app *ApiServer) isFullMiddleware(c *fiber.Ctx) error {
 	return c.Next()
 }
 
+func (app *ApiServer) getIsFull(c *fiber.Ctx) bool {
+	return c.Locals("isFull").(bool)
+}
+
 // will set myId if valid, defaults to 0
 func (app *ApiServer) resolveMyIdMiddleware(c *fiber.Ctx) error {
 	myId, _ := trashid.DecodeHashId(c.Query("user_id"))

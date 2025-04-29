@@ -5,6 +5,8 @@ user_id,handle,handle_lc,is_deactivated,wallet,playlist_library
 4,accesstester,accesstester,f,0x34567890abcdef12,
 5,guyintrending,guyintrending,f,0x34567890abcdef13,
 6,TracksByPermalink,tracksbypermalink,f,0xffffffffff,
+7,PlaylistsByPermalink,playlistsbypermalink,f,0xffffffffff,
+8,AlbumsByPermalink,albumsbypermalink,f,0xffffffffff,
 91,badguy,badguy,t,0x4567890abcdef123,
 100,authtest1,authtest1,f,0x681c616ae836ceca1effe00bd07f2fdbf9a082bc,
 101,authtest2,authtest2,f,0xc451c1f8943b575158310552b41230c61844a1c1,

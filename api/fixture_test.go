@@ -162,6 +162,30 @@ var (
 		"txhash":          "tx123",
 	}
 
+	trackRouteBaseRow = map[string]any{
+		"slug":         nil,
+		"title_slug":   nil,
+		"collision_id": nil,
+		"owner_id":     nil,
+		"track_id":     nil,
+		"is_current":   true,
+		"blockhash":    "block_abc123",
+		"blocknumber":  101,
+		"txhash":       "tx123",
+	}
+
+	playlistRouteBaseRow = map[string]any{
+		"slug":         nil,
+		"title_slug":   nil,
+		"collision_id": nil,
+		"owner_id":     nil,
+		"playlist_id":  nil,
+		"is_current":   true,
+		"blockhash":    "block_abc123",
+		"blocknumber":  101,
+		"txhash":       "tx123",
+	}
+
 	commentBaseRow = map[string]any{
 		"entity_type": "Track",
 		"created_at":  time.Now(),
