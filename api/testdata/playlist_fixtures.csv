@@ -4,4 +4,4 @@ playlist_id,playlist_name,playlist_owner_id,is_album,playlist_contents,stream_co
 3,SecondAlbum,1,t,"{""track_ids"": [{""time"": 1722451644, ""track"": 200, ""metadata_time"": 1722451644},{""time"": 1722451644, ""track"": -1, ""metadata_time"": 1722451644},{""time"": 1722451644, ""track"": 300, ""metadata_time"": 1722451644}]}",
 4,Purchase Gated Stream,3,t,"{}","{""usdc_purchase"": {""price"": 135, ""splits"": [{""user_id"": 3, ""percentage"": 100.0}]}}"
 500,playlist by permalink,7,f,,
-501,album by permalink,7,t,,
+501,album by permalink,8,t,,

@@ -15,7 +15,6 @@ const getUserForHandle = `-- name: GetUserForHandle :one
 SELECT user_id FROM users
 WHERE
     handle_lc = lower($1)
-    AND is_current = true
 ORDER BY created_at ASC
 LIMIT 1
 `

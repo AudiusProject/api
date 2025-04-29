@@ -10,25 +10,39 @@ import (
 )
 
 const getPlaylistIdsByPermalink = `-- name: GetPlaylistIdsByPermalink :many
-SELECT playlist_id
-FROM playlist_routes
-JOIN users ON users.user_id = playlist_routes.owner_id
-WHERE handle_lc = ANY($1::text[])
-    AND slug = ANY($2::text[])
-    AND (
-        CONCAT(handle_lc, '/playlist/', slug) = ANY($3::text[]) -- in case of conflicts across users
-        OR CONCAT(handle_lc, '/album/', slug) = ANY($3::text[]) -- in case of conflicts across users
+WITH lower_handles AS (
+  SELECT LOWER(h) AS handle
+  FROM unnest($2::text[]) AS h
+),
+lower_permalinks AS (
+  SELECT LOWER(p) AS permalink
+  FROM unnest($3::text[]) AS p
+)
+SELECT pr.playlist_id
+FROM playlist_routes pr
+JOIN users u ON u.user_id = pr.owner_id
+JOIN lower_handles lh
+  ON u.handle_lc = lh.handle
+WHERE pr.slug = ANY($1::text[])
+  -- in case of conflicts across users
+  AND (
+    CONCAT('/', u.handle_lc, '/playlist/', LOWER(pr.slug)) = ANY(
+      SELECT permalink FROM lower_permalinks
     )
+    OR CONCAT('/', u.handle_lc, '/album/', LOWER(pr.slug)) = ANY(
+      SELECT permalink FROM lower_permalinks
+    )
+  )
 `
 
 type GetPlaylistIdsByPermalinkParams struct {
-	Handles    []string `json:"handles"`
 	Slugs      []string `json:"slugs"`
+	Handles    []string `json:"handles"`
 	Permalinks []string `json:"permalinks"`
 }
 
 func (q *Queries) GetPlaylistIdsByPermalink(ctx context.Context, arg GetPlaylistIdsByPermalinkParams) ([]int32, error) {
-	rows, err := q.db.Query(ctx, getPlaylistIdsByPermalink, arg.Handles, arg.Slugs, arg.Permalinks)
+	rows, err := q.db.Query(ctx, getPlaylistIdsByPermalink, arg.Slugs, arg.Handles, arg.Permalinks)
 	if err != nil {
 		return nil, err
 	}

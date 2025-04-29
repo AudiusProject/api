@@ -1,8 +1,6 @@
 package api
 
 import (
-	"strings"
-
 	"bridgerton.audius.co/api/dbv1"
 	"github.com/gofiber/fiber/v2"
 )
@@ -18,10 +16,9 @@ func (app *ApiServer) v1playlists(c *fiber.Ctx) error {
 		slugs := make([]string, len(permalinks))
 		for i, permalink := range permalinks {
 			if match := playlistURLRegex.FindStringSubmatch(permalink); match != nil {
-				handles[i] = strings.ToLower(match[1])
+				handles[i] = match[1]
 				slugs[i] = match[3]
-				playlistType := match[2]
-				permalinks[i] = handles[i] + "/" + playlistType + "/" + slugs[i]
+				permalinks[i] = permalink
 			} else {
 				return fiber.NewError(fiber.StatusBadRequest, "Invalid permalink: "+permalinks[i])
 			}

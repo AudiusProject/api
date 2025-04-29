@@ -21,7 +21,7 @@ func TestPlaylistsEndpoint(t *testing.T) {
 	})
 }
 
-func TestPlaylistsEndpointWithPermalink(t *testing.T) {
+func TestPlaylistsEndpointWithPlaylistPermalink(t *testing.T) {
 	var resp struct {
 		Data []dbv1.FullPlaylist
 	}
@@ -32,5 +32,19 @@ func TestPlaylistsEndpointWithPermalink(t *testing.T) {
 	jsonAssert(t, body, map[string]string{
 		"data.0.id":            "eYake",
 		"data.0.playlist_name": "playlist by permalink",
+	})
+}
+
+func TestPlaylistsEndpointWithAlbumPermalink(t *testing.T) {
+	var resp struct {
+		Data []dbv1.FullPlaylist
+	}
+
+	status, body := testGet(t, "/v1/full/playlists?permalink=/AlbumsByPermalink/album/album-by-permalink", &resp)
+	assert.Equal(t, 200, status)
+
+	jsonAssert(t, body, map[string]string{
+		"data.0.id":            "ePVXL",
+		"data.0.playlist_name": "album by permalink",
 	})
 }

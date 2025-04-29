@@ -35,12 +35,11 @@ func (app *ApiServer) v1Resolve(c *fiber.Ctx) error {
 	if match := trackURLRegex.FindStringSubmatch(path); match != nil {
 		handle := strings.ToLower(match[1])
 		slug := match[2]
-		permalink := handle + "/" + slug
 
 		trackIds, err := app.queries.GetTrackIdsByPermalink(c.Context(), dbv1.GetTrackIdsByPermalinkParams{
 			Handles:    []string{handle},
 			Slugs:      []string{slug},
-			Permalinks: []string{permalink},
+			Permalinks: []string{path},
 		})
 		if err != nil || len(trackIds) == 0 {
 			return fiber.NewError(fiber.StatusNotFound, "Track not found")
@@ -60,14 +59,12 @@ func (app *ApiServer) v1Resolve(c *fiber.Ctx) error {
 	// Try to match playlist URL
 	if match := playlistURLRegex.FindStringSubmatch(path); match != nil {
 		handle := strings.ToLower(match[1])
-		playlistType := match[2]
 		slug := match[3]
-		permalink := handle + "/" + playlistType + "/" + slug
 
 		playlistIds, err := app.queries.GetPlaylistIdsByPermalink(c.Context(), dbv1.GetPlaylistIdsByPermalinkParams{
 			Handles:    []string{handle},
 			Slugs:      []string{slug},
-			Permalinks: []string{permalink},
+			Permalinks: []string{path},
 		})
 		if err != nil || len(playlistIds) == 0 {
 			return fiber.NewError(fiber.StatusNotFound, "Playlist not found")

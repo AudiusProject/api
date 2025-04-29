@@ -312,8 +312,11 @@ func (app *ApiServer) resolveUserHandleToId(handle string) (int32, error) {
 		return hit, nil
 	}
 	user_id, err := app.queries.GetUserForHandle(context.Background(), handle)
+	if err != nil {
+		return 0, err
+	}
 	app.resolveHandleCache.Set(handle, int32(user_id))
-	return int32(user_id), err
+	return int32(user_id), nil
 }
 
 func (as *ApiServer) Serve() {
