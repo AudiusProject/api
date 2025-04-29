@@ -42,6 +42,9 @@ func init() {
 		fallthrough
 	case "":
 		Cfg.AntiAbuseOracles = []string{"http://audius-protocol-discovery-provider-1"}
+		Cfg.Nodes = DevNodes
+		// Dummy key
+		Cfg.DelegatePrivateKey = "13422b9affd75ff80f94f1ea394e6a6097830cb58cda2d3542f37464ecaee7df"
 	case "stage":
 		fallthrough
 	case "staging":

@@ -5,7 +5,7 @@ import (
 	"github.com/jackc/pgx/v5"
 )
 
-func (app *ApiServer) v1TracksComments(c *fiber.Ctx) error {
+func (app *ApiServer) v1TrackComments(c *fiber.Ctx) error {
 
 	sql := `
 	SELECT comment_id as id

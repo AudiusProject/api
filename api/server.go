@@ -231,9 +231,10 @@ func NewApiServer(config config.Config) *ApiServer {
 
 		g.Use("/tracks/:trackId", app.requireTrackIdMiddleware)
 		g.Get("/tracks/:trackId", app.v1Track)
-		g.Get("/tracks/:trackId/reposts", app.v1TracksReposts)
-		g.Get("/tracks/:trackId/favorites", app.v1TracksFavorites)
-		g.Get("/tracks/:trackId/comments", app.v1TracksComments)
+		g.Get("/tracks/:trackId/stream", app.v1TrackStream)
+		g.Get("/tracks/:trackId/reposts", app.v1TrackReposts)
+		g.Get("/tracks/:trackId/favorites", app.v1TrackFavorites)
+		g.Get("/tracks/:trackId/comments", app.v1TrackComments)
 
 		// Playlists
 		g.Get("/playlists", app.v1playlists)
@@ -241,8 +242,8 @@ func NewApiServer(config config.Config) *ApiServer {
 
 		g.Use("/playlists/:playlistId", app.requirePlaylistIdMiddleware)
 		g.Get("/playlists/:playlistId", app.v1Playlist)
-		g.Get("/playlists/:playlistId/reposts", app.v1PlaylistsReposts)
-		g.Get("/playlists/:playlistId/favorites", app.v1PlaylistsFavorites)
+		g.Get("/playlists/:playlistId/reposts", app.v1PlaylistReposts)
+		g.Get("/playlists/:playlistId/favorites", app.v1PlaylistFavorites)
 
 		// Developer Apps
 		g.Get("/developer_apps/:address", app.v1DeveloperApps)

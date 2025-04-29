@@ -80,14 +80,23 @@ func (q *Queries) FullTracksKeyed(ctx context.Context, arg GetTracksParams) (map
 		// Collect media links
 		// TODO(API-49): support self-access via grants
 		// see https://github.com/AudiusProject/audius-protocol/blob/4bd9fe80d8cca519844596061505ad8737579019/packages/discovery-provider/src/queries/query_helpers.py#L905
-		stream := mediaLink(track.TrackCid.String, track.TrackID, arg.MyID.(int32))
+		stream, err := mediaLink(track.TrackCid.String, track.TrackID, arg.MyID.(int32))
+		if err != nil {
+			return nil, err
+		}
 		var download *MediaLink
 		if track.IsDownloadable {
-			download = mediaLink(track.OrigFileCid.String, track.TrackID, arg.MyID.(int32))
+			download, err = mediaLink(track.OrigFileCid.String, track.TrackID, arg.MyID.(int32))
+			if err != nil {
+				return nil, err
+			}
 		}
 		var preview *MediaLink
 		if track.PreviewCid.String != "" {
-			preview = mediaLink(track.PreviewCid.String, track.TrackID, arg.MyID.(int32))
+			preview, err = mediaLink(track.PreviewCid.String, track.TrackID, arg.MyID.(int32))
+			if err != nil {
+				return nil, err
+			}
 		}
 
 		if track.FieldVisibility == nil || string(track.FieldVisibility) == "null" {
