@@ -1,5 +1,6 @@
 -- name: GetTracks :many
 WITH
+
 my_follows AS (
   SELECT
     followee_user_id as user_id,
@@ -12,6 +13,7 @@ my_follows AS (
   ORDER BY follower_count DESC
   LIMIT 5000
 ),
+
 my_reposts AS (
   SELECT repost_item_id
   FROM reposts
@@ -21,6 +23,7 @@ my_reposts AS (
     AND repost_item_id = ANY(@ids::int[])
     AND is_delete = false
 ),
+
 my_saves AS (
   SELECT save_item_id
   FROM saves
@@ -30,6 +33,7 @@ my_saves AS (
     AND save_item_id = ANY(@ids::int[])
     AND is_delete = false
 ),
+
 followee_reposts AS (
   SELECT reposts.user_id, repost_item_id, reposts.created_at
   FROM reposts
@@ -39,6 +43,7 @@ followee_reposts AS (
     AND reposts.is_delete = false
   ORDER BY follower_count DESC
 ),
+
 followee_saves AS (
   SELECT saves.user_id, save_item_id, saves.created_at
   FROM saves
@@ -47,6 +52,40 @@ followee_saves AS (
     AND save_type = 'track'
     AND saves.is_delete = false
   ORDER BY follower_count DESC
+),
+
+album_backlinks AS (
+  SELECT
+    pt.track_id,
+    p.playlist_id,
+    p.playlist_name,
+    u.handle,
+    pr.slug
+  FROM playlist_tracks pt
+  JOIN playlists p ON p.playlist_id = pt.playlist_id
+  JOIN users u ON u.user_id = p.playlist_owner_id AND u.is_current = true
+  JOIN playlist_routes pr ON pr.playlist_id = p.playlist_id AND pr.is_current = true
+  WHERE
+    pt.track_id = ANY(@ids::int[])
+    AND pt.is_removed = false
+    AND p.is_album = true
+    AND p.is_delete = false
+    AND p.is_current = true
+  ORDER BY pt.track_id, p.created_at DESC
+),
+
+remix_parents AS (
+  SELECT
+    child_track_id,
+    track_id as parent_track_id,
+    owner_id as parent_owner_id,
+    repost_item_id,
+    save_item_id
+  FROM remixes
+  JOIN tracks parent_track ON parent_track_id = parent_track.track_id
+  LEFT JOIN reposts ON repost_type = 'track' AND repost_item_id = child_track_id AND reposts.user_id = parent_track.owner_id AND reposts.is_delete = false
+  LEFT JOIN saves ON save_type = 'track' AND save_item_id = child_track_id AND saves.user_id = parent_track.owner_id AND saves.is_delete = false
+  WHERE child_track_id = ANY(@ids::int[])
 )
 
 SELECT
@@ -81,26 +120,9 @@ SELECT
       'playlist_name', ab.playlist_name,
       'permalink', '/' || ab.handle || '/album/' || ab.slug
     )
-    FROM (
-      SELECT
-        pt.track_id,
-        p.playlist_id,
-        p.playlist_name,
-        u.handle,
-        pr.slug
-      FROM playlist_tracks pt
-      JOIN playlists p ON p.playlist_id = pt.playlist_id
-      JOIN users u ON u.user_id = p.playlist_owner_id AND u.is_current = true
-      JOIN playlist_routes pr ON pr.playlist_id = p.playlist_id AND pr.is_current = true
-      WHERE
-        pt.track_id = t.track_id
-        AND pt.is_removed = false
-        AND p.is_album = true
-        AND p.is_delete = false
-        AND p.is_current = true
-      ORDER BY pt.track_id, p.created_at DESC
-      LIMIT 1
-    ) ab
+    FROM album_backlinks ab
+    WHERE track_id = t.track_id
+    LIMIT 1
   )::jsonb AS album_backlink,
 
   t.blocknumber,
@@ -168,23 +190,11 @@ SELECT
         )
       )
     )
-    FROM (
-      SELECT
-        track_id as parent_track_id,
-        owner_id as parent_owner_id,
-        repost_item_id,
-        save_item_id
-      FROM remixes
-      JOIN tracks parent_track ON parent_track_id = parent_track.track_id AND child_track_id = t.track_id
-      LEFT JOIN reposts ON repost_type = 'track' AND repost_item_id = t.track_id AND reposts.user_id = parent_track.owner_id AND reposts.is_delete = false
-      LEFT JOIN saves ON save_type = 'track' AND save_item_id = t.track_id AND saves.user_id = parent_track.owner_id AND saves.is_delete = false
-      LIMIT 10
-    ) r
+    FROM remix_parents r
+    WHERE child_track_id = t.track_id
   )::jsonb as remix_of,
 
 
-  -- followee_favorites,
-  -- route_id,
   stem_of,
   track_segments, -- todo: can we just get rid of this now?
   t.updated_at,

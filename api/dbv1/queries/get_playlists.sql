@@ -34,7 +34,7 @@ SELECT
   (
     SELECT count(*) > 0
     FROM reposts
-    WHERE @my_id > 0
+    WHERE @my_id::int > 0
       AND user_id = @my_id
       AND repost_type != 'track'
       AND repost_item_id = p.playlist_id

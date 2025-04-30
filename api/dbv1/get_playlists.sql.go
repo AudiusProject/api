@@ -49,7 +49,7 @@ SELECT
   (
     SELECT count(*) > 0
     FROM reposts
-    WHERE $1 > 0
+    WHERE $1::int > 0
       AND user_id = $1
       AND repost_type != 'track'
       AND repost_item_id = p.playlist_id
@@ -119,8 +119,8 @@ WHERE is_delete = false
 `
 
 type GetPlaylistsParams struct {
-	MyID interface{} `json:"my_id"`
-	Ids  []int32     `json:"ids"`
+	MyID int32   `json:"my_id"`
+	Ids  []int32 `json:"ids"`
 }
 
 type GetPlaylistsRow struct {

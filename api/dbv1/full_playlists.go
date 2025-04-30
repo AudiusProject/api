@@ -88,7 +88,7 @@ func (q *Queries) FullPlaylistsKeyed(ctx context.Context, arg GetPlaylistsParams
 		}
 
 		// For playlists, download access is the same as stream access
-		streamAccess := q.GetPlaylistAccess(ctx, arg.MyID.(int32), playlist.StreamConditions, &playlist, &user)
+		streamAccess := q.GetPlaylistAccess(ctx, arg.MyID, playlist.StreamConditions, &playlist, &user)
 		downloadAccess := streamAccess
 
 		var playlistType string

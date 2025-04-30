@@ -10,7 +10,7 @@ type ParallelParams struct {
 	UserIds     []int32
 	TrackIds    []int32
 	PlaylistIds []int32
-	MyID        interface{}
+	MyID        int32
 }
 
 type ParallelResult struct {
@@ -42,7 +42,7 @@ func (q *Queries) Parallel(ctx context.Context, arg ParallelParams) (*ParallelRe
 			var err error
 			trackMap, err = q.FullTracksKeyed(ctx, GetTracksParams{
 				Ids:  arg.TrackIds,
-				MyID: arg.MyID.(int32),
+				MyID: arg.MyID,
 			})
 			return err
 		})
