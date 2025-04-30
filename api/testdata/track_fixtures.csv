@@ -1,12 +1,12 @@
-track_id,genre,owner_id,title,is_unlisted,stream_conditions,download_conditions
-100,Electronic,1,T1,f,,
-101,Alternative,1,T2,f,,
-200,Electronic,2,Culca Canyon,f,,
-201,Alternative,2,Turkey Time DEMO,t,,
-202,Alternative,2,Turkey Time (live),f,,
-300,Electronic,3,Follow Gated Download,f,,"{""follow_user_id"": 3}"
-301,Electronic,3,Pay Gated Download,f,,"{""usdc_purchase"": {""price"": 135, ""splits"": [{""user_id"": 3, ""percentage"": 100.0}]}}"
-302,Electronic,3,Tip Gated Stream,f,"{""tip_user_id"": 3}","{""tip_user_id"": 3}"
-303,Electronic,3,Pay Gated Stream,f,"{""usdc_purchase"": {""price"": 135, ""splits"": [{""user_id"": 3, ""percentage"": 100.0}]}}",
-400,Folk,5,Trending Month Folk,f,,
-500,Experimental,6,track by permalink,f,,
+track_id,genre,owner_id,title,is_unlisted,stream_conditions,download_conditions,is_downloadable
+100,Electronic,1,T1,f,,,t
+101,Alternative,1,T2,f,,,f
+200,Electronic,2,Culca Canyon,f,,,f
+201,Alternative,2,Turkey Time DEMO,t,,,f
+202,Alternative,2,Turkey Time (live),f,,,f
+300,Electronic,3,Follow Gated Download,f,,"{""follow_user_id"": 3}",t
+301,Electronic,3,Pay Gated Download,f,,"{""usdc_purchase"": {""price"": 135, ""splits"": [{""user_id"": 3, ""percentage"": 100.0}]}}",t
+302,Electronic,3,Tip Gated Stream,f,"{""tip_user_id"": 3}","{""tip_user_id"": 3}",f
+303,Electronic,3,Pay Gated Stream,f,"{""usdc_purchase"": {""price"": 135, ""splits"": [{""user_id"": 3, ""percentage"": 100.0}]}}",,f
+400,Folk,5,Trending Month Folk,f,,,f
+500,Experimental,6,track by permalink,f,,,f
