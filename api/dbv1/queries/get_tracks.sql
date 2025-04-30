@@ -1,5 +1,6 @@
 -- name: GetTracks :many
-WITH my_follows AS (
+WITH
+my_follows AS (
   SELECT
     followee_user_id as user_id,
     follower_count
@@ -10,7 +11,44 @@ WITH my_follows AS (
     AND follows.is_delete = false
   ORDER BY follower_count DESC
   LIMIT 5000
+),
+my_reposts AS (
+  SELECT repost_item_id
+  FROM reposts
+  WHERE @my_id > 0
+    AND user_id = @my_id
+    AND repost_type = 'track'
+    AND repost_item_id = ANY(@ids::int[])
+    AND is_delete = false
+),
+my_saves AS (
+  SELECT save_item_id
+  FROM saves
+  WHERE @my_id > 0
+    AND user_id = @my_id
+    AND save_type = 'track'
+    AND save_item_id = ANY(@ids::int[])
+    AND is_delete = false
+),
+followee_reposts AS (
+  SELECT reposts.user_id, repost_item_id, reposts.created_at
+  FROM reposts
+  JOIN my_follows USING (user_id)
+  WHERE repost_item_id = ANY(@ids::int[])
+    AND repost_type = 'track'
+    AND reposts.is_delete = false
+  ORDER BY follower_count DESC
+),
+followee_saves AS (
+  SELECT saves.user_id, save_item_id, saves.created_at
+  FROM saves
+  JOIN my_follows USING (user_id)
+  WHERE save_item_id = ANY(@ids::int[])
+    AND save_type = 'track'
+    AND saves.is_delete = false
+  ORDER BY follower_count DESC
 )
+
 SELECT
   t.track_id,
   description,
@@ -76,24 +114,16 @@ SELECT
   field_visibility,
   -- followee_reposts,
 
-  (
-    SELECT count(*) > 0
-    FROM reposts
-    WHERE @my_id > 0
-      AND user_id = @my_id
-      AND repost_type = 'track'
-      AND repost_item_id = t.track_id
-      AND is_delete = false
+  EXISTS (
+    SELECT 1
+    FROM my_reposts
+    WHERE repost_item_id = t.track_id
   ) AS has_current_user_reposted,
 
-  (
-    SELECT count(*) > 0
-    FROM saves
-    WHERE @my_id > 0
-      AND user_id = @my_id
-      AND save_type = 'track'
-      AND save_item_id = t.track_id
-      AND is_delete = false
+  EXISTS (
+    SELECT 1
+    FROM my_saves
+    WHERE save_item_id = t.track_id
   ) AS has_current_user_saved,
 
   is_scheduled_release,
@@ -108,16 +138,9 @@ SELECT
         'created_at', r.created_at -- this is not actually present in python response?
       )
     )
-    FROM (
-      SELECT user_id, repost_item_id, reposts.created_at
-      FROM reposts
-      JOIN my_follows USING (user_id)
-      WHERE repost_item_id = t.track_id
-        AND repost_type = 'track'
-        AND reposts.is_delete = false
-      ORDER BY follower_count DESC
-      LIMIT 6
-    ) r
+    FROM followee_reposts r
+    WHERE t.track_id = r.repost_item_id
+    LIMIT 6
   )::jsonb as followee_reposts,
 
   (
@@ -129,16 +152,9 @@ SELECT
         'created_at', r.created_at -- this is not actually present in python response?
       )
     )
-    FROM (
-      SELECT user_id, save_item_id, saves.created_at
-      FROM saves
-      JOIN my_follows USING (user_id)
-      WHERE save_item_id = t.track_id
-        AND save_type = 'track'
-        AND saves.is_delete = false
-      ORDER BY follower_count DESC
-      LIMIT 6
-    ) r
+    FROM followee_saves r
+    WHERE t.track_id = r.save_item_id
+    LIMIT 6
   )::jsonb as followee_favorites,
 
   (

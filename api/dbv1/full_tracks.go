@@ -80,14 +80,14 @@ func (q *Queries) FullTracksKeyed(ctx context.Context, arg GetTracksParams) (map
 		// Collect media links
 		// TODO(API-49): support self-access via grants
 		// see https://github.com/AudiusProject/audius-protocol/blob/4bd9fe80d8cca519844596061505ad8737579019/packages/discovery-provider/src/queries/query_helpers.py#L905
-		stream := mediaLink(track.TrackCid.String, track.TrackID, arg.MyID.(int32))
+		stream := mediaLink(track.TrackCid.String, track.TrackID, arg.MyID)
 		var download *MediaLink
 		if track.IsDownloadable {
-			download = mediaLink(track.OrigFileCid.String, track.TrackID, arg.MyID.(int32))
+			download = mediaLink(track.OrigFileCid.String, track.TrackID, arg.MyID)
 		}
 		var preview *MediaLink
 		if track.PreviewCid.String != "" {
-			preview = mediaLink(track.PreviewCid.String, track.TrackID, arg.MyID.(int32))
+			preview = mediaLink(track.PreviewCid.String, track.TrackID, arg.MyID)
 		}
 
 		if track.FieldVisibility == nil || string(track.FieldVisibility) == "null" {
@@ -124,9 +124,9 @@ func (q *Queries) FullTracksKeyed(ctx context.Context, arg GetTracksParams) (map
 		} else {
 			downloadConditions = track.StreamConditions
 		}
-		downloadAccess := q.GetTrackAccess(ctx, arg.MyID.(int32), downloadConditions, &track, &user)
+		downloadAccess := q.GetTrackAccess(ctx, arg.MyID, downloadConditions, &track, &user)
 		// If you can download it, you can stream it
-		streamAccess := downloadAccess || q.GetTrackAccess(ctx, arg.MyID.(int32), track.StreamConditions, &track, &user)
+		streamAccess := downloadAccess || q.GetTrackAccess(ctx, arg.MyID, track.StreamConditions, &track, &user)
 		access := Access{
 			Download: downloadAccess,
 			Stream:   streamAccess,

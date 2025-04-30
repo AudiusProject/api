@@ -42,7 +42,7 @@ func (q *Queries) Parallel(ctx context.Context, arg ParallelParams) (*ParallelRe
 			var err error
 			trackMap, err = q.FullTracksKeyed(ctx, GetTracksParams{
 				Ids:  arg.TrackIds,
-				MyID: arg.MyID,
+				MyID: arg.MyID.(int32),
 			})
 			return err
 		})
