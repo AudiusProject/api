@@ -3,6 +3,7 @@ package api
 import (
 	"context"
 	"encoding/json"
+	"fmt"
 	"io"
 	"net/http/httptest"
 	"os"
@@ -83,6 +84,7 @@ func TestMain(m *testing.M) {
 	insertFixtures("grants", grantBaseRow, "testdata/grants_fixtures.csv")
 	insertFixtures("comments", commentBaseRow, "testdata/comment_fixtures.csv")
 	insertFixtures("comment_threads", map[string]any{}, "testdata/comment_thread_fixtures.csv")
+	insertFixtures("muted_users", mutedUserBaseRow, "testdata/muted_users_fixtures.csv")
 
 	// index to es / os
 
@@ -201,7 +203,9 @@ func testGet(t *testing.T, path string, dest ...any) (int, []byte) {
 
 func jsonAssert(t *testing.T, body []byte, expectations map[string]string) {
 	for path, expectation := range expectations {
-		assert.Equal(t, expectation, gjson.GetBytes(body, path).String())
+		actual := gjson.GetBytes(body, path).String()
+		msg := fmt.Sprintf("Expected %s to be %s got %s", path, expectation, actual)
+		assert.Equal(t, expectation, actual, msg)
 	}
 }
 

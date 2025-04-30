@@ -193,6 +193,14 @@ var (
 		"txhash":      "0x1",
 		"blockhash":   "0x2",
 	}
+
+	mutedUserBaseRow = map[string]any{
+		"created_at": time.Now(),
+		"updated_at": time.Now(),
+		"is_delete":  false,
+		"txhash":     "",
+		"blockhash":  "",
+	}
 )
 
 func insertFixtures(table string, baseRow map[string]any, csvFile string) {

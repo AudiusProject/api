@@ -7,7 +7,7 @@ import (
 )
 
 func TestTrackComments(t *testing.T) {
-	status, body := testGet(t, "/v1/tracks/ePgRD/comments")
+	status, body := testGet(t, "/v1/tracks/201/comments")
 	assert.Equal(t, 200, status)
 	jsonAssert(t, body, map[string]string{
 		"data.0.message":           "flame emoji",
@@ -21,4 +21,21 @@ func TestTrackComments(t *testing.T) {
 		"data.#":    "1",
 		"data.1.id": "",
 	})
+
+	status, body = testGet(t, "/v1/tracks/201/comments?user_id=92")
+	assert.Equal(t, 200, status)
+	jsonAssert(t, body, map[string]string{
+		"my_id":                    "92",
+		"data.0.message":           "flame emoji",
+		"data.0.id":                "7eP5n",
+		"data.0.user_id":           "7eP5n",
+		"data.0.entity_id":         "ePgRD",
+		"data.0.reply_count":       "1",
+		"data.0.replies.0.user_id": "ML51L",
+
+		// there is no second comment
+		"data.#":    "1",
+		"data.1.id": "",
+	})
+
 }

@@ -126,6 +126,20 @@ func (q *Queries) FullCommentsKeyed(ctx context.Context, arg GetCommentsParams) 
 	JOIN tracks ON entity_id = track_id
 	LEFT JOIN comment_threads USING (comment_id)
 	WHERE comment_id = ANY(@ids::int[])
+
+	-- hide comment if commentor is muted by current user or track owner
+	-- but always show to commentor
+	AND (
+		comments.user_id != @my_id
+		AND NOT EXISTS (
+			SELECT 1 FROM muted_users
+			WHERE muted_user_id = comments.user_id
+			AND (user_id = tracks.owner_id OR user_id = @my_id)
+			AND comments.user_id != @my_id
+			AND is_delete = false
+		)
+	)
+
 	ORDER BY comments.created_at DESC
 	`
 

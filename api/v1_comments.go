@@ -62,7 +62,8 @@ func (app *ApiServer) queryFullComments(c *fiber.Ctx, sql string, args pgx.Named
 	})
 
 	return c.JSON(fiber.Map{
-		"data": comments,
+		"my_id": app.getMyId(c),
+		"data":  comments,
 		"related": fiber.Map{
 			"users":  related.UserList(),
 			"tracks": related.TrackList(),
