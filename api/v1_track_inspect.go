@@ -94,7 +94,9 @@ func (app *ApiServer) v1TrackInspect(c *fiber.Ctx) error {
 		return sendError(c, 500, err.Error())
 	}
 
-	return c.JSON(info)
+	return c.JSON(map[string]any{
+		"data": info,
+	})
 }
 
 func (app *ApiServer) v1TracksInspect(c *fiber.Ctx) error {
@@ -134,5 +136,7 @@ func (app *ApiServer) v1TracksInspect(c *fiber.Ctx) error {
 	wg.Wait()
 	close(errChan)
 
-	return c.JSON(infos)
+	return c.JSON(map[string]any{
+		"data": infos,
+	})
 }
