@@ -122,7 +122,7 @@ func (app *ApiServer) requireAuthMiddleware(c *fiber.Ctx) error {
 		return c.Next()
 	}
 
-	if wallet != "" && wallet == authedWallet {
+	if wallet != "" && strings.EqualFold(wallet, authedWallet) {
 		return c.Next()
 	}
 
@@ -130,5 +130,6 @@ func (app *ApiServer) requireAuthMiddleware(c *fiber.Ctx) error {
 		return c.Next()
 	}
 
-	return fiber.NewError(fiber.StatusForbidden, "You are not authorized to make this request")
+	msg := fmt.Sprintf("You are not authorized to make this request authedUserId=%d authedWallet=%s myId=%d wallet=%s", authedUserId, authedWallet, myId, wallet)
+	return fiber.NewError(fiber.StatusForbidden, msg)
 }
