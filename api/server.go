@@ -121,7 +121,7 @@ func NewApiServer(config config.Config) *ApiServer {
 	}
 
 	solanaRpc := rpc.New(config.SolanaConfig.RpcProviders[0])
-	rewardAttester := rewards.NewRewardAttester(privateKey, []rewards.Reward{})
+	rewardAttester := rewards.NewRewardAttester(privateKey, config.Rewards)
 	transactionSender := spl.NewTransactionSender(
 		config.SolanaConfig.FeePayers,
 		config.SolanaConfig.RpcProviders,
