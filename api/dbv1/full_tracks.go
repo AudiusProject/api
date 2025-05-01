@@ -2,7 +2,6 @@ package dbv1
 
 import (
 	"context"
-	"encoding/json"
 	"fmt"
 
 	"bridgerton.audius.co/config"
@@ -41,131 +40,6 @@ func (q *Queries) FullTracksKeyed(ctx context.Context, arg GetTracksParams) (map
 		return nil, err
 	}
 	return batch.ToMap(), nil
-}
-
-func (q *Queries) OldFullTracksKeyed(ctx context.Context, arg GetTracksParams) (map[int32]FullTrack, error) {
-	rawTracks, err := q.GetTracks(ctx, GetTracksParams(arg))
-	if err != nil {
-		return nil, err
-	}
-
-	userIds := []int32{}
-	collectSplitUserIds := func(usage *AccessGate) {
-		if usage == nil || usage.UsdcPurchase == nil {
-			return
-		}
-		for _, split := range usage.UsdcPurchase.Splits {
-			userIds = append(userIds, split.UserID)
-		}
-	}
-
-	for _, track := range rawTracks {
-		userIds = append(userIds, track.UserID)
-
-		var remixOf RemixOf
-		json.Unmarshal(track.RemixOf, &remixOf)
-		for _, r := range remixOf.Tracks {
-			userIds = append(userIds, r.ParentUserId)
-		}
-
-		collectSplitUserIds(track.StreamConditions)
-		collectSplitUserIds(track.DownloadConditions)
-	}
-
-	userMap, err := q.FullUsersKeyed(ctx, GetUsersParams{
-		MyID: arg.MyID,
-		Ids:  userIds,
-	})
-	if err != nil {
-		return nil, err
-	}
-
-	trackMap := map[int32]FullTrack{}
-	for _, track := range rawTracks {
-		user, ok := userMap[track.UserID]
-		if !ok {
-			continue
-		}
-
-		// Collect media links
-		// TODO(API-49): support self-access via grants
-		// see https://github.com/AudiusProject/audius-protocol/blob/4bd9fe80d8cca519844596061505ad8737579019/packages/discovery-provider/src/queries/query_helpers.py#L905
-		stream := mediaLink(track.TrackCid.String, track.TrackID, arg.MyID.(int32))
-		var download *MediaLink
-		if track.IsDownloadable {
-			download = mediaLink(track.OrigFileCid.String, track.TrackID, arg.MyID.(int32))
-		}
-		var preview *MediaLink
-		if track.PreviewCid.String != "" {
-			preview = mediaLink(track.PreviewCid.String, track.TrackID, arg.MyID.(int32))
-		}
-
-		if track.FieldVisibility == nil || string(track.FieldVisibility) == "null" {
-			track.FieldVisibility = []byte(`{
-			"mood":null,
-			"tags":null,
-			"genre":null,
-			"share":null,
-			"play_count":null,
-			"remixes":null
-			}`)
-		}
-
-		var remixOf RemixOf
-		var fullRemixOf FullRemixOf
-		json.Unmarshal(track.RemixOf, &remixOf)
-		fullRemixOf = FullRemixOf{
-			Tracks: make([]FullRemixOfTrack, len(remixOf.Tracks)),
-		}
-		for idx, r := range remixOf.Tracks {
-			trackId, _ := trashid.EncodeHashId(int(r.ParentTrackId))
-			fullRemixOf.Tracks[idx] = FullRemixOfTrack{
-				HasRemixAuthorReposted: r.HasRemixAuthorReposted,
-				HasRemixAuthorSaved:    r.HasRemixAuthorSaved,
-				ParentTrackId:          trackId,
-				User:                   userMap[r.ParentUserId],
-			}
-		}
-
-		// Use download conditions if available, otherwise use stream conditions
-		var downloadConditions *AccessGate
-		if track.DownloadConditions != nil {
-			downloadConditions = track.DownloadConditions
-		} else {
-			downloadConditions = track.StreamConditions
-		}
-		downloadAccess := q.GetTrackAccess(ctx, arg.MyID.(int32), downloadConditions, &track, &user)
-		// If you can download it, you can stream it
-		streamAccess := downloadAccess || q.GetTrackAccess(ctx, arg.MyID.(int32), track.StreamConditions, &track, &user)
-		access := Access{
-			Download: downloadAccess,
-			Stream:   streamAccess,
-		}
-
-		fullTrack := FullTrack{
-			GetTracksRow: track,
-
-			ID:           trashid.HashId(track.TrackID),
-			IsStreamable: !track.IsDelete && !user.IsDeactivated,
-			Permalink:    fmt.Sprintf("/%s/%s", user.Handle.String, track.Slug.String),
-			Artwork:      squareImageStruct(track.CoverArtSizes, track.CoverArt),
-			Stream:       stream,
-			Download:     download,
-			Preview:      preview,
-			User:         user,
-			UserID:       user.ID,
-			// FolloweeFavorites:  fullFolloweeFavorites(track.FolloweeFavorites),
-			// FolloweeReposts:    fullFolloweeReposts(track.FolloweeReposts),
-			RemixOf:            fullRemixOf,
-			StreamConditions:   track.StreamConditions.toFullAccessGate(config.Cfg, userMap),
-			DownloadConditions: track.DownloadConditions.toFullAccessGate(config.Cfg, userMap),
-			Access:             access,
-		}
-
-		trackMap[track.TrackID] = fullTrack
-	}
-
-	return trackMap, nil
 }
 
 func (q *Queries) FullTracks(ctx context.Context, arg GetTracksParams) ([]FullTrack, error) {
@@ -254,6 +128,10 @@ func ToMinTracks(fullTracks []FullTrack) []MinTrack {
 	return result
 }
 
+//
+// TrackBatch loader idea...
+//
+
 type TrackBatch struct {
 	ctx      context.Context
 	q        *Queries
@@ -303,17 +181,27 @@ func (batch *TrackBatch) Enhance() error {
 	g, _ := errgroup.WithContext(batch.ctx)
 	g.Go(batch.LoadUsers)
 	g.Go(batch.LoadFolloweeActions)
-	// todo: current user: is saved, is reposted
-	// todo: remixes
-	// todo: access
-	// todo: permalink stuff
+
+	// todo: could move these "out of band" from GetTracks if we want:
+	// current user: is saved, is reposted
+	// remixes
+	// permalink stuff
 
 	err := g.Wait()
 	if err != nil {
 		return err
 	}
 
+	// ROUND 2:  need user loader from round 1 to do track access
+	// fetch track access in parallel
+	// todo: would be nice to do in bulk
+	err = batch.LoadAccess()
+	if err != nil {
+		return err
+	}
+
 	// finalize
+	// this can use data from parallel loaders
 	for _, track := range batch.trackMap {
 		if track.FieldVisibility == nil || string(track.FieldVisibility) == "null" {
 			track.FieldVisibility = []byte(`{
@@ -325,17 +213,6 @@ func (batch *TrackBatch) Enhance() error {
 				"remixes":null
 			}`)
 		}
-
-		// RemixOf:            fullRemixOf,
-		// Access:             access,
-
-		// downloadAccess := q.GetTrackAccess(ctx, arg.MyID.(int32), downloadConditions, &track, &user)
-		// // If you can download it, you can stream it
-		// streamAccess := downloadAccess || q.GetTrackAccess(ctx, arg.MyID.(int32), track.StreamConditions, &track, &user)
-		// access := Access{
-		// 	Download: downloadAccess,
-		// 	Stream:   streamAccess,
-		// }
 
 		// Collect media links
 		// TODO(API-49): support self-access via grants
@@ -407,4 +284,44 @@ func (batch *TrackBatch) LoadFolloweeActions() error {
 		}
 	}
 	return err
+}
+
+func (batch *TrackBatch) LoadAccess() error {
+	// ROUND 2:  need user loader from round 1 to do track access
+	// fetch track access in parallel
+	// todo: would be nice to do in bulk
+	g, _ := errgroup.WithContext(batch.ctx)
+	for _, track := range batch.trackMap {
+		rawTrack := &track.GetTracksRow
+		if rawTrack.StreamConditions == nil && rawTrack.DownloadConditions == nil {
+			track.Access = Access{
+				Download: true,
+				Stream:   true,
+			}
+			continue
+		}
+
+		g.Go(func() error {
+			// Use download conditions if available, otherwise use stream conditions
+			var downloadConditions *AccessGate
+			if rawTrack.DownloadConditions != nil {
+				downloadConditions = rawTrack.DownloadConditions
+			} else {
+				downloadConditions = rawTrack.StreamConditions
+			}
+			downloadAccess := batch.q.GetTrackAccess(batch.ctx, batch.myId, downloadConditions, rawTrack, &track.User)
+			// If you can download it, you can stream it
+			streamAccess := downloadAccess
+			if !downloadAccess {
+				streamAccess = batch.q.GetTrackAccess(batch.ctx, batch.myId, rawTrack.StreamConditions, rawTrack, &track.User)
+			}
+			track.Access = Access{
+				Download: downloadAccess,
+				Stream:   streamAccess,
+			}
+			return nil
+		})
+	}
+
+	return g.Wait()
 }

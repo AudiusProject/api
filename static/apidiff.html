@@ -229,8 +229,18 @@
       console.log(response.status, url);
     }
     const resp = await response.json();
+
+    // array diff is noisy if items reorder...
+    // key by id to reduce this
+
+    let keyedData;
+    if (Array.isArray(resp.data) && resp.data[0].id) {
+      keyedData = {};
+      resp.data.forEach((d) => (keyedData[d.id] = d));
+    }
+
     return {
-      data: resp.data,
+      data: keyedData || resp.data,
       took,
     };
   }
