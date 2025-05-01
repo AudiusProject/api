@@ -255,6 +255,12 @@ func NewApiServer(config config.Config) *ApiServer {
 
 		// Comments
 		g.Get("/comments/unclaimed_id", app.v1CommentsUnclaimedId)
+
+		// Events
+		g.Get("/events/unclaimed_id", app.v1EventsUnclaimedId)
+		// g.Get("/events", app.v1Events)
+		// g.Get("/events/all", app.v1Events)
+		// g.Get("/events/entity", app.v1Event)
 	}
 
 	app.Static("/", "./static")
