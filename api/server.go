@@ -9,12 +9,15 @@ import (
 	"time"
 
 	"bridgerton.audius.co/api/dbv1"
+	"bridgerton.audius.co/api/spl"
+	"bridgerton.audius.co/api/spl/programs/reward_manager"
 	"bridgerton.audius.co/config"
 	"bridgerton.audius.co/trashid"
 	"github.com/AudiusProject/audiusd/pkg/rewards"
 	adapter "github.com/axiomhq/axiom-go/adapters/zap"
 	"github.com/axiomhq/axiom-go/axiom"
 	"github.com/ethereum/go-ethereum/crypto"
+	"github.com/gagliardetto/solana-go/rpc"
 	"github.com/gofiber/contrib/fiberzap/v2"
 	"github.com/gofiber/fiber/v2"
 	"github.com/gofiber/fiber/v2/middleware/cors"
@@ -117,23 +120,42 @@ func NewApiServer(config config.Config) *ApiServer {
 		panic(err)
 	}
 
+	solanaRpc := rpc.New(config.SolanaConfig.RpcProviders[0])
+	rewardAttester := rewards.NewRewardAttester(privateKey, []rewards.Reward{})
+	transactionSender := spl.NewTransactionSender(
+		config.SolanaConfig.FeePayers,
+		config.SolanaConfig.RpcProviders,
+	)
+	rewardManagerClient, err := reward_manager.NewRewardManagerClient(
+		solanaRpc,
+		config.SolanaConfig.RewardManagerProgramID,
+		config.SolanaConfig.RewardManagerState,
+		config.SolanaConfig.RewardManagerLookupTable,
+		logger,
+	)
+	if err != nil {
+		panic(err)
+	}
+
 	app := &ApiServer{
 		App: fiber.New(fiber.Config{
 			JSONEncoder:  json.Marshal,
 			JSONDecoder:  json.Unmarshal,
 			ErrorHandler: errorHandler(logger),
 		}),
-		pool:               pool,
-		queries:            dbv1.New(pool),
-		logger:             logger,
-		started:            time.Now(),
-		resolveHandleCache: resolveHandleCache,
-		resolveWalletCache: resolveWalletCache,
-		resolveGrantCache:  resolveGrantCache,
-		rewardAttester:     *rewards.NewRewardAttester(privateKey, []rewards.Reward{}),
-		solanaConfig:       config.SolanaConfig,
-		antiAbuseOracles:   config.AntiAbuseOracles,
-		validators:         config.Nodes,
+		pool:                pool,
+		queries:             dbv1.New(pool),
+		logger:              logger,
+		started:             time.Now(),
+		resolveHandleCache:  resolveHandleCache,
+		resolveWalletCache:  resolveWalletCache,
+		resolveGrantCache:   resolveGrantCache,
+		rewardAttester:      *rewardAttester,
+		transactionSender:   *transactionSender,
+		rewardManagerClient: *rewardManagerClient,
+		solanaConfig:        config.SolanaConfig,
+		antiAbuseOracles:    config.AntiAbuseOracles,
+		validators:          config.Nodes,
 	}
 
 	app.Use(recover.New(recover.Config{
@@ -273,17 +295,19 @@ func NewApiServer(config config.Config) *ApiServer {
 
 type ApiServer struct {
 	*fiber.App
-	pool               *pgxpool.Pool
-	queries            *dbv1.Queries
-	logger             *zap.Logger
-	started            time.Time
-	resolveHandleCache otter.Cache[string, int32]
-	resolveWalletCache otter.Cache[string, int32]
-	resolveGrantCache  otter.Cache[string, bool]
-	rewardAttester     rewards.RewardAttester
-	solanaConfig       config.SolanaConfig
-	antiAbuseOracles   []string
-	validators         []config.Node
+	pool                *pgxpool.Pool
+	queries             *dbv1.Queries
+	logger              *zap.Logger
+	started             time.Time
+	resolveHandleCache  otter.Cache[string, int32]
+	resolveWalletCache  otter.Cache[string, int32]
+	resolveGrantCache   otter.Cache[string, bool]
+	rewardManagerClient reward_manager.RewardManagerClient
+	rewardAttester      rewards.RewardAttester
+	transactionSender   spl.TransactionSender
+	solanaConfig        config.SolanaConfig
+	antiAbuseOracles    []string
+	validators          []config.Node
 }
 
 func (app *ApiServer) home(c *fiber.Ctx) error {
