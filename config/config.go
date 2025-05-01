@@ -4,6 +4,8 @@ import (
 	"log"
 	"os"
 
+	core_config "github.com/AudiusProject/audiusd/pkg/core/config"
+	"github.com/AudiusProject/audiusd/pkg/rewards"
 	_ "github.com/joho/godotenv/autoload"
 )
 
@@ -20,6 +22,7 @@ type Config struct {
 	StakingBridgeUsdcPayoutWallet string
 	SolanaConfig                  SolanaConfig
 	AntiAbuseOracles              []string
+	Rewards                       []rewards.Reward
 }
 
 var Cfg = Config{
@@ -45,6 +48,7 @@ func init() {
 		Cfg.Nodes = DevNodes
 		// Dummy key
 		Cfg.DelegatePrivateKey = "13422b9affd75ff80f94f1ea394e6a6097830cb58cda2d3542f37464ecaee7df"
+		Cfg.Rewards = core_config.MakeRewards(core_config.DevClaimAuthorities, core_config.DevRewardExtensions)
 	case "stage":
 		fallthrough
 	case "staging":
@@ -60,6 +64,7 @@ func init() {
 		}
 		Cfg.Nodes = StageNodes
 		Cfg.DeadNodes = []string{}
+		Cfg.Rewards = core_config.MakeRewards(core_config.StageClaimAuthorities, core_config.StageRewardExtensions)
 	case "prod":
 		fallthrough
 	case "production":
@@ -76,6 +81,7 @@ func init() {
 		Cfg.DeadNodes = []string{
 			"https://content.grassfed.network",
 		}
+		Cfg.Rewards = core_config.MakeRewards(core_config.ProdClaimAuthorities, core_config.ProdRewardExtensions)
 	default:
 		log.Fatalf("Unknown environment: %s", env)
 	}

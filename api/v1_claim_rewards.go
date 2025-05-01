@@ -15,6 +15,7 @@ import (
 	"slices"
 	"strconv"
 	"strings"
+	"sync"
 	"time"
 
 	"bridgerton.audius.co/api/dbv1"
@@ -227,8 +228,7 @@ func getValidatorAttestation(args GetValidatorAttestationParams) (*SenderAttesta
 // Gets reward claim attestations from AAO and Validators in parallel.
 func fetchAttestations(
 	ctx context.Context,
-	rewardClaim rewards.RewardClaim,
-	handle string,
+	rewardClaim RewardClaim,
 	validators []string,
 	antiAbuseOracle config.Node,
 	signature string,
@@ -247,11 +247,11 @@ func fetchAttestations(
 
 	if !hasAntiAbuseOracleAttestation {
 		innerGroup.Go(func() error {
-			aaoClaim := rewardClaim
+			aaoClaim := rewardClaim.RewardClaim
 			aaoClaim.AntiAbuseOracleEthAddress = ""
 			getAntiAbuseAttestationParams := GetAntiAbuseOracleAttestationParams{
 				Claim:                   aaoClaim,
-				Handle:                  handle,
+				Handle:                  rewardClaim.Handle,
 				AntiAbuseOracleEndpoint: antiAbuseOracle.Endpoint,
 			}
 			aaoAttestation, err := getAntiAbuseOracleAttestation(getAntiAbuseAttestationParams)
@@ -267,7 +267,7 @@ func fetchAttestations(
 		innerGroup.Go(func() error {
 			getValidatorAttestationParams := GetValidatorAttestationParams{
 				Validator:      validator,
-				Claim:          rewardClaim,
+				Claim:          rewardClaim.RewardClaim,
 				UserEthAddress: rewardClaim.RecipientEthAddress,
 				Signature:      signature,
 			}
@@ -291,10 +291,9 @@ func fetchAttestations(
 // Builds a Solana transaction to claim a reward from the attestations and sends it with retries.
 func sendRewardClaimTransactions(
 	ctx context.Context,
-	userBank solana.PublicKey,
 	rewardManagerClient *reward_manager.RewardManagerClient,
 	transactionSender *spl.TransactionSender,
-	rewardClaim rewards.RewardClaim,
+	rewardClaim RewardClaim,
 	attestations []SenderAttestation,
 ) ([]solana.Signature, error) {
 	tx := solana.NewTransactionBuilder()
@@ -379,7 +378,7 @@ func sendRewardClaimTransactions(
 		common.HexToAddress(rewardClaim.AntiAbuseOracleEthAddress),
 		rewardManagerClient.GetProgramStateAccount(),
 		state.TokenAccount,
-		userBank,
+		rewardClaim.UserBank,
 		feePayer.PublicKey(),
 	).Build()
 	tx.AddInstruction(evaluateAttestationInstruction)
@@ -412,29 +411,20 @@ type RelayTransactionResponse struct {
 // Claims an individual reward.
 func claimReward(
 	ctx context.Context,
+	rewardClaim RewardClaim,
 	rewardManagerClient *reward_manager.RewardManagerClient,
-	row dbv1.GetUndisbursedChallengesRow,
-	userBank solana.PublicKey,
 	antiAbuseOracle config.Node,
 	rewardAttester *rewards.RewardAttester,
 	transactionSender *spl.TransactionSender,
 	validators []config.Node,
 ) ([]solana.Signature, error) {
-	rewardClaim := rewards.RewardClaim{
-		RewardID:                  row.ChallengeID,
-		Amount:                    uint64(1000), // TODO: Change me!
-		Specifier:                 row.Specifier,
-		RecipientEthAddress:       row.Wallet.String,
-		AntiAbuseOracleEthAddress: antiAbuseOracle.DelegateOwnerWallet,
-	}
-	handle := row.Handle.String
 
 	rewardManagerStateData, err := rewardManagerClient.GetProgramState(ctx)
 	if err != nil {
 		return nil, err
 	}
 
-	attestationsData, err := rewardManagerClient.GetSubmittedAttestations(ctx, rewardClaim)
+	attestationsData, err := rewardManagerClient.GetSubmittedAttestations(ctx, rewardClaim.RewardClaim)
 	if err != nil {
 		// If not found, then it's empty. Use default values for the purpose
 		// of getting an empty list of messages
@@ -455,7 +445,7 @@ func claimReward(
 	}
 
 	// Attest from Bridge to get authority signature
-	_, signature, err := rewardAttester.Attest(rewardClaim)
+	_, signature, err := rewardAttester.Attest(rewardClaim.RewardClaim)
 	if err != nil {
 		return nil, err
 	}
@@ -469,7 +459,6 @@ func claimReward(
 	attestations, err := fetchAttestations(
 		ctx,
 		rewardClaim,
-		handle,
 		selectedValidators,
 		antiAbuseOracle,
 		signature,
@@ -482,7 +471,6 @@ func claimReward(
 	// Build and send solana transactions
 	signatures, err := sendRewardClaimTransactions(
 		ctx,
-		userBank,
 		rewardManagerClient,
 		transactionSender,
 		rewardClaim,
@@ -537,6 +525,29 @@ func getAntiAbuseOracle(antiAbuseOracleEndpoints []string) (node *config.Node, e
 	}, nil
 }
 
+func getReward(rewardId string, rewardsList []rewards.Reward) (rewards.Reward, error) {
+	for _, r := range rewardsList {
+		if r.RewardId == rewardId {
+			return r, nil
+		}
+	}
+	return rewards.Reward{}, fmt.Errorf("challenge ID %s does not have a configured reward", rewardId)
+}
+
+type RewardClaim struct {
+	rewards.RewardClaim
+	Handle   string
+	UserBank solana.PublicKey
+}
+
+type ClaimResult struct {
+	ChallengeID string
+	Specifier   string
+	Amount      uint64
+	Signatures  []solana.Signature
+	Err         error `json:"error,omitempty"`
+}
+
 // Claims all the filtered undisbursed rewards for a user.
 func (api *ApiServer) v1ClaimRewards(c *fiber.Ctx) error {
 	challengeId := c.Query("challenge_id")
@@ -573,26 +584,57 @@ func (api *ApiServer) v1ClaimRewards(c *fiber.Ctx) error {
 		return err
 	}
 
-	signatures := make(map[string]map[string][]solana.Signature)
+	bankAccount, err := claimable_tokens.DeriveUserBankAccount(
+		api.solanaConfig.MintAudio,
+		undisbursedRows[0].Wallet.String,
+	)
+	if err != nil {
+		return err
+	}
+
+	results := make([]ClaimResult, len(undisbursedRows))
 	ctx, cancel := context.WithTimeout(context.Background(), 120*time.Second)
 	defer cancel()
-	g, ctx := errgroup.WithContext(ctx)
-	for _, row := range undisbursedRows {
-		bankAccount, err := claimable_tokens.DeriveUserBankAccount(api.solanaConfig.MintAudio, row.Wallet.String)
-		if err != nil {
-			return err
-		}
-		g.Go(func() error {
-			sig, err := claimReward(
+	g := &sync.WaitGroup{}
+	g.Add(len(undisbursedRows))
+	for i, row := range undisbursedRows {
+		go func() {
+			results[i] = ClaimResult{
+				ChallengeID: row.ChallengeID,
+				Specifier:   row.Specifier,
+			}
+
+			reward, err := getReward(row.ChallengeID, api.rewardAttester.Rewards)
+			if err != nil {
+				results[i].Err = err
+				g.Done()
+				return
+			}
+
+			results[i].Amount = reward.Amount
+
+			rewardClaim := RewardClaim{
+				RewardClaim: rewards.RewardClaim{
+					RewardID:                  row.ChallengeID,
+					Amount:                    reward.Amount,
+					Specifier:                 row.Specifier,
+					RecipientEthAddress:       row.Wallet.String,
+					AntiAbuseOracleEthAddress: antiAbuseOracle.DelegateOwnerWallet,
+				},
+				Handle:   row.Handle.String,
+				UserBank: bankAccount,
+			}
+
+			sigs, err := claimReward(
 				ctx,
+				rewardClaim,
 				&api.rewardManagerClient,
-				row,
-				bankAccount,
 				*antiAbuseOracle,
 				&api.rewardAttester,
 				&api.transactionSender,
 				api.validators,
 			)
+
 			if err != nil {
 				var instrErr *spl.InstructionError
 				if errors.As(err, &instrErr) {
@@ -612,21 +654,16 @@ func (api *ApiServer) v1ClaimRewards(c *fiber.Ctx) error {
 						zap.Error(err),
 					)
 				}
-				return err
+				results[i].Err = err
 			}
-			if signatures[row.ChallengeID] == nil {
-				signatures[row.ChallengeID] = make(map[string][]solana.Signature)
-			}
-			signatures[row.ChallengeID][row.Specifier] = sig
-			return nil
-		})
+
+			results[i].Signatures = sigs
+			g.Done()
+		}()
 	}
-	err = g.Wait()
-	if err != nil {
-		return err
-	}
+	g.Wait()
 
 	return c.Status(http.StatusOK).JSON(fiber.Map{
-		"data": signatures,
+		"data": results,
 	})
 }
