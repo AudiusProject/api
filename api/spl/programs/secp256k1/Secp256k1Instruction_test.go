@@ -5,6 +5,7 @@ import (
 	"testing"
 
 	"bridgerton.audius.co/api/spl/programs/secp256k1"
+	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/crypto"
 	bin "github.com/gagliardetto/binary"
 	"github.com/gagliardetto/solana-go"
@@ -13,8 +14,7 @@ import (
 
 func TestSecp256k1Instruction(t *testing.T) {
 	// Expected results
-	ethAddress, err := hex.DecodeString("8fcfa10bd3808570987dbb5b1ef4ab74400fbfda")
-	require.NoError(t, err)
+	ethAddress := common.HexToAddress("8fcfa10bd3808570987dbb5b1ef4ab74400fbfda")
 	message, err := hex.DecodeString("68d5397bb16195ea47091010f3abb8fc6b5cdfa65f00e1f505000000005f623a33383639383d3e3530373431303135335f00b6462e955da5841b6d9e1e2529b830f00f31bf")
 	require.NoError(t, err)
 	signature, err := hex.DecodeString("f89b2e6f97f95f1306b468b10b1a18df9569b07d9d7b81b241d6fc99d9ec782e4e449f5c3c63836ed52c9344d3de5c3133fead711e421af545822f09bd78cb3900")
@@ -51,7 +51,7 @@ func TestUnmarshal(t *testing.T) {
 	ix.UnmarshalWithDecoder(decoder)
 
 	require.Len(t, ix.SignatureDatas, 1)
-	require.Equal(t, ethAddress, ix.SignatureDatas[0].EthAddress)
+	require.Equal(t, ethAddress, ix.SignatureDatas[0].EthAddress.Bytes())
 	require.Equal(t, message, ix.SignatureDatas[0].Message)
 	require.Equal(t, signature, ix.SignatureDatas[0].Signature)
 	require.Equal(t, instrIndex, ix.SignatureDatas[0].InstructionIndex)
@@ -72,7 +72,7 @@ func TestUnmarshalVerifySignature(t *testing.T) {
 	require.NoError(t, err)
 	require.Equal(
 		t,
-		ix.SignatureDatas[0].EthAddress,
+		ix.SignatureDatas[0].EthAddress.Bytes(),
 		crypto.PubkeyToAddress(*recoveredWallet).Bytes(),
 		"signature recovers to declared signer eth address",
 	)

@@ -1,6 +1,7 @@
 package reward_manager
 
 import (
+	"github.com/ethereum/go-ethereum/common"
 	bin "github.com/gagliardetto/binary"
 	"github.com/gagliardetto/solana-go"
 )
@@ -10,7 +11,7 @@ type SubmitAttestation struct {
 	DisbursementID string
 
 	// Used for derivations
-	SenderEthAddress   string           `bin:"-" borsh_skip:"true"`
+	SenderEthAddress   common.Address   `bin:"-" borsh_skip:"true"`
 	RewardManagerState solana.PublicKey `bin:"-" borsh_skip:"true"`
 	Payer              solana.PublicKey `bin:"-" borsh_skip:"true"`
 
@@ -28,7 +29,7 @@ func (inst *SubmitAttestation) SetDisbursementID(challengeId string, specifier s
 	return inst
 }
 
-func (inst *SubmitAttestation) SetSenderEthAddress(senderEthAddress string) *SubmitAttestation {
+func (inst *SubmitAttestation) SetSenderEthAddress(senderEthAddress common.Address) *SubmitAttestation {
 	inst.SenderEthAddress = senderEthAddress
 	return inst
 }
@@ -44,9 +45,9 @@ func (inst *SubmitAttestation) SetPayer(payer solana.PublicKey) *SubmitAttestati
 }
 
 func (inst SubmitAttestation) Build() *Instruction {
-	authority, _, _ := DeriveAuthorityAccount(ProgramID, inst.RewardManagerState)
+	authority, _, _ := deriveAuthorityAccount(ProgramID, inst.RewardManagerState)
 	sender, _, _ := deriveSender(ProgramID, authority, inst.SenderEthAddress)
-	attestations, _, _ := DeriveAttestationsAccount(ProgramID, authority, inst.DisbursementID)
+	attestations, _, _ := deriveAttestationsAccount(ProgramID, authority, inst.DisbursementID)
 
 	inst.AccountMetaSlice = []*solana.AccountMeta{
 		{
@@ -108,7 +109,7 @@ func (inst *SubmitAttestation) UnmarshalWithDecoder(decoder *bin.Decoder) error 
 func NewSubmitAttestationInstruction(
 	challengeId string,
 	specifier string,
-	senderEthAddress string,
+	senderEthAddress common.Address,
 	rewardManagerState solana.PublicKey,
 	payer solana.PublicKey,
 

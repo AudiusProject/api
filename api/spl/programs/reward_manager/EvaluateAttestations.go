@@ -1,9 +1,7 @@
 package reward_manager
 
 import (
-	"encoding/hex"
-	"strings"
-
+	"github.com/ethereum/go-ethereum/common"
 	bin "github.com/gagliardetto/binary"
 	"github.com/gagliardetto/solana-go"
 )
@@ -12,14 +10,14 @@ type EvaluateAttestation struct {
 	// Instruction Data
 	Amount               uint64
 	DisbursementID       string
-	ReceipientEthAddress string
+	ReceipientEthAddress common.Address
 
 	// Used for derivations
 	RewardManagerState        solana.PublicKey `bin:"-" borsh_skip:"true"`
 	Payer                     solana.PublicKey `bin:"-" borsh_skip:"true"`
 	DestinationUserBank       solana.PublicKey `bin:"-" borsh_skip:"true"`
 	TokenSource               solana.PublicKey `bin:"-" borsh_skip:"true"`
-	AntiAbuseOracleEthAddress string           `bin:"-" borsh_skip:"true"`
+	AntiAbuseOracleEthAddress common.Address   `bin:"-" borsh_skip:"true"`
 
 	// Accounts
 	solana.AccountMetaSlice `bin:"-" borsh_skip:"true"`
@@ -35,7 +33,7 @@ func (inst *EvaluateAttestation) SetDisbursementID(challengedId string, specifie
 	return inst
 }
 
-func (inst *EvaluateAttestation) SetRecipientEthAddress(recipientEthAddress string) *EvaluateAttestation {
+func (inst *EvaluateAttestation) SetRecipientEthAddress(recipientEthAddress common.Address) *EvaluateAttestation {
 	inst.ReceipientEthAddress = recipientEthAddress
 	return inst
 }
@@ -45,7 +43,7 @@ func (inst *EvaluateAttestation) SetAmount(amount uint64) *EvaluateAttestation {
 	return inst
 }
 
-func (inst *EvaluateAttestation) SetAntiAbuseOracleEthAddress(antiAbuseOracleAddress string) *EvaluateAttestation {
+func (inst *EvaluateAttestation) SetAntiAbuseOracleEthAddress(antiAbuseOracleAddress common.Address) *EvaluateAttestation {
 	inst.AntiAbuseOracleEthAddress = antiAbuseOracleAddress
 	return inst
 }
@@ -71,8 +69,8 @@ func (inst *EvaluateAttestation) SetPayer(payer solana.PublicKey) *EvaluateAttes
 }
 
 func (inst EvaluateAttestation) Build() *Instruction {
-	authority, _, _ := DeriveAuthorityAccount(ProgramID, inst.RewardManagerState)
-	attestations, _, _ := DeriveAttestationsAccount(ProgramID, authority, inst.DisbursementID)
+	authority, _, _ := deriveAuthorityAccount(ProgramID, inst.RewardManagerState)
+	attestations, _, _ := deriveAttestationsAccount(ProgramID, authority, inst.DisbursementID)
 	disbursement, _, _ := deriveDisbursement(ProgramID, authority, inst.DisbursementID)
 	antiAbuseOracle, _, _ := deriveSender(ProgramID, authority, inst.AntiAbuseOracleEthAddress)
 
@@ -151,11 +149,7 @@ func (inst EvaluateAttestation) MarshalWithEncoder(encoder *bin.Encoder) error {
 		return err
 	}
 
-	address, err := hex.DecodeString(strings.TrimPrefix(inst.ReceipientEthAddress, "0x"))
-	if err != nil {
-		return err
-	}
-	return encoder.WriteBytes(address, false)
+	return encoder.WriteBytes(inst.ReceipientEthAddress.Bytes(), false)
 }
 
 func (inst *EvaluateAttestation) UnmarshalWithDecoder(decoder *bin.Decoder) error {
@@ -165,9 +159,9 @@ func (inst *EvaluateAttestation) UnmarshalWithDecoder(decoder *bin.Decoder) erro
 func NewEvaluateAttestationInstruction(
 	challengeId string,
 	specifier string,
-	recipientEthAddress string,
+	recipientEthAddress common.Address,
 	amount uint64,
-	antiAbuseOracleAddress string,
+	antiAbuseOracleAddress common.Address,
 	rewardManagerState solana.PublicKey,
 	tokenSource solana.PublicKey,
 	destinationUserBank solana.PublicKey,

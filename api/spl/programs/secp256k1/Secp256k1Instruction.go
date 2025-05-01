@@ -1,6 +1,10 @@
 package secp256k1
 
 import (
+	"errors"
+
+	"github.com/ethereum/go-ethereum/common"
+	"github.com/ethereum/go-ethereum/crypto"
 	ag_binary "github.com/gagliardetto/binary"
 	"github.com/gagliardetto/solana-go"
 )
@@ -29,7 +33,7 @@ type Secp256k1SignatureOffsets struct {
 }
 
 type Secp256k1SignatureData struct {
-	EthAddress       []byte
+	EthAddress       common.Address
 	Message          []byte
 	Signature        []byte
 	InstructionIndex uint8
@@ -40,7 +44,7 @@ func NewSecp256k1InstructionBuilder() *Secp256k1Instruction {
 	return nd
 }
 
-func (inst *Secp256k1Instruction) AddSignatureData(ethAddress []byte, message []byte, signature []byte, instructionIndex uint8) *Secp256k1Instruction {
+func (inst *Secp256k1Instruction) AddSignatureData(ethAddress common.Address, message []byte, signature []byte, instructionIndex uint8) *Secp256k1Instruction {
 	inst.SignatureDatas = append(inst.SignatureDatas, Secp256k1SignatureData{
 		EthAddress:       ethAddress,
 		Message:          message,
@@ -56,6 +60,22 @@ func (obj *Secp256k1Instruction) SetAccounts(accounts []*solana.AccountMeta) err
 
 func (slice Secp256k1Instruction) GetAccounts() (accounts []*solana.AccountMeta) {
 	return
+}
+
+func (inst Secp256k1Instruction) Validate() error {
+	for _, sigData := range inst.SignatureDatas {
+		hash := crypto.Keccak256(sigData.Message)
+		recoveredPubkey, err := crypto.SigToPub(hash, sigData.Signature)
+		if err != nil {
+			return err
+		}
+		recoveredEthAddress := crypto.PubkeyToAddress(*recoveredPubkey)
+		same := recoveredEthAddress.Cmp(sigData.EthAddress) == 0
+		if !same {
+			return errors.New("signature invalid")
+		}
+	}
+	return nil
 }
 
 func (inst Secp256k1Instruction) Build() *Instruction {
@@ -91,7 +111,7 @@ func (obj Secp256k1Instruction) MarshalWithEncoder(encoder *ag_binary.Encoder) (
 			return err
 		}
 
-		err = encoder.WriteBytes(signatureData.EthAddress, false)
+		err = encoder.WriteBytes(signatureData.EthAddress.Bytes(), false)
 		if err != nil {
 			return err
 		}
@@ -137,11 +157,11 @@ func (obj *Secp256k1Instruction) UnmarshalWithDecoder(decoder *ag_binary.Decoder
 			return err
 		}
 
-		obj.AddSignatureData(ethAddress, message, signature, offsets.EthAddressInstructionIndex)
+		obj.AddSignatureData(common.BytesToAddress(ethAddress), message, signature, offsets.EthAddressInstructionIndex)
 	}
 	return nil
 }
 
-func NewSecp256k1Instruction(ethAddress []byte, message []byte, signature []byte, instructionIndex uint8) *Secp256k1Instruction {
+func NewSecp256k1Instruction(ethAddress common.Address, message []byte, signature []byte, instructionIndex uint8) *Secp256k1Instruction {
 	return NewSecp256k1InstructionBuilder().AddSignatureData(ethAddress, message, signature, instructionIndex)
 }

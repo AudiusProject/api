@@ -5,6 +5,8 @@ import (
 	"context"
 	"encoding/hex"
 	"encoding/json"
+	"errors"
+	"fmt"
 	"io"
 	"math/rand/v2"
 	"net/http"
@@ -23,15 +25,18 @@ import (
 	"bridgerton.audius.co/config"
 	"bridgerton.audius.co/trashid"
 	"github.com/AudiusProject/audiusd/pkg/rewards"
+	"github.com/ethereum/go-ethereum/common"
 	"github.com/gagliardetto/solana-go"
 	"github.com/gagliardetto/solana-go/rpc"
 	"github.com/gofiber/fiber/v2"
+	"go.uber.org/zap"
 	"golang.org/x/sync/errgroup"
 )
 
 type SenderAttestation struct {
-	Signature string
-	Address   string
+	Message    []byte
+	Signature  []byte
+	EthAddress common.Address
 }
 
 const (
@@ -39,14 +44,10 @@ const (
 	antiAbuseOracleAttestationPath = "/attestation"
 )
 
-var rewardManagerStateData *reward_manager.RewardManagerState = nil
-var rewardManagerAddressLookupTable *spl.AddressLookupTable
 var antiAbuseOracleMap map[string]string = make(map[string]string)
 
 type GetAntiAbuseOracleAttestationParams struct {
-	ChallengeID             string
-	Specifier               string
-	Amount                  uint64
+	Claim                   rewards.RewardClaim
 	Handle                  string
 	AntiAbuseOracleEndpoint string
 }
@@ -62,9 +63,9 @@ type AntiAbuseOracleAttestationResponseBody struct {
 // Gets a reward claim attestation from Anti Abuse Oracle
 func getAntiAbuseOracleAttestation(args GetAntiAbuseOracleAttestationParams) (*SenderAttestation, error) {
 	attestationBody := AntiAbuseOracleAttestationRequestBody{
-		ChallengeID: args.ChallengeID,
-		Specifier:   args.Specifier,
-		Amount:      args.Amount,
+		ChallengeID: args.Claim.RewardID,
+		Specifier:   args.Claim.Specifier,
+		Amount:      args.Claim.Amount,
 	}
 
 	reqBody, err := json.Marshal(attestationBody)
@@ -92,21 +93,40 @@ func getAntiAbuseOracleAttestation(args GetAntiAbuseOracleAttestationParams) (*S
 	}
 
 	if resp.StatusCode != 200 {
-		return nil, fiber.NewError(fiber.StatusInternalServerError, "Failed to get oracle attestation from "+args.AntiAbuseOracleEndpoint+". Error "+resp.Status+": "+string(body))
+		return nil, fmt.Errorf("failed to get oracle attestation from %s. status %d: %s",
+			args.AntiAbuseOracleEndpoint,
+			resp.StatusCode,
+			body,
+		)
 	}
 
-	parsedBody := AntiAbuseOracleAttestationResponseBody{}
-	err = json.Unmarshal(body, &parsedBody)
+	respBody := AntiAbuseOracleAttestationResponseBody{}
+	err = json.Unmarshal(body, &respBody)
 	if err != nil {
 		return nil, err
 	}
 	address, exists := antiAbuseOracleMap[args.AntiAbuseOracleEndpoint]
 	if !exists {
-		return nil, fiber.NewError(fiber.StatusInternalServerError, "Failed to find AAO address for "+args.AntiAbuseOracleEndpoint)
+		return nil, fmt.Errorf("failed to find AAO address for %s", args.AntiAbuseOracleEndpoint)
+	}
+	message, err := args.Claim.Compile()
+	if err != nil {
+		return nil, err
+	}
+
+	// Pad the start if there's a missing leading zero
+	signature := respBody.Result
+	if len(signature)%2 == 1 {
+		signature = "0" + signature
+	}
+	signatureBytes, err := hex.DecodeString(strings.TrimPrefix(signature, "0x"))
+	if err != nil {
+		return nil, err
 	}
 	attestation := SenderAttestation{
-		Address:   address,
-		Signature: parsedBody.Result,
+		EthAddress: common.HexToAddress(address),
+		Message:    message,
+		Signature:  signatureBytes,
 	}
 	return &attestation, nil
 }
@@ -119,10 +139,11 @@ func getValidators(validators []config.Node, count int, excludedOperators []stri
 		shuffled[i], shuffled[j] = shuffled[j], shuffled[i]
 	})
 
-	selected := make([]string, 0)
-	for _, node := range shuffled {
+	selected := make([]string, count)
+	for i := range count {
+		node := shuffled[i]
 		if !slices.Contains(excludedOperators, node.OwnerWallet) {
-			selected = append(selected, node.Endpoint)
+			selected[i] = node.Endpoint
 			excludedOperators = append(excludedOperators, node.OwnerWallet)
 		}
 	}
@@ -130,13 +151,10 @@ func getValidators(validators []config.Node, count int, excludedOperators []stri
 }
 
 type GetValidatorAttestationParams struct {
-	Validator              string
-	ChallengeID            string
-	Specifier              string
-	Amount                 uint64
-	UserEthAddress         string
-	AntiAbuseOracleAddress string
-	Signature              string
+	Validator      string
+	Claim          rewards.RewardClaim
+	UserEthAddress string
+	Signature      string
 }
 
 type ValidatorAttestationResponseBody struct {
@@ -147,11 +165,11 @@ type ValidatorAttestationResponseBody struct {
 // Gets a reward claim attestation from a validator.
 func getValidatorAttestation(args GetValidatorAttestationParams) (*SenderAttestation, error) {
 	query := url.Values{}
-	query.Add("reward_id", args.ChallengeID)
-	query.Add("specifier", args.Specifier)
-	query.Add("eth_recipient_address", args.UserEthAddress)
-	query.Add("oracle_address", args.AntiAbuseOracleAddress)
-	query.Add("amount", strconv.FormatUint(args.Amount, 10))
+	query.Add("reward_id", args.Claim.RewardID)
+	query.Add("specifier", args.Claim.Specifier)
+	query.Add("eth_recipient_address", args.Claim.RecipientEthAddress)
+	query.Add("oracle_address", args.Claim.AntiAbuseOracleEthAddress)
+	query.Add("amount", strconv.FormatUint(args.Claim.Amount, 10))
 	query.Add("signature", args.Signature)
 
 	base, err := url.Parse(args.Validator)
@@ -173,14 +191,37 @@ func getValidatorAttestation(args GetValidatorAttestationParams) (*SenderAttesta
 		return nil, err
 	}
 	if resp.StatusCode != 200 {
-		return nil, fiber.NewError(fiber.StatusInternalServerError, "Failed to get validator attestation from "+args.Validator+". Error "+resp.Status+": "+string(body))
+		return nil, fmt.Errorf("failed to get validator attestation from %s. status %d: %s",
+			args.Validator,
+			resp.StatusCode,
+			body,
+		)
 	}
-	attestation := ValidatorAttestationResponseBody{}
-	err = json.Unmarshal(body, &attestation)
+	respBody := ValidatorAttestationResponseBody{}
+	err = json.Unmarshal(body, &respBody)
 	if err != nil {
 		return nil, err
 	}
-	return &SenderAttestation{Address: attestation.Owner, Signature: attestation.Attestation}, nil
+
+	// Pad the start if there's a missing leading zero
+	signature := respBody.Attestation
+	if len(signature)%2 == 1 {
+		signature = "0" + signature
+	}
+	signatureBytes, err := hex.DecodeString(strings.TrimPrefix(signature, "0x"))
+	if err != nil {
+		return nil, err
+	}
+	message, err := args.Claim.Compile()
+	if err != nil {
+		return nil, err
+	}
+	attestation := SenderAttestation{
+		EthAddress: common.HexToAddress(respBody.Owner),
+		Message:    message,
+		Signature:  signatureBytes,
+	}
+	return &attestation, nil
 }
 
 // Gets reward claim attestations from AAO and Validators in parallel.
@@ -189,13 +230,16 @@ func fetchAttestations(
 	rewardClaim rewards.RewardClaim,
 	handle string,
 	validators []string,
-	antiAbuseOracleEndpoint string,
-	antiAbuseOracleAddress string,
+	antiAbuseOracle config.Node,
 	signature string,
 	hasAntiAbuseOracleAttestation bool,
-) (*SenderAttestation, []SenderAttestation, error) {
-	var aaoAttestation *SenderAttestation
-	validatorAttestations := make([]SenderAttestation, len(validators))
+) ([]SenderAttestation, error) {
+
+	offset := 0
+	if !hasAntiAbuseOracleAttestation {
+		offset = 1
+	}
+	attestations := make([]SenderAttestation, len(validators)+offset)
 
 	ctx, cancel := context.WithTimeout(ctx, 10*time.Second)
 	defer cancel()
@@ -203,176 +247,159 @@ func fetchAttestations(
 
 	if !hasAntiAbuseOracleAttestation {
 		innerGroup.Go(func() error {
+			aaoClaim := rewardClaim
+			aaoClaim.AntiAbuseOracleEthAddress = ""
 			getAntiAbuseAttestationParams := GetAntiAbuseOracleAttestationParams{
-				ChallengeID:             rewardClaim.RewardID,
-				Specifier:               rewardClaim.Specifier,
-				Amount:                  rewardClaim.Amount,
+				Claim:                   aaoClaim,
 				Handle:                  handle,
-				AntiAbuseOracleEndpoint: antiAbuseOracleEndpoint,
+				AntiAbuseOracleEndpoint: antiAbuseOracle.Endpoint,
 			}
-			res, err := getAntiAbuseOracleAttestation(getAntiAbuseAttestationParams)
-			if err == nil {
-				aaoAttestation = res
+			aaoAttestation, err := getAntiAbuseOracleAttestation(getAntiAbuseAttestationParams)
+			if err != nil {
+				return err
 			}
-			return err
+			attestations[0] = *aaoAttestation
+			return nil
 		})
 	}
 
 	for i, validator := range validators {
 		innerGroup.Go(func() error {
 			getValidatorAttestationParams := GetValidatorAttestationParams{
-				Validator:              validator,
-				ChallengeID:            rewardClaim.RewardID,
-				Specifier:              rewardClaim.Specifier,
-				Amount:                 rewardClaim.Amount,
-				UserEthAddress:         rewardClaim.RecipientEthAddress,
-				AntiAbuseOracleAddress: antiAbuseOracleAddress,
-				Signature:              signature,
+				Validator:      validator,
+				Claim:          rewardClaim,
+				UserEthAddress: rewardClaim.RecipientEthAddress,
+				Signature:      signature,
 			}
 			validatorAttestation, err := getValidatorAttestation(getValidatorAttestationParams)
-			if err == nil {
-				validatorAttestations[i] = *validatorAttestation
+
+			if err != nil {
+				return err
 			}
-			return err
+			attestations[i+offset] = *validatorAttestation
+			return nil
 		})
 	}
 
 	err := innerGroup.Wait()
 	if err != nil {
-		return nil, nil, err
+		return nil, err
 	}
-	return aaoAttestation, validatorAttestations, nil
+	return attestations, nil
 }
 
-// Builds a Solana transaction to claim a reward from the attestations.
-func buildRewardClaimTransaction(
+// Builds a Solana transaction to claim a reward from the attestations and sends it with retries.
+func sendRewardClaimTransactions(
+	ctx context.Context,
+	userBank solana.PublicKey,
+	rewardManagerClient *reward_manager.RewardManagerClient,
+	transactionSender *spl.TransactionSender,
 	rewardClaim rewards.RewardClaim,
-	aaoAttestation *SenderAttestation,
-	validatorAttestations []SenderAttestation,
-	solanaConfig config.SolanaConfig,
-	client *rpc.Client,
-) (*solana.Transaction, error) {
-	feePayer := solanaConfig.FeePayers[rand.IntN(len(solanaConfig.FeePayers))]
+	attestations []SenderAttestation,
+) ([]solana.Signature, error) {
+	tx := solana.NewTransactionBuilder()
 
-	bankAccount, err := claimable_tokens.DeriveUserBankAccount(solanaConfig.MintAudio, rewardClaim.RecipientEthAddress)
-	if err != nil {
-		return nil, err
-	}
+	feePayer := transactionSender.GetFeePayer()
+	tx.SetFeePayer(feePayer.PublicKey())
 
-	// Build the transaction
-	tx := solana.TransactionBuilder{}
-
-	if aaoAttestation != nil {
-		aaoAddressBytes, err := hex.DecodeString(strings.TrimPrefix(aaoAttestation.Address, "0x"))
-		if err != nil {
-			return nil, err
-		}
-
-		// Pad the start if there's a missing leading zero
-		if len(aaoAttestation.Signature)%2 == 1 {
-			aaoAttestation.Signature = "0" + aaoAttestation.Signature
-		}
-		aaoSignatureBytes, err := hex.DecodeString(aaoAttestation.Signature)
-		if err != nil {
-			return nil, err
-		}
-
-		aaoClaim := rewardClaim
-		// AAO claims don't have the oracle appended
-		aaoClaim.AntiAbuseOracleEthAddress = ""
-		aaoAttestationBytes, err := aaoClaim.Compile()
-		if err != nil {
-			return nil, err
-		}
-
-		// Add AAO attestation instructions
-		aaoSubmitAttestationSecpInstruction := secp256k1.NewSecp256k1Instruction(
-			aaoAddressBytes,
-			aaoAttestationBytes,
-			aaoSignatureBytes,
-			0,
-		).Build()
-		aaoSubmitAttestationInstruction := reward_manager.NewSubmitAttestationInstruction(
-			rewardClaim.RewardID,
-			rewardClaim.Specifier,
-			aaoAttestation.Address,
-			solanaConfig.RewardManagerState,
-			feePayer.PublicKey(),
-		).Build()
-		tx.AddInstruction(aaoSubmitAttestationSecpInstruction)
-		tx.AddInstruction(aaoSubmitAttestationInstruction)
-	}
-
-	// Add Validator attestation instructions
-	attestationBytes, err := rewardClaim.Compile()
-	if err != nil {
-		return nil, err
-	}
-	for i, attestation := range validatorAttestations {
-		instructionIndex := uint8(i*2 + 2)
-
-		senderEthAddressBytes, err := hex.DecodeString(strings.TrimPrefix(attestation.Address, "0x"))
-		if err != nil {
-			return nil, err
-		}
-
-		// Pad the start if there's a missing leading zero
-		if len(attestation.Signature)%2 == 1 {
-			attestation.Signature = "0" + attestation.Signature
-		}
-		signatureBytes, err := hex.DecodeString(strings.TrimPrefix(attestation.Signature, "0x"))
-		if err != nil {
-			return nil, err
-		}
-
+	for i, attestation := range attestations {
+		instructionIndex := uint8(i * 2)
 		submitAttestationSecpInstruction := secp256k1.NewSecp256k1Instruction(
-			senderEthAddressBytes,
-			attestationBytes,
-			signatureBytes,
+			attestation.EthAddress,
+			attestation.Message,
+			attestation.Signature,
 			instructionIndex,
 		).Build()
 		submitAttestationInstruction := reward_manager.NewSubmitAttestationInstruction(
 			rewardClaim.RewardID,
 			rewardClaim.Specifier,
-			attestation.Address,
-			solanaConfig.RewardManagerState,
+			attestation.EthAddress,
+			rewardManagerClient.GetProgramStateAccount(),
 			feePayer.PublicKey(),
 		).Build()
 		tx.AddInstruction(submitAttestationSecpInstruction)
 		tx.AddInstruction(submitAttestationInstruction)
 	}
 
-	// Add evaluate instructions
+	lookupTable, err := rewardManagerClient.GetLookupTable(ctx)
+	if err != nil {
+		return nil, err
+	}
+	addressLookupTables := map[solana.PublicKey]solana.PublicKeySlice{
+		rewardManagerClient.GetLookupTableAccount(): lookupTable.Addresses,
+	}
+
+	txSignatures := make([]solana.Signature, 0)
+
+	// If no attestations need to be submitted, don't need to split into two txs
+	if len(attestations) > 0 {
+		preTx := tx
+		preTx.WithOpt(solana.TransactionAddressTables(addressLookupTables))
+		err = transactionSender.AddPriorityFees(ctx, preTx, spl.AddPriorityFeesParams{Percentile: 99, Multiplier: 1})
+		if err != nil {
+			return nil, err
+		}
+		err = transactionSender.AddComputeBudgetLimit(ctx, preTx, spl.AddComputeBudgetLimitParams{Padding: 1000, Multiplier: 1.2})
+		if err != nil {
+			return nil, err
+		}
+		preTxBuilt, err := preTx.Build()
+		if err != nil {
+			return nil, err
+		}
+
+		preTxBinary, err := preTxBuilt.MarshalBinary()
+		if err != nil {
+			return nil, err
+		}
+
+		// Check to see if there's room for the evaluate instruction.
+		// If not, send the attestations in a separate transaction.
+		estimatedEvaluateInstructionSize := 205
+		threshold := spl.MAX_TRANSACTION_SIZE - estimatedEvaluateInstructionSize
+		if len(preTxBinary) > threshold {
+			sig, err := transactionSender.SendTransactionWithRetries(ctx, preTx, rpc.CommitmentConfirmed, rpc.TransactionOpts{})
+			if err != nil {
+				return nil, err
+			}
+			txSignatures = append(txSignatures, *sig)
+			tx = solana.NewTransactionBuilder()
+		}
+	}
+
+	state, err := rewardManagerClient.GetProgramState(ctx)
+	if err != nil {
+		return nil, err
+	}
 	evaluateAttestationInstruction := reward_manager.NewEvaluateAttestationInstruction(
 		rewardClaim.RewardID,
 		rewardClaim.Specifier,
-		rewardClaim.RecipientEthAddress,
+		common.HexToAddress(rewardClaim.RecipientEthAddress),
 		rewardClaim.Amount*1e8, // Convert to wAUDIO wei
-		rewardClaim.AntiAbuseOracleEthAddress,
-		solanaConfig.RewardManagerState,
-		rewardManagerStateData.TokenAccount,
-		bankAccount,
+		common.HexToAddress(rewardClaim.AntiAbuseOracleEthAddress),
+		rewardManagerClient.GetProgramStateAccount(),
+		state.TokenAccount,
+		userBank,
 		feePayer.PublicKey(),
 	).Build()
 	tx.AddInstruction(evaluateAttestationInstruction)
 
-	tx.SetFeePayer(feePayer.PublicKey())
-	addressLookupTables := map[solana.PublicKey]solana.PublicKeySlice{
-		solanaConfig.RewardManagerLookupTable: rewardManagerAddressLookupTable.Addresses,
-	}
 	tx.WithOpt(solana.TransactionAddressTables(addressLookupTables))
-
-	recent, err := client.GetLatestBlockhash(context.TODO(), rpc.CommitmentFinalized)
+	err = transactionSender.AddComputeBudgetLimit(ctx, tx, spl.AddComputeBudgetLimitParams{Padding: 1000, Multiplier: 1.2})
 	if err != nil {
 		return nil, err
 	}
-	tx.SetRecentBlockHash(recent.Value.Blockhash)
-
-	transaction, err := tx.Build()
+	err = transactionSender.AddPriorityFees(ctx, tx, spl.AddPriorityFeesParams{Percentile: 99, Multiplier: 1})
 	if err != nil {
 		return nil, err
 	}
-	return transaction, nil
+
+	sig, err := transactionSender.SendTransactionWithRetries(ctx, tx, rpc.CommitmentConfirmed, rpc.TransactionOpts{})
+	if err != nil {
+		return nil, err
+	}
+	txSignatures = append(txSignatures, *sig)
+	return txSignatures, nil
 }
 
 type RelayTransactionRequest struct {
@@ -382,91 +409,41 @@ type RelayTransactionResponse struct {
 	Signature string `json:"signature"`
 }
 
-// Relays transactions to the Solana Relay plugin.
-// TODO: Move Solana Relay into Bridge
-func relayTransaction(relay string, transaction *solana.Transaction) (string, error) {
-	encoded, err := transaction.ToBase64()
-	if err != nil {
-		return "", err
-	}
-
-	jsonData, err := json.Marshal(RelayTransactionRequest{Transaction: encoded})
-	if err != nil {
-		return "", err
-	}
-
-	resp, err := http.Post(relay, "application/json", bytes.NewBuffer(jsonData))
-	if err != nil {
-		return "", err
-	}
-
-	defer resp.Body.Close()
-	body, err := io.ReadAll(resp.Body)
-	if err != nil {
-		return "", err
-	}
-
-	if resp.StatusCode != 200 {
-		return "", fiber.NewError(fiber.StatusInternalServerError, "Failed to relay transaction: "+encoded+". Error "+resp.Status+": "+string(body))
-	}
-
-	parsedResp := RelayTransactionResponse{}
-	err = json.Unmarshal(body, &parsedResp)
-	if err != nil {
-		return "", err
-	}
-
-	return parsedResp.Signature, nil
-}
-
 // Claims an individual reward.
-func claimReward(ctx context.Context, row dbv1.GetUndisbursedChallengesRow, antiAbuseOracleAddress string, antiAbuseOracleEndpoint string, rewardAttester *rewards.RewardAttester, solanaConfig config.SolanaConfig, validators []config.Node) (string, error) {
-	feePayer := solanaConfig.FeePayers[rand.IntN(len(solanaConfig.FeePayers))]
-
+func claimReward(
+	ctx context.Context,
+	rewardManagerClient *reward_manager.RewardManagerClient,
+	row dbv1.GetUndisbursedChallengesRow,
+	userBank solana.PublicKey,
+	antiAbuseOracle config.Node,
+	rewardAttester *rewards.RewardAttester,
+	transactionSender *spl.TransactionSender,
+	validators []config.Node,
+) ([]solana.Signature, error) {
 	rewardClaim := rewards.RewardClaim{
 		RewardID:                  row.ChallengeID,
-		Amount:                    uint64(5), // TODO: Change me!
+		Amount:                    uint64(1000), // TODO: Change me!
 		Specifier:                 row.Specifier,
 		RecipientEthAddress:       row.Wallet.String,
-		AntiAbuseOracleEthAddress: antiAbuseOracleAddress,
+		AntiAbuseOracleEthAddress: antiAbuseOracle.DelegateOwnerWallet,
 	}
-
 	handle := row.Handle.String
 
-	// Get the RewardManagerState
-	client := rpc.New(solanaConfig.RpcProviders[0])
-	if rewardManagerStateData == nil {
-		rewardManagerStateData = &reward_manager.RewardManagerState{}
-		err := client.GetAccountDataBorshInto(ctx, solanaConfig.RewardManagerState, rewardManagerStateData)
-		if err != nil {
-			return "", err
-		}
+	rewardManagerStateData, err := rewardManagerClient.GetProgramState(ctx)
+	if err != nil {
+		return nil, err
 	}
 
-	// Get the address lookup table
-	if rewardManagerAddressLookupTable == nil {
-		rewardManagerAddressLookupTable = &spl.AddressLookupTable{}
-		err := client.GetAccountDataInto(ctx, solanaConfig.RewardManagerLookupTable, rewardManagerAddressLookupTable)
-		if err != nil {
-			return "", err
+	attestationsData, err := rewardManagerClient.GetSubmittedAttestations(ctx, rewardClaim)
+	if err != nil {
+		// If not found, then it's empty. Use default values for the purpose
+		// of getting an empty list of messages
+		if err.Error() != "not found" {
+			return nil, err
 		}
+		attestationsData = &reward_manager.AttestationsAccountData{}
 	}
 
-	// Get current claim state to do minimum work to claim
-	disbursementId := rewardClaim.RewardID + ":" + rewardClaim.Specifier
-	authority, _, err := reward_manager.DeriveAuthorityAccount(reward_manager.ProgramID, solanaConfig.RewardManagerState)
-	if err != nil {
-		return "", err
-	}
-	attestationsAccountAddress, _, err := reward_manager.DeriveAttestationsAccount(reward_manager.ProgramID, authority, disbursementId)
-	if err != nil {
-		return "", err
-	}
-	attestationsData := reward_manager.AttestationsAccountData{}
-	err = client.GetAccountDataInto(ctx, attestationsAccountAddress, &attestationsData)
-	if err != nil {
-		return "", err
-	}
 	hasAntiAbuseOracleAttestation := false
 	existingValidatorOwners := make([]string, 0)
 	for _, attestation := range attestationsData.Messages {
@@ -480,52 +457,42 @@ func claimReward(ctx context.Context, row dbv1.GetUndisbursedChallengesRow, anti
 	// Attest from Bridge to get authority signature
 	_, signature, err := rewardAttester.Attest(rewardClaim)
 	if err != nil {
-		return "", err
+		return nil, err
 	}
 
-	// Fetch AAO and  validator attestations
-	selectedValidators, err := getValidators(validators, int(rewardManagerStateData.MinVotes), existingValidatorOwners)
+	// Fetch AAO and validator attestations
+	validatorsNeeded := int(rewardManagerStateData.MinVotes) - len(existingValidatorOwners)
+	selectedValidators, err := getValidators(validators, validatorsNeeded, existingValidatorOwners)
 	if err != nil {
-		return "", err
+		return nil, err
 	}
-	aaoAttestation, validatorAttestations, err := fetchAttestations(
+	attestations, err := fetchAttestations(
 		ctx,
 		rewardClaim,
 		handle,
 		selectedValidators,
-		antiAbuseOracleEndpoint,
-		antiAbuseOracleAddress,
+		antiAbuseOracle,
 		signature,
 		hasAntiAbuseOracleAttestation,
 	)
 	if err != nil {
-		return "", err
+		return nil, err
 	}
 
-	// Build transaction
-	transaction, err := buildRewardClaimTransaction(
+	// Build and send solana transactions
+	signatures, err := sendRewardClaimTransactions(
+		ctx,
+		userBank,
+		rewardManagerClient,
+		transactionSender,
 		rewardClaim,
-		aaoAttestation,
-		validatorAttestations,
-		solanaConfig,
-		client,
+		attestations,
 	)
 	if err != nil {
-		return "", err
+		return nil, err
 	}
 
-	transaction.Sign(func(key solana.PublicKey) *solana.PrivateKey {
-		return &feePayer.PrivateKey
-	})
-
-	// Send transaction
-	txSig, err := relayTransaction(solanaConfig.SolanaRelay, transaction)
-
-	if err != nil {
-		return "", err
-	}
-
-	return txSig, nil
+	return signatures, nil
 }
 
 type HealthCheckResponse struct {
@@ -534,34 +501,40 @@ type HealthCheckResponse struct {
 
 // Selects a healthy Anti Abuse Oracle and gets its address.
 // TODO: Implement AAO in bridge and use config
-func getAntiAbuseOracle(antiAbuseOracleEndpoints []string) (endpoint string, address string, err error) {
+func getAntiAbuseOracle(antiAbuseOracleEndpoints []string) (node *config.Node, err error) {
 	oracleEndpoint := antiAbuseOracleEndpoints[rand.IntN(len(antiAbuseOracleEndpoints))]
 
 	if value, exists := antiAbuseOracleMap[oracleEndpoint]; exists {
-		return oracleEndpoint, value, nil
+		return &config.Node{
+			DelegateOwnerWallet: value,
+			Endpoint:            oracleEndpoint,
+		}, nil
 	}
 
 	resp, err := http.Get(oracleEndpoint + "/health_check")
 	if err != nil {
-		return "", "", err
+		return nil, err
 	}
 
 	defer resp.Body.Close()
 	body, err := io.ReadAll(resp.Body)
 	if err != nil {
-		return "", "", err
+		return nil, err
 	}
 	if resp.StatusCode != 200 {
-		return "", "", fiber.NewError(fiber.StatusInternalServerError, "Failed to get oracle from "+oracleEndpoint+". Error "+resp.Status+": "+string(body))
+		return nil, fiber.NewError(fiber.StatusInternalServerError, "Failed to get oracle from "+oracleEndpoint+". Error "+resp.Status+": "+string(body))
 	}
 	health := &HealthCheckResponse{}
 	err = json.Unmarshal(body, health)
 	if err != nil {
-		return "", "", err
+		return nil, err
 	}
 
 	antiAbuseOracleMap[oracleEndpoint] = health.AntiAbuseWalletPubkey
-	return oracleEndpoint, health.AntiAbuseWalletPubkey, nil
+	return &config.Node{
+		DelegateOwnerWallet: health.AntiAbuseWalletPubkey,
+		Endpoint:            oracleEndpoint,
+	}, nil
 }
 
 // Claims all the filtered undisbursed rewards for a user.
@@ -595,29 +568,57 @@ func (api *ApiServer) v1ClaimRewards(c *fiber.Ctx) error {
 		return fiber.NewError(fiber.StatusBadRequest, "No rewards to claim")
 	}
 
-	antiAbuseOracleEndpoint, antiAbuseOracleAddress, err := getAntiAbuseOracle(api.antiAbuseOracles)
-
+	antiAbuseOracle, err := getAntiAbuseOracle(api.antiAbuseOracles)
 	if err != nil {
 		return err
 	}
 
-	signatures := make([]string, len(undisbursedRows))
+	signatures := make(map[string]map[string][]solana.Signature)
 	ctx, cancel := context.WithTimeout(context.Background(), 120*time.Second)
 	defer cancel()
 	g, ctx := errgroup.WithContext(ctx)
-	for i, row := range undisbursedRows {
+	for _, row := range undisbursedRows {
+		bankAccount, err := claimable_tokens.DeriveUserBankAccount(api.solanaConfig.MintAudio, row.Wallet.String)
+		if err != nil {
+			return err
+		}
 		g.Go(func() error {
 			sig, err := claimReward(
 				ctx,
+				&api.rewardManagerClient,
 				row,
-				antiAbuseOracleAddress,
-				antiAbuseOracleEndpoint,
+				bankAccount,
+				*antiAbuseOracle,
 				&api.rewardAttester,
-				api.solanaConfig,
+				&api.transactionSender,
 				api.validators,
 			)
-			signatures[i] = sig
-			return err
+			if err != nil {
+				var instrErr *spl.InstructionError
+				if errors.As(err, &instrErr) {
+					api.logger.Error("failed to claim challenge reward. transaction failed to send.",
+						zap.String("handle", row.Handle.String),
+						zap.String("rewardId", row.ChallengeID),
+						zap.String("specifier", row.Specifier),
+						zap.String("transaction", instrErr.EncodedTransaction),
+						zap.String("customError", reward_manager.RewardManagerError(instrErr.Code).String()),
+						zap.Error(err),
+					)
+				} else {
+					api.logger.Error("failed to claim challenge reward.",
+						zap.String("handle", row.Handle.String),
+						zap.String("rewardId", row.ChallengeID),
+						zap.String("specifier", row.Specifier),
+						zap.Error(err),
+					)
+				}
+				return err
+			}
+			if signatures[row.ChallengeID] == nil {
+				signatures[row.ChallengeID] = make(map[string][]solana.Signature)
+			}
+			signatures[row.ChallengeID][row.Specifier] = sig
+			return nil
 		})
 	}
 	err = g.Wait()

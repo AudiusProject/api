@@ -7,6 +7,7 @@ import (
 	"strings"
 
 	"github.com/AudiusProject/audiusd/pkg/rewards"
+	"github.com/ethereum/go-ethereum/common"
 	bin "github.com/gagliardetto/binary"
 	"github.com/gagliardetto/solana-go"
 )
@@ -125,19 +126,15 @@ func (data *AttestationsAccountData) UnmarshalWithDecoder(decoder *bin.Decoder) 
 	return nil
 }
 
-func DeriveAuthorityAccount(programId solana.PublicKey, state solana.PublicKey) (solana.PublicKey, uint8, error) {
+func deriveAuthorityAccount(programId solana.PublicKey, state solana.PublicKey) (solana.PublicKey, uint8, error) {
 	seeds := make([][]byte, 1)
 	seeds[0] = state.Bytes()[0:32]
 	return solana.FindProgramAddress(seeds, programId)
 }
 
-func deriveSender(programId solana.PublicKey, authority solana.PublicKey, ethAddress string) (solana.PublicKey, uint8, error) {
+func deriveSender(programId solana.PublicKey, authority solana.PublicKey, ethAddress common.Address) (solana.PublicKey, uint8, error) {
 	senderSeedPrefix := []byte(SenderSeedPrefix)
-	// Remove 0x and decode hex
-	decodedEthAddress, err := hex.DecodeString(strings.TrimPrefix(ethAddress, "0x"))
-	if err != nil {
-		return solana.PublicKey{}, 0, err
-	}
+	decodedEthAddress := ethAddress.Bytes()
 	// Pad the eth address if necessary w/ leading 0
 	senderSeed := make([]byte, len(senderSeedPrefix)+EthAddressByteLength)
 	copy(senderSeed, senderSeedPrefix)
@@ -145,7 +142,7 @@ func deriveSender(programId solana.PublicKey, authority solana.PublicKey, ethAdd
 	return solana.FindProgramAddress([][]byte{authority.Bytes()[0:32], senderSeed}, programId)
 }
 
-func DeriveAttestationsAccount(programId solana.PublicKey, authority solana.PublicKey, disbursementId string) (solana.PublicKey, uint8, error) {
+func deriveAttestationsAccount(programId solana.PublicKey, authority solana.PublicKey, disbursementId string) (solana.PublicKey, uint8, error) {
 	attestationsSeed := make([]byte, len(AttestationsSeedPrefix)+len(disbursementId))
 	copy(attestationsSeed, []byte(AttestationsSeedPrefix))
 	copy(attestationsSeed[len([]byte(AttestationsSeedPrefix)):], disbursementId)
