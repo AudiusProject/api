@@ -5,6 +5,7 @@ import (
 	"testing"
 
 	"bridgerton.audius.co/api/spl/programs/reward_manager"
+	"github.com/ethereum/go-ethereum/common"
 	"github.com/gagliardetto/solana-go"
 	"github.com/stretchr/testify/require"
 )
@@ -13,9 +14,9 @@ func TestEvaluateAttestationsInstruction(t *testing.T) {
 	// Test data
 	challengeId := "ft"
 	specifier := "37364e80"
-	recipientEthAddress := "0x3f6d9fcf0d4466dd5886e3b1def017adfb7916b4"
+	recipientEthAddress := common.HexToAddress("0x3f6d9fcf0d4466dd5886e3b1def017adfb7916b4")
 	amount := uint64(200000000)
-	antiAbuseOracleEthAddress := "0x00b6462e955dA5841b6D9e1E2529B830F00f31Bf"
+	antiAbuseOracleEthAddress := common.HexToAddress("0x00b6462e955dA5841b6D9e1E2529B830F00f31Bf")
 
 	// Expected Accounts
 	// From successful stage transaction (signature 26gT9HVMhzBDzsKcsiKREYmGcXuZhjAJpCVUu9WFNhVMyKje8SdApYc4ev3HrumZB4LEXLUaPnKyriBPLmtzwrWp)
