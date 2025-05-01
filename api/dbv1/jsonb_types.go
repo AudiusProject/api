@@ -1,5 +1,11 @@
 package dbv1
 
+import (
+	"time"
+
+	"bridgerton.audius.co/trashid"
+)
+
 type RectangleImage struct {
 	X640    string   `json:"640x"`
 	X2000   string   `json:"2000x"`
@@ -28,11 +34,25 @@ type FolloweeRepost struct {
 	CreatedAt    string `json:"created_at"`
 }
 
+type FolloweeRepost2 struct {
+	RepostItemId trashid.HashId `json:"repost_item_id"`
+	RepostType   string         `json:"repost_type"`
+	UserId       trashid.HashId `json:"user_id"`
+	CreatedAt    time.Time      `json:"created_at"`
+}
+
 type FolloweeFavorite struct {
 	FavoriteItemId string `json:"favorite_item_id"`
 	FavoriteType   string `json:"favorite_type"`
 	UserId         string `json:"user_id"`
 	CreatedAt      string `json:"created_at"`
+}
+
+type FolloweeFavorite2 struct {
+	FavoriteItemId trashid.HashId `json:"favorite_item_id"`
+	FavoriteType   string         `json:"favorite_type"`
+	UserId         trashid.HashId `json:"user_id"`
+	CreatedAt      time.Time      `json:"created_at"`
 }
 
 type RemixOf struct {

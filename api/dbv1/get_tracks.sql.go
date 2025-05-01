@@ -30,7 +30,6 @@ SELECT
   t.track_id,
   description,
   genre,
-  'hashid' as id,
   track_cid,
   preview_cid,
   orig_file_cid,
@@ -113,48 +112,6 @@ SELECT
 
   is_scheduled_release,
   is_unlisted,
-
-  (
-    SELECT json_agg(
-      json_build_object(
-        'user_id', r.user_id::text,
-        'repost_item_id', repost_item_id::text, -- this is redundant
-        'repost_type', 'RepostType.track', -- some sqlalchemy bs
-        'created_at', r.created_at -- this is not actually present in python response?
-      )
-    )
-    FROM (
-      SELECT user_id, repost_item_id, reposts.created_at
-      FROM reposts
-      JOIN my_follows USING (user_id)
-      WHERE repost_item_id = t.track_id
-        AND repost_type = 'track'
-        AND reposts.is_delete = false
-      ORDER BY follower_count DESC
-      LIMIT 6
-    ) r
-  )::jsonb as followee_reposts,
-
-  (
-    SELECT json_agg(
-      json_build_object(
-        'user_id', r.user_id::text,
-        'favorite_item_id', r.save_item_id::text, -- this is redundant
-        'favorite_type', 'SaveType.track', -- some sqlalchemy bs
-        'created_at', r.created_at -- this is not actually present in python response?
-      )
-    )
-    FROM (
-      SELECT user_id, save_item_id, saves.created_at
-      FROM saves
-      JOIN my_follows USING (user_id)
-      WHERE save_item_id = t.track_id
-        AND save_type = 'track'
-        AND saves.is_delete = false
-      ORDER BY follower_count DESC
-      LIMIT 6
-    ) r
-  )::jsonb as followee_favorites,
 
   (
     SELECT json_build_object(
@@ -243,7 +200,6 @@ type GetTracksRow struct {
 	TrackID                            int32           `json:"track_id"`
 	Description                        pgtype.Text     `json:"description"`
 	Genre                              pgtype.Text     `json:"genre"`
-	ID                                 string          `json:"id"`
 	TrackCid                           pgtype.Text     `json:"track_cid"`
 	PreviewCid                         pgtype.Text     `json:"preview_cid"`
 	OrigFileCid                        pgtype.Text     `json:"orig_file_cid"`
@@ -278,8 +234,6 @@ type GetTracksRow struct {
 	HasCurrentUserSaved                bool            `json:"has_current_user_saved"`
 	IsScheduledRelease                 bool            `json:"is_scheduled_release"`
 	IsUnlisted                         bool            `json:"is_unlisted"`
-	FolloweeReposts                    json.RawMessage `json:"followee_reposts"`
-	FolloweeFavorites                  json.RawMessage `json:"followee_favorites"`
 	RemixOf                            json.RawMessage `json:"remix_of"`
 	StemOf                             []byte          `json:"stem_of"`
 	TrackSegments                      json.RawMessage `json:"track_segments"`
@@ -328,7 +282,6 @@ func (q *Queries) GetTracks(ctx context.Context, arg GetTracksParams) ([]GetTrac
 			&i.TrackID,
 			&i.Description,
 			&i.Genre,
-			&i.ID,
 			&i.TrackCid,
 			&i.PreviewCid,
 			&i.OrigFileCid,
@@ -363,8 +316,6 @@ func (q *Queries) GetTracks(ctx context.Context, arg GetTracksParams) ([]GetTrac
 			&i.HasCurrentUserSaved,
 			&i.IsScheduledRelease,
 			&i.IsUnlisted,
-			&i.FolloweeReposts,
-			&i.FolloweeFavorites,
 			&i.RemixOf,
 			&i.StemOf,
 			&i.TrackSegments,
