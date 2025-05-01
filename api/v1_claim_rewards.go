@@ -541,11 +541,11 @@ type RewardClaim struct {
 }
 
 type ClaimResult struct {
-	ChallengeID string
-	Specifier   string
-	Amount      uint64
-	Signatures  []solana.Signature
-	Err         error `json:"error,omitempty"`
+	ChallengeID string             `json:"challengeId"`
+	Specifier   string             `json:"specifier"`
+	Amount      uint64             `json:"amount"`
+	Signatures  []solana.Signature `json:"signatures"`
+	Error       string             `json:"error,omitempty"`
 }
 
 // Claims all the filtered undisbursed rewards for a user.
@@ -606,7 +606,7 @@ func (api *ApiServer) v1ClaimRewards(c *fiber.Ctx) error {
 
 			reward, err := getReward(row.ChallengeID, api.rewardAttester.Rewards)
 			if err != nil {
-				results[i].Err = err
+				results[i].Error = err.Error()
 				g.Done()
 				return
 			}
@@ -654,7 +654,7 @@ func (api *ApiServer) v1ClaimRewards(c *fiber.Ctx) error {
 						zap.Error(err),
 					)
 				}
-				results[i].Err = err
+				results[i].Error = err.Error()
 			}
 
 			results[i].Signatures = sigs
