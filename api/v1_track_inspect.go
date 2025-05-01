@@ -4,11 +4,11 @@ import (
 	"encoding/json"
 	"fmt"
 	"net/http"
-	"sync"
 
 	"bridgerton.audius.co/api/dbv1"
 	"bridgerton.audius.co/rendezvous"
 	"github.com/gofiber/fiber/v2"
+	"golang.org/x/sync/errgroup"
 )
 
 type blobInspect struct {
@@ -117,24 +117,24 @@ func (app *ApiServer) v1TracksInspect(c *fiber.Ctx) error {
 	}
 
 	infos := make([]*inspectResponse, len(tracks))
-	var wg sync.WaitGroup
-	errChan := make(chan error, len(tracks))
+	g := &errgroup.Group{}
 
 	for i, track := range tracks {
-		wg.Add(1)
-		go func(idx int, t dbv1.FullTrack) {
-			defer wg.Done()
+		idx, t := i, track // Create new variables for the goroutine
+		g.Go(func() error {
 			info, err := inspectTrack(t, original)
 			if err != nil {
 				infos[idx] = nil
-			} else {
-				infos[idx] = info
+				return err
 			}
-		}(i, track)
+			infos[idx] = info
+			return nil
+		})
 	}
 
-	wg.Wait()
-	close(errChan)
+	if err := g.Wait(); err != nil {
+		return sendError(c, 500, err.Error())
+	}
 
 	return c.JSON(map[string]any{
 		"data": infos,
