@@ -743,7 +743,6 @@ var (
 		},
 	}
 	StageNodes = []Node{
-
 		{
 			DelegateOwnerWallet: "0x8fcFA10Bd3808570987dbb5B1EF4AB74400FbfDA",
 			Endpoint:            "https://discoveryprovider.staging.audius.co",
@@ -797,6 +796,13 @@ var (
 			DelegateOwnerWallet: "0x4c88d2c0f4c4586b41621aD6e98882ae904B98f6",
 			Endpoint:            "https://creatornode11.staging.audius.co",
 			OwnerWallet:         "0x5E98cBEEAA2aCEDEc0833AC3D1634E2A7aE0f3c2",
+		},
+	}
+	DevNodes = []Node{
+		{
+			DelegateOwnerWallet: "0x0000000000000000000000000000000000000001",
+			Endpoint:            "https://dummynode.com",
+			OwnerWallet:         "0x0000000000000000000000000000000000000001",
 		},
 	}
 )

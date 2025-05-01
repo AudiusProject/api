@@ -6,14 +6,14 @@ import (
 	"github.com/jackc/pgx/v5"
 )
 
-func (app *ApiServer) v1TracksFavorites(c *fiber.Ctx) error {
+func (app *ApiServer) v1TrackReposts(c *fiber.Ctx) error {
 	sql := `
 	SELECT user_id
-	FROM saves
+	FROM reposts r
 	JOIN users u using (user_id)
 	JOIN aggregate_user au using (user_id)
-	WHERE save_type = 'track'
-	  AND save_item_id = @trackId
+	WHERE repost_type = 'track'
+	  AND repost_item_id = @trackId
 	  AND is_delete = false
 	  AND u.is_deactivated = false
 	ORDER BY follower_count desc
