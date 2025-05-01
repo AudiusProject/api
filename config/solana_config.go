@@ -22,32 +22,37 @@ type SolanaConfig struct {
 	RewardManagerLookupTable solana.PublicKey
 
 	ClaimableTokensProgramID solana.PublicKey
+
+	StakingBridgeUsdcTokenAccount solana.PublicKey
 }
 
 const (
 	// Dev
-	DevSolanaRelay              = "http://audius-protocol-discovery-provider-1/solana/relay"
-	DevMintAudio                = "37RCjhgV1qGV2Q54EHFScdxZ22ydRMdKMtVgod47fDP3"
-	DevRewardManagerProgramID   = "testLsJKtyABc9UXJF8JWFKf1YH4LmqCWBC42c6akPb"
-	DevRewardManagerState       = "DJPzVothq58SmkpRb1ATn5ddN2Rpv1j2TcGvM3XsHf1c"
-	DevRewardManagerLookupTable = "GNHKVSmHvoRBt1JJCxz7RSMfzDQGDGhGEjmhHyxb3K5J"
-	DevClaimableTokensProgramID = "testHKV1B56fbvop4w6f2cTGEub9dRQ2Euta5VmqdX9"
+	DevSolanaRelay                   = "http://audius-protocol-discovery-provider-1/solana/relay"
+	DevMintAudio                     = "37RCjhgV1qGV2Q54EHFScdxZ22ydRMdKMtVgod47fDP3"
+	DevRewardManagerProgramID        = "testLsJKtyABc9UXJF8JWFKf1YH4LmqCWBC42c6akPb"
+	DevRewardManagerState            = "DJPzVothq58SmkpRb1ATn5ddN2Rpv1j2TcGvM3XsHf1c"
+	DevRewardManagerLookupTable      = "GNHKVSmHvoRBt1JJCxz7RSMfzDQGDGhGEjmhHyxb3K5J"
+	DevClaimableTokensProgramID      = "testHKV1B56fbvop4w6f2cTGEub9dRQ2Euta5VmqdX9"
+	DevStakingBridgeUsdcTokenAccount = "GKvndGv2CoKgKQ17GUtFSc7KrFonYxhfbWeczS29MbpP"
 
 	// Stage
-	StageSolanaRelay              = "https://discoveryprovider.staging.audius.co/solana/relay"
-	StageMintAudio                = "BELGiMZQ34SDE6x2FUaML2UHDAgBLS64xvhXjX5tBBZo"
-	StageRewardManagerProgramID   = "CDpzvz7DfgbF95jSSCHLX3ERkugyfgn9Fw8ypNZ1hfXp"
-	StageRewardManagerState       = "GaiG9LDYHfZGqeNaoGRzFEnLiwUT7WiC6sA6FDJX9ZPq"
-	StageRewardManagerLookupTable = "ChFCWjeFxM6SRySTfT46zXn2K7m89TJsft4HWzEtkB4J"
-	StageClaimableTokensProgramID = "2sjQNmUfkV6yKKi4dPR8gWRgtyma5aiymE3aXL2RAZww"
+	StageSolanaRelay                   = "https://discoveryprovider.staging.audius.co/solana/relay"
+	StageMintAudio                     = "BELGiMZQ34SDE6x2FUaML2UHDAgBLS64xvhXjX5tBBZo"
+	StageRewardManagerProgramID        = "CDpzvz7DfgbF95jSSCHLX3ERkugyfgn9Fw8ypNZ1hfXp"
+	StageRewardManagerState            = "GaiG9LDYHfZGqeNaoGRzFEnLiwUT7WiC6sA6FDJX9ZPq"
+	StageRewardManagerLookupTable      = "ChFCWjeFxM6SRySTfT46zXn2K7m89TJsft4HWzEtkB4J"
+	StageClaimableTokensProgramID      = "2sjQNmUfkV6yKKi4dPR8gWRgtyma5aiymE3aXL2RAZww"
+	StageStakingBridgeUsdcTokenAccount = "GKvndGv2CoKgKQ17GUtFSc7KrFonYxhfbWeczS29MbpP"
 
 	// Prod
-	ProdSolanaRelay              = "https://discoveryprovider.audius.co/solana/relay"
-	ProdMintAudio                = "9LzCMqDgTKYz9Drzqnpgee3SGa89up3a247ypMj2xrqM"
-	ProdRewardManagerProgramID   = "DDZDcYdQFEMwcu2Mwo75yGFjJ1mUQyyXLWzhZLEVFcei"
-	ProdRewardManagerState       = "71hWFVYokLaN1PNYzTAWi13EfJ7Xt9VbSWUKsXUT8mxE"
-	ProdRewardManagerLookupTable = "4UQwpGupH66RgQrWRqmPM9Two6VJEE68VZ7GeqZ3mvVv"
-	ProdClaimableTokensProgramID = "Ewkv3JahEFRKkcJmpoKB7pXbnUHwjAyXiwEo4ZY2rezQ"
+	ProdSolanaRelay                   = "https://discoveryprovider.audius.co/solana/relay"
+	ProdMintAudio                     = "9LzCMqDgTKYz9Drzqnpgee3SGa89up3a247ypMj2xrqM"
+	ProdRewardManagerProgramID        = "DDZDcYdQFEMwcu2Mwo75yGFjJ1mUQyyXLWzhZLEVFcei"
+	ProdRewardManagerState            = "71hWFVYokLaN1PNYzTAWi13EfJ7Xt9VbSWUKsXUT8mxE"
+	ProdRewardManagerLookupTable      = "4UQwpGupH66RgQrWRqmPM9Two6VJEE68VZ7GeqZ3mvVv"
+	ProdClaimableTokensProgramID      = "Ewkv3JahEFRKkcJmpoKB7pXbnUHwjAyXiwEo4ZY2rezQ"
+	ProdStakingBridgeUsdcTokenAccount = "7vGA3fcjvxa3A11MAxmyhFtYowPLLCNyvoxxgN3NN2Vf"
 )
 
 func NewSolanaConfig() SolanaConfig {
@@ -80,6 +85,7 @@ func NewSolanaConfig() SolanaConfig {
 		cfg.RewardManagerState = solana.MustPublicKeyFromBase58(DevRewardManagerState)
 		cfg.RewardManagerLookupTable = solana.MustPublicKeyFromBase58(DevRewardManagerLookupTable)
 		cfg.ClaimableTokensProgramID = solana.MustPublicKeyFromBase58(DevClaimableTokensProgramID)
+		cfg.StakingBridgeUsdcTokenAccount = solana.MustPublicKeyFromBase58(DevStakingBridgeUsdcTokenAccount)
 	case "stage":
 		fallthrough
 	case "staging":
@@ -89,6 +95,7 @@ func NewSolanaConfig() SolanaConfig {
 		cfg.RewardManagerState = solana.MustPublicKeyFromBase58(StageRewardManagerState)
 		cfg.RewardManagerLookupTable = solana.MustPublicKeyFromBase58(StageRewardManagerLookupTable)
 		cfg.ClaimableTokensProgramID = solana.MustPublicKeyFromBase58(StageClaimableTokensProgramID)
+		cfg.StakingBridgeUsdcTokenAccount = solana.MustPublicKeyFromBase58(StageStakingBridgeUsdcTokenAccount)
 	case "prod":
 		fallthrough
 	case "production":
@@ -98,6 +105,7 @@ func NewSolanaConfig() SolanaConfig {
 		cfg.RewardManagerState = solana.MustPublicKeyFromBase58(ProdRewardManagerState)
 		cfg.RewardManagerLookupTable = solana.MustPublicKeyFromBase58(ProdRewardManagerLookupTable)
 		cfg.ClaimableTokensProgramID = solana.MustPublicKeyFromBase58(ProdClaimableTokensProgramID)
+		cfg.StakingBridgeUsdcTokenAccount = solana.MustPublicKeyFromBase58(ProdStakingBridgeUsdcTokenAccount)
 	default:
 		log.Fatalf("Unknown environment: %s", env)
 	}
