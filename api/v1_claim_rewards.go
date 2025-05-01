@@ -413,9 +413,9 @@ func claimReward(
 	ctx context.Context,
 	rewardClaim RewardClaim,
 	rewardManagerClient *reward_manager.RewardManagerClient,
-	antiAbuseOracle config.Node,
 	rewardAttester *rewards.RewardAttester,
 	transactionSender *spl.TransactionSender,
+	antiAbuseOracle config.Node,
 	validators []config.Node,
 ) ([]solana.Signature, error) {
 
@@ -629,9 +629,9 @@ func (api *ApiServer) v1ClaimRewards(c *fiber.Ctx) error {
 				ctx,
 				rewardClaim,
 				&api.rewardManagerClient,
-				*antiAbuseOracle,
 				&api.rewardAttester,
 				&api.transactionSender,
+				*antiAbuseOracle,
 				api.validators,
 			)
 
