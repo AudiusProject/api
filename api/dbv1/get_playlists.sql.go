@@ -14,6 +14,18 @@ import (
 )
 
 const getPlaylists = `-- name: GetPlaylists :many
+WITH my_follows AS (
+  SELECT
+    followee_user_id as user_id,
+    follower_count
+  FROM follows
+  JOIN aggregate_user ON followee_user_id = user_id
+  WHERE $1 > 0
+    AND follower_user_id = $1
+    AND follows.is_delete = false
+  ORDER BY follower_count DESC
+  LIMIT 5000
+)
 SELECT
   -- artwork
   p.description,
@@ -79,8 +91,7 @@ SELECT
     FROM (
       SELECT user_id, repost_item_id, reposts.created_at
       FROM reposts
-      JOIN follows ON followee_user_id = reposts.user_id AND follower_user_id = $1
-      JOIN aggregate_user USING (user_id)
+      JOIN my_follows USING (user_id)
       WHERE repost_item_id = p.playlist_id
         AND repost_type != 'track'
         AND reposts.is_delete = false
@@ -101,8 +112,7 @@ SELECT
     FROM (
       SELECT user_id, save_item_id, saves.created_at
       FROM saves
-      JOIN follows ON followee_user_id = saves.user_id AND follower_user_id = $1
-      JOIN aggregate_user USING (user_id)
+      JOIN my_follows USING (user_id)
       WHERE save_item_id = p.playlist_id
         AND save_type != 'track'
         AND saves.is_delete = false
