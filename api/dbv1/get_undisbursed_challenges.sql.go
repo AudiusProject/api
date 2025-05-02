@@ -25,7 +25,7 @@ LEFT JOIN challenge_disbursements
 WHERE
     challenge_disbursements.challenge_id IS NULL
     AND user_challenges.is_complete
-    AND ($1::int = -1 OR user_challenges.user_id = $1)
+    AND user_challenges.user_id = $1
     AND ($2::text = '' OR user_challenges.challenge_id = $2)
     AND ($3::text = '' OR user_challenges.specifier = $3)
 `
