@@ -1,7 +1,6 @@
 package api
 
 import (
-	"log"
 	"strconv"
 
 	"bridgerton.audius.co/api/dbv1"
@@ -21,8 +20,10 @@ func (app *ApiServer) v1UsersManagers(c *fiber.Ctx) error {
 		isApproved = &parsed
 	}
 
-	isRevoked := c.QueryBool("is_revoked", false)
-	log.Printf("isApproved: %v, isRevoked: %v", isApproved, isRevoked)
+	isRevoked, err := strconv.ParseBool(c.Query("is_revoked", "false"))
+	if err != nil {
+		return fiber.NewError(fiber.StatusBadRequest, "Invalid value for is_revoked")
+	}
 	params := dbv1.GetGrantsForUserIdParams{
 		UserID:     int32(c.Locals("userId").(int)),
 		IsApproved: pgtype.Bool{Bool: isApproved != nil && *isApproved, Valid: isApproved != nil},
