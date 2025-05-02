@@ -90,6 +90,11 @@ sql:
               type: "AccessGate"
               pointer: true
 
+          - column: "events.event_data"
+            go_type:
+              type: "EventData"
+              pointer: true
+
           - column: "playlists.stream_conditions"
             go_type:
               type: "AccessGate"
