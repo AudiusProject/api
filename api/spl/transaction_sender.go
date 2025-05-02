@@ -50,7 +50,7 @@ type InstructionError struct {
 }
 
 func (e *InstructionError) Error() string {
-	return fmt.Sprintf("instruction error. index: %d, type: %s, code: %d", e.Index, e.Type, e.Code)
+	return fmt.Sprintf("instruction error. index: %d, type: %s, code: %d, transaction: %s", e.Index, e.Type, e.Code, e.EncodedTransaction)
 }
 
 type AddComputeBudgetLimitParams struct {
@@ -91,12 +91,12 @@ func (ts *TransactionSender) AddComputeBudgetLimit(ctx context.Context, tx *sola
 		if err != nil {
 			return fmt.Errorf("failed to set compute budget limit. simulation failed: %s", simResult.Value.Err)
 		}
-		instErr := InstructionError{}
+		instErr := InstructionError{EncodedTransaction: builtTx.MustToBase64()}
 		err = json.Unmarshal(str, &instErr)
 		if err != nil {
 			return fmt.Errorf("failed to set compute budget limit. simulation failed: %s", str)
 		}
-		return fmt.Errorf("failed to set compute budget limit. simulation failed: %w", &instErr)
+		return fmt.Errorf("failed to set compute budget limit. simulation failed: %w, logs: %s", &instErr, simResult.Value.Logs)
 	}
 
 	if simResult.Value.UnitsConsumed == nil || *simResult.Value.UnitsConsumed == uint64(0) {
@@ -344,7 +344,7 @@ func makeWebsocketUrl(endpoint string) (string, error) {
 
 	websocketPort := ""
 	if startPort > 0 {
-		websocketPort = strconv.FormatInt(int64(startPort+1), 10)
+		websocketPort = ":" + strconv.FormatInt(int64(startPort+1), 10)
 	}
 	return fmt.Sprintf("%s//%s%s%s", protocol, hostish, websocketPort, rest), nil
 }

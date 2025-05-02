@@ -800,9 +800,25 @@ var (
 	}
 	DevNodes = []Node{
 		{
-			DelegateOwnerWallet: "0x0000000000000000000000000000000000000001",
-			Endpoint:            "https://dummynode.com",
-			OwnerWallet:         "0x0000000000000000000000000000000000000001",
+			DelegateOwnerWallet: "0x73EB6d82CFB20bA669e9c178b718d770C49BB52f",
+			Endpoint:            "http://audius-protocol-discovery-provider-1",
+			OwnerWallet:         "0x73EB6d82CFB20bA669e9c178b718d770C49BB52f",
+			IsStorageDisabled:   true,
+		},
+		{
+			DelegateOwnerWallet: "0x0D38e653eC28bdea5A2296fD5940aaB2D0B8875c",
+			Endpoint:            "http://audius-protocol-creator-node-1",
+			OwnerWallet:         "0x0D38e653eC28bdea5A2296fD5940aaB2D0B8875c",
+		},
+		{
+			DelegateOwnerWallet: "0x1B569e8f1246907518Ff3386D523dcF373e769B6",
+			Endpoint:            "http://audius-protocol-creator-node-2",
+			OwnerWallet:         "0x1B569e8f1246907518Ff3386D523dcF373e769B6",
+		},
+		{
+			DelegateOwnerWallet: "0xCBB025e7933FADfc7C830AE520Fb2FD6D28c1065",
+			Endpoint:            "http://audius-protocol-creator-node-3",
+			OwnerWallet:         "0xCBB025e7933FADfc7C830AE520Fb2FD6D28c1065",
 		},
 	}
 )
