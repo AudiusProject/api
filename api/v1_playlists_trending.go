@@ -10,8 +10,6 @@ import (
 
 func (app *ApiServer) v1PlaylistsTrending(c *fiber.Ctx) error {
 	myId := app.getMyId(c)
-	authedUserId := app.getAuthedUserId(c)
-	authedWallet := app.getAuthedWallet(c)
 
 	sql := `
 	SELECT
@@ -45,9 +43,6 @@ func (app *ApiServer) v1PlaylistsTrending(c *fiber.Ctx) error {
 			Ids:  ids,
 			MyID: myId,
 		},
-		AuthedUserId:        authedUserId,
-		AuthedWallet:        authedWallet,
-		IsAuthorizedRequest: app.isAuthorizedRequest,
 	})
 
 	return c.Status(http.StatusOK).JSON(fiber.Map{

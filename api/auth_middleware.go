@@ -100,37 +100,57 @@ func (app *ApiServer) getAuthedWallet(c *fiber.Ctx) string {
 }
 
 // Middleware to set authedUserId and authedWallet in context
+// Returns a 403 if either
+// - the user is not authorized to act on behalf of "myId"
+// - the user is not authorized to act on behalf of "requestedWallet"
 func (app *ApiServer) authMiddleware(c *fiber.Ctx) error {
 	userId, wallet := app.recoverAuthorityFromSignatureHeaders(c)
 	c.Locals("authedUserId", userId)
 	c.Locals("authedWallet", wallet)
+	fmt.Println("authMiddleware", userId, wallet)
+
+	myId := app.getMyId(c)
+	requestedWallet := c.Params("wallet")
+
+	// Not authorized to act on behalf of myId
+	if myId != 0 {
+		if userId != myId && !app.isAuthorizedRequest(c.Context(), myId, wallet) {
+			return fiber.NewError(
+				fiber.StatusForbidden,
+				fmt.Sprintf(
+					"You are not authorized to make this request authedUserId=%d authedWallet=%s myId=%d",
+					userId,
+					wallet,
+					myId,
+				),
+			)
+		}
+	}
+
+	// Not authorized to act on behalf of requestedWallet
+	if requestedWallet != "" && wallet != "" {
+		if !strings.EqualFold(requestedWallet, wallet) {
+			return fiber.NewError(
+				fiber.StatusForbidden,
+				fmt.Sprintf(
+					"You are not authorized to make this request authedUserId=%d authedWallet=%s requestedWallet=%s",
+					userId,
+					wallet,
+					requestedWallet,
+				),
+			)
+		}
+	}
 
 	return c.Next()
 }
 
-// Middleware that asserts the authedUserId is valid and is the same as the userId in
-// the request path or a managed user of the authedUserId
+// Middleware that asserts that there is an authedUserId
 func (app *ApiServer) requireAuthMiddleware(c *fiber.Ctx) error {
 	authedUserId := app.getAuthedUserId(c)
-	authedWallet := app.getAuthedWallet(c)
-	myId := app.getMyId(c)
-	wallet := c.Params("wallet")
 	if authedUserId == 0 {
 		return fiber.NewError(fiber.StatusUnauthorized, "You must be logged in to make this request")
 	}
 
-	if myId != 0 && myId == authedUserId {
-		return c.Next()
-	}
-
-	if wallet != "" && strings.EqualFold(wallet, authedWallet) {
-		return c.Next()
-	}
-
-	if app.isAuthorizedRequest(c.Context(), myId, authedWallet) {
-		return c.Next()
-	}
-
-	msg := fmt.Sprintf("You are not authorized to make this request authedUserId=%d authedWallet=%s myId=%d wallet=%s", authedUserId, authedWallet, myId, wallet)
-	return fiber.NewError(fiber.StatusForbidden, msg)
+	return c.Next()
 }

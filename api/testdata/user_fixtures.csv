@@ -1,12 +1,13 @@
 user_id,handle,handle_lc,is_deactivated,wallet,playlist_library
 1,rayjacobson,rayjacobson,f,0x7d273271690538cf855e5b3002a0dd8c154bb060,"{""contents"":[{""type"":""playlist"",""playlist_id"":""123""},{""type"":""explore_playlist"",""playlist_id"":""Audio NFTs""},{""type"":""folder"",""id"":""bbcae31a-7cd2-4a1a-8b54-fdc979a34435"",""name"":""My Nested Playlists"",""contents"":[{""type"":""playlist"",""playlist_id"":""345""}]}]}"
 2,stereosteve,stereosteve,f,0x1234567890abcdef,
-3,someseller,someseller,f,0x234567890abcdef1,
-4,accesstester,accesstester,f,0x34567890abcdef12,
+3,someseller,someseller,f,0xc3d1d41e6872ffbd15c473d14fc3a9250be5b5e0,
+4,accesstester,accesstester,f,0x4954d18926ba0ed9378938444731be4e622537b2,
 5,guyintrending,guyintrending,f,0x34567890abcdef13,
 6,TracksByPermalink,tracksbypermalink,f,0xffffffffff,
 7,PlaylistsByPermalink,playlistsbypermalink,f,0xffffffffff,
 8,AlbumsByPermalink,albumsbypermalink,f,0xffffffffff,
+11,somebuyer,somebuyer,f,0x855d28d495ec1b06364bb7a521212753e2190b95,
 91,badguy,badguy,t,0x4567890abcdef123,
 100,authtest1,authtest1,f,0x681c616ae836ceca1effe00bd07f2fdbf9a082bc,
 101,authtest2,authtest2,f,0xc451c1f8943b575158310552b41230c61844a1c1,

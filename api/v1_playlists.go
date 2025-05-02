@@ -7,8 +7,6 @@ import (
 
 func (app *ApiServer) v1playlists(c *fiber.Ctx) error {
 	myId := app.getMyId(c)
-	authedUserId := app.getAuthedUserId(c)
-	authedWallet := app.getAuthedWallet(c)
 	ids := decodeIdList(c)
 
 	// Add permalink ID mappings
@@ -41,9 +39,6 @@ func (app *ApiServer) v1playlists(c *fiber.Ctx) error {
 			MyID: myId,
 			Ids:  ids,
 		},
-		AuthedUserId:        authedUserId,
-		AuthedWallet:        authedWallet,
-		IsAuthorizedRequest: app.isAuthorizedRequest,
 	})
 	if err != nil {
 		return err

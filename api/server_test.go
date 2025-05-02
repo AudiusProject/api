@@ -160,7 +160,7 @@ func Test200UnAuthed(t *testing.T) {
 			u += "?user_id=7eP5n"
 		}
 
-		status, _ = testGet(t, u)
+		status, _ = testGetWithWallet(t, u, "0x7d273271690538cf855e5b3002a0dd8c154bb060")
 		require.Equal(t, 200, status, u+" "+string(body))
 	}
 }

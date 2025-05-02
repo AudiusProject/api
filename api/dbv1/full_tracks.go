@@ -12,9 +12,6 @@ import (
 
 type FullTracksParams struct {
 	GetTracksParams
-	AuthedUserId        int32
-	AuthedWallet        string
-	IsAuthorizedRequest func(ctx context.Context, userId int32, authedWallet string) bool
 }
 
 type FullTrack struct {
@@ -120,9 +117,6 @@ func (q *Queries) FullTracksKeyed(ctx context.Context, arg FullTracksParams) (ma
 		downloadAccess := q.GetTrackAccess(
 			ctx,
 			arg.MyID.(int32),
-			arg.AuthedUserId,
-			arg.AuthedWallet,
-			arg.IsAuthorizedRequest,
 			downloadConditions,
 			&track,
 			&user,
@@ -132,9 +126,6 @@ func (q *Queries) FullTracksKeyed(ctx context.Context, arg FullTracksParams) (ma
 		streamAccess := downloadAccess || q.GetTrackAccess(
 			ctx,
 			arg.MyID.(int32),
-			arg.AuthedUserId,
-			arg.AuthedWallet,
-			arg.IsAuthorizedRequest,
 			track.StreamConditions,
 			&track,
 			&user,

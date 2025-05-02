@@ -7,13 +7,10 @@ import (
 )
 
 type ParallelParams struct {
-	UserIds             []int32
-	TrackIds            []int32
-	PlaylistIds         []int32
-	MyID                int32
-	AuthedUserId        int32
-	AuthedWallet        string
-	IsAuthorizedRequest func(ctx context.Context, userId int32, authedWallet string) bool
+	UserIds     []int32
+	TrackIds    []int32
+	PlaylistIds []int32
+	MyID        int32
 }
 
 type ParallelResult struct {
@@ -48,9 +45,6 @@ func (q *Queries) Parallel(ctx context.Context, arg ParallelParams) (*ParallelRe
 					Ids:  arg.TrackIds,
 					MyID: arg.MyID,
 				},
-				AuthedUserId:        arg.AuthedUserId,
-				AuthedWallet:        arg.AuthedWallet,
-				IsAuthorizedRequest: arg.IsAuthorizedRequest,
 			})
 			return err
 		})
@@ -64,9 +58,6 @@ func (q *Queries) Parallel(ctx context.Context, arg ParallelParams) (*ParallelRe
 					Ids:  arg.PlaylistIds,
 					MyID: arg.MyID,
 				},
-				AuthedUserId:        arg.AuthedUserId,
-				AuthedWallet:        arg.AuthedWallet,
-				IsAuthorizedRequest: arg.IsAuthorizedRequest,
 			})
 			return err
 		})

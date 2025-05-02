@@ -7,8 +7,6 @@ import (
 
 func (app *ApiServer) v1TracksTrending(c *fiber.Ctx) error {
 	myId := app.getMyId(c)
-	authedUserId := app.getAuthedUserId(c)
-	authedWallet := app.getAuthedWallet(c)
 
 	trackIds, err := app.getTrendingIds(
 		c,
@@ -27,9 +25,6 @@ func (app *ApiServer) v1TracksTrending(c *fiber.Ctx) error {
 			Ids:  trackIds,
 			MyID: myId,
 		},
-		AuthedUserId:        authedUserId,
-		AuthedWallet:        authedWallet,
-		IsAuthorizedRequest: app.isAuthorizedRequest,
 	})
 
 	if err != nil {

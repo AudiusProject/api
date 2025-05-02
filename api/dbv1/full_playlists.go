@@ -10,9 +10,6 @@ import (
 
 type FullPlaylistsParams struct {
 	GetPlaylistsParams
-	AuthedUserId        int32
-	AuthedWallet        string
-	IsAuthorizedRequest func(ctx context.Context, userId int32, authedWallet string) bool
 }
 
 type FullPlaylist struct {
@@ -98,9 +95,6 @@ func (q *Queries) FullPlaylistsKeyed(ctx context.Context, arg FullPlaylistsParam
 		streamAccess := q.GetPlaylistAccess(
 			ctx,
 			arg.MyID.(int32),
-			arg.AuthedUserId,
-			arg.AuthedWallet,
-			arg.IsAuthorizedRequest,
 			playlist.StreamConditions,
 			&playlist,
 			&user)

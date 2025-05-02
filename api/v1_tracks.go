@@ -9,8 +9,6 @@ import (
 func (app *ApiServer) v1Tracks(c *fiber.Ctx) error {
 	myId, _ := trashid.DecodeHashId(c.Query("user_id"))
 	ids := decodeIdList(c)
-	authedUserId := app.getAuthedUserId(c)
-	authedWallet := app.getAuthedWallet(c)
 
 	// Add permalink ID mappings
 	permalinks := queryMutli(c, "permalink")
@@ -42,9 +40,6 @@ func (app *ApiServer) v1Tracks(c *fiber.Ctx) error {
 			MyID: int32(myId),
 			Ids:  ids,
 		},
-		AuthedUserId:        authedUserId,
-		AuthedWallet:        authedWallet,
-		IsAuthorizedRequest: app.isAuthorizedRequest,
 	})
 	if err != nil {
 		return err

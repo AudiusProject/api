@@ -7,8 +7,6 @@ import (
 
 func (app *ApiServer) v1TrackDownload(c *fiber.Ctx) error {
 	myId := app.getMyId(c)
-	authedUserId := app.getAuthedUserId(c)
-	authedWallet := app.getAuthedWallet(c)
 	trackId := c.Locals("trackId").(int)
 	filename := c.Query("filename")
 
@@ -17,9 +15,6 @@ func (app *ApiServer) v1TrackDownload(c *fiber.Ctx) error {
 			MyID: myId,
 			Ids:  []int32{int32(trackId)},
 		},
-		AuthedUserId:        authedUserId,
-		AuthedWallet:        authedWallet,
-		IsAuthorizedRequest: app.isAuthorizedRequest,
 	})
 	if err != nil {
 		return err

@@ -7,8 +7,6 @@ import (
 
 func (app *ApiServer) v1Playlist(c *fiber.Ctx) error {
 	myId := app.getMyId(c)
-	authedUserId := app.getAuthedUserId(c)
-	authedWallet := app.getAuthedWallet(c)
 	playlistId := c.Locals("playlistId").(int)
 
 	playlists, err := app.queries.FullPlaylists(c.Context(), dbv1.FullPlaylistsParams{
@@ -16,9 +14,6 @@ func (app *ApiServer) v1Playlist(c *fiber.Ctx) error {
 			MyID: myId,
 			Ids:  []int32{int32(playlistId)},
 		},
-		AuthedUserId:        authedUserId,
-		AuthedWallet:        authedWallet,
-		IsAuthorizedRequest: app.isAuthorizedRequest,
 	})
 	if err != nil {
 		return err

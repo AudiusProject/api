@@ -10,8 +10,6 @@ import (
 
 func (app *ApiServer) v1UsersLibraryPlaylists(c *fiber.Ctx) error {
 	myId := app.getMyId(c)
-	authedUserId := app.getAuthedUserId(c)
-	authedWallet := app.getAuthedWallet(c)
 
 	playlistType := "playlist"
 	if c.Params("playlistType") == "albums" {
@@ -135,9 +133,6 @@ func (app *ApiServer) v1UsersLibraryPlaylists(c *fiber.Ctx) error {
 			Ids:  ids,
 			MyID: myId,
 		},
-		AuthedUserId:        authedUserId,
-		AuthedWallet:        authedWallet,
-		IsAuthorizedRequest: app.isAuthorizedRequest,
 	})
 
 	// attach

@@ -73,8 +73,6 @@ func inspectTrack(track dbv1.FullTrack, original bool) (*inspectResponse, error)
 
 func (app *ApiServer) v1TrackInspect(c *fiber.Ctx) error {
 	myId := app.getMyId(c)
-	authedUserId := app.getAuthedUserId(c)
-	authedWallet := app.getAuthedWallet(c)
 	trackId := c.Locals("trackId").(int)
 	original := c.Query("original") == "true"
 
@@ -83,9 +81,6 @@ func (app *ApiServer) v1TrackInspect(c *fiber.Ctx) error {
 			MyID: myId,
 			Ids:  []int32{int32(trackId)},
 		},
-		AuthedUserId:        authedUserId,
-		AuthedWallet:        authedWallet,
-		IsAuthorizedRequest: app.isAuthorizedRequest,
 	})
 	if err != nil {
 		return err
@@ -108,8 +103,6 @@ func (app *ApiServer) v1TrackInspect(c *fiber.Ctx) error {
 
 func (app *ApiServer) v1TracksInspect(c *fiber.Ctx) error {
 	myId := app.getMyId(c)
-	authedUserId := app.getAuthedUserId(c)
-	authedWallet := app.getAuthedWallet(c)
 	ids := decodeIdList(c)
 	original := c.Query("original") == "true"
 
@@ -118,9 +111,6 @@ func (app *ApiServer) v1TracksInspect(c *fiber.Ctx) error {
 			MyID: myId,
 			Ids:  ids,
 		},
-		AuthedUserId:        authedUserId,
-		AuthedWallet:        authedWallet,
-		IsAuthorizedRequest: app.isAuthorizedRequest,
 	})
 	if err != nil {
 		return err

@@ -16,8 +16,6 @@ import (
 
 func (app *ApiServer) v1UsersLibraryTracks(c *fiber.Ctx) error {
 	myId := app.getMyId(c)
-	authedUserId := app.getAuthedUserId(c)
-	authedWallet := app.getAuthedWallet(c)
 
 	sortField := "item_created_at"
 	switch c.Query("sort_method") {
@@ -137,9 +135,6 @@ func (app *ApiServer) v1UsersLibraryTracks(c *fiber.Ctx) error {
 			Ids:  trackIds,
 			MyID: myId,
 		},
-		AuthedUserId:        authedUserId,
-		AuthedWallet:        authedWallet,
-		IsAuthorizedRequest: app.isAuthorizedRequest,
 	})
 
 	// attach
