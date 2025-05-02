@@ -8,6 +8,8 @@ import (
 
 func (app *ApiServer) v1UserTracks(c *fiber.Ctx) error {
 	myId := app.getMyId(c)
+	authedUserId := app.getAuthedUserId(c)
+	authedWallet := app.getAuthedWallet(c)
 
 	sortDir := "DESC"
 	if c.Query("sort_direction") == "asc" {
@@ -55,9 +57,14 @@ func (app *ApiServer) v1UserTracks(c *fiber.Ctx) error {
 		return err
 	}
 
-	tracks, err := app.queries.FullTracks(c.Context(), dbv1.GetTracksParams{
-		Ids:  ids,
-		MyID: myId,
+	tracks, err := app.queries.FullTracks(c.Context(), dbv1.FullTracksParams{
+		GetTracksParams: dbv1.GetTracksParams{
+			Ids:  ids,
+			MyID: myId,
+		},
+		AuthedUserId:        authedUserId,
+		AuthedWallet:        authedWallet,
+		IsAuthorizedRequest: app.isAuthorizedRequest,
 	})
 	if err != nil {
 		return err

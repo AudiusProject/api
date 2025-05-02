@@ -9,6 +9,10 @@ import (
 )
 
 func (app *ApiServer) v1PlaylistsTrending(c *fiber.Ctx) error {
+	myId := app.getMyId(c)
+	authedUserId := app.getAuthedUserId(c)
+	authedWallet := app.getAuthedWallet(c)
+
 	sql := `
 	SELECT
 		save_item_id as playlist_id
@@ -36,9 +40,14 @@ func (app *ApiServer) v1PlaylistsTrending(c *fiber.Ctx) error {
 		return err
 	}
 
-	playlists, err := app.queries.FullPlaylists(c.Context(), dbv1.GetPlaylistsParams{
-		Ids:  ids,
-		MyID: app.getMyId(c),
+	playlists, err := app.queries.FullPlaylists(c.Context(), dbv1.FullPlaylistsParams{
+		GetPlaylistsParams: dbv1.GetPlaylistsParams{
+			Ids:  ids,
+			MyID: myId,
+		},
+		AuthedUserId:        authedUserId,
+		AuthedWallet:        authedWallet,
+		IsAuthorizedRequest: app.isAuthorizedRequest,
 	})
 
 	return c.Status(http.StatusOK).JSON(fiber.Map{

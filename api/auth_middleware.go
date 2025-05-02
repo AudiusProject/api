@@ -1,6 +1,7 @@
 package api
 
 import (
+	"context"
 	"fmt"
 	"strings"
 
@@ -62,14 +63,14 @@ func (app *ApiServer) recoverAuthorityFromSignatureHeaders(c *fiber.Ctx) (int32,
 }
 
 // Checks if authedWallet is authorized to act on behalf of userId
-func (app *ApiServer) isAuthorizedRequest(c *fiber.Ctx, userId int32, authedWallet string) bool {
+func (app *ApiServer) isAuthorizedRequest(ctx context.Context, userId int32, authedWallet string) bool {
 	cacheKey := fmt.Sprintf("%d:%s", userId, authedWallet)
 	if hit, ok := app.resolveGrantCache.Get(cacheKey); ok {
 		return hit
 	}
 
 	var isAuthorized bool
-	err := app.pool.QueryRow(c.Context(), `
+	err := app.pool.QueryRow(ctx, `
 			SELECT EXISTS (
 				SELECT 1
 				FROM grants
@@ -126,7 +127,7 @@ func (app *ApiServer) requireAuthMiddleware(c *fiber.Ctx) error {
 		return c.Next()
 	}
 
-	if app.isAuthorizedRequest(c, myId, authedWallet) {
+	if app.isAuthorizedRequest(c.Context(), myId, authedWallet) {
 		return c.Next()
 	}
 

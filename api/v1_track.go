@@ -7,11 +7,18 @@ import (
 
 func (app *ApiServer) v1Track(c *fiber.Ctx) error {
 	myId := app.getMyId(c)
+	authedUserId := app.getAuthedUserId(c)
+	authedWallet := app.getAuthedWallet(c)
 	trackId := c.Locals("trackId").(int)
 
-	tracks, err := app.queries.FullTracks(c.Context(), dbv1.GetTracksParams{
-		MyID: myId,
-		Ids:  []int32{int32(trackId)},
+	tracks, err := app.queries.FullTracks(c.Context(), dbv1.FullTracksParams{
+		GetTracksParams: dbv1.GetTracksParams{
+			MyID: myId,
+			Ids:  []int32{int32(trackId)},
+		},
+		AuthedUserId:        authedUserId,
+		AuthedWallet:        authedWallet,
+		IsAuthorizedRequest: app.isAuthorizedRequest,
 	})
 	if err != nil {
 		return err

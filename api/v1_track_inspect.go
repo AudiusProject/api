@@ -73,12 +73,19 @@ func inspectTrack(track dbv1.FullTrack, original bool) (*inspectResponse, error)
 
 func (app *ApiServer) v1TrackInspect(c *fiber.Ctx) error {
 	myId := app.getMyId(c)
+	authedUserId := app.getAuthedUserId(c)
+	authedWallet := app.getAuthedWallet(c)
 	trackId := c.Locals("trackId").(int)
 	original := c.Query("original") == "true"
 
-	tracks, err := app.queries.FullTracks(c.Context(), dbv1.GetTracksParams{
-		MyID: myId,
-		Ids:  []int32{int32(trackId)},
+	tracks, err := app.queries.FullTracks(c.Context(), dbv1.FullTracksParams{
+		GetTracksParams: dbv1.GetTracksParams{
+			MyID: myId,
+			Ids:  []int32{int32(trackId)},
+		},
+		AuthedUserId:        authedUserId,
+		AuthedWallet:        authedWallet,
+		IsAuthorizedRequest: app.isAuthorizedRequest,
 	})
 	if err != nil {
 		return err
@@ -101,12 +108,19 @@ func (app *ApiServer) v1TrackInspect(c *fiber.Ctx) error {
 
 func (app *ApiServer) v1TracksInspect(c *fiber.Ctx) error {
 	myId := app.getMyId(c)
+	authedUserId := app.getAuthedUserId(c)
+	authedWallet := app.getAuthedWallet(c)
 	ids := decodeIdList(c)
 	original := c.Query("original") == "true"
 
-	tracks, err := app.queries.FullTracks(c.Context(), dbv1.GetTracksParams{
-		MyID: myId,
-		Ids:  ids,
+	tracks, err := app.queries.FullTracks(c.Context(), dbv1.FullTracksParams{
+		GetTracksParams: dbv1.GetTracksParams{
+			MyID: myId,
+			Ids:  ids,
+		},
+		AuthedUserId:        authedUserId,
+		AuthedWallet:        authedWallet,
+		IsAuthorizedRequest: app.isAuthorizedRequest,
 	})
 	if err != nil {
 		return err

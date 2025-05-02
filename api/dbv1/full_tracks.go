@@ -10,7 +10,12 @@ import (
 	"github.com/jackc/pgx/v5/pgtype"
 )
 
-type FullTracksParams GetTracksParams
+type FullTracksParams struct {
+	GetTracksParams
+	AuthedUserId        int32
+	AuthedWallet        string
+	IsAuthorizedRequest func(ctx context.Context, userId int32, authedWallet string) bool
+}
 
 type FullTrack struct {
 	GetTracksRow
@@ -32,8 +37,8 @@ type FullTrack struct {
 	DownloadConditions *FullAccessGate     `json:"download_conditions"`
 }
 
-func (q *Queries) FullTracksKeyed(ctx context.Context, arg GetTracksParams) (map[int32]FullTrack, error) {
-	rawTracks, err := q.GetTracks(ctx, GetTracksParams(arg))
+func (q *Queries) FullTracksKeyed(ctx context.Context, arg FullTracksParams) (map[int32]FullTrack, error) {
+	rawTracks, err := q.GetTracks(ctx, GetTracksParams(arg.GetTracksParams))
 	if err != nil {
 		return nil, err
 	}
@@ -77,28 +82,6 @@ func (q *Queries) FullTracksKeyed(ctx context.Context, arg GetTracksParams) (map
 			continue
 		}
 
-		// Collect media links
-		// TODO(API-49): support self-access via grants
-		// see https://github.com/AudiusProject/audius-protocol/blob/4bd9fe80d8cca519844596061505ad8737579019/packages/discovery-provider/src/queries/query_helpers.py#L905
-		stream, err := mediaLink(track.TrackCid.String, track.TrackID, arg.MyID.(int32))
-		if err != nil {
-			return nil, err
-		}
-		var download *MediaLink
-		if track.IsDownloadable {
-			download, err = mediaLink(track.OrigFileCid.String, track.TrackID, arg.MyID.(int32))
-			if err != nil {
-				return nil, err
-			}
-		}
-		var preview *MediaLink
-		if track.PreviewCid.String != "" {
-			preview, err = mediaLink(track.PreviewCid.String, track.TrackID, arg.MyID.(int32))
-			if err != nil {
-				return nil, err
-			}
-		}
-
 		if track.FieldVisibility == nil || string(track.FieldVisibility) == "null" {
 			track.FieldVisibility = []byte(`{
 			"mood":null,
@@ -133,12 +116,57 @@ func (q *Queries) FullTracksKeyed(ctx context.Context, arg GetTracksParams) (map
 		} else {
 			downloadConditions = track.StreamConditions
 		}
-		downloadAccess := q.GetTrackAccess(ctx, arg.MyID.(int32), downloadConditions, &track, &user)
+
+		downloadAccess := q.GetTrackAccess(
+			ctx,
+			arg.MyID.(int32),
+			arg.AuthedUserId,
+			arg.AuthedWallet,
+			arg.IsAuthorizedRequest,
+			downloadConditions,
+			&track,
+			&user,
+		)
+
 		// If you can download it, you can stream it
-		streamAccess := downloadAccess || q.GetTrackAccess(ctx, arg.MyID.(int32), track.StreamConditions, &track, &user)
+		streamAccess := downloadAccess || q.GetTrackAccess(
+			ctx,
+			arg.MyID.(int32),
+			arg.AuthedUserId,
+			arg.AuthedWallet,
+			arg.IsAuthorizedRequest,
+			track.StreamConditions,
+			&track,
+			&user,
+		)
+
 		access := Access{
 			Download: downloadAccess,
 			Stream:   streamAccess,
+		}
+
+		var stream *MediaLink
+		if streamAccess {
+			stream, err = mediaLink(track.TrackCid.String, track.TrackID, arg.MyID.(int32))
+			if err != nil {
+				return nil, err
+			}
+		}
+
+		var download *MediaLink
+		if track.IsDownloadable && downloadAccess {
+			download, err = mediaLink(track.OrigFileCid.String, track.TrackID, arg.MyID.(int32))
+			if err != nil {
+				return nil, err
+			}
+		}
+
+		var preview *MediaLink
+		if track.PreviewCid.String != "" {
+			preview, err = mediaLink(track.PreviewCid.String, track.TrackID, arg.MyID.(int32))
+			if err != nil {
+				return nil, err
+			}
 		}
 
 		fullTrack := FullTrack{
@@ -164,7 +192,7 @@ func (q *Queries) FullTracksKeyed(ctx context.Context, arg GetTracksParams) (map
 	return trackMap, nil
 }
 
-func (q *Queries) FullTracks(ctx context.Context, arg GetTracksParams) ([]FullTrack, error) {
+func (q *Queries) FullTracks(ctx context.Context, arg FullTracksParams) ([]FullTrack, error) {
 	trackMap, err := q.FullTracksKeyed(ctx, arg)
 	if err != nil {
 		return nil, err

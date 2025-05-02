@@ -2,6 +2,7 @@ package dbv1
 
 import (
 	"context"
+	"fmt"
 )
 
 type Access struct {
@@ -9,13 +10,41 @@ type Access struct {
 	Download bool `json:"download"`
 }
 
-func (q *Queries) GetTrackAccess(ctx context.Context, myId int32, conditions *AccessGate, track *GetTracksRow, user *FullUser) bool {
+func (q *Queries) GetTrackAccess(
+	ctx context.Context,
+	myId int32,
+	authedUserId int32,
+	authedWallet string,
+	isAuthorizedRequest func(ctx context.Context, userId int32, authedWallet string) bool,
+	conditions *AccessGate,
+	track *GetTracksRow,
+	user *FullUser,
+) bool {
+	fmt.Println("conditions", conditions)
+	fmt.Println("track", track)
+	fmt.Println("user", user)
+	fmt.Println("authedUserId", authedUserId)
+	fmt.Println("authedWallet", authedWallet)
+	fmt.Println("isAuthorizedRequest", isAuthorizedRequest)
+
+	// No track? no access.
 	if track == nil || user == nil {
 		return false
 	}
 
 	// no conditions means open access
 	if conditions == nil {
+		return true
+	}
+
+	// I always have access to my own content
+	if authedUserId != 0 && authedUserId == myId {
+		return true
+	}
+
+	// If I was granted access to this track (manager, approved app, etc)
+	// I should have access to it.
+	if authedWallet != "" && isAuthorizedRequest(ctx, myId, authedWallet) {
 		return true
 	}
 
@@ -114,7 +143,16 @@ func (q *Queries) GetTrackAccess(ctx context.Context, myId int32, conditions *Ac
 	return false
 }
 
-func (q *Queries) GetPlaylistAccess(ctx context.Context, myId int32, conditions *AccessGate, playlist *GetPlaylistsRow, user *FullUser) bool {
+func (q *Queries) GetPlaylistAccess(
+	ctx context.Context,
+	myId int32,
+	authedUserId int32,
+	authedWallet string,
+	isAuthorizedRequest func(ctx context.Context, userId int32, authedWallet string) bool,
+	conditions *AccessGate,
+	playlist *GetPlaylistsRow,
+	user *FullUser,
+) bool {
 	if conditions == nil {
 		return true
 	}

@@ -7,6 +7,8 @@ import (
 
 func (app *ApiServer) v1playlists(c *fiber.Ctx) error {
 	myId := app.getMyId(c)
+	authedUserId := app.getAuthedUserId(c)
+	authedWallet := app.getAuthedWallet(c)
 	ids := decodeIdList(c)
 
 	// Add permalink ID mappings
@@ -34,9 +36,14 @@ func (app *ApiServer) v1playlists(c *fiber.Ctx) error {
 		ids = append(ids, newIds...)
 	}
 
-	playlists, err := app.queries.FullPlaylists(c.Context(), dbv1.GetPlaylistsParams{
-		MyID: myId,
-		Ids:  ids,
+	playlists, err := app.queries.FullPlaylists(c.Context(), dbv1.FullPlaylistsParams{
+		GetPlaylistsParams: dbv1.GetPlaylistsParams{
+			MyID: myId,
+			Ids:  ids,
+		},
+		AuthedUserId:        authedUserId,
+		AuthedWallet:        authedWallet,
+		IsAuthorizedRequest: app.isAuthorizedRequest,
 	})
 	if err != nil {
 		return err
