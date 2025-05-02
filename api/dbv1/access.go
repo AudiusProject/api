@@ -2,7 +2,6 @@ package dbv1
 
 import (
 	"context"
-	"fmt"
 )
 
 type Access struct {
@@ -20,13 +19,6 @@ func (q *Queries) GetTrackAccess(
 	track *GetTracksRow,
 	user *FullUser,
 ) bool {
-	fmt.Println("conditions", conditions)
-	fmt.Println("track", track)
-	fmt.Println("user", user)
-	fmt.Println("authedUserId", authedUserId)
-	fmt.Println("authedWallet", authedWallet)
-	fmt.Println("isAuthorizedRequest", isAuthorizedRequest)
-
 	// No track? no access.
 	if track == nil || user == nil {
 		return false
@@ -153,7 +145,24 @@ func (q *Queries) GetPlaylistAccess(
 	playlist *GetPlaylistsRow,
 	user *FullUser,
 ) bool {
+	// No playlist? no access.
+	if playlist == nil || user == nil {
+		return false
+	}
+
+	// no conditions means open access
 	if conditions == nil {
+		return true
+	}
+
+	// I always have access to my own content
+	if authedUserId != 0 && authedUserId == myId {
+		return true
+	}
+
+	// If I was granted access to this playlist (manager, approved app, etc)
+	// I should have access to it.
+	if authedWallet != "" && isAuthorizedRequest(ctx, myId, authedWallet) {
 		return true
 	}
 
