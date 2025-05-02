@@ -65,7 +65,7 @@ func (gate *PurchaseGate) toFullPurchaseGate(cfg config.Config, userMap map[int3
 	}
 
 	// add network take last (after rounding error is distributed)
-	splitMap[cfg.StakingBridgeUsdcPayoutWallet] = int64(networkCut)
+	splitMap[cfg.SolanaConfig.StakingBridgeUsdcTokenAccount.String()] = int64(networkCut)
 	return &FullPurchaseGate{
 		Price:  gate.Price,
 		Splits: splitMap,

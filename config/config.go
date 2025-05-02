@@ -10,29 +10,27 @@ import (
 )
 
 type Config struct {
-	Env                           string
-	DbUrl                         string
-	Nodes                         []Node
-	DeadNodes                     []string
-	DelegatePrivateKey            string
-	AxiomToken                    string
-	AxiomDataset                  string
-	PythonUpstreams               []string
-	NetworkTakeRate               float64
-	StakingBridgeUsdcPayoutWallet string
-	SolanaConfig                  SolanaConfig
-	AntiAbuseOracles              []string
-	Rewards                       []rewards.Reward
+	Env                string
+	DbUrl              string
+	Nodes              []Node
+	DeadNodes          []string
+	DelegatePrivateKey string
+	AxiomToken         string
+	AxiomDataset       string
+	PythonUpstreams    []string
+	NetworkTakeRate    float64
+	SolanaConfig       SolanaConfig
+	AntiAbuseOracles   []string
+	Rewards            []rewards.Reward
 }
 
 var Cfg = Config{
-	Env:                           os.Getenv("ENV"),
-	DbUrl:                         os.Getenv("discoveryDbUrl"),
-	DelegatePrivateKey:            os.Getenv("delegatePrivateKey"),
-	AxiomToken:                    os.Getenv("axiomToken"),
-	AxiomDataset:                  os.Getenv("axiomDataset"),
-	NetworkTakeRate:               10,
-	StakingBridgeUsdcPayoutWallet: "7vGA3fcjvxa3A11MAxmyhFtYowPLLCNyvoxxgN3NN2Vf",
+	Env:                os.Getenv("ENV"),
+	DbUrl:              os.Getenv("discoveryDbUrl"),
+	DelegatePrivateKey: os.Getenv("delegatePrivateKey"),
+	AxiomToken:         os.Getenv("axiomToken"),
+	AxiomDataset:       os.Getenv("axiomDataset"),
+	NetworkTakeRate:    10,
 }
 
 func init() {
@@ -44,10 +42,12 @@ func init() {
 	case "development":
 		fallthrough
 	case "":
+		if Cfg.DelegatePrivateKey == "" {
+			// Dummy key
+			Cfg.DelegatePrivateKey = "13422b9affd75ff80f94f1ea394e6a6097830cb58cda2d3542f37464ecaee7df"
+		}
 		Cfg.AntiAbuseOracles = []string{"http://audius-protocol-discovery-provider-1"}
 		Cfg.Nodes = DevNodes
-		// Dummy key
-		Cfg.DelegatePrivateKey = "13422b9affd75ff80f94f1ea394e6a6097830cb58cda2d3542f37464ecaee7df"
 		Cfg.Rewards = core_config.MakeRewards(core_config.DevClaimAuthorities, core_config.DevRewardExtensions)
 	case "stage":
 		fallthrough
