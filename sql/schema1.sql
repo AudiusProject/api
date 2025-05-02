@@ -1226,6 +1226,25 @@ $$;
 
 
 --
+-- Name: compute_user_score(bigint, bigint, bigint, bigint, bigint, boolean, bigint); Type: FUNCTION; Schema: public; Owner: -
+--
+
+CREATE FUNCTION public.compute_user_score(play_count bigint, follower_count bigint, challenge_count bigint, chat_block_count bigint, following_count bigint, is_audius_impersonator boolean, distinct_tracks_played bigint) RETURNS bigint
+    LANGUAGE sql IMMUTABLE
+    AS $$
+select (play_count / 2) + follower_count - challenge_count - (chat_block_count * 100) + case
+        when following_count < 5 then -1
+        else 0
+    end + case
+        when is_audius_impersonator then -1000
+        else 0
+    end + case
+        when distinct_tracks_played <= 3 then -10
+        else 0
+    end $$;
+
+
+--
 -- Name: country_to_iso_alpha2(text); Type: FUNCTION; Schema: public; Owner: -
 --
 
@@ -1747,10 +1766,86 @@ $$;
 
 
 --
+-- Name: get_user_score(integer); Type: FUNCTION; Schema: public; Owner: -
+--
+
+CREATE FUNCTION public.get_user_score(target_user_id integer) RETURNS TABLE(user_id integer, handle_lc text, play_count bigint, distinct_tracks_played bigint, follower_count bigint, challenge_count bigint, following_count bigint, chat_block_count bigint, is_audius_impersonator boolean, score bigint)
+    LANGUAGE sql
+    AS $$ with play_activity as (
+        select p.user_id,
+            count(distinct date_trunc('hour', p.created_at)) as play_count,
+            count(distinct p.play_item_id) as distinct_tracks_played
+        from plays p
+        where p.user_id = target_user_id
+        group by p.user_id
+    ),
+    fast_challenge_completion as (
+        select u.user_id,
+            u.handle_lc,
+            u.created_at,
+            count(*) as challenge_count,
+            array_agg(uc.challenge_id) as challenge_ids
+        from users u
+            left join user_challenges uc on u.user_id = uc.user_id
+        where u.user_id = target_user_id
+            and uc.is_complete
+            and uc.completed_at - u.created_at <= interval '3 minutes'
+            and uc.challenge_id not in ('m', 'b')
+        group by u.user_id,
+            u.handle_lc,
+            u.created_at
+    ),
+    chat_blocks as (
+        select c.blockee_user_id as user_id,
+            count(*) as block_count
+        from chat_blocked_users c
+        where c.blockee_user_id = target_user_id
+        group by c.blockee_user_id
+    ),
+    aggregate_scores as (
+        select u.user_id,
+            u.handle_lc,
+            coalesce(p.play_count, 0) as play_count,
+            coalesce(p.distinct_tracks_played, 0) as distinct_tracks_played,
+            coalesce(c.challenge_count, 0) as challenge_count,
+            coalesce(au.following_count, 0) as following_count,
+            coalesce(au.follower_count, 0) as follower_count,
+            coalesce(cb.block_count, 0) as chat_block_count,
+            case
+                when (
+                    u.handle_lc ilike '%audius%'
+                    or lower(u.name) ilike '%audius%'
+                )
+                and u.is_verified = false then true
+                else false
+            end as is_audius_impersonator
+        from users u
+            left join play_activity p on u.user_id = p.user_id
+            left join fast_challenge_completion c on u.user_id = c.user_id
+            left join chat_blocks cb on u.user_id = cb.user_id
+            left join aggregate_user au on u.user_id = au.user_id
+        where u.user_id = target_user_id
+            and u.handle_lc is not null
+    )
+select a.*,
+    compute_user_score(
+        a.play_count,
+        a.follower_count,
+        a.challenge_count,
+        a.chat_block_count,
+        a.following_count,
+        a.is_audius_impersonator,
+        a.distinct_tracks_played
+    ) as score
+from aggregate_scores a;
+$$;
+
+
+--
 -- Name: get_user_scores(integer[]); Type: FUNCTION; Schema: public; Owner: -
 --
 
-CREATE FUNCTION public.get_user_scores(target_user_ids integer[] DEFAULT NULL::integer[]) RETURNS TABLE(user_id integer, handle_lc text, play_count bigint, distinct_tracks_played bigint, follower_count bigint, challenge_count bigint, following_count bigint, chat_block_count bigint, is_audius_impersonator boolean, score bigint)
+CREATE FUNCTION public.get_user_scores(target_user_ids integer[] DEFAULT NULL::integer[]) RETURNS TABLE(user_id integer, handle_lc text, play_count bigint, distinct_tracks_played bigint, follower_count bigint, following_count bigint, challenge_count bigint, chat_block_count bigint, is_audius_impersonator boolean, score bigint)
     LANGUAGE sql
     AS $$ with play_activity as (
         select plays.user_id,
@@ -1793,7 +1888,12 @@ CREATE FUNCTION public.get_user_scores(target_user_ids integer[] DEFAULT NULL::i
     aggregate_scores as (
         select users.user_id,
             users.handle_lc,
-            users.created_at,
+            coalesce(play_activity.play_count, 0) as play_count,
+            coalesce(play_activity.distinct_tracks_played, 0) as distinct_tracks_played,
+            coalesce(aggregate_user.following_count, 0) as following_count,
+            coalesce(aggregate_user.follower_count, 0) as follower_count,
+            coalesce(fast_challenge_completion.challenge_count, 0) as challenge_count,
+            coalesce(chat_blocks.block_count, 0) as chat_block_count,
             case
                 when (
                     users.handle_lc ilike '%audius%'
@@ -1801,13 +1901,7 @@ CREATE FUNCTION public.get_user_scores(target_user_ids integer[] DEFAULT NULL::i
                 )
                 and users.is_verified = false then true
                 else false
-            end as is_audius_impersonator,
-            coalesce(play_activity.play_count, 0) as play_count,
-            coalesce(play_activity.distinct_tracks_played, 0) as distinct_tracks_played,
-            coalesce(fast_challenge_completion.challenge_count, 0) as challenge_count,
-            coalesce(aggregate_user.following_count, 0) as following_count,
-            coalesce(aggregate_user.follower_count, 0) as follower_count,
-            coalesce(chat_blocks.block_count, 0) as chat_block_count
+            end as is_audius_impersonator
         from users
             left join play_activity on users.user_id = play_activity.user_id
             left join fast_challenge_completion on users.user_id = fast_challenge_completion.user_id
@@ -1819,26 +1913,15 @@ CREATE FUNCTION public.get_user_scores(target_user_ids integer[] DEFAULT NULL::i
                 or users.user_id = any(target_user_ids)
             )
     )
-select a.user_id,
-    a.handle_lc,
-    a.play_count,
-    a.distinct_tracks_played,
-    a.follower_count,
-    a.challenge_count,
-    a.following_count,
-    a.chat_block_count,
-    a.is_audius_impersonator,
-    (
-        (a.play_count / 2) + a.follower_count - a.challenge_count - (a.chat_block_count * 100) + case
-            when a.following_count < 5 then -1
-            else 0
-        end + case
-            when a.is_audius_impersonator then -1000
-            else 0
-        end + case
-            when a.distinct_tracks_played <= 3 then -10
-            else 0
-        end
+select a.*,
+    compute_user_score(
+        a.play_count,
+        a.follower_count,
+        a.challenge_count,
+        a.chat_block_count,
+        a.following_count,
+        a.is_audius_impersonator,
+        a.distinct_tracks_played
     ) as score
 from aggregate_scores a;
 $$;
@@ -2343,7 +2426,6 @@ declare
   delta int := 0;
 begin
 
-  insert into aggregate_user (user_id) values (new.playlist_owner_id) on conflict do nothing;
   insert into aggregate_playlist (playlist_id, is_album) values (new.playlist_id, new.is_album) on conflict do nothing;
 
   with expanded as (
@@ -9760,6 +9842,13 @@ CREATE INDEX remixes_child_idx ON public.remixes USING btree (child_track_id, pa
 
 
 --
+-- Name: reposts_item_idx; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX reposts_item_idx ON public.reposts USING btree (repost_item_id, repost_type, user_id, is_delete);
+
+
+--
 -- Name: reposts_new_blocknumber_idx; Type: INDEX; Schema: public; Owner: -
 --
 
@@ -9774,17 +9863,10 @@ CREATE INDEX reposts_new_created_at_idx ON public.reposts USING btree (created_a
 
 
 --
--- Name: reposts_new_repost_item_id_repost_type_idx; Type: INDEX; Schema: public; Owner: -
+-- Name: reposts_user_idx; Type: INDEX; Schema: public; Owner: -
 --
 
-CREATE INDEX reposts_new_repost_item_id_repost_type_idx ON public.reposts USING btree (repost_item_id, repost_type);
-
-
---
--- Name: reposts_new_user_id_repost_type_idx; Type: INDEX; Schema: public; Owner: -
---
-
-CREATE INDEX reposts_new_user_id_repost_type_idx ON public.reposts USING btree (user_id, repost_type);
+CREATE INDEX reposts_user_idx ON public.reposts USING btree (user_id, repost_type, repost_item_id, created_at, is_delete);
 
 
 --
@@ -9806,13 +9888,6 @@ CREATE INDEX saves_item_idx ON public.saves USING btree (save_item_id, save_type
 --
 
 CREATE INDEX saves_new_blocknumber_idx ON public.saves USING btree (blocknumber);
-
-
---
--- Name: saves_new_user_id_save_type_idx; Type: INDEX; Schema: public; Owner: -
---
-
-CREATE INDEX saves_new_user_id_save_type_idx ON public.saves USING btree (user_id, save_type);
 
 
 --

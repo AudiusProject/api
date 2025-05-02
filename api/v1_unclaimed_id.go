@@ -51,3 +51,7 @@ func (app *ApiServer) v1PlaylistsUnclaimedId(c *fiber.Ctx) error {
 func (app *ApiServer) v1CommentsUnclaimedId(c *fiber.Ctx) error {
 	return app.v1UnclaimedId(c, "comments", "comment_id", 4_000_000, math.MaxInt32)
 }
+
+func (app *ApiServer) v1EventsUnclaimedId(c *fiber.Ctx) error {
+	return app.v1UnclaimedId(c, "events", "event_id", 1, math.MaxInt32)
+}

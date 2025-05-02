@@ -193,6 +193,22 @@ var (
 		"txhash":      "0x1",
 		"blockhash":   "0x2",
 	}
+
+	eventBaseRow = map[string]any{
+		"txhash":      "0x1",
+		"blockhash":   "0x2",
+		"blocknumber": 101,
+		"event_id":    nil,
+		"entity_type": nil,
+		"user_id":     nil,
+		"entity_id":   nil,
+		"event_type":  nil,
+		"end_date":    time.Now().Add(time.Hour * 24 * 30),
+		"is_deleted":  false,
+		"created_at":  time.Now(),
+		"updated_at":  time.Now(),
+		"event_data":  nil,
+	}
 )
 
 func insertFixtures(table string, baseRow map[string]any, csvFile string) {

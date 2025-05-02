@@ -1235,7 +1235,7 @@ type Event struct {
 	EntityID    pgtype.Int4         `json:"entity_id"`
 	EndDate     *time.Time          `json:"end_date"`
 	IsDeleted   pgtype.Bool         `json:"is_deleted"`
-	EventData   []byte              `json:"event_data"`
+	EventData   *EventData          `json:"event_data"`
 	CreatedAt   time.Time           `json:"created_at"`
 	UpdatedAt   time.Time           `json:"updated_at"`
 	Txhash      string              `json:"txhash"`

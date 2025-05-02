@@ -84,6 +84,7 @@ func TestMain(m *testing.M) {
 	insertFixtures("grants", grantBaseRow, "testdata/grants_fixtures.csv")
 	insertFixtures("comments", commentBaseRow, "testdata/comment_fixtures.csv")
 	insertFixtures("comment_threads", map[string]any{}, "testdata/comment_thread_fixtures.csv")
+	insertFixtures("events", eventBaseRow, "testdata/event_fixtures.csv")
 
 	// index to es / os
 
