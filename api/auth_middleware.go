@@ -11,11 +11,11 @@ import (
 )
 
 // Recover user id and wallet from signature headers
-func (app *ApiServer) recoverAuthorityFromSignatureHeaders(c *fiber.Ctx) (int32, string) {
+func (app *ApiServer) recoverAuthorityFromSignatureHeaders(c *fiber.Ctx) string {
 	message := c.Get("Encoded-Data-Message")
 	signature := c.Get("Encoded-Data-Signature")
 	if message == "" || signature == "" {
-		return 0, ""
+		return ""
 	}
 
 	encodedToRecover := []byte(message)
@@ -28,38 +28,13 @@ func (app *ApiServer) recoverAuthorityFromSignatureHeaders(c *fiber.Ctx) (int32,
 
 	publicKey, err := crypto.SigToPub(finalHash.Bytes(), signatureBytes)
 	if err != nil {
-		return 0, ""
+		return ""
 	}
 
 	recoveredAddr := crypto.PubkeyToAddress(*publicKey)
 	walletLower := strings.ToLower(recoveredAddr.Hex())
 
-	// check cache
-	if hit, ok := app.resolveWalletCache.Get(walletLower); ok {
-		return hit, walletLower
-	}
-
-	var userId int32
-	err = app.pool.QueryRow(
-		c.Context(),
-		`
-		SELECT user_id FROM users
-		WHERE
-			wallet = $1
-			AND is_current = true
-		ORDER BY handle_lc IS NOT NULL, created_at ASC
-		LIMIT 1
-		`,
-		walletLower,
-	).Scan(&userId)
-
-	if err != nil {
-		return 0, walletLower
-	}
-
-	app.resolveWalletCache.Set(walletLower, userId)
-
-	return userId, walletLower
+	return walletLower
 }
 
 // Checks if authedWallet is authorized to act on behalf of userId
@@ -71,16 +46,25 @@ func (app *ApiServer) isAuthorizedRequest(ctx context.Context, userId int32, aut
 
 	var isAuthorized bool
 	err := app.pool.QueryRow(ctx, `
-			SELECT EXISTS (
-				SELECT 1
-				FROM grants
-				WHERE
-					is_current = true
-					AND user_id = $1
-					AND grantee_address = $2
-					AND is_approved = true
-					AND is_revoked = false
-			)
+		SELECT EXISTS (
+			-- I am the user
+			SELECT 1 FROM users
+			WHERE
+				user_id = $1
+				AND wallet = $2
+				AND is_current = true
+
+			UNION ALL
+
+			-- I have a grant to the user
+			SELECT 1 FROM grants
+			WHERE
+				is_current = true
+				AND user_id = $1
+				AND grantee_address = $2
+				AND is_approved = true
+				AND is_revoked = false
+		);
 		`, userId, authedWallet).Scan(&isAuthorized)
 
 	if err != nil {
@@ -91,10 +75,6 @@ func (app *ApiServer) isAuthorizedRequest(ctx context.Context, userId int32, aut
 	return isAuthorized
 }
 
-func (app *ApiServer) getAuthedUserId(c *fiber.Ctx) int32 {
-	return int32(c.Locals("authedUserId").(int32))
-}
-
 func (app *ApiServer) getAuthedWallet(c *fiber.Ctx) string {
 	return c.Locals("authedWallet").(string)
 }
@@ -102,52 +82,44 @@ func (app *ApiServer) getAuthedWallet(c *fiber.Ctx) string {
 // Middleware to set authedUserId and authedWallet in context
 // Returns a 403 if either
 // - the user is not authorized to act on behalf of "myId"
-// - the user is not authorized to act on behalf of "requestedWallet"
+// - the user is not authorized to act on behalf of "myWallet"
 func (app *ApiServer) authMiddleware(c *fiber.Ctx) error {
-	userId, wallet := app.recoverAuthorityFromSignatureHeaders(c)
-	c.Locals("authedUserId", userId)
+	wallet := app.recoverAuthorityFromSignatureHeaders(c)
 	c.Locals("authedWallet", wallet)
 
-	myId := app.getMyId(c)
-	requestedWallet := c.Params("wallet")
-
 	// Not authorized to act on behalf of myId
-	if myId != 0 {
-		if userId != myId && !app.isAuthorizedRequest(c.Context(), myId, wallet) {
-			return fiber.NewError(
-				fiber.StatusForbidden,
-				fmt.Sprintf(
-					"You are not authorized to make this request authedUserId=%d authedWallet=%s myId=%d",
-					userId,
-					wallet,
-					myId,
-				),
-			)
-		}
+	myId := app.getMyId(c)
+	if myId != 0 && !app.isAuthorizedRequest(c.Context(), myId, wallet) {
+		return fiber.NewError(
+			fiber.StatusForbidden,
+			fmt.Sprintf(
+				"You are not authorized to make this request authedWallet=%s myId=%d",
+				wallet,
+				myId,
+			),
+		)
 	}
 
-	// Not authorized to act on behalf of requestedWallet
-	if requestedWallet != "" && wallet != "" {
-		if !strings.EqualFold(requestedWallet, wallet) {
-			return fiber.NewError(
-				fiber.StatusForbidden,
-				fmt.Sprintf(
-					"You are not authorized to make this request authedUserId=%d authedWallet=%s requestedWallet=%s",
-					userId,
-					wallet,
-					requestedWallet,
-				),
-			)
-		}
+	// Not authorized to act on behalf of myWallet
+	myWallet := c.Params("wallet")
+	if myWallet != "" && !strings.EqualFold(myWallet, wallet) {
+		return fiber.NewError(
+			fiber.StatusForbidden,
+			fmt.Sprintf(
+				"You are not authorized to make this request authedWallet=%s myWallet=%s",
+				wallet,
+				myWallet,
+			),
+		)
 	}
 
 	return c.Next()
 }
 
-// Middleware that asserts that there is an authedUserId
+// Middleware that asserts that there is an authed wallet
 func (app *ApiServer) requireAuthMiddleware(c *fiber.Ctx) error {
-	authedUserId := app.getAuthedUserId(c)
-	if authedUserId == 0 {
+	authedWallet := app.getAuthedWallet(c)
+	if authedWallet == "" {
 		return fiber.NewError(fiber.StatusUnauthorized, "You must be logged in to make this request")
 	}
 

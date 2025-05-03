@@ -108,7 +108,7 @@ func NewApiServer(config config.Config) *ApiServer {
 	}
 
 	resolveGrantCache, err := otter.MustBuilder[string, bool](50_000).
-		WithTTL(10 * time.Minute).
+		WithTTL(60 * time.Minute).
 		CollectStats().
 		Build()
 	if err != nil {
