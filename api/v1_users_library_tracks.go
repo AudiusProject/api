@@ -15,6 +15,7 @@ import (
 */
 
 func (app *ApiServer) v1UsersLibraryTracks(c *fiber.Ctx) error {
+	myId := app.getMyId(c)
 
 	sortField := "item_created_at"
 	switch c.Query("sort_method") {
@@ -129,9 +130,11 @@ func (app *ApiServer) v1UsersLibraryTracks(c *fiber.Ctx) error {
 	}
 
 	// get tracks
-	tracks, err := app.queries.FullTracksKeyed(c.Context(), dbv1.GetTracksParams{
-		Ids:  trackIds,
-		MyID: app.getMyId(c),
+	tracks, err := app.queries.FullTracksKeyed(c.Context(), dbv1.FullTracksParams{
+		GetTracksParams: dbv1.GetTracksParams{
+			Ids:  trackIds,
+			MyID: myId,
+		},
 	})
 
 	// attach

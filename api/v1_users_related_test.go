@@ -22,7 +22,12 @@ func TestV1UsersRelated(t *testing.T) {
 	}
 
 	{
-		status, _ := testGet(t, "/v1/users/7eP5n/related?user_id=7eP5n&filter_followed=true", &userResponse)
+		status, _ := testGetWithWallet(
+			t,
+			"/v1/users/7eP5n/related?user_id=7eP5n&filter_followed=true",
+			"0x7d273271690538cf855e5b3002a0dd8c154bb060",
+			&userResponse,
+		)
 		assert.Equal(t, 200, status)
 		assert.Len(t, userResponse.Data, 1)
 		assert.Equal(t, "someseller", userResponse.Data[0].Handle.String)

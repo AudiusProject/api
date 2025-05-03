@@ -9,6 +9,8 @@ import (
 )
 
 func (app *ApiServer) v1PlaylistsTrending(c *fiber.Ctx) error {
+	myId := app.getMyId(c)
+
 	sql := `
 	SELECT
 		save_item_id as playlist_id
@@ -36,9 +38,11 @@ func (app *ApiServer) v1PlaylistsTrending(c *fiber.Ctx) error {
 		return err
 	}
 
-	playlists, err := app.queries.FullPlaylists(c.Context(), dbv1.GetPlaylistsParams{
-		Ids:  ids,
-		MyID: app.getMyId(c),
+	playlists, err := app.queries.FullPlaylists(c.Context(), dbv1.FullPlaylistsParams{
+		GetPlaylistsParams: dbv1.GetPlaylistsParams{
+			Ids:  ids,
+			MyID: myId,
+		},
 	})
 
 	return c.Status(http.StatusOK).JSON(fiber.Map{

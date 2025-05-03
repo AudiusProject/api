@@ -9,6 +9,7 @@ import (
 )
 
 func (app *ApiServer) v1UsersLibraryPlaylists(c *fiber.Ctx) error {
+	myId := app.getMyId(c)
 
 	playlistType := "playlist"
 	if c.Params("playlistType") == "albums" {
@@ -127,9 +128,11 @@ func (app *ApiServer) v1UsersLibraryPlaylists(c *fiber.Ctx) error {
 	}
 
 	// get playlists
-	playlists, err := app.queries.FullPlaylistsKeyed(c.Context(), dbv1.GetPlaylistsParams{
-		Ids:  ids,
-		MyID: app.getMyId(c),
+	playlists, err := app.queries.FullPlaylistsKeyed(c.Context(), dbv1.FullPlaylistsParams{
+		GetPlaylistsParams: dbv1.GetPlaylistsParams{
+			Ids:  ids,
+			MyID: myId,
+		},
 	})
 
 	// attach

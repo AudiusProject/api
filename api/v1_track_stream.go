@@ -9,9 +9,11 @@ func (app *ApiServer) v1TrackStream(c *fiber.Ctx) error {
 	myId := app.getMyId(c)
 	trackId := c.Locals("trackId").(int)
 
-	tracks, err := app.queries.FullTracks(c.Context(), dbv1.GetTracksParams{
-		MyID: myId,
-		Ids:  []int32{int32(trackId)},
+	tracks, err := app.queries.FullTracks(c.Context(), dbv1.FullTracksParams{
+		GetTracksParams: dbv1.GetTracksParams{
+			MyID: myId,
+			Ids:  []int32{int32(trackId)},
+		},
 	})
 	if err != nil {
 		return err

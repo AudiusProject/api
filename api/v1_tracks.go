@@ -35,9 +35,11 @@ func (app *ApiServer) v1Tracks(c *fiber.Ctx) error {
 		ids = append(ids, newIds...)
 	}
 
-	tracks, err := app.queries.FullTracks(c.Context(), dbv1.GetTracksParams{
-		MyID: int32(myId),
-		Ids:  ids,
+	tracks, err := app.queries.FullTracks(c.Context(), dbv1.FullTracksParams{
+		GetTracksParams: dbv1.GetTracksParams{
+			MyID: int32(myId),
+			Ids:  ids,
+		},
 	})
 	if err != nil {
 		return err

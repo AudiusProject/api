@@ -8,6 +8,10 @@ import (
 	"github.com/jackc/pgx/v5/pgtype"
 )
 
+type FullPlaylistsParams struct {
+	GetPlaylistsParams
+}
+
 type FullPlaylist struct {
 	GetPlaylistsRow
 
@@ -31,8 +35,8 @@ type FullPlaylistContentsItem struct {
 	MetadataTime int64  `json:"metadata_timestamp"`
 }
 
-func (q *Queries) FullPlaylistsKeyed(ctx context.Context, arg GetPlaylistsParams) (map[int32]FullPlaylist, error) {
-	rawPlaylists, err := q.GetPlaylists(ctx, arg)
+func (q *Queries) FullPlaylistsKeyed(ctx context.Context, arg FullPlaylistsParams) (map[int32]FullPlaylist, error) {
+	rawPlaylists, err := q.GetPlaylists(ctx, arg.GetPlaylistsParams)
 	if err != nil {
 		return nil, err
 	}
@@ -51,7 +55,7 @@ func (q *Queries) FullPlaylistsKeyed(ctx context.Context, arg GetPlaylistsParams
 	loaded, err := q.Parallel(ctx, ParallelParams{
 		UserIds:  userIds,
 		TrackIds: trackIds,
-		MyID:     arg.MyID,
+		MyID:     arg.MyID.(int32),
 	})
 	if err != nil {
 		return nil, err
@@ -88,7 +92,12 @@ func (q *Queries) FullPlaylistsKeyed(ctx context.Context, arg GetPlaylistsParams
 		}
 
 		// For playlists, download access is the same as stream access
-		streamAccess := q.GetPlaylistAccess(ctx, arg.MyID.(int32), playlist.StreamConditions, &playlist, &user)
+		streamAccess := q.GetPlaylistAccess(
+			ctx,
+			arg.MyID.(int32),
+			playlist.StreamConditions,
+			&playlist,
+			&user)
 		downloadAccess := streamAccess
 
 		var playlistType string
@@ -120,7 +129,7 @@ func (q *Queries) FullPlaylistsKeyed(ctx context.Context, arg GetPlaylistsParams
 	return playlistMap, nil
 }
 
-func (q *Queries) FullPlaylists(ctx context.Context, arg GetPlaylistsParams) ([]FullPlaylist, error) {
+func (q *Queries) FullPlaylists(ctx context.Context, arg FullPlaylistsParams) ([]FullPlaylist, error) {
 	playlistMap, err := q.FullPlaylistsKeyed(ctx, arg)
 	if err != nil {
 		return nil, err

@@ -9,13 +9,30 @@ type Access struct {
 	Download bool `json:"download"`
 }
 
-func (q *Queries) GetTrackAccess(ctx context.Context, myId int32, conditions *AccessGate, track *GetTracksRow, user *FullUser) bool {
+func (q *Queries) GetTrackAccess(
+	ctx context.Context,
+	myId int32,
+	conditions *AccessGate,
+	track *GetTracksRow,
+	user *FullUser,
+) bool {
+	// No track? no access
 	if track == nil || user == nil {
 		return false
 	}
 
-	// no conditions means open access
+	// No conditions means open access
 	if conditions == nil {
+		return true
+	}
+
+	// No myId? no access. we need to know who you are if there are conditions.
+	if myId == 0 {
+		return false
+	}
+
+	// You always have access to your own content
+	if myId == user.UserID {
 		return true
 	}
 
@@ -114,8 +131,25 @@ func (q *Queries) GetTrackAccess(ctx context.Context, myId int32, conditions *Ac
 	return false
 }
 
-func (q *Queries) GetPlaylistAccess(ctx context.Context, myId int32, conditions *AccessGate, playlist *GetPlaylistsRow, user *FullUser) bool {
+func (q *Queries) GetPlaylistAccess(
+	ctx context.Context,
+	myId int32,
+	conditions *AccessGate,
+	playlist *GetPlaylistsRow,
+	user *FullUser,
+) bool {
+	// No playlist? no access.
+	if playlist == nil || user == nil {
+		return false
+	}
+
+	// no conditions means open access
 	if conditions == nil {
+		return true
+	}
+
+	// I always have access to my own content
+	if myId != 0 && myId == user.UserID {
 		return true
 	}
 
