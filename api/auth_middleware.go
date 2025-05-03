@@ -53,9 +53,7 @@ func (app *ApiServer) isAuthorizedRequest(ctx context.Context, userId int32, aut
 				user_id = $1
 				AND wallet = $2
 				AND is_current = true
-
-			UNION ALL
-
+    ) OR EXISTS (
 			-- I have a grant to the user
 			SELECT 1 FROM grants
 			WHERE
