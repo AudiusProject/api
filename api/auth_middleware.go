@@ -107,7 +107,6 @@ func (app *ApiServer) authMiddleware(c *fiber.Ctx) error {
 	userId, wallet := app.recoverAuthorityFromSignatureHeaders(c)
 	c.Locals("authedUserId", userId)
 	c.Locals("authedWallet", wallet)
-	fmt.Println("authMiddleware", userId, wallet)
 
 	myId := app.getMyId(c)
 	requestedWallet := c.Params("wallet")

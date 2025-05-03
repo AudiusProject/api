@@ -2,7 +2,6 @@ package dbv1
 
 import (
 	"context"
-	"fmt"
 )
 
 type Access struct {
@@ -17,7 +16,6 @@ func (q *Queries) GetTrackAccess(
 	track *GetTracksRow,
 	user *FullUser,
 ) bool {
-	fmt.Println("GetTrackAccess", myId, user.UserID)
 	// No track? no access
 	if track == nil || user == nil {
 		return false
