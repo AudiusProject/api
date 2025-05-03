@@ -100,15 +100,8 @@ func NewApiServer(config config.Config) *ApiServer {
 		panic(err)
 	}
 
-	resolveWalletCache, err := otter.MustBuilder[string, int32](50_000).
-		CollectStats().
-		Build()
-	if err != nil {
-		panic(err)
-	}
-
 	resolveGrantCache, err := otter.MustBuilder[string, bool](50_000).
-		WithTTL(10 * time.Minute).
+		WithTTL(60 * time.Minute).
 		CollectStats().
 		Build()
 	if err != nil {
@@ -148,7 +141,6 @@ func NewApiServer(config config.Config) *ApiServer {
 		logger:              logger,
 		started:             time.Now(),
 		resolveHandleCache:  resolveHandleCache,
-		resolveWalletCache:  resolveWalletCache,
 		resolveGrantCache:   resolveGrantCache,
 		rewardAttester:      *rewardAttester,
 		transactionSender:   *transactionSender,
@@ -310,7 +302,6 @@ type ApiServer struct {
 	logger              *zap.Logger
 	started             time.Time
 	resolveHandleCache  otter.Cache[string, int32]
-	resolveWalletCache  otter.Cache[string, int32]
 	resolveGrantCache   otter.Cache[string, bool]
 	rewardManagerClient reward_manager.RewardManagerClient
 	rewardAttester      rewards.RewardAttester
