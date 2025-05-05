@@ -12,7 +12,7 @@ JOIN users u ON u.wallet = g.grantee_address
 WHERE g.user_id = @user_id::int
   AND g.is_revoked = @is_revoked
   AND g.is_current = true
-  AND sqlc.narg('is_approved')::boolean IS NULL OR g.is_approved = sqlc.narg('is_approved');
+  AND (g.is_approved = sqlc.narg('is_approved') OR sqlc.narg('is_approved') IS NULL);
 
 -- name: GetGrantsForGranteeUserId :many
 SELECT
@@ -28,4 +28,4 @@ JOIN grants g ON g.grantee_address = u.wallet
 WHERE u.user_id = @user_id::int
   AND g.is_current = true
   AND g.is_revoked = @is_revoked
-  AND sqlc.narg('is_approved')::boolean IS NULL OR g.is_approved = sqlc.narg('is_approved');
+  AND (g.is_approved = sqlc.narg('is_approved') OR sqlc.narg('is_approved') IS NULL);

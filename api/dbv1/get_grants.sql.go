@@ -27,7 +27,7 @@ JOIN grants g ON g.grantee_address = u.wallet
 WHERE u.user_id = $1::int
   AND g.is_current = true
   AND g.is_revoked = $2
-  AND $3::boolean IS NULL OR g.is_approved = $3
+  AND (g.is_approved = $3 OR $3 IS NULL)
 `
 
 type GetGrantsForGranteeUserIdParams struct {
@@ -88,7 +88,7 @@ JOIN users u ON u.wallet = g.grantee_address
 WHERE g.user_id = $1::int
   AND g.is_revoked = $2
   AND g.is_current = true
-  AND $3::boolean IS NULL OR g.is_approved = $3
+  AND (g.is_approved = $3 OR $3 IS NULL)
 `
 
 type GetGrantsForUserIdParams struct {

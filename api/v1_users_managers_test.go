@@ -29,7 +29,7 @@ func TestGetUsersManagersApproved(t *testing.T) {
 	}
 	status, _ := testGet(t, "/v1/users/7eP5n/managers?is_approved=true", &managersResponse)
 	assert.Equal(t, 200, status)
-	assert.Equal(t, 2, len(managersResponse.Data))
+	assert.Equal(t, 1, len(managersResponse.Data))
 	assert.Equal(t, "0x5f1a372b28956c8363f8bc3a231a6e9e1186ead8", managersResponse.Data[0].Manager.Wallet.String)
 	assert.Equal(t, true, managersResponse.Data[0].Grant.IsApproved.Bool)
 }
@@ -49,7 +49,7 @@ func TestGetUsersManagersRevoked(t *testing.T) {
 	assert.Equal(t, true, managersResponse.Data[1].Grant.IsRevoked)
 }
 
-func TestInvalidParams(t *testing.T) {
+func TestGetUsersManagersInvalidParams(t *testing.T) {
 	var managersResponse struct {
 		Data []dbv1.FullManager
 	}
