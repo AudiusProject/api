@@ -13,7 +13,7 @@ import (
 	"github.com/jackc/pgx/v5/pgtype"
 )
 
-const getGrantsForGranteeAddress = `-- name: GetGrantsForGranteeAddress :many
+const getGrantsForGranteeUserId = `-- name: GetGrantsForGranteeUserId :many
 SELECT
   g.user_id,
   g.grantee_address,
@@ -22,22 +22,21 @@ SELECT
   g.created_at,
   g.updated_at,
   u.user_id as grantee_user_id
-FROM grants g
-JOIN users u ON u.wallet = g.grantee_address
-WHERE g.grantee_address = $1
+FROM users u
+JOIN grants g ON g.grantee_address = u.wallet
+WHERE u.user_id = $1::int
   AND g.is_current = true
   AND g.is_revoked = $2
   AND $3::boolean IS NULL OR g.is_approved = $3
-ORDER BY g.created_at DESC
 `
 
-type GetGrantsForGranteeAddressParams struct {
-	GranteeAddress string      `json:"grantee_address"`
-	IsRevoked      bool        `json:"is_revoked"`
-	IsApproved     pgtype.Bool `json:"is_approved"`
+type GetGrantsForGranteeUserIdParams struct {
+	UserID     int32       `json:"user_id"`
+	IsRevoked  bool        `json:"is_revoked"`
+	IsApproved pgtype.Bool `json:"is_approved"`
 }
 
-type GetGrantsForGranteeAddressRow struct {
+type GetGrantsForGranteeUserIdRow struct {
 	UserID         trashid.HashId `json:"user_id"`
 	GranteeAddress string         `json:"grantee_address"`
 	IsRevoked      bool           `json:"is_revoked"`
@@ -47,15 +46,15 @@ type GetGrantsForGranteeAddressRow struct {
 	GranteeUserID  trashid.HashId `json:"grantee_user_id"`
 }
 
-func (q *Queries) GetGrantsForGranteeAddress(ctx context.Context, arg GetGrantsForGranteeAddressParams) ([]GetGrantsForGranteeAddressRow, error) {
-	rows, err := q.db.Query(ctx, getGrantsForGranteeAddress, arg.GranteeAddress, arg.IsRevoked, arg.IsApproved)
+func (q *Queries) GetGrantsForGranteeUserId(ctx context.Context, arg GetGrantsForGranteeUserIdParams) ([]GetGrantsForGranteeUserIdRow, error) {
+	rows, err := q.db.Query(ctx, getGrantsForGranteeUserId, arg.UserID, arg.IsRevoked, arg.IsApproved)
 	if err != nil {
 		return nil, err
 	}
 	defer rows.Close()
-	var items []GetGrantsForGranteeAddressRow
+	var items []GetGrantsForGranteeUserIdRow
 	for rows.Next() {
-		var i GetGrantsForGranteeAddressRow
+		var i GetGrantsForGranteeUserIdRow
 		if err := rows.Scan(
 			&i.UserID,
 			&i.GranteeAddress,
@@ -90,7 +89,6 @@ WHERE g.user_id = $1::int
   AND g.is_revoked = $2
   AND g.is_current = true
   AND $3::boolean IS NULL OR g.is_approved = $3
-ORDER BY g.created_at DESC
 `
 
 type GetGrantsForUserIdParams struct {
