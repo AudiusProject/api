@@ -118,6 +118,7 @@ func Test200UnAuthed(t *testing.T) {
 		"/v1/full/users/7eP5n/library/playlists?type=favorite&sort_method=reposts&sort_direction=desc",
 		"/v1/full/users/7eP5n/library/albums?type=purchase&sort_method=saves",
 
+		"/v1/full/users/7eP5n/managers",
 		"/v1/full/users/7eP5n/mutuals",
 		"/v1/full/users/7eP5n/reposts",
 		"/v1/full/users/7eP5n/related",

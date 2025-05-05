@@ -46,6 +46,10 @@ sql:
             go_type:
               import: "bridgerton.audius.co/trashid"
               type: "HashId"
+          - column: "grants.user_id"
+            go_type:
+              import: "bridgerton.audius.co/trashid"
+              type: "HashId"
 
           - column: "tracks.copyright_line"
             go_type:
