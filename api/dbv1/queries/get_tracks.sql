@@ -74,26 +74,29 @@ SELECT
   license,
   iswc,
   field_visibility,
-  -- followee_reposts,
 
   (
-    SELECT count(*) > 0
-    FROM reposts
-    WHERE @my_id > 0
-      AND user_id = @my_id
-      AND repost_type = 'track'
-      AND repost_item_id = t.track_id
-      AND is_delete = false
+    SELECT EXISTS (
+      SELECT 1
+      FROM reposts
+      WHERE @my_id > 0
+        AND user_id = @my_id
+        AND repost_type = 'track'
+        AND repost_item_id = t.track_id
+        AND is_delete = false
+    )
   ) AS has_current_user_reposted,
 
   (
-    SELECT count(*) > 0
-    FROM saves
-    WHERE @my_id > 0
-      AND user_id = @my_id
-      AND save_type = 'track'
-      AND save_item_id = t.track_id
-      AND is_delete = false
+    SELECT EXISTS (
+      SELECT 1
+      FROM saves
+      WHERE @my_id > 0
+        AND user_id = @my_id
+        AND save_type = 'track'
+        AND save_item_id = t.track_id
+        AND is_delete = false
+    )
   ) AS has_current_user_saved,
 
   is_scheduled_release,
@@ -116,7 +119,7 @@ SELECT
         AND repost_type = 'track'
         AND reposts.is_delete = false
       ORDER BY follower_count DESC
-      LIMIT 6
+      LIMIT 3
     ) r
   )::jsonb as followee_reposts,
 
@@ -137,7 +140,7 @@ SELECT
         AND save_type = 'track'
         AND saves.is_delete = false
       ORDER BY follower_count DESC
-      LIMIT 6
+      LIMIT 3
     ) r
   )::jsonb as followee_favorites,
 
@@ -166,9 +169,6 @@ SELECT
     ) r
   )::jsonb as remix_of,
 
-
-  -- followee_favorites,
-  -- route_id,
   stem_of,
   track_segments, -- todo: can we just get rid of this now?
   t.updated_at,
@@ -194,7 +194,6 @@ SELECT
   copyright_line,
   producer_copyright_line,
   parental_warning_type,
-  -- is_streamable,
   is_stream_gated,
   stream_conditions,
   is_download_gated,
@@ -202,13 +201,6 @@ SELECT
   cover_original_song_title,
   cover_original_artist,
   is_owned_by_user
-
-  -- stream,
-  -- download,
-  -- preview
-
-
-
 
 FROM tracks t
 JOIN aggregate_track using (track_id)
