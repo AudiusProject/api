@@ -5,19 +5,14 @@ import (
 
 	"bridgerton.audius.co/api/dbv1"
 	"github.com/gofiber/fiber/v2"
-	"github.com/jackc/pgx/v5/pgtype"
 )
 
 func (app *ApiServer) v1UsersManagedUsers(c *fiber.Ctx) error {
 	// Behavior of this field is a little odd. We only want to filter by it
 	// if it is passed, but otherwise not use a default value for either.
-	var isApproved *bool
-	if approvedStr := c.Query("is_approved"); approvedStr != "" {
-		parsed, err := strconv.ParseBool(approvedStr)
-		if err != nil {
-			return fiber.NewError(fiber.StatusBadRequest, "Invalid value for is_approved")
-		}
-		isApproved = &parsed
+	isApproved, err := getOptionalBool(c, "is_approved")
+	if err != nil {
+		return fiber.NewError(fiber.StatusBadRequest, "Invalid value for is_approved")
 	}
 
 	isRevoked, err := strconv.ParseBool(c.Query("is_revoked", "false"))
@@ -26,7 +21,7 @@ func (app *ApiServer) v1UsersManagedUsers(c *fiber.Ctx) error {
 	}
 	params := dbv1.GetGrantsForGranteeUserIdParams{
 		UserID:     app.getUserId(c),
-		IsApproved: pgtype.Bool{Bool: isApproved != nil && *isApproved, Valid: isApproved != nil},
+		IsApproved: isApproved,
 		IsRevoked:  isRevoked,
 	}
 
