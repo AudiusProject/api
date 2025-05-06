@@ -99,7 +99,7 @@ func (app *ApiServer) v1UsersLibraryTracks(c *fiber.Ctx) error {
 	`
 
 	rows, err := app.pool.Query(c.Context(), sql, pgx.NamedArgs{
-		"userId":     c.Locals("userId"),
+		"userId":     app.getUserId(c),
 		"limit":      c.Query("limit", "50"),
 		"offset":     c.Query("offset", "0"),
 		"actionType": c.Query("type", "all"),

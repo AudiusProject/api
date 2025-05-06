@@ -5,7 +5,7 @@ import (
 )
 
 func (app *ApiServer) v1UsersConnectedWallets(c *fiber.Ctx) error {
-	userId := c.Locals("userId").(int)
+	userId := app.getUserId(c)
 
 	wallets, err := app.queries.FullConnectedWallets(c.Context(), int32(userId))
 	if err != nil {

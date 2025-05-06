@@ -20,7 +20,7 @@ func (app *ApiServer) v1UsersFollowers(c *fiber.Ctx) error {
 	OFFSET @offset
 	`
 
-	userId := c.Locals("userId").(int)
+	userId := app.getUserId(c)
 	res := app.queryFullUsers(c, sql, pgx.NamedArgs{
 		"userId": userId,
 	})

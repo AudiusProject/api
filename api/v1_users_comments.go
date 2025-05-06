@@ -17,7 +17,7 @@ func (app *ApiServer) v1UsersComments(c *fiber.Ctx) error {
 	`
 
 	args := pgx.NamedArgs{
-		"user_id": c.Locals("userId"),
+		"user_id": app.getUserId(c),
 	}
 
 	return app.queryFullComments(c, sql, args)

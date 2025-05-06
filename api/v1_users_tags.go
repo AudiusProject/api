@@ -27,7 +27,7 @@ func (app *ApiServer) v1UsersTags(c *fiber.Ctx) error {
 	`
 
 	rows, err := app.pool.Query(c.Context(), sql, pgx.NamedArgs{
-		"userId": c.Locals("userId"),
+		"userId": app.getUserId(c),
 		"limit":  c.Query("limit", "10"),
 	})
 	if err != nil {
