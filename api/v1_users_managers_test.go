@@ -16,11 +16,11 @@ func TestGetUsersManagersNoParams(t *testing.T) {
 	assert.Equal(t, 200, status)
 	assert.Equal(t, 2, len(managersResponse.Data))
 
-	jsonAssert(t, body, map[string]string{
+	jsonAssert(t, body, map[string]any{
 		"data.0.manager.wallet":    "0x5f1a372b28956c8363f8bc3a231a6e9e1186ead8",
-		"data.0.grant.is_approved": "true",
+		"data.0.grant.is_approved": true,
 		"data.1.manager.wallet":    "0x681c616ae836ceca1effe00bd07f2fdbf9a082bc",
-		"data.1.grant.is_approved": "false",
+		"data.1.grant.is_approved": false,
 	})
 }
 
@@ -33,9 +33,9 @@ func TestGetUsersManagersApproved(t *testing.T) {
 	assert.Equal(t, 200, status)
 	assert.Equal(t, 1, len(managersResponse.Data))
 
-	jsonAssert(t, body, map[string]string{
+	jsonAssert(t, body, map[string]any{
 		"data.0.manager.wallet":    "0x5f1a372b28956c8363f8bc3a231a6e9e1186ead8",
-		"data.0.grant.is_approved": "true",
+		"data.0.grant.is_approved": true,
 	})
 }
 
@@ -47,13 +47,13 @@ func TestGetUsersManagersRevoked(t *testing.T) {
 	assert.Equal(t, 200, status)
 	assert.Equal(t, 2, len(managersResponse.Data))
 
-	jsonAssert(t, body, map[string]string{
+	jsonAssert(t, body, map[string]any{
 		"data.0.manager.wallet":    "0xc451c1f8943b575158310552b41230c61844a1c1",
-		"data.0.grant.is_approved": "false",
-		"data.0.grant.is_revoked":  "true",
+		"data.0.grant.is_approved": false,
+		"data.0.grant.is_revoked":  true,
 		"data.1.manager.wallet":    "0x1234567890abcdef",
-		"data.1.grant.is_approved": "true",
-		"data.1.grant.is_revoked":  "true",
+		"data.1.grant.is_approved": true,
+		"data.1.grant.is_revoked":  true,
 	})
 }
 

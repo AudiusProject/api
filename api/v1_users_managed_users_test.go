@@ -17,11 +17,11 @@ func TestGetManagedUsersNoParams(t *testing.T) {
 	assert.Equal(t, 200, status)
 	assert.Equal(t, 2, len(managedUsersResponse.Data))
 
-	jsonAssert(t, body, map[string]string{
+	jsonAssert(t, body, map[string]any{
 		"data.0.user.id":           trashid.MustEncodeHashID(1),
-		"data.0.grant.is_approved": "false",
+		"data.0.grant.is_approved": false,
 		"data.1.user.id":           trashid.MustEncodeHashID(2),
-		"data.1.grant.is_approved": "true",
+		"data.1.grant.is_approved": true,
 	})
 }
 
@@ -34,9 +34,9 @@ func TestGetManagedUsersApproved(t *testing.T) {
 	assert.Equal(t, 200, status)
 	assert.Equal(t, 1, len(managedUsersResponse.Data))
 
-	jsonAssert(t, body, map[string]string{
+	jsonAssert(t, body, map[string]any{
 		"data.0.user.id":           trashid.MustEncodeHashID(2),
-		"data.0.grant.is_approved": "true",
+		"data.0.grant.is_approved": true,
 	})
 }
 
@@ -48,13 +48,13 @@ func TestGetManagedUsersRevoked(t *testing.T) {
 	assert.Equal(t, 200, status)
 	assert.Equal(t, 2, len(managedUsersResponse.Data))
 
-	jsonAssert(t, body, map[string]string{
+	jsonAssert(t, body, map[string]any{
 		"data.0.user.id":           trashid.MustEncodeHashID(3),
-		"data.0.grant.is_approved": "true",
-		"data.0.grant.is_revoked":  "true",
+		"data.0.grant.is_approved": true,
+		"data.0.grant.is_revoked":  true,
 		"data.1.user.id":           trashid.MustEncodeHashID(4),
-		"data.1.grant.is_approved": "false",
-		"data.1.grant.is_revoked":  "true",
+		"data.1.grant.is_approved": false,
+		"data.1.grant.is_revoked":  true,
 	})
 }
 
