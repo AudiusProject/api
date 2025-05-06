@@ -3,6 +3,7 @@ package api
 import (
 	"context"
 	"encoding/json"
+	"fmt"
 	"io"
 	"net/http/httptest"
 	"os"
@@ -203,9 +204,23 @@ func testGet(t *testing.T, path string, dest ...any) (int, []byte) {
 	return res.StatusCode, body
 }
 
-func jsonAssert(t *testing.T, body []byte, expectations map[string]string) {
+func jsonAssert(t *testing.T, body []byte, expectations map[string]any) {
 	for path, expectation := range expectations {
-		assert.Equal(t, expectation, gjson.GetBytes(body, path).String())
+		var actual any
+		switch v := expectation.(type) {
+		case string:
+			actual = gjson.GetBytes(body, path).String()
+		case bool:
+			actual = gjson.GetBytes(body, path).Bool()
+		case float64:
+			actual = gjson.GetBytes(body, path).Float()
+		case int:
+			actual = int(gjson.GetBytes(body, path).Int())
+		default:
+			t.Errorf("unsupported type for expectation: %T", v)
+		}
+		msg := fmt.Sprintf("Expected %s to be %v got %v", path, expectation, actual)
+		assert.Equal(t, expectation, actual, msg)
 	}
 }
 

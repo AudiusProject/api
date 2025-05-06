@@ -16,7 +16,7 @@ func TestGetEvents(t *testing.T) {
 	status, body := testGet(t, "/v1/events", &eventsResponse)
 	assert.Equal(t, 200, status)
 
-	jsonAssert(t, body, map[string]string{
+	jsonAssert(t, body, map[string]any{
 		"data.0.event_id":  trashid.MustEncodeHashID(1),
 		"data.0.entity_id": trashid.MustEncodeHashID(100),
 
@@ -46,7 +46,7 @@ func TestGetEventsEntity(t *testing.T) {
 	)
 	assert.Equal(t, 200, status)
 
-	jsonAssert(t, body, map[string]string{
+	jsonAssert(t, body, map[string]any{
 		"data.0.event_id":  trashid.MustEncodeHashID(6),
 		"data.0.entity_id": trashid.MustEncodeHashID(102),
 	})

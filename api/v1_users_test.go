@@ -72,9 +72,9 @@ func TestGetUsers(t *testing.T) {
 	assert.Equal(t, 200, status)
 
 	// jsonAssert helps testing the response body
-	jsonAssert(t, body, map[string]string{
+	jsonAssert(t, body, map[string]any{
 		"data.0.id":      "7eP5n",
-		"data.0.user_id": "1",
+		"data.0.user_id": 1,
 		"data.0.handle":  "rayjacobson",
 	})
 
@@ -98,7 +98,7 @@ func TestFollowerEndpoint(t *testing.T) {
 	status, body := testGet(t, "/v1/full/users/7eP5n/followers", &userResponse)
 	assert.Equal(t, 200, status)
 
-	jsonAssert(t, body, map[string]string{
+	jsonAssert(t, body, map[string]any{
 		"data.0.id":     "ML51L",
 		"data.0.handle": "stereosteve",
 	})

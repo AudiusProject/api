@@ -23,7 +23,7 @@ func TestGetUserConnectedWalletsQuery(t *testing.T) {
 func TestGetUserConnectedWallets(t *testing.T) {
 	status, body := testGet(t, "/v1/users/"+trashid.MustEncodeHashID(2)+"/connected_wallets")
 	assert.Equal(t, 200, status)
-	jsonAssert(t, body, map[string]string{
+	jsonAssert(t, body, map[string]any{
 		"data.erc_wallets": `["0x1111111111111111111111111111111111111111","0x2222222222222222222222222222222222222222"]`,
 		"data.spl_wallets": `["sol44444444444444444444444444444444444444444","sol55555555555555555555555555555555555555555"]`,
 	})
@@ -32,7 +32,7 @@ func TestGetUserConnectedWallets(t *testing.T) {
 func TestGetUserConnectedWalletsEmpty(t *testing.T) {
 	status, body := testGet(t, "/v1/users/"+trashid.MustEncodeHashID(4)+"/connected_wallets")
 	assert.Equal(t, 200, status)
-	jsonAssert(t, body, map[string]string{
+	jsonAssert(t, body, map[string]any{
 		"data.spl_wallets": "[]",
 		"data.erc_wallets": "[]",
 	})

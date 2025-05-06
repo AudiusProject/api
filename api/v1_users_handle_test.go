@@ -14,7 +14,7 @@ func TestGetUsersHandle(t *testing.T) {
 	status, body := testGet(t, "/v1/users/handle/rayjacobson", &accountResponse)
 	assert.Equal(t, 200, status)
 
-	jsonAssert(t, body, map[string]string{
+	jsonAssert(t, body, map[string]any{
 		"data.id":     "7eP5n",
 		"data.handle": "rayjacobson",
 	})

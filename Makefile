@@ -24,8 +24,8 @@ psql::
 	docker compose exec db psql -U postgres
 
 setup::
-	go install github.com/bokwoon95/wgo@latest
-	go install -v github.com/sqlc-dev/sqlc/cmd/sqlc@latest
+	go install github.com/bokwoon95/wgo@v0.5.11
+	go install -v github.com/sqlc-dev/sqlc/cmd/sqlc@v1.29.0
 
 apidiff::
 	open http://localhost:1323/apidiff.html
