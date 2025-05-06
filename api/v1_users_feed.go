@@ -104,7 +104,7 @@ func (app *ApiServer) v1UsersFeed(c *fiber.Ctx) error {
 	`
 
 	rows, err := app.pool.Query(c.Context(), sql, pgx.NamedArgs{
-		"userId": c.Locals("userId"),
+		"userId": app.getUserId(c),
 		"before": time.Now(),
 		"limit":  c.Query("limit", "50"),
 		"offset": c.Query("offset", "0"),

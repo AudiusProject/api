@@ -98,7 +98,7 @@ func (app *ApiServer) v1UsersLibraryPlaylists(c *fiber.Ctx) error {
 
 	rows, err := app.pool.Query(c.Context(), sql, pgx.NamedArgs{
 		"playlistType": playlistType,
-		"userId":       c.Locals("userId"),
+		"userId":       app.getUserId(c),
 		"actionType":   c.Query("type", "all"),
 		"limit":        c.Query("limit", "50"),
 		"offset":       c.Query("offset", "0"),

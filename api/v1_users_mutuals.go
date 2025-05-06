@@ -7,7 +7,7 @@ import (
 
 func (app *ApiServer) v1UsersMutuals(c *fiber.Ctx) error {
 	myId := app.getMyId(c)
-	userId := c.Locals("userId").(int)
+	userId := app.getUserId(c)
 
 	sql := `
 	SELECT x.follower_user_id

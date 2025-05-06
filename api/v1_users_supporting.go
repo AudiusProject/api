@@ -8,7 +8,7 @@ import (
 
 func (app *ApiServer) v1UsersSupporting(c *fiber.Ctx) error {
 	myId := app.getMyId(c)
-	userId := c.Locals("userId").(int)
+	userId := app.getUserId(c)
 
 	args := pgx.NamedArgs{
 		"userId": userId,

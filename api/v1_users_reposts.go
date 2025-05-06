@@ -10,7 +10,7 @@ import (
 
 func (app *ApiServer) v1UsersReposts(c *fiber.Ctx) error {
 	myId := app.getMyId(c)
-	userId := c.Locals("userId")
+	userId := app.getUserId(c)
 
 	sql := `
 	SELECT repost_type, repost_item_id, reposts.created_at

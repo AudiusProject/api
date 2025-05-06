@@ -56,8 +56,8 @@ func (app *ApiServer) v1UsersRelated(c *fiber.Ctx) error {
 
 	filterFollowed, _ := strconv.ParseBool(c.Query("filter_followed"))
 	return app.queryFullUsers(c, sql, pgx.NamedArgs{
-		"myId":           c.Locals("myId"),
-		"userId":         c.Locals("userId"),
+		"myId":           app.getMyId(c),
+		"userId":         app.getUserId(c),
 		"filterFollowed": filterFollowed,
 	})
 }
