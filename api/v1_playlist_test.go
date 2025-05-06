@@ -16,7 +16,7 @@ func TestGetPlaylist(t *testing.T) {
 	status, body := testGet(t, "/v1/full/playlists/7eP5n", &playlistResponse)
 	assert.Equal(t, 200, status)
 
-	jsonAssert(t, body, map[string]string{
+	jsonAssert(t, body, map[string]any{
 		"data.0.id":            "7eP5n",
 		"data.0.playlist_name": "First",
 	})
@@ -28,7 +28,7 @@ func TestGetPlaylistFollowDownloadAccess(t *testing.T) {
 	}
 	// No access
 	_, body1 := testGet(t, "/v1/full/playlists/ML51L", &playlistResponse)
-	jsonAssert(t, body1, map[string]string{
+	jsonAssert(t, body1, map[string]any{
 		"data.0.playlist_name": "Follow Gated Stream",
 		"data.0.access":        `{"stream":false,"download":false}`,
 	})
@@ -40,7 +40,7 @@ func TestGetPlaylistFollowDownloadAccess(t *testing.T) {
 		"0x4954d18926ba0ed9378938444731be4e622537b2",
 		&playlistResponse,
 	)
-	jsonAssert(t, body2, map[string]string{
+	jsonAssert(t, body2, map[string]any{
 		"data.0.playlist_name": "Follow Gated Stream",
 		"data.0.access":        `{"stream":true,"download":true}`,
 	})
@@ -52,7 +52,7 @@ func TestGetPlaylistUsdcPurchaseStreamAccess(t *testing.T) {
 	}
 	// No access
 	_, body1 := testGet(t, "/v1/full/playlists/ELKzn", &playlistResponse)
-	jsonAssert(t, body1, map[string]string{
+	jsonAssert(t, body1, map[string]any{
 		"data.0.playlist_name": "Purchase Gated Stream",
 		"data.0.access":        `{"stream":false,"download":false}`,
 	})
@@ -64,7 +64,7 @@ func TestGetPlaylistUsdcPurchaseStreamAccess(t *testing.T) {
 		"0x855d28d495ec1b06364bb7a521212753e2190b95",
 		&playlistResponse,
 	)
-	jsonAssert(t, body2, map[string]string{
+	jsonAssert(t, body2, map[string]any{
 		"data.0.playlist_name": "Purchase Gated Stream",
 		"data.0.access":        `{"stream":true,"download":true}`,
 	})
@@ -89,7 +89,7 @@ func TestGetPlaylistUsdcPurchaseSelfAccess(t *testing.T) {
 		"0xc3d1d41e6872ffbd15c473d14fc3a9250be5b5e0",
 		&playlistResponse,
 	)
-	jsonAssert(t, body2, map[string]string{
+	jsonAssert(t, body2, map[string]any{
 		"data.0.playlist_name": "Purchase Gated Stream",
 		"data.0.access":        `{"stream":true,"download":true}`,
 	})

@@ -16,7 +16,7 @@ func TestGetTrack(t *testing.T) {
 	status, body := testGet(t, "/v1/full/tracks/eYJyn", &trackResponse)
 	assert.Equal(t, 200, status)
 
-	jsonAssert(t, body, map[string]string{
+	jsonAssert(t, body, map[string]any{
 		"data.id":    "eYJyn",
 		"data.title": "Culca Canyon",
 	})
@@ -28,10 +28,10 @@ func TestGetTrackFollowDownloadAcess(t *testing.T) {
 	}
 	// No access
 	_, body1 := testGet(t, "/v1/full/tracks/eYRWn", &trackResponse)
-	jsonAssert(t, body1, map[string]string{
+	jsonAssert(t, body1, map[string]any{
 		"data.title":           "Follow Gated Download",
-		"data.access.stream":   "true",
-		"data.access.download": "false",
+		"data.access.stream":   true,
+		"data.access.download": false,
 	})
 
 	// With access
@@ -41,10 +41,10 @@ func TestGetTrackFollowDownloadAcess(t *testing.T) {
 		"0x4954d18926ba0ed9378938444731be4e622537b2",
 		&trackResponse,
 	)
-	jsonAssert(t, body2, map[string]string{
+	jsonAssert(t, body2, map[string]any{
 		"data.title":           "Follow Gated Download",
-		"data.access.stream":   "true",
-		"data.access.download": "true",
+		"data.access.stream":   true,
+		"data.access.download": true,
 	})
 }
 
@@ -54,10 +54,10 @@ func TestGetTrackTipStreamAccess(t *testing.T) {
 	}
 	// No access
 	_, body1 := testGet(t, "/v1/full/tracks/L5x7n", &trackResponse)
-	jsonAssert(t, body1, map[string]string{
+	jsonAssert(t, body1, map[string]any{
 		"data.title":           "Tip Gated Stream",
-		"data.access.stream":   "false",
-		"data.access.download": "false",
+		"data.access.stream":   false,
+		"data.access.download": false,
 	})
 
 	// With access
@@ -67,10 +67,10 @@ func TestGetTrackTipStreamAccess(t *testing.T) {
 		"0x4954d18926ba0ed9378938444731be4e622537b2",
 		&trackResponse,
 	)
-	jsonAssert(t, body2, map[string]string{
+	jsonAssert(t, body2, map[string]any{
 		"data.title":           "Tip Gated Stream",
-		"data.access.stream":   "true",
-		"data.access.download": "true",
+		"data.access.stream":   true,
+		"data.access.download": true,
 	})
 }
 
@@ -80,10 +80,10 @@ func TestGetTrackUsdcPurchaseStreamAccess(t *testing.T) {
 	}
 	// No access
 	_, body1 := testGet(t, "/v1/full/tracks/ebdJL", &trackResponse)
-	jsonAssert(t, body1, map[string]string{
+	jsonAssert(t, body1, map[string]any{
 		"data.title":           "Pay Gated Stream",
-		"data.access.stream":   "false",
-		"data.access.download": "false",
+		"data.access.stream":   false,
+		"data.access.download": false,
 	})
 
 	// With access
@@ -93,10 +93,10 @@ func TestGetTrackUsdcPurchaseStreamAccess(t *testing.T) {
 		"0x855d28d495ec1b06364bb7a521212753e2190b95",
 		&trackResponse,
 	)
-	jsonAssert(t, body2, map[string]string{
+	jsonAssert(t, body2, map[string]any{
 		"data.title":           "Pay Gated Stream",
-		"data.access.stream":   "true",
-		"data.access.download": "true",
+		"data.access.stream":   true,
+		"data.access.download": true,
 	})
 }
 
@@ -119,9 +119,9 @@ func TestGetTrackUsdcPurchaseSelfAccess(t *testing.T) {
 		"0xc3d1d41e6872ffbd15c473d14fc3a9250be5b5e0",
 		&trackResponse,
 	)
-	jsonAssert(t, body2, map[string]string{
+	jsonAssert(t, body2, map[string]any{
 		"data.title":           "Pay Gated Stream",
-		"data.access.stream":   "true",
-		"data.access.download": "true",
+		"data.access.stream":   true,
+		"data.access.download": true,
 	})
 }

@@ -17,9 +17,9 @@ func TestGetUser(t *testing.T) {
 	assert.Equal(t, 200, status)
 
 	// body is response json
-	jsonAssert(t, body, map[string]string{
+	jsonAssert(t, body, map[string]any{
 		"data.0.handle":  "rayjacobson",
-		"data.0.user_id": "1",
+		"data.0.user_id": 1,
 		"data.0.id":      "7eP5n",
 	})
 
