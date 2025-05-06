@@ -7,7 +7,7 @@ import (
 	"github.com/gofiber/fiber/v2"
 )
 
-func (app *ApiServer) v1UsersManagers(c *fiber.Ctx) error {
+func (app *ApiServer) v1UsersManagedUsers(c *fiber.Ctx) error {
 	// Behavior of this field is a little odd. We only want to filter by it
 	// if it is passed, but otherwise not use a default value for either.
 	isApproved, err := getOptionalBool(c, "is_approved")
@@ -19,18 +19,18 @@ func (app *ApiServer) v1UsersManagers(c *fiber.Ctx) error {
 	if err != nil {
 		return fiber.NewError(fiber.StatusBadRequest, "Invalid value for is_revoked")
 	}
-	params := dbv1.GetGrantsForUserIdParams{
+	params := dbv1.GetGrantsForGranteeUserIdParams{
 		UserID:     app.getUserId(c),
 		IsApproved: isApproved,
 		IsRevoked:  isRevoked,
 	}
 
-	managers, err := app.queries.FullManagers(c.Context(), params)
+	managedUsers, err := app.queries.FullManagedUsers(c.Context(), params)
 	if err != nil {
 		return err
 	}
 
 	return c.JSON(fiber.Map{
-		"data": managers,
+		"data": managedUsers,
 	})
 }
