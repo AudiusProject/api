@@ -25,7 +25,7 @@ func (app *ApiServer) v1UsersManagers(c *fiber.Ctx) error {
 		return fiber.NewError(fiber.StatusBadRequest, "Invalid value for is_revoked")
 	}
 	params := dbv1.GetGrantsForUserIdParams{
-		UserID:     int32(c.Locals("userId").(int)),
+		UserID:     app.getUserId(c),
 		IsApproved: pgtype.Bool{Bool: isApproved != nil && *isApproved, Valid: isApproved != nil},
 		IsRevoked:  isRevoked,
 	}

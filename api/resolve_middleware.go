@@ -33,6 +33,14 @@ func (app *ApiServer) getMyId(c *fiber.Ctx) int32 {
 	return int32(myId.(int))
 }
 
+func (app *ApiServer) getUserId(c *fiber.Ctx) int32 {
+	userId := c.Locals("userId")
+	if userId == nil {
+		return 0
+	}
+	return int32(userId.(int))
+}
+
 func (app *ApiServer) requireUserIdMiddleware(c *fiber.Ctx) error {
 	userId, err := trashid.DecodeHashId(c.Params("userId"))
 	if err != nil || userId == 0 {
