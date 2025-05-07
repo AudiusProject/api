@@ -9,8 +9,6 @@ import (
 )
 
 func (app *ApiServer) v1UsersTransactionsAudio(c *fiber.Ctx) error {
-	userID := app.getUserId(c)
-
 	sortMethodQuery := c.Query("sort_method", "date")
 	if sortMethodQuery != "date" && sortMethodQuery != "type" {
 		return fiber.NewError(fiber.StatusBadRequest, "Invalid sort method")
@@ -40,7 +38,7 @@ func (app *ApiServer) v1UsersTransactionsAudio(c *fiber.Ctx) error {
 	OFFSET @offset`
 
 	args := pgx.NamedArgs{
-		"user_id": userID,
+		"user_id": app.getUserId(c),
 	}
 	args["limit"] = c.QueryInt("limit", 100)
 	args["offset"] = c.QueryInt("offset", 0)
@@ -72,7 +70,23 @@ func (app *ApiServer) v1UsersTransactionsAudio(c *fiber.Ctx) error {
 }
 
 func (app *ApiServer) v1UsersTransactionsAudioCount(c *fiber.Ctx) error {
+	sql := `
+	SELECT count(*)
+	FROM users
+	JOIN user_bank_accounts ON user_bank_accounts.ethereum_address = users.wallet
+	JOIN audio_transactions_history ON audio_transactions_history.user_bank = user_bank_accounts.bank_account
+	WHERE users.user_id = @user_id::int AND users.is_current = TRUE`
+
+	rows, err := app.pool.Query(c.Context(), sql, pgx.NamedArgs{
+		"user_id": app.getUserId(c),
+	})
+
+	count, err := pgx.CollectOneRow(rows, pgx.RowTo[int32])
+	if err != nil {
+		return err
+	}
+
 	return c.JSON(fiber.Map{
-		"data": 0,
+		"data": count,
 	})
 }
