@@ -25,8 +25,8 @@ func (app *ApiServer) v1UserTracks(c *fiber.Ctx) error {
 	sql := `
 	SELECT track_id
 	FROM tracks t
-	JOIN aggregate_track USING (track_id)
 	JOIN users u ON owner_id = u.user_id
+	LEFT JOIN aggregate_track USING (track_id)
 	WHERE u.handle_lc = LOWER(@handle)
 	  AND u.is_deactivated = false
 	  AND t.is_delete = false
