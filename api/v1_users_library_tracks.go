@@ -17,26 +17,6 @@ import (
 func (app *ApiServer) v1UsersLibraryTracks(c *fiber.Ctx) error {
 	myId := app.getMyId(c)
 
-	sortField := "item_created_at"
-	switch c.Query("sort_method") {
-	case "plays":
-		sortField = "aggregate_plays.count"
-	case "reposts":
-		sortField = "aggregate_track.repost_count"
-	case "saves":
-		sortField = "aggregate_track.save_count"
-	case "title":
-		sortField = "tracks.title"
-	case "artist_name":
-		sortField = "users.name"
-
-	}
-
-	sortDirection := "DESC"
-	if c.Query("sort_direction") == "asc" {
-		sortDirection = "ASC"
-	}
-
 	sql := `
 	WITH library_items AS (
 		SELECT
@@ -93,16 +73,30 @@ func (app *ApiServer) v1UsersLibraryTracks(c *fiber.Ctx) error {
 	LEFT JOIN aggregate_plays ON track_id = play_item_id
 	LEFT JOIN aggregate_track USING (track_id)
 	WHERE is_unlisted = false OR is_purchase = true
-	ORDER BY ` + sortField + ` ` + sortDirection + `
+	ORDER BY
+		CASE WHEN @sortField = 'added_date' AND @sortDirection = 'asc' THEN item_created_at END ASC,
+		CASE WHEN @sortField = 'added_date' AND @sortDirection = 'desc' THEN item_created_at END DESC,
+		CASE WHEN @sortField = 'plays' AND @sortDirection = 'asc' THEN aggregate_plays.count END ASC,
+		CASE WHEN @sortField = 'plays' AND @sortDirection = 'desc' THEN aggregate_plays.count END DESC,
+		CASE WHEN @sortField = 'reposts' AND @sortDirection = 'asc' THEN aggregate_track.repost_count END ASC,
+		CASE WHEN @sortField = 'reposts' AND @sortDirection = 'desc' THEN aggregate_track.repost_count END DESC,
+		CASE WHEN @sortField = 'saves' AND @sortDirection = 'asc' THEN aggregate_track.save_count END ASC,
+		CASE WHEN @sortField = 'saves' AND @sortDirection = 'desc' THEN aggregate_track.save_count END DESC,
+		CASE WHEN @sortField = 'title' AND @sortDirection = 'asc' THEN tracks.title END ASC,
+		CASE WHEN @sortField = 'title' AND @sortDirection = 'desc' THEN tracks.title END DESC,
+		CASE WHEN @sortField = 'artist_name' AND @sortDirection = 'asc' THEN users.name END ASC,
+		CASE WHEN @sortField = 'artist_name' AND @sortDirection = 'desc' THEN users.name END DESC
 	LIMIT @limit
 	OFFSET @offset
 	`
 
 	rows, err := app.pool.Query(c.Context(), sql, pgx.NamedArgs{
-		"userId":     app.getUserId(c),
-		"limit":      c.Query("limit", "50"),
-		"offset":     c.Query("offset", "0"),
-		"actionType": c.Query("type", "all"),
+		"userId":        app.getUserId(c),
+		"limit":         c.Query("limit", "50"),
+		"offset":        c.Query("offset", "0"),
+		"actionType":    c.Query("type", "all"),
+		"sortField":     c.Query("sort_method", "added_date"),
+		"sortDirection": c.Query("sort_direction", "desc"),
 		// todo: support search / query param
 	})
 	if err != nil {
