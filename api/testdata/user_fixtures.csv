@@ -14,3 +14,5 @@ user_id,handle,handle_lc,is_deactivated,wallet,playlist_library
 102,authtest3,authtest3,f,0x5f1a372b28956c8363f8bc3a231a6e9e1186ead8,
 200,eventsuser,eventsuser,f,0xffffffffff,
 201,eventsuser2,eventsuser2,f,0xffffffffff,
+301,popularuser,popularuser,f,0x234567890abcdef1,
+302,followseveryone,followseveryone,f,0x34567890abcdef12,

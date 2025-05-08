@@ -10,3 +10,5 @@ track_id,genre,owner_id,title,is_unlisted,stream_conditions,download_conditions,
 303,Electronic,3,Pay Gated Stream,f,"{""usdc_purchase"": {""price"": 135, ""splits"": [{""user_id"": 3, ""percentage"": 100.0}]}}",,f
 400,Folk,5,Trending Month Folk,f,,,f
 500,Experimental,6,track by permalink,f,,,f
+501,Folk,301,Trending Popular user Track,f,,,f
+502,Folk,302,Trending Folows Everyone Track,f,,,f
