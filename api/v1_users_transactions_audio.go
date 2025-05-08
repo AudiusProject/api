@@ -19,6 +19,11 @@ func (app *ApiServer) v1UsersTransactionsAudio(c *fiber.Ctx) error {
 	limit := c.QueryInt("limit", 100)
 	offset := c.QueryInt("offset", 0)
 
+	transactionTypes := c.Context().QueryArgs().PeekMulti("type")
+	if len(transactionTypes) == 0 {
+		transactionTypes = nil
+	}
+
 	transactions, err := app.queries.GetUserAudioTransactions(c.Context(), dbv1.GetUserAudioTransactionsParams{
 		UserID:        app.getUserId(c),
 		SortMethod:    sortMethod,

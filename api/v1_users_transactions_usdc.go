@@ -1,6 +1,8 @@
 package api
 
 import (
+	"strings"
+
 	"github.com/gofiber/fiber/v2"
 
 	"bridgerton.audius.co/api/dbv1"
@@ -19,14 +21,24 @@ func (app *ApiServer) v1UsersTransactionsUsdc(c *fiber.Ctx) error {
 	limit := c.QueryInt("limit", 100)
 	offset := c.QueryInt("offset", 0)
 
-	// TODO: Add transaction_type, include_system_transactions, transaction_method filtering
+	// TODO: Test transaction_type, add include_system_transactions, transaction_method filtering
+
+	transactionTypeList := c.Query("type")
+
+	var transactionTypes []string
+	if transactionTypeList != "" {
+		transactionTypes = strings.Split(transactionTypeList, ",")
+	} else {
+		transactionTypes = nil
+	}
 
 	transactions, err := app.queries.GetUserUsdcTransactions(c.Context(), dbv1.GetUserUsdcTransactionsParams{
-		UserID:        app.getUserId(c),
-		SortMethod:    sortMethod,
-		SortDirection: sortDirection,
-		LimitVal:      int32(limit),
-		OffsetVal:     int32(offset),
+		UserID:           app.getUserId(c),
+		TransactionTypes: transactionTypes,
+		SortMethod:       sortMethod,
+		SortDirection:    sortDirection,
+		LimitVal:         int32(limit),
+		OffsetVal:        int32(offset),
 	})
 	if err != nil {
 		return err
@@ -39,7 +51,9 @@ func (app *ApiServer) v1UsersTransactionsUsdc(c *fiber.Ctx) error {
 
 func (app *ApiServer) v1UsersTransactionsUsdcCount(c *fiber.Ctx) error {
 	// TODO: Add method, type, include_system_transactions filtering
-	count, err := app.queries.GetUserUsdcTransactionsCount(c.Context(), app.getUserId(c))
+	count, err := app.queries.GetUserUsdcTransactionsCount(c.Context(), dbv1.GetUserUsdcTransactionsCountParams{
+		UserID: app.getUserId(c),
+	})
 	if err != nil {
 		return err
 	}

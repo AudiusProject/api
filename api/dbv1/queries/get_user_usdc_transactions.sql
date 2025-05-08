@@ -3,7 +3,9 @@ SELECT uth.created_at as transaction_date, transaction_type, uth.signature, meth
 FROM users
 JOIN usdc_user_bank_accounts uba ON uba.ethereum_address = users.wallet
 JOIN usdc_transactions_history uth ON uth.user_bank = uba.bank_account
-WHERE users.user_id = @user_id::int AND users.is_current = TRUE
+WHERE users.user_id = @user_id::int
+  AND users.is_current = TRUE
+  AND (sqlc.narg('transaction_types')::text[] IS NULL OR transaction_type = ANY(sqlc.narg('transaction_types')::text[]))
 ORDER BY
     CASE WHEN @sort_method::text = 'date' AND @sort_direction::text = 'asc' THEN uth.created_at END ASC,
     CASE WHEN @sort_method::text = 'date' AND @sort_direction::text = 'desc' THEN uth.created_at END DESC,
@@ -17,4 +19,6 @@ SELECT count(*)
 FROM users
 JOIN usdc_user_bank_accounts uba ON uba.ethereum_address = users.wallet
 JOIN usdc_transactions_history uth ON uth.user_bank = uba.bank_account
-WHERE users.user_id = @user_id::int AND users.is_current = TRUE;
+WHERE users.user_id = @user_id::int
+  AND users.is_current = TRUE
+  AND (sqlc.narg('transaction_types')::text[] IS NULL OR transaction_type = ANY(sqlc.narg('transaction_types')::text[]));
