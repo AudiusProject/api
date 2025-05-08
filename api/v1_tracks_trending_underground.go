@@ -15,6 +15,24 @@ func (app *ApiServer) v1TracksTrendingUnderground(c *fiber.Ctx) error {
 	genre := c.Query("genre", "")
 
 	sql := `
+	    WITH trending_tracks AS (
+			SELECT track_trending_scores.track_id
+			FROM track_trending_scores
+			LEFT JOIN tracks
+				ON tracks.track_id = track_trending_scores.track_id
+				AND tracks.is_delete = false
+				AND tracks.is_unlisted = false
+				AND tracks.is_available = true
+			WHERE type = 'TRACKS'
+				AND version = 'pnagD'
+				AND time_range = @time
+				AND (@genre = '' OR track_trending_scores.genre = @genre)
+			ORDER BY
+				score DESC,
+				track_id DESC
+			LIMIT 100
+		)
+
 		SELECT track_trending_scores.track_id
 		FROM track_trending_scores
 		LEFT JOIN tracks
@@ -30,6 +48,11 @@ func (app *ApiServer) v1TracksTrendingUnderground(c *fiber.Ctx) error {
 			AND (@genre = '' OR track_trending_scores.genre = @genre)
 			AND aggregate_user.follower_count < 1500
 			AND aggregate_user.following_count < 1500
+			AND NOT EXISTS (
+				SELECT 1
+				FROM trending_tracks
+				WHERE trending_tracks.track_id = track_trending_scores.track_id
+			)
 		ORDER BY
 			track_trending_scores.score DESC,
 			track_trending_scores.track_id DESC

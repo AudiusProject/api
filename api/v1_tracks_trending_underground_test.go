@@ -17,13 +17,13 @@ func TestGetTrendingUnderground(t *testing.T) {
 	assert.Equal(t, 200, status)
 
 	jsonAssert(t, body, map[string]any{
-		"data.0.id":    trashid.MustEncodeHashID(300),
-		"data.0.genre": "Electronic",
+		"data.0.id":    trashid.MustEncodeHashID(597),
+		"data.0.genre": "Jazz",
 
-		"data.1.id":    trashid.MustEncodeHashID(202),
-		"data.1.genre": "Alternative",
+		"data.1.id":    trashid.MustEncodeHashID(598),
+		"data.1.genre": "Classical",
 
-		"data.2.id":    trashid.MustEncodeHashID(200),
+		"data.2.id":    trashid.MustEncodeHashID(599),
 		"data.2.genre": "Electronic",
 	})
 
