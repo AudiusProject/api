@@ -12,18 +12,20 @@ func TestGetTrendingUnderground(t *testing.T) {
 	var resp struct {
 		Data []dbv1.FullTrack
 	}
-	status, _ := testGet(t, "/v1/tracks/trending/underground", &resp)
+	status, body := testGet(t, "/v1/tracks/trending/underground", &resp)
 
 	assert.Equal(t, 200, status)
 
-	assert.Equal(t, trashid.MustEncodeHashID(300), resp.Data[0].ID)
-	assert.Equal(t, "Electronic", resp.Data[0].Genre.String)
+	jsonAssert(t, body, map[string]any{
+		"data.0.id":    trashid.MustEncodeHashID(300),
+		"data.0.genre": "Electronic",
 
-	assert.Equal(t, trashid.MustEncodeHashID(202), resp.Data[1].ID)
-	assert.Equal(t, "Alternative", resp.Data[1].Genre.String)
+		"data.1.id":    trashid.MustEncodeHashID(202),
+		"data.1.genre": "Alternative",
 
-	assert.Equal(t, trashid.MustEncodeHashID(200), resp.Data[2].ID)
-	assert.Equal(t, "Electronic", resp.Data[2].Genre.String)
+		"data.2.id":    trashid.MustEncodeHashID(200),
+		"data.2.genre": "Electronic",
+	})
 
 	// These tracks fall outside of underground params (follower / following count)
 	for _, track := range resp.Data {
