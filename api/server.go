@@ -201,7 +201,6 @@ func NewApiServer(config config.Config) *ApiServer {
 		app.Use("/v1/full/tracks/most_loved", BalancerForward(config.PythonUpstreams))
 		app.Use("/v1/full/tracks/remixables", BalancerForward(config.PythonUpstreams))
 		app.Use("/v1/full/tracks/usdc-purchase", BalancerForward(config.PythonUpstreams))
-		app.Use("/v1/full/tracks/trending/underground", BalancerForward(config.PythonUpstreams))
 	}
 
 	v1 := app.Group("/v1")
@@ -243,6 +242,7 @@ func NewApiServer(config config.Config) *ApiServer {
 
 		g.Get("/tracks/trending", app.v1TracksTrending)
 		g.Get("/tracks/trending/ids", app.v1TracksTrendingIds)
+		g.Get("/tracks/trending/underground", app.v1TracksTrendingUnderground)
 		g.Get("/tracks/recommended", app.v1TracksTrending)
 		g.Get("/tracks/inspect", app.v1TracksInspect)
 
