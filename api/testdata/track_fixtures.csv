@@ -1,114 +1,114 @@
-track_id,genre,owner_id,title,is_unlisted,stream_conditions,download_conditions,is_downloadable
-100,Electronic,1,T1,f,,,t
-101,Alternative,1,T2,f,,,f
-200,Electronic,2,Culca Canyon,f,,,f
-201,Alternative,2,Turkey Time DEMO,t,,,f
-202,Alternative,2,Turkey Time (live),f,,,f
-300,Electronic,3,Follow Gated Download,f,,"{""follow_user_id"": 3}",t
-301,Electronic,3,Pay Gated Download,f,,"{""usdc_purchase"": {""price"": 135, ""splits"": [{""user_id"": 3, ""percentage"": 100.0}]}}",t
-302,Electronic,3,Tip Gated Stream,f,"{""tip_user_id"": 3}","{""tip_user_id"": 3}",f
-303,Electronic,3,Pay Gated Stream,f,"{""usdc_purchase"": {""price"": 135, ""splits"": [{""user_id"": 3, ""percentage"": 100.0}]}}",,f
-400,Folk,5,Trending Month Folk,f,,,f
-500,Experimental,6,track by permalink,f,,,f
-501,Folk,301,Trending Popular user Track,f,,,f
-502,Folk,302,Trending Folows Everyone Track,f,,,f
-503,Electronic,1,Trending Electronic Track 1,f,,,f
-504,Disco,2,Trending Disco Track 1,f,,,f
-505,Rock,3,Trending Rock Track 1,f,,,f
-506,Pop,4,Trending Pop Track 1,f,,,f
-507,Jazz,5,Trending Jazz Track 1,f,,,f
-508,Classical,6,Trending Classical Track 1,f,,,f
-509,Electronic,7,Trending Electronic Track 2,f,,,f
-510,Disco,8,Trending Disco Track 2,f,,,f
-511,Rock,11,Trending Rock Track 2,f,,,f
-512,Pop,1,Trending Pop Track 2,f,,,f
-513,Jazz,2,Trending Jazz Track 2,f,,,f
-514,Classical,3,Trending Classical Track 2,f,,,f
-515,Electronic,4,Trending Electronic Track 3,f,,,f
-516,Disco,5,Trending Disco Track 3,f,,,f
-517,Rock,6,Trending Rock Track 3,f,,,f
-518,Pop,7,Trending Pop Track 3,f,,,f
-519,Jazz,8,Trending Jazz Track 3,f,,,f
-520,Classical,11,Trending Classical Track 3,f,,,f
-521,Electronic,1,Trending Electronic Track 4,f,,,f
-522,Disco,2,Trending Disco Track 4,f,,,f
-523,Rock,3,Trending Rock Track 4,f,,,f
-524,Pop,4,Trending Pop Track 4,f,,,f
-525,Jazz,5,Trending Jazz Track 4,f,,,f
-526,Classical,6,Trending Classical Track 4,f,,,f
-527,Electronic,7,Trending Electronic Track 5,f,,,f
-528,Disco,8,Trending Disco Track 5,f,,,f
-529,Rock,11,Trending Rock Track 5,f,,,f
-530,Pop,1,Trending Pop Track 5,f,,,f
-531,Jazz,2,Trending Jazz Track 5,f,,,f
-532,Classical,3,Trending Classical Track 5,f,,,f
-533,Electronic,4,Trending Electronic Track 6,f,,,f
-534,Disco,5,Trending Disco Track 6,f,,,f
-535,Rock,6,Trending Rock Track 6,f,,,f
-536,Pop,7,Trending Pop Track 6,f,,,f
-537,Jazz,8,Trending Jazz Track 6,f,,,f
-538,Classical,11,Trending Classical Track 6,f,,,f
-539,Electronic,1,Trending Electronic Track 7,f,,,f
-540,Disco,2,Trending Disco Track 7,f,,,f
-541,Rock,3,Trending Rock Track 7,f,,,f
-542,Pop,4,Trending Pop Track 7,f,,,f
-543,Jazz,5,Trending Jazz Track 7,f,,,f
-544,Classical,6,Trending Classical Track 7,f,,,f
-545,Electronic,7,Trending Electronic Track 8,f,,,f
-546,Disco,8,Trending Disco Track 8,f,,,f
-547,Rock,11,Trending Rock Track 8,f,,,f
-548,Pop,1,Trending Pop Track 8,f,,,f
-549,Jazz,2,Trending Jazz Track 8,f,,,f
-550,Classical,3,Trending Classical Track 8,f,,,f
-551,Electronic,4,Trending Electronic Track 9,f,,,f
-552,Disco,5,Trending Disco Track 9,f,,,f
-553,Rock,6,Trending Rock Track 9,f,,,f
-554,Pop,7,Trending Pop Track 9,f,,,f
-555,Jazz,8,Trending Jazz Track 9,f,,,f
-556,Classical,11,Trending Classical Track 9,f,,,f
-557,Electronic,1,Trending Electronic Track 10,f,,,f
-558,Disco,2,Trending Disco Track 10,f,,,f
-559,Rock,3,Trending Rock Track 10,f,,,f
-560,Pop,4,Trending Pop Track 10,f,,,f
-561,Jazz,5,Trending Jazz Track 10,f,,,f
-562,Classical,6,Trending Classical Track 10,f,,,f
-563,Electronic,7,Trending Electronic Track 11,f,,,f
-564,Disco,8,Trending Disco Track 11,f,,,f
-565,Rock,11,Trending Rock Track 11,f,,,f
-566,Pop,1,Trending Pop Track 11,f,,,f
-567,Jazz,2,Trending Jazz Track 11,f,,,f
-568,Classical,3,Trending Classical Track 11,f,,,f
-569,Electronic,4,Trending Electronic Track 12,f,,,f
-570,Disco,5,Trending Disco Track 12,f,,,f
-571,Rock,6,Trending Rock Track 12,f,,,f
-572,Pop,7,Trending Pop Track 12,f,,,f
-573,Jazz,8,Trending Jazz Track 12,f,,,f
-574,Classical,11,Trending Classical Track 12,f,,,f
-575,Electronic,1,Trending Electronic Track 13,f,,,f
-576,Disco,2,Trending Disco Track 13,f,,,f
-577,Rock,3,Trending Rock Track 13,f,,,f
-578,Pop,4,Trending Pop Track 13,f,,,f
-579,Jazz,5,Trending Jazz Track 13,f,,,f
-580,Classical,6,Trending Classical Track 13,f,,,f
-581,Electronic,7,Trending Electronic Track 14,f,,,f
-582,Disco,8,Trending Disco Track 14,f,,,f
-583,Rock,11,Trending Rock Track 14,f,,,f
-584,Pop,1,Trending Pop Track 14,f,,,f
-585,Jazz,2,Trending Jazz Track 14,f,,,f
-586,Classical,3,Trending Classical Track 14,f,,,f
-587,Electronic,4,Trending Electronic Track 15,f,,,f
-588,Disco,5,Trending Disco Track 15,f,,,f
-589,Rock,6,Trending Rock Track 15,f,,,f
-590,Pop,7,Trending Pop Track 15,f,,,f
-591,Jazz,8,Trending Jazz Track 15,f,,,f
-592,Classical,11,Trending Classical Track 15,f,,,f
-593,Electronic,1,Trending Electronic Track 16,f,,,f
-594,Disco,2,Trending Disco Track 16,f,,,f
-595,Rock,3,Trending Rock Track 16,f,,,f
-596,Pop,4,Trending Pop Track 16,f,,,f
-597,Jazz,5,Underground Trending Jazz Track 16,f,,,f
-598,Classical,6,Underground Trending Classical Track 16,f,,,f
-599,Electronic,7,Underground Trending Electronic Track 17,f,,,f
-600,Disco,8,Underground Trending Disco Track 17,f,,,f
-601,Rock,11,Underground Trending Rock Track 17,f,,,f
-602,Pop,1,Underground Trending Pop Track 17,f,,,f
+track_id,genre,owner_id,title,is_unlisted,stream_conditions,download_conditions,is_downloadable,is_stream_gated
+100,Electronic,1,T1,f,,,t,f
+101,Alternative,1,T2,f,,,f,f
+200,Electronic,2,Culca Canyon,f,,,f,f
+201,Alternative,2,Turkey Time DEMO,t,,,f,f
+202,Alternative,2,Turkey Time (live),f,,,f,f
+300,Electronic,3,Follow Gated Download,f,,"{""follow_user_id"": 3}",t,f
+301,Electronic,3,Pay Gated Download,f,,"{""usdc_purchase"": {""price"": 135, ""splits"": [{""user_id"": 3, ""percentage"": 100.0}]}}",f,f
+302,Electronic,3,Tip Gated Stream,f,"{""tip_user_id"": 3}","{""tip_user_id"": 3}",f,f
+303,Electronic,3,Pay Gated Stream,f,"{""usdc_purchase"": {""price"": 135, ""splits"": [{""user_id"": 3, ""percentage"": 100.0}]}}",,f,t
+400,Folk,5,Trending Month Folk,f,,,f,f
+500,Experimental,6,track by permalink,f,,,f,f
+501,Folk,301,Trending Popular user Track,f,,,f,f
+502,Folk,302,Trending Folows Everyone Track,f,,,f,f
+503,Electronic,1,Trending Electronic Track 1,f,,,f,f
+504,Disco,2,Trending Disco Track 1,f,,,f,f
+505,Rock,3,Trending Rock Track 1,f,,,f,f
+506,Pop,4,Trending Gated Pop Track 1,f,"{""usdc_purchase"": {""price"": 135, ""splits"": [{""user_id"": 4, ""percentage"": 100.0}]}}",,f,t
+507,Jazz,5,Trending Gated Jazz Track 1,f,"{""usdc_purchase"": {""price"": 135, ""splits"": [{""user_id"": 5, ""percentage"": 100.0}]}}",,f,t
+508,Classical,6,Trending Gated Classical Track 1,f,"{""usdc_purchase"": {""price"": 135, ""splits"": [{""user_id"": 6, ""percentage"": 100.0}]}}",,f,t
+509,Electronic,7,Trending Electronic Track 2,f,,,f,f
+510,Disco,8,Trending Disco Track 2,f,,,f,f
+511,Rock,11,Trending Rock Track 2,f,,,f,f
+512,Pop,1,Trending Pop Track 2,f,,,f,f
+513,Jazz,2,Trending Jazz Track 2,f,,,f,f
+514,Classical,3,Trending Classical Track 2,f,,,f,f
+515,Electronic,4,Trending Electronic Track 3,f,,,f,f
+516,Disco,5,Trending Disco Track 3,f,,,f,f
+517,Rock,6,Trending Rock Track 3,f,,,f,f
+518,Pop,7,Trending Pop Track 3,f,,,f,f
+519,Jazz,8,Trending Jazz Track 3,f,,,f,f
+520,Classical,11,Trending Classical Track 3,f,,,f,f
+521,Electronic,1,Trending Electronic Track 4,f,,,f,f
+522,Disco,2,Trending Disco Track 4,f,,,f,f
+523,Rock,3,Trending Rock Track 4,f,,,f,f
+524,Pop,4,Trending Pop Track 4,f,,,f,f
+525,Jazz,5,Trending Jazz Track 4,f,,,f,f
+526,Classical,6,Trending Classical Track 4,f,,,f,f
+527,Electronic,7,Trending Electronic Track 5,f,,,f,f
+528,Disco,8,Trending Disco Track 5,f,,,f,f
+529,Rock,11,Trending Rock Track 5,f,,,f,f
+530,Pop,1,Trending Pop Track 5,f,,,f,f
+531,Jazz,2,Trending Jazz Track 5,f,,,f,f
+532,Classical,3,Trending Classical Track 5,f,,,f,f
+533,Electronic,4,Trending Electronic Track 6,f,,,f,f
+534,Disco,5,Trending Disco Track 6,f,,,f,f
+535,Rock,6,Trending Rock Track 6,f,,,f,f
+536,Pop,7,Trending Pop Track 6,f,,,f,f
+537,Jazz,8,Trending Jazz Track 6,f,,,f,f
+538,Classical,11,Trending Classical Track 6,f,,,f,f
+539,Electronic,1,Trending Electronic Track 7,f,,,f,f
+540,Disco,2,Trending Disco Track 7,f,,,f,f
+541,Rock,3,Trending Rock Track 7,f,,,f,f
+542,Pop,4,Trending Pop Track 7,f,,,f,f
+543,Jazz,5,Trending Jazz Track 7,f,,,f,f
+544,Classical,6,Trending Classical Track 7,f,,,f,f
+545,Electronic,7,Trending Electronic Track 8,f,,,f,f
+546,Disco,8,Trending Disco Track 8,f,,,f,f
+547,Rock,11,Trending Rock Track 8,f,,,f,f
+548,Pop,1,Trending Pop Track 8,f,,,f,f
+549,Jazz,2,Trending Jazz Track 8,f,,,f,f
+550,Classical,3,Trending Classical Track 8,f,,,f,f
+551,Electronic,4,Trending Electronic Track 9,f,,,f,f
+552,Disco,5,Trending Disco Track 9,f,,,f,f
+553,Rock,6,Trending Rock Track 9,f,,,f,f
+554,Pop,7,Trending Pop Track 9,f,,,f,f
+555,Jazz,8,Trending Jazz Track 9,f,,,f,f
+556,Classical,11,Trending Classical Track 9,f,,,f,f
+557,Electronic,1,Trending Electronic Track 10,f,,,f,f
+558,Disco,2,Trending Disco Track 10,f,,,f,f
+559,Rock,3,Trending Rock Track 10,f,,,f,f
+560,Pop,4,Trending Pop Track 10,f,,,f,f
+561,Jazz,5,Trending Jazz Track 10,f,,,f,f
+562,Classical,6,Trending Classical Track 10,f,,,f,f
+563,Electronic,7,Trending Electronic Track 11,f,,,f,f
+564,Disco,8,Trending Disco Track 11,f,,,f,f
+565,Rock,11,Trending Rock Track 11,f,,,f,f
+566,Pop,1,Trending Pop Track 11,f,,,f,f
+567,Jazz,2,Trending Jazz Track 11,f,,,f,f
+568,Classical,3,Trending Classical Track 11,f,,,f,f
+569,Electronic,4,Trending Electronic Track 12,f,,,f,f
+570,Disco,5,Trending Disco Track 12,f,,,f,f
+571,Rock,6,Trending Rock Track 12,f,,,f,f
+572,Pop,7,Trending Pop Track 12,f,,,f,f
+573,Jazz,8,Trending Jazz Track 12,f,,,f,f
+574,Classical,11,Trending Classical Track 12,f,,,f,f
+575,Electronic,1,Trending Electronic Track 13,f,,,f,f
+576,Disco,2,Trending Disco Track 13,f,,,f,f
+577,Rock,3,Trending Rock Track 13,f,,,f,f
+578,Pop,4,Trending Pop Track 13,f,,,f,f
+579,Jazz,5,Trending Jazz Track 13,f,,,f,f
+580,Classical,6,Trending Classical Track 13,f,,,f,f
+581,Electronic,7,Trending Electronic Track 14,f,,,f,f
+582,Disco,8,Trending Disco Track 14,f,,,f,f
+583,Rock,11,Trending Rock Track 14,f,,,f,f
+584,Pop,1,Trending Pop Track 14,f,,,f,f
+585,Jazz,2,Trending Jazz Track 14,f,,,f,f
+586,Classical,3,Trending Classical Track 14,f,,,f,f
+587,Electronic,4,Trending Electronic Track 15,f,,,f,f
+588,Disco,5,Trending Disco Track 15,f,,,f,f
+589,Rock,6,Trending Rock Track 15,f,,,f,f
+590,Pop,7,Trending Pop Track 15,f,,,f,f
+591,Jazz,8,Trending Jazz Track 15,f,,,f,f
+592,Classical,11,Trending Classical Track 15,f,,,f,f
+593,Electronic,1,Trending Electronic Track 16,f,,,f,f
+594,Disco,2,Trending Disco Track 16,f,,,f,f
+595,Rock,3,Trending Rock Track 16,f,,,f,f
+596,Pop,4,Trending Pop Track 16,f,,,f,f
+597,Jazz,5,Underground Trending Jazz Track 16,f,,,f,f
+598,Classical,6,Underground Trending Classical Track 16,f,,,f,f
+599,Electronic,7,Underground Trending Electronic Track 17,f,,,f,f
+600,Disco,8,Underground Trending Disco Track 17,f,,,f,f
+601,Rock,11,Underground Trending Rock Track 17,f,,,f,f
+602,Pop,1,Underground Trending Pop Track 17,f,,,f,f
