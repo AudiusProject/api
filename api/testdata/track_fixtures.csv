@@ -15,9 +15,9 @@ track_id,genre,owner_id,title,is_unlisted,stream_conditions,download_conditions,
 503,Electronic,1,Trending Electronic Track 1,f,,,f
 504,Disco,2,Trending Disco Track 1,f,,,f
 505,Rock,3,Trending Rock Track 1,f,,,f
-506,Pop,4,Trending Pop Track 1,f,,,f
-507,Jazz,5,Trending Jazz Track 1,f,,,f
-508,Classical,6,Trending Classical Track 1,f,,,f
+506,Pop,4,Trending Gated Pop Track 1,f,"{""usdc_purchase"": {""price"": 135, ""splits"": [{""user_id"": 4, ""percentage"": 100.0}]}}",,f
+507,Jazz,5,Trending Gated Jazz Track 1,f,"{""usdc_purchase"": {""price"": 135, ""splits"": [{""user_id"": 5, ""percentage"": 100.0}]}}",,f
+508,Classical,6,Trending Gated Classical Track 1,f,"{""usdc_purchase"": {""price"": 135, ""splits"": [{""user_id"": 6, ""percentage"": 100.0}]}}",,f
 509,Electronic,7,Trending Electronic Track 2,f,,,f
 510,Disco,8,Trending Disco Track 2,f,,,f
 511,Rock,11,Trending Rock Track 2,f,,,f
