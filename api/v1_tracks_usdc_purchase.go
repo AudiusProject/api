@@ -19,8 +19,7 @@ func (app *ApiServer) v1TracksUsdcPurchase(c *fiber.Ctx) error {
 		JOIN (
 			SELECT track_id
 			FROM tracks
-			WHERE is_stream_gated = true
-			AND is_delete = false
+			WHERE is_delete = false
 			AND is_available = true
 			AND is_unlisted = false
 			AND stream_conditions ? 'usdc_purchase'
