@@ -68,6 +68,7 @@ func (app *ApiServer) v1UsersChallenges(c *fiber.Ctx) error {
 			last_listen_date
 		FROM challenge_listen_streak
 		JOIN user_row USING (user_id)
+		WHERE NOW() - last_listen_date < INTERVAL '16' HOUR
 	)
 
 	-- Non-aggregate challenges just use the values as-is
@@ -92,7 +93,7 @@ func (app *ApiServer) v1UsersChallenges(c *fiber.Ctx) error {
 		SELECT challenge_id,
 			user_id,
 			'' AS specifier,
-			SUM(user_amount) > max_steps AS is_complete,
+			SUM(user_amount) >= max_steps AS is_complete,
 			is_active,
 			false AS is_disbursed,
 			SUM(user_amount) AS current_step_count,
