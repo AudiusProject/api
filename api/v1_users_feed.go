@@ -19,6 +19,7 @@ import (
 // but maybe it'd be okay?
 func (app *ApiServer) v1UsersFeed(c *fiber.Ctx) error {
 	myId := app.getMyId(c)
+	followeeIds := queryMutli(c, "followee_user_id")
 
 	sql := `
 	WITH
@@ -26,8 +27,14 @@ func (app *ApiServer) v1UsersFeed(c *fiber.Ctx) error {
 		SELECT followee_user_id AS user_id
 		FROM follows
 		WHERE
-			follower_user_id = @userId
-			AND is_delete = false
+		follower_user_id = @userId
+		AND is_delete = false
+
+		UNION ALL
+
+		-- If the user has specified any followee_user_ids, include them.
+		SELECT unnest(@followeeIds::int[]) AS user_id
+		WHERE @followeeIds IS NOT NULL
 	),
 	history as (
 
@@ -104,11 +111,12 @@ func (app *ApiServer) v1UsersFeed(c *fiber.Ctx) error {
 	`
 
 	rows, err := app.pool.Query(c.Context(), sql, pgx.NamedArgs{
-		"userId": app.getUserId(c),
-		"before": time.Now(),
-		"limit":  c.Query("limit", "50"),
-		"offset": c.Query("offset", "0"),
-		"filter": c.Query("filter", "all"), // original, repost
+		"userId":      app.getUserId(c),
+		"before":      time.Now(),
+		"limit":       c.Query("limit", "50"),
+		"offset":      c.Query("offset", "0"),
+		"filter":      c.Query("filter", "all"), // original, repost
+		"followeeIds": followeeIds,
 	})
 	if err != nil {
 		return err
