@@ -12,22 +12,28 @@ func (app *ApiServer) v1PlaylistsTrending(c *fiber.Ctx) error {
 	myId := app.getMyId(c)
 
 	sql := `
-	SELECT
-		save_item_id as playlist_id
-		-- count(distinct user_id) as save_count,
-		-- sum(follower_count) as network_size
-	FROM saves
-	JOIN aggregate_user USING (user_id)
-	WHERE save_type != 'track'
-		AND saves.is_delete = false
-		AND saves.created_at > NOW() - INTERVAL '7 days'
-	GROUP BY playlist_id
-	ORDER BY sum(follower_count) DESC
-	LIMIT @limit
-	`
+		SELECT playlist_trending_scores.playlist_id
+		FROM playlist_trending_scores
+		JOIN playlists
+			ON playlists.playlist_id = playlist_trending_scores.playlist_id
+			AND playlists.is_current = true
+			AND playlists.is_delete = false
+			AND playlists.is_private = false
+			AND playlists.is_album = false
+		WHERE type = 'PLAYLISTS'
+			AND version = 'pnagD'
+			AND time_range = @time
+		ORDER BY
+			score DESC,
+			playlist_id DESC
+		LIMIT @limit
+		OFFSET @offset
+		`
 
 	rows, err := app.pool.Query(c.Context(), sql, pgx.NamedArgs{
-		"limit": c.Query("limit", "50"),
+		"limit":  c.Query("limit", "20"),
+		"offset": c.Query("offset", "0"),
+		"time":   c.Query("time", "week"),
 	})
 	if err != nil {
 		return err

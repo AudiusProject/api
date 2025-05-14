@@ -120,6 +120,15 @@ var (
 		"created_at": time.Now(),
 	}
 
+	playlistTrendingScoreBaseRow = map[string]any{
+		"playlist_id": nil,
+		"type":        "PLAYLISTS",
+		"version":     "pnagD",
+		"time_range":  nil,
+		"score":       nil,
+		"created_at":  time.Now(),
+	}
+
 	connectedWalletsBaseRow = map[string]any{
 		"id":          nil,
 		"user_id":     nil,
