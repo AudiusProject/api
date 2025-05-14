@@ -548,11 +548,23 @@ type ClaimResult struct {
 	Error       string             `json:"error,omitempty"`
 }
 
+type ClaimRewardsBody struct {
+	ChallengeID string `json:"challengeId"`
+	Specifier   string `json:"specifier"`
+	UserID      string `json:"userId"`
+}
+
 // Claims all the filtered undisbursed rewards for a user.
 func (api *ApiServer) v1ClaimRewards(c *fiber.Ctx) error {
-	challengeId := c.Query("challenge_id")
-	specifier := c.Query("specifier")
-	hashId := c.Query("user_id")
+
+	body := ClaimRewardsBody{}
+	err := c.BodyParser(&body)
+	if err != nil {
+		return err
+	}
+	hashId := body.UserID
+	challengeId := body.ChallengeID
+	specifier := body.Specifier
 
 	if hashId == "" {
 		return fiber.NewError(fiber.StatusBadRequest, "Missing user ID")
