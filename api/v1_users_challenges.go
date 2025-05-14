@@ -18,14 +18,17 @@ func (app *ApiServer) v1UsersChallenges(c *fiber.Ctx) error {
 		WHERE users.is_current 
 			AND users.user_id = @userId
 	),
+
 	-- Pre-filter to their user challenges
 	user_challenges_filtered AS (
 		SELECT * FROM user_challenges JOIN user_row USING (user_id)
 	),
+
 	-- Pre-filter to their disbursements
 	challenge_disbursements_filtered AS (
 		SELECT * FROM challenge_disbursements JOIN user_row USING (user_id)
 	),
+
 	-- Start with the list of all active challenges, and then
 	-- apply the user's user challenges and disbursements.
 	-- Filter out incomplete trending challenges,
@@ -57,24 +60,16 @@ func (app *ApiServer) v1UsersChallenges(c *fiber.Ctx) error {
 			AND NOT (challenges.id IN ('rv', 's') AND NOT user_row.is_verified)
 			AND NOT (challenges.id IN ('r') AND user_row.is_verified)
 	),
-	-- Apply streak IDs to each listen streak user challenge
-	listen_streaks AS (
-		SELECT *,
-		SUM(CASE WHEN is_complete 
-				THEN 0
-				ELSE 1 
-			END) OVER (ORDER BY created_at DESC) AS streak_id
-		FROM all_user_challenges
-		WHERE challenge_id = 'e'
-	),
+
 	-- Get the most recent listen streak summary
 	current_listen_streak AS (
 		SELECT
-			SUM(listen_streaks.current_step_count) AS current_step_count,
-			SUM(listen_streaks.amount) AS amount
-		FROM listen_streaks
-		WHERE streak_id = 0
+			listen_streak,
+			last_listen_date
+		FROM challenge_listen_streak
+		JOIN user_row USING (user_id)
 	)
+
 	-- Non-aggregate challenges just use the values as-is
 	SELECT challenge_id,
 		user_id,
@@ -128,25 +123,20 @@ func (app *ApiServer) v1UsersChallenges(c *fiber.Ctx) error {
 			is_active,
 			false AS is_disbursed,
 			COALESCE(
-					current_listen_streak.current_step_count, 
-					all_user_challenges.current_step_count
+					current_listen_streak.listen_streak, 
+					all_user_challenges.current_step_count,
+					0
 				) AS current_step_count,
 			max_steps,
-			challenge_type,	
-			GREATEST(
-					COALESCE(
-						current_listen_streak.amount,
-						all_user_challenges.current_step_count
-					), 
-					all_user_challenges.amount
-				) AS amount,
+			challenge_type,
+			GREATEST(all_user_challenges.user_amount, all_user_challenges.amount) AS amount,
 			(SELECT SUM(disbursed_amount) 
 					FROM all_user_challenges 
 					WHERE challenge_id = 'e'
 				) AS disbursed_amount,
 			cooldown_days
 		FROM all_user_challenges
-		CROSS JOIN current_listen_streak
+		LEFT JOIN current_listen_streak ON 1=1
 		WHERE all_user_challenges.challenge_id = 'e'
 		ORDER BY all_user_challenges.challenge_id, created_at DESC
 	)
