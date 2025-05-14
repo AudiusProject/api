@@ -120,12 +120,11 @@ func (app *ApiServer) v1UsersChallenges(c *fiber.Ctx) error {
 			challenge_id,
 			user_id,
 			'' AS specifier,
-			is_complete,
+			COALESCE(current_listen_streak.listen_streak, 0) > 0 AND all_user_challenges.is_complete AS is_complete,
 			is_active,
 			false AS is_disbursed,
 			COALESCE(
-					current_listen_streak.listen_streak, 
-					all_user_challenges.current_step_count,
+					current_listen_streak.listen_streak,
 					0
 				) AS current_step_count,
 			max_steps,
