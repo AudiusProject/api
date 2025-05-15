@@ -129,7 +129,7 @@ func (app *ApiServer) v1UsersChallenges(c *fiber.Ctx) error {
 				) AS current_step_count,
 			max_steps,
 			challenge_type,
-			GREATEST(all_user_challenges.user_amount, all_user_challenges.amount) AS amount,
+			all_user_challenges.amount,
 			(SELECT SUM(disbursed_amount) 
 					FROM all_user_challenges 
 					WHERE challenge_id = 'e'
