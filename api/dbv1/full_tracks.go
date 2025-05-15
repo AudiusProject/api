@@ -71,6 +71,25 @@ func (q *Queries) FullTracksKeyed(ctx context.Context, arg FullTracksParams) (ma
 		return nil, err
 	}
 
+	// Convert rawTracks to pointers
+	trackPtrs := make([]*GetTracksRow, len(rawTracks))
+	for i := range rawTracks {
+		trackPtrs[i] = &rawTracks[i]
+	}
+
+	// Convert userMap to pointers
+	userPtrMap := make(map[int32]*FullUser)
+	for id, user := range userMap {
+		userCopy := user // Create a copy to avoid modifying the original
+		userPtrMap[id] = &userCopy
+	}
+
+	// Get bulk access for all tracks
+	accessMap, err := q.GetBulkTrackAccess(ctx, arg.MyID.(int32), trackPtrs, userPtrMap)
+	if err != nil {
+		return nil, err
+	}
+
 	trackMap := map[int32]FullTrack{}
 	for _, track := range rawTracks {
 		track.ID, _ = trashid.EncodeHashId(int(track.TrackID))
@@ -106,38 +125,11 @@ func (q *Queries) FullTracksKeyed(ctx context.Context, arg FullTracksParams) (ma
 			}
 		}
 
-		// Use download conditions if available, otherwise use stream conditions
-		var downloadConditions *AccessGate
-		if track.DownloadConditions != nil {
-			downloadConditions = track.DownloadConditions
-		} else {
-			downloadConditions = track.StreamConditions
-		}
-
-		downloadAccess := q.GetTrackAccess(
-			ctx,
-			arg.MyID.(int32),
-			downloadConditions,
-			&track,
-			&user,
-		)
-
-		// If you can download it, you can stream it
-		streamAccess := downloadAccess || q.GetTrackAccess(
-			ctx,
-			arg.MyID.(int32),
-			track.StreamConditions,
-			&track,
-			&user,
-		)
-
-		access := Access{
-			Download: downloadAccess,
-			Stream:   streamAccess,
-		}
+		// Get access from the bulk access map
+		access := accessMap[track.TrackID]
 
 		var stream *MediaLink
-		if streamAccess {
+		if access.Stream {
 			stream, err = mediaLink(track.TrackCid.String, track.TrackID, arg.MyID.(int32))
 			if err != nil {
 				return nil, err
@@ -145,7 +137,7 @@ func (q *Queries) FullTracksKeyed(ctx context.Context, arg FullTracksParams) (ma
 		}
 
 		var download *MediaLink
-		if track.IsDownloadable && downloadAccess {
+		if track.IsDownloadable && access.Download {
 			download, err = mediaLink(track.OrigFileCid.String, track.TrackID, arg.MyID.(int32))
 			if err != nil {
 				return nil, err
