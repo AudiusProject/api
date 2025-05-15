@@ -285,6 +285,9 @@ func NewApiServer(config config.Config) *ApiServer {
 
 		// Challenges
 		g.Get("/challenges/undisbursed", app.v1ChallengesUndisbursed)
+
+		// Metrics
+		g.Get("/metrics/genres", app.v1GenreMetrics)
 	}
 
 	app.Static("/", "./static")
