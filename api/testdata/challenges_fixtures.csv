@@ -1,0 +1,2 @@
+id,type,amount,active,step_count,starting_block,weekly_pool,cooldown_days
+e,aggregate,1,t,2147483647,0,10000,0

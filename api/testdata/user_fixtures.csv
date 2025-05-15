@@ -16,3 +16,7 @@ user_id,handle,handle_lc,is_deactivated,wallet,playlist_library
 201,eventsuser2,eventsuser2,f,0xffffffffff,
 301,popularuser,popularuser,f,0x234567890abcdef1,
 302,followseveryone,followseveryone,f,0x34567890abcdef12,
+400,challenges_no_streak,challenges_no_streak,f,0x000,
+401,challenges_finished_streak,challenges_finished_streak,f,0x001,
+402,challenges_continued_streak,challenges_continued_streak,f,0x001,
+403,challenges_hanging_streak,challenges_hanging_streak,f,0x001,

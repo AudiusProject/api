@@ -218,6 +218,24 @@ var (
 		"updated_at":  time.Now(),
 		"event_data":  nil,
 	}
+
+	userChallengeBaseRow = map[string]any{
+		"challenge_id":          nil,
+		"user_id":               nil,
+		"specifier":             nil,
+		"is_complete":           nil,
+		"current_step_count":    nil,
+		"completed_blocknumber": nil,
+		"amount":                nil,
+		"created_at":            time.Now(),
+		"completed_at":          nil,
+	}
+
+	listenStreakBaseRow = map[string]any{
+		"user_id":          nil,
+		"listen_streak":    nil,
+		"last_listen_date": time.Now(),
+	}
 )
 
 func insertFixtures(table string, baseRow map[string]any, csvFile string) {
