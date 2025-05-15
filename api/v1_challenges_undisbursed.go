@@ -32,8 +32,8 @@ func (app *ApiServer) v1ChallengesUndisbursed(c *fiber.Ctx) error {
 		AND challenges.active
 		AND users.is_current
 		AND NOT users.is_deactivated
-		AND (@user_id <= 0 OR user_challenges.user_id = @user_id)
-		AND (@completed_blocknumber <= 0 OR user_challenges.completed_blocknumber > @completed_blocknumber)
+		AND (@user_id = 0 OR user_challenges.user_id = @user_id)
+		AND (@completed_blocknumber = 0 OR user_challenges.completed_blocknumber > @completed_blocknumber)
 		AND (@challenge_id = '' OR user_challenges.challenge_id = @challenge_id)
 	ORDER BY
 		user_challenges.user_id ASC,
