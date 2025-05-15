@@ -14,16 +14,18 @@ func (app *ApiServer) v1TracksUsdcPurchase(c *fiber.Ctx) error {
 	timeRange := c.Query("time", "week")
 
 	sql := `
-	    SELECT track_trending_scores.track_id
-		FROM track_trending_scores
-		JOIN (
+		WITH usdc_track_ids AS MATERIALIZED (
 			SELECT track_id
 			FROM tracks
-			WHERE is_delete = false
-			AND is_available = true
-			AND is_unlisted = false
-			AND stream_conditions ? 'usdc_purchase'
-		) usdc ON track_trending_scores.track_id = usdc.track_id
+			WHERE
+				is_unlisted = false AND
+				is_available = true AND
+				is_delete = false AND
+				stream_conditions ? 'usdc_purchase'
+			)
+	    SELECT track_trending_scores.track_id
+		FROM track_trending_scores
+		JOIN usdc_track_ids ON track_trending_scores.track_id = usdc_track_ids.track_id
 		WHERE type = 'TRACKS'
 			AND version = 'pnagD'
 			AND time_range = @time

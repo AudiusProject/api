@@ -3,6 +3,8 @@ package dbv1
 import (
 	"context"
 	"encoding/json"
+
+	"golang.org/x/sync/errgroup"
 )
 
 type Access struct {
@@ -305,93 +307,109 @@ func (q *Queries) GetBulkTrackAccess(
 
 	// Query for followed users
 	followedUsers := make(map[int32]bool)
+	tippedUsers := make(map[int32]bool)
+	purchasedTracks := make(map[int32]bool)
+	purchasedPlaylists := make(map[int32]bool)
+	prevPurchasedPlaylists := make(map[int32]bool)
+
+	g, ctx := errgroup.WithContext(ctx)
+
+	// Query for followed users
 	if len(followUserIDsSlice) > 0 {
-		rows, err := q.db.Query(ctx, `
-			SELECT followee_user_id
-			FROM follows
-			WHERE follower_user_id = $1
-			AND followee_user_id = ANY($2)
-		`, myId, followUserIDsSlice)
-		if err != nil {
-			return nil, err
-		}
-		defer rows.Close()
-		for rows.Next() {
-			var userID int32
-			if err := rows.Scan(&userID); err == nil {
-				followedUsers[userID] = true
+		g.Go(func() error {
+			rows, err := q.db.Query(ctx, `
+				SELECT followee_user_id
+				FROM follows
+				WHERE follower_user_id = $1
+				AND followee_user_id = ANY($2)
+			`, myId, followUserIDsSlice)
+			if err != nil {
+				return err
 			}
-		}
+			defer rows.Close()
+			for rows.Next() {
+				var userID int32
+				if err := rows.Scan(&userID); err == nil {
+					followedUsers[userID] = true
+				}
+			}
+			return rows.Err()
+		})
 	}
 
 	// Query for tipped users
-	tippedUsers := make(map[int32]bool)
 	if len(tipUserIDsSlice) > 0 {
-		rows, err := q.db.Query(ctx, `
-			SELECT DISTINCT receiver_user_id
-			FROM aggregate_user_tips
-			WHERE sender_user_id = $1
-			AND receiver_user_id = ANY($2)
-			AND amount >= 0
-		`, myId, tipUserIDsSlice)
-		if err != nil {
-			return nil, err
-		}
-		defer rows.Close()
-		for rows.Next() {
-			var userID int32
-			if err := rows.Scan(&userID); err == nil {
-				tippedUsers[userID] = true
+		g.Go(func() error {
+			rows, err := q.db.Query(ctx, `
+				SELECT DISTINCT receiver_user_id
+				FROM aggregate_user_tips
+				WHERE sender_user_id = $1
+				AND receiver_user_id = ANY($2)
+				AND amount >= 0
+			`, myId, tipUserIDsSlice)
+			if err != nil {
+				return err
 			}
-		}
+			defer rows.Close()
+			for rows.Next() {
+				var userID int32
+				if err := rows.Scan(&userID); err == nil {
+					tippedUsers[userID] = true
+				}
+			}
+			return rows.Err()
+		})
 	}
 
 	// Query for purchased tracks
-	purchasedTracks := make(map[int32]bool)
 	if len(trackIDsSlice) > 0 {
-		rows, err := q.db.Query(ctx, `
-			SELECT content_id
-			FROM usdc_purchases
-			WHERE buyer_user_id = $1
-			AND content_id = ANY($2)
-			AND content_type = 'track'
-		`, myId, trackIDsSlice)
-		if err != nil {
-			return nil, err
-		}
-		defer rows.Close()
-		for rows.Next() {
-			var trackID int32
-			if err := rows.Scan(&trackID); err == nil {
-				purchasedTracks[trackID] = true
+		g.Go(func() error {
+			rows, err := q.db.Query(ctx, `
+				SELECT content_id
+				FROM usdc_purchases
+				WHERE buyer_user_id = $1
+				AND content_id = ANY($2)
+				AND content_type = 'track'
+			`, myId, trackIDsSlice)
+			if err != nil {
+				return err
 			}
-		}
+			defer rows.Close()
+			for rows.Next() {
+				var trackID int32
+				if err := rows.Scan(&trackID); err == nil {
+					purchasedTracks[trackID] = true
+				}
+			}
+			return rows.Err()
+		})
 	}
 
 	// Query for purchased playlists
-	purchasedPlaylists := make(map[int32]bool)
 	if len(playlistIDsSlice) > 0 {
-		rows, err := q.db.Query(ctx, `
-			SELECT content_id
-			FROM usdc_purchases
-			WHERE buyer_user_id = $1
-			AND content_id = ANY($2)
-			AND content_type = 'album'
-		`, myId, playlistIDsSlice)
-		if err != nil {
-			return nil, err
-		}
-		defer rows.Close()
-		for rows.Next() {
-			var playlistID int32
-			if err := rows.Scan(&playlistID); err == nil {
-				purchasedPlaylists[playlistID] = true
+		g.Go(func() error {
+			rows, err := q.db.Query(ctx, `
+				SELECT content_id
+				FROM usdc_purchases
+				WHERE buyer_user_id = $1
+				AND content_id = ANY($2)
+				AND content_type = 'album'
+			`, myId, playlistIDsSlice)
+			if err != nil {
+				return err
 			}
-		}
+			defer rows.Close()
+			for rows.Next() {
+				var playlistID int32
+				if err := rows.Scan(&playlistID); err == nil {
+					purchasedPlaylists[playlistID] = true
+				}
+			}
+			return rows.Err()
+		})
 	}
 
 	// Query for previously purchased playlists
-	prevPurchasedPlaylists := make(map[int32]bool)
 	if len(prevPlaylistData) > 0 {
 		// Collect all previous playlist IDs
 		prevPlaylistIDs := make([]int32, 0)
@@ -402,27 +420,35 @@ func (q *Queries) GetBulkTrackAccess(
 		}
 
 		if len(prevPlaylistIDs) > 0 {
-			rows, err := q.db.Query(ctx, `
-				SELECT up.content_id
-				FROM usdc_purchases up
-				JOIN jsonb_each_text($2) AS prev_playlists(playlist_id, removal_time)
-				ON up.content_id = prev_playlists.playlist_id::integer
-				WHERE up.buyer_user_id = $1
-				AND up.content_type = 'album'
-				AND up.content_id = ANY($3)
-				AND up.created_at <= to_timestamp(prev_playlists.removal_time::numeric)
-			`, myId, prevPlaylistData, prevPlaylistIDs)
-			if err != nil {
-				return nil, err
-			}
-			defer rows.Close()
-			for rows.Next() {
-				var playlistID int32
-				if err := rows.Scan(&playlistID); err == nil {
-					prevPurchasedPlaylists[playlistID] = true
+			g.Go(func() error {
+				rows, err := q.db.Query(ctx, `
+					SELECT up.content_id
+					FROM usdc_purchases up
+					JOIN jsonb_each_text($2) AS prev_playlists(playlist_id, removal_time)
+					ON up.content_id = prev_playlists.playlist_id::integer
+					WHERE up.buyer_user_id = $1
+					AND up.content_type = 'album'
+					AND up.content_id = ANY($3)
+					AND up.created_at <= to_timestamp(prev_playlists.removal_time::numeric)
+				`, myId, prevPlaylistData, prevPlaylistIDs)
+				if err != nil {
+					return err
 				}
-			}
+				defer rows.Close()
+				for rows.Next() {
+					var playlistID int32
+					if err := rows.Scan(&playlistID); err == nil {
+						prevPurchasedPlaylists[playlistID] = true
+					}
+				}
+				return rows.Err()
+			})
 		}
+	}
+
+	// Wait for all queries to complete
+	if err := g.Wait(); err != nil {
+		return nil, err
 	}
 
 	// Now determine access for each track
