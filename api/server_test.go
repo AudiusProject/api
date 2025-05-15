@@ -77,6 +77,7 @@ func TestMain(m *testing.M) {
 	insertFixtures("reposts", repostBaseRow, "testdata/repost_fixtures.csv")
 	insertFixtures("developer_apps", developerAppBaseRow, "testdata/developer_app_fixtures.csv")
 	insertFixtures("track_trending_scores", trackTrendingScoreBaseRow, "testdata/track_trending_scores_fixtures.csv")
+	insertFixtures("playlist_trending_scores", playlistTrendingScoreBaseRow, "testdata/playlist_trending_scores_fixtures.csv")
 	insertFixtures("associated_wallets", connectedWalletsBaseRow, "testdata/connected_wallets_fixtures.csv")
 	insertFixtures("aggregate_user_tips", aggregateUserTipsBaseRow, "testdata/aggregate_user_tips_fixtures.csv")
 	insertFixtures("usdc_purchases", usdcPurchaseBaseRow, "testdata/usdc_purchases_fixtures.csv")
@@ -144,7 +145,7 @@ func Test200UnAuthed(t *testing.T) {
 		"/v1/full/playlists?id=7eP5n",
 		"/v1/full/playlists/7eP5n/reposts",
 		"/v1/full/playlists/7eP5n/favorites",
-
+		"/v1/full/playlists/trending",
 		// unclaimed ids
 		"/v1/users/unclaimed_id",
 		"/v1/tracks/unclaimed_id",

@@ -1404,6 +1404,15 @@ type PlaylistTrack struct {
 	UpdatedAt  pgtype.Timestamptz `json:"updated_at"`
 }
 
+type PlaylistTrendingScore struct {
+	PlaylistID int32     `json:"playlist_id"`
+	Type       string    `json:"type"`
+	Version    string    `json:"version"`
+	TimeRange  string    `json:"time_range"`
+	Score      float64   `json:"score"`
+	CreatedAt  time.Time `json:"created_at"`
+}
+
 type Reaction struct {
 	ID            int32       `json:"id"`
 	ReactionValue int32       `json:"reaction_value"`
