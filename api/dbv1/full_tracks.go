@@ -85,7 +85,10 @@ func (q *Queries) FullTracksKeyed(ctx context.Context, arg FullTracksParams) (ma
 	}
 
 	// Get bulk access for all tracks
-	accessMap := q.GetBulkTrackAccess(ctx, arg.MyID.(int32), trackPtrs, userPtrMap)
+	accessMap, err := q.GetBulkTrackAccess(ctx, arg.MyID.(int32), trackPtrs, userPtrMap)
+	if err != nil {
+		return nil, err
+	}
 
 	trackMap := map[int32]FullTrack{}
 	for _, track := range rawTracks {

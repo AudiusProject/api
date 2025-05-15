@@ -205,13 +205,13 @@ func (q *Queries) GetBulkTrackAccess(
 	myId int32,
 	tracks []*GetTracksRow,
 	users map[int32]*FullUser,
-) map[int32]Access {
-	if len(tracks) == 0 {
-		return nil
-	}
-
+) (map[int32]Access, error) {
 	// Initialize result map
 	result := make(map[int32]Access)
+
+	if len(tracks) == 0 {
+		return result, nil
+	}
 
 	// Collect all user IDs and track IDs we need to check
 	followUserIDs := make(map[int32]struct{})
@@ -224,30 +224,9 @@ func (q *Queries) GetBulkTrackAccess(
 		RemovalTime string `json:"removal_time"`
 	})
 
+	// Collect records that need to be fetched
 	for _, track := range tracks {
-		if track == nil {
-			continue
-		}
-
-		user := users[track.UserID]
-		if user == nil {
-			continue
-		}
-
-		// Handle special cases first
-		if track.StreamConditions == nil && track.DownloadConditions == nil {
-			result[track.TrackID] = Access{
-				Stream:   true,
-				Download: true,
-			}
-			continue
-		}
-
-		if myId == user.UserID {
-			result[track.TrackID] = Access{
-				Stream:   true,
-				Download: true,
-			}
+		if track == nil || myId == track.UserID || (track.StreamConditions == nil && track.DownloadConditions == nil) {
 			continue
 		}
 
@@ -328,18 +307,19 @@ func (q *Queries) GetBulkTrackAccess(
 	followedUsers := make(map[int32]bool)
 	if len(followUserIDsSlice) > 0 {
 		rows, err := q.db.Query(ctx, `
-			SELECT user_id
+			SELECT followee_user_id
 			FROM follows
 			WHERE follower_user_id = $1
-			AND user_id = ANY($2)
+			AND followee_user_id = ANY($2)
 		`, myId, followUserIDsSlice)
-		if err == nil {
-			defer rows.Close()
-			for rows.Next() {
-				var userID int32
-				if err := rows.Scan(&userID); err == nil {
-					followedUsers[userID] = true
-				}
+		if err != nil {
+			return nil, err
+		}
+		defer rows.Close()
+		for rows.Next() {
+			var userID int32
+			if err := rows.Scan(&userID); err == nil {
+				followedUsers[userID] = true
 			}
 		}
 	}
@@ -354,13 +334,14 @@ func (q *Queries) GetBulkTrackAccess(
 			AND receiver_user_id = ANY($2)
 			AND amount >= 0
 		`, myId, tipUserIDsSlice)
-		if err == nil {
-			defer rows.Close()
-			for rows.Next() {
-				var userID int32
-				if err := rows.Scan(&userID); err == nil {
-					tippedUsers[userID] = true
-				}
+		if err != nil {
+			return nil, err
+		}
+		defer rows.Close()
+		for rows.Next() {
+			var userID int32
+			if err := rows.Scan(&userID); err == nil {
+				tippedUsers[userID] = true
 			}
 		}
 	}
@@ -375,13 +356,14 @@ func (q *Queries) GetBulkTrackAccess(
 			AND content_id = ANY($2)
 			AND content_type = 'track'
 		`, myId, trackIDsSlice)
-		if err == nil {
-			defer rows.Close()
-			for rows.Next() {
-				var trackID int32
-				if err := rows.Scan(&trackID); err == nil {
-					purchasedTracks[trackID] = true
-				}
+		if err != nil {
+			return nil, err
+		}
+		defer rows.Close()
+		for rows.Next() {
+			var trackID int32
+			if err := rows.Scan(&trackID); err == nil {
+				purchasedTracks[trackID] = true
 			}
 		}
 	}
@@ -396,13 +378,14 @@ func (q *Queries) GetBulkTrackAccess(
 			AND content_id = ANY($2)
 			AND content_type = 'album'
 		`, myId, playlistIDsSlice)
-		if err == nil {
-			defer rows.Close()
-			for rows.Next() {
-				var playlistID int32
-				if err := rows.Scan(&playlistID); err == nil {
-					purchasedPlaylists[playlistID] = true
-				}
+		if err != nil {
+			return nil, err
+		}
+		defer rows.Close()
+		for rows.Next() {
+			var playlistID int32
+			if err := rows.Scan(&playlistID); err == nil {
+				purchasedPlaylists[playlistID] = true
 			}
 		}
 	}
@@ -429,13 +412,14 @@ func (q *Queries) GetBulkTrackAccess(
 				AND up.content_id = ANY($3)
 				AND up.created_at <= to_timestamp(prev_playlists.removal_time::numeric)
 			`, myId, prevPlaylistData, prevPlaylistIDs)
-			if err == nil {
-				defer rows.Close()
-				for rows.Next() {
-					var playlistID int32
-					if err := rows.Scan(&playlistID); err == nil {
-						prevPurchasedPlaylists[playlistID] = true
-					}
+			if err != nil {
+				return nil, err
+			}
+			defer rows.Close()
+			for rows.Next() {
+				var playlistID int32
+				if err := rows.Scan(&playlistID); err == nil {
+					prevPurchasedPlaylists[playlistID] = true
 				}
 			}
 		}
@@ -447,95 +431,100 @@ func (q *Queries) GetBulkTrackAccess(
 			continue
 		}
 
-		user := users[track.UserID]
-		if user == nil {
+		if myId == track.UserID {
 			result[track.TrackID] = Access{
-				Stream:   false,
-				Download: false,
+				Stream:   true,
+				Download: true,
 			}
 			continue
 		}
 
-		// Skip tracks we've already handled (no conditions or own content)
-		if _, exists := result[track.TrackID]; exists {
+		if track.StreamConditions == nil && track.DownloadConditions == nil {
+			result[track.TrackID] = Access{
+				Stream:   true,
+				Download: true,
+			}
 			continue
 		}
 
-		access := Access{}
+		if track.StreamConditions != nil {
+			hasAccess := false
+			switch {
+			case track.StreamConditions.FollowUserID != nil:
+				hasAccess = followedUsers[int32(*track.StreamConditions.FollowUserID)]
+			case track.StreamConditions.TipUserID != nil:
+				hasAccess = tippedUsers[int32(*track.StreamConditions.TipUserID)]
+			case track.StreamConditions.UsdcPurchase != nil:
+				// Check direct purchase
+				hasAccess = purchasedTracks[track.TrackID]
+
+				// Check current playlist purchases
+				if !hasAccess {
+					for _, playlistID := range track.PlaylistsContainingTrack {
+						if purchasedPlaylists[playlistID] {
+							hasAccess = true
+							break
+						}
+					}
+				}
+
+				// Check previous playlist purchases
+				if !hasAccess && len(track.PlaylistsPreviouslyContainingTrack) > 0 {
+					for _, prevPlaylist := range prevPlaylistsMap[track.TrackID] {
+						if prevPurchasedPlaylists[prevPlaylist.PlaylistID] {
+							hasAccess = true
+							break
+						}
+					}
+				}
+			}
+			result[track.TrackID] = Access{
+				Stream:   hasAccess,
+				Download: hasAccess,
+			}
+			continue
+		}
 
 		// Check download access
 		if track.DownloadConditions != nil {
+			hasAccess := false
 			switch {
 			case track.DownloadConditions.FollowUserID != nil:
-				access.Download = followedUsers[int32(*track.DownloadConditions.FollowUserID)]
+				hasAccess = followedUsers[int32(*track.DownloadConditions.FollowUserID)]
 			case track.DownloadConditions.TipUserID != nil:
-				access.Download = tippedUsers[int32(*track.DownloadConditions.TipUserID)]
+				hasAccess = tippedUsers[int32(*track.DownloadConditions.TipUserID)]
 			case track.DownloadConditions.UsdcPurchase != nil:
 				// Check direct purchase
-				access.Download = purchasedTracks[track.TrackID]
+				hasAccess = purchasedTracks[track.TrackID]
 
 				// Check current playlist purchases
-				if !access.Download {
+				if !hasAccess {
 					for _, playlistID := range track.PlaylistsContainingTrack {
 						if purchasedPlaylists[playlistID] {
-							access.Download = true
+							hasAccess = true
 							break
 						}
 					}
 				}
 
 				// Check previous playlist purchases
-				if !access.Download && len(track.PlaylistsPreviouslyContainingTrack) > 0 {
+				if !hasAccess && len(track.PlaylistsPreviouslyContainingTrack) > 0 {
 					for _, prevPlaylist := range prevPlaylistsMap[track.TrackID] {
 						if prevPurchasedPlaylists[prevPlaylist.PlaylistID] {
-							access.Download = true
+							hasAccess = true
 							break
 						}
 					}
 				}
 			}
-		}
-
-		// If you can download it, you can stream it
-		if access.Download {
-			access.Stream = true
-		}
-
-		// Check stream access
-		if !access.Stream && track.StreamConditions != nil {
-			switch {
-			case track.StreamConditions.FollowUserID != nil:
-				access.Stream = followedUsers[int32(*track.StreamConditions.FollowUserID)]
-			case track.StreamConditions.TipUserID != nil:
-				access.Stream = tippedUsers[int32(*track.StreamConditions.TipUserID)]
-			case track.StreamConditions.UsdcPurchase != nil:
-				// Check direct purchase
-				access.Stream = purchasedTracks[track.TrackID]
-
-				// Check current playlist purchases
-				if !access.Stream {
-					for _, playlistID := range track.PlaylistsContainingTrack {
-						if purchasedPlaylists[playlistID] {
-							access.Stream = true
-							break
-						}
-					}
-				}
-
-				// Check previous playlist purchases
-				if !access.Stream && len(track.PlaylistsPreviouslyContainingTrack) > 0 {
-					for _, prevPlaylist := range prevPlaylistsMap[track.TrackID] {
-						if prevPurchasedPlaylists[prevPlaylist.PlaylistID] {
-							access.Stream = true
-							break
-						}
-					}
-				}
+			// If there are download conditions, there is always stream access
+			result[track.TrackID] = Access{
+				Stream:   true,
+				Download: hasAccess,
 			}
+			continue
 		}
-
-		result[track.TrackID] = access
 	}
 
-	return result
+	return result, nil
 }
