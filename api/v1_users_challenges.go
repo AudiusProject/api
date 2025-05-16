@@ -168,6 +168,7 @@ func (app *ApiServer) v1UsersChallenges(c *fiber.Ctx) error {
 			amount,
 			cooldown_days
 	)
+	ORDER BY challenge_id
 	;
 	`
 
