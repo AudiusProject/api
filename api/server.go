@@ -291,6 +291,7 @@ func NewApiServer(config config.Config) *ApiServer {
 		g.Get("/metrics/genres", app.v1GenreMetrics)
 		g.Get("/metrics/plays", app.v1PlaysMetrics)
 		g.Get("/metrics/aggregates/apps/:time_range", app.v1AppAggregateMetrics)
+		g.Get("/metrics/aggregates/routes/:time_range", app.v1RouteAggregateMetrics)
 	}
 
 	app.Static("/", "./static")
