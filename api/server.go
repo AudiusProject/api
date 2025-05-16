@@ -2,6 +2,7 @@ package api
 
 import (
 	"context"
+	"fmt"
 	"net/http"
 	"os"
 	"os/signal"
@@ -288,6 +289,7 @@ func NewApiServer(config config.Config) *ApiServer {
 
 		// Metrics
 		g.Get("/metrics/genres", app.v1GenreMetrics)
+		g.Get("/metrics/plays", app.v1PlaysMetrics)
 	}
 
 	app.Static("/", "./static")
@@ -347,6 +349,23 @@ func queryMutli(c *fiber.Ctx, key string) []string {
 		values = append(values, string(v))
 	}
 	return values
+}
+
+var validDateBuckets = map[string]bool{
+	"hour":   true,
+	"day":    true,
+	"week":   true,
+	"month":  true,
+	"year":   true,
+	"minute": true,
+}
+
+func (app *ApiServer) queryDateBucket(c *fiber.Ctx, param string, defaultValue string) (string, error) {
+	bucket := c.Query(param, defaultValue)
+	if !validDateBuckets[bucket] {
+		return "", fmt.Errorf("invalid %s parameter: %s", param, bucket)
+	}
+	return bucket, nil
 }
 
 func (app *ApiServer) resolveUserHandleToId(handle string) (int32, error) {
