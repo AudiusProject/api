@@ -288,11 +288,11 @@ func NewApiServer(config config.Config) *ApiServer {
 		g.Get("/challenges/undisbursed", app.v1ChallengesUndisbursed)
 
 		// Metrics
-		g.Get("/metrics/genres", app.v1GenreMetrics)
-		g.Get("/metrics/plays", app.v1PlaysMetrics)
-		g.Get("/metrics/aggregates/apps/:time_range", app.v1AppAggregateMetrics)
-		g.Get("/metrics/aggregates/routes/:time_range", app.v1RouteAggregateMetrics)
-		g.Get("/metrics/aggregates/routes/trailing/:time_range", app.v1RouteAggregateMetricsTrailing)
+		g.Get("/metrics/genres", app.v1MetricsGenres)
+		g.Get("/metrics/plays", app.v1MetricsPlays)
+		g.Get("/metrics/aggregates/apps/:time_range", app.v1MetricsApps)
+		g.Get("/metrics/aggregates/routes/:time_range", app.v1MetricsRoutes)
+		g.Get("/metrics/aggregates/routes/trailing/:time_range", app.v1MetricsRoutesTrailing)
 	}
 
 	app.Static("/", "./static")

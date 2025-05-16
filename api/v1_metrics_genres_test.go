@@ -8,7 +8,7 @@ import (
 	"github.com/stretchr/testify/assert"
 )
 
-func TestGenreMetrics(t *testing.T) {
+func TestMetricsGenres(t *testing.T) {
 	// Calculate timestamp for 1 hour ago
 	oneHourAgo := time.Now().Add(-1 * time.Hour).Unix()
 	url := fmt.Sprintf("/v1/metrics/genres?start_time=%d", oneHourAgo)

@@ -1,4 +1,4 @@
--- name: GetGenreMetrics :many
+-- name: GetGenres :many
 SELECT
     genre,
     COUNT(track_id) AS count

@@ -1,4 +1,4 @@
--- name: GetPlaysMetrics :many
+-- name: GetPlays :many
 SELECT
     date_trunc(@bucket_size, hourly_timestamp)::timestamp AS timestamp,
     SUM(play_count) AS count

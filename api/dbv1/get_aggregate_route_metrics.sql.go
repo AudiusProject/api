@@ -267,7 +267,6 @@ type GetAggregateRouteMetricsRow struct {
 	TotalCount        int32       `json:"total_count"`
 }
 
-// Use to_char to format dates consistently as YYYY-MM-DD
 func (q *Queries) GetAggregateRouteMetrics(ctx context.Context, arg GetAggregateRouteMetricsParams) ([]GetAggregateRouteMetricsRow, error) {
 	rows, err := q.db.Query(ctx, getAggregateRouteMetrics, arg.TimeRange, arg.BucketSize)
 	if err != nil {

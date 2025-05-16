@@ -12,7 +12,7 @@ type RouteMetric struct {
 	TotalCount        int64
 }
 
-func (app *ApiServer) v1RouteAggregateMetrics(c *fiber.Ctx) error {
+func (app *ApiServer) v1MetricsRoutes(c *fiber.Ctx) error {
 	timeRange, err := app.paramTimeRange(c, "time_range", "all_time")
 	if err != nil {
 		return err
@@ -40,6 +40,29 @@ func (app *ApiServer) v1RouteAggregateMetrics(c *fiber.Ctx) error {
 			"summed_unique_count": metric.SummedUniqueCount,
 			"total_count":         metric.TotalCount,
 		}
+	}
+
+	return c.JSON(fiber.Map{
+		"data": result,
+	})
+}
+
+func (app *ApiServer) v1MetricsRoutesTrailing(c *fiber.Ctx) error {
+	timeRange, err := app.paramTimeRange(c, "time_range", "all_time")
+	if err != nil {
+		return err
+	}
+
+	metrics, err := app.queries.GetAggregateRouteMetricsTrailing(c.Context(), timeRange)
+	if err != nil {
+		return err
+	}
+
+	// Format response as a single object with counts
+	result := fiber.Map{
+		"unique_count":        metrics.UniqueCount,
+		"summed_unique_count": metrics.SummedUniqueCount,
+		"total_count":         metrics.TotalCount,
 	}
 
 	return c.JSON(fiber.Map{

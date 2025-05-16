@@ -8,12 +8,12 @@ import (
 	"github.com/gofiber/fiber/v2"
 )
 
-var one_week_in_hours = 168
+const oneWeekInHours = 168
 
-func (app *ApiServer) v1PlaysMetrics(c *fiber.Ctx) error {
-	limit := c.QueryInt("limit", one_week_in_hours)
-	if limit > one_week_in_hours {
-		limit = one_week_in_hours
+func (app *ApiServer) v1MetricsPlays(c *fiber.Ctx) error {
+	limit := c.QueryInt("limit", oneWeekInHours)
+	if limit > oneWeekInHours {
+		limit = oneWeekInHours
 	}
 
 	startTime := time.Unix(int64(c.QueryInt("start_time", 0)), 0)
@@ -22,7 +22,7 @@ func (app *ApiServer) v1PlaysMetrics(c *fiber.Ctx) error {
 		return err
 	}
 
-	metrics, err := app.queries.GetPlaysMetrics(c.Context(), dbv1.GetPlaysMetricsParams{
+	metrics, err := app.queries.GetPlays(c.Context(), dbv1.GetPlaysParams{
 		LimitVal:   int32(limit),
 		StartTime:  startTime,
 		BucketSize: bucketSize,

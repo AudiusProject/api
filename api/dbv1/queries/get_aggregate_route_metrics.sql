@@ -1,5 +1,4 @@
 -- name: GetAggregateRouteMetrics :many
--- Use to_char to format dates consistently as YYYY-MM-DD
 WITH week_unique_daily AS (
     SELECT 
         timestamp,

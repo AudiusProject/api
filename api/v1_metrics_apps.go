@@ -10,7 +10,7 @@ type AppMetric struct {
 	Count int64  `json:"count"`
 }
 
-func (app *ApiServer) v1AppAggregateMetrics(c *fiber.Ctx) error {
+func (app *ApiServer) v1MetricsApps(c *fiber.Ctx) error {
 	timeRange, err := app.paramTimeRange(c, "time_range", "all_time")
 	if err != nil {
 		return err
