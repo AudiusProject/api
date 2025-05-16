@@ -20,7 +20,6 @@ import (
 
 	"bridgerton.audius.co/api/dbv1"
 	"bridgerton.audius.co/api/spl"
-	"bridgerton.audius.co/api/spl/programs/claimable_tokens"
 	"bridgerton.audius.co/api/spl/programs/reward_manager"
 	"bridgerton.audius.co/api/spl/programs/secp256k1"
 	"bridgerton.audius.co/config"
@@ -136,15 +135,15 @@ func getAntiAbuseOracleAttestation(args GetAntiAbuseOracleAttestationParams) (*S
 // TODO: add health checks?
 func getValidators(validators []config.Node, count int, excludedOperators []string) ([]string, error) {
 	shuffled := slices.Clone(validators)
-	rand.Shuffle(min(len(validators), count), func(i, j int) {
+	rand.Shuffle(len(validators), func(i, j int) {
 		shuffled[i], shuffled[j] = shuffled[j], shuffled[i]
 	})
 
-	selected := make([]string, count)
-	for i := range count {
+	selected := make([]string, 0)
+	for i := 0; i < len(shuffled) && len(selected) < count; i++ {
 		node := shuffled[i]
 		if !slices.Contains(excludedOperators, node.OwnerWallet) {
-			selected[i] = node.Endpoint
+			selected = append(selected, node.Endpoint)
 			excludedOperators = append(excludedOperators, node.OwnerWallet)
 		}
 	}
@@ -596,9 +595,10 @@ func (api *ApiServer) v1ClaimRewards(c *fiber.Ctx) error {
 		return err
 	}
 
-	bankAccount, err := claimable_tokens.DeriveUserBankAccount(
+	bankAccount, err := api.claimableTokensClient.GetOrCreateUserBank(
+		c.Context(),
+		common.HexToAddress(undisbursedRows[0].Wallet.String),
 		api.solanaConfig.MintAudio,
-		undisbursedRows[0].Wallet.String,
 	)
 	if err != nil {
 		return err
@@ -634,7 +634,7 @@ func (api *ApiServer) v1ClaimRewards(c *fiber.Ctx) error {
 					AntiAbuseOracleEthAddress: antiAbuseOracle.DelegateOwnerWallet,
 				},
 				Handle:   row.Handle.String,
-				UserBank: bankAccount,
+				UserBank: *bankAccount,
 			}
 
 			sigs, err := claimReward(
