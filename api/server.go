@@ -290,6 +290,7 @@ func NewApiServer(config config.Config) *ApiServer {
 		// Metrics
 		g.Get("/metrics/genres", app.v1GenreMetrics)
 		g.Get("/metrics/plays", app.v1PlaysMetrics)
+		g.Get("/metrics/aggregates/apps/:time_range", app.v1AppAggregateMetrics)
 	}
 
 	app.Static("/", "./static")
@@ -366,6 +367,21 @@ func (app *ApiServer) queryDateBucket(c *fiber.Ctx, param string, defaultValue s
 		return "", fmt.Errorf("invalid %s parameter: %s", param, bucket)
 	}
 	return bucket, nil
+}
+
+var validTimeRanges = map[string]bool{
+	"week":     true,
+	"month":    true,
+	"year":     true,
+	"all_time": true,
+}
+
+func (app *ApiServer) paramTimeRange(c *fiber.Ctx, param string, defaultValue string) (string, error) {
+	timeRange := c.Params(param, defaultValue)
+	if !validTimeRanges[timeRange] {
+		return "", fmt.Errorf("invalid %s parameter: %s", param, timeRange)
+	}
+	return timeRange, nil
 }
 
 func (app *ApiServer) resolveUserHandleToId(handle string) (int32, error) {
