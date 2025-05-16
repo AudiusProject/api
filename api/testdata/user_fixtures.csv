@@ -18,5 +18,5 @@ user_id,handle,handle_lc,is_deactivated,wallet,playlist_library
 302,followseveryone,followseveryone,f,0x34567890abcdef12,
 400,challenges_no_streak,challenges_no_streak,f,0x000,
 401,challenges_finished_streak,challenges_finished_streak,f,0x001,
-402,challenges_continued_streak,challenges_continued_streak,f,0x001,
-403,challenges_hanging_streak,challenges_hanging_streak,f,0x001,
+402,challenges_continued_streak,challenges_continued_streak,f,0x8a2c4dcb2eb9c2c5bc6e28310e4b07011d230c0a,
+403,challenges_hanging_streak,challenges_hanging_streak,f,0x003,

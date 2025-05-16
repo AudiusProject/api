@@ -53,7 +53,7 @@ func (app *ApiServer) v1ChallengesUndisbursed(c *fiber.Ctx) error {
 	params := GetUndisbursedChallengesQueryParams{}
 	err := c.QueryParser(&params)
 	if err != nil {
-		return err
+		return fiber.NewError(fiber.StatusBadRequest, err.Error())
 	}
 
 	rows, err := app.pool.Query(c.Context(), sql, pgx.NamedArgs{
