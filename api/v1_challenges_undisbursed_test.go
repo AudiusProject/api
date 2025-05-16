@@ -31,10 +31,10 @@ func TestGetUndisbursedChallenges(t *testing.T) {
 	})
 
 	// Test filtering by challenge_id
-	status, body = testGet(t, "/v1/challenges/undisbursed?challenge_id=e")
+	status, body = testGet(t, "/v1/challenges/undisbursed?challenge_id=f")
 	assert.Equal(t, 200, status)
 	jsonAssert(t, body, map[string]any{
-		"data.0.challenge_id": "e",
+		"data.0.challenge_id": "f",
 	})
 
 	// Test pagination with limit and offset
