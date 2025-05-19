@@ -31,7 +31,10 @@ func (app *ApiServer) v1UserTracks(c *fiber.Ctx) error {
 	  AND u.is_deactivated = false
 	  AND t.is_delete = false
 	  AND t.is_available = true
-	  AND t.is_unlisted = false
+	  AND (
+			t.is_unlisted = false
+			OR t.owner_id = @my_id
+		)
 	  AND t.stem_of is null
 	ORDER BY ` + sortField + ` ` + sortDir + `
 	LIMIT @limit
@@ -40,6 +43,7 @@ func (app *ApiServer) v1UserTracks(c *fiber.Ctx) error {
 
 	args := pgx.NamedArgs{
 		"handle": c.Params("handle"),
+		"my_id":  myId,
 	}
 	args["limit"] = c.Query("limit", "20")
 	args["offset"] = c.Query("offset", "0")
