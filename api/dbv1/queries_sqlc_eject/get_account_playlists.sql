@@ -12,13 +12,18 @@ WITH playlist_ids AS (
       AND p.playlist_owner_id = @user_id
 )
 SELECT
+    p.playlist_id as id,
     p.playlist_id,
     p.is_album,
     -- p.permalink // TODO
-    p.playlist_name,
-    u.user_id,
-    u.handle,
-    u.is_deactivated,
+    p.playlist_name as name,
+
+    json_build_object (
+      'id', u.user_id,
+      'handle', u.handle,
+      'is_deactivated', u.is_deactivated
+    ) as user,
+
     p.created_at
 FROM playlists p
 JOIN users u ON p.playlist_owner_id = u.user_id

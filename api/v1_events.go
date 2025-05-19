@@ -21,7 +21,7 @@ func (app *ApiServer) v1Events(c *fiber.Ctx) error {
 		}
 	}
 
-	recentEvents, err := app.queries.GetEvents(c.Context(), dbv1.GetEventsParams{
+	recentEvents, err := app.queries.FullEvents(c.Context(), dbv1.GetEventsParams{
 		EntityIds:     entityIds,
 		EventType:     eventType,
 		EntityType:    entityType,
@@ -33,12 +33,7 @@ func (app *ApiServer) v1Events(c *fiber.Ctx) error {
 		return err
 	}
 
-	data := []dbv1.FullEvent{}
-	for _, event := range recentEvents {
-		data = append(data, app.queries.ToFullEvent(event))
-	}
-
 	return c.JSON(fiber.Map{
-		"data": data,
+		"data": recentEvents,
 	})
 }

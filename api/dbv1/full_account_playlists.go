@@ -2,54 +2,40 @@ package dbv1
 
 import (
 	"context"
+	"time"
 
 	"bridgerton.audius.co/trashid"
+	"github.com/jackc/pgx/v5"
 )
 
 type FullAccountPlaylistOwner struct {
-	ID            string `json:"id"`
-	Handle        string `json:"handle"`
-	IsDeactivated bool   `json:"is_deactivated"`
+	ID            trashid.HashId `json:"id"`
+	Handle        string         `json:"handle"`
+	IsDeactivated bool           `json:"is_deactivated"`
 }
 
 type FullAccountPlaylist struct {
-	ID        string `json:"id"`
-	IsAlbum   bool   `json:"is_album"`
-	Name      string `json:"name"`
-	Permalink string `json:"permalink"`
+	ID         trashid.HashId `json:"id"`
+	PlaylistID int32          `json:"playlist_id"`
+	Name       string         `json:"name"`
+	IsAlbum    bool           `json:"is_album"`
+	UserID     trashid.HashId `json:"user_id"`
+	CreatedAt  time.Time      `json:"created_at"`
+	Permalink  string         `json:"permalink"`
 
 	User FullAccountPlaylistOwner `json:"user"`
 }
 
 func (q *Queries) FullAccountPlaylists(ctx context.Context, userID int32) ([]FullAccountPlaylist, error) {
-	playlists, err := q.GetAccountPlaylists(ctx, userID)
+
+	rows, err := q.db.Query(ctx, mustGetQuery("get_account_playlists.sql"), pgx.NamedArgs{
+		"user_id": userID,
+	})
 	if err != nil {
 		return nil, err
 	}
 
-	fullPlaylists := make([]FullAccountPlaylist, len(playlists))
+	// todo: permalink
 
-	for idx, p := range playlists {
-		playlistID, err := trashid.EncodeHashId(int(p.PlaylistID))
-		if err != nil {
-			return nil, err
-		}
-		userID, err := trashid.EncodeHashId(int(p.UserID))
-		if err != nil {
-			return nil, err
-		}
-		fullPlaylists[idx] = FullAccountPlaylist{
-			ID:        playlistID,
-			IsAlbum:   p.IsAlbum,
-			Name:      p.PlaylistName.String,
-			Permalink: "", // TODO
-			User: FullAccountPlaylistOwner{
-				ID:            userID,
-				Handle:        p.Handle.String,
-				IsDeactivated: p.IsDeactivated,
-			},
-		}
-	}
-
-	return fullPlaylists, nil
+	return pgx.CollectRows(rows, pgx.RowToStructByNameLax[FullAccountPlaylist])
 }
