@@ -37,6 +37,45 @@ func mustDialElasticsearch() *elasticsearch.Client {
 	return esc
 }
 
+func playlistDemo(base *BaseIndexer) {
+	i := &PlaylistIndexer{base}
+
+	if err := i.createIndex(true); err != nil {
+		panic(err)
+	}
+	if err := i.indexAll(); err != nil {
+		panic(err)
+	}
+
+	i.search("ray")
+}
+
+func userDemo(base *BaseIndexer) {
+	i := &UserIndexer{base}
+
+	if err := i.createIndex(true); err != nil {
+		panic(err)
+	}
+	if err := i.indexAll(); err != nil {
+		panic(err)
+	}
+
+	i.search("ray")
+}
+
+func trackDemo(base *BaseIndexer) {
+	i := &TrackIndexer{base}
+
+	if err := i.createIndex(true); err != nil {
+		panic(err)
+	}
+	if err := i.indexAll(); err != nil {
+		panic(err)
+	}
+
+	i.search("rap")
+}
+
 func Demo() {
 	pool := mustDialPostgres()
 	esc := mustDialElasticsearch()
@@ -46,25 +85,6 @@ func Demo() {
 		esc,
 	}
 
-	userIndexer := &UserIndexer{baseIndexer}
-
-	if err := userIndexer.createIndex(true); err != nil {
-		panic(err)
-	}
-	if err := userIndexer.indexAll(); err != nil {
-		panic(err)
-	}
-
-	userIndexer.search("ray")
-
-	trackIndexer := &TrackIndexer{baseIndexer}
-
-	if err := trackIndexer.createIndex(true); err != nil {
-		panic(err)
-	}
-	if err := trackIndexer.indexAll(); err != nil {
-		panic(err)
-	}
-
-	trackIndexer.search("rap")
+	// playlistDemo(baseIndexer)
+	trackDemo(baseIndexer)
 }

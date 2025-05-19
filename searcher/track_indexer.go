@@ -32,17 +32,17 @@ func (ti *TrackIndexer) indexAll() error {
 				'genre', genre,
 				'mood', mood,
 				'duration', duration,
-				'saveCount', aggregate_track.save_count,
-				'repostCount', aggregate_track.repost_count,
-				'commentCount', aggregate_track.comment_count,
-				'releaseDate', coalesce(release_date, tracks.created_at),
-				'musicalKey', musical_key,
+				'save_count', aggregate_track.save_count,
+				'repost_count', aggregate_track.repost_count,
+				'comment_count', aggregate_track.comment_count,
+				'release_date', coalesce(release_date, tracks.created_at),
+				'musical_key', musical_key,
 				'bpm', bpm,
 				'user', json_build_object(
 					'handle', users.handle,
 					'name', users.name,
 					'location', users.location,
-					'followerCount', aggregate_user.follower_count
+					'follower_count', aggregate_user.follower_count
 				)
 			)
 		FROM tracks
