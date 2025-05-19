@@ -28,11 +28,11 @@ func (app *ApiServer) v1MetricsApps(c *fiber.Ctx) error {
 		return err
 	}
 
-	result := make([]map[string]interface{}, len(metrics))
+	result := make([]AppMetric, len(metrics))
 	for i, metric := range metrics {
-		result[i] = map[string]interface{}{
-			"name":  metric.Name,
-			"count": metric.Count,
+		result[i] = AppMetric{
+			Name:  metric.Name,
+			Count: metric.Count,
 		}
 	}
 

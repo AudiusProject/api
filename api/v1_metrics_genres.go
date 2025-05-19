@@ -7,6 +7,11 @@ import (
 	"github.com/gofiber/fiber/v2"
 )
 
+type GenreMetric struct {
+	Genre string `json:"genre"`
+	Count int64  `json:"count"`
+}
+
 func (app *ApiServer) v1MetricsGenres(c *fiber.Ctx) error {
 	limit := c.QueryInt("limit", 100)
 	offset := c.QueryInt("offset", 0)
@@ -21,7 +26,15 @@ func (app *ApiServer) v1MetricsGenres(c *fiber.Ctx) error {
 		return err
 	}
 
+	result := make([]GenreMetric, len(metrics))
+	for i, metric := range metrics {
+		result[i] = GenreMetric{
+			Genre: string(metric.Genre.String),
+			Count: metric.Count,
+		}
+	}
+
 	return c.JSON(fiber.Map{
-		"data": metrics,
+		"data": result,
 	})
 }

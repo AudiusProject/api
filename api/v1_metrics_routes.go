@@ -6,10 +6,14 @@ import (
 )
 
 type RouteMetric struct {
-	Timestamp         string
-	UniqueCount       int64
-	SummedUniqueCount int64
-	TotalCount        int64
+	UniqueCount       int `json:"unique_count"`
+	SummedUniqueCount int `json:"summed_unique_count"`
+	TotalCount        int `json:"total_count"`
+}
+
+type TimestampedRouteMetric struct {
+	RouteMetric
+	Timestamp string `json:"timestamp"`
 }
 
 func (app *ApiServer) v1MetricsRoutes(c *fiber.Ctx) error {
@@ -31,14 +35,15 @@ func (app *ApiServer) v1MetricsRoutes(c *fiber.Ctx) error {
 		return err
 	}
 
-	result := make([]map[string]interface{}, len(metrics))
+	result := make([]TimestampedRouteMetric, len(metrics))
 	for i, metric := range metrics {
-		// SQL query now returns the date already in the correct format
-		result[i] = map[string]interface{}{
-			"timestamp":           metric.Timestamp,
-			"unique_count":        metric.UniqueCount,
-			"summed_unique_count": metric.SummedUniqueCount,
-			"total_count":         metric.TotalCount,
+		result[i] = TimestampedRouteMetric{
+			Timestamp: metric.Timestamp,
+			RouteMetric: RouteMetric{
+				UniqueCount:       int(metric.UniqueCount),
+				SummedUniqueCount: int(metric.SummedUniqueCount.Int32),
+				TotalCount:        int(metric.TotalCount),
+			},
 		}
 	}
 
@@ -57,12 +62,10 @@ func (app *ApiServer) v1MetricsRoutesTrailing(c *fiber.Ctx) error {
 	if err != nil {
 		return err
 	}
-
-	// Format response as a single object with counts
-	result := fiber.Map{
-		"unique_count":        metrics.UniqueCount,
-		"summed_unique_count": metrics.SummedUniqueCount,
-		"total_count":         metrics.TotalCount,
+	result := RouteMetric{
+		UniqueCount:       int(metrics.UniqueCount),
+		SummedUniqueCount: int(metrics.SummedUniqueCount),
+		TotalCount:        int(metrics.TotalCount),
 	}
 
 	return c.JSON(fiber.Map{

@@ -1,7 +1,7 @@
 package api
 
 import (
-	"strconv"
+	"fmt"
 	"time"
 
 	"bridgerton.audius.co/api/dbv1"
@@ -10,10 +10,21 @@ import (
 
 const oneWeekInHours = 168
 
+type UnixTimeString time.Time
+
+type PlayMetric struct {
+	Timestamp UnixTimeString `json:"timestamp"`
+	Count     int64          `json:"count"`
+}
+
+func (t UnixTimeString) MarshalJSON() ([]byte, error) {
+	return []byte(fmt.Sprintf("\"%d\"", time.Time(t).Unix())), nil
+}
+
 func (app *ApiServer) v1MetricsPlays(c *fiber.Ctx) error {
 	limit := c.QueryInt("limit", oneWeekInHours)
 	if limit > oneWeekInHours {
-		limit = oneWeekInHours
+		return sendError(c, 400, fmt.Sprintf("Limit must be less than or equal to %d", oneWeekInHours))
 	}
 
 	startTime := time.Unix(int64(c.QueryInt("start_time", 0)), 0)
@@ -32,12 +43,11 @@ func (app *ApiServer) v1MetricsPlays(c *fiber.Ctx) error {
 		return err
 	}
 
-	result := make([]map[string]interface{}, len(metrics))
+	result := make([]PlayMetric, len(metrics))
 	for i, metric := range metrics {
-		result[i] = map[string]interface{}{
-			// API expects unix timestamp as a string, gross.
-			"timestamp": strconv.FormatInt(metric.Timestamp.Unix(), 10),
-			"count":     metric.Count,
+		result[i] = PlayMetric{
+			Timestamp: UnixTimeString(metric.Timestamp),
+			Count:     metric.Count,
 		}
 	}
 
