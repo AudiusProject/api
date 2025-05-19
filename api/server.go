@@ -11,6 +11,7 @@ import (
 
 	"bridgerton.audius.co/api/dbv1"
 	"bridgerton.audius.co/api/spl"
+	"bridgerton.audius.co/api/spl/programs/claimable_tokens"
 	"bridgerton.audius.co/api/spl/programs/reward_manager"
 	"bridgerton.audius.co/config"
 	"bridgerton.audius.co/trashid"
@@ -130,6 +131,14 @@ func NewApiServer(config config.Config) *ApiServer {
 	if err != nil {
 		panic(err)
 	}
+	claimableTokensClient, err := claimable_tokens.NewClaimableTokensClient(
+		solanaRpc,
+		config.SolanaConfig.ClaimableTokensProgramID,
+		transactionSender,
+	)
+	if err != nil {
+		panic(err)
+	}
 
 	app := &ApiServer{
 		App: fiber.New(fiber.Config{
@@ -137,18 +146,19 @@ func NewApiServer(config config.Config) *ApiServer {
 			JSONDecoder:  json.Unmarshal,
 			ErrorHandler: errorHandler(logger),
 		}),
-		pool:                pool,
-		queries:             dbv1.New(pool),
-		logger:              logger,
-		started:             time.Now(),
-		resolveHandleCache:  resolveHandleCache,
-		resolveGrantCache:   resolveGrantCache,
-		rewardAttester:      *rewardAttester,
-		transactionSender:   *transactionSender,
-		rewardManagerClient: *rewardManagerClient,
-		solanaConfig:        config.SolanaConfig,
-		antiAbuseOracles:    config.AntiAbuseOracles,
-		validators:          config.Nodes,
+		pool:                  pool,
+		queries:               dbv1.New(pool),
+		logger:                logger,
+		started:               time.Now(),
+		resolveHandleCache:    resolveHandleCache,
+		resolveGrantCache:     resolveGrantCache,
+		rewardAttester:        *rewardAttester,
+		transactionSender:     *transactionSender,
+		rewardManagerClient:   *rewardManagerClient,
+		claimableTokensClient: *claimableTokensClient,
+		solanaConfig:          config.SolanaConfig,
+		antiAbuseOracles:      config.AntiAbuseOracles,
+		validators:            config.Nodes,
 	}
 
 	app.Use(recover.New(recover.Config{
@@ -311,18 +321,19 @@ func NewApiServer(config config.Config) *ApiServer {
 
 type ApiServer struct {
 	*fiber.App
-	pool                *pgxpool.Pool
-	queries             *dbv1.Queries
-	logger              *zap.Logger
-	started             time.Time
-	resolveHandleCache  otter.Cache[string, int32]
-	resolveGrantCache   otter.Cache[string, bool]
-	rewardManagerClient reward_manager.RewardManagerClient
-	rewardAttester      rewards.RewardAttester
-	transactionSender   spl.TransactionSender
-	solanaConfig        config.SolanaConfig
-	antiAbuseOracles    []string
-	validators          []config.Node
+	pool                  *pgxpool.Pool
+	queries               *dbv1.Queries
+	logger                *zap.Logger
+	started               time.Time
+	resolveHandleCache    otter.Cache[string, int32]
+	resolveGrantCache     otter.Cache[string, bool]
+	rewardManagerClient   reward_manager.RewardManagerClient
+	claimableTokensClient claimable_tokens.ClaimableTokensClient
+	rewardAttester        rewards.RewardAttester
+	transactionSender     spl.TransactionSender
+	solanaConfig          config.SolanaConfig
+	antiAbuseOracles      []string
+	validators            []config.Node
 }
 
 func (app *ApiServer) home(c *fiber.Ctx) error {
