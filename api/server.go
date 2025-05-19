@@ -287,6 +287,11 @@ func NewApiServer(config config.Config) *ApiServer {
 		g.Get("/challenges/undisbursed", app.v1ChallengesUndisbursed)
 	}
 
+	// Comms
+	comms := app.Group("/comms")
+	comms.Get("/chats", app.getChats)
+	comms.Get("/chats/:chatId", app.getChat)
+
 	app.Static("/", "./static")
 
 	// proxy unhandled requests thru to existing discovery API
