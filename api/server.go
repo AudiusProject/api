@@ -2,6 +2,7 @@ package api
 
 import (
 	"context"
+	"fmt"
 	"net/http"
 	"os"
 	"os/signal"
@@ -285,6 +286,13 @@ func NewApiServer(config config.Config) *ApiServer {
 
 		// Challenges
 		g.Get("/challenges/undisbursed", app.v1ChallengesUndisbursed)
+
+		// Metrics
+		g.Get("/metrics/genres", app.v1MetricsGenres)
+		g.Get("/metrics/plays", app.v1MetricsPlays)
+		g.Get("/metrics/aggregates/apps/:time_range", app.v1MetricsApps)
+		g.Get("/metrics/aggregates/routes/:time_range", app.v1MetricsRoutes)
+		g.Get("/metrics/aggregates/routes/trailing/:time_range", app.v1MetricsRoutesTrailing)
 	}
 
 	app.Static("/", "./static")
@@ -344,6 +352,38 @@ func queryMutli(c *fiber.Ctx, key string) []string {
 		values = append(values, string(v))
 	}
 	return values
+}
+
+var validDateBuckets = map[string]bool{
+	"hour":   true,
+	"day":    true,
+	"week":   true,
+	"month":  true,
+	"year":   true,
+	"minute": true,
+}
+
+func (app *ApiServer) queryDateBucket(c *fiber.Ctx, param string, defaultValue string) (string, error) {
+	bucket := c.Query(param, defaultValue)
+	if !validDateBuckets[bucket] {
+		return "", fmt.Errorf("invalid %s parameter: %s", param, bucket)
+	}
+	return bucket, nil
+}
+
+var validTimeRanges = map[string]bool{
+	"week":     true,
+	"month":    true,
+	"year":     true,
+	"all_time": true,
+}
+
+func (app *ApiServer) paramTimeRange(c *fiber.Ctx, param string, defaultValue string) (string, error) {
+	timeRange := c.Params(param, defaultValue)
+	if !validTimeRanges[timeRange] {
+		return "", fmt.Errorf("invalid %s parameter: %s", param, timeRange)
+	}
+	return timeRange, nil
 }
 
 func (app *ApiServer) resolveUserHandleToId(handle string) (int32, error) {
