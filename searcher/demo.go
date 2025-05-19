@@ -23,17 +23,10 @@ func mustDialPostgres() *pgxpool.Pool {
 }
 
 func mustDialElasticsearch() *elasticsearch.Client {
-	cfg := elasticsearch.Config{
-		Addresses: []string{
-			"http://35.238.44.255:21302",
-		},
-	}
-
-	esc, err := elasticsearch.NewClient(cfg)
+	esc, err := Dial()
 	if err != nil {
 		log.Fatalf("Error creating the client: %s", err)
 	}
-
 	return esc
 }
 

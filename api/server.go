@@ -12,10 +12,12 @@ import (
 	"bridgerton.audius.co/api/spl"
 	"bridgerton.audius.co/api/spl/programs/reward_manager"
 	"bridgerton.audius.co/config"
+	"bridgerton.audius.co/searcher"
 	"bridgerton.audius.co/trashid"
 	"github.com/AudiusProject/audiusd/pkg/rewards"
 	adapter "github.com/axiomhq/axiom-go/adapters/zap"
 	"github.com/axiomhq/axiom-go/axiom"
+	"github.com/elastic/go-elasticsearch/v8"
 	"github.com/ethereum/go-ethereum/crypto"
 	"github.com/gagliardetto/solana-go/rpc"
 	"github.com/gofiber/contrib/fiberzap/v2"
@@ -130,6 +132,11 @@ func NewApiServer(config config.Config) *ApiServer {
 		panic(err)
 	}
 
+	esClient, err := searcher.Dial()
+	if err != nil {
+		panic(err)
+	}
+
 	app := &ApiServer{
 		App: fiber.New(fiber.Config{
 			JSONEncoder:  json.Marshal,
@@ -138,6 +145,7 @@ func NewApiServer(config config.Config) *ApiServer {
 		}),
 		pool:                pool,
 		queries:             dbv1.New(pool),
+		esClient:            esClient,
 		logger:              logger,
 		started:             time.Now(),
 		resolveHandleCache:  resolveHandleCache,
@@ -265,6 +273,9 @@ func NewApiServer(config config.Config) *ApiServer {
 		g.Get("/playlists/:playlistId/reposts", app.v1PlaylistReposts)
 		g.Get("/playlists/:playlistId/favorites", app.v1PlaylistFavorites)
 
+		// Search
+		g.Get("/search/autocomplete", app.v1SearchAutocomplete)
+
 		// Developer Apps
 		g.Get("/developer_apps/:address", app.v1DeveloperApps)
 
@@ -305,6 +316,7 @@ type ApiServer struct {
 	*fiber.App
 	pool                *pgxpool.Pool
 	queries             *dbv1.Queries
+	esClient            *elasticsearch.Client
 	logger              *zap.Logger
 	started             time.Time
 	resolveHandleCache  otter.Cache[string, int32]
