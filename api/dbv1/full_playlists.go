@@ -49,7 +49,13 @@ func (q *Queries) FullPlaylistsKeyed(ctx context.Context, arg FullPlaylistsParam
 		userIds[idx] = p.PlaylistOwnerID
 
 		if !arg.OmitTracks {
-			for _, t := range p.PlaylistContents.TrackIDs {
+			// some playlists have over a thousand tracks which causes slow load times,
+			// so we limit the track hydration here to prevent bad experience.
+			trackStubs := p.PlaylistContents.TrackIDs
+			if len(trackStubs) > 200 {
+				trackStubs = trackStubs[:200]
+			}
+			for _, t := range trackStubs {
 				trackIds = append(trackIds, int32(t.Track))
 			}
 		}
