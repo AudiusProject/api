@@ -15,9 +15,9 @@ type SquareImage struct {
 
 type PlaylistContents struct {
 	TrackIDs []struct {
-		Time         int64 `json:"time"`
-		Track        int64 `json:"track"`
-		MetadataTime int64 `json:"metadata_time"`
+		Time         float64 `json:"time"`
+		Track        int64   `json:"track"`
+		MetadataTime float64 `json:"metadata_time"`
 	} `json:"track_ids"`
 }
 

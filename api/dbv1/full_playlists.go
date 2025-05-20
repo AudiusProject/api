@@ -31,9 +31,9 @@ type FullPlaylist struct {
 }
 
 type FullPlaylistContentsItem struct {
-	Time         int64  `json:"timestamp"`
-	TrackId      string `json:"track_id"`
-	MetadataTime int64  `json:"metadata_timestamp"`
+	Time         float64 `json:"timestamp"`
+	TrackId      string  `json:"track_id"`
+	MetadataTime float64 `json:"metadata_timestamp"`
 }
 
 func (q *Queries) FullPlaylistsKeyed(ctx context.Context, arg FullPlaylistsParams) (map[int32]FullPlaylist, error) {
