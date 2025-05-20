@@ -58,4 +58,5 @@ type FullRemixOf struct {
 type EventData struct {
 	PrizeInfo   string `json:"prize_info"`
 	Description string `json:"description"`
+	Winners     []int  `json:"winners"`
 }
