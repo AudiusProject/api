@@ -142,9 +142,10 @@ func NewApiServer(config config.Config) *ApiServer {
 
 	app := &ApiServer{
 		App: fiber.New(fiber.Config{
-			JSONEncoder:  json.Marshal,
-			JSONDecoder:  json.Unmarshal,
-			ErrorHandler: errorHandler(logger),
+			JSONEncoder:    json.Marshal,
+			JSONDecoder:    json.Unmarshal,
+			ErrorHandler:   errorHandler(logger),
+			ReadBufferSize: 32_768,
 		}),
 		pool:                  pool,
 		queries:               dbv1.New(pool),
