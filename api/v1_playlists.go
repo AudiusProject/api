@@ -45,7 +45,7 @@ func (app *ApiServer) v1playlists(c *fiber.Ctx) error {
 			MyID: myId,
 			Ids:  ids,
 		},
-		SkipTracks: !withTracks,
+		OmitTracks: !withTracks,
 	})
 	if err != nil {
 		return err

@@ -10,7 +10,7 @@ import (
 
 type FullPlaylistsParams struct {
 	GetPlaylistsParams
-	SkipTracks bool
+	OmitTracks bool
 }
 
 type FullPlaylist struct {
@@ -48,7 +48,7 @@ func (q *Queries) FullPlaylistsKeyed(ctx context.Context, arg FullPlaylistsParam
 	for idx, p := range rawPlaylists {
 		userIds[idx] = p.PlaylistOwnerID
 
-		if !arg.SkipTracks {
+		if !arg.OmitTracks {
 			for _, t := range p.PlaylistContents.TrackIDs {
 				trackIds = append(trackIds, int32(t.Track))
 			}
