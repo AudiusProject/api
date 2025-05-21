@@ -1,6 +1,8 @@
 package api
 
 import (
+	"strconv"
+
 	"bridgerton.audius.co/api/dbv1"
 	"github.com/gofiber/fiber/v2"
 )
@@ -8,6 +10,10 @@ import (
 func (app *ApiServer) v1playlists(c *fiber.Ctx) error {
 	myId := app.getMyId(c)
 	ids := decodeIdList(c)
+
+	// by default the bulk playlist endpoint will omit tracks
+	// unless client explicitly does ?with_tracks=true
+	withTracks, _ := strconv.ParseBool(c.Query("with_tracks", "false"))
 
 	// Add permalink ID mappings
 	permalinks := queryMutli(c, "permalink")
@@ -39,6 +45,7 @@ func (app *ApiServer) v1playlists(c *fiber.Ctx) error {
 			MyID: myId,
 			Ids:  ids,
 		},
+		OmitTracks: !withTracks,
 	})
 	if err != nil {
 		return err

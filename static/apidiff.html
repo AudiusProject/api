@@ -72,8 +72,14 @@
     "/v1/full/tracks/449Gz30/comments?limit=15&offset=0&sort_method=newest&user_id=197005",
     "/v1/full/users/7eP5n/comments?limit=15&offset=0&user_id=197005",
     "/v1/events?event_type=remix_contest", // Note current API does not order this deterministically
+    "/v1/events?id=qp6ZoVM",
     "/v1/events/all",
     "/v1/events/entity?entity_id=YmozAJ7",
+    "/v1/metrics/genres?start_time=1746723600",
+    "/v1/metrics/plays?bucket_size=month&start_time=1593579600",
+    "/v1/metrics/aggregates/apps/month?limit=8",
+    "/v1/metrics/aggregates/routes/all_time?bucket_size=month",
+    "/v1/metrics/aggregates/routes/trailing/month",
   ];
 
   const html = (strings, ...values) => String.raw({ raw: strings }, ...values);

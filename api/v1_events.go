@@ -13,6 +13,7 @@ func (app *ApiServer) v1Events(c *fiber.Ctx) error {
 	entityType := c.Query("entity_type", "")
 	filterDeleted := c.QueryBool("filter_deleted", true)
 	entityIDs := queryMutli(c, "entity_id")
+	eventIDs := queryMutli(c, "id")
 
 	entityIds := []int32{}
 	for _, id := range entityIDs {
@@ -21,8 +22,15 @@ func (app *ApiServer) v1Events(c *fiber.Ctx) error {
 		}
 	}
 
+	eventIds := []int32{}
+	for _, id := range eventIDs {
+		if id, err := trashid.DecodeHashId(id); err == nil {
+			eventIds = append(eventIds, int32(id))
+		}
+	}
 	recentEvents, err := app.queries.GetEvents(c.Context(), dbv1.GetEventsParams{
 		EntityIds:     entityIds,
+		EventIds:      eventIds,
 		EventType:     eventType,
 		EntityType:    entityType,
 		LimitVal:      int32(limit),

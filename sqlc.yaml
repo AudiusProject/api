@@ -26,7 +26,6 @@ sql:
               import: "time"
               type: "Time"
 
-
           - db_type: "jsonb"
             go_type:
               import: "encoding/json"
