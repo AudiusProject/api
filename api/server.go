@@ -292,6 +292,9 @@ func NewApiServer(config config.Config) *ApiServer {
 	comms.Get("/chats", app.getChats)
 	comms.Get("/chats/unread", app.getUnreadCount)
 	comms.Get("/chats/permissions", app.getChatPermissions)
+	comms.Get("/chats/blockers", app.getChatBlockers)
+	comms.Get("/chats/blockees", app.getChatBlockees)
+
 	comms.Get("/chats/:chatId", app.getChat)
 	comms.Get("/chats/:chatId/messages", app.getChatMessages)
 
