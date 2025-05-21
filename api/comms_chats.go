@@ -133,7 +133,7 @@ func (api *ApiServer) getChats(c *fiber.Ctx) error {
 		return err
 	}
 
-	beforeCursorPos := time.Now()
+	beforeCursorPos := time.Now().UTC()
 	afterCursorPos := time.Time{}
 	if params.Before != nil {
 		beforeCursorPos = *params.Before
