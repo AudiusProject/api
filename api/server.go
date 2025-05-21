@@ -290,6 +290,7 @@ func NewApiServer(config config.Config) *ApiServer {
 	// Comms
 	comms := app.Group("/comms")
 	comms.Get("/chats", app.getChats)
+	comms.Get("/chats/unread", app.getUnreadCount)
 	comms.Get("/chats/:chatId", app.getChat)
 	comms.Get("/chats/:chatId/messages", app.getChatMessages)
 
