@@ -308,6 +308,10 @@ func NewApiServer(config config.Config) *ApiServer {
 
 	// Comms
 	comms := app.Group("/comms")
+	// Cached/non-cached are the same as there are no other nodes to query anymore
+	comms.Get("/pubkey/:userId", app.getPubkey)
+	comms.Get("/pubky/:userId/cached", app.getPubkey)
+
 	comms.Get("/chats", app.getChats)
 	comms.Get("/chats/unread", app.getUnreadCount)
 	comms.Get("/chats/permissions", app.getChatPermissions)
