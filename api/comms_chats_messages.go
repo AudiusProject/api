@@ -43,6 +43,26 @@ func (api ApiServer) getChatMessages(c *fiber.Ctx) error {
 	LIMIT @limit
 	;`
 
+	sqlSummary := `
+	WITH messages AS (
+		SELECT
+			chat_message.message_id, chat_message.created_at
+		FROM chat_message
+		JOIN chat_member ON chat_message.chat_id = chat_member.chat_id
+		WHERE chat_member.user_id = @user_id 
+		AND chat_message.chat_id = @chat_id
+		AND (chat_member.cleared_history_at IS NULL 
+			OR chat_message.created_at > chat_member.cleared_history_at)
+		)
+	SELECT
+		(SELECT COUNT(*) AS total_count FROM messages),
+		(SELECT COUNT(*) FROM messages WHERE created_at < @before) AS before_count,
+		(SELECT COUNT(*) FROM messages WHERE created_at > @after) AS after_count,
+		@before AS prev,
+		@after AS next
+	;
+	`
+
 	routeParams := &GetChatMessageRouteParams{}
 	err := c.ParamsParser(routeParams)
 	if err != nil {
@@ -92,8 +112,27 @@ func (api ApiServer) getChatMessages(c *fiber.Ctx) error {
 		return err
 	}
 
+	if len(rows) > 0 {
+		beforeCursorPos = rows[len(rows)-1].CreatedAt
+		afterCursorPos = rows[0].CreatedAt
+	}
+	summaryRaw, err := api.pool.Query(c.Context(), sqlSummary, pgx.NamedArgs{
+		"user_id": userId,
+		"chat_id": routeParams.ChatID,
+		"before":  beforeCursorPos,
+		"after":   afterCursorPos,
+	})
+	if err != nil {
+		return err
+	}
+	summary, err := pgx.CollectExactlyOneRow(summaryRaw, pgx.RowToStructByName[CommsSummary])
+	if err != nil {
+		return err
+	}
+
 	return c.JSON(CommsResponse{
-		Data: rows,
+		Data:    rows,
+		Summary: &summary,
 		Health: CommsHealth{
 			IsHealthy: true,
 		},
