@@ -291,6 +291,7 @@ func NewApiServer(config config.Config) *ApiServer {
 	comms := app.Group("/comms")
 	comms.Get("/chats", app.getChats)
 	comms.Get("/chats/:chatId", app.getChat)
+	comms.Get("/chats/:chatId/messages", app.getChatMessages)
 
 	app.Static("/", "./static")
 
