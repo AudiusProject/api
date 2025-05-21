@@ -26,10 +26,24 @@ func (app *ApiServer) v1SearchAutocomplete(c *fiber.Ctx) error {
 
 		dsl := fmt.Sprintf(`{
 			"query": {
-				"simple_query_string": {
-					"query": %q,
-					"default_operator": "AND"
-				}
+				"function_score": {
+					"simple_query_string": {
+						"query": %q,
+						"default_operator": "AND"
+					}
+				},
+				"boost_mode": "sum",
+				"score_mode": "sum",
+				"functions": [
+					{
+						"field_value_factor": {
+							"field": "follower_count",
+							"factor": 1,
+							"modifier": "log1p",
+							"missing": 0
+						}
+					}
+				]
 			}
 		}`, query+"*")
 

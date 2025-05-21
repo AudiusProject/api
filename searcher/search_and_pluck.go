@@ -2,6 +2,7 @@ package searcher
 
 import (
 	"context"
+	"fmt"
 	"io"
 	"strings"
 
@@ -25,12 +26,16 @@ func SearchAndPluck(esClient *elasticsearch.Client, index, dsl string, limit, of
 	}
 	defer res.Body.Close()
 
+	if res.IsError() {
+		return nil, fmt.Errorf("Search %s failed: %s", index, res.String())
+	}
+
 	body, err := io.ReadAll(res.Body)
 	if err != nil {
 		return nil, err
 	}
 
-	// fmt.Println("FOUND", index, string(body))
+	fmt.Println("ES BODY", index, string(body))
 
 	result := []int32{}
 	for _, hit := range gjson.GetBytes(body, "hits.hits").Array() {
