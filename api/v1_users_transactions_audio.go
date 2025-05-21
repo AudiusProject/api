@@ -1,36 +1,74 @@
 package api
 
 import (
-	"github.com/gofiber/fiber/v2"
+	"fmt"
+	"time"
 
-	"bridgerton.audius.co/api/dbv1"
+	"github.com/gofiber/fiber/v2"
+	"github.com/jackc/pgx/v5"
+	"github.com/jackc/pgx/v5/pgtype"
 )
 
+type AudioTransaction struct {
+	TransactionDate time.Time   `json:"transaction_date"`
+	TransactionType string      `json:"transaction_type"`
+	Signature       string      `json:"signature"`
+	Method          string      `json:"method"`
+	UserBank        string      `json:"user_bank"`
+	Metadata        pgtype.Text `json:"metadata"`
+	Change          string      `json:"change"`
+	Balance         string      `json:"balance"`
+}
+
 func (app *ApiServer) v1UsersTransactionsAudio(c *fiber.Ctx) error {
-	sortMethod := c.Query("sort_method", "date")
-	if sortMethod != "date" && sortMethod != "type" {
+	sortMethodQuery := c.Query("sort_method", "date")
+	if sortMethodQuery != "date" && sortMethodQuery != "transaction_type" {
 		return fiber.NewError(fiber.StatusBadRequest, "Invalid sort method")
 	}
-	sortDirection := c.Query("sort_direction", "desc")
-	if sortDirection != "asc" && sortDirection != "desc" {
+	sortDirectionQuery := c.Query("sort_direction", "desc")
+	if sortDirectionQuery != "asc" && sortDirectionQuery != "desc" {
 		return fiber.NewError(fiber.StatusBadRequest, "Invalid sort direction")
 	}
 
-	limit := c.QueryInt("limit", 100)
-	offset := c.QueryInt("offset", 0)
-
-	transactionTypes := c.Context().QueryArgs().PeekMulti("type")
-	if len(transactionTypes) == 0 {
-		transactionTypes = nil
+	var orderBy string
+	var sortDirection string
+	switch sortDirectionQuery {
+	case "asc":
+		sortDirection = "asc"
+	case "desc":
+		sortDirection = "desc"
 	}
 
-	transactions, err := app.queries.GetUserAudioTransactions(c.Context(), dbv1.GetUserAudioTransactionsParams{
-		UserID:        app.getUserId(c),
-		SortMethod:    sortMethod,
-		SortDirection: sortDirection,
-		LimitVal:      int32(limit),
-		OffsetVal:     int32(offset),
-	})
+	switch sortMethodQuery {
+	case "date":
+		orderBy = fmt.Sprintf("ath.created_at %s", sortDirection)
+	case "transaction_type":
+		orderBy = fmt.Sprintf("transaction_type %s, ath.created_at desc", sortDirection)
+	}
+
+	sql := `
+		SELECT ath.created_at as transaction_date, transaction_type, ath.signature, method, ath.user_bank, tx_metadata as metadata, change::text, balance::text
+		FROM users
+		JOIN user_bank_accounts uba ON uba.ethereum_address = users.wallet
+		JOIN audio_transactions_history ath ON ath.user_bank = uba.bank_account
+		WHERE users.user_id = @user_id::int AND users.is_current = TRUE
+		ORDER BY ` + orderBy + `
+		LIMIT @limit_val
+		OFFSET @offset_val;
+	`
+
+	params := pgx.NamedArgs{
+		"user_id":    app.getUserId(c),
+		"limit_val":  c.QueryInt("limit", 100),
+		"offset_val": c.QueryInt("offset", 0),
+	}
+
+	rows, err := app.pool.Query(c.Context(), sql, params)
+	if err != nil {
+		return err
+	}
+
+	transactions, err := pgx.CollectRows(rows, pgx.RowToStructByName[AudioTransaction])
 	if err != nil {
 		return err
 	}
@@ -41,7 +79,20 @@ func (app *ApiServer) v1UsersTransactionsAudio(c *fiber.Ctx) error {
 }
 
 func (app *ApiServer) v1UsersTransactionsAudioCount(c *fiber.Ctx) error {
-	count, err := app.queries.GetUserAudioTransactionsCount(c.Context(), app.getUserId(c))
+	sql := `
+		SELECT count(*)
+		FROM users
+		JOIN user_bank_accounts uba ON uba.ethereum_address = users.wallet
+		JOIN audio_transactions_history ath ON ath.user_bank = uba.bank_account
+		WHERE users.user_id = @user_id::int AND users.is_current = TRUE;
+	`
+
+	row := app.pool.QueryRow(c.Context(), sql, pgx.NamedArgs{
+		"user_id": app.getUserId(c),
+	})
+
+	var count int64
+	err := row.Scan(&count)
 	if err != nil {
 		return err
 	}
