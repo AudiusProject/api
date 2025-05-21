@@ -10,6 +10,7 @@ import (
 
 type FullPlaylistsParams struct {
 	GetPlaylistsParams
+	OmitTracks bool
 }
 
 type FullPlaylist struct {
@@ -30,9 +31,9 @@ type FullPlaylist struct {
 }
 
 type FullPlaylistContentsItem struct {
-	Time         int64  `json:"timestamp"`
-	TrackId      string `json:"track_id"`
-	MetadataTime int64  `json:"metadata_timestamp"`
+	Time         float64 `json:"timestamp"`
+	TrackId      string  `json:"track_id"`
+	MetadataTime float64 `json:"metadata_timestamp"`
 }
 
 func (q *Queries) FullPlaylistsKeyed(ctx context.Context, arg FullPlaylistsParams) (map[int32]FullPlaylist, error) {
@@ -46,8 +47,11 @@ func (q *Queries) FullPlaylistsKeyed(ctx context.Context, arg FullPlaylistsParam
 	userIds := make([]int32, len(rawPlaylists))
 	for idx, p := range rawPlaylists {
 		userIds[idx] = p.PlaylistOwnerID
-		for _, t := range p.PlaylistContents.TrackIDs {
-			trackIds = append(trackIds, int32(t.Track))
+
+		if !arg.OmitTracks {
+			for _, t := range p.PlaylistContents.TrackIDs {
+				trackIds = append(trackIds, int32(t.Track))
+			}
 		}
 	}
 

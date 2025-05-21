@@ -2,6 +2,7 @@ package api
 
 import (
 	"context"
+	"fmt"
 	"net/http"
 	"os"
 	"os/signal"
@@ -10,6 +11,7 @@ import (
 
 	"bridgerton.audius.co/api/dbv1"
 	"bridgerton.audius.co/api/spl"
+	"bridgerton.audius.co/api/spl/programs/claimable_tokens"
 	"bridgerton.audius.co/api/spl/programs/reward_manager"
 	"bridgerton.audius.co/config"
 	"bridgerton.audius.co/trashid"
@@ -129,25 +131,35 @@ func NewApiServer(config config.Config) *ApiServer {
 	if err != nil {
 		panic(err)
 	}
+	claimableTokensClient, err := claimable_tokens.NewClaimableTokensClient(
+		solanaRpc,
+		config.SolanaConfig.ClaimableTokensProgramID,
+		transactionSender,
+	)
+	if err != nil {
+		panic(err)
+	}
 
 	app := &ApiServer{
 		App: fiber.New(fiber.Config{
-			JSONEncoder:  json.Marshal,
-			JSONDecoder:  json.Unmarshal,
-			ErrorHandler: errorHandler(logger),
+			JSONEncoder:    json.Marshal,
+			JSONDecoder:    json.Unmarshal,
+			ErrorHandler:   errorHandler(logger),
+			ReadBufferSize: 32_768,
 		}),
-		pool:                pool,
-		queries:             dbv1.New(pool),
-		logger:              logger,
-		started:             time.Now(),
-		resolveHandleCache:  resolveHandleCache,
-		resolveGrantCache:   resolveGrantCache,
-		rewardAttester:      *rewardAttester,
-		transactionSender:   *transactionSender,
-		rewardManagerClient: *rewardManagerClient,
-		solanaConfig:        config.SolanaConfig,
-		antiAbuseOracles:    config.AntiAbuseOracles,
-		validators:          config.Nodes,
+		pool:                  pool,
+		queries:               dbv1.New(pool),
+		logger:                logger,
+		started:               time.Now(),
+		resolveHandleCache:    resolveHandleCache,
+		resolveGrantCache:     resolveGrantCache,
+		rewardAttester:        *rewardAttester,
+		transactionSender:     *transactionSender,
+		rewardManagerClient:   *rewardManagerClient,
+		claimableTokensClient: *claimableTokensClient,
+		solanaConfig:          config.SolanaConfig,
+		antiAbuseOracles:      config.AntiAbuseOracles,
+		validators:            config.Nodes,
 	}
 
 	app.Use(recover.New(recover.Config{
@@ -285,6 +297,13 @@ func NewApiServer(config config.Config) *ApiServer {
 
 		// Challenges
 		g.Get("/challenges/undisbursed", app.v1ChallengesUndisbursed)
+
+		// Metrics
+		g.Get("/metrics/genres", app.v1MetricsGenres)
+		g.Get("/metrics/plays", app.v1MetricsPlays)
+		g.Get("/metrics/aggregates/apps/:time_range", app.v1MetricsApps)
+		g.Get("/metrics/aggregates/routes/:time_range", app.v1MetricsRoutes)
+		g.Get("/metrics/aggregates/routes/trailing/:time_range", app.v1MetricsRoutesTrailing)
 	}
 
 	// Comms
@@ -295,8 +314,8 @@ func NewApiServer(config config.Config) *ApiServer {
 	comms.Get("/chats/blockers", app.getChatBlockers)
 	comms.Get("/chats/blockees", app.getChatBlockees)
 
-	comms.Get("/chats/:chatId", app.getChat)
 	comms.Get("/chats/:chatId/messages", app.getChatMessages)
+	comms.Get("/chats/:chatId", app.getChat)
 
 	app.Static("/", "./static")
 
@@ -314,18 +333,19 @@ func NewApiServer(config config.Config) *ApiServer {
 
 type ApiServer struct {
 	*fiber.App
-	pool                *pgxpool.Pool
-	queries             *dbv1.Queries
-	logger              *zap.Logger
-	started             time.Time
-	resolveHandleCache  otter.Cache[string, int32]
-	resolveGrantCache   otter.Cache[string, bool]
-	rewardManagerClient reward_manager.RewardManagerClient
-	rewardAttester      rewards.RewardAttester
-	transactionSender   spl.TransactionSender
-	solanaConfig        config.SolanaConfig
-	antiAbuseOracles    []string
-	validators          []config.Node
+	pool                  *pgxpool.Pool
+	queries               *dbv1.Queries
+	logger                *zap.Logger
+	started               time.Time
+	resolveHandleCache    otter.Cache[string, int32]
+	resolveGrantCache     otter.Cache[string, bool]
+	rewardManagerClient   reward_manager.RewardManagerClient
+	claimableTokensClient claimable_tokens.ClaimableTokensClient
+	rewardAttester        rewards.RewardAttester
+	transactionSender     spl.TransactionSender
+	solanaConfig          config.SolanaConfig
+	antiAbuseOracles      []string
+	validators            []config.Node
 }
 
 func (app *ApiServer) home(c *fiber.Ctx) error {
@@ -355,6 +375,38 @@ func queryMutli(c *fiber.Ctx, key string) []string {
 		values = append(values, string(v))
 	}
 	return values
+}
+
+var validDateBuckets = map[string]bool{
+	"hour":   true,
+	"day":    true,
+	"week":   true,
+	"month":  true,
+	"year":   true,
+	"minute": true,
+}
+
+func (app *ApiServer) queryDateBucket(c *fiber.Ctx, param string, defaultValue string) (string, error) {
+	bucket := c.Query(param, defaultValue)
+	if !validDateBuckets[bucket] {
+		return "", fmt.Errorf("invalid %s parameter: %s", param, bucket)
+	}
+	return bucket, nil
+}
+
+var validTimeRanges = map[string]bool{
+	"week":     true,
+	"month":    true,
+	"year":     true,
+	"all_time": true,
+}
+
+func (app *ApiServer) paramTimeRange(c *fiber.Ctx, param string, defaultValue string) (string, error) {
+	timeRange := c.Params(param, defaultValue)
+	if !validTimeRanges[timeRange] {
+		return "", fmt.Errorf("invalid %s parameter: %s", param, timeRange)
+	}
+	return timeRange, nil
 }
 
 func (app *ApiServer) resolveUserHandleToId(handle string) (int32, error) {
