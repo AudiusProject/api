@@ -338,6 +338,8 @@ func NewApiServer(config config.Config) *ApiServer {
 	comms.Get("/chats/:chatId/messages", app.getChatMessages)
 	comms.Get("/chats/:chatId", app.getChat)
 
+	comms.Get("/blasts", app.getNewBlasts)
+
 	app.Static("/", "./static")
 
 	// proxy unhandled requests thru to existing discovery API
