@@ -16,12 +16,14 @@ import (
 	"bridgerton.audius.co/config"
 	"bridgerton.audius.co/trashid"
 	"github.com/AudiusProject/audiusd/pkg/rewards"
+	"github.com/Doist/unfurlist"
 	adapter "github.com/axiomhq/axiom-go/adapters/zap"
 	"github.com/axiomhq/axiom-go/axiom"
 	"github.com/ethereum/go-ethereum/crypto"
 	"github.com/gagliardetto/solana-go/rpc"
 	"github.com/gofiber/contrib/fiberzap/v2"
 	"github.com/gofiber/fiber/v2"
+	"github.com/gofiber/fiber/v2/middleware/adaptor"
 	"github.com/gofiber/fiber/v2/middleware/cors"
 	"github.com/gofiber/fiber/v2/middleware/recover"
 	pgxzap "github.com/jackc/pgx-zap"
@@ -308,6 +310,25 @@ func NewApiServer(config config.Config) *ApiServer {
 
 	// Comms
 	comms := app.Group("/comms")
+	// Cached/non-cached are the same as there are no other nodes to query anymore
+	comms.Get("/pubkey/:userId", app.getPubkey)
+	comms.Get("/pubky/:userId/cached", app.getPubkey)
+
+	unfurlBlocklist := unfurlist.WithBlocklistPrefixes(
+		[]string{
+			"http://localhost",
+			"http://127",
+			"http://10",
+			"http://169.254",
+			"http://172.16",
+			"http://192.168",
+			"http://::1",
+			"http://fe80::",
+		},
+	)
+	unfurlHeaders := unfurlist.WithExtraHeaders(map[string]string{"User-Agent": "twitterbot"})
+	comms.Get("/unfurl", adaptor.HTTPHandler(unfurlist.New(unfurlBlocklist, unfurlHeaders)))
+
 	comms.Get("/chats", app.getChats)
 	comms.Get("/chats/unread", app.getUnreadCount)
 	comms.Get("/chats/permissions", app.getChatPermissions)
@@ -316,6 +337,8 @@ func NewApiServer(config config.Config) *ApiServer {
 
 	comms.Get("/chats/:chatId/messages", app.getChatMessages)
 	comms.Get("/chats/:chatId", app.getChat)
+
+	comms.Get("/blasts", app.getNewBlasts)
 
 	app.Static("/", "./static")
 
