@@ -23,6 +23,7 @@ func (pi *PlaylistIndexer) createIndex(drop bool) error {
 }
 
 func (pi *PlaylistIndexer) indexAll() error {
+	// todo: track stubs
 	sql := `
 		SELECT
 			playlist_id,
