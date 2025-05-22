@@ -1,8 +1,6 @@
 package api
 
 import (
-	"fmt"
-
 	"bridgerton.audius.co/api/dbv1"
 	"bridgerton.audius.co/searcher"
 	"github.com/gofiber/fiber/v2"
@@ -20,33 +18,15 @@ func (app *ApiServer) v1SearchAutocomplete(c *fiber.Ctx) error {
 	var users []dbv1.FullUser
 	var tracks []dbv1.FullTrack
 	var playlists []dbv1.FullPlaylist
+	var albums []dbv1.FullPlaylist
 
 	// users
 	g.Go(func() error {
+		q := searcher.UserSearchQuery{
+			Query: query,
+		}
 
-		dsl := fmt.Sprintf(`{
-			"query": {
-				"function_score": {
-					"simple_query_string": {
-						"query": %q,
-						"default_operator": "AND"
-					}
-				},
-				"boost_mode": "sum",
-				"score_mode": "sum",
-				"functions": [
-					{
-						"field_value_factor": {
-							"field": "follower_count",
-							"factor": 1,
-							"modifier": "log1p",
-							"missing": 0
-						}
-					}
-				]
-			}
-		}`, query+"*")
-
+		dsl := searcher.BuildFunctionScoreDSL("follower_count", q.Map())
 		userIds, err := searcher.SearchAndPluck(app.esClient, "users", dsl, limit, offset)
 		if err != nil {
 			return err
@@ -61,14 +41,11 @@ func (app *ApiServer) v1SearchAutocomplete(c *fiber.Ctx) error {
 
 	// tracks
 	g.Go(func() error {
-		dsl := fmt.Sprintf(`{
-			"query": {
-				"simple_query_string": {
-					"query": %q,
-					"default_operator": "AND"
-				}
-			}
-		}`, query+"*")
+		q := searcher.TrackSearchQuery{
+			Query: query,
+		}
+
+		dsl := searcher.BuildFunctionScoreDSL("repost_count", q.Map())
 
 		tracksIds, err := searcher.SearchAndPluck(app.esClient, "tracks", dsl, limit, offset)
 		if err != nil {
@@ -86,14 +63,11 @@ func (app *ApiServer) v1SearchAutocomplete(c *fiber.Ctx) error {
 
 	// playlists
 	g.Go(func() error {
-		dsl := fmt.Sprintf(`{
-			"query": {
-				"simple_query_string": {
-					"query": %q,
-					"default_operator": "AND"
-				}
-			}
-		}`, query+"*")
+		q := searcher.PlaylistSearchQuery{
+			Query: query,
+		}
+
+		dsl := searcher.BuildFunctionScoreDSL("repost_count", q.Map())
 
 		playlistsIds, err := searcher.SearchAndPluck(app.esClient, "playlists", dsl, limit, offset)
 		if err != nil {
@@ -101,6 +75,29 @@ func (app *ApiServer) v1SearchAutocomplete(c *fiber.Ctx) error {
 		}
 
 		playlists, err = app.queries.FullPlaylists(c.Context(), dbv1.FullPlaylistsParams{
+			GetPlaylistsParams: dbv1.GetPlaylistsParams{
+				Ids:  playlistsIds,
+				MyID: myId,
+			},
+		})
+		return err
+	})
+
+	// albums
+	g.Go(func() error {
+		q := searcher.PlaylistSearchQuery{
+			Query:   query,
+			IsAlbum: true,
+		}
+
+		dsl := searcher.BuildFunctionScoreDSL("repost_count", q.Map())
+
+		playlistsIds, err := searcher.SearchAndPluck(app.esClient, "playlists", dsl, limit, offset)
+		if err != nil {
+			return err
+		}
+
+		albums, err = app.queries.FullPlaylists(c.Context(), dbv1.FullPlaylistsParams{
 			GetPlaylistsParams: dbv1.GetPlaylistsParams{
 				Ids:  playlistsIds,
 				MyID: myId,
@@ -119,9 +116,9 @@ func (app *ApiServer) v1SearchAutocomplete(c *fiber.Ctx) error {
 			"users":     users,
 			"tracks":    tracks,
 			"playlists": playlists,
+			"albums":    albums,
 
 			// todos
-			"albums":          []any{},
 			"saved_albums":    []any{},
 			"saved_users":     []any{},
 			"saved_tracks":    []any{},

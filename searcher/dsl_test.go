@@ -31,4 +31,5 @@ func testSearch(t *testing.T, indexName, dsl string) {
 	}
 
 	pprintJson(body)
+	// todo: assert not empty and stuff...
 }

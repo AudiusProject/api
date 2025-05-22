@@ -1,0 +1,125 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <title>Search Test</title>
+    <style>
+      .layout {
+        display: flex;
+        gap: 20px;
+        margin-top: 20px;
+      }
+      .col {
+        flex: 1;
+        padding: 20px;
+        background: gold;
+      }
+    </style>
+  </head>
+  <body>
+    <form>
+      <input
+        name="q"
+        type="text"
+        id="searchInput"
+        placeholder="Type to search..."
+        autocomplete="off"
+      />
+      <button>search</button>
+    </form>
+
+    <div class="layout">
+      <div class="col" id="userResults"></div>
+      <div class="col" id="trackResults"></div>
+      <div class="col" id="playlistResults"></div>
+      <div class="col" id="albumResults"></div>
+    </div>
+  </body>
+</html>
+
+<script type="module">
+  //
+  // html tagged template helper
+  //
+  function html(strings, ...values) {
+    let out = "";
+    strings.forEach((string, i) => {
+      const value = values[i];
+
+      // Array - Join to string and output with value
+      if (Array.isArray(value)) {
+        out += string + value.join("");
+      }
+      // String - Output with value
+      else if (typeof value === "string") {
+        out += string + value;
+      }
+      // Number - Coerce to string and output with value
+      // This would happen anyway, but for clarity's sake on what's happening here
+      else if (typeof value === "number") {
+        out += string + String(value);
+      }
+      // object, undefined, null, boolean - Don't output a value.
+      else {
+        out += string;
+      }
+    });
+    return out;
+  }
+
+  const params = new URLSearchParams(window.location.search);
+  const q = params.get("q");
+  searchInput.value = q;
+
+  fetch(`/v1/full/search/autocomplete?query=${encodeURIComponent(q)}`)
+    .then((response) => response.json())
+    .then((result) => {
+      const { users, tracks, playlists, albums } = result.data;
+
+      trackResults.innerHTML = html`
+        <h1>${tracks.length} Tracks</h1>
+        <ul>
+          ${tracks.map((t) => html`<li>${t.title}</li>`)}
+        </ul>
+      `;
+
+      userResults.innerHTML = html`
+        <h1>${users.length} Users</h1>
+        <ul>
+          ${users.map(
+            (user) => html`<li>
+              <a href="https://audius.co/${user.handle}">${user.handle}</a>
+              ${user.name}
+            </li>`
+          )}
+        </ul>
+      `;
+
+      playlistResults.innerHTML = html`
+        <h1>${playlists.length} Playlists</h1>
+        <ul>
+          ${playlists.map(
+            (playlist) => html`<li>
+              <a href="https://audius.co/TODO">${playlist.playlist_name}</a>
+            </li>`
+          )}
+        </ul>
+      `;
+
+      albumResults.innerHTML = html`
+        <h1>${albums.length} albums</h1>
+        <ul>
+          ${albums.map(
+            (playlist) => html`<li>
+              <a href="https://audius.co/TODO">${playlist.playlist_name}</a>
+            </li>`
+          )}
+        </ul>
+      `;
+
+      console.log(result.data);
+    })
+    .catch((error) => {
+      console.error("Search error:", error);
+    });
+</script>

@@ -1,12 +1,10 @@
 package searcher
 
 import (
-	"testing"
-
 	"github.com/aquasecurity/esquery"
 )
 
-type TrachSearchQuery struct {
+type TrackSearchQuery struct {
 	Query       string
 	MinBPM      int
 	MaxBPM      int
@@ -15,7 +13,7 @@ type TrachSearchQuery struct {
 	MusicalKeys []string
 }
 
-func (t *TrachSearchQuery) Map() map[string]any {
+func (t *TrackSearchQuery) Map() map[string]any {
 	builder := esquery.Bool()
 
 	if t.Query != "" {
@@ -46,19 +44,4 @@ func (t *TrachSearchQuery) Map() map[string]any {
 	}
 
 	return builder.Map()
-}
-
-func TestTrackDsl(t *testing.T) {
-
-	ts := TrachSearchQuery{
-		// Query:  "fever",
-		MinBPM:      80,
-		MaxBPM:      220,
-		Genres:      []string{"Rap"},
-		MusicalKeys: []string{"A minor", "B minor"},
-	}
-
-	dsl := functionScore("repost_count", ts.Map())
-	testSearch(t, "playlists", dsl)
-
 }

@@ -15,7 +15,7 @@ func toAnySlice[T any](slice []T) []any {
 	return result
 }
 
-func functionScore(scoreField string, innerQuery map[string]any) string {
+func BuildFunctionScoreDSL(scoreField string, innerQuery map[string]any) string {
 	innerJson, err := json.Marshal(innerQuery)
 	if err != nil {
 		panic(err)

@@ -1,10 +1,6 @@
 package searcher
 
-import (
-	"testing"
-
-	"github.com/aquasecurity/esquery"
-)
+import "github.com/aquasecurity/esquery"
 
 type UserSearchQuery struct {
 	Query string `json:"query"`
@@ -18,14 +14,4 @@ func (q *UserSearchQuery) Map() map[string]any {
 	}
 
 	return builder.Map()
-}
-
-func TestUserDsl(t *testing.T) {
-	q := &UserSearchQuery{
-		Query: "ray",
-	}
-
-	dsl := functionScore("followers_count", q.Map())
-
-	testSearch(t, "users", dsl)
 }
