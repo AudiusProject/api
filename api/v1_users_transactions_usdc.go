@@ -9,8 +9,6 @@ import (
 	"github.com/gofiber/fiber/v2"
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgtype"
-
-	"bridgerton.audius.co/api/dbv1"
 )
 
 type UsdcTransaction struct {
@@ -149,10 +147,51 @@ func (app *ApiServer) v1UsersTransactionsUsdc(c *fiber.Ctx) error {
 }
 
 func (app *ApiServer) v1UsersTransactionsUsdcCount(c *fiber.Ctx) error {
-	// TODO: Migrate from sqlc, add method, type, include_system_transactions filtering
-	count, err := app.queries.GetUserUsdcTransactionsCount(c.Context(), dbv1.GetUserUsdcTransactionsCountParams{
-		UserID: app.getUserId(c),
-	})
+	queryParams := GetUsdcTransactionsParams{}
+	if err := c.QueryParser(&queryParams); err != nil {
+		return fiber.NewError(fiber.StatusBadRequest, "Invalid query parameters")
+	}
+	filters := []string{"users.is_current = TRUE"}
+
+	transactionTypes := queryParams.TransactionTypes
+	if len(transactionTypes) > 0 {
+		for _, transactionType := range transactionTypes {
+			if !slices.Contains(validTransactionTypes, transactionType) {
+				return fiber.NewError(fiber.StatusBadRequest, "Invalid transaction type")
+			}
+		}
+		filters = append(filters, `transaction_type = ANY(@transaction_types::text[])`)
+	}
+
+	if !queryParams.IncludeSystemTransactions {
+		filters = append(filters, `transaction_type NOT IN ('prepare_withdrawal', 'recover_withdrawal')`)
+	}
+
+	if queryParams.TransactionMethod != "" {
+		if !slices.Contains(validTransactionMethods, queryParams.TransactionMethod) {
+			return fiber.NewError(fiber.StatusBadRequest, "Invalid transaction method")
+		}
+		filters = append(filters, `method = @transaction_method`)
+	}
+
+	sql := `
+		SELECT count(*)
+		FROM users
+		JOIN usdc_user_bank_accounts uba ON uba.ethereum_address = users.wallet
+		JOIN usdc_transactions_history uth ON uth.user_bank = uba.bank_account
+		WHERE users.user_id = @user_id::int
+		AND ` + strings.Join(filters, " AND ") + `;`
+
+	params := pgx.NamedArgs{
+		"user_id":            app.getUserId(c),
+		"transaction_types":  transactionTypes,
+		"transaction_method": queryParams.TransactionMethod,
+	}
+
+	row := app.pool.QueryRow(c.Context(), sql, params)
+
+	var count int64
+	err := row.Scan(&count)
 	if err != nil {
 		return err
 	}
