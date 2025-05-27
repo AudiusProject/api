@@ -149,7 +149,7 @@ func (app *ApiServer) v1UsersTransactionsUsdc(c *fiber.Ctx) error {
 }
 
 func (app *ApiServer) v1UsersTransactionsUsdcCount(c *fiber.Ctx) error {
-	// TODO: Add method, type, include_system_transactions filtering
+	// TODO: Migrate from sqlc, add method, type, include_system_transactions filtering
 	count, err := app.queries.GetUserUsdcTransactionsCount(c.Context(), dbv1.GetUserUsdcTransactionsCountParams{
 		UserID: app.getUserId(c),
 	})
