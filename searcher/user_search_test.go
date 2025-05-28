@@ -7,6 +7,7 @@ import (
 func TestUserDsl(t *testing.T) {
 	q := &UserSearchQuery{
 		Query: "ray",
+		MyID:  1,
 	}
 
 	dsl := BuildFunctionScoreDSL("followers_count", q.Map())

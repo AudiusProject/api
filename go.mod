@@ -4,6 +4,7 @@ go 1.24.1
 
 require (
 	github.com/AudiusProject/audiusd v0.0.0-20250423205417-9adf00a64112
+	github.com/aquasecurity/esquery v0.2.0
 	github.com/axiomhq/axiom-go v0.23.0
 	github.com/elastic/go-elasticsearch/v8 v8.18.0
 	github.com/ethereum/go-ethereum v1.15.8
@@ -19,7 +20,10 @@ require (
 	github.com/segmentio/encoding v0.4.1
 	github.com/speps/go-hashids/v2 v2.0.1
 	github.com/stretchr/testify v1.10.0
+	github.com/test-go/testify v1.1.4
 	github.com/tidwall/gjson v1.18.0
+	github.com/tidwall/pretty v1.2.1
+	github.com/tidwall/sjson v1.2.5
 	github.com/valyala/fasthttp v1.59.0
 	go.uber.org/zap v1.27.0
 	golang.org/x/sync v0.13.0
@@ -31,7 +35,6 @@ require (
 	github.com/DataDog/zstd v1.5.2 // indirect
 	github.com/andres-erbsen/clock v0.0.0-20160526145045-9e14626cd129 // indirect
 	github.com/andybalholm/brotli v1.1.1 // indirect
-	github.com/aquasecurity/esquery v0.2.0 // indirect
 	github.com/asaskevich/govalidator v0.0.0-20230301143203-a9d515a09cc2 // indirect
 	github.com/beorn7/perks v1.0.1 // indirect
 	github.com/blendle/zapdriver v1.3.1 // indirect
@@ -126,7 +129,6 @@ require (
 	github.com/supranational/blst v0.3.14 // indirect
 	github.com/syndtr/goleveldb v1.0.1-0.20210819022825-2ae1ddf74ef7 // indirect
 	github.com/tidwall/match v1.1.1 // indirect
-	github.com/tidwall/pretty v1.2.1 // indirect
 	github.com/valyala/bytebufferpool v1.0.0 // indirect
 	go.etcd.io/bbolt v1.4.0-alpha.0.0.20240404170359-43604f3112c5 // indirect
 	go.mongodb.org/mongo-driver v1.14.0 // indirect

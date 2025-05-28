@@ -69,6 +69,17 @@ func trackDemo(base *BaseIndexer) {
 	i.search("rap")
 }
 
+func socialDemo(base *BaseIndexer) {
+	i := &SocialIndexer{base}
+
+	if err := i.createIndex(true); err != nil {
+		panic(err)
+	}
+	if err := i.indexAll(); err != nil {
+		panic(err)
+	}
+}
+
 func Demo() {
 	pool := mustDialPostgres()
 	esc := mustDialElasticsearch()
@@ -78,6 +89,9 @@ func Demo() {
 		esc,
 	}
 
-	// playlistDemo(baseIndexer)
+	playlistDemo(baseIndexer)
 	trackDemo(baseIndexer)
+	userDemo(baseIndexer)
+	socialDemo(baseIndexer)
+
 }

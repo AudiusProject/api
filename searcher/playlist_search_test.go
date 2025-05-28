@@ -6,7 +6,8 @@ import (
 
 func TestPlaylistDsl(t *testing.T) {
 	q := &PlaylistSearchQuery{
-		Query: "rap",
+		Query: "hot",
+		MyID:  1,
 	}
 
 	dsl := BuildFunctionScoreDSL("repost_count", q.Map())

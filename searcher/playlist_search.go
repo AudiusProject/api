@@ -1,6 +1,8 @@
 package searcher
 
 import (
+	"fmt"
+
 	"github.com/aquasecurity/esquery"
 )
 
@@ -9,6 +11,7 @@ type PlaylistSearchQuery struct {
 	Genres  []string
 	Moods   []string
 	IsAlbum bool
+	MyID    int
 }
 
 func (q *PlaylistSearchQuery) Map() map[string]any {
@@ -19,6 +22,19 @@ func (q *PlaylistSearchQuery) Map() map[string]any {
 	}
 
 	builder.Filter(esquery.Term("is_album", q.IsAlbum))
+
+	if q.MyID > 0 {
+		builder.Should(esquery.CustomQuery(map[string]any{
+			"terms": map[string]any{
+				"_id": map[string]any{
+					"index": "socials",
+					"id":    fmt.Sprintf("%d", q.MyID),
+					"path":  "reposted_playlist_ids",
+				},
+				"boost": 10,
+			},
+		}))
+	}
 
 	return builder.Map()
 }

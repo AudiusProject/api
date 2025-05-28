@@ -1,6 +1,8 @@
 package searcher
 
 import (
+	"fmt"
+
 	"github.com/aquasecurity/esquery"
 )
 
@@ -11,6 +13,7 @@ type TrackSearchQuery struct {
 	Genres      []string
 	Moods       []string
 	MusicalKeys []string
+	MyID        int
 }
 
 func (t *TrackSearchQuery) Map() map[string]any {
@@ -41,6 +44,20 @@ func (t *TrackSearchQuery) Map() map[string]any {
 
 	if len(t.MusicalKeys) > 0 {
 		builder.Filter(esquery.Terms("musical_key.keyword", toAnySlice(t.MusicalKeys)...))
+	}
+
+	// boost tracks that are saved / reposted
+	if t.MyID > 0 {
+		builder.Should(esquery.CustomQuery(map[string]any{
+			"terms": map[string]any{
+				"_id": map[string]any{
+					"index": "socials",
+					"id":    fmt.Sprintf("%d", t.MyID),
+					"path":  "reposted_track_ids",
+				},
+				"boost": 10,
+			},
+		}))
 	}
 
 	return builder.Map()

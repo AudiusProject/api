@@ -49,7 +49,8 @@ func (ti *TrackIndexer) indexAll() error {
 		JOIN aggregate_track USING (track_id)
 		JOIN users ON owner_id = user_id
 		JOIN aggregate_user USING (user_id)
-		LIMIT 10000`
+		WHERE track_id < 100000
+		LIMIT 100000`
 
 	return ti.bulkIndexQuery("tracks", sql)
 }

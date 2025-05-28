@@ -25,29 +25,7 @@ type UserIndexer struct {
 }
 
 func (ui *UserIndexer) createIndex(drop bool) error {
-
-	mapping := `{
-		"mappings": {
-			"properties": {
-				"name": {
-					"type": "text"
-				},
-				"handle": {
-					"type": "text"
-				},
-				"location": {
-					"type": "text"
-				},
-				"follower_count": {
-					"type": "integer"
-				},
-				"track_count": {
-					"type": "integer"
-				}
-			}
-		}
-	}`
-
+	mapping := ``
 	return ui.BaseIndexer.createIndex("users", mapping, drop)
 }
 

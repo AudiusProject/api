@@ -5,6 +5,7 @@ import (
 	"fmt"
 
 	"github.com/tidwall/pretty"
+	"github.com/tidwall/sjson"
 )
 
 func toAnySlice[T any](slice []T) []any {
@@ -48,4 +49,18 @@ func BuildFunctionScoreDSL(scoreField string, innerQuery map[string]any) string 
 
 func pprintJson(j string) {
 	fmt.Println(string(pretty.Pretty([]byte(j))))
+}
+
+func commonIndexSettings(mapping string) string {
+	mustSet := func(key string, value any) {
+		var err error
+		mapping, err = sjson.Set(mapping, key, value)
+		if err != nil {
+			panic(err)
+		}
+	}
+
+	mustSet("settings.number_of_shards", 1)
+	mustSet("settings.number_of_replicas", 0)
+	return mapping
 }
