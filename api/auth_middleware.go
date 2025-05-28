@@ -132,6 +132,11 @@ func (app *ApiServer) requireAuthMiddleware(c *fiber.Ctx) error {
 // it predates manager mode and messages are e2ee via wallet. V1 endpoints
 // should use the query or route parameters for determining the current user.
 func (app *ApiServer) getUserIDFromWallet(ctx context.Context, wallet string) (int, error) {
+
+	if hit, ok := app.resolveWalletCache.Get(wallet); ok {
+		return hit, nil
+	}
+
 	sql := `
 	SELECT user_id
 	FROM users
@@ -151,5 +156,7 @@ func (app *ApiServer) getUserIDFromWallet(ctx context.Context, wallet string) (i
 	if err != nil {
 		return 0, fiber.NewError(fiber.ErrBadRequest.Code, "bad signature")
 	}
+
+	app.resolveWalletCache.Set(wallet, userId)
 	return userId, nil
 }

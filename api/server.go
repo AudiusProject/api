@@ -112,6 +112,13 @@ func NewApiServer(config config.Config) *ApiServer {
 		panic(err)
 	}
 
+	resolveWalletCache, err := otter.MustBuilder[string, int](50_000).
+		CollectStats().
+		Build()
+	if err != nil {
+		panic(err)
+	}
+
 	privateKey, err := crypto.HexToECDSA(config.DelegatePrivateKey)
 	if err != nil {
 		panic(err)
@@ -155,6 +162,7 @@ func NewApiServer(config config.Config) *ApiServer {
 		started:               time.Now(),
 		resolveHandleCache:    resolveHandleCache,
 		resolveGrantCache:     resolveGrantCache,
+		resolveWalletCache:    resolveWalletCache,
 		rewardAttester:        *rewardAttester,
 		transactionSender:     *transactionSender,
 		rewardManagerClient:   *rewardManagerClient,
@@ -362,6 +370,7 @@ type ApiServer struct {
 	started               time.Time
 	resolveHandleCache    otter.Cache[string, int32]
 	resolveGrantCache     otter.Cache[string, bool]
+	resolveWalletCache    otter.Cache[string, int]
 	rewardManagerClient   reward_manager.RewardManagerClient
 	claimableTokensClient claimable_tokens.ClaimableTokensClient
 	rewardAttester        rewards.RewardAttester
