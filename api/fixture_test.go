@@ -258,6 +258,27 @@ var (
 		"change":                 0,
 		"balance":                0,
 	}
+
+	usdcUserBankBaseRow = map[string]any{
+		"bank_account":     nil,
+		"ethereum_address": nil,
+		"created_at":       time.Now(),
+		"signature":        nil,
+	}
+
+	usdcTransactionBaseRow = map[string]any{
+		"user_bank":              nil,
+		"slot":                   101,
+		"signature":              nil,
+		"transaction_type":       nil,
+		"method":                 nil,
+		"created_at":             time.Now(),
+		"updated_at":             time.Now(),
+		"transaction_created_at": time.Now(),
+		"tx_metadata":            nil,
+		"change":                 0,
+		"balance":                0,
+	}
 )
 
 // parseDate attempts to parse a date string into a time.Time object
