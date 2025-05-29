@@ -30,6 +30,7 @@ import (
 	"github.com/jackc/pgx/v5/pgxpool"
 	"github.com/jackc/pgx/v5/tracelog"
 	"github.com/maypok86/otter"
+	"github.com/mcuadros/go-defaults"
 	"github.com/segmentio/encoding/json"
 	"go.uber.org/zap"
 	"go.uber.org/zap/zapcore"
@@ -77,6 +78,7 @@ func RequestTimer() fiber.Handler {
 
 func NewApiServer(config config.Config) *ApiServer {
 	logger := InitLogger(config)
+	requestValidator := initRequestValidator()
 
 	connConfig, err := pgxpool.ParseConfig(config.DbUrl)
 	if err != nil {
@@ -163,6 +165,7 @@ func NewApiServer(config config.Config) *ApiServer {
 		resolveHandleCache:    &resolveHandleCache,
 		resolveGrantCache:     &resolveGrantCache,
 		resolveWalletCache:    &resolveWalletCache,
+		requestValidator:      requestValidator,
 		rewardAttester:        rewardAttester,
 		transactionSender:     transactionSender,
 		rewardManagerClient:   rewardManagerClient,
@@ -371,6 +374,7 @@ type ApiServer struct {
 	resolveHandleCache    *otter.Cache[string, int32]
 	resolveGrantCache     *otter.Cache[string, bool]
 	resolveWalletCache    *otter.Cache[string, int]
+	requestValidator      *RequestValidator
 	rewardManagerClient   *reward_manager.RewardManagerClient
 	claimableTokensClient *claimable_tokens.ClaimableTokensClient
 	rewardAttester        *rewards.RewardAttester
@@ -475,4 +479,13 @@ func (as *ApiServer) Serve() {
 	if err := as.Listen(":1323"); err != nil && err != http.ErrServerClosed {
 		as.logger.Fatal("Failed to start server", zap.Error(err))
 	}
+}
+
+// Move this to a new module if we add custom validation
+func (as *ApiServer) ParseAndValidateQueryParams(c *fiber.Ctx, v any) error {
+	if err := c.QueryParser(v); err != nil {
+		return err
+	}
+	defaults.SetDefaults(v)
+	return as.requestValidator.Validate(v)
 }
