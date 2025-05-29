@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/csv"
 	"os"
+	"regexp"
 	"slices"
 	"time"
 
@@ -236,7 +237,63 @@ var (
 		"listen_streak":    nil,
 		"last_listen_date": time.Now(),
 	}
+
+	userBankBaseRow = map[string]any{
+		"bank_account":     nil,
+		"ethereum_address": nil,
+		"created_at":       time.Now(),
+		"signature":        nil,
+	}
+
+	audioTransactionBaseRow = map[string]any{
+		"user_bank":              nil,
+		"slot":                   101,
+		"signature":              nil,
+		"transaction_type":       nil,
+		"method":                 nil,
+		"created_at":             time.Now(),
+		"updated_at":             time.Now(),
+		"transaction_created_at": time.Now(),
+		"tx_metadata":            nil,
+		"change":                 0,
+		"balance":                0,
+	}
+
+	usdcUserBankBaseRow = map[string]any{
+		"bank_account":     nil,
+		"ethereum_address": nil,
+		"created_at":       time.Now(),
+		"signature":        nil,
+	}
+
+	usdcTransactionBaseRow = map[string]any{
+		"user_bank":              nil,
+		"slot":                   101,
+		"signature":              nil,
+		"transaction_type":       nil,
+		"method":                 nil,
+		"created_at":             time.Now(),
+		"updated_at":             time.Now(),
+		"transaction_created_at": time.Now(),
+		"tx_metadata":            nil,
+		"change":                 0,
+		"balance":                0,
+	}
 )
+
+// parseDate attempts to parse a date string into a time.Time object
+// Returns the original value if parsing fails
+func parseDate(val any) any {
+	if str, ok := val.(string); ok {
+		// Check if string matches common date patterns before attempting to parse
+		if matched, _ := regexp.MatchString(`^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(Z|[+-]\d{2}:\d{2})$`, str); matched {
+			if t, err := time.Parse(time.RFC3339, str); err == nil {
+				return t
+			}
+		}
+	}
+	return val
+}
 
 func insertFixtures(table string, baseRow map[string]any, csvFile string) {
 	file, err := os.Open(csvFile)
@@ -272,7 +329,8 @@ func insertFixtures(table string, baseRow map[string]any, csvFile string) {
 		for _, field := range fieldList {
 			val := baseRow[field]
 			if v, ok := thisRow[field]; ok {
-				val = v
+				// Try to parse date strings
+				val = parseDate(v)
 			}
 			vals = append(vals, val)
 		}
