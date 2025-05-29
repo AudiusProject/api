@@ -11,9 +11,10 @@ import (
 
 func main() {
 
-	if len(os.Args) > 1 && os.Args[1] == "search" {
-		fmt.Println("search time...")
-		searcher.Demo()
+	if len(os.Args) > 1 && os.Args[1] == "reindex" {
+		collections := os.Args[2:]
+		fmt.Println("reindex", collections)
+		searcher.Reindex(collections...)
 		return
 	}
 

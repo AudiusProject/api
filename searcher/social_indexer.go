@@ -25,6 +25,7 @@ func (ui *SocialIndexer) indexAll() error {
 	select
 	    user_id,
 	    json_build_object (
+			'follower_count', follower_count,
 	        'saved_track_ids',
 	        (
 	            select
@@ -81,9 +82,7 @@ func (ui *SocialIndexer) indexAll() error {
 	        )
 	    ) as doc
 	from
-	    users
-	where
-	    user_id < 1000
+	    aggregate_user users
 	`
 
 	return ui.bulkIndexQuery("socials", sql)

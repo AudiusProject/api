@@ -15,7 +15,7 @@ func (q *UserSearchQuery) Map() map[string]any {
 	builder := esquery.Bool()
 
 	if q.Query != "" {
-		builder.Must(esquery.MultiMatch(q.Query).Fields("name", "handle"))
+		builder.Must(esquery.MultiMatch(q.Query).Fields("name", "handle").Type(esquery.MatchTypeBoolPrefix))
 	}
 
 	if q.MyID > 0 {

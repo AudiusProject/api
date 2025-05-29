@@ -3,6 +3,7 @@ package searcher
 import (
 	"context"
 	"log"
+	"slices"
 
 	"bridgerton.audius.co/config"
 	"github.com/elastic/go-elasticsearch/v8"
@@ -30,7 +31,7 @@ func mustDialElasticsearch() *elasticsearch.Client {
 	return esc
 }
 
-func playlistDemo(base *BaseIndexer) {
+func reindexPlaylists(base *BaseIndexer) {
 	i := &PlaylistIndexer{base}
 
 	if err := i.createIndex(true); err != nil {
@@ -39,11 +40,9 @@ func playlistDemo(base *BaseIndexer) {
 	if err := i.indexAll(); err != nil {
 		panic(err)
 	}
-
-	i.search("ray")
 }
 
-func userDemo(base *BaseIndexer) {
+func reindexUsers(base *BaseIndexer) {
 	i := &UserIndexer{base}
 
 	if err := i.createIndex(true); err != nil {
@@ -52,11 +51,9 @@ func userDemo(base *BaseIndexer) {
 	if err := i.indexAll(); err != nil {
 		panic(err)
 	}
-
-	i.search("ray")
 }
 
-func trackDemo(base *BaseIndexer) {
+func reindexTracks(base *BaseIndexer) {
 	i := &TrackIndexer{base}
 
 	if err := i.createIndex(true); err != nil {
@@ -65,11 +62,9 @@ func trackDemo(base *BaseIndexer) {
 	if err := i.indexAll(); err != nil {
 		panic(err)
 	}
-
-	i.search("rap")
 }
 
-func socialDemo(base *BaseIndexer) {
+func reindexSocials(base *BaseIndexer) {
 	i := &SocialIndexer{base}
 
 	if err := i.createIndex(true); err != nil {
@@ -80,7 +75,7 @@ func socialDemo(base *BaseIndexer) {
 	}
 }
 
-func Demo() {
+func Reindex(collections ...string) {
 	pool := mustDialPostgres()
 	esc := mustDialElasticsearch()
 
@@ -89,9 +84,19 @@ func Demo() {
 		esc,
 	}
 
-	playlistDemo(baseIndexer)
-	trackDemo(baseIndexer)
-	userDemo(baseIndexer)
-	socialDemo(baseIndexer)
+	reindexAll := len(collections) == 0
+
+	if reindexAll || slices.Contains(collections, "playlists") {
+		reindexPlaylists(baseIndexer)
+	}
+	if reindexAll || slices.Contains(collections, "tracks") {
+		reindexTracks(baseIndexer)
+	}
+	if reindexAll || slices.Contains(collections, "users") {
+		reindexUsers(baseIndexer)
+	}
+	if reindexAll || slices.Contains(collections, "socials") {
+		reindexSocials(baseIndexer)
+	}
 
 }

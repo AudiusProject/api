@@ -1,11 +1,5 @@
 package searcher
 
-import (
-	"encoding/json"
-	"fmt"
-	"strings"
-)
-
 type TrackIndexer struct {
 	*BaseIndexer
 }
@@ -49,54 +43,7 @@ func (ti *TrackIndexer) indexAll() error {
 		JOIN aggregate_track USING (track_id)
 		JOIN users ON owner_id = user_id
 		JOIN aggregate_user USING (user_id)
-		WHERE track_id < 100000
-		LIMIT 100000`
+		`
 
 	return ti.bulkIndexQuery("tracks", sql)
-}
-
-func (ti *TrackIndexer) search(q string) {
-	query := fmt.Sprintf(`{
-		"query": {
-			"multi_match": {
-				"query": %q,
-				"fields": ["title", "genre", "mood"]
-			}
-		}
-	}`, q)
-
-	fmt.Println(query)
-
-	res, err := ti.esc.Search(
-		ti.esc.Search.WithIndex("tracks"),
-		ti.esc.Search.WithBody(strings.NewReader(query)),
-	)
-	if err != nil {
-		fmt.Println("es search error:", err)
-		return
-	}
-	defer res.Body.Close()
-
-	type hit struct {
-		ID string `json:"_id"`
-	}
-	type hits struct {
-		Hits struct {
-			Hits []hit `json:"hits"`
-		} `json:"hits"`
-	}
-
-	var result hits
-	if err := json.NewDecoder(res.Body).Decode(&result); err != nil {
-		fmt.Println("decode error:", err)
-		return
-	}
-
-	var ids []string
-	for _, h := range result.Hits.Hits {
-		ids = append(ids, h.ID)
-	}
-
-	fmt.Println("found ids:", ids)
-
 }

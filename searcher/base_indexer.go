@@ -70,7 +70,7 @@ func (base *BaseIndexer) bulkIndexQuery(index, sql string) error {
 			DocumentID: fmt.Sprintf("%d", id),
 			Body:       strings.NewReader(doc),
 			OnSuccess: func(ctx context.Context, item esutil.BulkIndexerItem, res esutil.BulkIndexerResponseItem) {
-				fmt.Println("index", id, doc)
+				// fmt.Println("index", index, id)
 			},
 			OnFailure: func(ctx context.Context, item esutil.BulkIndexerItem, res esutil.BulkIndexerResponseItem, err error) {
 				if err != nil {
@@ -94,6 +94,8 @@ func (base *BaseIndexer) bulkIndexQuery(index, sql string) error {
 	if err := bulk.Close(context.Background()); err != nil {
 		log.Fatalf("Unexpected error: %s", err)
 	}
+
+	fmt.Printf("stats: %s %+v \n", index, bulk.Stats())
 
 	return nil
 }
