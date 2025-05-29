@@ -160,9 +160,9 @@ func NewApiServer(config config.Config) *ApiServer {
 		queries:               dbv1.New(pool),
 		logger:                logger,
 		started:               time.Now(),
-		resolveHandleCache:    resolveHandleCache,
-		resolveGrantCache:     resolveGrantCache,
-		resolveWalletCache:    resolveWalletCache,
+		resolveHandleCache:    &resolveHandleCache,
+		resolveGrantCache:     &resolveGrantCache,
+		resolveWalletCache:    &resolveWalletCache,
 		rewardAttester:        *rewardAttester,
 		transactionSender:     *transactionSender,
 		rewardManagerClient:   *rewardManagerClient,
@@ -368,9 +368,9 @@ type ApiServer struct {
 	queries               *dbv1.Queries
 	logger                *zap.Logger
 	started               time.Time
-	resolveHandleCache    otter.Cache[string, int32]
-	resolveGrantCache     otter.Cache[string, bool]
-	resolveWalletCache    otter.Cache[string, int]
+	resolveHandleCache    *otter.Cache[string, int32]
+	resolveGrantCache     *otter.Cache[string, bool]
+	resolveWalletCache    *otter.Cache[string, int]
 	rewardManagerClient   reward_manager.RewardManagerClient
 	claimableTokensClient claimable_tokens.ClaimableTokensClient
 	rewardAttester        rewards.RewardAttester

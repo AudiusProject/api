@@ -20,7 +20,7 @@ type BlastRow struct {
 	CreatedAt           time.Time       `db:"created_at" json:"created_at"`
 }
 
-func (api ApiServer) getNewBlasts(c *fiber.Ctx) error {
+func (api *ApiServer) getNewBlasts(c *fiber.Ctx) error {
 	sql := `
 	WITH
 	last_permission_change AS (

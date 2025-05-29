@@ -6,7 +6,7 @@ import (
 	"github.com/jackc/pgx/v5"
 )
 
-func (api ApiServer) getChatBlockers(c *fiber.Ctx) error {
+func (api *ApiServer) getChatBlockers(c *fiber.Ctx) error {
 	sql := `
 	SELECT blocker_user_id AS user_id
 	FROM chat_blocked_users 

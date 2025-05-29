@@ -19,7 +19,7 @@ type GetChatMessagesQueryParams struct {
 	Limit   int        `query:"limit"`
 }
 
-func (api ApiServer) getChatMessages(c *fiber.Ctx) error {
+func (api *ApiServer) getChatMessages(c *fiber.Ctx) error {
 	sql := `
 	SELECT
 		chat_message.message_id,

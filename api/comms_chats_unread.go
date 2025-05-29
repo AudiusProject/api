@@ -5,7 +5,7 @@ import (
 	"github.com/jackc/pgx/v5"
 )
 
-func (api ApiServer) getUnreadCount(c *fiber.Ctx) error {
+func (api *ApiServer) getUnreadCount(c *fiber.Ctx) error {
 	sql := `
 	SELECT COUNT(*)
 	FROM chat_member
