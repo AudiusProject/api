@@ -163,11 +163,11 @@ func NewApiServer(config config.Config) *ApiServer {
 		resolveHandleCache:    &resolveHandleCache,
 		resolveGrantCache:     &resolveGrantCache,
 		resolveWalletCache:    &resolveWalletCache,
-		rewardAttester:        *rewardAttester,
-		transactionSender:     *transactionSender,
-		rewardManagerClient:   *rewardManagerClient,
-		claimableTokensClient: *claimableTokensClient,
-		solanaConfig:          config.SolanaConfig,
+		rewardAttester:        rewardAttester,
+		transactionSender:     transactionSender,
+		rewardManagerClient:   rewardManagerClient,
+		claimableTokensClient: claimableTokensClient,
+		solanaConfig:          &config.SolanaConfig,
 		antiAbuseOracles:      config.AntiAbuseOracles,
 		validators:            config.Nodes,
 	}
@@ -371,11 +371,11 @@ type ApiServer struct {
 	resolveHandleCache    *otter.Cache[string, int32]
 	resolveGrantCache     *otter.Cache[string, bool]
 	resolveWalletCache    *otter.Cache[string, int]
-	rewardManagerClient   reward_manager.RewardManagerClient
-	claimableTokensClient claimable_tokens.ClaimableTokensClient
-	rewardAttester        rewards.RewardAttester
-	transactionSender     spl.TransactionSender
-	solanaConfig          config.SolanaConfig
+	rewardManagerClient   *reward_manager.RewardManagerClient
+	claimableTokensClient *claimable_tokens.ClaimableTokensClient
+	rewardAttester        *rewards.RewardAttester
+	transactionSender     *spl.TransactionSender
+	solanaConfig          *config.SolanaConfig
 	antiAbuseOracles      []string
 	validators            []config.Node
 }

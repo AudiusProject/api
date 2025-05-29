@@ -640,9 +640,9 @@ func (api *ApiServer) v1ClaimRewards(c *fiber.Ctx) error {
 			sigs, err := claimReward(
 				ctx,
 				rewardClaim,
-				&api.rewardManagerClient,
-				&api.rewardAttester,
-				&api.transactionSender,
+				api.rewardManagerClient,
+				api.rewardAttester,
+				api.transactionSender,
 				*antiAbuseOracle,
 				api.validators,
 			)
