@@ -6,16 +6,30 @@ import (
 	"github.com/jackc/pgx/v5"
 )
 
+type GetUsersTracksParams struct {
+	Limit  int    `query:"limit" default:"20" validate:"min=1,max=100"`
+	Offset int    `query:"offset" default:"0" validate:"min=0,max=10000"`
+	Sort   string `query:"sort" default:"date"`
+	// TODO: Investigate which query param is correct here
+	// SortMethod string `query:"sort_method" default:"added_date" validate:"oneof=added_date plays reposts saves title artist_name"`
+	SortDirection string `query:"sort_direction" default:"desc" validate:"oneof=asc desc"`
+}
+
 func (app *ApiServer) v1UserTracks(c *fiber.Ctx) error {
+	params := GetUsersTracksParams{}
+	if err := app.ParseAndValidateQueryParams(c, &params); err != nil {
+		return err
+	}
+
 	myId := app.getMyId(c)
 
 	sortDir := "DESC"
-	if c.Query("sort_direction") == "asc" {
+	if params.SortDirection == "asc" {
 		sortDir = "ASC"
 	}
 
 	sortField := "coalesce(t.release_date, t.created_at)"
-	switch c.Query("sort") {
+	switch params.Sort {
 	case "reposts":
 		sortField = "repost_count"
 	case "saves":
@@ -45,8 +59,8 @@ func (app *ApiServer) v1UserTracks(c *fiber.Ctx) error {
 		"handle": c.Params("handle"),
 		"my_id":  myId,
 	}
-	args["limit"] = c.Query("limit", "20")
-	args["offset"] = c.Query("offset", "0")
+	args["limit"] = params.Limit
+	args["offset"] = params.Offset
 
 	rows, err := app.pool.Query(c.Context(), sql, args)
 	if err != nil {

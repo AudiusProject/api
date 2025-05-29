@@ -6,10 +6,20 @@ import (
 	"github.com/jackc/pgx/v5"
 )
 
+type GetCommentsParams struct {
+	SortMethod string `query:"sort_method" default:"newest" validate:"oneof=top newest"`
+	Limit      int    `query:"limit" default:"10" validate:"min=1,max=100"`
+	Offset     int    `query:"offset" default:"0" validate:"min=0,max=1000"`
+}
+
 func (app *ApiServer) queryFullComments(c *fiber.Ctx, sql string, args pgx.NamedArgs) error {
+	var params = GetCommentsParams{}
+	if err := app.ParseAndValidateQueryParams(c, &params); err != nil {
+		return err
+	}
 
 	// sort
-	switch c.Query("sort_method") {
+	switch params.SortMethod {
 	case "top":
 		sql += ` ORDER BY (SELECT count(*) FROM comment_reactions WHERE comment_id = comments.comment_id) DESC, comments.created_at DESC `
 	case "timestamp":
@@ -24,8 +34,8 @@ func (app *ApiServer) queryFullComments(c *fiber.Ctx, sql string, args pgx.Named
 	OFFSET @offset
 	`
 
-	args["limit"] = c.QueryInt("limit", 10)
-	args["offset"] = c.QueryInt("offset", 0)
+	args["limit"] = params.Limit
+	args["offset"] = params.Offset
 
 	rows, err := app.pool.Query(c.Context(), sql, args)
 	if err != nil {

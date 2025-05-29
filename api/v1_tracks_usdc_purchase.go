@@ -6,12 +6,19 @@ import (
 	"github.com/jackc/pgx/v5"
 )
 
+type GetTracksUsdcPurchaseParams struct {
+	Limit  int    `query:"limit" default:"100" validate:"min=1,max=100"`
+	Offset int    `query:"offset" default:"0" validate:"min=0,max=500"`
+	Time   string `query:"time" default:"week" validate:"oneof=week month allTime"`
+}
+
 func (app *ApiServer) v1TracksUsdcPurchase(c *fiber.Ctx) error {
 	myId := app.getMyId(c)
 
-	limit := c.QueryInt("limit", 100)
-	offset := c.QueryInt("offset", 0)
-	timeRange := c.Query("time", "week")
+	var params = GetTracksUsdcPurchaseParams{}
+	if err := app.ParseAndValidateQueryParams(c, &params); err != nil {
+		return err
+	}
 
 	sql := `
 		WITH usdc_track_ids AS MATERIALIZED (
@@ -36,9 +43,9 @@ func (app *ApiServer) v1TracksUsdcPurchase(c *fiber.Ctx) error {
 		OFFSET @offset
 		`
 	args := pgx.NamedArgs{}
-	args["limit"] = limit
-	args["offset"] = offset
-	args["time"] = timeRange
+	args["limit"] = params.Limit
+	args["offset"] = params.Offset
+	args["time"] = params.Time
 
 	rows, err := app.pool.Query(c.Context(), sql, args)
 	if err != nil {

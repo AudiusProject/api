@@ -8,6 +8,14 @@ import (
 	"github.com/jackc/pgx/v5"
 )
 
+type GetUsersLibraryPlaylistsParams struct {
+	Limit         int    `query:"limit" default:"50" validate:"min=1,max=100"`
+	Offset        int    `query:"offset" default:"0" validate:"min=0,max=500"`
+	ActionType    string `query:"type" default:"all" validate:"oneof=favorite repost purchase all"`
+	SortMethod    string `query:"sort_method" default:"reposts" validate:"oneof=added_date reposts saves"`
+	SortDirection string `query:"sort_direction" default:"desc" validate:"oneof=asc desc"`
+}
+
 func (app *ApiServer) v1UsersLibraryPlaylists(c *fiber.Ctx) error {
 	myId := app.getMyId(c)
 
@@ -16,8 +24,13 @@ func (app *ApiServer) v1UsersLibraryPlaylists(c *fiber.Ctx) error {
 		playlistType = "album"
 	}
 
+	var params = GetUsersLibraryPlaylistsParams{}
+	if err := app.ParseAndValidateQueryParams(c, &params); err != nil {
+		return err
+	}
+
 	sortField := "item_created_at"
-	switch c.Query("sort_method") {
+	switch params.SortMethod {
 	case "reposts":
 		sortField = "aggregate_playlist.repost_count"
 	case "saves":
@@ -25,7 +38,7 @@ func (app *ApiServer) v1UsersLibraryPlaylists(c *fiber.Ctx) error {
 	}
 
 	sortDirection := "DESC"
-	if c.Query("sort_direction") == "asc" {
+	if params.SortDirection == "asc" {
 		sortDirection = "ASC"
 	}
 
@@ -99,9 +112,9 @@ func (app *ApiServer) v1UsersLibraryPlaylists(c *fiber.Ctx) error {
 	rows, err := app.pool.Query(c.Context(), sql, pgx.NamedArgs{
 		"playlistType": playlistType,
 		"userId":       app.getUserId(c),
-		"actionType":   c.Query("type", "all"),
-		"limit":        c.Query("limit", "50"),
-		"offset":       c.Query("offset", "0"),
+		"actionType":   params.ActionType,
+		"limit":        params.Limit,
+		"offset":       params.Offset,
 	})
 	if err != nil {
 		return err

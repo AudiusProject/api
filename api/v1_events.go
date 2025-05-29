@@ -6,12 +6,20 @@ import (
 	"github.com/gofiber/fiber/v2"
 )
 
+type GetEventsParams struct {
+	EventType     string `query:"event_type" default:""`
+	EntityType    string `query:"entity_type" default:""`
+	Limit         int    `query:"limit" default:"25" validate:"min=1,max=100"`
+	Offset        int    `query:"offset" default:"0" validate:"min=0,max=500"`
+	FilterDeleted bool   `query:"filter_deleted" default:"true"`
+}
+
 func (app *ApiServer) v1Events(c *fiber.Ctx) error {
-	limit := c.QueryInt("limit", 25)
-	offset := c.QueryInt("offset", 0)
-	eventType := c.Query("event_type", "")
-	entityType := c.Query("entity_type", "")
-	filterDeleted := c.QueryBool("filter_deleted", true)
+	params := GetEventsParams{}
+	if err := app.ParseAndValidateQueryParams(c, &params); err != nil {
+		return err
+	}
+
 	entityIDs := queryMutli(c, "entity_id")
 	eventIDs := queryMutli(c, "id")
 
@@ -31,11 +39,11 @@ func (app *ApiServer) v1Events(c *fiber.Ctx) error {
 	recentEvents, err := app.queries.GetEvents(c.Context(), dbv1.GetEventsParams{
 		EntityIds:     entityIds,
 		EventIds:      eventIds,
-		EventType:     eventType,
-		EntityType:    entityType,
-		LimitVal:      int32(limit),
-		OffsetVal:     int32(offset),
-		FilterDeleted: !filterDeleted,
+		EventType:     params.EventType,
+		EntityType:    params.EntityType,
+		LimitVal:      int32(params.Limit),
+		OffsetVal:     int32(params.Offset),
+		FilterDeleted: !params.FilterDeleted,
 	})
 	if err != nil {
 		return err

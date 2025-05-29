@@ -9,6 +9,13 @@ import (
 	"github.com/jackc/pgx/v5/pgtype"
 )
 
+type GetUsersTransactionsAudioParams struct {
+	Limit         int    `query:"limit" default:"100" validate:"min=1,max=100"`
+	Offset        int    `query:"offset" default:"0" validate:"min=0,max=10000"`
+	Sort          string `query:"sort" default:"date" validate:"oneof=date transaction_type"`
+	SortDirection string `query:"sort_direction" default:"desc" validate:"oneof=asc desc"`
+}
+
 type AudioTransaction struct {
 	TransactionDate time.Time   `json:"transaction_date"`
 	TransactionType string      `json:"transaction_type"`
@@ -21,28 +28,18 @@ type AudioTransaction struct {
 }
 
 func (app *ApiServer) v1UsersTransactionsAudio(c *fiber.Ctx) error {
-	sortMethodQuery := c.Query("sort_method", "date")
-	if sortMethodQuery != "date" && sortMethodQuery != "transaction_type" {
-		return fiber.NewError(fiber.StatusBadRequest, "Invalid sort method")
-	}
-	sortDirectionQuery := c.Query("sort_direction", "desc")
-	if sortDirectionQuery != "asc" && sortDirectionQuery != "desc" {
-		return fiber.NewError(fiber.StatusBadRequest, "Invalid sort direction")
+	params := GetUsersTransactionsAudioParams{}
+	if err := app.ParseAndValidateQueryParams(c, &params); err != nil {
+		return err
 	}
 
-	var orderBy string
-	var sortDirection string
-	switch sortDirectionQuery {
-	case "asc":
+	var sortDirection = "desc"
+	if params.SortDirection == "asc" {
 		sortDirection = "asc"
-	case "desc":
-		sortDirection = "desc"
 	}
 
-	switch sortMethodQuery {
-	case "date":
-		orderBy = fmt.Sprintf("ath.created_at %s", sortDirection)
-	case "transaction_type":
+	var orderBy = fmt.Sprintf("ath.created_at %s", sortDirection)
+	if params.Sort == "transaction_type" {
 		orderBy = fmt.Sprintf("transaction_type %s, ath.created_at desc", sortDirection)
 	}
 
@@ -57,13 +54,13 @@ func (app *ApiServer) v1UsersTransactionsAudio(c *fiber.Ctx) error {
 		OFFSET @offset_val;
 	`
 
-	params := pgx.NamedArgs{
+	args := pgx.NamedArgs{
 		"user_id":    app.getUserId(c),
-		"limit_val":  c.QueryInt("limit", 100),
-		"offset_val": c.QueryInt("offset", 0),
+		"limit_val":  params.Limit,
+		"offset_val": params.Offset,
 	}
 
-	rows, err := app.pool.Query(c.Context(), sql, params)
+	rows, err := app.pool.Query(c.Context(), sql, args)
 	if err != nil {
 		return err
 	}

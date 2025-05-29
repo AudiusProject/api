@@ -6,13 +6,20 @@ import (
 	"github.com/jackc/pgx/v5"
 )
 
-func (app *ApiServer) v1TracksTrendingUnderground(c *fiber.Ctx) error {
-	myId := app.getMyId(c)
+type GetTrendingUndergroundTracksParams struct {
+	Limit  int    `query:"limit" default:"100" validate:"min=1,max=100"`
+	Offset int    `query:"offset" default:"0" validate:"min=0,max=500"`
+	Time   string `query:"time" default:"week" validate:"oneof=week month allTime"`
+	Genre  string `query:"genre" default:""`
+}
 
-	limit := c.QueryInt("limit", 100)
-	offset := c.QueryInt("offset", 0)
-	timeRange := c.Query("time", "week")
-	genre := c.Query("genre", "")
+func (app *ApiServer) v1TracksTrendingUnderground(c *fiber.Ctx) error {
+	var params = GetTrendingUndergroundTracksParams{}
+	if err := app.ParseAndValidateQueryParams(c, &params); err != nil {
+		return err
+	}
+
+	myId := app.getMyId(c)
 
 	sql := `
 	    WITH trending_tracks AS (
@@ -60,10 +67,10 @@ func (app *ApiServer) v1TracksTrendingUnderground(c *fiber.Ctx) error {
 		OFFSET @offset
 		`
 	args := pgx.NamedArgs{}
-	args["limit"] = limit
-	args["offset"] = offset
-	args["time"] = timeRange
-	args["genre"] = genre
+	args["limit"] = params.Limit
+	args["offset"] = params.Offset
+	args["time"] = params.Time
+	args["genre"] = params.Genre
 
 	rows, err := app.pool.Query(c.Context(), sql, args)
 	if err != nil {

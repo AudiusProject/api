@@ -6,16 +6,22 @@ import (
 	"github.com/jackc/pgx/v5"
 )
 
+type GetUsersSupportingParams struct {
+	Limit  int `query:"limit" default:"20" validate:"min=1,max=100"`
+	Offset int `query:"offset" default:"0" validate:"min=0,max=1000"`
+}
+
 func (app *ApiServer) v1UsersSupporting(c *fiber.Ctx) error {
+	params := GetUsersSupportingParams{}
+	if err := app.ParseAndValidateQueryParams(c, &params); err != nil {
+		return err
+	}
 	myId := app.getMyId(c)
 	userId := app.getUserId(c)
 
 	args := pgx.NamedArgs{
 		"userId": userId,
 	}
-
-	args["limit"] = c.Query("limit", "20")
-	args["offset"] = c.Query("offset", "0")
 
 	type supportedUser struct {
 		Rank           int           `json:"rank" db:"rank"`

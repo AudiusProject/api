@@ -9,7 +9,15 @@ import (
 /v1/users/7eP5n/tags?limit=5
 */
 
+type GetUsersTagsParams struct {
+	Limit int `query:"limit" default:"10" validate:"min=1,max=100"`
+}
+
 func (app *ApiServer) v1UsersTags(c *fiber.Ctx) error {
+	params := GetUsersTagsParams{}
+	if err := app.ParseAndValidateQueryParams(c, &params); err != nil {
+		return err
+	}
 	sql := `
 	SELECT tag
 	FROM (
@@ -28,7 +36,7 @@ func (app *ApiServer) v1UsersTags(c *fiber.Ctx) error {
 
 	rows, err := app.pool.Query(c.Context(), sql, pgx.NamedArgs{
 		"userId": app.getUserId(c),
-		"limit":  c.Query("limit", "10"),
+		"limit":  params.Limit,
 	})
 	if err != nil {
 		return err
