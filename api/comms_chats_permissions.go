@@ -6,7 +6,7 @@ import (
 	"github.com/jackc/pgx/v5"
 )
 
-func (api ApiServer) getChatPermissions(c *fiber.Ctx) error {
+func (api *ApiServer) getChatPermissions(c *fiber.Ctx) error {
 	sql := `
 	SELECT
 		user_id,

@@ -5,7 +5,7 @@ import (
 	"github.com/jackc/pgx/v5"
 )
 
-func (api ApiServer) getPubkey(c *fiber.Ctx) error {
+func (api *ApiServer) getPubkey(c *fiber.Ctx) error {
 	userId := api.getUserId(c)
 	sql := `SELECT pubkey_base64 FROM user_pubkeys WHERE user_id = @user_id`
 
