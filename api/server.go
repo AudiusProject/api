@@ -187,7 +187,7 @@ func NewApiServer(config config.Config) *ApiServer {
 		Next:       nil,
 		Header:     fiber.HeaderXRequestID,
 		Generator:  utils.UUIDv4,
-		ContextKey: "requestid",
+		ContextKey: "requestId",
 	}))
 	app.Use(fiberzap.New(fiberzap.Config{
 		Logger: logger,
@@ -204,8 +204,8 @@ func NewApiServer(config config.Config) *ApiServer {
 				fields = append(fields, zap.String("upstream", upstream))
 			}
 
-			if requestId, ok := c.Locals("requestid").(string); ok && requestId != "" {
-				fields = append(fields, zap.String("requestid", requestId))
+			if requestId, ok := c.Locals("requestId").(string); ok && requestId != "" {
+				fields = append(fields, zap.String("request_id", requestId))
 			}
 
 			return fields
