@@ -1,7 +1,0 @@
-event_id,entity_type,user_id,entity_id,event_type,is_deleted
-1,track,200,100,remix_contest,f
-2,track,200,100,live_event,f
-3,track,200,100,remix_contest,t
-4,track,200,101,remix_contest,f
-5,track,200,101,live_event,f
-6,track,201,102,remix_contest,f

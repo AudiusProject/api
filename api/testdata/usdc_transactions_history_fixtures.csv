@@ -1,7 +1,0 @@
-user_bank,created_at,signature,method,transaction_type,change,balance
-DsUGy77ssRh9EXzef3AZLLT9GQBuyqHRdhkBkfqQ3x1D,2021-01-01T00:00:00Z,0x12345,receive,transfer,100,100
-DsUGy77ssRh9EXzef3AZLLT9GQBuyqHRdhkBkfqQ3x1D,2021-01-02T00:00:00Z,0x23456,send,purchase_content,10,90
-DsUGy77ssRh9EXzef3AZLLT9GQBuyqHRdhkBkfqQ3x1D,2021-01-03T00:00:00Z,0x34567,send,transfer,10,80
-DsUGy77ssRh9EXzef3AZLLT9GQBuyqHRdhkBkfqQ3x1D,2021-01-04T00:00:00Z,0x45678,send,prepare_withdrawal,10,70
-DsUGy77ssRh9EXzef3AZLLT9GQBuyqHRdhkBkfqQ3x1D,2021-01-05T00:00:00Z,0x56789,receive,recover_withdrawal,10,80
-DsUGy77ssRh9EXzef3AZLLT9GQBuyqHRdhkBkfqQ3x1D,2021-01-06T00:00:00Z,0x67890,send,withdrawal,10,70

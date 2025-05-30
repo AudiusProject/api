@@ -87,6 +87,20 @@ func NewApiServer(config config.Config) *ApiServer {
 		logger.Error("db connect failed", zap.Error(err))
 	}
 
+	// register enum types with connection
+	// this is mostly to support COPY protocol as used by tests
+	// connConfig.AfterConnect = func(ctx context.Context, conn *pgx.Conn) error {
+	// 	enumNames := []string{"challengetype"}
+	// 	for _, name := range enumNames {
+	// 		typ, err := conn.LoadType(ctx, name)
+	// 		if err != nil {
+	// 			panic(err)
+	// 		}
+	// 		conn.TypeMap().RegisterType(typ)
+	// 	}
+	// 	return nil
+	// }
+
 	// disable sql logging in ENV "test"
 	if config.Env != "test" {
 		connConfig.ConnConfig.Tracer = &tracelog.TraceLog{

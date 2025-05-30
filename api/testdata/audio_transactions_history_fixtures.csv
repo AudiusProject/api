@@ -1,6 +1,0 @@
-user_bank,created_at,signature,method,transaction_type,change,balance
-DsUGy77ssRh9EXzef3AZLLT9GQBuyqHRdhkBkfqQ3x1D,2021-01-01T00:00:00Z,0x12345,receive,tip,100,100
-DsUGy77ssRh9EXzef3AZLLT9GQBuyqHRdhkBkfqQ3x1D,2021-01-02T00:00:00Z,0x23456,send,tip,10,90
-DsUGy77ssRh9EXzef3AZLLT9GQBuyqHRdhkBkfqQ3x1D,2021-01-03T00:00:00Z,0x34567,send,tip,10,80
-DsUGy77ssRh9EXzef3AZLLT9GQBuyqHRdhkBkfqQ3x1D,2021-01-04T00:00:00Z,0x45678,send,transfer,50,30
-DsUGy77ssRh9EXzef3AZLLT9GQBuyqHRdhkBkfqQ3x1D,2021-01-05T00:00:00Z,0x56789,send,transfer,10,20
