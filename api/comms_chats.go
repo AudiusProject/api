@@ -16,7 +16,7 @@ type GetChatsParams struct {
 	Limit         int        `query:"limit" default:"50" validate:"min=1,max=100"`
 }
 
-func (api *ApiServer) getChats(c *fiber.Ctx) error {
+func (app *ApiServer) getChats(c *fiber.Ctx) error {
 	sql := `
 	-- Get User Chats
 	SELECT
@@ -118,7 +118,7 @@ func (api *ApiServer) getChats(c *fiber.Ctx) error {
 
 	params := &GetChatsParams{}
 
-	err := api.ParseAndValidateQueryParams(c, &params)
+	err := app.ParseAndValidateQueryParams(c, &params)
 	if err != nil {
 		return err
 	}
@@ -127,8 +127,8 @@ func (api *ApiServer) getChats(c *fiber.Ctx) error {
 	if params.CurrentUserID != "" {
 		userId, err = trashid.DecodeHashId(params.CurrentUserID)
 	} else {
-		wallet := api.getAuthedWallet(c)
-		userId, err = api.getUserIDFromWallet(c.Context(), wallet)
+		wallet := app.getAuthedWallet(c)
+		userId, err = app.getUserIDFromWallet(c.Context(), wallet)
 	}
 	if err != nil {
 		return err
@@ -143,7 +143,7 @@ func (api *ApiServer) getChats(c *fiber.Ctx) error {
 		afterCursorPos = *params.After
 	}
 
-	rawRows, err := api.pool.Query(c.Context(), sql, pgx.NamedArgs{
+	rawRows, err := app.pool.Query(c.Context(), sql, pgx.NamedArgs{
 		"user_id": userId,
 		"before":  beforeCursorPos,
 		"after":   afterCursorPos,
@@ -162,7 +162,7 @@ func (api *ApiServer) getChats(c *fiber.Ctx) error {
 		beforeCursorPos = rows[len(rows)-1].LastMessageAt
 		afterCursorPos = rows[0].LastMessageAt
 	}
-	summaryRaw, err := api.pool.Query(c.Context(), sqlSummary, pgx.NamedArgs{
+	summaryRaw, err := app.pool.Query(c.Context(), sqlSummary, pgx.NamedArgs{
 		"user_id": userId,
 		"before":  beforeCursorPos,
 		"after":   afterCursorPos,

@@ -6,7 +6,7 @@ import (
 	"github.com/jackc/pgx/v5"
 )
 
-func (api *ApiServer) getChatPermissions(c *fiber.Ctx) error {
+func (app *ApiServer) getChatPermissions(c *fiber.Ctx) error {
 	sql := `
 	SELECT
 		user_id,
@@ -18,8 +18,8 @@ func (api *ApiServer) getChatPermissions(c *fiber.Ctx) error {
 	GROUP BY user_id
 	;`
 
-	wallet := api.getAuthedWallet(c)
-	userId, err := api.getUserIDFromWallet(c.Context(), wallet)
+	wallet := app.getAuthedWallet(c)
+	userId, err := app.getUserIDFromWallet(c.Context(), wallet)
 	if err != nil {
 		return err
 	}
@@ -29,7 +29,7 @@ func (api *ApiServer) getChatPermissions(c *fiber.Ctx) error {
 		return fiber.NewError(fiber.StatusBadRequest, "invalid id parameter")
 	}
 
-	rawRows, err := api.pool.Query(c.Context(), sql, pgx.NamedArgs{
+	rawRows, err := app.pool.Query(c.Context(), sql, pgx.NamedArgs{
 		"current_user_id": userId,
 		"user_ids":        userIds,
 	})
