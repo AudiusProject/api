@@ -488,7 +488,7 @@ func (as *ApiServer) Serve() {
 // Move this to a new module if we add custom validation
 func (as *ApiServer) ParseAndValidateQueryParams(c *fiber.Ctx, v any) error {
 	if err := c.QueryParser(v); err != nil {
-		return err
+		return fiber.NewError(fiber.StatusBadRequest, err.Error())
 	}
 	defaults.SetDefaults(v)
 	return as.requestValidator.Validate(v)

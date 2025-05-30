@@ -28,8 +28,8 @@ type GetUsdcTransactionsParams struct {
 	Offset                    int      `query:"offset" default:"0" validate:"min=0"`
 	SortMethod                string   `query:"sort_method" default:"date" validate:"oneof=date transaction_type"`
 	SortDirection             string   `query:"sort_direction" default:"desc" validate:"oneof=asc desc"`
-	IncludeSystemTransactions bool     `query:"include_system_transactions" default:"false"`
-	TransactionMethod         string   `query:"method" default:"" validate:"oneof=send receive"`
+	IncludeSystemTransactions bool     `query:"include_system_transactions" default:""`
+	TransactionMethod         string   `query:"method" default:"" validate:"omitempty,oneof=send receive"`
 }
 
 var validTransactionTypes = []string{

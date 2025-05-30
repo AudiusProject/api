@@ -7,7 +7,7 @@ import (
 )
 
 type GetCommentsParams struct {
-	SortMethod string `query:"sort_method" default:"newest" validate:"oneof=top newest"`
+	SortMethod string `query:"sort_method" default:"newest" validate:"oneof=top timestamp newest"`
 	Limit      int    `query:"limit" default:"10" validate:"min=1,max=100"`
 	Offset     int    `query:"offset" default:"0" validate:"min=0"`
 }
