@@ -26,6 +26,8 @@ import (
 	"github.com/gofiber/fiber/v2/middleware/adaptor"
 	"github.com/gofiber/fiber/v2/middleware/cors"
 	"github.com/gofiber/fiber/v2/middleware/recover"
+	"github.com/gofiber/fiber/v2/middleware/requestid"
+	"github.com/gofiber/fiber/v2/utils"
 	pgxzap "github.com/jackc/pgx-zap"
 	"github.com/jackc/pgx/v5/pgxpool"
 	"github.com/jackc/pgx/v5/tracelog"
@@ -181,7 +183,12 @@ func NewApiServer(config config.Config) *ApiServer {
 
 	app.Use(cors.New())
 	app.Use(RequestTimer())
-
+	app.Use(requestid.New(requestid.Config{
+		Next:       nil,
+		Header:     fiber.HeaderXRequestID,
+		Generator:  utils.UUIDv4,
+		ContextKey: "requestid",
+	}))
 	app.Use(fiberzap.New(fiberzap.Config{
 		Logger: logger,
 		FieldsFunc: func(c *fiber.Ctx) []zap.Field {
@@ -195,6 +202,10 @@ func NewApiServer(config config.Config) *ApiServer {
 			// Add upstream server to logs, if found
 			if upstream, ok := c.Locals("upstream").(string); ok && upstream != "" {
 				fields = append(fields, zap.String("upstream", upstream))
+			}
+
+			if requestId, ok := c.Locals("requestid").(string); ok && requestId != "" {
+				fields = append(fields, zap.String("requestid", requestId))
 			}
 
 			return fields
