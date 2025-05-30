@@ -16,7 +16,7 @@ type GetChatMessagesQueryParams struct {
 	IsBlast bool       `query:"is_blast"`
 	Before  *time.Time `query:"before"`
 	After   *time.Time `query:"after"`
-	Limit   int        `query:"limit"`
+	Limit   int        `query:"limit" default:"50" validate:"min=1,max=100"`
 }
 
 func (api *ApiServer) getChatMessages(c *fiber.Ctx) error {
@@ -49,9 +49,9 @@ func (api *ApiServer) getChatMessages(c *fiber.Ctx) error {
 			chat_message.message_id, chat_message.created_at
 		FROM chat_message
 		JOIN chat_member ON chat_message.chat_id = chat_member.chat_id
-		WHERE chat_member.user_id = @user_id 
+		WHERE chat_member.user_id = @user_id
 		AND chat_message.chat_id = @chat_id
-		AND (chat_member.cleared_history_at IS NULL 
+		AND (chat_member.cleared_history_at IS NULL
 			OR chat_message.created_at > chat_member.cleared_history_at)
 		)
 	SELECT
@@ -70,8 +70,7 @@ func (api *ApiServer) getChatMessages(c *fiber.Ctx) error {
 	}
 
 	queryParams := &GetChatMessagesQueryParams{}
-	err = c.QueryParser(queryParams)
-	if err != nil {
+	if err := api.ParseAndValidateQueryParams(c, queryParams); err != nil {
 		return err
 	}
 
@@ -91,17 +90,12 @@ func (api *ApiServer) getChatMessages(c *fiber.Ctx) error {
 		afterCursorPos = *queryParams.After
 	}
 
-	limit := 50
-	if queryParams.Limit != 0 {
-		limit = queryParams.Limit
-	}
-
 	rawRows, err := api.pool.Query(c.Context(), sql, pgx.NamedArgs{
 		"user_id": userId,
 		"chat_id": routeParams.ChatID,
 		"before":  beforeCursorPos,
 		"after":   afterCursorPos,
-		"limit":   limit,
+		"limit":   queryParams.Limit,
 	})
 	if err != nil {
 		return err
