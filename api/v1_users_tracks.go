@@ -7,11 +7,9 @@ import (
 )
 
 type GetUsersTracksParams struct {
-	Limit  int    `query:"limit" default:"20" validate:"min=1,max=100"`
-	Offset int    `query:"offset" default:"0" validate:"min=0"`
-	Sort   string `query:"sort" default:"date"`
-	// TODO: Investigate which query param is correct here
-	// SortMethod string `query:"sort_method" default:"added_date" validate:"oneof=added_date plays reposts saves title artist_name"`
+	Limit         int    `query:"limit" default:"20" validate:"min=1,max=100"`
+	Offset        int    `query:"offset" default:"0" validate:"min=0"`
+	Sort          string `query:"sort" default:"date"`
 	SortDirection string `query:"sort_direction" default:"desc" validate:"oneof=asc desc"`
 }
 
