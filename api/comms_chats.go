@@ -118,7 +118,7 @@ func (api *ApiServer) getChats(c *fiber.Ctx) error {
 
 	params := &GetChatsParams{}
 
-	err := api.ParseAndValidateQueryParams(c, &params)
+	err := api.ParseAndValidateQueryParams(c, params)
 	if err != nil {
 		return err
 	}
