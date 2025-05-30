@@ -85,10 +85,7 @@ func TestMain(m *testing.M) {
 	insertFixturesFromArray("playlist_routes", playlistRouteBaseRow, testdata.PlaylistRoutesFixtures)
 	insertFixturesFromArray("playlist_trending_scores", playlistTrendingScoreBaseRow, testdata.PlaylistTrendingScores)
 	insertFixturesFromArray("reposts", repostBaseRow, testdata.RepostFixtures)
-
-	// this one needs some follow up?
 	insertFixturesFromArray("tracks", trackBaseRow, testdata.TrackFixtures)
-
 	insertFixturesFromArray("track_trending_scores", trackTrendingScoreBaseRow, testdata.TrackTrendingScoresFixtures)
 	insertFixturesFromArray("track_routes", trackRouteBaseRow, testdata.TrackRoutesFixtures)
 	insertFixturesFromArray("usdc_purchases", usdcPurchaseBaseRow, testdata.UsdcPurchasesFixtures)

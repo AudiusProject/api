@@ -2,9 +2,6 @@ package api
 
 import (
 	"context"
-	"encoding/csv"
-	"os"
-	"regexp"
 	"slices"
 	"time"
 
@@ -281,71 +278,6 @@ var (
 	}
 )
 
-// parseDate attempts to parse a date string into a time.Time object
-// Returns the original value if parsing fails
-func parseDate(val any) any {
-	if str, ok := val.(string); ok {
-		// Check if string matches common date patterns before attempting to parse
-		if matched, _ := regexp.MatchString(`^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(Z|[+-]\d{2}:\d{2})$`, str); matched {
-			if t, err := time.Parse(time.RFC3339, str); err == nil {
-				return t
-			}
-		}
-	}
-	return val
-}
-
-func insertFixtures(table string, baseRow map[string]any, csvFile string) {
-	file, err := os.Open(csvFile)
-	checkErr(err)
-	defer file.Close()
-
-	reader := csv.NewReader(file)
-	rows, err := reader.ReadAll()
-	checkErr(err)
-	csvHeader := rows[0]
-
-	// union baseRow keys with csv header for field list
-	fieldList := []string{}
-	for f := range baseRow {
-		fieldList = append(fieldList, f)
-	}
-	for _, f := range csvHeader {
-		if !slices.Contains(fieldList, f) {
-			fieldList = append(fieldList, f)
-		}
-	}
-
-	var records [][]any
-	for _, row := range rows[1:] {
-		thisRow := map[string]any{}
-		for i, field := range csvHeader {
-			if row[i] != "" {
-				thisRow[field] = row[i]
-			}
-		}
-
-		vals := []any{}
-		for _, field := range fieldList {
-			val := baseRow[field]
-			if v, ok := thisRow[field]; ok {
-				// Try to parse date strings
-				val = parseDate(v)
-			}
-			vals = append(vals, val)
-		}
-		records = append(records, vals)
-	}
-
-	_, err = app.pool.CopyFrom(
-		context.Background(),
-		pgx.Identifier{table},
-		fieldList,
-		pgx.CopyFromRows(records),
-	)
-	checkErr(err)
-}
-
 func insertFixturesFromArray(table string, baseRow map[string]any, data []map[string]any) {
 	// union baseRow keys with data keys for field list
 	fieldList := []string{}
@@ -397,8 +329,4 @@ type FixtureSet struct {
 func createFixtures(fixtures FixtureSet) {
 	insertFixturesFromArray("users", userBaseRow, fixtures.users)
 	insertFixturesFromArray("tracks", trackBaseRow, fixtures.tracks)
-}
-
-func createLegacyFixtures() {
-	// todo create the csv
 }
