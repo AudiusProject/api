@@ -337,8 +337,8 @@ func NewApiServer(config config.Config) *ApiServer {
 	// Comms
 	comms := app.Group("/comms")
 	// Cached/non-cached are the same as there are no other nodes to query anymore
-	comms.Get("/pubkey/:userId", app.getPubkey)
-	comms.Get("/pubky/:userId/cached", app.getPubkey)
+	comms.Get("/pubkey/:userId", app.requireUserIdMiddleware, app.getPubkey)
+	comms.Get("/pubky/:userId/cached", app.requireUserIdMiddleware, app.getPubkey)
 
 	unfurlBlocklist := unfurlist.WithBlocklistPrefixes(
 		[]string{
