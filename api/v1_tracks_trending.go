@@ -7,7 +7,7 @@ import (
 
 type GetTrendingTracksParams struct {
 	Limit  int    `query:"limit" default:"100" validate:"min=1,max=100"`
-	Offset int    `query:"offset" default:"0" validate:"min=0,max=500"`
+	Offset int    `query:"offset" default:"0" validate:"min=0"`
 	Time   string `query:"time" default:"week" validate:"oneof=week month allTime"`
 	Genre  string `query:"genre" default:""`
 }

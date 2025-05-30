@@ -10,7 +10,7 @@ type GetEventsParams struct {
 	EventType     string `query:"event_type" default:""`
 	EntityType    string `query:"entity_type" default:""`
 	Limit         int    `query:"limit" default:"25" validate:"min=1,max=100"`
-	Offset        int    `query:"offset" default:"0" validate:"min=0,max=500"`
+	Offset        int    `query:"offset" default:"0" validate:"min=0"`
 	FilterDeleted bool   `query:"filter_deleted" default:"true"`
 }
 

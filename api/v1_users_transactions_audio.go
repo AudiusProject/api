@@ -11,7 +11,7 @@ import (
 
 type GetUsersTransactionsAudioParams struct {
 	Limit         int    `query:"limit" default:"100" validate:"min=1,max=100"`
-	Offset        int    `query:"offset" default:"0" validate:"min=0,max=10000"`
+	Offset        int    `query:"offset" default:"0" validate:"min=0"`
 	Sort          string `query:"sort" default:"date" validate:"oneof=date transaction_type"`
 	SortDirection string `query:"sort_direction" default:"desc" validate:"oneof=asc desc"`
 }

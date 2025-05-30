@@ -11,7 +11,7 @@ import (
 // TODO: Can we get followee_user_id values into this struct?
 type GetUsersFeedParams struct {
 	Limit  int    `query:"limit" default:"50" validate:"min=1,max=100"`
-	Offset int    `query:"offset" default:"0" validate:"min=0,max=1000"`
+	Offset int    `query:"offset" default:"0" validate:"min=0"`
 	Filter string `query:"filter" default:"all" validate:"oneof=all original repost"`
 }
 

@@ -10,7 +10,7 @@ import (
 
 type GetUsersLibraryTracksParams struct {
 	Limit      int    `query:"limit" default:"50" validate:"min=1,max=100"`
-	Offset     int    `query:"offset" default:"0" validate:"min=0,max=10000"`
+	Offset     int    `query:"offset" default:"0" validate:"min=0"`
 	ActionType string `query:"type" default:"all" validate:"oneof=all favorite repost purchase"`
 	// TODO: Min/max length?
 	// Query      string `query:"query" default:""`

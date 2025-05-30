@@ -25,7 +25,7 @@ type UsdcTransaction struct {
 type GetUsdcTransactionsParams struct {
 	TransactionTypes          []string `query:"type"`
 	Limit                     int      `query:"limit" default:"100" validate:"min=1,max=100"`
-	Offset                    int      `query:"offset" default:"0" validate:"min=0,max=10000"`
+	Offset                    int      `query:"offset" default:"0" validate:"min=0"`
 	SortMethod                string   `query:"sort_method" default:"date" validate:"oneof=date transaction_type"`
 	SortDirection             string   `query:"sort_direction" default:"desc" validate:"oneof=asc desc"`
 	IncludeSystemTransactions bool     `query:"include_system_transactions" default:"false"`
