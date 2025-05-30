@@ -10,7 +10,7 @@ type GetChatRouteParams struct {
 	ChatID string `params:"chatId"`
 }
 
-func (api *ApiServer) getChat(c *fiber.Ctx) error {
+func (app *ApiServer) getChat(c *fiber.Ctx) error {
 	sql := `
 	SELECT
 	chat.chat_id,
@@ -80,13 +80,13 @@ func (api *ApiServer) getChat(c *fiber.Ctx) error {
 		return err
 	}
 
-	wallet := api.getAuthedWallet(c)
-	userId, err := api.getUserIDFromWallet(c.Context(), wallet)
+	wallet := app.getAuthedWallet(c)
+	userId, err := app.getUserIDFromWallet(c.Context(), wallet)
 	if err != nil {
 		return err
 	}
 
-	rawRows, err := api.pool.Query(c.Context(), sql, pgx.NamedArgs{
+	rawRows, err := app.pool.Query(c.Context(), sql, pgx.NamedArgs{
 		"user_id": userId,
 		"chat_id": params.ChatID,
 	})
