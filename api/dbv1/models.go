@@ -320,6 +320,47 @@ func (ns NullParentalWarningType) Value() (driver.Value, error) {
 	return string(ns.ParentalWarningType), nil
 }
 
+type ProfileTypeEnum string
+
+const (
+	ProfileTypeEnumLabel ProfileTypeEnum = "label"
+)
+
+func (e *ProfileTypeEnum) Scan(src interface{}) error {
+	switch s := src.(type) {
+	case []byte:
+		*e = ProfileTypeEnum(s)
+	case string:
+		*e = ProfileTypeEnum(s)
+	default:
+		return fmt.Errorf("unsupported scan type for ProfileTypeEnum: %T", src)
+	}
+	return nil
+}
+
+type NullProfileTypeEnum struct {
+	ProfileTypeEnum ProfileTypeEnum `json:"profile_type_enum"`
+	Valid           bool            `json:"valid"` // Valid is true if ProfileTypeEnum is not NULL
+}
+
+// Scan implements the Scanner interface.
+func (ns *NullProfileTypeEnum) Scan(value interface{}) error {
+	if value == nil {
+		ns.ProfileTypeEnum, ns.Valid = "", false
+		return nil
+	}
+	ns.Valid = true
+	return ns.ProfileTypeEnum.Scan(value)
+}
+
+// Value implements the driver Valuer interface.
+func (ns NullProfileTypeEnum) Value() (driver.Value, error) {
+	if !ns.Valid {
+		return nil, nil
+	}
+	return string(ns.ProfileTypeEnum), nil
+}
+
 type ProofStatus string
 
 const (
@@ -616,6 +657,12 @@ func (ns NullWalletChain) Value() (driver.Value, error) {
 		return nil, nil
 	}
 	return string(ns.WalletChain), nil
+}
+
+type AccessKey struct {
+	ID      int32  `json:"id"`
+	TrackID string `json:"track_id"`
+	PubKey  string `json:"pub_key"`
 }
 
 type AggregateDailyAppNameMetric struct {
@@ -1020,100 +1067,6 @@ type CoreDbMigration struct {
 	AppliedAt pgtype.Timestamptz `json:"applied_at"`
 }
 
-type CoreEtlTx struct {
-	ID          int64              `json:"id"`
-	BlockHeight int64              `json:"block_height"`
-	TxIndex     int32              `json:"tx_index"`
-	TxHash      string             `json:"tx_hash"`
-	TxType      string             `json:"tx_type"`
-	TxData      json.RawMessage    `json:"tx_data"`
-	CreatedAt   pgtype.Timestamptz `json:"created_at"`
-}
-
-type CoreEtlTxDuplicate struct {
-	ID            int64              `json:"id"`
-	TxHash        string             `json:"tx_hash"`
-	TableName     string             `json:"table_name"`
-	DuplicateType string             `json:"duplicate_type"`
-	CreatedAt     pgtype.Timestamptz `json:"created_at"`
-}
-
-type CoreEtlTxManageEntity struct {
-	ID         int64              `json:"id"`
-	TxHash     string             `json:"tx_hash"`
-	UserID     int64              `json:"user_id"`
-	EntityType string             `json:"entity_type"`
-	EntityID   int64              `json:"entity_id"`
-	Action     string             `json:"action"`
-	Metadata   string             `json:"metadata"`
-	Signature  string             `json:"signature"`
-	Signer     string             `json:"signer"`
-	Nonce      string             `json:"nonce"`
-	CreatedAt  pgtype.Timestamptz `json:"created_at"`
-}
-
-type CoreEtlTxPlay struct {
-	ID        int64              `json:"id"`
-	TxHash    string             `json:"tx_hash"`
-	UserID    string             `json:"user_id"`
-	TrackID   string             `json:"track_id"`
-	PlayedAt  pgtype.Timestamptz `json:"played_at"`
-	Signature string             `json:"signature"`
-	City      pgtype.Text        `json:"city"`
-	Region    pgtype.Text        `json:"region"`
-	Country   pgtype.Text        `json:"country"`
-	CreatedAt pgtype.Timestamptz `json:"created_at"`
-}
-
-type CoreEtlTxSlaRollup struct {
-	ID         int64              `json:"id"`
-	TxHash     string             `json:"tx_hash"`
-	BlockStart int64              `json:"block_start"`
-	BlockEnd   int64              `json:"block_end"`
-	Timestamp  pgtype.Timestamptz `json:"timestamp"`
-	CreatedAt  pgtype.Timestamptz `json:"created_at"`
-}
-
-type CoreEtlTxStorageProof struct {
-	ID              int64              `json:"id"`
-	TxHash          string             `json:"tx_hash"`
-	Height          int64              `json:"height"`
-	Address         string             `json:"address"`
-	Cid             pgtype.Text        `json:"cid"`
-	ProofSignature  []byte             `json:"proof_signature"`
-	ProverAddresses []string           `json:"prover_addresses"`
-	CreatedAt       pgtype.Timestamptz `json:"created_at"`
-}
-
-type CoreEtlTxStorageProofVerification struct {
-	ID        int64              `json:"id"`
-	TxHash    string             `json:"tx_hash"`
-	Height    int64              `json:"height"`
-	Proof     []byte             `json:"proof"`
-	CreatedAt pgtype.Timestamptz `json:"created_at"`
-}
-
-type CoreEtlTxValidatorDeregistration struct {
-	ID           int64              `json:"id"`
-	TxHash       string             `json:"tx_hash"`
-	CometAddress string             `json:"comet_address"`
-	PubKey       []byte             `json:"pub_key"`
-	CreatedAt    pgtype.Timestamptz `json:"created_at"`
-}
-
-type CoreEtlTxValidatorRegistration struct {
-	ID           int64              `json:"id"`
-	TxHash       string             `json:"tx_hash"`
-	Endpoint     string             `json:"endpoint"`
-	CometAddress string             `json:"comet_address"`
-	EthBlock     string             `json:"eth_block"`
-	NodeType     string             `json:"node_type"`
-	SpID         string             `json:"sp_id"`
-	PubKey       []byte             `json:"pub_key"`
-	Power        int64              `json:"power"`
-	CreatedAt    pgtype.Timestamptz `json:"created_at"`
-}
-
 type CoreIndexedBlock struct {
 	Blockhash  string      `json:"blockhash"`
 	Parenthash pgtype.Text `json:"parenthash"`
@@ -1277,6 +1230,12 @@ type IndexingCheckpoint struct {
 	Tablename      string      `json:"tablename"`
 	LastCheckpoint int32       `json:"last_checkpoint"`
 	Signature      pgtype.Text `json:"signature"`
+}
+
+type ManagementKey struct {
+	ID      int32  `json:"id"`
+	TrackID string `json:"track_id"`
+	Address string `json:"address"`
 }
 
 type Milestone struct {
@@ -1590,6 +1549,14 @@ type SlaRollup struct {
 	Time       time.Time `json:"time"`
 }
 
+type SoundRecording struct {
+	ID               int32       `json:"id"`
+	SoundRecordingID string      `json:"sound_recording_id"`
+	TrackID          string      `json:"track_id"`
+	Cid              string      `json:"cid"`
+	EncodingDetails  pgtype.Text `json:"encoding_details"`
+}
+
 type SplTokenTx struct {
 	LastScannedSlot int32              `json:"last_scanned_slot"`
 	Signature       string             `json:"signature"`
@@ -1754,6 +1721,11 @@ type TrackPriceHistory struct {
 	Access          UsdcPurchaseAccessType `json:"access"`
 }
 
+type TrackRelease struct {
+	ID      int32  `json:"id"`
+	TrackID string `json:"track_id"`
+}
+
 type TrackRoute struct {
 	Slug        string `json:"slug"`
 	TitleSlug   string `json:"title_slug"`
@@ -1844,48 +1816,49 @@ type UsdcUserBankAccount struct {
 }
 
 type User struct {
-	Blockhash              pgtype.Text     `json:"blockhash"`
-	UserID                 trashid.HashId  `json:"user_id"`
-	IsCurrent              bool            `json:"is_current"`
-	Handle                 pgtype.Text     `json:"handle"`
-	Wallet                 pgtype.Text     `json:"wallet"`
-	Name                   pgtype.Text     `json:"name"`
-	ProfilePicture         pgtype.Text     `json:"profile_picture"`
-	CoverPhoto             pgtype.Text     `json:"cover_photo"`
-	Bio                    pgtype.Text     `json:"bio"`
-	Location               pgtype.Text     `json:"location"`
-	MetadataMultihash      pgtype.Text     `json:"metadata_multihash"`
-	CreatorNodeEndpoint    pgtype.Text     `json:"creator_node_endpoint"`
-	Blocknumber            pgtype.Int4     `json:"blocknumber"`
-	IsVerified             bool            `json:"is_verified"`
-	CreatedAt              time.Time       `json:"created_at"`
-	UpdatedAt              time.Time       `json:"updated_at"`
-	HandleLc               pgtype.Text     `json:"handle_lc"`
-	CoverPhotoSizes        pgtype.Text     `json:"cover_photo_sizes"`
-	ProfilePictureSizes    pgtype.Text     `json:"profile_picture_sizes"`
-	PrimaryID              pgtype.Int4     `json:"primary_id"`
-	SecondaryIds           []int32         `json:"secondary_ids"`
-	ReplicaSetUpdateSigner pgtype.Text     `json:"replica_set_update_signer"`
-	HasCollectibles        bool            `json:"has_collectibles"`
-	Txhash                 string          `json:"txhash"`
-	PlaylistLibrary        json.RawMessage `json:"playlist_library"`
-	IsDeactivated          bool            `json:"is_deactivated"`
-	Slot                   pgtype.Int4     `json:"slot"`
-	UserStorageAccount     pgtype.Text     `json:"user_storage_account"`
-	UserAuthorityAccount   pgtype.Text     `json:"user_authority_account"`
-	ArtistPickTrackID      pgtype.Int4     `json:"artist_pick_track_id"`
-	IsAvailable            bool            `json:"is_available"`
-	IsStorageV2            bool            `json:"is_storage_v2"`
-	AllowAiAttribution     bool            `json:"allow_ai_attribution"`
-	SplUsdcPayoutWallet    pgtype.Text     `json:"spl_usdc_payout_wallet"`
-	TwitterHandle          pgtype.Text     `json:"twitter_handle"`
-	InstagramHandle        pgtype.Text     `json:"instagram_handle"`
-	TiktokHandle           pgtype.Text     `json:"tiktok_handle"`
-	VerifiedWithTwitter    pgtype.Bool     `json:"verified_with_twitter"`
-	VerifiedWithInstagram  pgtype.Bool     `json:"verified_with_instagram"`
-	VerifiedWithTiktok     pgtype.Bool     `json:"verified_with_tiktok"`
-	Website                pgtype.Text     `json:"website"`
-	Donation               pgtype.Text     `json:"donation"`
+	Blockhash              pgtype.Text         `json:"blockhash"`
+	UserID                 trashid.HashId      `json:"user_id"`
+	IsCurrent              bool                `json:"is_current"`
+	Handle                 pgtype.Text         `json:"handle"`
+	Wallet                 pgtype.Text         `json:"wallet"`
+	Name                   pgtype.Text         `json:"name"`
+	ProfilePicture         pgtype.Text         `json:"profile_picture"`
+	CoverPhoto             pgtype.Text         `json:"cover_photo"`
+	Bio                    pgtype.Text         `json:"bio"`
+	Location               pgtype.Text         `json:"location"`
+	MetadataMultihash      pgtype.Text         `json:"metadata_multihash"`
+	CreatorNodeEndpoint    pgtype.Text         `json:"creator_node_endpoint"`
+	Blocknumber            pgtype.Int4         `json:"blocknumber"`
+	IsVerified             bool                `json:"is_verified"`
+	CreatedAt              time.Time           `json:"created_at"`
+	UpdatedAt              time.Time           `json:"updated_at"`
+	HandleLc               pgtype.Text         `json:"handle_lc"`
+	CoverPhotoSizes        pgtype.Text         `json:"cover_photo_sizes"`
+	ProfilePictureSizes    pgtype.Text         `json:"profile_picture_sizes"`
+	PrimaryID              pgtype.Int4         `json:"primary_id"`
+	SecondaryIds           []int32             `json:"secondary_ids"`
+	ReplicaSetUpdateSigner pgtype.Text         `json:"replica_set_update_signer"`
+	HasCollectibles        bool                `json:"has_collectibles"`
+	Txhash                 string              `json:"txhash"`
+	PlaylistLibrary        json.RawMessage     `json:"playlist_library"`
+	IsDeactivated          bool                `json:"is_deactivated"`
+	Slot                   pgtype.Int4         `json:"slot"`
+	UserStorageAccount     pgtype.Text         `json:"user_storage_account"`
+	UserAuthorityAccount   pgtype.Text         `json:"user_authority_account"`
+	ArtistPickTrackID      pgtype.Int4         `json:"artist_pick_track_id"`
+	IsAvailable            bool                `json:"is_available"`
+	IsStorageV2            bool                `json:"is_storage_v2"`
+	AllowAiAttribution     bool                `json:"allow_ai_attribution"`
+	SplUsdcPayoutWallet    pgtype.Text         `json:"spl_usdc_payout_wallet"`
+	TwitterHandle          pgtype.Text         `json:"twitter_handle"`
+	InstagramHandle        pgtype.Text         `json:"instagram_handle"`
+	TiktokHandle           pgtype.Text         `json:"tiktok_handle"`
+	VerifiedWithTwitter    pgtype.Bool         `json:"verified_with_twitter"`
+	VerifiedWithInstagram  pgtype.Bool         `json:"verified_with_instagram"`
+	VerifiedWithTiktok     pgtype.Bool         `json:"verified_with_tiktok"`
+	Website                pgtype.Text         `json:"website"`
+	Donation               pgtype.Text         `json:"donation"`
+	ProfileType            NullProfileTypeEnum `json:"profile_type"`
 }
 
 type UserBalance struct {
