@@ -20,7 +20,7 @@ type BlastRow struct {
 	CreatedAt           time.Time       `db:"created_at" json:"created_at"`
 }
 
-func (api *ApiServer) getNewBlasts(c *fiber.Ctx) error {
+func (app *ApiServer) getNewBlasts(c *fiber.Ctx) error {
 	sql := `
 	WITH
 	last_permission_change AS (
@@ -94,13 +94,13 @@ func (api *ApiServer) getNewBlasts(c *fiber.Ctx) error {
 	ORDER BY created_at
 	;`
 
-	wallet := api.getAuthedWallet(c)
-	userId, err := api.getUserIDFromWallet(c.Context(), wallet)
+	wallet := app.getAuthedWallet(c)
+	userId, err := app.getUserIDFromWallet(c.Context(), wallet)
 	if err != nil {
 		return err
 	}
 
-	rawRows, err := api.pool.Query(c.Context(), sql, pgx.NamedArgs{
+	rawRows, err := app.pool.Query(c.Context(), sql, pgx.NamedArgs{
 		"user_id": userId,
 	})
 	if err != nil {
@@ -118,7 +118,7 @@ func (api *ApiServer) getNewBlasts(c *fiber.Ctx) error {
 	}
 
 	sqlExisting := `SELECT chat_id FROM chat_member WHERE user_id = @user_id`
-	allExistingChatRowsRaw, err := api.pool.Query(c.Context(), sqlExisting, pgx.NamedArgs{
+	allExistingChatRowsRaw, err := app.pool.Query(c.Context(), sqlExisting, pgx.NamedArgs{
 		"user_id": userId,
 	})
 	if err != nil {

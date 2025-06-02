@@ -6,20 +6,20 @@ import (
 	"github.com/jackc/pgx/v5"
 )
 
-func (api *ApiServer) getChatBlockers(c *fiber.Ctx) error {
+func (app *ApiServer) getChatBlockers(c *fiber.Ctx) error {
 	sql := `
 	SELECT blocker_user_id AS user_id
 	FROM chat_blocked_users 
 	WHERE blockee_user_id = @user_id;
 	`
 
-	wallet := api.getAuthedWallet(c)
-	userId, err := api.getUserIDFromWallet(c.Context(), wallet)
+	wallet := app.getAuthedWallet(c)
+	userId, err := app.getUserIDFromWallet(c.Context(), wallet)
 	if err != nil {
 		return err
 	}
 
-	rawRows, err := api.pool.Query(c.Context(), sql, pgx.NamedArgs{
+	rawRows, err := app.pool.Query(c.Context(), sql, pgx.NamedArgs{
 		"user_id": userId,
 	})
 	if err == pgx.ErrNoRows {

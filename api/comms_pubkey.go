@@ -5,13 +5,13 @@ import (
 	"github.com/jackc/pgx/v5"
 )
 
-func (api *ApiServer) getPubkey(c *fiber.Ctx) error {
-	userId := api.getUserId(c)
-	sql := `SELECT pubkey_base64 FROM user_pubkeys WHERE user_id = @user_id`
+func (app *ApiServer) getPubkey(c *fiber.Ctx) error {
+	userId := app.getUserId(c)
+	sql := `SELECT pubkey_base64 FROM user_pubkeys WHERE user_id = @userId`
 
 	var pubkey string
-	err := api.pool.QueryRow(c.Context(), sql, pgx.NamedArgs{
-		"user_id": userId,
+	err := app.pool.QueryRow(c.Context(), sql, pgx.NamedArgs{
+		"userId": userId,
 	}).Scan(&pubkey)
 	if err != nil {
 		return err

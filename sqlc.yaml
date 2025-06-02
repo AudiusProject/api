@@ -41,6 +41,11 @@ sql:
               import: "bridgerton.audius.co/trashid"
               type: "HashId"
 
+          - column: "users.profile_type"
+            go_type:
+              type: "string"
+              pointer: true
+
           - column: "developer_apps.user_id"
             go_type:
               import: "bridgerton.audius.co/trashid"

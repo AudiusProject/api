@@ -24,12 +24,12 @@ type UsdcTransaction struct {
 
 type GetUsdcTransactionsParams struct {
 	TransactionTypes          []string `query:"type"`
-	Limit                     int32    `query:"limit"`
-	Offset                    int32    `query:"offset"`
-	SortMethod                string   `query:"sort_method"`
-	SortDirection             string   `query:"sort_direction"`
-	IncludeSystemTransactions bool     `query:"include_system_transactions"`
-	TransactionMethod         string   `query:"method"`
+	Limit                     int      `query:"limit" default:"100" validate:"min=1,max=100"`
+	Offset                    int      `query:"offset" default:"0" validate:"min=0"`
+	SortMethod                string   `query:"sort_method" default:"date" validate:"oneof=date transaction_type"`
+	SortDirection             string   `query:"sort_direction" default:"desc" validate:"oneof=asc desc"`
+	IncludeSystemTransactions bool     `query:"include_system_transactions" default:""`
+	TransactionMethod         string   `query:"method" default:"" validate:"omitempty,oneof=send receive"`
 }
 
 var validTransactionTypes = []string{
@@ -48,28 +48,8 @@ var validTransactionMethods = []string{
 
 func (app *ApiServer) v1UsersTransactionsUsdc(c *fiber.Ctx) error {
 	queryParams := GetUsdcTransactionsParams{}
-	if err := c.QueryParser(&queryParams); err != nil {
-		return fiber.NewError(fiber.StatusBadRequest, "Invalid query parameters")
-	}
-
-	// Default values
-	if queryParams.Limit == 0 {
-		queryParams.Limit = 100
-	}
-
-	if queryParams.SortMethod == "" {
-		queryParams.SortMethod = "date"
-	}
-
-	if queryParams.SortDirection == "" {
-		queryParams.SortDirection = "desc"
-	}
-
-	if queryParams.SortMethod != "date" && queryParams.SortMethod != "transaction_type" {
-		return fiber.NewError(fiber.StatusBadRequest, "Invalid sort method")
-	}
-	if queryParams.SortDirection != "asc" && queryParams.SortDirection != "desc" {
-		return fiber.NewError(fiber.StatusBadRequest, "Invalid sort direction")
+	if err := app.ParseAndValidateQueryParams(c, &queryParams); err != nil {
+		return err
 	}
 
 	filters := []string{"users.is_current = TRUE"}
@@ -89,9 +69,6 @@ func (app *ApiServer) v1UsersTransactionsUsdc(c *fiber.Ctx) error {
 	}
 
 	if queryParams.TransactionMethod != "" {
-		if !slices.Contains(validTransactionMethods, queryParams.TransactionMethod) {
-			return fiber.NewError(fiber.StatusBadRequest, "Invalid transaction method")
-		}
 		filters = append(filters, `method = @transaction_method`)
 	}
 
@@ -148,8 +125,8 @@ func (app *ApiServer) v1UsersTransactionsUsdc(c *fiber.Ctx) error {
 
 func (app *ApiServer) v1UsersTransactionsUsdcCount(c *fiber.Ctx) error {
 	queryParams := GetUsdcTransactionsParams{}
-	if err := c.QueryParser(&queryParams); err != nil {
-		return fiber.NewError(fiber.StatusBadRequest, "Invalid query parameters")
+	if err := app.ParseAndValidateQueryParams(c, &queryParams); err != nil {
+		return err
 	}
 	filters := []string{"users.is_current = TRUE"}
 
@@ -168,9 +145,6 @@ func (app *ApiServer) v1UsersTransactionsUsdcCount(c *fiber.Ctx) error {
 	}
 
 	if queryParams.TransactionMethod != "" {
-		if !slices.Contains(validTransactionMethods, queryParams.TransactionMethod) {
-			return fiber.NewError(fiber.StatusBadRequest, "Invalid transaction method")
-		}
 		filters = append(filters, `method = @transaction_method`)
 	}
 

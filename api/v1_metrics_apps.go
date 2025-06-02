@@ -5,24 +5,25 @@ import (
 	"github.com/gofiber/fiber/v2"
 )
 
+type GetMetricsAppsParams struct {
+	TimeRange string `query:"time_range" default:"all_time" validate:"oneof=week month year all_time"`
+	Limit     int    `query:"limit" default:"100" validate:"min=1,max=100"`
+}
+
 type AppMetric struct {
 	Name  string `json:"name"`
 	Count int64  `json:"count"`
 }
 
 func (app *ApiServer) v1MetricsApps(c *fiber.Ctx) error {
-	timeRange, err := app.paramTimeRange(c, "time_range", "all_time")
-	if err != nil {
+	params := GetMetricsAppsParams{}
+	if err := app.ParseAndValidateQueryParams(c, &params); err != nil {
 		return err
-	}
-	limit := c.QueryInt("limit", 100)
-	if limit > 100 {
-		limit = 100
 	}
 
 	metrics, err := app.queries.GetAggregateAppMetrics(c.Context(), dbv1.GetAggregateAppMetricsParams{
-		TimeRange: timeRange,
-		LimitVal:  int32(limit),
+		TimeRange: params.TimeRange,
+		LimitVal:  int32(params.Limit),
 	})
 	if err != nil {
 		return err

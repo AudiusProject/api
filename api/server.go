@@ -26,6 +26,8 @@ import (
 	"github.com/gofiber/fiber/v2/middleware/adaptor"
 	"github.com/gofiber/fiber/v2/middleware/cors"
 	"github.com/gofiber/fiber/v2/middleware/recover"
+	"github.com/gofiber/fiber/v2/middleware/requestid"
+	"github.com/gofiber/fiber/v2/utils"
 	pgxzap "github.com/jackc/pgx-zap"
 	"github.com/jackc/pgx/v5/pgxpool"
 	"github.com/jackc/pgx/v5/tracelog"
@@ -84,6 +86,20 @@ func NewApiServer(config config.Config) *ApiServer {
 	if err != nil {
 		logger.Error("db connect failed", zap.Error(err))
 	}
+
+	// register enum types with connection
+	// this is mostly to support COPY protocol as used by tests
+	// connConfig.AfterConnect = func(ctx context.Context, conn *pgx.Conn) error {
+	// 	enumNames := []string{"challengetype"}
+	// 	for _, name := range enumNames {
+	// 		typ, err := conn.LoadType(ctx, name)
+	// 		if err != nil {
+	// 			panic(err)
+	// 		}
+	// 		conn.TypeMap().RegisterType(typ)
+	// 	}
+	// 	return nil
+	// }
 
 	// disable sql logging in ENV "test"
 	if config.Env != "test" {
@@ -181,7 +197,12 @@ func NewApiServer(config config.Config) *ApiServer {
 
 	app.Use(cors.New())
 	app.Use(RequestTimer())
-
+	app.Use(requestid.New(requestid.Config{
+		Next:       nil,
+		Header:     fiber.HeaderXRequestID,
+		Generator:  utils.UUIDv4,
+		ContextKey: "requestId",
+	}))
 	app.Use(fiberzap.New(fiberzap.Config{
 		Logger: logger,
 		FieldsFunc: func(c *fiber.Ctx) []zap.Field {
@@ -195,6 +216,10 @@ func NewApiServer(config config.Config) *ApiServer {
 			// Add upstream server to logs, if found
 			if upstream, ok := c.Locals("upstream").(string); ok && upstream != "" {
 				fields = append(fields, zap.String("upstream", upstream))
+			}
+
+			if requestId, ok := c.Locals("requestId").(string); ok && requestId != "" {
+				fields = append(fields, zap.String("request_id", requestId))
 			}
 
 			return fields
@@ -327,8 +352,8 @@ func NewApiServer(config config.Config) *ApiServer {
 	// Comms
 	comms := app.Group("/comms")
 	// Cached/non-cached are the same as there are no other nodes to query anymore
-	comms.Get("/pubkey/:userId", app.getPubkey)
-	comms.Get("/pubky/:userId/cached", app.getPubkey)
+	comms.Get("/pubkey/:userId", app.requireUserIdMiddleware, app.getPubkey)
+	comms.Get("/pubky/:userId/cached", app.requireUserIdMiddleware, app.getPubkey)
 
 	unfurlBlocklist := unfurlist.WithBlocklistPrefixes(
 		[]string{
@@ -489,7 +514,7 @@ func (as *ApiServer) Serve() {
 // Move this to a new module if we add custom validation
 func (as *ApiServer) ParseAndValidateQueryParams(c *fiber.Ctx, v any) error {
 	if err := c.QueryParser(v); err != nil {
-		return err
+		return fiber.NewError(fiber.StatusBadRequest, err.Error())
 	}
 	defaults.SetDefaults(v)
 	return as.requestValidator.Validate(v)

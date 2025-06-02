@@ -554,7 +554,7 @@ type ClaimRewardsBody struct {
 }
 
 // Claims all the filtered undisbursed rewards for a user.
-func (api *ApiServer) v1ClaimRewards(c *fiber.Ctx) error {
+func (app *ApiServer) v1ClaimRewards(c *fiber.Ctx) error {
 
 	body := ClaimRewardsBody{}
 	err := c.BodyParser(&body)
@@ -574,7 +574,7 @@ func (api *ApiServer) v1ClaimRewards(c *fiber.Ctx) error {
 		return err
 	}
 
-	undisbursedRows, err := api.queries.GetUndisbursedChallenges(
+	undisbursedRows, err := app.queries.GetUndisbursedChallenges(
 		c.Context(),
 		dbv1.GetUndisbursedChallengesParams{
 			UserID:      int32(userId),
@@ -590,15 +590,15 @@ func (api *ApiServer) v1ClaimRewards(c *fiber.Ctx) error {
 		return fiber.NewError(fiber.StatusBadRequest, "No rewards to claim")
 	}
 
-	antiAbuseOracle, err := getAntiAbuseOracle(api.antiAbuseOracles)
+	antiAbuseOracle, err := getAntiAbuseOracle(app.antiAbuseOracles)
 	if err != nil {
 		return err
 	}
 
-	bankAccount, err := api.claimableTokensClient.GetOrCreateUserBank(
+	bankAccount, err := app.claimableTokensClient.GetOrCreateUserBank(
 		c.Context(),
 		common.HexToAddress(undisbursedRows[0].Wallet.String),
-		api.solanaConfig.MintAudio,
+		app.solanaConfig.MintAudio,
 	)
 	if err != nil {
 		return err
@@ -616,7 +616,7 @@ func (api *ApiServer) v1ClaimRewards(c *fiber.Ctx) error {
 				Specifier:   row.Specifier,
 			}
 
-			reward, err := getReward(row.ChallengeID, api.rewardAttester.Rewards)
+			reward, err := getReward(row.ChallengeID, app.rewardAttester.Rewards)
 			if err != nil {
 				results[i].Error = err.Error()
 				g.Done()
@@ -640,17 +640,17 @@ func (api *ApiServer) v1ClaimRewards(c *fiber.Ctx) error {
 			sigs, err := claimReward(
 				ctx,
 				rewardClaim,
-				api.rewardManagerClient,
-				api.rewardAttester,
-				api.transactionSender,
+				app.rewardManagerClient,
+				app.rewardAttester,
+				app.transactionSender,
 				*antiAbuseOracle,
-				api.validators,
+				app.validators,
 			)
 
 			if err != nil {
 				var instrErr *spl.InstructionError
 				if errors.As(err, &instrErr) {
-					api.logger.Error("failed to claim challenge reward. transaction failed to send.",
+					app.logger.Error("failed to claim challenge reward. transaction failed to send.",
 						zap.String("handle", row.Handle.String),
 						zap.String("rewardId", row.ChallengeID),
 						zap.String("specifier", row.Specifier),
@@ -659,7 +659,7 @@ func (api *ApiServer) v1ClaimRewards(c *fiber.Ctx) error {
 						zap.Error(err),
 					)
 				} else {
-					api.logger.Error("failed to claim challenge reward.",
+					app.logger.Error("failed to claim challenge reward.",
 						zap.String("handle", row.Handle.String),
 						zap.String("rewardId", row.ChallengeID),
 						zap.String("specifier", row.Specifier),

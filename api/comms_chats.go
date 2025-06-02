@@ -13,10 +13,10 @@ type GetChatsParams struct {
 	CurrentUserID string     `query:"current_user_id"`
 	Before        *time.Time `query:"before"`
 	After         *time.Time `query:"after"`
-	Limit         int        `query:"limit"`
+	Limit         int        `query:"limit" default:"50" validate:"min=1,max=100"`
 }
 
-func (api *ApiServer) getChats(c *fiber.Ctx) error {
+func (app *ApiServer) getChats(c *fiber.Ctx) error {
 	sql := `
 	-- Get User Chats
 	SELECT
@@ -35,7 +35,7 @@ func (api *ApiServer) getChats(c *fiber.Ctx) error {
 		NULL AS audience_content_id,
 		(
 			SELECT json_agg(json_build_object(
-				'user_id', chat_member.user_id, 
+				'user_id', chat_member.user_id,
 				'cleared_history_at', chat_member.cleared_history_at
 			))
 			FROM chat_member
@@ -54,10 +54,10 @@ func (api *ApiServer) getChats(c *fiber.Ctx) error {
 	-- Add blasts as well
 	UNION ALL (
 		SELECT DISTINCT ON (audience, audience_content_type, audience_content_id)
-			concat_ws(':', audience, audience_content_type, 
-					CASE 
+			concat_ws(':', audience, audience_content_type,
+					CASE
 						WHEN audience_content_id IS NOT NULL THEN id_encode(audience_content_id)
-						ELSE NULL 
+						ELSE NULL
 					END) AS chat_id,
 			MIN(created_at) OVER (PARTITION BY audience, audience_content_type, audience_content_id) AS created_at,
 			plaintext AS last_message,
@@ -117,7 +117,8 @@ func (api *ApiServer) getChats(c *fiber.Ctx) error {
 	`
 
 	params := &GetChatsParams{}
-	err := c.QueryParser(params)
+
+	err := app.ParseAndValidateQueryParams(c, params)
 	if err != nil {
 		return err
 	}
@@ -126,8 +127,8 @@ func (api *ApiServer) getChats(c *fiber.Ctx) error {
 	if params.CurrentUserID != "" {
 		userId, err = trashid.DecodeHashId(params.CurrentUserID)
 	} else {
-		wallet := api.getAuthedWallet(c)
-		userId, err = api.getUserIDFromWallet(c.Context(), wallet)
+		wallet := app.getAuthedWallet(c)
+		userId, err = app.getUserIDFromWallet(c.Context(), wallet)
 	}
 	if err != nil {
 		return err
@@ -142,16 +143,11 @@ func (api *ApiServer) getChats(c *fiber.Ctx) error {
 		afterCursorPos = *params.After
 	}
 
-	limit := 50
-	if params.Limit != 0 {
-		limit = params.Limit
-	}
-
-	rawRows, err := api.pool.Query(c.Context(), sql, pgx.NamedArgs{
+	rawRows, err := app.pool.Query(c.Context(), sql, pgx.NamedArgs{
 		"user_id": userId,
 		"before":  beforeCursorPos,
 		"after":   afterCursorPos,
-		"limit":   limit,
+		"limit":   params.Limit,
 	})
 	if err != nil {
 		return err
@@ -166,7 +162,7 @@ func (api *ApiServer) getChats(c *fiber.Ctx) error {
 		beforeCursorPos = rows[len(rows)-1].LastMessageAt
 		afterCursorPos = rows[0].LastMessageAt
 	}
-	summaryRaw, err := api.pool.Query(c.Context(), sqlSummary, pgx.NamedArgs{
+	summaryRaw, err := app.pool.Query(c.Context(), sqlSummary, pgx.NamedArgs{
 		"user_id": userId,
 		"before":  beforeCursorPos,
 		"after":   afterCursorPos,

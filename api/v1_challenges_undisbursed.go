@@ -8,7 +8,19 @@ import (
 	"github.com/jackc/pgx/v5"
 )
 
+type GetUndisbursedChallengesQueryParams struct {
+	ChallengeID          string `query:"challenge_id"`
+	CompletedBlocknumber int    `query:"completed_blocknumber"`
+	Limit                int    `query:"limit" default:"100" validate:"min=1,max=100"`
+	Offset               int    `query:"offset" default:"0" validate:"min=0"`
+}
+
 func (app *ApiServer) v1ChallengesUndisbursed(c *fiber.Ctx) error {
+	params := GetUndisbursedChallengesQueryParams{}
+	if err := app.ParseAndValidateQueryParams(c, &params); err != nil {
+		return err
+	}
+
 	sql := `
 	-- Get Undisbursed Challenges
 	SELECT user_challenges.challenge_id,
@@ -24,7 +36,7 @@ func (app *ApiServer) v1ChallengesUndisbursed(c *fiber.Ctx) error {
 	FROM user_challenges
 	JOIN challenges ON challenges.id = user_challenges.challenge_id
 	JOIN users ON users.user_id = user_challenges.user_id
-	LEFT JOIN challenge_disbursements ON 
+	LEFT JOIN challenge_disbursements ON
 		challenge_disbursements.challenge_id = user_challenges.challenge_id
 		AND challenge_disbursements.specifier = user_challenges.specifier
 	WHERE challenge_disbursements.challenge_id IS NULL
@@ -43,18 +55,6 @@ func (app *ApiServer) v1ChallengesUndisbursed(c *fiber.Ctx) error {
 	OFFSET @offset
 	;
 	`
-
-	type GetUndisbursedChallengesQueryParams struct {
-		ChallengeID          string `query:"challenge_id"`
-		CompletedBlocknumber int    `query:"completed_blocknumber"`
-		Limit                *int   `query:"limit"`
-		Offset               int    `query:"offset"`
-	}
-	params := GetUndisbursedChallengesQueryParams{}
-	err := c.QueryParser(&params)
-	if err != nil {
-		return fiber.NewError(fiber.StatusBadRequest, err.Error())
-	}
 
 	rows, err := app.pool.Query(c.Context(), sql, pgx.NamedArgs{
 		"user_id":               app.getMyId(c),

@@ -7,19 +7,28 @@ import (
 	"github.com/gofiber/fiber/v2"
 )
 
+type GetMetricsGenresParams struct {
+	StartTime int `query:"start_time" default:"0"`
+	Limit     int `query:"limit" default:"100" validate:"min=1,max=100"`
+	Offset    int `query:"offset" default:"0" validate:"min=0"`
+}
+
 type GenreMetric struct {
 	Genre string `json:"genre"`
 	Count int64  `json:"count"`
 }
 
 func (app *ApiServer) v1MetricsGenres(c *fiber.Ctx) error {
-	limit := c.QueryInt("limit", 100)
-	offset := c.QueryInt("offset", 0)
-	startTime := time.Unix(int64(c.QueryInt("start_time", 0)), 0)
+	params := GetMetricsGenresParams{}
+	if err := app.ParseAndValidateQueryParams(c, &params); err != nil {
+		return err
+	}
+
+	startTime := time.Unix(int64(params.StartTime), 0)
 
 	metrics, err := app.queries.GetGenres(c.Context(), dbv1.GetGenresParams{
-		LimitVal:  int32(limit),
-		OffsetVal: int32(offset),
+		LimitVal:  int32(params.Limit),
+		OffsetVal: int32(params.Offset),
 		StartTime: startTime,
 	})
 	if err != nil {
