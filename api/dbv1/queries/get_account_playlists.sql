@@ -14,7 +14,7 @@ WITH playlist_ids AS (
 SELECT
     p.playlist_id,
     p.is_album,
-    -- p.permalink // TODO
+    r.slug,
     p.playlist_name,
     u.user_id,
     u.handle,
@@ -22,6 +22,7 @@ SELECT
     p.created_at
 FROM playlists p
 JOIN users u ON p.playlist_owner_id = u.user_id
+JOIN playlist_routes r ON p.playlist_id = r.playlist_id AND r.is_current = TRUE
 WHERE p.is_delete = false
   AND p.playlist_id IN (SELECT id FROM playlist_ids)
 ORDER BY p.created_at DESC, p.playlist_id ASC;
