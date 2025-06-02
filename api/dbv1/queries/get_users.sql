@@ -25,7 +25,7 @@ SELECT
   location,
   name,
   playlist_count,
-  profile_type::text,
+  profile_type,
 
   -- todo: this can sometimes be a Qm cid
   -- sometiems be a json string...

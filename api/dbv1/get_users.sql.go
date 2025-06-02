@@ -40,7 +40,7 @@ SELECT
   location,
   name,
   playlist_count,
-  profile_type::text,
+  profile_type,
 
   -- todo: this can sometimes be a Qm cid
   -- sometiems be a json string...
@@ -171,7 +171,7 @@ type GetUsersRow struct {
 	Location                       pgtype.Text    `json:"location"`
 	Name                           pgtype.Text    `json:"name"`
 	PlaylistCount                  pgtype.Int8    `json:"playlist_count"`
-	ProfileType                    string         `json:"profile_type"`
+	ProfileType                    *string        `json:"profile_type"`
 	ProfilePicture                 pgtype.Text    `json:"profile_picture"`
 	RepostCount                    pgtype.Int8    `json:"repost_count"`
 	TrackCount                     pgtype.Int8    `json:"track_count"`

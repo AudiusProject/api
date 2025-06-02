@@ -24,6 +24,7 @@ var (
 		"is_available":         true,
 		"is_storage_v2":        false,
 		"allow_ai_attribution": false,
+		"profile_type":         nil,
 	}
 
 	trackBaseRow = map[string]any{
