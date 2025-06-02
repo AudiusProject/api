@@ -29,7 +29,7 @@ func (api *ApiServer) v1UsersHistory(c *fiber.Ctx) error {
 		sortDirection = "ASC"
 	}
 
-	sortField := "history.timestamp"
+	sortField := ""
 	switch params.SortMethod {
 	case "plays":
 		sortField = "aggregate_plays.count"
@@ -43,10 +43,15 @@ func (api *ApiServer) v1UsersHistory(c *fiber.Ctx) error {
 		sortField = "users.name"
 	case "release_date":
 		sortField = "tracks.release_date"
-	case "last_listen_date":
-		sortField = "history.timestamp"
 	case "most_listens_by_user":
 		sortField = "history.play_count"
+	}
+
+	// Defaults to last_listen_date DESC if no valid sort method is provided.
+	// Listen history is ordered by timestamp DESC, so no need to sort by it explicitly.
+	orderBy := ""
+	if sortField != "" {
+		orderBy = "ORDER BY " + sortField + " " + sortDirection
 	}
 
 	sql := `
@@ -68,7 +73,7 @@ func (api *ApiServer) v1UsersHistory(c *fiber.Ctx) error {
 	LEFT JOIN aggregate_plays ON history.track_id = aggregate_plays.play_item_id
 	WHERE tracks.title ILIKE '%' || @query || '%'
 		OR users.name ILIKE '%' || @query || '%'
-	ORDER BY ` + sortField + ` ` + sortDirection + `
+	` + orderBy + `
 	LIMIT @limit OFFSET @offset
 	;
 	`
