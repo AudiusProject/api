@@ -170,6 +170,15 @@ CREATE TYPE public.parental_warning_type AS ENUM (
 
 
 --
+-- Name: profile_type_enum; Type: TYPE; Schema: public; Owner: -
+--
+
+CREATE TYPE public.profile_type_enum AS ENUM (
+    'label'
+);
+
+
+--
 -- Name: proof_status; Type: TYPE; Schema: public; Owner: -
 --
 
@@ -967,8 +976,8 @@ BEGIN
       -- Logging the action
       RAISE NOTICE 'Adding foreign key constraint to table %', _table_name;
 
-      EXECUTE format('ALTER TABLE %s ADD CONSTRAINT %s FOREIGN KEY (blocknumber) REFERENCES blocks (number) ON DELETE CASCADE',
-                     quote_ident(_table_name),
+      EXECUTE format('ALTER TABLE %s ADD CONSTRAINT %s FOREIGN KEY (blocknumber) REFERENCES blocks (number) ON DELETE CASCADE', 
+                     quote_ident(_table_name), 
                      quote_ident(_table_name || '_blocknumber_fkey'));
 
    END LOOP;
@@ -1226,13 +1235,13 @@ $$;
 
 
 --
--- Name: compute_user_score(bigint, bigint, bigint, bigint, bigint, boolean, bigint); Type: FUNCTION; Schema: public; Owner: -
+-- Name: compute_user_score(bigint, bigint, bigint, bigint, bigint, boolean, bigint, bigint); Type: FUNCTION; Schema: public; Owner: -
 --
 
-CREATE FUNCTION public.compute_user_score(play_count bigint, follower_count bigint, challenge_count bigint, chat_block_count bigint, following_count bigint, is_audius_impersonator boolean, distinct_tracks_played bigint) RETURNS bigint
+CREATE FUNCTION public.compute_user_score(play_count bigint, follower_count bigint, challenge_count bigint, chat_block_count bigint, following_count bigint, is_audius_impersonator boolean, distinct_tracks_played bigint, karma bigint) RETURNS bigint
     LANGUAGE sql IMMUTABLE
     AS $$
-select (play_count / 2) + follower_count - challenge_count - (chat_block_count * 100) + case
+select (play_count / 2) + follower_count - challenge_count - (chat_block_count * 100) + karma + case
         when following_count < 5 then -1
         else 0
     end + case
@@ -1589,9 +1598,9 @@ BEGIN
       -- Logging the deletion
       RAISE NOTICE 'Deleting rows from table % where is_current is false', _table_name;
 
-      EXECUTE format('DELETE FROM %s WHERE is_current = false',
+      EXECUTE format('DELETE FROM %s WHERE is_current = false', 
                      quote_ident(_table_name));
-
+                     
    END LOOP;
 END
 $$;
@@ -1611,7 +1620,7 @@ BEGIN
    LOOP
       RAISE NOTICE 'Deleting rows from table % where is_current is false', _table_name;
 
-      EXECUTE format('DELETE FROM %s WHERE is_current = false',
+      EXECUTE format('DELETE FROM %s WHERE is_current = false', 
                      quote_ident(_table_name));
 
    END LOOP;
@@ -1632,11 +1641,11 @@ BEGIN
    FOREACH _table_name IN ARRAY _table_names
    LOOP
       RAISE NOTICE 'Dropping foreign key constraint to table %', _table_name;
-      EXECUTE format('LOCK TABLE %s IN ACCESS EXCLUSIVE MODE',
+      EXECUTE format('LOCK TABLE %s IN ACCESS EXCLUSIVE MODE', 
                      quote_ident(_table_name));
 
-      EXECUTE format('ALTER TABLE %s DROP CONSTRAINT IF EXISTS %s',
-                     quote_ident(_table_name),
+      EXECUTE format('ALTER TABLE %s DROP CONSTRAINT IF EXISTS %s', 
+                     quote_ident(_table_name), 
                      quote_ident(_table_name || '_blocknumber_fkey'));
 
    END LOOP;
@@ -1769,11 +1778,11 @@ $$;
 -- Name: get_user_score(integer); Type: FUNCTION; Schema: public; Owner: -
 --
 
-CREATE FUNCTION public.get_user_score(target_user_id integer) RETURNS TABLE(user_id integer, handle_lc text, play_count bigint, distinct_tracks_played bigint, follower_count bigint, challenge_count bigint, following_count bigint, chat_block_count bigint, is_audius_impersonator boolean, score bigint)
+CREATE FUNCTION public.get_user_score(target_user_id integer) RETURNS TABLE(user_id integer, handle_lc text, play_count bigint, distinct_tracks_played bigint, challenge_count bigint, following_count bigint, follower_count bigint, chat_block_count bigint, is_audius_impersonator boolean, karma bigint, score bigint)
     LANGUAGE sql
     AS $$ with play_activity as (
         select p.user_id,
-            count(distinct date_trunc('hour', p.created_at)) as play_count,
+            count(distinct date_trunc('day', p.created_at)) as play_count,
             count(distinct p.play_item_id) as distinct_tracks_played
         from plays p
         where p.user_id = target_user_id
@@ -1818,7 +1827,28 @@ CREATE FUNCTION public.get_user_score(target_user_id integer) RETURNS TABLE(user
                 )
                 and u.is_verified = false then true
                 else false
-            end as is_audius_impersonator
+            end as is_audius_impersonator,
+            case
+                when (
+                    -- give max karma to users with more than 1000 followers
+                    -- karma is too slow for users with many followers
+                    au.follower_count > 1000
+                ) then 100
+                when (
+                    au.follower_count = 0
+                ) then 0
+                else (
+                    select LEAST(
+                            (sum(fau.follower_count) / 100)::bigint,
+                            100
+                        )
+                    from follows
+                        join aggregate_user fau on follows.follower_user_id = fau.user_id
+                    where follows.followee_user_id = target_user_id
+                        and fau.following_count < 10000 -- ignore users with too many following
+                        and follows.is_delete = false
+                )
+            end as karma
         from users u
             left join play_activity p on u.user_id = p.user_id
             left join fast_challenge_completion c on u.user_id = c.user_id
@@ -1835,93 +1865,8 @@ select a.*,
         a.chat_block_count,
         a.following_count,
         a.is_audius_impersonator,
-        a.distinct_tracks_played
-    ) as score
-from aggregate_scores a;
-$$;
-
-
---
--- Name: get_user_scores(integer[]); Type: FUNCTION; Schema: public; Owner: -
---
-
-CREATE FUNCTION public.get_user_scores(target_user_ids integer[] DEFAULT NULL::integer[]) RETURNS TABLE(user_id integer, handle_lc text, play_count bigint, distinct_tracks_played bigint, follower_count bigint, following_count bigint, challenge_count bigint, chat_block_count bigint, is_audius_impersonator boolean, score bigint)
-    LANGUAGE sql
-    AS $$ with play_activity as (
-        select plays.user_id,
-            count(distinct (date_trunc('hour', plays.created_at))) as play_count,
-            count(distinct(plays.play_item_id)) as distinct_tracks_played
-        from plays
-            join users on plays.user_id = users.user_id
-        where target_user_ids is null
-            or plays.user_id = any(target_user_ids)
-        group by plays.user_id
-    ),
-    fast_challenge_completion as (
-        select users.user_id,
-            handle_lc,
-            users.created_at,
-            count(*) as challenge_count,
-            array_agg(user_challenges.challenge_id) as challenge_ids
-        from users
-            left join user_challenges on users.user_id = user_challenges.user_id
-        where user_challenges.is_complete
-            and user_challenges.completed_at - users.created_at <= interval '3 minutes'
-            and user_challenges.challenge_id not in ('m', 'b')
-            and (
-                target_user_ids is null
-                or users.user_id = any(target_user_ids)
-            )
-        group by users.user_id,
-            users.handle_lc,
-            users.created_at
-    ),
-    chat_blocks as (
-        select chat_blocked_users.blockee_user_id as user_id,
-            count(*) as block_count
-        from chat_blocked_users
-            join users on chat_blocked_users.blockee_user_id = users.user_id
-        where target_user_ids is null
-            or chat_blocked_users.blockee_user_id = any(target_user_ids)
-        group by chat_blocked_users.blockee_user_id
-    ),
-    aggregate_scores as (
-        select users.user_id,
-            users.handle_lc,
-            coalesce(play_activity.play_count, 0) as play_count,
-            coalesce(play_activity.distinct_tracks_played, 0) as distinct_tracks_played,
-            coalesce(aggregate_user.following_count, 0) as following_count,
-            coalesce(aggregate_user.follower_count, 0) as follower_count,
-            coalesce(fast_challenge_completion.challenge_count, 0) as challenge_count,
-            coalesce(chat_blocks.block_count, 0) as chat_block_count,
-            case
-                when (
-                    users.handle_lc ilike '%audius%'
-                    or lower(users.name) ilike '%audius%'
-                )
-                and users.is_verified = false then true
-                else false
-            end as is_audius_impersonator
-        from users
-            left join play_activity on users.user_id = play_activity.user_id
-            left join fast_challenge_completion on users.user_id = fast_challenge_completion.user_id
-            left join chat_blocks on users.user_id = chat_blocks.user_id
-            left join aggregate_user on aggregate_user.user_id = users.user_id
-        where users.handle_lc is not null
-            and (
-                target_user_ids is null
-                or users.user_id = any(target_user_ids)
-            )
-    )
-select a.*,
-    compute_user_score(
-        a.play_count,
-        a.follower_count,
-        a.challenge_count,
-        a.chat_block_count,
-        a.following_count,
-        a.is_audius_impersonator,
-        a.distinct_tracks_played
+        a.distinct_tracks_played,
+        a.karma
     ) as score
 from aggregate_scores a;
 $$;
@@ -1942,14 +1887,14 @@ begin
   select * into reward_manager_tx from reward_manager_txs where reward_manager_txs.signature = new.signature limit 1;
 
   if reward_manager_tx is not null then
-		select id into existing_notification
+		select id into existing_notification 
 		from notification
 		where
 		type = 'challenge_reward' and
 		new.user_id = any(user_ids) and
 		timestamp >= (new.created_at - interval '1 hour')
 		limit 1;
-
+		
 		if existing_notification is null then
 			-- create a notification for the challenge disbursement
 			insert into notification
@@ -1987,14 +1932,14 @@ CREATE FUNCTION public.handle_comment() RETURNS trigger
     AS $$
 begin
   if new.entity_type = 'Track' then
-    insert into aggregate_track (track_id)
-    values (new.entity_id)
+    insert into aggregate_track (track_id) 
+    values (new.entity_id) 
     on conflict do nothing;
   end if;
 
   -- update agg track
   if new.entity_type = 'Track' then
-    update aggregate_track
+    update aggregate_track 
     set comment_count = (
       select count(*)
       from comments c
@@ -2032,12 +1977,12 @@ declare
 begin
   select comments.user_id, comments.entity_id, comments.entity_type
   into comment_user_id , entity_id, entity_type
-  from comments
+  from comments 
   where comment_id = new.comment_id;
 
-  select tracks.owner_id
-  into entity_user_id
-  from tracks
+  select tracks.owner_id 
+  into entity_user_id 
+  from tracks 
   where track_id = entity_id;
 
   begin
@@ -2045,10 +1990,10 @@ begin
       insert into notification
         (blocknumber, user_ids, timestamp, type, specifier, group_id, data)
         values
-        (
+        ( 
           new.blocknumber,
-          ARRAY [new.user_id],
-          new.created_at,
+          ARRAY [new.user_id], 
+          new.created_at, 
           'comment_mention',
           comment_user_id,
           'comment_mention:' || entity_id || ':type:' || entity_type,
@@ -2091,25 +2036,25 @@ declare
   created_at timestamp without time zone;
   notification_muted boolean;
 begin
-  select comments.user_id, comments.entity_id, comments.entity_type
-  into parent_comment_user_id, entity_id, entity_type
-  from comments
+  select comments.user_id, comments.entity_id, comments.entity_type 
+  into parent_comment_user_id, entity_id, entity_type 
+  from comments 
   where comment_id = new.parent_comment_id;
 
   select comments.user_id, comments.blocknumber, comments.created_at
   into comment_user_id, blocknumber, created_at
-  from comments
+  from comments 
   where comment_id = new.comment_id;
 
-  select tracks.owner_id
-  into entity_user_id
-  from tracks
+  select tracks.owner_id 
+  into entity_user_id 
+  from tracks 
   where track_id = entity_id;
 
   select comment_notification_settings.is_muted
   into notification_muted
   from comment_notification_settings
-  where user_id = parent_comment_user_id
+  where user_id = parent_comment_user_id 
   and comment_notification_settings.entity_id = new.parent_comment_id
   and comment_notification_settings.entity_type = 'Comment';
 
@@ -2118,10 +2063,10 @@ begin
       insert into notification
         (blocknumber, user_ids, timestamp, type, specifier, group_id, data)
         values
-        (
+        ( 
           blocknumber,
           ARRAY [parent_comment_user_id],
-          created_at,
+          created_at, 
           'comment_thread',
           comment_user_id,
           'comment_thread:' || new.parent_comment_id,
@@ -2143,6 +2088,80 @@ exception
     when others then
       raise warning 'An error occurred in %: %', tg_name, sqlerrm;
       return null;
+end;
+$$;
+
+
+--
+-- Name: handle_event(); Type: FUNCTION; Schema: public; Owner: -
+--
+
+CREATE FUNCTION public.handle_event() RETURNS trigger
+    LANGUAGE plpgsql
+    AS $$
+declare
+  notified_user_id int;
+  owner_user_id int;
+  track_is_public boolean;
+begin
+  -- Only proceed if this is a remix contest event
+  if new.event_type = 'remix_contest' and new.is_deleted = false then
+    -- Get the owner of the track and check if it's public
+    select owner_id, not is_unlisted into owner_user_id, track_is_public 
+    from tracks 
+    where is_current and track_id = new.entity_id 
+    limit 1;
+
+    -- Only create notifications if the track is public
+    if track_is_public then
+      -- For each follower of the event creator and each user who favorited the track
+      -- Using UNION to ensure we don't get duplicate user_ids
+      for notified_user_id in
+        select distinct user_id
+        from (
+          -- Get followers
+          select f.follower_user_id as user_id
+          from follows f
+          where f.followee_user_id = new.user_id
+            and f.is_current = true
+            and f.is_delete = false
+          union
+          -- Get users who favorited the track
+          select s.user_id
+          from saves s
+          where s.save_item_id = new.entity_id
+            and s.save_type = 'track'
+            and s.is_current = true
+            and s.is_delete = false
+        ) as users_to_notify
+      loop
+        -- Create a notification for this user
+        insert into notification
+          (blocknumber, user_ids, timestamp, type, specifier, group_id, data)
+        values
+          (
+            new.blocknumber,
+            ARRAY[notified_user_id],
+            new.created_at,
+            'fan_remix_contest_started',
+            notified_user_id,
+            'fan_remix_contest_started:' || new.entity_id || ':user:' || new.user_id,
+            json_build_object(
+              'entity_user_id', owner_user_id,
+              'entity_id', new.entity_id
+            )
+          )
+        on conflict do nothing;
+      end loop;
+    end if;
+  end if;
+
+  return null;
+
+exception
+  when others then
+    raise warning 'An error occurred in %: %', tg_name, sqlerrm;
+    return null;
 end;
 $$;
 
@@ -2170,11 +2189,11 @@ begin
     delta := 1;
   end if;
 
-  update aggregate_user
-  set following_count = following_count + delta
+  update aggregate_user 
+  set following_count = following_count + delta 
   where user_id = new.follower_user_id;
 
-  update aggregate_user
+  update aggregate_user 
   set follower_count = follower_count + delta
   where user_id = new.followee_user_id
   returning follower_count into new_follower_count;
@@ -2183,7 +2202,7 @@ begin
   select new_follower_count into milestone where new_follower_count in (10, 25, 50, 100, 250, 500, 1000, 5000, 10000, 20000, 50000, 100000, 1000000);
   select score < 0 into is_shadowbanned from aggregate_user where user_id = new.follower_user_id;
   if milestone is not null and new.is_delete is false and is_shadowbanned = false then
-      insert into milestones
+      insert into milestones 
         (id, name, threshold, blocknumber, slot, timestamp)
       values
         (new.followee_user_id, 'FOLLOWER_COUNT', milestone, new.blocknumber, new.slot, new.created_at)
@@ -2232,7 +2251,7 @@ exception
     raise warning 'An error occurred in %: %', tg_name, sqlerrm;
     raise;
 
-end;
+end; 
 $$;
 
 
@@ -2288,7 +2307,7 @@ begin
                 'challenge_reward',
                 'challenge_reward:' || new.user_id || ':challenge:' || new.challenge_id || ':specifier:' || new.specifier,
                 new.user_id,
-                case
+                case 
                     when new.challenge_id = 'e' then
                         json_build_object(
                             'specifier', new.specifier,
@@ -2306,9 +2325,9 @@ begin
             )
             on conflict do nothing;
         else
-            -- transactional notifications cover this
+            -- transactional notifications cover this 
             if (new.challenge_id != 'b' and new.challenge_id != 's') then
-                select id into existing_notification
+                select id into existing_notification 
                 from notification
                 where
                 type = 'reward_in_cooldown' and
@@ -2358,7 +2377,7 @@ begin
     insert into aggregate_plays (play_item_id, count) values (new.play_item_id, 0) on conflict do nothing;
 
     update aggregate_plays
-        set count = count + 1
+        set count = count + 1 
         where play_item_id = new.play_item_id
         returning count into new_listen_count;
 
@@ -2373,8 +2392,8 @@ begin
         and timestamp = date_trunc('month', new.created_at)
         and country = coalesce(new.country, '');
 
-    select new_listen_count
-        into milestone
+    select new_listen_count 
+        into milestone 
         where new_listen_count in (10,25,50,100,250,500,1000,2500,5000,10000,25000,50000,100000,250000,500000,1000000);
 
     if milestone is not null then
@@ -2574,7 +2593,7 @@ begin
           json_build_object('track_id', new.track_id, 'playlist_id', new.playlist_id, 'playlist_owner_id', playlist_record.playlist_owner_id)
         from album_purchasers as album_purchaser;
   end if;
-
+  
   return null;
 
 exception
@@ -2601,16 +2620,16 @@ declare
 begin
 
   raise NOTICE 'start';
-
+  
   if new.reaction_type = 'tip' then
 
     raise NOTICE 'is tip';
 
-    SELECT amount, sender_user_id, receiver_user_id
-    INTO tip_amount, tip_sender_user_id, tip_receiver_user_id
-    FROM user_tips ut
+    SELECT amount, sender_user_id, receiver_user_id 
+    INTO tip_amount, tip_sender_user_id, tip_receiver_user_id 
+    FROM user_tips ut 
     WHERE ut.signature = new.reacted_to;
-
+    
     raise NOTICE 'did select % %', tip_sender_user_id, tip_receiver_user_id;
     raise NOTICE 'did select %', new.reacted_to;
 
@@ -2705,7 +2724,7 @@ begin
   end if;
 
   -- update agg user
-  update aggregate_user
+  update aggregate_user 
   set repost_count = (
     select count(*)
     from reposts r
@@ -2718,7 +2737,7 @@ begin
   -- update agg track or playlist
   if new.repost_type = 'track' then
     milestone_name := 'TRACK_REPOST_COUNT';
-    update aggregate_track
+    update aggregate_track 
     set repost_count = (
       select count(*)
       from reposts r
@@ -2744,7 +2763,7 @@ begin
           and r.is_delete is false
           and r.repost_type = new.repost_type
           and r.repost_item_id = new.repost_item_id
-    )
+    )    
     where playlist_id = new.repost_item_id
     returning repost_count into new_val;
 
@@ -2758,7 +2777,7 @@ begin
   select score < 0 into is_shadowbanned from aggregate_user where user_id = new.user_id;
 
   if new.is_delete = false and milestone is not null and owner_user_id is not null and is_shadowbanned = false then
-    insert into milestones
+    insert into milestones 
       (id, name, threshold, blocknumber, slot, timestamp)
     values
       (new.repost_item_id, milestone_name, milestone, new.blocknumber, new.slot, new.created_at)
@@ -2859,7 +2878,7 @@ begin
 				'user_id',
 				new.user_id,
 				'type',
-        case
+        case 
           when is_album then 'album'
           else new.repost_type
         end
@@ -2963,7 +2982,7 @@ begin
     where p.playlist_id = new.save_item_id
     and p.is_current
     on conflict do nothing;
-
+    
     select ap.is_album into is_album
     from aggregate_playlist ap
     where ap.playlist_id = new.save_item_id;
@@ -2988,7 +3007,7 @@ begin
   if new.save_type = 'track' then
     milestone_name := 'TRACK_SAVE_COUNT';
 
-    update aggregate_track
+    update aggregate_track 
     set save_count = (
       select count(*)
       from saves r
@@ -3002,7 +3021,7 @@ begin
     returning save_count into new_val;
 
     -- update agg user
-    update aggregate_user
+    update aggregate_user 
     set track_save_count = (
       select count(*)
       from saves r
@@ -3012,7 +3031,7 @@ begin
         and r.save_type = new.save_type
     )
     where user_id = new.user_id;
-
+    
   	if new.is_delete IS FALSE then
 		  select tracks.owner_id, tracks.remix_of into owner_user_id, track_remix_of from tracks where is_current and track_id = new.save_item_id;
 	  end if;
@@ -3043,7 +3062,7 @@ begin
   select score < 0 into is_shadowbanned from aggregate_user where user_id = new.user_id;
 
   if new.is_delete = false and milestone is not null and is_shadowbanned = false then
-    insert into milestones
+    insert into milestones 
       (id, name, threshold, blocknumber, slot, timestamp)
     values
       (new.save_item_id, milestone_name, milestone, new.blocknumber, new.slot, new.created_at)
@@ -3087,10 +3106,10 @@ begin
       insert into notification
         (blocknumber, user_ids, timestamp, type, specifier, group_id, data)
         values
-        (
+        ( 
           new.blocknumber,
-          ARRAY [owner_user_id],
-          new.created_at,
+          ARRAY [owner_user_id], 
+          new.created_at, 
           'save',
           new.user_id,
           'save:' || new.save_item_id || ':type:'|| new.save_type,
@@ -3149,7 +3168,7 @@ begin
           'user_id',
           new.user_id,
           'type',
-          case
+          case 
             when is_album then 'album'
             else new.save_type
           end
@@ -3163,16 +3182,16 @@ begin
     if new.is_delete is false and new.save_type = 'track' and track_remix_of is not null and is_shadowbanned = false then
       select
         case when tracks.owner_id = new.user_id then TRUE else FALSE end as boolean into is_remix_cosign
-        from tracks
+        from tracks 
         where is_current and track_id = (track_remix_of->'tracks'->0->>'parent_track_id')::int;
       if is_remix_cosign then
         insert into notification
           (blocknumber, user_ids, timestamp, type, specifier, group_id, data)
           values
-          (
+          ( 
             new.blocknumber,
-            ARRAY [owner_user_id],
-            new.created_at,
+            ARRAY [owner_user_id], 
+            new.created_at, 
             'cosign',
             new.user_id,
             'cosign:parent_track' || (track_remix_of->'tracks'->0->>'parent_track_id')::int || ':original_track:'|| new.save_item_id,
@@ -3194,7 +3213,7 @@ exception
       raise warning 'An error occurred in %: %', tg_name, sqlerrm;
       raise;
 
-end;
+end; 
 $$;
 
 
@@ -3357,6 +3376,68 @@ begin
       raise warning 'An error occurred in %: %', tg_name, sqlerrm;
   end;
 
+  -- If new remix is a submission to an active remix contest, check for milestone notifications
+  begin
+    if track_should_notify(OLD, new, TG_OP) AND new.remix_of is not null THEN
+      declare
+        contest_event_id int;
+        contest_creator_id int;
+        submission_count int;
+        milestone int;
+        parent_track_id int := (new.remix_of->'tracks'->0->>'parent_track_id')::int;
+      begin
+        select event_id, user_id
+        into contest_event_id, contest_creator_id
+        from events
+        where event_type = 'remix_contest'
+          and is_deleted = false
+          and end_date > now()
+          and entity_id = parent_track_id
+        limit 1;
+
+        if contest_event_id is not null then
+          -- Count submissions for this contest (only those after contest start)
+          select count(*) into submission_count
+          from tracks t
+          join events e on e.event_type = 'remix_contest'
+            and e.is_deleted = false
+            and e.entity_id = parent_track_id
+          where t.is_current = true
+            and t.is_delete = false
+            and t.remix_of is not null
+            and (t.remix_of->'tracks'->0->>'parent_track_id')::int = parent_track_id
+            and t.created_at >= e.created_at;
+
+          -- For each milestone, insert notification if this is the Nth submission
+          FOREACH milestone IN ARRAY ARRAY[1, 10, 50] LOOP
+            IF submission_count = milestone THEN
+              insert into notification
+                (blocknumber, user_ids, timestamp, type, specifier, group_id, data)
+              values
+                (
+                  new.blocknumber,
+                  ARRAY [contest_creator_id],
+                  new.updated_at,
+                  'artist_remix_contest_submissions',
+                  milestone || ':' || contest_event_id,
+                  'artist_remix_contest_submissions:' || contest_event_id || ':' || milestone,
+                  json_build_object(
+                    'event_id', contest_event_id,
+                    'milestone', milestone,
+                    'entity_id', parent_track_id
+                  )
+                )
+              on conflict do nothing;
+            END IF;
+          END LOOP;
+        end if;
+      end;
+    end if;
+    exception
+      when others then
+        raise warning 'An error occurred in %: %', tg_name, sqlerrm;
+  end;
+
   return null;
 
 exception
@@ -3422,7 +3503,7 @@ begin
     when others then
         raise warning 'An error occurred in %: %', tg_name, sqlerrm;
         return null;
-end;
+end; 
 $$;
 
 
@@ -3521,7 +3602,7 @@ begin
   ) as tier (label, val)
   WHERE
     substr(new.current_balance, 1, GREATEST(1, length(new.current_balance) - 18))::bigint >= tier.val
-  ORDER BY
+  ORDER BY 
     tier.val DESC
   limit 1;
 
@@ -3531,7 +3612,7 @@ begin
   ) as tier (label, val)
   WHERE
     substr(new.previous_balance, 1, GREATEST(1, length(new.previous_balance) - 18))::bigint >= tier.val
-  ORDER BY
+  ORDER BY 
     tier.val DESC
   limit 1;
 
@@ -3540,10 +3621,10 @@ begin
     insert into notification
       (blocknumber, user_ids, timestamp, type, specifier, group_id, data)
     values
-      (
+      ( 
         new.blocknumber,
-        ARRAY [new.user_id],
-        new.updated_at,
+        ARRAY [new.user_id], 
+        new.updated_at, 
         'tier_change',
         new.user_id,
         'tier_change:user_id:' || new.user_id ||  ':tier:' || new_tier || ':blocknumber:' || new.blocknumber,
@@ -3579,10 +3660,10 @@ begin
   insert into notification
     (slot, user_ids, timestamp, type, specifier, group_id, data)
   values
-    (
+    ( 
       new.slot,
-      ARRAY [new.receiver_user_id],
-      new.created_at,
+      ARRAY [new.receiver_user_id], 
+      new.created_at, 
       'tip_receive',
       new.receiver_user_id,
       'tip_receive:user_id:' || new.receiver_user_id || ':signature:' || new.signature,
@@ -3593,10 +3674,10 @@ begin
         'tx_signature', new.signature
       )
     ),
-    (
+    ( 
       new.slot,
-      ARRAY [new.sender_user_id],
-      new.created_at,
+      ARRAY [new.sender_user_id], 
+      new.created_at, 
       'tip_send',
       new.sender_user_id,
       'tip_send:user_id:' || new.sender_user_id || ':signature:' || new.signature,
@@ -3658,19 +3739,27 @@ BEGIN
         country = 'Afghanistan' OR
         country = 'Albania' OR
         country = 'Algeria' OR
+        country = 'American Samoa' OR
         country = 'Andorra' OR
         country = 'Angola' OR
+        country = 'Antigua and Barbuda' OR
         country = 'Arab Emirates' OR
         country = 'Armenia' OR
+        country = 'Aruba' OR
         country = 'Australia' OR
         country = 'Austria' OR
         country = 'Azerbaijan' OR
+        country = 'Bahamas' OR
         country = 'Bahrain' OR
         country = 'Bangladesh' OR
+        country = 'Barbados' OR
         country = 'Belarus' OR
         country = 'Belgium' OR
+        country = 'Belize' OR
         country = 'Benin' OR
+        country = 'Bermuda' OR
         country = 'Bhutan' OR
+        country = 'Bolivia' OR
         country = 'Bosnia and Herzegovina' OR
         country = 'Botswana' OR
         country = 'Brunei' OR
@@ -3681,39 +3770,56 @@ BEGIN
         country = 'Cambodia' OR
         country = 'Cameroon' OR
         country = 'Cape Verde' OR
+        country = 'Cayman Islands' OR
         country = 'Central African Republic' OR
         country = 'Chad' OR
         country = 'Channel Islands' OR
+        country = 'Chile' OR
         country = 'China' OR
+        country = 'Colombia' OR
         country = 'Comoros' OR
         country = 'Congo' OR
-        country = 'Democratic Republic of the Congo' OR
+        country = 'Costa Rica' OR
+        country = 'Cote d''Ivoire' OR
         country = 'Côte d''Ivoire' OR
         country = 'Croatia' OR
+        country = 'Cuba' OR
+        country = 'Curacao' OR
         country = 'Cyprus' OR
         country = 'Czech Republic' OR
         country = 'Czechia' OR
+        country = 'Democratic People''s Republic of Korea' OR
+        country = 'Democratic Republic of the Congo' OR
         country = 'Denmark' OR
         country = 'Djibouti' OR
+        country = 'Dominica' OR
+        country = 'Dominican Republic' OR
         country = 'East Timor' OR
+        country = 'Ecuador' OR
         country = 'Egypt' OR
+        country = 'El Salvador' OR
         country = 'Equatorial Guinea' OR
         country = 'Eritrea' OR
         country = 'Estonia' OR
         country = 'Eswatini' OR
         country = 'Ethiopia' OR
+        country = 'Faroe Islands' OR
         country = 'Fiji' OR
         country = 'Finland' OR
         country = 'France' OR
+        country = 'French Polynesia' OR
         country = 'Gabon' OR
+        country = 'Gambia' OR
         country = 'Gambia' OR
         country = 'Georgia' OR
         country = 'Germany' OR
         country = 'Ghana' OR
         country = 'Gibraltar' OR
         country = 'Greece' OR
-        country = 'Guinea' OR
+        country = 'Guernsey' OR
         country = 'Guinea-Bissau' OR
+        country = 'Guinea' OR
+        country = 'Holy See' OR
         country = 'Hong Kong' OR
         country = 'Hungary' OR
         country = 'Iceland' OR
@@ -3726,6 +3832,7 @@ BEGIN
         country = 'Italy' OR
         country = 'Ivory Coast' OR
         country = 'Japan' OR
+        country = 'Jersey' OR
         country = 'Jordan' OR
         country = 'Kazakhstan' OR
         country = 'Kenya' OR
@@ -3778,6 +3885,8 @@ BEGIN
         country = 'Palestine' OR
         country = 'Palestinian Territory' OR
         country = 'Papua New Guinea' OR
+        country = 'Paraguay' OR
+        country = 'Peru' OR
         country = 'Philippines' OR
         country = 'Poland' OR
         country = 'Portugal' OR
@@ -3804,6 +3913,7 @@ BEGIN
         country = 'Spain' OR
         country = 'Sri Lanka' OR
         country = 'Sudan' OR
+        country = 'Suriname' OR
         country = 'Swaziland' OR
         country = 'Sweden' OR
         country = 'Switzerland' OR
@@ -3813,21 +3923,26 @@ BEGIN
         country = 'Tanzania' OR
         country = 'Thailand' OR
         country = 'Timor Leste' OR
-        country = 'Gambia' OR
         country = 'Togo' OR
         country = 'Tonga' OR
+        country = 'Trinidad and Tobago' OR
         country = 'Tunisia' OR
         country = 'Turkey' OR
         country = 'Turkmenistan' OR
+        country = 'Turks and Caicos Islands' OR
         country = 'Tuvalu' OR
         country = 'Uganda' OR
         country = 'Ukraine' OR
         country = 'United Arab Emirates' OR
         country = 'United Kingdom' OR
+        country = 'United States' OR
+        country = 'Uruguay' OR
         country = 'Uzbekistan' OR
         country = 'Vanuatu' OR
-        country = 'Vietnam' OR
         country = 'Vatican City' OR
+        country = 'Venezuela' OR
+        country = 'Vietnam' OR
+        country = 'Virgin Islands' OR
         country = 'Western Sahara' OR
         country = 'Yemen' OR
         country = 'Zambia' OR
@@ -3837,13 +3952,17 @@ BEGIN
         country = 'AD' OR
         country = 'AE' OR
         country = 'AF' OR
+        country = 'AG' OR
         country = 'AL' OR
         country = 'AM' OR
         country = 'AO' OR
+        country = 'AS' OR
         country = 'AT' OR
         country = 'AU' OR
+        country = 'AW' OR
         country = 'AZ' OR
         country = 'BA' OR
+        country = 'BB' OR
         country = 'BD' OR
         country = 'BE' OR
         country = 'BF' OR
@@ -3851,18 +3970,35 @@ BEGIN
         country = 'BH' OR
         country = 'BI' OR
         country = 'BJ' OR
+        country = 'BM' OR
+        country = 'BN' OR
+        country = 'BO' OR
+        country = 'BS' OR
         country = 'BT' OR
         country = 'BW' OR
         country = 'BY' OR
+        country = 'BZ' OR
         country = 'CF' OR
+        country = 'CG' OR
         country = 'CH' OR
+        country = 'CI' OR
+        country = 'CL' OR
         country = 'CM' OR
         country = 'CN' OR
+        country = 'CO' OR
+        country = 'CR' OR
+        country = 'CU' OR
+        country = 'CV' OR
+        country = 'CW' OR
         country = 'CY' OR
+        country = 'CZ' OR
         country = 'DE' OR
         country = 'DJ' OR
         country = 'DK' OR
+        country = 'DM' OR
+        country = 'DO' OR
         country = 'DZ' OR
+        country = 'EC' OR
         country = 'EE' OR
         country = 'EG' OR
         country = 'EH' OR
@@ -3871,27 +4007,38 @@ BEGIN
         country = 'ET' OR
         country = 'FI' OR
         country = 'FJ' OR
+        country = 'FO' OR
         country = 'FR' OR
         country = 'GA' OR
         country = 'GB' OR
+        country = 'GD' OR
         country = 'GE' OR
+        country = 'GG' OR
         country = 'GH' OR
         country = 'GI' OR
         country = 'GM' OR
         country = 'GN' OR
         country = 'GQ' OR
         country = 'GR' OR
+        country = 'GT' OR
+        country = 'GU' OR
         country = 'GW' OR
+        country = 'GY' OR
         country = 'HK' OR
+        country = 'HN' OR
         country = 'HR' OR
+        country = 'HT' OR
         country = 'HU' OR
         country = 'ID' OR
         country = 'IE' OR
         country = 'IL' OR
+        country = 'IM' OR
         country = 'IN' OR
         country = 'IQ' OR
         country = 'IS' OR
         country = 'IT' OR
+        country = 'JE' OR
+        country = 'JM' OR
         country = 'JO' OR
         country = 'JP' OR
         country = 'KE' OR
@@ -3899,9 +4046,15 @@ BEGIN
         country = 'KH' OR
         country = 'KI' OR
         country = 'KM' OR
+        country = 'KN' OR
+        country = 'KP' OR
+        country = 'KR' OR
         country = 'KW' OR
+        country = 'KY' OR
         country = 'KZ' OR
+        country = 'LA' OR
         country = 'LB' OR
+        country = 'LC' OR
         country = 'LI' OR
         country = 'LK' OR
         country = 'LR' OR
@@ -3909,8 +4062,10 @@ BEGIN
         country = 'LT' OR
         country = 'LU' OR
         country = 'LV' OR
+        country = 'LY' OR
         country = 'MA' OR
         country = 'MC' OR
+        country = 'MD' OR
         country = 'ME' OR
         country = 'MG' OR
         country = 'MH' OR
@@ -3918,28 +4073,41 @@ BEGIN
         country = 'ML' OR
         country = 'MM' OR
         country = 'MN' OR
+        country = 'MO' OR
         country = 'MR' OR
+        country = 'MS' OR
         country = 'MT' OR
         country = 'MU' OR
         country = 'MV' OR
         country = 'MW' OR
+        country = 'MX' OR
         country = 'MY' OR
         country = 'MZ' OR
         country = 'NA' OR
         country = 'NE' OR
         country = 'NG' OR
+        country = 'NI' OR
+        country = 'NL' OR
         country = 'NO' OR
         country = 'NP' OR
         country = 'NR' OR
         country = 'NU' OR
         country = 'NZ' OR
         country = 'OM' OR
+        country = 'PA' OR
+        country = 'PE' OR
+        country = 'PF' OR
         country = 'PG' OR
         country = 'PH' OR
         country = 'PK' OR
         country = 'PL' OR
+        country = 'PM' OR
+        country = 'PN' OR
+        country = 'PR' OR
+        country = 'PS' OR
         country = 'PT' OR
         country = 'PW' OR
+        country = 'PY' OR
         country = 'QA' OR
         country = 'RE' OR
         country = 'RO' OR
@@ -3957,19 +4125,38 @@ BEGIN
         country = 'SM' OR
         country = 'SN' OR
         country = 'SO' OR
+        country = 'SR' OR
         country = 'SS' OR
         country = 'ST' OR
+        country = 'SV' OR
+        country = 'SX' OR
+        country = 'SY' OR
+        country = 'SZ' OR
+        country = 'TC' OR
         country = 'TD' OR
         country = 'TG' OR
         country = 'TH' OR
         country = 'TJ' OR
+        country = 'TK' OR
+        country = 'TL' OR
         country = 'TM' OR
         country = 'TN' OR
         country = 'TO' OR
+        country = 'TR' OR
+        country = 'TT' OR
         country = 'TV' OR
+        country = 'TW' OR
+        country = 'TZ' OR
         country = 'UA' OR
         country = 'UG' OR
+        country = 'US' OR
+        country = 'UY' OR
         country = 'UZ' OR
+        country = 'VA' OR
+        country = 'VC' OR
+        country = 'VE' OR
+        country = 'VG' OR
+        country = 'VI' OR
         country = 'VN' OR
         country = 'VU' OR
         country = 'WS' OR
@@ -3977,23 +4164,7 @@ BEGIN
         country = 'YE' OR
         country = 'ZA' OR
         country = 'ZM' OR
-        country = 'ZW' OR
-        country = 'BN' OR
-        country = 'CZ' OR
-        country = 'CD' OR
-        country = 'SZ' OR
-        country = 'IR' OR
-        country = 'CI' OR
-        country = 'LA' OR
-        country = 'LY' OR
-        country = 'FM' OR
-        country = 'PS' OR
-        country = 'KR' OR
-        country = 'SY' OR
-        country = 'TW' OR
-        country = 'TZ' OR
-        country = 'TL' OR
-        country = 'TR'
+        country = 'ZW'
         ;
 END;
 $$;
@@ -4022,7 +4193,7 @@ CREATE FUNCTION public.on_new_notification_row() RETURNS trigger
 begin
   PERFORM pg_notify(TG_TABLE_NAME, json_build_object('notification_id', new.id)::text);
   return null;
-end;
+end; 
 $$;
 
 
@@ -4036,7 +4207,7 @@ CREATE FUNCTION public.on_new_notification_seen_row() RETURNS trigger
 begin
   PERFORM pg_notify(TG_TABLE_NAME, json_build_object('user_id', new.user_id)::text);
   return null;
-end;
+end; 
 $$;
 
 
@@ -4075,7 +4246,7 @@ declare
 begin
     -- fetch the user_id where wallet matches grantee_address
     select user_id into matched_user_id from users where lower(wallet) = lower(NEW.grantee_address);
-
+    
     if matched_user_id is not null then
         -- if the grant is newly created (i.e. the grant is not deleted, is not approved yet, and was just created indicated by created timestamp = last updated timestamp) OR grant went from deleted (revoked) to not deleted and is not approved yet...
         if (TG_OP = 'INSERT' and NEW.is_revoked = FALSE and NEW.is_approved is null and NEW.created_at = NEW.updated_at or
@@ -4129,7 +4300,7 @@ exception
   when others then
       raise warning 'An error occurred in %: %', tg_name, sqlerrm;
       return null;
-end;
+end; 
 $$;
 
 
@@ -4474,19 +4645,19 @@ begin
     if codes is null then
         return true;
     end if;
-
+    
     -- array must have at least one element
     if array_length(codes, 1) is null then
         return false;
     end if;
-
+    
     -- check each element to make sure it's a 2 letter ISO code
     for i in 1..array_length(codes, 1) loop
         if codes[i] !~ '^[A-Z]{2}$' then
             return false;
         end if;
     end loop;
-
+    
     return true;
 end;
 $_$;
@@ -4690,6 +4861,37 @@ ALTER TEXT SEARCH CONFIGURATION public.audius_ts_config
 
 ALTER TEXT SEARCH CONFIGURATION public.audius_ts_config
     ADD MAPPING FOR uint WITH simple;
+
+
+--
+-- Name: access_keys; Type: TABLE; Schema: public; Owner: -
+--
+
+CREATE TABLE public.access_keys (
+    id integer NOT NULL,
+    track_id text NOT NULL,
+    pub_key text NOT NULL
+);
+
+
+--
+-- Name: access_keys_id_seq; Type: SEQUENCE; Schema: public; Owner: -
+--
+
+CREATE SEQUENCE public.access_keys_id_seq
+    AS integer
+    START WITH 1
+    INCREMENT BY 1
+    NO MINVALUE
+    NO MAXVALUE
+    CACHE 1;
+
+
+--
+-- Name: access_keys_id_seq; Type: SEQUENCE OWNED BY; Schema: public; Owner: -
+--
+
+ALTER SEQUENCE public.access_keys_id_seq OWNED BY public.access_keys.id;
 
 
 --
@@ -5612,316 +5814,6 @@ CREATE TABLE public.core_db_migrations (
 
 
 --
--- Name: core_etl_tx; Type: TABLE; Schema: public; Owner: -
---
-
-CREATE TABLE public.core_etl_tx (
-    id bigint NOT NULL,
-    block_height bigint NOT NULL,
-    tx_index integer NOT NULL,
-    tx_hash text NOT NULL,
-    tx_type text NOT NULL,
-    tx_data jsonb NOT NULL,
-    created_at timestamp with time zone NOT NULL
-);
-
-
---
--- Name: core_etl_tx_duplicates; Type: TABLE; Schema: public; Owner: -
---
-
-CREATE TABLE public.core_etl_tx_duplicates (
-    id bigint NOT NULL,
-    tx_hash text NOT NULL,
-    table_name text NOT NULL,
-    duplicate_type text NOT NULL,
-    created_at timestamp with time zone DEFAULT now() NOT NULL
-);
-
-
---
--- Name: core_etl_tx_duplicates_id_seq; Type: SEQUENCE; Schema: public; Owner: -
---
-
-CREATE SEQUENCE public.core_etl_tx_duplicates_id_seq
-    START WITH 1
-    INCREMENT BY 1
-    NO MINVALUE
-    NO MAXVALUE
-    CACHE 1;
-
-
---
--- Name: core_etl_tx_duplicates_id_seq; Type: SEQUENCE OWNED BY; Schema: public; Owner: -
---
-
-ALTER SEQUENCE public.core_etl_tx_duplicates_id_seq OWNED BY public.core_etl_tx_duplicates.id;
-
-
---
--- Name: core_etl_tx_id_seq; Type: SEQUENCE; Schema: public; Owner: -
---
-
-CREATE SEQUENCE public.core_etl_tx_id_seq
-    START WITH 1
-    INCREMENT BY 1
-    NO MINVALUE
-    NO MAXVALUE
-    CACHE 1;
-
-
---
--- Name: core_etl_tx_id_seq; Type: SEQUENCE OWNED BY; Schema: public; Owner: -
---
-
-ALTER SEQUENCE public.core_etl_tx_id_seq OWNED BY public.core_etl_tx.id;
-
-
---
--- Name: core_etl_tx_manage_entity; Type: TABLE; Schema: public; Owner: -
---
-
-CREATE TABLE public.core_etl_tx_manage_entity (
-    id bigint NOT NULL,
-    tx_hash text NOT NULL,
-    user_id bigint NOT NULL,
-    entity_type text NOT NULL,
-    entity_id bigint NOT NULL,
-    action text NOT NULL,
-    metadata text NOT NULL,
-    signature text NOT NULL,
-    signer text NOT NULL,
-    nonce text NOT NULL,
-    created_at timestamp with time zone NOT NULL
-);
-
-
---
--- Name: core_etl_tx_manage_entity_id_seq; Type: SEQUENCE; Schema: public; Owner: -
---
-
-CREATE SEQUENCE public.core_etl_tx_manage_entity_id_seq
-    START WITH 1
-    INCREMENT BY 1
-    NO MINVALUE
-    NO MAXVALUE
-    CACHE 1;
-
-
---
--- Name: core_etl_tx_manage_entity_id_seq; Type: SEQUENCE OWNED BY; Schema: public; Owner: -
---
-
-ALTER SEQUENCE public.core_etl_tx_manage_entity_id_seq OWNED BY public.core_etl_tx_manage_entity.id;
-
-
---
--- Name: core_etl_tx_plays; Type: TABLE; Schema: public; Owner: -
---
-
-CREATE TABLE public.core_etl_tx_plays (
-    id bigint NOT NULL,
-    tx_hash text NOT NULL,
-    user_id text NOT NULL,
-    track_id text NOT NULL,
-    played_at timestamp with time zone NOT NULL,
-    signature text NOT NULL,
-    city text,
-    region text,
-    country text,
-    created_at timestamp with time zone NOT NULL
-);
-
-
---
--- Name: core_etl_tx_plays_id_seq; Type: SEQUENCE; Schema: public; Owner: -
---
-
-CREATE SEQUENCE public.core_etl_tx_plays_id_seq
-    START WITH 1
-    INCREMENT BY 1
-    NO MINVALUE
-    NO MAXVALUE
-    CACHE 1;
-
-
---
--- Name: core_etl_tx_plays_id_seq; Type: SEQUENCE OWNED BY; Schema: public; Owner: -
---
-
-ALTER SEQUENCE public.core_etl_tx_plays_id_seq OWNED BY public.core_etl_tx_plays.id;
-
-
---
--- Name: core_etl_tx_sla_rollup; Type: TABLE; Schema: public; Owner: -
---
-
-CREATE TABLE public.core_etl_tx_sla_rollup (
-    id bigint NOT NULL,
-    tx_hash text NOT NULL,
-    block_start bigint NOT NULL,
-    block_end bigint NOT NULL,
-    "timestamp" timestamp with time zone NOT NULL,
-    created_at timestamp with time zone NOT NULL
-);
-
-
---
--- Name: core_etl_tx_sla_rollup_id_seq; Type: SEQUENCE; Schema: public; Owner: -
---
-
-CREATE SEQUENCE public.core_etl_tx_sla_rollup_id_seq
-    START WITH 1
-    INCREMENT BY 1
-    NO MINVALUE
-    NO MAXVALUE
-    CACHE 1;
-
-
---
--- Name: core_etl_tx_sla_rollup_id_seq; Type: SEQUENCE OWNED BY; Schema: public; Owner: -
---
-
-ALTER SEQUENCE public.core_etl_tx_sla_rollup_id_seq OWNED BY public.core_etl_tx_sla_rollup.id;
-
-
---
--- Name: core_etl_tx_storage_proof; Type: TABLE; Schema: public; Owner: -
---
-
-CREATE TABLE public.core_etl_tx_storage_proof (
-    id bigint NOT NULL,
-    tx_hash text NOT NULL,
-    height bigint NOT NULL,
-    address text NOT NULL,
-    cid text,
-    proof_signature bytea,
-    prover_addresses text[] NOT NULL,
-    created_at timestamp with time zone NOT NULL
-);
-
-
---
--- Name: core_etl_tx_storage_proof_id_seq; Type: SEQUENCE; Schema: public; Owner: -
---
-
-CREATE SEQUENCE public.core_etl_tx_storage_proof_id_seq
-    START WITH 1
-    INCREMENT BY 1
-    NO MINVALUE
-    NO MAXVALUE
-    CACHE 1;
-
-
---
--- Name: core_etl_tx_storage_proof_id_seq; Type: SEQUENCE OWNED BY; Schema: public; Owner: -
---
-
-ALTER SEQUENCE public.core_etl_tx_storage_proof_id_seq OWNED BY public.core_etl_tx_storage_proof.id;
-
-
---
--- Name: core_etl_tx_storage_proof_verification; Type: TABLE; Schema: public; Owner: -
---
-
-CREATE TABLE public.core_etl_tx_storage_proof_verification (
-    id bigint NOT NULL,
-    tx_hash text NOT NULL,
-    height bigint NOT NULL,
-    proof bytea NOT NULL,
-    created_at timestamp with time zone NOT NULL
-);
-
-
---
--- Name: core_etl_tx_storage_proof_verification_id_seq; Type: SEQUENCE; Schema: public; Owner: -
---
-
-CREATE SEQUENCE public.core_etl_tx_storage_proof_verification_id_seq
-    START WITH 1
-    INCREMENT BY 1
-    NO MINVALUE
-    NO MAXVALUE
-    CACHE 1;
-
-
---
--- Name: core_etl_tx_storage_proof_verification_id_seq; Type: SEQUENCE OWNED BY; Schema: public; Owner: -
---
-
-ALTER SEQUENCE public.core_etl_tx_storage_proof_verification_id_seq OWNED BY public.core_etl_tx_storage_proof_verification.id;
-
-
---
--- Name: core_etl_tx_validator_deregistration; Type: TABLE; Schema: public; Owner: -
---
-
-CREATE TABLE public.core_etl_tx_validator_deregistration (
-    id bigint NOT NULL,
-    tx_hash text NOT NULL,
-    comet_address text NOT NULL,
-    pub_key bytea NOT NULL,
-    created_at timestamp with time zone NOT NULL
-);
-
-
---
--- Name: core_etl_tx_validator_deregistration_id_seq; Type: SEQUENCE; Schema: public; Owner: -
---
-
-CREATE SEQUENCE public.core_etl_tx_validator_deregistration_id_seq
-    START WITH 1
-    INCREMENT BY 1
-    NO MINVALUE
-    NO MAXVALUE
-    CACHE 1;
-
-
---
--- Name: core_etl_tx_validator_deregistration_id_seq; Type: SEQUENCE OWNED BY; Schema: public; Owner: -
---
-
-ALTER SEQUENCE public.core_etl_tx_validator_deregistration_id_seq OWNED BY public.core_etl_tx_validator_deregistration.id;
-
-
---
--- Name: core_etl_tx_validator_registration; Type: TABLE; Schema: public; Owner: -
---
-
-CREATE TABLE public.core_etl_tx_validator_registration (
-    id bigint NOT NULL,
-    tx_hash text NOT NULL,
-    endpoint text NOT NULL,
-    comet_address text NOT NULL,
-    eth_block text NOT NULL,
-    node_type text NOT NULL,
-    sp_id text NOT NULL,
-    pub_key bytea NOT NULL,
-    power bigint NOT NULL,
-    created_at timestamp with time zone NOT NULL
-);
-
-
---
--- Name: core_etl_tx_validator_registration_id_seq; Type: SEQUENCE; Schema: public; Owner: -
---
-
-CREATE SEQUENCE public.core_etl_tx_validator_registration_id_seq
-    START WITH 1
-    INCREMENT BY 1
-    NO MINVALUE
-    NO MAXVALUE
-    CACHE 1;
-
-
---
--- Name: core_etl_tx_validator_registration_id_seq; Type: SEQUENCE OWNED BY; Schema: public; Owner: -
---
-
-ALTER SEQUENCE public.core_etl_tx_validator_registration_id_seq OWNED BY public.core_etl_tx_validator_registration.id;
-
-
---
 -- Name: core_indexed_blocks; Type: TABLE; Schema: public; Owner: -
 --
 
@@ -6334,6 +6226,37 @@ CREATE TABLE public.indexing_checkpoints (
 
 
 --
+-- Name: management_keys; Type: TABLE; Schema: public; Owner: -
+--
+
+CREATE TABLE public.management_keys (
+    id integer NOT NULL,
+    track_id text NOT NULL,
+    address text NOT NULL
+);
+
+
+--
+-- Name: management_keys_id_seq; Type: SEQUENCE; Schema: public; Owner: -
+--
+
+CREATE SEQUENCE public.management_keys_id_seq
+    AS integer
+    START WITH 1
+    INCREMENT BY 1
+    NO MINVALUE
+    NO MAXVALUE
+    CACHE 1;
+
+
+--
+-- Name: management_keys_id_seq; Type: SEQUENCE OWNED BY; Schema: public; Owner: -
+--
+
+ALTER SEQUENCE public.management_keys_id_seq OWNED BY public.management_keys.id;
+
+
+--
 -- Name: milestones; Type: TABLE; Schema: public; Owner: -
 --
 
@@ -6467,6 +6390,20 @@ CREATE TABLE public.playlist_tracks (
     is_removed boolean NOT NULL,
     created_at timestamp with time zone DEFAULT CURRENT_TIMESTAMP NOT NULL,
     updated_at timestamp with time zone DEFAULT CURRENT_TIMESTAMP NOT NULL
+);
+
+
+--
+-- Name: playlist_trending_scores; Type: TABLE; Schema: public; Owner: -
+--
+
+CREATE TABLE public.playlist_trending_scores (
+    playlist_id integer NOT NULL,
+    type character varying NOT NULL,
+    version character varying NOT NULL,
+    time_range character varying NOT NULL,
+    score double precision NOT NULL,
+    created_at timestamp without time zone DEFAULT CURRENT_TIMESTAMP NOT NULL
 );
 
 
@@ -6945,6 +6882,39 @@ ALTER SEQUENCE public.sla_rollups_id_seq OWNED BY public.sla_rollups.id;
 
 
 --
+-- Name: sound_recordings; Type: TABLE; Schema: public; Owner: -
+--
+
+CREATE TABLE public.sound_recordings (
+    id integer NOT NULL,
+    sound_recording_id text NOT NULL,
+    track_id text NOT NULL,
+    cid text NOT NULL,
+    encoding_details text
+);
+
+
+--
+-- Name: sound_recordings_id_seq; Type: SEQUENCE; Schema: public; Owner: -
+--
+
+CREATE SEQUENCE public.sound_recordings_id_seq
+    AS integer
+    START WITH 1
+    INCREMENT BY 1
+    NO MINVALUE
+    NO MAXVALUE
+    CACHE 1;
+
+
+--
+-- Name: sound_recordings_id_seq; Type: SEQUENCE OWNED BY; Schema: public; Owner: -
+--
+
+ALTER SEQUENCE public.sound_recordings_id_seq OWNED BY public.sound_recordings.id;
+
+
+--
 -- Name: spl_token_tx; Type: TABLE; Schema: public; Owner: -
 --
 
@@ -7126,6 +7096,36 @@ CREATE TABLE public.track_price_history (
 
 
 --
+-- Name: track_releases; Type: TABLE; Schema: public; Owner: -
+--
+
+CREATE TABLE public.track_releases (
+    id integer NOT NULL,
+    track_id text NOT NULL
+);
+
+
+--
+-- Name: track_releases_id_seq; Type: SEQUENCE; Schema: public; Owner: -
+--
+
+CREATE SEQUENCE public.track_releases_id_seq
+    AS integer
+    START WITH 1
+    INCREMENT BY 1
+    NO MINVALUE
+    NO MAXVALUE
+    CACHE 1;
+
+
+--
+-- Name: track_releases_id_seq; Type: SEQUENCE OWNED BY; Schema: public; Owner: -
+--
+
+ALTER SEQUENCE public.track_releases_id_seq OWNED BY public.track_releases.id;
+
+
+--
 -- Name: track_routes; Type: TABLE; Schema: public; Owner: -
 --
 
@@ -7154,19 +7154,6 @@ CREATE TABLE public.track_trending_scores (
     time_range character varying NOT NULL,
     score double precision NOT NULL,
     created_at timestamp without time zone NOT NULL
-);
-
---
--- Name: track_trending_scores; Type: TABLE; Schema: public; Owner: -
---
-
-CREATE TABLE public.playlist_trending_scores (
-    playlist_id integer NOT NULL,
-    type character varying NOT NULL,
-    version character varying NOT NULL,
-    time_range character varying NOT NULL,
-    score double precision NOT NULL,
-    created_at timestamp NOT NULL
 );
 
 
@@ -7216,7 +7203,8 @@ CREATE TABLE public.users (
     verified_with_instagram boolean DEFAULT false,
     verified_with_tiktok boolean DEFAULT false,
     website character varying,
-    donation character varying
+    donation character varying,
+    profile_type public.profile_type_enum
 );
 
 
@@ -7597,6 +7585,13 @@ CREATE TABLE public.user_tips (
 
 
 --
+-- Name: access_keys id; Type: DEFAULT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.access_keys ALTER COLUMN id SET DEFAULT nextval('public.access_keys_id_seq'::regclass);
+
+
+--
 -- Name: aggregate_daily_app_name_metrics id; Type: DEFAULT; Schema: public; Owner: -
 --
 
@@ -7667,69 +7662,6 @@ ALTER TABLE ONLY public.core_blocks ALTER COLUMN rowid SET DEFAULT nextval('publ
 
 
 --
--- Name: core_etl_tx id; Type: DEFAULT; Schema: public; Owner: -
---
-
-ALTER TABLE ONLY public.core_etl_tx ALTER COLUMN id SET DEFAULT nextval('public.core_etl_tx_id_seq'::regclass);
-
-
---
--- Name: core_etl_tx_duplicates id; Type: DEFAULT; Schema: public; Owner: -
---
-
-ALTER TABLE ONLY public.core_etl_tx_duplicates ALTER COLUMN id SET DEFAULT nextval('public.core_etl_tx_duplicates_id_seq'::regclass);
-
-
---
--- Name: core_etl_tx_manage_entity id; Type: DEFAULT; Schema: public; Owner: -
---
-
-ALTER TABLE ONLY public.core_etl_tx_manage_entity ALTER COLUMN id SET DEFAULT nextval('public.core_etl_tx_manage_entity_id_seq'::regclass);
-
-
---
--- Name: core_etl_tx_plays id; Type: DEFAULT; Schema: public; Owner: -
---
-
-ALTER TABLE ONLY public.core_etl_tx_plays ALTER COLUMN id SET DEFAULT nextval('public.core_etl_tx_plays_id_seq'::regclass);
-
-
---
--- Name: core_etl_tx_sla_rollup id; Type: DEFAULT; Schema: public; Owner: -
---
-
-ALTER TABLE ONLY public.core_etl_tx_sla_rollup ALTER COLUMN id SET DEFAULT nextval('public.core_etl_tx_sla_rollup_id_seq'::regclass);
-
-
---
--- Name: core_etl_tx_storage_proof id; Type: DEFAULT; Schema: public; Owner: -
---
-
-ALTER TABLE ONLY public.core_etl_tx_storage_proof ALTER COLUMN id SET DEFAULT nextval('public.core_etl_tx_storage_proof_id_seq'::regclass);
-
-
---
--- Name: core_etl_tx_storage_proof_verification id; Type: DEFAULT; Schema: public; Owner: -
---
-
-ALTER TABLE ONLY public.core_etl_tx_storage_proof_verification ALTER COLUMN id SET DEFAULT nextval('public.core_etl_tx_storage_proof_verification_id_seq'::regclass);
-
-
---
--- Name: core_etl_tx_validator_deregistration id; Type: DEFAULT; Schema: public; Owner: -
---
-
-ALTER TABLE ONLY public.core_etl_tx_validator_deregistration ALTER COLUMN id SET DEFAULT nextval('public.core_etl_tx_validator_deregistration_id_seq'::regclass);
-
-
---
--- Name: core_etl_tx_validator_registration id; Type: DEFAULT; Schema: public; Owner: -
---
-
-ALTER TABLE ONLY public.core_etl_tx_validator_registration ALTER COLUMN id SET DEFAULT nextval('public.core_etl_tx_validator_registration_id_seq'::regclass);
-
-
---
 -- Name: core_transactions rowid; Type: DEFAULT; Schema: public; Owner: -
 --
 
@@ -7769,6 +7701,13 @@ ALTER TABLE ONLY public.encrypted_emails ALTER COLUMN id SET DEFAULT nextval('pu
 --
 
 ALTER TABLE ONLY public.eth_blocks ALTER COLUMN last_scanned_block SET DEFAULT nextval('public.eth_blocks_last_scanned_block_seq'::regclass);
+
+
+--
+-- Name: management_keys id; Type: DEFAULT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.management_keys ALTER COLUMN id SET DEFAULT nextval('public.management_keys_id_seq'::regclass);
 
 
 --
@@ -7821,6 +7760,13 @@ ALTER TABLE ONLY public.sla_rollups ALTER COLUMN id SET DEFAULT nextval('public.
 
 
 --
+-- Name: sound_recordings id; Type: DEFAULT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.sound_recordings ALTER COLUMN id SET DEFAULT nextval('public.sound_recordings_id_seq'::regclass);
+
+
+--
 -- Name: storage_proof_peers id; Type: DEFAULT; Schema: public; Owner: -
 --
 
@@ -7832,6 +7778,13 @@ ALTER TABLE ONLY public.storage_proof_peers ALTER COLUMN id SET DEFAULT nextval(
 --
 
 ALTER TABLE ONLY public.storage_proofs ALTER COLUMN id SET DEFAULT nextval('public.storage_proofs_id_seq'::regclass);
+
+
+--
+-- Name: track_releases id; Type: DEFAULT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.track_releases ALTER COLUMN id SET DEFAULT nextval('public.track_releases_id_seq'::regclass);
 
 
 --
@@ -7860,6 +7813,14 @@ ALTER TABLE ONLY public.user_events ALTER COLUMN id SET DEFAULT nextval('public.
 --
 
 ALTER TABLE ONLY public.user_listening_history ALTER COLUMN user_id SET DEFAULT nextval('public.user_listening_history_user_id_seq'::regclass);
+
+
+--
+-- Name: access_keys access_keys_pkey; Type: CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.access_keys
+    ADD CONSTRAINT access_keys_pkey PRIMARY KEY (id);
 
 
 --
@@ -8207,158 +8168,6 @@ ALTER TABLE ONLY public.core_db_migrations
 
 
 --
--- Name: core_etl_tx core_etl_tx_block_height_tx_index_key; Type: CONSTRAINT; Schema: public; Owner: -
---
-
-ALTER TABLE ONLY public.core_etl_tx
-    ADD CONSTRAINT core_etl_tx_block_height_tx_index_key UNIQUE (block_height, tx_index);
-
-
---
--- Name: core_etl_tx_duplicates core_etl_tx_duplicates_pkey; Type: CONSTRAINT; Schema: public; Owner: -
---
-
-ALTER TABLE ONLY public.core_etl_tx_duplicates
-    ADD CONSTRAINT core_etl_tx_duplicates_pkey PRIMARY KEY (id);
-
-
---
--- Name: core_etl_tx_duplicates core_etl_tx_duplicates_tx_hash_table_name_key; Type: CONSTRAINT; Schema: public; Owner: -
---
-
-ALTER TABLE ONLY public.core_etl_tx_duplicates
-    ADD CONSTRAINT core_etl_tx_duplicates_tx_hash_table_name_key UNIQUE (tx_hash, table_name);
-
-
---
--- Name: core_etl_tx_manage_entity core_etl_tx_manage_entity_pkey; Type: CONSTRAINT; Schema: public; Owner: -
---
-
-ALTER TABLE ONLY public.core_etl_tx_manage_entity
-    ADD CONSTRAINT core_etl_tx_manage_entity_pkey PRIMARY KEY (id);
-
-
---
--- Name: core_etl_tx_manage_entity core_etl_tx_manage_entity_tx_hash_key; Type: CONSTRAINT; Schema: public; Owner: -
---
-
-ALTER TABLE ONLY public.core_etl_tx_manage_entity
-    ADD CONSTRAINT core_etl_tx_manage_entity_tx_hash_key UNIQUE (tx_hash);
-
-
---
--- Name: core_etl_tx core_etl_tx_pkey; Type: CONSTRAINT; Schema: public; Owner: -
---
-
-ALTER TABLE ONLY public.core_etl_tx
-    ADD CONSTRAINT core_etl_tx_pkey PRIMARY KEY (id);
-
-
---
--- Name: core_etl_tx_plays core_etl_tx_plays_pkey; Type: CONSTRAINT; Schema: public; Owner: -
---
-
-ALTER TABLE ONLY public.core_etl_tx_plays
-    ADD CONSTRAINT core_etl_tx_plays_pkey PRIMARY KEY (id);
-
-
---
--- Name: core_etl_tx_plays core_etl_tx_plays_tx_hash_user_id_track_id_key; Type: CONSTRAINT; Schema: public; Owner: -
---
-
-ALTER TABLE ONLY public.core_etl_tx_plays
-    ADD CONSTRAINT core_etl_tx_plays_tx_hash_user_id_track_id_key UNIQUE (tx_hash, user_id, track_id);
-
-
---
--- Name: core_etl_tx_sla_rollup core_etl_tx_sla_rollup_pkey; Type: CONSTRAINT; Schema: public; Owner: -
---
-
-ALTER TABLE ONLY public.core_etl_tx_sla_rollup
-    ADD CONSTRAINT core_etl_tx_sla_rollup_pkey PRIMARY KEY (id);
-
-
---
--- Name: core_etl_tx_sla_rollup core_etl_tx_sla_rollup_tx_hash_key; Type: CONSTRAINT; Schema: public; Owner: -
---
-
-ALTER TABLE ONLY public.core_etl_tx_sla_rollup
-    ADD CONSTRAINT core_etl_tx_sla_rollup_tx_hash_key UNIQUE (tx_hash);
-
-
---
--- Name: core_etl_tx_storage_proof core_etl_tx_storage_proof_pkey; Type: CONSTRAINT; Schema: public; Owner: -
---
-
-ALTER TABLE ONLY public.core_etl_tx_storage_proof
-    ADD CONSTRAINT core_etl_tx_storage_proof_pkey PRIMARY KEY (id);
-
-
---
--- Name: core_etl_tx_storage_proof core_etl_tx_storage_proof_tx_hash_key; Type: CONSTRAINT; Schema: public; Owner: -
---
-
-ALTER TABLE ONLY public.core_etl_tx_storage_proof
-    ADD CONSTRAINT core_etl_tx_storage_proof_tx_hash_key UNIQUE (tx_hash);
-
-
---
--- Name: core_etl_tx_storage_proof_verification core_etl_tx_storage_proof_verification_pkey; Type: CONSTRAINT; Schema: public; Owner: -
---
-
-ALTER TABLE ONLY public.core_etl_tx_storage_proof_verification
-    ADD CONSTRAINT core_etl_tx_storage_proof_verification_pkey PRIMARY KEY (id);
-
-
---
--- Name: core_etl_tx_storage_proof_verification core_etl_tx_storage_proof_verification_tx_hash_key; Type: CONSTRAINT; Schema: public; Owner: -
---
-
-ALTER TABLE ONLY public.core_etl_tx_storage_proof_verification
-    ADD CONSTRAINT core_etl_tx_storage_proof_verification_tx_hash_key UNIQUE (tx_hash);
-
-
---
--- Name: core_etl_tx core_etl_tx_tx_hash_key; Type: CONSTRAINT; Schema: public; Owner: -
---
-
-ALTER TABLE ONLY public.core_etl_tx
-    ADD CONSTRAINT core_etl_tx_tx_hash_key UNIQUE (tx_hash);
-
-
---
--- Name: core_etl_tx_validator_deregistration core_etl_tx_validator_deregistration_pkey; Type: CONSTRAINT; Schema: public; Owner: -
---
-
-ALTER TABLE ONLY public.core_etl_tx_validator_deregistration
-    ADD CONSTRAINT core_etl_tx_validator_deregistration_pkey PRIMARY KEY (id);
-
-
---
--- Name: core_etl_tx_validator_deregistration core_etl_tx_validator_deregistration_tx_hash_key; Type: CONSTRAINT; Schema: public; Owner: -
---
-
-ALTER TABLE ONLY public.core_etl_tx_validator_deregistration
-    ADD CONSTRAINT core_etl_tx_validator_deregistration_tx_hash_key UNIQUE (tx_hash);
-
-
---
--- Name: core_etl_tx_validator_registration core_etl_tx_validator_registration_pkey; Type: CONSTRAINT; Schema: public; Owner: -
---
-
-ALTER TABLE ONLY public.core_etl_tx_validator_registration
-    ADD CONSTRAINT core_etl_tx_validator_registration_pkey PRIMARY KEY (id);
-
-
---
--- Name: core_etl_tx_validator_registration core_etl_tx_validator_registration_tx_hash_key; Type: CONSTRAINT; Schema: public; Owner: -
---
-
-ALTER TABLE ONLY public.core_etl_tx_validator_registration
-    ADD CONSTRAINT core_etl_tx_validator_registration_tx_hash_key UNIQUE (tx_hash);
-
-
---
 -- Name: core_transactions core_transactions_block_id_index_key; Type: CONSTRAINT; Schema: public; Owner: -
 --
 
@@ -8511,6 +8320,14 @@ ALTER TABLE ONLY public.indexing_checkpoints
 
 
 --
+-- Name: management_keys management_keys_pkey; Type: CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.management_keys
+    ADD CONSTRAINT management_keys_pkey PRIMARY KEY (id);
+
+
+--
 -- Name: milestones milestones_pkey; Type: CONSTRAINT; Schema: public; Owner: -
 --
 
@@ -8588,6 +8405,14 @@ ALTER TABLE ONLY public.playlist_seen
 
 ALTER TABLE ONLY public.playlist_tracks
     ADD CONSTRAINT playlist_tracks_pkey PRIMARY KEY (playlist_id, track_id);
+
+
+--
+-- Name: playlist_trending_scores playlist_trending_scores_pkey; Type: CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.playlist_trending_scores
+    ADD CONSTRAINT playlist_trending_scores_pkey PRIMARY KEY (playlist_id, type, version, time_range);
 
 
 --
@@ -8759,6 +8584,14 @@ ALTER TABLE ONLY public.sla_rollups
 
 
 --
+-- Name: sound_recordings sound_recordings_pkey; Type: CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.sound_recordings
+    ADD CONSTRAINT sound_recordings_pkey PRIMARY KEY (id);
+
+
+--
 -- Name: spl_token_tx spl_token_tx_pkey; Type: CONSTRAINT; Schema: public; Owner: -
 --
 
@@ -8847,6 +8680,22 @@ ALTER TABLE ONLY public.track_price_history
 
 
 --
+-- Name: track_releases track_releases_pkey; Type: CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.track_releases
+    ADD CONSTRAINT track_releases_pkey PRIMARY KEY (id);
+
+
+--
+-- Name: track_releases track_releases_track_id_key; Type: CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.track_releases
+    ADD CONSTRAINT track_releases_track_id_key UNIQUE (track_id);
+
+
+--
 -- Name: track_routes track_routes_pkey; Type: CONSTRAINT; Schema: public; Owner: -
 --
 
@@ -8860,13 +8709,6 @@ ALTER TABLE ONLY public.track_routes
 
 ALTER TABLE ONLY public.track_trending_scores
     ADD CONSTRAINT track_trending_scores_pkey PRIMARY KEY (track_id, type, version, time_range);
-
---
--- Name: playlist_trending_scores playlist_trending_scores_pkey; Type: CONSTRAINT; Schema: public; Owner: -
---
-
-ALTER TABLE ONLY public.playlist_trending_scores
-    ADD CONSTRAINT playlist_trending_scores_pkey PRIMARY KEY (playlist_id, type, version, time_range);
 
 
 --
@@ -9050,153 +8892,6 @@ CREATE INDEX chat_member_user_idx ON public.chat_member USING btree (user_id);
 
 
 --
--- Name: core_etl_tx_block_height_idx; Type: INDEX; Schema: public; Owner: -
---
-
-CREATE INDEX core_etl_tx_block_height_idx ON public.core_etl_tx USING btree (block_height);
-
-
---
--- Name: core_etl_tx_created_at_idx; Type: INDEX; Schema: public; Owner: -
---
-
-CREATE INDEX core_etl_tx_created_at_idx ON public.core_etl_tx USING btree (created_at);
-
-
---
--- Name: core_etl_tx_manage_entity_action_idx; Type: INDEX; Schema: public; Owner: -
---
-
-CREATE INDEX core_etl_tx_manage_entity_action_idx ON public.core_etl_tx_manage_entity USING btree (action);
-
-
---
--- Name: core_etl_tx_manage_entity_entity_type_idx; Type: INDEX; Schema: public; Owner: -
---
-
-CREATE INDEX core_etl_tx_manage_entity_entity_type_idx ON public.core_etl_tx_manage_entity USING btree (entity_type);
-
-
---
--- Name: core_etl_tx_manage_entity_user_id_idx; Type: INDEX; Schema: public; Owner: -
---
-
-CREATE INDEX core_etl_tx_manage_entity_user_id_idx ON public.core_etl_tx_manage_entity USING btree (user_id);
-
-
---
--- Name: core_etl_tx_plays_city_idx; Type: INDEX; Schema: public; Owner: -
---
-
-CREATE INDEX core_etl_tx_plays_city_idx ON public.core_etl_tx_plays USING btree (city);
-
-
---
--- Name: core_etl_tx_plays_country_idx; Type: INDEX; Schema: public; Owner: -
---
-
-CREATE INDEX core_etl_tx_plays_country_idx ON public.core_etl_tx_plays USING btree (country);
-
-
---
--- Name: core_etl_tx_plays_played_at_idx; Type: INDEX; Schema: public; Owner: -
---
-
-CREATE INDEX core_etl_tx_plays_played_at_idx ON public.core_etl_tx_plays USING btree (played_at);
-
-
---
--- Name: core_etl_tx_plays_region_idx; Type: INDEX; Schema: public; Owner: -
---
-
-CREATE INDEX core_etl_tx_plays_region_idx ON public.core_etl_tx_plays USING btree (region);
-
-
---
--- Name: core_etl_tx_plays_track_id_idx; Type: INDEX; Schema: public; Owner: -
---
-
-CREATE INDEX core_etl_tx_plays_track_id_idx ON public.core_etl_tx_plays USING btree (track_id);
-
-
---
--- Name: core_etl_tx_plays_user_id_idx; Type: INDEX; Schema: public; Owner: -
---
-
-CREATE INDEX core_etl_tx_plays_user_id_idx ON public.core_etl_tx_plays USING btree (user_id);
-
-
---
--- Name: core_etl_tx_sla_rollup_block_range_idx; Type: INDEX; Schema: public; Owner: -
---
-
-CREATE INDEX core_etl_tx_sla_rollup_block_range_idx ON public.core_etl_tx_sla_rollup USING btree (block_start, block_end);
-
-
---
--- Name: core_etl_tx_sla_rollup_timestamp_idx; Type: INDEX; Schema: public; Owner: -
---
-
-CREATE INDEX core_etl_tx_sla_rollup_timestamp_idx ON public.core_etl_tx_sla_rollup USING btree ("timestamp");
-
-
---
--- Name: core_etl_tx_storage_proof_address_idx; Type: INDEX; Schema: public; Owner: -
---
-
-CREATE INDEX core_etl_tx_storage_proof_address_idx ON public.core_etl_tx_storage_proof USING btree (address);
-
-
---
--- Name: core_etl_tx_storage_proof_height_idx; Type: INDEX; Schema: public; Owner: -
---
-
-CREATE INDEX core_etl_tx_storage_proof_height_idx ON public.core_etl_tx_storage_proof USING btree (height);
-
-
---
--- Name: core_etl_tx_storage_proof_verification_height_idx; Type: INDEX; Schema: public; Owner: -
---
-
-CREATE INDEX core_etl_tx_storage_proof_verification_height_idx ON public.core_etl_tx_storage_proof_verification USING btree (height);
-
-
---
--- Name: core_etl_tx_tx_type_idx; Type: INDEX; Schema: public; Owner: -
---
-
-CREATE INDEX core_etl_tx_tx_type_idx ON public.core_etl_tx USING btree (tx_type);
-
-
---
--- Name: core_etl_tx_validator_deregistration_comet_address_idx; Type: INDEX; Schema: public; Owner: -
---
-
-CREATE INDEX core_etl_tx_validator_deregistration_comet_address_idx ON public.core_etl_tx_validator_deregistration USING btree (comet_address);
-
-
---
--- Name: core_etl_tx_validator_registration_comet_address_idx; Type: INDEX; Schema: public; Owner: -
---
-
-CREATE INDEX core_etl_tx_validator_registration_comet_address_idx ON public.core_etl_tx_validator_registration USING btree (comet_address);
-
-
---
--- Name: core_etl_tx_validator_registration_endpoint_idx; Type: INDEX; Schema: public; Owner: -
---
-
-CREATE INDEX core_etl_tx_validator_registration_endpoint_idx ON public.core_etl_tx_validator_registration USING btree (endpoint);
-
-
---
--- Name: core_etl_tx_validator_registration_node_type_idx; Type: INDEX; Schema: public; Owner: -
---
-
-CREATE INDEX core_etl_tx_validator_registration_node_type_idx ON public.core_etl_tx_validator_registration USING btree (node_type);
-
-
---
 -- Name: fix_tracks_top_genre_users_idx; Type: INDEX; Schema: public; Owner: -
 --
 
@@ -9215,6 +8910,13 @@ CREATE INDEX follows_blocknumber_idx ON public.follows USING btree (blocknumber)
 --
 
 CREATE INDEX follows_inbound_idx ON public.follows USING btree (followee_user_id, follower_user_id, is_delete);
+
+
+--
+-- Name: idx_access_keys_track_id; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX idx_access_keys_track_id ON public.access_keys USING btree (track_id);
 
 
 --
@@ -9463,6 +9165,13 @@ CREATE INDEX idx_lower_wallet ON public.users USING btree (lower((wallet)::text)
 
 
 --
+-- Name: idx_management_keys_track_id; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX idx_management_keys_track_id ON public.management_keys USING btree (track_id);
+
+
+--
 -- Name: idx_payment_router_txs_slot; Type: INDEX; Schema: public; Owner: -
 --
 
@@ -9498,6 +9207,13 @@ CREATE INDEX idx_rpc_relayed_by ON public.rpc_log USING btree (relayed_by, relay
 
 
 --
+-- Name: idx_sound_recordings_track_id; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX idx_sound_recordings_track_id ON public.sound_recordings USING btree (track_id);
+
+
+--
 -- Name: idx_storage_proof_peers_block_height; Type: INDEX; Schema: public; Owner: -
 --
 
@@ -9519,10 +9235,24 @@ CREATE INDEX idx_time ON public.sla_rollups USING btree ("time" DESC);
 
 
 --
+-- Name: idx_track_releases_track_id; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX idx_track_releases_track_id ON public.track_releases USING btree (track_id);
+
+
+--
 -- Name: idx_track_status; Type: INDEX; Schema: public; Owner: -
 --
 
 CREATE INDEX idx_track_status ON public.tracks USING btree (track_id, is_unlisted, is_available, is_delete, is_current);
+
+
+--
+-- Name: idx_tracks_stream_conditions_gin; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX idx_tracks_stream_conditions_gin ON public.tracks USING gin (stream_conditions);
 
 
 --
@@ -9677,6 +9407,13 @@ CREATE INDEX ix_follows_follower_user_id ON public.follows USING btree (follower
 --
 
 CREATE INDEX ix_notification ON public.notification USING gin (user_ids);
+
+
+--
+-- Name: ix_playlist_trending_scores_playlist_id; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX ix_playlist_trending_scores_playlist_id ON public.playlist_trending_scores USING btree (playlist_id);
 
 
 --
@@ -9914,7 +9651,7 @@ CREATE INDEX saves_new_blocknumber_idx ON public.saves USING btree (blocknumber)
 -- Name: saves_user_idx; Type: INDEX; Schema: public; Owner: -
 --
 
-CREATE INDEX saves_user_idx ON public.saves USING btree (user_id, save_type, save_item_id, created_at, is_delete);
+CREATE INDEX saves_user_idx ON public.saves USING btree (user_id, save_type, save_item_id, is_delete);
 
 
 --
@@ -10062,6 +9799,13 @@ CREATE TRIGGER on_challenge_disbursement AFTER INSERT ON public.challenge_disbur
 --
 
 CREATE TRIGGER on_comment AFTER INSERT ON public.comments FOR EACH ROW EXECUTE FUNCTION public.handle_comment();
+
+
+--
+-- Name: events on_event; Type: TRIGGER; Schema: public; Owner: -
+--
+
+CREATE TRIGGER on_event AFTER INSERT ON public.events FOR EACH ROW EXECUTE FUNCTION public.handle_event();
 
 
 --
