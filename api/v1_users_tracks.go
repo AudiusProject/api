@@ -10,6 +10,7 @@ type GetUsersTracksParams struct {
 	Limit         int    `query:"limit" default:"20" validate:"min=1,max=100"`
 	Offset        int    `query:"offset" default:"0" validate:"min=0"`
 	Sort          string `query:"sort" default:"date"`
+	SortMethod    string `query:"sort_method" default:""`
 	SortDirection string `query:"sort_direction" default:"desc" validate:"oneof=asc desc"`
 }
 
@@ -27,19 +28,36 @@ func (app *ApiServer) v1UserTracks(c *fiber.Ctx) error {
 	}
 
 	sortField := "coalesce(t.release_date, t.created_at)"
-	switch params.Sort {
-	case "reposts":
-		sortField = "repost_count"
-	case "saves":
-		sortField = "save_count"
+	if params.SortMethod != "" {
+		switch params.SortMethod {
+		case "reposts":
+			sortField = "repost_count"
+		case "saves":
+			sortField = "save_count"
+		}
+	} else {
+		switch params.Sort {
+		case "plays":
+			sortField = "aggregate_plays.count"
+		}
+	}
+
+	// Support lookup by handle or user_id
+	handle := c.Params("handle")
+	userId := app.getUserId(c)
+
+	userLookupClause := "u.handle_lc = LOWER(@handle)"
+	if userId != 0 {
+		userLookupClause = "u.user_id = @user_id"
 	}
 
 	sql := `
 	SELECT track_id
 	FROM tracks t
 	JOIN users u ON owner_id = u.user_id
+	LEFT JOIN aggregate_plays ON track_id = play_item_id
 	LEFT JOIN aggregate_track USING (track_id)
-	WHERE u.handle_lc = LOWER(@handle)
+	WHERE ` + userLookupClause + `
 	  AND u.is_deactivated = false
 	  AND t.is_delete = false
 	  AND t.is_available = true
@@ -54,8 +72,9 @@ func (app *ApiServer) v1UserTracks(c *fiber.Ctx) error {
 	`
 
 	args := pgx.NamedArgs{
-		"handle": c.Params("handle"),
-		"my_id":  myId,
+		"handle":  handle,
+		"user_id": userId,
+		"my_id":   myId,
 	}
 	args["limit"] = params.Limit
 	args["offset"] = params.Offset
