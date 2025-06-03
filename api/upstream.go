@@ -1,6 +1,7 @@
 package api
 
 import (
+	"net/url"
 	"strings"
 	"sync"
 
@@ -51,8 +52,17 @@ func BalancerForward(servers []string, clients ...*fasthttp.Client) fiber.Handle
 		if !strings.HasPrefix(server, "http") {
 			server = "http://" + server
 		}
+
+		hostname := server
+		if parsedURL, err := url.Parse(server); err == nil && parsedURL.Host != "" {
+			hostname = parsedURL.Host
+		}
+
 		c.Locals("upstream", server)
 		c.Request().Header.Add("X-Real-IP", c.IP())
-		return proxy.Do(c, server+c.OriginalURL(), clients...)
+
+		err := proxy.Do(c, server+c.OriginalURL(), clients...)
+		c.Response().Header.Add("X-Upstream", hostname)
+		return err
 	}
 }
