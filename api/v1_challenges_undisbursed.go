@@ -11,7 +11,7 @@ import (
 type GetUndisbursedChallengesQueryParams struct {
 	ChallengeID          string `query:"challenge_id"`
 	CompletedBlocknumber int    `query:"completed_blocknumber"`
-	Limit                int    `query:"limit" default:"100" validate:"min=1,max=100"`
+	Limit                int    `query:"limit" default:"100" validate:"min=1,max=500"`
 	Offset               int    `query:"offset" default:"0" validate:"min=0"`
 }
 
