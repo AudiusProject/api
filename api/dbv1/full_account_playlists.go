@@ -2,6 +2,7 @@ package dbv1
 
 import (
 	"context"
+	"fmt"
 
 	"bridgerton.audius.co/trashid"
 )
@@ -38,11 +39,17 @@ func (q *Queries) FullAccountPlaylists(ctx context.Context, userID int32) ([]Ful
 		if err != nil {
 			return nil, err
 		}
+		var playlistType string
+		if p.IsAlbum {
+			playlistType = "album"
+		} else {
+			playlistType = "playlist"
+		}
 		fullPlaylists[idx] = FullAccountPlaylist{
 			ID:        playlistID,
 			IsAlbum:   p.IsAlbum,
 			Name:      p.PlaylistName.String,
-			Permalink: "", // TODO
+			Permalink: fmt.Sprintf("/%s/%s/%s", p.Handle.String, playlistType, p.Slug),
 			User: FullAccountPlaylistOwner{
 				ID:            userID,
 				Handle:        p.Handle.String,

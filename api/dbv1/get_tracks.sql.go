@@ -221,14 +221,15 @@ FROM tracks t
 JOIN aggregate_track using (track_id)
 LEFT JOIN aggregate_plays on play_item_id = t.track_id
 LEFT JOIN track_routes on t.track_id = track_routes.track_id and track_routes.is_current = true
-WHERE (is_unlisted = false OR t.owner_id = $1)
-  AND t.track_id = ANY($2::int[])
+WHERE (is_unlisted = false OR t.owner_id = $1 OR $2::bool = TRUE)
+  AND t.track_id = ANY($3::int[])
 ORDER BY t.track_id
 `
 
 type GetTracksParams struct {
-	MyID interface{} `json:"my_id"`
-	Ids  []int32     `json:"ids"`
+	MyID            interface{} `json:"my_id"`
+	IncludeUnlisted bool        `json:"include_unlisted"`
+	Ids             []int32     `json:"ids"`
 }
 
 type GetTracksRow struct {
@@ -308,7 +309,7 @@ type GetTracksRow struct {
 }
 
 func (q *Queries) GetTracks(ctx context.Context, arg GetTracksParams) ([]GetTracksRow, error) {
-	rows, err := q.db.Query(ctx, getTracks, arg.MyID, arg.Ids)
+	rows, err := q.db.Query(ctx, getTracks, arg.MyID, arg.IncludeUnlisted, arg.Ids)
 	if err != nil {
 		return nil, err
 	}

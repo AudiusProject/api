@@ -29,7 +29,7 @@ WITH playlist_ids AS (
 SELECT
     p.playlist_id,
     p.is_album,
-    -- p.permalink // TODO
+    r.slug,
     p.playlist_name,
     u.user_id,
     u.handle,
@@ -37,6 +37,7 @@ SELECT
     p.created_at
 FROM playlists p
 JOIN users u ON p.playlist_owner_id = u.user_id
+JOIN playlist_routes r ON p.playlist_id = r.playlist_id AND r.is_current = TRUE
 WHERE p.is_delete = false
   AND p.playlist_id IN (SELECT id FROM playlist_ids)
 ORDER BY p.created_at DESC, p.playlist_id ASC
@@ -45,6 +46,7 @@ ORDER BY p.created_at DESC, p.playlist_id ASC
 type GetAccountPlaylistsRow struct {
 	PlaylistID    int32          `json:"playlist_id"`
 	IsAlbum       bool           `json:"is_album"`
+	Slug          string         `json:"slug"`
 	PlaylistName  pgtype.Text    `json:"playlist_name"`
 	UserID        trashid.HashId `json:"user_id"`
 	Handle        pgtype.Text    `json:"handle"`
@@ -64,6 +66,7 @@ func (q *Queries) GetAccountPlaylists(ctx context.Context, userID int32) ([]GetA
 		if err := rows.Scan(
 			&i.PlaylistID,
 			&i.IsAlbum,
+			&i.Slug,
 			&i.PlaylistName,
 			&i.UserID,
 			&i.Handle,
