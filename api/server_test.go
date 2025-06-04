@@ -52,8 +52,10 @@ func emptyTestApp(t *testing.T) *ApiServer {
 	ctx := context.Background()
 
 	// create a test db from template
+	testMutex.Lock()
 	_, err := testPoolForCreatingChildDatabases.Exec(ctx, "CREATE DATABASE "+dbName+" TEMPLATE postgres")
-	checkErr(err)
+	testMutex.Unlock()
+	require.NoError(t, err)
 
 	app := NewApiServer(config.Config{
 		Env:                "test",
@@ -64,8 +66,10 @@ func emptyTestApp(t *testing.T) *ApiServer {
 
 	t.Cleanup(func() {
 		app.pool.Close()
+		testMutex.Lock()
 		_, err := testPoolForCreatingChildDatabases.Exec(ctx, "DROP DATABASE IF EXISTS test")
-		checkErr(err)
+		testMutex.Unlock()
+		require.NoError(t, err)
 	})
 
 	return app
@@ -92,6 +96,8 @@ func testAppWithFixtures(t *testing.T) *ApiServer {
 	`)
 	checkErr(err)
 
+	insertFixturesFromArray(app, "aggregate_plays", map[string]any{}, testdata.AggregatePlays)
+	insertFixturesFromArray(app, "aggregate_track", map[string]any{}, testdata.AggregateTrack)
 	insertFixturesFromArray(app, "aggregate_user", map[string]any{}, testdata.AggregateUser)
 	insertFixturesFromArray(app, "aggregate_user_tips", aggregateUserTipsBaseRow, testdata.AggregateUserTips)
 	insertFixturesFromArray(app, "audio_transactions_history", audioTransactionBaseRow, testdata.AudioTransactionsHistory)
