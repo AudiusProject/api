@@ -12,11 +12,12 @@ type GetUsersHistoryParams struct {
 	Limit         int    `query:"limit" default:"100" validate:"min=1,max=100"`
 	Offset        int    `query:"offset" default:"0" validate:"min=0"`
 	SortMethod    string `query:"sort_method" default:"last_listen_date" validate:"oneof=title artist_name release_date last_listen_date plays reposts saves most_listens_by_user"`
-	SortDirection string `query:"sort_direction" default:"asc" validate:"oneof=asc desc"`
+	SortDirection string `query:"sort_direction" default:"desc" validate:"oneof=asc desc"`
 	Query         string `query:"query" default:""`
 }
 
 func (api *ApiServer) v1UsersHistory(c *fiber.Ctx) error {
+	userId := api.getUserId(c)
 	myId := api.getMyId(c)
 
 	params := GetUsersHistoryParams{}
@@ -31,6 +32,8 @@ func (api *ApiServer) v1UsersHistory(c *fiber.Ctx) error {
 
 	sortField := ""
 	switch params.SortMethod {
+	case "last_listen_date":
+		sortField = "history.timestamp"
 	case "plays":
 		sortField = "aggregate_plays.count"
 	case "reposts":
@@ -47,11 +50,15 @@ func (api *ApiServer) v1UsersHistory(c *fiber.Ctx) error {
 		sortField = "history.play_count"
 	}
 
-	// Defaults to last_listen_date DESC if no valid sort method is provided.
-	// Listen history is ordered by timestamp DESC, so no need to sort by it explicitly.
 	orderBy := ""
-	if sortField != "" {
+	// Listen history is ordered by timestamp DESC, so no need to sort by it explicitly.
+	if sortField != "history.timestamp" || sortDirection != "DESC" {
 		orderBy = "ORDER BY " + sortField + " " + sortDirection
+	}
+
+	class := "track_activity"
+	if api.getIsFull(c) {
+		class = "track_activity_full"
 	}
 
 	sql := `
@@ -65,7 +72,8 @@ func (api *ApiServer) v1UsersHistory(c *fiber.Ctx) error {
 	)
 	SELECT history.track_id AS item_id,
 		history.timestamp AS item_created_at, 
-		'track' AS item_type
+		'track' AS item_type,
+		@class AS class
 	FROM history
 	LEFT JOIN tracks ON history.track_id = tracks.track_id
 	LEFT JOIN aggregate_track ON tracks.track_id = aggregate_track.track_id
@@ -78,16 +86,18 @@ func (api *ApiServer) v1UsersHistory(c *fiber.Ctx) error {
 	;
 	`
 	rows, err := api.pool.Query(c.Context(), sql, pgx.NamedArgs{
-		"userId": myId,
+		"userId": userId,
 		"limit":  params.Limit,
 		"offset": params.Offset,
 		"query":  params.Query,
+		"class":  class,
 	})
 	if err != nil {
 		return err
 	}
 
 	type Activity struct {
+		Class         string    `db:"class" json:"class"`
 		ItemID        int32     `db:"item_id" json:"item_id"`
 		ItemCreatedAt time.Time `db:"item_created_at" json:"timestamp"`
 		ItemType      string    `db:"item_type" json:"item_type"`

@@ -94,6 +94,7 @@ func TestMain(m *testing.M) {
 	insertFixturesFromArray("user_challenges", userChallengeBaseRow, testdata.UserChallengesFixtures)
 	insertFixturesFromArray("usdc_user_bank_accounts", usdcUserBankBaseRow, testdata.UserBankAccountsFixtures)
 	insertFixturesFromArray("users", userBaseRow, testdata.UserFixtures)
+	insertFixturesFromArray("user_listening_history", map[string]any{}, testdata.UserListeningHistoryFixtures)
 
 	// index to es / os
 

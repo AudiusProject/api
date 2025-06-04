@@ -5,6 +5,7 @@ var UserFixtures = []map[string]any{
 		"user_id":          1,
 		"handle":           "rayjacobson",
 		"handle_lc":        "rayjacobson",
+		"name":             "Ray Jacobson",
 		"is_deactivated":   false,
 		"wallet":           "0x7d273271690538cf855e5b3002a0dd8c154bb060",
 		"playlist_library": []byte(`{"contents":[{"type":"playlist","playlist_id":"123"},{"type":"explore_playlist","playlist_id":"Audio NFTs"},{"type":"folder","id":"bbcae31a-7cd2-4a1a-8b54-fdc979a34435","name":"My Nested Playlists","contents":[{"type":"playlist","playlist_id":"345"}]}]}`),
@@ -36,6 +37,7 @@ var UserFixtures = []map[string]any{
 		"handle_lc":      "guyintrending",
 		"is_deactivated": false,
 		"wallet":         "0x34567890abcdef13",
+		"name":           "Guy in Trending",
 	},
 	{
 		"user_id":        6,
@@ -148,5 +150,12 @@ var UserFixtures = []map[string]any{
 		"handle_lc":      "challenges_hanging_streak",
 		"is_deactivated": false,
 		"wallet":         "0x003",
+	},
+	{
+		"user_id":        410,
+		"handle":         "listening_history_user",
+		"handle_lc":      "listening_history_user",
+		"is_deactivated": false,
+		"wallet":         "0x782aC09C59da685011d31e84de821B6b99b2b682",
 	},
 }
