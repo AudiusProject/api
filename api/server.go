@@ -2,6 +2,7 @@ package api
 
 import (
 	"context"
+	"fmt"
 	"net/http"
 	"os"
 	"os/signal"
@@ -10,11 +11,13 @@ import (
 
 	"bridgerton.audius.co/api/dbv1"
 	"bridgerton.audius.co/api/spl"
+	"bridgerton.audius.co/api/spl/programs/claimable_tokens"
 	"bridgerton.audius.co/api/spl/programs/reward_manager"
 	"bridgerton.audius.co/config"
 	"bridgerton.audius.co/searcher"
 	"bridgerton.audius.co/trashid"
 	"github.com/AudiusProject/audiusd/pkg/rewards"
+	"github.com/Doist/unfurlist"
 	adapter "github.com/axiomhq/axiom-go/adapters/zap"
 	"github.com/axiomhq/axiom-go/axiom"
 	"github.com/elastic/go-elasticsearch/v8"
@@ -22,12 +25,16 @@ import (
 	"github.com/gagliardetto/solana-go/rpc"
 	"github.com/gofiber/contrib/fiberzap/v2"
 	"github.com/gofiber/fiber/v2"
+	"github.com/gofiber/fiber/v2/middleware/adaptor"
 	"github.com/gofiber/fiber/v2/middleware/cors"
 	"github.com/gofiber/fiber/v2/middleware/recover"
+	"github.com/gofiber/fiber/v2/middleware/requestid"
+	"github.com/gofiber/fiber/v2/utils"
 	pgxzap "github.com/jackc/pgx-zap"
 	"github.com/jackc/pgx/v5/pgxpool"
 	"github.com/jackc/pgx/v5/tracelog"
 	"github.com/maypok86/otter"
+	"github.com/mcuadros/go-defaults"
 	"github.com/segmentio/encoding/json"
 	"go.uber.org/zap"
 	"go.uber.org/zap/zapcore"
@@ -75,11 +82,26 @@ func RequestTimer() fiber.Handler {
 
 func NewApiServer(config config.Config) *ApiServer {
 	logger := InitLogger(config)
+	requestValidator := initRequestValidator()
 
 	connConfig, err := pgxpool.ParseConfig(config.DbUrl)
 	if err != nil {
 		logger.Error("db connect failed", zap.Error(err))
 	}
+
+	// register enum types with connection
+	// this is mostly to support COPY protocol as used by tests
+	// connConfig.AfterConnect = func(ctx context.Context, conn *pgx.Conn) error {
+	// 	enumNames := []string{"challengetype"}
+	// 	for _, name := range enumNames {
+	// 		typ, err := conn.LoadType(ctx, name)
+	// 		if err != nil {
+	// 			panic(err)
+	// 		}
+	// 		conn.TypeMap().RegisterType(typ)
+	// 	}
+	// 	return nil
+	// }
 
 	// disable sql logging in ENV "test"
 	if config.Env != "test" {
@@ -110,6 +132,13 @@ func NewApiServer(config config.Config) *ApiServer {
 		panic(err)
 	}
 
+	resolveWalletCache, err := otter.MustBuilder[string, int](50_000).
+		CollectStats().
+		Build()
+	if err != nil {
+		panic(err)
+	}
+
 	privateKey, err := crypto.HexToECDSA(config.DelegatePrivateKey)
 	if err != nil {
 		panic(err)
@@ -131,6 +160,14 @@ func NewApiServer(config config.Config) *ApiServer {
 	if err != nil {
 		panic(err)
 	}
+	claimableTokensClient, err := claimable_tokens.NewClaimableTokensClient(
+		solanaRpc,
+		config.SolanaConfig.ClaimableTokensProgramID,
+		transactionSender,
+	)
+	if err != nil {
+		panic(err)
+	}
 
 	esClient, err := searcher.Dial()
 	if err != nil {
@@ -139,23 +176,27 @@ func NewApiServer(config config.Config) *ApiServer {
 
 	app := &ApiServer{
 		App: fiber.New(fiber.Config{
-			JSONEncoder:  json.Marshal,
-			JSONDecoder:  json.Unmarshal,
-			ErrorHandler: errorHandler(logger),
+			JSONEncoder:    json.Marshal,
+			JSONDecoder:    json.Unmarshal,
+			ErrorHandler:   errorHandler(logger),
+			ReadBufferSize: 32_768,
 		}),
-		pool:                pool,
-		queries:             dbv1.New(pool),
-		esClient:            esClient,
-		logger:              logger,
-		started:             time.Now(),
-		resolveHandleCache:  resolveHandleCache,
-		resolveGrantCache:   resolveGrantCache,
-		rewardAttester:      *rewardAttester,
-		transactionSender:   *transactionSender,
-		rewardManagerClient: *rewardManagerClient,
-		solanaConfig:        config.SolanaConfig,
-		antiAbuseOracles:    config.AntiAbuseOracles,
-		validators:          config.Nodes,
+		pool:                  pool,
+		queries:               dbv1.New(pool),
+		logger:                logger,
+		esClient:              esClient,
+		started:               time.Now(),
+		resolveHandleCache:    &resolveHandleCache,
+		resolveGrantCache:     &resolveGrantCache,
+		resolveWalletCache:    &resolveWalletCache,
+		requestValidator:      requestValidator,
+		rewardAttester:        rewardAttester,
+		transactionSender:     transactionSender,
+		rewardManagerClient:   rewardManagerClient,
+		claimableTokensClient: claimableTokensClient,
+		solanaConfig:          &config.SolanaConfig,
+		antiAbuseOracles:      config.AntiAbuseOracles,
+		validators:            config.Nodes,
 	}
 
 	app.Use(recover.New(recover.Config{
@@ -164,7 +205,12 @@ func NewApiServer(config config.Config) *ApiServer {
 
 	app.Use(cors.New())
 	app.Use(RequestTimer())
-
+	app.Use(requestid.New(requestid.Config{
+		Next:       nil,
+		Header:     fiber.HeaderXRequestID,
+		Generator:  utils.UUIDv4,
+		ContextKey: "requestId",
+	}))
 	app.Use(fiberzap.New(fiberzap.Config{
 		Logger: logger,
 		FieldsFunc: func(c *fiber.Ctx) []zap.Field {
@@ -178,6 +224,10 @@ func NewApiServer(config config.Config) *ApiServer {
 			// Add upstream server to logs, if found
 			if upstream, ok := c.Locals("upstream").(string); ok && upstream != "" {
 				fields = append(fields, zap.String("upstream", upstream))
+			}
+
+			if requestId, ok := c.Locals("requestId").(string); ok && requestId != "" {
+				fields = append(fields, zap.String("request_id", requestId))
 			}
 
 			return fields
@@ -242,6 +292,10 @@ func NewApiServer(config config.Config) *ApiServer {
 		g.Get("/users/:userId/tracks", app.v1UserTracks)
 		g.Get("/users/:userId/feed", app.v1UsersFeed)
 		g.Get("/users/:userId/connected_wallets", app.v1UsersConnectedWallets)
+		g.Get("/users/:userId/transactions/audio", app.v1UsersTransactionsAudio)
+		g.Get("/users/:userId/transactions/audio/count", app.v1UsersTransactionsAudioCount)
+		g.Get("/users/:userId/transactions/usdc", app.v1UsersTransactionsUsdc)
+		g.Get("/users/:userId/transactions/usdc/count", app.v1UsersTransactionsUsdcCount)
 
 		// Tracks
 		g.Get("/tracks", app.v1Tracks)
@@ -296,7 +350,46 @@ func NewApiServer(config config.Config) *ApiServer {
 
 		// Challenges
 		g.Get("/challenges/undisbursed", app.v1ChallengesUndisbursed)
+
+		// Metrics
+		g.Get("/metrics/genres", app.v1MetricsGenres)
+		g.Get("/metrics/plays", app.v1MetricsPlays)
+		g.Get("/metrics/aggregates/apps/:time_range", app.v1MetricsApps)
+		g.Get("/metrics/aggregates/routes/:time_range", app.v1MetricsRoutes)
+		g.Get("/metrics/aggregates/routes/trailing/:time_range", app.v1MetricsRoutesTrailing)
 	}
+
+	// Comms
+	comms := app.Group("/comms")
+	// Cached/non-cached are the same as there are no other nodes to query anymore
+	comms.Get("/pubkey/:userId", app.requireUserIdMiddleware, app.getPubkey)
+	comms.Get("/pubky/:userId/cached", app.requireUserIdMiddleware, app.getPubkey)
+
+	unfurlBlocklist := unfurlist.WithBlocklistPrefixes(
+		[]string{
+			"http://localhost",
+			"http://127",
+			"http://10",
+			"http://169.254",
+			"http://172.16",
+			"http://192.168",
+			"http://::1",
+			"http://fe80::",
+		},
+	)
+	unfurlHeaders := unfurlist.WithExtraHeaders(map[string]string{"User-Agent": "twitterbot"})
+	comms.Get("/unfurl", adaptor.HTTPHandler(unfurlist.New(unfurlBlocklist, unfurlHeaders)))
+
+	comms.Get("/chats", app.getChats)
+	comms.Get("/chats/unread", app.getUnreadCount)
+	comms.Get("/chats/permissions", app.getChatPermissions)
+	comms.Get("/chats/blockers", app.getChatBlockers)
+	comms.Get("/chats/blockees", app.getChatBlockees)
+
+	comms.Get("/chats/:chatId/messages", app.getChatMessages)
+	comms.Get("/chats/:chatId", app.getChat)
+
+	comms.Get("/blasts", app.getNewBlasts)
 
 	app.Static("/", "./static")
 
@@ -314,19 +407,22 @@ func NewApiServer(config config.Config) *ApiServer {
 
 type ApiServer struct {
 	*fiber.App
-	pool                *pgxpool.Pool
-	queries             *dbv1.Queries
-	esClient            *elasticsearch.Client
-	logger              *zap.Logger
-	started             time.Time
-	resolveHandleCache  otter.Cache[string, int32]
-	resolveGrantCache   otter.Cache[string, bool]
-	rewardManagerClient reward_manager.RewardManagerClient
-	rewardAttester      rewards.RewardAttester
-	transactionSender   spl.TransactionSender
-	solanaConfig        config.SolanaConfig
-	antiAbuseOracles    []string
-	validators          []config.Node
+	pool                  *pgxpool.Pool
+	queries               *dbv1.Queries
+	esClient              *elasticsearch.Client
+	logger                *zap.Logger
+	started               time.Time
+	resolveHandleCache    *otter.Cache[string, int32]
+	resolveGrantCache     *otter.Cache[string, bool]
+	resolveWalletCache    *otter.Cache[string, int]
+	requestValidator      *RequestValidator
+	rewardManagerClient   *reward_manager.RewardManagerClient
+	claimableTokensClient *claimable_tokens.ClaimableTokensClient
+	rewardAttester        *rewards.RewardAttester
+	transactionSender     *spl.TransactionSender
+	solanaConfig          *config.SolanaConfig
+	antiAbuseOracles      []string
+	validators            []config.Node
 }
 
 func (app *ApiServer) home(c *fiber.Ctx) error {
@@ -356,6 +452,38 @@ func queryMutli(c *fiber.Ctx, key string) []string {
 		values = append(values, string(v))
 	}
 	return values
+}
+
+var validDateBuckets = map[string]bool{
+	"hour":   true,
+	"day":    true,
+	"week":   true,
+	"month":  true,
+	"year":   true,
+	"minute": true,
+}
+
+func (app *ApiServer) queryDateBucket(c *fiber.Ctx, param string, defaultValue string) (string, error) {
+	bucket := c.Query(param, defaultValue)
+	if !validDateBuckets[bucket] {
+		return "", fmt.Errorf("invalid %s parameter: %s", param, bucket)
+	}
+	return bucket, nil
+}
+
+var validTimeRanges = map[string]bool{
+	"week":     true,
+	"month":    true,
+	"year":     true,
+	"all_time": true,
+}
+
+func (app *ApiServer) paramTimeRange(c *fiber.Ctx, param string, defaultValue string) (string, error) {
+	timeRange := c.Params(param, defaultValue)
+	if !validTimeRanges[timeRange] {
+		return "", fmt.Errorf("invalid %s parameter: %s", param, timeRange)
+	}
+	return timeRange, nil
 }
 
 func (app *ApiServer) resolveUserHandleToId(handle string) (int32, error) {
@@ -392,4 +520,13 @@ func (as *ApiServer) Serve() {
 	if err := as.Listen(":1323"); err != nil && err != http.ErrServerClosed {
 		as.logger.Fatal("Failed to start server", zap.Error(err))
 	}
+}
+
+// Move this to a new module if we add custom validation
+func (as *ApiServer) ParseAndValidateQueryParams(c *fiber.Ctx, v any) error {
+	if err := c.QueryParser(v); err != nil {
+		return fiber.NewError(fiber.StatusBadRequest, err.Error())
+	}
+	defaults.SetDefaults(v)
+	return as.requestValidator.Validate(v)
 }

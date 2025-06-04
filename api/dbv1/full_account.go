@@ -42,11 +42,12 @@ func (q *Queries) FullAccount(ctx context.Context, wallet string) (*FullAccount,
 
 	accountFields, err := q.GetExtendedAccountFields(ctx, userId)
 	playlistLibrary := PlaylistLibrary{}
-	err = json.Unmarshal(accountFields.PlaylistLibrary, &playlistLibrary)
-
-	if err != nil {
-		fmt.Printf("error unmarshalling playlist library: %+v\n", err)
-		return nil, err
+	if accountFields.PlaylistLibrary != nil {
+		err = json.Unmarshal(accountFields.PlaylistLibrary, &playlistLibrary)
+		if err != nil {
+			fmt.Printf("error unmarshalling playlist library: %+v\n", err)
+			return nil, err
+		}
 	}
 
 	return &FullAccount{

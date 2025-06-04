@@ -8,6 +8,7 @@ import (
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/crypto"
 	"github.com/gofiber/fiber/v2"
+	"github.com/jackc/pgx/v5"
 )
 
 // Recover user id and wallet from signature headers
@@ -122,4 +123,40 @@ func (app *ApiServer) requireAuthMiddleware(c *fiber.Ctx) error {
 	}
 
 	return c.Next()
+}
+
+// Get a user from their wallet address.
+//
+// Note: Do NOT use this with `getAuthedWallet()` to infer the current user.
+// Comms/chats _does_ use this to infer current user due to legacy reasons, as
+// it predates manager mode and messages are e2ee via wallet. V1 endpoints
+// should use the query or route parameters for determining the current user.
+func (app *ApiServer) getUserIDFromWallet(ctx context.Context, wallet string) (int, error) {
+
+	if hit, ok := app.resolveWalletCache.Get(wallet); ok {
+		return hit, nil
+	}
+
+	sql := `
+	SELECT user_id
+	FROM users
+	WHERE is_current = true
+		AND handle IS NOT NULL
+		AND is_available = true
+		AND is_deactivated = false
+		AND wallet = LOWER(@wallet)
+	ORDER BY user_id ASC;
+	`
+	row := app.pool.QueryRow(ctx, sql, pgx.NamedArgs{
+		"wallet": wallet,
+	})
+
+	userId := 0
+	err := row.Scan(&userId)
+	if err != nil {
+		return 0, fiber.NewError(fiber.ErrBadRequest.Code, "bad signature")
+	}
+
+	app.resolveWalletCache.Set(wallet, userId)
+	return userId, nil
 }

@@ -2,8 +2,6 @@ package api
 
 import (
 	"context"
-	"encoding/csv"
-	"os"
 	"slices"
 	"time"
 
@@ -26,6 +24,7 @@ var (
 		"is_available":         true,
 		"is_storage_v2":        false,
 		"allow_ai_attribution": false,
+		"profile_type":         nil,
 	}
 
 	trackBaseRow = map[string]any{
@@ -236,35 +235,70 @@ var (
 		"listen_streak":    nil,
 		"last_listen_date": time.Now(),
 	}
+
+	userBankBaseRow = map[string]any{
+		"bank_account":     nil,
+		"ethereum_address": nil,
+		"created_at":       time.Now(),
+		"signature":        nil,
+	}
+
+	audioTransactionBaseRow = map[string]any{
+		"user_bank":              nil,
+		"slot":                   101,
+		"signature":              nil,
+		"transaction_type":       nil,
+		"method":                 nil,
+		"created_at":             time.Now(),
+		"updated_at":             time.Now(),
+		"transaction_created_at": time.Now(),
+		"tx_metadata":            nil,
+		"change":                 0,
+		"balance":                0,
+	}
+
+	usdcUserBankBaseRow = map[string]any{
+		"bank_account":     nil,
+		"ethereum_address": nil,
+		"created_at":       time.Now(),
+		"signature":        nil,
+	}
+
+	usdcTransactionBaseRow = map[string]any{
+		"user_bank":              nil,
+		"slot":                   101,
+		"signature":              nil,
+		"transaction_type":       nil,
+		"method":                 nil,
+		"created_at":             time.Now(),
+		"updated_at":             time.Now(),
+		"transaction_created_at": time.Now(),
+		"tx_metadata":            nil,
+		"change":                 0,
+		"balance":                0,
+	}
 )
 
-func insertFixtures(table string, baseRow map[string]any, csvFile string) {
-	file, err := os.Open(csvFile)
-	checkErr(err)
-	defer file.Close()
-
-	reader := csv.NewReader(file)
-	rows, err := reader.ReadAll()
-	checkErr(err)
-	csvHeader := rows[0]
-
-	// union baseRow keys with csv header for field list
+func insertFixturesFromArray(table string, baseRow map[string]any, data []map[string]any) {
+	// union baseRow keys with data keys for field list
 	fieldList := []string{}
 	for f := range baseRow {
 		fieldList = append(fieldList, f)
 	}
-	for _, f := range csvHeader {
-		if !slices.Contains(fieldList, f) {
-			fieldList = append(fieldList, f)
+	for _, row := range data {
+		for f := range row {
+			if !slices.Contains(fieldList, f) {
+				fieldList = append(fieldList, f)
+			}
 		}
 	}
 
 	var records [][]any
-	for _, row := range rows[1:] {
+	for _, row := range data {
 		thisRow := map[string]any{}
-		for i, field := range csvHeader {
-			if row[i] != "" {
-				thisRow[field] = row[i]
+		for field, value := range row {
+			if value != nil {
+				thisRow[field] = value
 			}
 		}
 
@@ -279,11 +313,21 @@ func insertFixtures(table string, baseRow map[string]any, csvFile string) {
 		records = append(records, vals)
 	}
 
-	_, err = app.pool.CopyFrom(
+	_, err := app.pool.CopyFrom(
 		context.Background(),
 		pgx.Identifier{table},
 		fieldList,
 		pgx.CopyFromRows(records),
 	)
 	checkErr(err)
+}
+
+type FixtureSet struct {
+	users  []map[string]any
+	tracks []map[string]any
+}
+
+func createFixtures(fixtures FixtureSet) {
+	insertFixturesFromArray("users", userBaseRow, fixtures.users)
+	insertFixturesFromArray("tracks", trackBaseRow, fixtures.tracks)
 }

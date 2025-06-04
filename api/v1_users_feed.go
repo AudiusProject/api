@@ -8,6 +8,13 @@ import (
 	"github.com/jackc/pgx/v5"
 )
 
+// TODO: Can we get followee_user_id values into this struct?
+type GetUsersFeedParams struct {
+	Limit  int    `query:"limit" default:"50" validate:"min=1,max=100"`
+	Offset int    `query:"offset" default:"0" validate:"min=0"`
+	Filter string `query:"filter" default:"all" validate:"oneof=all original repost"`
+}
+
 // todo: feed currently hard coded to go back: 1 YEAR
 // this is probably fine for now, as ES feed only went back 1 MONTH.
 // BUT if we want to support going back further:
@@ -20,6 +27,11 @@ import (
 func (app *ApiServer) v1UsersFeed(c *fiber.Ctx) error {
 	myId := app.getMyId(c)
 	followeeIds := queryMutli(c, "followee_user_id")
+
+	var params = GetUsersFeedParams{}
+	if err := app.ParseAndValidateQueryParams(c, &params); err != nil {
+		return err
+	}
 
 	sql := `
 	WITH
@@ -113,9 +125,9 @@ func (app *ApiServer) v1UsersFeed(c *fiber.Ctx) error {
 	rows, err := app.pool.Query(c.Context(), sql, pgx.NamedArgs{
 		"userId":      app.getUserId(c),
 		"before":      time.Now(),
-		"limit":       c.Query("limit", "50"),
-		"offset":      c.Query("offset", "0"),
-		"filter":      c.Query("filter", "all"), // original, repost
+		"limit":       params.Limit,
+		"offset":      params.Offset,
+		"filter":      params.Filter, // original, repost
 		"followeeIds": followeeIds,
 	})
 	if err != nil {

@@ -61,9 +61,17 @@ func encodeIds(ids []int32) ([]hashIdResponse, error) {
 	return result, nil
 }
 
+type GetTrendingTrackIdsParams struct {
+	Limit  int `query:"limit" default:"100" validate:"min=1,max=100"`
+	Offset int `query:"offset" default:"0" validate:"min=0"`
+}
+
 func (app *ApiServer) v1TracksTrendingIds(c *fiber.Ctx) error {
-	limit := c.QueryInt("limit", 100)
-	offset := c.QueryInt("offset", 0)
+	var params = GetTrendingTrackIdsParams{}
+	if err := app.ParseAndValidateQueryParams(c, &params); err != nil {
+		return err
+	}
+
 	genre := ""
 
 	weekChan := make(chan []int32)
@@ -72,7 +80,7 @@ func (app *ApiServer) v1TracksTrendingIds(c *fiber.Ctx) error {
 	errChan := make(chan error)
 
 	go func() {
-		ids, err := app.getTrendingIds(c, "week", genre, limit, offset)
+		ids, err := app.getTrendingIds(c, "week", genre, params.Limit, params.Offset)
 		if err != nil {
 			errChan <- err
 			return
@@ -81,7 +89,7 @@ func (app *ApiServer) v1TracksTrendingIds(c *fiber.Ctx) error {
 	}()
 
 	go func() {
-		ids, err := app.getTrendingIds(c, "month", genre, limit, offset)
+		ids, err := app.getTrendingIds(c, "month", genre, params.Limit, params.Offset)
 		if err != nil {
 			errChan <- err
 			return
@@ -90,7 +98,7 @@ func (app *ApiServer) v1TracksTrendingIds(c *fiber.Ctx) error {
 	}()
 
 	go func() {
-		ids, err := app.getTrendingIds(c, "allTime", genre, limit, offset)
+		ids, err := app.getTrendingIds(c, "allTime", genre, params.Limit, params.Offset)
 		if err != nil {
 			errChan <- err
 			return

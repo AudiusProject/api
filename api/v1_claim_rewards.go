@@ -20,7 +20,6 @@ import (
 
 	"bridgerton.audius.co/api/dbv1"
 	"bridgerton.audius.co/api/spl"
-	"bridgerton.audius.co/api/spl/programs/claimable_tokens"
 	"bridgerton.audius.co/api/spl/programs/reward_manager"
 	"bridgerton.audius.co/api/spl/programs/secp256k1"
 	"bridgerton.audius.co/config"
@@ -136,15 +135,15 @@ func getAntiAbuseOracleAttestation(args GetAntiAbuseOracleAttestationParams) (*S
 // TODO: add health checks?
 func getValidators(validators []config.Node, count int, excludedOperators []string) ([]string, error) {
 	shuffled := slices.Clone(validators)
-	rand.Shuffle(min(len(validators), count), func(i, j int) {
+	rand.Shuffle(len(validators), func(i, j int) {
 		shuffled[i], shuffled[j] = shuffled[j], shuffled[i]
 	})
 
-	selected := make([]string, count)
-	for i := range count {
+	selected := make([]string, 0)
+	for i := 0; i < len(shuffled) && len(selected) < count; i++ {
 		node := shuffled[i]
 		if !slices.Contains(excludedOperators, node.OwnerWallet) {
-			selected[i] = node.Endpoint
+			selected = append(selected, node.Endpoint)
 			excludedOperators = append(excludedOperators, node.OwnerWallet)
 		}
 	}
@@ -555,7 +554,7 @@ type ClaimRewardsBody struct {
 }
 
 // Claims all the filtered undisbursed rewards for a user.
-func (api *ApiServer) v1ClaimRewards(c *fiber.Ctx) error {
+func (app *ApiServer) v1ClaimRewards(c *fiber.Ctx) error {
 
 	body := ClaimRewardsBody{}
 	err := c.BodyParser(&body)
@@ -575,7 +574,7 @@ func (api *ApiServer) v1ClaimRewards(c *fiber.Ctx) error {
 		return err
 	}
 
-	undisbursedRows, err := api.queries.GetUndisbursedChallenges(
+	undisbursedRows, err := app.queries.GetUndisbursedChallenges(
 		c.Context(),
 		dbv1.GetUndisbursedChallengesParams{
 			UserID:      int32(userId),
@@ -591,14 +590,15 @@ func (api *ApiServer) v1ClaimRewards(c *fiber.Ctx) error {
 		return fiber.NewError(fiber.StatusBadRequest, "No rewards to claim")
 	}
 
-	antiAbuseOracle, err := getAntiAbuseOracle(api.antiAbuseOracles)
+	antiAbuseOracle, err := getAntiAbuseOracle(app.antiAbuseOracles)
 	if err != nil {
 		return err
 	}
 
-	bankAccount, err := claimable_tokens.DeriveUserBankAccount(
-		api.solanaConfig.MintAudio,
-		undisbursedRows[0].Wallet.String,
+	bankAccount, err := app.claimableTokensClient.GetOrCreateUserBank(
+		c.Context(),
+		common.HexToAddress(undisbursedRows[0].Wallet.String),
+		app.solanaConfig.MintAudio,
 	)
 	if err != nil {
 		return err
@@ -616,7 +616,7 @@ func (api *ApiServer) v1ClaimRewards(c *fiber.Ctx) error {
 				Specifier:   row.Specifier,
 			}
 
-			reward, err := getReward(row.ChallengeID, api.rewardAttester.Rewards)
+			reward, err := getReward(row.ChallengeID, app.rewardAttester.Rewards)
 			if err != nil {
 				results[i].Error = err.Error()
 				g.Done()
@@ -634,23 +634,23 @@ func (api *ApiServer) v1ClaimRewards(c *fiber.Ctx) error {
 					AntiAbuseOracleEthAddress: antiAbuseOracle.DelegateOwnerWallet,
 				},
 				Handle:   row.Handle.String,
-				UserBank: bankAccount,
+				UserBank: *bankAccount,
 			}
 
 			sigs, err := claimReward(
 				ctx,
 				rewardClaim,
-				&api.rewardManagerClient,
-				&api.rewardAttester,
-				&api.transactionSender,
+				app.rewardManagerClient,
+				app.rewardAttester,
+				app.transactionSender,
 				*antiAbuseOracle,
-				api.validators,
+				app.validators,
 			)
 
 			if err != nil {
 				var instrErr *spl.InstructionError
 				if errors.As(err, &instrErr) {
-					api.logger.Error("failed to claim challenge reward. transaction failed to send.",
+					app.logger.Error("failed to claim challenge reward. transaction failed to send.",
 						zap.String("handle", row.Handle.String),
 						zap.String("rewardId", row.ChallengeID),
 						zap.String("specifier", row.Specifier),
@@ -659,7 +659,7 @@ func (api *ApiServer) v1ClaimRewards(c *fiber.Ctx) error {
 						zap.Error(err),
 					)
 				} else {
-					api.logger.Error("failed to claim challenge reward.",
+					app.logger.Error("failed to claim challenge reward.",
 						zap.String("handle", row.Handle.String),
 						zap.String("rewardId", row.ChallengeID),
 						zap.String("specifier", row.Specifier),

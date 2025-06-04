@@ -8,7 +8,18 @@ import (
 	"github.com/jackc/pgx/v5"
 )
 
+type GetTrendingPlaylistsParams struct {
+	Limit  int    `query:"limit" default:"30" validate:"min=1,max=100"`
+	Offset int    `query:"offset" default:"0" validate:"min=0"`
+	Time   string `query:"time" default:"week" validate:"oneof=week month year"`
+}
+
 func (app *ApiServer) v1PlaylistsTrending(c *fiber.Ctx) error {
+	var params = GetTrendingPlaylistsParams{}
+	if err := app.ParseAndValidateQueryParams(c, &params); err != nil {
+		return err
+	}
+
 	myId := app.getMyId(c)
 
 	sql := `
@@ -31,9 +42,9 @@ func (app *ApiServer) v1PlaylistsTrending(c *fiber.Ctx) error {
 		`
 
 	rows, err := app.pool.Query(c.Context(), sql, pgx.NamedArgs{
-		"limit":  c.Query("limit", "20"),
-		"offset": c.Query("offset", "0"),
-		"time":   c.Query("time", "week"),
+		"limit":  params.Limit,
+		"offset": params.Offset,
+		"time":   params.Time,
 	})
 	if err != nil {
 		return err

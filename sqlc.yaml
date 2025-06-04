@@ -26,7 +26,6 @@ sql:
               import: "time"
               type: "Time"
 
-
           - db_type: "jsonb"
             go_type:
               import: "encoding/json"
@@ -41,6 +40,11 @@ sql:
             go_type:
               import: "bridgerton.audius.co/trashid"
               type: "HashId"
+
+          - column: "users.profile_type"
+            go_type:
+              type: "string"
+              pointer: true
 
           - column: "developer_apps.user_id"
             go_type:

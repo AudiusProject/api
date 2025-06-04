@@ -33,6 +33,7 @@ func (app *ApiServer) getMyId(c *fiber.Ctx) int32 {
 	return int32(myId.(int))
 }
 
+// Gets the decoded user ID from the path parameter
 func (app *ApiServer) getUserId(c *fiber.Ctx) int32 {
 	userId := c.Locals("userId")
 	if userId == nil {

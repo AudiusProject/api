@@ -1,21 +1,26 @@
 module bridgerton.audius.co
 
-go 1.24.1
+go 1.24.2
+
+toolchain go1.24.3
 
 require (
 	github.com/AudiusProject/audiusd v0.0.0-20250423205417-9adf00a64112
+	github.com/Doist/unfurlist v0.0.0-20250409100812-515f2735f8e5
 	github.com/aquasecurity/esquery v0.2.0
 	github.com/axiomhq/axiom-go v0.23.0
 	github.com/elastic/go-elasticsearch/v8 v8.18.0
 	github.com/ethereum/go-ethereum v1.15.8
 	github.com/gagliardetto/binary v0.8.0
 	github.com/gagliardetto/solana-go v1.12.1-0.20250314202648-ca3f5f643435
+	github.com/go-playground/validator/v10 v10.26.0
 	github.com/gofiber/contrib/fiberzap/v2 v2.1.5
 	github.com/gofiber/fiber/v2 v2.52.6
 	github.com/jackc/pgx-zap v0.0.0-20221202020421-94b1cb2f889f
 	github.com/jackc/pgx/v5 v5.7.4
 	github.com/joho/godotenv v1.5.1
 	github.com/maypok86/otter v1.2.4
+	github.com/mcuadros/go-defaults v1.2.0
 	github.com/mr-tron/base58 v1.2.0
 	github.com/segmentio/encoding v0.4.1
 	github.com/speps/go-hashids/v2 v2.0.1
@@ -35,9 +40,13 @@ require (
 	github.com/DataDog/zstd v1.5.2 // indirect
 	github.com/andres-erbsen/clock v0.0.0-20160526145045-9e14626cd129 // indirect
 	github.com/andybalholm/brotli v1.1.1 // indirect
+	github.com/artyom/autoflags v1.1.1 // indirect
+	github.com/artyom/httpflags v1.2.0 // indirect
+	github.com/artyom/oembed v1.0.1 // indirect
 	github.com/asaskevich/govalidator v0.0.0-20230301143203-a9d515a09cc2 // indirect
 	github.com/beorn7/perks v1.0.1 // indirect
 	github.com/blendle/zapdriver v1.3.1 // indirect
+	github.com/bradfitz/gomemcache v0.0.0-20220106215444-fb4bf637b56d // indirect
 	github.com/buger/jsonparser v1.1.1 // indirect
 	github.com/cenkalti/backoff/v4 v4.3.0 // indirect
 	github.com/cespare/xxhash/v2 v2.3.0 // indirect
@@ -57,11 +66,13 @@ require (
 	github.com/dgraph-io/ristretto/v2 v2.1.0 // indirect
 	github.com/dolthub/maphash v0.1.0 // indirect
 	github.com/dustin/go-humanize v1.0.1 // indirect
+	github.com/dyatlov/go-opengraph v0.0.0-20210112100619-dae8665a5b09 // indirect
 	github.com/elastic/elastic-transport-go/v8 v8.7.0 // indirect
-	github.com/elastic/go-elasticsearch/v7 v7.17.10 // indirect
+	github.com/elastic/go-elasticsearch/v7 v7.6.0 // indirect
 	github.com/fatih/color v1.18.0 // indirect
 	github.com/fatih/structs v1.1.0 // indirect
 	github.com/felixge/httpsnoop v1.0.4 // indirect
+	github.com/gabriel-vasile/mimetype v1.4.8 // indirect
 	github.com/gagliardetto/treeout v0.1.4 // indirect
 	github.com/gammazero/deque v1.0.0 // indirect
 	github.com/getsentry/sentry-go v0.27.0 // indirect
@@ -78,6 +89,9 @@ require (
 	github.com/go-openapi/strfmt v0.23.0 // indirect
 	github.com/go-openapi/swag v0.23.0 // indirect
 	github.com/go-openapi/validate v0.24.0 // indirect
+	github.com/go-playground/locales v0.14.1 // indirect
+	github.com/go-playground/universal-translator v0.18.1 // indirect
+	github.com/gobwas/glob v0.2.3 // indirect
 	github.com/gogo/protobuf v1.3.2 // indirect
 	github.com/golang/groupcache v0.0.0-20210331224755-41bb18bfe9da // indirect
 	github.com/golang/protobuf v1.5.4 // indirect
@@ -100,6 +114,7 @@ require (
 	github.com/klauspost/compress v1.18.0 // indirect
 	github.com/kr/pretty v0.3.1 // indirect
 	github.com/kr/text v0.2.0 // indirect
+	github.com/leodido/go-urn v1.4.0 // indirect
 	github.com/linxGnu/grocksdb v1.9.3 // indirect
 	github.com/logrusorgru/aurora v2.0.3+incompatible // indirect
 	github.com/mailru/easyjson v0.7.7 // indirect
@@ -151,4 +166,5 @@ require (
 	google.golang.org/genproto/googleapis/rpc v0.0.0-20250324211829-b45e905df463 // indirect
 	google.golang.org/grpc v1.71.1 // indirect
 	gopkg.in/yaml.v3 v3.0.1 // indirect
+	rsc.io/markdown v0.0.0-20241212154241-6bf72452917f // indirect
 )

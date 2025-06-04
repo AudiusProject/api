@@ -27,16 +27,18 @@ SELECT
 FROM events
 WHERE
   ($1::int[] = '{}' OR entity_id = ANY($1::int[]))
-  AND ($2::text = '' OR entity_type = $2::event_entity_type)
-  AND ($3::text = '' OR event_type = $3::event_type)
-  AND ($4::boolean IS NULL OR is_deleted = $4)
+  AND ($2::int[] = '{}' OR event_id = ANY($2::int[]))
+  AND ($3::text = '' OR entity_type = $3::event_entity_type)
+  AND ($4::text = '' OR event_type = $4::event_type)
+  AND ($5::boolean IS NULL OR is_deleted = $5)
 ORDER BY created_at DESC, event_id ASC
-LIMIT $6
-OFFSET $5
+LIMIT $7
+OFFSET $6
 `
 
 type GetEventsParams struct {
 	EntityIds     []int32 `json:"entity_ids"`
+	EventIds      []int32 `json:"event_ids"`
 	EntityType    string  `json:"entity_type"`
 	EventType     string  `json:"event_type"`
 	FilterDeleted bool    `json:"filter_deleted"`
@@ -60,6 +62,7 @@ type GetEventsRow struct {
 func (q *Queries) GetEvents(ctx context.Context, arg GetEventsParams) ([]GetEventsRow, error) {
 	rows, err := q.db.Query(ctx, getEvents,
 		arg.EntityIds,
+		arg.EventIds,
 		arg.EntityType,
 		arg.EventType,
 		arg.FilterDeleted,

@@ -1,8 +1,0 @@
-user_id,grantee_address,is_approved,is_revoked
-1,0x5f1a372b28956c8363f8bc3a231a6e9e1186ead8,true,false
-1,0xc451c1f8943b575158310552b41230c61844a1c1,false,true
-1,0x1234567890abcdef,true,true
-1,0x681c616ae836ceca1effe00bd07f2fdbf9a082bc,false,false
-2,0x681c616ae836ceca1effe00bd07f2fdbf9a082bc,true,false
-3,0x681c616ae836ceca1effe00bd07f2fdbf9a082bc,true,true
-4,0x681c616ae836ceca1effe00bd07f2fdbf9a082bc,false,true
