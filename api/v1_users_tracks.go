@@ -1,6 +1,8 @@
 package api
 
 import (
+	"fmt"
+
 	"bridgerton.audius.co/api/dbv1"
 	"github.com/gofiber/fiber/v2"
 	"github.com/jackc/pgx/v5"
@@ -9,7 +11,8 @@ import (
 type GetUsersTracksParams struct {
 	Limit         int    `query:"limit" default:"20" validate:"min=1,max=100"`
 	Offset        int    `query:"offset" default:"0" validate:"min=0"`
-	Sort          string `query:"sort" default:"date"`
+	Sort          string `query:"sort" default:"date" validate:"oneof=date plays"`
+	SortMethod    string `query:"sort_method" default:"" validate:"omitempty,oneof=title release_date plays reposts saves"`
 	SortDirection string `query:"sort_direction" default:"desc" validate:"oneof=asc desc"`
 }
 
@@ -26,20 +29,36 @@ func (app *ApiServer) v1UserTracks(c *fiber.Ctx) error {
 		sortDir = "ASC"
 	}
 
-	sortField := "coalesce(t.release_date, t.created_at)"
-	switch params.Sort {
-	case "reposts":
-		sortField = "repost_count"
-	case "saves":
-		sortField = "save_count"
+	// Default sort is by legacy `sort:` param value of 'date'
+	orderClause := fmt.Sprintf("coalesce(t.release_date, t.created_at) %s, t.track_id", sortDir)
+	if params.SortMethod != "" {
+		switch params.SortMethod {
+		case "title":
+			orderClause = fmt.Sprintf("t.title %s, t.track_id", sortDir)
+		case "release_date":
+			orderClause = fmt.Sprintf("coalesce(t.release_date, t.created_at) %s, t.track_id", sortDir)
+		case "plays":
+			orderClause = fmt.Sprintf("aggregate_plays.count %s, t.track_id", sortDir)
+		case "reposts":
+			orderClause = fmt.Sprintf("repost_count %s, t.track_id", sortDir)
+		case "saves":
+			orderClause = fmt.Sprintf("save_count %s, t.track_id", sortDir)
+		}
+	} else {
+		switch params.Sort {
+		case "plays":
+			orderClause = fmt.Sprintf("aggregate_plays.count %s, t.track_id", sortDir)
+		}
 	}
+	userId := app.getUserId(c)
 
 	sql := `
 	SELECT track_id
 	FROM tracks t
 	JOIN users u ON owner_id = u.user_id
+	LEFT JOIN aggregate_plays ON track_id = play_item_id
 	LEFT JOIN aggregate_track USING (track_id)
-	WHERE u.handle_lc = LOWER(@handle)
+	WHERE owner_id = @user_id
 	  AND u.is_deactivated = false
 	  AND t.is_delete = false
 	  AND t.is_available = true
@@ -48,14 +67,14 @@ func (app *ApiServer) v1UserTracks(c *fiber.Ctx) error {
 			OR t.owner_id = @my_id
 		)
 	  AND t.stem_of is null
-	ORDER BY ` + sortField + ` ` + sortDir + `
+	ORDER BY ` + orderClause + `
 	LIMIT @limit
 	OFFSET @offset
 	`
 
 	args := pgx.NamedArgs{
-		"handle": c.Params("handle"),
-		"my_id":  myId,
+		"user_id": userId,
+		"my_id":   myId,
 	}
 	args["limit"] = params.Limit
 	args["offset"] = params.Offset
