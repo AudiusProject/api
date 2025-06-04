@@ -310,9 +310,10 @@ func NewApiServer(config config.Config) *ApiServer {
 		g.Get("/tracks/:trackId/comments", app.v1TrackComments)
 
 		// Playlists
-		g.Get("/playlists", app.v1playlists)
+		g.Get("/playlists", app.v1Playlists)
 		g.Get("/playlists/unclaimed_id", app.v1PlaylistsUnclaimedId)
 		g.Get("/playlists/trending", app.v1PlaylistsTrending)
+		g.Get("/playlists/by_permalink/:handle/:slug", app.v1PlaylistsByPermalink)
 
 		g.Use("/playlists/:playlistId", app.requirePlaylistIdMiddleware)
 		g.Get("/playlists/:playlistId", app.v1Playlist)
