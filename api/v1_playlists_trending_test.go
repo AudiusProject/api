@@ -9,10 +9,11 @@ import (
 )
 
 func TestGetTrendingPlaylists(t *testing.T) {
+	app := testAppWithFixtures(t)
 	var resp struct {
 		Data []dbv1.FullPlaylist
 	}
-	status, body := testGet(t, "/v1/playlists/trending", &resp)
+	status, body := testGet(t, app, "/v1/playlists/trending", &resp)
 
 	assert.Equal(t, 200, status)
 

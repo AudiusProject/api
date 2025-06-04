@@ -279,7 +279,7 @@ var (
 	}
 )
 
-func insertFixturesFromArray(table string, baseRow map[string]any, data []map[string]any) {
+func insertFixturesFromArray(app *ApiServer, table string, baseRow map[string]any, data []map[string]any) {
 	// union baseRow keys with data keys for field list
 	fieldList := []string{}
 	for f := range baseRow {
@@ -327,7 +327,7 @@ type FixtureSet struct {
 	tracks []map[string]any
 }
 
-func createFixtures(fixtures FixtureSet) {
-	insertFixturesFromArray("users", userBaseRow, fixtures.users)
-	insertFixturesFromArray("tracks", trackBaseRow, fixtures.tracks)
+func createFixtures(app *ApiServer, fixtures FixtureSet) {
+	insertFixturesFromArray(app, "users", userBaseRow, fixtures.users)
+	insertFixturesFromArray(app, "tracks", trackBaseRow, fixtures.tracks)
 }

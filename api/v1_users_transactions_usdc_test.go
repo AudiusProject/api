@@ -7,9 +7,10 @@ import (
 )
 
 func TestGetUserUsdcTransactions(t *testing.T) {
+	app := testAppWithFixtures(t)
 	// Default sort (reverse chronological)
 	// Default excludes system transactions
-	status, body := testGet(t, "/v1/users/7eP5n/transactions/usdc")
+	status, body := testGet(t, app, "/v1/users/7eP5n/transactions/usdc")
 	assert.Equal(t, 200, status)
 
 	jsonAssert(t, body, map[string]any{
@@ -35,7 +36,7 @@ func TestGetUserUsdcTransactions(t *testing.T) {
 	})
 
 	// include system transactions
-	status, body = testGet(t, "/v1/users/7eP5n/transactions/usdc?include_system_transactions=true")
+	status, body = testGet(t, app, "/v1/users/7eP5n/transactions/usdc?include_system_transactions=true")
 	assert.Equal(t, 200, status)
 
 	jsonAssert(t, body, map[string]any{
@@ -61,7 +62,7 @@ func TestGetUserUsdcTransactions(t *testing.T) {
 	})
 
 	// sort by date ascending
-	status, body = testGet(t, "/v1/users/7eP5n/transactions/usdc?sort_method=date&sort_direction=asc")
+	status, body = testGet(t, app, "/v1/users/7eP5n/transactions/usdc?sort_method=date&sort_direction=asc")
 	assert.Equal(t, 200, status)
 
 	jsonAssert(t, body, map[string]any{
@@ -78,7 +79,7 @@ func TestGetUserUsdcTransactions(t *testing.T) {
 
 	// sort by transaction type descending
 	// Secondary sort is always date descending
-	status, body = testGet(t, "/v1/users/7eP5n/transactions/usdc?sort_method=transaction_type&sort_direction=desc")
+	status, body = testGet(t, app, "/v1/users/7eP5n/transactions/usdc?sort_method=transaction_type&sort_direction=desc")
 	assert.Equal(t, 200, status)
 
 	jsonAssert(t, body, map[string]any{
@@ -104,7 +105,7 @@ func TestGetUserUsdcTransactions(t *testing.T) {
 	})
 
 	// filter by types
-	status, body = testGet(t, "/v1/users/7eP5n/transactions/usdc?type=transfer&type=purchase_content")
+	status, body = testGet(t, app, "/v1/users/7eP5n/transactions/usdc?type=transfer&type=purchase_content")
 	assert.Equal(t, 200, status)
 
 	jsonAssert(t, body, map[string]any{
@@ -119,7 +120,7 @@ func TestGetUserUsdcTransactions(t *testing.T) {
 	})
 
 	// filter by method
-	status, body = testGet(t, "/v1/users/7eP5n/transactions/usdc?method=receive")
+	status, body = testGet(t, app, "/v1/users/7eP5n/transactions/usdc?method=receive")
 	assert.Equal(t, 200, status)
 
 	jsonAssert(t, body, map[string]any{
@@ -131,10 +132,11 @@ func TestGetUserUsdcTransactions(t *testing.T) {
 }
 
 func TestGetUserUsdcTransactionsCount(t *testing.T) {
+	app := testAppWithFixtures(t)
 
 	// Default sort
 	// Excludes system transactions
-	status, body := testGet(t, "/v1/users/7eP5n/transactions/usdc/count")
+	status, body := testGet(t, app, "/v1/users/7eP5n/transactions/usdc/count")
 	assert.Equal(t, 200, status)
 
 	jsonAssert(t, body, map[string]any{
@@ -142,7 +144,7 @@ func TestGetUserUsdcTransactionsCount(t *testing.T) {
 	})
 
 	// include system transactions
-	status, body = testGet(t, "/v1/users/7eP5n/transactions/usdc/count?include_system_transactions=true")
+	status, body = testGet(t, app, "/v1/users/7eP5n/transactions/usdc/count?include_system_transactions=true")
 	assert.Equal(t, 200, status)
 
 	jsonAssert(t, body, map[string]any{
@@ -150,7 +152,7 @@ func TestGetUserUsdcTransactionsCount(t *testing.T) {
 	})
 
 	// filter by types
-	status, body = testGet(t, "/v1/users/7eP5n/transactions/usdc/count?type=transfer&type=purchase_content")
+	status, body = testGet(t, app, "/v1/users/7eP5n/transactions/usdc/count?type=transfer&type=purchase_content")
 	assert.Equal(t, 200, status)
 
 	jsonAssert(t, body, map[string]any{
@@ -158,7 +160,7 @@ func TestGetUserUsdcTransactionsCount(t *testing.T) {
 	})
 
 	// filter by method
-	status, body = testGet(t, "/v1/users/7eP5n/transactions/usdc/count?method=receive")
+	status, body = testGet(t, app, "/v1/users/7eP5n/transactions/usdc/count?method=receive")
 	assert.Equal(t, 200, status)
 
 	jsonAssert(t, body, map[string]any{

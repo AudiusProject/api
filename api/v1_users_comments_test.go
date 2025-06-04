@@ -7,7 +7,8 @@ import (
 )
 
 func TestUserComments(t *testing.T) {
-	status, body := testGet(t, "/v1/users/7eP5n/comments")
+	app := testAppWithFixtures(t)
+	status, body := testGet(t, app, "/v1/users/7eP5n/comments")
 	assert.Equal(t, 200, status)
 	jsonAssert(t, body, map[string]any{
 		"data.0.message":   "flame emoji",
