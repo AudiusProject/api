@@ -81,6 +81,20 @@ var (
 		"slot":             500,
 	}
 
+	saveBaseRow = map[string]any{
+		"blockhash":         "block_abc123",
+		"blocknumber":       101,
+		"user_id":           nil,
+		"save_item_id":      nil,
+		"save_type":         nil,
+		"is_current":        true,
+		"is_delete":         false,
+		"created_at":        time.Now(),
+		"txhash":            "tx_456def",
+		"slot":              500,
+		"is_save_of_repost": false,
+	}
+
 	repostBaseRow = map[string]any{
 		"blockhash":           "block_abc123",
 		"blocknumber":         101,
@@ -277,6 +291,16 @@ var (
 		"change":                 0,
 		"balance":                0,
 	}
+
+	playlistSeenBaseRow = map[string]any{
+		"user_id":     nil,
+		"playlist_id": nil,
+		"seen_at":     time.Now(),
+		"is_current":  true,
+		"blockhash":   "block_abc123",
+		"blocknumber": 101,
+		"txhash":      "tx_456def",
+	}
 )
 
 func insertFixturesFromArray(table string, baseRow map[string]any, data []map[string]any) {
@@ -323,11 +347,17 @@ func insertFixturesFromArray(table string, baseRow map[string]any, data []map[st
 }
 
 type FixtureSet struct {
-	users  []map[string]any
-	tracks []map[string]any
+	users         []map[string]any
+	tracks        []map[string]any
+	playlists     []map[string]any
+	saves         []map[string]any
+	playlist_seen []map[string]any
 }
 
 func createFixtures(fixtures FixtureSet) {
 	insertFixturesFromArray("users", userBaseRow, fixtures.users)
 	insertFixturesFromArray("tracks", trackBaseRow, fixtures.tracks)
+	insertFixturesFromArray("playlists", playlistBaseRow, fixtures.playlists)
+	insertFixturesFromArray("saves", saveBaseRow, fixtures.saves)
+	insertFixturesFromArray("playlist_seen", playlistSeenBaseRow, fixtures.playlist_seen)
 }

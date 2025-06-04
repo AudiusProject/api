@@ -5,15 +5,15 @@ import (
 	"time"
 )
 
-type TimeUnixMs time.Time
+type TimeUnix time.Time
 
-func (t TimeUnixMs) MarshalJSON() ([]byte, error) {
+func (t TimeUnix) MarshalJSON() ([]byte, error) {
 	return []byte(fmt.Sprintf("%d", time.Time(t).Unix())), nil
 }
 
-func (t *TimeUnixMs) Scan(value interface{}) error {
+func (t *TimeUnix) Scan(value interface{}) error {
 	if v, ok := value.(time.Time); ok {
-		*t = TimeUnixMs(v)
+		*t = TimeUnix(v)
 		return nil
 	}
 	return fmt.Errorf("cannot convert %v to UnixTimeMs", value)

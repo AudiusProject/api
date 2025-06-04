@@ -226,6 +226,8 @@ func jsonAssert(t *testing.T, body []byte, expectations map[string]any) {
 			actual = gjson.GetBytes(body, path).Float()
 		case int:
 			actual = int(gjson.GetBytes(body, path).Int())
+		case nil:
+			actual = gjson.GetBytes(body, path).Value()
 		default:
 			t.Errorf("unsupported type for expectation: %T", v)
 		}

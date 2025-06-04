@@ -16,22 +16,18 @@ func (app *ApiServer) v1PlaylistUpdates(c *fiber.Ctx) error {
 		p.playlist_id,
 		p.updated_at,
 		ps.seen_at
-	FROM
-		playlists p
-	INNER JOIN
-		saves s ON
+	FROM playlists p
+	INNER JOIN saves s ON
 			s.save_item_id = p.playlist_id AND
 			s.is_current AND
 			NOT s.is_delete AND
 			s.save_type = 'playlist' AND
 			s.user_id = @userId
-	LEFT JOIN
-	playlist_seen ps ON
+	LEFT JOIN playlist_seen ps ON
 		ps.is_current AND
 		ps.playlist_id = p.playlist_id AND
 		ps.user_id = @userId
-	WHERE
-		p.is_current = true AND
+	WHERE p.is_current = true AND
 		p.is_delete = false AND
 		s.created_at < p.updated_at AND
 		(ps.seen_at is NULL OR p.updated_at > ps.seen_at)
@@ -47,9 +43,9 @@ func (app *ApiServer) v1PlaylistUpdates(c *fiber.Ctx) error {
 	}
 
 	type PlaylistUpdate struct {
-		PlaylistId trashid.HashId     `db:"playlist_id" json:"playlist_id"`
-		UpdatedAt  fields.TimeUnixMs  `db:"updated_at" json:"updated_at"`
-		SeenAt     *fields.TimeUnixMs `db:"seen_at" json:"last_seen_at"`
+		PlaylistId trashid.HashId   `db:"playlist_id" json:"playlist_id"`
+		UpdatedAt  fields.TimeUnix  `db:"updated_at" json:"updated_at"`
+		SeenAt     *fields.TimeUnix `db:"seen_at" json:"last_seen_at"`
 	}
 
 	items, err := pgx.CollectRows(rows, pgx.RowToStructByName[PlaylistUpdate])
