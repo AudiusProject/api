@@ -35,7 +35,7 @@ func TestMain(m *testing.M) {
 	ctx := context.Background()
 	var err error
 
-	testPoolForCreatingChildDatabases, err = pgxpool.New(ctx, "postgres://postgres:example@localhost:21300/postgres")
+	testPoolForCreatingChildDatabases, err = pgxpool.New(ctx, "postgres://postgres:example@localhost:21300/test01")
 	checkErr(err)
 
 	// run tests
@@ -45,7 +45,7 @@ func TestMain(m *testing.M) {
 }
 
 func emptyTestApp(t *testing.T) *ApiServer {
-	// t.Parallel()
+	t.Parallel()
 	t.Helper()
 
 	dbName := fmt.Sprintf("testdb_%d", rand.Int())
@@ -53,7 +53,7 @@ func emptyTestApp(t *testing.T) *ApiServer {
 
 	// create a test db from template
 	testMutex.Lock()
-	_, err := testPoolForCreatingChildDatabases.Exec(ctx, "CREATE DATABASE "+dbName+" TEMPLATE postgres")
+	_, err := testPoolForCreatingChildDatabases.Exec(ctx, "CREATE DATABASE "+dbName+" TEMPLATE test01")
 	testMutex.Unlock()
 	require.NoError(t, err)
 
