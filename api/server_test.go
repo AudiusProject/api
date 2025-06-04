@@ -69,6 +69,8 @@ func TestMain(m *testing.M) {
 	`)
 	checkErr(err)
 
+	insertFixturesFromArray("aggregate_plays", map[string]any{}, testdata.AggregatePlays)
+	insertFixturesFromArray("aggregate_track", map[string]any{}, testdata.AggregateTrack)
 	insertFixturesFromArray("aggregate_user", map[string]any{}, testdata.AggregateUser)
 	insertFixturesFromArray("aggregate_user_tips", aggregateUserTipsBaseRow, testdata.AggregateUserTips)
 	insertFixturesFromArray("audio_transactions_history", audioTransactionBaseRow, testdata.AudioTransactionsHistory)

@@ -50,15 +50,7 @@ func (app *ApiServer) v1UserTracks(c *fiber.Ctx) error {
 			orderClause = fmt.Sprintf("aggregate_plays.count %s, t.track_id", sortDir)
 		}
 	}
-
-	// Support lookup by handle or user_id
-	handle := c.Params("handle")
 	userId := app.getUserId(c)
-
-	userLookupClause := "u.handle_lc = LOWER(@handle)"
-	if userId != 0 {
-		userLookupClause = "u.user_id = @user_id"
-	}
 
 	sql := `
 	SELECT track_id
@@ -66,7 +58,7 @@ func (app *ApiServer) v1UserTracks(c *fiber.Ctx) error {
 	JOIN users u ON owner_id = u.user_id
 	LEFT JOIN aggregate_plays ON track_id = play_item_id
 	LEFT JOIN aggregate_track USING (track_id)
-	WHERE ` + userLookupClause + `
+	WHERE owner_id = @user_id
 	  AND u.is_deactivated = false
 	  AND t.is_delete = false
 	  AND t.is_available = true
@@ -81,7 +73,6 @@ func (app *ApiServer) v1UserTracks(c *fiber.Ctx) error {
 	`
 
 	args := pgx.NamedArgs{
-		"handle":  handle,
 		"user_id": userId,
 		"my_id":   myId,
 	}

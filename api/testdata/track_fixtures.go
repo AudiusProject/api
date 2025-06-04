@@ -126,6 +126,13 @@ var TrackFixtures = []map[string]any{
 	{"track_id": 600, "genre": "Disco", "owner_id": 8, "title": "Underground Trending Disco Track 17", "is_unlisted": "f", "is_downloadable": "f"},
 	{"track_id": 601, "genre": "Rock", "owner_id": 11, "title": "Underground Trending Rock Track 17", "is_unlisted": "f", "is_downloadable": "f"},
 	{"track_id": 602, "genre": "Pop", "owner_id": 1, "title": "Underground Trending Pop Track 17", "is_unlisted": "f", "is_downloadable": "f"},
+
+	// data for v1_user_tracks_test.go
+	{"track_id": 700, "genre": "Electronic", "owner_id": 500, "title": "UserTracksTester Track 1", "created_at": "2021-01-01 00:00:00"},
+	{"track_id": 701, "genre": "Electronic", "owner_id": 500, "title": "UserTracksTester Track 4", "created_at": "2021-01-03 00:00:00"},
+	{"track_id": 702, "genre": "Electronic", "owner_id": 500, "title": "UserTracksTester Track 3", "created_at": "2021-01-04 00:00:00"},
+	// created before other track but later release date
+	{"track_id": 703, "genre": "Electronic", "owner_id": 500, "title": "UserTracksTester Track 2", "release_date": "2021-01-05 00:00:00", "created_at": "2021-01-02 00:00:00"},
 }
 
 /*

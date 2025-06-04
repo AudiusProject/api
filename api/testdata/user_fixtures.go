@@ -149,4 +149,11 @@ var UserFixtures = []map[string]any{
 		"is_deactivated": false,
 		"wallet":         "0x003",
 	},
+
+	// data for v1_user_tracks_test.go
+	{
+		"user_id":   500,
+		"handle":    "UserTracksTester",
+		"handle_lc": "usertrackstester",
+	},
 }
