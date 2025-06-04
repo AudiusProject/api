@@ -8,6 +8,7 @@ import (
 )
 
 func TestGetTrackDownload(t *testing.T) {
+	app := testAppWithFixtures(t)
 	req := httptest.NewRequest("GET", "/v1/tracks/eYZmn/download", nil)
 	res, err := app.Test(req, -1)
 	assert.NoError(t, err)

@@ -7,7 +7,8 @@ import (
 )
 
 func TestUserChallenges(t *testing.T) {
-	status, body := testGet(t, "/v1/users/eYVJn/challenges")
+	app := testAppWithFixtures(t)
+	status, body := testGet(t, app, "/v1/users/eYVJn/challenges")
 	assert.Equal(t, 200, status)
 	jsonAssert(t, body, map[string]any{
 		"data.0.challenge_id":       "e",
@@ -18,7 +19,7 @@ func TestUserChallenges(t *testing.T) {
 	})
 
 	// Completed endless challenge
-	status, body = testGet(t, "/v1/users/eP7kD/challenges")
+	status, body = testGet(t, app, "/v1/users/eP7kD/challenges")
 	assert.Equal(t, 200, status)
 	jsonAssert(t, body, map[string]any{
 		"data.0.challenge_id":       "e",
@@ -29,7 +30,7 @@ func TestUserChallenges(t *testing.T) {
 	})
 
 	// Continued endless challenge
-	status, body = testGet(t, "/v1/users/L50xn/challenges")
+	status, body = testGet(t, app, "/v1/users/L50xn/challenges")
 	assert.Equal(t, 200, status)
 	jsonAssert(t, body, map[string]any{
 		"data.0.challenge_id":       "e",
@@ -40,7 +41,7 @@ func TestUserChallenges(t *testing.T) {
 	})
 
 	// Reset endless challenge
-	status, body = testGet(t, "/v1/users/eblKL/challenges")
+	status, body = testGet(t, app, "/v1/users/eblKL/challenges")
 	assert.Equal(t, 200, status)
 	jsonAssert(t, body, map[string]any{
 		"data.0.challenge_id":       "e",

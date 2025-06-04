@@ -3,7 +3,7 @@
 --
 
 -- Dumped from database version 15.12
--- Dumped by pg_dump version 17.0
+-- Dumped by pg_dump version 17.5 (Debian 17.5-1.pgdg120+1)
 
 SET statement_timeout = 0;
 SET lock_timeout = 0;
@@ -39,24 +39,10 @@ CREATE EXTENSION IF NOT EXISTS amcheck WITH SCHEMA public;
 
 
 --
--- Name: EXTENSION amcheck; Type: COMMENT; Schema: -; Owner: -
---
-
-COMMENT ON EXTENSION amcheck IS 'functions for verifying relation integrity';
-
-
---
 -- Name: pg_stat_statements; Type: EXTENSION; Schema: -; Owner: -
 --
 
 CREATE EXTENSION IF NOT EXISTS pg_stat_statements WITH SCHEMA public;
-
-
---
--- Name: EXTENSION pg_stat_statements; Type: COMMENT; Schema: -; Owner: -
---
-
-COMMENT ON EXTENSION pg_stat_statements IS 'track planning and execution statistics of all SQL statements executed';
 
 
 --
@@ -67,24 +53,10 @@ CREATE EXTENSION IF NOT EXISTS pg_trgm WITH SCHEMA public;
 
 
 --
--- Name: EXTENSION pg_trgm; Type: COMMENT; Schema: -; Owner: -
---
-
-COMMENT ON EXTENSION pg_trgm IS 'text similarity measurement and index searching based on trigrams';
-
-
---
 -- Name: tsm_system_rows; Type: EXTENSION; Schema: -; Owner: -
 --
 
 CREATE EXTENSION IF NOT EXISTS tsm_system_rows WITH SCHEMA public;
-
-
---
--- Name: EXTENSION tsm_system_rows; Type: COMMENT; Schema: -; Owner: -
---
-
-COMMENT ON EXTENSION tsm_system_rows IS 'TABLESAMPLE method which accepts number of rows as a limit';
 
 
 --
@@ -1856,6 +1828,114 @@ CREATE FUNCTION public.get_user_score(target_user_id integer) RETURNS TABLE(user
             left join aggregate_user au on u.user_id = au.user_id
         where u.user_id = target_user_id
             and u.handle_lc is not null
+    )
+select a.*,
+    compute_user_score(
+        a.play_count,
+        a.follower_count,
+        a.challenge_count,
+        a.chat_block_count,
+        a.following_count,
+        a.is_audius_impersonator,
+        a.distinct_tracks_played,
+        a.karma
+    ) as score
+from aggregate_scores a;
+$$;
+
+
+--
+-- Name: get_user_scores(integer[]); Type: FUNCTION; Schema: public; Owner: -
+--
+
+CREATE FUNCTION public.get_user_scores(target_user_ids integer[] DEFAULT NULL::integer[]) RETURNS TABLE(user_id integer, handle_lc text, play_count bigint, distinct_tracks_played bigint, follower_count bigint, following_count bigint, challenge_count bigint, chat_block_count bigint, is_audius_impersonator boolean, karma bigint, score bigint)
+    LANGUAGE sql
+    AS $$ with play_activity as (
+        select plays.user_id,
+            count(distinct (date_trunc('hour', plays.created_at))) as play_count,
+            count(distinct(plays.play_item_id)) as distinct_tracks_played
+        from plays
+            join users on plays.user_id = users.user_id
+        where target_user_ids is null
+            or plays.user_id = any(target_user_ids)
+        group by plays.user_id
+    ),
+    fast_challenge_completion as (
+        select users.user_id,
+            handle_lc,
+            users.created_at,
+            count(*) as challenge_count,
+            array_agg(user_challenges.challenge_id) as challenge_ids
+        from users
+            left join user_challenges on users.user_id = user_challenges.user_id
+        where user_challenges.is_complete
+            and user_challenges.completed_at - users.created_at <= interval '3 minutes'
+            and user_challenges.challenge_id not in ('m', 'b')
+            and (
+                target_user_ids is null
+                or users.user_id = any(target_user_ids)
+            )
+        group by users.user_id,
+            users.handle_lc,
+            users.created_at
+    ),
+    chat_blocks as (
+        select chat_blocked_users.blockee_user_id as user_id,
+            count(*) as block_count
+        from chat_blocked_users
+            join users on chat_blocked_users.blockee_user_id = users.user_id
+        where target_user_ids is null
+            or chat_blocked_users.blockee_user_id = any(target_user_ids)
+        group by chat_blocked_users.blockee_user_id
+    ),
+    aggregate_scores as (
+        select users.user_id,
+            users.handle_lc,
+            coalesce(play_activity.play_count, 0) as play_count,
+            coalesce(play_activity.distinct_tracks_played, 0) as distinct_tracks_played,
+            coalesce(aggregate_user.following_count, 0) as following_count,
+            coalesce(aggregate_user.follower_count, 0) as follower_count,
+            coalesce(fast_challenge_completion.challenge_count, 0) as challenge_count,
+            coalesce(chat_blocks.block_count, 0) as chat_block_count,
+            case
+                when (
+                    users.handle_lc ilike '%audius%'
+                    or lower(users.name) ilike '%audius%'
+                )
+                and users.is_verified = false then true
+                else false
+            end as is_audius_impersonator,
+            case
+                when (
+                    -- give max karma to users with more than 1000 followers
+                    -- karma is too slow for users with many followers
+                    aggregate_user.follower_count > 1000
+                ) then 100
+                when (
+                    aggregate_user.follower_count = 0
+                ) then 0
+                else (
+                    select LEAST(
+                            (sum(fau.follower_count) / 100)::bigint,
+                            100
+                        )
+                    from follows
+                        join aggregate_user fau on follows.follower_user_id = fau.user_id
+                    where follows.followee_user_id = users.user_id
+                        and fau.following_count < 10000 -- ignore users with too many following
+                        and follows.is_delete = false
+                )
+            end as karma
+        from users
+            left join play_activity on users.user_id = play_activity.user_id
+            left join fast_challenge_completion on users.user_id = fast_challenge_completion.user_id
+            left join chat_blocks on users.user_id = chat_blocks.user_id
+            left join aggregate_user on aggregate_user.user_id = users.user_id
+        where users.handle_lc is not null
+            and (
+                target_user_ids is null
+                or users.user_id = any(target_user_ids)
+            )
     )
 select a.*,
     compute_user_score(
@@ -4751,27 +4831,6 @@ CREATE TABLE public.tracks (
 
 
 --
--- Name: COLUMN tracks.cover_original_song_title; Type: COMMENT; Schema: public; Owner: -
---
-
-COMMENT ON COLUMN public.tracks.cover_original_song_title IS 'Title of the original song if this track is a cover';
-
-
---
--- Name: COLUMN tracks.cover_original_artist; Type: COMMENT; Schema: public; Owner: -
---
-
-COMMENT ON COLUMN public.tracks.cover_original_artist IS 'Artist of the original song if this track is a cover';
-
-
---
--- Name: COLUMN tracks.is_owned_by_user; Type: COMMENT; Schema: public; Owner: -
---
-
-COMMENT ON COLUMN public.tracks.is_owned_by_user IS 'Indicates whether the track is owned by the user for publishing payouts';
-
-
---
 -- Name: track_should_notify(public.tracks, record, character varying); Type: FUNCTION; Schema: public; Owner: -
 --
 
@@ -5631,41 +5690,6 @@ CREATE TABLE public.collectibles (
 
 
 --
--- Name: TABLE collectibles; Type: COMMENT; Schema: public; Owner: -
---
-
-COMMENT ON TABLE public.collectibles IS 'Stores collectibles data for users';
-
-
---
--- Name: COLUMN collectibles.user_id; Type: COMMENT; Schema: public; Owner: -
---
-
-COMMENT ON COLUMN public.collectibles.user_id IS 'User ID of the person who owns the collectibles';
-
-
---
--- Name: COLUMN collectibles.data; Type: COMMENT; Schema: public; Owner: -
---
-
-COMMENT ON COLUMN public.collectibles.data IS 'Data about the collectibles';
-
-
---
--- Name: COLUMN collectibles.blockhash; Type: COMMENT; Schema: public; Owner: -
---
-
-COMMENT ON COLUMN public.collectibles.blockhash IS 'Blockhash of the most recent block that changed the collectibles data';
-
-
---
--- Name: COLUMN collectibles.blocknumber; Type: COMMENT; Schema: public; Owner: -
---
-
-COMMENT ON COLUMN public.collectibles.blocknumber IS 'Block number of the most recent block that changed the collectibles data';
-
-
---
 -- Name: comment_mentions; Type: TABLE; Schema: public; Owner: -
 --
 
@@ -6009,41 +6033,6 @@ CREATE TABLE public.email_access (
 
 
 --
--- Name: TABLE email_access; Type: COMMENT; Schema: public; Owner: -
---
-
-COMMENT ON TABLE public.email_access IS 'Tracks who has access to encrypted emails';
-
-
---
--- Name: COLUMN email_access.email_owner_user_id; Type: COMMENT; Schema: public; Owner: -
---
-
-COMMENT ON COLUMN public.email_access.email_owner_user_id IS 'The user ID of the email owner';
-
-
---
--- Name: COLUMN email_access.receiving_user_id; Type: COMMENT; Schema: public; Owner: -
---
-
-COMMENT ON COLUMN public.email_access.receiving_user_id IS 'The user ID of the person granted access';
-
-
---
--- Name: COLUMN email_access.grantor_user_id; Type: COMMENT; Schema: public; Owner: -
---
-
-COMMENT ON COLUMN public.email_access.grantor_user_id IS 'The user ID of the person who granted access';
-
-
---
--- Name: COLUMN email_access.encrypted_key; Type: COMMENT; Schema: public; Owner: -
---
-
-COMMENT ON COLUMN public.email_access.encrypted_key IS 'The symmetric key (SK) encrypted for the receiving user';
-
-
---
 -- Name: email_access_id_seq; Type: SEQUENCE; Schema: public; Owner: -
 --
 
@@ -6074,27 +6063,6 @@ CREATE TABLE public.encrypted_emails (
     created_at timestamp with time zone DEFAULT CURRENT_TIMESTAMP,
     updated_at timestamp with time zone DEFAULT CURRENT_TIMESTAMP
 );
-
-
---
--- Name: TABLE encrypted_emails; Type: COMMENT; Schema: public; Owner: -
---
-
-COMMENT ON TABLE public.encrypted_emails IS 'Stores encrypted email addresses';
-
-
---
--- Name: COLUMN encrypted_emails.email_owner_user_id; Type: COMMENT; Schema: public; Owner: -
---
-
-COMMENT ON COLUMN public.encrypted_emails.email_owner_user_id IS 'The user ID of the email owner';
-
-
---
--- Name: COLUMN encrypted_emails.encrypted_email; Type: COMMENT; Schema: public; Owner: -
---
-
-COMMENT ON COLUMN public.encrypted_emails.encrypted_email IS 'The encrypted email address (base64 encoded)';
 
 
 --

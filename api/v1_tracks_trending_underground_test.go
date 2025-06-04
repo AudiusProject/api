@@ -9,10 +9,11 @@ import (
 )
 
 func TestGetTrendingUnderground(t *testing.T) {
+	app := testAppWithFixtures(t)
 	var resp struct {
 		Data []dbv1.FullTrack
 	}
-	status, body := testGet(t, "/v1/tracks/trending/underground", &resp)
+	status, body := testGet(t, app, "/v1/tracks/trending/underground", &resp)
 
 	assert.Equal(t, 200, status)
 

@@ -8,11 +8,12 @@ import (
 )
 
 func TestTracksEndpoint(t *testing.T) {
+	app := testAppWithFixtures(t)
 	var resp struct {
 		Data []dbv1.FullTrack
 	}
 
-	status, body := testGet(t, "/v1/full/tracks?id=eYZmn", &resp)
+	status, body := testGet(t, app, "/v1/full/tracks?id=eYZmn", &resp)
 	assert.Equal(t, 200, status)
 
 	jsonAssert(t, body, map[string]any{
@@ -22,11 +23,9 @@ func TestTracksEndpoint(t *testing.T) {
 }
 
 func TestGetTracksByPermalink(t *testing.T) {
-	var tracksResponse struct {
-		Data []dbv1.FullTrack
-	}
+	app := testAppWithFixtures(t)
 
-	status, body := testGet(t, "/v1/full/tracks?permalink=/TracksByPermalink/track-by-permalink", &tracksResponse)
+	status, body := testGet(t, app, "/v1/full/tracks?permalink=/TracksByPermalink/track-by-permalink")
 	assert.Equal(t, 200, status)
 
 	jsonAssert(t, body, map[string]any{

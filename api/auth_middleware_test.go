@@ -9,6 +9,7 @@ import (
 )
 
 func TestRecoverAuthorityFromSignatureHeaders(t *testing.T) {
+	app := testAppWithFixtures(t)
 	var wallet string
 
 	// Create a dummy endpoint to test the authMiddleware
@@ -28,6 +29,8 @@ func TestRecoverAuthorityFromSignatureHeaders(t *testing.T) {
 }
 
 func TestAuthorized(t *testing.T) {
+	app := testAppWithFixtures(t)
+
 	// Create a dummy endpoint to test the authMiddleware
 	testApp := fiber.New()
 	testApp.Get("/", app.resolveMyIdMiddleware, app.authMiddleware, func(c *fiber.Ctx) error {
@@ -93,6 +96,8 @@ func TestAuthorized(t *testing.T) {
 }
 
 func TestRequireAuthMiddleware(t *testing.T) {
+	app := testAppWithFixtures(t)
+
 	// Create a dummy endpoint to test the requireAuthMiddleware
 	testApp := fiber.New()
 	testApp.Get("/", app.resolveMyIdMiddleware, app.authMiddleware, app.requireAuthMiddleware, func(c *fiber.Ctx) error {
