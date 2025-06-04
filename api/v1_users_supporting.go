@@ -21,6 +21,8 @@ func (app *ApiServer) v1UsersSupporting(c *fiber.Ctx) error {
 
 	args := pgx.NamedArgs{
 		"userId": userId,
+		"limit":  params.Limit,
+		"offset": params.Offset,
 	}
 
 	type supportedUser struct {
