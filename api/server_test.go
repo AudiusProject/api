@@ -117,6 +117,7 @@ func testAppWithFixtures(t *testing.T) *ApiServer {
 	insertFixturesFromArray(app, "user_challenges", userChallengeBaseRow, testdata.UserChallengesFixtures)
 	insertFixturesFromArray(app, "usdc_user_bank_accounts", usdcUserBankBaseRow, testdata.UserBankAccountsFixtures)
 	insertFixturesFromArray(app, "users", userBaseRow, testdata.UserFixtures)
+	insertFixturesFromArray(app, "user_listening_history", map[string]any{}, testdata.UserListeningHistoryFixtures)
 
 	return app
 

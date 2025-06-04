@@ -101,7 +101,8 @@ func (app *ApiServer) v1UsersLibraryTracks(c *fiber.Ctx) error {
 		'track_activity_full' as class,
 		item_id,
 		item_created_at,
-		is_purchase
+		is_purchase,
+		'track' as item_type
 	FROM deduped
 	JOIN tracks ON track_id = item_id
 	JOIN users ON owner_id = user_id
@@ -129,6 +130,7 @@ func (app *ApiServer) v1UsersLibraryTracks(c *fiber.Ctx) error {
 		ItemID        int32     `json:"item_id"`
 		ItemCreatedAt time.Time `json:"timestamp"`
 		IsPurchase    bool      `json:"-"`
+		ItemType      string    `json:"item_type"`
 
 		Item any `db:"-" json:"item"`
 	}
