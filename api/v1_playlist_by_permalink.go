@@ -10,7 +10,7 @@ type v1PlaylistsByPermlinkRouteParams struct {
 	Slug   string `params:"slug"`
 }
 
-func (app *ApiServer) v1PlaylistsByPermalink(c *fiber.Ctx) error {
+func (app *ApiServer) v1PlaylistByPermalink(c *fiber.Ctx) error {
 	myId := app.getMyId(c)
 
 	params := &v1PlaylistsByPermlinkRouteParams{}
