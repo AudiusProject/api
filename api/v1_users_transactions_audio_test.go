@@ -7,8 +7,9 @@ import (
 )
 
 func TestGetUserAudioTransactions(t *testing.T) {
+	app := testAppWithFixtures(t)
 	// Default sort (reverse chronological)
-	status, body := testGet(t, "/v1/users/7eP5n/transactions/audio")
+	status, body := testGet(t, app, "/v1/users/7eP5n/transactions/audio")
 	assert.Equal(t, 200, status)
 
 	jsonAssert(t, body, map[string]any{
@@ -39,7 +40,7 @@ func TestGetUserAudioTransactions(t *testing.T) {
 	})
 
 	// sort by date ascending
-	status, body = testGet(t, "/v1/users/7eP5n/transactions/audio?sort_method=date&sort_direction=asc")
+	status, body = testGet(t, app, "/v1/users/7eP5n/transactions/audio?sort_method=date&sort_direction=asc")
 	assert.Equal(t, 200, status)
 
 	jsonAssert(t, body, map[string]any{
@@ -56,7 +57,7 @@ func TestGetUserAudioTransactions(t *testing.T) {
 
 	// sort by transaction type descending
 	// Secondary sort is always date descending
-	status, body = testGet(t, "/v1/users/7eP5n/transactions/audio?sort_method=transaction_type&sort_direction=desc")
+	status, body = testGet(t, app, "/v1/users/7eP5n/transactions/audio?sort_method=transaction_type&sort_direction=desc")
 	assert.Equal(t, 200, status)
 
 	jsonAssert(t, body, map[string]any{
@@ -88,9 +89,10 @@ func TestGetUserAudioTransactions(t *testing.T) {
 }
 
 func TestGetUserAudioTransactionsCount(t *testing.T) {
+	app := testAppWithFixtures(t)
 
 	// Default sort
-	status, body := testGet(t, "/v1/users/7eP5n/transactions/audio/count")
+	status, body := testGet(t, app, "/v1/users/7eP5n/transactions/audio/count")
 	assert.Equal(t, 200, status)
 
 	jsonAssert(t, body, map[string]any{

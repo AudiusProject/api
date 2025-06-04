@@ -9,11 +9,12 @@ import (
 )
 
 func TestGetUser(t *testing.T) {
+	app := testAppWithFixtures(t)
 	var userResponse struct {
 		Data []dbv1.FullUser
 	}
 
-	status, body := testGet(t, "/v1/full/users/7eP5n", &userResponse)
+	status, body := testGet(t, app, "/v1/full/users/7eP5n", &userResponse)
 	assert.Equal(t, 200, status)
 
 	// body is response json

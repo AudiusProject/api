@@ -7,8 +7,9 @@ import (
 )
 
 func TestUserListeningHistory(t *testing.T) {
+	app := testAppWithFixtures(t)
 	// Test in-order history (full)
-	status, body := testGet(t, "/v1/full/users/DNRpD/history/tracks")
+	status, body := testGet(t, app, "/v1/full/users/DNRpD/history/tracks")
 	assert.Equal(t, 200, status)
 	jsonAssert(t, body, map[string]any{
 		"data.0.class":     "track_activity_full",
@@ -19,7 +20,7 @@ func TestUserListeningHistory(t *testing.T) {
 	})
 
 	// Test reverse history (non-full)
-	status2, body2 := testGet(t, "/v1/users/DNRpD/history/tracks?sort_direction=asc")
+	status2, body2 := testGet(t, app, "/v1/users/DNRpD/history/tracks?sort_direction=asc")
 	assert.Equal(t, 200, status2)
 	jsonAssert(t, body2, map[string]any{
 		"data.0.class":   "track_activity",
@@ -29,7 +30,7 @@ func TestUserListeningHistory(t *testing.T) {
 	})
 
 	// Test sorting by user plays count
-	status3, body3 := testGet(t, "/v1/users/DNRpD/history/tracks?sort_method=most_listens_by_user")
+	status3, body3 := testGet(t, app, "/v1/users/DNRpD/history/tracks?sort_method=most_listens_by_user")
 	assert.Equal(t, 200, status3)
 	jsonAssert(t, body3, map[string]any{
 		"data.0.item.id": "eJpoL",
@@ -38,7 +39,7 @@ func TestUserListeningHistory(t *testing.T) {
 	})
 
 	// Test sorting by title
-	status4, body4 := testGet(t, "/v1/users/DNRpD/history/tracks?sort_method=title&sort_direction=desc")
+	status4, body4 := testGet(t, app, "/v1/users/DNRpD/history/tracks?sort_method=title&sort_direction=desc")
 	assert.Equal(t, 200, status4)
 	jsonAssert(t, body4, map[string]any{
 		"data.0.item.title": "Trending Gated Jazz Track 1",
@@ -47,7 +48,7 @@ func TestUserListeningHistory(t *testing.T) {
 	})
 
 	// Test sorting by artist name
-	status5, body5 := testGet(t, "/v1/users/DNRpD/history/tracks?sort_method=artist_name&sort_direction=asc")
+	status5, body5 := testGet(t, app, "/v1/users/DNRpD/history/tracks?sort_method=artist_name&sort_direction=asc")
 	assert.Equal(t, 200, status5)
 	jsonAssert(t, body5, map[string]any{
 		"data.0.item.user.name": "Guy in Trending",
@@ -56,7 +57,7 @@ func TestUserListeningHistory(t *testing.T) {
 	})
 
 	// Test filter
-	status6, body6 := testGet(t, "/v1/users/DNRpD/history/tracks?query=Jazz")
+	status6, body6 := testGet(t, app, "/v1/users/DNRpD/history/tracks?query=Jazz")
 	assert.Equal(t, 200, status6)
 	jsonAssert(t, body6, map[string]any{
 		"data.0.item.id":    "eJpoL",
