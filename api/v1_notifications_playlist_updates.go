@@ -7,7 +7,7 @@ import (
 	"github.com/jackc/pgx/v5"
 )
 
-func (app *ApiServer) v1PlaylistUpdates(c *fiber.Ctx) error {
+func (app *ApiServer) v1NotificationsPlaylistUpdates(c *fiber.Ctx) error {
 	userId := app.getUserId(c)
 
 	sql := `

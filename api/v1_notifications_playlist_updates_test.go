@@ -9,7 +9,7 @@ import (
 	"github.com/stretchr/testify/assert"
 )
 
-func TestV1PlaylistUpdates(t *testing.T) {
+func TestV1NotificationsPlaylistUpdates(t *testing.T) {
 	app := emptyTestApp(t)
 	userID := int32(4001)
 	playlistID := int32(4001)

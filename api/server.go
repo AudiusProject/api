@@ -349,7 +349,7 @@ func NewApiServer(config config.Config) *ApiServer {
 		g.Get("/metrics/aggregates/routes/trailing/:time_range", app.v1MetricsRoutesTrailing)
 
 		// Notifications
-		g.Get("/notifications/:userId/playlist_updates", app.requireUserIdMiddleware, app.v1PlaylistUpdates)
+		g.Get("/notifications/:userId/playlist_updates", app.requireUserIdMiddleware, app.v1NotificationsPlaylistUpdates)
 	}
 
 	// Comms
