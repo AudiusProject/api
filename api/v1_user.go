@@ -19,7 +19,7 @@ func (app *ApiServer) v1User(c *fiber.Ctx) error {
 	}
 
 	if len(users) == 0 {
-		return sendError(c, 404, "user not found")
+		return fiber.NewError(fiber.StatusNotFound, "user not found")
 	}
 
 	// full returns an array

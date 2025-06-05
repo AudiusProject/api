@@ -20,7 +20,7 @@ func (app *ApiServer) v1Track(c *fiber.Ctx) error {
 	}
 
 	if len(tracks) == 0 {
-		return sendError(c, 404, "track not found")
+		return fiber.NewError(fiber.StatusNotFound, "track not found")
 	}
 
 	track := tracks[0]
