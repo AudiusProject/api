@@ -969,15 +969,10 @@ type CidDatum struct {
 	Data []byte      `json:"data"`
 }
 
-// Stores collectibles data for users
 type Collectible struct {
-	// User ID of the person who owns the collectibles
-	UserID int32 `json:"user_id"`
-	// Data about the collectibles
-	Data json.RawMessage `json:"data"`
-	// Blockhash of the most recent block that changed the collectibles data
-	Blockhash string `json:"blockhash"`
-	// Block number of the most recent block that changed the collectibles data
+	UserID      int32              `json:"user_id"`
+	Data        json.RawMessage    `json:"data"`
+	Blockhash   string             `json:"blockhash"`
 	Blocknumber int32              `json:"blocknumber"`
 	CreatedAt   pgtype.Timestamptz `json:"created_at"`
 	UpdatedAt   pgtype.Timestamptz `json:"updated_at"`
@@ -1147,31 +1142,23 @@ type DeveloperApp struct {
 	ImageUrl         pgtype.Text    `json:"image_url"`
 }
 
-// Tracks who has access to encrypted emails
 type EmailAccess struct {
-	ID int32 `json:"id"`
-	// The user ID of the email owner
-	EmailOwnerUserID int32 `json:"email_owner_user_id"`
-	// The user ID of the person granted access
-	ReceivingUserID int32 `json:"receiving_user_id"`
-	// The user ID of the person who granted access
-	GrantorUserID int32 `json:"grantor_user_id"`
-	// The symmetric key (SK) encrypted for the receiving user
-	EncryptedKey string             `json:"encrypted_key"`
-	CreatedAt    pgtype.Timestamptz `json:"created_at"`
-	UpdatedAt    pgtype.Timestamptz `json:"updated_at"`
-	IsInitial    bool               `json:"is_initial"`
+	ID               int32              `json:"id"`
+	EmailOwnerUserID int32              `json:"email_owner_user_id"`
+	ReceivingUserID  int32              `json:"receiving_user_id"`
+	GrantorUserID    int32              `json:"grantor_user_id"`
+	EncryptedKey     string             `json:"encrypted_key"`
+	CreatedAt        pgtype.Timestamptz `json:"created_at"`
+	UpdatedAt        pgtype.Timestamptz `json:"updated_at"`
+	IsInitial        bool               `json:"is_initial"`
 }
 
-// Stores encrypted email addresses
 type EncryptedEmail struct {
-	ID int32 `json:"id"`
-	// The user ID of the email owner
-	EmailOwnerUserID int32 `json:"email_owner_user_id"`
-	// The encrypted email address (base64 encoded)
-	EncryptedEmail string             `json:"encrypted_email"`
-	CreatedAt      pgtype.Timestamptz `json:"created_at"`
-	UpdatedAt      pgtype.Timestamptz `json:"updated_at"`
+	ID               int32              `json:"id"`
+	EmailOwnerUserID int32              `json:"email_owner_user_id"`
+	EncryptedEmail   string             `json:"encrypted_email"`
+	CreatedAt        pgtype.Timestamptz `json:"created_at"`
+	UpdatedAt        pgtype.Timestamptz `json:"updated_at"`
 }
 
 type EthBlock struct {
@@ -1611,83 +1598,80 @@ type TagTrackUser struct {
 }
 
 type Track struct {
-	Blockhash                          pgtype.Text     `json:"blockhash"`
-	TrackID                            int32           `json:"track_id"`
-	IsCurrent                          bool            `json:"is_current"`
-	IsDelete                           bool            `json:"is_delete"`
-	OwnerID                            int32           `json:"owner_id"`
-	Title                              pgtype.Text     `json:"title"`
-	CoverArt                           pgtype.Text     `json:"cover_art"`
-	Tags                               pgtype.Text     `json:"tags"`
-	Genre                              pgtype.Text     `json:"genre"`
-	Mood                               pgtype.Text     `json:"mood"`
-	CreditsSplits                      pgtype.Text     `json:"credits_splits"`
-	CreateDate                         pgtype.Text     `json:"create_date"`
-	FileType                           pgtype.Text     `json:"file_type"`
-	MetadataMultihash                  pgtype.Text     `json:"metadata_multihash"`
-	Blocknumber                        pgtype.Int4     `json:"blocknumber"`
-	CreatedAt                          time.Time       `json:"created_at"`
-	Description                        pgtype.Text     `json:"description"`
-	Isrc                               pgtype.Text     `json:"isrc"`
-	Iswc                               pgtype.Text     `json:"iswc"`
-	License                            pgtype.Text     `json:"license"`
-	UpdatedAt                          time.Time       `json:"updated_at"`
-	CoverArtSizes                      pgtype.Text     `json:"cover_art_sizes"`
-	IsUnlisted                         bool            `json:"is_unlisted"`
-	FieldVisibility                    json.RawMessage `json:"field_visibility"`
-	RouteID                            pgtype.Text     `json:"route_id"`
-	StemOf                             []byte          `json:"stem_of"`
-	RemixOf                            []byte          `json:"remix_of"`
-	Txhash                             string          `json:"txhash"`
-	Slot                               pgtype.Int4     `json:"slot"`
-	IsAvailable                        bool            `json:"is_available"`
-	StreamConditions                   *AccessGate     `json:"stream_conditions"`
-	TrackCid                           pgtype.Text     `json:"track_cid"`
-	IsPlaylistUpload                   bool            `json:"is_playlist_upload"`
-	Duration                           pgtype.Int4     `json:"duration"`
-	AiAttributionUserID                pgtype.Int4     `json:"ai_attribution_user_id"`
-	PreviewCid                         pgtype.Text     `json:"preview_cid"`
-	AudioUploadID                      pgtype.Text     `json:"audio_upload_id"`
-	PreviewStartSeconds                pgtype.Float8   `json:"preview_start_seconds"`
-	ReleaseDate                        *time.Time      `json:"release_date"`
-	TrackSegments                      json.RawMessage `json:"track_segments"`
-	IsScheduledRelease                 bool            `json:"is_scheduled_release"`
-	IsDownloadable                     bool            `json:"is_downloadable"`
-	DownloadConditions                 *AccessGate     `json:"download_conditions"`
-	IsOriginalAvailable                bool            `json:"is_original_available"`
-	OrigFileCid                        pgtype.Text     `json:"orig_file_cid"`
-	OrigFilename                       pgtype.Text     `json:"orig_filename"`
-	PlaylistsContainingTrack           []int32         `json:"playlists_containing_track"`
-	PlacementHosts                     pgtype.Text     `json:"placement_hosts"`
-	DdexApp                            pgtype.Text     `json:"ddex_app"`
-	DdexReleaseIds                     json.RawMessage `json:"ddex_release_ids"`
-	Artists                            json.RawMessage `json:"artists"`
-	ResourceContributors               json.RawMessage `json:"resource_contributors"`
-	IndirectResourceContributors       json.RawMessage `json:"indirect_resource_contributors"`
-	RightsController                   json.RawMessage `json:"rights_controller"`
-	CopyrightLine                      json.RawMessage `json:"copyright_line"`
-	ProducerCopyrightLine              json.RawMessage `json:"producer_copyright_line"`
-	ParentalWarningType                pgtype.Text     `json:"parental_warning_type"`
-	PlaylistsPreviouslyContainingTrack json.RawMessage `json:"playlists_previously_containing_track"`
-	AllowedApiKeys                     []string        `json:"allowed_api_keys"`
-	Bpm                                pgtype.Float8   `json:"bpm"`
-	MusicalKey                         pgtype.Text     `json:"musical_key"`
-	AudioAnalysisErrorCount            int32           `json:"audio_analysis_error_count"`
-	IsCustomBpm                        pgtype.Bool     `json:"is_custom_bpm"`
-	IsCustomMusicalKey                 pgtype.Bool     `json:"is_custom_musical_key"`
-	CommentsDisabled                   pgtype.Bool     `json:"comments_disabled"`
-	PinnedCommentID                    pgtype.Int4     `json:"pinned_comment_id"`
-	// Title of the original song if this track is a cover
-	CoverOriginalSongTitle pgtype.Text `json:"cover_original_song_title"`
-	// Artist of the original song if this track is a cover
-	CoverOriginalArtist pgtype.Text `json:"cover_original_artist"`
-	// Indicates whether the track is owned by the user for publishing payouts
-	IsOwnedByUser   bool                    `json:"is_owned_by_user"`
-	IsStreamGated   pgtype.Bool             `json:"is_stream_gated"`
-	IsDownloadGated pgtype.Bool             `json:"is_download_gated"`
-	NoAiUse         pgtype.Bool             `json:"no_ai_use"`
-	ParentalWarning NullParentalWarningType `json:"parental_warning"`
-	TerritoryCodes  []string                `json:"territory_codes"`
+	Blockhash                          pgtype.Text             `json:"blockhash"`
+	TrackID                            int32                   `json:"track_id"`
+	IsCurrent                          bool                    `json:"is_current"`
+	IsDelete                           bool                    `json:"is_delete"`
+	OwnerID                            int32                   `json:"owner_id"`
+	Title                              pgtype.Text             `json:"title"`
+	CoverArt                           pgtype.Text             `json:"cover_art"`
+	Tags                               pgtype.Text             `json:"tags"`
+	Genre                              pgtype.Text             `json:"genre"`
+	Mood                               pgtype.Text             `json:"mood"`
+	CreditsSplits                      pgtype.Text             `json:"credits_splits"`
+	CreateDate                         pgtype.Text             `json:"create_date"`
+	FileType                           pgtype.Text             `json:"file_type"`
+	MetadataMultihash                  pgtype.Text             `json:"metadata_multihash"`
+	Blocknumber                        pgtype.Int4             `json:"blocknumber"`
+	CreatedAt                          time.Time               `json:"created_at"`
+	Description                        pgtype.Text             `json:"description"`
+	Isrc                               pgtype.Text             `json:"isrc"`
+	Iswc                               pgtype.Text             `json:"iswc"`
+	License                            pgtype.Text             `json:"license"`
+	UpdatedAt                          time.Time               `json:"updated_at"`
+	CoverArtSizes                      pgtype.Text             `json:"cover_art_sizes"`
+	IsUnlisted                         bool                    `json:"is_unlisted"`
+	FieldVisibility                    json.RawMessage         `json:"field_visibility"`
+	RouteID                            pgtype.Text             `json:"route_id"`
+	StemOf                             []byte                  `json:"stem_of"`
+	RemixOf                            []byte                  `json:"remix_of"`
+	Txhash                             string                  `json:"txhash"`
+	Slot                               pgtype.Int4             `json:"slot"`
+	IsAvailable                        bool                    `json:"is_available"`
+	StreamConditions                   *AccessGate             `json:"stream_conditions"`
+	TrackCid                           pgtype.Text             `json:"track_cid"`
+	IsPlaylistUpload                   bool                    `json:"is_playlist_upload"`
+	Duration                           pgtype.Int4             `json:"duration"`
+	AiAttributionUserID                pgtype.Int4             `json:"ai_attribution_user_id"`
+	PreviewCid                         pgtype.Text             `json:"preview_cid"`
+	AudioUploadID                      pgtype.Text             `json:"audio_upload_id"`
+	PreviewStartSeconds                pgtype.Float8           `json:"preview_start_seconds"`
+	ReleaseDate                        *time.Time              `json:"release_date"`
+	TrackSegments                      json.RawMessage         `json:"track_segments"`
+	IsScheduledRelease                 bool                    `json:"is_scheduled_release"`
+	IsDownloadable                     bool                    `json:"is_downloadable"`
+	DownloadConditions                 *AccessGate             `json:"download_conditions"`
+	IsOriginalAvailable                bool                    `json:"is_original_available"`
+	OrigFileCid                        pgtype.Text             `json:"orig_file_cid"`
+	OrigFilename                       pgtype.Text             `json:"orig_filename"`
+	PlaylistsContainingTrack           []int32                 `json:"playlists_containing_track"`
+	PlacementHosts                     pgtype.Text             `json:"placement_hosts"`
+	DdexApp                            pgtype.Text             `json:"ddex_app"`
+	DdexReleaseIds                     json.RawMessage         `json:"ddex_release_ids"`
+	Artists                            json.RawMessage         `json:"artists"`
+	ResourceContributors               json.RawMessage         `json:"resource_contributors"`
+	IndirectResourceContributors       json.RawMessage         `json:"indirect_resource_contributors"`
+	RightsController                   json.RawMessage         `json:"rights_controller"`
+	CopyrightLine                      json.RawMessage         `json:"copyright_line"`
+	ProducerCopyrightLine              json.RawMessage         `json:"producer_copyright_line"`
+	ParentalWarningType                pgtype.Text             `json:"parental_warning_type"`
+	PlaylistsPreviouslyContainingTrack json.RawMessage         `json:"playlists_previously_containing_track"`
+	AllowedApiKeys                     []string                `json:"allowed_api_keys"`
+	Bpm                                pgtype.Float8           `json:"bpm"`
+	MusicalKey                         pgtype.Text             `json:"musical_key"`
+	AudioAnalysisErrorCount            int32                   `json:"audio_analysis_error_count"`
+	IsCustomBpm                        pgtype.Bool             `json:"is_custom_bpm"`
+	IsCustomMusicalKey                 pgtype.Bool             `json:"is_custom_musical_key"`
+	CommentsDisabled                   pgtype.Bool             `json:"comments_disabled"`
+	PinnedCommentID                    pgtype.Int4             `json:"pinned_comment_id"`
+	CoverOriginalSongTitle             pgtype.Text             `json:"cover_original_song_title"`
+	CoverOriginalArtist                pgtype.Text             `json:"cover_original_artist"`
+	IsOwnedByUser                      bool                    `json:"is_owned_by_user"`
+	IsStreamGated                      pgtype.Bool             `json:"is_stream_gated"`
+	IsDownloadGated                    pgtype.Bool             `json:"is_download_gated"`
+	NoAiUse                            pgtype.Bool             `json:"no_ai_use"`
+	ParentalWarning                    NullParentalWarningType `json:"parental_warning"`
+	TerritoryCodes                     []string                `json:"territory_codes"`
 }
 
 type TrackDelistStatus struct {

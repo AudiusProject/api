@@ -8,10 +8,11 @@ import (
 )
 
 func TestGetUsersHandle(t *testing.T) {
+	app := testAppWithFixtures(t)
 	var accountResponse struct {
 		Data dbv1.FullAccount
 	}
-	status, body := testGet(t, "/v1/users/handle/rayjacobson", &accountResponse)
+	status, body := testGet(t, app, "/v1/users/handle/rayjacobson", &accountResponse)
 	assert.Equal(t, 200, status)
 
 	jsonAssert(t, body, map[string]any{

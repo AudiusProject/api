@@ -8,6 +8,7 @@ import (
 )
 
 func TestFixtureStruct(t *testing.T) {
+	app := emptyTestApp(t)
 
 	fixtures := FixtureSet{
 		users: []map[string]any{
@@ -29,7 +30,7 @@ func TestFixtureStruct(t *testing.T) {
 		},
 	}
 
-	createFixtures(fixtures)
+	createFixtures(app, fixtures)
 
 	users, err := app.queries.FullUsers(t.Context(), dbv1.GetUsersParams{
 		Ids: []int32{1001, 1002},

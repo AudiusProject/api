@@ -9,11 +9,12 @@ import (
 )
 
 func TestGetEvents(t *testing.T) {
+	app := testAppWithFixtures(t)
 	var eventsResponse struct {
 		Data []dbv1.FullEvent
 	}
 
-	status, body := testGet(t, "/v1/events", &eventsResponse)
+	status, body := testGet(t, app, "/v1/events", &eventsResponse)
 	assert.Equal(t, 200, status)
 
 	jsonAssert(t, body, map[string]any{
@@ -35,12 +36,13 @@ func TestGetEvents(t *testing.T) {
 }
 
 func TestGetEventsEntity(t *testing.T) {
+	app := testAppWithFixtures(t)
 	var eventsResponse struct {
 		Data []dbv1.FullEvent
 	}
 
 	status, body := testGet(
-		t,
+		t, app,
 		"/v1/events/entity?entity_id="+trashid.MustEncodeHashID(102),
 		&eventsResponse,
 	)

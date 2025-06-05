@@ -8,6 +8,7 @@ import (
 )
 
 func TestGetTrackStream(t *testing.T) {
+	app := testAppWithFixtures(t)
 	req := httptest.NewRequest("GET", "/v1/tracks/eYJyn/stream", nil)
 	res, err := app.Test(req, -1)
 	assert.NoError(t, err)

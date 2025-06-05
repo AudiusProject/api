@@ -9,10 +9,11 @@ import (
 )
 
 func TestGetUsdcPurchase(t *testing.T) {
+	app := testAppWithFixtures(t)
 	var resp struct {
 		Data []dbv1.FullTrack
 	}
-	status, body := testGet(t, "/v1/tracks/usdc-purchase", &resp)
+	status, body := testGet(t, app, "/v1/tracks/usdc-purchase", &resp)
 
 	assert.Equal(t, 200, status)
 

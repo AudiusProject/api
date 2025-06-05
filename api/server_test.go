@@ -5,21 +5,21 @@ import (
 	"encoding/json"
 	"fmt"
 	"io"
+	"math/rand/v2"
 	"net/http/httptest"
 	"os"
 	"strings"
+	"sync"
 	"testing"
 
 	"bridgerton.audius.co/api/testdata"
 	"bridgerton.audius.co/config"
-	"github.com/jackc/pgx/v5"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"github.com/tidwall/gjson"
-)
 
-var (
-	app *ApiServer
+	"github.com/jackc/pgx/v5/pgxpool"
+	_ "github.com/jackc/pgx/v5/stdlib"
 )
 
 func checkErr(err error) {
@@ -28,33 +28,60 @@ func checkErr(err error) {
 	}
 }
 
+var testMutex = sync.Mutex{}
+var testPoolForCreatingChildDatabases *pgxpool.Pool
+
 func TestMain(m *testing.M) {
 	ctx := context.Background()
 	var err error
 
+	testPoolForCreatingChildDatabases, err = pgxpool.New(ctx, "postgres://postgres:example@localhost:21300/test01")
+	checkErr(err)
+
+	// run tests
+	code := m.Run()
+
+	os.Exit(code)
+}
+
+func emptyTestApp(t *testing.T) *ApiServer {
+	t.Parallel()
+	t.Helper()
+
+	dbName := fmt.Sprintf("testdb_%d", rand.Int())
+	ctx := context.Background()
+
 	// create a test db from template
-	{
-		conn, err := pgx.Connect(ctx, "postgres://postgres:example@localhost:21300/postgres")
-		checkErr(err)
+	testMutex.Lock()
+	_, err := testPoolForCreatingChildDatabases.Exec(ctx, "CREATE DATABASE "+dbName+" TEMPLATE test01")
+	testMutex.Unlock()
+	require.NoError(t, err)
 
-		_, err = conn.Exec(ctx, "DROP DATABASE IF EXISTS test")
-		checkErr(err)
-
-		_, err = conn.Exec(ctx, "CREATE DATABASE test TEMPLATE postgres")
-		checkErr(err)
-	}
-
-	app = NewApiServer(config.Config{
+	app := NewApiServer(config.Config{
 		Env:                "test",
-		DbUrl:              "postgres://postgres:example@localhost:21300/test",
+		DbUrl:              "postgres://postgres:example@localhost:21300/" + dbName,
 		DelegatePrivateKey: "0633fddb74e32b3cbc64382e405146319c11a1a52dc96598e557c5dbe2f31468",
 		SolanaConfig:       config.SolanaConfig{RpcProviders: []string{""}},
 	})
 
-	// seed db
+	t.Cleanup(func() {
+		app.pool.Close()
+		testMutex.Lock()
+		_, err := testPoolForCreatingChildDatabases.Exec(ctx, "DROP DATABASE IF EXISTS test")
+		testMutex.Unlock()
+		require.NoError(t, err)
+	})
 
+	return app
+}
+
+func testAppWithFixtures(t *testing.T) *ApiServer {
+	ctx := context.Background()
+	app := emptyTestApp(t)
+
+	// seed db
 	// stupid block fixture
-	_, err = app.pool.Exec(ctx, `
+	_, err := app.pool.Exec(ctx, `
 	INSERT INTO public.blocks (
 		blockhash,
 		parenthash,
@@ -69,49 +96,49 @@ func TestMain(m *testing.M) {
 	`)
 	checkErr(err)
 
-	insertFixturesFromArray("aggregate_plays", map[string]any{}, testdata.AggregatePlays)
-	insertFixturesFromArray("aggregate_track", map[string]any{}, testdata.AggregateTrack)
-	insertFixturesFromArray("aggregate_user", map[string]any{}, testdata.AggregateUser)
-	insertFixturesFromArray("aggregate_user_tips", aggregateUserTipsBaseRow, testdata.AggregateUserTips)
-	insertFixturesFromArray("audio_transactions_history", audioTransactionBaseRow, testdata.AudioTransactionsHistory)
-	insertFixturesFromArray("challenges", map[string]any{}, testdata.Challenges)
-	insertFixturesFromArray("challenge_listen_streak", listenStreakBaseRow, testdata.ChallengeListenStreak)
-	insertFixturesFromArray("comments", commentBaseRow, testdata.Comment)
-	insertFixturesFromArray("comment_threads", map[string]any{}, testdata.CommentThread)
-	insertFixturesFromArray("associated_wallets", connectedWalletsBaseRow, testdata.ConnectedWallets)
-	insertFixturesFromArray("developer_apps", developerAppBaseRow, testdata.DeveloperApps)
-	insertFixturesFromArray("events", eventBaseRow, testdata.Events)
-	insertFixturesFromArray("follows", followBaseRow, testdata.Follows)
-	insertFixturesFromArray("grants", grantBaseRow, testdata.Grants)
-	insertFixturesFromArray("playlists", playlistBaseRow, testdata.Playlists)
-	insertFixturesFromArray("playlist_routes", playlistRouteBaseRow, testdata.PlaylistRoutesFixtures)
-	insertFixturesFromArray("playlist_trending_scores", playlistTrendingScoreBaseRow, testdata.PlaylistTrendingScores)
-	insertFixturesFromArray("reposts", repostBaseRow, testdata.RepostFixtures)
-	insertFixturesFromArray("tracks", trackBaseRow, testdata.TrackFixtures)
-	insertFixturesFromArray("track_trending_scores", trackTrendingScoreBaseRow, testdata.TrackTrendingScoresFixtures)
-	insertFixturesFromArray("track_routes", trackRouteBaseRow, testdata.TrackRoutesFixtures)
-	insertFixturesFromArray("usdc_purchases", usdcPurchaseBaseRow, testdata.UsdcPurchasesFixtures)
-	insertFixturesFromArray("usdc_transactions_history", usdcTransactionBaseRow, testdata.UsdcTransactionsHistoryFixtures)
-	insertFixturesFromArray("user_bank_accounts", userBankBaseRow, testdata.UserBankAccountsFixtures)
-	insertFixturesFromArray("user_challenges", userChallengeBaseRow, testdata.UserChallengesFixtures)
-	insertFixturesFromArray("usdc_user_bank_accounts", usdcUserBankBaseRow, testdata.UserBankAccountsFixtures)
-	insertFixturesFromArray("users", userBaseRow, testdata.UserFixtures)
+	insertFixturesFromArray(app, "aggregate_plays", map[string]any{}, testdata.AggregatePlays)
+	insertFixturesFromArray(app, "aggregate_track", map[string]any{}, testdata.AggregateTrack)
+	insertFixturesFromArray(app, "aggregate_user", map[string]any{}, testdata.AggregateUser)
+	insertFixturesFromArray(app, "aggregate_user_tips", aggregateUserTipsBaseRow, testdata.AggregateUserTips)
+	insertFixturesFromArray(app, "audio_transactions_history", audioTransactionBaseRow, testdata.AudioTransactionsHistory)
+	insertFixturesFromArray(app, "challenges", map[string]any{}, testdata.Challenges)
+	insertFixturesFromArray(app, "challenge_listen_streak", listenStreakBaseRow, testdata.ChallengeListenStreak)
+	insertFixturesFromArray(app, "comments", commentBaseRow, testdata.Comment)
+	insertFixturesFromArray(app, "comment_threads", map[string]any{}, testdata.CommentThread)
+	insertFixturesFromArray(app, "associated_wallets", connectedWalletsBaseRow, testdata.ConnectedWallets)
+	insertFixturesFromArray(app, "developer_apps", developerAppBaseRow, testdata.DeveloperApps)
+	insertFixturesFromArray(app, "events", eventBaseRow, testdata.Events)
+	insertFixturesFromArray(app, "follows", followBaseRow, testdata.Follows)
+	insertFixturesFromArray(app, "grants", grantBaseRow, testdata.Grants)
+	insertFixturesFromArray(app, "playlists", playlistBaseRow, testdata.Playlists)
+	insertFixturesFromArray(app, "playlist_routes", playlistRouteBaseRow, testdata.PlaylistRoutesFixtures)
+	insertFixturesFromArray(app, "playlist_trending_scores", playlistTrendingScoreBaseRow, testdata.PlaylistTrendingScores)
+	insertFixturesFromArray(app, "reposts", repostBaseRow, testdata.RepostFixtures)
+	insertFixturesFromArray(app, "tracks", trackBaseRow, testdata.TrackFixtures)
+	insertFixturesFromArray(app, "track_trending_scores", trackTrendingScoreBaseRow, testdata.TrackTrendingScoresFixtures)
+	insertFixturesFromArray(app, "track_routes", trackRouteBaseRow, testdata.TrackRoutesFixtures)
+	insertFixturesFromArray(app, "usdc_purchases", usdcPurchaseBaseRow, testdata.UsdcPurchasesFixtures)
+	insertFixturesFromArray(app, "usdc_transactions_history", usdcTransactionBaseRow, testdata.UsdcTransactionsHistoryFixtures)
+	insertFixturesFromArray(app, "user_bank_accounts", userBankBaseRow, testdata.UserBankAccountsFixtures)
+	insertFixturesFromArray(app, "user_challenges", userChallengeBaseRow, testdata.UserChallengesFixtures)
+	insertFixturesFromArray(app, "usdc_user_bank_accounts", usdcUserBankBaseRow, testdata.UserBankAccountsFixtures)
+	insertFixturesFromArray(app, "users", userBaseRow, testdata.UserFixtures)
+	insertFixturesFromArray(app, "user_listening_history", map[string]any{}, testdata.UserListeningHistoryFixtures)
 
-	// index to es / os
+	return app
 
-	code := m.Run()
-
-	// shutdown()
-	os.Exit(code)
 }
 
 func TestHome(t *testing.T) {
-	status, body := testGet(t, "/")
+	app := emptyTestApp(t)
+	status, body := testGet(t, app, "/")
 	assert.Equal(t, 200, status)
 	assert.True(t, strings.Contains(string(body), "uptime"))
 }
 
 func Test200UnAuthed(t *testing.T) {
+	app := testAppWithFixtures(t)
+
 	urls := []string{
 		"/v1/full/users?id=7eP5n&id=_some_invalid_hash_id",
 
@@ -163,7 +190,7 @@ func Test200UnAuthed(t *testing.T) {
 	}
 
 	for _, u := range urls {
-		status, body := testGet(t, u)
+		status, body := testGet(t, app, u)
 		require.Equal(t, 200, status, u+" "+string(body))
 
 		// also test as a user
@@ -173,18 +200,20 @@ func Test200UnAuthed(t *testing.T) {
 			u += "?user_id=7eP5n"
 		}
 
-		status, _ = testGetWithWallet(t, u, "0x7d273271690538cf855e5b3002a0dd8c154bb060")
+		status, _ = testGetWithWallet(t, app, u, "0x7d273271690538cf855e5b3002a0dd8c154bb060")
 		require.Equal(t, 200, status, u+" "+string(body))
 	}
 }
 
 func Test200Authed(t *testing.T) {
+	app := testAppWithFixtures(t)
+
 	urls := []string{
 		"/v1/full/users/account/0x7d273271690538cf855e5b3002a0dd8c154bb060",
 	}
 
 	for _, u := range urls {
-		status, body := testGetWithWallet(t, u, "0x7d273271690538cf855e5b3002a0dd8c154bb060")
+		status, body := testGetWithWallet(t, app, u, "0x7d273271690538cf855e5b3002a0dd8c154bb060")
 		require.Equal(t, 200, status, u+" "+string(body))
 
 		// also test as a user
@@ -194,13 +223,13 @@ func Test200Authed(t *testing.T) {
 			u += "?user_id=7eP5n"
 		}
 
-		status, _ = testGetWithWallet(t, u, "0x7d273271690538cf855e5b3002a0dd8c154bb060")
+		status, _ = testGetWithWallet(t, app, u, "0x7d273271690538cf855e5b3002a0dd8c154bb060")
 		require.Equal(t, 200, status, u+" "+string(body))
 	}
 
 }
 
-func testGet(t *testing.T, path string, dest ...any) (int, []byte) {
+func testGet(t *testing.T, app *ApiServer, path string, dest ...any) (int, []byte) {
 	req := httptest.NewRequest("GET", path, nil)
 	res, err := app.Test(req, -1)
 	assert.NoError(t, err)
@@ -235,7 +264,7 @@ func jsonAssert(t *testing.T, body []byte, expectations map[string]any) {
 }
 
 // testGetWithWallet makes a GET request with authentication headers for the given wallet address
-func testGetWithWallet(t *testing.T, path string, walletAddress string, dest ...any) (int, []byte) {
+func testGetWithWallet(t *testing.T, app *ApiServer, path string, walletAddress string, dest ...any) (int, []byte) {
 	req := httptest.NewRequest("GET", path, nil)
 
 	// Add signature headers if wallet address is provided

@@ -9,6 +9,7 @@ import (
 )
 
 func TestMetricsGenres(t *testing.T) {
+	app := testAppWithFixtures(t)
 	// Calculate timestamp for 1 hour ago
 	oneHourAgo := time.Now().Add(-1 * time.Hour).Unix()
 	url := fmt.Sprintf("/v1/metrics/genres?start_time=%d", oneHourAgo)
@@ -20,7 +21,7 @@ func TestMetricsGenres(t *testing.T) {
 		}
 	}
 
-	status, _ := testGet(t, url, &response)
+	status, _ := testGet(t, app, url, &response)
 	assert.Equal(t, 200, status)
 
 	// Find the Electronic genre in the response

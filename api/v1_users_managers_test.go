@@ -9,10 +9,11 @@ import (
 
 // Defaults to all approval status and no revoked managers
 func TestGetUsersManagersNoParams(t *testing.T) {
+	app := testAppWithFixtures(t)
 	var managersResponse struct {
 		Data []dbv1.FullManager
 	}
-	status, body := testGet(t, "/v1/users/7eP5n/managers", &managersResponse)
+	status, body := testGet(t, app, "/v1/users/7eP5n/managers", &managersResponse)
 	assert.Equal(t, 200, status)
 	assert.Equal(t, 2, len(managersResponse.Data))
 
@@ -26,10 +27,11 @@ func TestGetUsersManagersNoParams(t *testing.T) {
 
 // Should return only approved managers and default to not showing revoked managers
 func TestGetUsersManagersApproved(t *testing.T) {
+	app := testAppWithFixtures(t)
 	var managersResponse struct {
 		Data []dbv1.FullManager
 	}
-	status, body := testGet(t, "/v1/users/7eP5n/managers?is_approved=true", &managersResponse)
+	status, body := testGet(t, app, "/v1/users/7eP5n/managers?is_approved=true", &managersResponse)
 	assert.Equal(t, 200, status)
 	assert.Equal(t, 1, len(managersResponse.Data))
 
@@ -40,10 +42,11 @@ func TestGetUsersManagersApproved(t *testing.T) {
 }
 
 func TestGetUsersManagersRevoked(t *testing.T) {
+	app := testAppWithFixtures(t)
 	var managersResponse struct {
 		Data []dbv1.FullManager
 	}
-	status, body := testGet(t, "/v1/users/7eP5n/managers?is_revoked=true", &managersResponse)
+	status, body := testGet(t, app, "/v1/users/7eP5n/managers?is_revoked=true", &managersResponse)
 	assert.Equal(t, 200, status)
 	assert.Equal(t, 2, len(managersResponse.Data))
 
@@ -58,12 +61,13 @@ func TestGetUsersManagersRevoked(t *testing.T) {
 }
 
 func TestGetUsersManagersInvalidParams(t *testing.T) {
+	app := testAppWithFixtures(t)
 	var managersResponse struct {
 		Data []dbv1.FullManager
 	}
-	status, _ := testGet(t, "/v1/users/7eP5n/managers?is_approved=invalid", &managersResponse)
+	status, _ := testGet(t, app, "/v1/users/7eP5n/managers?is_approved=invalid", &managersResponse)
 	assert.Equal(t, 400, status)
 
-	status, _ = testGet(t, "/v1/users/7eP5n/managers?is_revoked=invalid", &managersResponse)
+	status, _ = testGet(t, app, "/v1/users/7eP5n/managers?is_revoked=invalid", &managersResponse)
 	assert.Equal(t, 400, status)
 }

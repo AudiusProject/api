@@ -8,6 +8,7 @@ import (
 )
 
 func TestGetTrendingIds(t *testing.T) {
+	app := testAppWithFixtures(t)
 	var resp struct {
 		Data struct {
 			Week  []hashIdResponse `json:"week"`
@@ -15,7 +16,7 @@ func TestGetTrendingIds(t *testing.T) {
 			Year  []hashIdResponse `json:"year"`
 		} `json:"data"`
 	}
-	status, _ := testGet(t, "/v1/tracks/trending/ids", &resp)
+	status, _ := testGet(t, app, "/v1/tracks/trending/ids", &resp)
 	assert.Equal(t, 200, status)
 
 	assert.Equal(t, trashid.MustEncodeHashID(300), resp.Data.Week[0].ID)

@@ -10,12 +10,14 @@ import (
 )
 
 func TestGetUserTracks(t *testing.T) {
+	app := testAppWithFixtures(t)
+
 	var userTracksResponse struct {
 		Data []dbv1.FullTrack
 	}
 
 	// Test support for handle
-	status, body := testGet(t, "/v1/full/users/handle/usertrackstester/tracks", &userTracksResponse)
+	status, body := testGet(t, app, "/v1/full/users/handle/usertrackstester/tracks", &userTracksResponse)
 
 	assert.Equal(t, 200, status)
 	jsonAssert(t, body, map[string]any{
@@ -28,7 +30,7 @@ func TestGetUserTracks(t *testing.T) {
 	// Remaining assertions use the user_id version of the route
 	baseUrl := fmt.Sprintf("/v1/full/users/%s/tracks", trashid.MustEncodeHashID(500))
 
-	status, body = testGet(t, baseUrl, &userTracksResponse)
+	status, body = testGet(t, app, baseUrl, &userTracksResponse)
 	assert.Equal(t, 200, status)
 
 	// Note: Date sorts prefer release_date but fall back to created_at
@@ -42,7 +44,7 @@ func TestGetUserTracks(t *testing.T) {
 
 	// Sort by date asc
 	url := fmt.Sprintf("%s?sort=date&sort_direction=asc", baseUrl)
-	status, body = testGet(t, url, &userTracksResponse)
+	status, body = testGet(t, app, url, &userTracksResponse)
 	assert.Equal(t, 200, status)
 
 	jsonAssert(t, body, map[string]any{
@@ -54,7 +56,7 @@ func TestGetUserTracks(t *testing.T) {
 
 	// Release date desc
 	url = fmt.Sprintf("%s?sort_method=release_date&sort_direction=desc", baseUrl)
-	status, body = testGet(t, url, &userTracksResponse)
+	status, body = testGet(t, app, url, &userTracksResponse)
 	assert.Equal(t, 200, status)
 
 	jsonAssert(t, body, map[string]any{
@@ -66,7 +68,7 @@ func TestGetUserTracks(t *testing.T) {
 
 	// Release date asc
 	url = fmt.Sprintf("%s?sort_method=release_date&sort_direction=asc", baseUrl)
-	status, body = testGet(t, url, &userTracksResponse)
+	status, body = testGet(t, app, url, &userTracksResponse)
 	assert.Equal(t, 200, status)
 
 	jsonAssert(t, body, map[string]any{
@@ -78,7 +80,7 @@ func TestGetUserTracks(t *testing.T) {
 
 	// Sort by legacy plays desc
 	url = fmt.Sprintf("%s?sort=plays&sort_direction=desc", baseUrl)
-	status, body = testGet(t, url, &userTracksResponse)
+	status, body = testGet(t, app, url, &userTracksResponse)
 	assert.Equal(t, 200, status)
 
 	jsonAssert(t, body, map[string]any{
@@ -90,7 +92,7 @@ func TestGetUserTracks(t *testing.T) {
 
 	// Sort by legacy plays asc
 	url = fmt.Sprintf("%s?sort=plays&sort_direction=asc", baseUrl)
-	status, body = testGet(t, url, &userTracksResponse)
+	status, body = testGet(t, app, url, &userTracksResponse)
 	assert.Equal(t, 200, status)
 
 	jsonAssert(t, body, map[string]any{
@@ -102,7 +104,7 @@ func TestGetUserTracks(t *testing.T) {
 
 	// Sort by sort_method plays desc
 	url = fmt.Sprintf("%s?sort_method=plays&sort_direction=desc", baseUrl)
-	status, body = testGet(t, url, &userTracksResponse)
+	status, body = testGet(t, app, url, &userTracksResponse)
 	assert.Equal(t, 200, status)
 
 	jsonAssert(t, body, map[string]any{
@@ -114,7 +116,7 @@ func TestGetUserTracks(t *testing.T) {
 
 	// Sort by sort_method plays asc
 	url = fmt.Sprintf("%s?sort_method=plays&sort_direction=asc", baseUrl)
-	status, body = testGet(t, url, &userTracksResponse)
+	status, body = testGet(t, app, url, &userTracksResponse)
 	assert.Equal(t, 200, status)
 
 	jsonAssert(t, body, map[string]any{
@@ -126,7 +128,7 @@ func TestGetUserTracks(t *testing.T) {
 
 	// Sort by title desc
 	url = fmt.Sprintf("%s?sort_method=title&sort_direction=desc", baseUrl)
-	status, body = testGet(t, url, &userTracksResponse)
+	status, body = testGet(t, app, url, &userTracksResponse)
 	assert.Equal(t, 200, status)
 
 	jsonAssert(t, body, map[string]any{
@@ -138,7 +140,7 @@ func TestGetUserTracks(t *testing.T) {
 
 	// Sort by title asc
 	url = fmt.Sprintf("%s?sort_method=title&sort_direction=asc", baseUrl)
-	status, body = testGet(t, url, &userTracksResponse)
+	status, body = testGet(t, app, url, &userTracksResponse)
 	assert.Equal(t, 200, status)
 
 	jsonAssert(t, body, map[string]any{
@@ -150,7 +152,7 @@ func TestGetUserTracks(t *testing.T) {
 
 	// Sort by reposts desc
 	url = fmt.Sprintf("%s?sort_method=reposts&sort_direction=desc", baseUrl)
-	status, body = testGet(t, url, &userTracksResponse)
+	status, body = testGet(t, app, url, &userTracksResponse)
 	assert.Equal(t, 200, status)
 
 	jsonAssert(t, body, map[string]any{
@@ -162,7 +164,7 @@ func TestGetUserTracks(t *testing.T) {
 
 	// Sort by reposts asc
 	url = fmt.Sprintf("%s?sort_method=reposts&sort_direction=asc", baseUrl)
-	status, body = testGet(t, url, &userTracksResponse)
+	status, body = testGet(t, app, url, &userTracksResponse)
 	assert.Equal(t, 200, status)
 
 	jsonAssert(t, body, map[string]any{
@@ -174,7 +176,7 @@ func TestGetUserTracks(t *testing.T) {
 
 	// Sort by saves desc
 	url = fmt.Sprintf("%s?sort_method=saves&sort_direction=desc", baseUrl)
-	status, body = testGet(t, url, &userTracksResponse)
+	status, body = testGet(t, app, url, &userTracksResponse)
 	assert.Equal(t, 200, status)
 
 	jsonAssert(t, body, map[string]any{
@@ -186,7 +188,7 @@ func TestGetUserTracks(t *testing.T) {
 
 	// Sort by saves asc
 	url = fmt.Sprintf("%s?sort_method=saves&sort_direction=asc", baseUrl)
-	status, body = testGet(t, url, &userTracksResponse)
+	status, body = testGet(t, app, url, &userTracksResponse)
 	assert.Equal(t, 200, status)
 
 	jsonAssert(t, body, map[string]any{
@@ -199,29 +201,30 @@ func TestGetUserTracks(t *testing.T) {
 }
 
 func TestGetUserTracksInvalidParams(t *testing.T) {
+	app := testAppWithFixtures(t)
 	baseUrl := fmt.Sprintf("/v1/full/users/%s/tracks", trashid.MustEncodeHashID(500))
 	// Test invalid sort_method
 	url := fmt.Sprintf("%s?sort_method=invalid&sort_direction=desc", baseUrl)
-	status, _ := testGet(t, url)
+	status, _ := testGet(t, app, url)
 	assert.Equal(t, 400, status)
 
 	// Test invalid sort_direction
 	url = fmt.Sprintf("%s?sort_method=plays&sort_direction=invalid", baseUrl)
-	status, _ = testGet(t, url)
+	status, _ = testGet(t, app, url)
 	assert.Equal(t, 400, status)
 
 	// Test invalid sort
 	url = fmt.Sprintf("%s?sort=invalid", baseUrl)
-	status, _ = testGet(t, url)
+	status, _ = testGet(t, app, url)
 	assert.Equal(t, 400, status)
 
 	// Test invalid limit
 	url = fmt.Sprintf("%s?limit=101", baseUrl)
-	status, _ = testGet(t, url)
+	status, _ = testGet(t, app, url)
 	assert.Equal(t, 400, status)
 
 	// Test invalid offset
 	url = fmt.Sprintf("%s?offset=invalid", baseUrl)
-	status, _ = testGet(t, url)
+	status, _ = testGet(t, app, url)
 	assert.Equal(t, 400, status)
 }
