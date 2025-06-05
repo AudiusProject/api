@@ -7,7 +7,7 @@ import (
 	"github.com/gofiber/fiber/v2"
 )
 
-func (app *ApiServer) v1playlists(c *fiber.Ctx) error {
+func (app *ApiServer) v1Playlists(c *fiber.Ctx) error {
 	myId := app.getMyId(c)
 	ids := decodeIdList(c)
 
