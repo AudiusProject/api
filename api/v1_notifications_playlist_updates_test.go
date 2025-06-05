@@ -16,17 +16,14 @@ func TestV1NotificationsPlaylistUpdates(t *testing.T) {
 	playlist2ID := int32(4002)
 	now := time.Now().UTC()
 
-	fixtures := FixtureSet{
-		blocks: []map[string]any{
-			{}, // default block
-		},
-		users: []map[string]any{
+	fixtures := FixtureMap{
+		"users": []map[string]any{
 			{
 				"user_id": userID,
 				"handle":  "playlistuser",
 			},
 		},
-		playlists: []map[string]any{
+		"playlists": []map[string]any{
 			{
 				"playlist_id":       playlistID,
 				"playlist_owner_id": userID,
@@ -44,7 +41,7 @@ func TestV1NotificationsPlaylistUpdates(t *testing.T) {
 				"updated_at":        now,
 			},
 		},
-		saves: []map[string]any{
+		"saves": []map[string]any{
 			{
 				"user_id":      userID,
 				"save_item_id": playlistID,
@@ -52,7 +49,7 @@ func TestV1NotificationsPlaylistUpdates(t *testing.T) {
 				"created_at":   now.Add(-time.Hour),
 			},
 		},
-		playlist_seen: []map[string]any{
+		"playlist_seen": []map[string]any{
 			{
 				"user_id":     userID,
 				"playlist_id": playlist2ID,
