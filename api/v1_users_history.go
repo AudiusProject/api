@@ -16,12 +16,12 @@ type GetUsersHistoryParams struct {
 	Query         string `query:"query" default:""`
 }
 
-func (api *ApiServer) v1UsersHistory(c *fiber.Ctx) error {
-	userId := api.getUserId(c)
-	myId := api.getMyId(c)
+func (app *ApiServer) v1UsersHistory(c *fiber.Ctx) error {
+	userId := app.getUserId(c)
+	myId := app.getMyId(c)
 
 	params := GetUsersHistoryParams{}
-	if err := api.ParseAndValidateQueryParams(c, &params); err != nil {
+	if err := app.ParseAndValidateQueryParams(c, &params); err != nil {
 		return err
 	}
 
@@ -57,7 +57,7 @@ func (api *ApiServer) v1UsersHistory(c *fiber.Ctx) error {
 	}
 
 	class := "track_activity"
-	if api.getIsFull(c) {
+	if app.getIsFull(c) {
 		class = "track_activity_full"
 	}
 
@@ -85,7 +85,7 @@ func (api *ApiServer) v1UsersHistory(c *fiber.Ctx) error {
 	LIMIT @limit OFFSET @offset
 	;
 	`
-	rows, err := api.pool.Query(c.Context(), sql, pgx.NamedArgs{
+	rows, err := app.pool.Query(c.Context(), sql, pgx.NamedArgs{
 		"userId": userId,
 		"limit":  params.Limit,
 		"offset": params.Offset,
@@ -117,7 +117,7 @@ func (api *ApiServer) v1UsersHistory(c *fiber.Ctx) error {
 	}
 
 	// get tracks
-	tracks, err := api.queries.FullTracksKeyed(c.Context(), dbv1.FullTracksParams{
+	tracks, err := app.queries.FullTracksKeyed(c.Context(), dbv1.FullTracksParams{
 		GetTracksParams: dbv1.GetTracksParams{
 			Ids:  trackIds,
 			MyID: myId,
@@ -130,7 +130,7 @@ func (api *ApiServer) v1UsersHistory(c *fiber.Ctx) error {
 	// attach
 	for idx, item := range items {
 		if t, ok := tracks[item.ItemID]; ok {
-			if api.getIsFull(c) {
+			if app.getIsFull(c) {
 				item.Item = t
 			} else {
 				item.Item = dbv1.ToMinTrack(t)

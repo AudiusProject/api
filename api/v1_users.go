@@ -12,7 +12,7 @@ func (app *ApiServer) v1Users(c *fiber.Ctx) error {
 	ids := decodeIdList(c)
 
 	if len(ids) == 0 {
-		return sendError(c, 400, "id query param required")
+		return fiber.NewError(fiber.StatusBadRequest, "no user ids provided")
 	}
 
 	users, err := app.queries.FullUsers(c.Context(), dbv1.GetUsersParams{

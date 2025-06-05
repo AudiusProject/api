@@ -389,7 +389,7 @@ func NewApiServer(config config.Config) *ApiServer {
 	// gracefully handle 404
 	// (this won't get hit so long as above proxy is in place)
 	app.Use(func(c *fiber.Ctx) error {
-		return sendError(c, 404, "Route not found")
+		return fiber.ErrNotFound
 	})
 
 	return app
