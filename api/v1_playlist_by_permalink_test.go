@@ -7,7 +7,8 @@ import (
 )
 
 func TestV1PlaylistByPermalink(t *testing.T) {
-	status, body := testGet(t, "/v1/full/playlists/by_permalink/PlaylistsByPermalink/playlist-by-permalink")
+	app := testAppWithFixtures(t)
+	status, body := testGet(t, app, "/v1/full/playlists/by_permalink/PlaylistsByPermalink/playlist-by-permalink")
 	assert.Equal(t, 200, status)
 
 	jsonAssert(t, body, map[string]any{
