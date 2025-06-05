@@ -287,6 +287,12 @@ var (
 			"blocknumber": 101,
 			"txhash":      "tx_456def",
 		},
+		"aggregate_monthly_plays": {
+			"play_item_id": nil,
+			"timestamp":    time.Now(),
+			"count":        0,
+			"country":      "US",
+		},
 	}
 )
 
