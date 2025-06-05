@@ -10,12 +10,16 @@ import (
 )
 
 func TestV1PlaylistUpdates(t *testing.T) {
+	app := emptyTestApp(t)
 	userID := int32(4001)
 	playlistID := int32(4001)
 	playlist2ID := int32(4002)
 	now := time.Now().UTC()
 
 	fixtures := FixtureSet{
+		blocks: []map[string]any{
+			{}, // default block
+		},
 		users: []map[string]any{
 			{
 				"user_id": userID,
@@ -45,8 +49,6 @@ func TestV1PlaylistUpdates(t *testing.T) {
 				"user_id":      userID,
 				"save_item_id": playlistID,
 				"save_type":    "playlist",
-				"is_current":   true,
-				"is_delete":    false,
 				"created_at":   now.Add(-time.Hour),
 			},
 		},
@@ -59,9 +61,9 @@ func TestV1PlaylistUpdates(t *testing.T) {
 		},
 	}
 
-	createFixtures(fixtures)
+	createFixtures(app, fixtures)
 
-	status, body := testGet(t, fmt.Sprintf("/v1/notifications/%s/playlist_updates", trashid.MustEncodeHashID(int(userID))))
+	status, body := testGet(t, app, fmt.Sprintf("/v1/notifications/%s/playlist_updates", trashid.MustEncodeHashID(int(userID))))
 	assert.Equal(t, 200, status)
 	jsonAssert(t, body, map[string]any{
 		"data.playlist_updates.0.playlist_id":  trashid.MustEncodeHashID(int(playlistID)),

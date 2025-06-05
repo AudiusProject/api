@@ -9,6 +9,13 @@ import (
 )
 
 var (
+	blocksBaseRow = map[string]any{
+		"is_current": true,
+		"blockhash":  "block1",
+		"parenthash": "block0",
+		"number":     101,
+	}
+
 	userBaseRow = map[string]any{
 		"user_id":              nil,
 		"handle":               nil,
@@ -347,6 +354,7 @@ func insertFixturesFromArray(app *ApiServer, table string, baseRow map[string]an
 }
 
 type FixtureSet struct {
+	blocks        []map[string]any
 	users         []map[string]any
 	tracks        []map[string]any
 	playlists     []map[string]any
@@ -355,6 +363,7 @@ type FixtureSet struct {
 }
 
 func createFixtures(app *ApiServer, fixtures FixtureSet) {
+	insertFixturesFromArray(app, "blocks", blocksBaseRow, fixtures.blocks)
 	insertFixturesFromArray(app, "users", userBaseRow, fixtures.users)
 	insertFixturesFromArray(app, "tracks", trackBaseRow, fixtures.tracks)
 	insertFixturesFromArray(app, "playlists", playlistBaseRow, fixtures.playlists)
