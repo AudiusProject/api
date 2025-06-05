@@ -20,12 +20,12 @@ func (app *ApiServer) v1TrackStream(c *fiber.Ctx) error {
 	}
 
 	if len(tracks) == 0 {
-		return sendError(c, 404, "track not found")
+		return fiber.NewError(fiber.StatusNotFound, "track not found")
 	}
 
 	track := tracks[0]
 	if !track.Access.Stream {
-		return sendError(c, 403, "track not streamable")
+		return fiber.NewError(fiber.StatusForbidden, "track not streamable")
 	}
 
 	streamURL := tryFindWorkingUrl(track.Stream)

@@ -312,9 +312,10 @@ func NewApiServer(config config.Config) *ApiServer {
 		g.Get("/tracks/:trackId/comments", app.v1TrackComments)
 
 		// Playlists
-		g.Get("/playlists", app.v1playlists)
+		g.Get("/playlists", app.v1Playlists)
 		g.Get("/playlists/unclaimed_id", app.v1PlaylistsUnclaimedId)
 		g.Get("/playlists/trending", app.v1PlaylistsTrending)
+		g.Get("/playlists/by_permalink/:handle/:slug", app.v1PlaylistByPermalink)
 
 		g.Use("/playlists/:playlistId", app.requirePlaylistIdMiddleware)
 		g.Get("/playlists/:playlistId", app.v1Playlist)
@@ -348,6 +349,9 @@ func NewApiServer(config config.Config) *ApiServer {
 		g.Get("/metrics/aggregates/apps/:time_range", app.v1MetricsApps)
 		g.Get("/metrics/aggregates/routes/:time_range", app.v1MetricsRoutes)
 		g.Get("/metrics/aggregates/routes/trailing/:time_range", app.v1MetricsRoutesTrailing)
+
+		// Notifications
+		g.Get("/notifications/:userId/playlist_updates", app.requireUserIdMiddleware, app.v1NotificationsPlaylistUpdates)
 	}
 
 	// Comms
@@ -390,7 +394,7 @@ func NewApiServer(config config.Config) *ApiServer {
 	// gracefully handle 404
 	// (this won't get hit so long as above proxy is in place)
 	app.Use(func(c *fiber.Ctx) error {
-		return sendError(c, 404, "Route not found")
+		return fiber.ErrNotFound
 	})
 
 	return app

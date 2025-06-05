@@ -87,13 +87,13 @@ func (app *ApiServer) v1TrackInspect(c *fiber.Ctx) error {
 	}
 
 	if len(tracks) == 0 {
-		return sendError(c, 404, "track not found")
+		return fiber.NewError(fiber.StatusNotFound, "track not found")
 	}
 
 	track := tracks[0]
 	info, err := inspectTrack(track, original)
 	if err != nil {
-		return sendError(c, 500, err.Error())
+		return err
 	}
 
 	return c.JSON(map[string]any{
@@ -117,7 +117,7 @@ func (app *ApiServer) v1TracksInspect(c *fiber.Ctx) error {
 	}
 
 	if len(tracks) == 0 {
-		return sendError(c, 404, "track not found")
+		return fiber.NewError(fiber.StatusNotFound, "no tracks found")
 	}
 
 	infos := make([]*inspectResponse, len(tracks))
@@ -137,7 +137,7 @@ func (app *ApiServer) v1TracksInspect(c *fiber.Ctx) error {
 	}
 
 	if err := g.Wait(); err != nil {
-		return sendError(c, 500, err.Error())
+		return err
 	}
 
 	return c.JSON(map[string]any{

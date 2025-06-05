@@ -79,6 +79,19 @@ var (
 			"txhash":           "tx123",
 			"slot":             500,
 		},
+		"saves": {
+			"blockhash":         "block_abc123",
+			"blocknumber":       101,
+			"user_id":           nil,
+			"save_item_id":      nil,
+			"save_type":         nil,
+			"is_current":        true,
+			"is_delete":         false,
+			"created_at":        time.Now(),
+			"txhash":            "tx_456def",
+			"slot":              500,
+			"is_save_of_repost": false,
+		},
 		"reposts": {
 			"blockhash":           "block_abc123",
 			"blocknumber":         101,
@@ -265,6 +278,15 @@ var (
 		"challenges":             map[string]any{},
 		"comment_threads":        map[string]any{},
 		"user_listening_history": map[string]any{},
+		"playlist_seen": {
+			"user_id":     nil,
+			"playlist_id": nil,
+			"seen_at":     time.Now(),
+			"is_current":  true,
+			"blockhash":   "block_abc123",
+			"blocknumber": 101,
+			"txhash":      "tx_456def",
+		},
 	}
 )
 

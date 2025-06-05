@@ -41,11 +41,6 @@ var validTransactionTypes = []string{
 	"purchase_stripe",
 }
 
-var validTransactionMethods = []string{
-	"send",
-	"receive",
-}
-
 func (app *ApiServer) v1UsersTransactionsUsdc(c *fiber.Ctx) error {
 	queryParams := GetUsdcTransactionsParams{}
 	if err := app.ParseAndValidateQueryParams(c, &queryParams); err != nil {

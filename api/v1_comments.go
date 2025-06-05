@@ -70,6 +70,9 @@ func (app *ApiServer) queryFullComments(c *fiber.Ctx, sql string, args pgx.Named
 		TrackIds: trackIds,
 		MyID:     app.getMyId(c),
 	})
+	if err != nil {
+		return err
+	}
 
 	return c.JSON(fiber.Map{
 		"data": comments,

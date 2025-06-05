@@ -52,6 +52,14 @@ func MustEncodeHashID(id int) string {
 	return enc
 }
 
+func MustDecodeHashID(id string) int {
+	val, err := DecodeHashId(id)
+	if err != nil {
+		panic(err)
+	}
+	return val
+}
+
 // type alias for int that will do hashid on the way out the door
 type HashId int
 

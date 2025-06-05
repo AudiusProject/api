@@ -21,12 +21,12 @@ func (app *ApiServer) v1TrackDownload(c *fiber.Ctx) error {
 	}
 
 	if len(tracks) == 0 {
-		return sendError(c, 404, "track not found")
+		return fiber.NewError(fiber.StatusNotFound, "track not found")
 	}
 
 	track := tracks[0]
 	if !track.Access.Download {
-		return sendError(c, 403, "track not downloadable")
+		return fiber.NewError(fiber.StatusForbidden, "track not downloadable")
 	}
 
 	downloadUrl := tryFindWorkingUrl(track.Download)

@@ -61,6 +61,9 @@ func (app *ApiServer) v1PlaylistsTrending(c *fiber.Ctx) error {
 			MyID: myId,
 		},
 	})
+	if err != nil {
+		return err
+	}
 
 	return c.Status(http.StatusOK).JSON(fiber.Map{
 		"data": playlists,

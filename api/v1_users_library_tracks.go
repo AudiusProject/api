@@ -153,6 +153,9 @@ func (app *ApiServer) v1UsersLibraryTracks(c *fiber.Ctx) error {
 			MyID: myId,
 		},
 	})
+	if err != nil {
+		return err
+	}
 
 	// attach
 	for idx, item := range items {
