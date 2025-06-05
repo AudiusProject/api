@@ -1,6 +1,8 @@
 package api
 
 import (
+	"strings"
+
 	"bridgerton.audius.co/api/dbv1"
 	"bridgerton.audius.co/trashid"
 	"github.com/gofiber/fiber/v2"
@@ -8,9 +10,11 @@ import (
 )
 
 type GetTrackRemixesParams struct {
-	Limit      int    `query:"limit" default:"10" validate:"min=1,max=100"`
-	Offset     int    `query:"offset" default:"0" validate:"min=0"`
-	SortMethod string `query:"sort_method" default:"recent" validate:"oneof=recent likes plays"`
+	Limit              int    `query:"limit" default:"10" validate:"min=1,max=100"`
+	Offset             int    `query:"offset" default:"0" validate:"min=0"`
+	SortMethod         string `query:"sort_method" default:"recent" validate:"oneof=recent likes plays"`
+	OnlyContestEntries bool   `query:"only_contest_entries" default:"false"`
+	OnlyCosigns        bool   `query:"only_cosigns" default:"false"`
 }
 
 func (app *ApiServer) v1TrackRemixes(c *fiber.Ctx) error {
@@ -37,6 +41,20 @@ func (app *ApiServer) v1TrackRemixes(c *fiber.Ctx) error {
 		fallthrough
 	default:
 		orderClause = "t.created_at desc, t.track_id desc"
+	}
+
+	var filters []string = []string{
+		"t.is_current = true",
+		"t.is_delete = false",
+		"t.is_unlisted = false",
+	}
+
+	if params.OnlyContestEntries {
+		filters = append(filters, "(de.created_at < t.created_at AND t.created_at < de.end_date)")
+	}
+
+	if params.OnlyCosigns {
+		filters = append(filters, "(s.save_item_id IS NOT NULL OR r.repost_item_id IS NOT NULL)")
 	}
 
 	// TODO: Add conditionals for cosign and contest entries
@@ -67,9 +85,7 @@ func (app *ApiServer) v1TrackRemixes(c *fiber.Ctx) error {
 			LEFT JOIN aggregate_track at ON at.track_id = t.track_id
 			LEFT JOIN aggregate_plays ap ON ap.play_item_id = t.track_id
 			LEFT JOIN distinct_events de ON de.entity_id = pt.track_id
-			WHERE t.is_current = true
-				AND t.is_delete = false
-				AND t.is_unlisted = false
+			WHERE ` + strings.Join(filters, " AND ") + `
 			ORDER BY ` + orderClause + `
 		)
 		SELECT track_id, (SELECT COUNT(*) FROM remix_tracks) as total_count
