@@ -19,8 +19,20 @@ func (app *ApiServer) BlockConfirmation(c *fiber.Ctx) error {
 
 	sql := `
 	SELECT
-		((SELECT TRUE FROM core_blocks WHERE chain_id = @chainId::text AND height > @blockNumber::bigint LIMIT 1) IS NOT NULL) AS block_passed,
-		((SELECT TRUE AS block_found FROM core_blocks WHERE hash = @blockHash::text AND chain_id = @chainId::text LIMIT 1) IS NOT NULL) AS block_found
+		(
+			SELECT EXISTS (
+				SELECT 1 FROM core_blocks 
+				WHERE chain_id = @chainId AND height > @blockNumber 
+				LIMIT 1
+			)
+		) AS block_passed,
+		(
+			SELECT EXISTS (
+				SELECT 1 FROM core_blocks 
+				WHERE hash = @blockHash AND chain_id = @chainId 
+				LIMIT 1
+			)
+		) AS block_found
 	;`
 	rows, err := app.pool.Query(c.Context(), sql, pgx.NamedArgs{
 		"blockHash":   params.BlockHash,
