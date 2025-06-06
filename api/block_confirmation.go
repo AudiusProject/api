@@ -29,7 +29,7 @@ func (app *ApiServer) BlockConfirmation(c *fiber.Ctx) error {
 		(
 			SELECT EXISTS (
 				SELECT 1 FROM core_blocks 
-				WHERE hash = @blockHash AND chain_id = @chainId 
+				WHERE chain_id = @chainId AND hash = @blockHash
 				LIMIT 1
 			)
 		) AS block_found
