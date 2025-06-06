@@ -16,6 +16,7 @@ import (
 	"bridgerton.audius.co/config"
 	"bridgerton.audius.co/trashid"
 	"github.com/AudiusProject/audiusd/pkg/rewards"
+	"github.com/AudiusProject/audiusd/pkg/sdk"
 	"github.com/Doist/unfurlist"
 	adapter "github.com/axiomhq/axiom-go/adapters/zap"
 	"github.com/axiomhq/axiom-go/axiom"
@@ -167,6 +168,8 @@ func NewApiServer(config config.Config) *ApiServer {
 		panic(err)
 	}
 
+	auds := sdk.NewAudiusdSDK(config.AudiusdURL)
+
 	app := &ApiServer{
 		App: fiber.New(fiber.Config{
 			JSONEncoder:    json.Marshal,
@@ -189,6 +192,7 @@ func NewApiServer(config config.Config) *ApiServer {
 		solanaConfig:          &config.SolanaConfig,
 		antiAbuseOracles:      config.AntiAbuseOracles,
 		validators:            config.Nodes,
+		auds:                  auds,
 	}
 
 	app.Use(recover.New(recover.Config{
@@ -417,6 +421,7 @@ type ApiServer struct {
 	solanaConfig          *config.SolanaConfig
 	antiAbuseOracles      []string
 	validators            []config.Node
+	auds                  *sdk.AudiusdSDK
 }
 
 func (app *ApiServer) home(c *fiber.Ctx) error {
