@@ -37,7 +37,7 @@ func (app *ApiServer) BlockConfirmation(c *fiber.Ctx) error {
 	rows, err := app.pool.Query(c.Context(), sql, pgx.NamedArgs{
 		"blockHash":   params.BlockHash,
 		"blockNumber": params.BlockNumber,
-		"chainId":     "audius-mainnet-alpha-beta",
+		"chainId":     "audius-mainnet-alpha-beta", // TODO: Make this dynamic or configurable
 	})
 	if err != nil {
 		return err
