@@ -26,7 +26,6 @@ func (app *ApiServer) v1TrackRemixes(c *fiber.Ctx) error {
 	myId := app.getMyId(c)
 
 	trackId, err := trashid.DecodeHashId(c.Params("trackId"))
-	// TODO: Better error
 	if err != nil {
 		return err
 	}
@@ -57,8 +56,6 @@ func (app *ApiServer) v1TrackRemixes(c *fiber.Ctx) error {
 		filters = append(filters, "(s.save_item_id IS NOT NULL OR r.repost_item_id IS NOT NULL)")
 	}
 
-	// TODO: Add conditionals for cosign and contest entries
-
 	sql := `
 		WITH distinct_events AS (
 			SELECT DISTINCT ON (entity_id) *
@@ -71,7 +68,7 @@ func (app *ApiServer) v1TrackRemixes(c *fiber.Ctx) error {
 			SELECT t.track_id
 			FROM tracks t
 			JOIN remixes rm ON rm.child_track_id = t.track_id AND rm.parent_track_id = @track_id
-			LEFT JOIN tracks pt ON pt.track_id = rm.parent_track_id  -- gives you pt.owner_id
+			LEFT JOIN tracks pt ON pt.track_id = rm.parent_track_id
 			LEFT JOIN saves s ON s.save_item_id = t.track_id
 				AND s.save_type = 'track'
 				AND s.is_current = true
