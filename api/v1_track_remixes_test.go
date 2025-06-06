@@ -1,7 +1,6 @@
 package api
 
 import (
-	"context"
 	"testing"
 	"time"
 
@@ -172,39 +171,22 @@ func TestTrackRemixes(t *testing.T) {
 				"user_id":      ownerId,
 				"created_at":   parseTime(t, "2024-01-04"),
 			},
+			{
+				"save_item_id": secondRemixTrackId,
+				"save_type":    "track",
+				"user_id":      firstRemixOwnerId,
+				"created_at":   parseTime(t, "2024-01-04"),
+			},
+			{
+				"save_item_id": firstRemixTrackId,
+				"save_type":    "track",
+				"user_id":      thirdRemixOwnerId,
+				"created_at":   parseTime(t, "2024-01-04"),
+			},
 		},
 	}
 
 	createFixtures(app, fixtures)
-
-	aggregateFixtures := FixtureMap{
-		"aggregate_track": []map[string]any{
-			{
-				"track_id":   firstRemixTrackId,
-				"save_count": 1,
-			},
-			{
-				"track_id":   secondRemixTrackId,
-				"save_count": 2,
-			},
-			{
-				"track_id":   thirdRemixTrackId,
-				"save_count": 3,
-			},
-			{
-				"track_id":   fourthRemixTrackId,
-				"save_count": 4,
-			},
-		},
-	}
-
-	// These rows get added automatically when the tracks are inserted. Easiest way
-	// to bulk insert them is to drop rows first and then run createFixtures
-	_, err := app.pool.Exec(context.Background(), `DELETE FROM aggregate_track;`)
-	if err != nil {
-		panic(err)
-	}
-	createFixtures(app, aggregateFixtures)
 
 	var baseUrl = "/v1/full/tracks/" + trashid.MustEncodeHashID(parentTrackId) + "/remixes"
 
@@ -219,4 +201,68 @@ func TestTrackRemixes(t *testing.T) {
 		"data.tracks.2.id": trashid.MustEncodeHashID(firstRemixTrackId),
 		"data.tracks.3.id": trashid.MustEncodeHashID(fourthRemixTrackId),
 	})
+
+	// Sort by likes
+	status, body = testGet(t, app, baseUrl+"?sort_method=likes")
+
+	// should be saves desc, then track_id desc for ties
+	jsonAssert(t, body, map[string]any{
+		"data.tracks.#":    4,
+		"data.tracks.0.id": trashid.MustEncodeHashID(secondRemixTrackId),
+		"data.tracks.1.id": trashid.MustEncodeHashID(firstRemixTrackId),
+		"data.tracks.2.id": trashid.MustEncodeHashID(fourthRemixTrackId),
+		"data.tracks.3.id": trashid.MustEncodeHashID(thirdRemixTrackId),
+	})
+
+	// Sort by plays
+	status, body = testGet(t, app, baseUrl+"?sort_method=plays")
+
+	// should be plays desc, then track_id desc for ties
+	jsonAssert(t, body, map[string]any{
+		"data.tracks.#":    4,
+		"data.tracks.0.id": trashid.MustEncodeHashID(fourthRemixTrackId),
+		"data.tracks.1.id": trashid.MustEncodeHashID(thirdRemixTrackId),
+		"data.tracks.2.id": trashid.MustEncodeHashID(secondRemixTrackId),
+		"data.tracks.3.id": trashid.MustEncodeHashID(firstRemixTrackId),
+	})
+
+	// contest entries only
+	status, body = testGet(t, app, baseUrl+"?sort_method=recent&only_contest_entries=true")
+
+	jsonAssert(t, body, map[string]any{
+		"data.tracks.#":    2,
+		"data.tracks.0.id": trashid.MustEncodeHashID(secondRemixTrackId),
+		"data.tracks.1.id": trashid.MustEncodeHashID(firstRemixTrackId),
+	})
+
+	// cosigns only
+	status, body = testGet(t, app, baseUrl+"?sort_method=recent&only_cosigns=true")
+
+	jsonAssert(t, body, map[string]any{
+		"data.tracks.#":    2,
+		"data.tracks.0.id": trashid.MustEncodeHashID(secondRemixTrackId),
+		"data.tracks.1.id": trashid.MustEncodeHashID(firstRemixTrackId),
+	})
+}
+
+func TestTrackRemixesInvalidParams(t *testing.T) {
+	app := emptyTestApp(t)
+
+	status, _ := testGet(t, app, "/v1/full/tracks/123/remixes?sort_method=invalid")
+	assert.Equal(t, 400, status)
+
+	status, _ = testGet(t, app, "/v1/full/tracks/123/remixes?limit=-1")
+	assert.Equal(t, 400, status)
+
+	status, _ = testGet(t, app, "/v1/full/tracks/123/remixes?limit=101")
+	assert.Equal(t, 400, status)
+
+	status, _ = testGet(t, app, "/v1/full/tracks/123/remixes?offset=-1")
+	assert.Equal(t, 400, status)
+
+	status, _ = testGet(t, app, "/v1/full/tracks/123/remixes?only_contest_entries=invalid")
+	assert.Equal(t, 400, status)
+
+	status, _ = testGet(t, app, "/v1/full/tracks/123/remixes?only_cosigns=invalid")
+	assert.Equal(t, 400, status)
 }
