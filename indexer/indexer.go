@@ -7,7 +7,8 @@ import (
 	"strings"
 	"time"
 
-	"github.com/AudiusProject/audiusd/pkg/core/gen/core_proto"
+	core_proto "github.com/AudiusProject/audiusd/pkg/api/core/v1"
+	"github.com/AudiusProject/audiusd/pkg/common"
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgxpool"
 )
@@ -42,8 +43,13 @@ func (ci *CoreIndexer) handleTx(signedTx *core_proto.SignedTransaction) error {
 	// blockhash + blocknumber
 	// also need block timestamp
 	// todo: where best place to get?
+	txHash, err := common.ToTxHash(signedTx)
+	if err != nil {
+		return err
+	}
+
 	txInfo := TxInfo{
-		txhash:      signedTx.TxHash(),
+		txhash:      txHash,
 		blockhash:   "todo",
 		blocknumber: 123,
 		timestamp:   time.Now(),
