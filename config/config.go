@@ -68,7 +68,7 @@ func init() {
 		Cfg.Nodes = StageNodes
 		Cfg.DeadNodes = []string{}
 		Cfg.Rewards = core_config.MakeRewards(core_config.StageClaimAuthorities, core_config.StageRewardExtensions)
-		Cfg.AudiusdURL = "https://creatornode11.staging.audius.co"
+		Cfg.AudiusdURL = "creatornode11.staging.audius.co"
 	case "prod":
 		fallthrough
 	case "production":
@@ -86,7 +86,7 @@ func init() {
 			"https://content.grassfed.network",
 		}
 		Cfg.Rewards = core_config.MakeRewards(core_config.ProdClaimAuthorities, core_config.ProdRewardExtensions)
-		Cfg.AudiusdURL = "https://creatornode.audius.co"
+		Cfg.AudiusdURL = "creatornode.audius.co"
 	default:
 		log.Fatalf("Unknown environment: %s", env)
 	}
