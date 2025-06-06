@@ -9,6 +9,7 @@ import (
 	"testing"
 
 	core_proto "github.com/AudiusProject/audiusd/pkg/api/core/v1"
+	"github.com/AudiusProject/audiusd/pkg/common"
 	"github.com/jackc/pgx/v5"
 	"github.com/stretchr/testify/assert"
 	"google.golang.org/protobuf/proto"
@@ -97,7 +98,16 @@ func TestReadProtoFile(t *testing.T) {
 			assert.NoError(t, err)
 		}
 
-		err = ci.handleTx(&signedTx)
+		hash, err := common.ToTxHash(&signedTx)
+		if err != nil {
+			assert.NoError(t, err)
+		}
+
+		tx := &core_proto.Transaction{
+			Transaction: &signedTx,
+			Hash:        hash,
+		}
+		err = ci.handleTx(tx)
 		assert.NoError(t, err)
 
 	}

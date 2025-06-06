@@ -7,8 +7,9 @@ import (
 	"strings"
 	"time"
 
+	"connectrpc.com/connect"
 	core_proto "github.com/AudiusProject/audiusd/pkg/api/core/v1"
-	"github.com/AudiusProject/audiusd/pkg/common"
+	"github.com/AudiusProject/audiusd/pkg/sdk"
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgxpool"
 )
@@ -16,10 +17,12 @@ import (
 type CoreIndexer struct {
 	ctx  context.Context
 	pool *pgxpool.Pool
+	auds *sdk.AudiusdSDK
 }
 
 type CoreIndexerConfig struct {
-	DbUrl string
+	AudiusdURL string
+	DbUrl      string
 }
 
 func NewIndexer(config CoreIndexerConfig) (*CoreIndexer, error) {
@@ -29,30 +32,26 @@ func NewIndexer(config CoreIndexerConfig) (*CoreIndexer, error) {
 		return nil, err
 	}
 
+	auds := sdk.NewAudiusdSDK(config.AudiusdURL)
+
 	ci := &CoreIndexer{
 		bg,
 		pool,
+		auds,
 	}
 
 	return ci, nil
 }
 
-func (ci *CoreIndexer) handleTx(signedTx *core_proto.SignedTransaction) error {
-
-	// txInfo contains some context around the tx:
-	// blockhash + blocknumber
-	// also need block timestamp
-	// todo: where best place to get?
-	txHash, err := common.ToTxHash(signedTx)
-	if err != nil {
-		return err
-	}
-
+func (ci *CoreIndexer) handleTx(tx *core_proto.Transaction) error {
+	signedTx := tx.GetTransaction()
+	// tx timestamp is the block timestamp
+	blockTime := tx.GetTimestamp()
 	txInfo := TxInfo{
-		txhash:      txHash,
+		txhash:      tx.Hash,
 		blockhash:   "todo",
 		blocknumber: 123,
-		timestamp:   time.Now(),
+		timestamp:   blockTime.AsTime(),
 	}
 
 	switch signedTx.GetTransaction().(type) {
@@ -168,4 +167,34 @@ func (ci *CoreIndexer) doUpdate(tableName string, args pgx.NamedArgs, where pgx.
 
 	_, err := ci.pool.Exec(ci.ctx, stmt, args)
 	return err
+}
+
+func (ci *CoreIndexer) Start(ctx context.Context) error {
+	ticker := time.NewTicker(500 * time.Millisecond)
+	defer ticker.Stop()
+
+	blockNum := 0
+	for {
+		select {
+		case <-ctx.Done():
+			return nil
+		case <-ticker.C:
+			nextBlock := blockNum + 1
+			block, err := ci.auds.Core.GetBlock(ci.ctx, connect.NewRequest(&core_proto.GetBlockRequest{
+				Height: int64(nextBlock),
+			}))
+			if err != nil {
+				return err
+			}
+
+			for _, tx := range block.Msg.Block.Transactions {
+				err := ci.handleTx(tx)
+				if err != nil {
+					return err
+				}
+			}
+
+			blockNum++
+		}
+	}
 }
