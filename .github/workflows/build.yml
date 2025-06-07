@@ -1,8 +1,8 @@
-name: Build and Push Docker Image
+name: Build Docker Image
 
 on:
   push:
-    branches: [ '**' ]
+    branches: ["**"]
 
 jobs:
   build-and-push:
@@ -29,12 +29,12 @@ jobs:
             type=raw,value=latest,enable=${{ github.ref == 'refs/heads/main' }}
             type=sha,prefix=
 
-      - name: Build and push
+      - name: Build
         uses: docker/build-push-action@v5
         with:
           context: .
-          push: true
+          push: false
           tags: ${{ steps.meta.outputs.tags }}
           labels: ${{ steps.meta.outputs.labels }}
           cache-from: type=registry,ref=audius/api:buildcache
-          cache-to: type=registry,ref=audius/api:buildcache,mode=max 
+          cache-to: type=registry,ref=audius/api:buildcache,mode=max
