@@ -5,24 +5,30 @@ on:
     branches: [main]
 
 jobs:
-  - name: Checkout audius-k8s repo
-    uses: actions/checkout@v4
-    with:
-      repository: audiusproject/audius-k8s
-      path: audius-k8s
-      token: ${{ secrets.GITHUB_TOKEN }}
+  update:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout audius-k8s repo
+        uses: actions/checkout@v4
+        with:
+          repository: audiusproject/audius-k8s
+          path: audius-k8s
+          token: ${{ secrets.GITHUB_TOKEN }}
 
-  - name: Set up Pulumi
-    uses: pulumi/actions@v4
+      - run: go mod download
 
-  - name: Up build stack
-    run: |
-      cd audius-k8s
-      pulumi stack select audius/build-api
-      pulumi up --yes
+      - name: Up build stack
+        uses: pulumi/actions@v6
+        with:
+          command: up
+          stack-name: audius/audius-k8s/build-api
+        env:
+          PULUMI_ACCESS_TOKEN: ${{ secrets.PULUMI_ACCESS_TOKEN }}
 
-  - name: Up stage stack
-    run: |
-      cd audius-k8s
-      pulumi stack select audius/stage-api
-      pulumi up --yes
+      - name: Up stage stack
+        uses: pulumi/actions@v6
+        with:
+          command: up
+          stack-name: audius/audius-k8s/stage-api
+        env:
+          PULUMI_ACCESS_TOKEN: ${{ secrets.PULUMI_ACCESS_TOKEN }}
