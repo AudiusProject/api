@@ -17,7 +17,7 @@ jobs:
       - name: Checkout audius-k8s repo
         uses: actions/checkout@v4
         with:
-          repository: audiusproject/audius-k8s
+          repository: AudiusProject/audius-k8s
           path: audius-k8s
 
       - run: cd audius-k8s && go mod download
