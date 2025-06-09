@@ -18,8 +18,8 @@ jobs:
         uses: actions/checkout@v4
         with:
           repository: AudiusProject/audius-k8s
-          ref: main
           path: audius-k8s
+          token: ${{ secrets.GITHUB_TOKEN }}
 
       - run: cd audius-k8s && go mod download
 
