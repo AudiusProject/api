@@ -155,6 +155,9 @@ func (app *ApiServer) v1UsersLibraryPlaylists(c *fiber.Ctx) error {
 	}
 
 	// attach
+
+	// skip deleted tracks by adjusting the index and trimming the array slice at the end
+	skipped := 0
 	for idx, item := range items {
 		if p, ok := playlists[item.ItemID]; ok {
 			// todo: python code does: exclude playlists with only hidden tracks and empty playlists
@@ -163,11 +166,13 @@ func (app *ApiServer) v1UsersLibraryPlaylists(c *fiber.Ctx) error {
 			p.Tracks = nil
 
 			item.Item = p
-			items[idx] = item
+			items[idx-skipped] = item
+		} else {
+			skipped = skipped + 1
 		}
 	}
 
 	return c.JSON(fiber.Map{
-		"data": items,
+		"data": items[:len(items)-skipped],
 	})
 }
