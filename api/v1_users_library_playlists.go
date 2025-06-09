@@ -107,6 +107,7 @@ func (app *ApiServer) v1UsersLibraryPlaylists(c *fiber.Ctx) error {
 	JOIN playlists ON playlist_id = item_id
 	LEFT JOIN aggregate_playlist USING (playlist_id)
 	WHERE playlists.is_album = (@playlistType = 'album')
+		AND playlists.is_delete = FALSE
 	ORDER BY ` + sortField + ` ` + sortDirection + `, item_id desc
 	LIMIT @limit
 	OFFSET @offset
@@ -155,9 +156,6 @@ func (app *ApiServer) v1UsersLibraryPlaylists(c *fiber.Ctx) error {
 	}
 
 	// attach
-
-	// skip deleted tracks by adjusting the index and trimming the array slice at the end
-	skipped := 0
 	for idx, item := range items {
 		if p, ok := playlists[item.ItemID]; ok {
 			// todo: python code does: exclude playlists with only hidden tracks and empty playlists
@@ -166,13 +164,11 @@ func (app *ApiServer) v1UsersLibraryPlaylists(c *fiber.Ctx) error {
 			p.Tracks = nil
 
 			item.Item = p
-			items[idx-skipped] = item
-		} else {
-			skipped = skipped + 1
+			items[idx] = item
 		}
 	}
 
 	return c.JSON(fiber.Map{
-		"data": items[:len(items)-skipped],
+		"data": items,
 	})
 }
