@@ -19,7 +19,7 @@ jobs:
         with:
           repository: AudiusProject/audius-k8s
           path: audius-k8s
-          token: ${{ secrets.GITHUB_TOKEN }}
+          token: ${{ secrets.GH_PAT }}
 
       - run: cd audius-k8s && go mod download
 
