@@ -2,7 +2,7 @@ ame: Build, Push, and Deploy
 
 on:
   push:
-    branches: ["**"]
+    branches: [main]
 
 jobs:
   update:
@@ -22,7 +22,7 @@ jobs:
 
       - run: cd audius-k8s && go mod download
 
-      # Impersonate the gcloud service account
+      # Impersonate the staging gcloud service account
       - id: "auth"
         name: "Authenticate to Google Cloud"
         uses: "google-github-actions/auth@v1"

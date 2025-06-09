@@ -5,7 +5,7 @@ on:
     branches: ["**"]
 
 jobs:
-  build-and-push:
+  build:
     runs-on: ubuntu-latest
     steps:
       - name: Checkout code
