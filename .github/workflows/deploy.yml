@@ -43,8 +43,7 @@ jobs:
 
       - name: Print Subject
         run: |
-          echo "${{ steps.id-token.outputs.token }}" | jq -R 'split(".") | .[1] | @base64d | fromjson' | jq 'sub'
-        uses: actions/github-script@v6
+          echo "${{ steps.auth.outputs.token }}" | jq -R 'split(".") | .[1] | @base64d | fromjson' | jq 'sub'
 
       - name: Test gcloud auth plugin
         run: |
