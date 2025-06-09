@@ -28,7 +28,6 @@ jobs:
 
       - run: cd audius-k8s && go mod download
 
-      # Impersonate the staging gcloud service account
       - id: "auth"
         name: "Authenticate to Google Cloud"
         uses: "google-github-actions/auth@v1"
@@ -61,3 +60,4 @@ jobs:
           work-dir: audius-k8s
         env:
           PULUMI_ACCESS_TOKEN: ${{ secrets.PULUMI_ACCESS_TOKEN }}
+          GOOGLE_APPLICATION_CREDENTIALS: ${{ steps.auth.outputs.credentials_file_path }}
