@@ -5,7 +5,7 @@ on:
     branches: [main]
 
 jobs:
-  update:
+  build-push-and-deploy:
     runs-on: ubuntu-latest
 
     # Get a GitHub ID token
@@ -14,8 +14,8 @@ jobs:
       contents: read
 
     steps:
-      - name: Set GIT_SHA env var
-        run: echo "GIT_SHA=${GITHUB_SHA}" >> $GITHUB_ENV
+      - name: Set short GIT_SHA env var
+        run: echo "GIT_SHA=$(git rev-parse --short $GITHUB_SHA)" >> $GITHUB_ENV
 
       - name: Checkout audius-k8s repo
         uses: actions/checkout@v4
@@ -43,6 +43,8 @@ jobs:
           work-dir: audius-k8s
         env:
           PULUMI_ACCESS_TOKEN: ${{ secrets.PULUMI_ACCESS_TOKEN }}
+          DOCKERHUB_USERNAME: ${{ secrets.DOCKERHUB_USERNAME }}
+          DOCKERHUB_PASSWORD: ${{ secrets.DOCKERHUB_TOKEN }}
 
       - name: Up stage stack
         uses: pulumi/actions@v6
