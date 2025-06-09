@@ -36,6 +36,9 @@ jobs:
           workload_identity_provider: "projects/931700780836/locations/global/workloadIdentityPools/api-ci-pool/providers/gh-actions"
           service_account: "api-ci@staging-audius-infra.iam.gserviceaccount.com"
 
+      - name: Add gcloud components to PATH
+        run: echo "$HOME/google-cloud-sdk/bin" >> $GITHUB_PATH
+
       - name: Test gcloud auth plugin
         run: |
           which gke-gcloud-auth-plugin
