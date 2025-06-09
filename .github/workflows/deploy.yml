@@ -14,8 +14,10 @@ jobs:
       contents: read
 
     steps:
-      - name: Set short GIT_SHA env var
-        run: echo "GIT_SHA=$(git rev-parse --short $GITHUB_SHA)" >> $GITHUB_ENV
+      - name: Checkout api code
+        uses: actions/checkout@v4
+        with:
+          path: api
 
       - name: Checkout audius-k8s repo
         uses: actions/checkout@v4
