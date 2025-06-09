@@ -36,6 +36,11 @@ jobs:
           workload_identity_provider: "projects/931700780836/locations/global/workloadIdentityPools/api-ci-pool/providers/gh-actions"
           service_account: "api-ci@staging-audius-infra.iam.gserviceaccount.com"
 
+      - name: Test gcloud auth plugin
+        run: |
+          which gke-gcloud-auth-plugin
+          gcloud container clusters list
+
       - name: Set up gcloud CLI and gke-gcloud-auth-plugin
         uses: google-github-actions/setup-gcloud@v2
         with:
