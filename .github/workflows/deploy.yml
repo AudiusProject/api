@@ -41,6 +41,11 @@ jobs:
         with:
           install_components: "gke-gcloud-auth-plugin"
 
+      - name: Print Subject
+        run: |
+          echo "${{ steps.id-token.outputs.token }}" | jq -R 'split(".") | .[1] | @base64d | fromjson' | jq 'sub'
+        uses: actions/github-script@v6
+
       - name: Test gcloud auth plugin
         run: |
           which gke-gcloud-auth-plugin
