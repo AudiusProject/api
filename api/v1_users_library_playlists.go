@@ -107,6 +107,7 @@ func (app *ApiServer) v1UsersLibraryPlaylists(c *fiber.Ctx) error {
 	JOIN playlists ON playlist_id = item_id
 	LEFT JOIN aggregate_playlist USING (playlist_id)
 	WHERE playlists.is_album = (@playlistType = 'album')
+		AND playlists.is_delete = FALSE
 	ORDER BY ` + sortField + ` ` + sortDirection + `, item_id desc
 	LIMIT @limit
 	OFFSET @offset
