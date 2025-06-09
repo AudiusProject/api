@@ -14,6 +14,9 @@ jobs:
       contents: read
 
     steps:
+      - name: Set GIT_SHA env var
+        run: echo "GIT_SHA=${GITHUB_SHA}" >> $GITHUB_ENV
+
       - name: Checkout audius-k8s repo
         uses: actions/checkout@v4
         with:
