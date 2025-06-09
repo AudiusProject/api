@@ -3,7 +3,7 @@ package indexer
 import (
 	"encoding/json"
 
-	"github.com/AudiusProject/audiusd/pkg/core/gen/core_proto"
+	core_proto "github.com/AudiusProject/audiusd/pkg/api/core/v1"
 	"github.com/jackc/pgx/v5"
 )
 

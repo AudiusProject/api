@@ -16,6 +16,7 @@ import (
 	"bridgerton.audius.co/config"
 	"bridgerton.audius.co/trashid"
 	"github.com/AudiusProject/audiusd/pkg/rewards"
+	"github.com/AudiusProject/audiusd/pkg/sdk"
 	"github.com/Doist/unfurlist"
 	adapter "github.com/axiomhq/axiom-go/adapters/zap"
 	"github.com/axiomhq/axiom-go/axiom"
@@ -167,6 +168,8 @@ func NewApiServer(config config.Config) *ApiServer {
 		panic(err)
 	}
 
+	auds := sdk.NewAudiusdSDK(config.AudiusdURL)
+
 	app := &ApiServer{
 		App: fiber.New(fiber.Config{
 			JSONEncoder:    json.Marshal,
@@ -189,6 +192,7 @@ func NewApiServer(config config.Config) *ApiServer {
 		solanaConfig:          &config.SolanaConfig,
 		antiAbuseOracles:      config.AntiAbuseOracles,
 		validators:            config.Nodes,
+		auds:                  auds,
 	}
 
 	app.Use(recover.New(recover.Config{
@@ -307,6 +311,7 @@ func NewApiServer(config config.Config) *ApiServer {
 		g.Get("/tracks/:trackId/stream", app.v1TrackStream)
 		g.Get("/tracks/:trackId/download", app.v1TrackDownload)
 		g.Get("/tracks/:trackId/inspect", app.v1TrackInspect)
+		g.Get("/tracks/:trackId/remixes", app.v1TrackRemixes)
 		g.Get("/tracks/:trackId/reposts", app.v1TrackReposts)
 		g.Get("/tracks/:trackId/favorites", app.v1TrackFavorites)
 		g.Get("/tracks/:trackId/comments", app.v1TrackComments)
@@ -417,6 +422,7 @@ type ApiServer struct {
 	solanaConfig          *config.SolanaConfig
 	antiAbuseOracles      []string
 	validators            []config.Node
+	auds                  *sdk.AudiusdSDK
 }
 
 func (app *ApiServer) home(c *fiber.Ctx) error {
@@ -480,15 +486,15 @@ func (app *ApiServer) paramTimeRange(c *fiber.Ctx, param string, defaultValue st
 	return timeRange, nil
 }
 
-func (app *ApiServer) resolveUserHandleToId(handle string) (int32, error) {
-	if hit, ok := app.resolveHandleCache.Get(handle); ok {
-		return hit, nil
-	}
-	user_id, err := app.queries.GetUserForHandle(context.Background(), handle)
+func (app *ApiServer) resolveUserHandleToId(c *fiber.Ctx, handle string) (int32, error) {
+	// if hit, ok := app.resolveHandleCache.Get(handle); ok {
+	// 	return hit, nil
+	// }
+	user_id, err := app.queries.GetUserForHandle(c.Context(), handle)
 	if err != nil {
 		return 0, err
 	}
-	app.resolveHandleCache.Set(handle, int32(user_id))
+	// app.resolveHandleCache.Set(handle, int32(user_id))
 	return int32(user_id), nil
 }
 

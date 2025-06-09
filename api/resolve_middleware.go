@@ -52,7 +52,7 @@ func (app *ApiServer) requireUserIdMiddleware(c *fiber.Ctx) error {
 }
 
 func (app *ApiServer) requireHandleMiddleware(c *fiber.Ctx) error {
-	userId, err := app.resolveUserHandleToId(c.Params("handle"))
+	userId, err := app.resolveUserHandleToId(c, c.Params("handle"))
 	if err != nil {
 		return err
 	}
