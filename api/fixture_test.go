@@ -278,6 +278,7 @@ var (
 		"challenges":             map[string]any{},
 		"comment_threads":        map[string]any{},
 		"user_listening_history": map[string]any{},
+		"remixes":                map[string]any{},
 		"playlist_seen": {
 			"user_id":     nil,
 			"playlist_id": nil,
