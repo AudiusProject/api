@@ -2,20 +2,34 @@ ame: Build, Push, and Deploy
 
 on:
   push:
-    branches: [main]
+    branches: ["**"]
 
 jobs:
   update:
     runs-on: ubuntu-latest
+
+    # Get a GitHub ID token
+    permissions:
+      id-token: write
+      contents: read
+
     steps:
       - name: Checkout audius-k8s repo
         uses: actions/checkout@v4
         with:
           repository: audiusproject/audius-k8s
           path: audius-k8s
-          token: ${{ secrets.GITHUB_TOKEN }}
 
-      - run: go mod download
+      - run: cd audius-k8s && go mod download
+
+      # Impersonate the gcloud service account
+      - id: "auth"
+        name: "Authenticate to Google Cloud"
+        uses: "google-github-actions/auth@v1"
+        with:
+          create_credentials_file: true
+          workload_identity_provider: "projects/931700780836/locations/global/workloadIdentityPools/api-ci-pool/providers/gh-actions"
+          service_account: "api-ci@staging-audius-infra.iam.gserviceaccount.com"
 
       - name: Up build stack
         uses: pulumi/actions@v6
