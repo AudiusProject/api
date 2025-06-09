@@ -42,6 +42,9 @@ jobs:
       - name: Test gcloud auth plugin
         run: |
           which gke-gcloud-auth-plugin
+
+      - name: Another test
+        run: |
           gcloud container clusters list
 
       - name: Set up gcloud CLI and gke-gcloud-auth-plugin
