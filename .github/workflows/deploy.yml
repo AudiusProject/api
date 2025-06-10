@@ -5,10 +5,40 @@ on:
     branches: [main]
 
 jobs:
-  build-push-and-deploy:
+  build-pulumi:
     runs-on: ubuntu-latest
+    steps:
+      - name: Checkout api code
+        uses: actions/checkout@v4
+        with:
+          path: api
 
-    # Get a GitHub ID token
+      - name: Checkout audius-k8s repo
+        uses: actions/checkout@v4
+        with:
+          repository: AudiusProject/audius-k8s
+          path: audius-k8s
+          token: ${{ secrets.GH_PAT }}
+
+      - run: cd audius-k8s && go mod download
+
+      - name: Up build stack
+        uses: pulumi/actions@v6
+        with:
+          command: up
+          stack-name: audius/audius-k8s/build-api
+          work-dir: audius-k8s
+        env:
+          PULUMI_ACCESS_TOKEN: ${{ secrets.PULUMI_ACCESS_TOKEN }}
+          DOCKERHUB_USERNAME: ${{ secrets.DOCKERHUB_USERNAME }}
+          DOCKERHUB_PASSWORD: ${{ secrets.DOCKERHUB_TOKEN }}
+
+  deploy-staging:
+    needs: build-pulumi
+    runs-on: ubuntu-latest
+    environment:
+      name: staging
+      url: https://api.staging.audius.engineering
     permissions:
       id-token: write
       contents: read
@@ -33,38 +63,67 @@ jobs:
         uses: "google-github-actions/auth@v1"
         with:
           create_credentials_file: true
-          workload_identity_provider: "projects/931700780836/locations/global/workloadIdentityPools/api-ci-pool/providers/gh-actions"
-          service_account: "api-ci@staging-audius-infra.iam.gserviceaccount.com"
+          workload_identity_provider: ${{ vars.WORKLOAD_IDENTITY_PROVIDER }}
+          service_account: ${{ vars.SERVICE_ACCOUNT }}
 
       - name: Set up gcloud CLI and gke-gcloud-auth-plugin
         uses: google-github-actions/setup-gcloud@v2
         with:
           install_components: "gke-gcloud-auth-plugin"
 
-      - name: Test gcloud auth plugin
-        run: |
-          which gke-gcloud-auth-plugin
-
-      - name: Another test
-        run: |
-          gcloud container clusters list
-
-      - name: Up build stack
-        uses: pulumi/actions@v6
-        with:
-          command: up
-          stack-name: audius/audius-k8s/build-api
-          work-dir: audius-k8s
-        env:
-          PULUMI_ACCESS_TOKEN: ${{ secrets.PULUMI_ACCESS_TOKEN }}
-          DOCKERHUB_USERNAME: ${{ secrets.DOCKERHUB_USERNAME }}
-          DOCKERHUB_PASSWORD: ${{ secrets.DOCKERHUB_TOKEN }}
-
       - name: Up stage stack
         uses: pulumi/actions@v6
         with:
           command: up
           stack-name: audius/audius-k8s/stage-api
+          work-dir: audius-k8s
+        env:
+          PULUMI_ACCESS_TOKEN: ${{ secrets.PULUMI_ACCESS_TOKEN }}
+          GOOGLE_APPLICATION_CREDENTIALS: ${{ steps.auth.outputs.credentials_file_path }}
+
+  deploy-prod:
+    needs: build-pulumi
+    runs-on: ubuntu-latest
+    environment:
+      name: prod
+      url: https://api.audius.engineering
+    permissions:
+      id-token: write
+      contents: read
+
+    steps:
+      - name: Checkout api code
+        uses: actions/checkout@v4
+        with:
+          path: api
+
+      - name: Checkout audius-k8s repo
+        uses: actions/checkout@v4
+        with:
+          repository: AudiusProject/audius-k8s
+          path: audius-k8s
+          token: ${{ secrets.GH_PAT }}
+
+      - run: cd audius-k8s && go mod download
+
+      - id: "auth"
+        name: "Authenticate to Google Cloud"
+        uses: "google-github-actions/auth@v1"
+        with:
+          create_credentials_file: true
+          workload_identity_provider: ${{ vars.WORKLOAD_IDENTITY_PROVIDER }}
+          service_account: ${{ vars.SERVICE_ACCOUNT }}
+
+      - name: Set up gcloud CLI and gke-gcloud-auth-plugin
+        uses: google-github-actions/setup-gcloud@v2
+        with:
+          install_components: "gke-gcloud-auth-plugin"
+
+      - name: Up stage stack
+        uses: pulumi/actions@v6
+        with:
+          command: up
+          stack-name: audius/audius-k8s/prod-api
           work-dir: audius-k8s
         env:
           PULUMI_ACCESS_TOKEN: ${{ secrets.PULUMI_ACCESS_TOKEN }}
