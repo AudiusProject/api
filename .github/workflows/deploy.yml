@@ -75,6 +75,7 @@ jobs:
       - name: Restore Cached Pulumi Plugins
         uses: actions/cache/restore@v4
         with:
+          path: ~/.pulumi/plugins
           key: pulumi-plugins-${{ runner.os }}-${{ env.K8S_GIT_SHA }}
 
       - id: "auth"
@@ -132,6 +133,7 @@ jobs:
       - name: Restore Cached Pulumi Plugins
         uses: actions/cache/restore@v4
         with:
+          path: ~/.pulumi/plugins
           key: pulumi-plugins-${{ runner.os }}-${{ env.K8S_GIT_SHA }}
 
       - id: "auth"
