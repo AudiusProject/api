@@ -32,16 +32,16 @@ jobs:
           path: ~/.pulumi/plugins
           key: pulumi-plugins-${{ runner.os }}-${{ env.K8S_GIT_SHA }}
 
-      - name: Up build stack
-        uses: pulumi/actions@v6
-        with:
-          command: up
-          stack-name: audius/audius-k8s/build-api
-          work-dir: audius-k8s
-        env:
-          PULUMI_ACCESS_TOKEN: ${{ secrets.PULUMI_ACCESS_TOKEN }}
-          DOCKERHUB_USERNAME: ${{ secrets.DOCKERHUB_USERNAME }}
-          DOCKERHUB_PASSWORD: ${{ secrets.DOCKERHUB_TOKEN }}
+      # - name: Up build stack
+      #   uses: pulumi/actions@v6
+      #   with:
+      #     command: up
+      #     stack-name: audius/audius-k8s/build-api
+      #     work-dir: audius-k8s
+      #   env:
+      #     PULUMI_ACCESS_TOKEN: ${{ secrets.PULUMI_ACCESS_TOKEN }}
+      #     DOCKERHUB_USERNAME: ${{ secrets.DOCKERHUB_USERNAME }}
+      #     DOCKERHUB_PASSWORD: ${{ secrets.DOCKERHUB_TOKEN }}
 
   deploy-staging:
     needs: build-pulumi
@@ -54,6 +54,9 @@ jobs:
       contents: read
 
     steps:
+      - name: TEST echo
+        run: echo ${{ vars.SERVICE_ACCOUNT }}
+
       - name: Checkout api code
         uses: actions/checkout@v4
         with:
