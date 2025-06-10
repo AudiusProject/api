@@ -486,18 +486,6 @@ func (app *ApiServer) paramTimeRange(c *fiber.Ctx, param string, defaultValue st
 	return timeRange, nil
 }
 
-func (app *ApiServer) resolveUserHandleToId(c *fiber.Ctx, handle string) (int32, error) {
-	// if hit, ok := app.resolveHandleCache.Get(handle); ok {
-	// 	return hit, nil
-	// }
-	user_id, err := app.queries.GetUserForHandle(c.Context(), handle)
-	if err != nil {
-		return 0, err
-	}
-	// app.resolveHandleCache.Set(handle, int32(user_id))
-	return int32(user_id), nil
-}
-
 func (as *ApiServer) Serve() {
 	flushTicker := time.NewTicker(time.Second * 15)
 	go func() {
