@@ -55,7 +55,7 @@ jobs:
 
     steps:
       - name: TEST echo
-        run: echo ${{ vars.SERVICE_ACCOUNT }}
+        run: echo ${{ vars.WORKLOAD_IDENTITY_PROVIDER }}
 
       - name: Checkout api code
         uses: actions/checkout@v4
@@ -93,6 +93,9 @@ jobs:
         uses: google-github-actions/setup-gcloud@v2
         with:
           install_components: "gke-gcloud-auth-plugin"
+
+      - name: check auth
+        run: gcloud container clusters list
 
       - name: Up stage-api stack
         uses: pulumi/actions@v6
@@ -104,60 +107,60 @@ jobs:
           PULUMI_ACCESS_TOKEN: ${{ secrets.PULUMI_ACCESS_TOKEN }}
           GOOGLE_APPLICATION_CREDENTIALS: ${{ steps.auth.outputs.credentials_file_path }}
 
-  deploy-prod:
-    needs: build-pulumi
-    runs-on: ubuntu-latest
-    environment:
-      name: Prod
-      url: https://api.audius.engineering
-    permissions:
-      id-token: write
-      contents: read
+  # deploy-prod:
+  #   needs: build-pulumi
+  #   runs-on: ubuntu-latest
+  #   environment:
+  #     name: Prod
+  #     url: https://api.audius.engineering
+  #   permissions:
+  #     id-token: write
+  #     contents: read
 
-    steps:
-      - name: Checkout api code
-        uses: actions/checkout@v4
-        with:
-          path: api
+  #   steps:
+  #     - name: Checkout api code
+  #       uses: actions/checkout@v4
+  #       with:
+  #         path: api
 
-      - name: Checkout audius-k8s repo
-        uses: actions/checkout@v4
-        with:
-          repository: AudiusProject/audius-k8s
-          path: audius-k8s
-          token: ${{ secrets.GH_PAT }}
+  #     - name: Checkout audius-k8s repo
+  #       uses: actions/checkout@v4
+  #       with:
+  #         repository: AudiusProject/audius-k8s
+  #         path: audius-k8s
+  #         token: ${{ secrets.GH_PAT }}
 
-      - run: cd audius-k8s && go mod download
+  #     - run: cd audius-k8s && go mod download
 
-      - name: Get K8s hash
-        run: |
-          cd audius-k8s && echo "K8S_GIT_SHA=$(git rev-parse --short HEAD)" >> $GITHUB_ENV
+  #     - name: Get K8s hash
+  #       run: |
+  #         cd audius-k8s && echo "K8S_GIT_SHA=$(git rev-parse --short HEAD)" >> $GITHUB_ENV
 
-      - name: Restore Cached Pulumi Plugins
-        uses: actions/cache/restore@v4
-        with:
-          path: ~/.pulumi/plugins
-          key: pulumi-plugins-${{ runner.os }}-${{ env.K8S_GIT_SHA }}
+  #     - name: Restore Cached Pulumi Plugins
+  #       uses: actions/cache/restore@v4
+  #       with:
+  #         path: ~/.pulumi/plugins
+  #         key: pulumi-plugins-${{ runner.os }}-${{ env.K8S_GIT_SHA }}
 
-      - id: "auth"
-        name: "Authenticate to Google Cloud"
-        uses: "google-github-actions/auth@v1"
-        with:
-          create_credentials_file: true
-          workload_identity_provider: ${{ vars.WORKLOAD_IDENTITY_PROVIDER }}
-          service_account: ${{ vars.SERVICE_ACCOUNT }}
+  #     - id: "auth"
+  #       name: "Authenticate to Google Cloud"
+  #       uses: "google-github-actions/auth@v1"
+  #       with:
+  #         create_credentials_file: true
+  #         workload_identity_provider: ${{ vars.WORKLOAD_IDENTITY_PROVIDER }}
+  #         service_account: ${{ vars.SERVICE_ACCOUNT }}
 
-      - name: Set up gcloud CLI and gke-gcloud-auth-plugin
-        uses: google-github-actions/setup-gcloud@v2
-        with:
-          install_components: "gke-gcloud-auth-plugin"
+  #     - name: Set up gcloud CLI and gke-gcloud-auth-plugin
+  #       uses: google-github-actions/setup-gcloud@v2
+  #       with:
+  #         install_components: "gke-gcloud-auth-plugin"
 
-      - name: Up prod-api stack
-        uses: pulumi/actions@v6
-        with:
-          command: up
-          stack-name: audius/audius-k8s/prod-api
-          work-dir: audius-k8s
-        env:
-          PULUMI_ACCESS_TOKEN: ${{ secrets.PULUMI_ACCESS_TOKEN }}
-          GOOGLE_APPLICATION_CREDENTIALS: ${{ steps.auth.outputs.credentials_file_path }}
+  #     - name: Up prod-api stack
+  #       uses: pulumi/actions@v6
+  #       with:
+  #         command: up
+  #         stack-name: audius/audius-k8s/prod-api
+  #         work-dir: audius-k8s
+  #       env:
+  #         PULUMI_ACCESS_TOKEN: ${{ secrets.PULUMI_ACCESS_TOKEN }}
+  #         GOOGLE_APPLICATION_CREDENTIALS: ${{ steps.auth.outputs.credentials_file_path }}
