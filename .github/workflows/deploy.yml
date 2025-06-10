@@ -22,6 +22,16 @@ jobs:
 
       - run: cd audius-k8s && go mod download
 
+      - name: Get K8s hash
+        run: |
+          cd ../audius-k8s && echo "K8S_GIT_SHA=$(git rev-parse --short HEAD)" >> $GITHUB_ENV
+
+      - name: Cache Pulumi Plugins
+        uses: actions/cache@v4
+        with:
+          path: ~/.pulumi/plugins
+          key: pulumi-plugins-${{ runner.os }}-${{ env.K8S_GIT_SHA }}
+
       - name: Up build stack
         uses: pulumi/actions@v6
         with:
@@ -32,16 +42,6 @@ jobs:
           PULUMI_ACCESS_TOKEN: ${{ secrets.PULUMI_ACCESS_TOKEN }}
           DOCKERHUB_USERNAME: ${{ secrets.DOCKERHUB_USERNAME }}
           DOCKERHUB_PASSWORD: ${{ secrets.DOCKERHUB_TOKEN }}
-
-      - name: Get K8s hash
-        run: |
-          cd ../audius-k8s && echo "K8S_GIT_SHA=$(git rev-parse --short HEAD)"" >> $GITHUB_ENV
-
-      - name: Cache Pulumi Plugins
-        uses: actions/cache/save@v4
-        with:
-          path: ~/.pulumi/plugins
-          key: pulumi-plugins-${{ runner.os }}-${{ env.K8S_GIT_SHA }}
 
   deploy-staging:
     needs: build-pulumi
@@ -70,7 +70,7 @@ jobs:
 
       - name: Get K8s hash
         run: |
-          cd ../audius-k8s && echo "K8S_GIT_SHA=$(git rev-parse --short HEAD)"" >> $GITHUB_ENV
+          cd ../audius-k8s && echo "K8S_GIT_SHA=$(git rev-parse --short HEAD)" >> $GITHUB_ENV
 
       - name: Restore Cached Pulumi Plugins
         uses: actions/cache/restore@v4
@@ -127,7 +127,7 @@ jobs:
 
       - name: Get K8s hash
         run: |
-          cd ../audius-k8s && echo "K8S_GIT_SHA=$(git rev-parse --short HEAD)"" >> $GITHUB_ENV
+          cd ../audius-k8s && echo "K8S_GIT_SHA=$(git rev-parse --short HEAD)" >> $GITHUB_ENV
 
       - name: Restore Cached Pulumi Plugins
         uses: actions/cache/restore@v4
