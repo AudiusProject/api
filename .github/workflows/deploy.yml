@@ -24,7 +24,7 @@ jobs:
 
       - name: Get K8s hash
         run: |
-          cd ../audius-k8s && echo "K8S_GIT_SHA=$(git rev-parse --short HEAD)" >> $GITHUB_ENV
+          cd audius-k8s && echo "K8S_GIT_SHA=$(git rev-parse --short HEAD)" >> $GITHUB_ENV
 
       - name: Cache Pulumi Plugins
         uses: actions/cache@v4
@@ -70,7 +70,7 @@ jobs:
 
       - name: Get K8s hash
         run: |
-          cd ../audius-k8s && echo "K8S_GIT_SHA=$(git rev-parse --short HEAD)" >> $GITHUB_ENV
+          cd audius-k8s && echo "K8S_GIT_SHA=$(git rev-parse --short HEAD)" >> $GITHUB_ENV
 
       - name: Restore Cached Pulumi Plugins
         uses: actions/cache/restore@v4
@@ -127,7 +127,7 @@ jobs:
 
       - name: Get K8s hash
         run: |
-          cd ../audius-k8s && echo "K8S_GIT_SHA=$(git rev-parse --short HEAD)" >> $GITHUB_ENV
+          cd audius-k8s && echo "K8S_GIT_SHA=$(git rev-parse --short HEAD)" >> $GITHUB_ENV
 
       - name: Restore Cached Pulumi Plugins
         uses: actions/cache/restore@v4
