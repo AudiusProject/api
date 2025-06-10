@@ -26,11 +26,11 @@ jobs:
         run: |
           cd audius-k8s && echo "K8S_GIT_SHA=$(git rev-parse --short HEAD)" >> $GITHUB_ENV
 
-      - name: Cache Pulumi
+      - name: Cache Pulumi Plugins
         uses: actions/cache@v4
         with:
-          path: ~/.pulumi
-          key: pulumi-${{ runner.os }}-${{ env.K8S_GIT_SHA }}
+          path: ~/.pulumi/plugins
+          key: pulumi-plugins-${{ runner.os }}-${{ env.K8S_GIT_SHA }}
 
       - name: Up build stack
         uses: pulumi/actions@v6
@@ -38,6 +38,8 @@ jobs:
           command: up
           stack-name: audius/audius-k8s/build-api
           work-dir: audius-k8s
+          debug: true
+          log-verbosity: 2
         env:
           PULUMI_ACCESS_TOKEN: ${{ secrets.PULUMI_ACCESS_TOKEN }}
           DOCKERHUB_USERNAME: ${{ secrets.DOCKERHUB_USERNAME }}
@@ -72,11 +74,11 @@ jobs:
         run: |
           cd audius-k8s && echo "K8S_GIT_SHA=$(git rev-parse --short HEAD)" >> $GITHUB_ENV
 
-      - name: Restore Cached Pulumi
+      - name: Restore Cached Pulumi Plugins
         uses: actions/cache/restore@v4
         with:
-          path: ~/.pulumi
-          key: pulumi-${{ runner.os }}-${{ env.K8S_GIT_SHA }}
+          path: ~/.pulumi/plugins
+          key: pulumi-plugins-${{ runner.os }}-${{ env.K8S_GIT_SHA }}
 
       - id: "auth"
         name: "Authenticate to Google Cloud"
@@ -133,11 +135,11 @@ jobs:
         run: |
           cd audius-k8s && echo "K8S_GIT_SHA=$(git rev-parse --short HEAD)" >> $GITHUB_ENV
 
-      - name: Restore Cached Pulumi
+      - name: Restore Cached Pulumi Plugins
         uses: actions/cache/restore@v4
         with:
-          path: ~/.pulumi
-          key: pulumi-${{ runner.os }}-${{ env.K8S_GIT_SHA }}
+          path: ~/.pulumi/plugins
+          key: pulumi-plugins-${{ runner.os }}-${{ env.K8S_GIT_SHA }}
 
       - id: "auth"
         name: "Authenticate to Google Cloud"
