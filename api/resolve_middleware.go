@@ -5,6 +5,7 @@ import (
 
 	"bridgerton.audius.co/trashid"
 	"github.com/gofiber/fiber/v2"
+	"github.com/gofiber/fiber/v2/utils"
 )
 
 func (app *ApiServer) isFullMiddleware(c *fiber.Ctx) error {
@@ -49,6 +50,19 @@ func (app *ApiServer) requireUserIdMiddleware(c *fiber.Ctx) error {
 	}
 	c.Locals("userId", userId)
 	return c.Next()
+}
+
+func (app *ApiServer) resolveUserHandleToId(c *fiber.Ctx, handle string) (int32, error) {
+	key := utils.CopyString(handle)
+	if hit, ok := app.resolveHandleCache.Get(key); ok {
+		return hit, nil
+	}
+	user_id, err := app.queries.GetUserForHandle(c.Context(), handle)
+	if err != nil {
+		return 0, err
+	}
+	app.resolveHandleCache.Set(key, int32(user_id))
+	return int32(user_id), nil
 }
 
 func (app *ApiServer) requireHandleMiddleware(c *fiber.Ctx) error {

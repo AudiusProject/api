@@ -243,7 +243,8 @@ func testGet(t *testing.T, app *ApiServer, path string, dest ...any) (int, []byt
 	return res.StatusCode, body
 }
 
-func jsonAssert(t *testing.T, body []byte, expectations map[string]any) {
+func jsonAssert(t *testing.T, body []byte, expectations map[string]any) bool {
+	success := true
 	for path, expectation := range expectations {
 		var actual any
 		switch v := expectation.(type) {
@@ -261,8 +262,11 @@ func jsonAssert(t *testing.T, body []byte, expectations map[string]any) {
 			t.Errorf("unsupported type for expectation: %T", v)
 		}
 		msg := fmt.Sprintf("Expected %s to be %v got %v", path, expectation, actual)
-		assert.Equal(t, expectation, actual, msg)
+		if !assert.Equal(t, expectation, actual, msg) {
+			success = false
+		}
 	}
+	return success
 }
 
 // testGetWithWallet makes a GET request with authentication headers for the given wallet address
