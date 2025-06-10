@@ -33,11 +33,21 @@ jobs:
           DOCKERHUB_USERNAME: ${{ secrets.DOCKERHUB_USERNAME }}
           DOCKERHUB_PASSWORD: ${{ secrets.DOCKERHUB_TOKEN }}
 
+      - name: Get K8s hash
+        run: |
+          cd ../audius-k8s && echo "K8S_GIT_SHA=$(git rev-parse --short HEAD)"" >> $GITHUB_ENV
+
+      - name: Cache Pulumi Plugins
+        uses: actions/cache/save@v4
+        with:
+          path: ~/.pulumi/plugins
+          key: pulumi-plugins-${{ runner.os }}-${{ env.K8S_GIT_SHA }}
+
   deploy-staging:
     needs: build-pulumi
     runs-on: ubuntu-latest
     environment:
-      name: staging
+      name: Staging
       url: https://api.staging.audius.engineering
     permissions:
       id-token: write
@@ -58,6 +68,15 @@ jobs:
 
       - run: cd audius-k8s && go mod download
 
+      - name: Get K8s hash
+        run: |
+          cd ../audius-k8s && echo "K8S_GIT_SHA=$(git rev-parse --short HEAD)"" >> $GITHUB_ENV
+
+      - name: Restore Cached Pulumi Plugins
+        uses: actions/cache/restore@v4
+        with:
+          key: pulumi-plugins-${{ runner.os }}-${{ env.K8S_GIT_SHA }}
+
       - id: "auth"
         name: "Authenticate to Google Cloud"
         uses: "google-github-actions/auth@v1"
@@ -71,7 +90,7 @@ jobs:
         with:
           install_components: "gke-gcloud-auth-plugin"
 
-      - name: Up stage stack
+      - name: Up stage-api stack
         uses: pulumi/actions@v6
         with:
           command: up
@@ -85,7 +104,7 @@ jobs:
     needs: build-pulumi
     runs-on: ubuntu-latest
     environment:
-      name: prod
+      name: Prod
       url: https://api.audius.engineering
     permissions:
       id-token: write
@@ -106,6 +125,15 @@ jobs:
 
       - run: cd audius-k8s && go mod download
 
+      - name: Get K8s hash
+        run: |
+          cd ../audius-k8s && echo "K8S_GIT_SHA=$(git rev-parse --short HEAD)"" >> $GITHUB_ENV
+
+      - name: Restore Cached Pulumi Plugins
+        uses: actions/cache/restore@v4
+        with:
+          key: pulumi-plugins-${{ runner.os }}-${{ env.K8S_GIT_SHA }}
+
       - id: "auth"
         name: "Authenticate to Google Cloud"
         uses: "google-github-actions/auth@v1"
@@ -119,7 +147,7 @@ jobs:
         with:
           install_components: "gke-gcloud-auth-plugin"
 
-      - name: Up stage stack
+      - name: Up prod-api stack
         uses: pulumi/actions@v6
         with:
           command: up
