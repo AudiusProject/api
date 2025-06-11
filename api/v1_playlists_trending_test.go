@@ -18,7 +18,7 @@ func TestGetTrendingPlaylists(t *testing.T) {
 		"playlist_trending_scores": []map[string]any{},
 		"users":                    []map[string]any{},
 	}
-	// Create 5 users to make sure we have enough unique owners
+	// Make sure we have enough unique owners
 	for _, userID := range []int{1, 2, 3, 4, 5, 7, 8} {
 		fixtures["users"] = append(fixtures["users"], map[string]any{
 			"user_id":   userID,
