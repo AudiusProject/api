@@ -68,6 +68,11 @@ var (
 			"is_scheduled_release":   false,
 			"stream_conditions":      "{}",
 		},
+		"playlist_tracks": {
+			"playlist_id": nil,
+			"track_id":    nil,
+			"is_removed":  false,
+		},
 		"follows": {
 			"blockhash":        "block1",
 			"blocknumber":      101,
