@@ -10,7 +10,7 @@ import (
 
 type GetTrendingPlaylistsParams struct {
 	Limit  int    `query:"limit" default:"30" validate:"min=1,max=100"`
-	Offset int    `query:"offset" default:"0" validate:"min=0"`
+	Offset int    `query:"offset" default:"0"`
 	Time   string `query:"time" default:"week" validate:"oneof=week month year"`
 }
 
@@ -64,8 +64,7 @@ func (app *ApiServer) v1PlaylistsTrending(c *fiber.Ctx) error {
 				AND time_range = @time
 		)
 		SELECT
-			fs.playlist_id,
-			fs.score
+			fs.playlist_id
 		FROM qualified_playlists qp
 		JOIN filtered_scores fs ON fs.playlist_id = qp.playlist_id
 		ORDER BY fs.score DESC, fs.playlist_id DESC
