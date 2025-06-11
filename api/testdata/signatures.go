@@ -28,6 +28,10 @@ var TestSignatures = map[string]SignatureData{
 		Message:   "test",
 		Signature: "0xae31f899e3847c61403075ba09b735c6087d6b69e7fda323dea3e3aa98c27d652c78601792f03868b621f02975581eb7b54f4272ad1de938ab1b3479120621271b",
 	},
+	"0x782aC09C59da685011d31e84de821B6b99b2b682": {
+		Message:   "test",
+		Signature: "0x809767951bd6df9434dd16564854332f5c8422ee6d64dad1574345551f5595ca0b5ec5bc9d38f379621a26b3f6a420d8a0353ddebf8eaeb258b9dab08d9486121c",
+	},
 }
 
 // GetSignatureData returns the message and signature for a given test wallet address

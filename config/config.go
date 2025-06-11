@@ -22,6 +22,7 @@ type Config struct {
 	SolanaConfig       SolanaConfig
 	AntiAbuseOracles   []string
 	Rewards            []rewards.Reward
+	AudiusdURL         string
 }
 
 var Cfg = Config{
@@ -31,6 +32,7 @@ var Cfg = Config{
 	AxiomToken:         os.Getenv("axiomToken"),
 	AxiomDataset:       os.Getenv("axiomDataset"),
 	NetworkTakeRate:    10,
+	AudiusdURL:         os.Getenv("audiusdUrl"),
 }
 
 func init() {
@@ -49,6 +51,7 @@ func init() {
 		Cfg.AntiAbuseOracles = []string{"http://audius-protocol-discovery-provider-1"}
 		Cfg.Nodes = DevNodes
 		Cfg.Rewards = core_config.MakeRewards(core_config.DevClaimAuthorities, core_config.DevRewardExtensions)
+		Cfg.AudiusdURL = "http://audius-protocol-creator-node-1"
 	case "stage":
 		fallthrough
 	case "staging":
@@ -65,6 +68,7 @@ func init() {
 		Cfg.Nodes = StageNodes
 		Cfg.DeadNodes = []string{}
 		Cfg.Rewards = core_config.MakeRewards(core_config.StageClaimAuthorities, core_config.StageRewardExtensions)
+		Cfg.AudiusdURL = "creatornode11.staging.audius.co"
 	case "prod":
 		fallthrough
 	case "production":
@@ -82,6 +86,7 @@ func init() {
 			"https://content.grassfed.network",
 		}
 		Cfg.Rewards = core_config.MakeRewards(core_config.ProdClaimAuthorities, core_config.ProdRewardExtensions)
+		Cfg.AudiusdURL = "creatornode.audius.co"
 	default:
 		log.Fatalf("Unknown environment: %s", env)
 	}

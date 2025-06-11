@@ -9,6 +9,7 @@ import (
 )
 
 func TestUserQuery(t *testing.T) {
+	app := testAppWithFixtures(t)
 	// as anon
 	{
 		users, err := app.queries.FullUsers(t.Context(), dbv1.GetUsersParams{
@@ -64,11 +65,12 @@ func TestUserQuery(t *testing.T) {
 }
 
 func TestGetUsers(t *testing.T) {
+	app := testAppWithFixtures(t)
 	var userResponse struct {
 		Data []dbv1.FullUser
 	}
 
-	status, body := testGet(t, "/v1/full/users?id=1", &userResponse)
+	status, body := testGet(t, app, "/v1/full/users?id=1", &userResponse)
 	assert.Equal(t, 200, status)
 
 	// jsonAssert helps testing the response body
@@ -91,11 +93,12 @@ func TestGetUsers(t *testing.T) {
 }
 
 func TestFollowerEndpoint(t *testing.T) {
+	app := testAppWithFixtures(t)
 	var userResponse struct {
 		Data []dbv1.FullUser
 	}
 
-	status, body := testGet(t, "/v1/full/users/7eP5n/followers", &userResponse)
+	status, body := testGet(t, app, "/v1/full/users/7eP5n/followers", &userResponse)
 	assert.Equal(t, 200, status)
 
 	jsonAssert(t, body, map[string]any{

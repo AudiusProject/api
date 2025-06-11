@@ -10,10 +10,11 @@ import (
 
 // Defaults to all approval status and no revoked managers
 func TestGetManagedUsersNoParams(t *testing.T) {
+	app := testAppWithFixtures(t)
 	var managedUsersResponse struct {
 		Data []dbv1.FullManagedUser
 	}
-	status, body := testGet(t, "/v1/users/eYZmn/managed_users", &managedUsersResponse)
+	status, body := testGet(t, app, "/v1/users/eYZmn/managed_users", &managedUsersResponse)
 	assert.Equal(t, 200, status)
 	assert.Equal(t, 2, len(managedUsersResponse.Data))
 
@@ -27,10 +28,11 @@ func TestGetManagedUsersNoParams(t *testing.T) {
 
 // Should return only approved managers and default to not showing revoked managers
 func TestGetManagedUsersApproved(t *testing.T) {
+	app := testAppWithFixtures(t)
 	var managedUsersResponse struct {
 		Data []dbv1.FullManagedUser
 	}
-	status, body := testGet(t, "/v1/users/eYZmn/managed_users?is_approved=true", &managedUsersResponse)
+	status, body := testGet(t, app, "/v1/users/eYZmn/managed_users?is_approved=true", &managedUsersResponse)
 	assert.Equal(t, 200, status)
 	assert.Equal(t, 1, len(managedUsersResponse.Data))
 
@@ -41,10 +43,11 @@ func TestGetManagedUsersApproved(t *testing.T) {
 }
 
 func TestGetManagedUsersRevoked(t *testing.T) {
+	app := testAppWithFixtures(t)
 	var managedUsersResponse struct {
 		Data []dbv1.FullManagedUser
 	}
-	status, body := testGet(t, "/v1/users/eYZmn/managed_users?is_revoked=true", &managedUsersResponse)
+	status, body := testGet(t, app, "/v1/users/eYZmn/managed_users?is_revoked=true", &managedUsersResponse)
 	assert.Equal(t, 200, status)
 	assert.Equal(t, 2, len(managedUsersResponse.Data))
 
@@ -59,12 +62,13 @@ func TestGetManagedUsersRevoked(t *testing.T) {
 }
 
 func TestGetManagedUsersInvalidParams(t *testing.T) {
+	app := testAppWithFixtures(t)
 	var managedUsersResponse struct {
 		Data []dbv1.FullManagedUser
 	}
-	status, _ := testGet(t, "/v1/users/eYZmn/managed_users?is_approved=invalid", &managedUsersResponse)
+	status, _ := testGet(t, app, "/v1/users/eYZmn/managed_users?is_approved=invalid", &managedUsersResponse)
 	assert.Equal(t, 400, status)
 
-	status, _ = testGet(t, "/v1/users/eYZmn/managed_users?is_revoked=invalid", &managedUsersResponse)
+	status, _ = testGet(t, app, "/v1/users/eYZmn/managed_users?is_revoked=invalid", &managedUsersResponse)
 	assert.Equal(t, 400, status)
 }

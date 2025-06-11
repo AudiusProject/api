@@ -9,13 +9,6 @@ import (
 	"go.uber.org/zap"
 )
 
-func sendError(c *fiber.Ctx, status int, message string) error {
-	return c.Status(status).JSON(fiber.Map{
-		"code":  status,
-		"error": message,
-	})
-}
-
 func errorHandler(logger *zap.Logger) func(*fiber.Ctx, error) error {
 	return func(ctx *fiber.Ctx, err error) error {
 		code := http.StatusInternalServerError

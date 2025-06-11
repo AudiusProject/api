@@ -5,6 +5,7 @@ import (
 
 	"bridgerton.audius.co/trashid"
 	"github.com/gofiber/fiber/v2"
+	"github.com/gofiber/fiber/v2/utils"
 )
 
 func (app *ApiServer) isFullMiddleware(c *fiber.Ctx) error {
@@ -45,14 +46,27 @@ func (app *ApiServer) getUserId(c *fiber.Ctx) int32 {
 func (app *ApiServer) requireUserIdMiddleware(c *fiber.Ctx) error {
 	userId, err := trashid.DecodeHashId(c.Params("userId"))
 	if err != nil || userId == 0 {
-		return sendError(c, 400, "invalid userId")
+		return fiber.NewError(fiber.StatusBadRequest, "invalid userId")
 	}
 	c.Locals("userId", userId)
 	return c.Next()
 }
 
+func (app *ApiServer) resolveUserHandleToId(c *fiber.Ctx, handle string) (int32, error) {
+	key := utils.CopyString(handle)
+	if hit, ok := app.resolveHandleCache.Get(key); ok {
+		return hit, nil
+	}
+	user_id, err := app.queries.GetUserForHandle(c.Context(), handle)
+	if err != nil {
+		return 0, err
+	}
+	app.resolveHandleCache.Set(key, int32(user_id))
+	return int32(user_id), nil
+}
+
 func (app *ApiServer) requireHandleMiddleware(c *fiber.Ctx) error {
-	userId, err := app.resolveUserHandleToId(c.Params("handle"))
+	userId, err := app.resolveUserHandleToId(c, c.Params("handle"))
 	if err != nil {
 		return err
 	}
@@ -63,7 +77,7 @@ func (app *ApiServer) requireHandleMiddleware(c *fiber.Ctx) error {
 func (app *ApiServer) requireTrackIdMiddleware(c *fiber.Ctx) error {
 	trackId, err := trashid.DecodeHashId(c.Params("trackId"))
 	if err != nil || trackId == 0 {
-		return sendError(c, 400, "invalid trackId")
+		return fiber.NewError(fiber.StatusBadRequest, "invalid trackId")
 	}
 	c.Locals("trackId", trackId)
 	return c.Next()
@@ -72,7 +86,7 @@ func (app *ApiServer) requireTrackIdMiddleware(c *fiber.Ctx) error {
 func (app *ApiServer) requirePlaylistIdMiddleware(c *fiber.Ctx) error {
 	playlistId, err := trashid.DecodeHashId(c.Params("playlistId"))
 	if err != nil || playlistId == 0 {
-		return sendError(c, 400, "invalid playlistId")
+		return fiber.NewError(fiber.StatusBadRequest, "invalid playlistId")
 	}
 	c.Locals("playlistId", playlistId)
 	return c.Next()

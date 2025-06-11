@@ -20,7 +20,7 @@ func (app *ApiServer) v1Playlist(c *fiber.Ctx) error {
 	}
 
 	if len(playlists) == 0 {
-		return sendError(c, 404, "playlist not found")
+		return fiber.NewError(fiber.StatusNotFound, "playlist not found")
 	}
 
 	playlist := playlists[0]

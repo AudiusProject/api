@@ -17,6 +17,7 @@ import (
 	"bridgerton.audius.co/searcher"
 	"bridgerton.audius.co/trashid"
 	"github.com/AudiusProject/audiusd/pkg/rewards"
+	"github.com/AudiusProject/audiusd/pkg/sdk"
 	"github.com/Doist/unfurlist"
 	adapter "github.com/axiomhq/axiom-go/adapters/zap"
 	"github.com/axiomhq/axiom-go/axiom"
@@ -174,6 +175,8 @@ func NewApiServer(config config.Config) *ApiServer {
 		panic(err)
 	}
 
+	auds := sdk.NewAudiusdSDK(config.AudiusdURL)
+
 	app := &ApiServer{
 		App: fiber.New(fiber.Config{
 			JSONEncoder:    json.Marshal,
@@ -197,6 +200,7 @@ func NewApiServer(config config.Config) *ApiServer {
 		solanaConfig:          &config.SolanaConfig,
 		antiAbuseOracles:      config.AntiAbuseOracles,
 		validators:            config.Nodes,
+		auds:                  auds,
 	}
 
 	app.Use(recover.New(recover.Config{
@@ -296,6 +300,8 @@ func NewApiServer(config config.Config) *ApiServer {
 		g.Get("/users/:userId/transactions/audio/count", app.v1UsersTransactionsAudioCount)
 		g.Get("/users/:userId/transactions/usdc", app.v1UsersTransactionsUsdc)
 		g.Get("/users/:userId/transactions/usdc/count", app.v1UsersTransactionsUsdcCount)
+		g.Get("/users/:userId/history/tracks", app.v1UsersHistory)
+		g.Get("/users/:userId/listen_counts_monthly", app.v1UsersListenCountsMonthly)
 
 		// Tracks
 		g.Get("/tracks", app.v1Tracks)
@@ -313,14 +319,16 @@ func NewApiServer(config config.Config) *ApiServer {
 		g.Get("/tracks/:trackId/stream", app.v1TrackStream)
 		g.Get("/tracks/:trackId/download", app.v1TrackDownload)
 		g.Get("/tracks/:trackId/inspect", app.v1TrackInspect)
+		g.Get("/tracks/:trackId/remixes", app.v1TrackRemixes)
 		g.Get("/tracks/:trackId/reposts", app.v1TrackReposts)
 		g.Get("/tracks/:trackId/favorites", app.v1TrackFavorites)
 		g.Get("/tracks/:trackId/comments", app.v1TrackComments)
 
 		// Playlists
-		g.Get("/playlists", app.v1playlists)
+		g.Get("/playlists", app.v1Playlists)
 		g.Get("/playlists/unclaimed_id", app.v1PlaylistsUnclaimedId)
 		g.Get("/playlists/trending", app.v1PlaylistsTrending)
+		g.Get("/playlists/by_permalink/:handle/:slug", app.v1PlaylistByPermalink)
 
 		g.Use("/playlists/:playlistId", app.requirePlaylistIdMiddleware)
 		g.Get("/playlists/:playlistId", app.v1Playlist)
@@ -357,6 +365,9 @@ func NewApiServer(config config.Config) *ApiServer {
 		g.Get("/metrics/aggregates/apps/:time_range", app.v1MetricsApps)
 		g.Get("/metrics/aggregates/routes/:time_range", app.v1MetricsRoutes)
 		g.Get("/metrics/aggregates/routes/trailing/:time_range", app.v1MetricsRoutesTrailing)
+
+		// Notifications
+		g.Get("/notifications/:userId/playlist_updates", app.requireUserIdMiddleware, app.v1NotificationsPlaylistUpdates)
 	}
 
 	// Comms
@@ -399,7 +410,7 @@ func NewApiServer(config config.Config) *ApiServer {
 	// gracefully handle 404
 	// (this won't get hit so long as above proxy is in place)
 	app.Use(func(c *fiber.Ctx) error {
-		return sendError(c, 404, "Route not found")
+		return fiber.ErrNotFound
 	})
 
 	return app
@@ -423,6 +434,7 @@ type ApiServer struct {
 	solanaConfig          *config.SolanaConfig
 	antiAbuseOracles      []string
 	validators            []config.Node
+	auds                  *sdk.AudiusdSDK
 }
 
 func (app *ApiServer) home(c *fiber.Ctx) error {
@@ -484,18 +496,6 @@ func (app *ApiServer) paramTimeRange(c *fiber.Ctx, param string, defaultValue st
 		return "", fmt.Errorf("invalid %s parameter: %s", param, timeRange)
 	}
 	return timeRange, nil
-}
-
-func (app *ApiServer) resolveUserHandleToId(handle string) (int32, error) {
-	if hit, ok := app.resolveHandleCache.Get(handle); ok {
-		return hit, nil
-	}
-	user_id, err := app.queries.GetUserForHandle(context.Background(), handle)
-	if err != nil {
-		return 0, err
-	}
-	app.resolveHandleCache.Set(handle, int32(user_id))
-	return int32(user_id), nil
 }
 
 func (as *ApiServer) Serve() {

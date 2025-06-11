@@ -99,11 +99,15 @@ func (app *ApiServer) v1UsersLibraryPlaylists(c *fiber.Ctx) error {
 		FROM playlist_actions
 		GROUP BY item_id
 	)
-	SELECT deduped.*
+	SELECT
+		'collection_activity_full_without_tracks' as class,
+		'playlist' as item_type,
+		deduped.*
 	FROM deduped
 	JOIN playlists ON playlist_id = item_id
 	LEFT JOIN aggregate_playlist USING (playlist_id)
 	WHERE playlists.is_album = (@playlistType = 'album')
+		AND playlists.is_delete = FALSE
 	ORDER BY ` + sortField + ` ` + sortDirection + `, item_id desc
 	LIMIT @limit
 	OFFSET @offset
@@ -121,12 +125,12 @@ func (app *ApiServer) v1UsersLibraryPlaylists(c *fiber.Ctx) error {
 	}
 
 	type Activity struct {
-		// Class         string    `json:"class"`
+		Class         string    `json:"class"`
 		ItemID        int32     `json:"item_id"`
 		ItemCreatedAt time.Time `json:"timestamp"`
 		IsPurchase    bool      `json:"-"`
-
-		Item any `db:"-" json:"item"`
+		ItemType      string    `json:"item_type"`
+		Item          any       `db:"-" json:"item"`
 	}
 
 	items, err := pgx.CollectRows(rows, pgx.RowToStructByName[Activity])
@@ -147,6 +151,9 @@ func (app *ApiServer) v1UsersLibraryPlaylists(c *fiber.Ctx) error {
 			MyID: myId,
 		},
 	})
+	if err != nil {
+		return err
+	}
 
 	// attach
 	for idx, item := range items {

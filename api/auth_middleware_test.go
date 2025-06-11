@@ -1,6 +1,8 @@
 package api
 
 import (
+	"fmt"
+	"io"
 	"net/http/httptest"
 	"testing"
 
@@ -9,6 +11,7 @@ import (
 )
 
 func TestRecoverAuthorityFromSignatureHeaders(t *testing.T) {
+	app := testAppWithFixtures(t)
 	var wallet string
 
 	// Create a dummy endpoint to test the authMiddleware
@@ -28,6 +31,8 @@ func TestRecoverAuthorityFromSignatureHeaders(t *testing.T) {
 }
 
 func TestAuthorized(t *testing.T) {
+	app := testAppWithFixtures(t)
+
 	// Create a dummy endpoint to test the authMiddleware
 	testApp := fiber.New()
 	testApp.Get("/", app.resolveMyIdMiddleware, app.authMiddleware, func(c *fiber.Ctx) error {
@@ -93,6 +98,8 @@ func TestAuthorized(t *testing.T) {
 }
 
 func TestRequireAuthMiddleware(t *testing.T) {
+	app := testAppWithFixtures(t)
+
 	// Create a dummy endpoint to test the requireAuthMiddleware
 	testApp := fiber.New()
 	testApp.Get("/", app.resolveMyIdMiddleware, app.authMiddleware, app.requireAuthMiddleware, func(c *fiber.Ctx) error {
@@ -104,4 +111,58 @@ func TestRequireAuthMiddleware(t *testing.T) {
 	res, err := testApp.Test(req1, -1)
 	assert.NoError(t, err)
 	assert.Equal(t, fiber.StatusUnauthorized, res.StatusCode)
+}
+
+func TestWalletCache(t *testing.T) {
+	app := emptyTestApp(t)
+
+	// Create a dummy endpoint to test wallet to user ID lookup
+	// The important part here is that we are pulling a value from the context
+	// and passing it directly to getUserIDFromWallet.
+	testApp := fiber.New()
+	testApp.Get("/test/get_user_id/:wallet", func(c *fiber.Ctx) error {
+		wallet := c.Params("wallet")
+		userId, err := app.getUserIDFromWallet(c.Context(), wallet)
+		if err != nil {
+			return err
+		}
+		return c.JSON(fiber.Map{
+			"data": userId,
+		})
+	})
+
+	fixtures := FixtureMap{
+		"users": make([]map[string]any, 100),
+	}
+
+	for i := range 100 {
+		fixtures["users"][i] = map[string]any{
+			"user_id":   i + 1,
+			"handle":    fmt.Sprintf("testuser%d", i+1),
+			"handle_lc": fmt.Sprintf("testuser%d", i+1),
+			"wallet":    fmt.Sprintf("0x%064x", i+1),
+		}
+	}
+
+	createFixtures(app, fixtures)
+
+	// Test that caching doesn't reuse context params
+	for i := range 1000 {
+		user := fixtures["users"][i%100]
+		wallet := user["wallet"].(string)
+		expectedUserId := user["user_id"].(int)
+
+		req := httptest.NewRequest("GET", "/test/get_user_id/"+wallet, nil)
+		res, err := testApp.Test(req, -1)
+		assert.NoError(t, err)
+		body, err := io.ReadAll(res.Body)
+		assert.NoError(t, err)
+
+		if ok := jsonAssert(t, body, map[string]any{
+			"data": expectedUserId,
+		}); !ok {
+			fmt.Printf("failed on iteration %d\n", i)
+			return
+		}
+	}
 }

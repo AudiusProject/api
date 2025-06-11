@@ -3,7 +3,7 @@ package indexer
 import (
 	"testing"
 
-	"github.com/AudiusProject/audiusd/pkg/core/gen/core_proto"
+	core_proto "github.com/AudiusProject/audiusd/pkg/api/core/v1"
 	"github.com/stretchr/testify/assert"
 )
 
