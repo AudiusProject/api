@@ -75,9 +75,7 @@ func reindexSocials(base *BaseIndexer) {
 	}
 }
 
-func Reindex(collections ...string) {
-	pool := mustDialPostgres()
-	esc := mustDialElasticsearch()
+func Reindex(pool *pgxpool.Pool, esc *elasticsearch.Client, collections ...string) {
 
 	baseIndexer := &BaseIndexer{
 		pool,
@@ -99,4 +97,10 @@ func Reindex(collections ...string) {
 		reindexSocials(baseIndexer)
 	}
 
+}
+
+func ReindexLegacy(collections ...string) {
+	pool := mustDialPostgres()
+	esc := mustDialElasticsearch()
+	Reindex(pool, esc, collections...)
 }
