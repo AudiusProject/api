@@ -6,6 +6,7 @@ import (
 	"net/http"
 	"os"
 	"os/signal"
+	"reflect"
 	"strconv"
 	"time"
 
@@ -195,6 +196,26 @@ func NewApiServer(config config.Config) *ApiServer {
 		auds:                  auds,
 	}
 
+	// Set up a custom decoder for HashIds so they can be parsed in lists
+	// used in query parameters. Without this, the decoder doesn't know what
+	// to do to parse them into trashid.HashIds
+	fiber.SetParserDecoder(fiber.ParserConfig{
+		SetAliasTag:       "query",
+		IgnoreUnknownKeys: true, // same as default
+		ZeroEmpty:         true, // same as default
+		ParserType: []fiber.ParserType{{
+			Customtype: trashid.HashId(0),
+			Converter: func(s string) reflect.Value {
+				id, err := trashid.DecodeHashId(s)
+				if err != nil {
+					// Return 0 when failing to decode
+					return reflect.Zero(reflect.TypeOf(trashid.HashId(0)))
+				}
+				return reflect.ValueOf(trashid.HashId(id))
+			},
+		}},
+	})
+
 	app.Use(recover.New(recover.Config{
 		EnableStackTrace: true,
 	}))
@@ -294,6 +315,8 @@ func NewApiServer(config config.Config) *ApiServer {
 		g.Get("/users/:userId/transactions/usdc/count", app.v1UsersTransactionsUsdcCount)
 		g.Get("/users/:userId/history/tracks", app.v1UsersHistory)
 		g.Get("/users/:userId/listen_counts_monthly", app.v1UsersListenCountsMonthly)
+		g.Get("/users/:userId/purchases", app.v1UsersPurchases)
+		g.Get("/users/:userId/purchases/count", app.v1UsersPurchasesCount)
 
 		// Tracks
 		g.Get("/tracks", app.v1Tracks)
