@@ -391,6 +391,9 @@ func NewApiServer(config config.Config) *ApiServer {
 
 	comms.Get("/blasts", app.getNewBlasts)
 
+	// Block confirmation
+	app.Get("/block_confirmation", app.BlockConfirmation)
+
 	app.Static("/", "./static")
 
 	// proxy unhandled requests thru to existing discovery API

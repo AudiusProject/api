@@ -299,6 +299,25 @@ var (
 			"count":        0,
 			"country":      "US",
 		},
+		"core_blocks": {
+			"rowid":      1,
+			"height":     1,
+			"chain_id":   "audius-mainnet-alpha-beta",
+			"hash":       nil,
+			"proposer":   "0222989ff2856242a12c38d5d2c92a1481972d22290b42ba15c65ae61e37588b61",
+			"created_at": time.Now(),
+		},
+		"core_validators": {
+			"rowid":         1,
+			"pub_key":       "0222989ff2856242a12c38d5d2c92a1481972d22290b42ba15c65ae61e37588b61",
+			"endpoint":      nil,
+			"eth_address":   nil,
+			"comet_address": nil,
+			"eth_block":     nil,
+			"node_type":     "discovery-node",
+			"sp_id":         1,
+			"comet_pub_key": nil,
+		},
 	}
 )
 
