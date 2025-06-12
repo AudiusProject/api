@@ -2,6 +2,7 @@ package api
 
 import (
 	"strconv"
+	"strings"
 	"time"
 
 	"bridgerton.audius.co/trashid"
@@ -68,23 +69,29 @@ func (app *ApiServer) v1UsersPurchases(c *fiber.Ctx) error {
 		orderBy = "buyers.name " + sortDirection + ", " + orderBy
 	}
 
-	contentTypeFilter := "TRUE"
+	filters := []string{"buyer_user_id = @buyerUserId"}
+
+	if params.SellerUserID != 0 {
+		filters = append(filters, "seller_user_id = @sellerUserId")
+	}
+
+	if len(params.ContentIDs) > 0 {
+		filters = append(filters, "content_id = ANY(@contentIds)")
+	}
+
 	switch params.ContentType {
 	case "track":
-		contentTypeFilter = "content_type = 'track'"
+		filters = append(filters, "content_type = 'track'")
 	case "album":
-		contentTypeFilter = "content_type = 'album'"
+		filters = append(filters, "content_type = 'album'")
 	case "playlist":
-		contentTypeFilter = "content_type = 'playlist'"
+		filters = append(filters, "content_type = 'playlist'")
 	}
 
 	sql := `
 		WITH purchases AS (
 			SELECT * FROM usdc_purchases
-			WHERE (@sellerUserId = 0 OR seller_user_id = @sellerUserId)
-				AND (@buyerUserId = 0 OR buyer_user_id = @buyerUserId)
-				AND (@contentIds::int[] IS NULL OR content_id = ANY(@contentIds::int[]))
-				AND (` + contentTypeFilter + `)
+			WHERE ` + strings.Join(filters, " AND ") + `
 		),
 		purchases_with_content AS (
 			-- Playlists
