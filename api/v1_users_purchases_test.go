@@ -160,4 +160,13 @@ func TestV1UsersPurchases(t *testing.T) {
 		jsonAssert(t, body, map[string]any{"data.2.content_id": "7eP5n"})
 		jsonAssert(t, body, map[string]any{"data.3.content_id": "ELKzn"})
 	}
+
+	// content filter
+	{
+		status, body := testGet(t, app, "/v1/users/7eP5n/purchases?content_ids=lebQD&content_ids=ML51L")
+		assert.Equal(t, 200, status)
+		jsonAssert(t, body, map[string]any{"data.0.content_id": "ML51L"})
+		jsonAssert(t, body, map[string]any{"data.1.content_id": "lebQD"})
+		jsonAssert(t, body, map[string]any{"data.2.content_id": nil})
+	}
 }

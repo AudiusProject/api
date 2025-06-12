@@ -6,6 +6,7 @@ import (
 	"net/http"
 	"os"
 	"os/signal"
+	"reflect"
 	"strconv"
 	"time"
 
@@ -194,6 +195,26 @@ func NewApiServer(config config.Config) *ApiServer {
 		validators:            config.Nodes,
 		auds:                  auds,
 	}
+
+	// Set up a custom decoder for HashIds so they can be parsed in lists
+	// used in query parameters. Without this, the decoder doesn't know what
+	// to do to parse them into trashid.HashIds
+	fiber.SetParserDecoder(fiber.ParserConfig{
+		SetAliasTag:       "query",
+		IgnoreUnknownKeys: true, // same as default
+		ZeroEmpty:         true, // same as default
+		ParserType: []fiber.ParserType{{
+			Customtype: trashid.HashId(0),
+			Converter: func(s string) reflect.Value {
+				id, err := trashid.DecodeHashId(s)
+				if err != nil {
+					// Return 0 when failing to decode
+					return reflect.Zero(reflect.TypeOf(trashid.HashId(0)))
+				}
+				return reflect.ValueOf(trashid.HashId(id))
+			},
+		}},
+	})
 
 	app.Use(recover.New(recover.Config{
 		EnableStackTrace: true,
