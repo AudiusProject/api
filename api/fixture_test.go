@@ -43,6 +43,7 @@ var (
 			"is_unlisted":                           false,
 			"is_available":                          true,
 			"track_segments":                        "[]", // JSONB string
+			"stem_of":                               "{}", // JSONB string
 			"is_scheduled_release":                  false,
 			"is_downloadable":                       false,
 			"is_original_available":                 false,
@@ -284,6 +285,7 @@ var (
 		"comment_threads":        map[string]any{},
 		"user_listening_history": map[string]any{},
 		"remixes":                map[string]any{},
+		"stems":                  map[string]any{},
 		"playlist_seen": {
 			"user_id":     nil,
 			"playlist_id": nil,
