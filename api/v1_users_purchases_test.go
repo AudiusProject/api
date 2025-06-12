@@ -16,6 +16,7 @@ func TestV1UsersPurchases(t *testing.T) {
 			{"user_id": 2, "handle": "seller1", "name": "c"},
 			{"user_id": 3, "handle": "seller2", "name": "a"},
 			{"user_id": 4, "handle": "seller3", "name": "b"},
+			{"user_id": 5, "handle": "seller4", "name": "d"},
 		},
 		"tracks": []map[string]any{
 			{"track_id": 1, "title": "b", "owner_id": 2},
@@ -23,7 +24,35 @@ func TestV1UsersPurchases(t *testing.T) {
 			{"track_id": 3, "title": "d", "owner_id": 3},
 			{"track_id": 4, "title": "a", "owner_id": 4},
 		},
+		"playlists": []map[string]any{
+			{"playlist_id": 1, "playlist_name": "e", "playlist_owner_id": 5},
+			{"playlist_id": 2, "playlist_name": "e", "playlist_owner_id": 5, "is_album": true},
+		},
 		"usdc_purchases": []map[string]any{
+			{
+				"seller_user_id": 5,
+				"buyer_user_id":  1,
+				"access":         "stream",
+				"amount":         2000000,
+				"content_type":   "playlist",
+				"content_id":     1,
+				"splits":         "[]",
+				"created_at":     time.Date(2024, 6, 1, 0, 0, 0, 0, time.UTC),
+				"signature":      "gfsgf",
+				"extra_amount":   0,
+			},
+			{
+				"seller_user_id": 5,
+				"buyer_user_id":  1,
+				"access":         "stream",
+				"amount":         2000000,
+				"content_type":   "album",
+				"content_id":     2,
+				"splits":         "[]",
+				"created_at":     time.Date(2024, 6, 1, 0, 1, 0, 0, time.UTC),
+				"signature":      "faddf",
+				"extra_amount":   0,
+			},
 			{
 				"seller_user_id": 3,
 				"buyer_user_id":  1,
@@ -32,7 +61,7 @@ func TestV1UsersPurchases(t *testing.T) {
 				"content_type":   "track",
 				"content_id":     3,
 				"splits":         "[]",
-				"created_at":     time.Date(2024, 6, 1, 0, 0, 0, 0, time.UTC),
+				"created_at":     time.Date(2024, 6, 1, 1, 0, 0, 0, time.UTC),
 				"signature":      "adfdgad",
 				"extra_amount":   0,
 			},
@@ -115,10 +144,12 @@ func TestV1UsersPurchases(t *testing.T) {
 	{
 		status, body := testGet(t, app, "/v1/users/7eP5n/purchases?sort_direction=asc")
 		assert.Equal(t, 200, status)
-		jsonAssert(t, body, map[string]any{"data.0.content_id": "lebQD"})
-		jsonAssert(t, body, map[string]any{"data.1.content_id": "ELKzn"})
-		jsonAssert(t, body, map[string]any{"data.2.content_id": "7eP5n"})
-		jsonAssert(t, body, map[string]any{"data.3.content_id": "ML51L"})
+		jsonAssert(t, body, map[string]any{"data.0.content_id": "7eP5n", "data.0.content_type": "playlist"})
+		jsonAssert(t, body, map[string]any{"data.1.content_id": "ML51L", "data.1.content_type": "album"})
+		jsonAssert(t, body, map[string]any{"data.2.content_id": "lebQD"})
+		jsonAssert(t, body, map[string]any{"data.3.content_id": "ELKzn"})
+		jsonAssert(t, body, map[string]any{"data.4.content_id": "7eP5n"})
+		jsonAssert(t, body, map[string]any{"data.5.content_id": "ML51L"})
 	}
 
 	// artist name sort (asc)
@@ -129,16 +160,20 @@ func TestV1UsersPurchases(t *testing.T) {
 		jsonAssert(t, body, map[string]any{"data.1.seller_user_id": "lebQD"})
 		jsonAssert(t, body, map[string]any{"data.2.seller_user_id": "ELKzn"})
 		jsonAssert(t, body, map[string]any{"data.3.seller_user_id": "ML51L"})
+		jsonAssert(t, body, map[string]any{"data.4.seller_user_id": "pnagD"})
+		jsonAssert(t, body, map[string]any{"data.5.seller_user_id": "pnagD"})
 	}
 
 	// artist name sort (desc)
 	{
 		status, body := testGet(t, app, "/v1/users/7eP5n/purchases?sort_method=artist_name&sort_direction=desc")
 		assert.Equal(t, 200, status)
-		jsonAssert(t, body, map[string]any{"data.0.seller_user_id": "ML51L"})
-		jsonAssert(t, body, map[string]any{"data.1.seller_user_id": "ELKzn"})
-		jsonAssert(t, body, map[string]any{"data.2.seller_user_id": "lebQD"})
-		jsonAssert(t, body, map[string]any{"data.3.seller_user_id": "lebQD"})
+		jsonAssert(t, body, map[string]any{"data.0.seller_user_id": "pnagD"})
+		jsonAssert(t, body, map[string]any{"data.1.seller_user_id": "pnagD"})
+		jsonAssert(t, body, map[string]any{"data.2.seller_user_id": "ML51L"})
+		jsonAssert(t, body, map[string]any{"data.3.seller_user_id": "ELKzn"})
+		jsonAssert(t, body, map[string]any{"data.4.seller_user_id": "lebQD"})
+		jsonAssert(t, body, map[string]any{"data.5.seller_user_id": "lebQD"})
 	}
 
 	// content title sort (asc)
@@ -149,21 +184,25 @@ func TestV1UsersPurchases(t *testing.T) {
 		jsonAssert(t, body, map[string]any{"data.1.content_id": "7eP5n"})
 		jsonAssert(t, body, map[string]any{"data.2.content_id": "ML51L"})
 		jsonAssert(t, body, map[string]any{"data.3.content_id": "lebQD"})
+		jsonAssert(t, body, map[string]any{"data.4.content_id": "7eP5n"})
+		jsonAssert(t, body, map[string]any{"data.5.content_id": "ML51L"})
 	}
 
 	// content title sort (desc)
 	{
 		status, body := testGet(t, app, "/v1/users/7eP5n/purchases?sort_method=content_title&sort_direction=desc")
 		assert.Equal(t, 200, status)
-		jsonAssert(t, body, map[string]any{"data.0.content_id": "lebQD"})
-		jsonAssert(t, body, map[string]any{"data.1.content_id": "ML51L"})
-		jsonAssert(t, body, map[string]any{"data.2.content_id": "7eP5n"})
-		jsonAssert(t, body, map[string]any{"data.3.content_id": "ELKzn"})
+		jsonAssert(t, body, map[string]any{"data.0.content_id": "ML51L"})
+		jsonAssert(t, body, map[string]any{"data.1.content_id": "7eP5n"})
+		jsonAssert(t, body, map[string]any{"data.2.content_id": "lebQD"})
+		jsonAssert(t, body, map[string]any{"data.3.content_id": "ML51L"})
+		jsonAssert(t, body, map[string]any{"data.4.content_id": "7eP5n"})
+		jsonAssert(t, body, map[string]any{"data.5.content_id": "ELKzn"})
 	}
 
-	// content filter
+	// content filters
 	{
-		status, body := testGet(t, app, "/v1/users/7eP5n/purchases?content_ids=lebQD&content_ids=ML51L")
+		status, body := testGet(t, app, "/v1/users/7eP5n/purchases?content_ids=lebQD&content_ids=ML51L&content_type=track")
 		assert.Equal(t, 200, status)
 		jsonAssert(t, body, map[string]any{"data.0.content_id": "ML51L"})
 		jsonAssert(t, body, map[string]any{"data.1.content_id": "lebQD"})
