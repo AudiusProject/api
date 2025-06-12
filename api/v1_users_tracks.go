@@ -13,7 +13,7 @@ type GetUsersTracksParams struct {
 	Offset           int    `query:"offset" default:"0" validate:"min=0"`
 	Sort             string `query:"sort" default:"date" validate:"oneof=date plays"`
 	SortMethod       string `query:"sort_method" default:"" validate:"omitempty,oneof=title release_date plays reposts saves"`
-	FilterTracks     string `query:"filter_tracks" default:"all" validate:"omitempty,oneof=all public unlisted"`
+	FilterTracks     string `query:"filter_tracks" default:"all" validate:"oneof=all public unlisted"`
 	SortDirection    string `query:"sort_direction" default:"desc" validate:"oneof=asc desc"`
 	AiAttributedOnly bool   `query:"ai_attributed_only" default:"false"`
 }
