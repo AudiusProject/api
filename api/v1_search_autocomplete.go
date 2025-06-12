@@ -8,7 +8,11 @@ import (
 )
 
 func (app *ApiServer) v1SearchAutocomplete(c *fiber.Ctx) error {
+	// queryMap := c.Queries()
+
 	query := c.Query("query")
+	genres := queryMutli(c, "genre")
+	moods := queryMutli(c, "mood")
 	limit := c.QueryInt("limit", 10)
 	offset := c.QueryInt("offset", 0)
 
@@ -23,7 +27,8 @@ func (app *ApiServer) v1SearchAutocomplete(c *fiber.Ctx) error {
 	// users
 	g.Go(func() error {
 		q := searcher.UserSearchQuery{
-			Query: query,
+			Query:      query,
+			IsVerified: c.QueryBool("is_verified"),
 		}
 
 		dsl := searcher.BuildFunctionScoreDSL("follower_count", q.Map())
@@ -42,7 +47,16 @@ func (app *ApiServer) v1SearchAutocomplete(c *fiber.Ctx) error {
 	// tracks
 	g.Go(func() error {
 		q := searcher.TrackSearchQuery{
-			Query: query,
+			Query:          query,
+			Genres:         genres,
+			Moods:          moods,
+			MinBPM:         c.QueryInt("bpm_min"),
+			MaxBPM:         c.QueryInt("bpm_max"),
+			MusicalKeys:    queryMutli(c, "key"),
+			IsDownloadable: c.QueryBool("is_downloadable"),
+			IsPurchaseable: c.QueryBool("is_purchaseable"),
+			// todo: includePurchaseable
+			// todo: tags
 		}
 
 		dsl := searcher.BuildFunctionScoreDSL("repost_count", q.Map())
@@ -78,6 +92,8 @@ func (app *ApiServer) v1SearchAutocomplete(c *fiber.Ctx) error {
 			GetPlaylistsParams: dbv1.GetPlaylistsParams{
 				Ids:  playlistsIds,
 				MyID: myId,
+
+				// todo: playlist needs to support modds + genres + tags query
 			},
 		})
 		return err

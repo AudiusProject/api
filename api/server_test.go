@@ -60,6 +60,7 @@ func emptyTestApp(t *testing.T) *ApiServer {
 	app := NewApiServer(config.Config{
 		Env:                "test",
 		DbUrl:              "postgres://postgres:example@localhost:21300/" + dbName,
+		EsUrl:              "http://localhost:21400",
 		DelegatePrivateKey: "0633fddb74e32b3cbc64382e405146319c11a1a52dc96598e557c5dbe2f31468",
 		SolanaConfig:       config.SolanaConfig{RpcProviders: []string{""}},
 	})

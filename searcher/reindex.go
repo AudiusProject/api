@@ -24,7 +24,7 @@ func mustDialPostgres() *pgxpool.Pool {
 }
 
 func mustDialElasticsearch() *elasticsearch.Client {
-	esc, err := Dial()
+	esc, err := Dial(config.Cfg.EsUrl)
 	if err != nil {
 		log.Fatalf("Error creating the client: %s", err)
 	}

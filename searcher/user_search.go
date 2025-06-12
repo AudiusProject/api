@@ -7,8 +7,9 @@ import (
 )
 
 type UserSearchQuery struct {
-	Query string `json:"query"`
-	MyID  int    `json:"my_id"`
+	Query      string `json:"query"`
+	IsVerified bool   `json:"is_verified"`
+	MyID       int    `json:"my_id"`
 }
 
 func (q *UserSearchQuery) Map() map[string]any {
@@ -29,6 +30,10 @@ func (q *UserSearchQuery) Map() map[string]any {
 				"boost": 10,
 			},
 		}))
+	}
+
+	if q.IsVerified {
+		builder.Must(esquery.Term("is_verified", true))
 	}
 
 	return builder.Map()

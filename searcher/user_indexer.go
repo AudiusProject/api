@@ -29,6 +29,7 @@ func (ui *UserIndexer) indexAll() error {
 				'bio', bio,
 				'location', location,
 				'created_at', created_at,
+				'is_verified', is_verified,
 
 				'track_count', track_count,
 				'playlist_count', playlist_count,

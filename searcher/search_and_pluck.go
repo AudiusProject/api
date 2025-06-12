@@ -35,7 +35,7 @@ func SearchAndPluck(esClient *elasticsearch.Client, index, dsl string, limit, of
 		return nil, err
 	}
 
-	fmt.Println("ES BODY", index, string(body))
+	// fmt.Println("ES BODY", index, string(body))
 
 	result := []int32{}
 	for _, hit := range gjson.GetBytes(body, "hits.hits").Array() {

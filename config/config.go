@@ -12,6 +12,7 @@ import (
 type Config struct {
 	Env                string
 	DbUrl              string
+	EsUrl              string
 	Nodes              []Node
 	DeadNodes          []string
 	DelegatePrivateKey string
@@ -28,6 +29,7 @@ type Config struct {
 var Cfg = Config{
 	Env:                os.Getenv("ENV"),
 	DbUrl:              os.Getenv("discoveryDbUrl"),
+	EsUrl:              os.Getenv("elasticsearchUrl"),
 	DelegatePrivateKey: os.Getenv("delegatePrivateKey"),
 	AxiomToken:         os.Getenv("axiomToken"),
 	AxiomDataset:       os.Getenv("axiomDataset"),

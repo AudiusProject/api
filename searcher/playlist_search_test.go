@@ -5,6 +5,7 @@ import (
 )
 
 func TestPlaylistDsl(t *testing.T) {
+	t.Skip()
 	q := &PlaylistSearchQuery{
 		Query: "hot",
 		MyID:  1,

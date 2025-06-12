@@ -170,7 +170,7 @@ func NewApiServer(config config.Config) *ApiServer {
 		panic(err)
 	}
 
-	esClient, err := searcher.Dial()
+	esClient, err := searcher.Dial(config.EsUrl)
 	if err != nil {
 		panic(err)
 	}

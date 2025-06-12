@@ -15,7 +15,7 @@ func testSearch(t *testing.T, indexName, dsl string) {
 
 	pprintJson(dsl)
 
-	esClient, err := Dial()
+	esClient, err := Dial("http://localhost:21400")
 	require.NoError(t, err)
 
 	req := esapi.SearchRequest{

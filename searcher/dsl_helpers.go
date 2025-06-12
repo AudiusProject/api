@@ -43,7 +43,7 @@ func BuildFunctionScoreDSL(scoreField string, innerQuery map[string]any) string 
 		}
 	}`, innerJson, scoreField)
 
-	pprintJson(dsl)
+	// pprintJson(dsl)
 	return dsl
 }
 

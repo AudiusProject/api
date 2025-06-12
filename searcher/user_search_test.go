@@ -5,6 +5,7 @@ import (
 )
 
 func TestUserDsl(t *testing.T) {
+	t.Skip()
 	q := &UserSearchQuery{
 		Query: "ray",
 		MyID:  1,

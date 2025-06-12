@@ -7,13 +7,15 @@ import (
 )
 
 type TrackSearchQuery struct {
-	Query       string
-	MinBPM      int
-	MaxBPM      int
-	Genres      []string
-	Moods       []string
-	MusicalKeys []string
-	MyID        int
+	Query          string
+	MinBPM         int
+	MaxBPM         int
+	IsDownloadable bool
+	IsPurchaseable bool
+	Genres         []string
+	Moods          []string
+	MusicalKeys    []string
+	MyID           int
 }
 
 func (t *TrackSearchQuery) Map() map[string]any {
@@ -35,15 +37,28 @@ func (t *TrackSearchQuery) Map() map[string]any {
 	}
 
 	if len(t.Genres) > 0 {
-		builder.Filter(esquery.Match("genre", toAnySlice(t.Genres)...))
+		builder.Filter(esquery.Terms("genre", toAnySlice(t.Genres)...))
 	}
 
 	if len(t.Moods) > 0 {
-		builder.Filter(esquery.Match("mood", toAnySlice(t.Moods)...))
+		builder.Filter(esquery.Terms("mood", toAnySlice(t.Moods)...))
 	}
 
 	if len(t.MusicalKeys) > 0 {
 		builder.Filter(esquery.Terms("musical_key.keyword", toAnySlice(t.MusicalKeys)...))
+	}
+
+	if t.IsDownloadable {
+		builder.Filter(esquery.Term("is_downloadable", true))
+	}
+
+	if t.IsPurchaseable {
+		// stream or download
+		builder.Filter(
+			esquery.Bool().
+				Should(esquery.Exists("stream_conditions.usdc_purchase")).
+				Should(esquery.Exists("download_conditions.usdc_purchase")),
+		)
 	}
 
 	// boost tracks that are saved / reposted
