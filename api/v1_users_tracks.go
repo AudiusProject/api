@@ -9,19 +9,16 @@ import (
 )
 
 type GetUsersTracksParams struct {
-	Limit         int    `query:"limit" default:"20" validate:"min=1,max=100"`
-	Offset        int    `query:"offset" default:"0" validate:"min=0"`
-	Sort          string `query:"sort" default:"date" validate:"oneof=date plays"`
-	SortMethod    string `query:"sort_method" default:"" validate:"omitempty,oneof=title release_date plays reposts saves"`
-	SortDirection string `query:"sort_direction" default:"desc" validate:"oneof=asc desc"`
+	Limit            int    `query:"limit" default:"20" validate:"min=1,max=100"`
+	Offset           int    `query:"offset" default:"0" validate:"min=0"`
+	Sort             string `query:"sort" default:"date" validate:"oneof=date plays"`
+	SortMethod       string `query:"sort_method" default:"" validate:"omitempty,oneof=title release_date plays reposts saves"`
+	FilterTracks     string `query:"filter_tracks" default:"all" validate:"omitempty,oneof=all public unlisted"`
+	SortDirection    string `query:"sort_direction" default:"desc" validate:"oneof=asc desc"`
+	AiAttributedOnly bool   `query:"ai_attributed_only" default:"false"`
 }
 
-func (app *ApiServer) v1UserTracks(c *fiber.Ctx) error {
-	params := GetUsersTracksParams{}
-	if err := app.ParseAndValidateQueryParams(c, &params); err != nil {
-		return err
-	}
-
+func (app *ApiServer) getUserTracks(c *fiber.Ctx, params GetUsersTracksParams) error {
 	myId := app.getMyId(c)
 
 	sortDir := "DESC"
@@ -52,20 +49,32 @@ func (app *ApiServer) v1UserTracks(c *fiber.Ctx) error {
 	}
 	userId := app.getUserId(c)
 
+	trackFilter := "t.is_unlisted = false OR t.owner_id = @my_id"
+	switch params.FilterTracks {
+	case "public":
+		trackFilter = "t.is_unlisted = false"
+	case "unlisted":
+		trackFilter = "t.is_unlisted = true"
+	}
+
+	// ai_attributed case is tracks by any user which are attributed to
+	// the target user handle/id, so swap the owner filter for that.
+	ownerFilter := "t.owner_id = @user_id"
+	if params.AiAttributedOnly {
+		ownerFilter = "t.ai_attribution_user_id = @user_id"
+	}
+
 	sql := `
 	SELECT track_id
 	FROM tracks t
 	JOIN users u ON owner_id = u.user_id
 	LEFT JOIN aggregate_plays ON track_id = play_item_id
 	LEFT JOIN aggregate_track USING (track_id)
-	WHERE owner_id = @user_id
+	WHERE ` + ownerFilter + `
 	  AND u.is_deactivated = false
 	  AND t.is_delete = false
 	  AND t.is_available = true
-	  AND (
-			t.is_unlisted = false
-			OR t.owner_id = @my_id
-		)
+	  AND ` + trackFilter + `
 	  AND t.stem_of is null
 	ORDER BY ` + orderClause + `
 	LIMIT @limit
@@ -102,4 +111,21 @@ func (app *ApiServer) v1UserTracks(c *fiber.Ctx) error {
 	return c.JSON(fiber.Map{
 		"data": tracks,
 	})
+}
+
+func (app *ApiServer) v1UserTracks(c *fiber.Ctx) error {
+	params := GetUsersTracksParams{}
+	if err := app.ParseAndValidateQueryParams(c, &params); err != nil {
+		return err
+	}
+	return app.getUserTracks(c, params)
+}
+
+func (app *ApiServer) v1UserTracksAiAttributed(c *fiber.Ctx) error {
+	params := GetUsersTracksParams{}
+	if err := app.ParseAndValidateQueryParams(c, &params); err != nil {
+		return err
+	}
+	params.AiAttributedOnly = true
+	return app.getUserTracks(c, params)
 }
