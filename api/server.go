@@ -266,7 +266,6 @@ func NewApiServer(config config.Config) *ApiServer {
 	{
 		app.Use("/v1/full/users/top", BalancerForward(config.PythonUpstreams))
 		app.Use("/v1/full/users/genre/top", BalancerForward(config.PythonUpstreams))
-		app.Use("/v1/full/users/subscribers", BalancerForward(config.PythonUpstreams))
 
 		app.Use("/v1/full/playlists/top", BalancerForward(config.PythonUpstreams))
 
