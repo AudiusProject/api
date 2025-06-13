@@ -11,7 +11,7 @@ type PlaylistSearchQuery struct {
 	Genres  []string
 	Moods   []string
 	IsAlbum bool
-	MyID    int
+	MyID    int32
 }
 
 func (q *PlaylistSearchQuery) Map() map[string]any {
@@ -19,6 +19,8 @@ func (q *PlaylistSearchQuery) Map() map[string]any {
 
 	if q.Query != "" {
 		builder.Must(esquery.Match("title", q.Query))
+	} else {
+		builder.Must(esquery.MatchAll())
 	}
 
 	builder.Filter(esquery.Term("is_album", q.IsAlbum))

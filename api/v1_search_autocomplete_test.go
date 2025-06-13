@@ -9,6 +9,8 @@ import (
 
 func TestSearch(t *testing.T) {
 	app := emptyTestApp(t)
+	app.env = "test"
+	require.Equal(t, "test", app.env)
 
 	fixtures := FixtureMap{
 		"users": {
@@ -61,6 +63,26 @@ func TestSearch(t *testing.T) {
 		"follows": {
 			{"follower_user_id": 1001, "followee_user_id": 1002},
 		},
+		"reposts": {
+			{
+				"repost_item_id": 1001,
+				"user_id":        1001,
+				"repost_type":    "track",
+				"created_at":     parseTime(t, "2024-01-03"),
+			},
+			{
+				"repost_item_id": 1001,
+				"user_id":        1002,
+				"repost_type":    "track",
+				"created_at":     parseTime(t, "2024-01-03"),
+			},
+			{
+				"repost_item_id": 1003,
+				"user_id":        1003,
+				"repost_type":    "track",
+				"created_at":     parseTime(t, "2024-01-03"),
+			},
+		},
 	}
 
 	createFixtures(app, fixtures)
@@ -80,11 +102,44 @@ func TestSearch(t *testing.T) {
 	}
 
 	{
+		status, body := testGet(t, app, "/v1/users/search?query=stereo")
+		require.Equal(t, 200, status)
+		jsonAssert(t, body, map[string]any{
+			"data.#":        2,
+			"data.0.handle": "StereoDave",
+			"data.1.handle": "StereoSteve",
+		})
+	}
+
+	{
 		status, body := testGet(t, app, "/v1/search/autocomplete?is_verified=true")
 		require.Equal(t, 200, status)
 		jsonAssert(t, body, map[string]any{
 			"data.users.#":        1,
 			"data.users.0.handle": "monist",
+		})
+	}
+
+	// tracks: default rank is by repost count
+	{
+		status, body := testGet(t, app, "/v1/search/autocomplete")
+		require.Equal(t, 200, status)
+		jsonAssert(t, body, map[string]any{
+			"data.tracks.#":              3,
+			"data.tracks.0.title":        "peanut butter jam time",
+			"data.tracks.0.repost_count": 2,
+		})
+	}
+
+	// but if you pass a user_id and have reposted a track...
+	// your history will rank it higher
+	{
+		status, body := testGet(t, app, "/v1/search/autocomplete?user_id=1003")
+		require.Equal(t, 200, status)
+		jsonAssert(t, body, map[string]any{
+			"data.tracks.#":              3,
+			"data.tracks.0.title":        "sunny side",
+			"data.tracks.0.repost_count": 1,
 		})
 	}
 

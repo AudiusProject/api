@@ -15,7 +15,7 @@ type TrackSearchQuery struct {
 	Genres         []string
 	Moods          []string
 	MusicalKeys    []string
-	MyID           int
+	MyID           int32
 }
 
 func (t *TrackSearchQuery) Map() map[string]any {
@@ -23,6 +23,8 @@ func (t *TrackSearchQuery) Map() map[string]any {
 
 	if t.Query != "" {
 		builder.Must(esquery.Match("title", t.Query))
+	} else {
+		builder.Must(esquery.MatchAll())
 	}
 
 	if t.MinBPM > 0 || t.MaxBPM > 0 {

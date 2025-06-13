@@ -9,7 +9,7 @@ import (
 type UserSearchQuery struct {
 	Query      string `json:"query"`
 	IsVerified bool   `json:"is_verified"`
-	MyID       int    `json:"my_id"`
+	MyID       int32  `json:"my_id"`
 }
 
 func (q *UserSearchQuery) Map() map[string]any {
@@ -17,6 +17,8 @@ func (q *UserSearchQuery) Map() map[string]any {
 
 	if q.Query != "" {
 		builder.Must(esquery.MultiMatch(q.Query).Fields("name", "handle").Type(esquery.MatchTypeBoolPrefix))
+	} else {
+		builder.Must(esquery.MatchAll())
 	}
 
 	if q.MyID > 0 {

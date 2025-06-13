@@ -29,6 +29,7 @@ func (app *ApiServer) v1SearchAutocomplete(c *fiber.Ctx) error {
 		q := searcher.UserSearchQuery{
 			Query:      query,
 			IsVerified: c.QueryBool("is_verified"),
+			MyID:       myId,
 		}
 
 		dsl := searcher.BuildFunctionScoreDSL("follower_count", q.Map())
@@ -57,6 +58,7 @@ func (app *ApiServer) v1SearchAutocomplete(c *fiber.Ctx) error {
 			IsPurchaseable: c.QueryBool("is_purchaseable"),
 			// todo: includePurchaseable
 			// todo: tags
+			MyID: myId,
 		}
 
 		dsl := searcher.BuildFunctionScoreDSL("repost_count", q.Map())
@@ -79,6 +81,7 @@ func (app *ApiServer) v1SearchAutocomplete(c *fiber.Ctx) error {
 	g.Go(func() error {
 		q := searcher.PlaylistSearchQuery{
 			Query: query,
+			MyID:  myId,
 		}
 
 		dsl := searcher.BuildFunctionScoreDSL("repost_count", q.Map())

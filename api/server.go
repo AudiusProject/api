@@ -184,6 +184,7 @@ func NewApiServer(config config.Config) *ApiServer {
 			ErrorHandler:   errorHandler(logger),
 			ReadBufferSize: 32_768,
 		}),
+		env:                   config.Env,
 		pool:                  pool,
 		queries:               dbv1.New(pool),
 		logger:                logger,
@@ -269,6 +270,7 @@ func NewApiServer(config config.Config) *ApiServer {
 	for _, g := range []fiber.Router{v1, v1Full} {
 		// Users
 		g.Get("/users", app.v1Users)
+		g.Get("/users/search", app.v1UsersSearch)
 		g.Get("/users/unclaimed_id", app.v1UsersUnclaimedId)
 		g.Get("/users/account/:wallet", app.requireAuthMiddleware, app.v1UsersAccount)
 
@@ -434,6 +436,7 @@ type ApiServer struct {
 	solanaConfig          *config.SolanaConfig
 	antiAbuseOracles      []string
 	validators            []config.Node
+	env                   string
 	auds                  *sdk.AudiusdSDK
 }
 
