@@ -264,8 +264,6 @@ func NewApiServer(config config.Config) *ApiServer {
 	// so add some exclusions here to make `bridge.audius.co` less broken
 	// todo: implement these endpoints in bridgerton.
 	{
-		app.Use("/v1/full/users/top", BalancerForward(config.PythonUpstreams))
-		app.Use("/v1/full/users/genre/top", BalancerForward(config.PythonUpstreams))
 		app.Use("/v1/full/users/subscribers", BalancerForward(config.PythonUpstreams))
 
 		app.Use("/v1/full/playlists/top", BalancerForward(config.PythonUpstreams))
@@ -283,6 +281,8 @@ func NewApiServer(config config.Config) *ApiServer {
 		// Users
 		g.Get("/users", app.v1Users)
 		g.Get("/users/unclaimed_id", app.v1UsersUnclaimedId)
+		g.Get("/users/top", app.v1UsersTop)
+		g.Get("/users/genre/top", app.v1UsersGenreTop)
 		g.Get("/users/account/:wallet", app.requireAuthMiddleware, app.v1UsersAccount)
 
 		g.Use("/users/handle/:handle", app.requireHandleMiddleware)
