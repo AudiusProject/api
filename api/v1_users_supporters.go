@@ -14,10 +14,10 @@ type GetUsersSupportersQueryParams struct {
 	Offset int `query:"offset" default:"0" validate:"min=0"`
 }
 type GetUsersSupportersRouteParams struct {
-	SupporterId trashid.HashId `param:"supporterId"`
+	SupporterUserId trashid.HashId `param:"supporterUserId"`
 }
 
-type Supporter struct {
+type SupporterUser struct {
 	Rank           int           `json:"rank" db:"rank"`
 	SenderUserID   int32         `json:"-" db:"sender_user_id"`
 	ReceiverUserID int32         `json:"-" db:"receiver_user_id"`
@@ -25,8 +25,8 @@ type Supporter struct {
 	Sender         dbv1.FullUser `json:"sender" db:"-"`
 }
 
-type MinSupporter struct {
-	Supporter
+type MinSupporterUser struct {
+	SupporterUser
 	Sender dbv1.MinUser `json:"sender"`
 }
 
@@ -47,11 +47,16 @@ func (app *ApiServer) v1UsersSupporters(c *fiber.Ctx) error {
 		"userId":      userId,
 		"limit":       query.Limit,
 		"offset":      query.Offset,
-		"supporterId": params.SupporterId,
+		"supporterId": params.SupporterUserId,
 	}
 
-	filters := []string{"receiver_user_id = @userId"}
-	if params.SupporterId != 0 {
+	filters := []string{
+		"receiver_user_id = @userId",
+		// TODO: Enable these. Currently disabled because python doesn't do the right thing.
+		// "users.is_deactivated = FALSE",
+		// "users.is_available = TRUE",
+	}
+	if params.SupporterUserId != 0 {
 		filters = append(filters, "sender_user_id = @supporterId")
 	}
 
@@ -80,7 +85,7 @@ func (app *ApiServer) v1UsersSupporters(c *fiber.Ctx) error {
 		return err
 	}
 
-	supporters, err := pgx.CollectRows(rows, pgx.RowToStructByName[Supporter])
+	supporters, err := pgx.CollectRows(rows, pgx.RowToStructByName[SupporterUser])
 	if err != nil {
 		return err
 	}
@@ -104,15 +109,15 @@ func (app *ApiServer) v1UsersSupporters(c *fiber.Ctx) error {
 
 	if !app.getIsFull(c) {
 		// Create a new array with MinUsers
-		minSupporters := make([]MinSupporter, len(supporters))
+		minSupporters := make([]MinSupporterUser, len(supporters))
 		for i, user := range supporters {
-			minSupporters[i] = MinSupporter{
-				Supporter: user,
-				Sender:    dbv1.ToMinUser(user.Sender),
+			minSupporters[i] = MinSupporterUser{
+				SupporterUser: user,
+				Sender:        dbv1.ToMinUser(user.Sender),
 			}
 		}
 
-		if params.SupporterId != 0 {
+		if params.SupporterUserId != 0 {
 			return c.JSON(fiber.Map{
 				"data": minSupporters[0],
 			})
@@ -123,7 +128,7 @@ func (app *ApiServer) v1UsersSupporters(c *fiber.Ctx) error {
 		})
 	}
 
-	if params.SupporterId != 0 {
+	if params.SupporterUserId != 0 {
 		return c.JSON(fiber.Map{
 			"data": supporters[0],
 		})
