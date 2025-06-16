@@ -7,17 +7,17 @@ import (
 	"github.com/jackc/pgx/v5"
 )
 
-func (app *ApiServer) v1UsersPurchasesCount(c *fiber.Ctx) error {
+func (app *ApiServer) v1UsersSalesCount(c *fiber.Ctx) error {
 	userId := app.getUserId(c)
-	params := GetUserPurchasesQueryParams{}
+	params := GetUserSalesQueryParams{}
 	if err := app.ParseAndValidateQueryParams(c, &params); err != nil {
 		return err
 	}
 
-	filters := []string{"buyer_user_id = @buyerUserId"}
+	filters := []string{"seller_user_id = @sellerUserId"}
 
-	if params.SellerUserID != 0 {
-		filters = append(filters, "seller_user_id = @sellerUserId")
+	if params.BuyerUserID != 0 {
+		filters = append(filters, "buyer_user_id = @buyerUserId")
 	}
 
 	if len(params.ContentIDs) > 0 {
@@ -39,8 +39,8 @@ func (app *ApiServer) v1UsersPurchasesCount(c *fiber.Ctx) error {
 	;`
 
 	rows, err := app.pool.Query(c.Context(), sql, pgx.NamedArgs{
-		"buyerUserId":  userId,
-		"sellerUserId": int32(params.SellerUserID),
+		"buyerUserId":  params.BuyerUserID,
+		"sellerUserId": userId,
 		"contentIds":   params.ContentIDs,
 	})
 	if err != nil {
