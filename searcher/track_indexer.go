@@ -47,6 +47,11 @@ func (ti *TrackIndexer) indexAll() error {
 		JOIN aggregate_track USING (track_id)
 		JOIN users ON owner_id = user_id
 		JOIN aggregate_user USING (user_id)
+		WHERE tracks.is_unlisted = false
+		AND tracks.is_delete = false
+		AND tracks.is_available = true
+		AND users.is_available = true
+		AND users.is_deactivated = false
 		`
 
 	return ti.bulkIndexQuery("tracks", sql)

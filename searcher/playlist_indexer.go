@@ -42,6 +42,9 @@ func (pi *PlaylistIndexer) indexAll() error {
 		JOIN aggregate_playlist USING (playlist_id)
 		JOIN users ON playlist_owner_id = user_id
 		JOIN aggregate_user USING (user_id)
+		WHERE is_private = false
+		AND users.is_available = true
+		AND users.is_deactivated = false
 		`
 
 	return pi.bulkIndexQuery("playlists", sql)

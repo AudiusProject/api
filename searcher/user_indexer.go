@@ -43,6 +43,8 @@ func (ui *UserIndexer) indexAll() error {
 			)
 		FROM users
 		JOIN aggregate_user USING (user_id)
+		WHERE is_deactivated = false
+		AND is_available = true
 		`
 
 	return ui.bulkIndexQuery("users", sql)

@@ -59,6 +59,37 @@ func TestSearch(t *testing.T) {
 				"mood":              "Uplifting",
 				"stream_conditions": []byte(`{"usdc_purchase": {"price": 135, "splits": [{"user_id": 6, "percentage": 100.0}]}}`),
 			},
+			{
+				"track_id":  1004,
+				"owner_id":  1001,
+				"title":     "hide deleted",
+				"is_delete": true,
+			},
+			{
+				"track_id":    1005,
+				"owner_id":    1001,
+				"title":       "hide private",
+				"is_unlisted": true,
+			},
+			{
+				"track_id":     1006,
+				"owner_id":     1001,
+				"title":        "hide unavailable",
+				"is_available": false,
+			},
+		},
+		"playlists": {
+			{
+				"playlist_id":       9001,
+				"playlist_owner_id": 1001,
+				"playlist_name":     "Old and Busted",
+			},
+			{
+				"playlist_id":       9002,
+				"playlist_owner_id": 1001,
+				"playlist_name":     "My Old Album",
+				"is_album":          true,
+			},
 		},
 		"follows": {
 			{"follower_user_id": 1001, "followee_user_id": 1002},
@@ -172,6 +203,15 @@ func TestSearch(t *testing.T) {
 		})
 	}
 
+	// doesn't show deleted or unlisted tracks
+	{
+		status, body := testGet(t, app, "/v1/search/autocomplete?query=hide")
+		require.Equal(t, 200, status)
+		jsonAssert(t, body, map[string]any{
+			"data.tracks.#": 0,
+		})
+	}
+
 	// can search artist handle
 	{
 		status, body := testGet(t, app, "/v1/search/autocomplete?query=stereosteve")
@@ -258,6 +298,21 @@ func TestSearch(t *testing.T) {
 		jsonAssert(t, body, map[string]any{
 			"data.tracks.#":       1,
 			"data.tracks.0.title": "sunny side",
+		})
+	}
+
+	//
+	// Playlists
+	//
+
+	{
+		status, body := testGet(t, app, "/v1/search/autocomplete?query=old")
+		require.Equal(t, 200, status)
+		jsonAssert(t, body, map[string]any{
+			"data.playlists.#":               1,
+			"data.playlists.0.playlist_name": "Old and Busted",
+			"data.albums.#":                  1,
+			"data.albums.0.playlist_name":    "My Old Album",
 		})
 	}
 
