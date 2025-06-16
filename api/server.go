@@ -288,6 +288,7 @@ func NewApiServer(config config.Config) *ApiServer {
 		g.Use("/users/handle/:handle", app.requireHandleMiddleware)
 		g.Get("/users/handle/:handle", app.v1User)
 		g.Get("/users/handle/:handle/tracks", app.v1UserTracks)
+		g.Get("/users/handle/:handle/tracks/ai_attributed", app.v1UserTracksAiAttributed)
 		g.Get("/users/handle/:handle/reposts", app.v1UsersReposts)
 
 		g.Use("/users/:userId", app.requireUserIdMiddleware)

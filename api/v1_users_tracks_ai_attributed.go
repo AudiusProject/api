@@ -8,7 +8,7 @@ import (
 	"github.com/jackc/pgx/v5"
 )
 
-type GetUsersTracksParams struct {
+type GetUsersTracksAiAttributedParams struct {
 	Limit         int    `query:"limit" default:"20" validate:"min=1,max=100"`
 	Offset        int    `query:"offset" default:"0" validate:"min=0"`
 	Sort          string `query:"sort" default:"date" validate:"oneof=date plays"`
@@ -17,7 +17,7 @@ type GetUsersTracksParams struct {
 	SortDirection string `query:"sort_direction" default:"desc" validate:"oneof=asc desc"`
 }
 
-func (app *ApiServer) v1UserTracks(c *fiber.Ctx) error {
+func (app *ApiServer) v1UserTracksAiAttributed(c *fiber.Ctx) error {
 	params := GetUsersTracksParams{}
 	if err := app.ParseAndValidateQueryParams(c, &params); err != nil {
 		return err
@@ -67,7 +67,7 @@ func (app *ApiServer) v1UserTracks(c *fiber.Ctx) error {
 	JOIN users u ON owner_id = u.user_id
 	LEFT JOIN aggregate_plays ON track_id = play_item_id
 	LEFT JOIN aggregate_track USING (track_id)
-	WHERE t.owner_id = @user_id
+	WHERE t.ai_attribution_user_id = @user_id
 	  AND u.is_deactivated = false
 	  AND t.is_delete = false
 	  AND t.is_available = true
