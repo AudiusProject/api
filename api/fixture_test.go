@@ -284,6 +284,10 @@ var (
 		"comment_threads":        map[string]any{},
 		"user_listening_history": map[string]any{},
 		"remixes":                map[string]any{},
+		"stems": {
+			"child_track_id":  nil,
+			"parent_track_id": nil,
+		},
 		"playlist_seen": {
 			"user_id":     nil,
 			"playlist_id": nil,
