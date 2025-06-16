@@ -1,36 +1,61 @@
 package api
 
 import (
+	"strings"
+
 	"bridgerton.audius.co/api/dbv1"
+	"bridgerton.audius.co/trashid"
 	"github.com/gofiber/fiber/v2"
 	"github.com/jackc/pgx/v5"
 )
 
-type GetUsersSupportingParams struct {
+type GetUsersSupportingQueryParams struct {
 	Limit  int `query:"limit" default:"20" validate:"min=1,max=100"`
 	Offset int `query:"offset" default:"0" validate:"min=0"`
 }
+type GetUsersSupportingRouteParams struct {
+	SupportedUserId trashid.HashId `param:"supportedUserId"`
+}
+
+type SupportedUser struct {
+	Rank           int           `json:"rank" db:"rank"`
+	SenderUserID   int32         `json:"-" db:"sender_user_id"`
+	ReceiverUserID int32         `json:"-" db:"receiver_user_id"`
+	Amount         string        `json:"amount" db:"amount"`
+	Receiver       dbv1.FullUser `json:"receiver" db:"-"`
+}
+type MinSupportedUser struct {
+	SupportedUser
+	Receiver dbv1.MinUser `json:"receiver"`
+}
 
 func (app *ApiServer) v1UsersSupporting(c *fiber.Ctx) error {
-	params := GetUsersSupportingParams{}
-	if err := app.ParseAndValidateQueryParams(c, &params); err != nil {
+	query := GetUsersSupportingQueryParams{}
+	if err := app.ParseAndValidateQueryParams(c, &query); err != nil {
+		return err
+	}
+	params := GetUsersSupportingRouteParams{}
+	if err := c.ParamsParser(&params); err != nil {
 		return err
 	}
 	myId := app.getMyId(c)
 	userId := app.getUserId(c)
 
 	args := pgx.NamedArgs{
-		"userId": userId,
-		"limit":  params.Limit,
-		"offset": params.Offset,
+		"userId":      userId,
+		"limit":       query.Limit,
+		"offset":      query.Offset,
+		"supporterId": params.SupportedUserId,
 	}
 
-	type supportedUser struct {
-		Rank           int           `json:"rank" db:"rank"`
-		SenderUserID   int32         `json:"-" db:"sender_user_id"`
-		ReceiverUserID int32         `json:"-" db:"receiver_user_id"`
-		Amount         string        `json:"amount" db:"amount"`
-		Receiver       dbv1.FullUser `json:"receiver" db:"-"`
+	filters := []string{
+		"sender_user_id = @userId",
+		// TODO: Enable these. Currently disabled because python doesn't do the right thing.
+		// "users.is_deactivated = FALSE",
+		// "users.is_available = TRUE",
+	}
+	if params.SupportedUserId != 0 {
+		filters = append(filters, "receiver_user_id = @supporterId")
 	}
 
 	sql := `
@@ -47,13 +72,7 @@ func (app *ApiServer) v1UsersSupporting(c *fiber.Ctx) error {
 	FROM aggregate_user_tips a
 	-- JOIN users ON a.receiver_user_id = user_id
 	WHERE
-		sender_user_id = @userId
-		-- todo:
-		-- these conditions should be here:
-		-- but python will actually show deactivate / unavailable users
-		-- so to minimize apidiff, skip the join above and do the wrong thing here
-		-- AND is_deactivated = false
-		-- AND is_available = true
+		` + strings.Join(filters, " AND ") + `
 	ORDER BY a.amount DESC, receiver_user_id ASC
 	LIMIT @limit
 	OFFSET @offset
@@ -64,7 +83,7 @@ func (app *ApiServer) v1UsersSupporting(c *fiber.Ctx) error {
 		return err
 	}
 
-	supported, err := pgx.CollectRows(rows, pgx.RowToStructByName[supportedUser])
+	supported, err := pgx.CollectRows(rows, pgx.RowToStructByName[SupportedUser])
 	if err != nil {
 		return err
 	}
@@ -93,21 +112,28 @@ func (app *ApiServer) v1UsersSupporting(c *fiber.Ctx) error {
 
 	if !app.getIsFull(c) {
 		// Create a new array with MinUsers
-		type minSupportedUser struct {
-			supportedUser
-			Receiver dbv1.MinUser `json:"receiver"`
-		}
-
-		minSupported := make([]minSupportedUser, len(supported))
+		minSupported := make([]MinSupportedUser, len(supported))
 		for i, user := range supported {
-			minSupported[i] = minSupportedUser{
-				supportedUser: user,
+			minSupported[i] = MinSupportedUser{
+				SupportedUser: user,
 				Receiver:      dbv1.ToMinUser(user.Receiver),
 			}
 		}
 
+		if params.SupportedUserId != 0 {
+			return c.JSON(fiber.Map{
+				"data": minSupported[0],
+			})
+		}
+
 		return c.JSON(fiber.Map{
 			"data": minSupported,
+		})
+	}
+
+	if params.SupportedUserId != 0 {
+		return c.JSON(fiber.Map{
+			"data": supported[0],
 		})
 	}
 
