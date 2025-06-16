@@ -117,6 +117,7 @@ func (app *ApiServer) v1UsersSupporters(c *fiber.Ctx) error {
 			}
 		}
 
+		// If requesting a specific supporter, respond with only that record
 		if params.SupporterUserId != 0 {
 			return c.JSON(fiber.Map{
 				"data": minSupporters[0],
@@ -128,6 +129,7 @@ func (app *ApiServer) v1UsersSupporters(c *fiber.Ctx) error {
 		})
 	}
 
+	// If requesting a specific supporter, respond with only that record
 	if params.SupporterUserId != 0 {
 		return c.JSON(fiber.Map{
 			"data": supporters[0],
