@@ -53,7 +53,7 @@ func (app *ApiServer) v1UserTracks(c *fiber.Ctx) error {
 	}
 	userId := app.getUserId(c)
 
-	trackFilter := "t.is_unlisted = false OR t.owner_id = @my_id"
+	trackFilter := "(t.is_unlisted = false OR t.owner_id = @my_id)"
 	switch params.FilterTracks {
 	case "public":
 		trackFilter = "t.is_unlisted = false"
