@@ -264,9 +264,6 @@ func NewApiServer(config config.Config) *ApiServer {
 	// so add some exclusions here to make `bridge.audius.co` less broken
 	// todo: implement these endpoints in bridgerton.
 	{
-		app.Use("/v1/full/users/top", BalancerForward(config.PythonUpstreams))
-		app.Use("/v1/full/users/genre/top", BalancerForward(config.PythonUpstreams))
-
 		app.Use("/v1/full/playlists/top", BalancerForward(config.PythonUpstreams))
 
 		app.Use("/v1/full/tracks/best_new_releases", BalancerForward(config.PythonUpstreams))
@@ -282,11 +279,14 @@ func NewApiServer(config config.Config) *ApiServer {
 		// Users
 		g.Get("/users", app.v1Users)
 		g.Get("/users/unclaimed_id", app.v1UsersUnclaimedId)
+		g.Get("/users/top", app.v1UsersTop)
+		g.Get("/users/genre/top", app.v1UsersGenreTop)
 		g.Get("/users/account/:wallet", app.requireAuthMiddleware, app.v1UsersAccount)
 
 		g.Use("/users/handle/:handle", app.requireHandleMiddleware)
 		g.Get("/users/handle/:handle", app.v1User)
 		g.Get("/users/handle/:handle/tracks", app.v1UserTracks)
+		g.Get("/users/handle/:handle/tracks/ai_attributed", app.v1UserTracksAiAttributed)
 		g.Get("/users/handle/:handle/reposts", app.v1UsersReposts)
 
 		g.Use("/users/:userId", app.requireUserIdMiddleware)
@@ -316,6 +316,9 @@ func NewApiServer(config config.Config) *ApiServer {
 		g.Get("/users/:userId/listen_counts_monthly", app.v1UsersListenCountsMonthly)
 		g.Get("/users/:userId/purchases", app.v1UsersPurchases)
 		g.Get("/users/:userId/purchases/count", app.v1UsersPurchasesCount)
+		g.Get("/users/:userId/sales", app.v1UsersSales)
+		g.Get("/users/:userId/sales/count", app.v1UsersSalesCount)
+		g.Get("/users/:userId/muted", app.v1UsersMuted)
 		g.Get("/users/:userId/subscribers", app.v1UsersSubscribers)
 
 		// Tracks
@@ -336,6 +339,7 @@ func NewApiServer(config config.Config) *ApiServer {
 		g.Get("/tracks/:trackId/inspect", app.v1TrackInspect)
 		g.Get("/tracks/:trackId/remixes", app.v1TrackRemixes)
 		g.Get("/tracks/:trackId/reposts", app.v1TrackReposts)
+		g.Get("/tracks/:trackId/stems", app.v1TrackStems)
 		g.Get("/tracks/:trackId/favorites", app.v1TrackFavorites)
 		g.Get("/tracks/:trackId/comments", app.v1TrackComments)
 

@@ -1,17 +1,15 @@
 package api
 
 import (
-	"strconv"
 	"strings"
-	"time"
 
 	"bridgerton.audius.co/trashid"
 	"github.com/gofiber/fiber/v2"
 	"github.com/jackc/pgx/v5"
 )
 
-type GetUserPurchasesQueryParams struct {
-	SellerUserID  trashid.HashId   `query:"seller_user_id"`
+type GetUserSalesQueryParams struct {
+	BuyerUserID   trashid.HashId   `query:"buyer_user_id"`
 	ContentIDs    []trashid.HashId `query:"content_ids"`
 	ContentType   string           `query:"content_type" validate:"omitempty,oneof=track album playlist"`
 	Limit         int              `query:"limit" default:"50" validate:"min=1,max=100"`
@@ -20,36 +18,9 @@ type GetUserPurchasesQueryParams struct {
 	SortDirection string           `query:"sort_direction" default:"desc" validate:"oneof=asc desc"`
 }
 
-type Amount int
-
-func (a Amount) MarshalJSON() ([]byte, error) {
-	return []byte(`"` + strconv.Itoa(int(a)) + `"`), nil
-}
-
-type Split struct {
-	UserID       *int   `db:"user_id" json:"user_id"`
-	PayoutWallet string `db:"payout_wallet" json:"payout_wallet"`
-	Amount       Amount `db:"amount" json:"amount"`
-}
-
-type UsdcPurchase struct {
-	SellerUserID trashid.HashId `db:"seller_user_id" json:"seller_user_id"`
-	BuyerUserID  trashid.HashId `db:"buyer_user_id" json:"buyer_user_id"`
-	Amount       string         `db:"amount" json:"amount"`
-	ContentType  string         `db:"content_type" json:"content_type"`
-	ContentID    trashid.HashId `db:"content_id" json:"content_id"`
-	CreatedAt    time.Time      `db:"created_at" json:"created_at"`
-	UpdatedAt    time.Time      `db:"updated_at" json:"updated_at"`
-	ExtraAmount  string         `db:"extra_amount" json:"extra_amount"`
-	Access       string         `db:"access" json:"access"`
-	Slot         int            `db:"slot" json:"slot"`
-	Signature    string         `db:"signature" json:"signature"`
-	Splits       []Split        `db:"splits" json:"splits"`
-}
-
-func (app *ApiServer) v1UsersPurchases(c *fiber.Ctx) error {
+func (app *ApiServer) v1UsersSales(c *fiber.Ctx) error {
 	userId := app.getUserId(c)
-	params := GetUserPurchasesQueryParams{}
+	params := GetUserSalesQueryParams{}
 	if err := app.ParseAndValidateQueryParams(c, &params); err != nil {
 		return err
 	}
@@ -69,10 +40,10 @@ func (app *ApiServer) v1UsersPurchases(c *fiber.Ctx) error {
 		orderBy = "buyers.name " + sortDirection + ", " + orderBy
 	}
 
-	filters := []string{"buyer_user_id = @buyerUserId"}
+	filters := []string{"seller_user_id = @sellerUserId"}
 
-	if params.SellerUserID != 0 {
-		filters = append(filters, "seller_user_id = @sellerUserId")
+	if params.BuyerUserID != 0 {
+		filters = append(filters, "buyer_user_id = @buyerUserId")
 	}
 
 	if len(params.ContentIDs) > 0 {
@@ -135,8 +106,8 @@ func (app *ApiServer) v1UsersPurchases(c *fiber.Ctx) error {
 	;`
 
 	rows, err := app.pool.Query(c.Context(), sql, pgx.NamedArgs{
-		"buyerUserId":  userId,
-		"sellerUserId": params.SellerUserID,
+		"buyerUserId":  params.BuyerUserID,
+		"sellerUserId": userId,
 		"contentIds":   params.ContentIDs,
 		"contentType":  params.ContentType,
 		"limit":        params.Limit,
