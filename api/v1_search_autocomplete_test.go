@@ -49,6 +49,7 @@ func TestSearch(t *testing.T) {
 				"mood":            "Uplifting",
 				"is_downloadable": true,
 				"musical_key":     "B minor",
+				"tags":            "Tag1,Tag2,Tag3",
 			},
 			{
 				"track_id":          1003,
@@ -148,6 +149,46 @@ func TestSearch(t *testing.T) {
 		require.Equal(t, 200, status)
 		jsonAssert(t, body, map[string]any{
 			"data.tracks.#": 2,
+		})
+	}
+
+	// can search artist + track title
+	{
+		status, body := testGet(t, app, "/v1/search/autocomplete?query=stereo+sunny")
+		require.Equal(t, 200, status)
+		jsonAssert(t, body, map[string]any{
+			// "data.tracks.#":       3,
+			"data.tracks.0.title": "sunny side",
+		})
+	}
+
+	// can search tags
+	{
+		status, body := testGet(t, app, "/v1/search/autocomplete?query=Tag2")
+		require.Equal(t, 200, status)
+		jsonAssert(t, body, map[string]any{
+			"data.tracks.#":       1,
+			"data.tracks.0.title": "mouse trap",
+		})
+	}
+
+	// can search artist handle
+	{
+		status, body := testGet(t, app, "/v1/search/autocomplete?query=stereosteve")
+		require.Equal(t, 200, status)
+		jsonAssert(t, body, map[string]any{
+			"data.tracks.#":             3,
+			"data.tracks.0.user.handle": "StereoSteve",
+		})
+	}
+
+	// can search artist name
+	if false {
+		status, body := testGet(t, app, "/v1/search/autocomplete?query=stereo+steve")
+		require.Equal(t, 200, status)
+		jsonAssert(t, body, map[string]any{
+			"data.tracks.#":       1,
+			"data.tracks.0.title": "sunny side",
 		})
 	}
 

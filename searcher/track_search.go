@@ -22,7 +22,10 @@ func (t *TrackSearchQuery) Map() map[string]any {
 	builder := esquery.Bool()
 
 	if t.Query != "" {
-		builder.Must(esquery.Match("title", t.Query))
+		builder.Must(
+			esquery.MultiMatch().Query(t.Query).Fields("title", "user.handle", "user.name", "tags"),
+		)
+
 	} else {
 		builder.Must(esquery.MatchAll())
 	}

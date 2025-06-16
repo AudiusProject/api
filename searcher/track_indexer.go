@@ -32,6 +32,7 @@ func (ti *TrackIndexer) indexAll() error {
 				'release_date', coalesce(release_date, tracks.created_at),
 				'musical_key', musical_key,
 				'bpm', bpm,
+				'tags', string_to_array(tags, ','),
 				'is_downloadable', is_downloadable,
 				'download_conditions', download_conditions,
 				'stream_conditions', stream_conditions,
