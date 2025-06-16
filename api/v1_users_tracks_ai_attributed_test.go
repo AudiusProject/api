@@ -9,27 +9,35 @@ import (
 	"github.com/stretchr/testify/assert"
 )
 
+func generateReposts(trackId, count int) []map[string]any {
+	reposts := make([]map[string]any, count)
+	for i := range count {
+		reposts[i] = map[string]any{
+			"user_id":        i + 1,
+			"repost_item_id": trackId,
+			"repost_type":    "track",
+		}
+	}
+	return reposts
+}
+
+func generateSaves(trackId, count int) []map[string]any {
+	saves := make([]map[string]any, count)
+	for i := range count {
+		saves[i] = map[string]any{
+			"user_id":      i + 1,
+			"save_item_id": trackId,
+			"save_type":    "track",
+		}
+	}
+	return saves
+}
+
 func TestGetUserTracksAiAttributed(t *testing.T) {
 	app := emptyTestApp(t)
 
 	fixtures := FixtureMap{
-		"users": {
-			{
-				"user_id":   1,
-				"handle":    "testuser1",
-				"handle_lc": "testuser1",
-			},
-			{
-				"user_id":   2,
-				"handle":    "testuser2",
-				"handle_lc": "testuser2",
-			},
-			{
-				"user_id":   3,
-				"handle":    "testuser3",
-				"handle_lc": "testuser3",
-			},
-		},
+		"users": {},
 		"tracks": {
 			{
 				"track_id": 1,
@@ -84,29 +92,27 @@ func TestGetUserTracksAiAttributed(t *testing.T) {
 				"count":        10,
 			},
 		},
-		"aggregate_track": {
-			{
-				"track_id":     2,
-				"repost_count": 50,
-				"save_count":   50,
-			},
-			{
-				"track_id":     3,
-				"repost_count": 75,
-				"save_count":   100,
-			},
-			{
-				"track_id":     4,
-				"repost_count": 100,
-				"save_count":   75,
-			},
-			{
-				"track_id":     5,
-				"repost_count": 25,
-				"save_count":   25,
-			},
-		},
+		"reposts": {},
+		"saves":   {},
 	}
+
+	for i := range 200 {
+		userId := i + 1
+		fixtures["users"] = append(fixtures["users"], map[string]any{
+			"user_id":   userId,
+			"handle":    fmt.Sprintf("testuser%d", userId),
+			"handle_lc": fmt.Sprintf("testuser%d", userId),
+		})
+	}
+
+	fixtures["reposts"] = append(fixtures["reposts"], generateReposts(2, 50)...)
+	fixtures["saves"] = append(fixtures["saves"], generateSaves(2, 50)...)
+	fixtures["reposts"] = append(fixtures["reposts"], generateReposts(3, 75)...)
+	fixtures["saves"] = append(fixtures["saves"], generateSaves(3, 100)...)
+	fixtures["reposts"] = append(fixtures["reposts"], generateReposts(4, 100)...)
+	fixtures["saves"] = append(fixtures["saves"], generateSaves(4, 75)...)
+	fixtures["reposts"] = append(fixtures["reposts"], generateReposts(5, 25)...)
+	fixtures["saves"] = append(fixtures["saves"], generateSaves(5, 25)...)
 
 	createFixtures(app, fixtures)
 
