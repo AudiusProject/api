@@ -438,6 +438,7 @@ type ApiServer struct {
 	validators            []config.Node
 	env                   string
 	auds                  *sdk.AudiusdSDK
+	skipAuthCheck         bool // set to true in a test if you don't care about auth middleware
 }
 
 func (app *ApiServer) home(c *fiber.Ctx) error {

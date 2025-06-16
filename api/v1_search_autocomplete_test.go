@@ -9,8 +9,7 @@ import (
 
 func TestSearch(t *testing.T) {
 	app := emptyTestApp(t)
-	app.env = "test"
-	require.Equal(t, "test", app.env)
+	app.skipAuthCheck = true
 
 	fixtures := FixtureMap{
 		"users": {

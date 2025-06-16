@@ -42,8 +42,8 @@ func (app *ApiServer) recoverAuthorityFromSignatureHeaders(c *fiber.Ctx) string 
 // Checks if authedWallet is authorized to act on behalf of userId
 func (app *ApiServer) isAuthorizedRequest(ctx context.Context, userId int32, authedWallet string) bool {
 
-	// disable auth check in test mode
-	if app.env == "test" {
+	// tests can opt in to skipAuthCheck
+	if app.skipAuthCheck {
 		return true
 	}
 
