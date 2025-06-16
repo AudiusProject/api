@@ -59,14 +59,14 @@ func TestGetUserTracksAiAttributed(t *testing.T) {
 			},
 			{
 				"track_id":               4,
-				"owner_id":               2,
+				"owner_id":               4,
 				"ai_attribution_user_id": 1,
 				"title":                  "Track 3",
 				"created_at":             parseTime(t, "2021-01-04"),
 			},
 			{
 				"track_id":               5,
-				"owner_id":               3,
+				"owner_id":               5,
 				"ai_attribution_user_id": 1,
 				"title":                  "Track 2",
 				"created_at":             parseTime(t, "2021-01-02"),
