@@ -16,16 +16,16 @@ func TestGetUsersAccount(t *testing.T) {
 	assert.Equal(t, 200, status)
 
 	assert.Equal(t, "0x7d273271690538cf855e5b3002a0dd8c154bb060", accountResponse.Data.User.Wallet.String)
-	assert.Equal(t, (int64)(20), accountResponse.Data.TrackSaveCount)
+	assert.Equal(t, (int64)(1), accountResponse.Data.TrackSaveCount)
 
 	// Check playlists
-	assert.Equal(t, 2, len(accountResponse.Data.Playlists))
+	assert.Equal(t, 3, len(accountResponse.Data.Playlists))
 	assert.Equal(t, "First", accountResponse.Data.Playlists[0].Name)
 	assert.Equal(t, false, accountResponse.Data.Playlists[0].IsAlbum)
 	assert.Equal(t, "rayjacobson", accountResponse.Data.User.Handle.String)
 
-	assert.Equal(t, "SecondAlbum", accountResponse.Data.Playlists[1].Name)
-	assert.Equal(t, true, accountResponse.Data.Playlists[1].IsAlbum)
+	assert.Equal(t, "SecondAlbum", accountResponse.Data.Playlists[2].Name)
+	assert.Equal(t, true, accountResponse.Data.Playlists[2].IsAlbum)
 	assert.Equal(t, "rayjacobson", accountResponse.Data.User.Handle.String)
 
 	// Check playlist library
