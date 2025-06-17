@@ -12,6 +12,7 @@ type TrackSearchQuery struct {
 	MaxBPM         int
 	IsDownloadable bool
 	IsPurchaseable bool
+	OnlyVerified   bool
 	Genres         []string
 	Moods          []string
 	MusicalKeys    []string
@@ -57,6 +58,9 @@ func (t *TrackSearchQuery) Map() map[string]any {
 		builder.Filter(esquery.Term("is_downloadable", true))
 	}
 
+	// todo: only_with_downloads
+	// => downloadable + has stems
+
 	if t.IsPurchaseable {
 		// stream or download
 		builder.Filter(
@@ -64,6 +68,10 @@ func (t *TrackSearchQuery) Map() map[string]any {
 				Should(esquery.Exists("stream_conditions.usdc_purchase")).
 				Should(esquery.Exists("download_conditions.usdc_purchase")),
 		)
+	}
+
+	if t.OnlyVerified {
+		builder.Must(esquery.Term("user.is_verified", true))
 	}
 
 	// boost tracks that are saved / reposted

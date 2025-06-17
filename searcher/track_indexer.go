@@ -36,13 +36,15 @@ func (ti *TrackIndexer) indexAll() error {
 				'bpm', bpm,
 				'tags', string_to_array(tags, ','),
 				'is_downloadable', is_downloadable,
+				'has_stems', (select true from stems where parent_track_id = tracks.track_id limit 1),
 				'download_conditions', download_conditions,
 				'stream_conditions', stream_conditions,
 				'user', json_build_object(
 					'handle', users.handle,
 					'name', users.name,
 					'location', users.location,
-					'follower_count', aggregate_user.follower_count
+					'follower_count', aggregate_user.follower_count,
+					'is_verified', is_verified
 				)
 			)
 		FROM tracks

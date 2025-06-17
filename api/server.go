@@ -177,6 +177,8 @@ func NewApiServer(config config.Config) *ApiServer {
 
 	auds := sdk.NewAudiusdSDK(config.AudiusdURL)
 
+	skipAuthCheck, _ := strconv.ParseBool(os.Getenv("skipAuthCheck"))
+
 	app := &ApiServer{
 		App: fiber.New(fiber.Config{
 			JSONEncoder:    json.Marshal,
@@ -185,6 +187,7 @@ func NewApiServer(config config.Config) *ApiServer {
 			ReadBufferSize: 32_768,
 		}),
 		env:                   config.Env,
+		skipAuthCheck:         skipAuthCheck,
 		pool:                  pool,
 		queries:               dbv1.New(pool),
 		logger:                logger,
@@ -339,6 +342,7 @@ func NewApiServer(config config.Config) *ApiServer {
 
 		// Search
 		g.Get("/search/autocomplete", app.v1SearchAutocomplete)
+		g.Get("/search/full", app.v1SearchAutocomplete)
 
 		// Developer Apps
 		g.Get("/developer_apps/:address", app.v1DeveloperApps)

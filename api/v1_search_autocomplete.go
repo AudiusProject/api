@@ -10,6 +10,7 @@ import (
 func (app *ApiServer) v1SearchAutocomplete(c *fiber.Ctx) error {
 	// queryMap := c.Queries()
 
+	kind := c.Query("kind", "all")
 	query := c.Query("query")
 	genres := queryMutli(c, "genre")
 	moods := queryMutli(c, "mood")
@@ -19,13 +20,17 @@ func (app *ApiServer) v1SearchAutocomplete(c *fiber.Ctx) error {
 	myId := app.getMyId(c)
 
 	g := errgroup.Group{}
-	var users []dbv1.FullUser
-	var tracks []dbv1.FullTrack
-	var playlists []dbv1.FullPlaylist
-	var albums []dbv1.FullPlaylist
+	var users = []dbv1.FullUser{}
+	var tracks = []dbv1.FullTrack{}
+	var playlists = []dbv1.FullPlaylist{}
+	var albums = []dbv1.FullPlaylist{}
 
 	// users
 	g.Go(func() error {
+		if kind != "all" && kind != "users" {
+			return nil
+		}
+
 		q := searcher.UserSearchQuery{
 			Query:      query,
 			IsVerified: c.QueryBool("is_verified"),
@@ -47,6 +52,10 @@ func (app *ApiServer) v1SearchAutocomplete(c *fiber.Ctx) error {
 
 	// tracks
 	g.Go(func() error {
+		if kind != "all" && kind != "tracks" {
+			return nil
+		}
+
 		q := searcher.TrackSearchQuery{
 			Query:          query,
 			Genres:         genres,
@@ -56,6 +65,7 @@ func (app *ApiServer) v1SearchAutocomplete(c *fiber.Ctx) error {
 			MusicalKeys:    queryMutli(c, "key"),
 			IsDownloadable: c.QueryBool("is_downloadable"),
 			IsPurchaseable: c.QueryBool("is_purchaseable"),
+			OnlyVerified:   c.QueryBool("only_verified"),
 			// todo: includePurchaseable
 			// todo: tags
 			MyID: myId,
@@ -79,9 +89,14 @@ func (app *ApiServer) v1SearchAutocomplete(c *fiber.Ctx) error {
 
 	// playlists
 	g.Go(func() error {
+		if kind != "all" && kind != "playlists" {
+			return nil
+		}
+
 		q := searcher.PlaylistSearchQuery{
-			Query: query,
-			MyID:  myId,
+			Query:        query,
+			MyID:         myId,
+			OnlyVerified: c.QueryBool("only_verified"),
 		}
 
 		dsl := searcher.BuildFunctionScoreDSL("repost_count", q.Map())
@@ -104,6 +119,10 @@ func (app *ApiServer) v1SearchAutocomplete(c *fiber.Ctx) error {
 
 	// albums
 	g.Go(func() error {
+		if kind != "all" && kind != "albums" {
+			return nil
+		}
+
 		q := searcher.PlaylistSearchQuery{
 			Query:   query,
 			IsAlbum: true,

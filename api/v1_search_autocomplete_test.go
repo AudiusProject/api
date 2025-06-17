@@ -77,6 +77,11 @@ func TestSearch(t *testing.T) {
 				"title":        "hide unavailable",
 				"is_available": false,
 			},
+			{
+				"track_id": 1007,
+				"owner_id": 1003,
+				"title":    "circular thoughts",
+			},
 		},
 		"playlists": {
 			{
@@ -89,6 +94,17 @@ func TestSearch(t *testing.T) {
 				"playlist_owner_id": 1001,
 				"playlist_name":     "My Old Album",
 				"is_album":          true,
+			},
+			{
+				"playlist_id":       9003,
+				"playlist_owner_id": 1001,
+				"playlist_name":     "Hot and New",
+			},
+		},
+		"playlist_tracks": {
+			{
+				"playlist_id": 9003,
+				"track_id":    1007,
 			},
 		},
 		"follows": {
@@ -156,7 +172,6 @@ func TestSearch(t *testing.T) {
 		status, body := testGet(t, app, "/v1/search/autocomplete")
 		require.Equal(t, 200, status)
 		jsonAssert(t, body, map[string]any{
-			"data.tracks.#":              3,
 			"data.tracks.0.title":        "peanut butter jam time",
 			"data.tracks.0.repost_count": 2,
 		})
@@ -168,7 +183,6 @@ func TestSearch(t *testing.T) {
 		status, body := testGet(t, app, "/v1/search/autocomplete?user_id=1003")
 		require.Equal(t, 200, status)
 		jsonAssert(t, body, map[string]any{
-			"data.tracks.#":              3,
 			"data.tracks.0.title":        "sunny side",
 			"data.tracks.0.repost_count": 1,
 		})
@@ -180,6 +194,15 @@ func TestSearch(t *testing.T) {
 		require.Equal(t, 200, status)
 		jsonAssert(t, body, map[string]any{
 			"data.tracks.#": 2,
+		})
+	}
+
+	// tracks: only verified
+	{
+		status, body := testGet(t, app, "/v1/search/autocomplete?only_verified=true")
+		require.Equal(t, 200, status)
+		jsonAssert(t, body, map[string]any{
+			"data.tracks.0.title": "circular thoughts",
 		})
 	}
 
@@ -313,6 +336,14 @@ func TestSearch(t *testing.T) {
 			"data.playlists.0.playlist_name": "Old and Busted",
 			"data.albums.#":                  1,
 			"data.albums.0.playlist_name":    "My Old Album",
+		})
+	}
+
+	{
+		status, body := testGet(t, app, "/v1/search/autocomplete?only_verified=true")
+		require.Equal(t, 200, status)
+		jsonAssert(t, body, map[string]any{
+			"data.playlists.0.playlist_name": "Hot and New",
 		})
 	}
 

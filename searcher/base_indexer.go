@@ -47,7 +47,7 @@ func (base *BaseIndexer) bulkIndexQuery(index, sql string) error {
 	// Get the max updated_at from the Elasticsearch index
 	var maxBlocknumber int64
 
-	{
+	if false {
 
 		res, err := base.esc.Search(
 			base.esc.Search.WithIndex(index),

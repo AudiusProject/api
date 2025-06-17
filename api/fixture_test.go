@@ -12,6 +12,7 @@ import (
 var (
 	baseRows = map[string]map[string]any{
 		"users": {
+			"blocknumber":          101,
 			"user_id":              nil,
 			"handle":               nil,
 			"handle_lc":            nil,
@@ -29,6 +30,7 @@ var (
 			"profile_type":         nil,
 		},
 		"tracks": {
+			"blocknumber":                           101,
 			"blockhash":                             "block_abc123",
 			"track_id":                              "@track_id",
 			"is_current":                            true,
@@ -54,8 +56,7 @@ var (
 			"download_conditions":                   nil,
 		},
 		"playlists": {
-			// "playlist_id":       1,
-			// "playlist_owner_id": 42,
+			"blocknumber":            101,
 			"is_album":               false,
 			"is_private":             false,
 			"playlist_contents":      "{}",
@@ -194,6 +195,11 @@ var (
 			"blockhash":    "block_abc123",
 			"blocknumber":  101,
 			"txhash":       "tx123",
+		},
+		"playlist_tracks": {
+			"created_at": time.Now(),
+			"updated_at": time.Now(),
+			"is_removed": false,
 		},
 		"comments": {
 			"entity_type": "Track",

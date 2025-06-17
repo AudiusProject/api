@@ -33,7 +33,7 @@ func BuildFunctionScoreDSL(scoreField string, innerQuery map[string]any) string 
 					{
 						"field_value_factor": {
 							"field": %q,
-							"factor": 1,
+							"factor": 100,
 							"modifier": "log1p",
 							"missing": 0
 						}

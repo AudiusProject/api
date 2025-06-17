@@ -36,7 +36,31 @@ func (pi *PlaylistIndexer) indexAll() error {
 					'handle', users.handle,
 					'name', users.name,
 					'location', users.location,
-					'follower_count', aggregate_user.follower_count
+					'follower_count', aggregate_user.follower_count,
+					'is_verified', is_verified
+				),
+				'tracks', (
+					SELECT json_agg(
+						json_build_object(
+							'title', title,
+							'genre', genre,
+							'mood', mood,
+							'tags', string_to_array(tags, ','),
+
+							-- todo: more track fields
+							'user', json_build_object(
+								'handle', users.handle,
+								'name', users.name,
+								'location', users.location,
+								'follower_count', aggregate_user.follower_count,
+								'is_verified', is_verified
+							)
+						)
+					)
+					FROM playlist_tracks
+					JOIN tracks USING (track_id)
+					JOIN users ON owner_id = user_id
+					WHERE playlist_id = playlists.playlist_id
 				)
 			)
 		FROM playlists

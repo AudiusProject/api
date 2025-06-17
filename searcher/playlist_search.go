@@ -7,11 +7,12 @@ import (
 )
 
 type PlaylistSearchQuery struct {
-	Query   string
-	Genres  []string
-	Moods   []string
-	IsAlbum bool
-	MyID    int32
+	Query        string
+	Genres       []string
+	Moods        []string
+	IsAlbum      bool
+	OnlyVerified bool
+	MyID         int32
 }
 
 func (q *PlaylistSearchQuery) Map() map[string]any {
@@ -36,6 +37,12 @@ func (q *PlaylistSearchQuery) Map() map[string]any {
 				"boost": 10,
 			},
 		}))
+	}
+
+	// todo: mood, genre, tags
+
+	if q.OnlyVerified {
+		builder.Must(esquery.Term("tracks.user.is_verified", true))
 	}
 
 	return builder.Map()
