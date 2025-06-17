@@ -94,7 +94,8 @@ func (app *ApiServer) v1TrackTopListeners(c *fiber.Ctx) error {
 		data := make([]MinUserWithPlayCount, len(users))
 		for i, user := range users {
 			data[i] = MinUserWithPlayCount{
-				User: dbv1.ToMinUser(user),
+				User:  dbv1.ToMinUser(user),
+				Count: results[i].Count,
 			}
 		}
 		return c.JSON(fiber.Map{
