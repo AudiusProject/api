@@ -79,7 +79,7 @@ func (app *ApiServer) v1TrackTopListeners(c *fiber.Ctx) error {
 		return err
 	}
 
-	if c.Locals("isFull").(bool) {
+	if app.getIsFull(c) {
 		data := make([]FullUserWithPlayCount, len(users))
 		for i, user := range users {
 			data[i] = FullUserWithPlayCount{
