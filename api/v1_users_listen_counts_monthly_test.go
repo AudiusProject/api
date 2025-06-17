@@ -57,8 +57,8 @@ func TestV1UsersListenCountsMonthly(t *testing.T) {
 
 	createFixtures(app, fixtures)
 
-	start := now.Format("2006-01-02")
-	end := nextMonth.AddDate(0, 1, 0).Format("2006-01-02")
+	start := now.Format(time.RFC3339)
+	end := nextMonth.AddDate(0, 1, 0).Format(time.RFC3339)
 	url := fmt.Sprintf("/v1/users/%s/listen_counts_monthly?start_time=%s&end_time=%s",
 		trashid.MustEncodeHashID(int(userID)),
 		start,
