@@ -407,7 +407,20 @@ func createFixtures(app *ApiServer, fixtures FixtureMap) {
 		panic(err)
 	}
 
+	// because map key iteration order is randomized...
+	// explicitly do the "entity" tables first
+	// so that data dependencies exist before attempting to do saves, follows, etc.
+	entityTables := []string{"users", "tracks", "playlists"}
+	for _, tableName := range entityTables {
+		if rows, ok := fixtures[tableName]; ok {
+			insertFixturesFromArray(app, tableName, rows)
+		}
+	}
+
 	for tableName, rows := range fixtures {
+		if slices.Contains(entityTables, tableName) {
+			continue
+		}
 		insertFixturesFromArray(app, tableName, rows)
 	}
 }
