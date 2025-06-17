@@ -3,21 +3,24 @@ package searcher
 import (
 	"context"
 	"fmt"
+	"io"
 	"log"
 	"strings"
 
 	"github.com/elastic/go-elasticsearch/v8"
 	"github.com/elastic/go-elasticsearch/v8/esutil"
 	"github.com/jackc/pgx/v5/pgxpool"
+	"github.com/tidwall/gjson"
 )
 
 type BaseIndexer struct {
 	pool *pgxpool.Pool
 	esc  *elasticsearch.Client
+	drop bool
 }
 
-func (base *BaseIndexer) createIndex(indexName string, mapping string, drop bool) error {
-	if drop {
+func (base *BaseIndexer) createIndex(indexName string, mapping string) error {
+	if base.drop {
 		_, err := base.esc.Indices.Delete([]string{indexName})
 		if err != nil {
 			fmt.Println("drop error", indexName, err)
@@ -40,6 +43,40 @@ func (base *BaseIndexer) createIndex(indexName string, mapping string, drop bool
 }
 
 func (base *BaseIndexer) bulkIndexQuery(index, sql string) error {
+
+	// Get the max updated_at from the Elasticsearch index
+	var maxBlocknumber int64
+
+	{
+
+		res, err := base.esc.Search(
+			base.esc.Search.WithIndex(index),
+			base.esc.Search.WithBody(strings.NewReader(`{
+				"size": 0,
+				"aggs": {
+					"max_blocknumber": {
+						"max": {
+							"field": "blocknumber"
+						}
+					}
+				}
+			}`)),
+			base.esc.Search.WithTrackTotalHits(false),
+		)
+		if err != nil {
+			fmt.Println("error querying max_blocknumber:", err)
+			return err
+		}
+		defer res.Body.Close()
+
+		body, _ := io.ReadAll(res.Body)
+		maxBlocknumber = gjson.GetBytes(body, "aggregations.max_blocknumber.value").Int()
+
+		pprintJson(string(body))
+		fmt.Println("________ maxBlocknumber", maxBlocknumber)
+
+	}
+
 	ctx := context.Background()
 	bulk, err := esutil.NewBulkIndexer(esutil.BulkIndexerConfig{
 		Index:      index,
@@ -51,7 +88,7 @@ func (base *BaseIndexer) bulkIndexQuery(index, sql string) error {
 		log.Fatalf("Error creating the indexer: %s", err)
 	}
 
-	rows, err := base.pool.Query(ctx, sql)
+	rows, err := base.pool.Query(ctx, sql, maxBlocknumber)
 	if err != nil {
 		return err
 	}

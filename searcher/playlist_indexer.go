@@ -4,7 +4,7 @@ type PlaylistIndexer struct {
 	*BaseIndexer
 }
 
-func (pi *PlaylistIndexer) createIndex(drop bool) error {
+func (pi *PlaylistIndexer) createIndex() error {
 	// Specify mappings for playlist index
 	// Only specifying properties that might be ambiguous
 	mapping := `{
@@ -13,7 +13,7 @@ func (pi *PlaylistIndexer) createIndex(drop bool) error {
 			}
 		}
 	}`
-	return pi.BaseIndexer.createIndex("playlists", mapping, drop)
+	return pi.BaseIndexer.createIndex("playlists", mapping)
 }
 
 func (pi *PlaylistIndexer) indexAll() error {
@@ -27,8 +27,9 @@ func (pi *PlaylistIndexer) indexAll() error {
 				'track_count', track_count,
 				'save_count', aggregate_playlist.save_count,
 				'repost_count', aggregate_playlist.repost_count,
-				'last_updated', playlists.updated_at,
 				'created_at', playlists.created_at,
+				'updated_at', playlists.updated_at,
+				'blocknumber', playlists.blocknumber,
 				'is_private', is_private,
 				'is_album', playlists.is_album,
 				'user', json_build_object(
@@ -45,6 +46,10 @@ func (pi *PlaylistIndexer) indexAll() error {
 		WHERE is_private = false
 		AND users.is_available = true
 		AND users.is_deactivated = false
+		AND playlists.blocknumber > $1
+		ORDER BY playlists.blocknumber ASC
+
+		-- LIMIT 1000
 		`
 
 	return pi.bulkIndexQuery("playlists", sql)

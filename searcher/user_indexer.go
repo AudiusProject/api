@@ -14,9 +14,9 @@ type UserIndexer struct {
 	*BaseIndexer
 }
 
-func (ui *UserIndexer) createIndex(drop bool) error {
+func (ui *UserIndexer) createIndex() error {
 	mapping := ``
-	return ui.BaseIndexer.createIndex("users", mapping, drop)
+	return ui.BaseIndexer.createIndex("users", mapping)
 }
 
 func (ui *UserIndexer) indexAll() error {
@@ -29,6 +29,8 @@ func (ui *UserIndexer) indexAll() error {
 				'bio', bio,
 				'location', location,
 				'created_at', created_at,
+				'updated_at', updated_at,
+				'blocknumber', users.blocknumber,
 				'is_verified', is_verified,
 
 				'track_count', track_count,
@@ -45,6 +47,10 @@ func (ui *UserIndexer) indexAll() error {
 		JOIN aggregate_user USING (user_id)
 		WHERE is_deactivated = false
 		AND is_available = true
+		AND blocknumber > $1
+		ORDER BY users.blocknumber ASC
+
+		-- LIMIT 1000
 		`
 
 	return ui.bulkIndexQuery("users", sql)

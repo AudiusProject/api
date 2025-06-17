@@ -34,7 +34,7 @@ func mustDialElasticsearch() *elasticsearch.Client {
 func reindexPlaylists(base *BaseIndexer) {
 	i := &PlaylistIndexer{base}
 
-	if err := i.createIndex(true); err != nil {
+	if err := i.createIndex(); err != nil {
 		panic(err)
 	}
 	if err := i.indexAll(); err != nil {
@@ -45,7 +45,7 @@ func reindexPlaylists(base *BaseIndexer) {
 func reindexUsers(base *BaseIndexer) {
 	i := &UserIndexer{base}
 
-	if err := i.createIndex(true); err != nil {
+	if err := i.createIndex(); err != nil {
 		panic(err)
 	}
 	if err := i.indexAll(); err != nil {
@@ -56,7 +56,7 @@ func reindexUsers(base *BaseIndexer) {
 func reindexTracks(base *BaseIndexer) {
 	i := &TrackIndexer{base}
 
-	if err := i.createIndex(true); err != nil {
+	if err := i.createIndex(); err != nil {
 		panic(err)
 	}
 	if err := i.indexAll(); err != nil {
@@ -67,7 +67,7 @@ func reindexTracks(base *BaseIndexer) {
 func reindexSocials(base *BaseIndexer) {
 	i := &SocialIndexer{base}
 
-	if err := i.createIndex(true); err != nil {
+	if err := i.createIndex(); err != nil {
 		panic(err)
 	}
 	if err := i.indexAll(); err != nil {
@@ -75,11 +75,12 @@ func reindexSocials(base *BaseIndexer) {
 	}
 }
 
-func Reindex(pool *pgxpool.Pool, esc *elasticsearch.Client, collections ...string) {
+func Reindex(pool *pgxpool.Pool, esc *elasticsearch.Client, drop bool, collections ...string) {
 
 	baseIndexer := &BaseIndexer{
 		pool,
 		esc,
+		drop,
 	}
 
 	reindexAll := len(collections) == 0
@@ -99,8 +100,8 @@ func Reindex(pool *pgxpool.Pool, esc *elasticsearch.Client, collections ...strin
 
 }
 
-func ReindexLegacy(collections ...string) {
+func ReindexLegacy(drop bool, collections ...string) {
 	pool := mustDialPostgres()
 	esc := mustDialElasticsearch()
-	Reindex(pool, esc, collections...)
+	Reindex(pool, esc, drop, collections...)
 }

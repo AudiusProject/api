@@ -119,7 +119,7 @@ func TestSearch(t *testing.T) {
 	createFixtures(app, fixtures)
 
 	// index data to ES
-	searcher.Reindex(app.pool, app.esClient)
+	searcher.Reindex(app.pool, app.esClient, true)
 
 	// users:
 	{

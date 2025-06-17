@@ -4,7 +4,7 @@ type TrackIndexer struct {
 	*BaseIndexer
 }
 
-func (ti *TrackIndexer) createIndex(drop bool) error {
+func (ti *TrackIndexer) createIndex() error {
 	// we rely on elasticsearch dynamic mapping
 	// so we only need to specify properties that might be ambigious (int vs float)
 	mapping := `{
@@ -14,7 +14,7 @@ func (ti *TrackIndexer) createIndex(drop bool) error {
 			}
 		}
 	}`
-	return ti.BaseIndexer.createIndex("tracks", mapping, drop)
+	return ti.BaseIndexer.createIndex("tracks", mapping)
 }
 
 func (ti *TrackIndexer) indexAll() error {
@@ -30,6 +30,8 @@ func (ti *TrackIndexer) indexAll() error {
 				'repost_count', aggregate_track.repost_count,
 				'comment_count', aggregate_track.comment_count,
 				'release_date', coalesce(release_date, tracks.created_at),
+				'updated_at', tracks.updated_at,
+				'blocknumber', tracks.blocknumber,
 				'musical_key', musical_key,
 				'bpm', bpm,
 				'tags', string_to_array(tags, ','),
@@ -52,6 +54,10 @@ func (ti *TrackIndexer) indexAll() error {
 		AND tracks.is_available = true
 		AND users.is_available = true
 		AND users.is_deactivated = false
+		AND tracks.blocknumber > $1
+		ORDER BY tracks.blocknumber ASC
+
+		-- LIMIT 1000
 		`
 
 	return ti.bulkIndexQuery("tracks", sql)

@@ -3,6 +3,7 @@ package main
 import (
 	"fmt"
 	"os"
+	"slices"
 
 	"bridgerton.audius.co/api"
 	"bridgerton.audius.co/config"
@@ -13,9 +14,10 @@ func main() {
 
 	if len(os.Args) > 1 && os.Args[1] == "reindex" {
 		collections := os.Args[2:]
-		fmt.Println("reindex", collections)
+		drop := slices.Contains(collections, "drop")
+		fmt.Println("reindex", "drop", drop, "collections", collections)
 
-		searcher.ReindexLegacy(collections...)
+		searcher.ReindexLegacy(drop, collections...)
 		return
 	}
 
