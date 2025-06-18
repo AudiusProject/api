@@ -358,6 +358,9 @@ func NewApiServer(config config.Config) *ApiServer {
 		g.Get("/playlists/:playlistId/reposts", app.v1PlaylistReposts)
 		g.Get("/playlists/:playlistId/favorites", app.v1PlaylistFavorites)
 
+		// Explore
+		g.Get("/explore/best_selling", app.v1ExploreBestSelling)
+
 		// Developer Apps
 		g.Get("/developer_apps/:address", app.v1DeveloperApps)
 
