@@ -13,7 +13,6 @@ import (
 func TestExploreBestSelling(t *testing.T) {
 	app := emptyTestApp(t)
 
-	// Generate users using a range
 	users := make([]map[string]any, 10)
 	for i := range 10 {
 		userId := i + 1
