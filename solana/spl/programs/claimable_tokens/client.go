@@ -3,7 +3,7 @@ package claimable_tokens
 import (
 	"context"
 
-	"bridgerton.audius.co/api/spl"
+	"bridgerton.audius.co/solana/spl"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/gagliardetto/solana-go"
 	"github.com/gagliardetto/solana-go/rpc"

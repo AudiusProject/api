@@ -11,10 +11,10 @@ import (
 	"time"
 
 	"bridgerton.audius.co/api/dbv1"
-	"bridgerton.audius.co/api/spl"
-	"bridgerton.audius.co/api/spl/programs/claimable_tokens"
-	"bridgerton.audius.co/api/spl/programs/reward_manager"
 	"bridgerton.audius.co/config"
+	"bridgerton.audius.co/solana/spl"
+	"bridgerton.audius.co/solana/spl/programs/claimable_tokens"
+	"bridgerton.audius.co/solana/spl/programs/reward_manager"
 	"bridgerton.audius.co/trashid"
 	"github.com/AudiusProject/audiusd/pkg/rewards"
 	"github.com/AudiusProject/audiusd/pkg/sdk"

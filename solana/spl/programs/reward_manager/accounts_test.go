@@ -4,7 +4,7 @@ import (
 	"encoding/base64"
 	"testing"
 
-	"bridgerton.audius.co/api/spl/programs/reward_manager"
+	"bridgerton.audius.co/solana/spl/programs/reward_manager"
 	bin "github.com/gagliardetto/binary"
 	"github.com/stretchr/testify/require"
 )
