@@ -335,6 +335,14 @@ var (
 			"sp_id":         1,
 			"comet_pub_key": nil,
 		},
+		"comment_notification_settings": {
+			"user_id":     nil,
+			"entity_type": "Track",
+			"entity_id":   nil,
+			"is_muted":    false,
+			"created_at":  time.Now(),
+			"updated_at":  time.Now(),
+		},
 	}
 )
 
