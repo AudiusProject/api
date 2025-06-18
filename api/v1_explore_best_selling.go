@@ -86,30 +86,36 @@ func (app *ApiServer) v1ExploreBestSelling(c *fiber.Ctx) error {
 		return err
 	}
 
-	// related
-	trackIds := []int32{}
-	playlistIds := []int32{}
-	for _, c := range items {
-		if c.ContentType == "track" {
-			trackIds = append(trackIds, int32(c.ContentID))
-		} else if c.ContentType == "album" {
-			playlistIds = append(playlistIds, int32(c.ContentID))
+	if app.getIsFull(c) {
+		// related
+		trackIds := []int32{}
+		playlistIds := []int32{}
+		for _, c := range items {
+			if c.ContentType == "track" {
+				trackIds = append(trackIds, int32(c.ContentID))
+			} else if c.ContentType == "album" {
+				playlistIds = append(playlistIds, int32(c.ContentID))
+			}
 		}
-	}
-	related, err := app.queries.Parallel(c.Context(), dbv1.ParallelParams{
-		PlaylistIds: playlistIds,
-		TrackIds:    trackIds,
-		MyID:        app.getMyId(c),
-	})
-	if err != nil {
-		return err
+		related, err := app.queries.Parallel(c.Context(), dbv1.ParallelParams{
+			PlaylistIds: playlistIds,
+			TrackIds:    trackIds,
+			MyID:        app.getMyId(c),
+		})
+		if err != nil {
+			return err
+		}
+
+		return c.JSON(fiber.Map{
+			"data": items,
+			"related": fiber.Map{
+				"playlists": related.PlaylistList(),
+				"tracks":    related.TrackList(),
+			},
+		})
 	}
 
 	return c.JSON(fiber.Map{
 		"data": items,
-		"related": fiber.Map{
-			"playlists": related.PlaylistList(),
-			"tracks":    related.TrackList(),
-		},
 	})
 }
