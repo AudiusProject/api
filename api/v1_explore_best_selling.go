@@ -1,6 +1,8 @@
 package api
 
 import (
+	"strings"
+
 	"bridgerton.audius.co/api/dbv1"
 	"bridgerton.audius.co/trashid"
 	"github.com/gofiber/fiber/v2"
@@ -8,8 +10,9 @@ import (
 )
 
 type GetBestSellingParams struct {
-	Limit  int `query:"limit" default:"10" validate:"min=1,max=100"`
-	Offset int `query:"offset" default:"0" validate:"min=0"`
+	Limit  int    `query:"limit" default:"10" validate:"min=1,max=100"`
+	Offset int    `query:"offset" default:"0" validate:"min=0"`
+	Type   string `query:"type" default:"all" validate:"oneof=all track album"`
 }
 
 type BestSellingItem struct {
@@ -25,13 +28,20 @@ func (app *ApiServer) v1ExploreBestSelling(c *fiber.Ctx) error {
 		return err
 	}
 
+	filters := []string{"created_at > NOW() - INTERVAL '6 months'"}
+	switch params.Type {
+	case "track":
+		filters = append(filters, "content_type = 'track'")
+	case "album":
+		filters = append(filters, "content_type = 'album'")
+	}
+
 	sql := `
 		WITH ranked_sales AS (
 			SELECT content_id, content_type, COUNT(*) AS sales_count
 			FROM usdc_purchases
-			WHERE created_at > NOW() - INTERVAL '6 months'
+			WHERE ` + strings.Join(filters, " AND ") + `
 			GROUP BY content_id, content_type
-			ORDER BY sales_count DESC
 		),
 		results as (
 			SELECT
@@ -39,12 +49,13 @@ func (app *ApiServer) v1ExploreBestSelling(c *fiber.Ctx) error {
 				rs.content_type,
 				rs.sales_count,
 				t.title,
-				t.owner_id,
-				t.is_delete,
-				t.is_unlisted,
-				t.is_current
+				t.owner_id
 			FROM ranked_sales rs
-			JOIN tracks t ON rs.content_type = 'track' AND rs.content_id = t.track_id
+			JOIN tracks t ON rs.content_id = t.track_id
+            WHERE rs.content_type = 'track'
+                AND t.is_delete = false
+                AND t.is_current = true
+                AND t.is_unlisted = false
 
 			UNION ALL
 
@@ -52,13 +63,14 @@ func (app *ApiServer) v1ExploreBestSelling(c *fiber.Ctx) error {
 				rs.content_id,
 				rs.content_type,
 				rs.sales_count,
-				a.playlist_name AS title,
-				a.playlist_owner_id AS owner_id,
-				a.is_delete,
-				a.is_private as is_unlisted,
-				a.is_current
+				p.playlist_name AS title,
+				p.playlist_owner_id AS owner_id
 			FROM ranked_sales rs
-			JOIN playlists a ON rs.content_type = 'album' AND rs.content_id = a.playlist_id
+			JOIN playlists p ON rs.content_id = p.playlist_id
+            WHERE rs.content_type = 'album'
+                AND p.is_delete = false
+                AND p.is_current = true
+                AND p.is_private = false
 		)
 		SELECT
 			content_id,
@@ -66,9 +78,7 @@ func (app *ApiServer) v1ExploreBestSelling(c *fiber.Ctx) error {
 			title,
 			owner_id
 		FROM results
-		WHERE is_delete = false
-			AND is_unlisted = false
-			AND is_current = true
+        ORDER BY sales_count DESC, content_id ASC
 		LIMIT @limit
 		OFFSET @offset;
 	`
