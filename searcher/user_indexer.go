@@ -41,7 +41,22 @@ func (ui *UserIndexer) indexAll() error {
 				'supporter_count', supporter_count,
 				'supporting_count', supporting_count,
 				'dominant_genre', dominant_genre,
-				'dominant_genre_count', dominant_genre_count
+				'dominant_genre_count', dominant_genre_count,
+
+				'tracks', (
+					SELECT json_agg(
+						json_build_object(
+							'title', title,
+							'genre', genre,
+							'mood', mood,
+							'tags', string_to_array(tags, ',')
+
+							-- todo: more track fields
+						)
+					)
+					FROM tracks
+					WHERE owner_id = users.user_id
+				)
 			)
 		FROM users
 		JOIN aggregate_user USING (user_id)

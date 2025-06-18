@@ -10,6 +10,7 @@ type PlaylistSearchQuery struct {
 	Query        string
 	Genres       []string
 	Moods        []string
+	IsTagSearch  bool
 	IsAlbum      bool
 	OnlyVerified bool
 	MyID         int32
@@ -18,8 +19,10 @@ type PlaylistSearchQuery struct {
 func (q *PlaylistSearchQuery) Map() map[string]any {
 	builder := esquery.Bool()
 
-	if q.Query != "" {
-		builder.Must(esquery.Match("title", q.Query))
+	if q.IsTagSearch {
+		builder.Must(esquery.MultiMatch().Query(q.Query).Fields("tags").Type(esquery.MatchTypeBoolPrefix))
+	} else if q.Query != "" {
+		builder.Must(esquery.MultiMatch().Query(q.Query).Fields("title", "user.handle", "user.name").Type(esquery.MatchTypeBoolPrefix))
 	} else {
 		builder.Must(esquery.MatchAll())
 	}

@@ -148,6 +148,17 @@ func TestSearch(t *testing.T) {
 		})
 	}
 
+	// users: prefix match
+	{
+		status, body := testGet(t, app, "/v1/search/autocomplete?query=ster")
+		require.Equal(t, 200, status)
+		jsonAssert(t, body, map[string]any{
+			"data.users.#":        2,
+			"data.users.0.handle": "StereoDave",
+			"data.users.1.handle": "StereoSteve",
+		})
+	}
+
 	{
 		status, body := testGet(t, app, "/v1/users/search?query=stereo")
 		require.Equal(t, 200, status)
@@ -208,7 +219,7 @@ func TestSearch(t *testing.T) {
 
 	// can search artist + track title
 	{
-		status, body := testGet(t, app, "/v1/search/autocomplete?query=stereo+sunny")
+		status, body := testGet(t, app, "/v1/search/autocomplete?query=stereo+sun")
 		require.Equal(t, 200, status)
 		jsonAssert(t, body, map[string]any{
 			// "data.tracks.#":       3,
@@ -347,4 +358,19 @@ func TestSearch(t *testing.T) {
 		})
 	}
 
+	//
+	// tag search
+	//
+
+	// users:
+	{
+		status, body := testGet(t, app, "/v1/search/tags?query=Tag2")
+		require.Equal(t, 200, status)
+		jsonAssert(t, body, map[string]any{
+			"data.users.#":        1,
+			"data.users.0.handle": "StereoSteve",
+			"data.tracks.#":       1,
+			"data.tracks.0.title": "mouse trap",
+		})
+	}
 }

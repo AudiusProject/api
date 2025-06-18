@@ -1,6 +1,8 @@
 package api
 
 import (
+	"strings"
+
 	"bridgerton.audius.co/api/dbv1"
 	"bridgerton.audius.co/searcher"
 	"github.com/gofiber/fiber/v2"
@@ -8,7 +10,8 @@ import (
 )
 
 func (app *ApiServer) v1SearchAutocomplete(c *fiber.Ctx) error {
-	// queryMap := c.Queries()
+
+	isTagSearch := strings.Contains(c.Route().Path, "search/tags")
 
 	kind := c.Query("kind", "all")
 	query := c.Query("query")
@@ -32,9 +35,10 @@ func (app *ApiServer) v1SearchAutocomplete(c *fiber.Ctx) error {
 		}
 
 		q := searcher.UserSearchQuery{
-			Query:      query,
-			IsVerified: c.QueryBool("is_verified"),
-			MyID:       myId,
+			Query:       query,
+			IsVerified:  c.QueryBool("is_verified"),
+			IsTagSearch: isTagSearch,
+			MyID:        myId,
 		}
 
 		dsl := searcher.BuildFunctionScoreDSL("follower_count", q.Map())
@@ -66,9 +70,11 @@ func (app *ApiServer) v1SearchAutocomplete(c *fiber.Ctx) error {
 			IsDownloadable: c.QueryBool("is_downloadable"),
 			IsPurchaseable: c.QueryBool("is_purchaseable"),
 			OnlyVerified:   c.QueryBool("only_verified"),
+
 			// todo: includePurchaseable
-			// todo: tags
-			MyID: myId,
+
+			IsTagSearch: isTagSearch,
+			MyID:        myId,
 		}
 
 		dsl := searcher.BuildFunctionScoreDSL("repost_count", q.Map())
@@ -97,6 +103,7 @@ func (app *ApiServer) v1SearchAutocomplete(c *fiber.Ctx) error {
 			Query:        query,
 			MyID:         myId,
 			OnlyVerified: c.QueryBool("only_verified"),
+			IsTagSearch:  isTagSearch,
 		}
 
 		dsl := searcher.BuildFunctionScoreDSL("repost_count", q.Map())

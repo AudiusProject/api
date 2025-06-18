@@ -343,6 +343,7 @@ func NewApiServer(config config.Config) *ApiServer {
 		// Search
 		g.Get("/search/autocomplete", app.v1SearchAutocomplete)
 		g.Get("/search/full", app.v1SearchAutocomplete)
+		g.Get("/search/tags", app.v1SearchAutocomplete)
 
 		// Developer Apps
 		g.Get("/developer_apps/:address", app.v1DeveloperApps)

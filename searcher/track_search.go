@@ -12,6 +12,7 @@ type TrackSearchQuery struct {
 	MaxBPM         int
 	IsDownloadable bool
 	IsPurchaseable bool
+	IsTagSearch    bool
 	OnlyVerified   bool
 	Genres         []string
 	Moods          []string
@@ -19,49 +20,50 @@ type TrackSearchQuery struct {
 	MyID           int32
 }
 
-func (t *TrackSearchQuery) Map() map[string]any {
+func (q *TrackSearchQuery) Map() map[string]any {
 	builder := esquery.Bool()
 
-	if t.Query != "" {
+	if q.IsTagSearch {
+		builder.Must(esquery.MultiMatch().Query(q.Query).Fields("tags").Type(esquery.MatchTypeBoolPrefix))
+	} else if q.Query != "" {
 		builder.Must(
-			esquery.MultiMatch().Query(t.Query).Fields("title", "user.handle", "user.name", "tags"),
+			esquery.MultiMatch().Query(q.Query).Fields("title", "user.handle", "user.name", "tags").Type(esquery.MatchTypeBoolPrefix),
 		)
-
 	} else {
 		builder.Must(esquery.MatchAll())
 	}
 
-	if t.MinBPM > 0 || t.MaxBPM > 0 {
+	if q.MinBPM > 0 || q.MaxBPM > 0 {
 		bpmRange := esquery.Range("bpm")
-		if t.MinBPM > 0 {
-			bpmRange.Gte(t.MinBPM)
+		if q.MinBPM > 0 {
+			bpmRange.Gte(q.MinBPM)
 		}
-		if t.MaxBPM > 0 {
-			bpmRange.Lte(t.MaxBPM)
+		if q.MaxBPM > 0 {
+			bpmRange.Lte(q.MaxBPM)
 		}
 		builder.Filter(bpmRange)
 	}
 
-	if len(t.Genres) > 0 {
-		builder.Filter(esquery.Terms("genre", toAnySlice(t.Genres)...))
+	if len(q.Genres) > 0 {
+		builder.Filter(esquery.Terms("genre", toAnySlice(q.Genres)...))
 	}
 
-	if len(t.Moods) > 0 {
-		builder.Filter(esquery.Terms("mood", toAnySlice(t.Moods)...))
+	if len(q.Moods) > 0 {
+		builder.Filter(esquery.Terms("mood", toAnySlice(q.Moods)...))
 	}
 
-	if len(t.MusicalKeys) > 0 {
-		builder.Filter(esquery.Terms("musical_key.keyword", toAnySlice(t.MusicalKeys)...))
+	if len(q.MusicalKeys) > 0 {
+		builder.Filter(esquery.Terms("musical_key.keyword", toAnySlice(q.MusicalKeys)...))
 	}
 
-	if t.IsDownloadable {
+	if q.IsDownloadable {
 		builder.Filter(esquery.Term("is_downloadable", true))
 	}
 
 	// todo: only_with_downloads
 	// => downloadable + has stems
 
-	if t.IsPurchaseable {
+	if q.IsPurchaseable {
 		// stream or download
 		builder.Filter(
 			esquery.Bool().
@@ -70,17 +72,17 @@ func (t *TrackSearchQuery) Map() map[string]any {
 		)
 	}
 
-	if t.OnlyVerified {
+	if q.OnlyVerified {
 		builder.Must(esquery.Term("user.is_verified", true))
 	}
 
 	// boost tracks that are saved / reposted
-	if t.MyID > 0 {
+	if q.MyID > 0 {
 		builder.Should(esquery.CustomQuery(map[string]any{
 			"terms": map[string]any{
 				"_id": map[string]any{
 					"index": "socials",
-					"id":    fmt.Sprintf("%d", t.MyID),
+					"id":    fmt.Sprintf("%d", q.MyID),
 					"path":  "reposted_track_ids",
 				},
 				"boost": 10,

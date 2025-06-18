@@ -7,15 +7,18 @@ import (
 )
 
 type UserSearchQuery struct {
-	Query      string `json:"query"`
-	IsVerified bool   `json:"is_verified"`
-	MyID       int32  `json:"my_id"`
+	Query       string `json:"query"`
+	IsVerified  bool   `json:"is_verified"`
+	IsTagSearch bool
+	MyID        int32 `json:"my_id"`
 }
 
 func (q *UserSearchQuery) Map() map[string]any {
 	builder := esquery.Bool()
 
-	if q.Query != "" {
+	if q.IsTagSearch {
+		builder.Must(esquery.MultiMatch().Query(q.Query).Fields("tracks.tags").Type(esquery.MatchTypeBoolPrefix))
+	} else if q.Query != "" {
 		builder.Must(esquery.MultiMatch(q.Query).Fields("name", "handle").Type(esquery.MatchTypeBoolPrefix))
 	} else {
 		builder.Must(esquery.MatchAll())
