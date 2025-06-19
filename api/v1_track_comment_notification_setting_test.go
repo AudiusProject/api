@@ -8,8 +8,11 @@ import (
 )
 
 func TestGetTrackCommentNotificationSetting(t *testing.T) {
-	app := testAppWithFixtures(t)
+	app := emptyTestApp(t)
 	fixtures := FixtureMap{
+		"users": []map[string]any{
+			{"user_id": 1, "wallet": "0x7d273271690538cf855e5b3002a0dd8c154bb060"},
+		},
 		"comment_notification_settings": []map[string]any{
 			{
 				"user_id":   1,
@@ -31,8 +34,11 @@ func TestGetTrackCommentNotificationSetting(t *testing.T) {
 }
 
 func TestGetTrackCommentNotificationSettingMuted(t *testing.T) {
-	app := testAppWithFixtures(t)
+	app := emptyTestApp(t)
 	fixtures := FixtureMap{
+		"users": []map[string]any{
+			{"user_id": 1, "wallet": "0x7d273271690538cf855e5b3002a0dd8c154bb060"},
+		},
 		"comment_notification_settings": []map[string]any{
 			{
 				"user_id":   1,
@@ -54,7 +60,13 @@ func TestGetTrackCommentNotificationSettingMuted(t *testing.T) {
 }
 
 func TestGetTrackCommentNotificationSettingNotFound(t *testing.T) {
-	app := testAppWithFixtures(t)
+	app := emptyTestApp(t)
+	fixtures := FixtureMap{
+		"users": []map[string]any{
+			{"user_id": 1, "wallet": "0x7d273271690538cf855e5b3002a0dd8c154bb060"},
+		},
+	}
+	createFixtures(app, fixtures)
 	status, body := testGetWithWallet(
 		t, app,
 		"/v1/tracks/"+trashid.MustEncodeHashID(999)+"/comment_notification_setting?user_id="+trashid.MustEncodeHashID(1),
