@@ -14,7 +14,7 @@ type GetMetricsGenresParams struct {
 }
 
 type GenreMetric struct {
-	Genre string `json:"genre"`
+	Name  string `json:"name"`
 	Count int64  `json:"count"`
 }
 
@@ -38,7 +38,7 @@ func (app *ApiServer) v1MetricsGenres(c *fiber.Ctx) error {
 	result := make([]GenreMetric, len(metrics))
 	for i, metric := range metrics {
 		result[i] = GenreMetric{
-			Genre: string(metric.Genre.String),
+			Name:  string(metric.Genre.String),
 			Count: metric.Count,
 		}
 	}
