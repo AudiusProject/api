@@ -332,6 +332,7 @@ func NewApiServer(config config.Config) *ApiServer {
 		g.Get("/tracks/trending/ids", app.v1TracksTrendingIds)
 		g.Get("/tracks/trending/underground", app.v1TracksTrendingUnderground)
 		g.Get("/tracks/recommended", app.v1TracksTrending)
+		g.Get("/tracks/recent_premium", app.v1TracksRecentPremium)
 		g.Get("/tracks/usdc-purchase", app.v1TracksUsdcPurchase)
 		g.Get("/tracks/inspect", app.v1TracksInspect)
 
