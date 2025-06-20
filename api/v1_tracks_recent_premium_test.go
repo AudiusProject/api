@@ -25,7 +25,6 @@ func TestV1TracksRecentPremium(t *testing.T) {
 		return fmt.Sprintf("{\"usdc_purchase\": {\"price\": 100, \"splits\": [{\"user_id\": %d, \"percentage\": 100}]}}", userId)
 	}
 
-	// TODO: Fix test so times are related to current time
 	fixtures := FixtureMap{
 		"users": users,
 		"tracks": []map[string]any{
