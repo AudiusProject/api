@@ -1,4 +1,4 @@
-package searcher
+package searchv1
 
 import (
 	"fmt"
@@ -42,4 +42,9 @@ func (q *UserSearchQuery) Map() map[string]any {
 	}
 
 	return builder.Map()
+}
+
+func (q *UserSearchQuery) DSL() string {
+	inner := q.Map()
+	return BuildFunctionScoreDSL("follower_count", inner)
 }

@@ -1,4 +1,4 @@
-package searcher
+package esindexer
 
 import (
 	"context"
@@ -72,7 +72,7 @@ func (base *BaseIndexer) bulkIndexQuery(index, sql string) error {
 		body, _ := io.ReadAll(res.Body)
 		maxBlocknumber = gjson.GetBytes(body, "aggregations.max_blocknumber.value").Int()
 
-		pprintJson(string(body))
+		// pprintJson(string(body))
 		fmt.Println("________ maxBlocknumber", maxBlocknumber)
 
 	}

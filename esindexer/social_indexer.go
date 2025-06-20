@@ -1,4 +1,4 @@
-package searcher
+package esindexer
 
 // user id => list of following, repost (tracks), save (tracks), repost (playlists), repost (playlist)
 type SocialIndexer struct {

@@ -1,4 +1,4 @@
-package searcher
+package searchv1
 
 import (
 	"fmt"
@@ -91,4 +91,8 @@ func (q *TrackSearchQuery) Map() map[string]any {
 	}
 
 	return builder.Map()
+}
+
+func (q *TrackSearchQuery) DSL() string {
+	return BuildFunctionScoreDSL("repost_count", q.Map())
 }

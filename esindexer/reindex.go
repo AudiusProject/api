@@ -1,4 +1,4 @@
-package searcher
+package esindexer
 
 import (
 	"context"
@@ -8,6 +8,7 @@ import (
 	"bridgerton.audius.co/config"
 	"github.com/elastic/go-elasticsearch/v8"
 	"github.com/jackc/pgx/v5/pgxpool"
+	"github.com/tidwall/sjson"
 )
 
 func mustDialPostgres() *pgxpool.Pool {
@@ -29,6 +30,20 @@ func mustDialElasticsearch() *elasticsearch.Client {
 		log.Fatalf("Error creating the client: %s", err)
 	}
 	return esc
+}
+
+func commonIndexSettings(mapping string) string {
+	mustSet := func(key string, value any) {
+		var err error
+		mapping, err = sjson.Set(mapping, key, value)
+		if err != nil {
+			panic(err)
+		}
+	}
+
+	mustSet("settings.number_of_shards", 1)
+	mustSet("settings.number_of_replicas", 0)
+	return mapping
 }
 
 func reindexPlaylists(base *BaseIndexer) {

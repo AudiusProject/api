@@ -1,7 +1,8 @@
-package searcher
+package searchv1
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
 	"io"
 	"strings"
@@ -9,7 +10,47 @@ import (
 	"github.com/elastic/go-elasticsearch/v8"
 	"github.com/elastic/go-elasticsearch/v8/esapi"
 	"github.com/tidwall/gjson"
+	"github.com/tidwall/pretty"
 )
+
+func toAnySlice[T any](slice []T) []any {
+	result := make([]any, len(slice))
+	for i, v := range slice {
+		result[i] = v
+	}
+	return result
+}
+
+func BuildFunctionScoreDSL(scoreField string, innerQuery map[string]any) string {
+	innerJson, err := json.Marshal(innerQuery)
+	if err != nil {
+		panic(err)
+	}
+
+	dsl := fmt.Sprintf(`
+	{
+		"query": {
+			"function_score": {
+				"query": %s,
+				"boost_mode": "sum",
+				"score_mode": "sum",
+				"functions": [
+					{
+						"field_value_factor": {
+							"field": %q,
+							"factor": 100,
+							"modifier": "log1p",
+							"missing": 0
+						}
+					}
+				]
+			}
+		}
+	}`, innerJson, scoreField)
+
+	// pprintJson(dsl)
+	return dsl
+}
 
 func SearchAndPluck(esClient *elasticsearch.Client, index, dsl string, limit, offset int) ([]int32, error) {
 	req := esapi.SearchRequest{
@@ -44,4 +85,8 @@ func SearchAndPluck(esClient *elasticsearch.Client, index, dsl string, limit, of
 	}
 
 	return result, nil
+}
+
+func pprintJson(j string) {
+	fmt.Println(string(pretty.Pretty([]byte(j))))
 }

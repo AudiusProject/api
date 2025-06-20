@@ -1,4 +1,4 @@
-package searcher
+package esindexer
 
 type TrackIndexer struct {
 	*BaseIndexer

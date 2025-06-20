@@ -1,4 +1,4 @@
-package searcher
+package esindexer
 
 import "github.com/elastic/go-elasticsearch/v8"
 

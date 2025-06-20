@@ -4,13 +4,13 @@ import (
 	"github.com/gofiber/fiber/v2"
 )
 
-func (app *ApiServer) v1UsersSearch(c *fiber.Ctx) error {
-	users, err := app.searchUsers(c)
+func (app *ApiServer) v1TracksSearch(c *fiber.Ctx) error {
+	tracks, err := app.searchTracks(c)
 	if err != nil {
 		return err
 	}
 
 	return c.JSON(fiber.Map{
-		"data": users,
+		"data": tracks,
 	})
 }

@@ -14,7 +14,7 @@ import (
 	"bridgerton.audius.co/api/spl/programs/claimable_tokens"
 	"bridgerton.audius.co/api/spl/programs/reward_manager"
 	"bridgerton.audius.co/config"
-	"bridgerton.audius.co/searcher"
+	"bridgerton.audius.co/esindexer"
 	"bridgerton.audius.co/trashid"
 	"github.com/AudiusProject/audiusd/pkg/rewards"
 	"github.com/AudiusProject/audiusd/pkg/sdk"
@@ -170,7 +170,7 @@ func NewApiServer(config config.Config) *ApiServer {
 		panic(err)
 	}
 
-	esClient, err := searcher.Dial(config.EsUrl)
+	esClient, err := esindexer.Dial(config.EsUrl)
 	if err != nil {
 		panic(err)
 	}
@@ -310,6 +310,7 @@ func NewApiServer(config config.Config) *ApiServer {
 
 		// Tracks
 		g.Get("/tracks", app.v1Tracks)
+		g.Get("/tracks/search", app.v1TracksSearch)
 		g.Get("/tracks/unclaimed_id", app.v1TracksUnclaimedId)
 
 		g.Get("/tracks/trending", app.v1TracksTrending)
@@ -331,6 +332,7 @@ func NewApiServer(config config.Config) *ApiServer {
 
 		// Playlists
 		g.Get("/playlists", app.v1Playlists)
+		g.Get("/playlists/search", app.v1PlaylistsSearch)
 		g.Get("/playlists/unclaimed_id", app.v1PlaylistsUnclaimedId)
 		g.Get("/playlists/trending", app.v1PlaylistsTrending)
 		g.Get("/playlists/by_permalink/:handle/:slug", app.v1PlaylistByPermalink)

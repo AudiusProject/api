@@ -1,4 +1,4 @@
-package searcher
+package esindexer
 
 type PlaylistIndexer struct {
 	*BaseIndexer

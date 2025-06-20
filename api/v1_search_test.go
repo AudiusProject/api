@@ -3,7 +3,7 @@ package api
 import (
 	"testing"
 
-	"bridgerton.audius.co/searcher"
+	"bridgerton.audius.co/esindexer"
 	"github.com/test-go/testify/require"
 )
 
@@ -135,7 +135,7 @@ func TestSearch(t *testing.T) {
 	createFixtures(app, fixtures)
 
 	// index data to ES
-	searcher.Reindex(app.pool, app.esClient, true)
+	esindexer.Reindex(app.pool, app.esClient, true)
 
 	// users:
 	{

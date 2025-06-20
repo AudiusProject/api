@@ -7,7 +7,7 @@ import (
 
 	"bridgerton.audius.co/api"
 	"bridgerton.audius.co/config"
-	"bridgerton.audius.co/searcher"
+	"bridgerton.audius.co/esindexer"
 )
 
 func main() {
@@ -17,7 +17,7 @@ func main() {
 		drop := slices.Contains(collections, "drop")
 		fmt.Println("reindex", "drop", drop, "collections", collections)
 
-		searcher.ReindexLegacy(drop, collections...)
+		esindexer.ReindexLegacy(drop, collections...)
 		return
 	}
 
