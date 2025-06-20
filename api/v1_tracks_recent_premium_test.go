@@ -28,6 +28,7 @@ func TestV1TracksRecentPremium(t *testing.T) {
 	fixtures := FixtureMap{
 		"users": users,
 		"tracks": []map[string]any{
+			// Two tracks from user 1 at the top of the list, should only get one back
 			{
 				"track_id":          1,
 				"owner_id":          1,
