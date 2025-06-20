@@ -29,9 +29,8 @@ func inspectTrack(track dbv1.FullTrack, original bool) (*inspectResponse, error)
 		cid = track.TrackCid.String
 	}
 
-	first, rest := rendezvous.GlobalHasher.ReplicaSet3(cid)
+	hosts := rendezvous.GlobalHasher.Rank(cid)
 
-	hosts := append([]string{first}, rest...)
 	var info blobInspect
 	var lastErr error
 
@@ -48,19 +47,17 @@ func inspectTrack(track dbv1.FullTrack, original bool) (*inspectResponse, error)
 			lastErr = err
 			continue
 		}
+		defer resp.Body.Close()
 
 		if resp.StatusCode != http.StatusOK {
-			resp.Body.Close()
 			lastErr = fmt.Errorf("host %s returned status %d", host, resp.StatusCode)
 			continue
 		}
 
 		if err := json.NewDecoder(resp.Body).Decode(&info); err != nil {
-			resp.Body.Close()
 			lastErr = err
 			continue
 		}
-		resp.Body.Close()
 
 		return &inspectResponse{
 			Size:        info.Size,
