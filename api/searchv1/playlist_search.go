@@ -39,6 +39,8 @@ func (q *PlaylistSearchQuery) Map() map[string]any {
 
 	if q.OnlyVerified {
 		builder.Must(esquery.Term("tracks.user.is_verified", true))
+	} else {
+		builder.Should(esquery.Term("user.is_verified", true))
 	}
 
 	// personalize results

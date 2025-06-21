@@ -3,23 +3,36 @@ package esindexer
 import (
 	"context"
 	"fmt"
-	"io"
 	"log"
 	"strings"
 
 	"github.com/elastic/go-elasticsearch/v8"
 	"github.com/elastic/go-elasticsearch/v8/esutil"
 	"github.com/jackc/pgx/v5/pgxpool"
-	"github.com/tidwall/gjson"
 )
 
-type BaseIndexer struct {
+type collectionConfig struct {
+	indexName string
+	idColumn  string
+	mapping   string
+	sql       string
+}
+
+var collectionConfigs = map[string]collectionConfig{
+	"users":     userConfig,
+	"tracks":    tracksConfig,
+	"playlists": playlistsConfig,
+	"socials":   socialsConfig,
+}
+
+type EsIndexer struct {
 	pool *pgxpool.Pool
 	esc  *elasticsearch.Client
+	// bulk esutil.BulkIndexer
 	drop bool
 }
 
-func (base *BaseIndexer) createIndex(indexName string, mapping string) error {
+func (base *EsIndexer) createIndex(indexName string) error {
 	if base.drop {
 		_, err := base.esc.Indices.Delete([]string{indexName})
 		if err != nil {
@@ -27,10 +40,12 @@ func (base *BaseIndexer) createIndex(indexName string, mapping string) error {
 		}
 	}
 
+	cc := collectionConfigs[indexName]
+
 	res, err := base.esc.Indices.Create(
 		indexName,
 		base.esc.Indices.Create.WithBody(
-			strings.NewReader(mapping),
+			strings.NewReader(cc.mapping),
 		),
 	)
 	if err != nil {
@@ -42,44 +57,11 @@ func (base *BaseIndexer) createIndex(indexName string, mapping string) error {
 	return res.Body.Close()
 }
 
-func (base *BaseIndexer) bulkIndexQuery(index, sql string) error {
-
-	// Get the max updated_at from the Elasticsearch index
-	var maxBlocknumber int64
-
-	if false {
-
-		res, err := base.esc.Search(
-			base.esc.Search.WithIndex(index),
-			base.esc.Search.WithBody(strings.NewReader(`{
-				"size": 0,
-				"aggs": {
-					"max_blocknumber": {
-						"max": {
-							"field": "blocknumber"
-						}
-					}
-				}
-			}`)),
-			base.esc.Search.WithTrackTotalHits(false),
-		)
-		if err != nil {
-			fmt.Println("error querying max_blocknumber:", err)
-			return err
-		}
-		defer res.Body.Close()
-
-		body, _ := io.ReadAll(res.Body)
-		maxBlocknumber = gjson.GetBytes(body, "aggregations.max_blocknumber.value").Int()
-
-		// pprintJson(string(body))
-		fmt.Println("________ maxBlocknumber", maxBlocknumber)
-
-	}
+func (base *EsIndexer) indexAll(indexName string) error {
+	cc := collectionConfigs[indexName]
 
 	ctx := context.Background()
 	bulk, err := esutil.NewBulkIndexer(esutil.BulkIndexerConfig{
-		Index:      index,
 		Client:     base.esc,
 		NumWorkers: 2,
 		Refresh:    "true",
@@ -88,7 +70,7 @@ func (base *BaseIndexer) bulkIndexQuery(index, sql string) error {
 		log.Fatalf("Error creating the indexer: %s", err)
 	}
 
-	rows, err := base.pool.Query(ctx, sql, maxBlocknumber)
+	rows, err := base.pool.Query(ctx, cc.sql)
 	if err != nil {
 		return err
 	}
@@ -104,6 +86,7 @@ func (base *BaseIndexer) bulkIndexQuery(index, sql string) error {
 
 		err = bulk.Add(ctx, esutil.BulkIndexerItem{
 			Action:     "index",
+			Index:      indexName,
 			DocumentID: fmt.Sprintf("%d", id),
 			Body:       strings.NewReader(doc),
 			OnSuccess: func(ctx context.Context, item esutil.BulkIndexerItem, res esutil.BulkIndexerResponseItem) {
@@ -132,7 +115,7 @@ func (base *BaseIndexer) bulkIndexQuery(index, sql string) error {
 		log.Fatalf("Unexpected error: %s", err)
 	}
 
-	fmt.Printf("stats: %s %+v \n", index, bulk.Stats())
+	fmt.Printf("stats: %s %+v \n", indexName, bulk.Stats())
 
 	return nil
 }

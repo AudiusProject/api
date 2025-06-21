@@ -46,71 +46,37 @@ func commonIndexSettings(mapping string) string {
 	return mapping
 }
 
-func reindexPlaylists(base *BaseIndexer) {
-	i := &PlaylistIndexer{base}
+func reindexCollection(i *EsIndexer, collection string) {
 
-	if err := i.createIndex(); err != nil {
+	if err := i.createIndex(collection); err != nil {
 		panic(err)
 	}
-	if err := i.indexAll(); err != nil {
-		panic(err)
-	}
-}
-
-func reindexUsers(base *BaseIndexer) {
-	i := &UserIndexer{base}
-
-	if err := i.createIndex(); err != nil {
-		panic(err)
-	}
-	if err := i.indexAll(); err != nil {
-		panic(err)
-	}
-}
-
-func reindexTracks(base *BaseIndexer) {
-	i := &TrackIndexer{base}
-
-	if err := i.createIndex(); err != nil {
-		panic(err)
-	}
-	if err := i.indexAll(); err != nil {
-		panic(err)
-	}
-}
-
-func reindexSocials(base *BaseIndexer) {
-	i := &SocialIndexer{base}
-
-	if err := i.createIndex(); err != nil {
-		panic(err)
-	}
-	if err := i.indexAll(); err != nil {
+	if err := i.indexAll(collection); err != nil {
 		panic(err)
 	}
 }
 
 func Reindex(pool *pgxpool.Pool, esc *elasticsearch.Client, drop bool, collections ...string) {
 
-	baseIndexer := &BaseIndexer{
+	baseIndexer := &EsIndexer{
 		pool,
 		esc,
 		drop,
 	}
 
-	reindexAll := len(collections) == 0
+	reindexAll := len(collections) == 0 || slices.Contains(collections, "all")
 
 	if reindexAll || slices.Contains(collections, "playlists") {
-		reindexPlaylists(baseIndexer)
+		reindexCollection(baseIndexer, "playlists")
 	}
 	if reindexAll || slices.Contains(collections, "tracks") {
-		reindexTracks(baseIndexer)
+		reindexCollection(baseIndexer, "tracks")
 	}
 	if reindexAll || slices.Contains(collections, "users") {
-		reindexUsers(baseIndexer)
+		reindexCollection(baseIndexer, "users")
 	}
 	if reindexAll || slices.Contains(collections, "socials") {
-		reindexSocials(baseIndexer)
+		reindexCollection(baseIndexer, "socials")
 	}
 
 }

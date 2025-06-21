@@ -1,12 +1,12 @@
 package esindexer
 
 // user id => list of following, repost (tracks), save (tracks), repost (playlists), repost (playlist)
-type SocialIndexer struct {
-	*BaseIndexer
-}
 
-func (ui *SocialIndexer) createIndex() error {
-	mapping := `{
+var socialsConfig = collectionConfig{
+	indexName: "socials",
+	idColumn:  "user_id",
+	mapping: `
+	{
 		"mappings": {
 			"properties": {
 				"saved_track_ids": { "type": "keyword" },
@@ -16,12 +16,8 @@ func (ui *SocialIndexer) createIndex() error {
 				"following_user_ids": { "type": "keyword" }
 			}
 		}
-	}`
-	return ui.BaseIndexer.createIndex("socials", mapping)
-}
-
-func (ui *SocialIndexer) indexAll() error {
-	sql := `
+	}`,
+	sql: `
 	select
 	    user_id,
 	    json_build_object (
@@ -84,13 +80,7 @@ func (ui *SocialIndexer) indexAll() error {
 	from
 	    aggregate_user users
 
-	-- normally blocknumber ($1) would be used as indexing cursor
-	-- but atm there's no way to do the social index incrementally
-	-- so do this to use the $1 parameter
-	WHERE -1 < $1
-
+	-- todo remove
 	LIMIT 1000
-	`
-
-	return ui.bulkIndexQuery("socials", sql)
+	`,
 }

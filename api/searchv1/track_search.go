@@ -74,6 +74,8 @@ func (q *TrackSearchQuery) Map() map[string]any {
 
 	if q.OnlyVerified {
 		builder.Must(esquery.Term("user.is_verified", true))
+	} else {
+		builder.Should(esquery.Term("user.is_verified", true))
 	}
 
 	// boost tracks that are saved / reposted

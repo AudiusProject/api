@@ -20,6 +20,11 @@ production::
 	ssh prod-discovery-4 -t 'cd bridgerton && docker compose up -d --build && docker compose restart bridge'
 	curl 'https://bridgerton.audius.co'
 
+esindexer::
+	mkdir -p build/production
+	CGO_ENABLED=0 GOOS=linux GOARCH=amd64 go build -o build/production/bridge-amd64
+	rsync -ravz build/production/ prod-elasticsearch:esindexer
+
 psql::
 	docker compose exec db psql -U postgres
 
