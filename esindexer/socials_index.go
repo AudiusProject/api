@@ -79,8 +79,6 @@ var socialsConfig = collectionConfig{
 	    ) as doc
 	from
 	    aggregate_user users
-
-	-- todo remove
-	LIMIT 1000
+	where 1=1
 	`,
 }

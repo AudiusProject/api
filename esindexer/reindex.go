@@ -7,6 +7,7 @@ import (
 
 	"bridgerton.audius.co/config"
 	"github.com/elastic/go-elasticsearch/v8"
+	"github.com/elastic/go-elasticsearch/v8/esutil"
 	"github.com/jackc/pgx/v5/pgxpool"
 	"github.com/tidwall/sjson"
 )
@@ -58,26 +59,45 @@ func reindexCollection(i *EsIndexer, collection string) {
 
 func Reindex(pool *pgxpool.Pool, esc *elasticsearch.Client, drop bool, collections ...string) {
 
-	baseIndexer := &EsIndexer{
+	bulk, err := esutil.NewBulkIndexer(esutil.BulkIndexerConfig{
+		Client:     esc,
+		NumWorkers: 2,
+		Refresh:    "true",
+	})
+	if err != nil {
+		log.Fatalf("Error creating the indexer: %s", err)
+	}
+
+	esIndexer := &EsIndexer{
 		pool,
 		esc,
+		bulk,
 		drop,
+	}
+
+	// this is just a "listen" demo for now...
+	// this will block forever
+	// todo: need to figure out if this runs after any re-index, or concurrently...
+	if slices.Contains(collections, "listen") {
+		esIndexer.listen()
 	}
 
 	reindexAll := len(collections) == 0 || slices.Contains(collections, "all")
 
 	if reindexAll || slices.Contains(collections, "playlists") {
-		reindexCollection(baseIndexer, "playlists")
+		reindexCollection(esIndexer, "playlists")
 	}
 	if reindexAll || slices.Contains(collections, "tracks") {
-		reindexCollection(baseIndexer, "tracks")
+		reindexCollection(esIndexer, "tracks")
 	}
 	if reindexAll || slices.Contains(collections, "users") {
-		reindexCollection(baseIndexer, "users")
+		reindexCollection(esIndexer, "users")
 	}
 	if reindexAll || slices.Contains(collections, "socials") {
-		reindexCollection(baseIndexer, "socials")
+		reindexCollection(esIndexer, "socials")
 	}
+
+	esIndexer.bulk.Close(context.Background())
 
 }
 

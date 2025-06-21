@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"log"
+	"strconv"
 	"strings"
 
 	"github.com/elastic/go-elasticsearch/v8"
@@ -28,49 +29,68 @@ var collectionConfigs = map[string]collectionConfig{
 type EsIndexer struct {
 	pool *pgxpool.Pool
 	esc  *elasticsearch.Client
-	// bulk esutil.BulkIndexer
+	bulk esutil.BulkIndexer
 	drop bool
 }
 
-func (base *EsIndexer) createIndex(indexName string) error {
-	if base.drop {
-		_, err := base.esc.Indices.Delete([]string{indexName})
+func (indexer *EsIndexer) createIndex(collection string) error {
+	cc := collectionConfigs[collection]
+
+	if indexer.drop {
+		_, err := indexer.esc.Indices.Delete([]string{cc.indexName})
 		if err != nil {
-			fmt.Println("drop error", indexName, err)
+			fmt.Println("drop error", cc.indexName, err)
 		}
 	}
 
-	cc := collectionConfigs[indexName]
-
-	res, err := base.esc.Indices.Create(
-		indexName,
-		base.esc.Indices.Create.WithBody(
+	res, err := indexer.esc.Indices.Create(
+		cc.indexName,
+		indexer.esc.Indices.Create.WithBody(
 			strings.NewReader(cc.mapping),
 		),
 	)
 	if err != nil {
-		fmt.Println("create index error", indexName, err)
+		fmt.Println("create index error", cc.indexName, err)
 		return err
 	}
 
-	fmt.Println("created index", indexName)
+	fmt.Println("created index", cc.indexName)
 	return res.Body.Close()
 }
 
-func (base *EsIndexer) indexAll(indexName string) error {
-	cc := collectionConfigs[indexName]
+func (indexer *EsIndexer) indexAll(collection string) error {
+	cc := collectionConfigs[collection]
 
-	ctx := context.Background()
-	bulk, err := esutil.NewBulkIndexer(esutil.BulkIndexerConfig{
-		Client:     base.esc,
-		NumWorkers: 2,
-		Refresh:    "true",
-	})
+	err := indexer.indexSql(cc.indexName, cc.sql)
 	if err != nil {
-		log.Fatalf("Error creating the indexer: %s", err)
+		return err
 	}
 
-	rows, err := base.pool.Query(ctx, cc.sql)
+	fmt.Printf("stats: %s %+v \n", collection, indexer.bulk.Stats())
+
+	return nil
+}
+
+func (indexer *EsIndexer) indexIds(collection string, ids ...int64) error {
+	cc := collectionConfigs[collection]
+	stringIds := make([]string, len(ids))
+	for idx, id := range ids {
+		stringIds[idx] = strconv.Itoa(int(id))
+	}
+
+	sql := fmt.Sprintf("%s WHERE %s IN (%s)",
+		cc.sql,
+		cc.idColumn,
+		strings.Join(stringIds, ","))
+
+	return indexer.indexSql(cc.indexName, sql)
+}
+
+func (indexer *EsIndexer) indexSql(indexName, sql string) error {
+
+	ctx := context.Background()
+
+	rows, err := indexer.pool.Query(ctx, sql)
 	if err != nil {
 		return err
 	}
@@ -84,7 +104,7 @@ func (base *EsIndexer) indexAll(indexName string) error {
 			continue
 		}
 
-		err = bulk.Add(ctx, esutil.BulkIndexerItem{
+		err = indexer.bulk.Add(ctx, esutil.BulkIndexerItem{
 			Action:     "index",
 			Index:      indexName,
 			DocumentID: fmt.Sprintf("%d", id),
@@ -107,15 +127,5 @@ func (base *EsIndexer) indexAll(indexName string) error {
 		}
 	}
 
-	if err := rows.Err(); err != nil {
-		fmt.Println("rows error:", err)
-	}
-
-	if err := bulk.Close(context.Background()); err != nil {
-		log.Fatalf("Unexpected error: %s", err)
-	}
-
-	fmt.Printf("stats: %s %+v \n", indexName, bulk.Stats())
-
-	return nil
+	return rows.Err()
 }

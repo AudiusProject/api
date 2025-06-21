@@ -1,8 +1,8 @@
 package esindexer
 
 var tracksConfig = collectionConfig{
-	// indexName: ,
-	idColumn: "track_id",
+	indexName: "tracks",
+	idColumn:  "track_id",
 	mapping: `
 	{
 		"mappings": {
@@ -49,7 +49,5 @@ var tracksConfig = collectionConfig{
 	AND tracks.is_available = true
 	AND users.is_available = true
 	AND users.is_deactivated = false
-
-	-- LIMIT 1000
 	`,
 }

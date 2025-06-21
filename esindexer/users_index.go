@@ -1,7 +1,8 @@
 package esindexer
 
 var userConfig = collectionConfig{
-	idColumn: "user_id",
+	indexName: "users",
+	idColumn:  "user_id",
 	sql: `
 	SELECT
 		user_id,
