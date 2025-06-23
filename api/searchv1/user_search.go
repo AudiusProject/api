@@ -10,6 +10,7 @@ type UserSearchQuery struct {
 	Query       string `json:"query"`
 	IsVerified  bool   `json:"is_verified"`
 	IsTagSearch bool
+	Genres      []string
 	MyID        int32 `json:"my_id"`
 }
 
@@ -27,6 +28,15 @@ func (q *UserSearchQuery) Map() map[string]any {
 		)
 	} else {
 		builder.Must(esquery.MatchAll())
+	}
+
+	if len(q.Genres) > 0 {
+		builder.Must(esquery.Range("track_count").Gt(0))
+		builder.Filter(esquery.Terms("tracks.genre.keyword", toAnySlice(q.Genres)...))
+		// by using a match query... the TF/IDF will apply to tracks.  Which will rank profiles higher if they have a larger proportion of genre
+		for _, value := range q.Genres {
+			builder.Should(esquery.Match("tracks.genre", value)).Boost(10)
+		}
 	}
 
 	if q.MyID > 0 {

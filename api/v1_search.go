@@ -89,6 +89,7 @@ func (app *ApiServer) searchUsers(c *fiber.Ctx) ([]dbv1.FullUser, error) {
 		Query:       c.Query("query"),
 		IsVerified:  c.QueryBool("is_verified"),
 		IsTagSearch: isTagSearch,
+		Genres:      queryMutli(c, "genre"),
 		MyID:        myId,
 	}
 

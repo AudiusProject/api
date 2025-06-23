@@ -54,11 +54,11 @@ func (q *TrackSearchQuery) Map() map[string]any {
 	}
 
 	if len(q.Genres) > 0 {
-		builder.Filter(esquery.Terms("genre", toAnySlice(q.Genres)...))
+		builder.Filter(esquery.Terms("genre.keyword", toAnySlice(q.Genres)...))
 	}
 
 	if len(q.Moods) > 0 {
-		builder.Filter(esquery.Terms("mood", toAnySlice(q.Moods)...))
+		builder.Filter(esquery.Terms("mood.keyword", toAnySlice(q.Moods)...))
 	}
 
 	if len(q.MusicalKeys) > 0 {

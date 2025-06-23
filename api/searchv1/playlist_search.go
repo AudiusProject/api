@@ -30,11 +30,19 @@ func (q *PlaylistSearchQuery) Map() map[string]any {
 	builder.Filter(esquery.Term("is_album", q.IsAlbum))
 
 	if len(q.Genres) > 0 {
-		builder.Filter(esquery.Terms("tracks.genre", toAnySlice(q.Genres)...))
+		builder.Filter(esquery.Terms("tracks.genre.keyword", toAnySlice(q.Genres)...))
+		// by using a match query... the TF/IDF will apply to tracks.  Which will rank playlists higher if they have a larger proportion of genre
+		for _, value := range q.Genres {
+			builder.Should(esquery.Match("tracks.genre", value)).Boost(10)
+		}
 	}
 
 	if len(q.Moods) > 0 {
-		builder.Filter(esquery.Terms("tracks.mood", toAnySlice(q.Moods)...))
+		builder.Filter(esquery.Terms("tracks.mood.keyword", toAnySlice(q.Moods)...))
+		// by using a match query... the TF/IDF will apply to tracks.  Which will rank playlists higher if they have a larger proportion of mood
+		for _, value := range q.Genres {
+			builder.Should(esquery.Match("tracks.mood", value)).Boost(10)
+		}
 	}
 
 	if q.OnlyVerified {
