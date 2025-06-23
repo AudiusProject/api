@@ -40,6 +40,7 @@ SELECT
   release_date,
   repost_count,
   save_count as favorite_count,
+  -- Note: this comment count is not accurate as it is not contextual to the user or filtered for abuse
   comment_count,
   tags,
   title,
