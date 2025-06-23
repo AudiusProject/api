@@ -71,7 +71,7 @@ func TestV1TracksRecentPremium(t *testing.T) {
 	createFixtures(app, fixtures)
 
 	{
-		status, body := testGet(t, app, "/v1/full/tracks/recent_premium")
+		status, body := testGet(t, app, "/v1/full/tracks/recent-premium")
 		assert.Equal(t, 200, status)
 
 		jsonAssert(t, body, map[string]any{
@@ -90,7 +90,7 @@ func TestV1TracksRecentPremium(t *testing.T) {
 	}
 
 	{
-		status, body := testGet(t, app, "/v1/tracks/recent_premium")
+		status, body := testGet(t, app, "/v1/tracks/recent-premium")
 		assert.Equal(t, 200, status)
 
 		jsonAssert(t, body, map[string]any{
@@ -104,7 +104,7 @@ func TestV1TracksRecentPremium(t *testing.T) {
 	}
 
 	{
-		status, body := testGet(t, app, "/v1/tracks/recent_premium?limit=1&offset=1")
+		status, body := testGet(t, app, "/v1/tracks/recent-premium?limit=1&offset=1")
 		assert.Equal(t, 200, status)
 
 		jsonAssert(t, body, map[string]any{
@@ -118,27 +118,27 @@ func TestV1TracksRecentPremiumInvalidParams(t *testing.T) {
 	app := emptyTestApp(t)
 
 	{
-		status, _ := testGet(t, app, "/v1/tracks/recent_premium?limit=-1")
+		status, _ := testGet(t, app, "/v1/tracks/recent-premium?limit=-1")
 		assert.Equal(t, 400, status)
 	}
 
 	{
-		status, _ := testGet(t, app, "/v1/tracks/recent_premium?offset=-1")
+		status, _ := testGet(t, app, "/v1/tracks/recent-premium?offset=-1")
 		assert.Equal(t, 400, status)
 	}
 
 	{
-		status, _ := testGet(t, app, "/v1/tracks/recent_premium?limit=101")
+		status, _ := testGet(t, app, "/v1/tracks/recent-premium?limit=101")
 		assert.Equal(t, 400, status)
 	}
 
 	{
-		status, _ := testGet(t, app, "/v1/tracks/recent_premium?limit=invalid")
+		status, _ := testGet(t, app, "/v1/tracks/recent-premium?limit=invalid")
 		assert.Equal(t, 400, status)
 	}
 
 	{
-		status, _ := testGet(t, app, "/v1/tracks/recent_premium?offset=invalid")
+		status, _ := testGet(t, app, "/v1/tracks/recent-premium?offset=invalid")
 		assert.Equal(t, 400, status)
 	}
 }

@@ -333,7 +333,7 @@ func NewApiServer(config config.Config) *ApiServer {
 		g.Get("/tracks/trending/ids", app.v1TracksTrendingIds)
 		g.Get("/tracks/trending/underground", app.v1TracksTrendingUnderground)
 		g.Get("/tracks/recommended", app.v1TracksTrending)
-		g.Get("/tracks/recent_premium", app.v1TracksRecentPremium)
+		g.Get("/tracks/recent-premium", app.v1TracksRecentPremium)
 		g.Get("/tracks/usdc-purchase", app.v1TracksUsdcPurchase)
 		g.Get("/tracks/inspect", app.v1TracksInspect)
 
@@ -362,7 +362,7 @@ func NewApiServer(config config.Config) *ApiServer {
 		g.Get("/playlists/:playlistId/favorites", app.v1PlaylistFavorites)
 
 		// Explore
-		g.Get("/explore/best_selling", app.v1ExploreBestSelling)
+		g.Get("/explore/best-selling", app.v1ExploreBestSelling)
 
 		// Developer Apps
 		g.Get("/developer_apps/:address", app.v1DeveloperApps)

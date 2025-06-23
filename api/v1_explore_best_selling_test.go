@@ -288,7 +288,7 @@ func TestExploreBestSelling(t *testing.T) {
 			}
 		}
 
-		status, body := testGet(t, app, "/v1/full/explore/best_selling", &BestSellingResponse)
+		status, body := testGet(t, app, "/v1/full/explore/best-selling", &BestSellingResponse)
 		assert.Equal(t, 200, status)
 
 		jsonAssert(t, body, map[string]any{
@@ -316,7 +316,7 @@ func TestExploreBestSelling(t *testing.T) {
 
 	// Remaining tests use min endpoints
 	{
-		status, body := testGet(t, app, "/v1/explore/best_selling?type=all&limit=2")
+		status, body := testGet(t, app, "/v1/explore/best-selling?type=all&limit=2")
 		assert.Equal(t, 200, status)
 
 		jsonAssert(t, body, map[string]any{
@@ -329,7 +329,7 @@ func TestExploreBestSelling(t *testing.T) {
 	}
 
 	{
-		status, body := testGet(t, app, "/v1/explore/best_selling?limit=1&offset=3")
+		status, body := testGet(t, app, "/v1/explore/best-selling?limit=1&offset=3")
 		assert.Equal(t, 200, status)
 
 		jsonAssert(t, body, map[string]any{
@@ -340,7 +340,7 @@ func TestExploreBestSelling(t *testing.T) {
 	}
 
 	{
-		status, body := testGet(t, app, "/v1/explore/best_selling?type=track")
+		status, body := testGet(t, app, "/v1/explore/best-selling?type=track")
 		assert.Equal(t, 200, status)
 
 		jsonAssert(t, body, map[string]any{
@@ -355,7 +355,7 @@ func TestExploreBestSelling(t *testing.T) {
 	}
 
 	{
-		status, body := testGet(t, app, "/v1/explore/best_selling?type=album")
+		status, body := testGet(t, app, "/v1/explore/best-selling?type=album")
 		assert.Equal(t, 200, status)
 
 		jsonAssert(t, body, map[string]any{
@@ -375,27 +375,27 @@ func TestExploreBestSellingInvalidParams(t *testing.T) {
 	app := emptyTestApp(t)
 
 	{
-		status, _ := testGet(t, app, "/v1/explore/best_selling?type=invalid")
+		status, _ := testGet(t, app, "/v1/explore/best-selling?type=invalid")
 		assert.Equal(t, 400, status)
 	}
 
 	{
-		status, _ := testGet(t, app, "/v1/explore/best_selling?limit=-1")
+		status, _ := testGet(t, app, "/v1/explore/best-selling?limit=-1")
 		assert.Equal(t, 400, status)
 	}
 
 	{
-		status, _ := testGet(t, app, "/v1/explore/best_selling?limit=101")
+		status, _ := testGet(t, app, "/v1/explore/best-selling?limit=101")
 		assert.Equal(t, 400, status)
 	}
 
 	{
-		status, _ := testGet(t, app, "/v1/explore/best_selling?offset=-1")
+		status, _ := testGet(t, app, "/v1/explore/best-selling?offset=-1")
 		assert.Equal(t, 400, status)
 	}
 
 	{
-		status, _ := testGet(t, app, "/v1/explore/best_selling?type=invalid")
+		status, _ := testGet(t, app, "/v1/explore/best-selling?type=invalid")
 		assert.Equal(t, 400, status)
 	}
 }
