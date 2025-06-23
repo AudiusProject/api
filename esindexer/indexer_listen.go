@@ -88,7 +88,10 @@ func (indexer *EsIndexer) listen() error {
 		return nil
 	}))
 
-	// listener.Handle("listens", logNotify)
+	// this fires all the time...
+	// but we're not even indexing play_count atm...
+	// todo: index play count
+	// also... we might not need to update this so often...
 	// listener.Handle("aggregate_plays", logNotify)
 
 	fmt.Println("🚀 Starting listener...")

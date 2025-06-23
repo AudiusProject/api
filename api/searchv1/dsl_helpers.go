@@ -32,14 +32,14 @@ func BuildFunctionScoreDSL(scoreField string, innerQuery map[string]any) string 
 		"query": {
 			"function_score": {
 				"query": %s,
-				"boost_mode": "sum",
-				"score_mode": "sum",
+				"boost_mode": "multiply",
+				"score_mode": "multiply",
 				"functions": [
 					{
 						"field_value_factor": {
 							"field": %q,
 							"factor": 100,
-							"modifier": "log1p",
+							"modifier": "ln2p",
 							"missing": 0
 						}
 					}

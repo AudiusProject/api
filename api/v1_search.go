@@ -163,6 +163,7 @@ func (app *ApiServer) searchPlaylists(c *fiber.Ctx) ([]dbv1.FullPlaylist, error)
 			Ids:  playlistsIds,
 			MyID: myId,
 		},
+		OmitTracks: true,
 	})
 	return playlists, err
 }
@@ -193,6 +194,7 @@ func (app *ApiServer) searchAlbums(c *fiber.Ctx) ([]dbv1.FullPlaylist, error) {
 			Ids:  playlistsIds,
 			MyID: myId,
 		},
+		OmitTracks: true,
 	})
 	return playlists, err
 }
