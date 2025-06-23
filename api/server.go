@@ -177,6 +177,7 @@ func NewApiServer(config config.Config) *ApiServer {
 			JSONDecoder:    json.Unmarshal,
 			ErrorHandler:   errorHandler(logger),
 			ReadBufferSize: 32_768,
+			UnescapePath:   true,
 		}),
 		pool:                  pool,
 		queries:               dbv1.New(pool),
