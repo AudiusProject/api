@@ -1,0 +1,44 @@
+package logging
+
+import (
+	"os"
+
+	"bridgerton.audius.co/config"
+	adapter "github.com/axiomhq/axiom-go/adapters/zap"
+	"github.com/axiomhq/axiom-go/axiom"
+	"go.uber.org/zap"
+	"go.uber.org/zap/zapcore"
+)
+
+func NewZapLogger(config config.Config) *zap.Logger {
+	// stdout core
+	encoderConfig := zap.NewProductionEncoderConfig()
+	encoderConfig.EncodeTime = zapcore.ISO8601TimeEncoder
+	consoleEncoder := zapcore.NewJSONEncoder(encoderConfig)
+	stdoutCore := zapcore.NewCore(
+		consoleEncoder,
+		zapcore.AddSync(os.Stdout),
+		zapcore.InfoLevel,
+	)
+
+	var core zapcore.Core = stdoutCore
+
+	// axiom core, if token and dataset are provided
+	if config.AxiomToken != "" && config.AxiomDataset != "" {
+		axiomAdapter, err := adapter.New(
+			adapter.SetClientOptions(
+				axiom.SetAPITokenConfig(config.AxiomToken),
+				axiom.SetOrganizationID("audius-Lu52"),
+			),
+			adapter.SetDataset(config.AxiomDataset),
+		)
+		if err != nil {
+			panic(err)
+		}
+
+		core = zapcore.NewTee(stdoutCore, axiomAdapter)
+	}
+
+	logger := zap.New(core)
+	return logger
+}

@@ -12,6 +12,7 @@ import (
 
 	"bridgerton.audius.co/api/dbv1"
 	"bridgerton.audius.co/config"
+	"bridgerton.audius.co/logging"
 	"bridgerton.audius.co/solana/spl"
 	"bridgerton.audius.co/solana/spl/programs/claimable_tokens"
 	"bridgerton.audius.co/solana/spl/programs/reward_manager"
@@ -19,8 +20,6 @@ import (
 	"github.com/AudiusProject/audiusd/pkg/rewards"
 	"github.com/AudiusProject/audiusd/pkg/sdk"
 	"github.com/Doist/unfurlist"
-	adapter "github.com/axiomhq/axiom-go/adapters/zap"
-	"github.com/axiomhq/axiom-go/axiom"
 	"github.com/ethereum/go-ethereum/crypto"
 	"github.com/gagliardetto/solana-go/rpc"
 	"github.com/gofiber/contrib/fiberzap/v2"
@@ -37,41 +36,7 @@ import (
 	"github.com/mcuadros/go-defaults"
 	"github.com/segmentio/encoding/json"
 	"go.uber.org/zap"
-	"go.uber.org/zap/zapcore"
 )
-
-func InitLogger(config config.Config) *zap.Logger {
-	// stdout core
-	encoderConfig := zap.NewProductionEncoderConfig()
-	encoderConfig.EncodeTime = zapcore.ISO8601TimeEncoder
-	consoleEncoder := zapcore.NewJSONEncoder(encoderConfig)
-	stdoutCore := zapcore.NewCore(
-		consoleEncoder,
-		zapcore.AddSync(os.Stdout),
-		zapcore.InfoLevel,
-	)
-
-	var core zapcore.Core = stdoutCore
-
-	// axiom core, if token and dataset are provided
-	if config.AxiomToken != "" && config.AxiomDataset != "" {
-		axiomAdapter, err := adapter.New(
-			adapter.SetClientOptions(
-				axiom.SetAPITokenConfig(config.AxiomToken),
-				axiom.SetOrganizationID("audius-Lu52"),
-			),
-			adapter.SetDataset(config.AxiomDataset),
-		)
-		if err != nil {
-			panic(err)
-		}
-
-		core = zapcore.NewTee(stdoutCore, axiomAdapter)
-	}
-
-	logger := zap.New(core)
-	return logger
-}
 
 func RequestTimer() fiber.Handler {
 	return func(c *fiber.Ctx) error {
@@ -81,10 +46,11 @@ func RequestTimer() fiber.Handler {
 }
 
 func NewApiServer(config config.Config) *ApiServer {
-	logger := InitLogger(config)
+	logger := logging.NewZapLogger(config).
+		With(zap.String("service", "ApiServer"))
 	requestValidator := initRequestValidator()
 
-	connConfig, err := pgxpool.ParseConfig(config.DbUrl)
+	connConfig, err := pgxpool.ParseConfig(config.ReadDbUrl)
 	if err != nil {
 		logger.Error("db connect failed", zap.Error(err))
 	}
