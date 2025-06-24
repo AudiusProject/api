@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"log"
+	"log/slog"
 	"strconv"
 	"strings"
 
@@ -72,16 +73,22 @@ func (indexer *EsIndexer) indexAll(collection string) error {
 }
 
 func (indexer *EsIndexer) indexIds(collection string, ids ...int64) error {
+	if len(ids) == 0 {
+		return nil
+	}
+
 	cc := collectionConfigs[collection]
 	stringIds := make([]string, len(ids))
 	for idx, id := range ids {
 		stringIds[idx] = strconv.Itoa(int(id))
 	}
 
-	sql := fmt.Sprintf("%s WHERE %s IN (%s)",
+	sql := fmt.Sprintf("%s AND %s IN (%s)",
 		cc.sql,
 		cc.idColumn,
 		strings.Join(stringIds, ","))
+
+	slog.Info("index", "collection", collection, "ids", ids)
 
 	return indexer.indexSql(cc.indexName, sql)
 }
@@ -128,4 +135,64 @@ func (indexer *EsIndexer) indexSql(indexName, sql string) error {
 	}
 
 	return rows.Err()
+}
+
+// this uses painless to 'patch' a `socials` doc to add / remove an entity ID from a list of ids.
+// without forcing postgres to re-do the socials query from scratch.
+// If missing (i.e. for a new user) it will fall back to re-doing from scratch.
+// This might be a "too clever by half" type of thing... in which case, the listener could just use `indexIds`
+// like the other collections
+func (indexer *EsIndexer) scriptedUpdateSocial(userId int64, fieldName string, entityId int64, isDelete bool) {
+	painlessAddEntity := `
+	def user = ctx._source;
+	if (!user[params.fieldName].contains(params.entityId)) {
+		user[params.fieldName].add(params.entityId);
+	} else {
+		ctx.op = 'noop'
+	}
+	`
+
+	painlessRemoveEntity := `
+	def user = ctx._source;
+	def idx = user[params.fieldName].indexOf(params.entityId);
+	if (idx > -1) {
+		user[params.fieldName].remove(idx);
+	} else {
+		ctx.op = 'noop'
+	}
+	`
+
+	script := painlessAddEntity
+	if isDelete {
+		script = painlessRemoveEntity
+	}
+
+	resp, err := indexer.esc.Update(
+		"socials",
+		fmt.Sprintf("%d", userId),
+		strings.NewReader(fmt.Sprintf(`{
+			"script": {
+				"source": %q,
+				"lang": "painless",
+				"params": {
+					"fieldName": %q,
+					"entityId": %d
+				}
+			}
+		}`, script, fieldName, entityId)),
+	)
+	defer resp.Body.Close()
+
+	if err != nil {
+		log.Printf("scripted update error: %v", err)
+	} else if resp.StatusCode != 200 {
+		if err := indexer.indexIds("socials", userId); err != nil {
+			slog.Error("socials indexIds failed", "user", userId, "field", fieldName, "id", entityId, "err", err)
+		} else {
+			slog.Info("socials indexIds", "user", userId, "field", fieldName, "id", entityId)
+		}
+	} else {
+		slog.Info("social update", "user", userId, "field", fieldName, "id", entityId)
+	}
+
 }

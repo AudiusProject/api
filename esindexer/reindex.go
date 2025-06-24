@@ -2,8 +2,12 @@ package esindexer
 
 import (
 	"context"
+	"fmt"
 	"log"
+	"os"
+	"os/signal"
 	"slices"
+	"syscall"
 
 	"bridgerton.audius.co/config"
 	"github.com/elastic/go-elasticsearch/v8"
@@ -79,7 +83,20 @@ func Reindex(pool *pgxpool.Pool, esc *elasticsearch.Client, drop bool, collectio
 	// this will block forever
 	// todo: need to figure out if this runs after any re-index, or concurrently...
 	if slices.Contains(collections, "listen") {
-		esIndexer.listen()
+		ctx, cancel := context.WithCancel(context.Background())
+
+		// Listen for Ctrl+C (SIGINT) and call cancel when received
+		sigCh := make(chan os.Signal, 1)
+		signal.Notify(sigCh, os.Interrupt, syscall.SIGTERM)
+		go func() {
+			<-sigCh
+			fmt.Println("Listen exit")
+			cancel()
+			os.Exit(0)
+		}()
+
+		esIndexer.listen(ctx)
+
 	}
 
 	reindexAll := len(collections) == 0 || slices.Contains(collections, "all")
