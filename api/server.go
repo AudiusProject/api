@@ -343,9 +343,9 @@ func NewApiServer(config config.Config) *ApiServer {
 		g.Get("/playlists/:playlistId/favorites", app.v1PlaylistFavorites)
 
 		// Search
-		g.Get("/search/autocomplete", app.v1SearchAutocomplete)
-		g.Get("/search/full", app.v1SearchAutocomplete)
-		g.Get("/search/tags", app.v1SearchAutocomplete)
+		g.Get("/search/autocomplete", app.v1SearchFull)
+		g.Get("/search/full", app.v1SearchFull)
+		g.Get("/search/tags", app.v1SearchFull)
 
 		// Developer Apps
 		g.Get("/developer_apps/:address", app.v1DeveloperApps)

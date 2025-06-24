@@ -9,7 +9,7 @@ import (
 	"golang.org/x/sync/errgroup"
 )
 
-func (app *ApiServer) v1SearchAutocomplete(c *fiber.Ctx) error {
+func (app *ApiServer) v1SearchFull(c *fiber.Ctx) error {
 	kind := c.Query("kind", "all")
 
 	g := errgroup.Group{}
