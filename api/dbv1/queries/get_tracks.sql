@@ -32,7 +32,7 @@ SELECT
   track_routes.slug as slug,
   duration,
   is_downloadable,
-  aggregate_plays.count as play_count,
+  COALESCE(aggregate_plays.count, 0) as play_count,
   ddex_app,
   pinned_comment_id,
   playlists_containing_track,
