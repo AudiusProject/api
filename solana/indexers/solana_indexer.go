@@ -210,7 +210,7 @@ func (s *SolanaIndexer) backfillAddressTransactions(ctx context.Context, address
 		zap.String("address", address.String()),
 	)
 	logger.Info("starting backfill for address")
-	limit := 10
+	limit := 1000
 	for !foundIntersection {
 		res, err := s.rpcClient.GetSignaturesForAddressWithOpts(
 			ctx,
