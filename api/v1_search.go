@@ -81,6 +81,7 @@ func (app *ApiServer) v1SearchFull(c *fiber.Ctx) error {
 
 func (app *ApiServer) searchUsers(c *fiber.Ctx) ([]dbv1.FullUser, error) {
 	isTagSearch := strings.Contains(c.Route().Path, "search/tags")
+	isFullSearch := strings.Contains(c.Route().Path, "search/full")
 	limit := c.QueryInt("limit", 10)
 	offset := c.QueryInt("offset", 0)
 	myId := app.getMyId(c)
@@ -98,6 +99,11 @@ func (app *ApiServer) searchUsers(c *fiber.Ctx) ([]dbv1.FullUser, error) {
 		return nil, err
 	}
 
+	// savings: only personalize results for "full" endpoint
+	if !isFullSearch {
+		myId = 0
+	}
+
 	users, err := app.queries.FullUsers(c.Context(), dbv1.GetUsersParams{
 		Ids:  userIds,
 		MyID: myId,
@@ -107,6 +113,7 @@ func (app *ApiServer) searchUsers(c *fiber.Ctx) ([]dbv1.FullUser, error) {
 
 func (app *ApiServer) searchTracks(c *fiber.Ctx) ([]dbv1.FullTrack, error) {
 	isTagSearch := strings.Contains(c.Route().Path, "search/tags")
+	isFullSearch := strings.Contains(c.Route().Path, "search/full")
 	limit := c.QueryInt("limit", 10)
 	offset := c.QueryInt("offset", 0)
 	myId := app.getMyId(c)
@@ -130,6 +137,11 @@ func (app *ApiServer) searchTracks(c *fiber.Ctx) ([]dbv1.FullTrack, error) {
 		return nil, err
 	}
 
+	// savings: only personalize results for "full" endpoint
+	if !isFullSearch {
+		myId = 0
+	}
+
 	tracks, err := app.queries.FullTracks(c.Context(), dbv1.FullTracksParams{
 		GetTracksParams: dbv1.GetTracksParams{
 			Ids:  tracksIds,
@@ -141,6 +153,7 @@ func (app *ApiServer) searchTracks(c *fiber.Ctx) ([]dbv1.FullTrack, error) {
 
 func (app *ApiServer) searchPlaylists(c *fiber.Ctx) ([]dbv1.FullPlaylist, error) {
 	isTagSearch := strings.Contains(c.Route().Path, "search/tags")
+	isFullSearch := strings.Contains(c.Route().Path, "search/full")
 	limit := c.QueryInt("limit", 10)
 	offset := c.QueryInt("offset", 0)
 	myId := app.getMyId(c)
@@ -159,6 +172,11 @@ func (app *ApiServer) searchPlaylists(c *fiber.Ctx) ([]dbv1.FullPlaylist, error)
 		return nil, err
 	}
 
+	// savings: only personalize results for "full" endpoint
+	if !isFullSearch {
+		myId = 0
+	}
+
 	playlists, err := app.queries.FullPlaylists(c.Context(), dbv1.FullPlaylistsParams{
 		GetPlaylistsParams: dbv1.GetPlaylistsParams{
 			Ids:  playlistsIds,
@@ -171,6 +189,7 @@ func (app *ApiServer) searchPlaylists(c *fiber.Ctx) ([]dbv1.FullPlaylist, error)
 
 func (app *ApiServer) searchAlbums(c *fiber.Ctx) ([]dbv1.FullPlaylist, error) {
 	isTagSearch := strings.Contains(c.Route().Path, "search/tags")
+	isFullSearch := strings.Contains(c.Route().Path, "search/full")
 	limit := c.QueryInt("limit", 10)
 	offset := c.QueryInt("offset", 0)
 	myId := app.getMyId(c)
@@ -188,6 +207,11 @@ func (app *ApiServer) searchAlbums(c *fiber.Ctx) ([]dbv1.FullPlaylist, error) {
 	playlistsIds, err := searchv1.SearchAndPluck(app.esClient, "playlists", q.DSL(), limit, offset)
 	if err != nil {
 		return nil, err
+	}
+
+	// savings: only personalize results for "full" endpoint
+	if !isFullSearch {
+		myId = 0
 	}
 
 	playlists, err := app.queries.FullPlaylists(c.Context(), dbv1.FullPlaylistsParams{
