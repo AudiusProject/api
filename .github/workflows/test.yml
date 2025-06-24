@@ -17,7 +17,7 @@ jobs:
         run: docker compose version
 
       - name: Build and run services
-        run: docker compose up -d db
+        run: docker compose up -d
 
 
 
