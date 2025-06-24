@@ -18,8 +18,9 @@ func TestGetPlaylist(t *testing.T) {
 	assert.Equal(t, 200, status)
 
 	jsonAssert(t, body, map[string]any{
-		"data.0.id":            "7eP5n",
-		"data.0.playlist_name": "First",
+		"data.0.id":               "7eP5n",
+		"data.0.playlist_name":    "First",
+		"data.0.total_play_count": 0,
 	})
 }
 
