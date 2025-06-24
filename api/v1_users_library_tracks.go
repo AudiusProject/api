@@ -1,6 +1,7 @@
 package api
 
 import (
+	"strings"
 	"time"
 
 	"bridgerton.audius.co/api/dbv1"
@@ -9,13 +10,12 @@ import (
 )
 
 type GetUsersLibraryTracksParams struct {
-	Limit      int    `query:"limit" default:"50" validate:"min=1,max=100"`
-	Offset     int    `query:"offset" default:"0" validate:"min=0"`
-	ActionType string `query:"type" default:"all" validate:"oneof=all favorite repost purchase"`
-	// TODO: Min/max length?
-	// Query      string `query:"query" default:""`
+	Limit         int    `query:"limit" default:"50" validate:"min=1,max=100"`
+	Offset        int    `query:"offset" default:"0" validate:"min=0"`
+	ActionType    string `query:"type" default:"all" validate:"oneof=all favorite repost purchase"`
 	SortMethod    string `query:"sort_method" default:"added_date" validate:"oneof=added_date plays reposts saves title artist_name"`
 	SortDirection string `query:"sort_direction" default:"desc" validate:"oneof=asc desc"`
+	Query         string `query:"query" default:"" validate:"max=250"`
 }
 
 /*
@@ -50,6 +50,14 @@ func (app *ApiServer) v1UsersLibraryTracks(c *fiber.Ctx) error {
 	sortDirection := "DESC"
 	if params.SortDirection == "asc" {
 		sortDirection = "ASC"
+	}
+
+	trackFilters := []string{
+		"(is_unlisted = false OR is_purchase = true)",
+	}
+
+	if params.Query != "" {
+		trackFilters = append(trackFilters, "(title ILIKE @query OR users.name ILIKE @query)")
 	}
 
 	sql := `
@@ -108,7 +116,7 @@ func (app *ApiServer) v1UsersLibraryTracks(c *fiber.Ctx) error {
 	JOIN users ON owner_id = user_id
 	LEFT JOIN aggregate_plays ON track_id = play_item_id
 	LEFT JOIN aggregate_track USING (track_id)
-	WHERE is_unlisted = false OR is_purchase = true
+	WHERE ` + strings.Join(trackFilters, " AND ") + `
 	ORDER BY ` + sortField + ` ` + sortDirection + `
 	LIMIT @limit
 	OFFSET @offset
@@ -119,7 +127,7 @@ func (app *ApiServer) v1UsersLibraryTracks(c *fiber.Ctx) error {
 		"limit":      params.Limit,
 		"offset":     params.Offset,
 		"actionType": params.ActionType,
-		// todo: support search / query param
+		"query":      "%" + strings.ToLower(params.Query) + "%",
 	})
 	if err != nil {
 		return err
