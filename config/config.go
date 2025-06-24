@@ -23,6 +23,8 @@ type Config struct {
 	AntiAbuseOracles   []string
 	Rewards            []rewards.Reward
 	AudiusdURL         string
+	RegistryAddress    string
+	EthRpcUrl          string
 }
 
 var Cfg = Config{
@@ -33,6 +35,8 @@ var Cfg = Config{
 	AxiomDataset:       os.Getenv("axiomDataset"),
 	NetworkTakeRate:    10,
 	AudiusdURL:         os.Getenv("audiusdUrl"),
+	RegistryAddress:    os.Getenv("registryAddress"),
+	EthRpcUrl:          os.Getenv("ethRpcUrl"),
 }
 
 func init() {
@@ -52,6 +56,12 @@ func init() {
 		Cfg.Nodes = DevNodes
 		Cfg.Rewards = core_config.MakeRewards(core_config.DevClaimAuthorities, core_config.DevRewardExtensions)
 		Cfg.AudiusdURL = "http://audius-protocol-creator-node-1"
+		if Cfg.RegistryAddress == "" {
+			Cfg.RegistryAddress = core_config.DevRegistryAddress
+		}
+		if Cfg.EthRpcUrl == "" {
+			Cfg.EthRpcUrl = core_config.DevEthRpc
+		}
 	case "stage":
 		fallthrough
 	case "staging":
@@ -69,6 +79,12 @@ func init() {
 		Cfg.DeadNodes = []string{}
 		Cfg.Rewards = core_config.MakeRewards(core_config.StageClaimAuthorities, core_config.StageRewardExtensions)
 		Cfg.AudiusdURL = "creatornode11.staging.audius.co"
+		if Cfg.RegistryAddress == "" {
+			Cfg.RegistryAddress = core_config.StageRegistryAddress
+		}
+		if Cfg.EthRpcUrl == "" {
+			Cfg.EthRpcUrl = core_config.StageEthRpc
+		}
 	case "prod":
 		fallthrough
 	case "production":
@@ -87,6 +103,12 @@ func init() {
 		}
 		Cfg.Rewards = core_config.MakeRewards(core_config.ProdClaimAuthorities, core_config.ProdRewardExtensions)
 		Cfg.AudiusdURL = "creatornode.audius.co"
+		if Cfg.RegistryAddress == "" {
+			Cfg.RegistryAddress = core_config.ProdRegistryAddress
+		}
+		if Cfg.EthRpcUrl == "" {
+			Cfg.EthRpcUrl = core_config.ProdEthRpc
+		}
 	default:
 		log.Fatalf("Unknown environment: %s", env)
 	}

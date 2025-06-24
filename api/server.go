@@ -14,14 +14,16 @@ import (
 	"bridgerton.audius.co/api/spl"
 	"bridgerton.audius.co/api/spl/programs/claimable_tokens"
 	"bridgerton.audius.co/api/spl/programs/reward_manager"
-	"bridgerton.audius.co/config"
+	bconfig "bridgerton.audius.co/config"
 	"bridgerton.audius.co/trashid"
+	"github.com/AudiusProject/audiusd/pkg/core/contracts"
 	"github.com/AudiusProject/audiusd/pkg/rewards"
 	"github.com/AudiusProject/audiusd/pkg/sdk"
 	"github.com/Doist/unfurlist"
 	adapter "github.com/axiomhq/axiom-go/adapters/zap"
 	"github.com/axiomhq/axiom-go/axiom"
 	"github.com/ethereum/go-ethereum/crypto"
+	"github.com/ethereum/go-ethereum/ethclient"
 	"github.com/gagliardetto/solana-go/rpc"
 	"github.com/gofiber/contrib/fiberzap/v2"
 	"github.com/gofiber/fiber/v2"
@@ -40,7 +42,7 @@ import (
 	"go.uber.org/zap/zapcore"
 )
 
-func InitLogger(config config.Config) *zap.Logger {
+func InitLogger(config bconfig.Config) *zap.Logger {
 	// stdout core
 	encoderConfig := zap.NewProductionEncoderConfig()
 	encoderConfig.EncodeTime = zapcore.ISO8601TimeEncoder
@@ -80,7 +82,7 @@ func RequestTimer() fiber.Handler {
 	}
 }
 
-func NewApiServer(config config.Config) *ApiServer {
+func NewApiServer(config bconfig.Config) *ApiServer {
 	logger := InitLogger(config)
 	requestValidator := initRequestValidator()
 
@@ -139,6 +141,12 @@ func NewApiServer(config config.Config) *ApiServer {
 		panic(err)
 	}
 
+	nodeCache, err := otter.MustBuilder[string, []bconfig.Node](50000).
+		Build()
+	if err != nil {
+		panic(err)
+	}
+
 	privateKey, err := crypto.HexToECDSA(config.DelegatePrivateKey)
 	if err != nil {
 		panic(err)
@@ -170,6 +178,15 @@ func NewApiServer(config config.Config) *ApiServer {
 	}
 
 	auds := sdk.NewAudiusdSDK(config.AudiusdURL)
+	ethClient, err := ethclient.Dial(config.EthRpcUrl)
+	if err != nil {
+		panic(err)
+	}
+
+	ethContracts, err := contracts.NewAudiusContracts(ethClient, config.RegistryAddress)
+	if err != nil {
+		panic(err)
+	}
 
 	app := &ApiServer{
 		App: fiber.New(fiber.Config{
@@ -181,11 +198,14 @@ func NewApiServer(config config.Config) *ApiServer {
 		}),
 		pool:                  pool,
 		queries:               dbv1.New(pool),
+		ethClient:             ethClient,
+		ethContracts:          ethContracts,
 		logger:                logger,
 		started:               time.Now(),
 		resolveHandleCache:    &resolveHandleCache,
 		resolveGrantCache:     &resolveGrantCache,
 		resolveWalletCache:    &resolveWalletCache,
+		nodeCache:             &nodeCache,
 		requestValidator:      requestValidator,
 		rewardAttester:        rewardAttester,
 		transactionSender:     transactionSender,
@@ -452,25 +472,28 @@ type ApiServer struct {
 	*fiber.App
 	pool                  *pgxpool.Pool
 	queries               *dbv1.Queries
+	ethContracts          *contracts.AudiusContracts
+	ethClient             *ethclient.Client
 	logger                *zap.Logger
 	started               time.Time
 	resolveHandleCache    *otter.Cache[string, int32]
 	resolveGrantCache     *otter.Cache[string, bool]
 	resolveWalletCache    *otter.Cache[string, int]
+	nodeCache             *otter.Cache[string, []bconfig.Node]
 	requestValidator      *RequestValidator
 	rewardManagerClient   *reward_manager.RewardManagerClient
 	claimableTokensClient *claimable_tokens.ClaimableTokensClient
 	rewardAttester        *rewards.RewardAttester
 	transactionSender     *spl.TransactionSender
-	solanaConfig          *config.SolanaConfig
+	solanaConfig          *bconfig.SolanaConfig
 	antiAbuseOracles      []string
-	validators            []config.Node
+	validators            []bconfig.Node
 	auds                  *sdk.AudiusdSDK
 }
 
 func (app *ApiServer) home(c *fiber.Ctx) error {
 	return c.JSON(fiber.Map{
-		"env":     config.Cfg.Env,
+		"env":     bconfig.Cfg.Env,
 		"started": app.started,
 		"uptime":  time.Since(app.started).Truncate(time.Second).String(),
 	})
@@ -537,11 +560,19 @@ func (as *ApiServer) Serve() {
 		}
 	}()
 
+	// Create context for graceful shutdown
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+
+	go as.nodePoller(ctx)
+
 	// Graceful shutdown
 	c := make(chan os.Signal, 1)
 	signal.Notify(c, os.Interrupt)
 	go func() {
 		<-c
+		as.logger.Info("shutdown signal received, stopping services...")
+		cancel() // Cancel context to stop nodePoller
 		flushTicker.Stop()
 		as.Shutdown()
 		as.pool.Close()
