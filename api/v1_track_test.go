@@ -18,8 +18,9 @@ func TestGetTrack(t *testing.T) {
 	assert.Equal(t, 200, status)
 
 	jsonAssert(t, body, map[string]any{
-		"data.id":    "eYJyn",
-		"data.title": "Culca Canyon",
+		"data.id":         "eYJyn",
+		"data.title":      "Culca Canyon",
+		"data.play_count": 0,
 	})
 }
 

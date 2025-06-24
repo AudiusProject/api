@@ -6,6 +6,7 @@ import (
 	"net/http"
 	"os"
 	"os/signal"
+	"reflect"
 	"strconv"
 	"time"
 
@@ -185,6 +186,7 @@ func NewApiServer(config config.Config) *ApiServer {
 			JSONDecoder:    json.Unmarshal,
 			ErrorHandler:   errorHandler(logger),
 			ReadBufferSize: 32_768,
+			UnescapePath:   true,
 		}),
 		env:                   config.Env,
 		skipAuthCheck:         skipAuthCheck,
@@ -206,6 +208,26 @@ func NewApiServer(config config.Config) *ApiServer {
 		validators:            config.Nodes,
 		auds:                  auds,
 	}
+
+	// Set up a custom decoder for HashIds so they can be parsed in lists
+	// used in query parameters. Without this, the decoder doesn't know what
+	// to do to parse them into trashid.HashIds
+	fiber.SetParserDecoder(fiber.ParserConfig{
+		SetAliasTag:       "query",
+		IgnoreUnknownKeys: true, // same as default
+		ZeroEmpty:         true, // same as default
+		ParserType: []fiber.ParserType{{
+			Customtype: trashid.HashId(0),
+			Converter: func(s string) reflect.Value {
+				id, err := trashid.DecodeHashId(s)
+				if err != nil {
+					// Return 0 when failing to decode
+					return reflect.Zero(reflect.TypeOf(trashid.HashId(0)))
+				}
+				return reflect.ValueOf(trashid.HashId(id))
+			},
+		}},
+	})
 
 	app.Use(recover.New(recover.Config{
 		EnableStackTrace: true,
@@ -255,10 +277,6 @@ func NewApiServer(config config.Config) *ApiServer {
 	// so add some exclusions here to make `bridge.audius.co` less broken
 	// todo: implement these endpoints in bridgerton.
 	{
-		app.Use("/v1/full/users/top", BalancerForward(config.PythonUpstreams))
-		app.Use("/v1/full/users/genre/top", BalancerForward(config.PythonUpstreams))
-		app.Use("/v1/full/users/subscribers", BalancerForward(config.PythonUpstreams))
-
 		app.Use("/v1/full/playlists/top", BalancerForward(config.PythonUpstreams))
 
 		app.Use("/v1/full/tracks/best_new_releases", BalancerForward(config.PythonUpstreams))
@@ -275,11 +293,14 @@ func NewApiServer(config config.Config) *ApiServer {
 		g.Get("/users", app.v1Users)
 		g.Get("/users/search", app.v1UsersSearch)
 		g.Get("/users/unclaimed_id", app.v1UsersUnclaimedId)
+		g.Get("/users/top", app.v1UsersTop)
+		g.Get("/users/genre/top", app.v1UsersGenreTop)
 		g.Get("/users/account/:wallet", app.requireAuthMiddleware, app.v1UsersAccount)
 
 		g.Use("/users/handle/:handle", app.requireHandleMiddleware)
 		g.Get("/users/handle/:handle", app.v1User)
 		g.Get("/users/handle/:handle/tracks", app.v1UserTracks)
+		g.Get("/users/handle/:handle/tracks/ai_attributed", app.v1UserTracksAiAttributed)
 		g.Get("/users/handle/:handle/reposts", app.v1UsersReposts)
 
 		g.Use("/users/:userId", app.requireUserIdMiddleware)
@@ -288,6 +309,7 @@ func NewApiServer(config config.Config) *ApiServer {
 		g.Get("/users/:userId/comments", app.v1UsersComments)
 		g.Get("/users/:userId/followers", app.v1UsersFollowers)
 		g.Get("/users/:userId/following", app.v1UsersFollowing)
+		g.Get("/users/:userId/favorites", app.v1UsersFavorites)
 		g.Get("/users/:userId/library/tracks", app.v1UsersLibraryTracks)
 		g.Get("/users/:userId/library/:playlistType", app.v1UsersLibraryPlaylists)
 		g.Get("/users/:userId/managers", app.v1UsersManagers)
@@ -296,7 +318,9 @@ func NewApiServer(config config.Config) *ApiServer {
 		g.Get("/users/:userId/reposts", app.v1UsersReposts)
 		g.Get("/users/:userId/related", app.v1UsersRelated)
 		g.Get("/users/:userId/supporting", app.v1UsersSupporting)
+		g.Get("/users/:userId/supporting/:supportedUserId", app.v1UsersSupporting)
 		g.Get("/users/:userId/supporters", app.v1UsersSupporters)
+		g.Get("/users/:userId/supporters/:supporterUserId", app.v1UsersSupporters)
 		g.Get("/users/:userId/tags", app.v1UsersTags)
 		g.Get("/users/:userId/tracks", app.v1UserTracks)
 		g.Get("/users/:userId/feed", app.v1UsersFeed)
@@ -307,6 +331,13 @@ func NewApiServer(config config.Config) *ApiServer {
 		g.Get("/users/:userId/transactions/usdc/count", app.v1UsersTransactionsUsdcCount)
 		g.Get("/users/:userId/history/tracks", app.v1UsersHistory)
 		g.Get("/users/:userId/listen_counts_monthly", app.v1UsersListenCountsMonthly)
+		g.Get("/users/:userId/purchases", app.v1UsersPurchases)
+		g.Get("/users/:userId/purchases/count", app.v1UsersPurchasesCount)
+		g.Get("/users/:userId/sales", app.v1UsersSales)
+		g.Get("/users/:userId/sales/count", app.v1UsersSalesCount)
+		g.Get("/users/:userId/muted", app.v1UsersMuted)
+		g.Get("/users/:userId/subscribers", app.v1UsersSubscribers)
+		g.Get("/users/:userId/recommended-tracks", app.v1UsersRecommendedTracks)
 
 		// Tracks
 		g.Get("/tracks", app.v1Tracks)
@@ -317,6 +348,7 @@ func NewApiServer(config config.Config) *ApiServer {
 		g.Get("/tracks/trending/ids", app.v1TracksTrendingIds)
 		g.Get("/tracks/trending/underground", app.v1TracksTrendingUnderground)
 		g.Get("/tracks/recommended", app.v1TracksTrending)
+		g.Get("/tracks/recent-premium", app.v1TracksRecentPremium)
 		g.Get("/tracks/usdc-purchase", app.v1TracksUsdcPurchase)
 		g.Get("/tracks/inspect", app.v1TracksInspect)
 
@@ -327,8 +359,13 @@ func NewApiServer(config config.Config) *ApiServer {
 		g.Get("/tracks/:trackId/inspect", app.v1TrackInspect)
 		g.Get("/tracks/:trackId/remixes", app.v1TrackRemixes)
 		g.Get("/tracks/:trackId/reposts", app.v1TrackReposts)
+		g.Get("/tracks/:trackId/stems", app.v1TrackStems)
 		g.Get("/tracks/:trackId/favorites", app.v1TrackFavorites)
 		g.Get("/tracks/:trackId/comments", app.v1TrackComments)
+		g.Get("/tracks/:trackId/comment_count", app.v1TrackCommentCount)
+		g.Get("/tracks/:trackId/comment_notification_setting", app.v1TrackCommentNotificationSetting)
+		g.Get("/tracks/:trackId/remixing", app.v1TrackRemixing)
+		g.Get("/tracks/:trackId/top_listeners", app.v1TrackTopListeners)
 
 		// Playlists
 		g.Get("/playlists", app.v1Playlists)
@@ -341,6 +378,9 @@ func NewApiServer(config config.Config) *ApiServer {
 		g.Get("/playlists/:playlistId", app.v1Playlist)
 		g.Get("/playlists/:playlistId/reposts", app.v1PlaylistReposts)
 		g.Get("/playlists/:playlistId/favorites", app.v1PlaylistFavorites)
+
+		// Explore
+		g.Get("/explore/best-selling", app.v1ExploreBestSelling)
 
 		// Search
 		g.Get("/search/autocomplete", app.v1SearchFull)
@@ -410,6 +450,9 @@ func NewApiServer(config config.Config) *ApiServer {
 	comms.Get("/chats/:chatId", app.getChat)
 
 	comms.Get("/blasts", app.getNewBlasts)
+
+	// Block confirmation
+	app.Get("/block_confirmation", app.BlockConfirmation)
 
 	app.Static("/", "./static")
 

@@ -8,8 +8,8 @@ import (
 )
 
 type GetUsersListenCountsMonthlyQueryParams struct {
-	StartTime string `query:"start_time" validate:"datetime=2006-01-02"`
-	EndTime   string `query:"end_time" validate:"datetime=2006-01-02"`
+	StartTime string `query:"start_time"`
+	EndTime   string `query:"end_time"`
 }
 
 func (app *ApiServer) v1UsersListenCountsMonthly(c *fiber.Ctx) error {

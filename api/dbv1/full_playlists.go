@@ -197,9 +197,7 @@ func ToMinPlaylist(fullPlaylist FullPlaylist) MinPlaylist {
 		TotalPlayCount: func() int64 {
 			var total int64
 			for _, track := range fullPlaylist.Tracks {
-				if track.PlayCount.Valid {
-					total += track.PlayCount.Int64
-				}
+				total += track.PlayCount
 			}
 			return total
 		}(),

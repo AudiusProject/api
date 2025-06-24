@@ -115,6 +115,7 @@ func testAppWithFixtures(t *testing.T) *ApiServer {
 	insertFixturesFromArray(app, "playlist_routes", testdata.PlaylistRoutesFixtures)
 	insertFixturesFromArray(app, "playlist_trending_scores", testdata.PlaylistTrendingScores)
 	insertFixturesFromArray(app, "reposts", testdata.RepostFixtures)
+	insertFixturesFromArray(app, "saves", testdata.SaveFixtures)
 	insertFixturesFromArray(app, "tracks", testdata.TrackFixtures)
 	insertFixturesFromArray(app, "track_trending_scores", testdata.TrackTrendingScoresFixtures)
 	insertFixturesFromArray(app, "track_routes", testdata.TrackRoutesFixtures)

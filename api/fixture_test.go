@@ -69,6 +69,13 @@ var (
 			"is_scheduled_release":   false,
 			"stream_conditions":      "{}",
 		},
+		"playlist_tracks": {
+			"playlist_id": nil,
+			"track_id":    nil,
+			"created_at":  time.Now(),
+			"updated_at":  time.Now(),
+			"is_removed":  false,
+		},
 		"follows": {
 			"blockhash":        "block1",
 			"blocknumber":      101,
@@ -92,6 +99,19 @@ var (
 			"txhash":            "tx_456def",
 			"slot":              500,
 			"is_save_of_repost": false,
+		},
+		"plays": {
+			"id":           nil,
+			"play_item_id": nil,
+			"source":       "test",
+			"user_id":      nil,
+			"created_at":   time.Now(),
+			"updated_at":   time.Now(),
+			"slot":         500,
+			"signature":    nil,
+			"city":         nil,
+			"region":       nil,
+			"country":      nil,
 		},
 		"reposts": {
 			"blockhash":           "block_abc123",
@@ -196,15 +216,11 @@ var (
 			"blocknumber":  101,
 			"txhash":       "tx123",
 		},
-		"playlist_tracks": {
-			"created_at": time.Now(),
-			"updated_at": time.Now(),
-			"is_removed": false,
-		},
 		"comments": {
 			"entity_type": "Track",
 			"created_at":  time.Now(),
 			"updated_at":  time.Now(),
+			"text":        "",
 			"txhash":      "0x1",
 			"blockhash":   "0x2",
 		},
@@ -277,14 +293,23 @@ var (
 			"change":                 0,
 			"balance":                0,
 		},
-
-		"aggregate_plays":        map[string]any{},
-		"aggregate_track":        map[string]any{},
-		"aggregate_user":         map[string]any{},
-		"challenges":             map[string]any{},
-		"comment_threads":        map[string]any{},
-		"user_listening_history": map[string]any{},
-		"remixes":                map[string]any{},
+		"aggregate_plays": {},
+		"aggregate_track": {},
+		"aggregate_user": {
+			"user_id":          nil,
+			"follower_count":   0,
+			"following_count":  0,
+			"dominant_genre":   nil,
+			"track_save_count": 0,
+		},
+		"challenges":             {},
+		"comment_threads":        {},
+		"user_listening_history": {},
+		"remixes":                {},
+		"stems": {
+			"child_track_id":  nil,
+			"parent_track_id": nil,
+		},
 		"playlist_seen": {
 			"user_id":     nil,
 			"playlist_id": nil,
@@ -299,6 +324,53 @@ var (
 			"timestamp":    time.Now(),
 			"count":        0,
 			"country":      "US",
+		},
+		"core_blocks": {
+			"rowid":      1,
+			"height":     1,
+			"chain_id":   "audius-mainnet-alpha-beta",
+			"hash":       nil,
+			"proposer":   "0222989ff2856242a12c38d5d2c92a1481972d22290b42ba15c65ae61e37588b61",
+			"created_at": time.Now(),
+		},
+		"core_validators": {
+			"rowid":         1,
+			"pub_key":       "0222989ff2856242a12c38d5d2c92a1481972d22290b42ba15c65ae61e37588b61",
+			"endpoint":      nil,
+			"eth_address":   nil,
+			"comet_address": nil,
+			"eth_block":     nil,
+			"node_type":     "discovery-node",
+			"sp_id":         1,
+			"comet_pub_key": nil,
+		},
+		"comment_notification_settings": {
+			"user_id":     nil,
+			"entity_type": "Track",
+			"entity_id":   nil,
+			"is_muted":    false,
+			"created_at":  time.Now(),
+			"updated_at":  time.Now(),
+		},
+		"comment_reports": {
+			"comment_id":  nil,
+			"user_id":     nil,
+			"is_delete":   false,
+			"blockhash":   "block_abc123",
+			"blocknumber": 101,
+			"txhash":      "tx123",
+			"created_at":  time.Now(),
+			"updated_at":  time.Now(),
+		},
+		"muted_users": {
+			"user_id":       nil,
+			"muted_user_id": nil,
+			"is_delete":     false,
+			"blockhash":     "block_abc123",
+			"blocknumber":   101,
+			"txhash":        "tx123",
+			"created_at":    time.Now(),
+			"updated_at":    time.Now(),
 		},
 	}
 )
@@ -372,7 +444,20 @@ func createFixtures(app *ApiServer, fixtures FixtureMap) {
 		panic(err)
 	}
 
+	// because map key iteration order is randomized...
+	// explicitly do the "entity" tables first
+	// so that data dependencies exist before attempting to do saves, follows, etc.
+	entityTables := []string{"users", "tracks", "playlists"}
+	for _, tableName := range entityTables {
+		if rows, ok := fixtures[tableName]; ok {
+			insertFixturesFromArray(app, tableName, rows)
+		}
+	}
+
 	for tableName, rows := range fixtures {
+		if slices.Contains(entityTables, tableName) {
+			continue
+		}
 		insertFixturesFromArray(app, tableName, rows)
 	}
 }

@@ -1,0 +1,45 @@
+package api
+
+import (
+	"testing"
+
+	"github.com/stretchr/testify/assert"
+)
+
+func TestBlockConfirmation(t *testing.T) {
+	app := emptyTestApp(t)
+
+	// Create a block confirmation fixture
+	fixtures := FixtureMap{
+		"core_blocks": {
+			{
+				"rowid":    1,
+				"height":   1,
+				"chain_id": "audius-mainnet-alpha-beta",
+				"hash":     "0xabc123",
+			},
+			{
+				"rowid":    2,
+				"height":   2,
+				"chain_id": "audius-mainnet-alpha-beta",
+				"hash":     "0xabc234",
+			},
+		},
+	}
+
+	createFixtures(app, fixtures)
+
+	status, body := testGet(t, app, "/block_confirmation?blockhash=0x123&blocknumber=3000")
+	assert.Equal(t, 200, status)
+	jsonAssert(t, body, map[string]any{
+		"data.block_passed": false,
+		"data.block_found":  false,
+	})
+
+	statusFound, bodyFound := testGet(t, app, "/block_confirmation?blockhash=0xabc123&blocknumber=1")
+	assert.Equal(t, 200, statusFound)
+	jsonAssert(t, bodyFound, map[string]any{
+		"data.block_passed": true,
+		"data.block_found":  true,
+	})
+}

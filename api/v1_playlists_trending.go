@@ -23,22 +23,53 @@ func (app *ApiServer) v1PlaylistsTrending(c *fiber.Ctx) error {
 	myId := app.getMyId(c)
 
 	sql := `
-		SELECT playlist_trending_scores.playlist_id
-		FROM playlist_trending_scores
-		JOIN playlists
-			ON playlists.playlist_id = playlist_trending_scores.playlist_id
-			AND playlists.is_current = true
-			AND playlists.is_delete = false
-			AND playlists.is_private = false
-			AND playlists.is_album = false
-		WHERE type = 'PLAYLISTS'
-			AND version = 'pnagD'
-			AND time_range = @time
-		ORDER BY
-			score DESC,
-			playlist_id DESC
+		WITH qualified_playlists AS MATERIALIZED (
+			WITH valid_playlists AS (
+				SELECT playlist_id
+				FROM playlists
+				WHERE is_album = false AND is_private = false AND is_delete = false AND is_current = true
+			),
+			playlist_content AS (
+				SELECT
+					pt.playlist_id,
+					t.owner_id,
+					t.track_id
+				FROM playlist_tracks pt
+				JOIN valid_playlists p ON pt.playlist_id = p.playlist_id
+				JOIN tracks t ON t.track_id = pt.track_id
+				WHERE
+					pt.is_removed = false
+					AND t.is_delete = false
+					AND t.is_current = true
+			)
+			SELECT
+				playlist_id
+			FROM
+				playlist_content
+			GROUP BY
+				playlist_id
+			HAVING
+				COUNT(DISTINCT owner_id) >= 5
+				AND COUNT(track_id) >= 5
+		),
+		filtered_scores AS MATERIALIZED (
+			SELECT
+				playlist_id,
+				score
+			FROM
+				playlist_trending_scores
+			WHERE
+				type = 'PLAYLISTS'
+				AND version = 'pnagD'
+				AND time_range = @time
+		)
+		SELECT
+			fs.playlist_id
+		FROM qualified_playlists qp
+		JOIN filtered_scores fs ON fs.playlist_id = qp.playlist_id
+		ORDER BY fs.score DESC, fs.playlist_id DESC
 		LIMIT @limit
-		OFFSET @offset
+		OFFSET @offset;
 		`
 
 	rows, err := app.pool.Query(c.Context(), sql, pgx.NamedArgs{
