@@ -14,8 +14,8 @@ import (
 
 // Recover user id and wallet from signature headers
 func (app *ApiServer) recoverAuthorityFromSignatureHeaders(c *fiber.Ctx) string {
-	message := c.Get("Encoded-Data-Message")
-	signature := c.Get("Encoded-Data-Signature")
+	message := c.Get("Encoded-Data-Message", c.Query("user_data"))
+	signature := c.Get("Encoded-Data-Signature", c.Query("user_signature"))
 	if message == "" || signature == "" {
 		return ""
 	}
