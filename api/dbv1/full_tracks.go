@@ -130,6 +130,7 @@ func (q *Queries) FullTracksKeyed(ctx context.Context, arg FullTracksParams) (ma
 
 		var stream *MediaLink
 		if access.Stream {
+			fmt.Println("mediaLink stream", track.TrackCid.String)
 			stream, err = mediaLink(track.TrackCid.String, track.TrackID, arg.MyID.(int32))
 			if err != nil {
 				return nil, err
@@ -138,6 +139,7 @@ func (q *Queries) FullTracksKeyed(ctx context.Context, arg FullTracksParams) (ma
 
 		var download *MediaLink
 		if track.IsDownloadable && access.Download {
+			fmt.Println("mediaLink download", track.OrigFileCid.String)
 			download, err = mediaLink(track.OrigFileCid.String, track.TrackID, arg.MyID.(int32))
 			if err != nil {
 				return nil, err
@@ -146,6 +148,7 @@ func (q *Queries) FullTracksKeyed(ctx context.Context, arg FullTracksParams) (ma
 
 		var preview *MediaLink
 		if track.PreviewCid.String != "" {
+			fmt.Println("mediaLink preview", track.PreviewCid.String)
 			preview, err = mediaLink(track.PreviewCid.String, track.TrackID, arg.MyID.(int32))
 			if err != nil {
 				return nil, err

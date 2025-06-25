@@ -3,97 +3,41 @@
 package rendezvous
 
 import (
-	"bytes"
-	"crypto/sha256"
-	"io"
+	"fmt"
 	"math/rand"
-	"net/url"
-	"slices"
-	"sort"
-	"strings"
+	"sync"
 
-	"bridgerton.audius.co/config"
+	mediorum "github.com/AudiusProject/audiusd/pkg/mediorum/server"
 )
 
 var GlobalHasher *RendezvousHasher
 
-func init() {
-	hosts := make([]string, len(config.Cfg.Nodes))
-	for i, node := range config.Cfg.Nodes {
-		if !node.IsStorageDisabled {
-			hosts[i] = node.Endpoint
-		}
-	}
-	GlobalHasher = NewRendezvousHasher(hosts)
-}
-
-type HostTuple struct {
-	host  string
-	score []byte
-}
-
-type HostTuples []HostTuple
-
-func (s HostTuples) Len() int      { return len(s) }
-func (s HostTuples) Swap(i, j int) { s[i], s[j] = s[j], s[i] }
-func (s HostTuples) Less(i, j int) bool {
-	c := bytes.Compare(s[i].score, s[j].score)
-	if c == 0 {
-		return s[i].host < s[j].host
-	}
-	return c == -1
+type RendezvousHasher struct {
+	hasher *mediorum.RendezvousHasher
+	mu     sync.Mutex
 }
 
 func NewRendezvousHasher(hosts []string) *RendezvousHasher {
-	deadHosts := strings.Join(config.Cfg.DeadNodes, ",")
-	liveHosts := make([]string, 0, len(hosts))
-	for _, h := range hosts {
-		// dead host
-		if strings.Contains(deadHosts, h) {
-			continue
-		}
-
-		// invalid url
-		if _, err := url.Parse(h); err != nil {
-			continue
-		}
-
-		// duplicate entry
-		if slices.Contains(liveHosts, h) {
-			continue
-		}
-
-		liveHosts = append(liveHosts, h)
-	}
 	return &RendezvousHasher{
-		hosts: liveHosts,
+		hasher: mediorum.NewRendezvousHasher(hosts),
 	}
-}
-
-type RendezvousHasher struct {
-	hosts []string
 }
 
 func (rh *RendezvousHasher) Rank(key string) []string {
-	tuples := make(HostTuples, len(rh.hosts))
-	keyBytes := []byte(key)
-	hasher := sha256.New()
-	for idx, host := range rh.hosts {
-		hasher.Reset()
-		io.WriteString(hasher, host)
-		hasher.Write(keyBytes)
-		tuples[idx] = HostTuple{host, hasher.Sum(nil)}
-	}
-	sort.Sort(tuples)
-	result := make([]string, len(rh.hosts))
-	for idx, tup := range tuples {
-		result[idx] = tup.host
-	}
-	return result
+	rh.mu.Lock()
+	defer rh.mu.Unlock()
+	return rh.hasher.Rank(key)
+}
+
+func (rh *RendezvousHasher) Update(hosts []string) {
+	rh.mu.Lock()
+	defer rh.mu.Unlock()
+	rh.hasher = mediorum.NewRendezvousHasher(hosts)
 }
 
 // Get a replica set of 3 nodes with random order
 func (rh *RendezvousHasher) ReplicaSet3(key string) (string, []string) {
+	fmt.Println("ReplicaSet3", key)
 	ranked := rh.Rank(key)
 	n := min(len(ranked), 3)
 	if n == 0 {

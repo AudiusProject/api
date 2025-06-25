@@ -5,7 +5,9 @@ import (
 	"time"
 
 	"bridgerton.audius.co/config"
+	"bridgerton.audius.co/rendezvous"
 	"github.com/AudiusProject/audiusd/pkg/core/contracts"
+	"github.com/gofiber/fiber/v2"
 	"golang.org/x/sync/errgroup"
 
 	"go.uber.org/zap"
@@ -13,6 +15,25 @@ import (
 
 const contentNodeCacheKey = "content"
 const discoveryNodeCacheKey = "discovery"
+
+func (as *ApiServer) updateRendezvousHasher() {
+	hosts := []string{}
+	contentNodes, ok := as.nodeCache.Get(contentNodeCacheKey)
+	if !ok {
+		as.logger.Error("failed to get content node cache")
+	}
+	for _, node := range contentNodes {
+		hosts = append(hosts, node.Endpoint)
+	}
+
+	if as.rendezvousHasher == nil {
+		as.rendezvousHasher = rendezvous.NewRendezvousHasher(hosts)
+		rendezvous.GlobalHasher = as.rendezvousHasher
+	} else {
+		as.rendezvousHasher.Update(hosts)
+		rendezvous.GlobalHasher = as.rendezvousHasher
+	}
+}
 
 func (as *ApiServer) nodePoller(ctx context.Context) {
 	as.logger.Info("starting node poller")
@@ -107,6 +128,24 @@ func (as *ApiServer) refreshNodeCache() error {
 		as.logger.Error("failed to get content node cache")
 	}
 
+	as.updateRendezvousHasher()
+
 	as.logger.Info("refreshed node cache", zap.Int("discovery_nodes", len(discoveryNodes)), zap.Int("content_nodes", len(contentNodes)))
 	return nil
+}
+
+func (as *ApiServer) v1ContentNodes(c *fiber.Ctx) error {
+	nodes, ok := as.nodeCache.Get(contentNodeCacheKey)
+	if !ok {
+		return fiber.NewError(fiber.StatusInternalServerError, "failed to get content node cache")
+	}
+	return c.JSON(nodes)
+}
+
+func (as *ApiServer) v1DiscoveryNodes(c *fiber.Ctx) error {
+	nodes, ok := as.nodeCache.Get(discoveryNodeCacheKey)
+	if !ok {
+		return fiber.NewError(fiber.StatusInternalServerError, "failed to get discovery node cache")
+	}
+	return c.JSON(nodes)
 }

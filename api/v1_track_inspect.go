@@ -6,7 +6,6 @@ import (
 	"net/http"
 
 	"bridgerton.audius.co/api/dbv1"
-	"bridgerton.audius.co/rendezvous"
 	"github.com/gofiber/fiber/v2"
 	"golang.org/x/sync/errgroup"
 )
@@ -21,7 +20,7 @@ type inspectResponse struct {
 	ContentType string `json:"content_type"`
 }
 
-func inspectTrack(track dbv1.FullTrack, original bool) (*inspectResponse, error) {
+func (as *ApiServer) inspectTrack(track dbv1.FullTrack, original bool) (*inspectResponse, error) {
 	var cid string
 	if original {
 		cid = track.OrigFileCid.String
@@ -29,7 +28,7 @@ func inspectTrack(track dbv1.FullTrack, original bool) (*inspectResponse, error)
 		cid = track.TrackCid.String
 	}
 
-	hosts := rendezvous.GlobalHasher.Rank(cid)
+	hosts := as.rendezvousHasher.Rank(cid)
 
 	var info blobInspect
 	var lastErr error
@@ -88,7 +87,7 @@ func (app *ApiServer) v1TrackInspect(c *fiber.Ctx) error {
 	}
 
 	track := tracks[0]
-	info, err := inspectTrack(track, original)
+	info, err := app.inspectTrack(track, original)
 	if err != nil {
 		return err
 	}
@@ -123,7 +122,7 @@ func (app *ApiServer) v1TracksInspect(c *fiber.Ctx) error {
 	for i, track := range tracks {
 		idx, t := i, track // Create new variables for the goroutine
 		g.Go(func() error {
-			info, err := inspectTrack(t, original)
+			info, err := app.inspectTrack(t, original)
 			if err != nil {
 				infos[idx] = nil
 				return err

@@ -15,6 +15,7 @@ import (
 	"bridgerton.audius.co/api/spl/programs/claimable_tokens"
 	"bridgerton.audius.co/api/spl/programs/reward_manager"
 	bconfig "bridgerton.audius.co/config"
+	"bridgerton.audius.co/rendezvous"
 	"bridgerton.audius.co/trashid"
 	"github.com/AudiusProject/audiusd/pkg/core/contracts"
 	"github.com/AudiusProject/audiusd/pkg/rewards"
@@ -417,6 +418,10 @@ func NewApiServer(config bconfig.Config) *ApiServer {
 
 		// Notifications
 		g.Get("/notifications/:userId/playlist_updates", app.requireUserIdMiddleware, app.v1NotificationsPlaylistUpdates)
+
+		// Validators
+		g.Get("/validators/content", app.v1ContentNodes)
+		g.Get("/validators/discovery", app.v1DiscoveryNodes)
 	}
 
 	// Comms
@@ -480,6 +485,7 @@ type ApiServer struct {
 	resolveGrantCache     *otter.Cache[string, bool]
 	resolveWalletCache    *otter.Cache[string, int]
 	nodeCache             *otter.Cache[string, []bconfig.Node]
+	rendezvousHasher      *rendezvous.RendezvousHasher
 	requestValidator      *RequestValidator
 	rewardManagerClient   *reward_manager.RewardManagerClient
 	claimableTokensClient *claimable_tokens.ClaimableTokensClient
