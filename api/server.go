@@ -173,7 +173,7 @@ func NewApiServer(config config.Config) *ApiServer {
 
 	esClient, err := esindexer.Dial(config.EsUrl)
 	if err != nil {
-		panic(err)
+		logger.Error("dial es failed", zap.String("url", config.EsUrl), zap.Error(err))
 	}
 
 	auds := sdk.NewAudiusdSDK(config.AudiusdURL)
