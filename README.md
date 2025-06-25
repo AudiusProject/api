@@ -71,3 +71,30 @@ If you re-dump schema, reset dev postgres state:
 docker compose down --volumes
 docker compose up -d
 ```
+
+## ElasticSearch
+
+Currently esindexer is running in listen mode on the same box as elasticsearch.
+
+To deploy:
+
+```
+make esindexer-staging
+make esindexer-production
+```
+
+To re-index collections from scratch you can:
+
+```
+ssh stage-elasticsearch
+cd bridgerton
+time ./bridge-amd64 reindex
+```
+
+You can also specify specific indexes. If you change the mapping you can add `drop`:
+
+```
+ssh stage-elasticsearch
+cd bridgerton
+time ./bridge-amd64 reindex drop playlists
+```
