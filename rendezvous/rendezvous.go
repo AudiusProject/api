@@ -1,5 +1,3 @@
-// copy-pasted from mediorum placement.go
-
 package rendezvous
 
 import (
@@ -11,6 +9,11 @@ import (
 )
 
 var GlobalHasher *RendezvousHasher
+
+func init() {
+	// updated once eth nodes are retrieved
+	GlobalHasher = NewRendezvousHasher([]string{})
+}
 
 type RendezvousHasher struct {
 	hasher *mediorum.RendezvousHasher

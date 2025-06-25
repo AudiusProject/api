@@ -15,7 +15,6 @@ import (
 	"bridgerton.audius.co/api/spl/programs/claimable_tokens"
 	"bridgerton.audius.co/api/spl/programs/reward_manager"
 	bconfig "bridgerton.audius.co/config"
-	"bridgerton.audius.co/rendezvous"
 	"bridgerton.audius.co/trashid"
 	"github.com/AudiusProject/audiusd/pkg/core/contracts"
 	"github.com/AudiusProject/audiusd/pkg/rewards"
@@ -485,7 +484,6 @@ type ApiServer struct {
 	resolveGrantCache     *otter.Cache[string, bool]
 	resolveWalletCache    *otter.Cache[string, int]
 	nodeCache             *otter.Cache[string, []bconfig.Node]
-	rendezvousHasher      *rendezvous.RendezvousHasher
 	requestValidator      *RequestValidator
 	rewardManagerClient   *reward_manager.RewardManagerClient
 	claimableTokensClient *claimable_tokens.ClaimableTokensClient

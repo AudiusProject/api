@@ -26,13 +26,7 @@ func (as *ApiServer) updateRendezvousHasher() {
 		hosts = append(hosts, node.Endpoint)
 	}
 
-	if as.rendezvousHasher == nil {
-		as.rendezvousHasher = rendezvous.NewRendezvousHasher(hosts)
-		rendezvous.GlobalHasher = as.rendezvousHasher
-	} else {
-		as.rendezvousHasher.Update(hosts)
-		rendezvous.GlobalHasher = as.rendezvousHasher
-	}
+	rendezvous.GlobalHasher.Update(hosts)
 }
 
 func (as *ApiServer) nodePoller(ctx context.Context) {

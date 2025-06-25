@@ -1,0 +1,452 @@
+{
+  "peerHealths": {
+    "https://audius-cn1.tikilabs.com": {
+      "version": "0.7.100",
+      "lastReachable": "2025-06-25T16:06:28.906122724Z",
+      "lastHealthy": "2025-06-25T16:06:28.906217423Z",
+      "reachablePeers": null
+    },
+    "https://audius-content-1.cultur3stake.com": {
+      "version": "0.7.100",
+      "lastReachable": "2025-06-25T16:06:29.160986219Z",
+      "lastHealthy": "2025-06-25T16:06:29.161073716Z",
+      "reachablePeers": null
+    },
+    "https://audius-content-1.figment.io": {
+      "version": "0.7.100",
+      "lastReachable": "2025-06-25T16:06:28.962116091Z",
+      "lastHealthy": "2025-06-25T16:06:28.962209983Z",
+      "reachablePeers": null
+    },
+    "https://audius-content-10.cultur3stake.com": {
+      "version": "0.7.100",
+      "lastReachable": "2025-06-25T16:06:29.13729002Z",
+      "lastHealthy": "2025-06-25T16:06:29.137394075Z",
+      "reachablePeers": null
+    },
+    "https://audius-content-10.figment.io": {
+      "version": "0.7.100",
+      "lastReachable": "2025-06-25T16:06:29.385750916Z",
+      "lastHealthy": "2025-06-25T16:06:29.385889552Z",
+      "reachablePeers": null
+    },
+    "https://audius-content-11.cultur3stake.com": {
+      "version": "0.7.100",
+      "lastReachable": "2025-06-25T16:06:29.316013561Z",
+      "lastHealthy": "2025-06-25T16:06:29.316119416Z",
+      "reachablePeers": null
+    },
+    "https://audius-content-11.figment.io": {
+      "version": "0.7.100",
+      "lastReachable": "2025-06-25T16:06:29.420356746Z",
+      "lastHealthy": "2025-06-25T16:06:29.42044846Z",
+      "reachablePeers": null
+    },
+    "https://audius-content-12.cultur3stake.com": {
+      "version": "0.7.100",
+      "lastReachable": "2025-06-25T16:06:29.320516853Z",
+      "lastHealthy": "2025-06-25T16:06:29.320623518Z",
+      "reachablePeers": null
+    },
+    "https://audius-content-12.figment.io": {
+      "version": "0.7.100",
+      "lastReachable": "2025-06-25T16:06:29.402846616Z",
+      "lastHealthy": "2025-06-25T16:06:29.402944018Z",
+      "reachablePeers": null
+    },
+    "https://audius-content-13.cultur3stake.com": {
+      "version": "0.7.100",
+      "lastReachable": "2025-06-25T16:06:29.320633528Z",
+      "lastHealthy": "2025-06-25T16:06:29.320719843Z",
+      "reachablePeers": null
+    },
+    "https://audius-content-13.figment.io": {
+      "version": "0.7.100",
+      "lastReachable": "2025-06-25T16:06:29.133289193Z",
+      "lastHealthy": "2025-06-25T16:06:29.133408244Z",
+      "reachablePeers": null
+    },
+    "https://audius-content-14.cultur3stake.com": {
+      "version": "0.7.100",
+      "lastReachable": "2025-06-25T16:06:29.317737338Z",
+      "lastHealthy": "2025-06-25T16:06:29.317832384Z",
+      "reachablePeers": null
+    },
+    "https://audius-content-14.figment.io": {
+      "version": "0.7.100",
+      "lastReachable": "2025-06-25T16:06:29.425933334Z",
+      "lastHealthy": "2025-06-25T16:06:29.426018971Z",
+      "reachablePeers": null
+    },
+    "https://audius-content-15.cultur3stake.com": {
+      "version": "0.7.100",
+      "lastReachable": "2025-06-25T16:06:29.325715125Z",
+      "lastHealthy": "2025-06-25T16:06:29.325797601Z",
+      "reachablePeers": null
+    },
+    "https://audius-content-16.cultur3stake.com": {
+      "version": "0.7.100",
+      "lastReachable": "2025-06-25T16:06:29.320032444Z",
+      "lastHealthy": "2025-06-25T16:06:29.320132411Z",
+      "reachablePeers": null
+    },
+    "https://audius-content-17.cultur3stake.com": {
+      "version": "0.7.100",
+      "lastReachable": "2025-06-25T16:06:29.320180144Z",
+      "lastHealthy": "2025-06-25T16:06:29.320323916Z",
+      "reachablePeers": null
+    },
+    "https://audius-content-18.cultur3stake.com": {
+      "version": "0.7.100",
+      "lastReachable": "2025-06-25T16:06:29.324097097Z",
+      "lastHealthy": "2025-06-25T16:06:29.324180963Z",
+      "reachablePeers": null
+    },
+    "https://audius-content-2.cultur3stake.com": {
+      "version": "0.7.100",
+      "lastReachable": "2025-06-25T16:06:29.138377544Z",
+      "lastHealthy": "2025-06-25T16:06:29.138465904Z",
+      "reachablePeers": null
+    },
+    "https://audius-content-2.figment.io": {
+      "version": "0.7.100",
+      "lastReachable": "2025-06-25T16:06:28.970986022Z",
+      "lastHealthy": "2025-06-25T16:06:28.971071284Z",
+      "reachablePeers": null
+    },
+    "https://audius-content-3.cultur3stake.com": {
+      "version": "0.7.100",
+      "lastReachable": "2025-06-25T16:06:29.139442598Z",
+      "lastHealthy": "2025-06-25T16:06:29.139527161Z",
+      "reachablePeers": null
+    },
+    "https://audius-content-3.figment.io": {
+      "version": "0.7.100",
+      "lastReachable": "2025-06-25T16:06:28.972093072Z",
+      "lastHealthy": "2025-06-25T16:06:28.9721904Z",
+      "reachablePeers": null
+    },
+    "https://audius-content-4.cultur3stake.com": {
+      "version": "0.7.100",
+      "lastReachable": "2025-06-25T16:06:29.139350756Z",
+      "lastHealthy": "2025-06-25T16:06:29.139438149Z",
+      "reachablePeers": null
+    },
+    "https://audius-content-4.figment.io": {
+      "version": "0.7.100",
+      "lastReachable": "2025-06-25T16:06:28.971929039Z",
+      "lastHealthy": "2025-06-25T16:06:28.972016152Z",
+      "reachablePeers": null
+    },
+    "https://audius-content-5.cultur3stake.com": {
+      "version": "0.7.100",
+      "lastReachable": "2025-06-25T16:06:29.140730773Z",
+      "lastHealthy": "2025-06-25T16:06:29.14081998Z",
+      "reachablePeers": null
+    },
+    "https://audius-content-5.figment.io": {
+      "version": "0.7.100",
+      "lastReachable": "2025-06-25T16:06:28.970320308Z",
+      "lastHealthy": "2025-06-25T16:06:28.97040938Z",
+      "reachablePeers": null
+    },
+    "https://audius-content-6.cultur3stake.com": {
+      "version": "0.7.100",
+      "lastReachable": "2025-06-25T16:06:29.138866982Z",
+      "lastHealthy": "2025-06-25T16:06:29.138962328Z",
+      "reachablePeers": null
+    },
+    "https://audius-content-6.figment.io": {
+      "version": "0.7.100",
+      "lastReachable": "2025-06-25T16:06:28.971327745Z",
+      "lastHealthy": "2025-06-25T16:06:28.971418683Z",
+      "reachablePeers": null
+    },
+    "https://audius-content-7.cultur3stake.com": {
+      "version": "0.7.100",
+      "lastReachable": "2025-06-25T16:06:29.139535513Z",
+      "lastHealthy": "2025-06-25T16:06:29.13961788Z",
+      "reachablePeers": null
+    },
+    "https://audius-content-7.figment.io": {
+      "version": "0.7.100",
+      "lastReachable": "2025-06-25T16:06:28.972915139Z",
+      "lastHealthy": "2025-06-25T16:06:28.972999094Z",
+      "reachablePeers": null
+    },
+    "https://audius-content-8.cultur3stake.com": {
+      "version": "0.7.100",
+      "lastReachable": "2025-06-25T16:06:29.143948518Z",
+      "lastHealthy": "2025-06-25T16:06:29.144036036Z",
+      "reachablePeers": null
+    },
+    "https://audius-content-8.figment.io": {
+      "version": "0.7.100",
+      "lastReachable": "2025-06-25T16:06:28.971133711Z",
+      "lastHealthy": "2025-06-25T16:06:28.971232865Z",
+      "reachablePeers": null
+    },
+    "https://audius-content-9.cultur3stake.com": {
+      "version": "0.7.100",
+      "lastReachable": "2025-06-25T16:06:29.14036538Z",
+      "lastHealthy": "2025-06-25T16:06:29.140450066Z",
+      "reachablePeers": null
+    },
+    "https://audius-content-9.figment.io": {
+      "version": "0.7.100",
+      "lastReachable": "2025-06-25T16:06:29.147098203Z",
+      "lastHealthy": "2025-06-25T16:06:29.147198432Z",
+      "reachablePeers": null
+    },
+    "https://audius-creator-1.theblueprint.xyz": {
+      "version": "0.7.100",
+      "lastReachable": "2025-06-25T16:06:29.015605119Z",
+      "lastHealthy": "2025-06-25T16:06:29.015705156Z",
+      "reachablePeers": null
+    },
+    "https://audius-creator-10.theblueprint.xyz": {
+      "version": "0.7.100",
+      "lastReachable": "2025-06-25T16:06:29.04515304Z",
+      "lastHealthy": "2025-06-25T16:06:29.045241115Z",
+      "reachablePeers": null
+    },
+    "https://audius-creator-11.theblueprint.xyz": {
+      "version": "0.7.100",
+      "lastReachable": "2025-06-25T16:06:29.018923828Z",
+      "lastHealthy": "2025-06-25T16:06:29.019018961Z",
+      "reachablePeers": null
+    },
+    "https://audius-creator-12.theblueprint.xyz": {
+      "version": "0.7.100",
+      "lastReachable": "2025-06-25T16:06:29.013221788Z",
+      "lastHealthy": "2025-06-25T16:06:29.013325541Z",
+      "reachablePeers": null
+    },
+    "https://audius-creator-13.theblueprint.xyz": {
+      "version": "0.7.100",
+      "lastReachable": "2025-06-25T16:06:28.990898312Z",
+      "lastHealthy": "2025-06-25T16:06:28.990997086Z",
+      "reachablePeers": null
+    },
+    "https://audius-creator-2.theblueprint.xyz": {
+      "version": "0.7.100",
+      "lastReachable": "2025-06-25T16:06:29.023661798Z",
+      "lastHealthy": "2025-06-25T16:06:29.023746744Z",
+      "reachablePeers": null
+    },
+    "https://audius-creator-3.theblueprint.xyz": {
+      "version": "0.7.100",
+      "lastReachable": "2025-06-25T16:06:28.985793855Z",
+      "lastHealthy": "2025-06-25T16:06:28.98588373Z",
+      "reachablePeers": null
+    },
+    "https://audius-creator-4.theblueprint.xyz": {
+      "version": "0.7.100",
+      "lastReachable": "2025-06-25T16:06:29.022952633Z",
+      "lastHealthy": "2025-06-25T16:06:29.023041987Z",
+      "reachablePeers": null
+    },
+    "https://audius-creator-5.theblueprint.xyz": {
+      "version": "0.7.100",
+      "lastReachable": "2025-06-25T16:06:29.016636122Z",
+      "lastHealthy": "2025-06-25T16:06:29.016729236Z",
+      "reachablePeers": null
+    },
+    "https://audius-creator-6.theblueprint.xyz": {
+      "version": "0.7.100",
+      "lastReachable": "2025-06-25T16:06:29.053934366Z",
+      "lastHealthy": "2025-06-25T16:06:29.054022754Z",
+      "reachablePeers": null
+    },
+    "https://audius-creator-7.theblueprint.xyz": {
+      "version": "0.7.100",
+      "lastReachable": "2025-06-25T16:06:29.026049484Z",
+      "lastHealthy": "2025-06-25T16:06:29.026136108Z",
+      "reachablePeers": null
+    },
+    "https://audius-creator-8.theblueprint.xyz": {
+      "version": "0.7.100",
+      "lastReachable": "2025-06-25T16:06:29.043179168Z",
+      "lastHealthy": "2025-06-25T16:06:29.043279558Z",
+      "reachablePeers": null
+    },
+    "https://audius-creator-9.theblueprint.xyz": {
+      "version": "0.7.100",
+      "lastReachable": "2025-06-25T16:06:29.044147214Z",
+      "lastHealthy": "2025-06-25T16:06:29.044233684Z",
+      "reachablePeers": null
+    },
+    "https://blockchange-audius-content-01.bdnodes.net": {
+      "version": "0.7.100",
+      "lastReachable": "2025-06-25T16:06:29.42047487Z",
+      "lastHealthy": "2025-06-25T16:06:29.420567498Z",
+      "reachablePeers": null
+    },
+    "https://blockchange-audius-content-02.bdnodes.net": {
+      "version": "0.7.100",
+      "lastReachable": "2025-06-25T16:06:29.160066257Z",
+      "lastHealthy": "2025-06-25T16:06:29.160159334Z",
+      "reachablePeers": null
+    },
+    "https://blockchange-audius-content-03.bdnodes.net": {
+      "version": "0.7.100",
+      "lastReachable": "2025-06-25T16:06:29.161965277Z",
+      "lastHealthy": "2025-06-25T16:06:29.162050253Z",
+      "reachablePeers": null
+    },
+    "https://blockdaemon-audius-content-01.bdnodes.net": {
+      "version": "0.7.100",
+      "lastReachable": "2025-06-25T16:06:29.161102872Z",
+      "lastHealthy": "2025-06-25T16:06:29.161192291Z",
+      "reachablePeers": null
+    },
+    "https://blockdaemon-audius-content-02.bdnodes.net": {
+      "version": "0.7.100",
+      "lastReachable": "2025-06-25T16:06:29.131554053Z",
+      "lastHealthy": "2025-06-25T16:06:29.131648075Z",
+      "reachablePeers": null
+    },
+    "https://blockdaemon-audius-content-03.bdnodes.net": {
+      "version": "0.7.100",
+      "lastReachable": "2025-06-25T16:06:29.13309404Z",
+      "lastHealthy": "2025-06-25T16:06:29.13318834Z",
+      "reachablePeers": null
+    },
+    "https://blockdaemon-audius-content-04.bdnodes.net": {
+      "version": "0.7.100",
+      "lastReachable": "2025-06-25T16:06:29.160753255Z",
+      "lastHealthy": "2025-06-25T16:06:29.160846889Z",
+      "reachablePeers": null
+    },
+    "https://blockdaemon-audius-content-05.bdnodes.net": {
+      "version": "0.7.100",
+      "lastReachable": "2025-06-25T16:06:29.132741031Z",
+      "lastHealthy": "2025-06-25T16:06:29.132828254Z",
+      "reachablePeers": null
+    },
+    "https://blockdaemon-audius-content-06.bdnodes.net": {
+      "version": "0.7.100",
+      "lastReachable": "2025-06-25T16:06:29.133818097Z",
+      "lastHealthy": "2025-06-25T16:06:29.133907498Z",
+      "reachablePeers": null
+    },
+    "https://blockdaemon-audius-content-07.bdnodes.net": {
+      "version": "0.7.100",
+      "lastReachable": "2025-06-25T16:06:29.159897597Z",
+      "lastHealthy": "2025-06-25T16:06:29.159993257Z",
+      "reachablePeers": null
+    },
+    "https://blockdaemon-audius-content-08.bdnodes.net": {
+      "version": "0.7.100",
+      "lastReachable": "2025-06-25T16:06:29.133413021Z",
+      "lastHealthy": "2025-06-25T16:06:29.13353615Z",
+      "reachablePeers": null
+    },
+    "https://blockdaemon-audius-content-09.bdnodes.net": {
+      "version": "0.7.100",
+      "lastReachable": "2025-06-25T16:06:29.132916935Z",
+      "lastHealthy": "2025-06-25T16:06:29.133010299Z",
+      "reachablePeers": null
+    },
+    "https://cn0.mainnet.audiusindex.org": {
+      "version": "0.7.100",
+      "lastReachable": "2025-06-25T16:06:29.08559367Z",
+      "lastHealthy": "2025-06-25T16:06:29.085684936Z",
+      "reachablePeers": null
+    },
+    "https://cn1.mainnet.audiusindex.org": {
+      "version": "0.7.100",
+      "lastReachable": "2025-06-25T16:06:29.083204269Z",
+      "lastHealthy": "2025-06-25T16:06:29.083316107Z",
+      "reachablePeers": null
+    },
+    "https://cn1.shakespearetech.com": {
+      "version": "0.7.100",
+      "lastReachable": "2025-06-25T16:06:29.051816579Z",
+      "lastHealthy": "2025-06-25T16:06:29.051908081Z",
+      "reachablePeers": null
+    },
+    "https://cn1.stuffisup.com": {
+      "version": "0.7.100",
+      "lastReachable": "2025-06-25T16:06:28.966103342Z",
+      "lastHealthy": "2025-06-25T16:06:28.966202912Z",
+      "reachablePeers": null
+    },
+    "https://cn2.mainnet.audiusindex.org": {
+      "version": "0.7.100",
+      "lastReachable": "2025-06-25T16:06:29.069812539Z",
+      "lastHealthy": "2025-06-25T16:06:29.069905244Z",
+      "reachablePeers": null
+    },
+    "https://cn2.shakespearetech.com": {
+      "version": "0.7.100",
+      "lastReachable": "2025-06-25T16:06:29.051719044Z",
+      "lastHealthy": "2025-06-25T16:06:29.051807772Z",
+      "reachablePeers": null
+    },
+    "https://cn3.mainnet.audiusindex.org": {
+      "version": "0.7.100",
+      "lastReachable": "2025-06-25T16:06:29.100084837Z",
+      "lastHealthy": "2025-06-25T16:06:29.100169531Z",
+      "reachablePeers": null
+    },
+    "https://cn3.shakespearetech.com": {
+      "version": "0.7.100",
+      "lastReachable": "2025-06-25T16:06:29.041999189Z",
+      "lastHealthy": "2025-06-25T16:06:29.042094008Z",
+      "reachablePeers": null
+    },
+    "https://cn4.mainnet.audiusindex.org": {
+      "version": "0.7.100",
+      "lastReachable": "2025-06-25T16:06:29.051532547Z",
+      "lastHealthy": "2025-06-25T16:06:29.051625818Z",
+      "reachablePeers": null
+    },
+    "https://creatornode.audius.co": {
+      "version": "0.7.100",
+      "lastReachable": "2025-06-25T16:06:28.995338715Z",
+      "lastHealthy": "2025-06-25T16:06:28.995426993Z",
+      "reachablePeers": null
+    },
+    "https://creatornode.audius.prod-eks-ap-northeast-1.staked.cloud": {
+      "version": "0.7.100",
+      "lastReachable": "2025-06-25T16:06:29.203074357Z",
+      "lastHealthy": "2025-06-25T16:06:29.203164185Z",
+      "reachablePeers": null
+    },
+    "https://creatornode.audius1.prod-eks-ap-northeast-1.staked.cloud": {
+      "version": "0.7.100",
+      "lastReachable": "2025-06-25T16:06:29.201754232Z",
+      "lastHealthy": "2025-06-25T16:06:29.201856717Z",
+      "reachablePeers": null
+    },
+    "https://creatornode.audius2.prod-eks-ap-northeast-1.staked.cloud": {
+      "version": "0.7.100",
+      "lastReachable": "2025-06-25T16:06:29.20071367Z",
+      "lastHealthy": "2025-06-25T16:06:29.200794657Z",
+      "reachablePeers": null
+    },
+    "https://creatornode.audius3.prod-eks-ap-northeast-1.staked.cloud": {
+      "version": "0.7.100",
+      "lastReachable": "2025-06-25T16:06:29.200526702Z",
+      "lastHealthy": "2025-06-25T16:06:29.200617058Z",
+      "reachablePeers": null
+    },
+    "https://creatornode.audius8.prod-eks-ap-northeast-1.staked.cloud": {
+      "version": "0.7.100",
+      "lastReachable": "2025-06-25T16:06:29.200626059Z",
+      "lastHealthy": "2025-06-25T16:06:29.200708221Z",
+      "reachablePeers": null
+    },
+    "https://creatornode3.audius.co": {
+      "version": "0.7.100",
+      "lastReachable": "2025-06-25T16:06:28.987113182Z",
+      "lastHealthy": "2025-06-25T16:06:28.987233952Z",
+      "reachablePeers": null
+    }
+  },
+  "unreachablePeers": [
+    "https://content.grassfed.network"
+  ],
+  "_comment": "Endpoints in this file but NOT in API file: None found - all endpoints in peerHealths exist in the API file. The unreachable peer https://content.grassfed.network exists in both files (as unreachable here, as regular node in API file)."
+}
