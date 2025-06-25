@@ -17,7 +17,12 @@ func (app *ApiServer) recoverAuthorityFromSignatureHeaders(c *fiber.Ctx) string 
 	message := c.Get("Encoded-Data-Message")
 	signature := c.Get("Encoded-Data-Signature")
 	if message == "" || signature == "" {
-		return ""
+		// Some callers pass these as query params, check those if not in headers
+		message = c.Query("user_data")
+		signature = c.Query("user_signature")
+		if message == "" || signature == "" {
+			return ""
+		}
 	}
 
 	encodedToRecover := []byte(message)

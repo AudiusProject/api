@@ -131,6 +131,9 @@ func (app *ApiServer) v1UsersSupporters(c *fiber.Ctx) error {
 
 	// If requesting a specific supporter, respond with only that record
 	if params.SupporterUserId != 0 {
+		if len(supporters) == 0 {
+			return fiber.NewError(fiber.StatusNotFound, "Requested supporter not found")
+		}
 		return c.JSON(fiber.Map{
 			"data": supporters[0],
 		})

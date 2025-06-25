@@ -1,6 +1,7 @@
 package api
 
 import (
+	"strings"
 	"time"
 
 	"bridgerton.audius.co/api/dbv1"
@@ -14,6 +15,7 @@ type GetUsersLibraryPlaylistsParams struct {
 	ActionType    string `query:"type" default:"all" validate:"oneof=favorite repost purchase all"`
 	SortMethod    string `query:"sort_method" default:"reposts" validate:"oneof=added_date plays reposts saves"`
 	SortDirection string `query:"sort_direction" default:"desc" validate:"oneof=asc desc"`
+	Query         string `query:"query" default:"" validate:"max=250"`
 }
 
 func (app *ApiServer) v1UsersLibraryPlaylists(c *fiber.Ctx) error {
@@ -40,6 +42,15 @@ func (app *ApiServer) v1UsersLibraryPlaylists(c *fiber.Ctx) error {
 	sortDirection := "DESC"
 	if params.SortDirection == "asc" {
 		sortDirection = "ASC"
+	}
+
+	playlistFilters := []string{
+		"playlists.is_album = (@playlistType = 'album')",
+		"playlists.is_delete = false",
+	}
+
+	if params.Query != "" {
+		playlistFilters = append(playlistFilters, "(playlist_name ILIKE @query OR users.name ILIKE @query)")
 	}
 
 	sql := `
@@ -105,9 +116,9 @@ func (app *ApiServer) v1UsersLibraryPlaylists(c *fiber.Ctx) error {
 		deduped.*
 	FROM deduped
 	JOIN playlists ON playlist_id = item_id
+	JOIN users ON playlists.playlist_owner_id = users.user_id
 	LEFT JOIN aggregate_playlist USING (playlist_id)
-	WHERE playlists.is_album = (@playlistType = 'album')
-		AND playlists.is_delete = FALSE
+	WHERE ` + strings.Join(playlistFilters, " AND ") + `
 	ORDER BY ` + sortField + ` ` + sortDirection + `, item_id desc
 	LIMIT @limit
 	OFFSET @offset
@@ -119,6 +130,7 @@ func (app *ApiServer) v1UsersLibraryPlaylists(c *fiber.Ctx) error {
 		"actionType":   params.ActionType,
 		"limit":        params.Limit,
 		"offset":       params.Offset,
+		"query":        "%" + strings.ToLower(params.Query) + "%",
 	})
 	if err != nil {
 		return err

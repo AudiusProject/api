@@ -86,7 +86,7 @@ func NewApiServer(config config.Config) *ApiServer {
 	logger := InitLogger(config)
 	requestValidator := initRequestValidator()
 
-	connConfig, err := pgxpool.ParseConfig(config.DbUrl)
+	connConfig, err := pgxpool.ParseConfig(config.ReadDbUrl)
 	if err != nil {
 		logger.Error("db connect failed", zap.Error(err))
 	}

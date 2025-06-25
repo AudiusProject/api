@@ -17,7 +17,7 @@ import (
 )
 
 func mustDialPostgres() *pgxpool.Pool {
-	connConfig, err := pgxpool.ParseConfig(config.Cfg.DbUrl)
+	connConfig, err := pgxpool.ParseConfig(config.Cfg.WriteDbUrl)
 	if err != nil {
 		panic(err)
 	}

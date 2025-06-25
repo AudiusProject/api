@@ -4,11 +4,11 @@ import (
 	"context"
 	"fmt"
 	"log"
-	"os"
 	"slices"
 	"sync"
 	"time"
 
+	"bridgerton.audius.co/config"
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgconn"
 	"github.com/jackc/pgxlisten"
@@ -49,7 +49,8 @@ func (indexer *EsIndexer) listen(ctx context.Context) error {
 	listener := &pgxlisten.Listener{
 		Connect: func(ctx context.Context) (*pgx.Conn, error) {
 			// Provide a pgx connection for listening
-			return pgx.Connect(ctx, os.Getenv("discoveryDbUrl"))
+			// LISTEN needs to use the write leader
+			return pgx.Connect(ctx, config.Cfg.WriteDbUrl)
 		},
 		LogError: func(ctx context.Context, err error) {
 			log.Println("Listener error:", err)

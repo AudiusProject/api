@@ -11,7 +11,8 @@ import (
 
 type Config struct {
 	Env                string
-	DbUrl              string
+	ReadDbUrl          string
+	WriteDbUrl         string
 	EsUrl              string
 	Nodes              []Node
 	DeadNodes          []string
@@ -28,7 +29,8 @@ type Config struct {
 
 var Cfg = Config{
 	Env:                os.Getenv("ENV"),
-	DbUrl:              os.Getenv("discoveryDbUrl"),
+	ReadDbUrl:          os.Getenv("readDbUrl"),
+	WriteDbUrl:         os.Getenv("writeDbUrl"),
 	EsUrl:              os.Getenv("elasticsearchUrl"),
 	DelegatePrivateKey: os.Getenv("delegatePrivateKey"),
 	AxiomToken:         os.Getenv("axiomToken"),

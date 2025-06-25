@@ -120,7 +120,7 @@ func TestGetUserTracksAiAttributed(t *testing.T) {
 		Data []dbv1.FullTrack
 	}
 
-	baseUrl := fmt.Sprintf("/v1/full/users/handle/testuser1/tracks/ai_attributed")
+	baseUrl := "/v1/full/users/handle/testuser1/tracks/ai_attributed"
 
 	// First test uses marshaling struct to verify that works
 	status, body := testGet(t, app, baseUrl, &userTracksResponse)
