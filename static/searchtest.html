@@ -79,7 +79,11 @@
       trackResults.innerHTML = html`
         <h1>${tracks.length} Tracks</h1>
         <ul>
-          ${tracks.map((t) => html`<li>${t.title}</li>`)}
+          ${tracks.map(
+            (t) => html`<li>
+              <a href="https://audius.co${t.permalink}"> ${t.title} </a>
+            </li>`
+          )}
         </ul>
       `;
 
