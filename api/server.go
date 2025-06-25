@@ -15,12 +15,14 @@ import (
 	"bridgerton.audius.co/api/spl/programs/claimable_tokens"
 	"bridgerton.audius.co/api/spl/programs/reward_manager"
 	"bridgerton.audius.co/config"
+	"bridgerton.audius.co/esindexer"
 	"bridgerton.audius.co/trashid"
 	"github.com/AudiusProject/audiusd/pkg/rewards"
 	"github.com/AudiusProject/audiusd/pkg/sdk"
 	"github.com/Doist/unfurlist"
 	adapter "github.com/axiomhq/axiom-go/adapters/zap"
 	"github.com/axiomhq/axiom-go/axiom"
+	"github.com/elastic/go-elasticsearch/v8"
 	"github.com/ethereum/go-ethereum/crypto"
 	"github.com/gagliardetto/solana-go/rpc"
 	"github.com/gofiber/contrib/fiberzap/v2"
@@ -169,7 +171,14 @@ func NewApiServer(config config.Config) *ApiServer {
 		panic(err)
 	}
 
+	esClient, err := esindexer.Dial(config.EsUrl)
+	if err != nil {
+		panic(err)
+	}
+
 	auds := sdk.NewAudiusdSDK(config.AudiusdURL)
+
+	skipAuthCheck, _ := strconv.ParseBool(os.Getenv("skipAuthCheck"))
 
 	app := &ApiServer{
 		App: fiber.New(fiber.Config{
@@ -179,9 +188,12 @@ func NewApiServer(config config.Config) *ApiServer {
 			ReadBufferSize: 32_768,
 			UnescapePath:   true,
 		}),
+		env:                   config.Env,
+		skipAuthCheck:         skipAuthCheck,
 		pool:                  pool,
 		queries:               dbv1.New(pool),
 		logger:                logger,
+		esClient:              esClient,
 		started:               time.Now(),
 		resolveHandleCache:    &resolveHandleCache,
 		resolveGrantCache:     &resolveGrantCache,
@@ -279,6 +291,7 @@ func NewApiServer(config config.Config) *ApiServer {
 	for _, g := range []fiber.Router{v1, v1Full} {
 		// Users
 		g.Get("/users", app.v1Users)
+		g.Get("/users/search", app.v1UsersSearch)
 		g.Get("/users/unclaimed_id", app.v1UsersUnclaimedId)
 		g.Get("/users/top", app.v1UsersTop)
 		g.Get("/users/genre/top", app.v1UsersGenreTop)
@@ -328,6 +341,7 @@ func NewApiServer(config config.Config) *ApiServer {
 
 		// Tracks
 		g.Get("/tracks", app.v1Tracks)
+		g.Get("/tracks/search", app.v1TracksSearch)
 		g.Get("/tracks/unclaimed_id", app.v1TracksUnclaimedId)
 
 		g.Get("/tracks/trending", app.v1TracksTrending)
@@ -355,6 +369,7 @@ func NewApiServer(config config.Config) *ApiServer {
 
 		// Playlists
 		g.Get("/playlists", app.v1Playlists)
+		g.Get("/playlists/search", app.v1PlaylistsSearch)
 		g.Get("/playlists/unclaimed_id", app.v1PlaylistsUnclaimedId)
 		g.Get("/playlists/trending", app.v1PlaylistsTrending)
 		g.Get("/playlists/by_permalink/:handle/:slug", app.v1PlaylistByPermalink)
@@ -366,6 +381,11 @@ func NewApiServer(config config.Config) *ApiServer {
 
 		// Explore
 		g.Get("/explore/best-selling", app.v1ExploreBestSelling)
+
+		// Search
+		g.Get("/search/autocomplete", app.v1SearchFull)
+		g.Get("/search/full", app.v1SearchFull)
+		g.Get("/search/tags", app.v1SearchFull)
 
 		// Developer Apps
 		g.Get("/developer_apps/:address", app.v1DeveloperApps)
@@ -452,6 +472,7 @@ type ApiServer struct {
 	*fiber.App
 	pool                  *pgxpool.Pool
 	queries               *dbv1.Queries
+	esClient              *elasticsearch.Client
 	logger                *zap.Logger
 	started               time.Time
 	resolveHandleCache    *otter.Cache[string, int32]
@@ -465,7 +486,9 @@ type ApiServer struct {
 	solanaConfig          *config.SolanaConfig
 	antiAbuseOracles      []string
 	validators            []config.Node
+	env                   string
 	auds                  *sdk.AudiusdSDK
+	skipAuthCheck         bool // set to true in a test if you don't care about auth middleware
 }
 
 func (app *ApiServer) home(c *fiber.Ctx) error {

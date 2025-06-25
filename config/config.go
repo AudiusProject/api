@@ -13,6 +13,7 @@ type Config struct {
 	Env                string
 	ReadDbUrl          string
 	WriteDbUrl         string
+	EsUrl              string
 	Nodes              []Node
 	DeadNodes          []string
 	DelegatePrivateKey string
@@ -30,6 +31,7 @@ var Cfg = Config{
 	Env:                os.Getenv("ENV"),
 	ReadDbUrl:          os.Getenv("readDbUrl"),
 	WriteDbUrl:         os.Getenv("writeDbUrl"),
+	EsUrl:              os.Getenv("elasticsearchUrl"),
 	DelegatePrivateKey: os.Getenv("delegatePrivateKey"),
 	AxiomToken:         os.Getenv("axiomToken"),
 	AxiomDataset:       os.Getenv("axiomDataset"),
