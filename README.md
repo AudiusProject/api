@@ -74,7 +74,7 @@ docker compose up -d
 
 ## ElasticSearch
 
-Currently esindexer is running in listen mode on the same box as elasticsearch.
+Currently esindexer is running in listen mode on the same box as elasticsearch, running in docker compose in the `bridgerton` folder.
 
 To deploy:
 
