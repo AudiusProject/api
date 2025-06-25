@@ -100,7 +100,9 @@
         <ul>
           ${playlists.map(
             (playlist) => html`<li>
-              <a href="https://audius.co/TODO">${playlist.playlist_name}</a>
+              <a href="https://audius.co${playlist.permalink}">
+                ${playlist.playlist_name}
+              </a>
             </li>`
           )}
         </ul>
@@ -111,7 +113,9 @@
         <ul>
           ${albums.map(
             (playlist) => html`<li>
-              <a href="https://audius.co/TODO">${playlist.playlist_name}</a>
+              <a href="https://audius.co${playlist.permalink}">
+                ${playlist.playlist_name}
+              </a>
             </li>`
           )}
         </ul>

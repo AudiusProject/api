@@ -222,7 +222,7 @@ func TestSearch(t *testing.T) {
 		status, body := testGet(t, app, "/v1/search/autocomplete?query=stereo+sun")
 		require.Equal(t, 200, status)
 		jsonAssert(t, body, map[string]any{
-			// "data.tracks.#":       3,
+			"data.tracks.#":       3,
 			"data.tracks.0.title": "sunny side",
 		})
 	}

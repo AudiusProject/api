@@ -52,7 +52,6 @@ func commonIndexSettings(mapping string) string {
 }
 
 func reindexCollection(i *EsIndexer, collection string) {
-
 	if err := i.createIndex(collection); err != nil {
 		panic(err)
 	}

@@ -48,7 +48,6 @@ func BuildFunctionScoreDSL(scoreField string, innerQuery map[string]any) string 
 		}
 	}`, innerJson, scoreField)
 
-	// pprintJson(dsl)
 	return dsl
 }
 
@@ -75,8 +74,6 @@ func SearchAndPluck(esClient *elasticsearch.Client, index, dsl string, limit, of
 	if err != nil {
 		return nil, err
 	}
-
-	// fmt.Println("ES BODY", index, string(body))
 
 	result := []int32{}
 	for _, hit := range gjson.GetBytes(body, "hits.hits").Array() {

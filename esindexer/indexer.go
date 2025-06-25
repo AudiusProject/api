@@ -67,7 +67,7 @@ func (indexer *EsIndexer) indexAll(collection string) error {
 		return err
 	}
 
-	fmt.Printf("stats: %s %+v \n", collection, indexer.bulk.Stats())
+	slog.Info("index all stats", "collection", collection, "stats", indexer.bulk.Stats())
 
 	return nil
 }
@@ -116,9 +116,7 @@ func (indexer *EsIndexer) indexSql(indexName, sql string) error {
 			Index:      indexName,
 			DocumentID: fmt.Sprintf("%d", id),
 			Body:       strings.NewReader(doc),
-			OnSuccess: func(ctx context.Context, item esutil.BulkIndexerItem, res esutil.BulkIndexerResponseItem) {
-				// fmt.Println("index", index, id)
-			},
+			OnSuccess:  func(ctx context.Context, item esutil.BulkIndexerItem, res esutil.BulkIndexerResponseItem) {},
 			OnFailure: func(ctx context.Context, item esutil.BulkIndexerItem, res esutil.BulkIndexerResponseItem, err error) {
 				if err != nil {
 					log.Printf("ERROR: %s", err)
