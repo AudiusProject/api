@@ -3,6 +3,7 @@ package api
 import (
 	"time"
 
+	"bridgerton.audius.co/trashid"
 	"github.com/gofiber/fiber/v2"
 	"github.com/jackc/pgx/v5"
 )
@@ -56,7 +57,7 @@ func (app *ApiServer) v1UsersNowPlaying(c *fiber.Ctx) error {
 	return c.JSON(fiber.Map{
 		"data": fiber.Map{
 			"title": np.Title,
-			"id":    np.TrackID,
+			"id":    trashid.MustEncodeHashID(int(np.TrackID)),
 		},
 	})
 }

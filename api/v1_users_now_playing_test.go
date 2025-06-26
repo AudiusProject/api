@@ -41,7 +41,7 @@ func TestUsersNowPlayingActive(t *testing.T) {
 	assert.Equal(t, 200, status)
 	jsonAssert(t, body, map[string]any{
 		"data.title": "Test Track",
-		"data.id":    "9001",
+		"data.id":    trashid.MustEncodeHashID(9001),
 	})
 }
 
