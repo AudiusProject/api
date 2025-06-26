@@ -13,6 +13,6 @@ func TestUserComments(t *testing.T) {
 	jsonAssert(t, body, map[string]any{
 		"data.0.message":   "flame emoji",
 		"data.0.user_id":   "7eP5n",
-		"data.0.entity_id": "ePgRD",
+		"data.0.entity_id": "ePWJD",
 	})
 }
