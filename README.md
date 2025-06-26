@@ -8,7 +8,7 @@
     <b>Audius API Server</b>
     <br/>
     <br/>
-    <i>The read API server backend for the Audius mobile apps and [audius.co](https://audius.co) website.</i>
+    <i>The read API server backend for the Audius mobile apps and <a href="https://audius.co">audius.co</a></i>
   </p>
 </p>
 
