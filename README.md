@@ -23,15 +23,17 @@
 1. Create `.env` file:
 
    ```
-   discoveryDbUrl='postgresql://postgres:somepassword@someip:5432/audius_discovery'
+   readDbUrl='postgresql://postgres:somepassword@someip:5432/audius_discovery'
    ```
 
-   Other env vars:
-
+   Regular database dumps are posted to S3, and can be pulled with
    ```
-   delegatePrivateKey: key to sign stream/download requests with
-   axiomToken: axiom api token to pipe logs to axiom
-   axiomDataset: axiom dataset name
+   curl https://audius-pgdump.s3-us-west-2.amazonaws.com/discProvProduction.dump -O
+   pg_restore -d <your-database-url> \
+      --username postgres \
+      --no-privileges \
+      --clean --if-exists --verbose -j 8 \
+      discProvProduction.dump
    ```
 
    (more env vars and their defaults can be found in `config.go`)
@@ -48,7 +50,7 @@
    make
    ```
 
-   http://localhost:1323/v2/users/stereosteve
+   http://localhost:1323/v1/users/handle/audius
 
    This will watch sql files + re-run `sqlc generate` + restart server when go files change.
 
