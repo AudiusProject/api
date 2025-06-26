@@ -1,6 +1,16 @@
-# Audius API Server
+<p align="center">
+  <br/>
+  <img src="./hero.jpg" alt="hero" width="600">
 
-The read API server backend for the Audius mobile apps and [audius.co](https://audius.co) website.
+  <br/>
+
+  <p align="center">
+    <b>Audius API Server</b>
+    <br/>
+    <br/>
+    <i>The read API server backend for the Audius mobile apps and [audius.co](https://audius.co) website.</i>
+  </p>
+</p>
 
 ## Running
 
