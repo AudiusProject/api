@@ -16,13 +16,14 @@ type FullPlaylistsParams struct {
 type FullPlaylist struct {
 	GetPlaylistsRow
 
-	ID        string         `json:"id"`
-	Artwork   *SquareImage   `json:"artwork"`
-	UserID    trashid.HashId `json:"user_id"`
-	User      FullUser       `json:"user"`
-	Tracks    []FullTrack    `json:"tracks"`
-	Access    Access         `json:"access"`
-	Permalink string         `json:"permalink"`
+	ID         string         `json:"id"`
+	Artwork    *SquareImage   `json:"artwork"`
+	UserID     trashid.HashId `json:"user_id"`
+	User       FullUser       `json:"user"`
+	Tracks     []FullTrack    `json:"tracks"`
+	TrackCount int32          `json:"track_count"`
+	Access     Access         `json:"access"`
+	Permalink  string         `json:"permalink"`
 
 	FolloweeReposts   []*FolloweeRepost          `json:"followee_reposts"`
 	FolloweeFavorites []*FolloweeFavorite        `json:"followee_favorites"`
@@ -124,6 +125,7 @@ func (q *Queries) FullPlaylistsKeyed(ctx context.Context, arg FullPlaylistsParam
 			User:              user,
 			UserID:            user.ID,
 			Tracks:            tracks,
+			TrackCount:        int32(len(tracks)),
 			FolloweeFavorites: fullFolloweeFavorites(playlist.FolloweeFavorites),
 			FolloweeReposts:   fullFolloweeReposts(playlist.FolloweeReposts),
 			PlaylistContents:  fullPlaylistContents,
