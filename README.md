@@ -1,6 +1,6 @@
 <p align="center">
   <br/>
-  <img src="./hero.jpg" alt="hero" width="600">
+  <img src="./assets/hero.jpg" alt="hero" width="600">
 
   <br/>
 
@@ -11,6 +11,10 @@
     <i>The read API server backend for the Audius mobile apps and <a href="https://audius.co">audius.co</a></i>
   </p>
 </p>
+
+
+[![license](https://img.shields.io/github/license/AudiusProject/api)](https://github.com/AudiusProject/api/blob/main/LICENSE) [![releases](https://img.shields.io/github/v/release/AudiusProject/api)](https://github.com/AudiusProject/api/releases/latest) 
+
 
 ## Running
 
