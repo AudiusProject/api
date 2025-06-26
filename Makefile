@@ -2,6 +2,8 @@
 dev::
 	wgo -file sqlc.yaml -file .sql -xfile .go sqlc generate :: wgo run -file .go -debounce 10ms main.go
 
+up: dev
+
 test::
 	sqlc generate
 	go test -count=1 -cover ./...
