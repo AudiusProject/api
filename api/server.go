@@ -267,6 +267,13 @@ func NewApiServer(config config.Config) *ApiServer {
 
 	app.Get("/", app.home)
 
+	// for es debug... can remove when sorted
+	app.Get("/debug", func(c *fiber.Ctx) error {
+		return c.JSON(fiber.Map{
+			"es_url": config.EsUrl,
+		})
+	})
+
 	// resolve myId
 	app.Use(app.isFullMiddleware)
 	app.Use(app.resolveMyIdMiddleware)
@@ -417,6 +424,7 @@ func NewApiServer(config config.Config) *ApiServer {
 
 		// Notifications
 		g.Get("/notifications/:userId/playlist_updates", app.requireUserIdMiddleware, app.v1NotificationsPlaylistUpdates)
+
 	}
 
 	// Comms
