@@ -2,14 +2,8 @@
   <br/>
   <img src="./assets/hero.jpg" alt="hero" width="600">
 
-  <br/>
-
-  <p align="center">
-    <b>Audius API Server</b>
-    <br/>
-    <br/>
-    <i>The read API server backend for the Audius mobile apps and <a href="https://audius.co">audius.co</a></i>
-  </p>
+   <h3 align="center"><b>Audius API Server</b></h3>
+   <p align="center"><i>The read API server backend for the Audius mobile apps and <a href="https://audius.co">audius.co</a></i></p>
 </p>
 
 
