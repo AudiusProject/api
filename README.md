@@ -61,6 +61,12 @@ docker compose up -d
 make test
 ```
 
+### Build
+
+```
+go build -o api main.go
+```
+
 ## API diff
 
 Tool for comparing the new API server endpoints with the legacy Discovery Node APIs
@@ -90,27 +96,22 @@ docker compose up -d
 
 ## ElasticSearch
 
-Currently esindexer is running in listen mode on the same box as elasticsearch, running in docker compose in the `bridgerton` folder.
+ElasticSearch is configured by the env var `elasticsearchUrl`.
 
-To deploy:
+Tool for interacting with search
 
-```
-make esindexer-staging
-make esindexer-production
-```
+http://localhost:1323/searchtest.html
 
-To re-index collections from scratch you can:
+Re-index collections from scratch:
 
 ```
-ssh stage-elasticsearch
-cd bridgerton
-time ./bridge-amd64 reindex
+go build -o api main.go
+time ./api reindex
 ```
 
 You can also specify specific indexes. If you change the mapping you can add `drop`:
 
 ```
-ssh stage-elasticsearch
-cd bridgerton
-time ./bridge-amd64 reindex drop playlists
+go build -o api main.go
+time ./api reindex drop playlists
 ```
