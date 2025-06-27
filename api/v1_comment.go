@@ -8,7 +8,7 @@ import (
 
 func (app *ApiServer) v1Comment(c *fiber.Ctx) error {
 	sql := `
-	SELECT comment_id as id
+	SELECT comment_id
 	FROM comments
 	WHERE comment_id = @comment_id
 	AND is_delete = false
