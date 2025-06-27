@@ -126,7 +126,6 @@ func (s *SolanaIndexer) Start(ctx context.Context) {
 	}
 
 	s.logger.Info("listening for new transactions...")
-	return
 }
 
 // Handles a message from the gRPC subscription.
