@@ -406,6 +406,7 @@ func NewApiServer(config config.Config) *ApiServer {
 
 		// Comments
 		g.Get("/comments/unclaimed_id", app.v1CommentsUnclaimedId)
+		g.Get("/comments/:commentId", app.v1Comment)
 
 		// Events
 		g.Get("/events/unclaimed_id", app.v1EventsUnclaimedId)
