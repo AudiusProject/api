@@ -26,7 +26,9 @@ type SolanaIndexer struct {
 	tokenMints       []solana.PublicKey
 }
 
+// LaserStream from Helius only keeps the last 3000 slots
 var MAX_SLOT_GAP = uint64(3000)
+
 var BATCH_DELAY_MS = uint64(50)
 var TRANSACTION_DELAY_MS = uint(5)
 
