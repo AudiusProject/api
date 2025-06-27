@@ -2,9 +2,9 @@
 dev::
 	wgo -file sqlc.yaml -file .sql -xfile .go sqlc generate :: wgo run -file .go -debounce 10ms main.go
 
-indexer::
-	go run main.go --indexer=true --server=false
-	
+solana-indexer::
+	wgo run -file .go -debounce 10ms main.go solana-indexer
+
 up: dev
 
 test::
