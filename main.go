@@ -31,10 +31,12 @@ func main() {
 		}
 	case "solana-indexer":
 		{
-			sigCh := make(chan os.Signal, 1)
-			fmt.Println("Running indexer...")
+			fmt.Println("Running solana-indexer...")
 			tokenIndexer := indexers.NewSolanaIndexer(config.Cfg)
-			go tokenIndexer.Start(context.Background())
+			tokenIndexer.Start(context.Background())
+
+			// Wait for the process to be terminated
+			sigCh := make(chan os.Signal, 1)
 			signal.Notify(sigCh, syscall.SIGINT, syscall.SIGTERM)
 			<-sigCh
 		}
