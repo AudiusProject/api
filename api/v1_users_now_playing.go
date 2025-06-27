@@ -47,8 +47,10 @@ func (app *ApiServer) v1UsersNowPlaying(c *fiber.Ctx) error {
 	}
 
 	// Validate that the track is still within its playback window.
+	// Add a 10 second buffer to account for the track stopping and the next
+	// track getting indexed.
 	endTime := np.CreatedAt.Add(time.Duration(np.Duration) * time.Second)
-	if endTime.Before(time.Now()) {
+	if endTime.Before(time.Now().Add(10 * time.Second)) {
 		return c.JSON(fiber.Map{
 			"data": nil,
 		})
