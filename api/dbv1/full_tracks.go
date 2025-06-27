@@ -214,7 +214,7 @@ type MinTrack struct {
 	CommentCount             pgtype.Int4  `json:"comment_count"`
 	Tags                     pgtype.Text  `json:"tags"`
 	IsDownloadable           bool         `json:"is_downloadable"`
-	PlayCount                pgtype.Int8  `json:"play_count"`
+	PlayCount                int64        `json:"play_count"`
 	PinnedCommentID          pgtype.Int4  `json:"pinned_comment_id"`
 	PlaylistsContainingTrack []int32      `json:"playlists_containing_track"`
 	AlbumBacklink            interface{}  `json:"album_backlink"`

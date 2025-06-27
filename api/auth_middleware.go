@@ -17,7 +17,12 @@ func (app *ApiServer) recoverAuthorityFromSignatureHeaders(c *fiber.Ctx) string 
 	message := c.Get("Encoded-Data-Message")
 	signature := c.Get("Encoded-Data-Signature")
 	if message == "" || signature == "" {
-		return ""
+		// Some callers pass these as query params, check those if not in headers
+		message = c.Query("user_data")
+		signature = c.Query("user_signature")
+		if message == "" || signature == "" {
+			return ""
+		}
 	}
 
 	encodedToRecover := []byte(message)
@@ -41,6 +46,12 @@ func (app *ApiServer) recoverAuthorityFromSignatureHeaders(c *fiber.Ctx) string 
 
 // Checks if authedWallet is authorized to act on behalf of userId
 func (app *ApiServer) isAuthorizedRequest(ctx context.Context, userId int32, authedWallet string) bool {
+
+	// tests can opt in to skipAuthCheck
+	if app.skipAuthCheck {
+		return true
+	}
+
 	cacheKey := fmt.Sprintf("%d:%s", userId, authedWallet)
 	if hit, ok := app.resolveGrantCache.Get(cacheKey); ok {
 		return hit

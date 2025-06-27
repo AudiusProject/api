@@ -21,13 +21,24 @@ func TestRecoverAuthorityFromSignatureHeaders(t *testing.T) {
 		return c.SendStatus(fiber.StatusOK)
 	})
 
-	req := httptest.NewRequest("GET", "/", nil)
-	req.Header.Set("Encoded-Data-Message", "signature:1744763856446")
-	req.Header.Set("Encoded-Data-Signature", "0xbb202be3a7f3a0aa22c1458ef6a3f2f8360fb86791c7b137e8562df0707825c11fa1db01096efd2abc5e6613c4d1e8d4ae1e2b993abdd555fe270c1b17bff0d21c")
+	{
+		req := httptest.NewRequest("GET", "/", nil)
+		req.Header.Set("Encoded-Data-Message", "signature:1744763856446")
+		req.Header.Set("Encoded-Data-Signature", "0xbb202be3a7f3a0aa22c1458ef6a3f2f8360fb86791c7b137e8562df0707825c11fa1db01096efd2abc5e6613c4d1e8d4ae1e2b993abdd555fe270c1b17bff0d21c")
 
-	_, err := testApp.Test(req, -1)
-	assert.NoError(t, err)
-	assert.Equal(t, "0x7d273271690538cf855e5b3002a0dd8c154bb060", wallet)
+		_, err := testApp.Test(req, -1)
+		assert.NoError(t, err)
+		assert.Equal(t, "0x7d273271690538cf855e5b3002a0dd8c154bb060", wallet)
+	}
+
+	// Test using query params
+	{
+		req := httptest.NewRequest("GET", "/?user_data=signature:1744763856446&user_signature=0xbb202be3a7f3a0aa22c1458ef6a3f2f8360fb86791c7b137e8562df0707825c11fa1db01096efd2abc5e6613c4d1e8d4ae1e2b993abdd555fe270c1b17bff0d21c", nil)
+
+		_, err := testApp.Test(req, -1)
+		assert.NoError(t, err)
+		assert.Equal(t, "0x7d273271690538cf855e5b3002a0dd8c154bb060", wallet)
+	}
 }
 
 func TestAuthorized(t *testing.T) {

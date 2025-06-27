@@ -47,7 +47,7 @@ SELECT
   track_routes.slug as slug,
   duration,
   is_downloadable,
-  aggregate_plays.count as play_count,
+  COALESCE(aggregate_plays.count, 0) as play_count,
   ddex_app,
   pinned_comment_id,
   playlists_containing_track,
@@ -253,7 +253,7 @@ type GetTracksRow struct {
 	Slug                               pgtype.Text     `json:"slug"`
 	Duration                           pgtype.Int4     `json:"duration"`
 	IsDownloadable                     bool            `json:"is_downloadable"`
-	PlayCount                          pgtype.Int8     `json:"play_count"`
+	PlayCount                          int64           `json:"play_count"`
 	DdexApp                            pgtype.Text     `json:"ddex_app"`
 	PinnedCommentID                    pgtype.Int4     `json:"pinned_comment_id"`
 	PlaylistsContainingTrack           []int32         `json:"playlists_containing_track"`
