@@ -12,13 +12,17 @@ import (
 
 func NewZapLogger(config config.Config) *zap.Logger {
 	// stdout core
+	level, err := zapcore.ParseLevel(config.LogLevel)
+	if err != nil {
+		level = zapcore.InfoLevel
+	}
 	encoderConfig := zap.NewProductionEncoderConfig()
 	encoderConfig.EncodeTime = zapcore.ISO8601TimeEncoder
 	consoleEncoder := zapcore.NewJSONEncoder(encoderConfig)
 	stdoutCore := zapcore.NewCore(
 		consoleEncoder,
 		zapcore.AddSync(os.Stdout),
-		zapcore.InfoLevel,
+		level,
 	)
 
 	var core zapcore.Core = stdoutCore

@@ -138,6 +138,7 @@ func (s *SolanaIndexer) onMessage(msg *pb.SubscribeUpdate) {
 			zap.String("signature", base58.Encode(tx.Signature)),
 			zap.String("indexerSource", "grpc"),
 		)
+		logger.Debug("received transaction")
 
 		balanceChanges, err := getTokenBalanceChanges(&geyserTransactionAdapter{tx: tx})
 		if err != nil {
@@ -156,7 +157,7 @@ func (s *SolanaIndexer) onMessage(msg *pb.SubscribeUpdate) {
 					account:       acc,
 					signature:     base58.Encode(tx.Signature),
 					slot:          transaction.Slot,
-				})
+				}, logger)
 				if err != nil {
 					logger.Error("failed to insert token transaction", zap.Error(err))
 					return
@@ -177,7 +178,7 @@ type dbExecutor interface {
 	Exec(ctx context.Context, sql string, args ...any) (pgconn.CommandTag, error)
 }
 
-func insertBalanceChange(ctx context.Context, db dbExecutor, row balanceChangeRow) error {
+func insertBalanceChange(ctx context.Context, db dbExecutor, row balanceChangeRow, logger *zap.Logger) error {
 	sql := `INSERT INTO solana_token_txs (account_address, mint, change, balance, signature, slot)
 						VALUES (@account_address, @mint, @change, @balance, @signature, @slot)
 						ON CONFLICT DO NOTHING`
@@ -189,6 +190,15 @@ func insertBalanceChange(ctx context.Context, db dbExecutor, row balanceChangeRo
 		"signature":       row.signature,
 		"slot":            row.slot,
 	})
+	if logger != nil {
+		logger.Debug("inserting balance change...",
+			zap.String("account", row.account),
+			zap.String("mint", row.balanceChange.Mint),
+			zap.Uint64("balance", row.balanceChange.PostTokenBalance),
+			zap.Int64("change", row.balanceChange.Change),
+			zap.Uint64("slot", row.slot),
+		)
+	}
 	return err
 }
 
@@ -301,7 +311,7 @@ func (s *SolanaIndexer) backfillAddressTransactions(ctx context.Context, address
 						account:       acc,
 						signature:     sig.Signature.String(),
 						slot:          txRes.Slot,
-					})
+					}, logger)
 					if err != nil {
 						logger.Error("failed to insert token transaction", zap.Error(err))
 						break

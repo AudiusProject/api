@@ -11,6 +11,7 @@ import (
 
 type Config struct {
 	Env                string
+	LogLevel           string
 	WriteDbUrl         string
 	ReadDbUrl          string
 	Nodes              []Node
@@ -28,6 +29,7 @@ type Config struct {
 
 var Cfg = Config{
 	Env:                os.Getenv("ENV"),
+	LogLevel:           os.Getenv("logLevel"),
 	WriteDbUrl:         os.Getenv("writeDbUrl"),
 	ReadDbUrl:          os.Getenv("readDbUrl"),
 	DelegatePrivateKey: os.Getenv("delegatePrivateKey"),
