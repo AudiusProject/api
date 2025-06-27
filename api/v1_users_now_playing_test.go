@@ -45,7 +45,7 @@ func TestUsersNowPlayingActive(t *testing.T) {
 	})
 }
 
-func TestUsersNowPlayingInactive(t *testing.T) {
+func TestUsersNowPlayingJustFinished(t *testing.T) {
 	app := emptyTestApp(t)
 
 	createFixtures(app, FixtureMap{
@@ -60,7 +60,7 @@ func TestUsersNowPlayingInactive(t *testing.T) {
 				"track_id": 9002,
 				"owner_id": 2,
 				"title":    "Test Track",
-				"duration": 60,
+				"duration": 115,
 			},
 		},
 		"plays": []map[string]any{
@@ -76,6 +76,45 @@ func TestUsersNowPlayingInactive(t *testing.T) {
 	path := "/v1/users/" + trashid.MustEncodeHashID(2) + "/now-playing"
 	status, body := testGet(t, app, path)
 	assert.Equal(t, 200, status)
+	// Should still be playing the track because of the buffer
+	jsonAssert(t, body, map[string]any{
+		"data.title": "Test Track",
+		"data.id":    trashid.MustEncodeHashID(9002),
+	})
+}
+
+func TestUsersNowPlayingFinishedAWhileAgo(t *testing.T) {
+	app := emptyTestApp(t)
+
+	createFixtures(app, FixtureMap{
+		"users": []map[string]any{
+			{
+				"user_id": 2,
+				"handle":  "tester",
+			},
+		},
+		"tracks": []map[string]any{
+			{
+				"track_id": 9002,
+				"owner_id": 2,
+				"title":    "Test Track",
+				"duration": 105,
+			},
+		},
+		"plays": []map[string]any{
+			{
+				"id":           1,
+				"user_id":      2,
+				"play_item_id": 9002,
+				"created_at":   time.Now().UTC().Add(-2 * time.Minute),
+			},
+		},
+	})
+
+	path := "/v1/users/" + trashid.MustEncodeHashID(2) + "/now-playing"
+	status, body := testGet(t, app, path)
+	assert.Equal(t, 200, status)
+	// Should no longer be playing the track (past the buffer)
 	jsonAssert(t, body, map[string]any{
 		"data": nil,
 	})
