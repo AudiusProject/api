@@ -248,16 +248,16 @@ func NewApiServer(config config.Config) *ApiServer {
 
 	// Create Swagger middleware for v1
 	//
-	// Swagger will be available at: /api/v1/docs
+	// Swagger will be available at: /v1/docs
 	app.Use(swagger.New(swagger.Config{
 		BasePath: "/v1",
 		Path:     "docs",
 		FilePath: "./static/swagger-v1.json",
 	}))
 
-	// Create Swagger middleware for v2
+	// Create Swagger middleware for v1/full
 	//
-	// Swagger will be available at: /api/v2/docs
+	// Swagger will be available at: /v1/full/docs
 	app.Use(swagger.New(swagger.Config{
 		BasePath: "/v1/full",
 		Path:     "docs",
