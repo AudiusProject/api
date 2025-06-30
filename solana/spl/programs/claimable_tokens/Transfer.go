@@ -10,7 +10,8 @@ import (
 
 type Transfer struct {
 	SenderEthAddress common.Address
-	Mint             solana.PublicKey `bin:"-" borsh_skip:"true"`
+	SenderUserBank   solana.PublicKey `bin:"-" borsh_skip:"true"`
+	Authority        solana.PublicKey `bin:"-" borsh_skip:"true"`
 	Payer            solana.PublicKey `bin:"-" borsh_skip:"true"`
 	Destination      solana.PublicKey `bin:"-" borsh_skip:"true"`
 
@@ -29,13 +30,12 @@ func NewTransferInstructionBuilder() *Transfer {
 	return data
 }
 
-func (inst *Transfer) SetSenderEthAddress(ethAddress common.Address) *Transfer {
+func (inst *Transfer) SetSender(ethAddress common.Address, mint solana.PublicKey) *Transfer {
 	inst.SenderEthAddress = ethAddress
-	return inst
-}
-
-func (inst *Transfer) SetMint(mint solana.PublicKey) *Transfer {
-	inst.Mint = mint
+	userbank, _ := deriveUserBankAccount(mint, ethAddress)
+	inst.SenderUserBank = userbank
+	authority, _, _ := deriveAuthority(mint)
+	inst.Authority = authority
 	return inst
 }
 
@@ -49,6 +49,14 @@ func (inst *Transfer) SetDestination(destination solana.PublicKey) *Transfer {
 	return inst
 }
 
+func (inst *CreateTokenAccount) GetSenderUserBank() (solana.PublicKey, error) {
+	builtUserBank := inst.AccountMetaSlice.Get(1)
+	if builtUserBank != nil {
+		return builtUserBank.PublicKey, nil
+	}
+	return deriveUserBankAccount(inst.Mint, inst.EthAddress)
+}
+
 func (inst Transfer) ValidateAndBuild() (*Instruction, error) {
 	if err := inst.Validate(); err != nil {
 		return nil, err
@@ -58,10 +66,7 @@ func (inst Transfer) ValidateAndBuild() (*Instruction, error) {
 
 func (inst *Transfer) Validate() error {
 	if inst.SenderEthAddress.Big().Uint64() == 0 {
-		return errors.New("senderEthAddress not set")
-	}
-	if inst.Mint.IsZero() {
-		return errors.New("mint not set")
+		return errors.New("sender not set")
 	}
 	if inst.Payer.IsZero() {
 		return errors.New("payer not set")
@@ -69,18 +74,37 @@ func (inst *Transfer) Validate() error {
 	if inst.Destination.IsZero() {
 		return errors.New("destination not set")
 	}
+	if inst.SenderUserBank.IsZero() {
+		return errors.New("sender has incorrect user bank")
+	}
+	if inst.Authority.IsZero() {
+		return errors.New("sender has incorrect authority")
+	}
 
-	authority, _, err := deriveAuthority(inst.Mint)
+	_, _, err := deriveNonce(inst.SenderEthAddress, inst.Authority)
 	if err != nil {
 		return err
 	}
-	_, err = deriveUserBankAccount(inst.Mint, inst.SenderEthAddress)
-	if err != nil {
-		return err
+	return nil
+}
+
+func (inst *Transfer) SetAccounts(accounts []*solana.AccountMeta) error {
+	inst.AccountMetaSlice = accounts
+	payer := inst.AccountMetaSlice.Get(0)
+	if payer != nil {
+		inst.Payer = payer.PublicKey
 	}
-	_, _, err = deriveNonce(inst.SenderEthAddress, authority)
-	if err != nil {
-		return err
+	senderUserBank := inst.AccountMetaSlice.Get(1)
+	if senderUserBank != nil {
+		inst.SenderUserBank = senderUserBank.PublicKey
+	}
+	destination := inst.AccountMetaSlice.Get(2)
+	if destination != nil {
+		inst.Destination = destination.PublicKey
+	}
+	authority := inst.AccountMetaSlice.Get(4)
+	if authority != nil {
+		inst.Authority = authority.PublicKey
 	}
 	return nil
 }
@@ -90,19 +114,17 @@ func (inst Transfer) MarshalWithEncoder(encoder *bin.Encoder) error {
 }
 
 func (inst *Transfer) UnmarshalWithDecoder(decoder *bin.Decoder) error {
-	return decoder.Decode(&inst)
+	return decoder.Decode(&inst.SenderEthAddress)
 }
 
 func (inst *Transfer) Build() *Instruction {
-	authority, _, _ := deriveAuthority(inst.Mint)
-	sourceUserBank, _ := deriveUserBankAccount(inst.Mint, inst.SenderEthAddress)
-	nonceAccount, _, _ := deriveNonce(inst.SenderEthAddress, authority)
+	nonceAccount, _, _ := deriveNonce(inst.SenderEthAddress, inst.Authority)
 	inst.AccountMetaSlice = []*solana.AccountMeta{
 		{PublicKey: inst.Payer, IsSigner: true, IsWritable: true},
-		{PublicKey: sourceUserBank, IsSigner: false, IsWritable: true},
+		{PublicKey: inst.SenderUserBank, IsSigner: false, IsWritable: true},
 		{PublicKey: inst.Destination, IsSigner: false, IsWritable: true},
 		{PublicKey: nonceAccount, IsSigner: false, IsWritable: true},
-		{PublicKey: authority, IsSigner: false, IsWritable: false},
+		{PublicKey: inst.Authority, IsSigner: false, IsWritable: false},
 		{PublicKey: solana.SysVarRentPubkey, IsSigner: false, IsWritable: false},
 		{PublicKey: solana.SysVarInstructionsPubkey, IsSigner: false, IsWritable: false},
 		{PublicKey: solana.SystemProgramID, IsSigner: false, IsWritable: false},
@@ -121,8 +143,7 @@ func NewTransferInstruction(
 	destination solana.PublicKey,
 ) *Transfer {
 	return NewTransferInstructionBuilder().
-		SetSenderEthAddress(senderEthAddress).
-		SetMint(mint).
+		SetSender(senderEthAddress, mint).
 		SetPayer(payer).
 		SetDestination(destination)
 }

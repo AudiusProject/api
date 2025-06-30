@@ -1,4 +1,4 @@
-package claimable_tokens
+package payment_router
 
 import (
 	"bytes"
@@ -6,15 +6,10 @@ import (
 
 	bin "github.com/gagliardetto/binary"
 	"github.com/gagliardetto/solana-go"
-	ag_text "github.com/gagliardetto/solana-go/text"
+	"github.com/gagliardetto/solana-go/text"
 )
 
-const (
-	NonceSeedPrefix      = "N_"
-	EthAddressByteLength = 20
-)
-
-var ProgramID = solana.MustPublicKeyFromBase58("Ewkv3JahEFRKkcJmpoKB7pXbnUHwjAyXiwEo4ZY2rezQ")
+var ProgramID = solana.MustPublicKeyFromBase58("paytYpX3LPN98TAeen6bFFeraGSuWnomZmCXjAsoqPa")
 
 func SetProgramID(pubkey solana.PublicKey) {
 	ProgramID = pubkey
@@ -26,8 +21,8 @@ func init() {
 }
 
 const (
-	Instruction_CreateTokenAccount uint8 = iota
-	Instruction_Transfer
+	Instruction_CreatePaymentRouterBalancePda = "createPaymentRouterBalancePda"
+	Instruction_Route                         = "route"
 )
 
 type Instruction struct {
@@ -46,18 +41,18 @@ func (inst *Instruction) Data() ([]byte, error) {
 	return buf.Bytes(), nil
 }
 
-func (inst *Instruction) TextEncode(encoder *ag_text.Encoder, option *ag_text.Option) error {
+func (inst *Instruction) TextEncode(encoder *text.Encoder, option *text.Option) error {
 	return encoder.Encode(inst.Impl, option)
 }
 
 var InstructionImplDef = bin.NewVariantDefinition(
-	bin.Uint8TypeIDEncoding,
+	bin.AnchorTypeIDEncoding,
 	[]bin.VariantType{
 		{
-			Name: "CreateTokenAccount", Type: (*CreateTokenAccount)(nil),
+			Name: Instruction_CreatePaymentRouterBalancePda, Type: (*CreatePaymentRouterBalancePda)(nil),
 		},
 		{
-			Name: "Transfer", Type: (*Transfer)(nil),
+			Name: Instruction_Route, Type: (*Route)(nil),
 		},
 	},
 )
@@ -71,7 +66,7 @@ func (inst *Instruction) UnmarshalWithDecoder(decoder *bin.Decoder) error {
 }
 
 func (inst Instruction) MarshalWithEncoder(encoder *bin.Encoder) error {
-	err := encoder.WriteUint8(inst.TypeID.Uint8())
+	err := encoder.WriteBytes(inst.TypeID.Bytes(), false)
 	if err != nil {
 		return fmt.Errorf("unable to write variant type: %w", err)
 	}

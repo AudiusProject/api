@@ -37,6 +37,14 @@ func (inst *CreateTokenAccount) SetPayer(payer solana.PublicKey) *CreateTokenAcc
 	return inst
 }
 
+func (inst *CreateTokenAccount) GetUserBank() (solana.PublicKey, error) {
+	builtUserBank := inst.AccountMetaSlice.Get(3)
+	if builtUserBank != nil {
+		return builtUserBank.PublicKey, nil
+	}
+	return deriveUserBankAccount(inst.Mint, inst.EthAddress)
+}
+
 func (inst CreateTokenAccount) ValidateAndBuild() (*Instruction, error) {
 	if err := inst.Validate(); err != nil {
 		return nil, err
@@ -85,12 +93,25 @@ func (inst *CreateTokenAccount) Build() *Instruction {
 	}}
 }
 
+func (inst *CreateTokenAccount) SetAccounts(accounts []*solana.AccountMeta) error {
+	inst.AccountMetaSlice = accounts
+	payer := inst.AccountMetaSlice.Get(0)
+	if payer != nil {
+		inst.Payer = payer.PublicKey
+	}
+	mint := inst.AccountMetaSlice.Get(1)
+	if mint != nil {
+		inst.Mint = mint.PublicKey
+	}
+	return nil
+}
+
 func (inst CreateTokenAccount) MarshalWithEncoder(encoder *bin.Encoder) error {
 	return encoder.WriteBytes(inst.EthAddress.Bytes(), false)
 }
 
 func (inst *CreateTokenAccount) UnmarshalWithDecoder(decoder *bin.Decoder) error {
-	return decoder.Decode(&inst)
+	return decoder.Decode(&inst.EthAddress)
 }
 
 func NewCreateTokenAccountInstruction(

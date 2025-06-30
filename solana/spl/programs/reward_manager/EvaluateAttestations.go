@@ -7,20 +7,33 @@ import (
 )
 
 type EvaluateAttestation struct {
-	// Instruction Data
-	Amount               uint64
-	DisbursementID       string
-	ReceipientEthAddress common.Address
+	// The instruction data
+	Data EvaluateAttestationData
+
+	// Exposed in decoded rpc responses
+
+	// The account that paid the fees
+	Payer solana.PublicKey
+	// The destination user bank account
+	DestinationUserBank solana.PublicKey
 
 	// Used for derivations
-	RewardManagerState        solana.PublicKey `bin:"-" borsh_skip:"true"`
-	Payer                     solana.PublicKey `bin:"-" borsh_skip:"true"`
-	DestinationUserBank       solana.PublicKey `bin:"-" borsh_skip:"true"`
-	TokenSource               solana.PublicKey `bin:"-" borsh_skip:"true"`
-	AntiAbuseOracleEthAddress common.Address   `bin:"-" borsh_skip:"true"`
+
+	// The account holding the configuration state for the program
+	rewardManagerState solana.PublicKey
+	// The token account that holds the rewards
+	tokenSource solana.PublicKey
+	// The anti abuse oracle ethereum wallet address that has attested
+	antiAbuseOracleEthAddress common.Address
 
 	// Accounts
 	solana.AccountMetaSlice `bin:"-" borsh_skip:"true"`
+}
+
+type EvaluateAttestationData struct {
+	Amount               uint64
+	DisbursementID       string
+	ReceipientEthAddress common.Address
 }
 
 func NewEvaluateAttestationInstructionBuilder() *EvaluateAttestation {
@@ -29,32 +42,32 @@ func NewEvaluateAttestationInstructionBuilder() *EvaluateAttestation {
 }
 
 func (inst *EvaluateAttestation) SetDisbursementID(challengedId string, specifier string) *EvaluateAttestation {
-	inst.DisbursementID = challengedId + ":" + specifier
+	inst.Data.DisbursementID = challengedId + ":" + specifier
 	return inst
 }
 
 func (inst *EvaluateAttestation) SetRecipientEthAddress(recipientEthAddress common.Address) *EvaluateAttestation {
-	inst.ReceipientEthAddress = recipientEthAddress
+	inst.Data.ReceipientEthAddress = recipientEthAddress
 	return inst
 }
 
 func (inst *EvaluateAttestation) SetAmount(amount uint64) *EvaluateAttestation {
-	inst.Amount = amount
+	inst.Data.Amount = amount
 	return inst
 }
 
 func (inst *EvaluateAttestation) SetAntiAbuseOracleEthAddress(antiAbuseOracleAddress common.Address) *EvaluateAttestation {
-	inst.AntiAbuseOracleEthAddress = antiAbuseOracleAddress
+	inst.antiAbuseOracleEthAddress = antiAbuseOracleAddress
 	return inst
 }
 
 func (inst *EvaluateAttestation) SetRewardManagerState(state solana.PublicKey) *EvaluateAttestation {
-	inst.RewardManagerState = state
+	inst.rewardManagerState = state
 	return inst
 }
 
 func (inst *EvaluateAttestation) SetTokenSource(tokenSource solana.PublicKey) *EvaluateAttestation {
-	inst.TokenSource = tokenSource
+	inst.tokenSource = tokenSource
 	return inst
 }
 
@@ -69,10 +82,10 @@ func (inst *EvaluateAttestation) SetPayer(payer solana.PublicKey) *EvaluateAttes
 }
 
 func (inst EvaluateAttestation) Build() *Instruction {
-	authority, _, _ := deriveAuthorityAccount(ProgramID, inst.RewardManagerState)
-	attestations, _, _ := deriveAttestationsAccount(ProgramID, authority, inst.DisbursementID)
-	disbursement, _, _ := deriveDisbursement(ProgramID, authority, inst.DisbursementID)
-	antiAbuseOracle, _, _ := deriveSender(ProgramID, authority, inst.AntiAbuseOracleEthAddress)
+	authority, _, _ := deriveAuthorityAccount(ProgramID, inst.rewardManagerState)
+	attestations, _, _ := deriveAttestationsAccount(ProgramID, authority, inst.Data.DisbursementID)
+	disbursement, _, _ := deriveDisbursement(ProgramID, authority, inst.Data.DisbursementID)
+	antiAbuseOracle, _, _ := deriveSender(ProgramID, authority, inst.antiAbuseOracleEthAddress)
 
 	inst.AccountMetaSlice = []*solana.AccountMeta{
 		{
@@ -81,7 +94,7 @@ func (inst EvaluateAttestation) Build() *Instruction {
 			IsWritable: true,
 		},
 		{
-			PublicKey:  inst.RewardManagerState,
+			PublicKey:  inst.rewardManagerState,
 			IsSigner:   false,
 			IsWritable: false,
 		},
@@ -91,7 +104,7 @@ func (inst EvaluateAttestation) Build() *Instruction {
 			IsWritable: false,
 		},
 		{
-			PublicKey:  inst.TokenSource,
+			PublicKey:  inst.tokenSource,
 			IsSigner:   false,
 			IsWritable: true,
 		},
@@ -138,22 +151,35 @@ func (inst EvaluateAttestation) Build() *Instruction {
 	}}
 }
 
+func (inst *EvaluateAttestation) SetAccounts(accounts []*solana.AccountMeta) error {
+	inst.AccountMetaSlice = accounts
+	payer := inst.AccountMetaSlice.Get(7)
+	if payer != nil {
+		inst.Payer = payer.PublicKey
+	}
+	destinationUserBank := inst.AccountMetaSlice.Get(4)
+	if destinationUserBank != nil {
+		inst.DestinationUserBank = destinationUserBank.PublicKey
+	}
+	return nil
+}
+
 func (inst EvaluateAttestation) MarshalWithEncoder(encoder *bin.Encoder) error {
-	err := encoder.Encode(inst.Amount)
+	err := encoder.Encode(inst.Data.Amount)
 	if err != nil {
 		return err
 	}
 
-	err = encoder.Encode(inst.DisbursementID)
+	err = encoder.Encode(inst.Data.DisbursementID)
 	if err != nil {
 		return err
 	}
 
-	return encoder.WriteBytes(inst.ReceipientEthAddress.Bytes(), false)
+	return encoder.WriteBytes(inst.Data.ReceipientEthAddress.Bytes(), false)
 }
 
 func (inst *EvaluateAttestation) UnmarshalWithDecoder(decoder *bin.Decoder) error {
-	return decoder.Decode(&inst)
+	return decoder.Decode(&inst.Data)
 }
 
 func NewEvaluateAttestationInstruction(
