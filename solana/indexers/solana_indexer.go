@@ -399,7 +399,7 @@ func processTransaction(ctx context.Context, db dbExecutor, slot uint64, meta *r
 				case claimable_tokens.Instruction_Transfer:
 					{
 						if transferInst, ok := inst.Impl.(*claimable_tokens.Transfer); ok {
-							var signedData claimable_tokens.SignedTransfer
+							var signedData claimable_tokens.SignedTransferData
 							// The signed Secp256k1Instruction must be directly before the transfer
 							secpInstruction := tx.Message.Instructions[instructionIndex-1]
 							accounts, err := secpInstruction.ResolveInstructionAccounts(&tx.Message)
@@ -420,8 +420,8 @@ func processTransaction(ctx context.Context, db dbExecutor, slot uint64, meta *r
 
 							logger.Info("claimable_tokens transfer",
 								zap.String("ethAddress", transferInst.SenderEthAddress.String()),
-								zap.String("userBank", transferInst.SenderUserBank.String()),
-								zap.String("destination", transferInst.Destination.String()),
+								zap.String("userBank", transferInst.GetSenderUserBank().PublicKey.String()),
+								zap.String("destination", transferInst.GetDestination().PublicKey.String()),
 								zap.Uint64("amount", signedData.Amount),
 							)
 						}
