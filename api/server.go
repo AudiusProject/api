@@ -25,6 +25,7 @@ import (
 	"github.com/ethereum/go-ethereum/crypto"
 	"github.com/gagliardetto/solana-go/rpc"
 	"github.com/gofiber/contrib/fiberzap/v2"
+	"github.com/gofiber/contrib/swagger"
 	"github.com/gofiber/fiber/v2"
 	"github.com/gofiber/fiber/v2/middleware/adaptor"
 	"github.com/gofiber/fiber/v2/middleware/cors"
@@ -244,6 +245,24 @@ func NewApiServer(config config.Config) *ApiServer {
 	app.Use(app.isFullMiddleware)
 	app.Use(app.resolveMyIdMiddleware)
 	app.Use(app.authMiddleware)
+
+	// Create Swagger middleware for v1
+	//
+	// Swagger will be available at: /api/v1/docs
+	app.Use(swagger.New(swagger.Config{
+		BasePath: "/v1",
+		Path:     "docs",
+		FilePath: "./static/swagger-v1.json",
+	}))
+
+	// Create Swagger middleware for v2
+	//
+	// Swagger will be available at: /api/v2/docs
+	app.Use(swagger.New(swagger.Config{
+		BasePath: "/v1/full",
+		Path:     "docs",
+		FilePath: "./static/swagger-v1-full.json",
+	}))
 
 	// some not-yet-implemented routes will match handlers below
 	// and won't fall thru to python reverse proxy handler
