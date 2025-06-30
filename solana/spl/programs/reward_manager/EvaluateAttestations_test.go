@@ -4,7 +4,7 @@ import (
 	"encoding/hex"
 	"testing"
 
-	"bridgerton.audius.co/api/spl/programs/reward_manager"
+	"bridgerton.audius.co/solana/spl/programs/reward_manager"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/gagliardetto/solana-go"
 	"github.com/stretchr/testify/require"

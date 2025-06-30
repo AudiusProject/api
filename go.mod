@@ -23,6 +23,7 @@ require (
 	github.com/maypok86/otter v1.2.4
 	github.com/mcuadros/go-defaults v1.2.0
 	github.com/mr-tron/base58 v1.2.0
+	github.com/rpcpool/yellowstone-grpc/examples/golang v0.0.0-20250605231917-29d62ca5d4ae
 	github.com/segmentio/encoding v0.4.1
 	github.com/speps/go-hashids/v2 v2.0.1
 	github.com/stretchr/testify v1.10.0
@@ -33,6 +34,7 @@ require (
 	github.com/valyala/fasthttp v1.59.0
 	go.uber.org/zap v1.27.0
 	golang.org/x/sync v0.13.0
+	google.golang.org/grpc v1.71.1
 	google.golang.org/protobuf v1.36.6
 )
 
@@ -165,7 +167,6 @@ require (
 	golang.org/x/time v0.9.0 // indirect
 	google.golang.org/genproto/googleapis/api v0.0.0-20250324211829-b45e905df463 // indirect
 	google.golang.org/genproto/googleapis/rpc v0.0.0-20250324211829-b45e905df463 // indirect
-	google.golang.org/grpc v1.71.1 // indirect
 	gopkg.in/yaml.v3 v3.0.1 // indirect
 	rsc.io/markdown v0.0.0-20241212154241-6bf72452917f // indirect
 	rsc.io/tmplfunc v0.0.3 // indirect

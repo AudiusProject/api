@@ -11,6 +11,7 @@ import (
 
 type Config struct {
 	Env                string
+	LogLevel           string
 	ReadDbUrl          string
 	WriteDbUrl         string
 	EsUrl              string
@@ -29,6 +30,7 @@ type Config struct {
 
 var Cfg = Config{
 	Env:                os.Getenv("ENV"),
+	LogLevel:           os.Getenv("logLevel"),
 	ReadDbUrl:          os.Getenv("readDbUrl"),
 	WriteDbUrl:         os.Getenv("writeDbUrl"),
 	EsUrl:              os.Getenv("elasticsearchUrl"),

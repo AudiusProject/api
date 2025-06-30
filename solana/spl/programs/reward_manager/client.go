@@ -3,7 +3,7 @@ package reward_manager
 import (
 	"context"
 
-	"bridgerton.audius.co/api/spl"
+	"bridgerton.audius.co/solana/spl"
 	"github.com/AudiusProject/audiusd/pkg/rewards"
 	"github.com/gagliardetto/solana-go"
 	"github.com/gagliardetto/solana-go/rpc"

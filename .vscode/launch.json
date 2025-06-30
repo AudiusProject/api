@@ -5,11 +5,19 @@
   "version": "0.2.0",
   "configurations": [
     {
-      "name": "Launch",
+      "name": "Server",
       "type": "go",
       "request": "launch",
       "mode": "auto",
       "program": "main.go"
+    },
+    {
+      "name": "Indexer",
+      "type": "go",
+      "request": "launch",
+      "mode": "auto",
+      "program": "main.go",
+      "args": ["--server=false", "--indexer=true"]
     }
   ]
 }

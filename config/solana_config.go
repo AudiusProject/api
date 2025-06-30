@@ -5,8 +5,8 @@ import (
 	"os"
 	"strings"
 
-	"bridgerton.audius.co/api/spl/programs/claimable_tokens"
-	"bridgerton.audius.co/api/spl/programs/reward_manager"
+	"bridgerton.audius.co/solana/spl/programs/claimable_tokens"
+	"bridgerton.audius.co/solana/spl/programs/reward_manager"
 	"github.com/gagliardetto/solana-go"
 )
 
@@ -14,6 +14,8 @@ type SolanaConfig struct {
 	RpcProviders []string
 	FeePayers    []solana.Wallet
 	SolanaRelay  string
+	GrpcProvider string
+	GrpcToken    string
 
 	MintAudio solana.PublicKey
 
@@ -58,6 +60,8 @@ const (
 func NewSolanaConfig() SolanaConfig {
 	cfg := SolanaConfig{
 		RpcProviders: strings.Split(os.Getenv("solanaRpcProviders"), ","),
+		GrpcProvider: os.Getenv("solanaGrpcProvider"),
+		GrpcToken:    os.Getenv("solanaGrpcToken"),
 	}
 	keyString := os.Getenv("solanaFeePayerKeys")
 	if keyString != "" {
