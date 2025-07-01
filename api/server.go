@@ -6,7 +6,9 @@ import (
 	"net/http"
 	"os"
 	"os/signal"
+	"path/filepath"
 	"reflect"
+	"runtime"
 	"strconv"
 	"time"
 
@@ -25,6 +27,7 @@ import (
 	"github.com/ethereum/go-ethereum/crypto"
 	"github.com/gagliardetto/solana-go/rpc"
 	"github.com/gofiber/contrib/fiberzap/v2"
+	"github.com/gofiber/contrib/swagger"
 	"github.com/gofiber/fiber/v2"
 	"github.com/gofiber/fiber/v2/middleware/adaptor"
 	"github.com/gofiber/fiber/v2/middleware/cors"
@@ -45,6 +48,23 @@ func RequestTimer() fiber.Handler {
 		c.Locals("start", time.Now())
 		return c.Next()
 	}
+}
+
+// Gets a swagger file from a path relative to the current file
+func readSwaggerFile(swaggerFilePath string) []byte {
+	// Get the directory of the current source file
+	_, currentFile, _, ok := runtime.Caller(0)
+	if !ok {
+		panic("could not get caller information")
+	}
+
+	// Construct the full path to the file in a subdirectory
+	path := filepath.Join(filepath.Dir(currentFile), swaggerFilePath)
+	content, err := os.ReadFile(path)
+	if err != nil {
+		panic(err)
+	}
+	return content
 }
 
 func NewApiServer(config config.Config) *ApiServer {
@@ -431,6 +451,31 @@ func NewApiServer(config config.Config) *ApiServer {
 	app.Get("/block_confirmation", app.BlockConfirmation)
 
 	app.Static("/", "./static")
+
+	// Disable swagger in test environments, because it will slow things down a lot
+	if config.Env != "test" {
+		// Create Swagger middleware for v1
+		//
+		// Swagger will be available at: /v1
+		app.Use(swagger.New(swagger.Config{
+			BasePath: "/",
+			Path:     "v1",
+			// Only controls where the swagger.json is server from
+			FilePath:    "v1/swagger.json",
+			FileContent: readSwaggerFile("./swagger/swagger-v1.json"),
+		}))
+
+		// Create Swagger middleware for v1/full
+		//
+		// Swagger will be available at: /v1/full
+		app.Use(swagger.New(swagger.Config{
+			BasePath: "/",
+			Path:     "v1/full",
+			// Only controls where the swagger.json is server from
+			FilePath:    "v1/full/swagger.json",
+			FileContent: readSwaggerFile("./swagger/swagger-v1-full.json"),
+		}))
+	}
 
 	// proxy unhandled requests thru to existing discovery API
 	app.Use(BalancerForward(config.PythonUpstreams))
