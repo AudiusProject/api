@@ -4,9 +4,11 @@ import (
 	"bytes"
 	"fmt"
 
+	"github.com/davecgh/go-spew/spew"
 	bin "github.com/gagliardetto/binary"
 	"github.com/gagliardetto/solana-go"
 	"github.com/gagliardetto/solana-go/text"
+	"github.com/gagliardetto/treeout"
 )
 
 var ProgramID = solana.MustPublicKeyFromBase58("paytYpX3LPN98TAeen6bFFeraGSuWnomZmCXjAsoqPa")
@@ -93,4 +95,12 @@ func DecodeInstruction(accounts []*solana.AccountMeta, data []byte) (*Instructio
 		}
 	}
 	return inst, nil
+}
+
+func (inst *Instruction) EncodeToTree(parent treeout.Branches) {
+	if enToTree, ok := inst.Impl.(text.EncodableToTree); ok {
+		enToTree.EncodeToTree(parent)
+	} else {
+		parent.Child(spew.Sdump(inst))
+	}
 }
