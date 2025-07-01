@@ -8,6 +8,7 @@ import (
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/gagliardetto/solana-go"
 	"github.com/stretchr/testify/require"
+	"github.com/test-go/testify/assert"
 )
 
 func TestEvaluateAttestationsInstruction(t *testing.T) {
@@ -36,7 +37,7 @@ func TestEvaluateAttestationsInstruction(t *testing.T) {
 	stageProgramId := solana.MustPublicKeyFromBase58("CDpzvz7DfgbF95jSSCHLX3ERkugyfgn9Fw8ypNZ1hfXp")
 	reward_manager.SetProgramID(stageProgramId)
 
-	inst := reward_manager.NewEvaluateAttestationInstruction(
+	instBuilder, err := reward_manager.NewEvaluateAttestationInstruction(
 		challengeId,
 		specifier,
 		recipientEthAddress,
@@ -46,19 +47,22 @@ func TestEvaluateAttestationsInstruction(t *testing.T) {
 		tokenSource,
 		destinationUserBank,
 		payer,
-	).Build()
+	)
+	require.NoError(t, err)
 
-	require.Equal(t, stageProgramId, inst.ProgramID())
-	require.Len(t, inst.Accounts(), 11)
-	require.Equal(t, rewardState.String(), inst.Accounts()[1].PublicKey.String())
-	require.Equal(t, expectedAuthority.String(), inst.Accounts()[2].PublicKey.String())
-	require.Equal(t, tokenSource.String(), inst.Accounts()[3].PublicKey.String())
-	require.Equal(t, destinationUserBank.String(), inst.Accounts()[4].PublicKey.String())
-	require.Equal(t, expectedDisbursement.String(), inst.Accounts()[5].PublicKey.String())
-	require.Equal(t, expectedOracle.String(), inst.Accounts()[6].PublicKey.String())
-	require.Equal(t, payer.String(), inst.Accounts()[7].PublicKey.String())
+	inst := instBuilder.Build()
+
+	assert.Equal(t, stageProgramId, inst.ProgramID())
+	assert.Len(t, inst.Accounts(), 11)
+	assert.Equal(t, rewardState.String(), inst.Accounts()[1].PublicKey.String())
+	assert.Equal(t, expectedAuthority.String(), inst.Accounts()[2].PublicKey.String())
+	assert.Equal(t, tokenSource.String(), inst.Accounts()[3].PublicKey.String())
+	assert.Equal(t, destinationUserBank.String(), inst.Accounts()[4].PublicKey.String())
+	assert.Equal(t, expectedDisbursement.String(), inst.Accounts()[5].PublicKey.String())
+	assert.Equal(t, expectedOracle.String(), inst.Accounts()[6].PublicKey.String())
+	assert.Equal(t, payer.String(), inst.Accounts()[7].PublicKey.String())
 
 	data, err := inst.Data()
 	require.NoError(t, err)
-	require.Equal(t, expectedData, data)
+	assert.Equal(t, expectedData, data)
 }

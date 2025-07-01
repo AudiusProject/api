@@ -132,7 +132,7 @@ func deriveAuthorityAccount(programId solana.PublicKey, state solana.PublicKey) 
 	return solana.FindProgramAddress(seeds, programId)
 }
 
-func deriveSender(programId solana.PublicKey, authority solana.PublicKey, ethAddress common.Address) (solana.PublicKey, uint8, error) {
+func deriveSenderAccount(programId solana.PublicKey, authority solana.PublicKey, ethAddress common.Address) (solana.PublicKey, uint8, error) {
 	senderSeedPrefix := []byte(SenderSeedPrefix)
 	decodedEthAddress := ethAddress.Bytes()
 	// Pad the eth address if necessary w/ leading 0
@@ -149,7 +149,7 @@ func deriveAttestationsAccount(programId solana.PublicKey, authority solana.Publ
 	return solana.FindProgramAddress([][]byte{authority.Bytes()[0:32], attestationsSeed}, programId)
 }
 
-func deriveDisbursement(programId solana.PublicKey, authority solana.PublicKey, disbursementId string) (solana.PublicKey, uint8, error) {
+func deriveDisbursementAccount(programId solana.PublicKey, authority solana.PublicKey, disbursementId string) (solana.PublicKey, uint8, error) {
 	disbursementSeed := make([]byte, len(DisbursementSeedPrefix)+len(disbursementId))
 	copy(disbursementSeed, []byte(DisbursementSeedPrefix))
 	copy(disbursementSeed[len([]byte(DisbursementSeedPrefix)):], disbursementId)
