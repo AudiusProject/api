@@ -96,6 +96,12 @@ jobs:
       - name: check auth
         run: gcloud container clusters list
 
+      - name: Configure kubectl for GKE cluster
+        uses: google-github-actions/get-gke-credentials@v2
+        with:
+          cluster_name: stage-infra
+          location: us-central1-a
+
       - name: Up stage-api stack
         uses: pulumi/actions@v6
         with:
@@ -153,6 +159,12 @@ jobs:
         uses: google-github-actions/setup-gcloud@v2
         with:
           install_components: "gke-gcloud-auth-plugin"
+
+      - name: Configure kubectl for GKE cluster
+        uses: google-github-actions/get-gke-credentials@v2
+        with:
+          cluster_name: prod-infra
+          location: us-central1-a
 
       - name: Up prod-api stack
         uses: pulumi/actions@v6
