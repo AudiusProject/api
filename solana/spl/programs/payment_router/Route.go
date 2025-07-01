@@ -32,11 +32,6 @@ func NewRouteInstructionBuilder() *Route {
 	return inst
 }
 
-func (inst *Route) SetAccounts(accounts []*solana.AccountMeta) error {
-	inst.AccountMetaSlice = accounts
-	return nil
-}
-
 func (inst *Route) SetSender(sender solana.PublicKey) *Route {
 	inst.AccountMetaSlice[0] = solana.Meta(sender).WRITE()
 	return inst
