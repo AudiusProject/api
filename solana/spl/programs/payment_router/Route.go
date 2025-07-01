@@ -5,6 +5,7 @@ import (
 
 	bin "github.com/gagliardetto/binary"
 	"github.com/gagliardetto/solana-go"
+	"github.com/gagliardetto/solana-go/text"
 	"github.com/gagliardetto/solana-go/text/format"
 	"github.com/gagliardetto/treeout"
 )
@@ -16,6 +17,12 @@ type Route struct {
 
 	solana.AccountMetaSlice `bin:"-" borsh_skip:"true"`
 }
+
+var (
+	_ solana.AccountsGettable = (*Route)(nil)
+	_ solana.AccountsSettable = (*Route)(nil)
+	_ text.EncodableToTree    = (*Route)(nil)
+)
 
 func NewRouteInstructionBuilder() *Route {
 	inst := &Route{
@@ -57,14 +64,19 @@ func (inst *Route) SetPaymentRouterPdaBump(paymentRouterPdaBump uint8) *Route {
 	return inst
 }
 
+func (inst *Route) AddRoute(destination solana.PublicKey, amount uint64) *Route {
+	inst.AccountMetaSlice.Append(solana.Meta(destination).WRITE())
+	inst.Amounts = append(inst.Amounts, amount)
+	inst.TotalAmount += amount
+	return inst
+}
+
 func (inst *Route) SetRouteMap(routeMap map[solana.PublicKey]uint64) *Route {
 	inst.AccountMetaSlice = inst.AccountMetaSlice[:3]
 	inst.Amounts = make([]uint64, 0)
 	inst.TotalAmount = 0
 	for key, val := range routeMap {
-		inst.AccountMetaSlice.Append(solana.Meta(key).WRITE())
-		inst.Amounts = append(inst.Amounts, val)
-		inst.TotalAmount += val
+		inst.AddRoute(key, val)
 	}
 	return inst
 }
