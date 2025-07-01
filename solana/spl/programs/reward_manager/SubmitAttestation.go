@@ -7,91 +7,72 @@ import (
 )
 
 type SubmitAttestation struct {
-	// Instruction Data
 	DisbursementID string
 
-	// Used for derivations
-	SenderEthAddress   common.Address   `bin:"-" borsh_skip:"true"`
-	RewardManagerState solana.PublicKey `bin:"-" borsh_skip:"true"`
-	Payer              solana.PublicKey `bin:"-" borsh_skip:"true"`
-
-	// Accounts
 	solana.AccountMetaSlice `bin:"-" borsh_skip:"true"`
 }
 
 func NewSubmitAttestationInstructionBuilder() *SubmitAttestation {
-	nd := &SubmitAttestation{}
-	return nd
-}
-
-func (inst *SubmitAttestation) SetDisbursementID(challengeId string, specifier string) *SubmitAttestation {
-	inst.DisbursementID = challengeId + ":" + specifier
+	inst := &SubmitAttestation{
+		AccountMetaSlice: make(solana.AccountMetaSlice, 8),
+	}
+	inst.AccountMetaSlice[5] = solana.Meta(solana.SysVarRentPubkey)
+	inst.AccountMetaSlice[6] = solana.Meta(solana.SysVarInstructionsPubkey)
+	inst.AccountMetaSlice[7] = solana.Meta(solana.SystemProgramID)
 	return inst
 }
 
-func (inst *SubmitAttestation) SetSenderEthAddress(senderEthAddress common.Address) *SubmitAttestation {
-	inst.SenderEthAddress = senderEthAddress
+func (inst *SubmitAttestation) SetDisbursementId(disbursementId string) *SubmitAttestation {
+	inst.DisbursementID = disbursementId
 	return inst
 }
 
-func (inst *SubmitAttestation) SetRewardManagerState(state solana.PublicKey) *SubmitAttestation {
-	inst.RewardManagerState = state
+func (inst *SubmitAttestation) SetAttestationsAccount(attestations solana.PublicKey) *SubmitAttestation {
+	inst.AccountMetaSlice[0] = solana.Meta(attestations).WRITE()
 	return inst
 }
 
-func (inst *SubmitAttestation) SetPayer(payer solana.PublicKey) *SubmitAttestation {
-	inst.Payer = payer
+func (inst *SubmitAttestation) GetAttestationsAccount() *solana.AccountMeta {
+	return inst.AccountMetaSlice.Get(0)
+}
+
+func (inst *SubmitAttestation) SetRewardManagerStateAccount(rewardManagerState solana.PublicKey) *SubmitAttestation {
+	inst.AccountMetaSlice[1] = solana.Meta(rewardManagerState)
 	return inst
+}
+
+func (inst *SubmitAttestation) GetRewardManagerStateAccount() *solana.AccountMeta {
+	return inst.AccountMetaSlice.Get(1)
+}
+
+func (inst *SubmitAttestation) SetAuthorityAccount(authority solana.PublicKey) *SubmitAttestation {
+	inst.AccountMetaSlice[2] = solana.Meta(authority)
+	return inst
+}
+
+func (inst *SubmitAttestation) GetAuthorityAccount() *solana.AccountMeta {
+	return inst.AccountMetaSlice.Get(2)
+}
+
+func (inst *SubmitAttestation) SetPayerAccount(payer solana.PublicKey) *SubmitAttestation {
+	inst.AccountMetaSlice[3] = solana.Meta(payer).SIGNER().WRITE()
+	return inst
+}
+
+func (inst *SubmitAttestation) GetPayerAccount() *solana.AccountMeta {
+	return inst.AccountMetaSlice.Get(3)
+}
+
+func (inst *SubmitAttestation) SetSenderAccount(sender solana.PublicKey) *SubmitAttestation {
+	inst.AccountMetaSlice[4] = solana.Meta(sender)
+	return inst
+}
+
+func (inst *SubmitAttestation) GetSenderAccount() *solana.AccountMeta {
+	return inst.AccountMetaSlice.Get(4)
 }
 
 func (inst SubmitAttestation) Build() *Instruction {
-	authority, _, _ := deriveAuthorityAccount(ProgramID, inst.RewardManagerState)
-	sender, _, _ := deriveSender(ProgramID, authority, inst.SenderEthAddress)
-	attestations, _, _ := deriveAttestationsAccount(ProgramID, authority, inst.DisbursementID)
-
-	inst.AccountMetaSlice = []*solana.AccountMeta{
-		{
-			PublicKey:  attestations,
-			IsSigner:   false,
-			IsWritable: true,
-		},
-		{
-			PublicKey:  inst.RewardManagerState,
-			IsSigner:   false,
-			IsWritable: false,
-		},
-		{
-			PublicKey:  authority,
-			IsSigner:   false,
-			IsWritable: false,
-		},
-		{
-			PublicKey:  inst.Payer,
-			IsSigner:   true,
-			IsWritable: false,
-		},
-		{
-			PublicKey:  sender,
-			IsSigner:   false,
-			IsWritable: false,
-		},
-		{
-			PublicKey:  solana.SysVarRentPubkey,
-			IsSigner:   false,
-			IsWritable: false,
-		},
-		{
-			PublicKey:  solana.SysVarInstructionsPubkey,
-			IsSigner:   false,
-			IsWritable: false,
-		},
-		{
-			PublicKey:  solana.SystemProgramID,
-			IsSigner:   false,
-			IsWritable: false,
-		},
-	}
-
 	return &Instruction{BaseVariant: bin.BaseVariant{
 		Impl:   inst,
 		TypeID: bin.TypeIDFromUint8(Instruction_SubmitAttestation),
@@ -112,11 +93,28 @@ func NewSubmitAttestationInstruction(
 	senderEthAddress common.Address,
 	rewardManagerState solana.PublicKey,
 	payer solana.PublicKey,
+) (*SubmitAttestation, error) {
+	disbursementId := challengeId + ":" + specifier
+	authority, _, err := deriveAuthorityAccount(ProgramID, rewardManagerState)
+	if err != nil {
+		return nil, err
+	}
+	sender, _, err := deriveSenderAccount(ProgramID, authority, senderEthAddress)
+	if err != nil {
+		return nil, err
+	}
+	attestations, _, err := deriveAttestationsAccount(ProgramID, authority, disbursementId)
+	if err != nil {
+		return nil, err
+	}
 
-) *SubmitAttestation {
 	return NewSubmitAttestationInstructionBuilder().
-		SetRewardManagerState(rewardManagerState).
-		SetDisbursementID(challengeId, specifier).
-		SetSenderEthAddress(senderEthAddress).
-		SetPayer(payer)
+			SetDisbursementId(disbursementId).
+			SetPayerAccount(payer).
+			SetAttestationsAccount(attestations).
+			SetRewardManagerStateAccount(rewardManagerState).
+			SetAuthorityAccount(authority).
+			SetPayerAccount(payer).
+			SetSenderAccount(sender),
+		nil
 }

@@ -438,10 +438,10 @@ func processTransaction(ctx context.Context, db dbExecutor, slot uint64, meta *r
 				case reward_manager.Instruction_EvaluateAttestations:
 					if claimInst, ok := inst.Impl.(*reward_manager.EvaluateAttestation); ok {
 						logger.Info("reward_manager evaluateAttestations",
-							zap.String("ethAddress", claimInst.Data.ReceipientEthAddress.String()),
-							zap.String("userBank", claimInst.DestinationUserBank.String()),
-							zap.Uint64("amount", claimInst.Data.Amount),
-							zap.String("disbursementId", claimInst.Data.DisbursementID),
+							zap.String("ethAddress", claimInst.RecipientEthAddress.String()),
+							zap.String("userBank", claimInst.GetDestinationUserBankAccount().PublicKey.String()),
+							zap.Uint64("amount", claimInst.Amount),
+							zap.String("disbursementId", claimInst.DisbursementId),
 						)
 					}
 				}
@@ -456,9 +456,9 @@ func processTransaction(ctx context.Context, db dbExecutor, slot uint64, meta *r
 				case payment_router.InstructionImplDef.TypeID(payment_router.Instruction_Route):
 					if routeInst, ok := inst.Impl.(*payment_router.Route); ok {
 						logger.Info("payment_router route",
-							zap.String("sender", routeInst.Sender.String()),
-							zap.Uint64s("amounts", routeInst.Data.Amounts),
-							zap.Strings("destinations", routeInst.Destinations.ToBase58()),
+							zap.String("sender", routeInst.GetSender().PublicKey.String()),
+							zap.Uint64s("amounts", routeInst.Amounts),
+							zap.Strings("destinations", routeInst.GetDestinations().GetKeys().ToBase58()),
 						)
 					}
 				}
