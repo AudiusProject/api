@@ -456,19 +456,23 @@ func NewApiServer(config config.Config) *ApiServer {
 	if config.Env != "test" {
 		// Create Swagger middleware for v1
 		//
-		// Swagger will be available at: /v1/docs
+		// Swagger will be available at: /v1
 		app.Use(swagger.New(swagger.Config{
-			BasePath:    "/v1",
-			Path:        "docs",
+			BasePath: "/",
+			Path:     "v1",
+			// Only controls where the swagger.json is server from
+			FilePath:    "v1/swagger.json",
 			FileContent: readSwaggerFile("./swagger/swagger-v1.json"),
 		}))
 
 		// Create Swagger middleware for v1/full
 		//
-		// Swagger will be available at: /v1/full/docs
+		// Swagger will be available at: /v1/full
 		app.Use(swagger.New(swagger.Config{
-			BasePath:    "/v1/full",
-			Path:        "docs",
+			BasePath: "/",
+			Path:     "v1/full",
+			// Only controls where the swagger.json is server from
+			FilePath:    "v1/full/swagger.json",
 			FileContent: readSwaggerFile("./swagger/swagger-v1-full.json"),
 		}))
 	}
