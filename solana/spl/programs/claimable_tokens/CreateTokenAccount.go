@@ -121,7 +121,7 @@ func (inst *CreateTokenAccount) SetAccounts(accounts []*solana.AccountMeta) erro
 
 // ----- solana.AccountsGettable Implementation -----
 
-func (inst *CreateTokenAccount) GetAccounts() []*solana.AccountMeta {
+func (inst CreateTokenAccount) GetAccounts() []*solana.AccountMeta {
 	return inst.Accounts
 }
 

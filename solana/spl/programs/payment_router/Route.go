@@ -99,7 +99,7 @@ func (inst *Route) SetAccounts(accounts []*solana.AccountMeta) error {
 
 // ----- solana.AccountsGettable Implementation -----
 
-func (inst *Route) GetAccounts() []*solana.AccountMeta {
+func (inst Route) GetAccounts() []*solana.AccountMeta {
 	return inst.Accounts
 }
 

@@ -127,7 +127,7 @@ func (inst *SubmitAttestation) SetAccounts(accounts []*solana.AccountMeta) error
 
 // ----- solana.AccountsGettable Implementation -----
 
-func (inst *SubmitAttestation) GetAccounts() []*solana.AccountMeta {
+func (inst SubmitAttestation) GetAccounts() []*solana.AccountMeta {
 	return inst.Accounts
 }
 

@@ -181,7 +181,7 @@ func (inst *EvaluateAttestation) SetAccounts(accounts []*solana.AccountMeta) err
 
 // ----- solana.AccountsGettable Implementation -----
 
-func (inst *EvaluateAttestation) GetAccounts() []*solana.AccountMeta {
+func (inst EvaluateAttestation) GetAccounts() []*solana.AccountMeta {
 	return inst.Accounts
 }
 

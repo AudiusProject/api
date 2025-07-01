@@ -134,7 +134,7 @@ func (inst *Transfer) SetAccounts(accounts []*solana.AccountMeta) error {
 
 // ----- solana.AccountsGettable Implementation -----
 
-func (inst *Transfer) GetAccounts() []*solana.AccountMeta {
+func (inst Transfer) GetAccounts() []*solana.AccountMeta {
 	return inst.Accounts
 }
 
