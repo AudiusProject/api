@@ -20,7 +20,7 @@ var (
 type Transfer struct {
 	SenderEthAddress common.Address
 
-	solana.AccountMetaSlice `bin:"-" borsh_skip:"true"`
+	Accounts solana.AccountMetaSlice `bin:"-" borsh_skip:"true"`
 }
 
 type SignedTransferData struct {
@@ -31,12 +31,12 @@ type SignedTransferData struct {
 
 func NewTransferInstructionBuilder() *Transfer {
 	inst := &Transfer{
-		AccountMetaSlice: make(solana.AccountMetaSlice, 9),
+		Accounts: make(solana.AccountMetaSlice, 9),
 	}
-	inst.AccountMetaSlice[5] = solana.Meta(solana.SysVarRentPubkey)
-	inst.AccountMetaSlice[6] = solana.Meta(solana.SysVarInstructionsPubkey)
-	inst.AccountMetaSlice[7] = solana.Meta(solana.SystemProgramID)
-	inst.AccountMetaSlice[8] = solana.Meta(solana.TokenProgramID)
+	inst.Accounts[5] = solana.Meta(solana.SysVarRentPubkey)
+	inst.Accounts[6] = solana.Meta(solana.SysVarInstructionsPubkey)
+	inst.Accounts[7] = solana.Meta(solana.SystemProgramID)
+	inst.Accounts[8] = solana.Meta(solana.TokenProgramID)
 	return inst
 }
 
@@ -46,61 +46,48 @@ func (inst *Transfer) SetSenderEthAddress(ethAddress common.Address) *Transfer {
 }
 
 func (inst *Transfer) SetPayer(payer solana.PublicKey) *Transfer {
-	inst.AccountMetaSlice[0] = solana.Meta(payer).SIGNER().WRITE()
+	inst.Accounts[0] = solana.Meta(payer).SIGNER().WRITE()
 	return inst
 }
 
 func (inst *Transfer) Payer() *solana.AccountMeta {
-	return inst.AccountMetaSlice[0]
+	return inst.Accounts[0]
 }
 
 func (inst *Transfer) SetSenderUserBank(userBank solana.PublicKey) *Transfer {
-	inst.AccountMetaSlice[1] = solana.Meta(userBank).WRITE()
+	inst.Accounts[1] = solana.Meta(userBank).WRITE()
 	return inst
 }
 
 func (inst *Transfer) SenderUserBank() *solana.AccountMeta {
-	return inst.AccountMetaSlice[1]
+	return inst.Accounts[1]
 }
 
 func (inst *Transfer) SetDestination(destination solana.PublicKey) *Transfer {
-	inst.AccountMetaSlice[2] = solana.Meta(destination).WRITE()
+	inst.Accounts[2] = solana.Meta(destination).WRITE()
 	return inst
 }
 
 func (inst *Transfer) Destination() *solana.AccountMeta {
-	return inst.AccountMetaSlice[2]
+	return inst.Accounts[2]
 }
 
 func (inst *Transfer) SetNonceAccount(nonce solana.PublicKey) *Transfer {
-	inst.AccountMetaSlice[3] = solana.Meta(nonce).WRITE()
+	inst.Accounts[3] = solana.Meta(nonce).WRITE()
 	return inst
 }
 
 func (inst *Transfer) NonceAccount() *solana.AccountMeta {
-	return inst.AccountMetaSlice[3]
+	return inst.Accounts[3]
 }
 
 func (inst *Transfer) SetAuthority(authority solana.PublicKey) *Transfer {
-	inst.AccountMetaSlice[4] = solana.Meta(authority)
+	inst.Accounts[4] = solana.Meta(authority)
 	return inst
 }
 
 func (inst *Transfer) Authority() *solana.AccountMeta {
-	return inst.AccountMetaSlice[4]
-}
-
-func (inst *Transfer) Build() *Instruction {
-	return &Instruction{bin.BaseVariant{
-		Impl:   inst,
-		TypeID: bin.TypeIDFromUint8(Instruction_Transfer),
-	}}
-}
-func (inst Transfer) ValidateAndBuild() (*Instruction, error) {
-	if err := inst.Validate(); err != nil {
-		return nil, err
-	}
-	return inst.Build(), nil
+	return inst.Accounts[4]
 }
 
 func (inst *Transfer) Validate() error {
@@ -125,6 +112,33 @@ func (inst *Transfer) Validate() error {
 	}
 	return nil
 }
+
+func (inst *Transfer) Build() *Instruction {
+	return &Instruction{bin.BaseVariant{
+		Impl:   inst,
+		TypeID: bin.TypeIDFromUint8(Instruction_Transfer),
+	}}
+}
+func (inst Transfer) ValidateAndBuild() (*Instruction, error) {
+	if err := inst.Validate(); err != nil {
+		return nil, err
+	}
+	return inst.Build(), nil
+}
+
+// ----- solana.AccountsSettable Implementation -----
+
+func (inst *Transfer) SetAccounts(accounts []*solana.AccountMeta) error {
+	return inst.Accounts.SetAccounts(accounts)
+}
+
+// ----- solana.AccountsGettable Implementation -----
+
+func (inst *Transfer) GetAccounts() []*solana.AccountMeta {
+	return inst.Accounts
+}
+
+// ----- text.EncodableToTree Implementation -----
 
 func (inst *Transfer) EncodeToTree(parent treeout.Branches) {
 	parent.Child(format.Program("ClaimableTokens", ProgramID)).

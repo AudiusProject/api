@@ -15,7 +15,7 @@ type Route struct {
 	Amounts              []uint64
 	TotalAmount          uint64
 
-	solana.AccountMetaSlice `bin:"-" borsh_skip:"true"`
+	Accounts solana.AccountMetaSlice `bin:"-" borsh_skip:"true"`
 }
 
 var (
@@ -26,32 +26,32 @@ var (
 
 func NewRouteInstructionBuilder() *Route {
 	inst := &Route{
-		AccountMetaSlice: make(solana.AccountMetaSlice, 3),
+		Accounts: make(solana.AccountMetaSlice, 3),
 	}
-	inst.AccountMetaSlice[2] = solana.Meta(solana.TokenProgramID)
+	inst.Accounts[2] = solana.Meta(solana.TokenProgramID)
 	return inst
 }
 
 func (inst *Route) SetSender(sender solana.PublicKey) *Route {
-	inst.AccountMetaSlice[0] = solana.Meta(sender).WRITE()
+	inst.Accounts[0] = solana.Meta(sender).WRITE()
 	return inst
 }
 
 func (inst *Route) GetSender() *solana.AccountMeta {
-	return inst.AccountMetaSlice.Get(0)
+	return inst.Accounts.Get(0)
 }
 
 func (inst *Route) SetSenderOwner(senderOwner solana.PublicKey) *Route {
-	inst.AccountMetaSlice[1] = solana.Meta(senderOwner)
+	inst.Accounts[1] = solana.Meta(senderOwner)
 	return inst
 }
 
 func (inst *Route) GetSenderOwner() *solana.AccountMeta {
-	return inst.AccountMetaSlice.Get(1)
+	return inst.Accounts.Get(1)
 }
 
 func (inst *Route) GetDestinations() solana.AccountMetaSlice {
-	return inst.AccountMetaSlice[3:]
+	return inst.Accounts[3:]
 }
 
 func (inst *Route) SetPaymentRouterPdaBump(paymentRouterPdaBump uint8) *Route {
@@ -60,14 +60,14 @@ func (inst *Route) SetPaymentRouterPdaBump(paymentRouterPdaBump uint8) *Route {
 }
 
 func (inst *Route) AddRoute(destination solana.PublicKey, amount uint64) *Route {
-	inst.AccountMetaSlice.Append(solana.Meta(destination).WRITE())
+	inst.Accounts.Append(solana.Meta(destination).WRITE())
 	inst.Amounts = append(inst.Amounts, amount)
 	inst.TotalAmount += amount
 	return inst
 }
 
 func (inst *Route) SetRouteMap(routeMap map[solana.PublicKey]uint64) *Route {
-	inst.AccountMetaSlice = inst.AccountMetaSlice[:3]
+	inst.Accounts = inst.Accounts[:3]
 	inst.Amounts = make([]uint64, 0)
 	inst.TotalAmount = 0
 	for key, val := range routeMap {
@@ -90,6 +90,20 @@ func (inst *Route) Build() *Instruction {
 		TypeID: bin.TypeIDFromSighash(bin.SighashInstruction(Instruction_Route)),
 	}}
 }
+
+// ----- solana.AccountsSettable Implementation -----
+
+func (inst *Route) SetAccounts(accounts []*solana.AccountMeta) error {
+	return inst.Accounts.SetAccounts(accounts)
+}
+
+// ----- solana.AccountsGettable Implementation -----
+
+func (inst *Route) GetAccounts() []*solana.AccountMeta {
+	return inst.Accounts
+}
+
+// ----- text.EncodableToTree Implementation -----
 
 func (inst *Route) EncodeToTree(parent treeout.Branches) {
 	parent.Child(format.Program("PaymentRouter", ProgramID)).

@@ -15,7 +15,7 @@ type CreateTokenAccount struct {
 	EthAddress common.Address
 
 	// Accounts
-	solana.AccountMetaSlice `bin:"-" borsh_skip:"true"`
+	Accounts solana.AccountMetaSlice `bin:"-" borsh_skip:"true"`
 }
 
 var (
@@ -26,11 +26,11 @@ var (
 
 func NewCreateTokenAccountInstructionBuilder() *CreateTokenAccount {
 	inst := &CreateTokenAccount{
-		AccountMetaSlice: make(solana.AccountMetaSlice, 7),
+		Accounts: make(solana.AccountMetaSlice, 7),
 	}
-	inst.AccountMetaSlice[4] = solana.Meta(solana.SysVarRentPubkey)
-	inst.AccountMetaSlice[5] = solana.Meta(solana.TokenProgramID)
-	inst.AccountMetaSlice[6] = solana.Meta(solana.SystemProgramID)
+	inst.Accounts[4] = solana.Meta(solana.SysVarRentPubkey)
+	inst.Accounts[5] = solana.Meta(solana.TokenProgramID)
+	inst.Accounts[6] = solana.Meta(solana.SystemProgramID)
 	return inst
 }
 
@@ -40,39 +40,39 @@ func (inst *CreateTokenAccount) SetEthAddress(ethAddress common.Address) *Create
 }
 
 func (inst *CreateTokenAccount) SetPayer(payer solana.PublicKey) *CreateTokenAccount {
-	inst.AccountMetaSlice[0] = solana.Meta(payer).SIGNER().WRITE()
+	inst.Accounts[0] = solana.Meta(payer).SIGNER().WRITE()
 	return inst
 }
 
 func (inst *CreateTokenAccount) Payer() *solana.AccountMeta {
-	return inst.AccountMetaSlice.Get(0)
+	return inst.Accounts.Get(0)
 }
 
 func (inst *CreateTokenAccount) SetMint(mint solana.PublicKey) *CreateTokenAccount {
-	inst.AccountMetaSlice[1] = solana.Meta(mint)
+	inst.Accounts[1] = solana.Meta(mint)
 	return inst
 }
 
 func (inst *CreateTokenAccount) Mint() *solana.AccountMeta {
-	return inst.AccountMetaSlice.Get(1)
+	return inst.Accounts.Get(1)
 }
 
 func (inst *CreateTokenAccount) SetAuthority(authority solana.PublicKey) *CreateTokenAccount {
-	inst.AccountMetaSlice[2] = solana.Meta(authority)
+	inst.Accounts[2] = solana.Meta(authority)
 	return inst
 }
 
 func (inst *CreateTokenAccount) Authority() *solana.AccountMeta {
-	return inst.AccountMetaSlice.Get(2)
+	return inst.Accounts.Get(2)
 }
 
 func (inst *CreateTokenAccount) SetUserBank(userBank solana.PublicKey) *CreateTokenAccount {
-	inst.AccountMetaSlice[3] = solana.Meta(userBank).WRITE()
+	inst.Accounts[3] = solana.Meta(userBank).WRITE()
 	return inst
 }
 
 func (inst *CreateTokenAccount) UserBank() *solana.AccountMeta {
-	return inst.AccountMetaSlice.Get(3)
+	return inst.Accounts.Get(3)
 }
 
 func (inst *CreateTokenAccount) Validate() error {
@@ -112,6 +112,20 @@ func (inst CreateTokenAccount) ValidateAndBuild() (*Instruction, error) {
 	}
 	return inst.Build(), nil
 }
+
+// ----- solana.AccountsSettable Implementation -----
+
+func (inst *CreateTokenAccount) SetAccounts(accounts []*solana.AccountMeta) error {
+	return inst.Accounts.SetAccounts(accounts)
+}
+
+// ----- solana.AccountsGettable Implementation -----
+
+func (inst *CreateTokenAccount) GetAccounts() []*solana.AccountMeta {
+	return inst.Accounts
+}
+
+// ----- text.EncodableToTree Implementation -----
 
 func (inst *CreateTokenAccount) EncodeToTree(parent treeout.Branches) {
 	parent.Child(format.Program("ClaimableTokens", ProgramID)).

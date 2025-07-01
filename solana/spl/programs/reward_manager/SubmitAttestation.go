@@ -14,7 +14,7 @@ import (
 type SubmitAttestation struct {
 	DisbursementId string
 
-	solana.AccountMetaSlice `bin:"-" borsh_skip:"true"`
+	Accounts solana.AccountMetaSlice `bin:"-" borsh_skip:"true"`
 }
 
 var (
@@ -25,11 +25,11 @@ var (
 
 func NewSubmitAttestationInstructionBuilder() *SubmitAttestation {
 	inst := &SubmitAttestation{
-		AccountMetaSlice: make(solana.AccountMetaSlice, 8),
+		Accounts: make(solana.AccountMetaSlice, 8),
 	}
-	inst.AccountMetaSlice[5] = solana.Meta(solana.SysVarRentPubkey)
-	inst.AccountMetaSlice[6] = solana.Meta(solana.SysVarInstructionsPubkey)
-	inst.AccountMetaSlice[7] = solana.Meta(solana.SystemProgramID)
+	inst.Accounts[5] = solana.Meta(solana.SysVarRentPubkey)
+	inst.Accounts[6] = solana.Meta(solana.SysVarInstructionsPubkey)
+	inst.Accounts[7] = solana.Meta(solana.SystemProgramID)
 	return inst
 }
 
@@ -39,48 +39,48 @@ func (inst *SubmitAttestation) SetDisbursementId(disbursementId string) *SubmitA
 }
 
 func (inst *SubmitAttestation) SetAttestationsAccount(attestations solana.PublicKey) *SubmitAttestation {
-	inst.AccountMetaSlice[0] = solana.Meta(attestations).WRITE()
+	inst.Accounts[0] = solana.Meta(attestations).WRITE()
 	return inst
 }
 
 func (inst *SubmitAttestation) AttestationsAccount() *solana.AccountMeta {
-	return inst.AccountMetaSlice.Get(0)
+	return inst.Accounts.Get(0)
 }
 
 func (inst *SubmitAttestation) SetRewardManagerStateAccount(rewardManagerState solana.PublicKey) *SubmitAttestation {
-	inst.AccountMetaSlice[1] = solana.Meta(rewardManagerState)
+	inst.Accounts[1] = solana.Meta(rewardManagerState)
 	return inst
 }
 
 func (inst *SubmitAttestation) RewardManagerStateAccount() *solana.AccountMeta {
-	return inst.AccountMetaSlice.Get(1)
+	return inst.Accounts.Get(1)
 }
 
 func (inst *SubmitAttestation) SetAuthorityAccount(authority solana.PublicKey) *SubmitAttestation {
-	inst.AccountMetaSlice[2] = solana.Meta(authority)
+	inst.Accounts[2] = solana.Meta(authority)
 	return inst
 }
 
 func (inst *SubmitAttestation) AuthorityAccount() *solana.AccountMeta {
-	return inst.AccountMetaSlice.Get(2)
+	return inst.Accounts.Get(2)
 }
 
 func (inst *SubmitAttestation) SetPayerAccount(payer solana.PublicKey) *SubmitAttestation {
-	inst.AccountMetaSlice[3] = solana.Meta(payer).SIGNER().WRITE()
+	inst.Accounts[3] = solana.Meta(payer).SIGNER().WRITE()
 	return inst
 }
 
 func (inst *SubmitAttestation) PayerAccount() *solana.AccountMeta {
-	return inst.AccountMetaSlice.Get(3)
+	return inst.Accounts.Get(3)
 }
 
 func (inst *SubmitAttestation) SetSenderAccount(sender solana.PublicKey) *SubmitAttestation {
-	inst.AccountMetaSlice[4] = solana.Meta(sender)
+	inst.Accounts[4] = solana.Meta(sender)
 	return inst
 }
 
 func (inst *SubmitAttestation) SenderAccount() *solana.AccountMeta {
-	return inst.AccountMetaSlice.Get(4)
+	return inst.Accounts.Get(4)
 }
 
 func (inst *SubmitAttestation) Validate() error {
@@ -118,6 +118,20 @@ func (inst *SubmitAttestation) ValidateAndBuild() (*Instruction, error) {
 	}
 	return inst.Build(), nil
 }
+
+// ----- solana.AccountsSettable Implementation -----
+
+func (inst *SubmitAttestation) SetAccounts(accounts []*solana.AccountMeta) error {
+	return inst.Accounts.SetAccounts(accounts)
+}
+
+// ----- solana.AccountsGettable Implementation -----
+
+func (inst *SubmitAttestation) GetAccounts() []*solana.AccountMeta {
+	return inst.Accounts
+}
+
+// ----- text.EncodableToTree Implementation -----
 
 func (inst *SubmitAttestation) EncodeToTree(parent treeout.Branches) {
 	parent.Child(format.Program("RewardManager", ProgramID)).
@@ -162,7 +176,6 @@ func NewSubmitAttestationInstruction(
 
 	return NewSubmitAttestationInstructionBuilder().
 			SetDisbursementId(disbursementId).
-			SetPayerAccount(payer).
 			SetAttestationsAccount(attestations).
 			SetRewardManagerStateAccount(rewardManagerState).
 			SetAuthorityAccount(authority).
