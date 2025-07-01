@@ -1,15 +1,20 @@
 package reward_manager
 
 import (
+	"errors"
+
 	"github.com/ethereum/go-ethereum/common"
 	bin "github.com/gagliardetto/binary"
 	"github.com/gagliardetto/solana-go"
 )
 
 type EvaluateAttestation struct {
-	Amount              uint64
-	DisbursementId      string
-	RecipientEthAddress common.Address
+	Amount              *uint64
+	DisbursementId      *string
+	RecipientEthAddress *common.Address
+
+	// Optional: Only used when constructing a new instruction
+	antiAbuseOracleEthAddress *common.Address
 
 	solana.AccountMetaSlice `bin:"-" borsh_skip:"true"`
 }
@@ -25,17 +30,17 @@ func NewEvaluateAttestationInstructionBuilder() *EvaluateAttestation {
 }
 
 func (inst *EvaluateAttestation) SetDisbursementId(disbursementId string) *EvaluateAttestation {
-	inst.DisbursementId = disbursementId
+	inst.DisbursementId = &disbursementId
 	return inst
 }
 
 func (inst *EvaluateAttestation) SetRecipientEthAddress(recipientEthAddress common.Address) *EvaluateAttestation {
-	inst.RecipientEthAddress = recipientEthAddress
+	inst.RecipientEthAddress = &recipientEthAddress
 	return inst
 }
 
 func (inst *EvaluateAttestation) SetAmount(amount uint64) *EvaluateAttestation {
-	inst.Amount = amount
+	inst.Amount = &amount
 	return inst
 }
 
@@ -48,39 +53,39 @@ func (inst *EvaluateAttestation) GetAttestationsAccount() *solana.AccountMeta {
 	return inst.AccountMetaSlice.Get(0)
 }
 
-func (inst *EvaluateAttestation) SetRewardManagerState(state solana.PublicKey) *EvaluateAttestation {
+func (inst *EvaluateAttestation) SetRewardManagerStateAccount(state solana.PublicKey) *EvaluateAttestation {
 	inst.AccountMetaSlice[1] = solana.Meta(state)
 	return inst
 }
 
-func (inst *EvaluateAttestation) GetRewardManagerState() *solana.AccountMeta {
+func (inst *EvaluateAttestation) GetRewardManagerStateAccount() *solana.AccountMeta {
 	return inst.AccountMetaSlice.Get(1)
 }
 
-func (inst *EvaluateAttestation) SetAuthority(authority solana.PublicKey) *EvaluateAttestation {
+func (inst *EvaluateAttestation) SetAuthorityAccount(authority solana.PublicKey) *EvaluateAttestation {
 	inst.AccountMetaSlice[2] = solana.Meta(authority)
 	return inst
 }
 
-func (inst *EvaluateAttestation) GetAuthority() *solana.AccountMeta {
+func (inst *EvaluateAttestation) GetAuthorityAccount() *solana.AccountMeta {
 	return inst.AccountMetaSlice.Get(2)
 }
 
-func (inst *EvaluateAttestation) SetTokenSource(tokenSource solana.PublicKey) *EvaluateAttestation {
+func (inst *EvaluateAttestation) SetTokenSourceAccount(tokenSource solana.PublicKey) *EvaluateAttestation {
 	inst.AccountMetaSlice[3] = solana.Meta(tokenSource).WRITE()
 	return inst
 }
 
-func (inst *EvaluateAttestation) GetTokenSource() *solana.AccountMeta {
+func (inst *EvaluateAttestation) GetTokenSourceAccount() *solana.AccountMeta {
 	return inst.AccountMetaSlice.Get(3)
 }
 
-func (inst *EvaluateAttestation) SetDestinationUserBank(userBank solana.PublicKey) *EvaluateAttestation {
+func (inst *EvaluateAttestation) SetDestinationUserBankAccount(userBank solana.PublicKey) *EvaluateAttestation {
 	inst.AccountMetaSlice[4] = solana.Meta(userBank).WRITE()
 	return inst
 }
 
-func (inst *EvaluateAttestation) GetDestinationUserBank() *solana.AccountMeta {
+func (inst *EvaluateAttestation) GetDestinationUserBankAccount() *solana.AccountMeta {
 	return inst.AccountMetaSlice.Get(4)
 }
 
@@ -93,22 +98,97 @@ func (inst *EvaluateAttestation) GetDisbursementAccount() *solana.AccountMeta {
 	return inst.AccountMetaSlice.Get(5)
 }
 
-func (inst *EvaluateAttestation) SetAntiAbuseOracle(antiAbuseOracle solana.PublicKey) *EvaluateAttestation {
+func (inst *EvaluateAttestation) SetAntiAbuseOracleAccount(antiAbuseOracle solana.PublicKey) *EvaluateAttestation {
 	inst.AccountMetaSlice[6] = solana.Meta(antiAbuseOracle)
 	return inst
 }
 
-func (inst *EvaluateAttestation) GetAntiAbuseOracle() *solana.AccountMeta {
+func (inst *EvaluateAttestation) SetAntiAbuseOracleEthAddress(antiAbuseOracle common.Address) *EvaluateAttestation {
+	inst.antiAbuseOracleEthAddress = &antiAbuseOracle
+	return inst
+}
+
+func (inst *EvaluateAttestation) GetAntiAbuseOracleAccount() *solana.AccountMeta {
 	return inst.AccountMetaSlice.Get(6)
 }
 
-func (inst *EvaluateAttestation) SetPayer(payer solana.PublicKey) *EvaluateAttestation {
+func (inst *EvaluateAttestation) SetPayerAccount(payer solana.PublicKey) *EvaluateAttestation {
 	inst.AccountMetaSlice[7] = solana.Meta(payer).SIGNER().WRITE()
 	return inst
 }
 
-func (inst *EvaluateAttestation) GetPayer() *solana.AccountMeta {
+func (inst *EvaluateAttestation) GetPayerAccount() *solana.AccountMeta {
 	return inst.AccountMetaSlice[7]
+}
+
+func (inst *EvaluateAttestation) Validate() error {
+	if inst.Amount == nil {
+		return errors.New("amount is not set")
+	}
+
+	if inst.DisbursementId == nil {
+		return errors.New("disbursementId is not set")
+	}
+
+	if inst.RecipientEthAddress == nil {
+		return errors.New("recipientEthAddress is not set")
+	}
+
+	if inst.GetRewardManagerStateAccount() == nil {
+		return errors.New("rewardManagerStateAccount is not set")
+	}
+
+	if inst.GetTokenSourceAccount() == nil {
+		return errors.New("tokenSourceAccount is not set")
+	}
+
+	if inst.GetPayerAccount() == nil {
+		return errors.New("payerAccount is not set")
+	}
+
+	authority, _, err := deriveAuthorityAccount(ProgramID, inst.GetRewardManagerStateAccount().PublicKey)
+	if err != nil {
+		return err
+	}
+	if inst.GetAuthorityAccount() == nil {
+		inst.SetAuthorityAccount(authority)
+	} else if !inst.GetAuthorityAccount().PublicKey.Equals(authority) {
+		return errors.New("manually set authority does not match derived authority")
+	}
+
+	attestations, _, err := deriveAttestationsAccount(ProgramID, authority, *inst.DisbursementId)
+	if err != nil {
+		return err
+	}
+	if inst.GetAttestationsAccount() == nil {
+		inst.SetAttestationsAccount(attestations)
+	} else if !inst.GetAttestationsAccount().PublicKey.Equals(attestations) {
+		return errors.New("manually set attestations account does not match derived attestations account")
+	}
+
+	disbursements, _, err := deriveDisbursementAccount(ProgramID, authority, *inst.DisbursementId)
+	if err != nil {
+		return err
+	}
+	if inst.GetDisbursementAccount() == nil {
+		inst.SetDisbursementAccount(disbursements)
+	} else if !inst.GetDisbursementAccount().PublicKey.Equals(disbursements) {
+		return errors.New("manually set disbursement account does not match derived disbursments account")
+	}
+
+	if inst.antiAbuseOracleEthAddress != nil {
+		antiAbuseOracle, _, err := deriveSenderAccount(ProgramID, authority, *inst.antiAbuseOracleEthAddress)
+		if err != nil {
+			return err
+		}
+		if inst.GetAntiAbuseOracleAccount() == nil {
+			inst.SetAntiAbuseOracleAccount(antiAbuseOracle)
+		}
+	} else if inst.GetAntiAbuseOracleAccount() == nil {
+		return errors.New("neither antiAbuseOracle nor antiAbuseOracleEthAddress are set")
+	}
+
+	return nil
 }
 
 func (inst EvaluateAttestation) Build() *Instruction {
@@ -128,36 +208,14 @@ func NewEvaluateAttestationInstruction(
 	tokenSource solana.PublicKey,
 	destinationUserBank solana.PublicKey,
 	payer solana.PublicKey,
-) (*EvaluateAttestation, error) {
-	disbursementId := challengeId + ":" + specifier
-	authority, _, err := deriveAuthorityAccount(ProgramID, rewardManagerState)
-	if err != nil {
-		return nil, err
-	}
-	attestations, _, err := deriveAttestationsAccount(ProgramID, authority, disbursementId)
-	if err != nil {
-		return nil, err
-	}
-	disbursement, _, err := deriveDisbursementAccount(ProgramID, authority, disbursementId)
-	if err != nil {
-		return nil, err
-	}
-	antiAbuseOracle, _, err := deriveSenderAccount(ProgramID, authority, antiAbuseOracleAddress)
-	if err != nil {
-		return nil, err
-	}
-
+) *EvaluateAttestation {
 	return NewEvaluateAttestationInstructionBuilder().
-			SetAmount(amount).
-			SetDisbursementId(disbursementId).
-			SetRecipientEthAddress(recipientEthAddress).
-			SetAttestationsAccount(attestations).
-			SetRewardManagerState(rewardManagerState).
-			SetAuthority(authority).
-			SetTokenSource(tokenSource).
-			SetDestinationUserBank(destinationUserBank).
-			SetDisbursementAccount(disbursement).
-			SetAntiAbuseOracle(antiAbuseOracle).
-			SetPayer(payer),
-		nil
+		SetAmount(amount).
+		SetDisbursementId(challengeId + ":" + specifier).
+		SetRecipientEthAddress(recipientEthAddress).
+		SetRewardManagerStateAccount(rewardManagerState).
+		SetTokenSourceAccount(tokenSource).
+		SetDestinationUserBankAccount(destinationUserBank).
+		SetPayerAccount(payer).
+		SetAntiAbuseOracleEthAddress(antiAbuseOracleAddress)
 }

@@ -37,7 +37,7 @@ func TestEvaluateAttestationsInstruction(t *testing.T) {
 	stageProgramId := solana.MustPublicKeyFromBase58("CDpzvz7DfgbF95jSSCHLX3ERkugyfgn9Fw8ypNZ1hfXp")
 	reward_manager.SetProgramID(stageProgramId)
 
-	instBuilder, err := reward_manager.NewEvaluateAttestationInstruction(
+	instBuilder := reward_manager.NewEvaluateAttestationInstruction(
 		challengeId,
 		specifier,
 		recipientEthAddress,
