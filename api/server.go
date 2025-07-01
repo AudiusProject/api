@@ -2,7 +2,7 @@ package api
 
 import (
 	"context"
-	"embed"
+	_ "embed"
 	"fmt"
 	"net/http"
 	"os"
@@ -42,23 +42,17 @@ import (
 	"go.uber.org/zap"
 )
 
-//go:embed swagger/*.json
-var swaggerFiles embed.FS
+//go:embed swagger/swagger-v1.json
+var swaggerV1 []byte
+
+//go:embed swagger/swagger-v1-full.json
+var swaggerV1Full []byte
 
 func RequestTimer() fiber.Handler {
 	return func(c *fiber.Ctx) error {
 		c.Locals("start", time.Now())
 		return c.Next()
 	}
-}
-
-// Gets a swagger file from the embedded filesystem
-func readSwaggerFile(swaggerFilePath string) []byte {
-	content, err := swaggerFiles.ReadFile(swaggerFilePath)
-	if err != nil {
-		panic(fmt.Sprintf("could not read embedded swagger file %s: %v", swaggerFilePath, err))
-	}
-	return content
 }
 
 func NewApiServer(config config.Config) *ApiServer {
@@ -456,7 +450,7 @@ func NewApiServer(config config.Config) *ApiServer {
 			Path:     "v1",
 			// Only controls where the swagger.json is server from
 			FilePath:    "v1/swagger.json",
-			FileContent: readSwaggerFile("swagger/swagger-v1.json"),
+			FileContent: swaggerV1,
 		}))
 
 		// Create Swagger middleware for v1/full
@@ -467,7 +461,7 @@ func NewApiServer(config config.Config) *ApiServer {
 			Path:     "v1/full",
 			// Only controls where the swagger.json is server from
 			FilePath:    "v1/full/swagger.json",
-			FileContent: readSwaggerFile("swagger/swagger-v1-full.json"),
+			FileContent: swaggerV1Full,
 		}))
 	}
 
