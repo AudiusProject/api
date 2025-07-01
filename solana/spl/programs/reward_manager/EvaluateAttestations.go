@@ -1,9 +1,14 @@
 package reward_manager
 
 import (
+	"errors"
+
 	"github.com/ethereum/go-ethereum/common"
 	bin "github.com/gagliardetto/binary"
 	"github.com/gagliardetto/solana-go"
+	"github.com/gagliardetto/solana-go/text"
+	"github.com/gagliardetto/solana-go/text/format"
+	"github.com/gagliardetto/treeout"
 )
 
 type EvaluateAttestation struct {
@@ -13,6 +18,12 @@ type EvaluateAttestation struct {
 
 	solana.AccountMetaSlice `bin:"-" borsh_skip:"true"`
 }
+
+var (
+	_ solana.AccountsGettable = (*EvaluateAttestation)(nil)
+	_ solana.AccountsSettable = (*EvaluateAttestation)(nil)
+	_ text.EncodableToTree    = (*EvaluateAttestation)(nil)
+)
 
 func NewEvaluateAttestationInstructionBuilder() *EvaluateAttestation {
 	inst := &EvaluateAttestation{
@@ -44,7 +55,7 @@ func (inst *EvaluateAttestation) SetAttestationsAccount(state solana.PublicKey) 
 	return inst
 }
 
-func (inst *EvaluateAttestation) GetAttestationsAccount() *solana.AccountMeta {
+func (inst *EvaluateAttestation) AttestationsAccount() *solana.AccountMeta {
 	return inst.AccountMetaSlice.Get(0)
 }
 
@@ -53,7 +64,7 @@ func (inst *EvaluateAttestation) SetRewardManagerStateAccount(state solana.Publi
 	return inst
 }
 
-func (inst *EvaluateAttestation) GetRewardManagerStateAccount() *solana.AccountMeta {
+func (inst *EvaluateAttestation) RewardManagerStateAccount() *solana.AccountMeta {
 	return inst.AccountMetaSlice.Get(1)
 }
 
@@ -62,7 +73,7 @@ func (inst *EvaluateAttestation) SetAuthorityAccount(authority solana.PublicKey)
 	return inst
 }
 
-func (inst *EvaluateAttestation) GetAuthorityAccount() *solana.AccountMeta {
+func (inst *EvaluateAttestation) AuthorityAccount() *solana.AccountMeta {
 	return inst.AccountMetaSlice.Get(2)
 }
 
@@ -71,7 +82,7 @@ func (inst *EvaluateAttestation) SetTokenSourceAccount(tokenSource solana.Public
 	return inst
 }
 
-func (inst *EvaluateAttestation) GetTokenSourceAccount() *solana.AccountMeta {
+func (inst *EvaluateAttestation) TokenSourceAccount() *solana.AccountMeta {
 	return inst.AccountMetaSlice.Get(3)
 }
 
@@ -80,7 +91,7 @@ func (inst *EvaluateAttestation) SetDestinationUserBankAccount(userBank solana.P
 	return inst
 }
 
-func (inst *EvaluateAttestation) GetDestinationUserBankAccount() *solana.AccountMeta {
+func (inst *EvaluateAttestation) DestinationUserBankAccount() *solana.AccountMeta {
 	return inst.AccountMetaSlice.Get(4)
 }
 
@@ -89,7 +100,7 @@ func (inst *EvaluateAttestation) SetDisbursementAccount(disbursement solana.Publ
 	return inst
 }
 
-func (inst *EvaluateAttestation) GetDisbursementAccount() *solana.AccountMeta {
+func (inst *EvaluateAttestation) DisbursementAccount() *solana.AccountMeta {
 	return inst.AccountMetaSlice.Get(5)
 }
 
@@ -98,7 +109,7 @@ func (inst *EvaluateAttestation) SetAntiAbuseOracleAccount(antiAbuseOracle solan
 	return inst
 }
 
-func (inst *EvaluateAttestation) GetAntiAbuseOracleAccount() *solana.AccountMeta {
+func (inst *EvaluateAttestation) AntiAbuseOracleAccount() *solana.AccountMeta {
 	return inst.AccountMetaSlice.Get(6)
 }
 
@@ -107,8 +118,45 @@ func (inst *EvaluateAttestation) SetPayerAccount(payer solana.PublicKey) *Evalua
 	return inst
 }
 
-func (inst *EvaluateAttestation) GetPayerAccount() *solana.AccountMeta {
+func (inst *EvaluateAttestation) PayerAccount() *solana.AccountMeta {
 	return inst.AccountMetaSlice[7]
+}
+
+func (inst *EvaluateAttestation) Validate() error {
+	if inst.DisbursementId == "" {
+		return errors.New("disbursementId not set")
+	}
+	if inst.RecipientEthAddress.Big().Uint64() == 0 {
+		return errors.New("recipientEthAddress not set")
+	}
+	if inst.Amount == 0 {
+		return errors.New("amount not set")
+	}
+	if inst.AttestationsAccount() == nil {
+		return errors.New("attestations account not set")
+	}
+	if inst.RewardManagerStateAccount() == nil {
+		return errors.New("rewardManagerState account not set")
+	}
+	if inst.AuthorityAccount() == nil {
+		return errors.New("authority account not set")
+	}
+	if inst.TokenSourceAccount() == nil {
+		return errors.New("tokenSource account not set")
+	}
+	if inst.DestinationUserBankAccount() == nil {
+		return errors.New("destinationUserBank account not set")
+	}
+	if inst.DisbursementAccount() == nil {
+		return errors.New("disbursement account not set")
+	}
+	if inst.AntiAbuseOracleAccount() == nil {
+		return errors.New("antiAbuseOracle account not set")
+	}
+	if inst.PayerAccount() == nil {
+		return errors.New("payer account not set")
+	}
+	return nil
 }
 
 func (inst EvaluateAttestation) Build() *Instruction {
@@ -116,6 +164,38 @@ func (inst EvaluateAttestation) Build() *Instruction {
 		Impl:   inst,
 		TypeID: bin.TypeIDFromUint8(Instruction_EvaluateAttestations),
 	}}
+}
+
+func (inst EvaluateAttestation) ValidateAndBuild() (*Instruction, error) {
+	if err := inst.Validate(); err != nil {
+		return nil, err
+	}
+	return inst.Build(), nil
+}
+
+func (inst *EvaluateAttestation) EncodeToTree(parent treeout.Branches) {
+	parent.Child(format.Program("RewardManager", ProgramID)).
+		ParentFunc(func(programBranch treeout.Branches) {
+			programBranch.Child(format.Instruction("EvaluateAttestations")).
+				ParentFunc(func(instructionBranch treeout.Branches) {
+					instructionBranch.Child("Params").ParentFunc(func(paramsBranch treeout.Branches) {
+						paramsBranch.Child(format.Param("Amount", inst.Amount))
+						paramsBranch.Child(format.Param("DisbursementId", inst.DisbursementId))
+						paramsBranch.Child(format.Param("RecipientEthAddress", inst.RecipientEthAddress))
+
+					})
+					instructionBranch.Child("Accounts").ParentFunc(func(accountsBranch treeout.Branches) {
+						accountsBranch.Child(format.Account("Attestations", inst.AttestationsAccount().PublicKey))
+						accountsBranch.Child(format.Account("State", inst.RewardManagerStateAccount().PublicKey))
+						accountsBranch.Child(format.Account("Authority", inst.AuthorityAccount().PublicKey))
+						accountsBranch.Child(format.Account("TokenSource", inst.TokenSourceAccount().PublicKey))
+						accountsBranch.Child(format.Account("Destination", inst.DestinationUserBankAccount().PublicKey))
+						accountsBranch.Child(format.Account("Disbursement", inst.DisbursementAccount().PublicKey))
+						accountsBranch.Child(format.Account("AntiAbuseOracle", inst.AntiAbuseOracleAccount().PublicKey))
+						accountsBranch.Child(format.Account("Payer", inst.PayerAccount().PublicKey))
+					})
+				})
+		})
 }
 
 func NewEvaluateAttestationInstruction(

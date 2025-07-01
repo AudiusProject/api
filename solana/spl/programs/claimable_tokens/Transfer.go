@@ -6,14 +6,21 @@ import (
 	"github.com/ethereum/go-ethereum/common"
 	bin "github.com/gagliardetto/binary"
 	"github.com/gagliardetto/solana-go"
+	"github.com/gagliardetto/solana-go/text"
+	"github.com/gagliardetto/solana-go/text/format"
+	"github.com/gagliardetto/treeout"
+)
+
+var (
+	_ solana.AccountsGettable = (*Transfer)(nil)
+	_ solana.AccountsSettable = (*Transfer)(nil)
+	_ text.EncodableToTree    = (*Transfer)(nil)
 )
 
 type Transfer struct {
-	// Instruction Data
 	SenderEthAddress common.Address
 
-	// Accounts
-	Accounts solana.AccountMetaSlice
+	solana.AccountMetaSlice `bin:"-" borsh_skip:"true"`
 }
 
 type SignedTransferData struct {
@@ -23,14 +30,14 @@ type SignedTransferData struct {
 }
 
 func NewTransferInstructionBuilder() *Transfer {
-	data := &Transfer{
-		Accounts: make(solana.AccountMetaSlice, 9),
+	inst := &Transfer{
+		AccountMetaSlice: make(solana.AccountMetaSlice, 9),
 	}
-	data.Accounts[5] = solana.Meta(solana.SysVarRentPubkey)
-	data.Accounts[6] = solana.Meta(solana.SysVarInstructionsPubkey)
-	data.Accounts[7] = solana.Meta(solana.SystemProgramID)
-	data.Accounts[8] = solana.Meta(solana.TokenProgramID)
-	return data
+	inst.AccountMetaSlice[5] = solana.Meta(solana.SysVarRentPubkey)
+	inst.AccountMetaSlice[6] = solana.Meta(solana.SysVarInstructionsPubkey)
+	inst.AccountMetaSlice[7] = solana.Meta(solana.SystemProgramID)
+	inst.AccountMetaSlice[8] = solana.Meta(solana.TokenProgramID)
+	return inst
 }
 
 func (inst *Transfer) SetSenderEthAddress(ethAddress common.Address) *Transfer {
@@ -39,48 +46,48 @@ func (inst *Transfer) SetSenderEthAddress(ethAddress common.Address) *Transfer {
 }
 
 func (inst *Transfer) SetPayer(payer solana.PublicKey) *Transfer {
-	inst.Accounts[0] = solana.Meta(payer).SIGNER().WRITE()
+	inst.AccountMetaSlice[0] = solana.Meta(payer).SIGNER().WRITE()
 	return inst
 }
 
-func (inst *Transfer) GetPayer() *solana.AccountMeta {
-	return inst.Accounts[0]
+func (inst *Transfer) Payer() *solana.AccountMeta {
+	return inst.AccountMetaSlice[0]
 }
 
 func (inst *Transfer) SetSenderUserBank(userBank solana.PublicKey) *Transfer {
-	inst.Accounts[1] = solana.Meta(userBank).WRITE()
+	inst.AccountMetaSlice[1] = solana.Meta(userBank).WRITE()
 	return inst
 }
 
-func (inst *Transfer) GetSenderUserBank() *solana.AccountMeta {
-	return inst.Accounts[1]
+func (inst *Transfer) SenderUserBank() *solana.AccountMeta {
+	return inst.AccountMetaSlice[1]
 }
 
 func (inst *Transfer) SetDestination(destination solana.PublicKey) *Transfer {
-	inst.Accounts[2] = solana.Meta(destination).WRITE()
+	inst.AccountMetaSlice[2] = solana.Meta(destination).WRITE()
 	return inst
 }
 
-func (inst *Transfer) GetDestination() *solana.AccountMeta {
-	return inst.Accounts[2]
+func (inst *Transfer) Destination() *solana.AccountMeta {
+	return inst.AccountMetaSlice[2]
 }
 
-func (inst *Transfer) SetNonce(nonce solana.PublicKey) *Transfer {
-	inst.Accounts[3] = solana.Meta(nonce).WRITE()
+func (inst *Transfer) SetNonceAccount(nonce solana.PublicKey) *Transfer {
+	inst.AccountMetaSlice[3] = solana.Meta(nonce).WRITE()
 	return inst
 }
 
-func (inst *Transfer) GetNonce() *solana.AccountMeta {
-	return inst.Accounts[3]
+func (inst *Transfer) NonceAccount() *solana.AccountMeta {
+	return inst.AccountMetaSlice[3]
 }
 
 func (inst *Transfer) SetAuthority(authority solana.PublicKey) *Transfer {
-	inst.Accounts[4] = solana.Meta(authority)
+	inst.AccountMetaSlice[4] = solana.Meta(authority)
 	return inst
 }
 
-func (inst *Transfer) GetAuthority() *solana.AccountMeta {
-	return inst.Accounts[4]
+func (inst *Transfer) Authority() *solana.AccountMeta {
+	return inst.AccountMetaSlice[4]
 }
 
 func (inst *Transfer) Build() *Instruction {
@@ -101,35 +108,41 @@ func (inst *Transfer) Validate() error {
 	if inst.SenderEthAddress.Big().Uint64() == 0 {
 		return errors.New("senderEthAddress not set")
 	}
-	if inst.GetPayer() == nil {
+	if inst.Payer() == nil {
 		return errors.New("payer not set")
 	}
-	if inst.GetSenderUserBank() == nil {
+	if inst.SenderUserBank() == nil {
 		return errors.New("senderUserBank not set")
 	}
-	if inst.GetDestination() == nil {
+	if inst.Destination() == nil {
 		return errors.New("destination not set")
 	}
-	if inst.GetNonce() == nil {
+	if inst.NonceAccount() == nil {
 		return errors.New("nonce not set")
 	}
-	if inst.GetAuthority() == nil {
+	if inst.Authority() == nil {
 		return errors.New("authority not set")
 	}
 	return nil
 }
 
-func (inst *Transfer) SetAccounts(accounts []*solana.AccountMeta) error {
-	inst.Accounts = accounts
-	return nil
-}
-
-func (inst Transfer) MarshalWithEncoder(encoder *bin.Encoder) error {
-	return encoder.WriteBytes(inst.SenderEthAddress.Bytes(), false)
-}
-
-func (inst *Transfer) UnmarshalWithDecoder(decoder *bin.Decoder) error {
-	return decoder.Decode(&inst.SenderEthAddress)
+func (inst *Transfer) EncodeToTree(parent treeout.Branches) {
+	parent.Child(format.Program("ClaimableTokens", ProgramID)).
+		ParentFunc(func(programBranch treeout.Branches) {
+			programBranch.Child(format.Instruction("Transfer")).
+				ParentFunc(func(instructionBranch treeout.Branches) {
+					instructionBranch.Child("Params").ParentFunc(func(paramsBranch treeout.Branches) {
+						paramsBranch.Child(format.Param("SenderEthAddress", inst.SenderEthAddress))
+					})
+					instructionBranch.Child("Accounts").ParentFunc(func(accountsBranch treeout.Branches) {
+						accountsBranch.Child(format.Account("Payer", inst.Payer().PublicKey))
+						accountsBranch.Child(format.Account("SenderUserBank", inst.SenderUserBank().PublicKey))
+						accountsBranch.Child(format.Account("Destination", inst.Destination().PublicKey))
+						accountsBranch.Child(format.Account("Nonce", inst.NonceAccount().PublicKey))
+						accountsBranch.Child(format.Account("Authority", inst.Authority().PublicKey))
+					})
+				})
+		})
 }
 
 func NewTransferInstruction(
@@ -155,7 +168,7 @@ func NewTransferInstruction(
 			SetPayer(payer).
 			SetSenderUserBank(senderUserBank).
 			SetDestination(destination).
-			SetNonce(nonce).
+			SetNonceAccount(nonce).
 			SetAuthority(authority),
 		nil
 }

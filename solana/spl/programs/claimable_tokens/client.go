@@ -31,15 +31,14 @@ func (cc *ClaimableTokensClient) CreateUserBank(
 	mint solana.PublicKey,
 ) error {
 	payer := cc.sender.GetFeePayer()
-	inst, err := NewCreateTokenAccountInstruction(ethAddress, mint, payer.PublicKey()).
-		ValidateAndBuild()
+	inst, err := NewCreateTokenAccountInstruction(ethAddress, mint, payer.PublicKey())
 	if err != nil {
 		return err
 	}
 
 	tx := solana.NewTransactionBuilder().
 		SetFeePayer(payer.PublicKey()).
-		AddInstruction(inst)
+		AddInstruction(inst.Build())
 
 	cc.sender.AddPriorityFees(ctx, tx, spl.AddPriorityFeesParams{
 		Percentile: 99,

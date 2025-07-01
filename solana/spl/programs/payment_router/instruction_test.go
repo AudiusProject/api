@@ -7,6 +7,7 @@ import (
 	"bridgerton.audius.co/solana/spl/programs/payment_router"
 	"github.com/gagliardetto/solana-go"
 	"github.com/stretchr/testify/assert"
+	"github.com/test-go/testify/require"
 )
 
 func TestDecodeInstruction(t *testing.T) {
@@ -22,9 +23,9 @@ func TestDecodeInstruction(t *testing.T) {
 
 	compiledRouteInst := tx.Message.Instructions[2]
 	accounts, err := compiledRouteInst.ResolveInstructionAccounts(&tx.Message)
-	assert.NoError(t, err)
+	require.NoError(t, err)
 	decoded, err := payment_router.DecodeInstruction(accounts, compiledRouteInst.Data)
-	assert.NoError(t, err)
+	require.NoError(t, err)
 	routeInst, ok := decoded.Impl.(*payment_router.Route)
 	if !ok {
 		assert.Fail(t, "bad type assert")
@@ -71,7 +72,7 @@ func TestNewRouteInstruction(t *testing.T) {
 	assert.True(t, accounts[4].IsWritable)
 
 	data, err := inst.Data()
-	assert.NoError(t, err)
+	require.NoError(t, err)
 	assert.Equal(t, expectedData, data)
 }
 

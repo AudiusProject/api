@@ -63,9 +63,9 @@ func NewSolanaIndexer(config config.Config) *SolanaIndexer {
 			config.SolanaConfig.MintAudio,
 		},
 		addressesToWatch: solana.PublicKeySlice{
-			// config.SolanaConfig.MintAudio,
-			// config.SolanaConfig.RewardManagerProgramID,
-			// config.SolanaConfig.ClaimableTokensProgramID,
+			config.SolanaConfig.MintAudio,
+			config.SolanaConfig.RewardManagerProgramID,
+			config.SolanaConfig.ClaimableTokensProgramID,
 			config.SolanaConfig.PaymentRouterProgramID,
 		},
 	}
@@ -385,13 +385,9 @@ func processTransaction(ctx context.Context, db dbExecutor, slot uint64, meta *r
 				case claimable_tokens.Instruction_CreateTokenAccount:
 					{
 						if createInst, ok := inst.Impl.(*claimable_tokens.CreateTokenAccount); ok {
-							userBank, err := createInst.GetUserBank()
-							if err != nil {
-								return fmt.Errorf("failed to get user bank for claimable tokens instruction %d: %w", instructionIndex, err)
-							}
 							logger.Info("claimable_tokens createTokenAccount",
-								zap.String("mint", createInst.Mint.String()),
-								zap.String("userBank", userBank.String()),
+								zap.String("mint", createInst.Mint().PublicKey.String()),
+								zap.String("userBank", createInst.UserBank().PublicKey.String()),
 								zap.String("ethAddress", createInst.EthAddress.String()),
 							)
 						}
@@ -420,8 +416,8 @@ func processTransaction(ctx context.Context, db dbExecutor, slot uint64, meta *r
 
 							logger.Info("claimable_tokens transfer",
 								zap.String("ethAddress", transferInst.SenderEthAddress.String()),
-								zap.String("userBank", transferInst.GetSenderUserBank().PublicKey.String()),
-								zap.String("destination", transferInst.GetDestination().PublicKey.String()),
+								zap.String("userBank", transferInst.SenderUserBank().PublicKey.String()),
+								zap.String("destination", transferInst.Destination().PublicKey.String()),
 								zap.Uint64("amount", signedData.Amount),
 							)
 						}
@@ -439,7 +435,7 @@ func processTransaction(ctx context.Context, db dbExecutor, slot uint64, meta *r
 					if claimInst, ok := inst.Impl.(*reward_manager.EvaluateAttestation); ok {
 						logger.Info("reward_manager evaluateAttestations",
 							zap.String("ethAddress", claimInst.RecipientEthAddress.String()),
-							zap.String("userBank", claimInst.GetDestinationUserBankAccount().PublicKey.String()),
+							zap.String("userBank", claimInst.DestinationUserBankAccount().PublicKey.String()),
 							zap.Uint64("amount", claimInst.Amount),
 							zap.String("disbursementId", claimInst.DisbursementId),
 						)
