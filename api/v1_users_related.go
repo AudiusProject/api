@@ -74,74 +74,72 @@ func (app *ApiServer) v1UsersRelated(c *fiber.Ctx) error {
 		OFFSET @offset
 		`
 	} else {
-		// Collaborative filtering algorithm for larger artists
+		// Simple approach: find who recent followers also follow
 		sql = `
-		WITH target_followers AS (
-			-- Get all followers of the target artist
+		WITH recent_followers AS MATERIALIZED (
 			SELECT follower_user_id
-			FROM follows
+			FROM follows 
 			WHERE followee_user_id = @userId
-			AND is_current = true
-			AND is_delete = false
-		),
-		candidate_artists AS (
-			-- Find artists followed by the target artist's followers
-			SELECT 
-				f.followee_user_id as candidate_user_id,
-				COUNT(*) as shared_followers
+			ORDER BY follower_user_id DESC
+			LIMIT 500
+		)
+		SELECT 
+			f.followee_user_id AS user_id
+		FROM recent_followers rf
+		JOIN LATERAL (
+			SELECT followee_user_id
 			FROM follows f
-			INNER JOIN target_followers tf ON f.follower_user_id = tf.follower_user_id
-			WHERE f.is_current = true
-			AND f.is_delete = false
-			AND f.followee_user_id != @userId  -- Don't include the target artist
-			GROUP BY f.followee_user_id
-			HAVING COUNT(*) >= 2  -- Require at least 2 shared followers
-		),
-		similarity_scores AS (
-			-- Calculate Jaccard similarity: |A ∩ B| / |A ∪ B|
-			SELECT 
-				ca.candidate_user_id,
-				ca.shared_followers,
-				target_au.follower_count as target_follower_count,
-				candidate_au.follower_count as candidate_follower_count,
-				-- Jaccard similarity = shared / (target + candidate - shared)
-				CASE 
-					WHEN (target_au.follower_count + candidate_au.follower_count - ca.shared_followers) > 0
-					THEN ca.shared_followers::float / (target_au.follower_count + candidate_au.follower_count - ca.shared_followers)
-					ELSE 0
-				END as jaccard_similarity
-			FROM candidate_artists ca
-			JOIN aggregate_user target_au ON target_au.user_id = @userId
-			JOIN aggregate_user candidate_au ON candidate_au.user_id = ca.candidate_user_id
-			WHERE candidate_au.follower_count > 0  -- Avoid division by zero
-		)
-		SELECT ss.candidate_user_id as user_id
-		FROM similarity_scores ss
-		JOIN users u ON u.user_id = ss.candidate_user_id
-		JOIN aggregate_user au ON au.user_id = ss.candidate_user_id
+			WHERE f.follower_user_id = rf.follower_user_id
+				AND f.followee_user_id != @userId
+			ORDER BY followee_user_id
+			LIMIT 200
+		) f ON true
+		JOIN users u ON u.user_id = f.followee_user_id
+		JOIN aggregate_user au ON au.user_id = f.followee_user_id
 		WHERE u.is_current = true
-		AND u.is_deactivated = false
-		AND u.is_available = true
-		AND (
-			@filterFollowed = false
-			OR @myId = 0
-			OR NOT EXISTS(
-				SELECT 1
-				FROM follows AS f
-				WHERE f.is_current = true
-				AND f.is_delete = false
-				AND f.follower_user_id = @myId
-				AND f.followee_user_id = ss.candidate_user_id
-			)
-		)
-		ORDER BY 
-			ss.jaccard_similarity DESC,
-			ss.shared_followers DESC,
-			au.follower_count DESC
+			AND u.is_deactivated = false
+			AND u.is_available = true
+			AND au.follower_count > 10
+		GROUP BY f.followee_user_id, au.follower_count
+		HAVING COUNT(*) >= 3
+		ORDER BY COUNT(*)::float / (500 + au.follower_count - COUNT(*)) DESC
 		LIMIT @limit
 		OFFSET @offset
 		`
 	}
+
+	// WITH recent_followers AS (
+	// 	SELECT follower_user_id
+	// 	FROM follows
+	// 	WHERE followee_user_id = @userId
+	// 	AND is_delete = false
+	// 	LIMIT 200  -- Just use first 200 followers (by insert order)
+	// )
+	// SELECT f.followee_user_id as user_id
+	// FROM recent_followers rf
+	// JOIN follows f ON f.follower_user_id = rf.follower_user_id
+	// JOIN users u ON u.user_id = f.followee_user_id
+	// JOIN aggregate_user au ON au.user_id = f.followee_user_id
+	// WHERE f.is_delete = false
+	// AND f.followee_user_id != @userId
+	// AND u.is_deactivated = false
+	// AND u.is_available = true
+	// AND au.follower_count > 10
+	// AND (
+	// 	@filterFollowed = false
+	// 	OR @myId = 0
+	// 	OR NOT EXISTS(
+	// 		SELECT 1
+	// 		FROM follows AS follow_check
+	// 		WHERE follow_check.is_delete = false
+	// 		AND follow_check.follower_user_id = @myId
+	// 		AND follow_check.followee_user_id = f.followee_user_id
+	// 	)
+	// )
+	// GROUP BY f.followee_user_id, au.follower_count
+	// ORDER BY COUNT(*) DESC, au.follower_count DESC
+	// LIMIT @limit
+	// OFFSET @offset
 
 	filterFollowed, _ := strconv.ParseBool(c.Query("filter_followed"))
 	return app.queryFullUsers(c, sql, pgx.NamedArgs{
