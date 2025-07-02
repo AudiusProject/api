@@ -69,9 +69,13 @@ func (app *ApiServer) v1UsersRelated(c *fiber.Ctx) error {
 		OFFSET @offset
 		`
 	} else {
-		// Simple approach: find who recent followers also follow
+		// simple collaborative filtering
+		// - get a sample of followers. as ids are random, this is a reasonable sample
+		// - for each follower, get the top 200 artists they follow
+		// - score candidates based on how many of our sample follow them with some genre boost
+		// - return the top n
 		sql = `
-		WITH recent_followers AS MATERIALIZED (
+		WITH followers_sample AS MATERIALIZED (
 			SELECT follower_user_id
 			FROM follows 
 			WHERE followee_user_id = @userId
@@ -96,7 +100,7 @@ func (app *ApiServer) v1UsersRelated(c *fiber.Ctx) error {
 			SELECT 
 				f.followee_user_id AS user_id,
 				COUNT(*) AS shared_followers
-			FROM recent_followers rf
+			FROM followers_sample rf
 			JOIN LATERAL (
 				SELECT followee_user_id
 				FROM follows f
