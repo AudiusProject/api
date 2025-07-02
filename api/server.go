@@ -83,7 +83,7 @@ func NewApiServer(config config.Config) *ApiServer {
 	if config.Env != "test" {
 		connConfig.ConnConfig.Tracer = &tracelog.TraceLog{
 			Logger:   pgxzap.NewLogger(logger),
-			LogLevel: tracelog.LogLevelInfo,
+			LogLevel: logging.GetTraceLogLevel(config.LogLevel),
 		}
 	}
 
