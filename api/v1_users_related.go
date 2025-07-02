@@ -123,12 +123,24 @@ func (app *ApiServer) v1UsersRelated(c *fiber.Ctx) error {
 				AND u.is_deactivated = false
 				AND u.is_available = true
 				AND au.follower_count > 10
+				AND (
+					@filterFollowed = false
+					OR @myId = 0
+					OR NOT EXISTS(
+						SELECT 1
+						FROM follows AS f
+						WHERE f.is_current = true
+						AND f.is_delete = false
+						AND f.follower_user_id = @myId
+						AND f.followee_user_id = au.user_id
+					)
+				)
 		)
 		SELECT user_id
 		FROM scored_candidates
 		WHERE shared_followers >= 3
 		ORDER BY 
-			-- Approx. jaccard similarity with small genre boost
+			-- approx jaccard similarity with small genre boost
 			(shared_followers::float / (500 + follower_count - shared_followers)) + (genre_match * 0.05) DESC
 		LIMIT @limit
 		OFFSET @offset;
