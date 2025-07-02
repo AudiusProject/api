@@ -3,7 +3,7 @@ package testdata
 var AggregateUser = []map[string]any{
 	{
 		"user_id":          1,
-		"follower_count":   98,
+		"follower_count":   100,
 		"following_count":  25,
 		"dominant_genre":   "Electronic",
 		"track_save_count": 20,
