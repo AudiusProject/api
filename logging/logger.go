@@ -1,7 +1,6 @@
 package logging
 
 import (
-	"fmt"
 	"os"
 
 	"bridgerton.audius.co/config"
@@ -32,7 +31,6 @@ func NewZapLogger(config config.Config) *zap.Logger {
 	// stdout core
 	level, err := zapcore.ParseLevel(config.LogLevel)
 	if err != nil {
-		fmt.Println("error parsing level", err)
 		level = zapcore.InfoLevel
 	}
 	encoderConfig := zap.NewProductionEncoderConfig()
