@@ -42,12 +42,12 @@ jobs:
           cache-to: type=registry,ref=audius/api:buildcache,mode=max
 
       - name: Get short SHA for release
-        # if: github.ref == 'refs/heads/main'
+        if: github.ref == 'refs/heads/main'
         run: |
           echo "SHORT_SHA=$(git rev-parse --short HEAD)" >> $GITHUB_ENV
 
       - name: Create GitHub Release
-        # if: github.ref == 'refs/heads/main'
+        if: github.ref == 'refs/heads/main'
         uses: softprops/action-gh-release@v1
         with:
           tag_name: ${{ env.SHORT_SHA }}
