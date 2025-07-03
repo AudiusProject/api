@@ -51,7 +51,7 @@ jobs:
         uses: softprops/action-gh-release@v1
         with:
           tag_name: ${{ env.SHORT_SHA }}
-          name: "Docker build ${{ env.SHORT_SHA }}"
+          name: "Build ${{ env.SHORT_SHA }}"
           body: "Automated release generated after Docker image push."
           generate_release_notes: true
         env:
