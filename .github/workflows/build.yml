@@ -7,6 +7,8 @@ on:
 jobs:
   build:
     runs-on: ubuntu-latest
+    permissions:
+      contents: write
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
@@ -38,3 +40,19 @@ jobs:
           labels: ${{ steps.meta.outputs.labels }}
           cache-from: type=registry,ref=audius/api:buildcache
           cache-to: type=registry,ref=audius/api:buildcache,mode=max
+
+      - name: Get short SHA for release
+        if: github.ref == 'refs/heads/main'
+        run: |
+          echo "SHORT_SHA=$(git rev-parse --short HEAD)" >> $GITHUB_ENV
+
+      - name: Create GitHub Release
+        if: github.ref == 'refs/heads/main'
+        uses: softprops/action-gh-release@v1
+        with:
+          tag_name: ${{ env.SHORT_SHA }}
+          name: "Build ${{ env.SHORT_SHA }}"
+          body: "Automated release generated after Docker image push."
+          generate_release_notes: true
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
