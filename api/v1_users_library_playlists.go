@@ -49,8 +49,10 @@ func (app *ApiServer) v1UsersLibraryPlaylists(c *fiber.Ctx) error {
 		"playlists.is_delete = false",
 	}
 
+	maybeJoinUsers := ""
 	if params.Query != "" {
 		playlistFilters = append(playlistFilters, "(playlist_name ILIKE @query OR users.name ILIKE @query)")
+		maybeJoinUsers = "JOIN users ON playlists.playlist_owner_id = users.user_id"
 	}
 
 	sql := `
@@ -73,7 +75,7 @@ func (app *ApiServer) v1UsersLibraryPlaylists(c *fiber.Ctx) error {
 			created_at as item_created_at,
 			false as is_purchase
 		FROM saves
-		WHERE save_type != 'track'
+		WHERE save_type = 'playlist'
 			AND user_id = @userId
 			AND is_delete = false
 			AND @actionType in ('favorite', 'all')
@@ -85,7 +87,7 @@ func (app *ApiServer) v1UsersLibraryPlaylists(c *fiber.Ctx) error {
 			created_at as item_created_at,
 			false as is_purchase
 		FROM reposts
-		WHERE repost_type != 'track'
+		WHERE repost_type = 'playlist'
 			AND user_id = @userId
 			AND is_delete = false
 			AND @actionType in ('repost', 'all')
@@ -116,7 +118,7 @@ func (app *ApiServer) v1UsersLibraryPlaylists(c *fiber.Ctx) error {
 		deduped.*
 	FROM deduped
 	JOIN playlists ON playlist_id = item_id
-	JOIN users ON playlists.playlist_owner_id = users.user_id
+	` + maybeJoinUsers + `
 	LEFT JOIN aggregate_playlist USING (playlist_id)
 	WHERE ` + strings.Join(playlistFilters, " AND ") + `
 	ORDER BY ` + sortField + ` ` + sortDirection + `, item_id desc
@@ -162,19 +164,14 @@ func (app *ApiServer) v1UsersLibraryPlaylists(c *fiber.Ctx) error {
 			Ids:  ids,
 			MyID: myId,
 		},
+		OmitTracks: true,
 	})
 	if err != nil {
 		return err
 	}
 
-	// attach
 	for idx, item := range items {
 		if p, ok := playlists[item.ItemID]; ok {
-			// todo: python code does: exclude playlists with only hidden tracks and empty playlists
-
-			// python API doesn't attach tracks???
-			p.Tracks = nil
-
 			item.Item = p
 			items[idx] = item
 		}
