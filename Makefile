@@ -1,6 +1,6 @@
 
 dev::
-	wgo -file sqlc.yaml -file .sql -xfile .go sqlc generate :: wgo run -file .go -debounce 10ms main.go
+	wgo -file sqlc.yaml -file .sql -xfile .go sqlc generate :: wgo run -file .go -file .yaml -debounce 10ms main.go
 
 solana-indexer::
 	wgo run -file .go -debounce 10ms main.go solana-indexer

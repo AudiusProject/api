@@ -42,10 +42,10 @@ import (
 	"go.uber.org/zap"
 )
 
-//go:embed swagger/swagger-v1.json
+//go:embed swagger/swagger-v1.yaml
 var swaggerV1 []byte
 
-//go:embed swagger/swagger-v1-full.json
+//go:embed swagger/swagger-v1-full.yaml
 var swaggerV1Full []byte
 
 func RequestTimer() fiber.Handler {
@@ -449,7 +449,7 @@ func NewApiServer(config config.Config) *ApiServer {
 			BasePath: "/",
 			Path:     "v1",
 			// Only controls where the swagger.json is server from
-			FilePath:    "v1/swagger.json",
+			FilePath:    "v1/swagger.yaml",
 			FileContent: swaggerV1,
 		}))
 
@@ -460,7 +460,7 @@ func NewApiServer(config config.Config) *ApiServer {
 			BasePath: "/",
 			Path:     "v1/full",
 			// Only controls where the swagger.json is server from
-			FilePath:    "v1/full/swagger.json",
+			FilePath:    "v1/full/swagger.yaml",
 			FileContent: swaggerV1Full,
 		}))
 	}
