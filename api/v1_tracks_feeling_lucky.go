@@ -27,6 +27,7 @@ func (app *ApiServer) v1TracksFeelingLucky(c *fiber.Ctx) error {
 
 	filters := []string{
 		"is_current = true",
+		"is_available = true",
 		"is_delete = false",
 		"is_unlisted = false",
 		"stem_of IS NULL",
