@@ -94,7 +94,20 @@ SELECT
   creator_node_endpoint,
 
   -- TODO: either compute or remove this
-  10 as current_user_followee_follow_count,
+  (
+    SELECT count(*)
+    FROM follows
+    WHERE $1 > 0
+    AND $1 != u.user_id -- don't compute when viewing own profile
+    AND followee_user_id = u.user_id
+    AND is_delete = false
+    AND follower_user_id IN (
+      SELECT followee_user_id
+      FROM follows mf
+      WHERE mf.follower_user_id = $1
+      AND is_delete = false
+    )
+  ) AS current_user_followee_follow_count,
 
   (
     SELECT count(*) > 0
@@ -194,7 +207,7 @@ type GetUsersRow struct {
 	CreatedAt                      time.Time      `json:"created_at"`
 	IsStorageV2                    bool           `json:"is_storage_v2"`
 	CreatorNodeEndpoint            pgtype.Text    `json:"creator_node_endpoint"`
-	CurrentUserFolloweeFollowCount int32          `json:"current_user_followee_follow_count"`
+	CurrentUserFolloweeFollowCount int64          `json:"current_user_followee_follow_count"`
 	DoesCurrentUserFollow          bool           `json:"does_current_user_follow"`
 	DoesCurrentUserSubscribe       bool           `json:"does_current_user_subscribe"`
 	DoesFollowCurrentUser          bool           `json:"does_follow_current_user"`

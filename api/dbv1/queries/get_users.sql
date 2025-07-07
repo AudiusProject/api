@@ -79,7 +79,20 @@ SELECT
   creator_node_endpoint,
 
   -- TODO: either compute or remove this
-  10 as current_user_followee_follow_count,
+  (
+    SELECT count(*)
+    FROM follows
+    WHERE @my_id > 0
+    AND @my_id != u.user_id -- don't compute when viewing own profile
+    AND followee_user_id = u.user_id
+    AND is_delete = false
+    AND follower_user_id IN (
+      SELECT followee_user_id
+      FROM follows mf
+      WHERE mf.follower_user_id = @my_id
+      AND is_delete = false
+    )
+  ) AS current_user_followee_follow_count,
 
   (
     SELECT count(*) > 0
