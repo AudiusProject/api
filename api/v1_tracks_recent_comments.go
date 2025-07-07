@@ -20,7 +20,6 @@ func (app *ApiServer) v1TracksRecentComments(c *fiber.Ctx) error {
 	}
 
 	// Note: limiting CTE to past month to speed this up.
-	// TODO: Could we go even shorter?
 	sql := `
 		SELECT c.entity_id
 		FROM comments c
