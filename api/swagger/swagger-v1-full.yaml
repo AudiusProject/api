@@ -1233,7 +1233,7 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/full_tracks_response'
-  /tracks/feeling_lucky:
+  /tracks/feeling-lucky:
     get:
       tags:
       - tracks
@@ -1266,7 +1266,6 @@ paths:
         schema:
           type: integer
           minimum: 1
-          maximum: 100000
       responses:
         "200":
           description: Success

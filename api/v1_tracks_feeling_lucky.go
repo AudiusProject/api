@@ -10,7 +10,7 @@ import (
 
 type GetFeelingLuckyParams struct {
 	Limit        int `query:"limit" default:"10" validate:"min=1,max=100"`
-	MinFollowers int `query:"min_followers" validate:"omitempty,min=1,max=100000"`
+	MinFollowers int `query:"min_followers" validate:"omitempty,min=1"`
 }
 
 func (app *ApiServer) v1TracksFeelingLucky(c *fiber.Ctx) error {

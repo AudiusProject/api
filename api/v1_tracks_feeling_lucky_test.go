@@ -79,7 +79,7 @@ func TestV1TracksFeelingLucky(t *testing.T) {
 			Data []dbv1.FullTrack
 		}
 
-		status, body := testGet(t, app, "/v1/tracks/feeling_lucky", &resp)
+		status, body := testGet(t, app, "/v1/tracks/feeling-lucky", &resp)
 		assert.Equal(t, 200, status)
 
 		jsonAssert(t, body, map[string]any{
@@ -92,7 +92,7 @@ func TestV1TracksFeelingLucky(t *testing.T) {
 	}
 
 	{
-		status, body := testGet(t, app, "/v1/tracks/feeling_lucky?min_followers=1")
+		status, body := testGet(t, app, "/v1/tracks/feeling-lucky?min_followers=1")
 		assert.Equal(t, 200, status)
 
 		// Should only be track 3 due to follower requirement
