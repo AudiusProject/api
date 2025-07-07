@@ -51,15 +51,6 @@ func commonIndexSettings(mapping string) string {
 	return mapping
 }
 
-func reindexCollection(i *EsIndexer, collection string) {
-	if err := i.createIndex(collection); err != nil {
-		panic(err)
-	}
-	if err := i.indexAll(collection); err != nil {
-		panic(err)
-	}
-}
-
 func Reindex(pool *pgxpool.Pool, esc *elasticsearch.Client, drop bool, collections ...string) {
 
 	bulk, err := esutil.NewBulkIndexer(esutil.BulkIndexerConfig{
@@ -101,16 +92,16 @@ func Reindex(pool *pgxpool.Pool, esc *elasticsearch.Client, drop bool, collectio
 	reindexAll := len(collections) == 0 || slices.Contains(collections, "all")
 
 	if reindexAll || slices.Contains(collections, "playlists") {
-		reindexCollection(esIndexer, "playlists")
+		esIndexer.reindexCollection("playlists")
 	}
 	if reindexAll || slices.Contains(collections, "tracks") {
-		reindexCollection(esIndexer, "tracks")
+		esIndexer.reindexCollection("tracks")
 	}
 	if reindexAll || slices.Contains(collections, "users") {
-		reindexCollection(esIndexer, "users")
+		esIndexer.reindexCollection("users")
 	}
 	if reindexAll || slices.Contains(collections, "socials") {
-		reindexCollection(esIndexer, "socials")
+		esIndexer.reindexCollection("socials")
 	}
 
 	esIndexer.bulk.Close(context.Background())

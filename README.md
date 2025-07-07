@@ -6,9 +6,7 @@
    <p align="center"><i>The read API server backend for the Audius mobile apps and <a href="https://audius.co">audius.co</a></i></p>
 </p>
 
-
-[![license](https://img.shields.io/github/license/AudiusProject/api)](https://github.com/AudiusProject/api/blob/main/LICENSE) [![releases](https://img.shields.io/github/v/release/AudiusProject/api)](https://github.com/AudiusProject/api/releases/latest) 
-
+[![license](https://img.shields.io/github/license/AudiusProject/api)](https://github.com/AudiusProject/api/blob/main/LICENSE) [![releases](https://img.shields.io/github/v/release/AudiusProject/api)](https://github.com/AudiusProject/api/releases/latest)
 
 ## Running
 
@@ -21,6 +19,7 @@
    ```
 
    Regular database dumps are posted to S3, and can be pulled with
+
    ```
    curl https://audius-pgdump.s3-us-west-2.amazonaws.com/discProvProduction.dump -O
    pg_restore -d <your-database-url> \
@@ -108,4 +107,20 @@ You can also specify specific indexes. If you change the mapping you can add `dr
 ```
 go build -o api main.go
 time ./api reindex drop playlists
+```
+
+### Re-index in stage or prod
+
+You can exec into the ex-indexer container:
+
+```
+kubectl --context stage -n api get pods
+kubectl --context stage -n api exec -it reindexer-fd5dd5547-z2lss -- sh
+bridge es-indexer reindex
+```
+
+Or, assuming listener is running, you can connect to the postgres write DB and do:
+
+```
+NOTIFY reindex
 ```

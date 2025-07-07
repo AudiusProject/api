@@ -11,6 +11,7 @@ import (
 	"github.com/elastic/go-elasticsearch/v8"
 	"github.com/elastic/go-elasticsearch/v8/esutil"
 	"github.com/jackc/pgx/v5/pgxpool"
+	"golang.org/x/sync/errgroup"
 )
 
 type collectionConfig struct {
@@ -34,6 +35,7 @@ type EsIndexer struct {
 	drop bool
 }
 
+// create index from mapping
 func (indexer *EsIndexer) createIndex(collection string) error {
 	cc := collectionConfigs[collection]
 
@@ -59,6 +61,26 @@ func (indexer *EsIndexer) createIndex(collection string) error {
 	return res.Body.Close()
 }
 
+func (indexer *EsIndexer) reindexAll() error {
+	g, _ := errgroup.WithContext(context.Background())
+	for name := range collectionConfigs {
+		name := name
+		g.Go(func() error {
+			return indexer.reindexCollection(name)
+		})
+	}
+	return g.Wait()
+}
+
+// creates index mapping + indexes all documents
+func (indexer *EsIndexer) reindexCollection(collection string) error {
+	if err := indexer.createIndex(collection); err != nil {
+		return err
+	}
+	return indexer.indexAll(collection)
+}
+
+// index all documents
 func (indexer *EsIndexer) indexAll(collection string) error {
 	cc := collectionConfigs[collection]
 
@@ -72,6 +94,7 @@ func (indexer *EsIndexer) indexAll(collection string) error {
 	return nil
 }
 
+// index a list of IDs
 func (indexer *EsIndexer) indexIds(collection string, ids ...int64) error {
 	if len(ids) == 0 {
 		return nil
@@ -93,6 +116,8 @@ func (indexer *EsIndexer) indexIds(collection string, ids ...int64) error {
 	return indexer.indexSql(cc.indexName, sql)
 }
 
+// runs a query + indexes documents
+// assumes query returns (id, json_doc) tuples
 func (indexer *EsIndexer) indexSql(indexName, sql string) error {
 
 	ctx := context.Background()

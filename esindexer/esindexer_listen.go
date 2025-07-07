@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"log"
+	"log/slog"
 	"slices"
 	"sync"
 	"time"
@@ -125,6 +126,13 @@ func (indexer *EsIndexer) listen(ctx context.Context) error {
 		}
 
 		indexer.scriptedUpdateSocial(userId, field, id, isDelete)
+		return nil
+	}))
+
+	listener.Handle("reindex", pgxlisten.HandlerFunc(func(ctx context.Context, notification *pgconn.Notification, conn *pgx.Conn) error {
+		if err := indexer.reindexAll(); err != nil {
+			slog.Error("reindex failed", "err", err)
+		}
 		return nil
 	}))
 
