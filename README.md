@@ -111,7 +111,15 @@ time ./api reindex drop playlists
 
 ### Re-index in stage or prod
 
-Connect to the postgres write DB and do:
+You can exec into the ex-indexer container:
+
+```
+kubectl --context stage -n api get pods
+kubectl --context stage -n api exec -it reindexer-fd5dd5547-z2lss -- sh
+bridge es-indexer reindex
+```
+
+Or, assuming listener is running, you can connect to the postgres write DB and do:
 
 ```
 NOTIFY reindex
