@@ -873,6 +873,42 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/tracks_response'
+  /tracks/feeling-lucky:
+    get:
+      tags:
+      - tracks
+      description: Gets random tracks found on the "Feeling Lucky" smart playlist
+      operationId: Get Feeling Lucky Tracks
+      parameters:
+      - name: user_id
+        in: query
+        description: The user ID of the user making the request
+        schema:
+          type: string
+      - name: limit
+        in: query
+        description: Number of tracks to fetch
+        schema:
+          type: integer
+          default: 10
+          minimum: 1
+          maximum: 100
+      - name: min_followers
+        in: query
+        description: Fetch tracks from users with at least this number of followers
+        schema:
+          type: integer
+          minimum: 1
+      responses:
+        "200":
+          description: Success
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/tracks_response'
+        "400":
+          description: Bad request
+          content: {}
   /tracks/search:
     get:
       tags:

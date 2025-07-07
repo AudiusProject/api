@@ -261,7 +261,6 @@ func NewApiServer(config config.Config) *ApiServer {
 		app.Use("/v1/full/playlists/top", BalancerForward(config.PythonUpstreams))
 
 		app.Use("/v1/full/tracks/best_new_releases", BalancerForward(config.PythonUpstreams))
-		app.Use("/v1/full/tracks/feeling_lucky", BalancerForward(config.PythonUpstreams))
 		app.Use("/v1/full/tracks/most_loved", BalancerForward(config.PythonUpstreams))
 		app.Use("/v1/full/tracks/remixables", BalancerForward(config.PythonUpstreams))
 	}
@@ -333,6 +332,7 @@ func NewApiServer(config config.Config) *ApiServer {
 		g.Get("/tracks/recent-premium", app.v1TracksRecentPremium)
 		g.Get("/tracks/usdc-purchase", app.v1TracksUsdcPurchase)
 		g.Get("/tracks/inspect", app.v1TracksInspect)
+		g.Get("/tracks/feeling-lucky", app.v1TracksFeelingLucky)
 
 		g.Use("/tracks/:trackId", app.requireTrackIdMiddleware)
 		g.Get("/tracks/:trackId", app.v1Track)
