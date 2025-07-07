@@ -64,7 +64,7 @@ func (q *Queries) FullTracksKeyed(ctx context.Context, arg FullTracksParams) (ma
 	}
 
 	userMap, err := q.FullUsersKeyed(ctx, GetUsersParams{
-		MyID: arg.MyID,
+		MyID: arg.MyID.(int32),
 		Ids:  userIds,
 	})
 	if err != nil {
