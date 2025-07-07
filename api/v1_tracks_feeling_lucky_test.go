@@ -11,23 +11,6 @@ import (
 func TestV1TracksFeelingLucky(t *testing.T) {
 	app := emptyTestApp(t)
 
-	// // Generate 250 plays entries for tracks 2 and 3
-	// plays := make([]map[string]any, 500)
-	// for i := range 500 {
-	// 	// First 250 plays for track 2, next 250 for track 3
-	// 	trackID := 2
-	// 	if i >= 250 {
-	// 		trackID = 3
-	// 	}
-
-	// 	plays[i] = map[string]any{
-	// 		"id":           i + 1,
-	// 		"user_id":      (i % 3) + 1, // Cycle through users 1, 2, 3
-	// 		"play_item_id": trackID,
-	// 		"created_at":   time.Now().Add(-time.Duration(i) * time.Hour), // Spread plays over time
-	// 	}
-	// }
-
 	fixtures := FixtureMap{
 		"users": []map[string]any{
 			{
