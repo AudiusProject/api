@@ -47,7 +47,7 @@ SELECT
   profile_picture,
 
   repost_count,
-  -- Use total_track_count if myId matches, otherwise use track_count
+  -- Use total_track_count when viewing own profile, otherwise use track_count
   (CASE
     WHEN u.user_id = $1::int THEN total_track_count
     ELSE track_count
