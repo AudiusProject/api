@@ -33,9 +33,11 @@ func TestCommonIndexSettings(t *testing.T) {
 		m2 := commonIndexSettings(mapping)
 
 		utils.JsonAssert(t, []byte(m2), map[string]any{
-			"mappings.properties.name.type": "text",
-			"settings.number_of_shards":     1,
-			"settings.number_of_replicas":   0,
+			"mappings.properties.name.type":        "text",
+			"mappings.properties.suggest.type":     "text",
+			"mappings.properties.suggest.analyzer": "infix_analyzer",
+			"settings.number_of_shards":            1,
+			"settings.number_of_replicas":          0,
 		})
 	}
 
@@ -43,8 +45,10 @@ func TestCommonIndexSettings(t *testing.T) {
 	{
 		m2 := commonIndexSettings(``)
 		utils.JsonAssert(t, []byte(m2), map[string]any{
-			"settings.number_of_shards":   1,
-			"settings.number_of_replicas": 0,
+			"settings.number_of_shards":            1,
+			"settings.number_of_replicas":          0,
+			"mappings.properties.suggest.type":     "text",
+			"mappings.properties.suggest.analyzer": "infix_analyzer",
 		})
 	}
 }

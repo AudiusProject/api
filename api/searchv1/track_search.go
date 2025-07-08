@@ -29,14 +29,17 @@ func (q *TrackSearchQuery) Map() map[string]any {
 		builder.Must(
 			esquery.MultiMatch().
 				Query(q.Query).
-				Fields("title^10", "user.handle", "user.name", "tags").
-				// Operator(esquery.OperatorAnd).
+				Fields("title^10", "suggest", "tags").
+				MinimumShouldMatch("80%").
+				Fuzziness("AUTO").
 				Type(esquery.MatchTypeBoolPrefix),
 		)
 
 		// for exact title / handle / artist name match
 		builder.Should(
-			esquery.MultiMatch().Query(q.Query).Fields("title", "user.name", "user.handle").Operator(esquery.OperatorAnd).Type(esquery.MatchTypePhrasePrefix),
+			esquery.MultiMatch().Query(q.Query).Fields("title", "user.name", "user.handle").
+				Operator(esquery.OperatorAnd).
+				Type(esquery.MatchTypePhrasePrefix),
 		)
 	} else {
 		builder.Must(esquery.MatchAll())

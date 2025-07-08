@@ -15,6 +15,7 @@ var tracksConfig = collectionConfig{
 	SELECT
 		track_id,
 		json_build_object(
+			'suggest', CONCAT_WS(' ', title, users.name, users.handle),
 			'title', title,
 			'genre', genre,
 			'mood', mood,

@@ -22,7 +22,12 @@ func (q *PlaylistSearchQuery) Map() map[string]any {
 	if q.IsTagSearch {
 		builder.Must(esquery.MultiMatch().Query(q.Query).Fields("tracks.tags").Type(esquery.MatchTypeBoolPrefix))
 	} else if q.Query != "" {
-		builder.Must(esquery.MultiMatch().Query(q.Query).Fields("title^10", "user.handle", "user.name", "tracks.tags").Type(esquery.MatchTypeBoolPrefix))
+		builder.Must(esquery.MultiMatch().
+			Query(q.Query).
+			Fields("title^10", "suggest", "tracks.tags").
+			MinimumShouldMatch("80%").
+			Fuzziness("AUTO").
+			Type(esquery.MatchTypeBoolPrefix))
 	} else {
 		builder.Must(esquery.MatchAll())
 	}

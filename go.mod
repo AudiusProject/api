@@ -24,6 +24,7 @@ require (
 	github.com/maypok86/otter v1.2.4
 	github.com/mcuadros/go-defaults v1.2.0
 	github.com/mr-tron/base58 v1.2.0
+	github.com/qjebbs/go-jsons v0.0.0-20221222033332-a534c5fc1c4c
 	github.com/rpcpool/yellowstone-grpc/examples/golang v0.0.0-20250605231917-29d62ca5d4ae
 	github.com/segmentio/encoding v0.4.1
 	github.com/speps/go-hashids/v2 v2.0.1
@@ -31,7 +32,6 @@ require (
 	github.com/test-go/testify v1.1.4
 	github.com/tidwall/gjson v1.18.0
 	github.com/tidwall/pretty v1.2.1
-	github.com/tidwall/sjson v1.2.5
 	github.com/valyala/fasthttp v1.59.0
 	go.uber.org/zap v1.27.0
 	golang.org/x/sync v0.13.0

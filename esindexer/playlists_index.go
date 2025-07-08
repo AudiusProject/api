@@ -7,6 +7,7 @@ var playlistsConfig = collectionConfig{
 	SELECT
 		playlist_id,
 		json_build_object(
+			'suggest', CONCAT_WS(' ', playlist_name, users.name, users.handle),
 			'title', playlist_name,
 			'description', description,
 			'track_count', track_count,
@@ -32,7 +33,6 @@ var playlistsConfig = collectionConfig{
 						'mood', mood,
 						'tags', string_to_array(tags, ','),
 
-						-- todo: more track fields
 						'user', json_build_object(
 							'handle', users.handle,
 							'name', users.name,
