@@ -2,6 +2,7 @@ package searchv1
 
 import (
 	"fmt"
+	"strings"
 
 	"github.com/aquasecurity/esquery"
 )
@@ -30,6 +31,14 @@ func (q *UserSearchQuery) Map() map[string]any {
 		builder.Should(
 			esquery.MultiMatch().Query(q.Query).
 				Fields("name", "handle").
+				Operator(esquery.OperatorAnd).
+				Type(esquery.MatchTypePhrasePrefix),
+		)
+
+		// exact match, but remove spaces from query
+		// so 'Stereo Steve' ranks 'StereoSteve' higher
+		builder.Should(
+			esquery.MultiMatch().Query(strings.ReplaceAll(q.Query, " ", "")).Fields("name", "handle").
 				Operator(esquery.OperatorAnd).
 				Type(esquery.MatchTypePhrasePrefix),
 		)
