@@ -20,11 +20,17 @@ func (q *UserSearchQuery) Map() map[string]any {
 	if q.IsTagSearch {
 		builder.Must(esquery.MultiMatch().Query(q.Query).Fields("tracks.tags").Type(esquery.MatchTypeBoolPrefix))
 	} else if q.Query != "" {
-		builder.Must(esquery.MultiMatch(q.Query).Fields("name", "handle").Type(esquery.MatchTypeBoolPrefix))
+		builder.Must(esquery.MultiMatch(q.Query).
+			Fields("suggest").
+			MinimumShouldMatch("80%").
+			Type(esquery.MatchTypeBoolPrefix))
 
 		// for exact title match
 		builder.Should(
-			esquery.MultiMatch().Query(q.Query).Fields("name", "handle").Operator(esquery.OperatorAnd).Type(esquery.MatchTypePhrasePrefix),
+			esquery.MultiMatch().Query(q.Query).
+				Fields("name", "handle").
+				Operator(esquery.OperatorAnd).
+				Type(esquery.MatchTypePhrasePrefix),
 		)
 	} else {
 		builder.Must(esquery.MatchAll())

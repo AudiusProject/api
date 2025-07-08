@@ -29,6 +29,11 @@ func TestSearch(t *testing.T) {
 				"name":        "Monist",
 				"is_verified": true,
 			},
+			{
+				"user_id": 1004,
+				"handle":  "find_infix_works",
+				"name":    "asdf",
+			},
 		},
 		"tracks": {
 			{
@@ -135,7 +140,7 @@ func TestSearch(t *testing.T) {
 	createFixtures(app, fixtures)
 
 	// index data to ES
-	esindexer.Reindex(app.pool, app.esClient, true)
+	esindexer.ReindexForTest(app.pool, app.esClient)
 
 	// users:
 	{
@@ -175,6 +180,16 @@ func TestSearch(t *testing.T) {
 		jsonAssert(t, body, map[string]any{
 			"data.users.#":        1,
 			"data.users.0.handle": "monist",
+		})
+	}
+
+	// users: infix match
+	{
+		status, body := testGet(t, app, "/v1/search/autocomplete?query=infix")
+		require.Equal(t, 200, status)
+		jsonAssert(t, body, map[string]any{
+			"data.users.#":        1,
+			"data.users.0.handle": "find_infix_works",
 		})
 	}
 

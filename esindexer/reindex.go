@@ -13,7 +13,6 @@ import (
 	"github.com/elastic/go-elasticsearch/v8"
 	"github.com/elastic/go-elasticsearch/v8/esutil"
 	"github.com/jackc/pgx/v5/pgxpool"
-	"github.com/tidwall/sjson"
 )
 
 func mustDialPostgres() *pgxpool.Pool {
@@ -35,20 +34,6 @@ func mustDialElasticsearch() *elasticsearch.Client {
 		log.Fatalf("Error creating the client: %s", err)
 	}
 	return esc
-}
-
-func commonIndexSettings(mapping string) string {
-	mustSet := func(key string, value any) {
-		var err error
-		mapping, err = sjson.Set(mapping, key, value)
-		if err != nil {
-			panic(err)
-		}
-	}
-
-	mustSet("settings.number_of_shards", 1)
-	mustSet("settings.number_of_replicas", 0)
-	return mapping
 }
 
 func Reindex(pool *pgxpool.Pool, esc *elasticsearch.Client, drop bool, collections ...string) {
@@ -106,6 +91,32 @@ func Reindex(pool *pgxpool.Pool, esc *elasticsearch.Client, drop bool, collectio
 
 	esIndexer.bulk.Close(context.Background())
 
+}
+
+func ReindexForTest(pool *pgxpool.Pool, esc *elasticsearch.Client) {
+
+	bulk, err := esutil.NewBulkIndexer(esutil.BulkIndexerConfig{
+		Client:     esc,
+		NumWorkers: 2,
+		Refresh:    "true",
+	})
+	if err != nil {
+		log.Fatalf("Error creating the indexer: %s", err)
+	}
+
+	esIndexer := &EsIndexer{
+		pool,
+		esc,
+		bulk,
+		true,
+	}
+
+	err = esIndexer.reindexAll()
+	if err != nil {
+		panic(err)
+	}
+
+	esIndexer.bulk.Close(context.Background())
 }
 
 func ReindexLegacy(drop bool, collections ...string) {

@@ -7,6 +7,7 @@ var userConfig = collectionConfig{
 	SELECT
 		user_id,
 		json_build_object(
+			'suggest', CONCAT_WS(' ', name, handle),
 			'name', name,
 			'handle', handle,
 			'bio', bio,

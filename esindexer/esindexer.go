@@ -3,6 +3,7 @@ package esindexer
 import (
 	"context"
 	"fmt"
+	"io"
 	"log"
 	"log/slog"
 	"strconv"
@@ -46,25 +47,31 @@ func (indexer *EsIndexer) createIndex(collection string) error {
 		}
 	}
 
+	indexSettings := commonIndexSettings(cc.mapping)
 	res, err := indexer.esc.Indices.Create(
 		cc.indexName,
 		indexer.esc.Indices.Create.WithBody(
-			strings.NewReader(cc.mapping),
+			strings.NewReader(indexSettings),
 		),
 	)
 	if err != nil {
 		fmt.Println("create index error", cc.indexName, err)
 		return err
 	}
+	defer res.Body.Close()
+
+	if res.IsError() {
+		problem, _ := io.ReadAll(res.Body)
+		return fmt.Errorf("error creating index %s: %d %s", cc.indexName, res.StatusCode, problem)
+	}
 
 	fmt.Println("created index", cc.indexName)
-	return res.Body.Close()
+	return nil
 }
 
 func (indexer *EsIndexer) reindexAll() error {
 	g, _ := errgroup.WithContext(context.Background())
 	for name := range collectionConfigs {
-		name := name
 		g.Go(func() error {
 			return indexer.reindexCollection(name)
 		})
