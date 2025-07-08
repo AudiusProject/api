@@ -32,7 +32,11 @@ SELECT
   profile_picture,
 
   repost_count,
-  track_count,
+  -- Use total_track_count if myId matches, otherwise use track_count
+  (CASE
+    WHEN u.user_id = @my_id::int THEN total_track_count
+    ELSE track_count
+  END)::bigint as track_count,
   is_deactivated,
   is_available,
   wallet as erc_wallet,

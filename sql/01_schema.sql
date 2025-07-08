@@ -3386,12 +3386,13 @@ begin
   insert into aggregate_user (user_id) values (new.owner_id) on conflict do nothing;
 
   update aggregate_user
-  set track_count = (
-    select count(*)
+  set (track_count, total_track_count) = (
+    select
+      count(*) filter (where t.is_unlisted = false),
+      count(*)
     from tracks t
     where t.is_current is true
       and t.is_delete is false
-      and t.is_unlisted is false
       and t.is_available is true
       and t.stem_of is null
       and t.owner_id = new.owner_id
@@ -5266,7 +5267,8 @@ CREATE TABLE public.aggregate_user (
     supporting_count integer DEFAULT 0 NOT NULL,
     dominant_genre character varying,
     dominant_genre_count integer DEFAULT 0,
-    score integer DEFAULT 0
+    score integer DEFAULT 0,
+    total_track_count bigint DEFAULT 0
 );
 
 
@@ -9119,6 +9121,20 @@ CREATE INDEX idx_events_event_type ON public.events USING btree (event_type);
 
 
 --
+-- Name: idx_fanout; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX idx_fanout ON public.follows USING btree (follower_user_id, followee_user_id);
+
+
+--
+-- Name: idx_fanout_not_deleted; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX idx_fanout_not_deleted ON public.follows USING btree (follower_user_id, followee_user_id) WHERE (is_delete = false);
+
+
+--
 -- Name: idx_genre_related_artists; Type: INDEX; Schema: public; Owner: -
 --
 
@@ -9158,6 +9174,13 @@ CREATE INDEX idx_playlist_status ON public.playlists USING btree (playlist_id, i
 --
 
 CREATE INDEX idx_playlist_tracks_track_id ON public.playlist_tracks USING btree (track_id, created_at);
+
+
+--
+-- Name: idx_playlist_trending_scores_filtered; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX idx_playlist_trending_scores_filtered ON public.playlist_trending_scores USING btree (type, version, time_range, playlist_id, score DESC);
 
 
 --

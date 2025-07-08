@@ -47,7 +47,11 @@ SELECT
   profile_picture,
 
   repost_count,
-  track_count,
+  -- Use total_track_count if myId matches, otherwise use track_count
+  (CASE
+    WHEN u.user_id = $1::int THEN total_track_count
+    ELSE track_count
+  END)::bigint as track_count,
   is_deactivated,
   is_available,
   wallet as erc_wallet,
@@ -186,7 +190,7 @@ type GetUsersRow struct {
 	ProfileType                    *string        `json:"profile_type"`
 	ProfilePicture                 pgtype.Text    `json:"profile_picture"`
 	RepostCount                    pgtype.Int8    `json:"repost_count"`
-	TrackCount                     pgtype.Int8    `json:"track_count"`
+	TrackCount                     int64          `json:"track_count"`
 	IsDeactivated                  bool           `json:"is_deactivated"`
 	IsAvailable                    bool           `json:"is_available"`
 	ErcWallet                      pgtype.Text    `json:"erc_wallet"`

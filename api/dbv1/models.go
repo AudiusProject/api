@@ -769,6 +769,7 @@ type AggregateUser struct {
 	DominantGenre      pgtype.Text `json:"dominant_genre"`
 	DominantGenreCount pgtype.Int4 `json:"dominant_genre_count"`
 	Score              pgtype.Int4 `json:"score"`
+	TotalTrackCount    pgtype.Int8 `json:"total_track_count"`
 }
 
 type AggregateUserTip struct {
