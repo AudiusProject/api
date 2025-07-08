@@ -1,6 +1,7 @@
 package api
 
 import (
+	"strconv"
 	"strings"
 
 	"bridgerton.audius.co/api/dbv1"
@@ -118,14 +119,29 @@ func (app *ApiServer) searchTracks(c *fiber.Ctx) ([]dbv1.FullTrack, error) {
 	offset := c.QueryInt("offset", 0)
 	myId := app.getMyId(c)
 
+	// bpm range
+	minBpm := c.QueryInt("bpm_min")
+	maxBpm := c.QueryInt("bpm_max")
+	if bpmRange := c.Query("bpm"); bpmRange != "" {
+		parts := strings.Split(bpmRange, "-")
+		if len(parts) == 2 {
+			if min, err := strconv.Atoi(strings.TrimSpace(parts[0])); err == nil {
+				minBpm = min
+			}
+			if max, err := strconv.Atoi(strings.TrimSpace(parts[1])); err == nil {
+				maxBpm = max
+			}
+		}
+	}
+
 	q := searchv1.TrackSearchQuery{
 		MyID:           myId,
 		IsTagSearch:    isTagSearch,
 		Query:          c.Query("query"),
 		Genres:         queryMutli(c, "genre"),
 		Moods:          queryMutli(c, "mood"),
-		MinBPM:         c.QueryInt("bpm_min"),
-		MaxBPM:         c.QueryInt("bpm_max"),
+		MinBPM:         minBpm,
+		MaxBPM:         maxBpm,
 		MusicalKeys:    queryMutli(c, "key"),
 		IsDownloadable: c.QueryBool("is_downloadable"),
 		IsPurchaseable: c.QueryBool("is_purchaseable"),

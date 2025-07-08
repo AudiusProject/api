@@ -309,6 +309,15 @@ func TestSearch(t *testing.T) {
 	}
 
 	{
+		status, body := testGet(t, app, "/v1/search/autocomplete?genre=Trap&bpm=85-89")
+		require.Equal(t, 200, status)
+		jsonAssert(t, body, map[string]any{
+			"data.tracks.#":       1,
+			"data.tracks.0.title": "peanut butter jam time",
+		})
+	}
+
+	{
 		status, body := testGet(t, app, "/v1/search/autocomplete?genre=Trap&genre=Jazz")
 		require.Equal(t, 200, status)
 		jsonAssert(t, body, map[string]any{
