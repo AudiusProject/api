@@ -67,19 +67,19 @@ func TestSearch(t *testing.T) {
 			{
 				"track_id":  1004,
 				"owner_id":  1001,
-				"title":     "hide deleted",
+				"title":     "hidden deleted",
 				"is_delete": true,
 			},
 			{
 				"track_id":    1005,
 				"owner_id":    1001,
-				"title":       "hide private",
+				"title":       "hidden private",
 				"is_unlisted": true,
 			},
 			{
 				"track_id":     1006,
 				"owner_id":     1001,
-				"title":        "hide unavailable",
+				"title":        "hidden unavailable",
 				"is_available": false,
 			},
 			{
@@ -175,6 +175,15 @@ func TestSearch(t *testing.T) {
 	}
 
 	{
+		status, body := testGet(t, app, "/v1/users/search?query=monoist")
+		require.Equal(t, 200, status)
+		jsonAssert(t, body, map[string]any{
+			"data.#":        1,
+			"data.0.handle": "monist",
+		})
+	}
+
+	{
 		status, body := testGet(t, app, "/v1/search/autocomplete?is_verified=true")
 		require.Equal(t, 200, status)
 		jsonAssert(t, body, map[string]any{
@@ -254,7 +263,7 @@ func TestSearch(t *testing.T) {
 
 	// doesn't show deleted or unlisted tracks
 	{
-		status, body := testGet(t, app, "/v1/search/autocomplete?query=hide")
+		status, body := testGet(t, app, "/v1/search/autocomplete?query=hidden")
 		require.Equal(t, 200, status)
 		jsonAssert(t, body, map[string]any{
 			"data.tracks.#": 0,

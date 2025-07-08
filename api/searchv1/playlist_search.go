@@ -26,6 +26,7 @@ func (q *PlaylistSearchQuery) Map() map[string]any {
 			Query(q.Query).
 			Fields("title^10", "suggest", "tracks.tags").
 			MinimumShouldMatch("80%").
+			Fuzziness("AUTO").
 			Type(esquery.MatchTypeBoolPrefix))
 	} else {
 		builder.Must(esquery.MatchAll())

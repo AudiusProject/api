@@ -23,6 +23,7 @@ func (q *UserSearchQuery) Map() map[string]any {
 		builder.Must(esquery.MultiMatch(q.Query).
 			Fields("suggest").
 			MinimumShouldMatch("80%").
+			Fuzziness("AUTO").
 			Type(esquery.MatchTypeBoolPrefix))
 
 		// for exact title match

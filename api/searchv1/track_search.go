@@ -31,6 +31,7 @@ func (q *TrackSearchQuery) Map() map[string]any {
 				Query(q.Query).
 				Fields("title^10", "suggest", "tags").
 				MinimumShouldMatch("80%").
+				Fuzziness("AUTO").
 				Type(esquery.MatchTypeBoolPrefix),
 		)
 
