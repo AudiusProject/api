@@ -2,6 +2,7 @@ package searchv1
 
 import (
 	"fmt"
+	"strings"
 
 	"github.com/aquasecurity/esquery"
 )
@@ -28,6 +29,20 @@ func (q *PlaylistSearchQuery) Map() map[string]any {
 			MinimumShouldMatch("80%").
 			Fuzziness("AUTO").
 			Type(esquery.MatchTypeBoolPrefix))
+
+		// for exact title / handle / artist name match
+		builder.Should(
+			esquery.MultiMatch().Query(q.Query).Fields("title^10", "user.name", "user.handle").
+				Operator(esquery.OperatorAnd).
+				Type(esquery.MatchTypePhrasePrefix),
+		)
+
+		// exact match, but remove spaces from query
+		builder.Should(
+			esquery.MultiMatch().Query(strings.ReplaceAll(q.Query, " ", "")).Fields("title^10", "user.name", "user.handle").
+				Operator(esquery.OperatorAnd).
+				Type(esquery.MatchTypePhrasePrefix),
+		)
 	} else {
 		builder.Must(esquery.MatchAll())
 	}

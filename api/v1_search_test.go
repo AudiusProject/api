@@ -16,7 +16,7 @@ func TestSearch(t *testing.T) {
 			{
 				"user_id": 1001,
 				"handle":  "StereoSteve",
-				"name":    "Stereo Steve",
+				"name":    "StereoSteve",
 			},
 			{
 				"user_id": 1002,
@@ -285,6 +285,7 @@ func TestSearch(t *testing.T) {
 		status, body := testGet(t, app, "/v1/search/autocomplete?query=stereo+steve")
 		require.Equal(t, 200, status)
 		jsonAssert(t, body, map[string]any{
+			"data.users.0.handle": "StereoSteve",
 			"data.tracks.#":       1,
 			"data.tracks.0.title": "sunny side",
 		})
