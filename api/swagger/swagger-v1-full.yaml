@@ -5752,6 +5752,8 @@ components:
           type: array
           items:
             $ref: '#/components/schemas/reply_comment'
+        parent_comment_id:
+          type: integer
     comment_mention:
       required:
       - handle
@@ -5802,6 +5804,8 @@ components:
           type: string
         updated_at:
           type: string
+        parent_comment_id:
+          type: integer
     related:
       type: object
       properties:

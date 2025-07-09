@@ -35,12 +35,12 @@ type FullComment struct {
 	CreatedAt            time.Time   `json:"created_at"`
 	UpdatedAt            time.Time   `json:"updated_at"`
 
-	ReplyCount int           `json:"reply_count"`
-	Replies    []FullComment `json:"replies"`
+	ReplyCount      int           `json:"reply_count"`
+	Replies         []FullComment `json:"replies"`
+	ParentCommentId pgtype.Int4   `json:"parent_comment_id"`
 
 	// this should be omitted
-	ReplyIds        []int32     `db:"reply_ids" json:"-"`
-	ParentCommentId pgtype.Int4 `json:"-"`
+	ReplyIds []int32 `db:"reply_ids" json:"-"`
 }
 
 func (q *Queries) FullCommentsKeyed(ctx context.Context, arg GetCommentsParams) (map[int32]FullComment, error) {
