@@ -13,6 +13,7 @@ type UserSearchQuery struct {
 	IsTagSearch bool
 	Genres      []string
 	MyID        int32 `json:"my_id"`
+	SortMethod  string
 }
 
 func (q *UserSearchQuery) Map() map[string]any {
@@ -31,16 +32,14 @@ func (q *UserSearchQuery) Map() map[string]any {
 		builder.Should(
 			esquery.MultiMatch().Query(q.Query).
 				Fields("name", "handle").
-				Operator(esquery.OperatorAnd).
-				Type(esquery.MatchTypePhrasePrefix),
+				Operator(esquery.OperatorAnd),
 		)
 
 		// exact match, but remove spaces from query
 		// so 'Stereo Steve' ranks 'StereoSteve' higher
 		builder.Should(
 			esquery.MultiMatch().Query(strings.ReplaceAll(q.Query, " ", "")).Fields("name", "handle").
-				Operator(esquery.OperatorAnd).
-				Type(esquery.MatchTypePhrasePrefix),
+				Operator(esquery.OperatorAnd),
 		)
 	} else {
 		builder.Must(esquery.MatchAll())
@@ -79,5 +78,10 @@ func (q *UserSearchQuery) Map() map[string]any {
 
 func (q *UserSearchQuery) DSL() string {
 	inner := q.Map()
-	return BuildFunctionScoreDSL("follower_count", inner)
+	switch q.SortMethod {
+	case "recent":
+		return sortNewest(q.Map())
+	default:
+		return BuildFunctionScoreDSL("follower_count", inner)
+	}
 }

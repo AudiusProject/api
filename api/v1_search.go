@@ -93,6 +93,7 @@ func (app *ApiServer) searchUsers(c *fiber.Ctx) ([]dbv1.FullUser, error) {
 		IsTagSearch: isTagSearch,
 		Genres:      queryMutli(c, "genre"),
 		MyID:        myId,
+		SortMethod:  c.Query("sort_method"),
 	}
 
 	userIds, err := searchv1.SearchAndPluck(app.esClient, "users", q.DSL(), limit, offset)
@@ -147,6 +148,7 @@ func (app *ApiServer) searchTracks(c *fiber.Ctx) ([]dbv1.FullTrack, error) {
 		HasDownloads:   c.QueryBool("has_downloads"),
 		IsPurchaseable: c.QueryBool("is_purchaseable"),
 		OnlyVerified:   c.QueryBool("only_verified"),
+		SortMethod:     c.Query("sort_method"),
 	}
 
 	tracksIds, err := searchv1.SearchAndPluck(app.esClient, "tracks", q.DSL(), limit, offset)
@@ -182,6 +184,7 @@ func (app *ApiServer) searchPlaylists(c *fiber.Ctx) ([]dbv1.FullPlaylist, error)
 		Genres:       queryMutli(c, "genre"),
 		Moods:        queryMutli(c, "mood"),
 		OnlyVerified: c.QueryBool("only_verified"),
+		SortMethod:   c.Query("sort_method"),
 	}
 
 	playlistsIds, err := searchv1.SearchAndPluck(app.esClient, "playlists", q.DSL(), limit, offset)
@@ -218,6 +221,7 @@ func (app *ApiServer) searchAlbums(c *fiber.Ctx) ([]dbv1.FullPlaylist, error) {
 		Genres:       queryMutli(c, "genre"),
 		Moods:        queryMutli(c, "mood"),
 		OnlyVerified: c.QueryBool("only_verified"),
+		SortMethod:   c.Query("sort_method"),
 		IsAlbum:      true,
 	}
 

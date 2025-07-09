@@ -21,6 +21,23 @@ func toAnySlice[T any](slice []T) []any {
 	return result
 }
 
+func sortNewest(innerQuery map[string]any) string {
+	innerJson, err := json.Marshal(innerQuery)
+	if err != nil {
+		panic(err)
+	}
+
+	dsl := fmt.Sprintf(`
+	{
+		"query": %s,
+		"sort": [
+			{"created_at": {"order": "desc"}}
+		]
+	}`, innerJson)
+
+	return dsl
+}
+
 func BuildFunctionScoreDSL(scoreField string, innerQuery map[string]any) string {
 	innerJson, err := json.Marshal(innerQuery)
 	if err != nil {
