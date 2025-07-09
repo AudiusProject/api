@@ -1,6 +1,7 @@
 package api
 
 import (
+	"bridgerton.audius.co/config"
 	"github.com/gofiber/fiber/v2"
 	"github.com/jackc/pgx/v5"
 )
@@ -34,14 +35,11 @@ func (app *ApiServer) BlockConfirmation(c *fiber.Ctx) error {
 			)
 		) AS block_found
 	;`
-	chainId := "audius-mainnet-alpha-beta"
-	if app.env == "staging" {
-		chainId = "audius-testnet-alpha"
-	}
+
 	rows, err := app.pool.Query(c.Context(), sql, pgx.NamedArgs{
 		"blockHash":   params.BlockHash,
 		"blockNumber": params.BlockNumber,
-		"chainId":     chainId,
+		"chainId":     config.Cfg.ChainId,
 	})
 	if err != nil {
 		return err
