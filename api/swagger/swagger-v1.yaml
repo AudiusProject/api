@@ -93,6 +93,29 @@ paths:
         "500":
           description: Server error
           content: {}
+  /comments/{comment_id}:
+    get:
+      tags:
+      - comments
+      description: Gets a comment by ID
+      operationId: Get Comment
+      parameters:
+      - name: comment_id
+        in: path
+        description: A Comment ID
+        required: true
+        schema:
+          type: string
+      responses:
+        "200":
+          description: Success
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/comment_response'
+        "500":
+          description: Server error
+          content: {}
   /comments/{comment_id}/replies:
     get:
       tags:
@@ -4537,6 +4560,13 @@ components:
           type: string
         user:
           $ref: '#/components/schemas/user'
+    comment_response:
+      type: object
+      properties:
+        data:
+          type: array
+          items:
+            $ref: '#/components/schemas/comment'
     comment_replies_response:
       type: object
       properties:
