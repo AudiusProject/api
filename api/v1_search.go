@@ -144,6 +144,7 @@ func (app *ApiServer) searchTracks(c *fiber.Ctx) ([]dbv1.FullTrack, error) {
 		MaxBPM:         maxBpm,
 		MusicalKeys:    queryMutli(c, "key"),
 		IsDownloadable: c.QueryBool("is_downloadable"),
+		HasDownloads:   c.QueryBool("has_downloads"),
 		IsPurchaseable: c.QueryBool("is_purchaseable"),
 		OnlyVerified:   c.QueryBool("only_verified"),
 	}
