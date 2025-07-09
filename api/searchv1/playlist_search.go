@@ -91,7 +91,9 @@ func (q *PlaylistSearchQuery) DSL() string {
 	switch q.SortMethod {
 	case "recent":
 		return sortNewest(q.Map())
+	case "popular":
+		return BuildFunctionScoreDSL("repost_count", 1000, q.Map())
 	default:
-		return BuildFunctionScoreDSL("repost_count", q.Map())
+		return BuildFunctionScoreDSL("repost_count", 100, q.Map())
 	}
 }

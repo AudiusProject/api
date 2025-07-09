@@ -96,6 +96,10 @@ func (app *ApiServer) searchUsers(c *fiber.Ctx) ([]dbv1.FullUser, error) {
 		SortMethod:  c.Query("sort_method"),
 	}
 
+	if c.QueryBool("debug") {
+		c.Set("x-user-dsl", q.DSL())
+	}
+
 	userIds, err := searchv1.SearchAndPluck(app.esClient, "users", q.DSL(), limit, offset)
 	if err != nil {
 		return nil, err
@@ -151,6 +155,10 @@ func (app *ApiServer) searchTracks(c *fiber.Ctx) ([]dbv1.FullTrack, error) {
 		SortMethod:     c.Query("sort_method"),
 	}
 
+	if c.QueryBool("debug") {
+		c.Set("x-track-dsl", q.DSL())
+	}
+
 	tracksIds, err := searchv1.SearchAndPluck(app.esClient, "tracks", q.DSL(), limit, offset)
 	if err != nil {
 		return nil, err
@@ -185,6 +193,10 @@ func (app *ApiServer) searchPlaylists(c *fiber.Ctx) ([]dbv1.FullPlaylist, error)
 		Moods:        queryMutli(c, "mood"),
 		OnlyVerified: c.QueryBool("only_verified"),
 		SortMethod:   c.Query("sort_method"),
+	}
+
+	if c.QueryBool("debug") {
+		c.Set("x-playlist-dsl", q.DSL())
 	}
 
 	playlistsIds, err := searchv1.SearchAndPluck(app.esClient, "playlists", q.DSL(), limit, offset)
@@ -223,6 +235,10 @@ func (app *ApiServer) searchAlbums(c *fiber.Ctx) ([]dbv1.FullPlaylist, error) {
 		OnlyVerified: c.QueryBool("only_verified"),
 		SortMethod:   c.Query("sort_method"),
 		IsAlbum:      true,
+	}
+
+	if c.QueryBool("debug") {
+		c.Set("x-album-dsl", q.DSL())
 	}
 
 	playlistsIds, err := searchv1.SearchAndPluck(app.esClient, "playlists", q.DSL(), limit, offset)
