@@ -87,6 +87,23 @@ func TestSearch(t *testing.T) {
 				"owner_id": 1003,
 				"title":    "circular thoughts",
 			},
+			{
+				"track_id": 1008,
+				"owner_id": 1004,
+				"title":    "RemixComp",
+			},
+			{
+				"track_id": 1009,
+				"owner_id": 1004,
+				"title":    "RemixComp VocalStem",
+				"stem_of":  []byte(`{"category": "LEAD_VOCALS", "parent_track_id": 1221925895}`),
+			},
+		},
+		"stems": {
+			{
+				"parent_track_id": 1008,
+				"child_track_id":  1009,
+			},
 		},
 		"playlists": {
 			{
@@ -226,6 +243,31 @@ func TestSearch(t *testing.T) {
 	// tracks: filter by genre + mood + bpm
 	{
 		status, body := testGet(t, app, "/v1/search/autocomplete?genre=Trap")
+		require.Equal(t, 200, status)
+		jsonAssert(t, body, map[string]any{
+			"data.tracks.#": 2,
+		})
+	}
+
+	// track with stems
+	{
+		status, body := testGet(t, app, "/v1/search/autocomplete?query=RemixComp")
+		require.Equal(t, 200, status)
+		jsonAssert(t, body, map[string]any{
+			"data.tracks.#": 1,
+		})
+	}
+
+	{
+		status, body := testGet(t, app, "/v1/search/autocomplete?query=RemixComp&has_downloads=true")
+		require.Equal(t, 200, status)
+		jsonAssert(t, body, map[string]any{
+			"data.tracks.#": 1,
+		})
+	}
+
+	{
+		status, body := testGet(t, app, "/v1/search/autocomplete?has_downloads=true")
 		require.Equal(t, 200, status)
 		jsonAssert(t, body, map[string]any{
 			"data.tracks.#": 2,

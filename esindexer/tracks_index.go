@@ -50,5 +50,6 @@ var tracksConfig = collectionConfig{
 	AND tracks.is_available = true
 	AND users.is_available = true
 	AND users.is_deactivated = false
+	AND stem_of is null
 	`,
 }

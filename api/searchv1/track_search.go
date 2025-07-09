@@ -14,6 +14,7 @@ type TrackSearchQuery struct {
 	IsDownloadable bool
 	IsPurchaseable bool
 	IsTagSearch    bool
+	HasDownloads   bool
 	OnlyVerified   bool
 	Genres         []string
 	Moods          []string
@@ -81,8 +82,12 @@ func (q *TrackSearchQuery) Map() map[string]any {
 		builder.Filter(esquery.Term("is_downloadable", true))
 	}
 
-	// todo: only_with_downloads
-	// => downloadable + has stems
+	if q.HasDownloads {
+		builder.Filter(esquery.Bool().Should(
+			esquery.Term("is_downloadable", true),
+			esquery.Term("has_stems", true),
+		))
+	}
 
 	if q.IsPurchaseable {
 		// stream or download
