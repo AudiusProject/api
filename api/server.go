@@ -62,7 +62,7 @@ func NewApiServer(config config.Config) *ApiServer {
 
 	connConfig, err := pgxpool.ParseConfig(config.ReadDbUrl)
 	if err != nil {
-		logger.Error("db connect failed", zap.Error(err))
+		logger.Error("read db connect failed", zap.Error(err))
 	}
 
 	// register enum types with connection
@@ -90,7 +90,28 @@ func NewApiServer(config config.Config) *ApiServer {
 	pool, err := pgxpool.NewWithConfig(context.Background(), connConfig)
 
 	if err != nil {
-		logger.Fatal("db connect failed", zap.Error(err))
+		logger.Fatal("read db connect failed", zap.Error(err))
+	}
+
+	// Set up write database connection
+	var writePool *pgxpool.Pool
+	if config.WriteDbUrl != "" {
+		writeConnConfig, err := pgxpool.ParseConfig(config.WriteDbUrl)
+		if err != nil {
+			logger.Error("write db connect failed", zap.Error(err))
+		}
+
+		if config.Env != "test" {
+			writeConnConfig.ConnConfig.Tracer = &tracelog.TraceLog{
+				Logger:   pgxzap.NewLogger(logger),
+				LogLevel: logging.GetTraceLogLevel(config.LogLevel),
+			}
+		}
+
+		writePool, err = pgxpool.NewWithConfig(context.Background(), writeConnConfig)
+		if err != nil {
+			logger.Fatal("write db connect failed", zap.Error(err))
+		}
 	}
 
 	resolveHandleCache, err := otter.MustBuilder[string, int32](50_000).
@@ -154,6 +175,12 @@ func NewApiServer(config config.Config) *ApiServer {
 
 	skipAuthCheck, _ := strconv.ParseBool(os.Getenv("skipAuthCheck"))
 
+	// Initialize metrics collector if writePool is available
+	var metricsCollector *MetricsCollector
+	if writePool != nil {
+		metricsCollector = NewMetricsCollector(logger, writePool)
+	}
+
 	app := &ApiServer{
 		App: fiber.New(fiber.Config{
 			JSONEncoder:    json.Marshal,
@@ -165,6 +192,7 @@ func NewApiServer(config config.Config) *ApiServer {
 		env:                   config.Env,
 		skipAuthCheck:         skipAuthCheck,
 		pool:                  pool,
+		writePool:             writePool,
 		queries:               dbv1.New(pool),
 		logger:                logger,
 		esClient:              esClient,
@@ -181,6 +209,7 @@ func NewApiServer(config config.Config) *ApiServer {
 		antiAbuseOracles:      config.AntiAbuseOracles,
 		validators:            config.Nodes,
 		auds:                  auds,
+		metricsCollector:      metricsCollector,
 	}
 
 	// Set up a custom decoder for HashIds so they can be parsed in lists
@@ -215,6 +244,11 @@ func NewApiServer(config config.Config) *ApiServer {
 		Generator:  utils.UUIDv4,
 		ContextKey: "requestId",
 	}))
+
+	// Add request metrics middleware if available
+	if app.metricsCollector != nil {
+		app.Use(app.metricsCollector.Middleware())
+	}
 	app.Use(fiberzap.New(fiberzap.Config{
 		Logger: logger,
 		FieldsFunc: func(c *fiber.Ctx) []zap.Field {
@@ -241,11 +275,19 @@ func NewApiServer(config config.Config) *ApiServer {
 
 	app.Get("/", app.home)
 
-	// for es debug... can remove when sorted
-	app.Get("/debug", func(c *fiber.Ctx) error {
+	// Debug endpoints
+	app.Get("/debug/es", func(c *fiber.Ctx) error {
 		return c.JSON(fiber.Map{
 			"es_url": config.EsUrl,
 		})
+	})
+	app.Get("/debug/metrics", func(c *fiber.Ctx) error {
+		if app.metricsCollector == nil {
+			return c.JSON(fiber.Map{
+				"error": "metrics collector not initialized",
+			})
+		}
+		return c.JSON(app.metricsCollector.Debug())
 	})
 
 	// resolve myId
@@ -482,6 +524,7 @@ func NewApiServer(config config.Config) *ApiServer {
 type ApiServer struct {
 	*fiber.App
 	pool                  *pgxpool.Pool
+	writePool             *pgxpool.Pool
 	queries               *dbv1.Queries
 	esClient              *elasticsearch.Client
 	logger                *zap.Logger
@@ -500,6 +543,7 @@ type ApiServer struct {
 	env                   string
 	auds                  *sdk.AudiusdSDK
 	skipAuthCheck         bool // set to true in a test if you don't care about auth middleware
+	metricsCollector      *MetricsCollector
 }
 
 func (app *ApiServer) home(c *fiber.Ctx) error {
@@ -577,8 +621,20 @@ func (as *ApiServer) Serve() {
 	go func() {
 		<-c
 		flushTicker.Stop()
+
+		// Shutdown metrics collector if it exists
+		if as.metricsCollector != nil {
+			as.metricsCollector.Shutdown()
+		}
+
+		// Shutdown HLL aggregator if it exists
+		// Removed hllAggregator
+
 		as.Shutdown()
 		as.pool.Close()
+		if as.writePool != nil {
+			as.writePool.Close()
+		}
 		as.logger.Sync()
 	}()
 
