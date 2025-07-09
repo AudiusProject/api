@@ -11,7 +11,7 @@ import (
 	"bridgerton.audius.co/api"
 	"bridgerton.audius.co/config"
 	"bridgerton.audius.co/esindexer"
-	"bridgerton.audius.co/solana/indexers"
+	"bridgerton.audius.co/solana/indexer"
 )
 
 func main() {
@@ -30,15 +30,25 @@ func main() {
 			esindexer.ReindexLegacy(drop, collections...)
 		}
 	case "solana-indexer":
-		{
-			fmt.Println("Running solana-indexer...")
-			tokenIndexer := indexers.NewSolanaIndexer(config.Cfg)
-			tokenIndexer.Start(context.Background())
-
-			// Wait for the process to be terminated
-			sigCh := make(chan os.Signal, 1)
-			signal.Notify(sigCh, syscall.SIGINT, syscall.SIGTERM)
-			<-sigCh
+		fmt.Println("Running solana-indexer...")
+		solanaIndexer := indexer.New(config.Cfg)
+		ctx, cancel := context.WithCancel(context.Background())
+		done := make(chan error, 1)
+		go func() {
+			done <- solanaIndexer.Start(ctx)
+		}()
+		sigCh := make(chan os.Signal, 3)
+		signal.Notify(sigCh, syscall.SIGINT, syscall.SIGTERM, os.Interrupt)
+		select {
+		case <-sigCh:
+			fmt.Println("Shutting down...")
+			cancel()
+			<-done
+		case err := <-done:
+			if err != nil {
+				panic(err)
+			}
+			fmt.Println("Done.")
 		}
 	case "server":
 		{
