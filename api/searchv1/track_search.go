@@ -20,6 +20,7 @@ type TrackSearchQuery struct {
 	Moods          []string
 	MusicalKeys    []string
 	MyID           int32
+	SortMethod     string
 }
 
 func (q *TrackSearchQuery) Map() map[string]any {
@@ -40,16 +41,14 @@ func (q *TrackSearchQuery) Map() map[string]any {
 		// for exact title / handle / artist name match
 		builder.Should(
 			esquery.MultiMatch().Query(q.Query).Fields("title^10", "user.name", "user.handle").
-				Operator(esquery.OperatorAnd).
-				Type(esquery.MatchTypePhrasePrefix),
+				Operator(esquery.OperatorAnd),
 		)
 
 		// exact match, but remove spaces from query
 		// so 'Pure Component' ranks 'PureComponent' higher
 		builder.Should(
 			esquery.MultiMatch().Query(strings.ReplaceAll(q.Query, " ", "")).Fields("title^10", "user.name", "user.handle").
-				Operator(esquery.OperatorAnd).
-				Type(esquery.MatchTypePhrasePrefix),
+				Operator(esquery.OperatorAnd),
 		)
 	} else {
 		builder.Must(esquery.MatchAll())
@@ -122,5 +121,10 @@ func (q *TrackSearchQuery) Map() map[string]any {
 }
 
 func (q *TrackSearchQuery) DSL() string {
-	return BuildFunctionScoreDSL("repost_count", q.Map())
+	switch q.SortMethod {
+	case "recent":
+		return sortNewest(q.Map())
+	default:
+		return BuildFunctionScoreDSL("repost_count", q.Map())
+	}
 }

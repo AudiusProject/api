@@ -15,6 +15,7 @@ type PlaylistSearchQuery struct {
 	IsAlbum      bool
 	OnlyVerified bool
 	MyID         int32
+	SortMethod   string
 }
 
 func (q *PlaylistSearchQuery) Map() map[string]any {
@@ -33,15 +34,13 @@ func (q *PlaylistSearchQuery) Map() map[string]any {
 		// for exact title / handle / artist name match
 		builder.Should(
 			esquery.MultiMatch().Query(q.Query).Fields("title^10", "user.name", "user.handle").
-				Operator(esquery.OperatorAnd).
-				Type(esquery.MatchTypePhrasePrefix),
+				Operator(esquery.OperatorAnd),
 		)
 
 		// exact match, but remove spaces from query
 		builder.Should(
 			esquery.MultiMatch().Query(strings.ReplaceAll(q.Query, " ", "")).Fields("title^10", "user.name", "user.handle").
-				Operator(esquery.OperatorAnd).
-				Type(esquery.MatchTypePhrasePrefix),
+				Operator(esquery.OperatorAnd),
 		)
 	} else {
 		builder.Must(esquery.MatchAll())
@@ -89,5 +88,10 @@ func (q *PlaylistSearchQuery) Map() map[string]any {
 }
 
 func (q *PlaylistSearchQuery) DSL() string {
-	return BuildFunctionScoreDSL("repost_count", q.Map())
+	switch q.SortMethod {
+	case "recent":
+		return sortNewest(q.Map())
+	default:
+		return BuildFunctionScoreDSL("repost_count", q.Map())
+	}
 }

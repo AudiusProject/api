@@ -44,6 +44,7 @@ func TestSearch(t *testing.T) {
 				"bpm":         88,
 				"mood":        "Defiant",
 				"musical_key": "A minor",
+				"created_at":  parseTime(t, "2022-02-02"),
 			},
 			{
 				"track_id":        1002,
@@ -55,6 +56,7 @@ func TestSearch(t *testing.T) {
 				"is_downloadable": true,
 				"musical_key":     "B minor",
 				"tags":            "Tag1,Tag2,Tag3",
+				"created_at":      parseTime(t, "2022-03-03"),
 			},
 			{
 				"track_id":          1003,
@@ -242,10 +244,12 @@ func TestSearch(t *testing.T) {
 
 	// tracks: filter by genre + mood + bpm
 	{
-		status, body := testGet(t, app, "/v1/search/autocomplete?genre=Trap")
+		status, body := testGet(t, app, "/v1/search/autocomplete?genre=Trap&sort_method=recent")
 		require.Equal(t, 200, status)
 		jsonAssert(t, body, map[string]any{
-			"data.tracks.#": 2,
+			"data.tracks.#":       2,
+			"data.tracks.0.title": "mouse trap",
+			"data.tracks.1.title": "peanut butter jam time",
 		})
 	}
 

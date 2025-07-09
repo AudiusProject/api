@@ -23,7 +23,7 @@ var tracksConfig = collectionConfig{
 			'save_count', aggregate_track.save_count,
 			'repost_count', aggregate_track.repost_count,
 			'comment_count', aggregate_track.comment_count,
-			'release_date', coalesce(release_date, tracks.created_at),
+			'created_at', coalesce(release_date, tracks.created_at),
 			'updated_at', tracks.updated_at,
 			'blocknumber', tracks.blocknumber,
 			'musical_key', musical_key,
