@@ -34,10 +34,14 @@ func (app *ApiServer) BlockConfirmation(c *fiber.Ctx) error {
 			)
 		) AS block_found
 	;`
+	chainId := "audius-mainnet-alpha-beta"
+	if app.env == "staging" {
+		chainId = "audius-testnet-alpha"
+	}
 	rows, err := app.pool.Query(c.Context(), sql, pgx.NamedArgs{
 		"blockHash":   params.BlockHash,
 		"blockNumber": params.BlockNumber,
-		"chainId":     "audius-mainnet-alpha-beta", // TODO: Make this dynamic or configurable
+		"chainId":     chainId,
 	})
 	if err != nil {
 		return err
