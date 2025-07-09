@@ -11,17 +11,11 @@ test::
 	sqlc generate
 	go test -count=1 -cover ./...
 
-esindexer-staging::
-	mkdir -p build/staging
-	CGO_ENABLED=0 GOOS=linux GOARCH=amd64 go build -o build/staging/bridge-amd64
-	rsync -ravz build/staging/ stage-elasticsearch:bridgerton
-	ssh stage-elasticsearch -t 'cd bridgerton && docker compose up -d --build && docker compose restart bridge'
+esindexer-reindex-stage::
+	kubectl --context stage -n api exec -it $(kubectl --context stage -n api get pods --no-headers -o custom-columns=":metadata.name" | grep reindexer) -- bridge es-indexer drop all
 
-esindexer-production::
-	mkdir -p build/production
-	CGO_ENABLED=0 GOOS=linux GOARCH=amd64 go build -o build/production/bridge-amd64
-	rsync -ravz build/production/ prod-elasticsearch:bridgerton
-	ssh prod-elasticsearch -t 'cd bridgerton && docker compose up -d --build && docker compose restart bridge'
+esindexer-reindex-prod::
+	kubectl --context prod -n api exec -it $(kubectl --context prod -n api get pods --no-headers -o custom-columns=":metadata.name" | grep reindexer) -- bridge es-indexer drop all
 
 psql::
 	docker compose exec db psql -U postgres

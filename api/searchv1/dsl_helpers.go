@@ -38,7 +38,7 @@ func sortNewest(innerQuery map[string]any) string {
 	return dsl
 }
 
-func BuildFunctionScoreDSL(scoreField string, innerQuery map[string]any) string {
+func BuildFunctionScoreDSL(scoreField string, factor float64, innerQuery map[string]any) string {
 	innerJson, err := json.Marshal(innerQuery)
 	if err != nil {
 		panic(err)
@@ -55,7 +55,7 @@ func BuildFunctionScoreDSL(scoreField string, innerQuery map[string]any) string 
 					{
 						"field_value_factor": {
 							"field": %q,
-							"factor": 100,
+							"factor": %g,
 							"modifier": "ln2p",
 							"missing": 0
 						}
@@ -63,7 +63,7 @@ func BuildFunctionScoreDSL(scoreField string, innerQuery map[string]any) string 
 				]
 			}
 		}
-	}`, innerJson, scoreField)
+	}`, innerJson, scoreField, factor)
 
 	return dsl
 }

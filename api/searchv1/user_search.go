@@ -81,7 +81,9 @@ func (q *UserSearchQuery) DSL() string {
 	switch q.SortMethod {
 	case "recent":
 		return sortNewest(q.Map())
+	case "popular":
+		return BuildFunctionScoreDSL("follower_count", 1000, inner)
 	default:
-		return BuildFunctionScoreDSL("follower_count", inner)
+		return BuildFunctionScoreDSL("follower_count", 100, inner)
 	}
 }
