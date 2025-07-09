@@ -26,6 +26,7 @@ type Config struct {
 	AntiAbuseOracles   []string
 	Rewards            []rewards.Reward
 	AudiusdURL         string
+	ChainId            string
 }
 
 var Cfg = Config{
@@ -75,6 +76,7 @@ func init() {
 		Cfg.DeadNodes = []string{}
 		Cfg.Rewards = core_config.MakeRewards(core_config.StageClaimAuthorities, core_config.StageRewardExtensions)
 		Cfg.AudiusdURL = "creatornode11.staging.audius.co"
+		Cfg.ChainId = "audius-testnet-alpha"
 	case "prod":
 		fallthrough
 	case "production":
@@ -93,6 +95,7 @@ func init() {
 		}
 		Cfg.Rewards = core_config.MakeRewards(core_config.ProdClaimAuthorities, core_config.ProdRewardExtensions)
 		Cfg.AudiusdURL = "creatornode.audius.co"
+		Cfg.ChainId = "audius-mainnet-alpha-beta"
 	default:
 		log.Fatalf("Unknown environment: %s", env)
 	}
