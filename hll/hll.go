@@ -17,7 +17,6 @@ type HLL struct {
 	writePool     *pgxpool.Pool
 	sketch        *hyperloglog.Sketch
 	totalRequests int64
-	serverId      string
 	tableName     string
 	precision     uint8
 }
@@ -29,7 +28,6 @@ type HLL struct {
 // Parameters:
 //   - logger:    a zap.Logger instance for logging
 //   - writePool: a pgxpool.Pool for writing to the database
-//   - serverId:  a unique identifier for this server instance
 //   - tableName: the name of the database table used to store HLL sketches and counts
 //   - precision: the precision parameter for the HLL sketch (higher values increase accuracy and memory usage)
 //
@@ -42,11 +40,10 @@ type HLL struct {
 //
 // Example usage:
 //
-//	hll := hll.NewHLL(logger, writePool, "server-1", "hll_table", 12)
+//	hll := hll.NewHLL(logger, writePool, "hll_table", 12)
 func NewHLL(
 	logger *zap.Logger,
 	writePool *pgxpool.Pool,
-	serverId string,
 	tableName string,
 	precision int,
 ) *HLL {
@@ -62,7 +59,6 @@ func NewHLL(
 		writePool:     writePool,
 		sketch:        sketch,
 		totalRequests: 0,
-		serverId:      serverId,
 		tableName:     tableName,
 		precision:     uint8(precision),
 	}
@@ -207,6 +203,5 @@ func (h *HLL) GetStats() map[string]interface{} {
 	return map[string]interface{}{
 		"hll_unique_count": h.sketch.Estimate(),
 		"hll_total_count":  h.totalRequests,
-		"server_id":        h.serverId,
 	}
 }

@@ -30,7 +30,6 @@ func TestMain(m *testing.M) {
 		panic(err)
 	}
 
-	// Run tests
 	code := m.Run()
 	os.Exit(code)
 }
@@ -41,13 +40,11 @@ func setupTestDatabase(t *testing.T) *pgxpool.Pool {
 	dbName := fmt.Sprintf("hll_testdb_%d", rand.Int())
 	ctx := context.Background()
 
-	// Create a test database
 	testMutex.Lock()
 	_, err := testPoolForCreatingChildDatabases.Exec(ctx, "CREATE DATABASE "+dbName+" TEMPLATE postgres")
 	testMutex.Unlock()
 	require.NoError(t, err)
 
-	// Connect to the new database
 	pool, err := pgxpool.New(ctx, "postgres://postgres:example@localhost:21300/"+dbName)
 	require.NoError(t, err)
 
@@ -69,14 +66,11 @@ func setupHLL(t *testing.T) (*HLL, *pgxpool.Pool, context.Context, string) {
 	logger := zap.NewNop()
 	pool := setupTestDatabase(t)
 
-	// Create test table
 	tableName := "test_hll_sketch"
 	createTestTable(t, ctx, pool, tableName)
 
-	// Create HLL instance
-	serverId := "test-server-1"
 	precision := 12
-	hll := NewHLL(logger, pool, serverId, tableName, precision)
+	hll := NewHLL(logger, pool, tableName, precision)
 
 	return hll, pool, ctx, tableName
 }
@@ -246,8 +240,6 @@ func TestHLL_GetStats(t *testing.T) {
 
 	assert.Contains(t, stats, "hll_unique_count")
 	assert.Contains(t, stats, "hll_total_count")
-	assert.Contains(t, stats, "server_id")
-	assert.Equal(t, "test-server-1", stats["server_id"])
 	assert.Equal(t, int64(2), stats["hll_total_count"])
 }
 
