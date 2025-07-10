@@ -2,6 +2,7 @@ package indexer
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
 	"strconv"
 	"strings"
@@ -37,6 +38,8 @@ var MAX_SLOT_GAP = uint64(3000)
 
 var BATCH_DELAY_MS = uint64(50)
 var TRANSACTION_DELAY_MS = uint(5)
+
+var OLD_MEMO_PROGRAM_ID = solana.MustPublicKeyFromBase58("Memo1UhkJRfHyvLMcVucJwxXeuD728EqVDDwQDxFMNo")
 
 // Creates a Solana indexer.
 func New(config config.Config) *SolanaIndexer {
@@ -472,6 +475,31 @@ func processTransaction(
 				switch inst.TypeID {
 				case payment_router.InstructionImplDef.TypeID(payment_router.Instruction_Route):
 					if routeInst, ok := inst.Impl.(*payment_router.Route); ok {
+						for i, account := range routeInst.GetDestinations() {
+							insertPayment(ctx, db, paymentRow{
+								signature:        signature,
+								instructionIndex: instructionIndex,
+								amount:           routeInst.Amounts[i],
+								slot:             slot,
+								routeIndex:       i,
+								toAccount:        account.PublicKey.String(),
+							})
+						}
+
+						parsedPurchaseMemo, ok := findNextPurchaseMemo(tx, instructionIndex)
+						if ok {
+							parsedLocationMemo := findNextLocationMemo(tx, instructionIndex)
+							insertPurchase(ctx, db, purchaseRow{
+								signature:          signature,
+								instructionIndex:   instructionIndex,
+								amount:             routeInst.TotalAmount,
+								slot:               slot,
+								parsedPurchaseMemo: parsedPurchaseMemo,
+								parsedLocationMemo: parsedLocationMemo,
+								isValid:            nil,
+							})
+						}
+
 						logger.Info("payment_router route",
 							zap.String("sender", routeInst.GetSender().PublicKey.String()),
 							zap.Uint64s("amounts", routeInst.Amounts),
@@ -495,6 +523,64 @@ func processTransaction(
 		}, logger)
 	}
 	return nil
+}
+
+func findNextPurchaseMemo(tx *solana.Transaction, instructionIndex int) (parsedPurchaseMemo, bool) {
+	for i := instructionIndex; i < len(tx.Message.Instructions); i++ {
+		inst := tx.Message.Instructions[i]
+		programId := tx.Message.AccountKeys[inst.ProgramIDIndex]
+		if programId.Equals(solana.MemoProgramID) || programId.Equals(OLD_MEMO_PROGRAM_ID) {
+			memo := inst.Data.String()
+			parts := strings.Split(memo, ":")
+			if len(parts) > 3 {
+				contentType := parts[0]
+				contentId, err := strconv.Atoi(parts[1])
+				if err != nil {
+					continue
+				}
+				validAfterBlocknumber, err := strconv.Atoi(parts[2])
+				if err != nil {
+					continue
+				}
+				buyerUserId, err := strconv.Atoi(parts[3])
+				if err != nil {
+					continue
+				}
+				accessType := "stream"
+				if len(parts) > 4 {
+					accessType = parts[4]
+				}
+				parsed := parsedPurchaseMemo{
+					contentType:           contentType,
+					contentId:             contentId,
+					validAfterBlocknumber: validAfterBlocknumber,
+					buyerUserId:           buyerUserId,
+					accessType:            accessType,
+				}
+				return parsed, true
+			}
+		}
+	}
+	return parsedPurchaseMemo{}, false
+}
+
+func findNextLocationMemo(tx *solana.Transaction, instructionIndex int) parsedLocationMemo {
+	for i := instructionIndex; i < len(tx.Message.Instructions); i++ {
+		inst := tx.Message.Instructions[i]
+		programId := tx.Message.AccountKeys[inst.ProgramIDIndex]
+		if programId.Equals(solana.MemoProgramID) || programId.Equals(OLD_MEMO_PROGRAM_ID) {
+			memo := inst.Data.String()
+			if len(memo) > 3 && memo[0:3] == "geo" {
+				var parsed parsedLocationMemo
+				err := json.Unmarshal([]byte(memo), &parsed)
+				if err != nil {
+					continue
+				}
+				return parsed
+			}
+		}
+	}
+	return parsedLocationMemo{}
 }
 
 type BalanceChange struct {

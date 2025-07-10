@@ -130,3 +130,85 @@ func insertBalanceChange(ctx context.Context, db dbExecutor, row balanceChangeRo
 	}
 	return err
 }
+
+type parsedPurchaseMemo struct {
+	contentType           string
+	contentId             int
+	validAfterBlocknumber int
+	buyerUserId           int
+	accessType            string
+}
+
+type parsedLocationMemo struct {
+	City    string `json:"city"`
+	Region  string `json:"region"`
+	Country string `json:"country"`
+}
+
+type purchaseRow struct {
+	signature        string
+	instructionIndex int
+	amount           uint64
+	slot             uint64
+	fromAccount      string
+
+	parsedPurchaseMemo
+	parsedLocationMemo
+
+	isValid *bool
+}
+
+func insertPurchase(ctx context.Context, db dbExecutor, row purchaseRow) error {
+	sql := `
+	INSERT INTO sol_purchases 
+		(signature, instruction_index, amount, slot, from_account, content_type, content_id, buyer_user_id, access_type, valid_after_blocknumber, is_valid, city, region, country)
+	VALUES
+		(@signature, @instructionIndex, @amount, @slot, @fromAccount, @contentType, @contentId, @buyerUserId, @accessType, @validAfterBlocknumber, @isValid, @city, @region, @country)
+	ON CONFLICT DO NOTHIN
+	;`
+
+	_, err := db.Exec(ctx, sql, pgx.NamedArgs{
+		"signature":             row.signature,
+		"instructionIndex":      row.instructionIndex,
+		"amount":                row.amount,
+		"slot":                  row.slot,
+		"fromAccount":           row.fromAccount,
+		"contentType":           row.contentType,
+		"contentId":             row.contentId,
+		"buyerUserId":           row.buyerUserId,
+		"accessType":            row.accessType,
+		"validAfterBlocknumber": row.validAfterBlocknumber,
+		"isValid":               row.isValid,
+		"city":                  row.City,
+		"region":                row.Region,
+		"country":               row.Country,
+	})
+	return err
+}
+
+type paymentRow struct {
+	signature        string
+	instructionIndex int
+	amount           uint64
+	slot             uint64
+	routeIndex       int
+	toAccount        string
+}
+
+func insertPayment(ctx context.Context, db dbExecutor, row paymentRow) error {
+	sql := `
+	INSERT INTO sol_payments
+		(signature, instruction_index, amount, slot, route_index, to_account)
+	VALUES
+		(@signature, @instructionIndex, @amount, @slot, @routeIndex, @toAccount)
+	`
+	_, err := db.Exec(ctx, sql, pgx.NamedArgs{
+		"signature":        row.signature,
+		"instructionIndex": row.instructionIndex,
+		"amount":           row.amount,
+		"slot":             row.slot,
+		"routeIndex":       row.routeIndex,
+		"toAccount":        row.toAccount,
+	})
+	return err
+}
