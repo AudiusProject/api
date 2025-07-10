@@ -13,6 +13,7 @@ import (
 	"github.com/elastic/go-elasticsearch/v8"
 	"github.com/elastic/go-elasticsearch/v8/esutil"
 	"github.com/jackc/pgx/v5/pgxpool"
+	"golang.org/x/sync/errgroup"
 )
 
 func mustDialPostgres() *pgxpool.Pool {
@@ -76,17 +77,32 @@ func Reindex(pool *pgxpool.Pool, esc *elasticsearch.Client, drop bool, collectio
 
 	reindexAll := len(collections) == 0 || slices.Contains(collections, "all")
 
+	g := errgroup.Group{}
+
 	if reindexAll || slices.Contains(collections, "playlists") {
-		esIndexer.reindexCollection("playlists")
+		g.Go(func() error {
+			return esIndexer.reindexCollection("playlists")
+		})
 	}
 	if reindexAll || slices.Contains(collections, "tracks") {
-		esIndexer.reindexCollection("tracks")
+		g.Go(func() error {
+			return esIndexer.reindexCollection("tracks")
+		})
 	}
 	if reindexAll || slices.Contains(collections, "users") {
-		esIndexer.reindexCollection("users")
+		g.Go(func() error {
+			return esIndexer.reindexCollection("users")
+		})
 	}
 	if reindexAll || slices.Contains(collections, "socials") {
-		esIndexer.reindexCollection("socials")
+		g.Go(func() error {
+			return esIndexer.reindexCollection("socials")
+		})
+	}
+
+	err = g.Wait()
+	if err != nil {
+		panic(err)
 	}
 
 	esIndexer.bulk.Close(context.Background())

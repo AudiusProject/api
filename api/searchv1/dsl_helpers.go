@@ -21,7 +21,7 @@ func toAnySlice[T any](slice []T) []any {
 	return result
 }
 
-func sortNewest(innerQuery map[string]any) string {
+func sortWithField(innerQuery map[string]any, sortField, direction string) string {
 	innerJson, err := json.Marshal(innerQuery)
 	if err != nil {
 		panic(err)
@@ -31,14 +31,14 @@ func sortNewest(innerQuery map[string]any) string {
 	{
 		"query": %s,
 		"sort": [
-			{"created_at": {"order": "desc"}}
+			{"%s": {"order": "%s"}}
 		]
-	}`, innerJson)
+	}`, innerJson, sortField, direction)
 
 	return dsl
 }
 
-func BuildFunctionScoreDSL(scoreField string, factor float64, innerQuery map[string]any) string {
+func BuildFunctionScoreDSL(scoreField string, weight float64, innerQuery map[string]any) string {
 	innerJson, err := json.Marshal(innerQuery)
 	if err != nil {
 		panic(err)
@@ -49,21 +49,20 @@ func BuildFunctionScoreDSL(scoreField string, factor float64, innerQuery map[str
 		"query": {
 			"function_score": {
 				"query": %s,
-				"boost_mode": "multiply",
-				"score_mode": "multiply",
 				"functions": [
 					{
 						"field_value_factor": {
 							"field": %q,
-							"factor": %g,
-							"modifier": "ln2p",
 							"missing": 0
-						}
+						},
+						"weight": %g
 					}
-				]
+				],
+				"boost_mode": "multiply",
+				"score_mode": "multiply"
 			}
 		}
-	}`, innerJson, scoreField, factor)
+	}`, innerJson, scoreField, weight)
 
 	return dsl
 }
