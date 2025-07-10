@@ -10,7 +10,9 @@ import (
 
 	"bridgerton.audius.co/api"
 	"bridgerton.audius.co/config"
+	"bridgerton.audius.co/ddl"
 	"bridgerton.audius.co/esindexer"
+	"bridgerton.audius.co/indexer"
 	"bridgerton.audius.co/solana/indexers"
 )
 
@@ -21,6 +23,25 @@ func main() {
 	}
 
 	switch command {
+	case "server":
+		{
+			fmt.Println("Running server...")
+			ddl.RunMigrations()
+			as := api.NewApiServer(config.Cfg)
+			as.Serve()
+		}
+	case "indexer":
+		{
+			fmt.Println("Running indexer...")
+			ddl.RunMigrations()
+			_, err := indexer.NewIndexer(indexer.CoreIndexerConfig{
+				DbUrl: config.Cfg.WriteDbUrl,
+			})
+			if err != nil {
+				fmt.Println("Error creating indexer:", err)
+				os.Exit(1)
+			}
+		}
 	case "es-indexer":
 		{
 
@@ -39,12 +60,6 @@ func main() {
 			sigCh := make(chan os.Signal, 1)
 			signal.Notify(sigCh, syscall.SIGINT, syscall.SIGTERM)
 			<-sigCh
-		}
-	case "server":
-		{
-			fmt.Println("Running server...")
-			as := api.NewApiServer(config.Cfg)
-			as.Serve()
 		}
 	default:
 		fmt.Printf("Unrecognized command: %s", command)

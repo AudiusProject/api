@@ -14,6 +14,7 @@ type Config struct {
 	LogLevel           string
 	ReadDbUrl          string
 	WriteDbUrl         string
+	RunMigrations      bool
 	EsUrl              string
 	Nodes              []Node
 	DeadNodes          []string
@@ -34,6 +35,7 @@ var Cfg = Config{
 	LogLevel:           os.Getenv("logLevel"),
 	ReadDbUrl:          os.Getenv("readDbUrl"),
 	WriteDbUrl:         os.Getenv("writeDbUrl"),
+	RunMigrations:      os.Getenv("runMigrations") == "true",
 	EsUrl:              os.Getenv("elasticsearchUrl"),
 	DelegatePrivateKey: os.Getenv("delegatePrivateKey"),
 	AxiomToken:         os.Getenv("axiomToken"),
