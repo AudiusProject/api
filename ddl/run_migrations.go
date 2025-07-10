@@ -10,11 +10,12 @@ import (
 
 func RunMigrations() error {
 	if !config.Cfg.RunMigrations {
-		fmt.Println("Skipping migrations")
+		fmt.Println("Skipping migrations. Set env runMigrations=true to run.")
 		return nil
 	}
 
 	cmd := exec.Command("sh", "pg_migrate.sh")
+	cmd.Dir = "ddl"
 
 	cmd.Env = append(os.Environ(),
 		"DB_URL="+config.Cfg.WriteDbUrl,

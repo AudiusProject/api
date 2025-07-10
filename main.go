@@ -25,8 +25,10 @@ func main() {
 	switch command {
 	case "server":
 		{
-			fmt.Println("Running server...")
+			fmt.Println("Running migrations...")
 			ddl.RunMigrations()
+
+			fmt.Println("Running server...")
 			as := api.NewApiServer(config.Cfg)
 			as.Serve()
 		}
