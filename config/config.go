@@ -59,6 +59,7 @@ func init() {
 		Cfg.Nodes = DevNodes
 		Cfg.Rewards = core_config.MakeRewards(core_config.DevClaimAuthorities, core_config.DevRewardExtensions)
 		Cfg.AudiusdURL = "http://audius-protocol-creator-node-1"
+		Cfg.ChainId = "audius-mainnet-alpha-beta"
 	case "stage":
 		fallthrough
 	case "staging":
