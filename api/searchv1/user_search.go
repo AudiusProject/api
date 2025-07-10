@@ -62,7 +62,7 @@ func (q *UserSearchQuery) Map() map[string]any {
 					"id":    fmt.Sprintf("%d", q.MyID),
 					"path":  "following_user_ids",
 				},
-				"boost": 10,
+				"boost": 1000,
 			},
 		}))
 	}
@@ -80,10 +80,10 @@ func (q *UserSearchQuery) DSL() string {
 	inner := q.Map()
 	switch q.SortMethod {
 	case "recent":
-		return sortNewest(q.Map())
+		return sortWithField(q.Map(), "created_at", "desc")
 	case "popular":
-		return BuildFunctionScoreDSL("follower_count", 1000, inner)
+		return BuildFunctionScoreDSL("follower_count", 200, inner)
 	default:
-		return BuildFunctionScoreDSL("follower_count", 100, inner)
+		return BuildFunctionScoreDSL("follower_count", 20, inner)
 	}
 }

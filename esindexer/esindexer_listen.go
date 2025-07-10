@@ -136,10 +136,9 @@ func (indexer *EsIndexer) listen(ctx context.Context) error {
 		return nil
 	}))
 
-	// this fires all the time...
-	// but we're not even indexing play_count atm...
-	// todo: index play count
-	// also... we might not need to update this so often...
+	// this would be useful for updating track.play_count
+	// but it also fires all the time...
+	// and since we actually fetch tracks from sql, it's okay if this is alittle stale
 	// listener.Handle("aggregate_plays", logNotify)
 
 	go func() {

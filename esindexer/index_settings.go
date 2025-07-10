@@ -16,8 +16,8 @@ func commonIndexSettings(mapping string) string {
 				"tokenizer": {
 					"ngram_tokenizer": {
 						"type": "ngram",
-						"min_gram": 2,
-						"max_gram": 3,
+						"min_gram": 3,
+						"max_gram": 4,
 						"token_chars": ["letter", "digit"]
 					}
 				},
