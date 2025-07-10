@@ -100,11 +100,18 @@ func insertRewardDisbursement(ctx context.Context, db dbExecutor, row rewardDisb
 	return err
 }
 
+type balanceChange struct {
+	Mint             string
+	PreTokenBalance  uint64
+	PostTokenBalance uint64
+	Change           int64
+}
+
 type balanceChangeRow struct {
-	balanceChange *BalanceChange
-	account       string
-	signature     string
-	slot          uint64
+	balanceChange
+	account   string
+	signature string
+	slot      uint64
 }
 
 func insertBalanceChange(ctx context.Context, db dbExecutor, row balanceChangeRow, logger *zap.Logger) error {

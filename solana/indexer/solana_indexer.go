@@ -518,7 +518,7 @@ func processTransaction(
 		insertBalanceChange(ctx, db, balanceChangeRow{
 			slot:          slot,
 			account:       acc,
-			balanceChange: bal,
+			balanceChange: *bal,
 			signature:     tx.Signatures[0].String(),
 		}, logger)
 	}
@@ -583,16 +583,9 @@ func findNextLocationMemo(tx *solana.Transaction, instructionIndex int) parsedLo
 	return parsedLocationMemo{}
 }
 
-type BalanceChange struct {
-	Mint             string
-	PreTokenBalance  uint64
-	PostTokenBalance uint64
-	Change           int64
-}
-
 // Gets a map of account address to balance change from the given transaction.
-func getTokenBalanceChanges(meta *rpc.TransactionMeta, tx *solana.Transaction) (map[string]*BalanceChange, error) {
-	balanceChanges := make(map[string]*BalanceChange)
+func getTokenBalanceChanges(meta *rpc.TransactionMeta, tx *solana.Transaction) (map[string]*balanceChange, error) {
+	balanceChanges := make(map[string]*balanceChange)
 
 	// Make a list of all accounts involved in the transaction
 	allAccounts, err := tx.Message.AccountMetaList()
@@ -607,7 +600,7 @@ func getTokenBalanceChanges(meta *rpc.TransactionMeta, tx *solana.Transaction) (
 			return balanceChanges, err
 		}
 
-		balanceChanges[acc.String()] = &BalanceChange{
+		balanceChanges[acc.String()] = &balanceChange{
 			Mint:            balance.Mint.String(),
 			PreTokenBalance: preBalance,
 		}
@@ -623,7 +616,7 @@ func getTokenBalanceChanges(meta *rpc.TransactionMeta, tx *solana.Transaction) (
 
 		b := balanceChanges[acc.String()]
 		if b == nil {
-			b = &BalanceChange{
+			b = &balanceChange{
 				Mint:            balance.Mint.String(),
 				PreTokenBalance: 0,
 			}
