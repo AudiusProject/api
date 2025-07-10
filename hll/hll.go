@@ -93,25 +93,7 @@ func (h *HLL) GetSketchCopy() (*hyperloglog.Sketch, int64) {
 	h.mu.Lock()
 	defer h.mu.Unlock()
 
-	// Create a copy of the current sketch
-	sketchCopy, err := hyperloglog.NewSketch(h.precision, true)
-	if err != nil {
-		h.logger.Error("Failed to create sketch copy", zap.Error(err))
-		return nil, 0
-	}
-
-	// Marshal and unmarshal to create a deep copy
-	data, err := h.sketch.MarshalBinary()
-	if err != nil {
-		h.logger.Error("Failed to marshal sketch for copy", zap.Error(err))
-		return nil, 0
-	}
-
-	if err := sketchCopy.UnmarshalBinary(data); err != nil {
-		h.logger.Error("Failed to unmarshal sketch copy", zap.Error(err))
-		return nil, 0
-	}
-
+	sketchCopy := h.sketch.Clone()
 	totalRequests := h.totalRequests
 
 	// Reset the internal sketch and counter
