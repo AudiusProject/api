@@ -68,12 +68,18 @@ func BuildFunctionScoreDSL(scoreField string, weight float64, innerQuery map[str
 }
 
 func SearchAndPluck(esClient *elasticsearch.Client, index, dsl string, limit, offset int) ([]int32, error) {
+
+	// set to true to debug scoring (locally)
+	// don't leave in in prod tho
+	explain := false
+
 	req := esapi.SearchRequest{
-		Index:  []string{index},
-		Body:   strings.NewReader(dsl),
-		Source: []string{"false"},
-		Size:   &limit,
-		From:   &offset,
+		Index:   []string{index},
+		Body:    strings.NewReader(dsl),
+		Source:  []string{"false"},
+		Size:    &limit,
+		From:    &offset,
+		Explain: &explain,
 	}
 
 	res, err := req.Do(context.Background(), esClient)
@@ -89,6 +95,10 @@ func SearchAndPluck(esClient *elasticsearch.Client, index, dsl string, limit, of
 	body, err := io.ReadAll(res.Body)
 	if err != nil {
 		return nil, err
+	}
+
+	if explain {
+		pprintJson(string(body))
 	}
 
 	result := []int32{}

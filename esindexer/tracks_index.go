@@ -23,6 +23,7 @@ var tracksConfig = collectionConfig{
 			'save_count', aggregate_track.save_count,
 			'repost_count', aggregate_track.repost_count,
 			'comment_count', aggregate_track.comment_count,
+			'play_count', aggregate_plays.count,
 			'created_at', coalesce(release_date, tracks.created_at),
 			'updated_at', tracks.updated_at,
 			'blocknumber', tracks.blocknumber,
@@ -43,6 +44,7 @@ var tracksConfig = collectionConfig{
 		)
 	FROM tracks
 	JOIN aggregate_track USING (track_id)
+	LEFT JOIN aggregate_plays ON play_item_id = track_id
 	JOIN users ON owner_id = user_id
 	JOIN aggregate_user USING (user_id)
 	WHERE tracks.is_unlisted = false

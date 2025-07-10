@@ -24,7 +24,7 @@ func (q *UserSearchQuery) Map() map[string]any {
 	} else if q.Query != "" {
 		builder.Must(esquery.MultiMatch(q.Query).
 			Fields("suggest").
-			MinimumShouldMatch("100%").
+			MinimumShouldMatch("80%").
 			Fuzziness("AUTO").
 			Type(esquery.MatchTypeBoolPrefix))
 

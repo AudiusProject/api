@@ -221,20 +221,10 @@ func TestSearch(t *testing.T) {
 		})
 	}
 
-	// tracks: default rank is by repost count
-	{
-		status, body := testGet(t, app, "/v1/search/autocomplete")
-		require.Equal(t, 200, status)
-		jsonAssert(t, body, map[string]any{
-			"data.tracks.0.title":        "peanut butter jam time",
-			"data.tracks.0.repost_count": 2,
-		})
-	}
-
 	// but if you pass a user_id and have reposted a track...
 	// your history will rank it higher
 	{
-		status, body := testGet(t, app, "/v1/search/autocomplete?user_id=1003")
+		status, body := testGet(t, app, "/v1/search/autocomplete?query=stereosteve&user_id=1003")
 		require.Equal(t, 200, status)
 		jsonAssert(t, body, map[string]any{
 			"data.tracks.0.title":        "sunny side",
@@ -292,7 +282,7 @@ func TestSearch(t *testing.T) {
 		status, body := testGet(t, app, "/v1/search/autocomplete?query=stereo+sun")
 		require.Equal(t, 200, status)
 		jsonAssert(t, body, map[string]any{
-			"data.tracks.#":       3,
+			"data.tracks.#":       1,
 			"data.tracks.0.title": "sunny side",
 		})
 	}

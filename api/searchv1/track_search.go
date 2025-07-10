@@ -140,7 +140,7 @@ func (q *TrackSearchQuery) DSL() string {
 	case "recent":
 		return sortWithField(q.Map(), "created_at", "desc")
 	case "popular":
-		return BuildFunctionScoreDSL("repost_count", 200, q.Map())
+		return BuildFunctionScoreDSL("play_count", 200, q.Map())
 	default:
 		return BuildFunctionScoreDSL("repost_count", 20, q.Map())
 	}
