@@ -11,7 +11,6 @@ import (
 )
 
 // HLL handles HyperLogLog sketch operations for cardinality estimation
-// It buckets unique counts into daily buckets and aggregates them in a single table
 type HLL struct {
 	mu            sync.RWMutex
 	logger        *zap.Logger
@@ -23,19 +22,27 @@ type HLL struct {
 	precision     uint8
 }
 
-// NewHLL creates a new HLL cardinality tracker
-// Example
-// hll := hll.NewHLL(logger, writePool, serverId, tableName, precision)
-// where
+// NewHLL creates a new database-backed HyperLogLog (HLL) cardinality tracker.
 //
-// serverId is a unique identifier for the server
+// It buckets unique counts into daily buckets and aggregates them in a single table.
 //
-// tableName is the name of a table with the following columns:
-// - date_bucket: date bucket (YYYY-MM-DD)
-// - hll_sketch: hyperloglog sketch
-// - total_count: total number of requests
-// - unique_count: unique number of requests
-// - updated_at: timestamp of the last update
+// Parameters:
+//   - logger:    a zap.Logger instance for logging
+//   - writePool: a pgxpool.Pool for writing to the database
+//   - serverId:  a unique identifier for this server instance
+//   - tableName: the name of the database table used to store HLL sketches and counts
+//   - precision: the precision parameter for the HLL sketch (higher values increase accuracy and memory usage)
+//
+// The table specified by tableName should have the following columns:
+//   - date_bucket  (DATE):        the date bucket (format: YYYY-MM-DD)
+//   - hll_sketch   (BYTEA):       the serialized HyperLogLog sketch
+//   - total_count  (BIGINT):      the total number of requests recorded
+//   - unique_count (BIGINT):      the estimated number of unique requests
+//   - updated_at   (TIMESTAMPTZ): the timestamp of the last update
+//
+// Example usage:
+//
+//	hll := hll.NewHLL(logger, writePool, "server-1", "hll_table", 12)
 func NewHLL(
 	logger *zap.Logger,
 	writePool *pgxpool.Pool,
