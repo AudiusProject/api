@@ -95,18 +95,24 @@ func (rmc *MetricsCollector) Middleware() fiber.Handler {
 	return func(c *fiber.Ctx) error {
 		err := c.Next()
 
-		apiKey := c.Query("api_key", "")
-		appName := c.Query("app_name", "")
+		apiKey := c.Query("api_key")
+		appName := c.Query("app_name")
 		// Only record if we have some identifier
 		if apiKey != "" || appName != "" {
-			rmc.recordAppMetric(apiKey, appName)
+			rmc.recordAppMetric(
+				fiberutils.CopyString(apiKey),
+				fiberutils.CopyString(appName),
+			)
 		}
 
 		// Record route metrics for all requests
 		if route := c.Route(); route != nil {
 			routePattern := route.Path
 			method := c.Method()
-			rmc.recordRouteMetric(routePattern, method)
+			rmc.recordRouteMetric(
+				fiberutils.CopyString(routePattern),
+				fiberutils.CopyString(method),
+			)
 		}
 
 		// Extract IP address for unique tracking
@@ -121,45 +127,43 @@ func (rmc *MetricsCollector) Middleware() fiber.Handler {
 
 // Increments the request count for a given app identifier
 func (rmc *MetricsCollector) recordAppMetric(apiKey, appName string) {
-	apiKeyCopy := fiberutils.CopyString(apiKey)
-	appNameCopy := fiberutils.CopyString(appName)
 	// Prioritize api_key over app_name as identifier
-	identifier := apiKeyCopy
+	identifier := apiKey
 	if identifier == "" {
-		identifier = appNameCopy
+		identifier = appName
 	}
 
 	// Get existing data or create new and increment count
 	data, exists := rmc.appMetrics.Get(identifier)
+	lastSeen := time.Now()
 	if !exists {
 		data = &AppMetricsData{
-			ApiKey:       apiKeyCopy,
-			AppName:      appNameCopy,
+			ApiKey:       apiKey,
+			AppName:      appName,
 			RequestCount: 0,
-			LastSeen:     time.Now(),
+			LastSeen:     lastSeen,
 		}
 	}
 	data.RequestCount++
-	data.LastSeen = time.Now()
+	data.LastSeen = lastSeen
 	rmc.appMetrics.Set(identifier, data)
 }
 
 // Increments the request count for a given route pattern
 func (rmc *MetricsCollector) recordRouteMetric(routePattern, method string) {
-	routePatternCopy := fiberutils.CopyString(routePattern)
-
 	// Get existing data or create new and increment count
-	data, exists := rmc.routeMetrics.Get(routePatternCopy)
+	data, exists := rmc.routeMetrics.Get(routePattern)
+	lastSeen := time.Now()
 	if !exists {
 		data = &RouteMetricsData{
-			RoutePattern: routePatternCopy,
+			RoutePattern: routePattern,
 			Method:       method,
 			RequestCount: 0,
-			LastSeen:     time.Now(),
+			LastSeen:     lastSeen,
 		}
 	}
 	data.RequestCount++
-	data.LastSeen = time.Now()
+	data.LastSeen = lastSeen
 	rmc.routeMetrics.Set(routePattern, data)
 }
 

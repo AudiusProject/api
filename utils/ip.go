@@ -5,6 +5,7 @@ import (
 	"strings"
 
 	"github.com/gofiber/fiber/v2"
+	fiberutils "github.com/gofiber/fiber/v2/utils"
 )
 
 // Extract the real IP address from the request
@@ -26,5 +27,5 @@ func GetIP(c *fiber.Ctx) string {
 		}
 	}
 
-	return c.IP()
+	return fiberutils.CopyString(c.IP())
 }
