@@ -490,6 +490,48 @@ func (ns NullSavetype) Value() (driver.Value, error) {
 	return string(ns.Savetype), nil
 }
 
+type Sharetype string
+
+const (
+	SharetypeTrack    Sharetype = "track"
+	SharetypePlaylist Sharetype = "playlist"
+)
+
+func (e *Sharetype) Scan(src interface{}) error {
+	switch s := src.(type) {
+	case []byte:
+		*e = Sharetype(s)
+	case string:
+		*e = Sharetype(s)
+	default:
+		return fmt.Errorf("unsupported scan type for Sharetype: %T", src)
+	}
+	return nil
+}
+
+type NullSharetype struct {
+	Sharetype Sharetype `json:"sharetype"`
+	Valid     bool      `json:"valid"` // Valid is true if Sharetype is not NULL
+}
+
+// Scan implements the Scanner interface.
+func (ns *NullSharetype) Scan(value interface{}) error {
+	if value == nil {
+		ns.Sharetype, ns.Valid = "", false
+		return nil
+	}
+	ns.Valid = true
+	return ns.Sharetype.Scan(value)
+}
+
+// Value implements the driver Valuer interface.
+func (ns NullSharetype) Value() (driver.Value, error) {
+	if !ns.Valid {
+		return nil, nil
+	}
+	return string(ns.Sharetype), nil
+}
+
 type Skippedtransactionlevel string
 
 const (
@@ -746,6 +788,7 @@ type AggregatePlaylist struct {
 	IsAlbum     pgtype.Bool `json:"is_album"`
 	RepostCount pgtype.Int4 `json:"repost_count"`
 	SaveCount   pgtype.Int4 `json:"save_count"`
+	ShareCount  pgtype.Int4 `json:"share_count"`
 }
 
 type AggregateTrack struct {
@@ -753,6 +796,7 @@ type AggregateTrack struct {
 	RepostCount  int32       `json:"repost_count"`
 	SaveCount    int32       `json:"save_count"`
 	CommentCount pgtype.Int4 `json:"comment_count"`
+	ShareCount   pgtype.Int4 `json:"share_count"`
 }
 
 type AggregateUser struct {
@@ -770,6 +814,7 @@ type AggregateUser struct {
 	DominantGenreCount pgtype.Int4 `json:"dominant_genre_count"`
 	Score              pgtype.Int4 `json:"score"`
 	TotalTrackCount    pgtype.Int8 `json:"total_track_count"`
+	TrackShareCount    pgtype.Int4 `json:"track_share_count"`
 }
 
 type AggregateUserTip struct {
@@ -1500,6 +1545,17 @@ type SchemaVersion struct {
 	FileName  string             `json:"file_name"`
 	Md5       pgtype.Text        `json:"md5"`
 	AppliedAt pgtype.Timestamptz `json:"applied_at"`
+}
+
+type Share struct {
+	Blockhash   pgtype.Text `json:"blockhash"`
+	Blocknumber pgtype.Int4 `json:"blocknumber"`
+	UserID      int32       `json:"user_id"`
+	ShareItemID int32       `json:"share_item_id"`
+	ShareType   Sharetype   `json:"share_type"`
+	CreatedAt   time.Time   `json:"created_at"`
+	Txhash      string      `json:"txhash"`
+	Slot        pgtype.Int4 `json:"slot"`
 }
 
 type SkippedTransaction struct {
