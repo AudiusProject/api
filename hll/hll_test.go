@@ -70,7 +70,8 @@ func setupHLL(t *testing.T) (*HLL, *pgxpool.Pool, context.Context, string) {
 	createTestTable(t, ctx, pool, tableName)
 
 	precision := 12
-	hll := NewHLL(logger, pool, tableName, precision)
+	hll, err := NewHLL(logger, pool, tableName, precision)
+	assert.NoError(t, err)
 
 	return hll, pool, ctx, tableName
 }
@@ -143,7 +144,7 @@ func TestHLL_AggregationWorks(t *testing.T) {
 	query := fmt.Sprintf(`
 		SELECT hll_sketch, total_count, unique_count 
 		FROM %s 
-		WHERE date_bucket = $1`, tableName)
+		WHERE date = $1`, tableName)
 
 	err = pool.QueryRow(ctx, query, dateBucket).Scan(&sketchData, &totalCount, &uniqueCount)
 	assert.NoError(t, err)
@@ -217,7 +218,7 @@ func TestHLL_MergeExistingSketch(t *testing.T) {
 	query := fmt.Sprintf(`
 		SELECT total_count, unique_count 
 		FROM %s 
-		WHERE date_bucket = $1`, tableName)
+		WHERE date = $1`, tableName)
 
 	err = pool.QueryRow(ctx, query, dateBucket).Scan(&totalCount, &uniqueCount)
 	assert.NoError(t, err)
@@ -246,7 +247,7 @@ func TestHLL_GetStats(t *testing.T) {
 func createTestTable(t *testing.T, ctx context.Context, pool *pgxpool.Pool, tableName string) {
 	createSQL := fmt.Sprintf(`
 		CREATE TABLE IF NOT EXISTS %s (
-			date_bucket DATE PRIMARY KEY,
+			date DATE PRIMARY KEY,
 			hll_sketch BYTEA NOT NULL,
 			total_count BIGINT NOT NULL,
 			unique_count BIGINT NOT NULL,

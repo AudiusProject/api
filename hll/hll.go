@@ -32,7 +32,7 @@ type HLL struct {
 //   - precision: the precision parameter for the HLL sketch (higher values increase accuracy and memory usage)
 //
 // The table specified by tableName should have the following columns:
-//   - date_bucket  (DATE):        the date bucket (format: YYYY-MM-DD)
+//   - date  (DATE):        the date bucket (format: YYYY-MM-DD)
 //   - hll_sketch   (BYTEA):       the serialized HyperLogLog sketch
 //   - total_count  (BIGINT):      the total number of requests recorded
 //   - unique_count (BIGINT):      the estimated number of unique requests
@@ -46,12 +46,12 @@ func NewHLL(
 	writePool *pgxpool.Pool,
 	tableName string,
 	precision int,
-) *HLL {
+) (*HLL, error) {
 	// Create HLL sketch with specified precision
 	sketch, err := hyperloglog.NewSketch(uint8(precision), true)
 	if err != nil {
 		logger.Error("Failed to create HLL sketch", zap.Error(err))
-		sketch = hyperloglog.New() // fallback to default
+		return nil, err
 	}
 
 	return &HLL{
@@ -61,7 +61,7 @@ func NewHLL(
 		totalRequests: 0,
 		tableName:     tableName,
 		precision:     uint8(precision),
-	}
+	}, nil
 }
 
 // Record adds a value to the HLL sketch for cardinality estimation
@@ -118,7 +118,7 @@ func (h *HLL) AggregateSketch(ctx context.Context, tx pgx.Tx, sketch *hyperloglo
 	query := `
 		SELECT hll_sketch, total_count 
 		FROM ` + h.tableName + ` 
-		WHERE date_bucket = $1 
+		WHERE date = $1 
 		FOR UPDATE`
 
 	err := tx.QueryRow(ctx, query, dateBucket).Scan(&existingSketchData, &existingCount)
@@ -137,7 +137,7 @@ func (h *HLL) AggregateSketch(ctx context.Context, tx pgx.Tx, sketch *hyperloglo
 		estimatedUnique := int64(sketch.Estimate())
 
 		insertQuery := `
-			INSERT INTO ` + h.tableName + ` (date_bucket, hll_sketch, total_count, unique_count, updated_at)
+			INSERT INTO ` + h.tableName + ` (date, hll_sketch, total_count, unique_count, updated_at)
 			VALUES ($1, $2, $3, $4, NOW())`
 
 		_, err = tx.Exec(ctx, insertQuery, dateBucket, newSketchData, totalRequests, estimatedUnique)
@@ -169,7 +169,7 @@ func (h *HLL) AggregateSketch(ctx context.Context, tx pgx.Tx, sketch *hyperloglo
 		updateQuery := `
 			UPDATE ` + h.tableName + ` 
 			SET hll_sketch = $2, total_count = $3, unique_count = $4, updated_at = NOW()
-			WHERE date_bucket = $1`
+			WHERE date = $1`
 
 		_, err = tx.Exec(ctx, updateQuery, dateBucket, mergedData, newTotalRequests, estimatedUnique)
 
