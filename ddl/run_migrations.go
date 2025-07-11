@@ -14,7 +14,7 @@ func RunMigrations() error {
 		return nil
 	}
 
-	cmd := exec.Command("sh", "pg_migrate.sh")
+	cmd := exec.Command("bash", "pg_migrate.sh")
 	cmd.Dir = "ddl"
 
 	cmd.Env = append(os.Environ(),
