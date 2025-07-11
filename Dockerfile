@@ -12,9 +12,12 @@ RUN CGO_ENABLED=0 GOOS=linux GOARCH=amd64 go build -o bridge-amd64 main.go
 
 FROM alpine:latest
 
+RUN apk add --no-cache bash postgresql-client
+
 WORKDIR /app
 
 COPY --from=builder /app/bridge-amd64 /bin/bridge
+COPY --from=builder /app/ddl ./ddl
 
 EXPOSE 1323
 
