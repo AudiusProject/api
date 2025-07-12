@@ -33,10 +33,7 @@ func TestPurchaseGateMath(t *testing.T) {
 	{
 		gate := PurchaseGate{
 			Price: 100,
-			Splits: []struct {
-				UserID     int32   `json:"user_id"`
-				Percentage float64 `json:"percentage"`
-			}{
+			Splits: []PurchaseSplit{
 				{1, 0.00010},
 				{2, 1.00000},
 				{3, 10.00000},
@@ -53,7 +50,7 @@ func TestPurchaseGateMath(t *testing.T) {
 			NetworkTakeRate: 0.0,
 		}
 
-		fullGate := gate.toFullPurchaseGate(cfg, userMap)
+		fullGate := gate.ToFullPurchaseGate(cfg, userMap)
 
 		expected := []int64{
 			1,
@@ -74,10 +71,7 @@ func TestPurchaseGateMath(t *testing.T) {
 	{
 		gate := PurchaseGate{
 			Price: 197,
-			Splits: []struct {
-				UserID     int32   `json:"user_id"`
-				Percentage float64 `json:"percentage"`
-			}{
+			Splits: []PurchaseSplit{
 				{1, 0.00010},
 				{2, 1.00000},
 				{3, 10.00000},
@@ -94,7 +88,7 @@ func TestPurchaseGateMath(t *testing.T) {
 			NetworkTakeRate: 0.0,
 		}
 
-		fullGate := gate.toFullPurchaseGate(cfg, userMap)
+		fullGate := gate.ToFullPurchaseGate(cfg, userMap)
 
 		expected := []int64{
 			2,
@@ -115,10 +109,7 @@ func TestPurchaseGateMath(t *testing.T) {
 	{
 		gate := PurchaseGate{
 			Price: 100,
-			Splits: []struct {
-				UserID     int32   `json:"user_id"`
-				Percentage float64 `json:"percentage"`
-			}{
+			Splits: []PurchaseSplit{
 				{1, 33.3333},
 				{2, 66.6667},
 			},
@@ -128,7 +119,7 @@ func TestPurchaseGateMath(t *testing.T) {
 			NetworkTakeRate: 0.0,
 		}
 
-		fullGate := gate.toFullPurchaseGate(cfg, userMap)
+		fullGate := gate.ToFullPurchaseGate(cfg, userMap)
 		expected := []int64{
 			333333,
 			666667,
@@ -141,10 +132,7 @@ func TestPurchaseGateMath(t *testing.T) {
 	{
 		gate := PurchaseGate{
 			Price: 202,
-			Splits: []struct {
-				UserID     int32   `json:"user_id"`
-				Percentage float64 `json:"percentage"`
-			}{
+			Splits: []PurchaseSplit{
 				{1, 33.33334},
 				{2, 33.33333},
 				{3, 33.33333},
@@ -155,7 +143,7 @@ func TestPurchaseGateMath(t *testing.T) {
 			NetworkTakeRate: 0.0,
 		}
 
-		fullGate := gate.toFullPurchaseGate(cfg, userMap)
+		fullGate := gate.ToFullPurchaseGate(cfg, userMap)
 		expected := []int64{
 			673334,
 			673333,

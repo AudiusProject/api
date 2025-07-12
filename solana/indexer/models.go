@@ -3,14 +3,10 @@ package indexer
 import (
 	"context"
 
+	"bridgerton.audius.co/database"
 	"github.com/jackc/pgx/v5"
-	"github.com/jackc/pgx/v5/pgconn"
 	"go.uber.org/zap"
 )
-
-type dbExecutor interface {
-	Exec(ctx context.Context, sql string, args ...any) (pgconn.CommandTag, error)
-}
 
 type claimableAccountsRow struct {
 	signature        string
@@ -21,7 +17,7 @@ type claimableAccountsRow struct {
 	bankAccount      string
 }
 
-func insertClaimableAccount(ctx context.Context, db dbExecutor, row claimableAccountsRow) error {
+func insertClaimableAccount(ctx context.Context, db database.DBTX, row claimableAccountsRow) error {
 	sql := `
 		INSERT INTO sol_claimable_accounts
 			(signature, instruction_index, slot, mint, ethereum_address, bank_account)
@@ -50,7 +46,7 @@ type claimableAccountTransfersRow struct {
 	senderEthAddress string
 }
 
-func insertClaimableAccountTransfer(ctx context.Context, db dbExecutor, row claimableAccountTransfersRow) error {
+func insertClaimableAccountTransfer(ctx context.Context, db database.DBTX, row claimableAccountTransfersRow) error {
 	sql := `
 		INSERT INTO sol_claimable_account_transfers
 			(signature, instruction_index, amount, slot, from_account, to_account, sender_eth_address)
@@ -80,7 +76,7 @@ type rewardDisbursementsRow struct {
 	specifier        string
 }
 
-func insertRewardDisbursement(ctx context.Context, db dbExecutor, row rewardDisbursementsRow) error {
+func insertRewardDisbursement(ctx context.Context, db database.DBTX, row rewardDisbursementsRow) error {
 	sql := `
 		INSERT INTO sol_reward_disbursements
 			(signature, instruction_index, amount, slot, user_bank, challenge_id, specifier)
@@ -114,7 +110,7 @@ type balanceChangeRow struct {
 	slot      uint64
 }
 
-func insertBalanceChange(ctx context.Context, db dbExecutor, row balanceChangeRow, logger *zap.Logger) error {
+func insertBalanceChange(ctx context.Context, db database.DBTX, row balanceChangeRow, logger *zap.Logger) error {
 	sql := `INSERT INTO solana_token_txs (account_address, mint, change, balance, signature, slot)
 						VALUES (@account_address, @mint, @change, @balance, @signature, @slot)
 						ON CONFLICT DO NOTHING`
@@ -165,7 +161,7 @@ type purchaseRow struct {
 	isValid *bool
 }
 
-func insertPurchase(ctx context.Context, db dbExecutor, row purchaseRow) error {
+func insertPurchase(ctx context.Context, db database.DBTX, row purchaseRow) error {
 	sql := `
 	INSERT INTO sol_purchases 
 		(signature, instruction_index, amount, slot, from_account, content_type, content_id, buyer_user_id, access_type, valid_after_blocknumber, is_valid, city, region, country)
@@ -202,7 +198,7 @@ type paymentRow struct {
 	toAccount        string
 }
 
-func insertPayment(ctx context.Context, db dbExecutor, row paymentRow) error {
+func insertPayment(ctx context.Context, db database.DBTX, row paymentRow) error {
 	sql := `
 	INSERT INTO sol_payments
 		(signature, instruction_index, amount, slot, route_index, to_account)

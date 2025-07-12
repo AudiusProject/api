@@ -10,6 +10,7 @@ import (
 	"time"
 
 	"bridgerton.audius.co/config"
+	"bridgerton.audius.co/database"
 	"bridgerton.audius.co/logging"
 	"bridgerton.audius.co/solana/spl/programs/claimable_tokens"
 	"bridgerton.audius.co/solana/spl/programs/payment_router"
@@ -169,7 +170,7 @@ func (s *SolanaIndexer) onMessage(ctx context.Context, msg *pb.SubscribeUpdate) 
 	accUpdate := msg.GetAccount()
 	if accUpdate != nil {
 		txSig := solana.SignatureFromBytes(accUpdate.Account.TxnSignature)
-		err := s.processSignature(ctx, accUpdate.Slot, txSig)
+		err := s.ProcessSignature(ctx, accUpdate.Slot, txSig)
 		if err != nil {
 			s.logger.Error("failed to process signature", zap.Error(err))
 		}
@@ -256,7 +257,7 @@ func (s *SolanaIndexer) backfillAddressTransactions(ctx context.Context, address
 				continue
 			}
 
-			err = s.processSignature(ctx, sig.Slot, sig.Signature)
+			err = s.ProcessSignature(ctx, sig.Slot, sig.Signature)
 			if err != nil {
 				logger.Error("failed to process signature", zap.Error(err))
 			}
@@ -279,7 +280,7 @@ func (s *SolanaIndexer) backfillAddressTransactions(ctx context.Context, address
 	logger.Info("backfill completed")
 }
 
-func (s SolanaIndexer) processSignature(ctx context.Context, slot uint64, txSig solana.Signature) error {
+func (s SolanaIndexer) ProcessSignature(ctx context.Context, slot uint64, txSig solana.Signature) error {
 	sqlTx, err := s.pool.Begin(ctx)
 	defer sqlTx.Rollback(ctx)
 	if err != nil {
@@ -303,10 +304,9 @@ func (s SolanaIndexer) processSignature(ctx context.Context, slot uint64, txSig 
 		return fmt.Errorf("failed to decode transaction: %w", err)
 	}
 
-	err = processTransaction(ctx, sqlTx, slot, txRes.Meta, tx, s.logger)
+	err = s.ProcessTransaction(ctx, sqlTx, slot, txRes.Meta, tx, txRes.BlockTime.Time(), s.logger)
 	if err != nil {
 		return fmt.Errorf("failed to process transaction: %w", err)
-
 	}
 
 	err = sqlTx.Commit(ctx)
@@ -316,12 +316,13 @@ func (s SolanaIndexer) processSignature(ctx context.Context, slot uint64, txSig 
 	return nil
 }
 
-func processTransaction(
+func (s *SolanaIndexer) ProcessTransaction(
 	ctx context.Context,
-	db dbExecutor,
+	db database.DBTX,
 	slot uint64,
 	meta *rpc.TransactionMeta,
 	tx *solana.Transaction,
+	blockTime time.Time,
 	logger *zap.Logger,
 ) error {
 	if tx == nil {
@@ -489,6 +490,12 @@ func processTransaction(
 						parsedPurchaseMemo, ok := findNextPurchaseMemo(tx, instructionIndex)
 						if ok {
 							parsedLocationMemo := findNextLocationMemo(tx, instructionIndex)
+							isValid, err := validatePurchase(ctx, s.config, db, routeInst, parsedPurchaseMemo, blockTime)
+							if err != nil {
+								logger.Error("invalid purchase", zap.Error(err))
+								// continue - insert the purchase as invalid for record keeping
+							}
+
 							insertPurchase(ctx, db, purchaseRow{
 								signature:          signature,
 								instructionIndex:   instructionIndex,
@@ -496,7 +503,7 @@ func processTransaction(
 								slot:               slot,
 								parsedPurchaseMemo: parsedPurchaseMemo,
 								parsedLocationMemo: parsedLocationMemo,
-								isValid:            nil,
+								isValid:            isValid,
 							})
 						}
 
