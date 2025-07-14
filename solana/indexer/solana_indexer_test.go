@@ -422,6 +422,7 @@ func TestProcessTransaction_CallsInsertBalanceChange(t *testing.T) {
 	s := &indexer.SolanaIndexer{}
 
 	account := solana.MustPublicKeyFromBase58("HJQj8P47BdA7ugjQEn45LaESYrxhiZDygmukt8iumFZJ")
+	account2 := solana.MustPublicKeyFromBase58("Cjv8dvVfWU8wUYAR82T5oZ4nHLB6EyGNvpPBzw3r76Qy")
 	mint := solana.MustPublicKeyFromBase58("9LzCMqDgTKYz9Drzqnpgee3SGa89up3a247ypMj2xrqM")
 	tx := &solana.Transaction{
 		Signatures: []solana.Signature{
@@ -430,6 +431,7 @@ func TestProcessTransaction_CallsInsertBalanceChange(t *testing.T) {
 		Message: solana.Message{
 			AccountKeys: []solana.PublicKey{
 				account,
+				account2,
 			},
 		},
 	}
@@ -449,6 +451,13 @@ func TestProcessTransaction_CallsInsertBalanceChange(t *testing.T) {
 				Mint:         mint,
 				UiTokenAmount: &rpc.UiTokenAmount{
 					Amount: "2000",
+				},
+			},
+			{
+				AccountIndex: 1,
+				Mint:         mint,
+				UiTokenAmount: &rpc.UiTokenAmount{
+					Amount: "0",
 				},
 			},
 		},
@@ -472,9 +481,20 @@ func TestProcessTransaction_CallsInsertBalanceChange(t *testing.T) {
 		"slot":            slot,
 	}
 
+	expectedArgs2 := pgx.NamedArgs{
+		"account_address": account2.String(),
+		"mint":            mint.String(),
+		"change":          int64(0),
+		"balance":         uint64(0),
+		"signature":       tx.Signatures[0].String(),
+		"slot":            slot,
+	}
+
 	err := s.ProcessTransaction(ctx, mockDb, slot, meta, tx, blockTime, logger)
 	require.NoError(t, err)
-	require.Len(t, mockDb.calls, 1)
+	require.Len(t, mockDb.calls, 2)
 	require.Contains(t, mockDb.calls[0].sql, "solana_token_txs")
 	require.Equal(t, expectedArgs, mockDb.calls[0].args.(pgx.NamedArgs))
+	require.Contains(t, mockDb.calls[1].sql, "solana_token_txs")
+	require.Equal(t, expectedArgs2, mockDb.calls[1].args.(pgx.NamedArgs))
 }
