@@ -30,7 +30,7 @@ CREATE TABLE IF NOT EXISTS sol_token_account_balance_changes (
     balance BIGINT NOT NULL,
     slot BIGINT NOT NULL,
     updated_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
-    created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP
+    created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
 
     PRIMARY KEY (signature, mint, account)
 );
@@ -112,8 +112,8 @@ CREATE TABLE IF NOT EXISTS sol_payments (
 	PRIMARY KEY (signature, instruction_index, route_index)
 );
 COMMENT ON TABLE sol_payments IS 'Stores payment router program Route instruction recipients and amounts for tracked mints.';
-CREATE INDEX IF NOT EXISTS sol_payments ON sol_payments (to_account);
-COMMENT ON INDEX sol_payments IS 'Used for getting payments to a particular user.';
+CREATE INDEX IF NOT EXISTS sol_payments_to_account ON sol_payments (to_account);
+COMMENT ON INDEX sol_payments_to_account IS 'Used for getting payments to a particular user.';
 
 
 CREATE TABLE IF NOT EXISTS sol_purchases (
@@ -177,7 +177,7 @@ CREATE TABLE IF NOT EXISTS sol_token_transfers (
 	slot BIGINT NOT NULL,
 	
 	from_account VARCHAR NOT NULL,
-	to_account VARCHAR NOT NULL
+	to_account VARCHAR NOT NULL,
 	
 	PRIMARY KEY (signature, instruction_index)
 );
