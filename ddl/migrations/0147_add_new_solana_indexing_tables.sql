@@ -23,9 +23,9 @@ COMMENT ON TABLE sol_slot_checkpoint IS 'Stores the most recent slot that the in
 
 
 CREATE TABLE IF NOT EXISTS sol_token_account_balance_changes (
-    signature VARCHAR(130) NOT NULL,
-    mint VARCHAR(48) NOT NULL,
-    account VARCHAR(48) NOT NULL,
+    signature VARCHAR NOT NULL,
+    mint VARCHAR NOT NULL,
+    account VARCHAR NOT NULL,
     change BIGINT NOT NULL,
     balance BIGINT NOT NULL,
     slot BIGINT NOT NULL,
