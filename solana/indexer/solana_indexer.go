@@ -487,9 +487,9 @@ func (s *SolanaIndexer) ProcessTransaction(
 							})
 						}
 
-						parsedPurchaseMemo, ok := findNextPurchaseMemo(tx, instructionIndex)
+						parsedPurchaseMemo, ok := findNextPurchaseMemo(tx, instructionIndex, logger)
 						if ok {
-							parsedLocationMemo := findNextLocationMemo(tx, instructionIndex)
+							parsedLocationMemo := findNextLocationMemo(tx, instructionIndex, logger)
 							isValid, err := validatePurchase(ctx, s.config, db, routeInst, parsedPurchaseMemo, blockTime)
 							if err != nil {
 								logger.Error("invalid purchase", zap.Error(err))
@@ -533,7 +533,7 @@ func (s *SolanaIndexer) ProcessTransaction(
 	return nil
 }
 
-func findNextPurchaseMemo(tx *solana.Transaction, instructionIndex int) (parsedPurchaseMemo, bool) {
+func findNextPurchaseMemo(tx *solana.Transaction, instructionIndex int, logger *zap.Logger) (parsedPurchaseMemo, bool) {
 	for i := instructionIndex; i < len(tx.Message.Instructions); i++ {
 		inst := tx.Message.Instructions[i]
 		programId := tx.Message.AccountKeys[inst.ProgramIDIndex]
@@ -544,14 +544,23 @@ func findNextPurchaseMemo(tx *solana.Transaction, instructionIndex int) (parsedP
 				contentType := parts[0]
 				contentId, err := strconv.Atoi(parts[1])
 				if err != nil {
+					if logger != nil {
+						logger.Error("failed to parse purchase memo contentId", zap.Error(err), zap.String("memo", memo.String()))
+					}
 					continue
 				}
 				validAfterBlocknumber, err := strconv.Atoi(parts[2])
 				if err != nil {
+					if logger != nil {
+						logger.Error("failed to parse purchase memo validAfterBlocknumber", zap.Error(err), zap.String("memo", memo.String()))
+					}
 					continue
 				}
 				buyerUserId, err := strconv.Atoi(parts[3])
 				if err != nil {
+					if logger != nil {
+						logger.Error("failed to parse purchase memo buyerUserId", zap.Error(err), zap.String("memo", memo.String()))
+					}
 					continue
 				}
 				accessType := "stream"
@@ -572,7 +581,7 @@ func findNextPurchaseMemo(tx *solana.Transaction, instructionIndex int) (parsedP
 	return parsedPurchaseMemo{}, false
 }
 
-func findNextLocationMemo(tx *solana.Transaction, instructionIndex int) parsedLocationMemo {
+func findNextLocationMemo(tx *solana.Transaction, instructionIndex int, logger *zap.Logger) parsedLocationMemo {
 	for i := instructionIndex; i < len(tx.Message.Instructions); i++ {
 		inst := tx.Message.Instructions[i]
 		programId := tx.Message.AccountKeys[inst.ProgramIDIndex]
@@ -582,6 +591,9 @@ func findNextLocationMemo(tx *solana.Transaction, instructionIndex int) parsedLo
 				var parsed parsedLocationMemo
 				err := json.Unmarshal(memo[4:], &parsed)
 				if err != nil {
+					if logger != nil {
+						logger.Error("failed to parse geo memo", zap.Error(err), zap.String("memo", memo.String()))
+					}
 					continue
 				}
 				return parsed
