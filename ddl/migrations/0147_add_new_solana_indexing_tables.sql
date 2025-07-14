@@ -1,3 +1,14 @@
+/* 
+
+Adds tables for the Solana indexer in order to support artist coins.
+
+Unlike previous iterations of Solana indexing, all the information needed to populate
+these tables must come from the transactions themselves, not from any related information
+from the Open Audio Protocol or any other source. This prevents the indexer from becoming
+stuck and falling behind.
+
+ */
+
 BEGIN;
 
 CREATE TABLE IF NOT EXISTS artist_coins (
@@ -138,6 +149,8 @@ CREATE TABLE IF NOT EXISTS sol_purchases (
 	PRIMARY KEY (signature, instruction_index)
 );
 COMMENT ON TABLE sol_purchases IS 'Stores payment router program Route instructions that are paired with purchase information for tracked mints.';
+COMMENT ON COLUMN sol_purchases.valid_after_blocknumber IS 'Purchase transactions include the blocknumber that the content was most recently updated in order to ensure that the relevant pricing information has been indexed before evaluating whether the purchase is valid.';
+COMMENT ON COLUMN sol_purchases.is_valid IS 'A purchase is valid if it meets the pricing information set by the artist. If the pricing information is not available yet (as indicated by the valid_after_blocknumber), then is_valid will be NULL which indicates a "pending" state.';
 CREATE INDEX IF NOT EXISTS sol_purchases_from_account_idx ON sol_purchases (from_account, is_valid);
 COMMENT ON INDEX sol_purchases_from_account_idx IS 'Used for getting purchases by a user via their account.';
 CREATE INDEX IF NOT EXISTS sol_purchases_buyer_user_id_idx ON sol_purchases (buyer_user_id, is_valid);
