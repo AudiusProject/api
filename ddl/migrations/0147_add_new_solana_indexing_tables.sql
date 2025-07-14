@@ -15,6 +15,7 @@ CREATE TABLE IF NOT EXISTS artist_coins (
     mint VARCHAR NOT NULL PRIMARY KEY,
     ticker VARCHAR NOT NULL,
     user_id INT NOT NULL,
+    decimals INT NOT NULL,
     created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP
 );
 COMMENT ON TABLE artist_coins IS 'Stores the token mints for artist coins that the indexer is tracking and their tickers.';
