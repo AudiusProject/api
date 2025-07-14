@@ -20,6 +20,7 @@ import (
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgconn"
 	"github.com/stretchr/testify/require"
+	"github.com/test-go/testify/assert"
 	"go.uber.org/zap"
 )
 
@@ -184,10 +185,10 @@ func TestProcessTransaction_CallsInsertClaimableAccountTransfer(t *testing.T) {
 	}
 
 	err = s.ProcessTransaction(ctx, mockDb, slot, meta, tx, blockTime, logger)
-	require.NoError(t, err)
-	require.Len(t, mockDb.calls, 1)
-	require.Contains(t, mockDb.calls[0].sql, "sol_claimable_account_transfers")
-	require.Equal(t, expectedArgs, mockDb.calls[0].args.(pgx.NamedArgs))
+	assert.NoError(t, err)
+	assert.Len(t, mockDb.calls, 1)
+	assert.Contains(t, mockDb.calls[0].sql, "sol_claimable_account_transfers")
+	assert.Equal(t, expectedArgs, mockDb.calls[0].args.(pgx.NamedArgs))
 }
 
 func TestProcessTransaction_CallsInsertRewardDisbursement(t *testing.T) {
@@ -254,10 +255,10 @@ func TestProcessTransaction_CallsInsertRewardDisbursement(t *testing.T) {
 	}
 
 	err = s.ProcessTransaction(ctx, mockDb, slot, meta, tx, blockTime, logger)
-	require.NoError(t, err)
-	require.Len(t, mockDb.calls, 1)
-	require.Contains(t, mockDb.calls[0].sql, "sol_reward_disbursements")
-	require.Equal(t, expectedArgs, mockDb.calls[0].args.(pgx.NamedArgs))
+	assert.NoError(t, err)
+	assert.Len(t, mockDb.calls, 1)
+	assert.Contains(t, mockDb.calls[0].sql, "sol_reward_disbursements")
+	assert.Equal(t, expectedArgs, mockDb.calls[0].args.(pgx.NamedArgs))
 }
 
 func TestProcessTransaction_CallsInsertPayment(t *testing.T) {
@@ -409,12 +410,12 @@ func TestProcessTransaction_CallsInsertPurchase(t *testing.T) {
 	}
 
 	err = s.ProcessTransaction(ctx, mockDb, slot, meta, tx, blockTime, logger)
-	require.NoError(t, err)
-	require.Len(t, mockDb.calls, 2)
-	require.Contains(t, mockDb.calls[0].sql, "sol_payments")
-	require.Equal(t, expectedPaymentArgs, mockDb.calls[0].args.(pgx.NamedArgs))
-	require.Contains(t, mockDb.calls[1].sql, "sol_purchases")
-	require.Equal(t, expectedPurchaseArgs, mockDb.calls[1].args.(pgx.NamedArgs))
+	assert.NoError(t, err)
+	assert.Len(t, mockDb.calls, 2)
+	assert.Contains(t, mockDb.calls[0].sql, "sol_payments")
+	assert.Equal(t, expectedPaymentArgs, mockDb.calls[0].args.(pgx.NamedArgs))
+	assert.Contains(t, mockDb.calls[1].sql, "sol_purchases")
+	assert.Equal(t, expectedPurchaseArgs, mockDb.calls[1].args.(pgx.NamedArgs))
 }
 
 func TestProcessTransaction_CallsInsertBalanceChange(t *testing.T) {
@@ -491,10 +492,10 @@ func TestProcessTransaction_CallsInsertBalanceChange(t *testing.T) {
 	}
 
 	err := s.ProcessTransaction(ctx, mockDb, slot, meta, tx, blockTime, logger)
-	require.NoError(t, err)
-	require.Len(t, mockDb.calls, 2)
-	require.Contains(t, mockDb.calls[0].sql, "solana_token_txs")
-	require.Equal(t, expectedArgs, mockDb.calls[0].args.(pgx.NamedArgs))
-	require.Contains(t, mockDb.calls[1].sql, "solana_token_txs")
-	require.Equal(t, expectedArgs2, mockDb.calls[1].args.(pgx.NamedArgs))
+	assert.NoError(t, err)
+	assert.Len(t, mockDb.calls, 2)
+	assert.Contains(t, mockDb.calls[0].sql, "solana_token_txs")
+	assert.Equal(t, expectedArgs, mockDb.calls[0].args.(pgx.NamedArgs))
+	assert.Contains(t, mockDb.calls[1].sql, "solana_token_txs")
+	assert.Equal(t, expectedArgs2, mockDb.calls[1].args.(pgx.NamedArgs))
 }
