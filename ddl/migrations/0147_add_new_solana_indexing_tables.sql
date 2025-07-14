@@ -1,5 +1,18 @@
 BEGIN;
 
+CREATE TABLE IF NOT EXISTS artist_coins (
+    mint VARCHAR NOT NULL PRIMARY KEY,
+    ticker VARCHAR NOT NULL,
+    user_id INT NOT NULL,
+    created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP
+);
+COMMENT ON TABLE artist_coins IS 'Stores the token mints for artist coins that the indexer is tracking and their tickers.';
+CREATE INDEX IF NOT EXISTS artist_coins_ticker_idx ON artist_coins (ticker, user_id);
+COMMENT ON INDEX artist_coins_ticker_idx IS 'Used for getting mint address by ticker.';
+CREATE INDEX IF NOT EXISTS artist_coins_user_id_idx ON artist_coins (user_id);
+COMMENT ON INDEX artist_coins_user_id_idx IS 'Used for getting coins minted by a particular artist.';
+
+
 CREATE TABLE IF NOT EXISTS sol_slot_checkpoint (
     id INT PRIMARY KEY DEFAULT 1,
     slot BIGINT NOT NULL,
@@ -23,9 +36,9 @@ CREATE TABLE IF NOT EXISTS sol_token_account_balance_changes (
 );
 COMMENT ON TABLE sol_token_account_balance_changes IS 'Stores token balance changes for all accounts of tracked mints.';
 CREATE INDEX IF NOT EXISTS sol_token_account_balance_changes_mint_idx ON sol_token_account_balance_changes (mint, slot);
-COMMENT ON INDEX sol_token_account_balance_changes_mint_idx IS 'Used for getting recent transactions by mint.'
+COMMENT ON INDEX sol_token_account_balance_changes_mint_idx IS 'Used for getting recent transactions by mint.';
 CREATE INDEX IF NOT EXISTS sol_token_account_balance_changes_account_idx ON sol_token_account_balance_changes (account, slot);
-COMMENT ON INDEX sol_token_account_balance_changes_account_idx IS 'Used for getting recent transactions by account.'
+COMMENT ON INDEX sol_token_account_balance_changes_account_idx IS 'Used for getting recent transactions by account.';
 
 
 CREATE TABLE IF NOT EXISTS sol_claimable_accounts (
@@ -41,9 +54,9 @@ CREATE TABLE IF NOT EXISTS sol_claimable_accounts (
 );
 COMMENT ON TABLE sol_claimable_accounts IS 'Stores claimable tokens program Create instructions for tracked mints.';
 CREATE INDEX IF NOT EXISTS sol_claimable_accounts_ethereum_address_idx ON sol_claimable_accounts (ethereum_address, mint);
-COMMENT ON INDEX sol_claimable_accounts_ethereum_address_idx IS 'Used for getting account by user wallet and mint.'
+COMMENT ON INDEX sol_claimable_accounts_ethereum_address_idx IS 'Used for getting account by user wallet and mint.';
 CREATE INDEX IF NOT EXISTS sol_claimable_accounts_bank_account_idx ON sol_claimable_accounts (bank_account);
-COMMENT ON INDEX sol_claimable_accounts_bank_account_idx IS 'Used for getting user wallet by account.'
+COMMENT ON INDEX sol_claimable_accounts_bank_account_idx IS 'Used for getting user wallet by account.';
 
 
 CREATE TABLE IF NOT EXISTS sol_claimable_account_transfers (
@@ -60,11 +73,11 @@ CREATE TABLE IF NOT EXISTS sol_claimable_account_transfers (
 );
 COMMENT ON TABLE sol_claimable_account_transfers IS 'Stores claimable tokens program Transfer instructions for tracked mints.';
 CREATE INDEX IF NOT EXISTS sol_claimable_account_transfers_from_idx ON sol_claimable_account_transfers (from_account);
-COMMENT ON INDEX sol_claimable_account_transfers_from_idx IS 'Used for getting transfers by recipient.'
+COMMENT ON INDEX sol_claimable_account_transfers_from_idx IS 'Used for getting transfers by recipient.';
 CREATE INDEX IF NOT EXISTS sol_claimable_account_transfers_to_idx ON sol_claimable_account_transfers (to_account);
-COMMENT ON INDEX sol_claimable_account_transfers_to_idx IS 'Used for getting transfers by sender.'
+COMMENT ON INDEX sol_claimable_account_transfers_to_idx IS 'Used for getting transfers by sender.';
 CREATE INDEX IF NOT EXISTS sol_claimable_account_transfers_sender_eth_address_idx ON sol_claimable_account_transfers (sender_eth_address);
-COMMENT ON INDEX sol_claimable_account_transfers_sender_eth_address_idx IS 'Used for getting transfers by sender user wallet.'
+COMMENT ON INDEX sol_claimable_account_transfers_sender_eth_address_idx IS 'Used for getting transfers by sender user wallet.';
 
 
 CREATE TABLE IF NOT EXISTS sol_reward_disbursements (
@@ -81,9 +94,9 @@ CREATE TABLE IF NOT EXISTS sol_reward_disbursements (
 );
 COMMENT ON TABLE sol_reward_disbursements IS 'Stores reward manager program Evaluate instructions for tracked mints.';
 CREATE INDEX IF NOT EXISTS sol_reward_disbursements_user_bank_idx ON sol_reward_disbursements (user_bank);
-COMMENT ON INDEX sol_reward_disbursements_user_bank_idx IS 'Used for getting reward disbursements for a user.'
+COMMENT ON INDEX sol_reward_disbursements_user_bank_idx IS 'Used for getting reward disbursements for a user.';
 CREATE INDEX IF NOT EXISTS sol_reward_disbursements_challenge_idx ON sol_reward_disbursements (challenge_id, specifier);
-COMMENT ON INDEX sol_reward_disbursements_challenge_idx IS 'Used for getting reward disbursements for a specific challenge type or claim.'
+COMMENT ON INDEX sol_reward_disbursements_challenge_idx IS 'Used for getting reward disbursements for a specific challenge type or claim.';
 
 
 CREATE TABLE IF NOT EXISTS sol_payments (
@@ -100,7 +113,7 @@ CREATE TABLE IF NOT EXISTS sol_payments (
 );
 COMMENT ON TABLE sol_payments IS 'Stores payment router program Route instruction recipients and amounts for tracked mints.';
 CREATE INDEX IF NOT EXISTS sol_payments ON sol_payments (to_account);
-COMMENT ON INDEX sol_payments IS 'Used for getting payments to a particular user.'
+COMMENT ON INDEX sol_payments IS 'Used for getting payments to a particular user.';
 
 
 CREATE TABLE IF NOT EXISTS sol_purchases (
@@ -126,13 +139,13 @@ CREATE TABLE IF NOT EXISTS sol_purchases (
 );
 COMMENT ON TABLE sol_purchases IS 'Stores payment router program Route instructions that are paired with purchase information for tracked mints.';
 CREATE INDEX IF NOT EXISTS sol_purchases_from_account_idx ON sol_purchases (from_account, is_valid);
-COMMENT ON INDEX sol_purchases_from_account_idx IS 'Used for getting purchases by a user via their account.'
+COMMENT ON INDEX sol_purchases_from_account_idx IS 'Used for getting purchases by a user via their account.';
 CREATE INDEX IF NOT EXISTS sol_purchases_buyer_user_id_idx ON sol_purchases (buyer_user_id, is_valid);
-COMMENT ON INDEX sol_purchases_buyer_user_id_idx IS 'Used for getting purchases by a user.'
+COMMENT ON INDEX sol_purchases_buyer_user_id_idx IS 'Used for getting purchases by a user.';
 CREATE INDEX IF NOT EXISTS sol_purchases_content_idx ON sol_purchases (content_id, content_type, access_type, is_valid);
-COMMENT ON INDEX sol_purchases_content_idx IS 'Used for getting sales of particular content.'
+COMMENT ON INDEX sol_purchases_content_idx IS 'Used for getting sales of particular content.';
 CREATE INDEX IF NOT EXISTS sol_purchases_valid_idx ON sol_purchases (is_valid, valid_after_blocknumber);
-COMMENT ON INDEX sol_purchases_valid_idx IS 'Used for updating purchases to be valid after the specified blocknumber is reached.'
+COMMENT ON INDEX sol_purchases_valid_idx IS 'Used for updating purchases to be valid after the specified blocknumber is reached.';
 
 
 CREATE TABLE IF NOT EXISTS sol_swaps (
@@ -150,7 +163,7 @@ CREATE TABLE IF NOT EXISTS sol_swaps (
 	
 	PRIMARY KEY (signature, instruction_index)
 );
-COMMENT ON TABLE sol_swaps IS 'Stores Jupiter swaps for tracked mints.'
+COMMENT ON TABLE sol_swaps IS 'Stores Jupiter swaps for tracked mints.';
 CREATE INDEX IF NOT EXISTS sol_swaps_from_mint_idx ON sol_swaps (from_mint);
 CREATE INDEX IF NOT EXISTS sol_swaps_from_account_idx ON sol_swaps (from_account);
 CREATE INDEX IF NOT EXISTS sol_swaps_to_mint_idx ON sol_swaps (to_mint);
@@ -168,7 +181,7 @@ CREATE TABLE IF NOT EXISTS sol_token_transfers (
 	
 	PRIMARY KEY (signature, instruction_index)
 );
-COMMENT ON TABLE sol_token_transfers IS 'Stores SPL token transfers for tracked mints.'
+COMMENT ON TABLE sol_token_transfers IS 'Stores SPL token transfers for tracked mints.';
 CREATE INDEX IF NOT EXISTS sol_token_transfers_from_account_idx ON sol_token_transfers (from_account);
 CREATE INDEX IF NOT EXISTS sol_token_transfers_to_account_idx ON sol_token_transfers (to_account);
 
