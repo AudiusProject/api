@@ -177,7 +177,7 @@ CREATE TABLE IF NOT EXISTS sol_swaps (
 	
 	PRIMARY KEY (signature, instruction_index)
 );
-COMMENT ON TABLE sol_swaps IS 'Stores Jupiter swaps for tracked mints.';
+COMMENT ON TABLE sol_swaps IS 'Stores eg. Jupiter swaps for tracked mints.';
 CREATE INDEX IF NOT EXISTS sol_swaps_from_mint_idx ON sol_swaps (from_mint);
 CREATE INDEX IF NOT EXISTS sol_swaps_from_account_idx ON sol_swaps (from_account);
 CREATE INDEX IF NOT EXISTS sol_swaps_to_mint_idx ON sol_swaps (to_mint);
