@@ -60,15 +60,15 @@ CREATE TABLE IF NOT EXISTS sol_claimable_accounts (
 	
 	mint VARCHAR NOT NULL,
 	ethereum_address VARCHAR NOT NULL,
-	bank_account VARCHAR NOT NULL,
+	account VARCHAR NOT NULL,
 	
 	PRIMARY KEY (signature, instruction_index)
 );
 COMMENT ON TABLE sol_claimable_accounts IS 'Stores claimable tokens program Create instructions for tracked mints.';
 CREATE INDEX IF NOT EXISTS sol_claimable_accounts_ethereum_address_idx ON sol_claimable_accounts (ethereum_address, mint);
 COMMENT ON INDEX sol_claimable_accounts_ethereum_address_idx IS 'Used for getting account by user wallet and mint.';
-CREATE INDEX IF NOT EXISTS sol_claimable_accounts_bank_account_idx ON sol_claimable_accounts (bank_account);
-COMMENT ON INDEX sol_claimable_accounts_bank_account_idx IS 'Used for getting user wallet by account.';
+CREATE INDEX IF NOT EXISTS sol_claimable_accounts_account_idx ON sol_claimable_accounts (account);
+COMMENT ON INDEX sol_claimable_accounts_account_idx IS 'Used for getting user wallet by account.';
 
 
 CREATE TABLE IF NOT EXISTS sol_claimable_account_transfers (
