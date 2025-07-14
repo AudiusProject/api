@@ -134,20 +134,6 @@ func insertBalanceChange(ctx context.Context, db database.DBTX, row balanceChang
 	return err
 }
 
-type parsedPurchaseMemo struct {
-	contentType           string
-	contentId             int
-	validAfterBlocknumber int
-	buyerUserId           int
-	accessType            string
-}
-
-type parsedLocationMemo struct {
-	City    string `json:"city"`
-	Region  string `json:"region"`
-	Country string `json:"country"`
-}
-
 type purchaseRow struct {
 	signature        string
 	instructionIndex int
@@ -176,11 +162,11 @@ func insertPurchase(ctx context.Context, db database.DBTX, row purchaseRow) erro
 		"amount":                row.amount,
 		"slot":                  row.slot,
 		"fromAccount":           row.fromAccount,
-		"contentType":           row.contentType,
-		"contentId":             row.contentId,
-		"buyerUserId":           row.buyerUserId,
-		"accessType":            row.accessType,
-		"validAfterBlocknumber": row.validAfterBlocknumber,
+		"contentType":           row.ContentType,
+		"contentId":             row.ContentId,
+		"buyerUserId":           row.BuyerUserId,
+		"accessType":            row.AccessType,
+		"validAfterBlocknumber": row.ValidAfterBlocknumber,
 		"isValid":               row.isValid,
 		"city":                  row.City,
 		"region":                row.Region,

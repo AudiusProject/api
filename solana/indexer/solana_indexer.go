@@ -2,7 +2,6 @@ package indexer
 
 import (
 	"context"
-	"encoding/json"
 	"fmt"
 	"strconv"
 	"strings"
@@ -531,76 +530,6 @@ func (s *SolanaIndexer) ProcessTransaction(
 		}, logger)
 	}
 	return nil
-}
-
-func findNextPurchaseMemo(tx *solana.Transaction, instructionIndex int, logger *zap.Logger) (parsedPurchaseMemo, bool) {
-	for i := instructionIndex; i < len(tx.Message.Instructions); i++ {
-		inst := tx.Message.Instructions[i]
-		programId := tx.Message.AccountKeys[inst.ProgramIDIndex]
-		if programId.Equals(solana.MemoProgramID) || programId.Equals(OLD_MEMO_PROGRAM_ID) {
-			memo := inst.Data
-			parts := strings.Split(string(memo), ":")
-			if len(parts) > 3 {
-				contentType := parts[0]
-				contentId, err := strconv.Atoi(parts[1])
-				if err != nil {
-					if logger != nil {
-						logger.Error("failed to parse purchase memo contentId", zap.Error(err), zap.String("memo", memo.String()))
-					}
-					continue
-				}
-				validAfterBlocknumber, err := strconv.Atoi(parts[2])
-				if err != nil {
-					if logger != nil {
-						logger.Error("failed to parse purchase memo validAfterBlocknumber", zap.Error(err), zap.String("memo", memo.String()))
-					}
-					continue
-				}
-				buyerUserId, err := strconv.Atoi(parts[3])
-				if err != nil {
-					if logger != nil {
-						logger.Error("failed to parse purchase memo buyerUserId", zap.Error(err), zap.String("memo", memo.String()))
-					}
-					continue
-				}
-				accessType := "stream"
-				if len(parts) > 4 {
-					accessType = parts[4]
-				}
-				parsed := parsedPurchaseMemo{
-					contentType:           contentType,
-					contentId:             contentId,
-					validAfterBlocknumber: validAfterBlocknumber,
-					buyerUserId:           buyerUserId,
-					accessType:            accessType,
-				}
-				return parsed, true
-			}
-		}
-	}
-	return parsedPurchaseMemo{}, false
-}
-
-func findNextLocationMemo(tx *solana.Transaction, instructionIndex int, logger *zap.Logger) parsedLocationMemo {
-	for i := instructionIndex; i < len(tx.Message.Instructions); i++ {
-		inst := tx.Message.Instructions[i]
-		programId := tx.Message.AccountKeys[inst.ProgramIDIndex]
-		if programId.Equals(solana.MemoProgramID) || programId.Equals(OLD_MEMO_PROGRAM_ID) {
-			memo := inst.Data
-			if len(memo) > 3 && string(memo[0:3]) == "geo" {
-				var parsed parsedLocationMemo
-				err := json.Unmarshal(memo[4:], &parsed)
-				if err != nil {
-					if logger != nil {
-						logger.Error("failed to parse geo memo", zap.Error(err), zap.String("memo", memo.String()))
-					}
-					continue
-				}
-				return parsed
-			}
-		}
-	}
-	return parsedLocationMemo{}
 }
 
 // Gets a map of account address to balance change from the given transaction.

@@ -18,7 +18,7 @@ func getRelevantPrice(ctx context.Context, db database.DBTX, memo parsedPurchase
 	table := "track_price_history"
 	idColumn := "track_id"
 
-	if memo.contentType == "album" {
+	if memo.ContentType == "album" {
 		table = "album_price_history"
 		idColumn = "album_id"
 	}
@@ -37,9 +37,9 @@ func getRelevantPrice(ctx context.Context, db database.DBTX, memo parsedPurchase
 	`
 
 	rows, err := db.Query(ctx, sql, pgx.NamedArgs{
-		"blocknumber": memo.validAfterBlocknumber,
-		"id":          memo.contentId,
-		"accessType":  memo.accessType,
+		"blocknumber": memo.ValidAfterBlocknumber,
+		"id":          memo.ContentId,
+		"accessType":  memo.AccessType,
 		"timestamp":   timestamp.UTC(),
 	})
 	if err != nil {
@@ -121,7 +121,7 @@ func getPayoutWallets(ctx context.Context, db database.DBTX, price dbv1.Purchase
 func validatePurchase(ctx context.Context, cfg config.Config, db database.DBTX, inst *payment_router.Route, memo parsedPurchaseMemo, timestamp time.Time) (*bool, error) {
 	var currentBlockNumber int
 	db.QueryRow(ctx, `SELECT MAX(number) FROM blocks`).Scan(&currentBlockNumber)
-	if memo.validAfterBlocknumber > currentBlockNumber {
+	if memo.ValidAfterBlocknumber > currentBlockNumber {
 		// Might not be valid _yet_, needs to wait until Core catches up
 		return nil, nil
 	}

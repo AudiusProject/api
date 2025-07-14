@@ -59,11 +59,11 @@ func TestPurchaseValidation(t *testing.T) {
 			},
 		)
 		memo := parsedPurchaseMemo{
-			contentType:           "track",
-			contentId:             1,
-			buyerUserId:           2,
-			validAfterBlocknumber: 100,
-			accessType:            "stream",
+			ContentType:           "track",
+			ContentId:             1,
+			BuyerUserId:           2,
+			ValidAfterBlocknumber: 100,
+			AccessType:            "stream",
 		}
 		isValid, err := validatePurchase(
 			ctx,
@@ -89,11 +89,11 @@ func TestPurchaseValidation(t *testing.T) {
 			},
 		)
 		memo := parsedPurchaseMemo{
-			contentType:           "track",
-			contentId:             1,
-			buyerUserId:           2,
-			validAfterBlocknumber: 100,
-			accessType:            "stream",
+			ContentType:           "track",
+			ContentId:             1,
+			BuyerUserId:           2,
+			ValidAfterBlocknumber: 100,
+			AccessType:            "stream",
 		}
 		isValid, err := validatePurchase(
 			ctx,
@@ -119,11 +119,11 @@ func TestPurchaseValidation(t *testing.T) {
 			},
 		)
 		memo := parsedPurchaseMemo{
-			contentType:           "track",
-			contentId:             1,
-			buyerUserId:           2,
-			validAfterBlocknumber: 102,
-			accessType:            "stream",
+			ContentType:           "track",
+			ContentId:             1,
+			BuyerUserId:           2,
+			ValidAfterBlocknumber: 102,
+			AccessType:            "stream",
 		}
 		isValid, err := validatePurchase(
 			ctx,
