@@ -21,6 +21,7 @@ import (
 	"github.com/gagliardetto/solana-go/rpc"
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgxpool"
+	"github.com/mr-tron/base58"
 	pb "github.com/rpcpool/yellowstone-grpc/examples/golang/proto"
 	"go.uber.org/zap"
 )
@@ -501,6 +502,7 @@ func (s *SolanaIndexer) ProcessTransaction(
 								instructionIndex:   instructionIndex,
 								amount:             routeInst.TotalAmount,
 								slot:               slot,
+								fromAccount:        routeInst.GetSender().PublicKey.String(),
 								parsedPurchaseMemo: parsedPurchaseMemo,
 								parsedLocationMemo: parsedLocationMemo,
 								isValid:            isValid,
@@ -537,8 +539,11 @@ func findNextPurchaseMemo(tx *solana.Transaction, instructionIndex int) (parsedP
 		inst := tx.Message.Instructions[i]
 		programId := tx.Message.AccountKeys[inst.ProgramIDIndex]
 		if programId.Equals(solana.MemoProgramID) || programId.Equals(OLD_MEMO_PROGRAM_ID) {
-			memo := inst.Data.String()
-			parts := strings.Split(memo, ":")
+			memo, err := base58.Decode(inst.Data.String())
+			if err != nil {
+				continue
+			}
+			parts := strings.Split(string(memo), ":")
 			if len(parts) > 3 {
 				contentType := parts[0]
 				contentId, err := strconv.Atoi(parts[1])
@@ -576,10 +581,10 @@ func findNextLocationMemo(tx *solana.Transaction, instructionIndex int) parsedLo
 		inst := tx.Message.Instructions[i]
 		programId := tx.Message.AccountKeys[inst.ProgramIDIndex]
 		if programId.Equals(solana.MemoProgramID) || programId.Equals(OLD_MEMO_PROGRAM_ID) {
-			memo := inst.Data.String()
-			if len(memo) > 3 && memo[0:3] == "geo" {
+			memo := inst.Data
+			if len(memo) > 3 && string(memo[0:3]) == "geo" {
 				var parsed parsedLocationMemo
-				err := json.Unmarshal([]byte(memo), &parsed)
+				err := json.Unmarshal(memo[4:], &parsed)
 				if err != nil {
 					continue
 				}
