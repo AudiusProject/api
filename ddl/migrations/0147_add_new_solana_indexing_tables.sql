@@ -1,5 +1,27 @@
 BEGIN;
 
+CREATE TABLE IF NOT EXISTS sol_slot_checkpoint (
+    id INT PRIMARY KEY DEFAULT 1,
+    slot BIGINT NOT NULL,
+    updated_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP
+);
+
+CREATE TABLE IF NOT EXISTS sol_token_account_balance_changes (
+    signature VARCHAR(130) NOT NULL,
+    mint VARCHAR(48) NOT NULL,
+    account VARCHAR(48) NOT NULL,
+    change BIGINT NOT NULL,
+    balance BIGINT NOT NULL,
+    slot BIGINT NOT NULL,
+    updated_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP
+
+    PRIMARY KEY (signature, mint, account)
+);
+CREATE INDEX IF NOT EXISTS sol_token_account_balance_changes_mint_idx ON sol_token_account_balance_changes (mint, slot);
+CREATE INDEX IF NOT EXISTS sol_token_account_balance_changes_account_idx ON sol_token_account_balance_changes (account, slot);
+
 CREATE TABLE IF NOT EXISTS sol_claimable_accounts (
 	signature VARCHAR NOT NULL,
 	instruction_index INT NOT NULL,
