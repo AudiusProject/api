@@ -21,7 +21,6 @@ import (
 	"github.com/gagliardetto/solana-go/rpc"
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgxpool"
-	"github.com/mr-tron/base58"
 	pb "github.com/rpcpool/yellowstone-grpc/examples/golang/proto"
 	"go.uber.org/zap"
 )
@@ -539,10 +538,7 @@ func findNextPurchaseMemo(tx *solana.Transaction, instructionIndex int) (parsedP
 		inst := tx.Message.Instructions[i]
 		programId := tx.Message.AccountKeys[inst.ProgramIDIndex]
 		if programId.Equals(solana.MemoProgramID) || programId.Equals(OLD_MEMO_PROGRAM_ID) {
-			memo, err := base58.Decode(inst.Data.String())
-			if err != nil {
-				continue
-			}
+			memo := inst.Data
 			parts := strings.Split(string(memo), ":")
 			if len(parts) > 3 {
 				contentType := parts[0]
