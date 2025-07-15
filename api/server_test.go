@@ -5,20 +5,17 @@ import (
 	"encoding/json"
 	"fmt"
 	"io"
-	"math/rand/v2"
 	"net/http/httptest"
-	"os"
 	"strings"
-	"sync"
 	"testing"
 
 	"bridgerton.audius.co/api/testdata"
 	"bridgerton.audius.co/config"
+	"bridgerton.audius.co/database"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"github.com/tidwall/gjson"
 
-	"github.com/jackc/pgx/v5/pgxpool"
 	_ "github.com/jackc/pgx/v5/stdlib"
 )
 
@@ -28,38 +25,12 @@ func checkErr(err error) {
 	}
 }
 
-var testMutex = sync.Mutex{}
-var testPoolForCreatingChildDatabases *pgxpool.Pool
-
-func TestMain(m *testing.M) {
-	ctx := context.Background()
-	var err error
-
-	testPoolForCreatingChildDatabases, err = pgxpool.New(ctx, "postgres://postgres:example@localhost:21300/test01")
-	checkErr(err)
-
-	// run tests
-	code := m.Run()
-
-	os.Exit(code)
-}
-
 func emptyTestApp(t *testing.T) *ApiServer {
-	t.Parallel()
-	t.Helper()
-
-	dbName := fmt.Sprintf("testdb_%d", rand.Int())
-	ctx := context.Background()
-
-	// create a test db from template
-	testMutex.Lock()
-	_, err := testPoolForCreatingChildDatabases.Exec(ctx, "CREATE DATABASE "+dbName+" TEMPLATE test01")
-	testMutex.Unlock()
-	require.NoError(t, err)
+	pool := database.NewTestDatabase(t)
 
 	app := NewApiServer(config.Config{
 		Env:                "test",
-		ReadDbUrl:          "postgres://postgres:example@localhost:21300/" + dbName,
+		ReadDbUrl:          pool.Config().ConnString(),
 		EsUrl:              "http://localhost:21400",
 		DelegatePrivateKey: "0633fddb74e32b3cbc64382e405146319c11a1a52dc96598e557c5dbe2f31468",
 		SolanaConfig:       config.SolanaConfig{RpcProviders: []string{""}},
@@ -67,10 +38,6 @@ func emptyTestApp(t *testing.T) *ApiServer {
 
 	t.Cleanup(func() {
 		app.pool.Close()
-		testMutex.Lock()
-		_, err := testPoolForCreatingChildDatabases.Exec(ctx, "DROP DATABASE IF EXISTS "+dbName)
-		testMutex.Unlock()
-		require.NoError(t, err)
 	})
 
 	return app

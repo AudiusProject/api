@@ -74,20 +74,26 @@ func TestBuildRouteInstruction(t *testing.T) {
 		expectedPaymentRouterPdaBump,
 		map[solana.PublicKey]uint64{
 			expectedDest1: expectedAmount1,
-			expectedDest2: expectedAmount2,
 		},
-	).Build()
+	).
+		// Add the other route separately to ensure deterministic ordering
+		AddRoute(expectedDest2, expectedAmount2).
+		Build()
 
 	accounts := inst.Accounts()
+	pubkeys := make([]solana.PublicKey, 0)
+	for _, acc := range accounts {
+		pubkeys = append(pubkeys, acc.PublicKey)
+	}
 	assert.Equal(t, expectedSender, accounts[0].PublicKey)
 	assert.True(t, accounts[0].IsWritable)
 	assert.Equal(t, expectedSenderOwner, accounts[1].PublicKey)
 	assert.False(t, accounts[1].IsWritable)
 	assert.Equal(t, solana.TokenProgramID, accounts[2].PublicKey)
 	assert.False(t, accounts[2].IsWritable)
-	assert.Equal(t, expectedDest1, accounts[3].PublicKey)
+	assert.Contains(t, pubkeys, expectedDest1)
 	assert.True(t, accounts[3].IsWritable)
-	assert.Equal(t, expectedDest2, accounts[4].PublicKey)
+	assert.Contains(t, pubkeys, expectedDest2)
 	assert.True(t, accounts[4].IsWritable)
 
 	data, err := inst.Data()

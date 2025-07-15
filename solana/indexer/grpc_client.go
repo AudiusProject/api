@@ -1,4 +1,4 @@
-package indexers
+package indexer
 
 import (
 	"context"
@@ -10,7 +10,6 @@ import (
 	"sync"
 	"time"
 
-	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgxpool"
 	pb "github.com/rpcpool/yellowstone-grpc/examples/golang/proto"
 	"google.golang.org/grpc"
@@ -29,7 +28,7 @@ var kacp = keepalive.ClientParameters{
 }
 
 // DataCallback defines the function signature for handling received data.
-type DataCallback func(data *pb.SubscribeUpdate)
+type DataCallback func(ctx context.Context, data *pb.SubscribeUpdate)
 
 // ErrorCallback defines the function signature for handling errors.
 type ErrorCallback func(err error)
@@ -53,25 +52,14 @@ type GrpcConfig struct {
 	Server               string
 	ApiToken             string
 	MaxReconnectAttempts int
-	WriteDbUrl           string
 }
 
 // Creates a new gRPC client.
-func NewGrpcClient(config GrpcConfig) (*GrpcClient, error) {
-	connConfig, err := pgxpool.ParseConfig(config.WriteDbUrl)
-	if err != nil {
-		return nil, fmt.Errorf("error parsing database URL: %w", err)
-	}
-
-	pool, err := pgxpool.NewWithConfig(context.Background(), connConfig)
-	if err != nil {
-		return nil, fmt.Errorf("error connecting to database: %w", err)
-	}
-
+func NewGrpcClient(config GrpcConfig, pool *pgxpool.Pool) *GrpcClient {
 	return &GrpcClient{
 		config: config,
 		pool:   pool,
-	}, nil
+	}
 }
 
 // Connect to a gRPC server
@@ -110,12 +98,14 @@ func (c *GrpcClient) connect() error {
 // Subscribes to listen for Geyser gRPC events, calling the dataCallback
 // when a message comes through, and errorCallback if errors occur.
 func (c *GrpcClient) Subscribe(
+	ctx context.Context,
 	subRequest *pb.SubscribeRequest,
 	dataCallback DataCallback,
 	errorCallback ErrorCallback,
 ) error {
 	c.mu.Lock()
 	defer c.mu.Unlock()
+
 	if c.running {
 		return fmt.Errorf("client is already subscribed")
 	}
@@ -139,7 +129,7 @@ func (c *GrpcClient) Subscribe(
 	c.dataCallback = dataCallback
 	c.errorCallback = errorCallback
 
-	ctx, cancel := context.WithCancel(context.Background())
+	ctx, cancel := context.WithCancel(ctx)
 	c.cancel = cancel
 
 	if c.conn == nil {
@@ -262,17 +252,12 @@ func (c *GrpcClient) receiveLoop(ctx context.Context) {
 			suppressCallback := false
 
 			if slotUpdate, ok := resp.UpdateOneof.(*pb.SubscribeUpdate_Slot); ok {
-				if slotUpdate.Slot != nil {
+				if slotUpdate.Slot != nil && c.pool != nil {
 					newSlot := slotUpdate.Slot.Slot
 					if newSlot > 0 {
 						c.mu.Lock()
 						c.lastSlot = newSlot
-						sql := `
-							INSERT INTO solana_indexer_checkpoint (slot) 
-							VALUES (@slot) 
-							ON CONFLICT (id) DO UPDATE SET slot = EXCLUDED.slot
-							;`
-						_, err = c.pool.Exec(ctx, sql, pgx.NamedArgs{"slot": newSlot})
+						err = insertSlotCheckpoint(ctx, c.pool, newSlot)
 						if err != nil {
 							if c.errorCallback != nil {
 								c.errorCallback(fmt.Errorf("failed to insert slot %d into checkpoint: %w", newSlot, err))
@@ -290,7 +275,7 @@ func (c *GrpcClient) receiveLoop(ctx context.Context) {
 			callback := c.dataCallback
 			c.mu.Unlock()
 			if callback != nil && !suppressCallback {
-				callback(resp)
+				callback(ctx, resp)
 			}
 		}
 	}
