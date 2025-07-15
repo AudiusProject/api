@@ -43,6 +43,7 @@ CREATE TABLE IF NOT EXISTS sol_token_account_balance_changes (
     slot BIGINT NOT NULL,
     updated_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
     created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    block_timestamp TIMESTAMP NOT NULL,
 
     PRIMARY KEY (signature, mint, account)
 );
