@@ -25,7 +25,7 @@ func (q *Queries) FullAccount(ctx context.Context, wallet string) (*FullAccount,
 
 	users, err := q.FullUsers(ctx, GetUsersParams{
 		Ids:  []int32{int32(userId)},
-		MyID: userId,
+		MyID: int32(userId),
 	})
 	if err != nil {
 		return nil, err

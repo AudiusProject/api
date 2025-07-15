@@ -68,7 +68,7 @@ func emptyTestApp(t *testing.T) *ApiServer {
 	t.Cleanup(func() {
 		app.pool.Close()
 		testMutex.Lock()
-		_, err := testPoolForCreatingChildDatabases.Exec(ctx, "DROP DATABASE IF EXISTS test")
+		_, err := testPoolForCreatingChildDatabases.Exec(ctx, "DROP DATABASE IF EXISTS "+dbName)
 		testMutex.Unlock()
 		require.NoError(t, err)
 	})

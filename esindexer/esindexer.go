@@ -3,6 +3,7 @@ package esindexer
 import (
 	"context"
 	"fmt"
+	"io"
 	"log"
 	"log/slog"
 	"strconv"
@@ -11,6 +12,7 @@ import (
 	"github.com/elastic/go-elasticsearch/v8"
 	"github.com/elastic/go-elasticsearch/v8/esutil"
 	"github.com/jackc/pgx/v5/pgxpool"
+	"golang.org/x/sync/errgroup"
 )
 
 type collectionConfig struct {
@@ -34,6 +36,7 @@ type EsIndexer struct {
 	drop bool
 }
 
+// create index from mapping
 func (indexer *EsIndexer) createIndex(collection string) error {
 	cc := collectionConfigs[collection]
 
@@ -44,21 +47,47 @@ func (indexer *EsIndexer) createIndex(collection string) error {
 		}
 	}
 
+	indexSettings := commonIndexSettings(cc.mapping)
 	res, err := indexer.esc.Indices.Create(
 		cc.indexName,
 		indexer.esc.Indices.Create.WithBody(
-			strings.NewReader(cc.mapping),
+			strings.NewReader(indexSettings),
 		),
 	)
 	if err != nil {
 		fmt.Println("create index error", cc.indexName, err)
 		return err
 	}
+	defer res.Body.Close()
+
+	if res.IsError() {
+		problem, _ := io.ReadAll(res.Body)
+		return fmt.Errorf("error creating index %s: %d %s", cc.indexName, res.StatusCode, problem)
+	}
 
 	fmt.Println("created index", cc.indexName)
-	return res.Body.Close()
+	return nil
 }
 
+func (indexer *EsIndexer) reindexAll() error {
+	g, _ := errgroup.WithContext(context.Background())
+	for name := range collectionConfigs {
+		g.Go(func() error {
+			return indexer.reindexCollection(name)
+		})
+	}
+	return g.Wait()
+}
+
+// creates index mapping + indexes all documents
+func (indexer *EsIndexer) reindexCollection(collection string) error {
+	if err := indexer.createIndex(collection); err != nil {
+		return err
+	}
+	return indexer.indexAll(collection)
+}
+
+// index all documents
 func (indexer *EsIndexer) indexAll(collection string) error {
 	cc := collectionConfigs[collection]
 
@@ -72,6 +101,7 @@ func (indexer *EsIndexer) indexAll(collection string) error {
 	return nil
 }
 
+// index a list of IDs
 func (indexer *EsIndexer) indexIds(collection string, ids ...int64) error {
 	if len(ids) == 0 {
 		return nil
@@ -93,6 +123,8 @@ func (indexer *EsIndexer) indexIds(collection string, ids ...int64) error {
 	return indexer.indexSql(cc.indexName, sql)
 }
 
+// runs a query + indexes documents
+// assumes query returns (id, json_doc) tuples
 func (indexer *EsIndexer) indexSql(indexName, sql string) error {
 
 	ctx := context.Background()

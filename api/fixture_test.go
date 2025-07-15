@@ -372,6 +372,15 @@ var (
 			"created_at":    time.Now(),
 			"updated_at":    time.Now(),
 		},
+		"shares": {
+			"blockhash":     "block_abc123",
+			"blocknumber":   101,
+			"share_item_id": nil,
+			"user_id":       nil,
+			"share_type":    nil,
+			"created_at":    time.Now(),
+			"txhash":        "tx123",
+		},
 	}
 )
 
@@ -447,7 +456,9 @@ func createFixtures(app *ApiServer, fixtures FixtureMap) {
 	// because map key iteration order is randomized...
 	// explicitly do the "entity" tables first
 	// so that data dependencies exist before attempting to do saves, follows, etc.
-	entityTables := []string{"users", "tracks", "playlists"}
+	// note: aggregate_user appears first because users create aggregate rows which would lead to
+	// duplicates
+	entityTables := []string{"aggregate_user", "users", "tracks", "playlists"}
 	for _, tableName := range entityTables {
 		if rows, ok := fixtures[tableName]; ok {
 			insertFixturesFromArray(app, tableName, rows)

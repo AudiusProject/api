@@ -16,7 +16,7 @@ func TestSearch(t *testing.T) {
 			{
 				"user_id": 1001,
 				"handle":  "StereoSteve",
-				"name":    "Stereo Steve",
+				"name":    "StereoSteve",
 			},
 			{
 				"user_id": 1002,
@@ -29,6 +29,11 @@ func TestSearch(t *testing.T) {
 				"name":        "Monist",
 				"is_verified": true,
 			},
+			{
+				"user_id": 1004,
+				"handle":  "find_infix_works",
+				"name":    "asdf",
+			},
 		},
 		"tracks": {
 			{
@@ -39,6 +44,7 @@ func TestSearch(t *testing.T) {
 				"bpm":         88,
 				"mood":        "Defiant",
 				"musical_key": "A minor",
+				"created_at":  parseTime(t, "2022-02-02"),
 			},
 			{
 				"track_id":        1002,
@@ -50,6 +56,7 @@ func TestSearch(t *testing.T) {
 				"is_downloadable": true,
 				"musical_key":     "B minor",
 				"tags":            "Tag1,Tag2,Tag3",
+				"created_at":      parseTime(t, "2022-03-03"),
 			},
 			{
 				"track_id":          1003,
@@ -62,25 +69,42 @@ func TestSearch(t *testing.T) {
 			{
 				"track_id":  1004,
 				"owner_id":  1001,
-				"title":     "hide deleted",
+				"title":     "hidden deleted",
 				"is_delete": true,
 			},
 			{
 				"track_id":    1005,
 				"owner_id":    1001,
-				"title":       "hide private",
+				"title":       "hidden private",
 				"is_unlisted": true,
 			},
 			{
 				"track_id":     1006,
 				"owner_id":     1001,
-				"title":        "hide unavailable",
+				"title":        "hidden unavailable",
 				"is_available": false,
 			},
 			{
 				"track_id": 1007,
 				"owner_id": 1003,
 				"title":    "circular thoughts",
+			},
+			{
+				"track_id": 1008,
+				"owner_id": 1004,
+				"title":    "RemixComp",
+			},
+			{
+				"track_id": 1009,
+				"owner_id": 1004,
+				"title":    "RemixComp VocalStem",
+				"stem_of":  []byte(`{"category": "LEAD_VOCALS", "parent_track_id": 1221925895}`),
+			},
+		},
+		"stems": {
+			{
+				"parent_track_id": 1008,
+				"child_track_id":  1009,
 			},
 		},
 		"playlists": {
@@ -135,7 +159,7 @@ func TestSearch(t *testing.T) {
 	createFixtures(app, fixtures)
 
 	// index data to ES
-	esindexer.Reindex(app.pool, app.esClient, true)
+	esindexer.ReindexForTest(app.pool, app.esClient)
 
 	// users:
 	{
@@ -170,6 +194,15 @@ func TestSearch(t *testing.T) {
 	}
 
 	{
+		status, body := testGet(t, app, "/v1/users/search?query=monoist")
+		require.Equal(t, 200, status)
+		jsonAssert(t, body, map[string]any{
+			"data.#":        1,
+			"data.0.handle": "monist",
+		})
+	}
+
+	{
 		status, body := testGet(t, app, "/v1/search/autocomplete?is_verified=true")
 		require.Equal(t, 200, status)
 		jsonAssert(t, body, map[string]any{
@@ -178,20 +211,20 @@ func TestSearch(t *testing.T) {
 		})
 	}
 
-	// tracks: default rank is by repost count
+	// users: infix match
 	{
-		status, body := testGet(t, app, "/v1/search/autocomplete")
+		status, body := testGet(t, app, "/v1/search/autocomplete?query=infix")
 		require.Equal(t, 200, status)
 		jsonAssert(t, body, map[string]any{
-			"data.tracks.0.title":        "peanut butter jam time",
-			"data.tracks.0.repost_count": 2,
+			"data.users.#":        1,
+			"data.users.0.handle": "find_infix_works",
 		})
 	}
 
 	// but if you pass a user_id and have reposted a track...
 	// your history will rank it higher
 	{
-		status, body := testGet(t, app, "/v1/search/autocomplete?user_id=1003")
+		status, body := testGet(t, app, "/v1/search/autocomplete?query=stereosteve&user_id=1003")
 		require.Equal(t, 200, status)
 		jsonAssert(t, body, map[string]any{
 			"data.tracks.0.title":        "sunny side",
@@ -201,7 +234,34 @@ func TestSearch(t *testing.T) {
 
 	// tracks: filter by genre + mood + bpm
 	{
-		status, body := testGet(t, app, "/v1/search/autocomplete?genre=Trap")
+		status, body := testGet(t, app, "/v1/search/autocomplete?genre=Trap&sort_method=recent")
+		require.Equal(t, 200, status)
+		jsonAssert(t, body, map[string]any{
+			"data.tracks.#":       2,
+			"data.tracks.0.title": "mouse trap",
+			"data.tracks.1.title": "peanut butter jam time",
+		})
+	}
+
+	// track with stems
+	{
+		status, body := testGet(t, app, "/v1/search/autocomplete?query=RemixComp")
+		require.Equal(t, 200, status)
+		jsonAssert(t, body, map[string]any{
+			"data.tracks.#": 1,
+		})
+	}
+
+	{
+		status, body := testGet(t, app, "/v1/search/autocomplete?query=RemixComp&has_downloads=true")
+		require.Equal(t, 200, status)
+		jsonAssert(t, body, map[string]any{
+			"data.tracks.#": 1,
+		})
+	}
+
+	{
+		status, body := testGet(t, app, "/v1/search/autocomplete?has_downloads=true")
 		require.Equal(t, 200, status)
 		jsonAssert(t, body, map[string]any{
 			"data.tracks.#": 2,
@@ -222,7 +282,7 @@ func TestSearch(t *testing.T) {
 		status, body := testGet(t, app, "/v1/search/autocomplete?query=stereo+sun")
 		require.Equal(t, 200, status)
 		jsonAssert(t, body, map[string]any{
-			"data.tracks.#":       3,
+			"data.tracks.#":       1,
 			"data.tracks.0.title": "sunny side",
 		})
 	}
@@ -239,7 +299,7 @@ func TestSearch(t *testing.T) {
 
 	// doesn't show deleted or unlisted tracks
 	{
-		status, body := testGet(t, app, "/v1/search/autocomplete?query=hide")
+		status, body := testGet(t, app, "/v1/search/autocomplete?query=hidden")
 		require.Equal(t, 200, status)
 		jsonAssert(t, body, map[string]any{
 			"data.tracks.#": 0,
@@ -261,6 +321,7 @@ func TestSearch(t *testing.T) {
 		status, body := testGet(t, app, "/v1/search/autocomplete?query=stereo+steve")
 		require.Equal(t, 200, status)
 		jsonAssert(t, body, map[string]any{
+			"data.users.0.handle": "StereoSteve",
 			"data.tracks.#":       1,
 			"data.tracks.0.title": "sunny side",
 		})
@@ -277,6 +338,15 @@ func TestSearch(t *testing.T) {
 
 	{
 		status, body := testGet(t, app, "/v1/search/autocomplete?genre=Trap&bpm_max=90")
+		require.Equal(t, 200, status)
+		jsonAssert(t, body, map[string]any{
+			"data.tracks.#":       1,
+			"data.tracks.0.title": "peanut butter jam time",
+		})
+	}
+
+	{
+		status, body := testGet(t, app, "/v1/search/autocomplete?genre=Trap&bpm=85-89")
 		require.Equal(t, 200, status)
 		jsonAssert(t, body, map[string]any{
 			"data.tracks.#":       1,
