@@ -53,25 +53,27 @@ func main() {
 			esindexer.ReindexLegacy(drop, collections...)
 		}
 	case "solana-indexer":
-		fmt.Println("Running solana-indexer...")
-		solanaIndexer := solana_indexer.New(config.Cfg)
-		ctx, cancel := context.WithCancel(context.Background())
-		done := make(chan error, 1)
-		go func() {
-			done <- solanaIndexer.Start(ctx)
-		}()
-		sigCh := make(chan os.Signal, 3)
-		signal.Notify(sigCh, syscall.SIGINT, syscall.SIGTERM, os.Interrupt)
-		select {
-		case <-sigCh:
-			fmt.Println("Shutting down...")
-			cancel()
-			<-done
-		case err := <-done:
-			if err != nil {
-				panic(err)
+		{
+			fmt.Println("Running solana-indexer...")
+			solanaIndexer := solana_indexer.New(config.Cfg)
+			ctx, cancel := context.WithCancel(context.Background())
+			done := make(chan error, 1)
+			go func() {
+				done <- solanaIndexer.Start(ctx)
+			}()
+			sigCh := make(chan os.Signal, 3)
+			signal.Notify(sigCh, syscall.SIGINT, syscall.SIGTERM, os.Interrupt)
+			select {
+			case <-sigCh:
+				fmt.Println("Shutting down...")
+				cancel()
+				<-done
+			case err := <-done:
+				if err != nil {
+					panic(err)
+				}
+				fmt.Println("Done.")
 			}
-			fmt.Println("Done.")
 		}
 	default:
 		fmt.Printf("Unrecognized command: %s", command)
