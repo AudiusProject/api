@@ -270,7 +270,7 @@ func TestSearch(t *testing.T) {
 
 	// tracks: only verified
 	{
-		status, body := testGet(t, app, "/v1/search/autocomplete?only_verified=true")
+		status, body := testGet(t, app, "/v1/search/autocomplete?is_verified=true")
 		require.Equal(t, 200, status)
 		jsonAssert(t, body, map[string]any{
 			"data.tracks.0.title": "circular thoughts",
@@ -421,7 +421,7 @@ func TestSearch(t *testing.T) {
 	}
 
 	{
-		status, body := testGet(t, app, "/v1/search/autocomplete?only_verified=true")
+		status, body := testGet(t, app, "/v1/search/autocomplete?is_verified=true")
 		require.Equal(t, 200, status)
 		jsonAssert(t, body, map[string]any{
 			"data.playlists.0.playlist_name": "Hot and New",

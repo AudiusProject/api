@@ -9,8 +9,8 @@ import (
 
 type TrackSearchQuery struct {
 	Query          string
-	MinBPM         int
-	MaxBPM         int
+	MinBPM         float64
+	MaxBPM         float64
 	IsDownloadable bool
 	IsPurchaseable bool
 	IsTagSearch    bool
