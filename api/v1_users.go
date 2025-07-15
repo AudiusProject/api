@@ -41,8 +41,12 @@ func (app *ApiServer) queryFullUsers(c *fiber.Ctx, sql string, args pgx.NamedArg
 		return err
 	}
 
-	args["limit"] = params.Limit
-	args["offset"] = params.Offset
+	if _, ok := args["limit"]; !ok {
+		args["limit"] = params.Limit
+	}
+	if _, ok := args["offset"]; !ok {
+		args["offset"] = params.Offset
+	}
 
 	rows, err := app.pool.Query(c.Context(), sql, args)
 	if err != nil {

@@ -1,11 +1,15 @@
 package api
 
 import (
-	"strconv"
-
 	"github.com/gofiber/fiber/v2"
 	"github.com/jackc/pgx/v5"
 )
+
+type GetUsersRelatedParams struct {
+	Limit          int  `query:"limit" default:"10" validate:"min=1,max=100"`
+	Offset         int  `query:"offset" default:"0" validate:"min=0"`
+	FilterFollowed bool `query:"filter_followed" default:"false" validate:"boolean"`
+}
 
 /*
 Hybrid approach:
@@ -13,6 +17,11 @@ Hybrid approach:
 - For artists with >= 100 followers: collaborative filtering with small genre boost
 */
 func (app *ApiServer) v1UsersRelated(c *fiber.Ctx) error {
+	params := GetUsersRelatedParams{}
+	if err := app.ParseAndValidateQueryParams(c, &params); err != nil {
+		return err
+	}
+
 	var followerCount int64
 	err := app.pool.QueryRow(
 		c.Context(),
@@ -22,11 +31,12 @@ func (app *ApiServer) v1UsersRelated(c *fiber.Ctx) error {
 	if err != nil {
 		return err
 	}
+	lowFollowerCount := followerCount < 100
 
 	var sql string
 
 	// Use different algorithms based on follower count
-	if followerCount < 100 {
+	if lowFollowerCount {
 		// Genre-based algorithm for smaller artists
 		sql = `
 		WITH inp AS (
@@ -66,7 +76,7 @@ func (app *ApiServer) v1UsersRelated(c *fiber.Ctx) error {
 		)
 		ORDER BY genre_rank ASC, follower_count DESC
 		LIMIT @limit
-		OFFSET @offset
+		OFFSET @offset;
 		`
 	} else {
 		// simple collaborative filtering
@@ -151,10 +161,20 @@ func (app *ApiServer) v1UsersRelated(c *fiber.Ctx) error {
 		`
 	}
 
-	filterFollowed, _ := strconv.ParseBool(c.Query("filter_followed"))
+	var limit int
+	if lowFollowerCount {
+		// Clamp results to 0-10 because results are not as
+		// good for low follower counts
+		limit = min(params.Limit, max(0, 10-params.Offset))
+	} else {
+		limit = params.Limit
+	}
+
 	return app.queryFullUsers(c, sql, pgx.NamedArgs{
 		"myId":           app.getMyId(c),
 		"userId":         app.getUserId(c),
-		"filterFollowed": filterFollowed,
+		"filterFollowed": params.FilterFollowed,
+		"limit":          limit,
+		"offset":         params.Offset,
 	})
 }
