@@ -7,12 +7,12 @@ import (
 	"sync"
 	"testing"
 
+	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgxpool"
 	"github.com/test-go/testify/require"
 )
 
 var testMutex = sync.Mutex{}
-var testPoolForCreatingChildDatabases *pgxpool.Pool
 
 func NewTestDatabase(t *testing.T) *pgxpool.Pool {
 	t.Helper()
@@ -25,11 +25,12 @@ func NewTestDatabase(t *testing.T) *pgxpool.Pool {
 	{
 		testMutex.Lock()
 		defer testMutex.Unlock()
-		if testPoolForCreatingChildDatabases == nil {
-			testPoolForCreatingChildDatabases, err = pgxpool.New(ctx, "postgres://postgres:example@localhost:21300/test01")
-			require.NoError(t, err)
-		}
-		_, err = testPoolForCreatingChildDatabases.Exec(ctx, "CREATE DATABASE "+dbName+" TEMPLATE test01")
+
+		conn, err := pgx.Connect(ctx, "postgres://postgres:example@localhost:21300/test01")
+		require.NoError(t, err)
+		defer conn.Close(ctx)
+
+		_, err = conn.Exec(ctx, "CREATE DATABASE "+dbName+" TEMPLATE test01")
 		require.NoError(t, err)
 	}
 
@@ -43,7 +44,11 @@ func NewTestDatabase(t *testing.T) *pgxpool.Pool {
 		testMutex.Lock()
 		defer testMutex.Unlock()
 
-		_, err := testPoolForCreatingChildDatabases.Exec(ctx, "DROP DATABASE IF EXISTS "+dbName)
+		conn, err := pgx.Connect(ctx, "postgres://postgres:example@localhost:21300/test01")
+		require.NoError(t, err)
+		defer conn.Close(ctx)
+
+		_, err = conn.Exec(ctx, "DROP DATABASE IF EXISTS "+dbName)
 		require.NoError(t, err)
 
 	})
