@@ -402,6 +402,7 @@ func NewApiServer(config config.Config) *ApiServer {
 
 		g.Use("/playlists/:playlistId", app.requirePlaylistIdMiddleware)
 		g.Get("/playlists/:playlistId", app.v1Playlist)
+		g.Get("/playlists/:playlistId/stream", app.v1PlaylistStream)
 		g.Get("/playlists/:playlistId/reposts", app.v1PlaylistReposts)
 		g.Get("/playlists/:playlistId/favorites", app.v1PlaylistFavorites)
 
