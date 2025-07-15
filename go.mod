@@ -9,6 +9,7 @@ require (
 	github.com/Doist/unfurlist v0.0.0-20250409100812-515f2735f8e5
 	github.com/aquasecurity/esquery v0.2.0
 	github.com/axiomhq/axiom-go v0.23.0
+	github.com/axiomhq/hyperloglog v0.2.5
 	github.com/davecgh/go-spew v1.1.2-0.20180830191138-d8f796af33cc
 	github.com/elastic/go-elasticsearch/v8 v8.18.0
 	github.com/ethereum/go-ethereum v1.15.8
@@ -51,7 +52,6 @@ require (
 	github.com/artyom/httpflags v1.2.0 // indirect
 	github.com/artyom/oembed v1.0.1 // indirect
 	github.com/asaskevich/govalidator v0.0.0-20230301143203-a9d515a09cc2 // indirect
-	github.com/axiomhq/hyperloglog v0.2.5 // indirect
 	github.com/beorn7/perks v1.0.1 // indirect
 	github.com/bits-and-blooms/bitset v1.17.0 // indirect
 	github.com/blendle/zapdriver v1.3.1 // indirect
