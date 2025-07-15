@@ -74,9 +74,11 @@ func TestBuildRouteInstruction(t *testing.T) {
 		expectedPaymentRouterPdaBump,
 		map[solana.PublicKey]uint64{
 			expectedDest1: expectedAmount1,
-			expectedDest2: expectedAmount2,
 		},
-	).Build()
+	).
+		// Add the other route separately to ensure deterministic ordering
+		AddRoute(expectedDest2, expectedAmount2).
+		Build()
 
 	accounts := inst.Accounts()
 	pubkeys := make([]solana.PublicKey, 0)
