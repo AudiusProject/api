@@ -10,7 +10,6 @@ import (
 	"sync"
 	"time"
 
-	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgxpool"
 	pb "github.com/rpcpool/yellowstone-grpc/examples/golang/proto"
 	"google.golang.org/grpc"
@@ -258,12 +257,7 @@ func (c *GrpcClient) receiveLoop(ctx context.Context) {
 					if newSlot > 0 {
 						c.mu.Lock()
 						c.lastSlot = newSlot
-						sql := `
-							INSERT INTO solana_indexer_checkpoint (slot) 
-							VALUES (@slot) 
-							ON CONFLICT (id) DO UPDATE SET slot = EXCLUDED.slot
-							;`
-						_, err = c.pool.Exec(ctx, sql, pgx.NamedArgs{"slot": newSlot})
+						err = insertSlotCheckpoint(ctx, c.pool, newSlot)
 						if err != nil {
 							if c.errorCallback != nil {
 								c.errorCallback(fmt.Errorf("failed to insert slot %d into checkpoint: %w", newSlot, err))

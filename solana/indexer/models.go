@@ -111,16 +111,16 @@ type balanceChangeRow struct {
 }
 
 func insertBalanceChange(ctx context.Context, db database.DBTX, row balanceChangeRow, logger *zap.Logger) error {
-	sql := `INSERT INTO solana_token_txs (account_address, mint, change, balance, signature, slot)
-						VALUES (@account_address, @mint, @change, @balance, @signature, @slot)
+	sql := `INSERT INTO sol_token_account_balance_changes (account, mint, change, balance, signature, slot)
+						VALUES (@account, @mint, @change, @balance, @signature, @slot)
 						ON CONFLICT DO NOTHING`
 	_, err := db.Exec(ctx, sql, pgx.NamedArgs{
-		"account_address": row.account,
-		"mint":            row.balanceChange.Mint,
-		"change":          row.balanceChange.Change,
-		"balance":         row.balanceChange.PostTokenBalance,
-		"signature":       row.signature,
-		"slot":            row.slot,
+		"account":   row.account,
+		"mint":      row.balanceChange.Mint,
+		"change":    row.balanceChange.Change,
+		"balance":   row.balanceChange.PostTokenBalance,
+		"signature": row.signature,
+		"slot":      row.slot,
 	})
 	if logger != nil {
 		logger.Debug("inserting balance change...",
@@ -199,5 +199,15 @@ func insertPayment(ctx context.Context, db database.DBTX, row paymentRow) error 
 		"routeIndex":       row.routeIndex,
 		"toAccount":        row.toAccount,
 	})
+	return err
+}
+
+func insertSlotCheckpoint(ctx context.Context, db database.DBTX, slot uint64) error {
+	sql := `
+		INSERT INTO sol_slot_checkpoint (slot) 
+		VALUES (@slot) 
+		ON CONFLICT (id) DO UPDATE SET slot = EXCLUDED.slot
+		;`
+	_, err := db.Exec(ctx, sql, pgx.NamedArgs{"slot": slot})
 	return err
 }

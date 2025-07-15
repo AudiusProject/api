@@ -474,28 +474,28 @@ func TestProcessTransaction_CallsInsertBalanceChange(t *testing.T) {
 	blockTime := time.Now()
 
 	expectedArgs := pgx.NamedArgs{
-		"account_address": account.String(),
-		"mint":            mint.String(),
-		"change":          int64(1000),
-		"balance":         uint64(2000),
-		"signature":       tx.Signatures[0].String(),
-		"slot":            slot,
+		"account":   account.String(),
+		"mint":      mint.String(),
+		"change":    int64(1000),
+		"balance":   uint64(2000),
+		"signature": tx.Signatures[0].String(),
+		"slot":      slot,
 	}
 
 	expectedArgs2 := pgx.NamedArgs{
-		"account_address": account2.String(),
-		"mint":            mint.String(),
-		"change":          int64(0),
-		"balance":         uint64(0),
-		"signature":       tx.Signatures[0].String(),
-		"slot":            slot,
+		"account":   account2.String(),
+		"mint":      mint.String(),
+		"change":    int64(0),
+		"balance":   uint64(0),
+		"signature": tx.Signatures[0].String(),
+		"slot":      slot,
 	}
 
 	err := s.ProcessTransaction(ctx, mockDb, slot, meta, tx, blockTime, logger)
 	assert.NoError(t, err)
 	assert.Len(t, mockDb.calls, 2)
-	assert.Contains(t, mockDb.calls[0].sql, "solana_token_txs")
+	assert.Contains(t, mockDb.calls[0].sql, "sol_token_account_balance_changes")
 	assert.Equal(t, expectedArgs, mockDb.calls[0].args.(pgx.NamedArgs))
-	assert.Contains(t, mockDb.calls[1].sql, "solana_token_txs")
+	assert.Contains(t, mockDb.calls[1].sql, "sol_token_account_balance_changes")
 	assert.Equal(t, expectedArgs2, mockDb.calls[1].args.(pgx.NamedArgs))
 }
