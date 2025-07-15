@@ -192,4 +192,4 @@ require (
 	rsc.io/tmplfunc v0.0.3 // indirect
 )
 
-replace github.com/gagliardetto/solana-go/programs/memo => ./solana/spl/programs/memo
+replace github.com/gagliardetto/solana-go => github.com/rickyrombo/solana-go v1.12.1-0.20250714063439-a36a9577196d
