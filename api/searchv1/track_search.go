@@ -2,6 +2,7 @@ package searchv1
 
 import (
 	"fmt"
+	"strings"
 
 	"github.com/aquasecurity/esquery"
 )
@@ -13,11 +14,13 @@ type TrackSearchQuery struct {
 	IsDownloadable bool
 	IsPurchaseable bool
 	IsTagSearch    bool
+	HasDownloads   bool
 	OnlyVerified   bool
 	Genres         []string
 	Moods          []string
 	MusicalKeys    []string
 	MyID           int32
+	SortMethod     string
 }
 
 func (q *TrackSearchQuery) Map() map[string]any {
@@ -29,14 +32,27 @@ func (q *TrackSearchQuery) Map() map[string]any {
 		builder.Must(
 			esquery.MultiMatch().
 				Query(q.Query).
-				Fields("title^10", "user.handle", "user.name", "tags").
-				// Operator(esquery.OperatorAnd).
+				Fields("title^10", "suggest", "tags").
+				MinimumShouldMatch("100%").
+				Fuzziness("AUTO").
 				Type(esquery.MatchTypeBoolPrefix),
 		)
 
 		// for exact title / handle / artist name match
 		builder.Should(
-			esquery.MultiMatch().Query(q.Query).Fields("title", "user.name", "user.handle").Operator(esquery.OperatorAnd).Type(esquery.MatchTypePhrasePrefix),
+			esquery.MultiMatch().Query(q.Query).
+				Fields("title^10", "user.name", "user.handle").
+				Boost(10).
+				Operator(esquery.OperatorAnd),
+		)
+
+		// exact match, but remove spaces from query
+		// so 'Pure Component' ranks 'PureComponent' higher
+		builder.Should(
+			esquery.MultiMatch().Query(strings.ReplaceAll(q.Query, " ", "")).
+				Fields("title^10", "user.name", "user.handle").
+				Boost(10).
+				Operator(esquery.OperatorAnd),
 		)
 	} else {
 		builder.Must(esquery.MatchAll())
@@ -69,8 +85,12 @@ func (q *TrackSearchQuery) Map() map[string]any {
 		builder.Filter(esquery.Term("is_downloadable", true))
 	}
 
-	// todo: only_with_downloads
-	// => downloadable + has stems
+	if q.HasDownloads {
+		builder.Filter(esquery.Bool().Should(
+			esquery.Term("is_downloadable", true),
+			esquery.Term("has_stems", true),
+		))
+	}
 
 	if q.IsPurchaseable {
 		// stream or download
@@ -96,7 +116,18 @@ func (q *TrackSearchQuery) Map() map[string]any {
 					"id":    fmt.Sprintf("%d", q.MyID),
 					"path":  "reposted_track_ids",
 				},
-				"boost": 10,
+				"boost": 1000,
+			},
+		}))
+
+		builder.Should(esquery.CustomQuery(map[string]any{
+			"terms": map[string]any{
+				"_id": map[string]any{
+					"index": "socials",
+					"id":    fmt.Sprintf("%d", q.MyID),
+					"path":  "saved_track_ids",
+				},
+				"boost": 1000,
 			},
 		}))
 	}
@@ -105,5 +136,12 @@ func (q *TrackSearchQuery) Map() map[string]any {
 }
 
 func (q *TrackSearchQuery) DSL() string {
-	return BuildFunctionScoreDSL("repost_count", q.Map())
+	switch q.SortMethod {
+	case "recent":
+		return sortWithField(q.Map(), "created_at", "desc")
+	case "popular":
+		return BuildFunctionScoreDSL("play_count", 200, q.Map())
+	default:
+		return BuildFunctionScoreDSL("repost_count", 20, q.Map())
+	}
 }

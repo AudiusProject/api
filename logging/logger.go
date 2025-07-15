@@ -6,9 +6,26 @@ import (
 	"bridgerton.audius.co/config"
 	adapter "github.com/axiomhq/axiom-go/adapters/zap"
 	"github.com/axiomhq/axiom-go/axiom"
+	"github.com/jackc/pgx/v5/tracelog"
 	"go.uber.org/zap"
 	"go.uber.org/zap/zapcore"
 )
+
+// map application log level string to pgx tracelog level
+func GetTraceLogLevel(logLevel string) tracelog.LogLevel {
+	switch logLevel {
+	case "trace", "debug":
+		return tracelog.LogLevelTrace
+	case "info":
+		return tracelog.LogLevelInfo
+	case "warn", "warning":
+		return tracelog.LogLevelWarn
+	case "error":
+		return tracelog.LogLevelError
+	default:
+		return tracelog.LogLevelNone
+	}
+}
 
 func NewZapLogger(config config.Config) *zap.Logger {
 	// stdout core

@@ -15,6 +15,7 @@ var tracksConfig = collectionConfig{
 	SELECT
 		track_id,
 		json_build_object(
+			'suggest', CONCAT_WS(' ', title, users.name, users.handle),
 			'title', title,
 			'genre', genre,
 			'mood', mood,
@@ -22,7 +23,8 @@ var tracksConfig = collectionConfig{
 			'save_count', aggregate_track.save_count,
 			'repost_count', aggregate_track.repost_count,
 			'comment_count', aggregate_track.comment_count,
-			'release_date', coalesce(release_date, tracks.created_at),
+			'play_count', aggregate_plays.count,
+			'created_at', coalesce(release_date, tracks.created_at),
 			'updated_at', tracks.updated_at,
 			'blocknumber', tracks.blocknumber,
 			'musical_key', musical_key,
@@ -42,6 +44,7 @@ var tracksConfig = collectionConfig{
 		)
 	FROM tracks
 	JOIN aggregate_track USING (track_id)
+	LEFT JOIN aggregate_plays ON play_item_id = track_id
 	JOIN users ON owner_id = user_id
 	JOIN aggregate_user USING (user_id)
 	WHERE tracks.is_unlisted = false
@@ -49,5 +52,6 @@ var tracksConfig = collectionConfig{
 	AND tracks.is_available = true
 	AND users.is_available = true
 	AND users.is_deactivated = false
+	AND stem_of is null
 	`,
 }

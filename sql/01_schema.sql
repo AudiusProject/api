@@ -184,6 +184,16 @@ CREATE TYPE public.savetype AS ENUM (
 
 
 --
+-- Name: sharetype; Type: TYPE; Schema: public; Owner: -
+--
+
+CREATE TYPE public.sharetype AS ENUM (
+    'track',
+    'playlist'
+);
+
+
+--
 -- Name: skippedtransactionlevel; Type: TYPE; Schema: public; Owner: -
 --
 
@@ -3298,6 +3308,72 @@ $$;
 
 
 --
+-- Name: handle_share(); Type: FUNCTION; Schema: public; Owner: -
+--
+
+CREATE FUNCTION public.handle_share() RETURNS trigger
+    LANGUAGE plpgsql
+    AS $$
+begin
+  -- Ensure aggregate_user exists for this user
+  insert into aggregate_user (user_id) values (new.user_id) on conflict do nothing;
+
+  if new.share_type = 'track' then
+    -- Ensure aggregate_track exists for this track
+    insert into aggregate_track (track_id) values (new.share_item_id) on conflict do nothing;
+  else
+    -- Ensure aggregate_playlist exists for this playlist
+    insert into aggregate_playlist (playlist_id, is_album)
+    select p.playlist_id, p.is_album
+    from playlists p
+    where p.playlist_id = new.share_item_id
+    and p.is_current
+    on conflict do nothing;
+  end if;
+
+  -- Update aggregate statistics for tracks
+  if new.share_type = 'track' then
+    update aggregate_track
+    set share_count = (
+      select count(*)
+      from shares s
+      where s.share_type = new.share_type
+        and s.share_item_id = new.share_item_id
+    )
+    where track_id = new.share_item_id;
+
+    -- Update user's track share count
+    update aggregate_user
+    set track_share_count = (
+      select count(*)
+      from shares s
+      where s.user_id = new.user_id
+        and s.share_type = new.share_type
+    )
+    where user_id = new.user_id;
+  else
+    -- Update aggregate statistics for playlists/albums
+    update aggregate_playlist
+    set share_count = (
+      select count(*)
+      from shares s
+      where s.share_type = new.share_type
+        and s.share_item_id = new.share_item_id
+    )
+    where playlist_id = new.share_item_id;
+  end if;
+
+  return null;
+
+exception
+    when others then
+      raise warning 'An error occurred in %: %', tg_name, sqlerrm;
+      return null;
+end;
+$$;
+
+
+--
 -- Name: handle_supporter_rank_up(); Type: FUNCTION; Schema: public; Owner: -
 --
 
@@ -3386,12 +3462,13 @@ begin
   insert into aggregate_user (user_id) values (new.owner_id) on conflict do nothing;
 
   update aggregate_user
-  set track_count = (
-    select count(*)
+  set (track_count, total_track_count) = (
+    select
+      count(*) filter (where t.is_unlisted = false),
+      count(*)
     from tracks t
     where t.is_current is true
       and t.is_delete is false
-      and t.is_unlisted is false
       and t.is_available is true
       and t.stem_of is null
       and t.owner_id = new.owner_id
@@ -5223,7 +5300,8 @@ CREATE TABLE public.aggregate_playlist (
     playlist_id integer NOT NULL,
     is_album boolean,
     repost_count integer DEFAULT 0,
-    save_count integer DEFAULT 0
+    save_count integer DEFAULT 0,
+    share_count integer DEFAULT 0
 );
 
 
@@ -5245,7 +5323,8 @@ CREATE TABLE public.aggregate_track (
     track_id integer NOT NULL,
     repost_count integer DEFAULT 0 NOT NULL,
     save_count integer DEFAULT 0 NOT NULL,
-    comment_count integer DEFAULT 0
+    comment_count integer DEFAULT 0,
+    share_count integer DEFAULT 0
 );
 
 
@@ -5266,7 +5345,9 @@ CREATE TABLE public.aggregate_user (
     supporting_count integer DEFAULT 0 NOT NULL,
     dominant_genre character varying,
     dominant_genre_count integer DEFAULT 0,
-    score integer DEFAULT 0
+    score integer DEFAULT 0,
+    total_track_count bigint DEFAULT 0,
+    track_share_count integer DEFAULT 0
 );
 
 
@@ -6711,6 +6792,22 @@ CREATE TABLE public.schema_version (
     file_name text NOT NULL,
     md5 text,
     applied_at timestamp with time zone DEFAULT now() NOT NULL
+);
+
+
+--
+-- Name: shares; Type: TABLE; Schema: public; Owner: -
+--
+
+CREATE TABLE public.shares (
+    blockhash character varying,
+    blocknumber integer,
+    user_id integer NOT NULL,
+    share_item_id integer NOT NULL,
+    share_type public.sharetype NOT NULL,
+    created_at timestamp without time zone DEFAULT CURRENT_TIMESTAMP NOT NULL,
+    txhash character varying DEFAULT ''::character varying NOT NULL,
+    slot integer
 );
 
 
@@ -8512,6 +8609,14 @@ ALTER TABLE ONLY public.schema_version
 
 
 --
+-- Name: shares shares_pkey; Type: CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.shares
+    ADD CONSTRAINT shares_pkey PRIMARY KEY (user_id, share_item_id, share_type, txhash);
+
+
+--
 -- Name: skipped_transactions skipped_transactions_pkey; Type: CONSTRAINT; Schema: public; Owner: -
 --
 
@@ -9119,6 +9224,20 @@ CREATE INDEX idx_events_event_type ON public.events USING btree (event_type);
 
 
 --
+-- Name: idx_fanout; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX idx_fanout ON public.follows USING btree (follower_user_id, followee_user_id);
+
+
+--
+-- Name: idx_fanout_not_deleted; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX idx_fanout_not_deleted ON public.follows USING btree (follower_user_id, followee_user_id) WHERE (is_delete = false);
+
+
+--
 -- Name: idx_genre_related_artists; Type: INDEX; Schema: public; Owner: -
 --
 
@@ -9158,6 +9277,13 @@ CREATE INDEX idx_playlist_status ON public.playlists USING btree (playlist_id, i
 --
 
 CREATE INDEX idx_playlist_tracks_track_id ON public.playlist_tracks USING btree (track_id, created_at);
+
+
+--
+-- Name: idx_playlist_trending_scores_filtered; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX idx_playlist_trending_scores_filtered ON public.playlist_trending_scores USING btree (type, version, time_range, playlist_id, score DESC);
 
 
 --
@@ -9623,6 +9749,41 @@ CREATE INDEX saves_user_idx ON public.saves USING btree (user_id, save_type, sav
 
 
 --
+-- Name: shares_item_idx; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX shares_item_idx ON public.shares USING btree (share_item_id, share_type, user_id);
+
+
+--
+-- Name: shares_new_blocknumber_idx; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX shares_new_blocknumber_idx ON public.shares USING btree (blocknumber);
+
+
+--
+-- Name: shares_new_created_at_idx; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX shares_new_created_at_idx ON public.shares USING btree (created_at);
+
+
+--
+-- Name: shares_slot_idx; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX shares_slot_idx ON public.shares USING btree (slot);
+
+
+--
+-- Name: shares_user_idx; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX shares_user_idx ON public.shares USING btree (user_id, share_type, share_item_id, created_at);
+
+
+--
 -- Name: sla_auditor_version_data_nodeendpoint_index; Type: INDEX; Schema: public; Owner: -
 --
 
@@ -9826,6 +9987,13 @@ CREATE TRIGGER on_save AFTER INSERT ON public.saves FOR EACH ROW EXECUTE FUNCTIO
 
 
 --
+-- Name: shares on_share; Type: TRIGGER; Schema: public; Owner: -
+--
+
+CREATE TRIGGER on_share AFTER INSERT ON public.shares FOR EACH ROW EXECUTE FUNCTION public.handle_share();
+
+
+--
 -- Name: supporter_rank_ups on_supporter_rank_up; Type: TRIGGER; Schema: public; Owner: -
 --
 
@@ -9935,6 +10103,13 @@ CREATE TRIGGER trg_reposts AFTER INSERT OR UPDATE ON public.reposts FOR EACH ROW
 --
 
 CREATE TRIGGER trg_saves AFTER INSERT OR UPDATE ON public.saves FOR EACH ROW EXECUTE FUNCTION public.on_new_row();
+
+
+--
+-- Name: shares trg_shares; Type: TRIGGER; Schema: public; Owner: -
+--
+
+CREATE TRIGGER trg_shares AFTER INSERT OR UPDATE ON public.shares FOR EACH ROW EXECUTE FUNCTION public.on_new_row();
 
 
 --

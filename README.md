@@ -1,6 +1,12 @@
-# Audius API Server
+<p align="center">
+  <br/>
+  <img src="./assets/hero.jpg" alt="hero" width="600">
 
-The read API server backend for the Audius mobile apps and [audius.co](https://audius.co) website.
+   <h3 align="center"><b>Audius API Server</b></h3>
+   <p align="center"><i>The read API server backend for the Audius mobile apps and <a href="https://audius.co">audius.co</a></i></p>
+</p>
+
+[![license](https://img.shields.io/github/license/AudiusProject/api)](https://github.com/AudiusProject/api/blob/main/LICENSE) [![releases](https://img.shields.io/github/v/release/AudiusProject/api)](https://github.com/AudiusProject/api/releases/latest)
 
 ## Running
 
@@ -9,15 +15,18 @@ The read API server backend for the Audius mobile apps and [audius.co](https://a
 1. Create `.env` file:
 
    ```
-   discoveryDbUrl='postgresql://postgres:somepassword@someip:5432/audius_discovery'
+   readDbUrl='postgresql://postgres:somepassword@someip:5432/audius_discovery'
    ```
 
-   Other env vars:
+   Regular database dumps are posted to S3, and can be pulled with
 
    ```
-   delegatePrivateKey: key to sign stream/download requests with
-   axiomToken: axiom api token to pipe logs to axiom
-   axiomDataset: axiom dataset name
+   curl https://audius-pgdump.s3-us-west-2.amazonaws.com/discProvProduction.dump -O
+   pg_restore -d <your-database-url> \
+      --username postgres \
+      --no-privileges \
+      --clean --if-exists --verbose -j 8 \
+      discProvProduction.dump
    ```
 
    (more env vars and their defaults can be found in `config.go`)
@@ -34,7 +43,7 @@ The read API server backend for the Audius mobile apps and [audius.co](https://a
    make
    ```
 
-   http://localhost:1323/v2/users/stereosteve
+   http://localhost:1323/v1/users/handle/audius
 
    This will watch sql files + re-run `sqlc generate` + restart server when go files change.
 
@@ -43,6 +52,12 @@ The read API server backend for the Audius mobile apps and [audius.co](https://a
 ```
 docker compose up -d
 make test
+```
+
+### Build
+
+```
+go build -o api main.go
 ```
 
 ## API diff
@@ -74,27 +89,38 @@ docker compose up -d
 
 ## ElasticSearch
 
-Currently esindexer is running in listen mode on the same box as elasticsearch, running in docker compose in the `bridgerton` folder.
+ElasticSearch is configured by the env var `elasticsearchUrl`.
 
-To deploy:
+Tool for interacting with search
 
-```
-make esindexer-staging
-make esindexer-production
-```
+http://localhost:1323/searchtest.html
 
-To re-index collections from scratch you can:
+Re-index collections from scratch:
 
 ```
-ssh stage-elasticsearch
-cd bridgerton
-time ./bridge-amd64 reindex
+go build -o api main.go
+time ./api reindex
 ```
 
 You can also specify specific indexes. If you change the mapping you can add `drop`:
 
 ```
-ssh stage-elasticsearch
-cd bridgerton
-time ./bridge-amd64 reindex drop playlists
+go build -o api main.go
+time ./api reindex drop playlists
 ```
+
+### Re-index in stage or prod
+
+If you make mapping changes, or want to re-index everything, you can do:
+
+```
+make esindexer-reindex-stage
+
+#or
+
+esindexer-reindex-prod
+```
+
+A deploy might disrupt this command, in which case, run it again.
+
+See `Makefile` for more details.

@@ -10,8 +10,10 @@ import (
 
 	"bridgerton.audius.co/api"
 	"bridgerton.audius.co/config"
+	"bridgerton.audius.co/ddl"
 	"bridgerton.audius.co/esindexer"
-	"bridgerton.audius.co/solana/indexer"
+	"bridgerton.audius.co/indexer"
+	solana_indexer "bridgerton.audius.co/solana/indexer"
 )
 
 func main() {
@@ -21,6 +23,27 @@ func main() {
 	}
 
 	switch command {
+	case "server":
+		{
+			fmt.Println("Running migrations...")
+			ddl.RunMigrations()
+
+			fmt.Println("Running server...")
+			as := api.NewApiServer(config.Cfg)
+			as.Serve()
+		}
+	case "indexer":
+		{
+			fmt.Println("Running indexer...")
+			ddl.RunMigrations()
+			_, err := indexer.NewIndexer(indexer.CoreIndexerConfig{
+				DbUrl: config.Cfg.WriteDbUrl,
+			})
+			if err != nil {
+				fmt.Println("Error creating indexer:", err)
+				os.Exit(1)
+			}
+		}
 	case "es-indexer":
 		{
 
@@ -31,7 +54,7 @@ func main() {
 		}
 	case "solana-indexer":
 		fmt.Println("Running solana-indexer...")
-		solanaIndexer := indexer.New(config.Cfg)
+		solanaIndexer := solana_indexer.New(config.Cfg)
 		ctx, cancel := context.WithCancel(context.Background())
 		done := make(chan error, 1)
 		go func() {
@@ -49,12 +72,6 @@ func main() {
 				panic(err)
 			}
 			fmt.Println("Done.")
-		}
-	case "server":
-		{
-			fmt.Println("Running server...")
-			as := api.NewApiServer(config.Cfg)
-			as.Serve()
 		}
 	default:
 		fmt.Printf("Unrecognized command: %s", command)

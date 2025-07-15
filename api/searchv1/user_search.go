@@ -2,6 +2,7 @@ package searchv1
 
 import (
 	"fmt"
+	"strings"
 
 	"github.com/aquasecurity/esquery"
 )
@@ -12,6 +13,7 @@ type UserSearchQuery struct {
 	IsTagSearch bool
 	Genres      []string
 	MyID        int32 `json:"my_id"`
+	SortMethod  string
 }
 
 func (q *UserSearchQuery) Map() map[string]any {
@@ -20,11 +22,24 @@ func (q *UserSearchQuery) Map() map[string]any {
 	if q.IsTagSearch {
 		builder.Must(esquery.MultiMatch().Query(q.Query).Fields("tracks.tags").Type(esquery.MatchTypeBoolPrefix))
 	} else if q.Query != "" {
-		builder.Must(esquery.MultiMatch(q.Query).Fields("name", "handle").Type(esquery.MatchTypeBoolPrefix))
+		builder.Must(esquery.MultiMatch(q.Query).
+			Fields("suggest").
+			MinimumShouldMatch("80%").
+			Fuzziness("AUTO").
+			Type(esquery.MatchTypeBoolPrefix))
 
 		// for exact title match
 		builder.Should(
-			esquery.MultiMatch().Query(q.Query).Fields("name", "handle").Operator(esquery.OperatorAnd).Type(esquery.MatchTypePhrasePrefix),
+			esquery.MultiMatch().Query(q.Query).
+				Fields("name", "handle").
+				Operator(esquery.OperatorAnd),
+		)
+
+		// exact match, but remove spaces from query
+		// so 'Stereo Steve' ranks 'StereoSteve' higher
+		builder.Should(
+			esquery.MultiMatch().Query(strings.ReplaceAll(q.Query, " ", "")).Fields("name", "handle").
+				Operator(esquery.OperatorAnd),
 		)
 	} else {
 		builder.Must(esquery.MatchAll())
@@ -47,7 +62,7 @@ func (q *UserSearchQuery) Map() map[string]any {
 					"id":    fmt.Sprintf("%d", q.MyID),
 					"path":  "following_user_ids",
 				},
-				"boost": 10,
+				"boost": 1000,
 			},
 		}))
 	}
@@ -63,5 +78,12 @@ func (q *UserSearchQuery) Map() map[string]any {
 
 func (q *UserSearchQuery) DSL() string {
 	inner := q.Map()
-	return BuildFunctionScoreDSL("follower_count", inner)
+	switch q.SortMethod {
+	case "recent":
+		return sortWithField(q.Map(), "created_at", "desc")
+	case "popular":
+		return BuildFunctionScoreDSL("follower_count", 200, inner)
+	default:
+		return BuildFunctionScoreDSL("follower_count", 20, inner)
+	}
 }

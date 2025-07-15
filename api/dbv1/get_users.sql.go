@@ -20,7 +20,7 @@ SELECT
   bio,
 
   -- todo: this can sometimes be a Qm cid
-  -- sometiems be a json string...
+  -- sometimes be a json string...
   cover_photo,
 
   follower_count,
@@ -43,11 +43,15 @@ SELECT
   profile_type,
 
   -- todo: this can sometimes be a Qm cid
-  -- sometiems be a json string...
+  -- sometimes be a json string...
   profile_picture,
 
   repost_count,
-  track_count,
+  -- Use total_track_count when viewing own profile, otherwise use track_count
+  (CASE
+    WHEN u.user_id = $1::int THEN total_track_count
+    ELSE track_count
+  END)::bigint as track_count,
   is_deactivated,
   is_available,
   wallet as erc_wallet,
@@ -93,8 +97,20 @@ SELECT
   is_storage_v2,
   creator_node_endpoint,
 
-  -- TODO: either compute or remove this
-  10 as current_user_followee_follow_count,
+  (
+    SELECT count(*)
+    FROM follows f
+    JOIN (
+      SELECT followee_user_id
+      FROM follows mf
+      WHERE mf.follower_user_id = $1
+        AND mf.is_delete = false
+    ) mf ON f.follower_user_id = mf.followee_user_id
+    WHERE $1 > 0
+    AND $1 != u.user_id -- don't compute when viewing own profile
+    AND f.followee_user_id = u.user_id
+    AND f.is_delete = false
+  ) AS current_user_followee_follow_count,
 
   (
     SELECT count(*) > 0
@@ -145,8 +161,8 @@ ORDER BY u.user_id
 `
 
 type GetUsersParams struct {
-	MyID interface{} `json:"my_id"`
-	Ids  []int32     `json:"ids"`
+	MyID int32   `json:"my_id"`
+	Ids  []int32 `json:"ids"`
 }
 
 type GetUsersRow struct {
@@ -174,7 +190,7 @@ type GetUsersRow struct {
 	ProfileType                    *string        `json:"profile_type"`
 	ProfilePicture                 pgtype.Text    `json:"profile_picture"`
 	RepostCount                    pgtype.Int8    `json:"repost_count"`
-	TrackCount                     pgtype.Int8    `json:"track_count"`
+	TrackCount                     int64          `json:"track_count"`
 	IsDeactivated                  bool           `json:"is_deactivated"`
 	IsAvailable                    bool           `json:"is_available"`
 	ErcWallet                      pgtype.Text    `json:"erc_wallet"`
@@ -194,7 +210,7 @@ type GetUsersRow struct {
 	CreatedAt                      time.Time      `json:"created_at"`
 	IsStorageV2                    bool           `json:"is_storage_v2"`
 	CreatorNodeEndpoint            pgtype.Text    `json:"creator_node_endpoint"`
-	CurrentUserFolloweeFollowCount int32          `json:"current_user_followee_follow_count"`
+	CurrentUserFolloweeFollowCount int64          `json:"current_user_followee_follow_count"`
 	DoesCurrentUserFollow          bool           `json:"does_current_user_follow"`
 	DoesCurrentUserSubscribe       bool           `json:"does_current_user_subscribe"`
 	DoesFollowCurrentUser          bool           `json:"does_follow_current_user"`

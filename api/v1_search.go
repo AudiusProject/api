@@ -1,6 +1,7 @@
 package api
 
 import (
+	"strconv"
 	"strings"
 
 	"bridgerton.audius.co/api/dbv1"
@@ -92,6 +93,11 @@ func (app *ApiServer) searchUsers(c *fiber.Ctx) ([]dbv1.FullUser, error) {
 		IsTagSearch: isTagSearch,
 		Genres:      queryMutli(c, "genre"),
 		MyID:        myId,
+		SortMethod:  c.Query("sort_method"),
+	}
+
+	if c.QueryBool("debug") {
+		c.Set("x-user-dsl", q.DSL())
 	}
 
 	userIds, err := searchv1.SearchAndPluck(app.esClient, "users", q.DSL(), limit, offset)
@@ -118,18 +124,39 @@ func (app *ApiServer) searchTracks(c *fiber.Ctx) ([]dbv1.FullTrack, error) {
 	offset := c.QueryInt("offset", 0)
 	myId := app.getMyId(c)
 
+	// bpm range
+	minBpm := c.QueryInt("bpm_min")
+	maxBpm := c.QueryInt("bpm_max")
+	if bpmRange := c.Query("bpm"); bpmRange != "" {
+		parts := strings.Split(bpmRange, "-")
+		if len(parts) == 2 {
+			if min, err := strconv.Atoi(strings.TrimSpace(parts[0])); err == nil {
+				minBpm = min
+			}
+			if max, err := strconv.Atoi(strings.TrimSpace(parts[1])); err == nil {
+				maxBpm = max
+			}
+		}
+	}
+
 	q := searchv1.TrackSearchQuery{
 		MyID:           myId,
 		IsTagSearch:    isTagSearch,
 		Query:          c.Query("query"),
 		Genres:         queryMutli(c, "genre"),
 		Moods:          queryMutli(c, "mood"),
-		MinBPM:         c.QueryInt("bpm_min"),
-		MaxBPM:         c.QueryInt("bpm_max"),
+		MinBPM:         minBpm,
+		MaxBPM:         maxBpm,
 		MusicalKeys:    queryMutli(c, "key"),
 		IsDownloadable: c.QueryBool("is_downloadable"),
+		HasDownloads:   c.QueryBool("has_downloads"),
 		IsPurchaseable: c.QueryBool("is_purchaseable"),
 		OnlyVerified:   c.QueryBool("only_verified"),
+		SortMethod:     c.Query("sort_method"),
+	}
+
+	if c.QueryBool("debug") {
+		c.Set("x-track-dsl", q.DSL())
 	}
 
 	tracksIds, err := searchv1.SearchAndPluck(app.esClient, "tracks", q.DSL(), limit, offset)
@@ -165,6 +192,11 @@ func (app *ApiServer) searchPlaylists(c *fiber.Ctx) ([]dbv1.FullPlaylist, error)
 		Genres:       queryMutli(c, "genre"),
 		Moods:        queryMutli(c, "mood"),
 		OnlyVerified: c.QueryBool("only_verified"),
+		SortMethod:   c.Query("sort_method"),
+	}
+
+	if c.QueryBool("debug") {
+		c.Set("x-playlist-dsl", q.DSL())
 	}
 
 	playlistsIds, err := searchv1.SearchAndPluck(app.esClient, "playlists", q.DSL(), limit, offset)
@@ -201,7 +233,12 @@ func (app *ApiServer) searchAlbums(c *fiber.Ctx) ([]dbv1.FullPlaylist, error) {
 		Genres:       queryMutli(c, "genre"),
 		Moods:        queryMutli(c, "mood"),
 		OnlyVerified: c.QueryBool("only_verified"),
+		SortMethod:   c.Query("sort_method"),
 		IsAlbum:      true,
+	}
+
+	if c.QueryBool("debug") {
+		c.Set("x-album-dsl", q.DSL())
 	}
 
 	playlistsIds, err := searchv1.SearchAndPluck(app.esClient, "playlists", q.DSL(), limit, offset)

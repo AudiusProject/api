@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"log"
+	"log/slog"
 	"slices"
 	"sync"
 	"time"
@@ -128,10 +129,16 @@ func (indexer *EsIndexer) listen(ctx context.Context) error {
 		return nil
 	}))
 
-	// this fires all the time...
-	// but we're not even indexing play_count atm...
-	// todo: index play count
-	// also... we might not need to update this so often...
+	listener.Handle("reindex", pgxlisten.HandlerFunc(func(ctx context.Context, notification *pgconn.Notification, conn *pgx.Conn) error {
+		if err := indexer.reindexAll(); err != nil {
+			slog.Error("reindex failed", "err", err)
+		}
+		return nil
+	}))
+
+	// this would be useful for updating track.play_count
+	// but it also fires all the time...
+	// and since we actually fetch tracks from sql, it's okay if this is alittle stale
 	// listener.Handle("aggregate_plays", logNotify)
 
 	go func() {

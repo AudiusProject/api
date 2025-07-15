@@ -23,6 +23,7 @@ func TestUserQuery(t *testing.T) {
 		assert.Equal(t, "rayjacobson", user.Handle.String)
 		assert.False(t, user.DoesCurrentUserFollow)
 		assert.False(t, user.DoesFollowCurrentUser)
+		assert.Equal(t, int64(0), user.CurrentUserFolloweeFollowCount)
 	}
 
 	// as stereosteve
@@ -49,6 +50,7 @@ func TestUserQuery(t *testing.T) {
 		assert.Equal(t, "stereosteve", user.Handle.String)
 		assert.False(t, user.DoesCurrentUserFollow)
 		assert.False(t, user.DoesFollowCurrentUser)
+		assert.Equal(t, int64(0), user.CurrentUserFolloweeFollowCount)
 	}
 
 	// multiple users
@@ -61,6 +63,17 @@ func TestUserQuery(t *testing.T) {
 		assert.Len(t, users, 2)
 		assert.Equal(t, "rayjacobson", users[0].Handle.String)
 		assert.Equal(t, "stereosteve", users[1].Handle.String)
+	}
+
+	// user 1 follows user 3... user 2 also follows user 3... so user 2 should be counted in CurrentUserFolloweeFollowCount
+	{
+		users, err := app.queries.FullUsers(t.Context(), dbv1.GetUsersParams{
+			MyID: 1,
+			Ids:  []int32{3},
+		})
+		assert.NoError(t, err)
+		user := users[0]
+		assert.Equal(t, int64(1), user.CurrentUserFolloweeFollowCount)
 	}
 }
 
