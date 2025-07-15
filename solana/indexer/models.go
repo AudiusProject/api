@@ -6,7 +6,6 @@ import (
 
 	"bridgerton.audius.co/database"
 	"github.com/jackc/pgx/v5"
-	"go.uber.org/zap"
 )
 
 type claimableAccountsRow struct {
@@ -15,15 +14,15 @@ type claimableAccountsRow struct {
 	slot             uint64
 	mint             string
 	ethereumAddress  string
-	bankAccount      string
+	account          string
 }
 
 func insertClaimableAccount(ctx context.Context, db database.DBTX, row claimableAccountsRow) error {
 	sql := `
 		INSERT INTO sol_claimable_accounts
-			(signature, instruction_index, slot, mint, ethereum_address, bank_account)
+			(signature, instruction_index, slot, mint, ethereum_address, account)
 		VALUES
-			(@signature, @instructionIndex, @slot, @mint, @ethereumAddress, @bankAccount)
+			(@signature, @instructionIndex, @slot, @mint, @ethereumAddress, @account)
 		ON CONFLICT DO NOTHING
 	;`
 	_, err := db.Exec(ctx, sql, pgx.NamedArgs{
@@ -32,7 +31,7 @@ func insertClaimableAccount(ctx context.Context, db database.DBTX, row claimable
 		"slot":             row.slot,
 		"mint":             row.mint,
 		"ethereumAddress":  row.ethereumAddress,
-		"bankAccount":      row.bankAccount,
+		"account":          row.account,
 	})
 	return err
 }
@@ -112,7 +111,7 @@ type balanceChangeRow struct {
 	blockTimestamp time.Time
 }
 
-func insertBalanceChange(ctx context.Context, db database.DBTX, row balanceChangeRow, logger *zap.Logger) error {
+func insertBalanceChange(ctx context.Context, db database.DBTX, row balanceChangeRow) error {
 	sql := `INSERT INTO sol_token_account_balance_changes (account, mint, change, balance, signature, slot, block_timestamp)
 						VALUES (@account, @mint, @change, @balance, @signature, @slot, @blockTimestamp)
 						ON CONFLICT DO NOTHING`
@@ -125,15 +124,6 @@ func insertBalanceChange(ctx context.Context, db database.DBTX, row balanceChang
 		"slot":           row.slot,
 		"blockTimestamp": row.blockTimestamp.UTC(),
 	})
-	if logger != nil {
-		logger.Debug("inserting balance change...",
-			zap.String("account", row.account),
-			zap.String("mint", row.balanceChange.Mint),
-			zap.Uint64("balance", row.balanceChange.PostTokenBalance),
-			zap.Int64("change", row.balanceChange.Change),
-			zap.Uint64("slot", row.slot),
-		)
-	}
 	return err
 }
 

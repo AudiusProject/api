@@ -19,6 +19,10 @@ type parsedPurchaseMemo struct {
 	AccessType            string
 }
 
+func (m parsedPurchaseMemo) String() string {
+	return fmt.Sprintf("%s:%d:%d:%d:%s", m.ContentType, m.ContentId, m.ValidAfterBlocknumber, m.BuyerUserId, m.AccessType)
+}
+
 func ParsePurchaseMemo(memo []byte) (parsedPurchaseMemo, error) {
 	parts := strings.Split(string(memo), ":")
 	if len(parts) > 3 {
@@ -63,7 +67,7 @@ func findNextPurchaseMemo(tx *solana.Transaction, instructionIndex int, logger *
 			parsed, err := ParsePurchaseMemo(inst.Data)
 			if err != nil {
 				if logger != nil {
-					logger.Warn("failed to parse purchase memo", zap.Error(err), zap.String("memo", inst.Data.String()))
+					logger.Warn("failed to parse purchase memo", zap.Error(err), zap.String("memo", string(inst.Data)))
 				}
 				continue
 			}
@@ -99,7 +103,7 @@ func findNextLocationMemo(tx *solana.Transaction, instructionIndex int, logger *
 			parsed, err := ParseLocationMemo(inst.Data)
 			if err != nil {
 				if logger != nil {
-					logger.Warn("failed to parse geo memo", zap.Error(err), zap.String("memo", inst.Data.String()))
+					logger.Warn("failed to parse location memo", zap.Error(err), zap.String("memo", string(inst.Data)))
 				}
 				continue
 			}

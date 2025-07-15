@@ -12,12 +12,12 @@
       "program": "main.go"
     },
     {
-      "name": "Indexer",
+      "name": "Solana Indexer",
       "type": "go",
       "request": "launch",
       "mode": "auto",
       "program": "main.go",
-      "args": ["--server=false", "--indexer=true"]
+      "args": ["solana-indexer"]
     }
   ]
 }

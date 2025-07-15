@@ -81,7 +81,7 @@ func (s *SolanaIndexer) Start(ctx context.Context) error {
 		latestChainSlot, err = s.rpcClient.GetSlot(ctx, rpc.CommitmentConfirmed)
 	}
 
-	getLastIndexedSlotSql := `SELECT slot FROM solana_indexer_checkpoint LIMIT 1`
+	getLastIndexedSlotSql := `SELECT slot FROM sol_slot_checkpoint LIMIT 1`
 	var lastIndexedSlot uint64
 	if err := s.pool.QueryRow(ctx, getLastIndexedSlotSql).Scan(&lastIndexedSlot); err != nil {
 		if err != pgx.ErrNoRows {
@@ -107,10 +107,10 @@ func (s *SolanaIndexer) Start(ctx context.Context) error {
 			s.config.SolanaConfig.PaymentRouterProgramID,
 		} {
 			wg.Add(1)
-			go func(addr solana.PublicKey) {
+			go func() {
 				defer wg.Done()
-				s.backfillAddressTransactions(ctx, addr, lastIndexedSlot)
-			}(address)
+				s.backfillAddressTransactions(ctx, address, lastIndexedSlot)
+			}()
 		}
 		wg.Wait()
 		lastIndexedSlot = latestChainSlot
@@ -194,9 +194,11 @@ func (s *SolanaIndexer) backfillAddressTransactions(ctx context.Context, address
 	)
 	logger.Info("starting backfill for address")
 	limit := 1000
+
 	for !foundIntersection {
 		select {
 		case <-ctx.Done():
+			logger.Error("failed to find intersection", zap.Error(ctx.Err()))
 			return
 		default:
 		}
@@ -214,20 +216,23 @@ func (s *SolanaIndexer) backfillAddressTransactions(ctx context.Context, address
 			continue
 		}
 		if len(res) == 0 {
-			return
+			logger.Info("no transactions left to index.")
+			break
 		}
 
 		for _, sig := range res {
-			select {
-			case <-ctx.Done():
-				return
-			default:
-			}
 			if sig.Slot < lastIndexedSlot {
 				foundIntersection = true
 				break
 			}
 			logger := logger.With(zap.String("signature", sig.Signature.String()))
+
+			select {
+			case <-ctx.Done():
+				logger.Error("failed to process signature", zap.Error(ctx.Err()))
+				return
+			default:
+			}
 
 			// Skip error transactions
 			if sig.Err != nil {
@@ -242,14 +247,14 @@ func (s *SolanaIndexer) backfillAddressTransactions(ctx context.Context, address
 
 			// Skip existing transactions
 			var exists bool
-			checkSql := `SELECT EXISTS(SELECT 1 FROM solana_token_txs WHERE signature = @signature)`
+			checkSql := `SELECT EXISTS(SELECT 1 FROM sol_token_account_balance_changes WHERE signature = @signature)`
 			err := s.pool.QueryRow(context.Background(), checkSql, pgx.NamedArgs{
 				"signature": sig.Signature,
 			}).Scan(&exists)
 
 			if err != nil {
 				logger.Error("failed to check if signature exists", zap.Error(err))
-				break
+				continue
 			}
 			if exists {
 				lastIndexedSig = sig.Signature
@@ -363,6 +368,7 @@ func (s *SolanaIndexer) ProcessTransaction(
 		logger := logger.With(
 			zap.String("programId", programId.String()),
 			zap.Int("instructionIndex", instructionIndex),
+			zap.String("signature", signature),
 		)
 		switch programId {
 		case claimable_tokens.ProgramID:
@@ -381,7 +387,7 @@ func (s *SolanaIndexer) ProcessTransaction(
 								slot:             slot,
 								mint:             createInst.Mint().PublicKey.String(),
 								ethereumAddress:  strings.ToLower(createInst.EthAddress.Hex()),
-								bankAccount:      createInst.UserBank().PublicKey.String(),
+								account:          createInst.UserBank().PublicKey.String(),
 							})
 							if err != nil {
 								return fmt.Errorf("failed to insert claimable tokens account at instruction %d: %w", instructionIndex, err)
@@ -506,6 +512,13 @@ func (s *SolanaIndexer) ProcessTransaction(
 								parsedLocationMemo: parsedLocationMemo,
 								isValid:            isValid,
 							})
+							logger.Info("payment_router purchase",
+								zap.String("contentType", parsedPurchaseMemo.ContentType),
+								zap.Int("contentId", parsedPurchaseMemo.ContentId),
+								zap.Int("validAfterBlocknumber", parsedPurchaseMemo.ValidAfterBlocknumber),
+								zap.Int("buyerUserId", parsedPurchaseMemo.BuyerUserId),
+								zap.String("accessType", parsedPurchaseMemo.AccessType),
+							)
 						}
 
 						logger.Info("payment_router route",
@@ -523,13 +536,24 @@ func (s *SolanaIndexer) ProcessTransaction(
 		return err
 	}
 	for acc, bal := range balanceChanges {
-		insertBalanceChange(ctx, db, balanceChangeRow{
+		row := balanceChangeRow{
 			slot:           slot,
 			account:        acc,
 			balanceChange:  *bal,
 			signature:      tx.Signatures[0].String(),
 			blockTimestamp: blockTime,
-		}, logger)
+		}
+		insertBalanceChange(ctx, db, row)
+
+		if logger != nil {
+			logger.Debug("balance change",
+				zap.String("account", row.account),
+				zap.String("mint", row.balanceChange.Mint),
+				zap.Uint64("balance", row.balanceChange.PostTokenBalance),
+				zap.Int64("change", row.balanceChange.Change),
+				zap.Uint64("slot", row.slot),
+			)
+		}
 	}
 	return nil
 }
