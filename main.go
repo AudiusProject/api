@@ -54,6 +54,8 @@ func main() {
 		}
 	case "solana-indexer":
 		{
+			fmt.Println("Running migrations...")
+			ddl.RunMigrations()
 			fmt.Println("Running solana-indexer...")
 			solanaIndexer := solana_indexer.New(config.Cfg)
 			ctx, cancel := context.WithCancel(context.Background())
