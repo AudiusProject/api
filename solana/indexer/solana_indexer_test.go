@@ -104,7 +104,7 @@ func TestProcessTransaction_CallsInsertClaimableAccount(t *testing.T) {
 		"slot":             slot,
 		"mint":             mint.String(),
 		"ethereumAddress":  strings.ToLower(ethAddress.String()),
-		"bankAccount":      createInst.UserBank().PublicKey.String(),
+		"account":          createInst.UserBank().PublicKey.String(),
 	}
 
 	err = s.ProcessTransaction(ctx, mockDb, slot, meta, tx, blockTime, logger)
@@ -474,21 +474,23 @@ func TestProcessTransaction_CallsInsertBalanceChange(t *testing.T) {
 	blockTime := time.Now()
 
 	expectedArgs := pgx.NamedArgs{
-		"account":   account.String(),
-		"mint":      mint.String(),
-		"change":    int64(1000),
-		"balance":   uint64(2000),
-		"signature": tx.Signatures[0].String(),
-		"slot":      slot,
+		"account":        account.String(),
+		"mint":           mint.String(),
+		"change":         int64(1000),
+		"balance":        uint64(2000),
+		"signature":      tx.Signatures[0].String(),
+		"slot":           slot,
+		"blockTimestamp": blockTime.UTC(),
 	}
 
 	expectedArgs2 := pgx.NamedArgs{
-		"account":   account2.String(),
-		"mint":      mint.String(),
-		"change":    int64(0),
-		"balance":   uint64(0),
-		"signature": tx.Signatures[0].String(),
-		"slot":      slot,
+		"account":        account2.String(),
+		"mint":           mint.String(),
+		"change":         int64(0),
+		"balance":        uint64(0),
+		"signature":      tx.Signatures[0].String(),
+		"slot":           slot,
+		"blockTimestamp": blockTime.UTC(),
 	}
 
 	err := s.ProcessTransaction(ctx, mockDb, slot, meta, tx, blockTime, logger)
