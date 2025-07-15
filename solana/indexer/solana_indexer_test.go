@@ -496,8 +496,14 @@ func TestProcessTransaction_CallsInsertBalanceChange(t *testing.T) {
 	err := s.ProcessTransaction(ctx, mockDb, slot, meta, tx, blockTime, logger)
 	assert.NoError(t, err)
 	assert.Len(t, mockDb.calls, 2)
+
+	actualArgs := []pgx.NamedArgs{
+		mockDb.calls[0].args.(pgx.NamedArgs),
+		mockDb.calls[1].args.(pgx.NamedArgs),
+	}
+
 	assert.Contains(t, mockDb.calls[0].sql, "sol_token_account_balance_changes")
-	assert.Equal(t, expectedArgs, mockDb.calls[0].args.(pgx.NamedArgs))
+	assert.Contains(t, actualArgs, expectedArgs)
 	assert.Contains(t, mockDb.calls[1].sql, "sol_token_account_balance_changes")
-	assert.Equal(t, expectedArgs2, mockDb.calls[1].args.(pgx.NamedArgs))
+	assert.Contains(t, actualArgs, expectedArgs2)
 }
