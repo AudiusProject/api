@@ -312,6 +312,7 @@ func (s SolanaIndexer) ProcessSignature(ctx context.Context, slot uint64, txSig 
 	if err != nil {
 		return fmt.Errorf("failed to commit sql transaction: %w", err)
 	}
+
 	return nil
 }
 
@@ -523,10 +524,11 @@ func (s *SolanaIndexer) ProcessTransaction(
 	}
 	for acc, bal := range balanceChanges {
 		insertBalanceChange(ctx, db, balanceChangeRow{
-			slot:          slot,
-			account:       acc,
-			balanceChange: *bal,
-			signature:     tx.Signatures[0].String(),
+			slot:           slot,
+			account:        acc,
+			balanceChange:  *bal,
+			signature:      tx.Signatures[0].String(),
+			blockTimestamp: blockTime,
 		}, logger)
 	}
 	return nil

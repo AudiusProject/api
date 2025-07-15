@@ -2,6 +2,7 @@ package indexer
 
 import (
 	"context"
+	"time"
 
 	"bridgerton.audius.co/database"
 	"github.com/jackc/pgx/v5"
@@ -105,22 +106,24 @@ type balanceChange struct {
 
 type balanceChangeRow struct {
 	balanceChange
-	account   string
-	signature string
-	slot      uint64
+	account        string
+	signature      string
+	slot           uint64
+	blockTimestamp time.Time
 }
 
 func insertBalanceChange(ctx context.Context, db database.DBTX, row balanceChangeRow, logger *zap.Logger) error {
-	sql := `INSERT INTO sol_token_account_balance_changes (account, mint, change, balance, signature, slot)
-						VALUES (@account, @mint, @change, @balance, @signature, @slot)
+	sql := `INSERT INTO sol_token_account_balance_changes (account, mint, change, balance, signature, slot, block_timestamp)
+						VALUES (@account, @mint, @change, @balance, @signature, @slot, @blockTimestamp)
 						ON CONFLICT DO NOTHING`
 	_, err := db.Exec(ctx, sql, pgx.NamedArgs{
-		"account":   row.account,
-		"mint":      row.balanceChange.Mint,
-		"change":    row.balanceChange.Change,
-		"balance":   row.balanceChange.PostTokenBalance,
-		"signature": row.signature,
-		"slot":      row.slot,
+		"account":        row.account,
+		"mint":           row.balanceChange.Mint,
+		"change":         row.balanceChange.Change,
+		"balance":        row.balanceChange.PostTokenBalance,
+		"signature":      row.signature,
+		"slot":           row.slot,
+		"blockTimestamp": row.blockTimestamp.UTC(),
 	})
 	if logger != nil {
 		logger.Debug("inserting balance change...",
