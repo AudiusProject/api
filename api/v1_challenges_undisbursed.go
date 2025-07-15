@@ -1,6 +1,7 @@
 package api
 
 import (
+	"fmt"
 	"time"
 
 	"bridgerton.audius.co/trashid"
@@ -11,11 +12,16 @@ import (
 type GetUndisbursedChallengesQueryParams struct {
 	ChallengeID          string `query:"challenge_id"`
 	CompletedBlocknumber int    `query:"completed_blocknumber"`
-	Limit                int    `query:"limit" default:"100" validate:"min=1,max=500"`
+	Limit                int    `query:"limit" default:"10" validate:"min=1,max=500"`
 	Offset               int    `query:"offset" default:"0" validate:"min=0"`
 }
 
 func (app *ApiServer) v1ChallengesUndisbursed(c *fiber.Ctx) error {
+	userId, _ := trashid.DecodeHashId(c.Params("userId"))
+	if userId == 0 {
+		userId = int(app.getMyId(c))
+	}
+
 	params := GetUndisbursedChallengesQueryParams{}
 	if err := app.ParseAndValidateQueryParams(c, &params); err != nil {
 		return err
@@ -56,8 +62,9 @@ func (app *ApiServer) v1ChallengesUndisbursed(c *fiber.Ctx) error {
 	;
 	`
 
+	fmt.Println("userId", userId)
 	rows, err := app.pool.Query(c.Context(), sql, pgx.NamedArgs{
-		"user_id":               app.getMyId(c),
+		"user_id":               userId,
 		"completed_blocknumber": params.CompletedBlocknumber,
 		"challenge_id":          params.ChallengeID,
 		"limit":                 params.Limit,

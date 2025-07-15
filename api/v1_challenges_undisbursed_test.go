@@ -32,6 +32,13 @@ func TestGetUndisbursedChallenges(t *testing.T) {
 		"data.0.user_id": "L50xn",
 	})
 
+	// Test filtering by user_id with path parameter
+	status, body = testGet(t, app, "/v1/challenges/undisbursed/L50xn")
+	assert.Equal(t, 200, status)
+	jsonAssert(t, body, map[string]any{
+		"data.0.user_id": "L50xn",
+	})
+
 	// Test filtering by challenge_id
 	status, body = testGet(t, app, "/v1/challenges/undisbursed?challenge_id=f")
 	assert.Equal(t, 200, status)
