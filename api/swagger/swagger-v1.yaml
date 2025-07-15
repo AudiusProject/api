@@ -2045,6 +2045,106 @@ paths:
         "500":
           description: Server error
           content: {}
+
+  /users/{id}/coins:
+    get:
+      tags:
+      - users
+      description: 'Gets a list of the coins owned by the user and their balances'
+      parameters:
+      - name: id
+        in: path
+        description: A User ID
+        required: true
+        schema:
+          type: string
+      operationId: Get User Coins
+      responses:
+        '200':
+          description: Success
+          content:
+            application/json:
+              schema:
+                type: object 
+                properties:
+                  data:
+                    type: array
+                    items:
+                      type: object
+                      properties:
+                        mint:
+                          type: string
+                          description: The coin mint address
+                          example: "9LzCMqDgTKYz9Drzqnpgee3SGa89up3a247ypMj2xrqM"
+                        ticker:
+                          type: string
+                          description: The coin symbol
+                          example: "$AUDIO"
+                        balance:
+                          type: integer
+                          description: The balance of the coin in the user's account (in wei)
+                          example: 1000000000
+                        balance_usd:
+                          type: number
+                          description: The balance of the coin in the user's account in USD
+                          example: 1.23
+  /users/{id}/coins/{mint}:
+    get:
+      tags:
+      - users
+      description: 'Gets information about a specific coin owned by the user and their wallets'
+      parameters:
+      - name: id
+        in: path
+        description: A User ID
+        required: true
+        schema:
+          type: string
+      operationId: Get User Coin
+      responses:
+        '200':
+          description: Success
+          content:
+            application/json:
+              schema:
+                type: object 
+                properties:
+                  data:
+                    type: object
+                    properties:
+                      totalBalance: 
+                        type: integer
+                        description: The total balance of the coin in the user's account (in wei)
+                        example: 1000000000
+                      totalBalanceUSD:
+                        type: number
+                        description: The total balance of the coin in the user's account in USD
+                        example: 1.23
+                      accounts:
+                        type: array
+                        items:
+                          type: object
+                          properties:
+                            account:
+                              type: string
+                              description: The token account address
+                              example: "CTyFguG69kwYrzk24P3UuBvY1rR5atu9kf2S6XEwAU8X"
+                            owner:
+                              type: string
+                              description: The owner wallet of the token account
+                              example: "HzZ3EKACbH6XEHs59Rt1adVzUKv5cTDE9o9YWFaMhwpF"
+                            balance:
+                              type: integer
+                              description: The balance of the coin in the user's account (in wei)
+                              example: 1000000000
+                            balance_usd:
+                              type: number
+                              description: The balance of the coin in the user's account in USD
+                              example: 1.23
+                            is_in_app_wallet:
+                              type: boolean
+                              description: Whether the account is in the user's in-app wallet
+                              example: true          
   /users/{id}/collectibles:
     get:
       tags:
@@ -3279,6 +3379,104 @@ paths:
         "500":
           description: Server error
           content: {}
+  /coins:
+    get:
+      tags:
+        - coins
+      operationId: Get Coins
+      description: 'Gets information about coins'
+      parameters:
+      - name: mint
+        in: query
+        description: The mint addresses of the coins
+        style: form
+        explode: true
+        schema:
+          type: array
+          items:
+            type: string
+      - name: owner_id
+        in: query
+        description: The user IDs of artists with minted coins
+        style: form
+        explode: true
+        schema:
+          type: array
+          items:
+            type: string
+          
+      responses:
+        '200':
+          description: Success
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  data:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/coin'
+  /coins/{mint}:
+    get:
+      tags:
+        - coins
+      operationId: Get Coin
+      description: 'Gets information about a specific coin by its mint address'
+      parameters:
+      - name: mint
+        in: path
+        description: The mint address of the coin
+        required: true
+        schema:
+          type: string
+          example: 9LzCMqDgTKYz9Drzqnpgee3SGa89up3a247ypMj2xrqM
+      responses:
+        '200':
+          description: Success
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  data:
+                    $ref: '#/components/schemas/coin'
+  /coins/{mint}/members:
+    get:
+      tags:
+        - coins
+      operationId: Get Coin Members
+      description: 'Gets a list of Audius users with a non-zero balance of a specific coin'
+      parameters:
+      - name: mint
+        in: path
+        description: The mint address of the coin
+        required: true
+        schema:
+          type: string
+          example: 9LzCMqDgTKYz9Drzqnpgee3SGa89up3a247ypMj2xrqM
+      responses:
+        '200':
+          description: Success
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  data:
+                    type: array
+                    items:
+                      type: object
+                      properties:
+                        balance:
+                          type: integer
+                          description: The user's balance of the specific coin (in wei)
+                          example: 100000
+                        user_id:
+                          type: string
+                          description: The ID of the user with a non-zero balance
+                          example: "7eP5n"
+
 components:
   schemas:
     user_response:
@@ -4708,6 +4906,77 @@ components:
           type: string
         owner_id:
           type: string
+    coin:
+      type: object
+      properties:
+        mint:
+          type: string
+          description: The coin mint address
+          example: "9LzCMqDgTKYz9Drzqnpgee3SGa89up3a247ypMj2xrqM"
+        ticker:
+          type: string
+          description: The coin symbol
+          example: "$AUDIO"
+        logo:
+          type: string
+          description: The URL to the coin's logo image
+          example: "https://example.com/logo.png"
+        decimals:
+          type: integer
+          description: The number of decimal places for the coin
+          example: 9
+        price:
+          type: number
+          description: The current price of the coin in USD
+          example: 1.23
+        price_change_24h:
+          type: number
+          description: The percentage change in price over the last 24 hours
+          example: 0.5
+        market_cap:
+          type: number
+          description: The market capitalization of the coin in USD
+          example: 123456789
+        volume:
+          type: number
+          description: The total trading volume of the coin
+          example: 582959257297739
+        volume_24h:
+          type: number
+          description: The trading volume of the coin in the last 24 hours
+          example: 987654321
+        volume_change_24h:
+          type: number
+          description: The percentage change in trading volume over the last 24 hours
+          example: 0.15
+        total_supply:
+          type: number
+          description: The total supply of the coin
+          example: 1000000000
+        circulating_supply:
+          type: number
+          description: The circulating supply of the coin
+          example: 500000000
+        members:
+          type: integer
+          description: The number of Audius users holding the coin
+          example: 10000
+        members_change_24h:
+          type: number
+          description: The percentage change in the number of members holding the coin over the last 24 hours
+          example: 0.25
+        holders:
+          type: integer
+          description: The total number of unique holders of the coin
+          example: 50000
+        holders_change_24h:
+          type: number
+          description: The percentage change in the number of holders over the last 24 hours
+          example: 0.1
+        owner_id:
+          type: string
+          description: The ID of the user associated with the coin
+          example: "7eP5n"
   responses:
     ParseError:
       description: When a mask can't be parsed
