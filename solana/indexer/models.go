@@ -146,7 +146,7 @@ func insertPurchase(ctx context.Context, db database.DBTX, row purchaseRow) erro
 		(signature, instruction_index, amount, slot, from_account, content_type, content_id, buyer_user_id, access_type, valid_after_blocknumber, is_valid, city, region, country)
 	VALUES
 		(@signature, @instructionIndex, @amount, @slot, @fromAccount, @contentType, @contentId, @buyerUserId, @accessType, @validAfterBlocknumber, @isValid, @city, @region, @country)
-	ON CONFLICT DO NOTHIN
+	ON CONFLICT DO NOTHING
 	;`
 
 	_, err := db.Exec(ctx, sql, pgx.NamedArgs{
