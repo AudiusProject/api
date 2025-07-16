@@ -28,6 +28,7 @@ type Config struct {
 	Rewards            []rewards.Reward
 	AudiusdURL         string
 	ChainId            string
+	BirdeyeToken       string
 }
 
 var Cfg = Config{
@@ -42,6 +43,7 @@ var Cfg = Config{
 	AxiomDataset:       os.Getenv("axiomDataset"),
 	NetworkTakeRate:    10,
 	AudiusdURL:         os.Getenv("audiusdUrl"),
+	BirdeyeToken:       os.Getenv("birdeyeToken"),
 }
 
 func init() {

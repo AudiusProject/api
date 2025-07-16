@@ -11,6 +11,7 @@ import (
 	"strconv"
 	"time"
 
+	"bridgerton.audius.co/api/birdeye"
 	"bridgerton.audius.co/api/dbv1"
 	"bridgerton.audius.co/config"
 	"bridgerton.audius.co/esindexer"
@@ -210,6 +211,7 @@ func NewApiServer(config config.Config) *ApiServer {
 		validators:            config.Nodes,
 		auds:                  auds,
 		metricsCollector:      metricsCollector,
+		birdeyeClient:         birdeye.New(config.BirdeyeToken),
 	}
 
 	// Set up a custom decoder for HashIds so they can be parsed in lists
@@ -451,13 +453,17 @@ func NewApiServer(config config.Config) *ApiServer {
 		// Notifications
 		g.Get("/notifications/:userId/playlist_updates", app.requireUserIdMiddleware, app.v1NotificationsPlaylistUpdates)
 
+		// Artist coins
+		g.Get("/coins", app.v1Coins)
+		g.Get("/coins/:mint", app.v1Coin)
+
 	}
 
 	// Comms
 	comms := app.Group("/comms")
 	// Cached/non-cached are the same as there are no other nodes to query anymore
 	comms.Get("/pubkey/:userId", app.requireUserIdMiddleware, app.getPubkey)
-	comms.Get("/pubky/:userId/cached", app.requireUserIdMiddleware, app.getPubkey)
+	comms.Get("/pubkey/:userId/cached", app.requireUserIdMiddleware, app.getPubkey)
 
 	unfurlBlocklist := unfurlist.WithBlocklistPrefixes(
 		[]string{
@@ -527,6 +533,10 @@ func NewApiServer(config config.Config) *ApiServer {
 	return app
 }
 
+type BirdeyeClient interface {
+	GetTokenOverview(ctx context.Context, mint string, frames string) (*birdeye.TokenOverview, error)
+}
+
 type ApiServer struct {
 	*fiber.App
 	pool                  *pgxpool.Pool
@@ -550,6 +560,7 @@ type ApiServer struct {
 	auds                  *sdk.AudiusdSDK
 	skipAuthCheck         bool // set to true in a test if you don't care about auth middleware
 	metricsCollector      *MetricsCollector
+	birdeyeClient         BirdeyeClient
 }
 
 func (app *ApiServer) home(c *fiber.Ctx) error {

@@ -390,6 +390,37 @@ var (
 			"blocknumber":       101,
 			"block_timestamp":   time.Now(),
 		},
+		"artist_coins": {
+			"ticker":   nil,
+			"mint":     nil,
+			"user_id":  nil,
+			"decimals": nil,
+		},
+		"sol_token_account_balances": {
+			"account": nil,
+			"owner":   "owner-acc",
+			"mint":    nil,
+			"balance": nil,
+			"slot":    1,
+		},
+		"sol_claimable_accounts": {
+			"signature":         nil,
+			"instruction_index": 0,
+			"slot":              1,
+			"mint":              nil,
+			"ethereum_address":  nil,
+			"account":           nil,
+		},
+		"sol_token_account_balance_changes": {
+			"account":         nil,
+			"owner":           "owner-acc",
+			"mint":            nil,
+			"change":          nil,
+			"balance":         nil,
+			"block_timestamp": time.Now(),
+			"slot":            1,
+			"signature":       nil,
+		},
 		"shares": {
 			"blockhash":     "block_abc123",
 			"blocknumber":   101,
@@ -477,7 +508,7 @@ func Seed(pool *pgxpool.Pool, fixtures FixtureMap) {
 	// explicitly do the "entity" tables first
 	// so that data dependencies exist before attempting to do saves, follows, etc.
 	// (also do aggregates first so we can override the ones the entities autocreate)
-	entityTables := []string{"aggregate_user", "aggregate_track", "aggregate_playlist", "users", "tracks", "playlists"}
+	entityTables := []string{"aggregate_user", "aggregate_track", "aggregate_playlist", "users", "tracks", "playlists", "sol_token_account_balances"}
 	for _, tableName := range entityTables {
 		if rows, ok := fixtures[tableName]; ok {
 			SeedTable(pool, tableName, rows)
