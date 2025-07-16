@@ -16,7 +16,7 @@ func (app *ApiServer) v1Playlists(c *fiber.Ctx) error {
 	withTracks, _ := strconv.ParseBool(c.Query("with_tracks", "false"))
 
 	// Add permalink ID mappings
-	permalinks := queryMutli(c, "permalink")
+	permalinks := queryMulti(c, "permalink")
 	if len(permalinks) > 0 {
 		handles := make([]string, len(permalinks))
 		slugs := make([]string, len(permalinks))

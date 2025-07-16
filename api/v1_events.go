@@ -20,8 +20,8 @@ func (app *ApiServer) v1Events(c *fiber.Ctx) error {
 		return err
 	}
 
-	entityIDs := queryMutli(c, "entity_id")
-	eventIDs := queryMutli(c, "id")
+	entityIDs := queryMulti(c, "entity_id")
+	eventIDs := queryMulti(c, "id")
 
 	entityIds := []int32{}
 	for _, id := range entityIDs {

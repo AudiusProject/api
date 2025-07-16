@@ -26,7 +26,7 @@ type GetUsersFeedParams struct {
 // but maybe it'd be okay?
 func (app *ApiServer) v1UsersFeed(c *fiber.Ctx) error {
 	myId := app.getMyId(c)
-	followeeIds := queryMutli(c, "followee_user_id")
+	followeeIds := queryMulti(c, "followee_user_id")
 
 	var params = GetUsersFeedParams{}
 	if err := app.ParseAndValidateQueryParams(c, &params); err != nil {
