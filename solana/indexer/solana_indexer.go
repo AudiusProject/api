@@ -539,7 +539,7 @@ func (s *SolanaIndexer) ProcessTransaction(
 	}
 	balanceChanges, err := getTokenBalanceChanges(meta, tx)
 	if err != nil {
-		return err
+		return fmt.Errorf("failed to get token balance changes: %w", err)
 	}
 	for acc, bal := range balanceChanges {
 		row := balanceChangeRow{
@@ -585,6 +585,7 @@ func getTokenBalanceChanges(meta *rpc.TransactionMeta, tx *solana.Transaction) (
 		}
 
 		balanceChanges[acc.String()] = &balanceChange{
+			Owner:           balance.Owner.String(),
 			Mint:            balance.Mint.String(),
 			PreTokenBalance: preBalance,
 		}
@@ -601,6 +602,7 @@ func getTokenBalanceChanges(meta *rpc.TransactionMeta, tx *solana.Transaction) (
 		b := balanceChanges[acc.String()]
 		if b == nil {
 			b = &balanceChange{
+				Owner:           balance.Owner.String(),
 				Mint:            balance.Mint.String(),
 				PreTokenBalance: 0,
 			}
