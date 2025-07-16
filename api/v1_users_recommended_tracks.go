@@ -61,7 +61,7 @@ func (app *ApiServer) v1UsersRecommendedTracks(c *fiber.Ctx) error {
 						AND tts.version = 'pnagD'
 					ORDER BY tts.score DESC
 					-- Limit the number of tracks we recall to improve performance
-					LIMIT 3000
+					LIMIT 1000
 				) tts
 				WHERE NOT EXISTS (
 					SELECT 1 FROM played_tracks pt WHERE pt.play_item_id = tts.track_id
