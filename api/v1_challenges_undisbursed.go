@@ -1,7 +1,6 @@
 package api
 
 import (
-	"fmt"
 	"time"
 
 	"bridgerton.audius.co/trashid"
@@ -62,7 +61,6 @@ func (app *ApiServer) v1ChallengesUndisbursed(c *fiber.Ctx) error {
 	;
 	`
 
-	fmt.Println("userId", userId)
 	rows, err := app.pool.Query(c.Context(), sql, pgx.NamedArgs{
 		"user_id":               userId,
 		"completed_blocknumber": params.CompletedBlocknumber,
