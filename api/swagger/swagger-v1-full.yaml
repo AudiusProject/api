@@ -9085,9 +9085,7 @@ components:
         is_album:
           type: boolean
         playlist_id:
-          type: array
-          items:
-            type: string
+          type: string
     create_track_notification_action_data:
       required:
       - track_id
