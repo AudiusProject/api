@@ -30,6 +30,25 @@ func (m *MockBirdeyeClient) GetTokenOverview(ctx context.Context, mint string, f
 	return nil, fmt.Errorf("token not found")
 }
 
+func (m *MockBirdeyeClient) GetPrices(ctx context.Context, mints []string) (*birdeye.TokenPriceMap, error) {
+	prices := make(birdeye.TokenPriceMap)
+	for _, mint := range mints {
+		switch mint {
+		case "EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v":
+			prices[mint] = birdeye.TokenPriceData{
+				Value: 1.0,
+			}
+		case "9LzCMqDgTKYz9Drzqnpgee3SGa89up3a247ypMj2xrqM":
+			prices[mint] = birdeye.TokenPriceData{
+				Value: 10.0,
+			}
+		default:
+			return nil, fmt.Errorf("price not found for mint %s", mint)
+		}
+	}
+	return &prices, nil
+}
+
 func TestGetCoin(t *testing.T) {
 	app := emptyTestApp(t)
 

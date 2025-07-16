@@ -368,6 +368,7 @@ func NewApiServer(config config.Config) *ApiServer {
 		g.Get("/users/:userId/remixers", app.v1UsersRemixers)
 		g.Get("/users/:userId/recommended-tracks", app.v1UsersRecommendedTracks)
 		g.Get("/users/:userId/now-playing", app.v1UsersNowPlaying)
+		g.Get("/users/:userId/coins", app.v1UsersCoins)
 
 		// Tracks
 		g.Get("/tracks", app.v1Tracks)
@@ -535,6 +536,7 @@ func NewApiServer(config config.Config) *ApiServer {
 
 type BirdeyeClient interface {
 	GetTokenOverview(ctx context.Context, mint string, frames string) (*birdeye.TokenOverview, error)
+	GetPrices(ctx context.Context, mints []string) (*birdeye.TokenPriceMap, error)
 }
 
 type ApiServer struct {

@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"net/http"
+	"strings"
 	"time"
 
 	"github.com/maypok86/otter"
@@ -13,11 +14,20 @@ import (
 type Client struct {
 	token              string
 	tokenOverviewCache otter.Cache[string, *TokenOverview]
+	pricesCache        otter.Cache[string, *TokenPriceMap]
 	httpClient         *http.Client
 }
 
 func New(token string) *Client {
 	tokenOverviewCache, err := otter.MustBuilder[string, *TokenOverview](100).
+		WithTTL(10 * time.Second).
+		CollectStats().
+		Build()
+	if err != nil {
+		panic(err)
+	}
+
+	pricesCache, err := otter.MustBuilder[string, *TokenPriceMap](100).
 		WithTTL(10 * time.Second).
 		CollectStats().
 		Build()
@@ -31,6 +41,7 @@ func New(token string) *Client {
 		httpClient:         httpClient,
 		token:              token,
 		tokenOverviewCache: tokenOverviewCache,
+		pricesCache:        pricesCache,
 	}
 }
 
@@ -93,6 +104,7 @@ func (c *Client) GetTokenOverview(ctx context.Context, tokenAddress string, fram
 	if cachedOverview, ok := c.tokenOverviewCache.Get(cacheKey); ok {
 		return cachedOverview, nil
 	}
+
 	url := fmt.Sprintf("https://public-api.birdeye.so/defi/token_overview?address=%s&frames=%s", tokenAddress, frames)
 	req, err := http.NewRequestWithContext(ctx, "GET", url, nil)
 	if err != nil {
@@ -100,6 +112,7 @@ func (c *Client) GetTokenOverview(ctx context.Context, tokenAddress string, fram
 	}
 	req.Header.Set("x-api-key", c.token)
 	req.Header.Set("x-chain", "solana")
+	req.Header.Set("Content-Type", "application/json")
 
 	resp, err := c.httpClient.Do(req)
 	if err != nil {
@@ -119,6 +132,55 @@ func (c *Client) GetTokenOverview(ctx context.Context, tokenAddress string, fram
 	}
 
 	c.tokenOverviewCache.Set(cacheKey, &result.Data)
+
+	return &result.Data, nil
+}
+
+type TokenPriceData struct {
+	IsScaledUiToken bool    `json:"isScaledUiToken"`
+	Value           float64 `json:"value"`
+	UpdateUnixTime  int64   `json:"updateUnixTime"`
+	UpdateHumanTime string  `json:"updateHumanTime"`
+	PriceInNative   float64 `json:"priceInNative"`
+	PriceChange24h  float64 `json:"priceChange24h"`
+	Liquidity       float64 `json:"liquidity"`
+}
+
+type TokenPriceMap map[string]TokenPriceData
+
+func (c *Client) GetPrices(ctx context.Context, mints []string) (*TokenPriceMap, error) {
+	cacheKey := strings.Join(mints, ",")
+	if cachedPrices, ok := c.pricesCache.Get(cacheKey); ok {
+		return cachedPrices, nil
+	}
+
+	url := fmt.Sprintf("https://public-api.birdeye.so/defi/multi_price?mints=%s", strings.Join(mints, ","))
+	req, err := http.NewRequestWithContext(ctx, "GET", url, nil)
+	if err != nil {
+		return nil, err
+	}
+	req.Header.Set("x-api-key", c.token)
+	req.Header.Set("x-chain", "solana")
+	req.Header.Set("Content-Type", "application/json")
+
+	resp, err := c.httpClient.Do(req)
+	if err != nil {
+		return nil, err
+	}
+	defer resp.Body.Close()
+
+	if resp.StatusCode != http.StatusOK {
+		return nil, fmt.Errorf("unexpected status code: %d", resp.StatusCode)
+	}
+
+	var result struct {
+		Data TokenPriceMap `json:"data"`
+	}
+	if err := json.NewDecoder(resp.Body).Decode(&result); err != nil {
+		return nil, err
+	}
+
+	c.pricesCache.Set(cacheKey, &result.Data)
 
 	return &result.Data, nil
 }
