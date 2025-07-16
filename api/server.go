@@ -11,6 +11,7 @@ import (
 	"strconv"
 	"time"
 
+	"bridgerton.audius.co/api/birdeye"
 	"bridgerton.audius.co/api/dbv1"
 	"bridgerton.audius.co/config"
 	"bridgerton.audius.co/esindexer"
@@ -210,6 +211,7 @@ func NewApiServer(config config.Config) *ApiServer {
 		validators:            config.Nodes,
 		auds:                  auds,
 		metricsCollector:      metricsCollector,
+		birdeyeClient:         birdeye.New(config.BirdeyeToken),
 	}
 
 	// Set up a custom decoder for HashIds so they can be parsed in lists
@@ -545,6 +547,7 @@ type ApiServer struct {
 	auds                  *sdk.AudiusdSDK
 	skipAuthCheck         bool // set to true in a test if you don't care about auth middleware
 	metricsCollector      *MetricsCollector
+	birdeyeClient         *birdeye.Client
 }
 
 func (app *ApiServer) home(c *fiber.Ctx) error {
