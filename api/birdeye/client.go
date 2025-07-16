@@ -18,7 +18,7 @@ type Client struct {
 
 func New(token string) *Client {
 	tokenOverviewCache, err := otter.MustBuilder[string, *TokenOverview](100).
-		WithTTL(1 * time.Second).
+		WithTTL(10 * time.Second).
 		CollectStats().
 		Build()
 	if err != nil {
