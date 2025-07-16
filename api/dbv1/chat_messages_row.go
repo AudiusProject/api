@@ -13,6 +13,7 @@ type ChatMessageAndReactionsRow struct {
 	ChatID      string                   `db:"chat_id" json:"-"`
 	UserID      trashid.HashId           `db:"user_id" json:"sender_user_id"`
 	CreatedAt   time.Time                `db:"created_at" json:"created_at"`
+	Audience    string                   `db:"audience" json:"audience"`
 	Ciphertext  string                   `db:"ciphertext" json:"message"`
 	IsPlaintext bool                     `db:"is_plaintext" json:"is_plaintext"`
 	Reactions   []ChatMessageReactionRow `json:"reactions"`
