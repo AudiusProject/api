@@ -323,6 +323,7 @@ func NewApiServer(config config.Config) *ApiServer {
 		g.Get("/users/handle/:handle", app.v1User)
 		g.Get("/users/handle/:handle/tracks", app.v1UserTracks)
 		g.Get("/users/handle/:handle/albums", app.v1UserAlbums)
+		g.Get("/users/handle/:handle/playlists", app.v1UserPlaylists)
 		g.Get("/users/handle/:handle/tracks/ai_attributed", app.v1UserTracksAiAttributed)
 		g.Get("/users/handle/:handle/reposts", app.v1UsersReposts)
 
@@ -347,6 +348,7 @@ func NewApiServer(config config.Config) *ApiServer {
 		g.Get("/users/:userId/tags", app.v1UsersTags)
 		g.Get("/users/:userId/tracks", app.v1UserTracks)
 		g.Get("/users/:userId/albums", app.v1UserAlbums)
+		g.Get("/users/:userId/playlists", app.v1UserPlaylists)
 		g.Get("/users/:userId/feed", app.v1UsersFeed)
 		g.Get("/users/:userId/connected_wallets", app.v1UsersConnectedWallets)
 		g.Get("/users/:userId/transactions/audio", app.v1UsersTransactionsAudio)
