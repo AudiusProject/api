@@ -13,7 +13,7 @@ import (
 	"bridgerton.audius.co/ddl"
 	"bridgerton.audius.co/esindexer"
 	"bridgerton.audius.co/indexer"
-	"bridgerton.audius.co/solana/indexers"
+	solana_indexer "bridgerton.audius.co/solana/indexer"
 )
 
 func main() {
@@ -54,14 +54,28 @@ func main() {
 		}
 	case "solana-indexer":
 		{
+			fmt.Println("Running migrations...")
+			ddl.RunMigrations()
 			fmt.Println("Running solana-indexer...")
-			tokenIndexer := indexers.NewSolanaIndexer(config.Cfg)
-			tokenIndexer.Start(context.Background())
-
-			// Wait for the process to be terminated
-			sigCh := make(chan os.Signal, 1)
-			signal.Notify(sigCh, syscall.SIGINT, syscall.SIGTERM)
-			<-sigCh
+			solanaIndexer := solana_indexer.New(config.Cfg)
+			ctx, cancel := context.WithCancel(context.Background())
+			done := make(chan error, 1)
+			go func() {
+				done <- solanaIndexer.Start(ctx)
+			}()
+			sigCh := make(chan os.Signal, 3)
+			signal.Notify(sigCh, syscall.SIGINT, syscall.SIGTERM, os.Interrupt)
+			select {
+			case <-sigCh:
+				fmt.Println("Shutting down...")
+				cancel()
+				<-done
+			case err := <-done:
+				if err != nil {
+					panic(err)
+				}
+				fmt.Println("Done.")
+			}
 		}
 	default:
 		fmt.Printf("Unrecognized command: %s", command)

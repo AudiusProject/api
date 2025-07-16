@@ -6,6 +6,7 @@ import (
 	"strings"
 
 	"bridgerton.audius.co/solana/spl/programs/claimable_tokens"
+	"bridgerton.audius.co/solana/spl/programs/payment_router"
 	"bridgerton.audius.co/solana/spl/programs/reward_manager"
 	"github.com/gagliardetto/solana-go"
 )
@@ -26,6 +27,8 @@ type SolanaConfig struct {
 	ClaimableTokensProgramID solana.PublicKey
 
 	StakingBridgeUsdcTokenAccount solana.PublicKey
+
+	PaymentRouterProgramID solana.PublicKey
 }
 
 const (
@@ -37,6 +40,7 @@ const (
 	DevRewardManagerLookupTable      = "GNHKVSmHvoRBt1JJCxz7RSMfzDQGDGhGEjmhHyxb3K5J"
 	DevClaimableTokensProgramID      = "testHKV1B56fbvop4w6f2cTGEub9dRQ2Euta5VmqdX9"
 	DevStakingBridgeUsdcTokenAccount = "GKvndGv2CoKgKQ17GUtFSc7KrFonYxhfbWeczS29MbpP"
+	DevPaymentRouterProgramID        = "apaySbqV1XAmuiGszeN4NyWrXkkMrnuJVoNhzmS1AMa"
 
 	// Stage
 	StageSolanaRelay                   = "https://discoveryprovider.staging.audius.co/solana/relay"
@@ -46,6 +50,7 @@ const (
 	StageRewardManagerLookupTable      = "ChFCWjeFxM6SRySTfT46zXn2K7m89TJsft4HWzEtkB4J"
 	StageClaimableTokensProgramID      = "2sjQNmUfkV6yKKi4dPR8gWRgtyma5aiymE3aXL2RAZww"
 	StageStakingBridgeUsdcTokenAccount = "GKvndGv2CoKgKQ17GUtFSc7KrFonYxhfbWeczS29MbpP"
+	StagePaymentRouterProgramID        = "sp28KA2bTnTA4oSZ3r9tTSKfmiXZtZQHnYYQqWfUyVa"
 
 	// Prod
 	ProdSolanaRelay                   = "https://discoveryprovider.audius.co/solana/relay"
@@ -55,6 +60,7 @@ const (
 	ProdRewardManagerLookupTable      = "4UQwpGupH66RgQrWRqmPM9Two6VJEE68VZ7GeqZ3mvVv"
 	ProdClaimableTokensProgramID      = "Ewkv3JahEFRKkcJmpoKB7pXbnUHwjAyXiwEo4ZY2rezQ"
 	ProdStakingBridgeUsdcTokenAccount = "7vGA3fcjvxa3A11MAxmyhFtYowPLLCNyvoxxgN3NN2Vf"
+	ProdPaymentRouterProgramID        = "paytYpX3LPN98TAeen6bFFeraGSuWnomZmCXjAsoqPa"
 )
 
 func NewSolanaConfig() SolanaConfig {
@@ -90,6 +96,7 @@ func NewSolanaConfig() SolanaConfig {
 		cfg.RewardManagerLookupTable = solana.MustPublicKeyFromBase58(DevRewardManagerLookupTable)
 		cfg.ClaimableTokensProgramID = solana.MustPublicKeyFromBase58(DevClaimableTokensProgramID)
 		cfg.StakingBridgeUsdcTokenAccount = solana.MustPublicKeyFromBase58(DevStakingBridgeUsdcTokenAccount)
+		cfg.PaymentRouterProgramID = solana.MustPublicKeyFromBase58(DevPaymentRouterProgramID)
 	case "stage":
 		fallthrough
 	case "staging":
@@ -100,6 +107,7 @@ func NewSolanaConfig() SolanaConfig {
 		cfg.RewardManagerLookupTable = solana.MustPublicKeyFromBase58(StageRewardManagerLookupTable)
 		cfg.ClaimableTokensProgramID = solana.MustPublicKeyFromBase58(StageClaimableTokensProgramID)
 		cfg.StakingBridgeUsdcTokenAccount = solana.MustPublicKeyFromBase58(StageStakingBridgeUsdcTokenAccount)
+		cfg.PaymentRouterProgramID = solana.MustPublicKeyFromBase58(StagePaymentRouterProgramID)
 	case "prod":
 		fallthrough
 	case "production":
@@ -110,11 +118,13 @@ func NewSolanaConfig() SolanaConfig {
 		cfg.RewardManagerLookupTable = solana.MustPublicKeyFromBase58(ProdRewardManagerLookupTable)
 		cfg.ClaimableTokensProgramID = solana.MustPublicKeyFromBase58(ProdClaimableTokensProgramID)
 		cfg.StakingBridgeUsdcTokenAccount = solana.MustPublicKeyFromBase58(ProdStakingBridgeUsdcTokenAccount)
+		cfg.PaymentRouterProgramID = solana.MustPublicKeyFromBase58(ProdPaymentRouterProgramID)
 	default:
 		log.Fatalf("Unknown environment: %s", env)
 	}
 
 	reward_manager.SetProgramID(cfg.RewardManagerProgramID)
 	claimable_tokens.SetProgramID(cfg.ClaimableTokensProgramID)
+	payment_router.SetProgramID(cfg.PaymentRouterProgramID)
 	return cfg
 }

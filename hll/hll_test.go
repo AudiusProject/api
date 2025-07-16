@@ -77,8 +77,6 @@ func setupHLL(t *testing.T) (*HLL, *pgxpool.Pool, context.Context, string) {
 }
 
 func TestHLL_BasicRecording(t *testing.T) {
-	t.Parallel()
-
 	hll, _, _, _ := setupHLL(t)
 
 	// Record some values
@@ -103,8 +101,6 @@ func TestHLL_BasicRecording(t *testing.T) {
 }
 
 func TestHLL_AggregationWorks(t *testing.T) {
-	t.Parallel()
-
 	hll, pool, ctx, tableName := setupHLL(t)
 
 	// Record some values first
@@ -155,8 +151,6 @@ func TestHLL_AggregationWorks(t *testing.T) {
 }
 
 func TestHLL_MergeExistingSketch(t *testing.T) {
-	t.Parallel()
-
 	hll, pool, ctx, tableName := setupHLL(t)
 
 	// Record initial values
@@ -229,8 +223,6 @@ func TestHLL_MergeExistingSketch(t *testing.T) {
 }
 
 func TestHLL_GetStats(t *testing.T) {
-	t.Parallel()
-
 	hll, _, _, _ := setupHLL(t)
 
 	// Record some values for stats

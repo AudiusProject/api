@@ -308,15 +308,19 @@ func sendRewardClaimTransactions(
 			attestation.Signature,
 			instructionIndex,
 		).Build()
-		submitAttestationInstruction := reward_manager.NewSubmitAttestationInstruction(
+		submitAttestationInstruction, err := reward_manager.NewSubmitAttestationInstruction(
 			rewardClaim.RewardID,
 			rewardClaim.Specifier,
 			attestation.EthAddress,
 			rewardManagerClient.GetProgramStateAccount(),
 			feePayer.PublicKey(),
-		).Build()
+		)
+		if err != nil {
+			return nil, fmt.Errorf("failed to build submitAttestation instruction: %w", err)
+		}
+
 		tx.AddInstruction(submitAttestationSecpInstruction)
-		tx.AddInstruction(submitAttestationInstruction)
+		tx.AddInstruction(submitAttestationInstruction.Build())
 	}
 
 	lookupTable, err := rewardManagerClient.GetLookupTable(ctx)
@@ -369,7 +373,7 @@ func sendRewardClaimTransactions(
 	if err != nil {
 		return nil, err
 	}
-	evaluateAttestationInstruction := reward_manager.NewEvaluateAttestationInstruction(
+	evaluateAttestationInstruction, err := reward_manager.NewEvaluateAttestationInstruction(
 		rewardClaim.RewardID,
 		rewardClaim.Specifier,
 		common.HexToAddress(rewardClaim.RecipientEthAddress),
@@ -379,8 +383,12 @@ func sendRewardClaimTransactions(
 		state.TokenAccount,
 		rewardClaim.UserBank,
 		feePayer.PublicKey(),
-	).Build()
-	tx.AddInstruction(evaluateAttestationInstruction)
+	)
+	if err != nil {
+		return nil, fmt.Errorf("failed to build evaluateAttestation instruction: %w", err)
+	}
+
+	tx.AddInstruction(evaluateAttestationInstruction.Build())
 
 	tx.WithOpt(solana.TransactionAddressTables(addressLookupTables))
 	err = transactionSender.AddComputeBudgetLimit(ctx, tx, spl.AddComputeBudgetLimitParams{Padding: 1000, Multiplier: 1.2})

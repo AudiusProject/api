@@ -1,4 +1,4 @@
-package reward_manager
+package payment_router
 
 import (
 	"bytes"
@@ -8,47 +8,29 @@ import (
 	bin "github.com/gagliardetto/binary"
 	"github.com/gagliardetto/solana-go"
 	"github.com/gagliardetto/solana-go/text"
-	ag_text "github.com/gagliardetto/solana-go/text"
 	"github.com/gagliardetto/treeout"
 )
 
 const (
-	SenderSeedPrefix       = "S_"
-	EthAddressByteLength   = 20
-	AttestationsSeedPrefix = "V_"
-	DisbursementSeedPrefix = "T_"
+	Instruction_CreatePaymentRouterBalancePda = "createPaymentRouterBalancePda"
+	Instruction_Route                         = "route"
 )
 
-const (
-	Instruction_Init uint8 = iota
-	Instruction_ChangeManagerAccount
-	Instruction_CreateSender
-	Instruction_DeleteSender
-	Instruction_CreateSenderPublic
-	Instruction_DeleteSenderPublic
-	Instruction_SubmitAttestation
-	Instruction_EvaluateAttestations
-)
-
-// Represents a RewardManager program instruction
 type Instruction struct {
 	bin.BaseVariant
 }
 
-// The current registered ProgramID for the RewardManager instruction decoding
-var ProgramID = solana.MustPublicKeyFromBase58("DDZDcYdQFEMwcu2Mwo75yGFjJ1mUQyyXLWzhZLEVFcei")
+var ProgramID = solana.MustPublicKeyFromBase58("paytYpX3LPN98TAeen6bFFeraGSuWnomZmCXjAsoqPa")
 
 func init() {
 	solana.RegisterInstructionDecoder(ProgramID, registryDecodeInstruction)
 }
 
-// Changes the ProgramID used for decoding the RewardManager instructions
 func SetProgramID(pubkey solana.PublicKey) {
 	ProgramID = pubkey
 	solana.RegisterInstructionDecoder(ProgramID, registryDecodeInstruction)
 }
 
-// Decodes a RewardManager program instruction
 func DecodeInstruction(accounts []*solana.AccountMeta, data []byte) (*Instruction, error) {
 	inst := new(Instruction)
 	if err := bin.NewBorshDecoder(data).Decode(inst); err != nil {
@@ -63,7 +45,6 @@ func DecodeInstruction(accounts []*solana.AccountMeta, data []byte) (*Instructio
 	return inst, nil
 }
 
-// Implements solana.InstructionDecoder using DecodeInstruction
 func registryDecodeInstruction(accounts []*solana.AccountMeta, data []byte) (interface{}, error) {
 	inst, err := DecodeInstruction(accounts, data)
 	if err != nil {
@@ -100,7 +81,7 @@ func (inst *Instruction) Data() ([]byte, error) {
 
 // ----- text.TextEncodable Implementation -----
 
-func (inst *Instruction) TextEncode(encoder *ag_text.Encoder, option *ag_text.Option) error {
+func (inst *Instruction) TextEncode(encoder *text.Encoder, option *text.Option) error {
 	return encoder.Encode(inst.Impl, option)
 }
 
@@ -117,31 +98,13 @@ func (inst *Instruction) EncodeToTree(parent treeout.Branches) {
 // ----- bin.BinaryUnmarshaler Implementation -----
 
 var InstructionImplDef = bin.NewVariantDefinition(
-	bin.Uint8TypeIDEncoding,
+	bin.AnchorTypeIDEncoding,
 	[]bin.VariantType{
 		{
-			Name: "Init", Type: (*Init)(nil),
+			Name: Instruction_CreatePaymentRouterBalancePda, Type: (*CreatePaymentRouterBalancePda)(nil),
 		},
 		{
-			Name: "ChangeManagerAccount", Type: (*ChangeManagerAccount)(nil),
-		},
-		{
-			Name: "CreateSender", Type: (*CreateSender)(nil),
-		},
-		{
-			Name: "DeleteSender", Type: (*DeleteSender)(nil),
-		},
-		{
-			Name: "CreateSenderPublic", Type: (*CreateSenderPublic)(nil),
-		},
-		{
-			Name: "DeleteSenderPublic", Type: (*DeleteSenderPublic)(nil),
-		},
-		{
-			Name: "SubmitAttestation", Type: (*SubmitAttestation)(nil),
-		},
-		{
-			Name: "EvaluateAttestation", Type: (*EvaluateAttestation)(nil),
+			Name: Instruction_Route, Type: (*Route)(nil),
 		},
 	},
 )
@@ -153,7 +116,7 @@ func (inst *Instruction) UnmarshalWithDecoder(decoder *bin.Decoder) error {
 // ----- bin.BinaryMarshaler Implementation -----
 
 func (inst Instruction) MarshalWithEncoder(encoder *bin.Encoder) error {
-	err := encoder.WriteUint8(inst.TypeID.Uint8())
+	err := encoder.WriteBytes(inst.TypeID.Bytes(), false)
 	if err != nil {
 		return fmt.Errorf("unable to write variant type: %w", err)
 	}

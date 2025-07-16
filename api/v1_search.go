@@ -91,7 +91,7 @@ func (app *ApiServer) searchUsers(c *fiber.Ctx) ([]dbv1.FullUser, error) {
 		Query:       c.Query("query"),
 		IsVerified:  c.QueryBool("is_verified"),
 		IsTagSearch: isTagSearch,
-		Genres:      queryMutli(c, "genre"),
+		Genres:      queryMulti(c, "genre"),
 		MyID:        myId,
 		SortMethod:  c.Query("sort_method"),
 	}
@@ -125,15 +125,15 @@ func (app *ApiServer) searchTracks(c *fiber.Ctx) ([]dbv1.FullTrack, error) {
 	myId := app.getMyId(c)
 
 	// bpm range
-	minBpm := c.QueryInt("bpm_min")
-	maxBpm := c.QueryInt("bpm_max")
+	minBpm := c.QueryFloat("bpm_min")
+	maxBpm := c.QueryFloat("bpm_max")
 	if bpmRange := c.Query("bpm"); bpmRange != "" {
 		parts := strings.Split(bpmRange, "-")
 		if len(parts) == 2 {
-			if min, err := strconv.Atoi(strings.TrimSpace(parts[0])); err == nil {
+			if min, err := strconv.ParseFloat(strings.TrimSpace(parts[0]), 64); err == nil {
 				minBpm = min
 			}
-			if max, err := strconv.Atoi(strings.TrimSpace(parts[1])); err == nil {
+			if max, err := strconv.ParseFloat(strings.TrimSpace(parts[1]), 64); err == nil {
 				maxBpm = max
 			}
 		}
@@ -143,15 +143,15 @@ func (app *ApiServer) searchTracks(c *fiber.Ctx) ([]dbv1.FullTrack, error) {
 		MyID:           myId,
 		IsTagSearch:    isTagSearch,
 		Query:          c.Query("query"),
-		Genres:         queryMutli(c, "genre"),
-		Moods:          queryMutli(c, "mood"),
+		Genres:         queryMulti(c, "genre"),
+		Moods:          queryMulti(c, "mood"),
 		MinBPM:         minBpm,
 		MaxBPM:         maxBpm,
-		MusicalKeys:    queryMutli(c, "key"),
+		MusicalKeys:    queryMulti(c, "key"),
 		IsDownloadable: c.QueryBool("is_downloadable"),
 		HasDownloads:   c.QueryBool("has_downloads"),
 		IsPurchaseable: c.QueryBool("is_purchaseable"),
-		OnlyVerified:   c.QueryBool("only_verified"),
+		OnlyVerified:   c.QueryBool("is_verified"),
 		SortMethod:     c.Query("sort_method"),
 	}
 
@@ -189,9 +189,9 @@ func (app *ApiServer) searchPlaylists(c *fiber.Ctx) ([]dbv1.FullPlaylist, error)
 		MyID:         myId,
 		IsTagSearch:  isTagSearch,
 		Query:        c.Query("query"),
-		Genres:       queryMutli(c, "genre"),
-		Moods:        queryMutli(c, "mood"),
-		OnlyVerified: c.QueryBool("only_verified"),
+		Genres:       queryMulti(c, "genre"),
+		Moods:        queryMulti(c, "mood"),
+		OnlyVerified: c.QueryBool("is_verified"),
 		SortMethod:   c.Query("sort_method"),
 	}
 
@@ -230,9 +230,9 @@ func (app *ApiServer) searchAlbums(c *fiber.Ctx) ([]dbv1.FullPlaylist, error) {
 		MyID:         myId,
 		IsTagSearch:  isTagSearch,
 		Query:        c.Query("query"),
-		Genres:       queryMutli(c, "genre"),
-		Moods:        queryMutli(c, "mood"),
-		OnlyVerified: c.QueryBool("only_verified"),
+		Genres:       queryMulti(c, "genre"),
+		Moods:        queryMulti(c, "mood"),
+		OnlyVerified: c.QueryBool("is_verified"),
 		SortMethod:   c.Query("sort_method"),
 		IsAlbum:      true,
 	}

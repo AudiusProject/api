@@ -1,4 +1,4 @@
-package api
+package database
 
 import (
 	"context"
@@ -7,7 +7,10 @@ import (
 	"time"
 
 	"github.com/jackc/pgx/v5"
+	"github.com/jackc/pgx/v5/pgxpool"
 )
+
+type FixtureMap map[string][]map[string]any
 
 var (
 	baseRows = map[string]map[string]any{
@@ -293,9 +296,8 @@ var (
 			"change":                 0,
 			"balance":                0,
 		},
-		"aggregate_plays":    {},
-		"aggregate_track":    {},
-		"aggregate_playlist": {},
+		"aggregate_plays": {},
+		"aggregate_track": {},
 		"aggregate_user": {
 			"user_id":          nil,
 			"follower_count":   0,
@@ -373,19 +375,24 @@ var (
 			"created_at":    time.Now(),
 			"updated_at":    time.Now(),
 		},
-		"shares": {
-			"blockhash":     "block_abc123",
-			"blocknumber":   101,
-			"share_item_id": nil,
-			"user_id":       nil,
-			"share_type":    nil,
-			"created_at":    time.Now(),
-			"txhash":        "tx123",
+		"user_payout_wallet_history": {
+			"user_id":                nil,
+			"spl_usdc_payout_wallet": nil,
+			"blocknumber":            101,
+			"block_timestamp":        time.Now(),
+		},
+		"track_price_history": {
+			"track_id":          nil,
+			"splits":            nil,
+			"total_price_cents": nil,
+			"access":            "stream",
+			"blocknumber":       101,
+			"block_timestamp":   time.Now(),
 		},
 	}
 )
 
-func insertFixturesFromArray(app *ApiServer, table string, data []map[string]any) {
+func SeedTable(pool *pgxpool.Pool, table string, data []map[string]any) {
 
 	baseRow, ok := baseRows[table]
 	if !ok {
@@ -425,19 +432,21 @@ func insertFixturesFromArray(app *ApiServer, table string, data []map[string]any
 		records = append(records, vals)
 	}
 
-	_, err := app.pool.CopyFrom(
+	_, err := pool.CopyFrom(
 		context.Background(),
 		pgx.Identifier{table},
 		fieldList,
 		pgx.CopyFromRows(records),
 	)
-	checkErr(err)
+	if err != nil {
+		panic(err)
+	}
 }
 
-func createFixtures(app *ApiServer, fixtures FixtureMap) {
+func Seed(pool *pgxpool.Pool, fixtures FixtureMap) {
 
 	// the test block must exist...
-	_, err := app.pool.Exec(context.Background(), `
+	_, err := pool.Exec(context.Background(), `
 	INSERT INTO public.blocks (
 		blockhash,
 		parenthash,
@@ -457,12 +466,10 @@ func createFixtures(app *ApiServer, fixtures FixtureMap) {
 	// because map key iteration order is randomized...
 	// explicitly do the "entity" tables first
 	// so that data dependencies exist before attempting to do saves, follows, etc.
-	// note: aggregate_user appears first because users create aggregate rows which would lead to
-	// duplicates
-	entityTables := []string{"aggregate_user", "aggregate_playlist", "users", "tracks", "playlists"}
+	entityTables := []string{"users", "tracks", "playlists"}
 	for _, tableName := range entityTables {
 		if rows, ok := fixtures[tableName]; ok {
-			insertFixturesFromArray(app, tableName, rows)
+			SeedTable(pool, tableName, rows)
 		}
 	}
 
@@ -470,6 +477,6 @@ func createFixtures(app *ApiServer, fixtures FixtureMap) {
 		if slices.Contains(entityTables, tableName) {
 			continue
 		}
-		insertFixturesFromArray(app, tableName, rows)
+		SeedTable(pool, tableName, rows)
 	}
 }
