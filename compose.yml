@@ -46,3 +46,20 @@ services:
         hard: -1
     ports:
       - 21400:9200
+
+  elasticsearch-test:
+    image: docker.elastic.co/elasticsearch/elasticsearch:8.10.2
+    environment:
+      - network.host=0.0.0.0
+      - discovery.type=single-node
+      - cluster.name=docker-cluster
+      - node.name=cluster1-node1
+      - xpack.license.self_generated.type=basic
+      - xpack.security.enabled=false
+      - "ES_JAVA_OPTS=-Xms512m -Xmx512m"
+    ulimits:
+      memlock:
+        soft: -1
+        hard: -1
+    ports:
+      - 21401:9200

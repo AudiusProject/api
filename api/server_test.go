@@ -31,7 +31,7 @@ func emptyTestApp(t *testing.T) *ApiServer {
 	app := NewApiServer(config.Config{
 		Env:                "test",
 		ReadDbUrl:          pool.Config().ConnString(),
-		EsUrl:              "http://localhost:21400",
+		EsUrl:              "http://localhost:21401",
 		DelegatePrivateKey: "0633fddb74e32b3cbc64382e405146319c11a1a52dc96598e557c5dbe2f31468",
 		SolanaConfig:       config.SolanaConfig{RpcProviders: []string{""}},
 	})
