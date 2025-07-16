@@ -423,7 +423,9 @@ func TestProcessTransaction_CallsInsertBalanceChange(t *testing.T) {
 	s := &indexer.SolanaIndexer{}
 
 	account := solana.MustPublicKeyFromBase58("HJQj8P47BdA7ugjQEn45LaESYrxhiZDygmukt8iumFZJ")
+	owner := solana.MustPublicKeyFromBase58("TT1eRKxi2Rj3oEvsFMe9W5hrcPmpXqKkNj7wC83AhXk")
 	account2 := solana.MustPublicKeyFromBase58("Cjv8dvVfWU8wUYAR82T5oZ4nHLB6EyGNvpPBzw3r76Qy")
+	owner2 := solana.MustPublicKeyFromBase58("dRiftyHA39MWEi3m9aunc5MzRF1JYuBsbn6VPcn33UH")
 	mint := solana.MustPublicKeyFromBase58("9LzCMqDgTKYz9Drzqnpgee3SGa89up3a247ypMj2xrqM")
 	tx := &solana.Transaction{
 		Signatures: []solana.Signature{
@@ -440,6 +442,7 @@ func TestProcessTransaction_CallsInsertBalanceChange(t *testing.T) {
 		PreTokenBalances: []rpc.TokenBalance{
 			{
 				AccountIndex: 0,
+				Owner:        &owner,
 				Mint:         mint,
 				UiTokenAmount: &rpc.UiTokenAmount{
 					Amount: "1000",
@@ -449,6 +452,7 @@ func TestProcessTransaction_CallsInsertBalanceChange(t *testing.T) {
 		PostTokenBalances: []rpc.TokenBalance{
 			{
 				AccountIndex: 0,
+				Owner:        &owner,
 				Mint:         mint,
 				UiTokenAmount: &rpc.UiTokenAmount{
 					Amount: "2000",
@@ -456,6 +460,7 @@ func TestProcessTransaction_CallsInsertBalanceChange(t *testing.T) {
 			},
 			{
 				AccountIndex: 1,
+				Owner:        &owner2,
 				Mint:         mint,
 				UiTokenAmount: &rpc.UiTokenAmount{
 					Amount: "0",
@@ -476,6 +481,7 @@ func TestProcessTransaction_CallsInsertBalanceChange(t *testing.T) {
 	expectedArgs := pgx.NamedArgs{
 		"account":        account.String(),
 		"mint":           mint.String(),
+		"owner":          owner.String(),
 		"change":         int64(1000),
 		"balance":        uint64(2000),
 		"signature":      tx.Signatures[0].String(),
@@ -486,6 +492,7 @@ func TestProcessTransaction_CallsInsertBalanceChange(t *testing.T) {
 	expectedArgs2 := pgx.NamedArgs{
 		"account":        account2.String(),
 		"mint":           mint.String(),
+		"owner":          owner2.String(),
 		"change":         int64(0),
 		"balance":        uint64(0),
 		"signature":      tx.Signatures[0].String(),

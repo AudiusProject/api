@@ -97,6 +97,7 @@ func insertRewardDisbursement(ctx context.Context, db database.DBTX, row rewardD
 }
 
 type balanceChange struct {
+	Owner            string
 	Mint             string
 	PreTokenBalance  uint64
 	PostTokenBalance uint64
@@ -112,11 +113,12 @@ type balanceChangeRow struct {
 }
 
 func insertBalanceChange(ctx context.Context, db database.DBTX, row balanceChangeRow) error {
-	sql := `INSERT INTO sol_token_account_balance_changes (account, mint, change, balance, signature, slot, block_timestamp)
-						VALUES (@account, @mint, @change, @balance, @signature, @slot, @blockTimestamp)
+	sql := `INSERT INTO sol_token_account_balance_changes (owner, account, mint, change, balance, signature, slot, block_timestamp)
+						VALUES (@owner, @account, @mint, @change, @balance, @signature, @slot, @blockTimestamp)
 						ON CONFLICT DO NOTHING`
 	_, err := db.Exec(ctx, sql, pgx.NamedArgs{
 		"account":        row.account,
+		"owner":          row.balanceChange.Owner,
 		"mint":           row.balanceChange.Mint,
 		"change":         row.balanceChange.Change,
 		"balance":        row.balanceChange.PostTokenBalance,
