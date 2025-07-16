@@ -497,7 +497,7 @@ func Seed(pool *pgxpool.Pool, fixtures FixtureMap) {
 	// because map key iteration order is randomized...
 	// explicitly do the "entity" tables first
 	// so that data dependencies exist before attempting to do saves, follows, etc.
-	entityTables := []string{"users", "tracks", "playlists"}
+	entityTables := []string{"users", "tracks", "playlists", "sol_token_account_balances"}
 	for _, tableName := range entityTables {
 		if rows, ok := fixtures[tableName]; ok {
 			SeedTable(pool, tableName, rows)
