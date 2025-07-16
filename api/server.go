@@ -533,7 +533,7 @@ func NewApiServer(config config.Config) *ApiServer {
 	return app
 }
 
-type TokenOverviewFetcher interface {
+type BirdeyeClient interface {
 	GetTokenOverview(ctx context.Context, mint string, frames string) (*birdeye.TokenOverview, error)
 }
 
@@ -560,7 +560,7 @@ type ApiServer struct {
 	auds                  *sdk.AudiusdSDK
 	skipAuthCheck         bool // set to true in a test if you don't care about auth middleware
 	metricsCollector      *MetricsCollector
-	birdeyeClient         TokenOverviewFetcher
+	birdeyeClient         BirdeyeClient
 }
 
 func (app *ApiServer) home(c *fiber.Ctx) error {
