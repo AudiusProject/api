@@ -26,7 +26,7 @@ func checkErr(err error) {
 }
 
 func emptyTestApp(t *testing.T) *ApiServer {
-	pool := database.CreateTestDatabase(t)
+	pool := database.CreateTestDatabase(t, "test_api")
 
 	app := NewApiServer(config.Config{
 		Env:                "test",

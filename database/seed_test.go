@@ -8,7 +8,7 @@ import (
 )
 
 func TestSeed(t *testing.T) {
-	pool := database.CreateTestDatabase(t)
+	pool := database.CreateTestDatabase(t, "test_database")
 	fixtures := database.FixtureMap{
 		"users": {
 			{

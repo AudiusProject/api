@@ -25,7 +25,7 @@ var (
 
 func TestMain(m *testing.M) {
 	var err error
-	pool := database.CreateTestDatabase(nil)
+	pool := database.CreateTestDatabase(nil, "test_indexer")
 	ci, err = NewIndexer(CoreIndexerConfig{
 		DbUrl: pool.Config().ConnString(),
 	})

@@ -18,7 +18,7 @@ func setupHLL(t *testing.T) (*HLL, *pgxpool.Pool, context.Context, string) {
 
 	ctx := context.Background()
 	logger := zap.NewNop()
-	pool := database.CreateTestDatabase(t)
+	pool := database.CreateTestDatabase(t, "test_hll")
 
 	tableName := "test_hll_sketch"
 	createTestTable(t, ctx, pool, tableName)
