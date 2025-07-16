@@ -389,6 +389,37 @@ var (
 			"blocknumber":       101,
 			"block_timestamp":   time.Now(),
 		},
+		"artist_coins": {
+			"ticker":   nil,
+			"mint":     nil,
+			"user_id":  nil,
+			"decimals": nil,
+		},
+		"sol_token_account_balances": {
+			"account": nil,
+			"owner":   "owner-acc",
+			"mint":    nil,
+			"balance": nil,
+			"slot":    1,
+		},
+		"sol_claimable_accounts": {
+			"signature":         nil,
+			"instruction_index": 0,
+			"slot":              1,
+			"mint":              nil,
+			"ethereum_address":  nil,
+			"account":           nil,
+		},
+		"sol_token_account_balance_changes": {
+			"account":         nil,
+			"owner":           "owner-acc",
+			"mint":            nil,
+			"change":          nil,
+			"balance":         nil,
+			"block_timestamp": time.Now(),
+			"slot":            1,
+			"signature":       nil,
+		},
 	}
 )
 
