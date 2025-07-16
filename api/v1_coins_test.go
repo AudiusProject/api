@@ -111,6 +111,7 @@ func TestGetCoins(t *testing.T) {
 	}
 
 	database.Seed(app.pool, fixtures)
+	app.birdeyeClient = &MockBirdeyeClient{}
 
 	// no filters
 	{
