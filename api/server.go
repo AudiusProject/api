@@ -448,6 +448,10 @@ func NewApiServer(config config.Config) *ApiServer {
 		// Notifications
 		g.Get("/notifications/:userId/playlist_updates", app.requireUserIdMiddleware, app.v1NotificationsPlaylistUpdates)
 
+		// Artist coins
+		g.Get("/coins", app.v1Coins)
+		g.Get("/coins/:mint", app.v1Coin)
+
 	}
 
 	// Comms
