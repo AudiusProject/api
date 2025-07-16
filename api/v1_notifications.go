@@ -60,26 +60,7 @@ LEFT JOIN user_seen on
   user_seen.seen_at >= n.timestamp and user_seen.prev_seen_at < n.timestamp
 WHERE
   ((ARRAY[@user_id] && n.user_ids) OR (n.type = 'announcement' AND n.timestamp > (SELECT created_at FROM user_created_at)))
-  AND n.type IN (
-    'repost',
-    'save',
-    'follow',
-    'tip_send',
-    'tip_receive',
-    'milestone',
-    'supporter_rank_up',
-    'supporting_rank_up',
-    'challenge_reward',
-    'tier_change',
-    'create',
-    'remix',
-    'cosign',
-    'trending',
-    'supporter_dethroned',
-    -- NotificationType.ANNOUNCEMENT,
-    'reaction',
-    'track_added_to_playlist'
-  )
+  AND n.type = ANY(@valid_types)
 GROUP BY
   n.type, n.group_id, user_seen.seen_at, user_seen.prev_seen_at
 ORDER BY
@@ -90,6 +71,31 @@ limit @limit::int
 ;
 `
 
+	validTypes := queryMulti(c, "valid_types")
+
+	// default valid types fallback
+	if len(validTypes) == 0 {
+		validTypes = []string{
+			"repost",
+			"save",
+			"follow",
+			"tip_send",
+			"tip_receive",
+			"milestone",
+			"supporter_rank_up",
+			"supporting_rank_up",
+			"challenge_reward",
+			"tier_change",
+			"create",
+			"remix",
+			"cosign",
+			"trending",
+			"supporter_dethroned",
+			"reaction",
+			"track_added_to_playlist",
+		}
+	}
+
 	type GetNotifsRow struct {
 		Type    string          `json:"type"`
 		GroupID string          `json:"group_id"`
@@ -99,8 +105,9 @@ limit @limit::int
 	}
 
 	rows, err := app.pool.Query(c.Context(), sql, pgx.NamedArgs{
-		"user_id": int32(c.Locals("userId").(int)),
-		"limit":   int32(c.QueryInt("limit", 10)),
+		"user_id":     int32(c.Locals("userId").(int)),
+		"limit":       int32(c.QueryInt("limit", 10)),
+		"valid_types": validTypes,
 	})
 	if err != nil {
 		return err
