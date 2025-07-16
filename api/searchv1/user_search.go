@@ -23,7 +23,7 @@ func (q *UserSearchQuery) Map() map[string]any {
 		builder.Must(esquery.MultiMatch().Query(q.Query).Fields("tracks.tags").Type(esquery.MatchTypeBoolPrefix))
 	} else if q.Query != "" {
 		builder.Must(esquery.MultiMatch(q.Query).
-			Fields("suggest").
+			Fields("suggest", "name", "handle").
 			MinimumShouldMatch("80%").
 			Fuzziness("AUTO").
 			Type(esquery.MatchTypeBoolPrefix))
@@ -32,13 +32,16 @@ func (q *UserSearchQuery) Map() map[string]any {
 		builder.Should(
 			esquery.MultiMatch().Query(q.Query).
 				Fields("name", "handle").
+				Boost(10).
 				Operator(esquery.OperatorAnd),
 		)
 
 		// exact match, but remove spaces from query
 		// so 'Stereo Steve' ranks 'StereoSteve' higher
 		builder.Should(
-			esquery.MultiMatch().Query(strings.ReplaceAll(q.Query, " ", "")).Fields("name", "handle").
+			esquery.MultiMatch().Query(strings.ReplaceAll(q.Query, " ", "")).
+				Fields("name", "handle").
+				Boost(10).
 				Operator(esquery.OperatorAnd),
 		)
 	} else {
