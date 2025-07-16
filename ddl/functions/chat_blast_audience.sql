@@ -62,9 +62,8 @@ BEGIN
 
   -- coin_holder_audience
   SELECT chat_blast.blast_id, u.user_id AS to_user_id
-  FROM chat_blast
-  JOIN artist_coins ac 
-    ON chat_blast.blast_id = blast_id_param
+  FROM artist_coins ac
+  JOIN chat_blast ON chat_blast.blast_id = blast_id_param
     AND chat_blast.audience = 'coin_holder_audience'
     AND ac.user_id = chat_blast.from_user_id
   JOIN sol_claimable_accounts sca ON sca.mint = ac.mint
