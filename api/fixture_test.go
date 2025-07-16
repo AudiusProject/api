@@ -293,8 +293,9 @@ var (
 			"change":                 0,
 			"balance":                0,
 		},
-		"aggregate_plays": {},
-		"aggregate_track": {},
+		"aggregate_plays":    {},
+		"aggregate_track":    {},
+		"aggregate_playlist": {},
 		"aggregate_user": {
 			"user_id":          nil,
 			"follower_count":   0,
@@ -458,7 +459,7 @@ func createFixtures(app *ApiServer, fixtures FixtureMap) {
 	// so that data dependencies exist before attempting to do saves, follows, etc.
 	// note: aggregate_user appears first because users create aggregate rows which would lead to
 	// duplicates
-	entityTables := []string{"aggregate_user", "users", "tracks", "playlists"}
+	entityTables := []string{"aggregate_user", "aggregate_playlist", "users", "tracks", "playlists"}
 	for _, tableName := range entityTables {
 		if rows, ok := fixtures[tableName]; ok {
 			insertFixturesFromArray(app, tableName, rows)
