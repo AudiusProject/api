@@ -5,6 +5,7 @@ import (
 	"testing"
 	"time"
 
+	"bridgerton.audius.co/database"
 	"bridgerton.audius.co/trashid"
 	"github.com/stretchr/testify/assert"
 )
@@ -25,7 +26,7 @@ func TestV1TracksRecentPremium(t *testing.T) {
 		return fmt.Sprintf("{\"usdc_purchase\": {\"price\": 100, \"splits\": [{\"user_id\": %d, \"percentage\": 100}]}}", userId)
 	}
 
-	fixtures := FixtureMap{
+	fixtures := database.FixtureMap{
 		"users": users,
 		"tracks": []map[string]any{
 			// Two tracks from user 1 at the top of the list, should only get one back
@@ -68,7 +69,7 @@ func TestV1TracksRecentPremium(t *testing.T) {
 		},
 	}
 
-	createFixtures(app, fixtures)
+	database.Seed(app.pool, fixtures)
 
 	{
 		status, body := testGet(t, app, "/v1/full/tracks/recent-premium")

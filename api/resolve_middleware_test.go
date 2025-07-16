@@ -4,13 +4,14 @@ import (
 	"fmt"
 	"testing"
 
+	"bridgerton.audius.co/database"
 	"github.com/stretchr/testify/assert"
 )
 
 func TestResolveUserHandleToId(t *testing.T) {
 	app := emptyTestApp(t)
 
-	fixtures := FixtureMap{
+	fixtures := database.FixtureMap{
 		"users": make([]map[string]any, 100),
 	}
 
@@ -23,7 +24,7 @@ func TestResolveUserHandleToId(t *testing.T) {
 		}
 	}
 
-	createFixtures(app, fixtures)
+	database.Seed(app.pool, fixtures)
 
 	// This test verifies we aren't hitting a cache pollution bug due
 	// to fiber params not being copied before being used in the cache key. We are

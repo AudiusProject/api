@@ -4,6 +4,7 @@ import (
 	"testing"
 	"time"
 
+	"bridgerton.audius.co/database"
 	"bridgerton.audius.co/trashid"
 	"github.com/stretchr/testify/assert"
 )
@@ -11,7 +12,7 @@ import (
 func TestV1TracksRecentComments(t *testing.T) {
 	app := emptyTestApp(t)
 
-	fixtures := FixtureMap{
+	fixtures := database.FixtureMap{
 		"users": []map[string]any{
 			{
 				"user_id": 1,
@@ -71,7 +72,7 @@ func TestV1TracksRecentComments(t *testing.T) {
 		},
 	}
 
-	createFixtures(app, fixtures)
+	database.Seed(app.pool, fixtures)
 
 	{
 		status, body := testGet(t, app, "/v1/full/tracks/recent-comments")

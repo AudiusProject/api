@@ -4,13 +4,14 @@ import (
 	"testing"
 	"time"
 
+	"bridgerton.audius.co/database"
 	"github.com/stretchr/testify/assert"
 )
 
 func TestV1UsersSalesCount(t *testing.T) {
 	app := emptyTestApp(t)
 
-	fixtures := FixtureMap{
+	fixtures := database.FixtureMap{
 		"users": []map[string]any{
 			{"user_id": 1, "handle": "seller"},
 			{"user_id": 2, "handle": "buyer1", "name": "c"},
@@ -104,7 +105,7 @@ func TestV1UsersSalesCount(t *testing.T) {
 		},
 	}
 
-	createFixtures(app, fixtures)
+	database.Seed(app.pool, fixtures)
 
 	{
 		status, body := testGet(t, app, "/v1/users/7eP5n/sales/count")

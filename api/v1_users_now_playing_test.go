@@ -4,6 +4,7 @@ import (
 	"testing"
 	"time"
 
+	"bridgerton.audius.co/database"
 	"bridgerton.audius.co/trashid"
 	"github.com/stretchr/testify/assert"
 )
@@ -11,7 +12,7 @@ import (
 func TestUsersNowPlayingActive(t *testing.T) {
 	app := emptyTestApp(t)
 
-	createFixtures(app, FixtureMap{
+	database.Seed(app.pool, database.FixtureMap{
 		"users": []map[string]any{
 			{
 				"user_id": 1,
@@ -48,7 +49,7 @@ func TestUsersNowPlayingActive(t *testing.T) {
 func TestUsersNowPlayingJustFinished(t *testing.T) {
 	app := emptyTestApp(t)
 
-	createFixtures(app, FixtureMap{
+	database.Seed(app.pool, database.FixtureMap{
 		"users": []map[string]any{
 			{
 				"user_id": 2,
@@ -86,7 +87,7 @@ func TestUsersNowPlayingJustFinished(t *testing.T) {
 func TestUsersNowPlayingFinishedAWhileAgo(t *testing.T) {
 	app := emptyTestApp(t)
 
-	createFixtures(app, FixtureMap{
+	database.Seed(app.pool, database.FixtureMap{
 		"users": []map[string]any{
 			{
 				"user_id": 2,
@@ -124,7 +125,7 @@ func TestUsersNowPlayingNoPlays(t *testing.T) {
 	app := emptyTestApp(t)
 
 	// create user & track but no play
-	createFixtures(app, FixtureMap{
+	database.Seed(app.pool, database.FixtureMap{
 		"users": []map[string]any{
 			{"user_id": 3, "handle": "tester"},
 		},

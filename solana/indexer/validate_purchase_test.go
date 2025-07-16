@@ -17,7 +17,7 @@ func TestPurchaseValidation(t *testing.T) {
 
 	ctx := t.Context()
 
-	pool := database.NewTestDatabase(t)
+	pool := database.CreateTestDatabase(t, "test_solana_indexer")
 
 	sellerUserId := 1
 	priceCents := 100

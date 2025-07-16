@@ -3,6 +3,7 @@ package api
 import (
 	"testing"
 
+	"bridgerton.audius.co/database"
 	"bridgerton.audius.co/esindexer"
 	"github.com/test-go/testify/require"
 )
@@ -11,7 +12,7 @@ func TestSearch(t *testing.T) {
 	app := emptyTestApp(t)
 	app.skipAuthCheck = true
 
-	fixtures := FixtureMap{
+	fixtures := database.FixtureMap{
 		"users": {
 			{
 				"user_id": 1001,
@@ -156,7 +157,7 @@ func TestSearch(t *testing.T) {
 		},
 	}
 
-	createFixtures(app, fixtures)
+	database.Seed(app.pool, fixtures)
 
 	// index data to ES
 	esindexer.ReindexForTest(app.pool, app.esClient)

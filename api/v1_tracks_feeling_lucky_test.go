@@ -4,6 +4,7 @@ import (
 	"testing"
 
 	"bridgerton.audius.co/api/dbv1"
+	"bridgerton.audius.co/database"
 	"bridgerton.audius.co/trashid"
 	"github.com/stretchr/testify/assert"
 )
@@ -11,7 +12,7 @@ import (
 func TestV1TracksFeelingLucky(t *testing.T) {
 	app := emptyTestApp(t)
 
-	fixtures := FixtureMap{
+	fixtures := database.FixtureMap{
 		"users": []map[string]any{
 			{
 				"user_id": 1,
@@ -72,7 +73,7 @@ func TestV1TracksFeelingLucky(t *testing.T) {
 		},
 	}
 
-	createFixtures(app, fixtures)
+	database.Seed(app.pool, fixtures)
 
 	{
 		var resp struct {

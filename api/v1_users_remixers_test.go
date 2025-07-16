@@ -4,13 +4,14 @@ import (
 	"testing"
 
 	"bridgerton.audius.co/api/dbv1"
+	"bridgerton.audius.co/database"
 	"bridgerton.audius.co/trashid"
 	"github.com/stretchr/testify/assert"
 )
 
 func TestV1UsersRemixers(t *testing.T) {
 	app := emptyTestApp(t)
-	fixtures := FixtureMap{
+	fixtures := database.FixtureMap{
 		"tracks": []map[string]any{
 			{
 				"track_id": 100,
@@ -78,7 +79,7 @@ func TestV1UsersRemixers(t *testing.T) {
 			},
 		},
 	}
-	createFixtures(app, fixtures)
+	database.Seed(app.pool, fixtures)
 
 	var userResponse struct {
 		Data []dbv1.FullUser

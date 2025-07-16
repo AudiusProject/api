@@ -5,6 +5,7 @@ import (
 	"testing"
 
 	"bridgerton.audius.co/api/dbv1"
+	"bridgerton.audius.co/database"
 	"bridgerton.audius.co/trashid"
 	"github.com/stretchr/testify/assert"
 )
@@ -36,7 +37,7 @@ func generateSaves(trackId, count int) []map[string]any {
 func TestGetUserTracksAiAttributed(t *testing.T) {
 	app := emptyTestApp(t)
 
-	fixtures := FixtureMap{
+	fixtures := database.FixtureMap{
 		"users": {},
 		"tracks": {
 			{
@@ -114,7 +115,7 @@ func TestGetUserTracksAiAttributed(t *testing.T) {
 	fixtures["reposts"] = append(fixtures["reposts"], generateReposts(5, 25)...)
 	fixtures["saves"] = append(fixtures["saves"], generateSaves(5, 25)...)
 
-	createFixtures(app, fixtures)
+	database.Seed(app.pool, fixtures)
 
 	var userTracksResponse struct {
 		Data []dbv1.FullTrack

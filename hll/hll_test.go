@@ -3,68 +3,22 @@ package hll
 import (
 	"context"
 	"fmt"
-	"math/rand/v2"
-	"os"
-	"sync"
 	"testing"
 	"time"
 
+	"bridgerton.audius.co/database"
 	"github.com/jackc/pgx/v5/pgxpool"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"go.uber.org/zap"
 )
 
-var testMutex = sync.Mutex{}
-var testPoolForCreatingChildDatabases *pgxpool.Pool
-
-func TestMain(m *testing.M) {
-	ctx := context.Background()
-	var err error
-
-	testPoolForCreatingChildDatabases, err = pgxpool.New(
-		ctx,
-		"postgres://postgres:example@localhost:21300/postgres",
-	)
-	if err != nil {
-		panic(err)
-	}
-
-	code := m.Run()
-	os.Exit(code)
-}
-
-func setupTestDatabase(t *testing.T) *pgxpool.Pool {
-	t.Helper()
-
-	dbName := fmt.Sprintf("hll_testdb_%d", rand.Int())
-	ctx := context.Background()
-
-	testMutex.Lock()
-	_, err := testPoolForCreatingChildDatabases.Exec(ctx, "CREATE DATABASE "+dbName+" TEMPLATE postgres")
-	testMutex.Unlock()
-	require.NoError(t, err)
-
-	pool, err := pgxpool.New(ctx, "postgres://postgres:example@localhost:21300/"+dbName)
-	require.NoError(t, err)
-
-	t.Cleanup(func() {
-		pool.Close()
-		testMutex.Lock()
-		_, err := testPoolForCreatingChildDatabases.Exec(ctx, "DROP DATABASE IF EXISTS "+dbName)
-		testMutex.Unlock()
-		require.NoError(t, err)
-	})
-
-	return pool
-}
-
 func setupHLL(t *testing.T) (*HLL, *pgxpool.Pool, context.Context, string) {
 	t.Helper()
 
 	ctx := context.Background()
 	logger := zap.NewNop()
-	pool := setupTestDatabase(t)
+	pool := database.CreateTestDatabase(t, "test_hll")
 
 	tableName := "test_hll_sketch"
 	createTestTable(t, ctx, pool, tableName)
