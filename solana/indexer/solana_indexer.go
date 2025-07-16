@@ -583,9 +583,13 @@ func getTokenBalanceChanges(meta *rpc.TransactionMeta, tx *solana.Transaction) (
 		if err != nil {
 			return balanceChanges, err
 		}
+		owner := ""
+		if balance.Owner != nil {
+			owner = balance.Owner.String()
+		}
 
 		balanceChanges[acc.String()] = &balanceChange{
-			Owner:           balance.Owner.String(),
+			Owner:           owner,
 			Mint:            balance.Mint.String(),
 			PreTokenBalance: preBalance,
 		}
@@ -601,8 +605,12 @@ func getTokenBalanceChanges(meta *rpc.TransactionMeta, tx *solana.Transaction) (
 
 		b := balanceChanges[acc.String()]
 		if b == nil {
+			owner := ""
+			if balance.Owner != nil {
+				owner = balance.Owner.String()
+			}
 			b = &balanceChange{
-				Owner:           balance.Owner.String(),
+				Owner:           owner,
 				Mint:            balance.Mint.String(),
 				PreTokenBalance: 0,
 			}
