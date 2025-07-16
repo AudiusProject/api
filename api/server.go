@@ -568,7 +568,7 @@ func decodeIdList(c *fiber.Ctx) []int32 {
 	return ids
 }
 
-func queryMutli(c *fiber.Ctx, key string) []string {
+func queryMulti(c *fiber.Ctx, key string) []string {
 	var values []string
 	for _, v := range c.Request().URI().QueryArgs().PeekMulti(key) {
 		values = append(values, string(v))
