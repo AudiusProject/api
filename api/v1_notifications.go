@@ -2,6 +2,7 @@ package api
 
 import (
 	"encoding/json"
+	"slices"
 
 	"bridgerton.audius.co/trashid"
 	"github.com/gofiber/fiber/v2"
@@ -71,29 +72,41 @@ limit @limit::int
 ;
 `
 
-	validTypes := queryMulti(c, "valid_types")
+	// default types are always enabled
+	validTypes := []string{
+		"repost",
+		"save",
+		"follow",
+		"tip_send",
+		"tip_receive",
+		"milestone",
+		"supporter_rank_up",
+		"supporting_rank_up",
+		"challenge_reward",
+		"tier_change",
+		"create",
+		"remix",
+		"cosign",
+		"trending",
+		"supporter_dethroned",
+		"reaction",
+		"track_added_to_playlist",
+	}
 
-	// default valid types fallback
-	if len(validTypes) == 0 {
-		validTypes = []string{
-			"repost",
-			"save",
-			"follow",
-			"tip_send",
-			"tip_receive",
-			"milestone",
-			"supporter_rank_up",
-			"supporting_rank_up",
-			"challenge_reward",
-			"tier_change",
-			"create",
-			"remix",
-			"cosign",
-			"trending",
-			"supporter_dethroned",
-			"reaction",
-			"track_added_to_playlist",
+	// add optional valid_types
+	for _, t := range queryMulti(c, "valid_types") {
+		if !slices.Contains(validTypes, t) {
+			validTypes = append(validTypes, t)
 		}
+	}
+
+	userId := app.getUserId(c)
+	limit := c.QueryInt("limit", 20)
+
+	// python returns 20 items when limit=0
+	// and client relies on this for showing unread count
+	if limit == 0 {
+		limit = 20
 	}
 
 	type GetNotifsRow struct {
@@ -105,8 +118,8 @@ limit @limit::int
 	}
 
 	rows, err := app.pool.Query(c.Context(), sql, pgx.NamedArgs{
-		"user_id":     int32(c.Locals("userId").(int)),
-		"limit":       int32(c.QueryInt("limit", 10)),
+		"user_id":     userId,
+		"limit":       limit,
 		"valid_types": validTypes,
 	})
 	if err != nil {
