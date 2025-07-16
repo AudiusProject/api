@@ -1,21 +1,116 @@
 package api
 
 import (
-	"bridgerton.audius.co/api/dbv1"
+	"encoding/json"
+
 	"bridgerton.audius.co/trashid"
 	"github.com/gofiber/fiber/v2"
+	"github.com/jackc/pgx/v5"
 )
 
 func (app *ApiServer) v1Notifications(c *fiber.Ctx) error {
-	notifs, err := app.queries.GetNotifs(c.Context(), dbv1.GetNotifsParams{
-		UserID: int32(c.Locals("userId").(int)),
-		Lim:    int32(c.QueryInt("limit", 10)),
+
+	sql := `
+-- name: GetNotifs :many
+WITH user_seen as (
+  SELECT
+    LAG(seen_at, 1, now()::timestamp) OVER ( ORDER BY seen_at desc ) AS seen_at,
+    seen_at as prev_seen_at
+  FROM
+    notification_seen
+  WHERE
+    user_id = @user_id
+  ORDER BY
+    seen_at desc
+),
+user_created_at as (
+  SELECT
+    created_at
+  FROM
+    users
+  WHERE
+    user_id =  @user_id
+  AND is_current
+)
+SELECT
+    n.type,
+    n.group_id as group_id,
+    json_agg(
+      json_build_object(
+        'type', type,
+        'specifier', specifier::int,
+        'timestamp', EXTRACT(EPOCH FROM timestamp),
+        'data', data
+      )
+      ORDER BY timestamp DESC
+    )::jsonb as actions,
+    CASE
+      WHEN user_seen.seen_at is not NULL THEN now()::timestamp != user_seen.seen_at
+      ELSE EXISTS(SELECT 1 from notification_seen ns where ns.user_id = @user_id)
+    END::boolean as is_seen,
+
+    CASE
+      WHEN user_seen.seen_at != now()::timestamp THEN EXTRACT(EPOCH FROM user_seen.seen_at)
+      ELSE null
+    END AS seen_at
+
+FROM
+    notification n
+LEFT JOIN user_seen on
+  user_seen.seen_at >= n.timestamp and user_seen.prev_seen_at < n.timestamp
+WHERE
+  ((ARRAY[@user_id] && n.user_ids) OR (n.type = 'announcement' AND n.timestamp > (SELECT created_at FROM user_created_at)))
+  AND n.type IN (
+    'repost',
+    'save',
+    'follow',
+    'tip_send',
+    'tip_receive',
+    'milestone',
+    'supporter_rank_up',
+    'supporting_rank_up',
+    'challenge_reward',
+    'tier_change',
+    'create',
+    'remix',
+    'cosign',
+    'trending',
+    'supporter_dethroned',
+    -- NotificationType.ANNOUNCEMENT,
+    'reaction',
+    'track_added_to_playlist'
+  )
+GROUP BY
+  n.type, n.group_id, user_seen.seen_at, user_seen.prev_seen_at
+ORDER BY
+  user_seen.seen_at desc NULLS LAST,
+  max(n.timestamp) desc,
+  n.group_id desc
+limit @limit::int
+;
+`
+
+	type GetNotifsRow struct {
+		Type    string          `json:"type"`
+		GroupID string          `json:"group_id"`
+		Actions json.RawMessage `json:"actions"`
+		IsSeen  bool            `json:"is_seen"`
+		SeenAt  interface{}     `json:"seen_at"`
+	}
+
+	rows, err := app.pool.Query(c.Context(), sql, pgx.NamedArgs{
+		"user_id": int32(c.Locals("userId").(int)),
+		"limit":   int32(c.QueryInt("limit", 10)),
 	})
 	if err != nil {
 		return err
 	}
 
-	// trashify!
+	notifs, err := pgx.CollectRows(rows, pgx.RowToStructByNameLax[GetNotifsRow])
+	if err != nil {
+		return err
+	}
+
 	unreadCount := 0
 	for idx, notif := range notifs {
 		notif.Actions = trashid.HashifyJson(notif.Actions)
