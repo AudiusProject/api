@@ -1,12 +1,22 @@
 package api
 
 import (
+	"strings"
 	"time"
 
 	"bridgerton.audius.co/api/dbv1"
 	"github.com/gofiber/fiber/v2"
 	"github.com/jackc/pgx/v5"
 )
+
+type GetUsersLibraryTracksParams struct {
+	Limit         int    `query:"limit" default:"50" validate:"min=1,max=100"`
+	Offset        int    `query:"offset" default:"0" validate:"min=0"`
+	ActionType    string `query:"type" default:"all" validate:"oneof=all favorite repost purchase"`
+	SortMethod    string `query:"sort_method" default:"added_date" validate:"oneof=added_date plays reposts saves title artist_name"`
+	SortDirection string `query:"sort_direction" default:"desc" validate:"oneof=asc desc"`
+	Query         string `query:"query" default:"" validate:"max=250"`
+}
 
 /*
 /v1/full/users/aNzoj/library/tracks?limit=50&offset=50&query=&sort_direction=desc&sort_method=added_date&type=all&user_id=aNzoj
@@ -15,9 +25,15 @@ import (
 */
 
 func (app *ApiServer) v1UsersLibraryTracks(c *fiber.Ctx) error {
+	params := GetUsersLibraryTracksParams{}
+	if err := app.ParseAndValidateQueryParams(c, &params); err != nil {
+		return err
+	}
+
+	myId := app.getMyId(c)
 
 	sortField := "item_created_at"
-	switch c.Query("sort_method") {
+	switch params.SortMethod {
 	case "plays":
 		sortField = "aggregate_plays.count"
 	case "reposts":
@@ -32,8 +48,16 @@ func (app *ApiServer) v1UsersLibraryTracks(c *fiber.Ctx) error {
 	}
 
 	sortDirection := "DESC"
-	if c.Query("sort_direction") == "asc" {
+	if params.SortDirection == "asc" {
 		sortDirection = "ASC"
+	}
+
+	trackFilters := []string{
+		"(is_unlisted = false OR is_purchase = true)",
+	}
+
+	if params.Query != "" {
+		trackFilters = append(trackFilters, "(title ILIKE @query OR users.name ILIKE @query)")
 	}
 
 	sql := `
@@ -85,24 +109,25 @@ func (app *ApiServer) v1UsersLibraryTracks(c *fiber.Ctx) error {
 		'track_activity_full' as class,
 		item_id,
 		item_created_at,
-		is_purchase
+		is_purchase,
+		'track' as item_type
 	FROM deduped
 	JOIN tracks ON track_id = item_id
 	JOIN users ON owner_id = user_id
 	LEFT JOIN aggregate_plays ON track_id = play_item_id
 	LEFT JOIN aggregate_track USING (track_id)
-	WHERE is_unlisted = false OR is_purchase = true
+	WHERE ` + strings.Join(trackFilters, " AND ") + `
 	ORDER BY ` + sortField + ` ` + sortDirection + `
 	LIMIT @limit
 	OFFSET @offset
 	`
 
 	rows, err := app.pool.Query(c.Context(), sql, pgx.NamedArgs{
-		"userId":     c.Locals("userId"),
-		"limit":      c.Query("limit", "50"),
-		"offset":     c.Query("offset", "0"),
-		"actionType": c.Query("type", "all"),
-		// todo: support search / query param
+		"userId":     app.getUserId(c),
+		"limit":      params.Limit,
+		"offset":     params.Offset,
+		"actionType": params.ActionType,
+		"query":      "%" + strings.ToLower(params.Query) + "%",
 	})
 	if err != nil {
 		return err
@@ -113,6 +138,7 @@ func (app *ApiServer) v1UsersLibraryTracks(c *fiber.Ctx) error {
 		ItemID        int32     `json:"item_id"`
 		ItemCreatedAt time.Time `json:"timestamp"`
 		IsPurchase    bool      `json:"-"`
+		ItemType      string    `json:"item_type"`
 
 		Item any `db:"-" json:"item"`
 	}
@@ -129,10 +155,15 @@ func (app *ApiServer) v1UsersLibraryTracks(c *fiber.Ctx) error {
 	}
 
 	// get tracks
-	tracks, err := app.queries.FullTracksKeyed(c.Context(), dbv1.GetTracksParams{
-		Ids:  trackIds,
-		MyID: app.getMyId(c),
+	tracks, err := app.queries.FullTracksKeyed(c.Context(), dbv1.FullTracksParams{
+		GetTracksParams: dbv1.GetTracksParams{
+			Ids:  trackIds,
+			MyID: myId,
+		},
 	})
+	if err != nil {
+		return err
+	}
 
 	// attach
 	for idx, item := range items {

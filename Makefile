@@ -1,31 +1,31 @@
 
 dev::
-	wgo -file sqlc.yaml -file .sql -xfile .go sqlc generate :: wgo run -file .go -debounce 10ms main.go
+	wgo -file sqlc.yaml -file .sql -xfile .go sqlc generate :: wgo run -file .go -file .yaml -debounce 10ms main.go
+
+indexer::
+	wgo run -file .go -debounce 10ms main.go indexer
+
+solana-indexer::
+	wgo run -file .go -debounce 10ms main.go solana-indexer
+
+up: dev
 
 test::
 	sqlc generate
 	go test -count=1 -cover ./...
 
-staging::
-	mkdir -p build/staging
-	CGO_ENABLED=0 GOOS=linux GOARCH=amd64 go build -o build/staging/bridge-amd64
-	rsync -ravz build/staging/ stage-discovery-4:bridgerton
-	ssh stage-discovery-4 -t 'cd bridgerton && docker compose up -d --build && docker compose restart bridge'
-	curl 'https://bridgerton.staging.audius.co'
+esindexer-reindex-stage::
+	kubectl --context stage -n api exec -it $(kubectl --context stage -n api get pods --no-headers -o custom-columns=":metadata.name" | grep reindexer) -- bridge es-indexer drop all
 
-production::
-	mkdir -p build/production
-	CGO_ENABLED=0 GOOS=linux GOARCH=amd64 go build -o build/production/bridge-amd64
-	rsync -ravz build/production/ prod-discovery-4:bridgerton
-	ssh prod-discovery-4 -t 'cd bridgerton && docker compose up -d --build && docker compose restart bridge'
-	curl 'https://bridgerton.audius.co'
+esindexer-reindex-prod::
+	kubectl --context prod -n api exec -it $(kubectl --context prod -n api get pods --no-headers -o custom-columns=":metadata.name" | grep reindexer) -- bridge es-indexer drop all
 
 psql::
 	docker compose exec db psql -U postgres
 
 setup::
-	go install github.com/bokwoon95/wgo@latest
-	go install -v github.com/sqlc-dev/sqlc/cmd/sqlc@latest
+	go install github.com/bokwoon95/wgo@v0.5.11
+	go install -v github.com/sqlc-dev/sqlc/cmd/sqlc@v1.29.0
 
 apidiff::
 	open http://localhost:1323/apidiff.html

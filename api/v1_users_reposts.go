@@ -8,9 +8,18 @@ import (
 	"github.com/jackc/pgx/v5"
 )
 
+type GetUsersRepostsParams struct {
+	Limit  int `query:"limit" default:"100" validate:"min=1,max=100"`
+	Offset int `query:"offset" default:"0" validate:"min=0"`
+}
+
 func (app *ApiServer) v1UsersReposts(c *fiber.Ctx) error {
+	params := GetUsersRepostsParams{}
+	if err := app.ParseAndValidateQueryParams(c, &params); err != nil {
+		return err
+	}
 	myId := app.getMyId(c)
-	userId := c.Locals("userId")
+	userId := app.getUserId(c)
 
 	sql := `
 	SELECT repost_type, repost_item_id, reposts.created_at
@@ -37,9 +46,9 @@ func (app *ApiServer) v1UsersReposts(c *fiber.Ctx) error {
 
 	args := pgx.NamedArgs{
 		"userId": userId,
+		"limit":  params.Limit,
+		"offset": params.Offset,
 	}
-	args["limit"] = c.Query("limit", "200")
-	args["offset"] = c.Query("offset", "0")
 
 	rows, err := app.pool.Query(c.Context(), sql, args)
 	if err != nil {

@@ -1,20 +1,28 @@
 package api
 
 import (
+	"context"
 	"fmt"
 	"strings"
 
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/crypto"
 	"github.com/gofiber/fiber/v2"
+	"github.com/gofiber/fiber/v2/utils"
+	"github.com/jackc/pgx/v5"
 )
 
 // Recover user id and wallet from signature headers
-func (app *ApiServer) recoverAuthorityFromSignatureHeaders(c *fiber.Ctx) (int32, string) {
+func (app *ApiServer) recoverAuthorityFromSignatureHeaders(c *fiber.Ctx) string {
 	message := c.Get("Encoded-Data-Message")
 	signature := c.Get("Encoded-Data-Signature")
 	if message == "" || signature == "" {
-		return 0, ""
+		// Some callers pass these as query params, check those if not in headers
+		message = c.Query("user_data")
+		signature = c.Query("user_signature")
+		if message == "" || signature == "" {
+			return ""
+		}
 	}
 
 	encodedToRecover := []byte(message)
@@ -27,42 +35,55 @@ func (app *ApiServer) recoverAuthorityFromSignatureHeaders(c *fiber.Ctx) (int32,
 
 	publicKey, err := crypto.SigToPub(finalHash.Bytes(), signatureBytes)
 	if err != nil {
-		return 0, ""
+		return ""
 	}
 
 	recoveredAddr := crypto.PubkeyToAddress(*publicKey)
 	walletLower := strings.ToLower(recoveredAddr.Hex())
 
-	// check cache
-	if hit, ok := app.resolveWalletCache.Get(walletLower); ok {
-		return hit, walletLower
-	}
-
-	var userId int32
-	err = app.pool.QueryRow(
-		c.Context(),
-		`
-		SELECT user_id FROM users
-		WHERE
-			wallet = $1
-			AND is_current = true
-		ORDER BY handle_lc IS NOT NULL, created_at ASC
-		LIMIT 1
-		`,
-		walletLower,
-	).Scan(&userId)
-
-	if err != nil {
-		return 0, walletLower
-	}
-
-	app.resolveWalletCache.Set(walletLower, userId)
-
-	return userId, walletLower
+	return walletLower
 }
 
-func (app *ApiServer) getAuthedUserId(c *fiber.Ctx) int32 {
-	return int32(c.Locals("authedUserId").(int32))
+// Checks if authedWallet is authorized to act on behalf of userId
+func (app *ApiServer) isAuthorizedRequest(ctx context.Context, userId int32, authedWallet string) bool {
+
+	// tests can opt in to skipAuthCheck
+	if app.skipAuthCheck {
+		return true
+	}
+
+	cacheKey := fmt.Sprintf("%d:%s", userId, authedWallet)
+	if hit, ok := app.resolveGrantCache.Get(cacheKey); ok {
+		return hit
+	}
+
+	var isAuthorized bool
+	err := app.pool.QueryRow(ctx, `
+		SELECT EXISTS (
+			-- I am the user
+			SELECT 1 FROM users
+			WHERE
+				user_id = $1
+				AND wallet = $2
+				AND is_current = true
+    ) OR EXISTS (
+			-- I have a grant to the user
+			SELECT 1 FROM grants
+			WHERE
+				is_current = true
+				AND user_id = $1
+				AND grantee_address = $2
+				AND is_approved = true
+				AND is_revoked = false
+		);
+		`, userId, authedWallet).Scan(&isAuthorized)
+
+	if err != nil {
+		return false
+	}
+
+	app.resolveGrantCache.Set(cacheKey, isAuthorized)
+	return isAuthorized
 }
 
 func (app *ApiServer) getAuthedWallet(c *fiber.Ctx) string {
@@ -70,19 +91,84 @@ func (app *ApiServer) getAuthedWallet(c *fiber.Ctx) string {
 }
 
 // Middleware to set authedUserId and authedWallet in context
+// Returns a 403 if either
+// - the user is not authorized to act on behalf of "myId"
+// - the user is not authorized to act on behalf of "myWallet"
 func (app *ApiServer) authMiddleware(c *fiber.Ctx) error {
-	userId, wallet := app.recoverAuthorityFromSignatureHeaders(c)
-	c.Locals("authedUserId", userId)
+	wallet := app.recoverAuthorityFromSignatureHeaders(c)
 	c.Locals("authedWallet", wallet)
+
+	// Not authorized to act on behalf of myId
+	myId := app.getMyId(c)
+	if myId != 0 && !app.isAuthorizedRequest(c.Context(), myId, wallet) {
+		return fiber.NewError(
+			fiber.StatusForbidden,
+			fmt.Sprintf(
+				"You are not authorized to make this request authedWallet=%s myId=%d",
+				wallet,
+				myId,
+			),
+		)
+	}
+
+	// Not authorized to act on behalf of myWallet
+	myWallet := c.Params("wallet")
+	if myWallet != "" && !strings.EqualFold(myWallet, wallet) {
+		return fiber.NewError(
+			fiber.StatusForbidden,
+			fmt.Sprintf(
+				"You are not authorized to make this request authedWallet=%s myWallet=%s",
+				wallet,
+				myWallet,
+			),
+		)
+	}
 
 	return c.Next()
 }
 
-// Middleware that asserts authedUserId is valid
-func (app *ApiServer) requiresAuthMiddleware(c *fiber.Ctx) error {
-	authedUserId := app.getAuthedUserId(c)
-	if authedUserId == 0 {
+// Middleware that asserts that there is an authed wallet
+func (app *ApiServer) requireAuthMiddleware(c *fiber.Ctx) error {
+	authedWallet := app.getAuthedWallet(c)
+	if authedWallet == "" {
 		return fiber.NewError(fiber.StatusUnauthorized, "You must be logged in to make this request")
 	}
+
 	return c.Next()
+}
+
+// Get a user from their wallet address.
+//
+// Note: Do NOT use this with `getAuthedWallet()` to infer the current user.
+// Comms/chats _does_ use this to infer current user due to legacy reasons, as
+// it predates manager mode and messages are e2ee via wallet. V1 endpoints
+// should use the query or route parameters for determining the current user.
+func (app *ApiServer) getUserIDFromWallet(ctx context.Context, wallet string) (int, error) {
+	key := utils.CopyString(wallet)
+	if hit, ok := app.resolveWalletCache.Get(key); ok {
+		return hit, nil
+	}
+
+	sql := `
+	SELECT user_id
+	FROM users
+	WHERE is_current = true
+		AND handle IS NOT NULL
+		AND is_available = true
+		AND is_deactivated = false
+		AND wallet = LOWER(@wallet)
+	ORDER BY user_id ASC;
+	`
+	row := app.pool.QueryRow(ctx, sql, pgx.NamedArgs{
+		"wallet": wallet,
+	})
+
+	userId := 0
+	err := row.Scan(&userId)
+	if err != nil {
+		return 0, fiber.NewError(fiber.ErrBadRequest.Code, "bad signature")
+	}
+
+	app.resolveWalletCache.Set(key, userId)
+	return userId, nil
 }

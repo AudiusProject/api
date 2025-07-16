@@ -9,10 +9,11 @@ import (
 )
 
 func TestGetTrending(t *testing.T) {
+	app := testAppWithFixtures(t)
 	var resp struct {
 		Data []dbv1.FullTrack
 	}
-	status, _ := testGet(t, "/v1/tracks/trending", &resp)
+	status, _ := testGet(t, app, "/v1/tracks/trending", &resp)
 	assert.Equal(t, 200, status)
 
 	assert.Equal(t, trashid.MustEncodeHashID(300), resp.Data[0].ID)
@@ -26,10 +27,11 @@ func TestGetTrending(t *testing.T) {
 }
 
 func TestGetTrendingElectronic(t *testing.T) {
+	app := testAppWithFixtures(t)
 	var resp struct {
 		Data []dbv1.FullTrack
 	}
-	status, _ := testGet(t, "/v1/tracks/trending?genre=Electronic", &resp)
+	status, _ := testGet(t, app, "/v1/tracks/trending?genre=Electronic", &resp)
 	assert.Equal(t, 200, status)
 
 	assert.Equal(t, "eYRWn", resp.Data[0].ID)
@@ -40,10 +42,11 @@ func TestGetTrendingElectronic(t *testing.T) {
 }
 
 func TestGetTrendingAllTime(t *testing.T) {
+	app := testAppWithFixtures(t)
 	var resp struct {
 		Data []dbv1.FullTrack
 	}
-	status, _ := testGet(t, "/v1/tracks/trending?time=allTime", &resp)
+	status, _ := testGet(t, app, "/v1/tracks/trending?time=allTime", &resp)
 	assert.Equal(t, 200, status)
 
 	assert.Equal(t, "eYJyn", resp.Data[0].ID)

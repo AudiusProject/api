@@ -18,7 +18,13 @@ import (
 var GlobalHasher *RendezvousHasher
 
 func init() {
-	GlobalHasher = NewRendezvousHasher(config.Cfg.Nodes)
+	hosts := make([]string, len(config.Cfg.Nodes))
+	for i, node := range config.Cfg.Nodes {
+		if !node.IsStorageDisabled {
+			hosts[i] = node.Endpoint
+		}
+	}
+	GlobalHasher = NewRendezvousHasher(hosts)
 }
 
 type HostTuple struct {

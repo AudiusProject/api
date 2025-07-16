@@ -19,7 +19,7 @@ type MediaLink struct {
 	Mirrors []string `json:"mirrors"`
 }
 
-func mediaLink(cid string, trackId int32, userId int32) *MediaLink {
+func mediaLink(cid string, trackId int32, userId int32) (*MediaLink, error) {
 	first, rest := rendezvous.GlobalHasher.ReplicaSet3(cid)
 
 	timestamp := time.Now().Unix() * 1000
@@ -32,7 +32,7 @@ func mediaLink(cid string, trackId int32, userId int32) *MediaLink {
 
 	signature, err := generateSignature(data)
 	if err != nil {
-		return nil
+		return nil, err
 	}
 
 	// Convert the data map to a JSON string
@@ -52,7 +52,7 @@ func mediaLink(cid string, trackId int32, userId int32) *MediaLink {
 	return &MediaLink{
 		Url:     fmt.Sprintf("%s/%s", first, path),
 		Mirrors: rest,
-	}
+	}, nil
 }
 
 func generateSignature(data map[string]interface{}) (string, error) {

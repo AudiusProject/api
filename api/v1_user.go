@@ -7,7 +7,7 @@ import (
 
 func (app *ApiServer) v1User(c *fiber.Ctx) error {
 	myId := app.getMyId(c)
-	userId := c.Locals("userId").(int)
+	userId := app.getUserId(c)
 
 	users, err := app.queries.FullUsers(c.Context(), dbv1.GetUsersParams{
 		MyID: myId,
@@ -19,13 +19,13 @@ func (app *ApiServer) v1User(c *fiber.Ctx) error {
 	}
 
 	if len(users) == 0 {
-		return sendError(c, 404, "user not found")
+		return fiber.NewError(fiber.StatusNotFound, "user not found")
 	}
 
 	// full returns an array
 	// non-full returns an object
 	// wild
-	if c.Locals("isFull").(bool) {
+	if app.getIsFull(c) {
 		return v1UsersResponse(c, users)
 	}
 	return v1UserResponse(c, users[0])

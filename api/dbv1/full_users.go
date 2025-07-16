@@ -135,7 +135,7 @@ type MinUser struct {
 	PlaylistCount         pgtype.Int8     `json:"playlist_count"`
 	ProfilePicture        *SquareImage    `json:"profile_picture"`
 	RepostCount           pgtype.Int8     `json:"repost_count"`
-	TrackCount            pgtype.Int8     `json:"track_count"`
+	TrackCount            int64           `json:"track_count"`
 	IsDeactivated         bool            `json:"is_deactivated"`
 	IsAvailable           bool            `json:"is_available"`
 	ErcWallet             pgtype.Text     `json:"erc_wallet"`

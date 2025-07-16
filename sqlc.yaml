@@ -2,7 +2,7 @@ version: "2"
 sql:
   - engine: "postgresql"
     queries: "api/dbv1/queries"
-    schema: "sql/schema1.sql"
+    schema: "sql/01_schema.sql"
     gen:
       go:
         emit_json_tags: true
@@ -26,7 +26,6 @@ sql:
               import: "time"
               type: "Time"
 
-
           - db_type: "jsonb"
             go_type:
               import: "encoding/json"
@@ -42,7 +41,16 @@ sql:
               import: "bridgerton.audius.co/trashid"
               type: "HashId"
 
+          - column: "users.profile_type"
+            go_type:
+              type: "string"
+              pointer: true
+
           - column: "developer_apps.user_id"
+            go_type:
+              import: "bridgerton.audius.co/trashid"
+              type: "HashId"
+          - column: "grants.user_id"
             go_type:
               import: "bridgerton.audius.co/trashid"
               type: "HashId"
@@ -88,6 +96,11 @@ sql:
           - column: "tracks.download_conditions"
             go_type:
               type: "AccessGate"
+              pointer: true
+
+          - column: "events.event_data"
+            go_type:
+              type: "EventData"
               pointer: true
 
           - column: "playlists.stream_conditions"

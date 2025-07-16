@@ -1,49 +1,89 @@
 package api
 
 import (
+	"fmt"
+
 	"bridgerton.audius.co/api/dbv1"
 	"github.com/gofiber/fiber/v2"
 	"github.com/jackc/pgx/v5"
 )
 
+type GetUsersTracksParams struct {
+	Limit         int    `query:"limit" default:"20" validate:"min=1,max=100"`
+	Offset        int    `query:"offset" default:"0" validate:"min=0"`
+	Sort          string `query:"sort" default:"date" validate:"oneof=date plays"`
+	SortMethod    string `query:"sort_method" default:"" validate:"omitempty,oneof=title release_date plays reposts saves"`
+	FilterTracks  string `query:"filter_tracks" default:"all" validate:"oneof=all public unlisted"`
+	SortDirection string `query:"sort_direction" default:"desc" validate:"oneof=asc desc"`
+}
+
 func (app *ApiServer) v1UserTracks(c *fiber.Ctx) error {
+	params := GetUsersTracksParams{}
+	if err := app.ParseAndValidateQueryParams(c, &params); err != nil {
+		return err
+	}
+
 	myId := app.getMyId(c)
 
 	sortDir := "DESC"
-	if c.Query("sort_direction") == "asc" {
+	if params.SortDirection == "asc" {
 		sortDir = "ASC"
 	}
 
-	sortField := "coalesce(t.release_date, t.created_at)"
-	switch c.Query("sort") {
-	case "reposts":
-		sortField = "repost_count"
-	case "saves":
-		sortField = "save_count"
+	// Default sort is by legacy `sort:` param value of 'date'
+	orderClause := fmt.Sprintf("coalesce(t.release_date, t.created_at) %s, t.track_id", sortDir)
+	if params.SortMethod != "" {
+		switch params.SortMethod {
+		case "title":
+			orderClause = fmt.Sprintf("t.title %s, t.track_id", sortDir)
+		case "release_date":
+			orderClause = fmt.Sprintf("coalesce(t.release_date, t.created_at) %s, t.track_id", sortDir)
+		case "plays":
+			orderClause = fmt.Sprintf("aggregate_plays.count %s, t.track_id", sortDir)
+		case "reposts":
+			orderClause = fmt.Sprintf("repost_count %s, t.track_id", sortDir)
+		case "saves":
+			orderClause = fmt.Sprintf("save_count %s, t.track_id", sortDir)
+		}
+	} else {
+		switch params.Sort {
+		case "plays":
+			orderClause = fmt.Sprintf("aggregate_plays.count %s, t.track_id", sortDir)
+		}
+	}
+	userId := app.getUserId(c)
+
+	trackFilter := "(t.is_unlisted = false OR t.owner_id = @my_id)"
+	switch params.FilterTracks {
+	case "public":
+		trackFilter = "t.is_unlisted = false"
+	case "unlisted":
+		trackFilter = "t.is_unlisted = true"
 	}
 
 	sql := `
 	SELECT track_id
 	FROM tracks t
-	JOIN aggregate_track USING (track_id)
 	JOIN users u ON owner_id = u.user_id
-	JOIN aggregate_plays ON track_id = play_item_id
-	WHERE u.handle_lc = LOWER(@handle)
+	LEFT JOIN aggregate_plays ON track_id = play_item_id
+	LEFT JOIN aggregate_track USING (track_id)
+	WHERE t.owner_id = @user_id
 	  AND u.is_deactivated = false
 	  AND t.is_delete = false
 	  AND t.is_available = true
-	  AND t.is_unlisted = false
+	  AND ` + trackFilter + `
 	  AND t.stem_of is null
-	ORDER BY ` + sortField + ` ` + sortDir + `
+	ORDER BY ` + orderClause + `
 	LIMIT @limit
 	OFFSET @offset
 	`
 
 	args := pgx.NamedArgs{
-		"handle": c.Params("handle"),
+		"user_id": userId,
+		"my_id":   myId,
 	}
-	args["limit"] = c.Query("limit", "20")
-	args["offset"] = c.Query("offset", "0")
+	args["limit"] = params.Limit
+	args["offset"] = params.Offset
 
 	rows, err := app.pool.Query(c.Context(), sql, args)
 	if err != nil {
@@ -55,9 +95,11 @@ func (app *ApiServer) v1UserTracks(c *fiber.Ctx) error {
 		return err
 	}
 
-	tracks, err := app.queries.FullTracks(c.Context(), dbv1.GetTracksParams{
-		Ids:  ids,
-		MyID: myId,
+	tracks, err := app.queries.FullTracks(c.Context(), dbv1.FullTracksParams{
+		GetTracksParams: dbv1.GetTracksParams{
+			Ids:  ids,
+			MyID: myId,
+		},
 	})
 	if err != nil {
 		return err

@@ -12,7 +12,7 @@ func (app *ApiServer) v1Users(c *fiber.Ctx) error {
 	ids := decodeIdList(c)
 
 	if len(ids) == 0 {
-		return sendError(c, 400, "id query param required")
+		return fiber.NewError(fiber.StatusBadRequest, "no user ids provided")
 	}
 
 	users, err := app.queries.FullUsers(c.Context(), dbv1.GetUsersParams{
@@ -26,13 +26,27 @@ func (app *ApiServer) v1Users(c *fiber.Ctx) error {
 	return v1UsersResponse(c, users)
 }
 
+type GetUsersParams struct {
+	Limit  int `query:"limit" default:"20" validate:"min=1,max=100"`
+	Offset int `query:"offset" default:"0" validate:"min=0"`
+}
+
 // a generic responder for all the simple user lists:
 // followers, followees, reposters, savers, etc.
 func (app *ApiServer) queryFullUsers(c *fiber.Ctx, sql string, args pgx.NamedArgs) error {
 	myId := app.getMyId(c)
 
-	args["limit"] = c.Query("limit", "20")
-	args["offset"] = c.Query("offset", "0")
+	params := GetUsersParams{}
+	if err := app.ParseAndValidateQueryParams(c, &params); err != nil {
+		return err
+	}
+
+	if _, ok := args["limit"]; !ok {
+		args["limit"] = params.Limit
+	}
+	if _, ok := args["offset"]; !ok {
+		args["offset"] = params.Offset
+	}
 
 	rows, err := app.pool.Query(c.Context(), sql, args)
 	if err != nil {

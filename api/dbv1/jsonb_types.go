@@ -15,9 +15,9 @@ type SquareImage struct {
 
 type PlaylistContents struct {
 	TrackIDs []struct {
-		Time         int64 `json:"time"`
-		Track        int64 `json:"track"`
-		MetadataTime int64 `json:"metadata_time"`
+		Time         float64 `json:"time"`
+		Track        int64   `json:"track"`
+		MetadataTime float64 `json:"metadata_time"`
 	} `json:"track_ids"`
 }
 
@@ -53,4 +53,10 @@ type FullRemixOfTrack struct {
 
 type FullRemixOf struct {
 	Tracks []FullRemixOfTrack `json:"tracks"`
+}
+
+type EventData struct {
+	PrizeInfo   string `json:"prize_info"`
+	Description string `json:"description"`
+	Winners     []int  `json:"winners"`
 }

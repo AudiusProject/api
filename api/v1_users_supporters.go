@@ -1,28 +1,63 @@
 package api
 
 import (
+	"strings"
+
 	"bridgerton.audius.co/api/dbv1"
+	"bridgerton.audius.co/trashid"
 	"github.com/gofiber/fiber/v2"
 	"github.com/jackc/pgx/v5"
 )
 
-func (app *ApiServer) v1UsersSupporters(c *fiber.Ctx) error {
-	myId := app.getMyId(c)
-	userId := c.Locals("userId").(int)
+type GetUsersSupportersQueryParams struct {
+	Limit  int `query:"limit" default:"20" validate:"min=1,max=100"`
+	Offset int `query:"offset" default:"0" validate:"min=0"`
+}
+type GetUsersSupportersRouteParams struct {
+	SupporterUserId trashid.HashId `param:"supporterUserId"`
+}
 
-	args := pgx.NamedArgs{
-		"userId": userId,
+type SupporterUser struct {
+	Rank           int           `json:"rank" db:"rank"`
+	SenderUserID   int32         `json:"-" db:"sender_user_id"`
+	ReceiverUserID int32         `json:"-" db:"receiver_user_id"`
+	Amount         string        `json:"amount" db:"amount"`
+	Sender         dbv1.FullUser `json:"sender" db:"-"`
+}
+
+type MinSupporterUser struct {
+	SupporterUser
+	Sender dbv1.MinUser `json:"sender"`
+}
+
+func (app *ApiServer) v1UsersSupporters(c *fiber.Ctx) error {
+	query := GetUsersSupportersQueryParams{}
+	if err := app.ParseAndValidateQueryParams(c, &query); err != nil {
+		return err
+	}
+	params := GetUsersSupportersRouteParams{}
+	if err := c.ParamsParser(&params); err != nil {
+		return err
 	}
 
-	args["limit"] = c.Query("limit", "20")
-	args["offset"] = c.Query("offset", "0")
+	myId := app.getMyId(c)
+	userId := app.getUserId(c)
 
-	type supportedUser struct {
-		Rank           int           `json:"rank" db:"rank"`
-		SenderUserID   int32         `json:"-" db:"sender_user_id"`
-		ReceiverUserID int32         `json:"-" db:"receiver_user_id"`
-		Amount         string        `json:"amount" db:"amount"`
-		Sender         dbv1.FullUser `json:"sender" db:"-"`
+	args := pgx.NamedArgs{
+		"userId":      userId,
+		"limit":       query.Limit,
+		"offset":      query.Offset,
+		"supporterId": params.SupporterUserId,
+	}
+
+	filters := []string{
+		"receiver_user_id = @userId",
+		// TODO: Enable these. Currently disabled because python doesn't do the right thing.
+		// "users.is_deactivated = FALSE",
+		// "users.is_available = TRUE",
+	}
+	if params.SupporterUserId != 0 {
+		filters = append(filters, "sender_user_id = @supporterId")
 	}
 
 	sql := `
@@ -39,12 +74,7 @@ func (app *ApiServer) v1UsersSupporters(c *fiber.Ctx) error {
 	FROM aggregate_user_tips a
 	-- JOIN users ON a.sender_user_id = user_id
 	WHERE
-		receiver_user_id = @userId
-		-- todo:
-		-- do the wrong thing here to match python reponse
-		-- (see comment in v1_users_supporting.go)
-		-- AND is_deactivated = false
-		-- AND is_available = true
+		` + strings.Join(filters, " AND ") + `
 	ORDER BY a.amount DESC, sender_user_id ASC
 	LIMIT @limit
 	OFFSET @offset
@@ -55,13 +85,13 @@ func (app *ApiServer) v1UsersSupporters(c *fiber.Ctx) error {
 		return err
 	}
 
-	supported, err := pgx.CollectRows(rows, pgx.RowToStructByName[supportedUser])
+	supporters, err := pgx.CollectRows(rows, pgx.RowToStructByName[SupporterUser])
 	if err != nil {
 		return err
 	}
 
 	userIds := []int32{}
-	for _, s := range supported {
+	for _, s := range supporters {
 		userIds = append(userIds, s.SenderUserID)
 	}
 	userMap, err := app.queries.FullUsersKeyed(c.Context(), dbv1.GetUsersParams{
@@ -72,32 +102,44 @@ func (app *ApiServer) v1UsersSupporters(c *fiber.Ctx) error {
 		return err
 	}
 
-	for idx, s := range supported {
+	for idx, s := range supporters {
 		s.Sender = userMap[s.SenderUserID]
-		supported[idx] = s
+		supporters[idx] = s
 	}
 
-	if !c.Locals("isFull").(bool) {
+	if !app.getIsFull(c) {
 		// Create a new array with MinUsers
-		type minSupportedUser struct {
-			supportedUser
-			Sender dbv1.MinUser `json:"sender"`
-		}
-
-		minSupported := make([]minSupportedUser, len(supported))
-		for i, user := range supported {
-			minSupported[i] = minSupportedUser{
-				supportedUser: user,
+		minSupporters := make([]MinSupporterUser, len(supporters))
+		for i, user := range supporters {
+			minSupporters[i] = MinSupporterUser{
+				SupporterUser: user,
 				Sender:        dbv1.ToMinUser(user.Sender),
 			}
 		}
 
+		// If requesting a specific supporter, respond with only that record
+		if params.SupporterUserId != 0 {
+			return c.JSON(fiber.Map{
+				"data": minSupporters[0],
+			})
+		}
+
 		return c.JSON(fiber.Map{
-			"data": minSupported,
+			"data": minSupporters,
+		})
+	}
+
+	// If requesting a specific supporter, respond with only that record
+	if params.SupporterUserId != 0 {
+		if len(supporters) == 0 {
+			return fiber.NewError(fiber.StatusNotFound, "Requested supporter not found")
+		}
+		return c.JSON(fiber.Map{
+			"data": supporters[0],
 		})
 	}
 
 	return c.JSON(fiber.Map{
-		"data": supported,
+		"data": supporters,
 	})
 }

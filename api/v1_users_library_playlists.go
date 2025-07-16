@@ -1,6 +1,7 @@
 package api
 
 import (
+	"strings"
 	"time"
 
 	"bridgerton.audius.co/api/dbv1"
@@ -8,15 +9,30 @@ import (
 	"github.com/jackc/pgx/v5"
 )
 
+type GetUsersLibraryPlaylistsParams struct {
+	Limit         int    `query:"limit" default:"50" validate:"min=1,max=100"`
+	Offset        int    `query:"offset" default:"0" validate:"min=0"`
+	ActionType    string `query:"type" default:"all" validate:"oneof=favorite repost purchase all"`
+	SortMethod    string `query:"sort_method" default:"reposts" validate:"oneof=added_date plays reposts saves"`
+	SortDirection string `query:"sort_direction" default:"desc" validate:"oneof=asc desc"`
+	Query         string `query:"query" default:"" validate:"max=250"`
+}
+
 func (app *ApiServer) v1UsersLibraryPlaylists(c *fiber.Ctx) error {
+	myId := app.getMyId(c)
 
 	playlistType := "playlist"
 	if c.Params("playlistType") == "albums" {
 		playlistType = "album"
 	}
 
+	var params = GetUsersLibraryPlaylistsParams{}
+	if err := app.ParseAndValidateQueryParams(c, &params); err != nil {
+		return err
+	}
+
 	sortField := "item_created_at"
-	switch c.Query("sort_method") {
+	switch params.SortMethod {
 	case "reposts":
 		sortField = "aggregate_playlist.repost_count"
 	case "saves":
@@ -24,8 +40,19 @@ func (app *ApiServer) v1UsersLibraryPlaylists(c *fiber.Ctx) error {
 	}
 
 	sortDirection := "DESC"
-	if c.Query("sort_direction") == "asc" {
+	if params.SortDirection == "asc" {
 		sortDirection = "ASC"
+	}
+
+	playlistFilters := []string{
+		"playlists.is_album = (@playlistType = 'album')",
+		"playlists.is_delete = false",
+	}
+
+	maybeJoinUsers := ""
+	if params.Query != "" {
+		playlistFilters = append(playlistFilters, "(playlist_name ILIKE @query OR users.name ILIKE @query)")
+		maybeJoinUsers = "JOIN users ON playlists.playlist_owner_id = users.user_id"
 	}
 
 	sql := `
@@ -48,7 +75,7 @@ func (app *ApiServer) v1UsersLibraryPlaylists(c *fiber.Ctx) error {
 			created_at as item_created_at,
 			false as is_purchase
 		FROM saves
-		WHERE save_type != 'track'
+		WHERE save_type = 'playlist'
 			AND user_id = @userId
 			AND is_delete = false
 			AND @actionType in ('favorite', 'all')
@@ -60,7 +87,7 @@ func (app *ApiServer) v1UsersLibraryPlaylists(c *fiber.Ctx) error {
 			created_at as item_created_at,
 			false as is_purchase
 		FROM reposts
-		WHERE repost_type != 'track'
+		WHERE repost_type = 'playlist'
 			AND user_id = @userId
 			AND is_delete = false
 			AND @actionType in ('repost', 'all')
@@ -85,11 +112,15 @@ func (app *ApiServer) v1UsersLibraryPlaylists(c *fiber.Ctx) error {
 		FROM playlist_actions
 		GROUP BY item_id
 	)
-	SELECT deduped.*
+	SELECT
+		'collection_activity_full_without_tracks' as class,
+		'playlist' as item_type,
+		deduped.*
 	FROM deduped
 	JOIN playlists ON playlist_id = item_id
+	` + maybeJoinUsers + `
 	LEFT JOIN aggregate_playlist USING (playlist_id)
-	WHERE playlists.is_album = (@playlistType = 'album')
+	WHERE ` + strings.Join(playlistFilters, " AND ") + `
 	ORDER BY ` + sortField + ` ` + sortDirection + `, item_id desc
 	LIMIT @limit
 	OFFSET @offset
@@ -97,22 +128,23 @@ func (app *ApiServer) v1UsersLibraryPlaylists(c *fiber.Ctx) error {
 
 	rows, err := app.pool.Query(c.Context(), sql, pgx.NamedArgs{
 		"playlistType": playlistType,
-		"userId":       c.Locals("userId"),
-		"actionType":   c.Query("type", "all"),
-		"limit":        c.Query("limit", "50"),
-		"offset":       c.Query("offset", "0"),
+		"userId":       app.getUserId(c),
+		"actionType":   params.ActionType,
+		"limit":        params.Limit,
+		"offset":       params.Offset,
+		"query":        "%" + strings.ToLower(params.Query) + "%",
 	})
 	if err != nil {
 		return err
 	}
 
 	type Activity struct {
-		// Class         string    `json:"class"`
+		Class         string    `json:"class"`
 		ItemID        int32     `json:"item_id"`
 		ItemCreatedAt time.Time `json:"timestamp"`
 		IsPurchase    bool      `json:"-"`
-
-		Item any `db:"-" json:"item"`
+		ItemType      string    `json:"item_type"`
+		Item          any       `db:"-" json:"item"`
 	}
 
 	items, err := pgx.CollectRows(rows, pgx.RowToStructByName[Activity])
@@ -127,19 +159,19 @@ func (app *ApiServer) v1UsersLibraryPlaylists(c *fiber.Ctx) error {
 	}
 
 	// get playlists
-	playlists, err := app.queries.FullPlaylistsKeyed(c.Context(), dbv1.GetPlaylistsParams{
-		Ids:  ids,
-		MyID: app.getMyId(c),
+	playlists, err := app.queries.FullPlaylistsKeyed(c.Context(), dbv1.FullPlaylistsParams{
+		GetPlaylistsParams: dbv1.GetPlaylistsParams{
+			Ids:  ids,
+			MyID: myId,
+		},
+		OmitTracks: true,
 	})
+	if err != nil {
+		return err
+	}
 
-	// attach
 	for idx, item := range items {
 		if p, ok := playlists[item.ItemID]; ok {
-			// todo: python code does: exclude playlists with only hidden tracks and empty playlists
-
-			// python API doesn't attach tracks???
-			p.Tracks = nil
-
 			item.Item = p
 			items[idx] = item
 		}

@@ -8,16 +8,22 @@ import (
 	"github.com/jackc/pgx/v5/pgtype"
 )
 
+type FullPlaylistsParams struct {
+	GetPlaylistsParams
+	OmitTracks bool
+}
+
 type FullPlaylist struct {
 	GetPlaylistsRow
 
-	ID        string         `json:"id"`
-	Artwork   *SquareImage   `json:"artwork"`
-	UserID    trashid.HashId `json:"user_id"`
-	User      FullUser       `json:"user"`
-	Tracks    []FullTrack    `json:"tracks"`
-	Access    Access         `json:"access"`
-	Permalink string         `json:"permalink"`
+	ID         string         `json:"id"`
+	Artwork    *SquareImage   `json:"artwork"`
+	UserID     trashid.HashId `json:"user_id"`
+	User       FullUser       `json:"user"`
+	Tracks     []FullTrack    `json:"tracks"`
+	TrackCount int32          `json:"track_count"`
+	Access     Access         `json:"access"`
+	Permalink  string         `json:"permalink"`
 
 	FolloweeReposts   []*FolloweeRepost          `json:"followee_reposts"`
 	FolloweeFavorites []*FolloweeFavorite        `json:"followee_favorites"`
@@ -26,13 +32,13 @@ type FullPlaylist struct {
 }
 
 type FullPlaylistContentsItem struct {
-	Time         int64  `json:"timestamp"`
-	TrackId      string `json:"track_id"`
-	MetadataTime int64  `json:"metadata_timestamp"`
+	Time         float64 `json:"timestamp"`
+	TrackId      string  `json:"track_id"`
+	MetadataTime float64 `json:"metadata_timestamp"`
 }
 
-func (q *Queries) FullPlaylistsKeyed(ctx context.Context, arg GetPlaylistsParams) (map[int32]FullPlaylist, error) {
-	rawPlaylists, err := q.GetPlaylists(ctx, arg)
+func (q *Queries) FullPlaylistsKeyed(ctx context.Context, arg FullPlaylistsParams) (map[int32]FullPlaylist, error) {
+	rawPlaylists, err := q.GetPlaylists(ctx, arg.GetPlaylistsParams)
 	if err != nil {
 		return nil, err
 	}
@@ -42,8 +48,17 @@ func (q *Queries) FullPlaylistsKeyed(ctx context.Context, arg GetPlaylistsParams
 	userIds := make([]int32, len(rawPlaylists))
 	for idx, p := range rawPlaylists {
 		userIds[idx] = p.PlaylistOwnerID
-		for _, t := range p.PlaylistContents.TrackIDs {
-			trackIds = append(trackIds, int32(t.Track))
+
+		if !arg.OmitTracks {
+			// some playlists have over a thousand tracks which causes slow load times,
+			// so we limit the track hydration here to prevent bad experience.
+			trackStubs := p.PlaylistContents.TrackIDs
+			if len(trackStubs) > 200 {
+				trackStubs = trackStubs[:200]
+			}
+			for _, t := range trackStubs {
+				trackIds = append(trackIds, int32(t.Track))
+			}
 		}
 	}
 
@@ -51,7 +66,7 @@ func (q *Queries) FullPlaylistsKeyed(ctx context.Context, arg GetPlaylistsParams
 	loaded, err := q.Parallel(ctx, ParallelParams{
 		UserIds:  userIds,
 		TrackIds: trackIds,
-		MyID:     arg.MyID,
+		MyID:     arg.MyID.(int32),
 	})
 	if err != nil {
 		return nil, err
@@ -88,7 +103,12 @@ func (q *Queries) FullPlaylistsKeyed(ctx context.Context, arg GetPlaylistsParams
 		}
 
 		// For playlists, download access is the same as stream access
-		streamAccess := q.GetPlaylistAccess(ctx, arg.MyID.(int32), playlist.StreamConditions, &playlist, &user)
+		streamAccess := q.GetPlaylistAccess(
+			ctx,
+			arg.MyID.(int32),
+			playlist.StreamConditions,
+			&playlist,
+			&user)
 		downloadAccess := streamAccess
 
 		var playlistType string
@@ -105,6 +125,7 @@ func (q *Queries) FullPlaylistsKeyed(ctx context.Context, arg GetPlaylistsParams
 			User:              user,
 			UserID:            user.ID,
 			Tracks:            tracks,
+			TrackCount:        int32(len(tracks)),
 			FolloweeFavorites: fullFolloweeFavorites(playlist.FolloweeFavorites),
 			FolloweeReposts:   fullFolloweeReposts(playlist.FolloweeReposts),
 			PlaylistContents:  fullPlaylistContents,
@@ -120,7 +141,7 @@ func (q *Queries) FullPlaylistsKeyed(ctx context.Context, arg GetPlaylistsParams
 	return playlistMap, nil
 }
 
-func (q *Queries) FullPlaylists(ctx context.Context, arg GetPlaylistsParams) ([]FullPlaylist, error) {
+func (q *Queries) FullPlaylists(ctx context.Context, arg FullPlaylistsParams) ([]FullPlaylist, error) {
 	playlistMap, err := q.FullPlaylistsKeyed(ctx, arg)
 	if err != nil {
 		return nil, err
@@ -178,9 +199,7 @@ func ToMinPlaylist(fullPlaylist FullPlaylist) MinPlaylist {
 		TotalPlayCount: func() int64 {
 			var total int64
 			for _, track := range fullPlaylist.Tracks {
-				if track.PlayCount.Valid {
-					total += track.PlayCount.Int64
-				}
+				total += track.PlayCount
 			}
 			return total
 		}(),

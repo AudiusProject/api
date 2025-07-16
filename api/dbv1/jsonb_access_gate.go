@@ -15,15 +15,17 @@ type AccessGate struct {
 	NftCollection *map[string]any `json:"nft_collection,omitempty"`
 }
 
-type PurchaseGate struct {
-	Price  float64 `json:"price"`
-	Splits []struct {
-		UserID     int32   `json:"user_id"`
-		Percentage float64 `json:"percentage"`
-	} `json:"splits"`
+type PurchaseSplit struct {
+	UserID     int32   `json:"user_id"`
+	Percentage float64 `json:"percentage"`
 }
 
-func (gate *PurchaseGate) toFullPurchaseGate(cfg config.Config, userMap map[int32]FullUser) *FullPurchaseGate {
+type PurchaseGate struct {
+	Price  float64         `json:"price"`
+	Splits []PurchaseSplit `json:"splits"`
+}
+
+func (gate PurchaseGate) ToFullPurchaseGate(cfg config.Config, userMap map[int32]FullUser) *FullPurchaseGate {
 	priceInUsdc := gate.Price * 10000
 	networkCut := priceInUsdc * (cfg.NetworkTakeRate / 100)
 	price := priceInUsdc - networkCut
@@ -65,7 +67,7 @@ func (gate *PurchaseGate) toFullPurchaseGate(cfg config.Config, userMap map[int3
 	}
 
 	// add network take last (after rounding error is distributed)
-	splitMap[cfg.StakingBridgeUsdcPayoutWallet] = int64(networkCut)
+	splitMap[cfg.SolanaConfig.StakingBridgeUsdcTokenAccount.String()] = int64(networkCut)
 	return &FullPurchaseGate{
 		Price:  gate.Price,
 		Splits: splitMap,
@@ -78,7 +80,7 @@ func (usage *AccessGate) toFullAccessGate(cfg config.Config, userMap map[int32]F
 	}
 	if usage.UsdcPurchase != nil {
 		return &FullAccessGate{
-			UsdcPurchase: usage.UsdcPurchase.toFullPurchaseGate(cfg, userMap),
+			UsdcPurchase: usage.UsdcPurchase.ToFullPurchaseGate(cfg, userMap),
 		}
 	}
 	return &FullAccessGate{

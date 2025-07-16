@@ -10,7 +10,9 @@ import (
 	"github.com/jackc/pgx/v5/pgtype"
 )
 
-type FullTracksParams GetTracksParams
+type FullTracksParams struct {
+	GetTracksParams
+}
 
 type FullTrack struct {
 	GetTracksRow
@@ -32,8 +34,8 @@ type FullTrack struct {
 	DownloadConditions *FullAccessGate     `json:"download_conditions"`
 }
 
-func (q *Queries) FullTracksKeyed(ctx context.Context, arg GetTracksParams) (map[int32]FullTrack, error) {
-	rawTracks, err := q.GetTracks(ctx, GetTracksParams(arg))
+func (q *Queries) FullTracksKeyed(ctx context.Context, arg FullTracksParams) (map[int32]FullTrack, error) {
+	rawTracks, err := q.GetTracks(ctx, GetTracksParams(arg.GetTracksParams))
 	if err != nil {
 		return nil, err
 	}
@@ -62,9 +64,28 @@ func (q *Queries) FullTracksKeyed(ctx context.Context, arg GetTracksParams) (map
 	}
 
 	userMap, err := q.FullUsersKeyed(ctx, GetUsersParams{
-		MyID: arg.MyID,
+		MyID: arg.MyID.(int32),
 		Ids:  userIds,
 	})
+	if err != nil {
+		return nil, err
+	}
+
+	// Convert rawTracks to pointers
+	trackPtrs := make([]*GetTracksRow, len(rawTracks))
+	for i := range rawTracks {
+		trackPtrs[i] = &rawTracks[i]
+	}
+
+	// Convert userMap to pointers
+	userPtrMap := make(map[int32]*FullUser)
+	for id, user := range userMap {
+		userCopy := user // Create a copy to avoid modifying the original
+		userPtrMap[id] = &userCopy
+	}
+
+	// Get bulk access for all tracks
+	accessMap, err := q.GetBulkTrackAccess(ctx, arg.MyID.(int32), trackPtrs, userPtrMap)
 	if err != nil {
 		return nil, err
 	}
@@ -75,19 +96,6 @@ func (q *Queries) FullTracksKeyed(ctx context.Context, arg GetTracksParams) (map
 		user, ok := userMap[track.UserID]
 		if !ok {
 			continue
-		}
-
-		// Collect media links
-		// TODO(API-49): support self-access via grants
-		// see https://github.com/AudiusProject/audius-protocol/blob/4bd9fe80d8cca519844596061505ad8737579019/packages/discovery-provider/src/queries/query_helpers.py#L905
-		stream := mediaLink(track.TrackCid.String, track.TrackID, arg.MyID.(int32))
-		var download *MediaLink
-		if track.IsDownloadable {
-			download = mediaLink(track.OrigFileCid.String, track.TrackID, arg.MyID.(int32))
-		}
-		var preview *MediaLink
-		if track.PreviewCid.String != "" {
-			preview = mediaLink(track.PreviewCid.String, track.TrackID, arg.MyID.(int32))
 		}
 
 		if track.FieldVisibility == nil || string(track.FieldVisibility) == "null" {
@@ -117,19 +125,31 @@ func (q *Queries) FullTracksKeyed(ctx context.Context, arg GetTracksParams) (map
 			}
 		}
 
-		// Use download conditions if available, otherwise use stream conditions
-		var downloadConditions *AccessGate
-		if track.DownloadConditions != nil {
-			downloadConditions = track.DownloadConditions
-		} else {
-			downloadConditions = track.StreamConditions
+		// Get access from the bulk access map
+		access := accessMap[track.TrackID]
+
+		var stream *MediaLink
+		if access.Stream {
+			stream, err = mediaLink(track.TrackCid.String, track.TrackID, arg.MyID.(int32))
+			if err != nil {
+				return nil, err
+			}
 		}
-		downloadAccess := q.GetTrackAccess(ctx, arg.MyID.(int32), downloadConditions, &track, &user)
-		// If you can download it, you can stream it
-		streamAccess := downloadAccess || q.GetTrackAccess(ctx, arg.MyID.(int32), track.StreamConditions, &track, &user)
-		access := Access{
-			Download: downloadAccess,
-			Stream:   streamAccess,
+
+		var download *MediaLink
+		if track.IsDownloadable && access.Download {
+			download, err = mediaLink(track.OrigFileCid.String, track.TrackID, arg.MyID.(int32))
+			if err != nil {
+				return nil, err
+			}
+		}
+
+		var preview *MediaLink
+		if track.PreviewCid.String != "" {
+			preview, err = mediaLink(track.PreviewCid.String, track.TrackID, arg.MyID.(int32))
+			if err != nil {
+				return nil, err
+			}
 		}
 
 		fullTrack := FullTrack{
@@ -155,7 +175,7 @@ func (q *Queries) FullTracksKeyed(ctx context.Context, arg GetTracksParams) (map
 	return trackMap, nil
 }
 
-func (q *Queries) FullTracks(ctx context.Context, arg GetTracksParams) ([]FullTrack, error) {
+func (q *Queries) FullTracks(ctx context.Context, arg FullTracksParams) ([]FullTrack, error) {
 	trackMap, err := q.FullTracksKeyed(ctx, arg)
 	if err != nil {
 		return nil, err
@@ -194,7 +214,7 @@ type MinTrack struct {
 	CommentCount             pgtype.Int4  `json:"comment_count"`
 	Tags                     pgtype.Text  `json:"tags"`
 	IsDownloadable           bool         `json:"is_downloadable"`
-	PlayCount                pgtype.Int8  `json:"play_count"`
+	PlayCount                int64        `json:"play_count"`
 	PinnedCommentID          pgtype.Int4  `json:"pinned_comment_id"`
 	PlaylistsContainingTrack []int32      `json:"playlists_containing_track"`
 	AlbumBacklink            interface{}  `json:"album_backlink"`

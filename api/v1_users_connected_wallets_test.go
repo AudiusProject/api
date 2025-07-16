@@ -8,6 +8,7 @@ import (
 )
 
 func TestGetUserConnectedWalletsQuery(t *testing.T) {
+	app := testAppWithFixtures(t)
 	connectedWallets, err := app.queries.FullConnectedWallets(t.Context(), 2)
 	assert.NoError(t, err)
 	assert.Len(t, connectedWallets.ErcWallets, 2)
@@ -21,18 +22,20 @@ func TestGetUserConnectedWalletsQuery(t *testing.T) {
 }
 
 func TestGetUserConnectedWallets(t *testing.T) {
-	status, body := testGet(t, "/v1/users/"+trashid.MustEncodeHashID(2)+"/connected_wallets")
+	app := testAppWithFixtures(t)
+	status, body := testGet(t, app, "/v1/users/"+trashid.MustEncodeHashID(2)+"/connected_wallets")
 	assert.Equal(t, 200, status)
-	jsonAssert(t, body, map[string]string{
+	jsonAssert(t, body, map[string]any{
 		"data.erc_wallets": `["0x1111111111111111111111111111111111111111","0x2222222222222222222222222222222222222222"]`,
 		"data.spl_wallets": `["sol44444444444444444444444444444444444444444","sol55555555555555555555555555555555555555555"]`,
 	})
 }
 
 func TestGetUserConnectedWalletsEmpty(t *testing.T) {
-	status, body := testGet(t, "/v1/users/"+trashid.MustEncodeHashID(4)+"/connected_wallets")
+	app := testAppWithFixtures(t)
+	status, body := testGet(t, app, "/v1/users/"+trashid.MustEncodeHashID(4)+"/connected_wallets")
 	assert.Equal(t, 200, status)
-	jsonAssert(t, body, map[string]string{
+	jsonAssert(t, body, map[string]any{
 		"data.spl_wallets": "[]",
 		"data.erc_wallets": "[]",
 	})
