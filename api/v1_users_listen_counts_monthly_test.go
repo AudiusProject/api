@@ -5,6 +5,7 @@ import (
 	"testing"
 	"time"
 
+	"bridgerton.audius.co/database"
 	"bridgerton.audius.co/trashid"
 	"github.com/stretchr/testify/assert"
 )
@@ -17,7 +18,7 @@ func TestV1UsersListenCountsMonthly(t *testing.T) {
 	now := time.Date(2024, 6, 1, 0, 0, 0, 0, time.UTC)
 	nextMonth := now.AddDate(0, 1, 0)
 
-	fixtures := FixtureMap{
+	fixtures := database.FixtureMap{
 		"users": []map[string]any{
 			{
 				"user_id": userID,
@@ -55,7 +56,7 @@ func TestV1UsersListenCountsMonthly(t *testing.T) {
 		},
 	}
 
-	createFixtures(app, fixtures)
+	database.Seed(app.pool, fixtures)
 
 	start := now.Format(time.RFC3339)
 	end := nextMonth.AddDate(0, 1, 0).Format(time.RFC3339)

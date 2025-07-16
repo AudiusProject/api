@@ -3,13 +3,14 @@ package api
 import (
 	"testing"
 
+	"bridgerton.audius.co/database"
 	"bridgerton.audius.co/trashid"
 	"github.com/stretchr/testify/assert"
 )
 
 func TestGetTrackCommentNotificationSetting(t *testing.T) {
 	app := emptyTestApp(t)
-	fixtures := FixtureMap{
+	fixtures := database.FixtureMap{
 		"users": []map[string]any{
 			{"user_id": 1, "wallet": "0x7d273271690538cf855e5b3002a0dd8c154bb060"},
 		},
@@ -21,7 +22,7 @@ func TestGetTrackCommentNotificationSetting(t *testing.T) {
 			},
 		},
 	}
-	createFixtures(app, fixtures)
+	database.Seed(app.pool, fixtures)
 	status, body := testGetWithWallet(
 		t, app,
 		"/v1/tracks/"+trashid.MustEncodeHashID(1)+"/comment_notification_setting?user_id="+trashid.MustEncodeHashID(1),
@@ -35,7 +36,7 @@ func TestGetTrackCommentNotificationSetting(t *testing.T) {
 
 func TestGetTrackCommentNotificationSettingMuted(t *testing.T) {
 	app := emptyTestApp(t)
-	fixtures := FixtureMap{
+	fixtures := database.FixtureMap{
 		"users": []map[string]any{
 			{"user_id": 1, "wallet": "0x7d273271690538cf855e5b3002a0dd8c154bb060"},
 		},
@@ -47,7 +48,7 @@ func TestGetTrackCommentNotificationSettingMuted(t *testing.T) {
 			},
 		},
 	}
-	createFixtures(app, fixtures)
+	database.Seed(app.pool, fixtures)
 	status, body := testGetWithWallet(
 		t, app,
 		"/v1/tracks/"+trashid.MustEncodeHashID(2)+"/comment_notification_setting?user_id="+trashid.MustEncodeHashID(1),
@@ -61,12 +62,12 @@ func TestGetTrackCommentNotificationSettingMuted(t *testing.T) {
 
 func TestGetTrackCommentNotificationSettingNotFound(t *testing.T) {
 	app := emptyTestApp(t)
-	fixtures := FixtureMap{
+	fixtures := database.FixtureMap{
 		"users": []map[string]any{
 			{"user_id": 1, "wallet": "0x7d273271690538cf855e5b3002a0dd8c154bb060"},
 		},
 	}
-	createFixtures(app, fixtures)
+	database.Seed(app.pool, fixtures)
 	status, body := testGetWithWallet(
 		t, app,
 		"/v1/tracks/"+trashid.MustEncodeHashID(999)+"/comment_notification_setting?user_id="+trashid.MustEncodeHashID(1),

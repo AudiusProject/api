@@ -5,13 +5,14 @@ import (
 	"time"
 
 	"bridgerton.audius.co/api/dbv1"
+	"bridgerton.audius.co/database"
 	"bridgerton.audius.co/trashid"
 	"github.com/stretchr/testify/assert"
 )
 
 func TestGetUserAlbums(t *testing.T) {
 	app := emptyTestApp(t)
-	fixtures := FixtureMap{
+	fixtures := database.FixtureMap{
 		"users": {{"user_id": 1, "handle_lc": "one"}},
 		"playlists": {
 			{
@@ -41,7 +42,7 @@ func TestGetUserAlbums(t *testing.T) {
 			{"playlist_id": 2, "repost_count": 20, "save_count": 10},
 		},
 	}
-	createFixtures(app, fixtures)
+	database.Seed(app.pool, fixtures)
 
 	var userAlbumsResponse struct {
 		Data []dbv1.FullPlaylist
@@ -67,7 +68,7 @@ func TestGetUserAlbums(t *testing.T) {
 
 func TestGetUserAlbums_SortRecentDesc(t *testing.T) {
 	app := emptyTestApp(t)
-	fixtures := FixtureMap{
+	fixtures := database.FixtureMap{
 		"users": {{"user_id": 1, "handle_lc": "one"}},
 		"playlists": {
 			{
@@ -97,7 +98,7 @@ func TestGetUserAlbums_SortRecentDesc(t *testing.T) {
 			{"playlist_id": 2, "repost_count": 20, "save_count": 10},
 		},
 	}
-	createFixtures(app, fixtures)
+	database.Seed(app.pool, fixtures)
 
 	var userAlbumsResponse struct {
 		Data []dbv1.FullPlaylist
@@ -113,7 +114,7 @@ func TestGetUserAlbums_SortRecentDesc(t *testing.T) {
 
 func TestGetUserAlbums_SortPopularAsc(t *testing.T) {
 	app := emptyTestApp(t)
-	fixtures := FixtureMap{
+	fixtures := database.FixtureMap{
 		"users": {{"user_id": 1, "handle_lc": "one"}},
 		"playlists": {
 			{
@@ -143,7 +144,7 @@ func TestGetUserAlbums_SortPopularAsc(t *testing.T) {
 			{"playlist_id": 2, "repost_count": 20, "save_count": 10},
 		},
 	}
-	createFixtures(app, fixtures)
+	database.Seed(app.pool, fixtures)
 
 	var userAlbumsResponse struct {
 		Data []dbv1.FullPlaylist
@@ -159,7 +160,7 @@ func TestGetUserAlbums_SortPopularAsc(t *testing.T) {
 
 func TestGetUserAlbums_FilterAlbumsPublic(t *testing.T) {
 	app := emptyTestApp(t)
-	fixtures := FixtureMap{
+	fixtures := database.FixtureMap{
 		"users": {{"user_id": 1, "handle_lc": "one"}},
 		"playlists": {
 			{
@@ -192,7 +193,7 @@ func TestGetUserAlbums_FilterAlbumsPublic(t *testing.T) {
 			{"playlist_id": 2, "repost_count": 20, "save_count": 10},
 		},
 	}
-	createFixtures(app, fixtures)
+	database.Seed(app.pool, fixtures)
 
 	var userAlbumsResponse struct {
 		Data []dbv1.FullPlaylist
@@ -208,7 +209,7 @@ func TestGetUserAlbums_FilterAlbumsPublic(t *testing.T) {
 
 func TestGetUserAlbums_FilterAlbumsPrivate(t *testing.T) {
 	app := emptyTestApp(t)
-	fixtures := FixtureMap{
+	fixtures := database.FixtureMap{
 		"users": {{"user_id": 1, "handle_lc": "one"}},
 		"playlists": {
 			{
@@ -241,7 +242,7 @@ func TestGetUserAlbums_FilterAlbumsPrivate(t *testing.T) {
 			{"playlist_id": 2, "repost_count": 20, "save_count": 10},
 		},
 	}
-	createFixtures(app, fixtures)
+	database.Seed(app.pool, fixtures)
 
 	var userAlbumsResponse struct {
 		Data []dbv1.FullPlaylist

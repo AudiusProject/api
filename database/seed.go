@@ -296,8 +296,9 @@ var (
 			"change":                 0,
 			"balance":                0,
 		},
-		"aggregate_plays": {},
-		"aggregate_track": {},
+		"aggregate_plays":    {},
+		"aggregate_track":    {},
+		"aggregate_playlist": {},
 		"aggregate_user": {
 			"user_id":          nil,
 			"follower_count":   0,
@@ -420,6 +421,15 @@ var (
 			"slot":            1,
 			"signature":       nil,
 		},
+		"shares": {
+			"blockhash":     "block_abc123",
+			"blocknumber":   101,
+			"share_item_id": nil,
+			"user_id":       nil,
+			"share_type":    nil,
+			"created_at":    time.Now(),
+			"txhash":        "tx123",
+		},
 	}
 )
 
@@ -497,7 +507,8 @@ func Seed(pool *pgxpool.Pool, fixtures FixtureMap) {
 	// because map key iteration order is randomized...
 	// explicitly do the "entity" tables first
 	// so that data dependencies exist before attempting to do saves, follows, etc.
-	entityTables := []string{"users", "tracks", "playlists", "sol_token_account_balances"}
+	// (also do aggregates first so we can override the ones the entities autocreate)
+	entityTables := []string{"aggregate_user", "aggregate_track", "aggregate_playlist", "users", "tracks", "playlists", "sol_token_account_balances"}
 	for _, tableName := range entityTables {
 		if rows, ok := fixtures[tableName]; ok {
 			SeedTable(pool, tableName, rows)

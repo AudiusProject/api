@@ -3,6 +3,7 @@ package api
 import (
 	"testing"
 
+	"bridgerton.audius.co/database"
 	"bridgerton.audius.co/trashid"
 	"github.com/stretchr/testify/assert"
 )
@@ -10,7 +11,7 @@ import (
 func TestV1UsersSupporting(t *testing.T) {
 	app := emptyTestApp(t)
 
-	fixtures := FixtureMap{
+	fixtures := database.FixtureMap{
 		"users": {
 			{"user_id": 1, "handle": "supported"},
 			{"user_id": 2, "handle": "supporting_1"},
@@ -41,7 +42,7 @@ func TestV1UsersSupporting(t *testing.T) {
 		},
 	}
 
-	createFixtures(app, fixtures)
+	database.Seed(app.pool, fixtures)
 
 	{
 		status, body := testGet(t, app, "/v1/users/7eP5n/supporting")
