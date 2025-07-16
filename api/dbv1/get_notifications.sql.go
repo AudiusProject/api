@@ -46,7 +46,7 @@ SELECT
     CASE
       WHEN user_seen.seen_at is not NULL THEN now()::timestamp != user_seen.seen_at
       ELSE EXISTS(SELECT 1 from notification_seen ns where ns.user_id = $1)
-    END as is_seen,
+    END::boolean as is_seen,
     CASE
       WHEN user_seen.seen_at is not NULL THEN EXTRACT(EPOCH FROM user_seen.seen_at)
       ELSE (
@@ -101,7 +101,7 @@ type GetNotifsRow struct {
 	Type    string          `json:"type"`
 	GroupID string          `json:"group_id"`
 	Actions json.RawMessage `json:"actions"`
-	IsSeen  interface{}     `json:"is_seen"`
+	IsSeen  bool            `json:"is_seen"`
 	SeenAt  interface{}     `json:"seen_at"`
 }
 

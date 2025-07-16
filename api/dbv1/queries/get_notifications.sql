@@ -34,7 +34,7 @@ SELECT
     CASE
       WHEN user_seen.seen_at is not NULL THEN now()::timestamp != user_seen.seen_at
       ELSE EXISTS(SELECT 1 from notification_seen ns where ns.user_id = @user_id)
-    END as is_seen,
+    END::boolean as is_seen,
     CASE
       WHEN user_seen.seen_at is not NULL THEN EXTRACT(EPOCH FROM user_seen.seen_at)
       ELSE (

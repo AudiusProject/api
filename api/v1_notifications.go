@@ -16,14 +16,19 @@ func (app *ApiServer) v1Notifications(c *fiber.Ctx) error {
 	}
 
 	// trashify!
+	unreadCount := 0
 	for idx, notif := range notifs {
 		notif.Actions = trashid.HashifyJson(notif.Actions)
 		notifs[idx] = notif
+		if !notif.IsSeen {
+			unreadCount++
+		}
 	}
 
 	return c.JSON(fiber.Map{
 		"data": fiber.Map{
 			"notifications": notifs,
+			"unread_count":  unreadCount,
 		},
 	})
 
