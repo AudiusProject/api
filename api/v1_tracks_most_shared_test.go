@@ -5,6 +5,7 @@ import (
 	"testing"
 	"time"
 
+	"bridgerton.audius.co/database"
 	"bridgerton.audius.co/trashid"
 	"github.com/stretchr/testify/assert"
 )
@@ -30,7 +31,7 @@ func TestV1TracksMostShared(t *testing.T) {
 		})
 	}
 
-	fixtures := FixtureMap{
+	fixtures := database.FixtureMap{
 		"users":  users,
 		"tracks": tracks,
 		"shares": []map[string]any{
@@ -91,7 +92,7 @@ func TestV1TracksMostShared(t *testing.T) {
 		},
 	}
 
-	createFixtures(app, fixtures)
+	database.Seed(app.pool, fixtures)
 
 	// Default case (by week), track 1 has most shares, track 3 has none in the past week
 	{

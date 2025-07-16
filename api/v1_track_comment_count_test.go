@@ -4,6 +4,7 @@ import (
 	"context"
 	"testing"
 
+	"bridgerton.audius.co/database"
 	"bridgerton.audius.co/trashid"
 	"github.com/stretchr/testify/assert"
 )
@@ -11,7 +12,7 @@ import (
 // No reports/mutes/deletes
 func TestGetTrackCommentCount(t *testing.T) {
 	app := emptyTestApp(t)
-	fixtures := FixtureMap{
+	fixtures := database.FixtureMap{
 		"tracks": []map[string]any{
 			{"track_id": 1, "owner_id": 1},
 		},
@@ -27,7 +28,7 @@ func TestGetTrackCommentCount(t *testing.T) {
 			{"comment_id": 3, "user_id": 4, "entity_id": 1, "entity_type": "Track"},
 		},
 	}
-	createFixtures(app, fixtures)
+	database.Seed(app.pool, fixtures)
 
 	// Check count for user 1
 	{
@@ -55,7 +56,7 @@ func TestGetTrackCommentCount(t *testing.T) {
 // Test that we don't count comments reported by the user
 func TestGetTrackCommentCountUserReportedComment(t *testing.T) {
 	app := emptyTestApp(t)
-	fixtures := FixtureMap{
+	fixtures := database.FixtureMap{
 		"tracks": []map[string]any{
 			{"track_id": 1, "owner_id": 1},
 		},
@@ -74,7 +75,7 @@ func TestGetTrackCommentCountUserReportedComment(t *testing.T) {
 			{"comment_id": 1, "user_id": 2}, // User 2 reported comment 1
 		},
 	}
-	createFixtures(app, fixtures)
+	database.Seed(app.pool, fixtures)
 
 	// Check count for user 2
 	{
@@ -115,7 +116,7 @@ func TestGetTrackCommentCountUserReportedComment(t *testing.T) {
 // Test that we don't count comments reported by the track owner
 func TestGetTrackCommentCountArtistReportedComment(t *testing.T) {
 	app := emptyTestApp(t)
-	fixtures := FixtureMap{
+	fixtures := database.FixtureMap{
 		"tracks": []map[string]any{
 			{"track_id": 1, "owner_id": 1},
 		},
@@ -134,7 +135,7 @@ func TestGetTrackCommentCountArtistReportedComment(t *testing.T) {
 			{"comment_id": 1, "user_id": 1}, // Reported by track owner
 		},
 	}
-	createFixtures(app, fixtures)
+	database.Seed(app.pool, fixtures)
 
 	// Check count for anonymous user
 	{
@@ -175,7 +176,7 @@ func TestGetTrackCommentCountArtistReportedComment(t *testing.T) {
 // Test that we don't count comments reported by a high-karma user
 func TestGetTrackCommentCountWithKarmaReportedComment(t *testing.T) {
 	app := emptyTestApp(t)
-	fixtures := FixtureMap{
+	fixtures := database.FixtureMap{
 		"users": []map[string]any{
 			{"user_id": 1, "wallet": "0x7d273271690538cf855e5b3002a0dd8c154bb060"},
 			{"user_id": 2, "wallet": "0xc3d1d41e6872ffbd15c473d14fc3a9250be5b5e0"},
@@ -194,7 +195,7 @@ func TestGetTrackCommentCountWithKarmaReportedComment(t *testing.T) {
 			{"comment_id": 2, "user_id": 2}, // Reported by high-karma user
 		},
 	}
-	createFixtures(app, fixtures)
+	database.Seed(app.pool, fixtures)
 	_, err := app.pool.Exec(context.Background(), `
 		UPDATE aggregate_user SET follower_count = $1 WHERE user_id = $2
 	`, karmaCommentCountThreshold+1, 2)
@@ -241,7 +242,7 @@ func TestGetTrackCommentCountWithKarmaReportedComment(t *testing.T) {
 // Test that a deleted comment is not counted
 func TestGetTrackCommentCountDeletedComment(t *testing.T) {
 	app := emptyTestApp(t)
-	fixtures := FixtureMap{
+	fixtures := database.FixtureMap{
 		"tracks": []map[string]any{
 			{"track_id": 1, "owner_id": 1},
 		},
@@ -257,7 +258,7 @@ func TestGetTrackCommentCountDeletedComment(t *testing.T) {
 			{"comment_id": 3, "user_id": 4, "entity_id": 1, "entity_type": "Track", "is_delete": false},
 		},
 	}
-	createFixtures(app, fixtures)
+	database.Seed(app.pool, fixtures)
 
 	status, body := testGet(t, app, "/v1/tracks/"+trashid.MustEncodeHashID(1)+"/comment_count")
 	assert.Equal(t, 200, status)
@@ -269,7 +270,7 @@ func TestGetTrackCommentCountDeletedComment(t *testing.T) {
 // Test that a muted user's comments are not counted for the muting user
 func TestGetTrackCommentCountMutedUser(t *testing.T) {
 	app := emptyTestApp(t)
-	fixtures := FixtureMap{
+	fixtures := database.FixtureMap{
 		"tracks": []map[string]any{
 			{"track_id": 1, "owner_id": 1},
 		},
@@ -288,7 +289,7 @@ func TestGetTrackCommentCountMutedUser(t *testing.T) {
 			{"user_id": 2, "muted_user_id": 3}, // User 2 mutes user 3
 		},
 	}
-	createFixtures(app, fixtures)
+	database.Seed(app.pool, fixtures)
 
 	// For user 2 who muted user 3, should only see 1 comment
 	{
@@ -329,7 +330,7 @@ func TestGetTrackCommentCountMutedUser(t *testing.T) {
 // Test that when an artist mutes someone, their comments are not counted for everyone
 func TestGetTrackCommentCountArtistMutedUser(t *testing.T) {
 	app := emptyTestApp(t)
-	fixtures := FixtureMap{
+	fixtures := database.FixtureMap{
 		"tracks": []map[string]any{
 			{"track_id": 1, "owner_id": 1}, // Artist
 		},
@@ -348,7 +349,7 @@ func TestGetTrackCommentCountArtistMutedUser(t *testing.T) {
 			{"user_id": 1, "muted_user_id": 2}, // Artist (user 1) mutes user 2
 		},
 	}
-	createFixtures(app, fixtures)
+	database.Seed(app.pool, fixtures)
 
 	// The artist who muted should only see 1 comment
 	{
@@ -402,7 +403,7 @@ func TestGetTrackCommentCountArtistMutedUser(t *testing.T) {
 // Test that when a high karma user mutes someone, their comments are hidden for everyone
 func TestGetTrackCommentCountHighKarmaMutedUser(t *testing.T) {
 	app := emptyTestApp(t)
-	fixtures := FixtureMap{
+	fixtures := database.FixtureMap{
 		"tracks": []map[string]any{
 			{"track_id": 1, "owner_id": 1},
 		},
@@ -421,7 +422,7 @@ func TestGetTrackCommentCountHighKarmaMutedUser(t *testing.T) {
 			{"user_id": 3, "muted_user_id": 2}, // High karma user 3 mutes user 2
 		},
 	}
-	createFixtures(app, fixtures)
+	database.Seed(app.pool, fixtures)
 	_, err := app.pool.Exec(context.Background(), `
 		UPDATE aggregate_user SET follower_count = $1 WHERE user_id = $2
 	`, karmaCommentCountThreshold+1, 3)

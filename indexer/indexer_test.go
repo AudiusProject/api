@@ -1,15 +1,14 @@
 package indexer
 
 import (
-	"context"
 	"encoding/binary"
 	"encoding/json"
 	"fmt"
 	"os"
 	"testing"
 
+	"bridgerton.audius.co/database"
 	core_proto "github.com/AudiusProject/audiusd/pkg/api/core/v1"
-	"github.com/jackc/pgx/v5"
 	"github.com/stretchr/testify/assert"
 	"google.golang.org/protobuf/proto"
 )
@@ -25,25 +24,14 @@ var (
 )
 
 func TestMain(m *testing.M) {
-	ctx := context.Background()
 	var err error
-
-	// create a test db from template
-	{
-		conn, err := pgx.Connect(ctx, "postgres://postgres:example@localhost:21300/postgres")
-		checkErr(err)
-
-		_, err = conn.Exec(ctx, "DROP DATABASE IF EXISTS indexer_test")
-		checkErr(err)
-
-		_, err = conn.Exec(ctx, "CREATE DATABASE indexer_test TEMPLATE postgres")
-		checkErr(err)
-	}
-
+	pool := database.CreateTestDatabase(nil)
 	ci, err = NewIndexer(CoreIndexerConfig{
-		DbUrl: "postgres://postgres:example@localhost:21300/indexer_test",
+		DbUrl: pool.Config().ConnString(),
 	})
 	checkErr(err)
+	ci.pool.Close()
+	ci.pool = pool
 
 	// relax schema a bit...
 	_, err = ci.pool.Exec(ci.ctx, `

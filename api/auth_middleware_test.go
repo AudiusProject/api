@@ -6,6 +6,7 @@ import (
 	"net/http/httptest"
 	"testing"
 
+	"bridgerton.audius.co/database"
 	"github.com/gofiber/fiber/v2"
 	"github.com/stretchr/testify/assert"
 )
@@ -142,7 +143,7 @@ func TestWalletCache(t *testing.T) {
 		})
 	})
 
-	fixtures := FixtureMap{
+	fixtures := database.FixtureMap{
 		"users": make([]map[string]any, 100),
 	}
 
@@ -155,7 +156,7 @@ func TestWalletCache(t *testing.T) {
 		}
 	}
 
-	createFixtures(app, fixtures)
+	database.Seed(app.pool, fixtures)
 
 	// Test that caching doesn't reuse context params
 	for i := range 1000 {

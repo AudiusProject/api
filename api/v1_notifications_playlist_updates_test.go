@@ -5,6 +5,7 @@ import (
 	"testing"
 	"time"
 
+	"bridgerton.audius.co/database"
 	"bridgerton.audius.co/trashid"
 	"github.com/stretchr/testify/assert"
 )
@@ -16,7 +17,7 @@ func TestV1NotificationsPlaylistUpdates(t *testing.T) {
 	playlist2ID := int32(4002)
 	now := time.Now().UTC()
 
-	fixtures := FixtureMap{
+	fixtures := database.FixtureMap{
 		"users": []map[string]any{
 			{
 				"user_id": userID,
@@ -58,7 +59,7 @@ func TestV1NotificationsPlaylistUpdates(t *testing.T) {
 		},
 	}
 
-	createFixtures(app, fixtures)
+	database.Seed(app.pool, fixtures)
 
 	status, body := testGet(t, app, fmt.Sprintf("/v1/notifications/%s/playlist_updates", trashid.MustEncodeHashID(int(userID))))
 	assert.Equal(t, 200, status)

@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"testing"
 
+	"bridgerton.audius.co/database"
 	"bridgerton.audius.co/trashid"
 	"github.com/stretchr/testify/assert"
 )
@@ -11,7 +12,7 @@ import (
 func TestGetTrendingPlaylists(t *testing.T) {
 	app := emptyTestApp(t)
 
-	fixtures := FixtureMap{
+	fixtures := database.FixtureMap{
 		"playlists":                []map[string]any{},
 		"tracks":                   []map[string]any{},
 		"playlist_tracks":          []map[string]any{},
@@ -82,7 +83,7 @@ func TestGetTrendingPlaylists(t *testing.T) {
 		})
 	}
 
-	createFixtures(app, fixtures)
+	database.Seed(app.pool, fixtures)
 	status, body := testGet(t, app, "/v1/playlists/trending?limit=5", nil)
 	assert.Equal(t, 200, status)
 
