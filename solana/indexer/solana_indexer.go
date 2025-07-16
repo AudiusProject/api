@@ -483,7 +483,7 @@ func (s *SolanaIndexer) ProcessTransaction(
 				case payment_router.InstructionImplDef.TypeID(payment_router.Instruction_Route):
 					if routeInst, ok := inst.Impl.(*payment_router.Route); ok {
 						for i, account := range routeInst.GetDestinations() {
-							insertPayment(ctx, db, paymentRow{
+							err = insertPayment(ctx, db, paymentRow{
 								signature:        signature,
 								instructionIndex: instructionIndex,
 								amount:           routeInst.Amounts[i],
@@ -491,6 +491,9 @@ func (s *SolanaIndexer) ProcessTransaction(
 								routeIndex:       i,
 								toAccount:        account.PublicKey.String(),
 							})
+							if err != nil {
+								return fmt.Errorf("failed to insert payment at instruction %d: %w", instructionIndex, err)
+							}
 						}
 
 						parsedPurchaseMemo, ok := findNextPurchaseMemo(tx, instructionIndex, logger)
@@ -502,7 +505,7 @@ func (s *SolanaIndexer) ProcessTransaction(
 								// continue - insert the purchase as invalid for record keeping
 							}
 
-							insertPurchase(ctx, db, purchaseRow{
+							err = insertPurchase(ctx, db, purchaseRow{
 								signature:          signature,
 								instructionIndex:   instructionIndex,
 								amount:             routeInst.TotalAmount,
@@ -512,6 +515,9 @@ func (s *SolanaIndexer) ProcessTransaction(
 								parsedLocationMemo: parsedLocationMemo,
 								isValid:            isValid,
 							})
+							if err != nil {
+								return fmt.Errorf("failed to insert purchase at instruction %d: %w", instructionIndex, err)
+							}
 							logger.Info("payment_router purchase",
 								zap.String("contentType", parsedPurchaseMemo.ContentType),
 								zap.Int("contentId", parsedPurchaseMemo.ContentId),
@@ -543,7 +549,10 @@ func (s *SolanaIndexer) ProcessTransaction(
 			signature:      tx.Signatures[0].String(),
 			blockTimestamp: blockTime,
 		}
-		insertBalanceChange(ctx, db, row)
+		err = insertBalanceChange(ctx, db, row)
+		if err != nil {
+			return fmt.Errorf("failed to insert balance change for account %s: %w", acc, err)
+		}
 
 		if logger != nil {
 			logger.Debug("balance change",
