@@ -4909,74 +4909,236 @@ components:
     coin:
       type: object
       properties:
-        mint:
-          type: string
-          description: The coin mint address
-          example: "9LzCMqDgTKYz9Drzqnpgee3SGa89up3a247ypMj2xrqM"
         ticker:
           type: string
           description: The coin symbol
-          example: "$AUDIO"
-        logo:
+          example: "$BONK"
+        mint:
           type: string
-          description: The URL to the coin's logo image
-          example: "https://example.com/logo.png"
-        decimals:
-          type: integer
-          description: The number of decimal places for the coin
-          example: 9
-        price:
-          type: number
-          description: The current price of the coin in USD
-          example: 1.23
-        price_change_24h:
-          type: number
-          description: The percentage change in price over the last 24 hours
-          example: 0.5
-        market_cap:
-          type: number
-          description: The market capitalization of the coin in USD
-          example: 123456789
-        volume:
-          type: number
-          description: The total trading volume of the coin
-          example: 582959257297739
-        volume_24h:
-          type: number
-          description: The trading volume of the coin in the last 24 hours
-          example: 987654321
-        volume_change_24h:
-          type: number
-          description: The percentage change in trading volume over the last 24 hours
-          example: 0.15
-        total_supply:
-          type: number
-          description: The total supply of the coin
-          example: 1000000000
-        circulating_supply:
-          type: number
-          description: The circulating supply of the coin
-          example: 500000000
+          description: The coin mint address
+          example: "DezXAZ8z7PnrnRJjz3wXBoRgixCa6xjnB7YaB1pPB263"
+        user_id:
+          type: string
+          description: The ID of the user associated with the coin
+          example: "7eP5n"
         members:
           type: integer
           description: The number of Audius users holding the coin
           example: 10000
-        members_change_24h:
+        members_change_24h_percent:
           type: number
           description: The percentage change in the number of members holding the coin over the last 24 hours
           example: 0.25
-        holders:
-          type: integer
-          description: The total number of unique holders of the coin
-          example: 50000
-        holders_change_24h:
-          type: number
-          description: The percentage change in the number of holders over the last 24 hours
-          example: 0.1
-        owner_id:
+        created_at:
           type: string
-          description: The ID of the user associated with the coin
-          example: "7eP5n"
+          description: The date and time when the coin was added to Audius.
+          example: "2023-10-01T12:00:00Z"
+        token_info:
+          type: object
+          description: |
+            Additional token information from Birdeye's defi token overview API.
+            Includes price, volume, supply, market cap, and other on-chain and market data.
+          properties:
+            address:
+              type: string
+              description: The SPL token mint address
+              example: "DezXAZ8z7PnrnRJjz3wXBoRgixCa6xjnB7YaB1pPB263"
+            decimals:
+              type: integer
+              description: Number of decimals for the token
+              example: 5
+            symbol:
+              type: string
+              description: The token symbol
+              example: "BONK"
+            name:
+              type: string
+              description: The token name
+              example: "Bonk"
+            marketCap:
+              type: number
+              description: Market capitalization in USD
+              example: 2625779824.994664
+            fdv:
+              type: number
+              description: Fully diluted valuation in USD
+              example: 2625779824.994664
+            extensions:
+              type: object
+              description: Token metadata and links
+              properties:
+                coingeckoId:
+                  type: string
+                  description: CoinGecko ID
+                  example: "bonk"
+                description:
+                  type: string
+                  description: Token description
+                  example: "The Official Bonk Inu token"
+                twitter:
+                  type: string
+                  description: Twitter URL
+                  example: "https://twitter.com/bonk_inu"
+                website:
+                  type: string
+                  description: Website URL
+                  example: "https://www.bonkcoin.com/"
+                discord:
+                  type: string
+                  description: Discord invite URL
+                  example: "https://discord.gg/ubqvDDFUhf"
+            logoURI:
+              type: string
+              description: URL to the token's logo image
+              example: "https://arweave.net/hQiPZOsRZXGXBJd_82PhVdlM_hACsT_q6wqwf5cSY7I"
+            liquidity:
+              type: number
+              description: Current liquidity in USD
+              example: 18977326.389274083
+            lastTradeUnixTime:
+              type: integer
+              description: Unix timestamp of the last trade
+              example: 1752620592
+            lastTradeHumanTime:
+              type: string
+              description: ISO8601 time of the last trade
+              example: "2025-07-15T23:03:12"
+            price:
+              type: number
+              description: Current price in USD
+              example: 0.000029571022098881748
+            history24hPrice:
+              type: number
+              description: Price 24 hours ago in USD
+              example: 0.000027195701160436288
+            priceChange24hPercent:
+              type: number
+              description: 24h price change in percent
+              example: 8.73417796596848
+            uniqueWallet24h:
+              type: integer
+              description: Unique wallets traded in last 24h
+              example: 20242
+            uniqueWalletHistory24h:
+              type: integer
+              description: Unique wallets traded in previous 24h
+              example: 21155
+            uniqueWallet24hChangePercent:
+              type: number
+              description: 24h change in unique wallets (percent)
+              example: -4.315764594658473
+            totalSupply:
+              type: number
+              description: Total supply of the token
+              example: 88795707372386.03
+            circulatingSupply:
+              type: number
+              description: Circulating supply of the token
+              example: 88795707372386.03
+            holder:
+              type: integer
+              description: Number of holders
+              example: 957291
+            trade24h:
+              type: integer
+              description: Number of trades in last 24h
+              example: 449987
+            tradeHistory24h:
+              type: integer
+              description: Number of trades in previous 24h
+              example: 390400
+            trade24hChangePercent:
+              type: number
+              description: 24h change in trade count (percent)
+              example: 15.263063524590164
+            sell24h:
+              type: integer
+              description: Number of sell trades in last 24h
+              example: 223845
+            sellHistory24h:
+              type: integer
+              description: Number of sell trades in previous 24h
+              example: 191979
+            sell24hChangePercent:
+              type: number
+              description: 24h change in sell trades (percent)
+              example: 16.598690481771445
+            buy24h:
+              type: integer
+              description: Number of buy trades in last 24h
+              example: 226142
+            buyHistory24h:
+              type: integer
+              description: Number of buy trades in previous 24h
+              example: 198421
+            buy24hChangePercent:
+              type: number
+              description: 24h change in buy trades (percent)
+              example: 13.970799461750522
+            v24h:
+              type: number
+              description: 24h trading volume (token units)
+              example: 2456470915352.043
+            v24hUSD:
+              type: number
+              description: 24h trading volume in USD
+              example: 69961943.60091284
+            vHistory24h:
+              type: number
+              description: Previous 24h trading volume (token units)
+              example: 1849367819551.6223
+            vHistory24hUSD:
+              type: number
+              description: Previous 24h trading volume in USD
+              example: 49529721.91224754
+            v24hChangePercent:
+              type: number
+              description: 24h change in volume (percent)
+              example: 32.82760137718911
+            vBuy24h:
+              type: number
+              description: 24h buy volume (token units)
+              example: 1267704208631.2197
+            vBuy24hUSD:
+              type: number
+              description: 24h buy volume in USD
+              example: 35985775.23314727
+            vBuyHistory24h:
+              type: number
+              description: Previous 24h buy volume (token units)
+              example: 926415751610.5529
+            vBuyHistory24hUSD:
+              type: number
+              description: Previous 24h buy volume in USD
+              example: 24916558.31987226
+            vBuy24hChangePercent:
+              type: number
+              description: 24h change in buy volume (percent)
+              example: 36.83966474310746
+            vSell24h:
+              type: number
+              description: 24h sell volume (token units)
+              example: 1188766706720.8232
+            vSell24hUSD:
+              type: number
+              description: 24h sell volume in USD
+              example: 33976168.367765576
+            vSellHistory24h:
+              type: number
+              description: Previous 24h sell volume (token units)
+              example: 922952067941.0695
+            vSellHistory24hUSD:
+              type: number
+              description: Previous 24h sell volume in USD
+              example: 24613163.592375275
+            vSell24hChangePercent:
+              type: number
+              description: 24h change in sell volume (percent)
+              example: 28.800481413161105
+            numberMarkets:
+              type: integer
+              description: Number of markets the token is traded on
+              example: 317
   responses:
     ParseError:
       description: When a mask can't be parsed
