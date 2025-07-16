@@ -11,9 +11,9 @@ import (
 )
 
 type Client struct {
-	token string
-
+	token              string
 	tokenOverviewCache otter.Cache[string, *TokenOverview]
+	httpClient         *http.Client
 }
 
 func New(token string) *Client {
@@ -24,7 +24,11 @@ func New(token string) *Client {
 	if err != nil {
 		panic(err)
 	}
+
+	httpClient := &http.Client{Timeout: 20 * time.Second}
+
 	return &Client{
+		httpClient:         httpClient,
 		token:              token,
 		tokenOverviewCache: tokenOverviewCache,
 	}
@@ -97,8 +101,7 @@ func (c *Client) GetTokenOverview(ctx context.Context, tokenAddress string, fram
 	req.Header.Set("x-api-key", c.token)
 	req.Header.Set("x-chain", "solana")
 
-	client := &http.Client{Timeout: 20 * time.Second}
-	resp, err := client.Do(req)
+	resp, err := c.httpClient.Do(req)
 	if err != nil {
 		return nil, err
 	}
