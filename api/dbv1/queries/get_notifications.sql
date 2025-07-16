@@ -35,16 +35,12 @@ SELECT
       WHEN user_seen.seen_at is not NULL THEN now()::timestamp != user_seen.seen_at
       ELSE EXISTS(SELECT 1 from notification_seen ns where ns.user_id = @user_id)
     END::boolean as is_seen,
+
     CASE
-      WHEN user_seen.seen_at is not NULL THEN EXTRACT(EPOCH FROM user_seen.seen_at)
-      ELSE (
-        SELECT EXTRACT(EPOCH FROM seen_at)
-        from notification_seen ns
-        WHERE ns.user_id = @user_id
-        ORDER BY seen_at ASC
-        limit 1
-      )
-    END as seen_at
+      WHEN user_seen.seen_at != now()::timestamp THEN EXTRACT(EPOCH FROM user_seen.seen_at)
+      ELSE null
+    END AS seen_at
+
 FROM
     notification n
 LEFT JOIN user_seen on
