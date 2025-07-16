@@ -41,6 +41,7 @@ SELECT
         'timestamp', EXTRACT(EPOCH FROM timestamp),
         'data', data
       )
+      ORDER BY timestamp DESC
     )::jsonb as actions,
     CASE
       WHEN user_seen.seen_at is not NULL THEN now()::timestamp != user_seen.seen_at
