@@ -1,10 +1,5 @@
-<p align="center">
-  <br/>
-  <img src="./assets/hero.jpg" alt="hero" width="600">
-
-   <h3 align="center"><b>Audius API Server</b></h3>
-   <p align="center"><i>The read API server backend for the Audius mobile apps and <a href="https://audius.co">audius.co</a></i></p>
-</p>
+# Audius API Server
+The API backend for the Audius mobile apps and [audius.co](https://audius.co)
 
 [![license](https://img.shields.io/github/license/AudiusProject/api)](https://github.com/AudiusProject/api/blob/main/LICENSE) [![releases](https://img.shields.io/github/v/release/AudiusProject/api)](https://github.com/AudiusProject/api/releases/latest)
 
