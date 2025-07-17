@@ -11,6 +11,7 @@ import (
 
 type Config struct {
 	Env                string
+	Git                string
 	LogLevel           string
 	ReadDbUrl          string
 	WriteDbUrl         string
@@ -32,6 +33,7 @@ type Config struct {
 }
 
 var Cfg = Config{
+	Git:                os.Getenv("GIT_SHA"),
 	Env:                os.Getenv("ENV"),
 	LogLevel:           os.Getenv("logLevel"),
 	ReadDbUrl:          os.Getenv("readDbUrl"),

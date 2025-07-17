@@ -21,4 +21,7 @@ COPY --from=builder /app/ddl ./ddl
 
 EXPOSE 1323
 
+ARG GIT_SHA
+ENV GIT_SHA=$GIT_SHA
+
 CMD ["bridge"] 
