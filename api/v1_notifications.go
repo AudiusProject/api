@@ -61,6 +61,15 @@ LEFT JOIN user_seen on
 WHERE
   ((ARRAY[@user_id] && n.user_ids) OR (n.type = 'announcement' AND n.timestamp > (SELECT created_at FROM user_created_at)))
   AND n.type = ANY(@valid_types)
+  AND (
+    (@timestamp_offset = 0 AND @group_id_offset = '') OR
+    (@timestamp_offset = 0 AND @group_id_offset != '' AND n.group_id < @group_id_offset) OR
+    (@timestamp_offset > 0 AND n.timestamp < to_timestamp(@timestamp_offset)) OR
+    (
+        @group_id_offset != '' AND @timestamp_offset > 0 AND
+        (n.timestamp = to_timestamp(@timestamp_offset) AND n.group_id < @group_id_offset)
+    )
+  )
 GROUP BY
   n.type, n.group_id, user_seen.seen_at, user_seen.prev_seen_at
 ORDER BY
@@ -141,9 +150,11 @@ limit @limit::int
 	}
 
 	rows, err := app.pool.Query(c.Context(), sql, pgx.NamedArgs{
-		"user_id":     userId,
-		"limit":       limit,
-		"valid_types": validTypes,
+		"user_id":          userId,
+		"limit":            limit,
+		"valid_types":      validTypes,
+		"group_id_offset":  c.Query("group_id"),
+		"timestamp_offset": c.QueryFloat("timestamp"),
 	})
 	if err != nil {
 		return err

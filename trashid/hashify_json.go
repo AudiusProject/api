@@ -5,9 +5,21 @@ import (
 	"fmt"
 	"regexp"
 	"strconv"
+	"strings"
 )
 
-var re = regexp.MustCompile(`"(?P<key>\w+_id|id|specifier)"\s*:\s*(?P<val>\d+)`)
+// this will match strings like:
+// "id": 123
+// "some_id": 123
+// "specifier": "123"
+//
+// but will not match:
+// "specifier": "123abc"
+//
+// specifier can contain a number quoted as a string.
+// this is because notifications specifier can contain ints (which should be hash encoded)
+// or other values like 180b1ca2 or 36d46f28:202529
+var re = regexp.MustCompile(`"(?P<key>\w+_id|id|specifier)"\s*:\s*(?P<val>"\d+"|\d+)`)
 var skipKeys = [][]byte{
 	[]byte(`special_id`),
 }
@@ -15,7 +27,7 @@ var skipKeys = [][]byte{
 func HashifyJson(jsonBytes []byte) []byte {
 	return re.ReplaceAllFunc(jsonBytes, func(match []byte) []byte {
 		submatches := re.FindSubmatchIndex(match)
-		if submatches == nil || len(submatches) < 6 {
+		if len(submatches) < 6 {
 			return match
 		}
 
@@ -27,7 +39,8 @@ func HashifyJson(jsonBytes []byte) []byte {
 			}
 		}
 
-		val := match[submatches[4]:submatches[5]]
+		val := string(match[submatches[4]:submatches[5]])
+		val = strings.Trim(val, `"`)
 		num, err := strconv.Atoi(string(val))
 		if err != nil {
 			return match
