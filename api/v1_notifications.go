@@ -12,7 +12,6 @@ import (
 func (app *ApiServer) v1Notifications(c *fiber.Ctx) error {
 
 	sql := `
--- name: GetNotifs :many
 WITH user_seen as (
   SELECT
     LAG(seen_at, 1, now()::timestamp) OVER ( ORDER BY seen_at desc ) AS seen_at,
@@ -39,7 +38,7 @@ SELECT
     json_agg(
       json_build_object(
         'type', type,
-        'specifier', specifier::int,
+        'specifier', specifier,
         'timestamp', EXTRACT(EPOCH FROM timestamp),
         'data', data
       )
@@ -74,23 +73,47 @@ limit @limit::int
 
 	// default types are always enabled
 	validTypes := []string{
+		"follow",
 		"repost",
 		"save",
-		"follow",
 		"tip_send",
 		"tip_receive",
-		"milestone",
+		"track_added_to_purchased_album",
+		"track_added_to_playlist",
+		"tastemaker",
 		"supporter_rank_up",
 		"supporting_rank_up",
+		"supporter_dethroned",
 		"challenge_reward",
+		"claimable_reward",
 		"tier_change",
 		"create",
 		"remix",
 		"cosign",
+		"trending_playlist",
 		"trending",
-		"supporter_dethroned",
+		"trending_underground",
+		"milestone",
+		"announcement",
 		"reaction",
-		"track_added_to_playlist",
+		"repost_of_repost",
+		"save_of_repost",
+		"usdc_purchase_seller",
+		"usdc_purchase_buyer",
+		"request_manager",
+		"approve_manager_request",
+		"comment",
+		"comment_thread",
+		"comment_mention",
+		"comment_reaction",
+		"listen_streak_reminder",
+		"fan_remix_contest_ended",
+		"artist_remix_contest_ended",
+		"artist_remix_contest_ending_soon",
+		"fan_remix_contest_ending_soon",
+		"fan_remix_contest_winners_selected",
+		"fan_remix_contest_started",
+		"artist_remix_contest_submissions",
 	}
 
 	// add optional valid_types

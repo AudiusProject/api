@@ -422,9 +422,6 @@ func NewApiServer(config config.Config) *ApiServer {
 		// Developer Apps
 		g.Get("/developer_apps/:address", app.v1DeveloperApps)
 
-		// g.Use("/users/:userId", )
-		g.Get("/notifications/:userId", app.requireUserIdMiddleware, app.v1Notifications)
-
 		// Rewards
 		g.Post("/rewards/claim", app.v1ClaimRewards)
 
@@ -452,6 +449,7 @@ func NewApiServer(config config.Config) *ApiServer {
 		g.Get("/metrics/aggregates/routes/trailing/:time_range", app.v1MetricsRoutesTrailing)
 
 		// Notifications
+		g.Get("/notifications/:userId", app.requireUserIdMiddleware, app.v1Notifications)
 		g.Get("/notifications/:userId/playlist_updates", app.requireUserIdMiddleware, app.v1NotificationsPlaylistUpdates)
 
 	}

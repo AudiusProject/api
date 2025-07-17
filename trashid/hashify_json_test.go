@@ -40,7 +40,6 @@ func TestHashifyJson(t *testing.T) {
 	var m map[string]any
 	err := json.Unmarshal(j1, &m)
 	assert.NoError(t, err)
-	// fmt.Println(m)
 
 	j2 := HashifyJson(j1)
 
@@ -60,6 +59,5 @@ func TestHashifyJson(t *testing.T) {
 
 	err = json.Unmarshal(j2, &m)
 	assert.NoError(t, err)
-	// fmt.Println(m)
 
 }
