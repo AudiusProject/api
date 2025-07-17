@@ -150,6 +150,8 @@ func Test200UnAuthed(t *testing.T) {
 		"/v1/full/playlists?id=7eP5n",
 		"/v1/full/playlists/7eP5n/reposts",
 		"/v1/full/playlists/7eP5n/favorites",
+
+		"/v1/full/notifications/7eP5n?limit=50",
 		"/v1/full/playlists/trending",
 		// unclaimed ids
 		"/v1/users/unclaimed_id",
