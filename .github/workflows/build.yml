@@ -40,6 +40,8 @@ jobs:
           labels: ${{ steps.meta.outputs.labels }}
           cache-from: type=registry,ref=audius/api:buildcache
           cache-to: type=registry,ref=audius/api:buildcache,mode=max
+          build-args: |
+            GIT_SHA=${{ github.sha }}
 
       - name: Get short SHA for release
         if: github.ref == 'refs/heads/main'

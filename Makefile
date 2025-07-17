@@ -1,3 +1,4 @@
+export GIT_SHA := $(shell git rev-parse HEAD)
 
 dev::
 	wgo -file sqlc.yaml -file .sql -xfile .go sqlc generate :: wgo run -file .go -file .yaml -debounce 10ms main.go
