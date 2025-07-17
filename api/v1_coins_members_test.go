@@ -4,6 +4,7 @@ import (
 	"testing"
 
 	"bridgerton.audius.co/database"
+	"bridgerton.audius.co/trashid"
 	"github.com/stretchr/testify/assert"
 )
 
@@ -135,11 +136,11 @@ func TestV1CoinsMembers(t *testing.T) {
 		assert.Equal(t, 200, status)
 		jsonAssert(t, body, map[string]any{
 			"data.#":         3,
-			"data.0.user_id": 1,
+			"data.0.user_id": trashid.MustEncodeHashID(1),
 			"data.0.balance": 120,
-			"data.1.user_id": 2,
+			"data.1.user_id": trashid.MustEncodeHashID(2),
 			"data.1.balance": 102,
-			"data.2.user_id": 3,
+			"data.2.user_id": trashid.MustEncodeHashID(3),
 			"data.2.balance": 53,
 		})
 	}
@@ -154,9 +155,9 @@ func TestV1CoinsMembers(t *testing.T) {
 		assert.Equal(t, 200, status)
 		jsonAssert(t, body, map[string]any{
 			"data.#":         2,
-			"data.0.user_id": 2,
+			"data.0.user_id": trashid.MustEncodeHashID(2),
 			"data.0.balance": 102,
-			"data.1.user_id": 3,
+			"data.1.user_id": trashid.MustEncodeHashID(3),
 			"data.1.balance": 53,
 		})
 	}
@@ -171,11 +172,11 @@ func TestV1CoinsMembers(t *testing.T) {
 		assert.Equal(t, 200, status)
 		jsonAssert(t, body, map[string]any{
 			"data.#":         3,
-			"data.0.user_id": 3,
+			"data.0.user_id": trashid.MustEncodeHashID(3),
 			"data.0.balance": 53,
-			"data.1.user_id": 2,
+			"data.1.user_id": trashid.MustEncodeHashID(2),
 			"data.1.balance": 102,
-			"data.2.user_id": 1,
+			"data.2.user_id": trashid.MustEncodeHashID(1),
 			"data.2.balance": 120,
 		})
 	}
@@ -190,9 +191,9 @@ func TestV1CoinsMembers(t *testing.T) {
 		assert.Equal(t, 200, status)
 		jsonAssert(t, body, map[string]any{
 			"data.#":         2,
-			"data.0.user_id": 2,
+			"data.0.user_id": trashid.MustEncodeHashID(2),
 			"data.0.balance": 102,
-			"data.1.user_id": 1,
+			"data.1.user_id": trashid.MustEncodeHashID(1),
 			"data.1.balance": 120,
 		})
 	}

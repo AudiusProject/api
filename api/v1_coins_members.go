@@ -1,6 +1,7 @@
 package api
 
 import (
+	"bridgerton.audius.co/trashid"
 	"github.com/gofiber/fiber/v2"
 	"github.com/jackc/pgx/v5"
 )
@@ -17,8 +18,8 @@ type GetCoinsMembersQueryParams struct {
 }
 
 type CoinMember struct {
-	UserID  int64 `json:"user_id"`
-	Balance int64 `json:"balance"`
+	UserID  trashid.HashId `json:"user_id"`
+	Balance int64          `json:"balance"`
 }
 
 func (app *ApiServer) v1CoinsMembers(c *fiber.Ctx) error {
