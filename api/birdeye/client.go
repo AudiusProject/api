@@ -14,7 +14,7 @@ import (
 type Client struct {
 	token              string
 	tokenOverviewCache otter.Cache[string, *TokenOverview]
-	pricesCache        otter.Cache[string, *TokenPriceMap]
+	pricesCache        otter.Cache[string, *TokenPriceData]
 	httpClient         *http.Client
 }
 
@@ -27,7 +27,7 @@ func New(token string) *Client {
 		panic(err)
 	}
 
-	pricesCache, err := otter.MustBuilder[string, *TokenPriceMap](100).
+	pricesCache, err := otter.MustBuilder[string, *TokenPriceData](100).
 		WithTTL(10 * time.Second).
 		CollectStats().
 		Build()
@@ -146,15 +146,22 @@ type TokenPriceData struct {
 	Liquidity       float64 `json:"liquidity"`
 }
 
+// Map from mint to token price data
 type TokenPriceMap map[string]TokenPriceData
 
 func (c *Client) GetPrices(ctx context.Context, mints []string) (*TokenPriceMap, error) {
-	cacheKey := strings.Join(mints, ",")
-	if cachedPrices, ok := c.pricesCache.Get(cacheKey); ok {
-		return cachedPrices, nil
+	result := make(TokenPriceMap)
+
+	mintsToFetch := make([]string, 0, len(mints))
+	for _, mint := range mints {
+		if cachedPrices, ok := c.pricesCache.Get(mint); ok {
+			result[mint] = *cachedPrices
+		} else {
+			mintsToFetch = append(mintsToFetch, mint)
+		}
 	}
 
-	url := fmt.Sprintf("https://public-api.birdeye.so/defi/multi_price?mints=%s", strings.Join(mints, ","))
+	url := fmt.Sprintf("https://public-api.birdeye.so/defi/multi_price?mints=%s", strings.Join(mintsToFetch, ","))
 	req, err := http.NewRequestWithContext(ctx, "GET", url, nil)
 	if err != nil {
 		return nil, err
@@ -173,14 +180,17 @@ func (c *Client) GetPrices(ctx context.Context, mints []string) (*TokenPriceMap,
 		return nil, fmt.Errorf("unexpected status code: %d", resp.StatusCode)
 	}
 
-	var result struct {
+	var respBody struct {
 		Data TokenPriceMap `json:"data"`
 	}
-	if err := json.NewDecoder(resp.Body).Decode(&result); err != nil {
+	if err := json.NewDecoder(resp.Body).Decode(&respBody); err != nil {
 		return nil, err
 	}
 
-	c.pricesCache.Set(cacheKey, &result.Data)
+	for mint, priceData := range respBody.Data {
+		c.pricesCache.Set(mint, &priceData)
+		result[mint] = priceData
+	}
 
-	return &result.Data, nil
+	return &result, nil
 }
