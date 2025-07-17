@@ -26,6 +26,7 @@ func (app *ApiServer) getChatMessages(c *fiber.Ctx) error {
 		chat_message.chat_id,
 		chat_message.user_id,
 		chat_message.created_at,
+		audience,
 		COALESCE(chat_message.ciphertext, chat_blast.plaintext) AS ciphertext,
 		chat_blast.plaintext IS NOT NULL as is_plaintext,
 		to_json(array(SELECT row_to_json(r) FROM chat_message_reactions r WHERE chat_message.message_id = r.message_id)) AS reactions
