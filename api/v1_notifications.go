@@ -171,6 +171,12 @@ limit @limit::int
 	unreadCount := 0
 	for _, notif := range notifs {
 
+		slices.SortFunc(notif.Actions, func(a, b json.RawMessage) int {
+			specA := gjson.GetBytes(a, "specifier").String()
+			specB := gjson.GetBytes(b, "specifier").String()
+			return strings.Compare(specA, specB)
+		})
+
 		// each row from notification table has `actions`
 		// which is a jsonb field that is an array of objects.
 		// we need to hash encode all id fields (HashifyJson)
