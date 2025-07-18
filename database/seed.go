@@ -430,6 +430,9 @@ var (
 			"created_at":    time.Now(),
 			"txhash":        "tx123",
 		},
+		"notification": {
+			"timestamp": time.Now(),
+		},
 	}
 )
 

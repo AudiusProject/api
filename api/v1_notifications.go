@@ -3,10 +3,13 @@ package api
 import (
 	"encoding/json"
 	"slices"
+	"strings"
 
 	"bridgerton.audius.co/trashid"
 	"github.com/gofiber/fiber/v2"
 	"github.com/jackc/pgx/v5"
+	"github.com/tidwall/gjson"
+	"github.com/tidwall/sjson"
 )
 
 func (app *ApiServer) v1Notifications(c *fiber.Ctx) error {
@@ -142,11 +145,11 @@ limit @limit::int
 	}
 
 	type GetNotifsRow struct {
-		Type    string          `json:"type"`
-		GroupID string          `json:"group_id"`
-		Actions json.RawMessage `json:"actions"`
-		IsSeen  bool            `json:"is_seen"`
-		SeenAt  interface{}     `json:"seen_at"`
+		Type    string            `json:"type"`
+		GroupID string            `json:"group_id"`
+		Actions []json.RawMessage `json:"actions"`
+		IsSeen  bool              `json:"is_seen"`
+		SeenAt  interface{}       `json:"seen_at"`
 	}
 
 	rows, err := app.pool.Query(c.Context(), sql, pgx.NamedArgs{
@@ -160,15 +163,48 @@ limit @limit::int
 		return err
 	}
 
-	notifs, err := pgx.CollectRows(rows, pgx.RowToStructByNameLax[GetNotifsRow])
+	notifs, err := pgx.CollectRows(rows, pgx.RowToAddrOfStructByNameLax[GetNotifsRow])
 	if err != nil {
 		return err
 	}
 
 	unreadCount := 0
-	for idx, notif := range notifs {
-		notif.Actions = trashid.HashifyJson(notif.Actions)
-		notifs[idx] = notif
+	for _, notif := range notifs {
+
+		// each row from notification table has `actions`
+		// which is a jsonb field that is an array of objects.
+		// we need to hash encode all id fields (HashifyJson)
+		// and do some additional transforms.
+		// see extend_notification.py for details
+		for idx, action := range notif.Actions {
+			action = trashid.HashifyJson(action)
+
+			// type: lowercase
+			if val := gjson.GetBytes(action, "data.type"); val.Exists() {
+				action, _ = sjson.SetBytes(action, "data.type", strings.ToLower(val.String()))
+			}
+
+			// for playlist milestones: is_album: default to false
+			if strings.HasPrefix(notif.GroupID, "milestone:PLAYLIST_") {
+				isAlbum := gjson.GetBytes(action, "data.is_album").Bool()
+				action, _ = sjson.SetBytes(action, "data.is_album", isAlbum)
+			}
+
+			// amount + tip_amount: to_wei_string
+			for _, fieldPath := range []string{"data.amount", "data.tip_amount"} {
+				if val := gjson.GetBytes(action, fieldPath); val.Exists() {
+					action, _ = sjson.SetBytes(action, fieldPath, val.String()+"0000000000")
+				}
+			}
+
+			// alias fields to alternate name
+			if strings.HasPrefix(notif.Type, "tip_") {
+				action, _ = sjson.SetBytes(action, "data.tip_tx_signature", gjson.GetBytes(action, "data.tx_signature").String())
+			}
+
+			notif.Actions[idx] = action
+		}
+
 		if !notif.IsSeen {
 			unreadCount++
 		}
