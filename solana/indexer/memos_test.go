@@ -15,18 +15,18 @@ func TestParsePurchaseMemo(t *testing.T) {
 		BuyerUserId:           3,
 		AccessType:            "download",
 	}
-	parsed, err := ParsePurchaseMemo([]byte("track:1:2:3:download"))
+	parsed, err := parsePurchaseMemo([]byte("track:1:2:3:download"))
 	assert.NoError(t, err)
 	assert.Equal(t, expected, parsed)
 
 	// errors
-	_, err = ParsePurchaseMemo([]byte("not:purchase"))
+	_, err = parsePurchaseMemo([]byte("not:purchase"))
 	assert.EqualError(t, err, "not a purchase memo")
-	_, err = ParsePurchaseMemo([]byte("track:foo:2:3:download"))
+	_, err = parsePurchaseMemo([]byte("track:foo:2:3:download"))
 	assert.EqualError(t, err, "failed to parse contentId: strconv.Atoi: parsing \"foo\": invalid syntax")
-	_, err = ParsePurchaseMemo([]byte("track:1:foo:3:download"))
+	_, err = parsePurchaseMemo([]byte("track:1:foo:3:download"))
 	assert.EqualError(t, err, "failed to parse validAfterBlocknumber: strconv.Atoi: parsing \"foo\": invalid syntax")
-	_, err = ParsePurchaseMemo([]byte("track:1:2:foo:download"))
+	_, err = parsePurchaseMemo([]byte("track:1:2:foo:download"))
 	assert.EqualError(t, err, "failed to parse buyerUserId: strconv.Atoi: parsing \"foo\": invalid syntax")
 }
 
@@ -37,13 +37,13 @@ func TestParseLocationMemo(t *testing.T) {
 		Region:  "MN",
 		Country: "USA",
 	}
-	parsed, err := ParseLocationMemo([]byte(`geo:{"city":"Minneapolis","region":"MN","country":"USA"}`))
+	parsed, err := parseLocationMemo([]byte(`geo:{"city":"Minneapolis","region":"MN","country":"USA"}`))
 	assert.NoError(t, err)
 	assert.Equal(t, expected, parsed)
 
 	// errors
-	_, err = ParseLocationMemo([]byte(`geo:{"city":"Minneapolis","region":"MN","country":"USA}`))
+	_, err = parseLocationMemo([]byte(`geo:{"city":"Minneapolis","region":"MN","country":"USA}`))
 	assert.Error(t, err)
-	_, err = ParseLocationMemo([]byte(`{"city":"Minneapolis","region":"MN","country":"USA"}`))
+	_, err = parseLocationMemo([]byte(`{"city":"Minneapolis","region":"MN","country":"USA"}`))
 	assert.Error(t, err)
 }
