@@ -28,8 +28,11 @@ func (s *SolanaIndexer) Backfill(ctx context.Context, fromSlot uint64, toSlot ui
 			Commitment:                     rpc.CommitmentConfirmed,
 			MaxSupportedTransactionVersion: &rpc.MaxSupportedTransactionVersion0,
 		})
-		if err != nil || len(block.Signatures) == 0 {
+		if err != nil {
 			return fmt.Errorf("failed to get block: %w", err)
+		}
+		if len(block.Signatures) == 0 {
+			return fmt.Errorf("no signatures found in block at slot %d", toSlot)
 		}
 		txRange.before = block.Signatures[len(block.Signatures)-1]
 	}
@@ -40,8 +43,11 @@ func (s *SolanaIndexer) Backfill(ctx context.Context, fromSlot uint64, toSlot ui
 			Commitment:                     rpc.CommitmentConfirmed,
 			MaxSupportedTransactionVersion: &rpc.MaxSupportedTransactionVersion0,
 		})
-		if err != nil || len(block.Signatures) == 0 {
+		if err != nil {
 			return fmt.Errorf("failed to get block: %w", err)
+		}
+		if len(block.Signatures) == 0 {
+			return fmt.Errorf("no signatures found in block at slot %d", fromSlot)
 		}
 		txRange.until = block.Signatures[0]
 	}
