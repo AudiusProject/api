@@ -329,13 +329,13 @@ var (
 			"count":        0,
 			"country":      "US",
 		},
-		"core_blocks": {
-			"rowid":      1,
+		"core_indexed_blocks": {
 			"height":     1,
 			"chain_id":   "audius-mainnet-alpha-beta",
-			"hash":       nil,
-			"proposer":   "0222989ff2856242a12c38d5d2c92a1481972d22290b42ba15c65ae61e37588b61",
-			"created_at": time.Now(),
+			"blockhash":  nil,
+			"parenthash": nil,
+			"plays_slot": 1,
+			"em_block":   1,
 		},
 		"core_validators": {
 			"rowid":         1,
