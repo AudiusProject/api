@@ -1,4 +1,28 @@
-[AllowList]
-Paths = [
-  "ddl/data/.*"
-]
+title = "Gitleaks Config"
+description = "Use default rules, but ignore ddl/data files"
+
+[allowlist]
+  description = "Allow ddl/data folder, migrations, test files, and known development/test secrets"
+  paths = [
+    "^ddl/data/.*",
+    "^ddl/migrations/.*",
+    ".*_test\\.go$",
+  ]
+  regexes = [
+    # Test tokens from Solana SPL test files
+    "HJQj8P47BdA7ugjQEn45LaESYrxhiZDygmukt8iumFZJ",
+    
+    # Development/test delegate private keys
+    "13422b9affd75ff80f94f1ea394e6a6097830cb58cda2d3542f37464ecaee7df",
+    "0633fddb74e32b3cbc64382e405146319c11a1a52dc96598e557c5dbe2f31468",
+    
+    # Solana program IDs and token accounts (dev/stage/prod configurations)
+    "testHKV1B56fbvop4w6f2cTGEub9dRQ2Euta5VmqdX9",
+    "GKvndGv2CoKgKQ17GUtFSc7KrFonYxhfbWeczS29MbpP",
+    "2sjQNmUfkV6yKKi4dPR8gWRgtyma5aiymE3aXL2RAZww",
+    "Ewkv3JahEFRKkcJmpoKB7pXbnUHwjAyXiwEo4ZY2rezQ",
+    "7vGA3fcjvxa3A11MAxmyhFtYowPLLCNyvoxxgN3NN2Vf",
+  ]
+
+[extend]
+  useDefault = true
