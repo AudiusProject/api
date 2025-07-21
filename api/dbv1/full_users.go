@@ -26,9 +26,6 @@ func (q *Queries) FullUsersKeyed(ctx context.Context, arg GetUsersParams) (map[i
 
 	userMap := map[int32]FullUser{}
 	for _, user := range rawUsers {
-		// user.ID, _ = trashid.EncodeHashId(int(user.UserID))
-
-		// profile picture + cover photo
 		var coverPhoto *RectangleImage
 		{
 			cid := ""
@@ -50,8 +47,7 @@ func (q *Queries) FullUsersKeyed(ctx context.Context, arg GetUsersParams) (map[i
 			}
 		}
 
-		// profile_picture
-		var profilePicture = squareImageStruct(user.ProfilePictureSizes, user.ProfilePicture)
+		profilePicture := squareImageStruct(user.ProfilePictureSizes, user.ProfilePicture)
 
 		var artistPickTrackID *string
 		if user.ArtistPickTrackID.Valid {
@@ -140,6 +136,7 @@ type MinUser struct {
 	IsAvailable           bool            `json:"is_available"`
 	ErcWallet             pgtype.Text     `json:"erc_wallet"`
 	SplWallet             pgtype.Text     `json:"spl_wallet"`
+	SplUsdcWallet         pgtype.Text     `json:"spl_usdc_wallet"`
 	SplUsdcPayoutWallet   pgtype.Text     `json:"spl_usdc_payout_wallet"`
 	SupporterCount        int32           `json:"supporter_count"`
 	SupportingCount       int32           `json:"supporting_count"`
@@ -176,6 +173,7 @@ func ToMinUser(fullUser FullUser) MinUser {
 		IsAvailable:           fullUser.IsAvailable,
 		ErcWallet:             fullUser.ErcWallet,
 		SplWallet:             fullUser.SplWallet,
+		SplUsdcWallet:         fullUser.UsdcWallet,
 		SplUsdcPayoutWallet:   fullUser.SplUsdcPayoutWallet,
 		SupporterCount:        fullUser.SupporterCount,
 		SupportingCount:       fullUser.SupportingCount,
