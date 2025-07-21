@@ -7,6 +7,9 @@ import (
 	"time"
 
 	"bridgerton.audius.co/database"
+	"bridgerton.audius.co/solana/spl/programs/claimable_tokens"
+	"bridgerton.audius.co/solana/spl/programs/payment_router"
+	"bridgerton.audius.co/solana/spl/programs/reward_manager"
 	"github.com/gagliardetto/solana-go"
 	"github.com/gagliardetto/solana-go/rpc"
 	"github.com/jackc/pgx/v5"
@@ -54,9 +57,9 @@ func (s *SolanaIndexer) Backfill(ctx context.Context, fromSlot uint64, toSlot ui
 
 	var wg sync.WaitGroup
 	for _, address := range []solana.PublicKey{
-		s.config.SolanaConfig.RewardManagerProgramID,
-		s.config.SolanaConfig.ClaimableTokensProgramID,
-		s.config.SolanaConfig.PaymentRouterProgramID,
+		reward_manager.ProgramID,
+		claimable_tokens.ProgramID,
+		payment_router.ProgramID,
 	} {
 		wg.Add(1)
 		go func(address solana.PublicKey) {
@@ -138,8 +141,13 @@ func (s *SolanaIndexer) backfillAddressTransactions(ctx context.Context, address
 				continue
 			}
 
-			// Skip zero signatures
+			// Skip zero signatures.
+			// Note: Not setting the new lastIndexedSig because that might start
+			// the next batch with a zero signature, which would cause an infinite loop.
+			// The tradeoff is if we get a full batch of zero signatures, we'll also get
+			// an infinite loop, but that should be rare.
 			if sig.Signature.IsZero() {
+				logger.Warn("skipping zero signature", zap.String("signature", sig.Signature.String()))
 				continue
 			}
 
@@ -159,7 +167,7 @@ func (s *SolanaIndexer) backfillAddressTransactions(ctx context.Context, address
 				continue
 			}
 
-			err = s.ProcessSignature(ctx, sig.Slot, sig.Signature, logger)
+			err = s.processor.ProcessSignature(ctx, sig.Slot, sig.Signature, logger)
 			if err != nil {
 				logger.Error("failed to process signature", zap.Error(err))
 			}

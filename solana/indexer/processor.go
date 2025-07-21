@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"time"
 
+	"bridgerton.audius.co/config"
 	"bridgerton.audius.co/database"
 	"bridgerton.audius.co/solana/spl/programs/claimable_tokens"
 	"bridgerton.audius.co/solana/spl/programs/payment_router"
@@ -14,14 +15,34 @@ import (
 	"go.uber.org/zap"
 )
 
-func (s SolanaIndexer) ProcessSignature(ctx context.Context, slot uint64, txSig solana.Signature, logger *zap.Logger) error {
-	sqlTx, err := s.pool.Begin(ctx)
+type Processor interface {
+	ProcessSignature(ctx context.Context, slot uint64, txSig solana.Signature, logger *zap.Logger) error
+	ProcessTransaction(
+		ctx context.Context,
+		db database.DBTX,
+		slot uint64,
+		meta *rpc.TransactionMeta,
+		tx *solana.Transaction,
+		blockTime time.Time,
+		logger *zap.Logger,
+	) error
+}
+
+type DefaultProcessor struct {
+	rpcClient   *rpc.Client
+	pool        DbPool
+	config      config.Config
+	mintsFilter *[]string
+}
+
+func (p *DefaultProcessor) ProcessSignature(ctx context.Context, slot uint64, txSig solana.Signature, logger *zap.Logger) error {
+	sqlTx, err := p.pool.Begin(ctx)
 	if err != nil {
 		return fmt.Errorf("failed to begin sql transaction: %w", err)
 	}
 	defer sqlTx.Rollback(ctx)
 
-	txRes, err := s.rpcClient.GetTransaction(
+	txRes, err := p.rpcClient.GetTransaction(
 		ctx,
 		txSig,
 		&rpc.GetTransactionOpts{
@@ -38,7 +59,7 @@ func (s SolanaIndexer) ProcessSignature(ctx context.Context, slot uint64, txSig 
 		return fmt.Errorf("failed to decode transaction: %w", err)
 	}
 
-	err = s.ProcessTransaction(ctx, sqlTx, slot, txRes.Meta, tx, txRes.BlockTime.Time(), logger)
+	err = p.ProcessTransaction(ctx, sqlTx, slot, txRes.Meta, tx, txRes.BlockTime.Time(), logger)
 	if err != nil {
 		return fmt.Errorf("failed to process transaction: %w", err)
 	}
@@ -51,7 +72,7 @@ func (s SolanaIndexer) ProcessSignature(ctx context.Context, slot uint64, txSig 
 	return nil
 }
 
-func (s *SolanaIndexer) ProcessTransaction(
+func (p *DefaultProcessor) ProcessTransaction(
 	ctx context.Context,
 	db database.DBTX,
 	slot uint64,
@@ -93,7 +114,12 @@ func (s *SolanaIndexer) ProcessTransaction(
 
 	signature := tx.Signatures[0].String()
 
-	err := processBalanceChanges(ctx, db, slot, meta, tx, blockTime, s.mintsFilter, txLogger)
+	var mintsFilter []string
+	if p.mintsFilter != nil {
+		mintsFilter = *p.mintsFilter
+	}
+
+	err := processBalanceChanges(ctx, db, slot, meta, tx, blockTime, mintsFilter, txLogger)
 	if err != nil {
 		return fmt.Errorf("failed to process balance changes: %w", err)
 	}
@@ -121,7 +147,7 @@ func (s *SolanaIndexer) ProcessTransaction(
 			}
 		case payment_router.ProgramID:
 			{
-				err := processPaymentRouterInstruction(ctx, db, slot, tx, instructionIndex, instruction, signature, blockTime, s.config, instLogger)
+				err := processPaymentRouterInstruction(ctx, db, slot, tx, instructionIndex, instruction, signature, blockTime, p.config, instLogger)
 				if err != nil {
 					return fmt.Errorf("error processing payment_router instruction %d: %w", instructionIndex, err)
 				}

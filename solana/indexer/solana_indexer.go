@@ -6,20 +6,40 @@ import (
 
 	"bridgerton.audius.co/config"
 	"bridgerton.audius.co/logging"
+	"github.com/gagliardetto/solana-go"
 	"github.com/gagliardetto/solana-go/rpc"
+	"github.com/jackc/pgx/v5"
+	"github.com/jackc/pgx/v5/pgconn"
 	"github.com/jackc/pgx/v5/pgxpool"
 	"go.uber.org/zap"
 )
 
+type DbPool interface {
+	Acquire(context.Context) (*pgxpool.Conn, error)
+	Begin(context.Context) (pgx.Tx, error)
+	Exec(context.Context, string, ...any) (pgconn.CommandTag, error)
+	Query(context.Context, string, ...any) (pgx.Rows, error)
+	QueryRow(context.Context, string, ...any) pgx.Row
+	Close()
+}
+
+type RpcClient interface {
+	GetBlockWithOpts(context.Context, uint64, *rpc.GetBlockOpts) (*rpc.GetBlockResult, error)
+	GetSlot(context.Context, rpc.CommitmentType) (uint64, error)
+	GetSignaturesForAddressWithOpts(context.Context, solana.PublicKey, *rpc.GetSignaturesForAddressOpts) ([]*rpc.TransactionSignature, error)
+	GetTransaction(context.Context, solana.Signature, *rpc.GetTransactionOpts) (*rpc.GetTransactionResult, error)
+}
+
 type SolanaIndexer struct {
-	rpcClient  *rpc.Client
+	rpcClient  RpcClient
 	grpcClient *GrpcClient
+	processor  Processor
 
 	config config.Config
-	pool   *pgxpool.Pool
+	pool   DbPool
 
 	checkpointId string
-	mintsFilter  []string
+	mintsFilter  *[]string
 
 	logger *zap.Logger
 }
@@ -47,13 +67,20 @@ func New(config config.Config) *SolanaIndexer {
 		MaxReconnectAttempts: 5,
 	})
 
-	return &SolanaIndexer{
+	s := &SolanaIndexer{
 		rpcClient:  rpcClient,
 		grpcClient: grpcClient,
 		logger:     logger,
 		config:     config,
 		pool:       pool,
+		processor: &DefaultProcessor{
+			rpcClient: rpcClient,
+			pool:      pool,
+			config:    config,
+		},
 	}
+	s.processor.(*DefaultProcessor).mintsFilter = s.mintsFilter
+	return s
 }
 
 func (s *SolanaIndexer) Close() {

@@ -65,7 +65,7 @@ func (m *mockDB) QueryRow(context.Context, string, ...interface{}) pgx.Row {
 
 func TestProcessTransaction_CallsInsertClaimableAccount(t *testing.T) {
 	mockDb := &mockDB{}
-	s := &indexer.SolanaIndexer{}
+	s := &indexer.DefaultProcessor{}
 
 	// Create a valid CreateTokenAccount instruction
 	ethAddress := common.HexToAddress("0x1234567890abcdef1234567890abcdef12345678")
@@ -116,7 +116,7 @@ func TestProcessTransaction_CallsInsertClaimableAccount(t *testing.T) {
 
 func TestProcessTransaction_CallsInsertClaimableAccountTransfer(t *testing.T) {
 	mockDb := &mockDB{}
-	s := &indexer.SolanaIndexer{}
+	s := &indexer.DefaultProcessor{}
 
 	// Create a valid CreateTokenAccount instruction
 	ethAddress := common.HexToAddress("0x1234567890abcdef1234567890abcdef12345678")
@@ -193,7 +193,7 @@ func TestProcessTransaction_CallsInsertClaimableAccountTransfer(t *testing.T) {
 
 func TestProcessTransaction_CallsInsertRewardDisbursement(t *testing.T) {
 	mockDb := &mockDB{}
-	s := &indexer.SolanaIndexer{}
+	s := &indexer.DefaultProcessor{}
 
 	// Setup EvaluateAttestation instruction
 	ethAddress := common.HexToAddress("0x3f6d9fcf0d4466dd5886e3b1def017adfb7916b4")
@@ -263,7 +263,7 @@ func TestProcessTransaction_CallsInsertRewardDisbursement(t *testing.T) {
 
 func TestProcessTransaction_CallsInsertPayment(t *testing.T) {
 	mockDb := &mockDB{}
-	s := &indexer.SolanaIndexer{}
+	s := &indexer.DefaultProcessor{}
 
 	// Setup Route instruction
 	sender, err := solana.NewRandomPrivateKey()
@@ -326,7 +326,7 @@ func TestProcessTransaction_CallsInsertPayment(t *testing.T) {
 
 func TestProcessTransaction_CallsInsertPurchase(t *testing.T) {
 	mockDb := &mockDB{}
-	s := &indexer.SolanaIndexer{}
+	s := &indexer.DefaultProcessor{}
 
 	// Setup Route instruction
 	sender, err := solana.NewRandomPrivateKey()
@@ -420,7 +420,7 @@ func TestProcessTransaction_CallsInsertPurchase(t *testing.T) {
 
 func TestProcessTransaction_CallsInsertBalanceChange(t *testing.T) {
 	mockDb := &mockDB{}
-	s := &indexer.SolanaIndexer{}
+	s := &indexer.DefaultProcessor{}
 
 	account := solana.MustPublicKeyFromBase58("HJQj8P47BdA7ugjQEn45LaESYrxhiZDygmukt8iumFZJ")
 	owner := solana.MustPublicKeyFromBase58("TT1eRKxi2Rj3oEvsFMe9W5hrcPmpXqKkNj7wC83AhXk")

@@ -50,10 +50,11 @@ func (s *SolanaIndexer) Subscribe(ctx context.Context) error {
 		if err != nil {
 			return fmt.Errorf("failed to get artist coins: %w", err)
 		}
-		s.mintsFilter = append(coins,
+		mintsFilter := append(coins,
 			s.config.SolanaConfig.MintAudio.String(),
 			s.config.SolanaConfig.MintUSDC.String(),
 		)
+		s.mintsFilter = &mintsFilter
 
 		subscription, err := buildSubscriptionRequest(coins)
 		if err != nil {
@@ -206,7 +207,7 @@ func (s *SolanaIndexer) onMessage(ctx context.Context, msg *pb.SubscribeUpdate) 
 	accUpdate := msg.GetAccount()
 	if accUpdate != nil {
 		txSig := solana.SignatureFromBytes(accUpdate.Account.TxnSignature)
-		err := s.ProcessSignature(ctx, accUpdate.Slot, txSig, logger)
+		err := s.processor.ProcessSignature(ctx, accUpdate.Slot, txSig, logger)
 		if err != nil {
 			logger.Error("failed to process signature", zap.Error(err))
 		}
