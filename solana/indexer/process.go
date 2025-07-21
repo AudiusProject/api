@@ -16,10 +16,10 @@ import (
 
 func (s SolanaIndexer) ProcessSignature(ctx context.Context, slot uint64, txSig solana.Signature, logger *zap.Logger) error {
 	sqlTx, err := s.pool.Begin(ctx)
-	defer sqlTx.Rollback(ctx)
 	if err != nil {
 		return fmt.Errorf("failed to begin sql transaction: %w", err)
 	}
+	defer sqlTx.Rollback(ctx)
 
 	txRes, err := s.rpcClient.GetTransaction(
 		ctx,
