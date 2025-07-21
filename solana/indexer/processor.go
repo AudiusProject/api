@@ -6,7 +6,6 @@ import (
 	"time"
 
 	"bridgerton.audius.co/config"
-	"bridgerton.audius.co/database"
 	"bridgerton.audius.co/solana/spl/programs/claimable_tokens"
 	"bridgerton.audius.co/solana/spl/programs/payment_router"
 	"bridgerton.audius.co/solana/spl/programs/reward_manager"
@@ -19,7 +18,6 @@ type Processor interface {
 	ProcessSignature(ctx context.Context, slot uint64, txSig solana.Signature, logger *zap.Logger) error
 	ProcessTransaction(
 		ctx context.Context,
-		db database.DBTX,
 		slot uint64,
 		meta *rpc.TransactionMeta,
 		tx *solana.Transaction,
@@ -36,12 +34,6 @@ type DefaultProcessor struct {
 }
 
 func (p *DefaultProcessor) ProcessSignature(ctx context.Context, slot uint64, txSig solana.Signature, logger *zap.Logger) error {
-	sqlTx, err := p.pool.Begin(ctx)
-	if err != nil {
-		return fmt.Errorf("failed to begin sql transaction: %w", err)
-	}
-	defer sqlTx.Rollback(ctx)
-
 	txRes, err := p.rpcClient.GetTransaction(
 		ctx,
 		txSig,
@@ -59,28 +51,27 @@ func (p *DefaultProcessor) ProcessSignature(ctx context.Context, slot uint64, tx
 		return fmt.Errorf("failed to decode transaction: %w", err)
 	}
 
-	err = p.ProcessTransaction(ctx, sqlTx, slot, txRes.Meta, tx, txRes.BlockTime.Time(), logger)
+	err = p.ProcessTransaction(ctx, slot, txRes.Meta, tx, txRes.BlockTime.Time(), logger)
 	if err != nil {
 		return fmt.Errorf("failed to process transaction: %w", err)
 	}
-
-	err = sqlTx.Commit(ctx)
-	if err != nil {
-		return fmt.Errorf("failed to commit sql transaction: %w", err)
-	}
-
 	return nil
 }
 
 func (p *DefaultProcessor) ProcessTransaction(
 	ctx context.Context,
-	db database.DBTX,
 	slot uint64,
 	meta *rpc.TransactionMeta,
 	tx *solana.Transaction,
 	blockTime time.Time,
 	logger *zap.Logger,
 ) error {
+	sqlTx, err := p.pool.Begin(ctx)
+	if err != nil {
+		return fmt.Errorf("failed to begin sql transaction: %w", err)
+	}
+	defer sqlTx.Rollback(ctx)
+
 	if tx == nil {
 		return fmt.Errorf("no transaction to process")
 	}
@@ -119,7 +110,7 @@ func (p *DefaultProcessor) ProcessTransaction(
 		mintsFilter = *p.mintsFilter
 	}
 
-	err := processBalanceChanges(ctx, db, slot, meta, tx, blockTime, mintsFilter, txLogger)
+	err = processBalanceChanges(ctx, p.pool, slot, meta, tx, blockTime, mintsFilter, txLogger)
 	if err != nil {
 		return fmt.Errorf("failed to process balance changes: %w", err)
 	}
@@ -133,21 +124,21 @@ func (p *DefaultProcessor) ProcessTransaction(
 		switch programId {
 		case claimable_tokens.ProgramID:
 			{
-				err := processClaimableTokensInstruction(ctx, db, slot, tx, instructionIndex, instruction, signature, instLogger)
+				err := processClaimableTokensInstruction(ctx, p.pool, slot, tx, instructionIndex, instruction, signature, instLogger)
 				if err != nil {
 					return fmt.Errorf("error processing claimable_tokens instruction %d: %w", instructionIndex, err)
 				}
 			}
 		case reward_manager.ProgramID:
 			{
-				err := processRewardManagerInstruction(ctx, db, slot, tx, instructionIndex, instruction, signature, instLogger)
+				err := processRewardManagerInstruction(ctx, p.pool, slot, tx, instructionIndex, instruction, signature, instLogger)
 				if err != nil {
 					return fmt.Errorf("error processing reward_manager instruction %d: %w", instructionIndex, err)
 				}
 			}
 		case payment_router.ProgramID:
 			{
-				err := processPaymentRouterInstruction(ctx, db, slot, tx, instructionIndex, instruction, signature, blockTime, p.config, instLogger)
+				err := processPaymentRouterInstruction(ctx, p.pool, slot, tx, instructionIndex, instruction, signature, blockTime, p.config, instLogger)
 				if err != nil {
 					return fmt.Errorf("error processing payment_router instruction %d: %w", instructionIndex, err)
 				}
@@ -155,5 +146,9 @@ func (p *DefaultProcessor) ProcessTransaction(
 		}
 	}
 
+	err = sqlTx.Commit(ctx)
+	if err != nil {
+		return fmt.Errorf("failed to commit sql transaction: %w", err)
+	}
 	return nil
 }

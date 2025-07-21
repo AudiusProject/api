@@ -5,7 +5,6 @@ import (
 	"testing"
 	"time"
 
-	"bridgerton.audius.co/database"
 	"bridgerton.audius.co/solana/spl/programs/claimable_tokens"
 	"bridgerton.audius.co/solana/spl/programs/payment_router"
 	"bridgerton.audius.co/solana/spl/programs/reward_manager"
@@ -110,14 +109,13 @@ func (m *MockProcessor) ProcessSignature(ctx context.Context, slot uint64, txSig
 }
 func (m *MockProcessor) ProcessTransaction(
 	ctx context.Context,
-	db database.DBTX,
 	slot uint64,
 	meta *rpc.TransactionMeta,
 	tx *solana.Transaction,
 	blockTime time.Time,
 	logger *zap.Logger,
 ) error {
-	args := m.Called(ctx, db, slot, meta, tx, blockTime, logger)
+	args := m.Called(ctx, slot, meta, tx, blockTime, logger)
 	return args.Error(0)
 }
 

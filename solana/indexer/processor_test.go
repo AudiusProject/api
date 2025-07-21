@@ -1,13 +1,11 @@
-package indexer_test
+package indexer
 
 import (
 	"bytes"
-	"context"
 	"strings"
 	"testing"
 	"time"
 
-	"bridgerton.audius.co/solana/indexer"
 	"bridgerton.audius.co/solana/spl/programs/claimable_tokens"
 	"bridgerton.audius.co/solana/spl/programs/payment_router"
 	"bridgerton.audius.co/solana/spl/programs/reward_manager"
@@ -18,55 +16,13 @@ import (
 	"github.com/gagliardetto/solana-go/programs/memo"
 	"github.com/gagliardetto/solana-go/rpc"
 	"github.com/jackc/pgx/v5"
-	"github.com/jackc/pgx/v5/pgconn"
+	"github.com/pashagolub/pgxmock/v4"
 	"github.com/stretchr/testify/require"
 	"github.com/test-go/testify/assert"
 	"go.uber.org/zap"
 )
 
-type mockDBCall struct {
-	sql  string
-	args any
-}
-
-// Mock DBTX that records calls and args
-type mockDB struct {
-	calls []mockDBCall
-}
-
-type mockRow struct {
-	values []any
-}
-
-func (m mockRow) Scan(dest ...any) error {
-	for d := range dest {
-		dest[d] = m.values[d]
-	}
-	return nil
-}
-
-// Add stubs for other DBTX methods if needed for compilation
-func (m *mockDB) Exec(_ context.Context, sql string, args ...any) (pgconn.CommandTag, error) {
-	if m.calls == nil {
-		m.calls = make([]mockDBCall, 0)
-	}
-	m.calls = append(m.calls, mockDBCall{
-		sql:  sql,
-		args: args[0],
-	})
-	return pgconn.CommandTag{}, nil
-}
-func (m *mockDB) Query(context.Context, string, ...interface{}) (pgx.Rows, error) { return nil, nil }
-func (m *mockDB) QueryRow(context.Context, string, ...interface{}) pgx.Row {
-	return mockRow{
-		values: []any{0},
-	}
-}
-
 func TestProcessTransaction_CallsInsertClaimableAccount(t *testing.T) {
-	mockDb := &mockDB{}
-	s := &indexer.DefaultProcessor{}
-
 	// Create a valid CreateTokenAccount instruction
 	ethAddress := common.HexToAddress("0x1234567890abcdef1234567890abcdef12345678")
 	mint := solana.MustPublicKeyFromBase58("9LzCMqDgTKYz9Drzqnpgee3SGa89up3a247ypMj2xrqM")
@@ -93,31 +49,39 @@ func TestProcessTransaction_CallsInsertClaimableAccount(t *testing.T) {
 		},
 	}
 
+	// Args
 	logger := zap.NewNop()
 	ctx := t.Context()
 	slot := uint64(1)
 	blockTime := time.Now()
 
-	expectedArgs := pgx.NamedArgs{
-		"signature":        tx.Signatures[0].String(),
-		"instructionIndex": 0,
-		"slot":             slot,
-		"mint":             mint.String(),
-		"ethereumAddress":  strings.ToLower(ethAddress.String()),
-		"account":          createInst.UserBank().PublicKey.String(),
+	// Mock DB
+	poolMock, err := pgxmock.NewPool()
+	require.NoError(t, err, "failed to create mock database pool")
+	defer poolMock.Close()
+	poolMock.ExpectBegin()
+	poolMock.ExpectExec("INSERT INTO sol_claimable_accounts").
+		WithArgs(pgx.NamedArgs{
+			"signature":        tx.Signatures[0].String(),
+			"instructionIndex": 0,
+			"slot":             slot,
+			"mint":             mint.String(),
+			"ethereumAddress":  strings.ToLower(ethAddress.String()),
+			"account":          createInst.UserBank().PublicKey.String(),
+		}).
+		WillReturnResult(pgxmock.NewResult("INSERT", 1))
+	poolMock.ExpectCommit()
+
+	p := &DefaultProcessor{
+		pool: poolMock,
 	}
 
-	err = s.ProcessTransaction(ctx, mockDb, slot, meta, tx, blockTime, logger)
+	err = p.ProcessTransaction(ctx, slot, meta, tx, blockTime, logger)
 	require.NoError(t, err)
-	require.Len(t, mockDb.calls, 1)
-	require.Contains(t, mockDb.calls[0].sql, "sol_claimable_accounts")
-	require.Equal(t, expectedArgs, mockDb.calls[0].args.(pgx.NamedArgs))
+	assert.NoError(t, poolMock.ExpectationsWereMet())
 }
 
 func TestProcessTransaction_CallsInsertClaimableAccountTransfer(t *testing.T) {
-	mockDb := &mockDB{}
-	s := &indexer.DefaultProcessor{}
-
 	// Create a valid CreateTokenAccount instruction
 	ethAddress := common.HexToAddress("0x1234567890abcdef1234567890abcdef12345678")
 	mint := solana.MustPublicKeyFromBase58("9LzCMqDgTKYz9Drzqnpgee3SGa89up3a247ypMj2xrqM")
@@ -169,32 +133,40 @@ func TestProcessTransaction_CallsInsertClaimableAccountTransfer(t *testing.T) {
 		},
 	}
 
+	// Args
 	logger := zap.NewNop()
 	ctx := t.Context()
 	slot := uint64(1)
 	blockTime := time.Now()
 
-	expectedArgs := pgx.NamedArgs{
-		"signature":        tx.Signatures[0].String(),
-		"instructionIndex": 1,
-		"amount":           amount,
-		"slot":             slot,
-		"fromAccount":      transferInst.SenderUserBank().PublicKey.String(),
-		"toAccount":        transferInst.Destination().PublicKey.String(),
-		"senderEthAddress": strings.ToLower(ethAddress.String()),
+	// Mock DB
+	poolMock, err := pgxmock.NewPool()
+	require.NoError(t, err, "failed to create mock database pool")
+	defer poolMock.Close()
+	poolMock.ExpectBegin()
+	poolMock.ExpectExec("INSERT INTO sol_claimable_account_transfers").
+		WithArgs(pgx.NamedArgs{
+			"signature":        tx.Signatures[0].String(),
+			"instructionIndex": 1,
+			"amount":           amount,
+			"slot":             slot,
+			"fromAccount":      transferInst.SenderUserBank().PublicKey.String(),
+			"toAccount":        transferInst.Destination().PublicKey.String(),
+			"senderEthAddress": strings.ToLower(ethAddress.String()),
+		}).
+		WillReturnResult(pgxmock.NewResult("INSERT", 1))
+	poolMock.ExpectCommit()
+
+	p := &DefaultProcessor{
+		pool: poolMock,
 	}
 
-	err = s.ProcessTransaction(ctx, mockDb, slot, meta, tx, blockTime, logger)
+	err = p.ProcessTransaction(ctx, slot, meta, tx, blockTime, logger)
 	assert.NoError(t, err)
-	assert.Len(t, mockDb.calls, 1)
-	assert.Contains(t, mockDb.calls[0].sql, "sol_claimable_account_transfers")
-	assert.Equal(t, expectedArgs, mockDb.calls[0].args.(pgx.NamedArgs))
+	assert.NoError(t, poolMock.ExpectationsWereMet())
 }
 
 func TestProcessTransaction_CallsInsertRewardDisbursement(t *testing.T) {
-	mockDb := &mockDB{}
-	s := &indexer.DefaultProcessor{}
-
 	// Setup EvaluateAttestation instruction
 	ethAddress := common.HexToAddress("0x3f6d9fcf0d4466dd5886e3b1def017adfb7916b4")
 	rewardState := solana.MustPublicKeyFromBase58("GaiG9LDYHfZGqeNaoGRzFEnLiwUT7WiC6sA6FDJX9ZPq")
@@ -239,32 +211,40 @@ func TestProcessTransaction_CallsInsertRewardDisbursement(t *testing.T) {
 		},
 	}
 
+	// Args
 	logger := zap.NewNop()
 	ctx := t.Context()
 	slot := uint64(1)
 	blockTime := time.Now()
 
-	expectedArgs := pgx.NamedArgs{
-		"signature":        signatures[0].String(),
-		"instructionIndex": 0,
-		"amount":           amount,
-		"slot":             slot,
-		"userBank":         destinationUserBank.String(),
-		"challengeId":      "ft",
-		"specifier":        "37364e80",
+	// Mock DB
+	poolMock, err := pgxmock.NewPool()
+	require.NoError(t, err, "failed to create mock database pool")
+	defer poolMock.Close()
+	poolMock.ExpectBegin()
+	poolMock.ExpectExec("INSERT INTO sol_reward_disbursements").
+		WithArgs(pgx.NamedArgs{
+			"signature":        signatures[0].String(),
+			"instructionIndex": 0,
+			"amount":           amount,
+			"slot":             slot,
+			"userBank":         destinationUserBank.String(),
+			"challengeId":      "ft",
+			"specifier":        "37364e80",
+		}).
+		WillReturnResult(pgxmock.NewResult("INSERT", 1))
+	poolMock.ExpectCommit()
+
+	p := &DefaultProcessor{
+		pool: poolMock,
 	}
 
-	err = s.ProcessTransaction(ctx, mockDb, slot, meta, tx, blockTime, logger)
+	err = p.ProcessTransaction(ctx, slot, meta, tx, blockTime, logger)
 	assert.NoError(t, err)
-	assert.Len(t, mockDb.calls, 1)
-	assert.Contains(t, mockDb.calls[0].sql, "sol_reward_disbursements")
-	assert.Equal(t, expectedArgs, mockDb.calls[0].args.(pgx.NamedArgs))
+	assert.NoError(t, poolMock.ExpectationsWereMet())
 }
 
 func TestProcessTransaction_CallsInsertPayment(t *testing.T) {
-	mockDb := &mockDB{}
-	s := &indexer.DefaultProcessor{}
-
 	// Setup Route instruction
 	sender, err := solana.NewRandomPrivateKey()
 	require.NoError(t, err)
@@ -308,26 +288,32 @@ func TestProcessTransaction_CallsInsertPayment(t *testing.T) {
 	slot := uint64(1)
 	blockTime := time.Now()
 
-	expectedArgs := pgx.NamedArgs{
-		"signature":        signatures[0].String(),
-		"instructionIndex": 0,
-		"amount":           amount,
-		"slot":             slot,
-		"routeIndex":       0,
-		"toAccount":        dest.PublicKey().String(),
+	poolMock, err := pgxmock.NewPool()
+	require.NoError(t, err, "failed to create mock database pool")
+	defer poolMock.Close()
+	poolMock.ExpectBegin()
+	poolMock.ExpectExec("INSERT INTO sol_payments").
+		WithArgs(pgx.NamedArgs{
+			"signature":        signatures[0].String(),
+			"instructionIndex": 0,
+			"amount":           amount,
+			"slot":             slot,
+			"routeIndex":       0,
+			"toAccount":        dest.PublicKey().String(),
+		}).
+		WillReturnResult(pgxmock.NewResult("INSERT", 1))
+	poolMock.ExpectCommit()
+
+	p := &DefaultProcessor{
+		pool: poolMock,
 	}
 
-	err = s.ProcessTransaction(ctx, mockDb, slot, meta, tx, blockTime, logger)
+	err = p.ProcessTransaction(ctx, slot, meta, tx, blockTime, logger)
 	require.NoError(t, err)
-	require.Len(t, mockDb.calls, 1)
-	require.Contains(t, mockDb.calls[0].sql, "sol_payments")
-	require.Equal(t, expectedArgs, mockDb.calls[0].args.(pgx.NamedArgs))
+	assert.NoError(t, poolMock.ExpectationsWereMet())
 }
 
 func TestProcessTransaction_CallsInsertPurchase(t *testing.T) {
-	mockDb := &mockDB{}
-	s := &indexer.DefaultProcessor{}
-
 	// Setup Route instruction
 	sender, err := solana.NewRandomPrivateKey()
 	require.NoError(t, err)
@@ -378,50 +364,58 @@ func TestProcessTransaction_CallsInsertPurchase(t *testing.T) {
 		},
 	}
 
+	// Args
 	logger := zap.NewNop()
 	ctx := t.Context()
 	slot := uint64(1)
 	blockTime := time.Now()
 
-	expectedPaymentArgs := pgx.NamedArgs{
-		"signature":        signatures[0].String(),
-		"instructionIndex": 0,
-		"amount":           amount,
-		"slot":             slot,
-		"routeIndex":       0,
-		"toAccount":        dest.PublicKey().String(),
+	// Mock DB
+	poolMock, err := pgxmock.NewPool()
+	require.NoError(t, err, "failed to create mock database pool")
+	defer poolMock.Close()
+	poolMock.ExpectBegin()
+	poolMock.ExpectExec("INSERT INTO sol_payments").
+		WithArgs(pgx.NamedArgs{
+			"signature":        signatures[0].String(),
+			"instructionIndex": 0,
+			"amount":           amount,
+			"slot":             slot,
+			"routeIndex":       0,
+			"toAccount":        dest.PublicKey().String(),
+		}).
+		WillReturnResult(pgxmock.NewResult("INSERT", 1))
+	poolMock.ExpectExec("INSERT INTO sol_purchases").
+		WithArgs(pgx.NamedArgs{
+			"signature":             signatures[0].String(),
+			"instructionIndex":      0,
+			"amount":                amount,
+			"slot":                  slot,
+			"fromAccount":           sender.PublicKey().String(),
+			"contentType":           "track",
+			"contentId":             1,
+			"buyerUserId":           2,
+			"accessType":            "stream",
+			"validAfterBlocknumber": 100,
+			"isValid":               (*bool)(nil),
+			"city":                  "Minneapolis",
+			"region":                "MN",
+			"country":               "USA",
+		}).
+		WillReturnResult(pgxmock.NewResult("INSERT", 1))
+	poolMock.ExpectCommit()
+
+	p := &DefaultProcessor{
+		pool: poolMock,
 	}
 
-	expectedPurchaseArgs := pgx.NamedArgs{
-		"signature":             signatures[0].String(),
-		"instructionIndex":      0,
-		"amount":                amount,
-		"slot":                  slot,
-		"fromAccount":           sender.PublicKey().String(),
-		"contentType":           "track",
-		"contentId":             1,
-		"buyerUserId":           2,
-		"accessType":            "stream",
-		"validAfterBlocknumber": 100,
-		"isValid":               (*bool)(nil),
-		"city":                  "Minneapolis",
-		"region":                "MN",
-		"country":               "USA",
-	}
-
-	err = s.ProcessTransaction(ctx, mockDb, slot, meta, tx, blockTime, logger)
+	err = p.ProcessTransaction(ctx, slot, meta, tx, blockTime, logger)
 	assert.NoError(t, err)
-	assert.Len(t, mockDb.calls, 2)
-	assert.Contains(t, mockDb.calls[0].sql, "sol_payments")
-	assert.Equal(t, expectedPaymentArgs, mockDb.calls[0].args.(pgx.NamedArgs))
-	assert.Contains(t, mockDb.calls[1].sql, "sol_purchases")
-	assert.Equal(t, expectedPurchaseArgs, mockDb.calls[1].args.(pgx.NamedArgs))
+	assert.NoError(t, poolMock.ExpectationsWereMet())
 }
 
 func TestProcessTransaction_CallsInsertBalanceChange(t *testing.T) {
-	mockDb := &mockDB{}
-	s := &indexer.DefaultProcessor{}
-
+	// Setup a transaction with token balance changes
 	account := solana.MustPublicKeyFromBase58("HJQj8P47BdA7ugjQEn45LaESYrxhiZDygmukt8iumFZJ")
 	owner := solana.MustPublicKeyFromBase58("TT1eRKxi2Rj3oEvsFMe9W5hrcPmpXqKkNj7wC83AhXk")
 	account2 := solana.MustPublicKeyFromBase58("Cjv8dvVfWU8wUYAR82T5oZ4nHLB6EyGNvpPBzw3r76Qy")
@@ -473,6 +467,7 @@ func TestProcessTransaction_CallsInsertBalanceChange(t *testing.T) {
 		},
 	}
 
+	// Args
 	logger := zap.NewNop()
 	ctx := t.Context()
 	slot := uint64(1)
@@ -500,17 +495,23 @@ func TestProcessTransaction_CallsInsertBalanceChange(t *testing.T) {
 		"blockTimestamp": blockTime.UTC(),
 	}
 
-	err := s.ProcessTransaction(ctx, mockDb, slot, meta, tx, blockTime, logger)
-	assert.NoError(t, err)
-	require.Len(t, mockDb.calls, 2)
+	poolMock, err := pgxmock.NewPool()
+	require.NoError(t, err, "failed to create mock database pool")
+	defer poolMock.Close()
+	poolMock.ExpectBegin()
+	poolMock.ExpectExec("INSERT INTO sol_token_account_balance_changes").
+		WithArgs(expectedArgs).
+		WillReturnResult(pgxmock.NewResult("INSERT", 1))
+	poolMock.ExpectExec("INSERT INTO sol_token_account_balance_changes").
+		WithArgs(expectedArgs2).
+		WillReturnResult(pgxmock.NewResult("INSERT", 1))
+	poolMock.ExpectCommit()
 
-	actualArgs := []pgx.NamedArgs{
-		mockDb.calls[0].args.(pgx.NamedArgs),
-		mockDb.calls[1].args.(pgx.NamedArgs),
+	p := &DefaultProcessor{
+		pool: poolMock,
 	}
 
-	assert.Contains(t, mockDb.calls[0].sql, "sol_token_account_balance_changes")
-	assert.Contains(t, actualArgs, expectedArgs)
-	assert.Contains(t, mockDb.calls[1].sql, "sol_token_account_balance_changes")
-	assert.Contains(t, actualArgs, expectedArgs2)
+	err = p.ProcessTransaction(ctx, slot, meta, tx, blockTime, logger)
+	assert.NoError(t, err)
+	assert.NoError(t, poolMock.ExpectationsWereMet())
 }
