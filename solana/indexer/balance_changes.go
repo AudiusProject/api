@@ -72,7 +72,7 @@ func extractBalanceChanges(meta *rpc.TransactionMeta, tx *solana.Transaction, tr
 
 	// Pre balances
 	for _, balance := range meta.PreTokenBalances {
-		isMintTracked := trackedMints != nil && slices.Contains(trackedMints, balance.Mint.String())
+		isMintTracked := len(trackedMints) == 0 || slices.Contains(trackedMints, balance.Mint.String())
 		if !isMintTracked {
 			continue
 		}
@@ -96,7 +96,7 @@ func extractBalanceChanges(meta *rpc.TransactionMeta, tx *solana.Transaction, tr
 
 	// Post balances and changes
 	for _, balance := range meta.PostTokenBalances {
-		isMintTracked := trackedMints != nil && slices.Contains(trackedMints, balance.Mint.String())
+		isMintTracked := len(trackedMints) == 0 || slices.Contains(trackedMints, balance.Mint.String())
 		if !isMintTracked {
 			continue
 		}

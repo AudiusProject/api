@@ -56,7 +56,6 @@ func New(config config.Config) *SolanaIndexer {
 	}
 }
 
-func (s *SolanaIndexer) Close() error {
+func (s *SolanaIndexer) Close() {
 	s.pool.Close()
-	return nil
 }
