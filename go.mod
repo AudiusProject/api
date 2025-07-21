@@ -27,6 +27,7 @@ require (
 	github.com/maypok86/otter v1.2.4
 	github.com/mcuadros/go-defaults v1.2.0
 	github.com/mr-tron/base58 v1.2.0
+	github.com/pashagolub/pgxmock/v4 v4.8.0
 	github.com/qjebbs/go-jsons v0.0.0-20221222033332-a534c5fc1c4c
 	github.com/rpcpool/yellowstone-grpc/examples/golang v0.0.0-20250605231917-29d62ca5d4ae
 	github.com/segmentio/encoding v0.4.1
@@ -35,6 +36,7 @@ require (
 	github.com/test-go/testify v1.1.4
 	github.com/tidwall/gjson v1.18.0
 	github.com/tidwall/pretty v1.2.1
+	github.com/tidwall/sjson v1.2.5
 	github.com/valyala/fasthttp v1.59.0
 	go.uber.org/zap v1.27.0
 	golang.org/x/sync v0.13.0
@@ -162,10 +164,10 @@ require (
 	github.com/sasha-s/go-deadlock v0.3.5 // indirect
 	github.com/segmentio/asm v1.2.0 // indirect
 	github.com/streamingfast/logging v0.0.0-20230608130331-f22c91403091 // indirect
+	github.com/stretchr/objx v0.5.2 // indirect
 	github.com/supranational/blst v0.3.14 // indirect
 	github.com/syndtr/goleveldb v1.0.1-0.20210819022825-2ae1ddf74ef7 // indirect
 	github.com/tidwall/match v1.1.1 // indirect
-	github.com/tidwall/sjson v1.2.5 // indirect
 	github.com/valyala/bytebufferpool v1.0.0 // indirect
 	github.com/valyala/fasttemplate v1.2.2 // indirect
 	go.etcd.io/bbolt v1.4.0-alpha.0.0.20240404170359-43604f3112c5 // indirect
