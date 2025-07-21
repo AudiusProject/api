@@ -1,0 +1,4 @@
+[AllowList]
+Paths = [
+  "ddl/data/.*"
+]
