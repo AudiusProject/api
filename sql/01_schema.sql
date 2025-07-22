@@ -2,12 +2,13 @@
 -- PostgreSQL database dump
 --
 
--- Dumped from database version 15.12
--- Dumped by pg_dump version 15.5 (Debian 15.5-1.pgdg120+1)
+-- Dumped from database version 17.4 (Debian 17.4-1.pgdg120+2)
+-- Dumped by pg_dump version 17.4 (Debian 17.4-1.pgdg120+2)
 
 SET statement_timeout = 0;
 SET lock_timeout = 0;
 SET idle_in_transaction_session_timeout = 0;
+SET transaction_timeout = 0;
 SET client_encoding = 'UTF8';
 SET standard_conforming_strings = on;
 SELECT pg_catalog.set_config('search_path', '', false);
@@ -21,13 +22,6 @@ SET row_security = off;
 --
 
 CREATE SCHEMA hashids;
-
-
---
--- Name: public; Type: SCHEMA; Schema: -; Owner: -
---
-
--- *not* creating schema, since initdb creates it
 
 
 --
@@ -1175,7 +1169,34 @@ BEGIN
         chat_blast.audience_content_type = p.content_type::text
         AND chat_blast.audience_content_id = p.content_id
       )
-    );
+    )
+
+  UNION
+
+  -- coin_holder_audience
+  -- Case 1: userbank ie. sol_claimable_accounts
+  SELECT chat_blast.blast_id, u.user_id AS to_user_id
+  FROM artist_coins ac
+  JOIN chat_blast ON chat_blast.blast_id = blast_id_param
+    AND chat_blast.audience = 'coin_holder_audience'
+    AND ac.user_id = chat_blast.from_user_id
+  JOIN sol_claimable_accounts sca ON sca.mint = ac.mint
+  JOIN sol_token_account_balances stab ON stab.account = sca.account
+  JOIN users u ON u.wallet = sca.ethereum_address
+  WHERE stab.balance > 0
+
+  UNION
+
+  -- Case 2: associated_wallets
+  SELECT chat_blast.blast_id, u.user_id AS to_user_id
+  FROM artist_coins ac
+  JOIN chat_blast ON chat_blast.blast_id = blast_id_param
+    AND chat_blast.audience = 'coin_holder_audience'
+    AND ac.user_id = chat_blast.from_user_id
+  JOIN sol_token_account_balances stab ON stab.mint = ac.mint
+  JOIN associated_wallets aw ON aw.wallet = stab.owner
+  JOIN users u ON u.user_id = aw.user_id
+  WHERE stab.balance > 0;
 
 END;
 $$;
@@ -1986,6 +2007,24 @@ select a.*,
         a.karma
     ) as score
 from aggregate_scores a;
+$$;
+
+
+--
+-- Name: handle_artist_coins_change(); Type: FUNCTION; Schema: public; Owner: -
+--
+
+CREATE FUNCTION public.handle_artist_coins_change() RETURNS trigger
+    LANGUAGE plpgsql
+    AS $$
+BEGIN
+    PERFORM pg_notify('artist_coins_changed', json_build_object('operation', TG_OP, 'new_mint', NEW.mint, 'old_mint', OLD.mint)::text);
+    RETURN NEW;
+    EXCEPTION
+        WHEN OTHERS THEN
+            RAISE WARNING 'An error occurred in %: %', TG_NAME, SQLERRM;
+            RETURN NULL;
+END;
 $$;
 
 
@@ -5532,10 +5571,10 @@ CREATE TABLE public.app_name_metrics (
 --
 
 CREATE MATERIALIZED VIEW public.app_name_metrics_all_time AS
- SELECT app_name_metrics.application_name AS name,
-    sum(app_name_metrics.count) AS count
+ SELECT application_name AS name,
+    sum(count) AS count
    FROM public.app_name_metrics
-  GROUP BY app_name_metrics.application_name
+  GROUP BY application_name
   WITH NO DATA;
 
 
@@ -5558,11 +5597,11 @@ ALTER TABLE public.app_name_metrics ALTER COLUMN id ADD GENERATED ALWAYS AS IDEN
 --
 
 CREATE MATERIALIZED VIEW public.app_name_metrics_trailing_month AS
- SELECT app_name_metrics.application_name AS name,
-    sum(app_name_metrics.count) AS count
+ SELECT application_name AS name,
+    sum(count) AS count
    FROM public.app_name_metrics
-  WHERE (app_name_metrics."timestamp" > (now() - '1 mon'::interval))
-  GROUP BY app_name_metrics.application_name
+  WHERE ("timestamp" > (now() - '1 mon'::interval))
+  GROUP BY application_name
   WITH NO DATA;
 
 
@@ -5571,11 +5610,11 @@ CREATE MATERIALIZED VIEW public.app_name_metrics_trailing_month AS
 --
 
 CREATE MATERIALIZED VIEW public.app_name_metrics_trailing_week AS
- SELECT app_name_metrics.application_name AS name,
-    sum(app_name_metrics.count) AS count
+ SELECT application_name AS name,
+    sum(count) AS count
    FROM public.app_name_metrics
-  WHERE (app_name_metrics."timestamp" > (now() - '7 days'::interval))
-  GROUP BY app_name_metrics.application_name
+  WHERE ("timestamp" > (now() - '7 days'::interval))
+  GROUP BY application_name
   WITH NO DATA;
 
 
@@ -6875,8 +6914,8 @@ CREATE TABLE public.route_metrics (
 --
 
 CREATE MATERIALIZED VIEW public.route_metrics_all_time AS
- SELECT count(DISTINCT route_metrics.ip) AS unique_count,
-    sum(route_metrics.count) AS count
+ SELECT count(DISTINCT ip) AS unique_count,
+    sum(count) AS count
    FROM public.route_metrics
   WITH NO DATA;
 
@@ -6886,11 +6925,11 @@ CREATE MATERIALIZED VIEW public.route_metrics_all_time AS
 --
 
 CREATE MATERIALIZED VIEW public.route_metrics_day_bucket AS
- SELECT count(DISTINCT route_metrics.ip) AS unique_count,
-    sum(route_metrics.count) AS count,
-    date_trunc('day'::text, route_metrics."timestamp") AS "time"
+ SELECT count(DISTINCT ip) AS unique_count,
+    sum(count) AS count,
+    date_trunc('day'::text, "timestamp") AS "time"
    FROM public.route_metrics
-  GROUP BY (date_trunc('day'::text, route_metrics."timestamp"))
+  GROUP BY (date_trunc('day'::text, "timestamp"))
   WITH NO DATA;
 
 
@@ -6913,11 +6952,11 @@ ALTER TABLE public.route_metrics ALTER COLUMN id ADD GENERATED ALWAYS AS IDENTIT
 --
 
 CREATE MATERIALIZED VIEW public.route_metrics_month_bucket AS
- SELECT count(DISTINCT route_metrics.ip) AS unique_count,
-    sum(route_metrics.count) AS count,
-    date_trunc('month'::text, route_metrics."timestamp") AS "time"
+ SELECT count(DISTINCT ip) AS unique_count,
+    sum(count) AS count,
+    date_trunc('month'::text, "timestamp") AS "time"
    FROM public.route_metrics
-  GROUP BY (date_trunc('month'::text, route_metrics."timestamp"))
+  GROUP BY (date_trunc('month'::text, "timestamp"))
   WITH NO DATA;
 
 
@@ -6926,10 +6965,10 @@ CREATE MATERIALIZED VIEW public.route_metrics_month_bucket AS
 --
 
 CREATE MATERIALIZED VIEW public.route_metrics_trailing_month AS
- SELECT count(DISTINCT route_metrics.ip) AS unique_count,
-    sum(route_metrics.count) AS count
+ SELECT count(DISTINCT ip) AS unique_count,
+    sum(count) AS count
    FROM public.route_metrics
-  WHERE (route_metrics."timestamp" > (now() - '1 mon'::interval))
+  WHERE ("timestamp" > (now() - '1 mon'::interval))
   WITH NO DATA;
 
 
@@ -6938,10 +6977,10 @@ CREATE MATERIALIZED VIEW public.route_metrics_trailing_month AS
 --
 
 CREATE MATERIALIZED VIEW public.route_metrics_trailing_week AS
- SELECT count(DISTINCT route_metrics.ip) AS unique_count,
-    sum(route_metrics.count) AS count
+ SELECT count(DISTINCT ip) AS unique_count,
+    sum(count) AS count
    FROM public.route_metrics
-  WHERE (route_metrics."timestamp" > (now() - '7 days'::interval))
+  WHERE ("timestamp" > (now() - '7 days'::interval))
   WITH NO DATA;
 
 
@@ -7302,22 +7341,25 @@ COMMENT ON TABLE public.sol_reward_disbursements IS 'Stores reward manager progr
 
 
 --
--- Name: sol_slot_checkpoint; Type: TABLE; Schema: public; Owner: -
+-- Name: sol_slot_checkpoints; Type: TABLE; Schema: public; Owner: -
 --
 
-CREATE TABLE public.sol_slot_checkpoint (
-    id integer DEFAULT 1 NOT NULL,
-    slot bigint NOT NULL,
+CREATE TABLE public.sol_slot_checkpoints (
+    id uuid DEFAULT gen_random_uuid() NOT NULL,
+    from_slot bigint NOT NULL,
+    to_slot bigint NOT NULL,
+    subscription_hash text NOT NULL,
+    subscription jsonb NOT NULL,
     updated_at timestamp without time zone DEFAULT CURRENT_TIMESTAMP NOT NULL,
     created_at timestamp without time zone DEFAULT CURRENT_TIMESTAMP NOT NULL
 );
 
 
 --
--- Name: TABLE sol_slot_checkpoint; Type: COMMENT; Schema: public; Owner: -
+-- Name: TABLE sol_slot_checkpoints; Type: COMMENT; Schema: public; Owner: -
 --
 
-COMMENT ON TABLE public.sol_slot_checkpoint IS 'Stores the most recent slot that the indexer has received.';
+COMMENT ON TABLE public.sol_slot_checkpoints IS 'Stores checkpoints for Solana slots to track indexing progress.';
 
 
 --
@@ -7567,16 +7609,16 @@ CREATE TABLE public.supporter_rank_ups (
 --
 
 CREATE MATERIALIZED VIEW public.tag_track_user AS
- SELECT unnest(t.tags) AS tag,
-    t.track_id,
-    t.owner_id
+ SELECT unnest(tags) AS tag,
+    track_id,
+    owner_id
    FROM ( SELECT string_to_array(lower((tracks.tags)::text), ','::text) AS tags,
             tracks.track_id,
             tracks.owner_id
            FROM public.tracks
           WHERE (((tracks.tags)::text <> ''::text) AND (tracks.tags IS NOT NULL) AND (tracks.is_current IS TRUE) AND (tracks.is_unlisted IS FALSE) AND (tracks.stem_of IS NULL))
           ORDER BY tracks.updated_at DESC) t
-  GROUP BY (unnest(t.tags)), t.track_id, t.owner_id
+  GROUP BY (unnest(tags)), track_id, owner_id
   WITH NO DATA;
 
 
@@ -9195,11 +9237,11 @@ ALTER TABLE ONLY public.sol_reward_disbursements
 
 
 --
--- Name: sol_slot_checkpoint sol_slot_checkpoint_pkey; Type: CONSTRAINT; Schema: public; Owner: -
+-- Name: sol_slot_checkpoints sol_slot_checkpoints_pkey; Type: CONSTRAINT; Schema: public; Owner: -
 --
 
-ALTER TABLE ONLY public.sol_slot_checkpoint
-    ADD CONSTRAINT sol_slot_checkpoint_pkey PRIMARY KEY (id);
+ALTER TABLE ONLY public.sol_slot_checkpoints
+    ADD CONSTRAINT sol_slot_checkpoints_pkey PRIMARY KEY (id);
 
 
 --
@@ -10013,6 +10055,13 @@ CREATE INDEX idx_tracks_stream_conditions_gin ON public.tracks USING gin (stream
 
 
 --
+-- Name: idx_tts_genre_time_score; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX idx_tts_genre_time_score ON public.track_trending_scores USING btree (genre, time_range, score DESC, track_id);
+
+
+--
 -- Name: idx_usdc_purchases_buyer; Type: INDEX; Schema: public; Owner: -
 --
 
@@ -10622,6 +10671,20 @@ COMMENT ON INDEX public.sol_reward_disbursements_user_bank_idx IS 'Used for gett
 
 
 --
+-- Name: sol_slot_checkpoints_from_slot_idx; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX sol_slot_checkpoints_from_slot_idx ON public.sol_slot_checkpoints USING btree (subscription_hash, from_slot);
+
+
+--
+-- Name: sol_slot_checkpoints_to_slot_idx; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX sol_slot_checkpoints_to_slot_idx ON public.sol_slot_checkpoints USING btree (subscription_hash, to_slot);
+
+
+--
 -- Name: sol_swaps_from_account_idx; Type: INDEX; Schema: public; Owner: -
 --
 
@@ -10857,6 +10920,20 @@ CREATE INDEX users_new_handle_lc_idx ON public.users USING btree (handle_lc);
 --
 
 CREATE INDEX users_new_wallet_idx ON public.users USING btree (wallet);
+
+
+--
+-- Name: artist_coins on_artist_coins_change; Type: TRIGGER; Schema: public; Owner: -
+--
+
+CREATE TRIGGER on_artist_coins_change AFTER INSERT OR DELETE OR UPDATE ON public.artist_coins FOR EACH ROW EXECUTE FUNCTION public.handle_artist_coins_change();
+
+
+--
+-- Name: TRIGGER on_artist_coins_change ON artist_coins; Type: COMMENT; Schema: public; Owner: -
+--
+
+COMMENT ON TRIGGER on_artist_coins_change ON public.artist_coins IS 'Notifies when artist coins are added, removed, or updated.';
 
 
 --
