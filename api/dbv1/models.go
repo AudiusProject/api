@@ -1706,10 +1706,13 @@ type SolRewardDisbursement struct {
 
 // Stores the most recent slot that the indexer has received.
 type SolSlotCheckpoint struct {
-	ID        int32     `json:"id"`
-	Slot      int64     `json:"slot"`
-	UpdatedAt time.Time `json:"updated_at"`
-	CreatedAt time.Time `json:"created_at"`
+	ID               pgtype.UUID     `json:"id"`
+	FromSlot         int64           `json:"from_slot"`
+	ToSlot           int64           `json:"to_slot"`
+	SubscriptionHash string          `json:"subscription_hash"`
+	Subscription     json.RawMessage `json:"subscription"`
+	UpdatedAt        time.Time       `json:"updated_at"`
+	CreatedAt        time.Time       `json:"created_at"`
 }
 
 // Stores eg. Jupiter swaps for tracked mints.
