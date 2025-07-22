@@ -11,6 +11,7 @@ import (
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgconn"
 	"github.com/jackc/pgx/v5/pgxpool"
+	pb "github.com/rpcpool/yellowstone-grpc/examples/golang/proto"
 	"go.uber.org/zap"
 )
 
@@ -30,9 +31,19 @@ type RpcClient interface {
 	GetTransaction(context.Context, solana.Signature, *rpc.GetTransactionOpts) (*rpc.GetTransactionResult, error)
 }
 
+type GrpcClient interface {
+	Subscribe(
+		ctx context.Context,
+		subRequest *pb.SubscribeRequest,
+		dataCallback DataCallback,
+		errorCallback ErrorCallback,
+	) error
+	Close()
+}
+
 type SolanaIndexer struct {
 	rpcClient  RpcClient
-	grpcClient *GrpcClient
+	grpcClient GrpcClient
 	processor  Processor
 
 	config config.Config
