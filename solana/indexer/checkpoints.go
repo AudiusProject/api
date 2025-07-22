@@ -75,7 +75,8 @@ func insertCheckpointStart(ctx context.Context, db database.DBTX, fromSlot uint6
 func updateCheckpoint(ctx context.Context, db database.DBTX, id string, slot uint64) error {
 	_, err := db.Exec(ctx, `
 			UPDATE sol_slot_checkpoints
-			SET to_slot = @to_slot
+			SET to_slot = @to_slot,
+				updated_at = NOW()
 			WHERE id = @id;
 		`, pgx.NamedArgs{
 		"to_slot": slot,
