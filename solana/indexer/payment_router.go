@@ -148,7 +148,8 @@ func insertPayment(ctx context.Context, db database.DBTX, row paymentRow) error 
 		(signature, instruction_index, amount, slot, route_index, to_account)
 	VALUES
 		(@signature, @instructionIndex, @amount, @slot, @routeIndex, @toAccount)
-	`
+	ON CONFLICT DO NOTHING
+	;`
 	_, err := db.Exec(ctx, sql, pgx.NamedArgs{
 		"signature":        row.signature,
 		"instructionIndex": row.instructionIndex,
