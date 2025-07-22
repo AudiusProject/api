@@ -5,9 +5,12 @@ import (
 	"github.com/gofiber/fiber/v2"
 )
 
-type GetMetricsAppsParams struct {
-	TimeRange string `query:"time_range" default:"all_time" validate:"oneof=week month year all_time"`
-	Limit     int    `query:"limit" default:"100" validate:"min=1,max=100"`
+type GetAggregateAppMetricsRouteParams struct {
+	TimeRange string `params:"time_range" default:"all_time" validate:"oneof=week month year all_time"`
+}
+
+type GetMetricsAppsQueryParams struct {
+	Limit int `query:"limit" default:"100" validate:"min=1,max=1000"`
 }
 
 type AppMetric struct {
@@ -16,14 +19,18 @@ type AppMetric struct {
 }
 
 func (app *ApiServer) v1MetricsApps(c *fiber.Ctx) error {
-	params := GetMetricsAppsParams{}
-	if err := app.ParseAndValidateQueryParams(c, &params); err != nil {
+	queryParams := GetMetricsAppsQueryParams{}
+	if err := app.ParseAndValidateQueryParams(c, &queryParams); err != nil {
+		return err
+	}
+	routeParams := GetAggregateAppMetricsRouteParams{}
+	if err := c.ParamsParser(&routeParams); err != nil {
 		return err
 	}
 
 	metrics, err := app.queries.GetAggregateAppMetrics(c.Context(), dbv1.GetAggregateAppMetricsParams{
-		TimeRange: params.TimeRange,
-		LimitVal:  int32(params.Limit),
+		TimeRange: routeParams.TimeRange,
+		LimitVal:  int32(queryParams.Limit),
 	})
 	if err != nil {
 		return err
