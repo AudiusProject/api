@@ -11,6 +11,7 @@ import (
 	"bridgerton.audius.co/solana/spl/programs/reward_manager"
 	"github.com/gagliardetto/solana-go"
 	"github.com/gagliardetto/solana-go/rpc"
+	"github.com/maypok86/otter"
 	"go.uber.org/zap"
 )
 
@@ -27,23 +28,65 @@ type Processor interface {
 }
 
 type DefaultProcessor struct {
-	rpcClient   RpcClient
-	pool        DbPool
-	config      config.Config
-	mintsFilter *[]string
+	rpcClient        RpcClient
+	pool             DbPool
+	config           config.Config
+	transactionCache *otter.Cache[solana.Signature, *rpc.GetTransactionResult]
+}
+
+func NewDefaultProcessor(
+	rpcClient RpcClient,
+	pool DbPool,
+	config config.Config,
+) *DefaultProcessor {
+	cache, err := otter.MustBuilder[solana.Signature, *rpc.GetTransactionResult](50).
+		WithTTL(30 * time.Second).
+		CollectStats().
+		Build()
+
+	if err != nil {
+		panic(fmt.Errorf("failed to create transaction cache: %w", err))
+	}
+	return &DefaultProcessor{
+		rpcClient:        rpcClient,
+		pool:             pool,
+		config:           config,
+		transactionCache: &cache,
+	}
 }
 
 func (p *DefaultProcessor) ProcessSignature(ctx context.Context, slot uint64, txSig solana.Signature, logger *zap.Logger) error {
-	txRes, err := p.rpcClient.GetTransaction(
-		ctx,
-		txSig,
-		&rpc.GetTransactionOpts{
-			Commitment:                     rpc.CommitmentConfirmed,
-			MaxSupportedTransactionVersion: &rpc.MaxSupportedTransactionVersion0,
-		},
-	)
-	if err != nil {
-		return fmt.Errorf("failed to get transaction: %w", err)
+	var txRes *rpc.GetTransactionResult
+
+	// Check if the transaction is in the cache
+	if p.transactionCache != nil {
+		if hit, ok := p.transactionCache.Get(txSig); ok {
+			logger.Debug("cache hit")
+			txRes = hit
+		} else {
+			logger.Debug("cache miss")
+		}
+	}
+
+	// If the transaction is not in the cache, fetch it from the RPC
+	if txRes == nil {
+		res, err := withRetries(func() (*rpc.GetTransactionResult, error) {
+			return p.rpcClient.GetTransaction(
+				ctx,
+				txSig,
+				&rpc.GetTransactionOpts{
+					Commitment:                     rpc.CommitmentConfirmed,
+					MaxSupportedTransactionVersion: &rpc.MaxSupportedTransactionVersion0,
+				},
+			)
+		}, 5, 1*time.Second)
+		if err != nil {
+			return fmt.Errorf("failed to get transaction: %w", err)
+		}
+		if p.transactionCache != nil {
+			p.transactionCache.Set(txSig, res)
+			txRes = res
+		}
 	}
 
 	tx, err := txRes.Transaction.GetTransaction()
@@ -146,4 +189,16 @@ func (p *DefaultProcessor) ProcessTransaction(
 		return fmt.Errorf("failed to commit sql transaction: %w", err)
 	}
 	return nil
+}
+
+func (p *DefaultProcessor) ReportCacheStats(logger *zap.Logger) {
+	stats := p.transactionCache.Stats()
+	logger.Info("transaction cache stats",
+		zap.Int64("hits", stats.Hits()),
+		zap.Int64("misses", stats.Misses()),
+		zap.Int64("evictions", stats.EvictedCount()),
+		zap.Int64("evictionCost", stats.EvictedCost()),
+		zap.Int64("rejectedSets", stats.RejectedSets()),
+		zap.Float64("ratio", stats.Ratio()),
+	)
 }
