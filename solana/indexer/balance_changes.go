@@ -125,7 +125,11 @@ func extractBalanceChanges(meta *rpc.TransactionMeta, tx *solana.Transaction, tr
 			balanceChanges[acc.String()] = b
 		}
 		b.PostTokenBalance = postBalance
-		b.Change = int64(b.PostTokenBalance) - int64(b.PreTokenBalance)
+		if b.PostTokenBalance > b.PreTokenBalance {
+			b.Change = int64(b.PostTokenBalance - b.PreTokenBalance)
+		} else {
+			b.Change = 0 - int64(b.PreTokenBalance - b.PostTokenBalance)
+		}
 	}
 	return balanceChanges, nil
 }
