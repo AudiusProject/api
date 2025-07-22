@@ -5,6 +5,7 @@ import (
 	"time"
 
 	"bridgerton.audius.co/database"
+	"github.com/rpcpool/yellowstone-grpc/examples/golang/proto"
 	"github.com/test-go/testify/assert"
 )
 
@@ -91,4 +92,20 @@ func TestInserts(t *testing.T) {
 		specifier:        "specifier1",
 	})
 	assert.NoError(t, err, "failed to insert reward disbursement")
+
+	req := proto.SubscribeRequest{}
+	id, err := insertCheckpointStart(t.Context(), pool, 100, &req)
+	assert.NoError(t, err, "failed to insert checkpoint start")
+	assert.NotEmpty(t, id, "checkpoint ID should not be empty")
+
+	err = updateCheckpoint(t.Context(), pool, id, 201)
+	assert.NoError(t, err, "failed to update checkpoint")
+
+	slot, err := getCheckpointSlot(t.Context(), pool, &req)
+	assert.NoError(t, err, "failed to get checkpoint slot")
+	assert.Equal(t, uint64(201), slot, "checkpoint slot should match updated value")
+
+	id2, err := insertBackfillCheckpoint(t.Context(), pool, 100, 200, "foo")
+	assert.NoError(t, err, "failed to insert backfill checkpoint")
+	assert.NotEmpty(t, id2, "backfill checkpoint ID should not be empty")
 }
