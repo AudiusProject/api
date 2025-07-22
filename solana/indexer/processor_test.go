@@ -435,6 +435,8 @@ func TestProcessTransaction_CallsInsertBalanceChange(t *testing.T) {
 	account2 := solana.MustPublicKeyFromBase58("Cjv8dvVfWU8wUYAR82T5oZ4nHLB6EyGNvpPBzw3r76Qy")
 	owner2 := solana.MustPublicKeyFromBase58("dRiftyHA39MWEi3m9aunc5MzRF1JYuBsbn6VPcn33UH")
 	mint := solana.MustPublicKeyFromBase58("9LzCMqDgTKYz9Drzqnpgee3SGa89up3a247ypMj2xrqM")
+	account3 := solana.MustPublicKeyFromBase58("7sYw5JpQw8rTn2vQh3dX4bG6k9L2mN1pA5eF8cV3uZxT")
+	mint2 := solana.MustPublicKeyFromBase58("2k8s5d3zqDgTKYz9Drzqnpgee3SGa89up3a247ypMj2x")
 	tx := &solana.Transaction{
 		Signatures: []solana.Signature{
 			solana.MustSignatureFromBase58("5ZVE83uvxQ36BmUM4kPn2foPyQCbsEepEkDTinC8bfSwHJdVCia6q3Wvnfa2Ls71SZoBmqoWPyJuPuUm8XcG92Hr"),
@@ -443,6 +445,7 @@ func TestProcessTransaction_CallsInsertBalanceChange(t *testing.T) {
 			AccountKeys: []solana.PublicKey{
 				account,
 				account2,
+				account3,
 			},
 		},
 	}
@@ -454,6 +457,15 @@ func TestProcessTransaction_CallsInsertBalanceChange(t *testing.T) {
 				Mint:         mint,
 				UiTokenAmount: &rpc.UiTokenAmount{
 					Amount: "1000",
+				},
+			},
+			// Should be excluded, wrong mint
+			{
+				AccountIndex: 2,
+				Owner:        &owner2,
+				Mint:         mint2,
+				UiTokenAmount: &rpc.UiTokenAmount{
+					Amount: "0",
 				},
 			},
 		},
@@ -514,7 +526,9 @@ func TestProcessTransaction_CallsInsertBalanceChange(t *testing.T) {
 	defer poolMock.Close()
 	poolMock.ExpectBegin()
 	poolMock.ExpectQuery("SELECT mint FROM artist_coins").
-		WillReturnRows(pgxmock.NewRows([]string{"mints"}).AddRow(mint.String()))
+		WillReturnRows(
+			pgxmock.NewRows([]string{"mints"}).
+				AddRow(mint.String())) // Only the first mint
 	poolMock.ExpectExec("INSERT INTO sol_token_account_balance_changes").
 		WithArgs(expectedArgs).
 		WillReturnResult(pgxmock.NewResult("INSERT", 1))
