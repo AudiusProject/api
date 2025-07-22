@@ -9,6 +9,7 @@ import (
 
 	"bridgerton.audius.co/config"
 	"bridgerton.audius.co/database"
+	"bridgerton.audius.co/solana/indexer/fake_rpc_client"
 	"bridgerton.audius.co/solana/spl/programs/claimable_tokens"
 	"bridgerton.audius.co/solana/spl/programs/payment_router"
 	"bridgerton.audius.co/solana/spl/programs/reward_manager"
@@ -829,7 +830,7 @@ func TestProcessSignature_HandlesLoadedAddresses(t *testing.T) {
 	err := json.Unmarshal([]byte(txResJson), &txRes)
 	require.NoError(t, err, "failed to unmarshal transaction result")
 
-	fakeRpcClient := NewRpcClientFakeFromTransactions([]*rpc.GetTransactionResult{
+	fakeRpcClient := fake_rpc_client.NewWithTransactions([]*rpc.GetTransactionResult{
 		&txRes,
 	})
 

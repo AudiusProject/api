@@ -5,6 +5,7 @@ import (
 	"testing"
 	"time"
 
+	"bridgerton.audius.co/solana/indexer/fake_rpc_client"
 	"bridgerton.audius.co/solana/spl/programs/claimable_tokens"
 	"bridgerton.audius.co/solana/spl/programs/payment_router"
 	"bridgerton.audius.co/solana/spl/programs/reward_manager"
@@ -166,9 +167,9 @@ func TestBackfillContinue(t *testing.T) {
 		},
 	}
 
-	mockTransactionResponses, err := zipTransactionResultsAndTransactions(mockTransactionResponses, mockTransactions)
+	mockTransactionResponses, err := fake_rpc_client.ZipTransactionResultsAndTransactions(mockTransactionResponses, mockTransactions)
 	require.NoError(t, err, "failed to zip transaction results and transactions")
-	rpcFake := NewRpcClientFakeFromTransactions(mockTransactionResponses)
+	rpcFake := fake_rpc_client.NewWithTransactions(mockTransactionResponses)
 
 	poolMock, err := pgxmock.NewPool()
 	require.NoError(t, err, "failed to create mock database pool")
@@ -337,9 +338,9 @@ func TestBackfillFresh(t *testing.T) {
 		},
 	}
 
-	mockTransactionResponses, err := zipTransactionResultsAndTransactions(mockTransactionResponses, mockTransactions)
+	mockTransactionResponses, err := fake_rpc_client.ZipTransactionResultsAndTransactions(mockTransactionResponses, mockTransactions)
 	require.NoError(t, err, "failed to zip transaction results and transactions")
-	rpcFake := NewRpcClientFakeFromTransactions(mockTransactionResponses)
+	rpcFake := fake_rpc_client.NewWithTransactions(mockTransactionResponses)
 
 	poolMock, err := pgxmock.NewPool()
 	require.NoError(t, err, "failed to create mock database pool")

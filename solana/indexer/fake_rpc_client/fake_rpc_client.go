@@ -1,4 +1,4 @@
-package indexer
+package fake_rpc_client
 
 import (
 	"context"
@@ -9,43 +9,43 @@ import (
 	"github.com/gagliardetto/solana-go/rpc"
 )
 
-// RpcClientFake allows tests to specify responses for each method.
-type RpcClientFake struct {
+// FakeRpcClient allows tests to specify responses for each method.
+type FakeRpcClient struct {
 	GetBlockWithOptsFunc                func(ctx context.Context, slot uint64, opts *rpc.GetBlockOpts) (*rpc.GetBlockResult, error)
 	GetSlotFunc                         func(ctx context.Context, commitment rpc.CommitmentType) (uint64, error)
 	GetSignaturesForAddressWithOptsFunc func(ctx context.Context, address solana.PublicKey, opts *rpc.GetSignaturesForAddressOpts) ([]*rpc.TransactionSignature, error)
 	GetTransactionFunc                  func(ctx context.Context, sig solana.Signature, opts *rpc.GetTransactionOpts) (*rpc.GetTransactionResult, error)
 }
 
-func (m *RpcClientFake) GetBlockWithOpts(ctx context.Context, slot uint64, opts *rpc.GetBlockOpts) (*rpc.GetBlockResult, error) {
+func (m *FakeRpcClient) GetBlockWithOpts(ctx context.Context, slot uint64, opts *rpc.GetBlockOpts) (*rpc.GetBlockResult, error) {
 	if m.GetBlockWithOptsFunc != nil {
 		return m.GetBlockWithOptsFunc(ctx, slot, opts)
 	}
 	return nil, nil
 }
 
-func (m *RpcClientFake) GetSlot(ctx context.Context, commitment rpc.CommitmentType) (uint64, error) {
+func (m *FakeRpcClient) GetSlot(ctx context.Context, commitment rpc.CommitmentType) (uint64, error) {
 	if m.GetSlotFunc != nil {
 		return m.GetSlotFunc(ctx, commitment)
 	}
 	return 0, nil
 }
 
-func (m *RpcClientFake) GetSignaturesForAddressWithOpts(ctx context.Context, address solana.PublicKey, opts *rpc.GetSignaturesForAddressOpts) ([]*rpc.TransactionSignature, error) {
+func (m *FakeRpcClient) GetSignaturesForAddressWithOpts(ctx context.Context, address solana.PublicKey, opts *rpc.GetSignaturesForAddressOpts) ([]*rpc.TransactionSignature, error) {
 	if m.GetSignaturesForAddressWithOptsFunc != nil {
 		return m.GetSignaturesForAddressWithOptsFunc(ctx, address, opts)
 	}
 	return nil, nil
 }
 
-func (m *RpcClientFake) GetTransaction(ctx context.Context, sig solana.Signature, opts *rpc.GetTransactionOpts) (*rpc.GetTransactionResult, error) {
+func (m *FakeRpcClient) GetTransaction(ctx context.Context, sig solana.Signature, opts *rpc.GetTransactionOpts) (*rpc.GetTransactionResult, error) {
 	if m.GetTransactionFunc != nil {
 		return m.GetTransactionFunc(ctx, sig, opts)
 	}
 	return nil, nil
 }
 
-func zipTransactionResultsAndTransactions(
+func ZipTransactionResultsAndTransactions(
 	transactionResults []*rpc.GetTransactionResult,
 	transactions []solana.Transaction,
 ) ([]*rpc.GetTransactionResult, error) {
@@ -65,8 +65,8 @@ func zipTransactionResultsAndTransactions(
 	return transactionResults, nil
 }
 
-func NewRpcClientFakeFromTransactions(transactionResults []*rpc.GetTransactionResult) *RpcClientFake {
-	return &RpcClientFake{
+func NewWithTransactions(transactionResults []*rpc.GetTransactionResult) *FakeRpcClient {
+	return &FakeRpcClient{
 		GetSignaturesForAddressWithOptsFunc: func(ctx context.Context, address solana.PublicKey, opts *rpc.GetSignaturesForAddressOpts) ([]*rpc.TransactionSignature, error) {
 			result := make([]*rpc.TransactionSignature, 0)
 			startIndex := -1
