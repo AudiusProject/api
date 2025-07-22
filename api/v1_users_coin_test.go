@@ -117,7 +117,7 @@ func TestUserCoin(t *testing.T) {
 
 	// AUDIO
 	{
-		status, body := testGet(t, app, "/v1/users/"+trashid.MustEncodeHashID(1)+"/coin/9LzCMqDgTKYz9Drzqnpgee3SGa89up3a247ypMj2xrqM")
+		status, body := testGet(t, app, "/v1/users/"+trashid.MustEncodeHashID(1)+"/coins/9LzCMqDgTKYz9Drzqnpgee3SGa89up3a247ypMj2xrqM")
 		assert.Equal(t, 200, status)
 
 		jsonAssert(t, body, map[string]any{
@@ -129,7 +129,7 @@ func TestUserCoin(t *testing.T) {
 	}
 	// USDC
 	{
-		status, body := testGet(t, app, "/v1/users/"+trashid.MustEncodeHashID(1)+"/coin/EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v")
+		status, body := testGet(t, app, "/v1/users/"+trashid.MustEncodeHashID(1)+"/coins/EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v")
 		assert.Equal(t, 200, status)
 
 		jsonAssert(t, body, map[string]any{
