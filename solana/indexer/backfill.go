@@ -182,8 +182,11 @@ func (s *SolanaIndexer) backfillAddressTransactions(ctx context.Context, address
 			zap.Int("count", len(res)),
 		)
 	}
-	insertBackfillCheckpoint(ctx, s.pool, fromSlot, toSlot, address.String())
-	logger.Info("backfill completed")
+	checkpoint, err := insertBackfillCheckpoint(ctx, s.pool, fromSlot, toSlot, address.String())
+	if err != nil {
+		logger.Error("failed to insert backfill checkpoint", zap.Error(err))
+	}
+	logger.Info("backfill completed", zap.String("checkpoint", checkpoint))
 }
 
 type transactionRangeRow struct {
