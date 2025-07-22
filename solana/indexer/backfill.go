@@ -16,7 +16,6 @@ import (
 	"go.uber.org/zap"
 )
 
-var BATCH_DELAY_MS = uint64(50)
 var TRANSACTION_DELAY_MS = uint(5)
 
 func (s *SolanaIndexer) Backfill(ctx context.Context, fromSlot uint64, toSlot uint64) error {
@@ -182,9 +181,6 @@ func (s *SolanaIndexer) backfillAddressTransactions(ctx context.Context, address
 		logger.Info("finished transaction batch",
 			zap.Int("count", len(res)),
 		)
-
-		// sleep for a bit to avoid hitting rate limits
-		time.Sleep(time.Millisecond * time.Duration(BATCH_DELAY_MS))
 	}
 	insertBackfillCheckpoint(ctx, s.pool, fromSlot, toSlot, address.String())
 	logger.Info("backfill completed")
