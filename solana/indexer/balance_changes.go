@@ -22,9 +22,13 @@ func processBalanceChanges(
 	meta *rpc.TransactionMeta,
 	tx *solana.Transaction,
 	blockTime time.Time,
-	trackedMints []string,
 	txLogger *zap.Logger,
 ) error {
+	trackedMints, err := getArtistCoins(ctx, db, false)
+	if err != nil {
+		return fmt.Errorf("failed to get artist coins: %w", err)
+	}
+
 	balanceChanges, err := extractBalanceChanges(meta, tx, trackedMints)
 	if err != nil {
 		return fmt.Errorf("failed to extract token balance changes: %w", err)
@@ -121,7 +125,11 @@ func extractBalanceChanges(meta *rpc.TransactionMeta, tx *solana.Transaction, tr
 			balanceChanges[acc.String()] = b
 		}
 		b.PostTokenBalance = postBalance
-		b.Change = int64(b.PostTokenBalance) - int64(b.PreTokenBalance)
+		if b.PostTokenBalance > b.PreTokenBalance {
+			b.Change = int64(b.PostTokenBalance - b.PreTokenBalance)
+		} else {
+			b.Change = 0 - int64(b.PreTokenBalance - b.PostTokenBalance)
+		}
 	}
 	return balanceChanges, nil
 }

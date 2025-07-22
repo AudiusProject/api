@@ -18,15 +18,15 @@ import (
 	"go.uber.org/zap"
 )
 
-type MockProcessor struct {
+type mockProcessor struct {
 	mock.Mock
 }
 
-func (m *MockProcessor) ProcessSignature(ctx context.Context, slot uint64, txSig solana.Signature, logger *zap.Logger) error {
+func (m *mockProcessor) ProcessSignature(ctx context.Context, slot uint64, txSig solana.Signature, logger *zap.Logger) error {
 	args := m.Called(ctx, slot, txSig, logger)
 	return args.Error(0)
 }
-func (m *MockProcessor) ProcessTransaction(
+func (m *mockProcessor) ProcessTransaction(
 	ctx context.Context,
 	slot uint64,
 	meta *rpc.TransactionMeta,
@@ -212,7 +212,7 @@ func TestBackfillContinue(t *testing.T) {
 				AddRow(false),
 		)
 
-	processorMock := &MockProcessor{}
+	processorMock := &mockProcessor{}
 	processorMock.On("ProcessSignature", mock.Anything, mock.Anything, mockTransactions[0].Signatures[0], mock.Anything).
 		Return(nil).Once()
 	processorMock.On("ProcessSignature", mock.Anything, mock.Anything, mockTransactions[1].Signatures[0], mock.Anything).
@@ -376,7 +376,7 @@ func TestBackfillFresh(t *testing.T) {
 				AddRow(false),
 		)
 
-	processorMock := &MockProcessor{}
+	processorMock := &mockProcessor{}
 
 	// Should get called once for each program
 	processorMock.On("ProcessSignature", mock.Anything, mock.Anything, mockTransactions[1].Signatures[0], mock.Anything).

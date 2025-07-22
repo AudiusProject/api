@@ -50,7 +50,6 @@ type SolanaIndexer struct {
 	pool   DbPool
 
 	checkpointId string
-	mintsFilter  *[]string
 
 	logger *zap.Logger
 }
@@ -84,16 +83,18 @@ func New(config config.Config) *SolanaIndexer {
 		logger:     logger,
 		config:     config,
 		pool:       pool,
-		processor: &DefaultProcessor{
-			rpcClient: rpcClient,
-			pool:      pool,
-			config:    config,
-		},
+		processor: NewDefaultProcessor(
+			rpcClient,
+			pool,
+			config,
+		),
 	}
-	s.processor.(*DefaultProcessor).mintsFilter = s.mintsFilter
 	return s
 }
 
 func (s *SolanaIndexer) Close() {
+	if p, ok := s.processor.(*DefaultProcessor); ok {
+		p.ReportCacheStats(s.logger)
+	}
 	s.pool.Close()
 }
