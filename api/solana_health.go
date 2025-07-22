@@ -10,8 +10,8 @@ import (
 )
 
 type solanaHealth struct {
-	SlotDiff            uint64     `db:"-" json:"slot_diff"`
-	ChainSlot           uint64     `db:"-" json:"chain_slot"`
+	SlotDiff            uint64     `json:"slot_diff"`
+	ChainSlot           uint64     `json:"chain_slot"`
 	IndexedSlot         uint64     `json:"indexed_slot"`
 	LastIndexerUpdateAt *time.Time `json:"last_indexer_update_at"`
 }
