@@ -50,32 +50,31 @@ func (s *SolanaIndexer) Subscribe(ctx context.Context) error {
 		if err != nil {
 			return fmt.Errorf("failed to get artist coins: %w", err)
 		}
-		s.mintsFilter = append(coins,
-			s.config.SolanaConfig.MintAudio.String(),
-			s.config.SolanaConfig.MintUSDC.String(),
-		)
+
+		s.mintsFilter = &coins
 
 		subscription, err := buildSubscriptionRequest(coins)
 		if err != nil {
 			return fmt.Errorf("failed to create subscription: %w", err)
 		}
 
-		lastIndexedSlot, err := withRetries(func() (uint64, error) {
-			return getCheckpointSlot(ctx, s.pool, subscription)
-		}, 5, time.Second*5)
+		lastIndexedSlot, err := getCheckpointSlot(ctx, s.pool, subscription)
 		if err != nil {
 			return fmt.Errorf("failed to get last indexed slot: %w", err)
 		}
 
 		latestSlot, err := withRetries(func() (uint64, error) {
 			return s.rpcClient.GetSlot(ctx, "confirmed")
-		}, 5, time.Second*5)
+		}, 5, time.Second*2)
 		if err != nil {
 			return fmt.Errorf("failed to get slot: %w", err)
 		}
 
 		var fromSlot uint64
-		minimumSlot := latestSlot - MAX_SLOT_GAP
+		minimumSlot := uint64(0)
+		if latestSlot > MAX_SLOT_GAP {
+			minimumSlot = latestSlot - MAX_SLOT_GAP
+		}
 		if lastIndexedSlot > minimumSlot {
 			fromSlot = lastIndexedSlot
 		} else {
@@ -206,7 +205,7 @@ func (s *SolanaIndexer) onMessage(ctx context.Context, msg *pb.SubscribeUpdate) 
 	accUpdate := msg.GetAccount()
 	if accUpdate != nil {
 		txSig := solana.SignatureFromBytes(accUpdate.Account.TxnSignature)
-		err := s.ProcessSignature(ctx, accUpdate.Slot, txSig, logger)
+		err := s.processor.ProcessSignature(ctx, accUpdate.Slot, txSig, logger)
 		if err != nil {
 			logger.Error("failed to process signature", zap.Error(err))
 		}

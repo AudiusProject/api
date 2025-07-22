@@ -32,7 +32,7 @@ type DataCallback func(ctx context.Context, data *pb.SubscribeUpdate)
 // ErrorCallback defines the function signature for handling errors.
 type ErrorCallback func(err error)
 
-type GrpcClient struct {
+type DefaultGrpcClient struct {
 	config             GrpcConfig
 	conn               *grpc.ClientConn
 	mu                 sync.Mutex
@@ -53,15 +53,15 @@ type GrpcConfig struct {
 }
 
 // Creates a new gRPC client.
-func NewGrpcClient(config GrpcConfig) *GrpcClient {
-	return &GrpcClient{
+func NewGrpcClient(config GrpcConfig) *DefaultGrpcClient {
+	return &DefaultGrpcClient{
 		config: config,
 	}
 }
 
 // Connect to a gRPC server
 // Assumes the caller holds the client mutex (c.mu).
-func (c *GrpcClient) connect() error {
+func (c *DefaultGrpcClient) connect() error {
 	if c.conn != nil {
 		c.conn.Close()
 		c.conn = nil
@@ -94,7 +94,7 @@ func (c *GrpcClient) connect() error {
 
 // Subscribes to listen for Geyser gRPC events, calling the dataCallback
 // when a message comes through, and errorCallback if errors occur.
-func (c *GrpcClient) Subscribe(
+func (c *DefaultGrpcClient) Subscribe(
 	ctx context.Context,
 	subRequest *pb.SubscribeRequest,
 	dataCallback DataCallback,
@@ -169,7 +169,7 @@ func (c *GrpcClient) Subscribe(
 }
 
 // Close terminates the subscription and closes the connection.
-func (c *GrpcClient) Close() {
+func (c *DefaultGrpcClient) Close() {
 	c.mu.Lock()
 	defer c.mu.Unlock()
 	if c.cancel != nil {
@@ -188,7 +188,7 @@ func (c *GrpcClient) Close() {
 }
 
 // receiveLoop runs in a goroutine, receiving messages and handling reconnects.
-func (c *GrpcClient) receiveLoop(ctx context.Context) {
+func (c *DefaultGrpcClient) receiveLoop(ctx context.Context) {
 	defer func() {
 		c.mu.Lock()
 		c.running = false
@@ -273,7 +273,7 @@ func (c *GrpcClient) receiveLoop(ctx context.Context) {
 }
 
 // attemptReconnect handles the logic for reconnecting.
-func (c *GrpcClient) attemptReconnect(ctx context.Context) bool {
+func (c *DefaultGrpcClient) attemptReconnect(ctx context.Context) bool {
 	const reconnectInterval = 5 * time.Second
 	const maxReconnectWindow = 20 * time.Minute
 	maxPossibleAttempts := int(maxReconnectWindow / reconnectInterval)
