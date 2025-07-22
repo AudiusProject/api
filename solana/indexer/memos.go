@@ -11,6 +11,9 @@ import (
 	"go.uber.org/zap"
 )
 
+// OLD_MEMO_PROGRAM_ID is the old memo program ID used for legacy memos.
+var OLD_MEMO_PROGRAM_ID = solana.MustPublicKeyFromBase58("Memo1UhkJRfHyvLMcVucJwxXeuD728EqVDDwQDxFMNo")
+
 type parsedPurchaseMemo struct {
 	ContentType           string
 	ContentId             int
@@ -23,7 +26,7 @@ func (m parsedPurchaseMemo) String() string {
 	return fmt.Sprintf("%s:%d:%d:%d:%s", m.ContentType, m.ContentId, m.ValidAfterBlocknumber, m.BuyerUserId, m.AccessType)
 }
 
-func ParsePurchaseMemo(memo []byte) (parsedPurchaseMemo, error) {
+func parsePurchaseMemo(memo []byte) (parsedPurchaseMemo, error) {
 	parts := strings.Split(string(memo), ":")
 	if len(parts) > 3 {
 		contentType := parts[0]
@@ -64,7 +67,7 @@ func findNextPurchaseMemo(tx *solana.Transaction, instructionIndex int, logger *
 		inst := tx.Message.Instructions[i]
 		programId := tx.Message.AccountKeys[inst.ProgramIDIndex]
 		if programId.Equals(solana.MemoProgramID) || programId.Equals(OLD_MEMO_PROGRAM_ID) {
-			parsed, err := ParsePurchaseMemo(inst.Data)
+			parsed, err := parsePurchaseMemo(inst.Data)
 			if err != nil {
 				if logger != nil {
 					logger.Warn("failed to parse purchase memo", zap.Error(err), zap.String("memo", string(inst.Data)))
@@ -83,7 +86,7 @@ type parsedLocationMemo struct {
 	Country string `json:"country"`
 }
 
-func ParseLocationMemo(memo []byte) (parsedLocationMemo, error) {
+func parseLocationMemo(memo []byte) (parsedLocationMemo, error) {
 	if len(memo) > 3 && string(memo[0:3]) == "geo" {
 		var parsed parsedLocationMemo
 		err := json.Unmarshal(memo[4:], &parsed)
@@ -100,7 +103,7 @@ func findNextLocationMemo(tx *solana.Transaction, instructionIndex int, logger *
 		inst := tx.Message.Instructions[i]
 		programId := tx.Message.AccountKeys[inst.ProgramIDIndex]
 		if programId.Equals(solana.MemoProgramID) || programId.Equals(OLD_MEMO_PROGRAM_ID) {
-			parsed, err := ParseLocationMemo(inst.Data)
+			parsed, err := parseLocationMemo(inst.Data)
 			if err != nil {
 				if logger != nil {
 					logger.Warn("failed to parse location memo", zap.Error(err), zap.String("memo", string(inst.Data)))

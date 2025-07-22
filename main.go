@@ -2,6 +2,7 @@ package main
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"os"
 	"os/signal"
@@ -54,27 +55,19 @@ func main() {
 		}
 	case "solana-indexer":
 		{
-			fmt.Println("Running migrations...")
-			ddl.RunMigrations()
 			fmt.Println("Running solana-indexer...")
+			ddl.RunMigrations()
 			solanaIndexer := solana_indexer.New(config.Cfg)
-			ctx, cancel := context.WithCancel(context.Background())
-			done := make(chan error, 1)
-			go func() {
-				done <- solanaIndexer.Start(ctx)
-			}()
-			sigCh := make(chan os.Signal, 3)
-			signal.Notify(sigCh, syscall.SIGINT, syscall.SIGTERM, os.Interrupt)
-			select {
-			case <-sigCh:
-				fmt.Println("Shutting down...")
-				cancel()
-				<-done
-			case err := <-done:
-				if err != nil {
+			defer solanaIndexer.Close()
+
+			// Capture termination signals for graceful shutdown of the indexer
+			ctx, stop := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM, syscall.SIGINT, os.Interrupt)
+			defer stop()
+
+			if err := solanaIndexer.Subscribe(ctx); err != nil {
+				if !errors.Is(err, context.Canceled) {
 					panic(err)
 				}
-				fmt.Println("Done.")
 			}
 		}
 	default:

@@ -502,7 +502,7 @@ func TestProcessTransaction_CallsInsertBalanceChange(t *testing.T) {
 
 	err := s.ProcessTransaction(ctx, mockDb, slot, meta, tx, blockTime, logger)
 	assert.NoError(t, err)
-	assert.Len(t, mockDb.calls, 2)
+	require.Len(t, mockDb.calls, 2)
 
 	actualArgs := []pgx.NamedArgs{
 		mockDb.calls[0].args.(pgx.NamedArgs),

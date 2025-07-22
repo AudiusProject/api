@@ -10,7 +10,6 @@ import (
 	"sync"
 	"time"
 
-	"github.com/jackc/pgx/v5/pgxpool"
 	pb "github.com/rpcpool/yellowstone-grpc/examples/golang/proto"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/codes"
@@ -45,7 +44,6 @@ type GrpcClient struct {
 	errorCallback      ErrorCallback
 	cancel             context.CancelFunc
 	hasInternalSlotSub bool
-	pool               *pgxpool.Pool
 }
 
 type GrpcConfig struct {
@@ -55,10 +53,9 @@ type GrpcConfig struct {
 }
 
 // Creates a new gRPC client.
-func NewGrpcClient(config GrpcConfig, pool *pgxpool.Pool) *GrpcClient {
+func NewGrpcClient(config GrpcConfig) *GrpcClient {
 	return &GrpcClient{
 		config: config,
-		pool:   pool,
 	}
 }
 
@@ -252,17 +249,11 @@ func (c *GrpcClient) receiveLoop(ctx context.Context) {
 			suppressCallback := false
 
 			if slotUpdate, ok := resp.UpdateOneof.(*pb.SubscribeUpdate_Slot); ok {
-				if slotUpdate.Slot != nil && c.pool != nil {
+				if slotUpdate.Slot != nil {
 					newSlot := slotUpdate.Slot.Slot
 					if newSlot > 0 {
 						c.mu.Lock()
 						c.lastSlot = newSlot
-						err = insertSlotCheckpoint(ctx, c.pool, newSlot)
-						if err != nil {
-							if c.errorCallback != nil {
-								c.errorCallback(fmt.Errorf("failed to insert slot %d into checkpoint: %w", newSlot, err))
-							}
-						}
 						c.mu.Unlock()
 					}
 				}
