@@ -524,6 +524,8 @@ func TestProcessTransaction_CallsInsertBalanceChange(t *testing.T) {
 	poolMock, err := pgxmock.NewPool()
 	require.NoError(t, err, "failed to create mock database pool")
 	defer poolMock.Close()
+	// balance change insertion order can vary
+	poolMock.MatchExpectationsInOrder(false)
 	poolMock.ExpectBegin()
 	poolMock.ExpectQuery("SELECT mint FROM artist_coins").
 		WillReturnRows(
