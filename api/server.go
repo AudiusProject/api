@@ -212,6 +212,7 @@ func NewApiServer(config config.Config) *ApiServer {
 		auds:                  auds,
 		metricsCollector:      metricsCollector,
 		birdeyeClient:         birdeye.New(config.BirdeyeToken),
+		solanaRpcClient:       solanaRpc,
 	}
 
 	// Set up a custom decoder for HashIds so they can be parsed in lists
@@ -498,6 +499,9 @@ func NewApiServer(config config.Config) *ApiServer {
 	// Block confirmation
 	app.Get("/block_confirmation", app.BlockConfirmation)
 
+	// Solana health
+	app.Get("/solana/health", app.solanaHealth)
+
 	app.Static("/", "./static")
 
 	// Disable swagger in test environments, because it will slow things down a lot
@@ -566,6 +570,7 @@ type ApiServer struct {
 	skipAuthCheck         bool // set to true in a test if you don't care about auth middleware
 	metricsCollector      *MetricsCollector
 	birdeyeClient         BirdeyeClient
+	solanaRpcClient       *rpc.Client
 }
 
 func (app *ApiServer) home(c *fiber.Ctx) error {
