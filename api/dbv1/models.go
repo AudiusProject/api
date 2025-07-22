@@ -1704,7 +1704,7 @@ type SolRewardDisbursement struct {
 	Specifier        string `json:"specifier"`
 }
 
-// Stores the most recent slot that the indexer has received.
+// Stores checkpoints for Solana slots to track indexing progress.
 type SolSlotCheckpoint struct {
 	ID               pgtype.UUID     `json:"id"`
 	FromSlot         int64           `json:"from_slot"`
