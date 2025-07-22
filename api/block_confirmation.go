@@ -22,15 +22,15 @@ func (app *ApiServer) BlockConfirmation(c *fiber.Ctx) error {
 	SELECT
 		(
 			SELECT EXISTS (
-				SELECT 1 FROM core_blocks 
-				WHERE chain_id = @chainId AND height > @blockNumber 
+				SELECT 1 FROM core_indexed_blocks 
+				WHERE chain_id = @chainId AND height = @blockNumber
 				LIMIT 1
 			)
 		) AS block_passed,
 		(
 			SELECT EXISTS (
-				SELECT 1 FROM core_blocks 
-				WHERE chain_id = @chainId AND hash = @blockHash
+				SELECT 1 FROM core_indexed_blocks 
+				WHERE chain_id = @chainId AND blockhash = @blockHash
 				LIMIT 1
 			)
 		) AS block_found
