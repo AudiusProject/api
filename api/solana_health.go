@@ -9,11 +9,16 @@ import (
 	"github.com/jackc/pgx/v5"
 )
 
-type solanaCheckpoint struct {
+type solanaHealth struct {
 	SlotDiff            uint64     `db:"-" json:"slot_diff"`
 	ChainSlot           uint64     `db:"-" json:"chain_slot"`
-	IndexedSlot         *int64     `json:"indexed_slot"`
+	IndexedSlot         uint64     `json:"indexed_slot"`
 	LastIndexerUpdateAt *time.Time `json:"last_indexer_update_at"`
+}
+
+type solanaCheckpoint struct {
+	ToSlot    *int64     `db:"to_slot"`
+	UpdatedAt *time.Time `db:"updated_at"`
 }
 
 const MAX_SLOT_DIFF = 200
@@ -42,18 +47,22 @@ func (app *ApiServer) solanaHealth(c *fiber.Ctx) error {
 	if err != nil {
 		return fmt.Errorf("failed to get chain slot: %w", err)
 	}
-	if checkpoint.IndexedSlot == nil {
-		checkpoint.IndexedSlot = new(int64)
+	health := solanaHealth{
+		ChainSlot:           chainSlot,
+		LastIndexerUpdateAt: checkpoint.UpdatedAt,
 	}
-	checkpoint.ChainSlot = chainSlot
-	if uint64(*checkpoint.IndexedSlot) < checkpoint.ChainSlot {
-		checkpoint.SlotDiff = checkpoint.ChainSlot - uint64(*checkpoint.IndexedSlot)
+
+	if checkpoint.ToSlot != nil {
+		health.IndexedSlot = uint64(*checkpoint.ToSlot)
 	}
-	if checkpoint.SlotDiff > MAX_SLOT_DIFF {
+	if health.IndexedSlot < health.ChainSlot {
+		health.SlotDiff = health.ChainSlot - health.IndexedSlot
+	}
+	if health.SlotDiff > MAX_SLOT_DIFF {
 		c.Status(fiber.StatusInternalServerError)
 	}
 
 	return c.JSON(fiber.Map{
-		"data": checkpoint,
+		"data": health,
 	})
 }
