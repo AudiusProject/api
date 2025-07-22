@@ -27,7 +27,7 @@ type Processor interface {
 }
 
 type DefaultProcessor struct {
-	rpcClient   *rpc.Client
+	rpcClient   RpcClient
 	pool        DbPool
 	config      config.Config
 	mintsFilter *[]string
