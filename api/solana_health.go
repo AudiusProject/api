@@ -46,7 +46,9 @@ func (app *ApiServer) solanaHealth(c *fiber.Ctx) error {
 		checkpoint.IndexedSlot = new(int64)
 	}
 	checkpoint.ChainSlot = chainSlot
-	checkpoint.SlotDiff = checkpoint.ChainSlot - uint64(*checkpoint.IndexedSlot)
+	if uint64(*checkpoint.IndexedSlot) < checkpoint.ChainSlot {
+		checkpoint.SlotDiff = checkpoint.ChainSlot - uint64(*checkpoint.IndexedSlot)
+	}
 	if checkpoint.SlotDiff > MAX_SLOT_DIFF {
 		c.Status(fiber.StatusInternalServerError)
 	}
