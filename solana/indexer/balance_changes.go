@@ -22,9 +22,13 @@ func processBalanceChanges(
 	meta *rpc.TransactionMeta,
 	tx *solana.Transaction,
 	blockTime time.Time,
-	trackedMints []string,
 	txLogger *zap.Logger,
 ) error {
+	trackedMints, err := getArtistCoins(ctx, db, false)
+	if err != nil {
+		return fmt.Errorf("failed to get artist coins: %w", err)
+	}
+
 	balanceChanges, err := extractBalanceChanges(meta, tx, trackedMints)
 	if err != nil {
 		return fmt.Errorf("failed to extract token balance changes: %w", err)

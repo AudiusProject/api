@@ -105,12 +105,7 @@ func (p *DefaultProcessor) ProcessTransaction(
 
 	signature := tx.Signatures[0].String()
 
-	var mintsFilter []string
-	if p.mintsFilter != nil {
-		mintsFilter = *p.mintsFilter
-	}
-
-	err = processBalanceChanges(ctx, p.pool, slot, meta, tx, blockTime, mintsFilter, txLogger)
+	err = processBalanceChanges(ctx, p.pool, slot, meta, tx, blockTime, txLogger)
 	if err != nil {
 		return fmt.Errorf("failed to process balance changes: %w", err)
 	}

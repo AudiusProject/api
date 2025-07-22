@@ -50,7 +50,6 @@ type SolanaIndexer struct {
 	pool   DbPool
 
 	checkpointId string
-	mintsFilter  *[]string
 
 	logger *zap.Logger
 }
@@ -90,7 +89,6 @@ func New(config config.Config) *SolanaIndexer {
 			config:    config,
 		},
 	}
-	s.processor.(*DefaultProcessor).mintsFilter = s.mintsFilter
 	return s
 }
 

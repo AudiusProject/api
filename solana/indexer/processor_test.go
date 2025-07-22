@@ -64,6 +64,8 @@ func TestProcessTransaction_CallsInsertClaimableAccount(t *testing.T) {
 	require.NoError(t, err, "failed to create mock database pool")
 	defer poolMock.Close()
 	poolMock.ExpectBegin()
+	poolMock.ExpectQuery("SELECT mint FROM artist_coins").
+		WillReturnError(pgx.ErrNoRows)
 	poolMock.ExpectExec("INSERT INTO sol_claimable_accounts").
 		WithArgs(pgx.NamedArgs{
 			"signature":        tx.Signatures[0].String(),
@@ -148,6 +150,8 @@ func TestProcessTransaction_CallsInsertClaimableAccountTransfer(t *testing.T) {
 	require.NoError(t, err, "failed to create mock database pool")
 	defer poolMock.Close()
 	poolMock.ExpectBegin()
+	poolMock.ExpectQuery("SELECT mint FROM artist_coins").
+		WillReturnError(pgx.ErrNoRows)
 	poolMock.ExpectExec("INSERT INTO sol_claimable_account_transfers").
 		WithArgs(pgx.NamedArgs{
 			"signature":        tx.Signatures[0].String(),
@@ -226,6 +230,8 @@ func TestProcessTransaction_CallsInsertRewardDisbursement(t *testing.T) {
 	require.NoError(t, err, "failed to create mock database pool")
 	defer poolMock.Close()
 	poolMock.ExpectBegin()
+	poolMock.ExpectQuery("SELECT mint FROM artist_coins").
+		WillReturnError(pgx.ErrNoRows)
 	poolMock.ExpectExec("INSERT INTO sol_reward_disbursements").
 		WithArgs(pgx.NamedArgs{
 			"signature":        signatures[0].String(),
@@ -296,6 +302,8 @@ func TestProcessTransaction_CallsInsertPayment(t *testing.T) {
 	require.NoError(t, err, "failed to create mock database pool")
 	defer poolMock.Close()
 	poolMock.ExpectBegin()
+	poolMock.ExpectQuery("SELECT mint FROM artist_coins").
+		WillReturnError(pgx.ErrNoRows)
 	poolMock.ExpectExec("INSERT INTO sol_payments").
 		WithArgs(pgx.NamedArgs{
 			"signature":        signatures[0].String(),
@@ -379,6 +387,8 @@ func TestProcessTransaction_CallsInsertPurchase(t *testing.T) {
 	require.NoError(t, err, "failed to create mock database pool")
 	defer poolMock.Close()
 	poolMock.ExpectBegin()
+	poolMock.ExpectQuery("SELECT mint FROM artist_coins").
+		WillReturnError(pgx.ErrNoRows)
 	poolMock.ExpectExec("INSERT INTO sol_payments").
 		WithArgs(pgx.NamedArgs{
 			"signature":        signatures[0].String(),
@@ -503,6 +513,8 @@ func TestProcessTransaction_CallsInsertBalanceChange(t *testing.T) {
 	require.NoError(t, err, "failed to create mock database pool")
 	defer poolMock.Close()
 	poolMock.ExpectBegin()
+	poolMock.ExpectQuery("SELECT mint FROM artist_coins").
+		WillReturnRows(pgxmock.NewRows([]string{"mints"}).AddRow(mint.String()))
 	poolMock.ExpectExec("INSERT INTO sol_token_account_balance_changes").
 		WithArgs(expectedArgs).
 		WillReturnResult(pgxmock.NewResult("INSERT", 1))
@@ -522,71 +534,71 @@ func TestProcessTransaction_CallsInsertBalanceChange(t *testing.T) {
 
 func TestProcessSignature_HandlesLoadedAddresses(t *testing.T) {
 	// prod reward manager disbursement w/ lookup tables
-	// 58sUxCqs2sbErrZhH1A1YcFrYpK35Ph2AHpySxkCcRkeer1bJmfyCRKxQ7qeR26AA1qEnDb58KJwviDJXGqkAStQ
-	// populated using console.log(JSON.stringify(await connection.getTransaction('58sUxCqs2sbErrZhH1A1YcFrYpK35Ph2AHpySxkCcRkeer1bJmfyCRKxQ7qeR26AA1qEnDb58KJwviDJXGqkAStQ', { maxSupportedTransactionVersion: 0 }), undefined, 2))
+	/*
+		curl -X POST https://api.mainnet-beta.solana.com \
+		-H "Content-Type: application/json" \
+		-d '{
+			"jsonrpc": "2.0",
+			"id": 1,
+			"method": "getTransaction",
+			"params": [
+			"58sUxCqs2sbErrZhH1A1YcFrYpK35Ph2AHpySxkCcRkeer1bJmfyCRKxQ7qeR26AA1qEnDb58KJwviDJXGqkAStQ",
+			{
+				"maxSupportedTransactionVersion": 0
+			}
+			]
+		}'
+	*/
 	txResJson := `
 	{
 		"blockTime": 1753149679,
 		"meta": {
-			"computeUnitsConsumed": 38054,
-			"err": null,
-			"fee": 35450,
-			"innerInstructions": [
+		"computeUnitsConsumed": 38054,
+		"err": null,
+		"fee": 35450,
+		"innerInstructions": [
 			{
-				"index": 0,
-				"instructions": [
+			"index": 0,
+			"instructions": [
 				{
-					"accounts": [
-					6,
-					2,
-					8
-					],
-					"data": "3Dc8EpW7Kr3R",
-					"programIdIndex": 11,
-					"stackHeight": 2
+				"accounts": [6, 2, 8],
+				"data": "3Dc8EpW7Kr3R",
+				"programIdIndex": 11,
+				"stackHeight": 2
 				},
 				{
-					"accounts": [
-					0,
-					3
-					],
-					"data": "3Bxs49175da2o1zw",
-					"programIdIndex": 12,
-					"stackHeight": 2
+				"accounts": [0, 3],
+				"data": "3Bxs49175da2o1zw",
+				"programIdIndex": 12,
+				"stackHeight": 2
 				},
 				{
-					"accounts": [
-					3
-					],
-					"data": "9krTCzbLfv4BRBcj",
-					"programIdIndex": 12,
-					"stackHeight": 2
+				"accounts": [3],
+				"data": "9krTCzbLfv4BRBcj",
+				"programIdIndex": 12,
+				"stackHeight": 2
 				},
 				{
-					"accounts": [
-					3
-					],
-					"data": "SYXsPCAS12XUEFvhVCEScVBsRUs1Lvxihmo8qVdn6ETKJKzE",
-					"programIdIndex": 12,
-					"stackHeight": 2
+				"accounts": [3],
+				"data": "SYXsPCAS12XUEFvhVCEScVBsRUs1Lvxihmo8qVdn6ETKJKzE",
+				"programIdIndex": 12,
+				"stackHeight": 2
 				}
-				]
-			}
-			],
-			"loadedAddresses": {
-			"readonly": [
-				"71hWFVYokLaN1PNYzTAWi13EfJ7Xt9VbSWUKsXUT8mxE",
-				"8n2y76BtYed3EPwAkhDgdWQNtkazw6c9gY1RXDLy37KF",
-				"8CrkKMAsR8pMNtmR65t5WwrLTXT1FUJRfWwUGLfMU8R1",
-				"SysvarRent111111111111111111111111111111111",
-				"TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA",
-				"11111111111111111111111111111111"
-			],
-			"writable": [
-				"3V9opXNpHmPPymKeq7CYD8wWMH8wzFXmqEkNdzfsZhYq"
 			]
-			},
-			"logMessages": [
+			}
+		],
+		"loadedAddresses": {
+			"readonly": [
+			"71hWFVYokLaN1PNYzTAWi13EfJ7Xt9VbSWUKsXUT8mxE",
+			"8n2y76BtYed3EPwAkhDgdWQNtkazw6c9gY1RXDLy37KF",
+			"8CrkKMAsR8pMNtmR65t5WwrLTXT1FUJRfWwUGLfMU8R1",
+			"SysvarRent111111111111111111111111111111111",
+			"TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA",
+			"11111111111111111111111111111111"
+			],
+			"writable": ["3V9opXNpHmPPymKeq7CYD8wWMH8wzFXmqEkNdzfsZhYq"]
+		},
+		"logMessages": [
 			"Program DDZDcYdQFEMwcu2Mwo75yGFjJ1mUQyyXLWzhZLEVFcei invoke [1]",
 			"Program log: Instruction: Transfer",
 			"Program TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA invoke [2]",
@@ -603,225 +615,112 @@ func TestProcessSignature_HandlesLoadedAddresses(t *testing.T) {
 			"Program DDZDcYdQFEMwcu2Mwo75yGFjJ1mUQyyXLWzhZLEVFcei success",
 			"Program ComputeBudget111111111111111111111111111111 invoke [1]",
 			"Program ComputeBudget111111111111111111111111111111 success"
-			],
-			"postBalances": [
-			1499028959,
-			0,
-			2039280,
-			897840,
-			1141440,
-			1,
-			2039280,
-			1350240,
-			4392391,
-			1398960,
-			1009200,
-			4513213226,
-			1
-			],
-			"postTokenBalances": [
+		],
+		"postBalances": [
+			1499028959, 0, 2039280, 897840, 1141440, 1, 2039280, 1350240, 4392391,
+			1398960, 1009200, 4513213226, 1
+		],
+		"postTokenBalances": [
 			{
-				"accountIndex": 2,
-				"mint": "9LzCMqDgTKYz9Drzqnpgee3SGa89up3a247ypMj2xrqM",
-				"owner": "5ZiE3vAkrdXBgyFL7KqG3RoEGBws4CjRcXVbABDLZTgx",
-				"programId": "TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA",
-				"uiTokenAmount": {
+			"accountIndex": 2,
+			"mint": "9LzCMqDgTKYz9Drzqnpgee3SGa89up3a247ypMj2xrqM",
+			"owner": "5ZiE3vAkrdXBgyFL7KqG3RoEGBws4CjRcXVbABDLZTgx",
+			"programId": "TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA",
+			"uiTokenAmount": {
 				"amount": "13900000000",
 				"decimals": 8,
-				"uiAmount": 139,
+				"uiAmount": 139.0,
 				"uiAmountString": "139"
-				}
+			}
 			},
 			{
-				"accountIndex": 6,
-				"mint": "9LzCMqDgTKYz9Drzqnpgee3SGa89up3a247ypMj2xrqM",
-				"owner": "8n2y76BtYed3EPwAkhDgdWQNtkazw6c9gY1RXDLy37KF",
-				"programId": "TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA",
-				"uiTokenAmount": {
+			"accountIndex": 6,
+			"mint": "9LzCMqDgTKYz9Drzqnpgee3SGa89up3a247ypMj2xrqM",
+			"owner": "8n2y76BtYed3EPwAkhDgdWQNtkazw6c9gY1RXDLy37KF",
+			"programId": "TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA",
+			"uiTokenAmount": {
 				"amount": "2754676375551047",
 				"decimals": 8,
 				"uiAmount": 27546763.75551047,
 				"uiAmountString": "27546763.75551047"
-				}
 			}
-			],
-			"preBalances": [
-			1492988329,
-			6973920,
-			2039280,
-			0,
-			1141440,
-			1,
-			2039280,
-			1350240,
-			4392391,
-			1398960,
-			1009200,
-			4513213226,
-			1
-			],
-			"preTokenBalances": [
+			}
+		],
+		"preBalances": [
+			1492988329, 6973920, 2039280, 0, 1141440, 1, 2039280, 1350240, 4392391,
+			1398960, 1009200, 4513213226, 1
+		],
+		"preTokenBalances": [
 			{
-				"accountIndex": 2,
-				"mint": "9LzCMqDgTKYz9Drzqnpgee3SGa89up3a247ypMj2xrqM",
-				"owner": "5ZiE3vAkrdXBgyFL7KqG3RoEGBws4CjRcXVbABDLZTgx",
-				"programId": "TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA",
-				"uiTokenAmount": {
+			"accountIndex": 2,
+			"mint": "9LzCMqDgTKYz9Drzqnpgee3SGa89up3a247ypMj2xrqM",
+			"owner": "5ZiE3vAkrdXBgyFL7KqG3RoEGBws4CjRcXVbABDLZTgx",
+			"programId": "TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA",
+			"uiTokenAmount": {
 				"amount": "13800000000",
 				"decimals": 8,
-				"uiAmount": 138,
+				"uiAmount": 138.0,
 				"uiAmountString": "138"
-				}
+			}
 			},
 			{
-				"accountIndex": 6,
-				"mint": "9LzCMqDgTKYz9Drzqnpgee3SGa89up3a247ypMj2xrqM",
-				"owner": "8n2y76BtYed3EPwAkhDgdWQNtkazw6c9gY1RXDLy37KF",
-				"programId": "TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA",
-				"uiTokenAmount": {
+			"accountIndex": 6,
+			"mint": "9LzCMqDgTKYz9Drzqnpgee3SGa89up3a247ypMj2xrqM",
+			"owner": "8n2y76BtYed3EPwAkhDgdWQNtkazw6c9gY1RXDLy37KF",
+			"programId": "TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA",
+			"uiTokenAmount": {
 				"amount": "2754676475551047",
 				"decimals": 8,
 				"uiAmount": 27546764.75551047,
 				"uiAmountString": "27546764.75551047"
-				}
 			}
-			],
-			"rewards": [],
-			"status": {
-			"Ok": null
 			}
+		],
+		"rewards": [],
+		"status": { "Ok": null }
 		},
 		"slot": 354896657,
 		"transaction": {
-			"message": {
-			"header": {
-				"numReadonlySignedAccounts": 0,
-				"numReadonlyUnsignedAccounts": 2,
-				"numRequiredSignatures": 1
-			},
-			"staticAccountKeys": [
-				"C4MZpYiddDuWVofhs4BkUPyUiH78bFnaxhQVBB5fvko5",
-				"8WCWQBxc3V7bDEF5poQYkNGLjsr9mzUuVSxfqs9Ksuv1",
-				"EXYhWM17WbWw49tHFpi9pHUxKDwAPBK5rzWxTQPZFN2b",
-				"CzbB1oPD1YSUthSr5TkN4m8EGsjN8z3rVgwRRyE4oaBc",
-				"DDZDcYdQFEMwcu2Mwo75yGFjJ1mUQyyXLWzhZLEVFcei",
-				"ComputeBudget111111111111111111111111111111"
-			],
-			"recentBlockhash": "9bxHRc5pMC3JZMSgVPeps7XfkT4c8X3Qp5n5tQTrZKdx",
-			"compiledInstructions": [
-				{
-				"programIdIndex": 4,
-				"accountKeyIndexes": [
-					1,
-					7,
-					8,
-					6,
-					2,
-					3,
-					9,
-					0,
-					10,
-					11,
-					12
-				],
-				"data": {
-					"type": "Buffer",
-					"data": [
-					7,
-					0,
-					225,
-					245,
-					5,
-					0,
-					0,
-					0,
-					0,
-					20,
-					0,
-					0,
-					0,
-					101,
-					58,
-					51,
-					55,
-					54,
-					56,
-					100,
-					56,
-					50,
-					101,
-					50,
-					48,
-					50,
-					53,
-					48,
-					55,
-					50,
-					50,
-					48,
-					49,
-					127,
-					240,
-					139,
-					127,
-					205,
-					0,
-					229,
-					247,
-					253,
-					252,
-					84,
-					111,
-					2,
-					169,
-					124,
-					12,
-					163,
-					76,
-					29,
-					125
-					]
-				}
-				},
-				{
-				"programIdIndex": 5,
-				"accountKeyIndexes": [],
-				"data": {
-					"type": "Buffer",
-					"data": [
-					3,
-					240,
-					73,
-					2,
-					0,
-					0,
-					0,
-					0,
-					0
-					]
-				}
-				}
+		"message": {
+			"accountKeys": [
+			"C4MZpYiddDuWVofhs4BkUPyUiH78bFnaxhQVBB5fvko5",
+			"8WCWQBxc3V7bDEF5poQYkNGLjsr9mzUuVSxfqs9Ksuv1",
+			"EXYhWM17WbWw49tHFpi9pHUxKDwAPBK5rzWxTQPZFN2b",
+			"CzbB1oPD1YSUthSr5TkN4m8EGsjN8z3rVgwRRyE4oaBc",
+			"DDZDcYdQFEMwcu2Mwo75yGFjJ1mUQyyXLWzhZLEVFcei",
+			"ComputeBudget111111111111111111111111111111"
 			],
 			"addressTableLookups": [
-				{
+			{
 				"accountKey": "4UQwpGupH66RgQrWRqmPM9Two6VJEE68VZ7GeqZ3mvVv",
-				"readonlyIndexes": [
-					5,
-					6,
-					8,
-					1,
-					3,
-					0
-				],
-				"writableIndexes": [
-					7
-				]
-				}
-			]
+				"readonlyIndexes": [5, 6, 8, 1, 3, 0],
+				"writableIndexes": [7]
+			}
+			],
+			"header": {
+			"numReadonlySignedAccounts": 0,
+			"numReadonlyUnsignedAccounts": 2,
+			"numRequiredSignatures": 1
 			},
-			"signatures": [
+			"instructions": [
+			{
+				"accounts": [1, 7, 8, 6, 2, 3, 9, 0, 10, 11, 12],
+				"data": "8RMoXXC1taGWJZMAAjapFT6hJjcNVRVRbFPcbNHphz9uuwbKXdkcGK3aB5ChyFExjDUXjAbv",
+				"programIdIndex": 4,
+				"stackHeight": null
+			},
+			{
+				"accounts": [],
+				"data": "3uedW6ymeow5",
+				"programIdIndex": 5,
+				"stackHeight": null
+			}
+			],
+			"recentBlockhash": "9bxHRc5pMC3JZMSgVPeps7XfkT4c8X3Qp5n5tQTrZKdx"
+		},
+		"signatures": [
 			"58sUxCqs2sbErrZhH1A1YcFrYpK35Ph2AHpySxkCcRkeer1bJmfyCRKxQ7qeR26AA1qEnDb58KJwviDJXGqkAStQ"
-			]
+		]
 		},
 		"version": 0
 	}
@@ -835,10 +734,11 @@ func TestProcessSignature_HandlesLoadedAddresses(t *testing.T) {
 	})
 
 	pool := database.CreateTestDatabase(t, "test_solana_indexer")
-	p := &DefaultProcessor{
-		pool:      pool,
-		rpcClient: fakeRpcClient,
-	}
+	p := NewDefaultProcessor(
+		fakeRpcClient,
+		pool,
+		config.Cfg,
+	)
 
 	// Use prod reward program ID
 	reward_manager.SetProgramID(solana.MustPublicKeyFromBase58(config.ProdRewardManagerProgramID))

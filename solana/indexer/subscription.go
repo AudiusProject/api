@@ -46,12 +46,10 @@ func (s *SolanaIndexer) Subscribe(ctx context.Context) error {
 		default:
 		}
 
-		coins, err := getArtistCoins(ctx, s.pool)
+		coins, err := getArtistCoins(ctx, s.pool, true)
 		if err != nil {
 			return fmt.Errorf("failed to get artist coins: %w", err)
 		}
-
-		s.mintsFilter = &coins
 
 		subscription, err := buildSubscriptionRequest(coins)
 		if err != nil {
