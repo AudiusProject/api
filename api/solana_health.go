@@ -26,8 +26,8 @@ const MAX_SLOT_DIFF = 200
 func (app *ApiServer) solanaHealth(c *fiber.Ctx) error {
 	sql := `
 		SELECT 
-			to_slot AS indexed_slot, 
-			updated_at AS last_indexer_update_at
+			to_slot, 
+			updated_at
 		FROM sol_slot_checkpoints
 		ORDER BY updated_at DESC
 		LIMIT 1
