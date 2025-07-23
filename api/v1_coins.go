@@ -16,7 +16,7 @@ type GetArtistCoinsQueryParams struct {
 	Mints    []string         `query:"mint"`
 	OwnerIds []trashid.HashId `query:"owner_id"`
 	Limit    int              `query:"limit" default:"50" validate:"min=1,max=100"`
-	Offset   int              `query:"offset" default:"0" validate:"min=0,max=100"`
+	Offset   int              `query:"offset" default:"0" validate:"min=0"`
 }
 
 type ArtistCoin struct {
