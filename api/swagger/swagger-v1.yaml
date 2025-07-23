@@ -81,9 +81,16 @@ paths:
     get:
       tags:
       - challenges
-      description: Get all undisbursed challenges
-      operationId: Get Undisbursed Challenges
+      description: Get all undisbursed challenges for a user
+      operationId: Get Undisbursed Challenges For User
       parameters:
+      - name: user_id
+        in: path
+        description: A User ID to filter the undisbursed challenges to a particular
+          user
+        required: true
+        schema:
+          type: string
       - name: offset
         in: query
         description: The number of items to skip. Useful for pagination (page number
@@ -95,12 +102,6 @@ paths:
         description: The number of items to fetch
         schema:
           type: integer
-      - name: user_id
-        in: query
-        description: A User ID to filter the undisbursed challenges to a particular
-          user
-        schema:
-          type: string
       - name: completed_blocknumber
         in: query
         description: Starting blocknumber to retrieve completed undisbursed challenges
@@ -2106,6 +2107,22 @@ paths:
         required: true
         schema:
           type: string
+      - name: offset
+        in: query
+        description: The number of items to skip. Useful for pagination (page number
+          * limit)
+        schema:
+          type: integer
+          default: 0
+          minimum: 0
+      - name: limit
+        in: query
+        description: The number of items to fetch
+        schema:
+          type: integer
+          default: 50
+          minimum: 1
+          maximum: 100
       operationId: Get User Coins
       responses:
         '200':
@@ -2148,6 +2165,13 @@ paths:
         required: true
         schema:
           type: string
+      - name: mint
+        in: path
+        description: The mint address of the coin
+        required: true
+        schema:
+          type: string
+          example: "Dez1g5f3h4j5k6l7m8n9o0p1q2r3s4t5u6v7w8x9y0z"
       operationId: Get User Coin
       responses:
         '200':
@@ -3452,7 +3476,31 @@ paths:
           type: array
           items:
             type: string
-          
+      - name: ticker
+        in: query
+        description: The tickers of the coins
+        style: form
+        explode: true
+        schema:
+          type: array
+          items:
+            type: string
+      - name: offset
+        in: query
+        description: The number of items to skip. Useful for pagination (page number
+          * limit)
+        schema:
+          type: integer
+          default: 0
+          minimum: 0
+      - name: limit
+        in: query
+        description: The number of items to fetch
+        schema:
+          type: integer
+          default: 50
+          minimum: 1
+          maximum: 100
       responses:
         '200':
           description: Success
@@ -3503,6 +3551,31 @@ paths:
         schema:
           type: string
           example: 9LzCMqDgTKYz9Drzqnpgee3SGa89up3a247ypMj2xrqM
+      - name: offset
+        in: query
+        description: The number of items to skip. Useful for pagination (page number
+          * limit)
+        schema:
+          type: integer
+          default: 0
+          minimum: 0
+      - name: limit
+        in: query
+        description: The number of items to fetch
+        schema:
+          type: integer
+          default: 10
+          minimum: 1
+          maximum: 100
+      - name: sort_direction
+        in: query
+        description: The sort direction for the results
+        schema:
+          type: string
+          enum:
+          - asc
+          - desc
+          default: desc
       responses:
         '200':
           description: Success
