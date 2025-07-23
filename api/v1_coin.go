@@ -72,10 +72,10 @@ func (app *ApiServer) v1Coin(c *fiber.Ctx) error {
 			artist_coins.user_id,
 			artist_coins.created_at,
 			COALESCE(member_counts.members, 0) AS members,
-			(
+			COALESCE(
 				(COALESCE(member_counts.members, 0) - member_counts_24h_ago.members) * 100.0 /
 				 NULLIF(member_counts_24h_ago.members, 0)
-			) AS members_24h_change_percent
+			, 0) AS members_24h_change_percent
 		FROM artist_coins
 		LEFT JOIN member_counts ON artist_coins.mint = member_counts.mint
 		LEFT JOIN member_counts_24h_ago ON artist_coins.mint = member_counts_24h_ago.mint
