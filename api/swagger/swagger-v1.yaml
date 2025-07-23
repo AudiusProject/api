@@ -4952,7 +4952,6 @@ components:
     coin:
       type: object
       required:
-        - ticker
         - mint
         - user_id
         - members
@@ -5230,6 +5229,8 @@ components:
           $ref: '#/components/schemas/coin'
     coins_response:
       type: object
+      required:
+        - data
       properties:
         data:
           type: array
@@ -5251,6 +5252,8 @@ components:
           example: "7eP5n"
     coin_members_response:
       type: object
+      required:
+        - data
       properties:
         data:
           type: array
@@ -5282,6 +5285,8 @@ components:
           example: 1.23
     user_coins_response:
       type: object
+      required:
+        - data
       properties:
         data:
           type: array
