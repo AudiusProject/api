@@ -2130,29 +2130,7 @@ paths:
           content:
             application/json:
               schema:
-                type: object 
-                properties:
-                  data:
-                    type: array
-                    items:
-                      type: object
-                      properties:
-                        mint:
-                          type: string
-                          description: The coin mint address
-                          example: "9LzCMqDgTKYz9Drzqnpgee3SGa89up3a247ypMj2xrqM"
-                        ticker:
-                          type: string
-                          description: The coin symbol
-                          example: "$AUDIO"
-                        balance:
-                          type: integer
-                          description: The balance of the coin in the user's account (in wei)
-                          example: 1000000000
-                        balance_usd:
-                          type: number
-                          description: The balance of the coin in the user's account in USD
-                          example: 1.23
+                $ref: '#/components/schemas/user_coins_response'
   /users/{id}/coins/{mint}:
     get:
       tags:
@@ -2179,44 +2157,7 @@ paths:
           content:
             application/json:
               schema:
-                type: object 
-                properties:
-                  data:
-                    type: object
-                    properties:
-                      totalBalance: 
-                        type: integer
-                        description: The total balance of the coin in the user's account (in wei)
-                        example: 1000000000
-                      totalBalanceUSD:
-                        type: number
-                        description: The total balance of the coin in the user's account in USD
-                        example: 1.23
-                      accounts:
-                        type: array
-                        items:
-                          type: object
-                          properties:
-                            account:
-                              type: string
-                              description: The token account address
-                              example: "CTyFguG69kwYrzk24P3UuBvY1rR5atu9kf2S6XEwAU8X"
-                            owner:
-                              type: string
-                              description: The owner wallet of the token account
-                              example: "HzZ3EKACbH6XEHs59Rt1adVzUKv5cTDE9o9YWFaMhwpF"
-                            balance:
-                              type: integer
-                              description: The balance of the coin in the user's account (in wei)
-                              example: 1000000000
-                            balance_usd:
-                              type: number
-                              description: The balance of the coin in the user's account in USD
-                              example: 1.23
-                            is_in_app_wallet:
-                              type: boolean
-                              description: Whether the account is in the user's in-app wallet
-                              example: true          
+                $ref: '#/components/schemas/user_coin_accounts_response'
   /users/{id}/collectibles:
     get:
       tags:
@@ -3588,6 +3529,9 @@ paths:
                     type: array
                     items:
                       type: object
+                      required:
+                        - balance
+                        - user_id
                       properties:
                         balance:
                           type: integer
@@ -5032,6 +4976,14 @@ components:
           type: string
     coin:
       type: object
+      required:
+        - ticker
+        - mint
+        - user_id
+        - members
+        - members_change_24h_percent
+        - created_at
+        - token_info
       properties:
         ticker:
           type: string
@@ -5062,6 +5014,39 @@ components:
           description: |
             Additional token information from Birdeye's defi token overview API.
             Includes price, volume, supply, market cap, and other on-chain and market data.
+          required:
+            - address
+            - decimals
+            - symbol
+            - name
+            - marketCap
+            - fdv
+            - extensions
+            - logoURI
+            - liquidity
+            - lastTradeUnixTime
+            - lastTradeHumanTime
+            - price
+            - history24hPrice
+            - priceChange24hPercent
+            - uniqueWallet24h
+            - uniqueWalletHistory24h
+            - uniqueWallet24hChangePercent
+            - totalSupply
+            - circulatingSupply
+            - holder
+            - trade24h
+            - tradeHistory24h
+            - trade24hChangePercent
+            - sell24h
+            - sellHistory24h
+            - sell24hChangePercent
+            - buy24h
+            - buyHistory24h
+            - buy24hChangePercent
+            - v24h
+            - v24hUSD
+            - vHistory24h
           properties:
             address:
               type: string
@@ -5263,6 +5248,90 @@ components:
               type: integer
               description: Number of markets the token is traded on
               example: 317
+    user_coin_balance:
+      required:
+        - mint
+        - ticker
+        - balance
+        - balance_usd
+      type: object
+      properties:
+        mint:
+          type: string
+          description: The coin mint address
+          example: "9LzCMqDgTKYz9Drzqnpgee3SGa89up3a247ypMj2xrqM"
+        ticker:
+          type: string
+          description: The coin symbol
+          example: "$AUDIO"
+        balance:
+          type: integer
+          description: The balance of the coin in the user's account (in wei)
+          example: 1000000000
+        balance_usd:
+          type: number
+          description: The balance of the coin in the user's account in USD
+          example: 1.23
+    user_coins_response:
+      type: object
+      properties:
+        data:
+          type: array
+          items:
+            $ref: '#/components/schemas/user_coin_balance'
+    user_coin_details:
+      type: object
+      required:
+        - totalBalance
+        - totalBalanceUSD
+        - accounts
+      properties:
+        totalBalance: 
+          type: integer
+          description: The total balance of the coin in the user's account (in wei)
+          example: 1000000000
+        totalBalanceUSD:
+          type: number
+          description: The total balance of the coin in the user's account in USD
+          example: 1.23
+        accounts:
+          type: array
+          items:            
+            $ref: '#/components/schemas/user_coin_account'
+    user_coin_account:
+      type: object
+      required:
+        - account
+        - owner
+        - balance
+        - balance_usd
+        - is_in_app_wallet
+      properties:
+        account:
+          type: string
+          description: The token account address
+          example: "CTyFguG69kwYrzk24P3UuBvY1rR5atu9kf2S6XEwAU8X"
+        owner:
+          type: string
+          description: The owner wallet of the token account
+          example: "HzZ3EKACbH6XEHs59Rt1adVzUKv5cTDE9o9YWFaMhwpF"
+        balance:
+          type: integer
+          description: The balance of the coin in the user's account (in wei)
+          example: 1000000000
+        balance_usd:
+          type: number
+          description: The balance of the coin in the user's account in USD
+          example: 1.23
+        is_in_app_wallet:
+          type: boolean
+          description: Whether the account is in the user's in-app wallet
+          example: true
+    user_coin_accounts_response:
+      type: object
+      properties:
+        data:
+          $ref: '#/components/schemas/user_coin_details'
   responses:
     ParseError:
       description: When a mask can't be parsed
