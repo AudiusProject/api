@@ -7,6 +7,19 @@ import (
 	"github.com/jackc/pgx/v5"
 )
 
+type AccountBalance struct {
+	Account       string  `json:"account"`
+	Owner         string  `json:"owner"`
+	Balance       float64 `json:"balance"`
+	BalanceUSD    float64 `json:"balance_usd"`
+	IsInAppWallet bool    `json:"is_in_app_wallet"`
+}
+
+type UserCoinWallets struct {
+	UserCoin
+	Accounts []AccountBalance `json:"accounts"`
+}
+
 type GetUsersCoinRouteParams struct {
 	Mint string `params:"mint"`
 }
@@ -62,9 +75,28 @@ func (app *ApiServer) v1UsersCoin(c *fiber.Ctx) error {
 			artist_coins.ticker,
 			balances_by_mint.mint,
 			balances_by_mint.balance AS balance,
-			(balances_by_mint.balance * @price) / POWER(10, artist_coins.decimals) AS balance_usd
+			(balances_by_mint.balance * @price) / POWER(10, artist_coins.decimals) AS balance_usd,
+			JSON_AGG(
+				JSON_BUILD_OBJECT(
+					'account', balances.account,
+					'owner', balances.owner,
+					'balance', balances.balance,
+					'balance_usd', (balances.balance * @price) / POWER(10, artist_coins.decimals),
+					'is_in_app_wallet', balances.is_in_app_wallet
+				)
+			) AS accounts
 		FROM balances_by_mint
 		JOIN artist_coins ON artist_coins.mint = balances_by_mint.mint
+		JOIN (
+			SELECT *
+			FROM balances
+			ORDER BY balances.balance DESC
+		) AS balances ON balances.mint = balances_by_mint.mint
+		GROUP BY
+			artist_coins.ticker,
+			balances_by_mint.mint,
+			balances_by_mint.balance,
+			artist_coins.decimals
 	;`
 
 	rows, err := app.pool.Query(c.Context(), sql, pgx.NamedArgs{
@@ -76,7 +108,7 @@ func (app *ApiServer) v1UsersCoin(c *fiber.Ctx) error {
 		return err
 	}
 
-	userCoin, err := pgx.CollectExactlyOneRow(rows, pgx.RowToStructByName[UserCoin])
+	userCoin, err := pgx.CollectExactlyOneRow(rows, pgx.RowToStructByName[UserCoinWallets])
 	if err != nil {
 		return err
 	}
