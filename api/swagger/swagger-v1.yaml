@@ -2157,7 +2157,7 @@ paths:
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/user_coin_accounts_response'
+                $ref: '#/components/schemas/user_coin_response'
   /users/{id}/collectibles:
     get:
       tags:
@@ -3448,12 +3448,7 @@ paths:
           content:
             application/json:
               schema:
-                type: object
-                properties:
-                  data:
-                    type: array
-                    items:
-                      $ref: '#/components/schemas/coin'
+                $ref: '#/components/schemas/coins_response'
   /coins/{mint}:
     get:
       tags:
@@ -3474,10 +3469,7 @@ paths:
           content:
             application/json:
               schema:
-                type: object
-                properties:
-                  data:
-                    $ref: '#/components/schemas/coin'
+                $ref: '#/components/schemas/coin_response'
   /coins/{mint}/members:
     get:
       tags:
@@ -3523,24 +3515,7 @@ paths:
           content:
             application/json:
               schema:
-                type: object
-                properties:
-                  data:
-                    type: array
-                    items:
-                      type: object
-                      required:
-                        - balance
-                        - user_id
-                      properties:
-                        balance:
-                          type: integer
-                          description: The user's balance of the specific coin (in wei)
-                          example: 100000
-                        user_id:
-                          type: string
-                          description: The ID of the user with a non-zero balance
-                          example: "7eP5n"
+                $ref: '#/components/schemas/coin_members_response'
 
 components:
   schemas:
@@ -5248,7 +5223,40 @@ components:
               type: integer
               description: Number of markets the token is traded on
               example: 317
-    user_coin_balance:
+    coin_response:
+      type: object
+      properties:
+        data:
+          $ref: '#/components/schemas/coin'
+    coins_response:
+      type: object
+      properties:
+        data:
+          type: array
+          items:
+            $ref: '#/components/schemas/coin'
+    coin_member:
+      type: object
+      required:
+        - balance
+        - user_id
+      properties:
+        balance:
+          type: integer
+          description: The user's balance of the specific coin (in wei)
+          example: 100000
+        user_id:
+          type: string
+          description: The ID of the user with a non-zero balance
+          example: "7eP5n"
+    coin_members_response:
+      type: object
+      properties:
+        data:
+          type: array
+          items:
+            $ref: '#/components/schemas/coin_member'
+    user_coin:
       required:
         - mint
         - ticker
@@ -5278,8 +5286,8 @@ components:
         data:
           type: array
           items:
-            $ref: '#/components/schemas/user_coin_balance'
-    user_coin_details:
+            $ref: '#/components/schemas/user_coin'
+    user_coin_with_accounts:
       type: object
       required:
         - totalBalance
@@ -5327,11 +5335,11 @@ components:
           type: boolean
           description: Whether the account is in the user's in-app wallet
           example: true
-    user_coin_accounts_response:
+    user_coin_response:
       type: object
       properties:
         data:
-          $ref: '#/components/schemas/user_coin_details'
+          $ref: '#/components/schemas/user_coin_with_accounts'
   responses:
     ParseError:
       description: When a mask can't be parsed
