@@ -15,7 +15,7 @@ type AccountBalance struct {
 	IsInAppWallet bool    `json:"is_in_app_wallet"`
 }
 
-type UserCoinWallets struct {
+type UserCoinAccounts struct {
 	UserCoin
 	Accounts []AccountBalance `json:"accounts"`
 }
@@ -108,7 +108,7 @@ func (app *ApiServer) v1UsersCoin(c *fiber.Ctx) error {
 		return err
 	}
 
-	userCoin, err := pgx.CollectExactlyOneRow(rows, pgx.RowToStructByName[UserCoinWallets])
+	userCoin, err := pgx.CollectExactlyOneRow(rows, pgx.RowToStructByName[UserCoinAccounts])
 	if err != nil {
 		return err
 	}
