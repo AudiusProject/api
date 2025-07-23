@@ -14,9 +14,13 @@ import (
 
 var testMutex = sync.Mutex{}
 
-func NewTestDatabase(t *testing.T) *pgxpool.Pool {
-	t.Helper()
-	t.Parallel()
+// Creates a new test database based on the template
+// TODO: Make this require a *testing.T rather than bifurcating on whether t is nil.
+func CreateTestDatabase(t *testing.T, template string) *pgxpool.Pool {
+	if t != nil {
+		t.Helper()
+		t.Parallel()
+	}
 
 	ctx := context.Background()
 	var err error
@@ -26,31 +30,39 @@ func NewTestDatabase(t *testing.T) *pgxpool.Pool {
 		testMutex.Lock()
 		defer testMutex.Unlock()
 
-		conn, err := pgx.Connect(ctx, "postgres://postgres:example@localhost:21300/test01")
-		require.NoError(t, err)
+		conn, err := pgx.Connect(ctx, "postgres://postgres:example@localhost:21300/"+template)
+		if err != nil {
+			panic(fmt.Errorf("failed to connect to database: %w", err))
+		}
 		defer conn.Close(ctx)
 
-		_, err = conn.Exec(ctx, "CREATE DATABASE "+dbName+" TEMPLATE test01")
-		require.NoError(t, err)
+		_, err = conn.Exec(ctx, "CREATE DATABASE "+dbName+" TEMPLATE "+template)
+		if err != nil {
+			panic(fmt.Errorf("failed to create test database: %w", err))
+		}
 	}
 
 	connString := "postgres://postgres:example@localhost:21300/" + dbName
-	pool, err := pgxpool.New(t.Context(), connString)
-	require.NoError(t, err)
+	pool, err := pgxpool.New(ctx, connString)
+	if err != nil {
+		panic(fmt.Errorf("failed to create test database pool: %w", err))
+	}
 
-	t.Cleanup(func() {
-		pool.Close()
+	if t != nil {
+		t.Cleanup(func() {
+			pool.Close()
 
-		testMutex.Lock()
-		defer testMutex.Unlock()
+			testMutex.Lock()
+			defer testMutex.Unlock()
 
-		conn, err := pgx.Connect(ctx, "postgres://postgres:example@localhost:21300/test01")
-		require.NoError(t, err)
-		defer conn.Close(ctx)
+			conn, err := pgx.Connect(ctx, "postgres://postgres:example@localhost:21300/"+template)
+			require.NoError(t, err)
+			defer conn.Close(ctx)
 
-		_, err = conn.Exec(ctx, "DROP DATABASE IF EXISTS "+dbName)
-		require.NoError(t, err)
+			_, err = conn.Exec(ctx, "DROP DATABASE IF EXISTS "+dbName)
+			require.NoError(t, err)
 
-	})
+		})
+	}
 	return pool
 }

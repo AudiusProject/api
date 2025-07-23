@@ -26,12 +26,13 @@ func checkErr(err error) {
 }
 
 func emptyTestApp(t *testing.T) *ApiServer {
-	pool := database.NewTestDatabase(t)
+	pool := database.CreateTestDatabase(t, "test_api")
 
 	app := NewApiServer(config.Config{
-		Env:                "test",
-		ReadDbUrl:          pool.Config().ConnString(),
-		EsUrl:              "http://localhost:21400",
+		Env:       "test",
+		ReadDbUrl: pool.Config().ConnString(),
+		EsUrl:     "http://localhost:21401",
+		// Dummy key
 		DelegatePrivateKey: "0633fddb74e32b3cbc64382e405146319c11a1a52dc96598e557c5dbe2f31468",
 		SolanaConfig:       config.SolanaConfig{RpcProviders: []string{""}},
 	})
@@ -64,35 +65,35 @@ func testAppWithFixtures(t *testing.T) *ApiServer {
 	`)
 	checkErr(err)
 
-	insertFixturesFromArray(app, "aggregate_plays", testdata.AggregatePlays)
-	insertFixturesFromArray(app, "aggregate_track", testdata.AggregateTrack)
-	insertFixturesFromArray(app, "aggregate_user", testdata.AggregateUser)
-	insertFixturesFromArray(app, "aggregate_user_tips", testdata.AggregateUserTips)
-	insertFixturesFromArray(app, "audio_transactions_history", testdata.AudioTransactionsHistory)
-	insertFixturesFromArray(app, "challenges", testdata.Challenges)
-	insertFixturesFromArray(app, "challenge_listen_streak", testdata.ChallengeListenStreak)
-	insertFixturesFromArray(app, "comments", testdata.Comment)
-	insertFixturesFromArray(app, "comment_threads", testdata.CommentThread)
-	insertFixturesFromArray(app, "associated_wallets", testdata.ConnectedWallets)
-	insertFixturesFromArray(app, "developer_apps", testdata.DeveloperApps)
-	insertFixturesFromArray(app, "events", testdata.Events)
-	insertFixturesFromArray(app, "follows", testdata.Follows)
-	insertFixturesFromArray(app, "grants", testdata.Grants)
-	insertFixturesFromArray(app, "playlists", testdata.Playlists)
-	insertFixturesFromArray(app, "playlist_routes", testdata.PlaylistRoutesFixtures)
-	insertFixturesFromArray(app, "playlist_trending_scores", testdata.PlaylistTrendingScores)
-	insertFixturesFromArray(app, "reposts", testdata.RepostFixtures)
-	insertFixturesFromArray(app, "saves", testdata.SaveFixtures)
-	insertFixturesFromArray(app, "tracks", testdata.TrackFixtures)
-	insertFixturesFromArray(app, "track_trending_scores", testdata.TrackTrendingScoresFixtures)
-	insertFixturesFromArray(app, "track_routes", testdata.TrackRoutesFixtures)
-	insertFixturesFromArray(app, "usdc_purchases", testdata.UsdcPurchasesFixtures)
-	insertFixturesFromArray(app, "usdc_transactions_history", testdata.UsdcTransactionsHistoryFixtures)
-	insertFixturesFromArray(app, "user_bank_accounts", testdata.UserBankAccountsFixtures)
-	insertFixturesFromArray(app, "user_challenges", testdata.UserChallengesFixtures)
-	insertFixturesFromArray(app, "usdc_user_bank_accounts", testdata.UserBankAccountsFixtures)
-	insertFixturesFromArray(app, "users", testdata.UserFixtures)
-	insertFixturesFromArray(app, "user_listening_history", testdata.UserListeningHistoryFixtures)
+	database.SeedTable(app.pool, "aggregate_plays", testdata.AggregatePlays)
+	database.SeedTable(app.pool, "aggregate_track", testdata.AggregateTrack)
+	database.SeedTable(app.pool, "aggregate_user", testdata.AggregateUser)
+	database.SeedTable(app.pool, "aggregate_user_tips", testdata.AggregateUserTips)
+	database.SeedTable(app.pool, "audio_transactions_history", testdata.AudioTransactionsHistory)
+	database.SeedTable(app.pool, "challenges", testdata.Challenges)
+	database.SeedTable(app.pool, "challenge_listen_streak", testdata.ChallengeListenStreak)
+	database.SeedTable(app.pool, "comments", testdata.Comment)
+	database.SeedTable(app.pool, "comment_threads", testdata.CommentThread)
+	database.SeedTable(app.pool, "associated_wallets", testdata.ConnectedWallets)
+	database.SeedTable(app.pool, "developer_apps", testdata.DeveloperApps)
+	database.SeedTable(app.pool, "events", testdata.Events)
+	database.SeedTable(app.pool, "follows", testdata.Follows)
+	database.SeedTable(app.pool, "grants", testdata.Grants)
+	database.SeedTable(app.pool, "playlists", testdata.Playlists)
+	database.SeedTable(app.pool, "playlist_routes", testdata.PlaylistRoutesFixtures)
+	database.SeedTable(app.pool, "playlist_trending_scores", testdata.PlaylistTrendingScores)
+	database.SeedTable(app.pool, "reposts", testdata.RepostFixtures)
+	database.SeedTable(app.pool, "saves", testdata.SaveFixtures)
+	database.SeedTable(app.pool, "tracks", testdata.TrackFixtures)
+	database.SeedTable(app.pool, "track_trending_scores", testdata.TrackTrendingScoresFixtures)
+	database.SeedTable(app.pool, "track_routes", testdata.TrackRoutesFixtures)
+	database.SeedTable(app.pool, "usdc_purchases", testdata.UsdcPurchasesFixtures)
+	database.SeedTable(app.pool, "usdc_transactions_history", testdata.UsdcTransactionsHistoryFixtures)
+	database.SeedTable(app.pool, "user_bank_accounts", testdata.UserBankAccountsFixtures)
+	database.SeedTable(app.pool, "user_challenges", testdata.UserChallengesFixtures)
+	database.SeedTable(app.pool, "usdc_user_bank_accounts", testdata.UserBankAccountsFixtures)
+	database.SeedTable(app.pool, "users", testdata.UserFixtures)
+	database.SeedTable(app.pool, "user_listening_history", testdata.UserListeningHistoryFixtures)
 
 	return app
 
@@ -150,6 +151,8 @@ func Test200UnAuthed(t *testing.T) {
 		"/v1/full/playlists?id=7eP5n",
 		"/v1/full/playlists/7eP5n/reposts",
 		"/v1/full/playlists/7eP5n/favorites",
+
+		"/v1/full/notifications/7eP5n?limit=50",
 		"/v1/full/playlists/trending",
 		// unclaimed ids
 		"/v1/users/unclaimed_id",

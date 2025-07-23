@@ -3,6 +3,7 @@ package api
 import (
 	"testing"
 
+	"bridgerton.audius.co/database"
 	"github.com/stretchr/testify/assert"
 )
 
@@ -10,24 +11,22 @@ func TestBlockConfirmation(t *testing.T) {
 	app := emptyTestApp(t)
 
 	// Create a block confirmation fixture
-	fixtures := FixtureMap{
-		"core_blocks": {
+	fixtures := database.FixtureMap{
+		"core_indexed_blocks": {
 			{
-				"rowid":    1,
-				"height":   1,
-				"chain_id": "audius-mainnet-alpha-beta",
-				"hash":     "0xabc123",
+				"height":    1,
+				"chain_id":  "audius-mainnet-alpha-beta",
+				"blockhash": "0xabc123",
 			},
 			{
-				"rowid":    2,
-				"height":   2,
-				"chain_id": "audius-mainnet-alpha-beta",
-				"hash":     "0xabc234",
+				"height":    2,
+				"chain_id":  "audius-mainnet-alpha-beta",
+				"blockhash": "0xabc234",
 			},
 		},
 	}
 
-	createFixtures(app, fixtures)
+	database.Seed(app.pool, fixtures)
 
 	status, body := testGet(t, app, "/block_confirmation?blockhash=0x123&blocknumber=3000")
 	assert.Equal(t, 200, status)

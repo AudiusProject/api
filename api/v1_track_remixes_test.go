@@ -3,6 +3,7 @@ package api
 import (
 	"testing"
 
+	"bridgerton.audius.co/database"
 	"bridgerton.audius.co/trashid"
 	"github.com/stretchr/testify/assert"
 )
@@ -20,7 +21,7 @@ func TestTrackRemixes(t *testing.T) {
 	secondRemixTrackId := 7003
 	thirdRemixTrackId := 7004
 	fourthRemixTrackId := 7005
-	fixtures := FixtureMap{
+	fixtures := database.FixtureMap{
 		"events": []map[string]any{
 			{
 				"event_id":   3,
@@ -170,7 +171,7 @@ func TestTrackRemixes(t *testing.T) {
 		},
 	}
 
-	createFixtures(app, fixtures)
+	database.Seed(app.pool, fixtures)
 
 	var baseUrl = "/v1/full/tracks/" + trashid.MustEncodeHashID(parentTrackId) + "/remixes"
 

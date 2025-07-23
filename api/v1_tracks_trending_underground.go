@@ -37,7 +37,7 @@ func (app *ApiServer) v1TracksTrendingUnderground(c *fiber.Ctx) error {
 			ORDER BY
 				score DESC,
 				track_id DESC
-			LIMIT 100
+			LIMIT 20
 		)
 
 		SELECT track_trending_scores.track_id

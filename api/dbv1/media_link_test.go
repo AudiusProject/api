@@ -10,6 +10,7 @@ import (
 func TestGenerateSignature(t *testing.T) {
 	originalCfg := config.Cfg
 	config.Cfg = config.Config{
+		// Dummy key
 		DelegatePrivateKey: "0633fddb74e32b3cbc64382e405146319c11a1a52dc96598e557c5dbe2f31468",
 	}
 	defer func() {

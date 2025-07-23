@@ -41,6 +41,7 @@ SELECT
   is_available,
   wallet as erc_wallet,
   user_bank_accounts.bank_account as spl_wallet,
+  usdc_user_bank_accounts.bank_account as usdc_wallet,
   spl_usdc_payout_wallet,
   supporter_count,
   supporting_count,
@@ -71,7 +72,7 @@ SELECT
   -- payout wallet
   coalesce(
     (SELECT spl_usdc_payout_wallet FROM user_payout_wallet_history pwh WHERE pwh.user_id = u.user_id AND spl_usdc_payout_wallet IS NOT NULL ORDER BY block_timestamp DESC LIMIT 1),
-    (SELECT bank_account FROM usdc_user_bank_accounts WHERE ethereum_address = u.wallet),
+    usdc_user_bank_accounts.bank_account,
     ''
   )::text as payout_wallet,
 
@@ -141,6 +142,7 @@ FROM users u
 JOIN aggregate_user using (user_id)
 LEFT JOIN user_balances using (user_id)
 LEFT JOIN user_bank_accounts on u.wallet = user_bank_accounts.ethereum_address
+LEFT JOIN usdc_user_bank_accounts on u.wallet = usdc_user_bank_accounts.ethereum_address
 WHERE u.user_id = ANY(@ids::int[])
 ORDER BY u.user_id
 ;

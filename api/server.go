@@ -11,6 +11,7 @@ import (
 	"strconv"
 	"time"
 
+	"bridgerton.audius.co/api/birdeye"
 	"bridgerton.audius.co/api/dbv1"
 	"bridgerton.audius.co/config"
 	"bridgerton.audius.co/esindexer"
@@ -210,6 +211,8 @@ func NewApiServer(config config.Config) *ApiServer {
 		validators:            config.Nodes,
 		auds:                  auds,
 		metricsCollector:      metricsCollector,
+		birdeyeClient:         birdeye.New(config.BirdeyeToken),
+		solanaRpcClient:       solanaRpc,
 	}
 
 	// Set up a custom decoder for HashIds so they can be parsed in lists
@@ -322,6 +325,8 @@ func NewApiServer(config config.Config) *ApiServer {
 		g.Use("/users/handle/:handle", app.requireHandleMiddleware)
 		g.Get("/users/handle/:handle", app.v1User)
 		g.Get("/users/handle/:handle/tracks", app.v1UserTracks)
+		g.Get("/users/handle/:handle/albums", app.v1UserAlbums)
+		g.Get("/users/handle/:handle/playlists", app.v1UserPlaylists)
 		g.Get("/users/handle/:handle/tracks/ai_attributed", app.v1UserTracksAiAttributed)
 		g.Get("/users/handle/:handle/reposts", app.v1UsersReposts)
 
@@ -345,6 +350,8 @@ func NewApiServer(config config.Config) *ApiServer {
 		g.Get("/users/:userId/supporters/:supporterUserId", app.v1UsersSupporters)
 		g.Get("/users/:userId/tags", app.v1UsersTags)
 		g.Get("/users/:userId/tracks", app.v1UserTracks)
+		g.Get("/users/:userId/albums", app.v1UserAlbums)
+		g.Get("/users/:userId/playlists", app.v1UserPlaylists)
 		g.Get("/users/:userId/feed", app.v1UsersFeed)
 		g.Get("/users/:userId/connected_wallets", app.v1UsersConnectedWallets)
 		g.Get("/users/:userId/transactions/audio", app.v1UsersTransactionsAudio)
@@ -359,8 +366,11 @@ func NewApiServer(config config.Config) *ApiServer {
 		g.Get("/users/:userId/sales/count", app.v1UsersSalesCount)
 		g.Get("/users/:userId/muted", app.v1UsersMuted)
 		g.Get("/users/:userId/subscribers", app.v1UsersSubscribers)
+		g.Get("/users/:userId/remixers", app.v1UsersRemixers)
 		g.Get("/users/:userId/recommended-tracks", app.v1UsersRecommendedTracks)
 		g.Get("/users/:userId/now-playing", app.v1UsersNowPlaying)
+		g.Get("/users/:userId/coins", app.v1UsersCoins)
+		g.Get("/users/:userId/coins/:mint", app.v1UsersCoin)
 
 		// Tracks
 		g.Get("/tracks", app.v1Tracks)
@@ -435,6 +445,7 @@ func NewApiServer(config config.Config) *ApiServer {
 
 		// Challenges
 		g.Get("/challenges/undisbursed", app.v1ChallengesUndisbursed)
+		g.Get("/challenges/undisbursed/:userId", app.v1ChallengesUndisbursed)
 
 		// Metrics
 		g.Get("/metrics/genres", app.v1MetricsGenres)
@@ -444,15 +455,20 @@ func NewApiServer(config config.Config) *ApiServer {
 		g.Get("/metrics/aggregates/routes/trailing/:time_range", app.v1MetricsRoutesTrailing)
 
 		// Notifications
+		g.Get("/notifications/:userId", app.requireUserIdMiddleware, app.v1Notifications)
 		g.Get("/notifications/:userId/playlist_updates", app.requireUserIdMiddleware, app.v1NotificationsPlaylistUpdates)
 
+		// Artist coins
+		g.Get("/coins", app.v1Coins)
+		g.Get("/coins/:mint", app.v1Coin)
+		g.Get("/coins/:mint/members", app.v1CoinsMembers)
 	}
 
 	// Comms
 	comms := app.Group("/comms")
 	// Cached/non-cached are the same as there are no other nodes to query anymore
 	comms.Get("/pubkey/:userId", app.requireUserIdMiddleware, app.getPubkey)
-	comms.Get("/pubky/:userId/cached", app.requireUserIdMiddleware, app.getPubkey)
+	comms.Get("/pubkey/:userId/cached", app.requireUserIdMiddleware, app.getPubkey)
 
 	unfurlBlocklist := unfurlist.WithBlocklistPrefixes(
 		[]string{
@@ -482,6 +498,9 @@ func NewApiServer(config config.Config) *ApiServer {
 
 	// Block confirmation
 	app.Get("/block_confirmation", app.BlockConfirmation)
+
+	// Solana health
+	app.Get("/solana/health", app.solanaHealth)
 
 	app.Static("/", "./static")
 
@@ -522,6 +541,11 @@ func NewApiServer(config config.Config) *ApiServer {
 	return app
 }
 
+type BirdeyeClient interface {
+	GetTokenOverview(ctx context.Context, mint string, frames string) (*birdeye.TokenOverview, error)
+	GetPrices(ctx context.Context, mints []string) (*birdeye.TokenPriceMap, error)
+}
+
 type ApiServer struct {
 	*fiber.App
 	pool                  *pgxpool.Pool
@@ -545,11 +569,14 @@ type ApiServer struct {
 	auds                  *sdk.AudiusdSDK
 	skipAuthCheck         bool // set to true in a test if you don't care about auth middleware
 	metricsCollector      *MetricsCollector
+	birdeyeClient         BirdeyeClient
+	solanaRpcClient       *rpc.Client
 }
 
 func (app *ApiServer) home(c *fiber.Ctx) error {
 	return c.JSON(fiber.Map{
 		"env":     config.Cfg.Env,
+		"git":     config.Cfg.Git,
 		"started": app.started,
 		"uptime":  time.Since(app.started).Truncate(time.Second).String(),
 	})
@@ -568,7 +595,7 @@ func decodeIdList(c *fiber.Ctx) []int32 {
 	return ids
 }
 
-func queryMutli(c *fiber.Ctx, key string) []string {
+func queryMulti(c *fiber.Ctx, key string) []string {
 	var values []string
 	for _, v := range c.Request().URI().QueryArgs().PeekMulti(key) {
 		values = append(values, string(v))

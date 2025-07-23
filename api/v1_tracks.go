@@ -11,7 +11,7 @@ func (app *ApiServer) v1Tracks(c *fiber.Ctx) error {
 	ids := decodeIdList(c)
 
 	// Add permalink ID mappings
-	permalinks := queryMutli(c, "permalink")
+	permalinks := queryMulti(c, "permalink")
 	if len(permalinks) > 0 {
 		handles := make([]string, len(permalinks))
 		slugs := make([]string, len(permalinks))

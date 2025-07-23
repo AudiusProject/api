@@ -5319,6 +5319,7 @@ components:
       - playlist_count
       - repost_count
       - spl_wallet
+      - spl_usdc_wallet
       - supporter_count
       - supporting_count
       - total_audio_balance
@@ -5385,6 +5386,8 @@ components:
         erc_wallet:
           type: string
         spl_wallet:
+          type: string
+        spl_usdc_wallet:
           type: string
         spl_usdc_payout_wallet:
           type: string
@@ -9085,9 +9088,7 @@ components:
         is_album:
           type: boolean
         playlist_id:
-          type: array
-          items:
-            type: string
+          type: string
     create_track_notification_action_data:
       required:
       - track_id

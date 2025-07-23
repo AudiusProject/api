@@ -6,6 +6,7 @@ import (
 	"time"
 
 	"bridgerton.audius.co/api/dbv1"
+	"bridgerton.audius.co/database"
 	"bridgerton.audius.co/trashid"
 	"github.com/stretchr/testify/assert"
 )
@@ -55,7 +56,7 @@ func TestV1UsersRecommendedTracks(t *testing.T) {
 			"created_at":   time.Now(),
 		}
 	}
-	createFixtures(app, FixtureMap{
+	database.Seed(app.pool, database.FixtureMap{
 		"users":                 users,
 		"tracks":                tracks,
 		"track_trending_scores": trackTrendingScores,

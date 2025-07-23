@@ -31,15 +31,17 @@ jobs:
             type=raw,value=latest,enable=${{ github.ref == 'refs/heads/main' }}
             type=sha,prefix=
 
-      - name: Build
+      - name: Build and push
         uses: docker/build-push-action@v5
         with:
           context: .
-          push: false
+          push: true
           tags: ${{ steps.meta.outputs.tags }}
           labels: ${{ steps.meta.outputs.labels }}
           cache-from: type=registry,ref=audius/api:buildcache
           cache-to: type=registry,ref=audius/api:buildcache,mode=max
+          build-args: |
+            GIT_SHA=${{ github.sha }}
 
       - name: Get short SHA for release
         if: github.ref == 'refs/heads/main'

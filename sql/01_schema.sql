@@ -2,8 +2,8 @@
 -- PostgreSQL database dump
 --
 
--- Dumped from database version 15.12
--- Dumped by pg_dump version 17.5 (Debian 17.5-1.pgdg120+1)
+-- Dumped from database version 17.4 (Debian 17.4-1.pgdg120+2)
+-- Dumped by pg_dump version 17.4 (Debian 17.4-1.pgdg120+2)
 
 SET statement_timeout = 0;
 SET lock_timeout = 0;
@@ -25,17 +25,17 @@ CREATE SCHEMA hashids;
 
 
 --
--- Name: public; Type: SCHEMA; Schema: -; Owner: -
---
-
--- *not* creating schema, since initdb creates it
-
-
---
 -- Name: amcheck; Type: EXTENSION; Schema: -; Owner: -
 --
 
 CREATE EXTENSION IF NOT EXISTS amcheck WITH SCHEMA public;
+
+
+--
+-- Name: EXTENSION amcheck; Type: COMMENT; Schema: -; Owner: -
+--
+
+COMMENT ON EXTENSION amcheck IS 'functions for verifying relation integrity';
 
 
 --
@@ -46,6 +46,13 @@ CREATE EXTENSION IF NOT EXISTS pg_stat_statements WITH SCHEMA public;
 
 
 --
+-- Name: EXTENSION pg_stat_statements; Type: COMMENT; Schema: -; Owner: -
+--
+
+COMMENT ON EXTENSION pg_stat_statements IS 'track planning and execution statistics of all SQL statements executed';
+
+
+--
 -- Name: pg_trgm; Type: EXTENSION; Schema: -; Owner: -
 --
 
@@ -53,10 +60,24 @@ CREATE EXTENSION IF NOT EXISTS pg_trgm WITH SCHEMA public;
 
 
 --
+-- Name: EXTENSION pg_trgm; Type: COMMENT; Schema: -; Owner: -
+--
+
+COMMENT ON EXTENSION pg_trgm IS 'text similarity measurement and index searching based on trigrams';
+
+
+--
 -- Name: tsm_system_rows; Type: EXTENSION; Schema: -; Owner: -
 --
 
 CREATE EXTENSION IF NOT EXISTS tsm_system_rows WITH SCHEMA public;
+
+
+--
+-- Name: EXTENSION tsm_system_rows; Type: COMMENT; Schema: -; Owner: -
+--
+
+COMMENT ON EXTENSION tsm_system_rows IS 'TABLESAMPLE method which accepts number of rows as a limit';
 
 
 --
@@ -1148,7 +1169,34 @@ BEGIN
         chat_blast.audience_content_type = p.content_type::text
         AND chat_blast.audience_content_id = p.content_id
       )
-    );
+    )
+
+  UNION
+
+  -- coin_holder_audience
+  -- Case 1: userbank ie. sol_claimable_accounts
+  SELECT chat_blast.blast_id, u.user_id AS to_user_id
+  FROM artist_coins ac
+  JOIN chat_blast ON chat_blast.blast_id = blast_id_param
+    AND chat_blast.audience = 'coin_holder_audience'
+    AND ac.user_id = chat_blast.from_user_id
+  JOIN sol_claimable_accounts sca ON sca.mint = ac.mint
+  JOIN sol_token_account_balances stab ON stab.account = sca.account
+  JOIN users u ON u.wallet = sca.ethereum_address
+  WHERE stab.balance > 0
+
+  UNION
+
+  -- Case 2: associated_wallets
+  SELECT chat_blast.blast_id, u.user_id AS to_user_id
+  FROM artist_coins ac
+  JOIN chat_blast ON chat_blast.blast_id = blast_id_param
+    AND chat_blast.audience = 'coin_holder_audience'
+    AND ac.user_id = chat_blast.from_user_id
+  JOIN sol_token_account_balances stab ON stab.mint = ac.mint
+  JOIN associated_wallets aw ON aw.wallet = stab.owner
+  JOIN users u ON u.user_id = aw.user_id
+  WHERE stab.balance > 0;
 
 END;
 $$;
@@ -1959,6 +2007,24 @@ select a.*,
         a.karma
     ) as score
 from aggregate_scores a;
+$$;
+
+
+--
+-- Name: handle_artist_coins_change(); Type: FUNCTION; Schema: public; Owner: -
+--
+
+CREATE FUNCTION public.handle_artist_coins_change() RETURNS trigger
+    LANGUAGE plpgsql
+    AS $$
+BEGIN
+    PERFORM pg_notify('artist_coins_changed', json_build_object('operation', TG_OP, 'new_mint', NEW.mint, 'old_mint', OLD.mint)::text);
+    RETURN NEW;
+    EXCEPTION
+        WHEN OTHERS THEN
+            RAISE WARNING 'An error occurred in %: %', TG_NAME, SQLERRM;
+            RETURN NULL;
+END;
 $$;
 
 
@@ -3370,6 +3436,31 @@ exception
       raise warning 'An error occurred in %: %', tg_name, sqlerrm;
       return null;
 end;
+$$;
+
+
+--
+-- Name: handle_sol_token_balance_change(); Type: FUNCTION; Schema: public; Owner: -
+--
+
+CREATE FUNCTION public.handle_sol_token_balance_change() RETURNS trigger
+    LANGUAGE plpgsql
+    AS $$
+BEGIN
+    INSERT INTO sol_token_account_balances (account, mint, owner, balance, slot, updated_at)
+    VALUES (NEW.account, NEW.mint, NEW.owner, NEW.balance, NEW.slot, NOW())
+    ON CONFLICT (account)
+    DO UPDATE SET
+        balance = EXCLUDED.balance,
+        slot = EXCLUDED.slot,
+        updated_at = NOW()
+        WHERE sol_token_account_balances.slot < EXCLUDED.slot;
+    RETURN NULL;
+EXCEPTION
+    WHEN OTHERS THEN
+        RAISE WARNING 'An error occurred in %: %', TG_NAME, SQLERRM;
+        RETURN NULL;
+END;
 $$;
 
 
@@ -4908,6 +4999,27 @@ CREATE TABLE public.tracks (
 
 
 --
+-- Name: COLUMN tracks.cover_original_song_title; Type: COMMENT; Schema: public; Owner: -
+--
+
+COMMENT ON COLUMN public.tracks.cover_original_song_title IS 'Title of the original song if this track is a cover';
+
+
+--
+-- Name: COLUMN tracks.cover_original_artist; Type: COMMENT; Schema: public; Owner: -
+--
+
+COMMENT ON COLUMN public.tracks.cover_original_artist IS 'Artist of the original song if this track is a cover';
+
+
+--
+-- Name: COLUMN tracks.is_owned_by_user; Type: COMMENT; Schema: public; Owner: -
+--
+
+COMMENT ON COLUMN public.tracks.is_owned_by_user IS 'Indicates whether the track is owned by the user for publishing payouts';
+
+
+--
 -- Name: track_should_notify(public.tracks, record, character varying); Type: FUNCTION; Schema: public; Owner: -
 --
 
@@ -5398,6 +5510,48 @@ CREATE TABLE public.anti_abuse_blocked_users (
 
 
 --
+-- Name: api_metrics_apps; Type: TABLE; Schema: public; Owner: -
+--
+
+CREATE TABLE public.api_metrics_apps (
+    date date NOT NULL,
+    api_key character varying(255) NOT NULL,
+    app_name character varying(255) NOT NULL,
+    request_count bigint DEFAULT 0 NOT NULL,
+    created_at timestamp without time zone DEFAULT now() NOT NULL,
+    updated_at timestamp without time zone DEFAULT now() NOT NULL
+);
+
+
+--
+-- Name: api_metrics_counts; Type: TABLE; Schema: public; Owner: -
+--
+
+CREATE TABLE public.api_metrics_counts (
+    date date NOT NULL,
+    hll_sketch bytea NOT NULL,
+    total_count bigint DEFAULT 0 NOT NULL,
+    unique_count bigint DEFAULT 0 NOT NULL,
+    created_at timestamp without time zone DEFAULT now(),
+    updated_at timestamp without time zone DEFAULT now()
+);
+
+
+--
+-- Name: api_metrics_routes; Type: TABLE; Schema: public; Owner: -
+--
+
+CREATE TABLE public.api_metrics_routes (
+    date date NOT NULL,
+    route_pattern character varying(512) NOT NULL,
+    method character varying(10) NOT NULL,
+    request_count bigint DEFAULT 0 NOT NULL,
+    created_at timestamp without time zone DEFAULT now() NOT NULL,
+    updated_at timestamp without time zone DEFAULT now() NOT NULL
+);
+
+
+--
 -- Name: app_name_metrics; Type: TABLE; Schema: public; Owner: -
 --
 
@@ -5417,10 +5571,10 @@ CREATE TABLE public.app_name_metrics (
 --
 
 CREATE MATERIALIZED VIEW public.app_name_metrics_all_time AS
- SELECT app_name_metrics.application_name AS name,
-    sum(app_name_metrics.count) AS count
+ SELECT application_name AS name,
+    sum(count) AS count
    FROM public.app_name_metrics
-  GROUP BY app_name_metrics.application_name
+  GROUP BY application_name
   WITH NO DATA;
 
 
@@ -5443,11 +5597,11 @@ ALTER TABLE public.app_name_metrics ALTER COLUMN id ADD GENERATED ALWAYS AS IDEN
 --
 
 CREATE MATERIALIZED VIEW public.app_name_metrics_trailing_month AS
- SELECT app_name_metrics.application_name AS name,
-    sum(app_name_metrics.count) AS count
+ SELECT application_name AS name,
+    sum(count) AS count
    FROM public.app_name_metrics
-  WHERE (app_name_metrics."timestamp" > (now() - '1 mon'::interval))
-  GROUP BY app_name_metrics.application_name
+  WHERE ("timestamp" > (now() - '1 mon'::interval))
+  GROUP BY application_name
   WITH NO DATA;
 
 
@@ -5456,12 +5610,32 @@ CREATE MATERIALIZED VIEW public.app_name_metrics_trailing_month AS
 --
 
 CREATE MATERIALIZED VIEW public.app_name_metrics_trailing_week AS
- SELECT app_name_metrics.application_name AS name,
-    sum(app_name_metrics.count) AS count
+ SELECT application_name AS name,
+    sum(count) AS count
    FROM public.app_name_metrics
-  WHERE (app_name_metrics."timestamp" > (now() - '7 days'::interval))
-  GROUP BY app_name_metrics.application_name
+  WHERE ("timestamp" > (now() - '7 days'::interval))
+  GROUP BY application_name
   WITH NO DATA;
+
+
+--
+-- Name: artist_coins; Type: TABLE; Schema: public; Owner: -
+--
+
+CREATE TABLE public.artist_coins (
+    mint character varying NOT NULL,
+    ticker character varying NOT NULL,
+    user_id integer NOT NULL,
+    decimals integer NOT NULL,
+    created_at timestamp without time zone DEFAULT CURRENT_TIMESTAMP NOT NULL
+);
+
+
+--
+-- Name: TABLE artist_coins; Type: COMMENT; Schema: public; Owner: -
+--
+
+COMMENT ON TABLE public.artist_coins IS 'Stores the token mints for artist coins that the indexer is tracking and their tickers.';
 
 
 --
@@ -5768,6 +5942,41 @@ CREATE TABLE public.collectibles (
     created_at timestamp with time zone DEFAULT now(),
     updated_at timestamp with time zone DEFAULT now()
 );
+
+
+--
+-- Name: TABLE collectibles; Type: COMMENT; Schema: public; Owner: -
+--
+
+COMMENT ON TABLE public.collectibles IS 'Stores collectibles data for users';
+
+
+--
+-- Name: COLUMN collectibles.user_id; Type: COMMENT; Schema: public; Owner: -
+--
+
+COMMENT ON COLUMN public.collectibles.user_id IS 'User ID of the person who owns the collectibles';
+
+
+--
+-- Name: COLUMN collectibles.data; Type: COMMENT; Schema: public; Owner: -
+--
+
+COMMENT ON COLUMN public.collectibles.data IS 'Data about the collectibles';
+
+
+--
+-- Name: COLUMN collectibles.blockhash; Type: COMMENT; Schema: public; Owner: -
+--
+
+COMMENT ON COLUMN public.collectibles.blockhash IS 'Blockhash of the most recent block that changed the collectibles data';
+
+
+--
+-- Name: COLUMN collectibles.blocknumber; Type: COMMENT; Schema: public; Owner: -
+--
+
+COMMENT ON COLUMN public.collectibles.blocknumber IS 'Block number of the most recent block that changed the collectibles data';
 
 
 --
@@ -6114,6 +6323,41 @@ CREATE TABLE public.email_access (
 
 
 --
+-- Name: TABLE email_access; Type: COMMENT; Schema: public; Owner: -
+--
+
+COMMENT ON TABLE public.email_access IS 'Tracks who has access to encrypted emails';
+
+
+--
+-- Name: COLUMN email_access.email_owner_user_id; Type: COMMENT; Schema: public; Owner: -
+--
+
+COMMENT ON COLUMN public.email_access.email_owner_user_id IS 'The user ID of the email owner';
+
+
+--
+-- Name: COLUMN email_access.receiving_user_id; Type: COMMENT; Schema: public; Owner: -
+--
+
+COMMENT ON COLUMN public.email_access.receiving_user_id IS 'The user ID of the person granted access';
+
+
+--
+-- Name: COLUMN email_access.grantor_user_id; Type: COMMENT; Schema: public; Owner: -
+--
+
+COMMENT ON COLUMN public.email_access.grantor_user_id IS 'The user ID of the person who granted access';
+
+
+--
+-- Name: COLUMN email_access.encrypted_key; Type: COMMENT; Schema: public; Owner: -
+--
+
+COMMENT ON COLUMN public.email_access.encrypted_key IS 'The symmetric key (SK) encrypted for the receiving user';
+
+
+--
 -- Name: email_access_id_seq; Type: SEQUENCE; Schema: public; Owner: -
 --
 
@@ -6144,6 +6388,27 @@ CREATE TABLE public.encrypted_emails (
     created_at timestamp with time zone DEFAULT CURRENT_TIMESTAMP,
     updated_at timestamp with time zone DEFAULT CURRENT_TIMESTAMP
 );
+
+
+--
+-- Name: TABLE encrypted_emails; Type: COMMENT; Schema: public; Owner: -
+--
+
+COMMENT ON TABLE public.encrypted_emails IS 'Stores encrypted email addresses';
+
+
+--
+-- Name: COLUMN encrypted_emails.email_owner_user_id; Type: COMMENT; Schema: public; Owner: -
+--
+
+COMMENT ON COLUMN public.encrypted_emails.email_owner_user_id IS 'The user ID of the email owner';
+
+
+--
+-- Name: COLUMN encrypted_emails.encrypted_email; Type: COMMENT; Schema: public; Owner: -
+--
+
+COMMENT ON COLUMN public.encrypted_emails.encrypted_email IS 'The encrypted email address (base64 encoded)';
 
 
 --
@@ -6649,8 +6914,8 @@ CREATE TABLE public.route_metrics (
 --
 
 CREATE MATERIALIZED VIEW public.route_metrics_all_time AS
- SELECT count(DISTINCT route_metrics.ip) AS unique_count,
-    sum(route_metrics.count) AS count
+ SELECT count(DISTINCT ip) AS unique_count,
+    sum(count) AS count
    FROM public.route_metrics
   WITH NO DATA;
 
@@ -6660,11 +6925,11 @@ CREATE MATERIALIZED VIEW public.route_metrics_all_time AS
 --
 
 CREATE MATERIALIZED VIEW public.route_metrics_day_bucket AS
- SELECT count(DISTINCT route_metrics.ip) AS unique_count,
-    sum(route_metrics.count) AS count,
-    date_trunc('day'::text, route_metrics."timestamp") AS "time"
+ SELECT count(DISTINCT ip) AS unique_count,
+    sum(count) AS count,
+    date_trunc('day'::text, "timestamp") AS "time"
    FROM public.route_metrics
-  GROUP BY (date_trunc('day'::text, route_metrics."timestamp"))
+  GROUP BY (date_trunc('day'::text, "timestamp"))
   WITH NO DATA;
 
 
@@ -6687,11 +6952,11 @@ ALTER TABLE public.route_metrics ALTER COLUMN id ADD GENERATED ALWAYS AS IDENTIT
 --
 
 CREATE MATERIALIZED VIEW public.route_metrics_month_bucket AS
- SELECT count(DISTINCT route_metrics.ip) AS unique_count,
-    sum(route_metrics.count) AS count,
-    date_trunc('month'::text, route_metrics."timestamp") AS "time"
+ SELECT count(DISTINCT ip) AS unique_count,
+    sum(count) AS count,
+    date_trunc('month'::text, "timestamp") AS "time"
    FROM public.route_metrics
-  GROUP BY (date_trunc('month'::text, route_metrics."timestamp"))
+  GROUP BY (date_trunc('month'::text, "timestamp"))
   WITH NO DATA;
 
 
@@ -6700,10 +6965,10 @@ CREATE MATERIALIZED VIEW public.route_metrics_month_bucket AS
 --
 
 CREATE MATERIALIZED VIEW public.route_metrics_trailing_month AS
- SELECT count(DISTINCT route_metrics.ip) AS unique_count,
-    sum(route_metrics.count) AS count
+ SELECT count(DISTINCT ip) AS unique_count,
+    sum(count) AS count
    FROM public.route_metrics
-  WHERE (route_metrics."timestamp" > (now() - '1 mon'::interval))
+  WHERE ("timestamp" > (now() - '1 mon'::interval))
   WITH NO DATA;
 
 
@@ -6712,10 +6977,10 @@ CREATE MATERIALIZED VIEW public.route_metrics_trailing_month AS
 --
 
 CREATE MATERIALIZED VIEW public.route_metrics_trailing_week AS
- SELECT count(DISTINCT route_metrics.ip) AS unique_count,
-    sum(route_metrics.count) AS count
+ SELECT count(DISTINCT ip) AS unique_count,
+    sum(count) AS count
    FROM public.route_metrics
-  WHERE (route_metrics."timestamp" > (now() - '7 days'::interval))
+  WHERE ("timestamp" > (now() - '7 days'::interval))
   WITH NO DATA;
 
 
@@ -6947,6 +7212,249 @@ ALTER SEQUENCE public.sla_rollups_id_seq OWNED BY public.sla_rollups.id;
 
 
 --
+-- Name: sol_claimable_account_transfers; Type: TABLE; Schema: public; Owner: -
+--
+
+CREATE TABLE public.sol_claimable_account_transfers (
+    signature character varying NOT NULL,
+    instruction_index integer NOT NULL,
+    amount bigint NOT NULL,
+    slot bigint NOT NULL,
+    from_account character varying NOT NULL,
+    to_account character varying NOT NULL,
+    sender_eth_address character varying NOT NULL
+);
+
+
+--
+-- Name: TABLE sol_claimable_account_transfers; Type: COMMENT; Schema: public; Owner: -
+--
+
+COMMENT ON TABLE public.sol_claimable_account_transfers IS 'Stores claimable tokens program Transfer instructions for tracked mints.';
+
+
+--
+-- Name: sol_claimable_accounts; Type: TABLE; Schema: public; Owner: -
+--
+
+CREATE TABLE public.sol_claimable_accounts (
+    signature character varying NOT NULL,
+    instruction_index integer NOT NULL,
+    slot bigint NOT NULL,
+    mint character varying NOT NULL,
+    ethereum_address character varying NOT NULL,
+    account character varying NOT NULL
+);
+
+
+--
+-- Name: TABLE sol_claimable_accounts; Type: COMMENT; Schema: public; Owner: -
+--
+
+COMMENT ON TABLE public.sol_claimable_accounts IS 'Stores claimable tokens program Create instructions for tracked mints.';
+
+
+--
+-- Name: sol_payments; Type: TABLE; Schema: public; Owner: -
+--
+
+CREATE TABLE public.sol_payments (
+    signature character varying NOT NULL,
+    instruction_index integer NOT NULL,
+    amount bigint NOT NULL,
+    slot bigint NOT NULL,
+    route_index integer NOT NULL,
+    to_account character varying NOT NULL
+);
+
+
+--
+-- Name: TABLE sol_payments; Type: COMMENT; Schema: public; Owner: -
+--
+
+COMMENT ON TABLE public.sol_payments IS 'Stores payment router program Route instruction recipients and amounts for tracked mints.';
+
+
+--
+-- Name: sol_purchases; Type: TABLE; Schema: public; Owner: -
+--
+
+CREATE TABLE public.sol_purchases (
+    signature character varying NOT NULL,
+    instruction_index integer NOT NULL,
+    amount bigint NOT NULL,
+    slot bigint NOT NULL,
+    from_account character varying NOT NULL,
+    content_type character varying NOT NULL,
+    content_id integer NOT NULL,
+    buyer_user_id integer NOT NULL,
+    access_type character varying NOT NULL,
+    valid_after_blocknumber bigint NOT NULL,
+    is_valid boolean,
+    city character varying,
+    region character varying,
+    country character varying
+);
+
+
+--
+-- Name: TABLE sol_purchases; Type: COMMENT; Schema: public; Owner: -
+--
+
+COMMENT ON TABLE public.sol_purchases IS 'Stores payment router program Route instructions that are paired with purchase information for tracked mints.';
+
+
+--
+-- Name: COLUMN sol_purchases.valid_after_blocknumber; Type: COMMENT; Schema: public; Owner: -
+--
+
+COMMENT ON COLUMN public.sol_purchases.valid_after_blocknumber IS 'Purchase transactions include the blocknumber that the content was most recently updated in order to ensure that the relevant pricing information has been indexed before evaluating whether the purchase is valid.';
+
+
+--
+-- Name: COLUMN sol_purchases.is_valid; Type: COMMENT; Schema: public; Owner: -
+--
+
+COMMENT ON COLUMN public.sol_purchases.is_valid IS 'A purchase is valid if it meets the pricing information set by the artist. If the pricing information is not available yet (as indicated by the valid_after_blocknumber), then is_valid will be NULL which indicates a "pending" state.';
+
+
+--
+-- Name: sol_reward_disbursements; Type: TABLE; Schema: public; Owner: -
+--
+
+CREATE TABLE public.sol_reward_disbursements (
+    signature character varying NOT NULL,
+    instruction_index integer NOT NULL,
+    amount bigint NOT NULL,
+    slot bigint NOT NULL,
+    user_bank character varying NOT NULL,
+    challenge_id character varying NOT NULL,
+    specifier character varying NOT NULL
+);
+
+
+--
+-- Name: TABLE sol_reward_disbursements; Type: COMMENT; Schema: public; Owner: -
+--
+
+COMMENT ON TABLE public.sol_reward_disbursements IS 'Stores reward manager program Evaluate instructions for tracked mints.';
+
+
+--
+-- Name: sol_slot_checkpoints; Type: TABLE; Schema: public; Owner: -
+--
+
+CREATE TABLE public.sol_slot_checkpoints (
+    id uuid DEFAULT gen_random_uuid() NOT NULL,
+    from_slot bigint NOT NULL,
+    to_slot bigint NOT NULL,
+    subscription_hash text NOT NULL,
+    subscription jsonb NOT NULL,
+    updated_at timestamp without time zone DEFAULT CURRENT_TIMESTAMP NOT NULL,
+    created_at timestamp without time zone DEFAULT CURRENT_TIMESTAMP NOT NULL
+);
+
+
+--
+-- Name: TABLE sol_slot_checkpoints; Type: COMMENT; Schema: public; Owner: -
+--
+
+COMMENT ON TABLE public.sol_slot_checkpoints IS 'Stores checkpoints for Solana slots to track indexing progress.';
+
+
+--
+-- Name: sol_swaps; Type: TABLE; Schema: public; Owner: -
+--
+
+CREATE TABLE public.sol_swaps (
+    signature character varying NOT NULL,
+    instruction_index integer NOT NULL,
+    slot bigint NOT NULL,
+    from_mint character varying NOT NULL,
+    from_account character varying NOT NULL,
+    from_amount bigint NOT NULL,
+    to_mint character varying NOT NULL,
+    to_account character varying NOT NULL,
+    to_amount bigint NOT NULL
+);
+
+
+--
+-- Name: TABLE sol_swaps; Type: COMMENT; Schema: public; Owner: -
+--
+
+COMMENT ON TABLE public.sol_swaps IS 'Stores eg. Jupiter swaps for tracked mints.';
+
+
+--
+-- Name: sol_token_account_balance_changes; Type: TABLE; Schema: public; Owner: -
+--
+
+CREATE TABLE public.sol_token_account_balance_changes (
+    signature character varying NOT NULL,
+    mint character varying NOT NULL,
+    owner character varying NOT NULL,
+    account character varying NOT NULL,
+    change bigint NOT NULL,
+    balance bigint NOT NULL,
+    slot bigint NOT NULL,
+    updated_at timestamp without time zone DEFAULT CURRENT_TIMESTAMP NOT NULL,
+    created_at timestamp without time zone DEFAULT CURRENT_TIMESTAMP NOT NULL,
+    block_timestamp timestamp without time zone NOT NULL
+);
+
+
+--
+-- Name: TABLE sol_token_account_balance_changes; Type: COMMENT; Schema: public; Owner: -
+--
+
+COMMENT ON TABLE public.sol_token_account_balance_changes IS 'Stores token balance changes for all accounts of tracked mints.';
+
+
+--
+-- Name: sol_token_account_balances; Type: TABLE; Schema: public; Owner: -
+--
+
+CREATE TABLE public.sol_token_account_balances (
+    account character varying NOT NULL,
+    mint character varying NOT NULL,
+    owner character varying NOT NULL,
+    balance bigint NOT NULL,
+    slot bigint NOT NULL,
+    updated_at timestamp without time zone DEFAULT CURRENT_TIMESTAMP NOT NULL,
+    created_at timestamp without time zone DEFAULT CURRENT_TIMESTAMP NOT NULL
+);
+
+
+--
+-- Name: TABLE sol_token_account_balances; Type: COMMENT; Schema: public; Owner: -
+--
+
+COMMENT ON TABLE public.sol_token_account_balances IS 'Stores current token balances for all accounts of tracked mints.';
+
+
+--
+-- Name: sol_token_transfers; Type: TABLE; Schema: public; Owner: -
+--
+
+CREATE TABLE public.sol_token_transfers (
+    signature character varying NOT NULL,
+    instruction_index integer NOT NULL,
+    amount bigint NOT NULL,
+    slot bigint NOT NULL,
+    from_account character varying NOT NULL,
+    to_account character varying NOT NULL
+);
+
+
+--
+-- Name: TABLE sol_token_transfers; Type: COMMENT; Schema: public; Owner: -
+--
+
+COMMENT ON TABLE public.sol_token_transfers IS 'Stores SPL token transfers for tracked mints.';
+
+
+--
 -- Name: sound_recordings; Type: TABLE; Schema: public; Owner: -
 --
 
@@ -7101,16 +7609,16 @@ CREATE TABLE public.supporter_rank_ups (
 --
 
 CREATE MATERIALIZED VIEW public.tag_track_user AS
- SELECT unnest(t.tags) AS tag,
-    t.track_id,
-    t.owner_id
+ SELECT unnest(tags) AS tag,
+    track_id,
+    owner_id
    FROM ( SELECT string_to_array(lower((tracks.tags)::text), ','::text) AS tags,
             tracks.track_id,
             tracks.owner_id
            FROM public.tracks
           WHERE (((tracks.tags)::text <> ''::text) AND (tracks.tags IS NOT NULL) AND (tracks.is_current IS TRUE) AND (tracks.is_unlisted IS FALSE) AND (tracks.stem_of IS NULL))
           ORDER BY tracks.updated_at DESC) t
-  GROUP BY (unnest(t.tags)), t.track_id, t.owner_id
+  GROUP BY (unnest(tags)), track_id, owner_id
   WITH NO DATA;
 
 
@@ -8001,11 +8509,43 @@ ALTER TABLE ONLY public.anti_abuse_blocked_users
 
 
 --
+-- Name: api_metrics_apps api_metrics_apps_pkey; Type: CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.api_metrics_apps
+    ADD CONSTRAINT api_metrics_apps_pkey PRIMARY KEY (date, api_key, app_name);
+
+
+--
+-- Name: api_metrics_counts api_metrics_counts_pkey; Type: CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.api_metrics_counts
+    ADD CONSTRAINT api_metrics_counts_pkey PRIMARY KEY (date);
+
+
+--
+-- Name: api_metrics_routes api_metrics_routes_pkey; Type: CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.api_metrics_routes
+    ADD CONSTRAINT api_metrics_routes_pkey PRIMARY KEY (date, route_pattern, method);
+
+
+--
 -- Name: app_name_metrics app_name_metrics_pkey; Type: CONSTRAINT; Schema: public; Owner: -
 --
 
 ALTER TABLE ONLY public.app_name_metrics
     ADD CONSTRAINT app_name_metrics_pkey PRIMARY KEY (id);
+
+
+--
+-- Name: artist_coins artist_coins_pkey; Type: CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.artist_coins
+    ADD CONSTRAINT artist_coins_pkey PRIMARY KEY (mint);
 
 
 --
@@ -8657,6 +9197,86 @@ ALTER TABLE ONLY public.sla_rollups
 
 
 --
+-- Name: sol_claimable_account_transfers sol_claimable_account_transfers_pkey; Type: CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.sol_claimable_account_transfers
+    ADD CONSTRAINT sol_claimable_account_transfers_pkey PRIMARY KEY (signature, instruction_index);
+
+
+--
+-- Name: sol_claimable_accounts sol_claimable_accounts_pkey; Type: CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.sol_claimable_accounts
+    ADD CONSTRAINT sol_claimable_accounts_pkey PRIMARY KEY (signature, instruction_index);
+
+
+--
+-- Name: sol_payments sol_payments_pkey; Type: CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.sol_payments
+    ADD CONSTRAINT sol_payments_pkey PRIMARY KEY (signature, instruction_index, route_index);
+
+
+--
+-- Name: sol_purchases sol_purchases_pkey; Type: CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.sol_purchases
+    ADD CONSTRAINT sol_purchases_pkey PRIMARY KEY (signature, instruction_index);
+
+
+--
+-- Name: sol_reward_disbursements sol_reward_disbursements_pkey; Type: CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.sol_reward_disbursements
+    ADD CONSTRAINT sol_reward_disbursements_pkey PRIMARY KEY (signature, instruction_index);
+
+
+--
+-- Name: sol_slot_checkpoints sol_slot_checkpoints_pkey; Type: CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.sol_slot_checkpoints
+    ADD CONSTRAINT sol_slot_checkpoints_pkey PRIMARY KEY (id);
+
+
+--
+-- Name: sol_swaps sol_swaps_pkey; Type: CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.sol_swaps
+    ADD CONSTRAINT sol_swaps_pkey PRIMARY KEY (signature, instruction_index);
+
+
+--
+-- Name: sol_token_account_balance_changes sol_token_account_balance_changes_pkey; Type: CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.sol_token_account_balance_changes
+    ADD CONSTRAINT sol_token_account_balance_changes_pkey PRIMARY KEY (signature, mint, account);
+
+
+--
+-- Name: sol_token_account_balances sol_token_account_balances_pkey; Type: CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.sol_token_account_balances
+    ADD CONSTRAINT sol_token_account_balances_pkey PRIMARY KEY (account);
+
+
+--
+-- Name: sol_token_transfers sol_token_transfers_pkey; Type: CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.sol_token_transfers
+    ADD CONSTRAINT sol_token_transfers_pkey PRIMARY KEY (signature, instruction_index);
+
+
+--
 -- Name: sound_recordings sound_recordings_pkey; Type: CONSTRAINT; Schema: public; Owner: -
 --
 
@@ -8801,6 +9421,14 @@ ALTER TABLE ONLY public.trending_results
 
 
 --
+-- Name: developer_apps unique_developer_apps_address; Type: CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.developer_apps
+    ADD CONSTRAINT unique_developer_apps_address UNIQUE (address);
+
+
+--
 -- Name: associated_wallets unique_user_wallet_chain; Type: CONSTRAINT; Schema: public; Owner: -
 --
 
@@ -8937,6 +9565,34 @@ ALTER TABLE ONLY public.users
 
 
 --
+-- Name: artist_coins_ticker_idx; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX artist_coins_ticker_idx ON public.artist_coins USING btree (ticker, user_id);
+
+
+--
+-- Name: INDEX artist_coins_ticker_idx; Type: COMMENT; Schema: public; Owner: -
+--
+
+COMMENT ON INDEX public.artist_coins_ticker_idx IS 'Used for getting mint address by ticker.';
+
+
+--
+-- Name: artist_coins_user_id_idx; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX artist_coins_user_id_idx ON public.artist_coins USING btree (user_id);
+
+
+--
+-- Name: INDEX artist_coins_user_id_idx; Type: COMMENT; Schema: public; Owner: -
+--
+
+COMMENT ON INDEX public.artist_coins_user_id_idx IS 'Used for getting coins minted by a particular artist.';
+
+
+--
 -- Name: blocks_is_current_idx; Type: INDEX; Schema: public; Owner: -
 --
 
@@ -8997,6 +9653,55 @@ CREATE INDEX idx_access_keys_track_id ON public.access_keys USING btree (track_i
 --
 
 CREATE INDEX idx_aggregate_user_follower_count ON public.aggregate_user USING btree (user_id, follower_count);
+
+
+--
+-- Name: idx_api_metrics_apps_api_key; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX idx_api_metrics_apps_api_key ON public.api_metrics_apps USING btree (api_key) WHERE (api_key IS NOT NULL);
+
+
+--
+-- Name: idx_api_metrics_apps_app_name; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX idx_api_metrics_apps_app_name ON public.api_metrics_apps USING btree (app_name) WHERE (app_name IS NOT NULL);
+
+
+--
+-- Name: idx_api_metrics_apps_date; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX idx_api_metrics_apps_date ON public.api_metrics_apps USING btree (date);
+
+
+--
+-- Name: idx_api_metrics_counts_date; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX idx_api_metrics_counts_date ON public.api_metrics_counts USING btree (date);
+
+
+--
+-- Name: idx_api_metrics_routes_date; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX idx_api_metrics_routes_date ON public.api_metrics_routes USING btree (date);
+
+
+--
+-- Name: idx_api_metrics_routes_method; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX idx_api_metrics_routes_method ON public.api_metrics_routes USING btree (method);
+
+
+--
+-- Name: idx_api_metrics_routes_route_pattern; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX idx_api_metrics_routes_route_pattern ON public.api_metrics_routes USING btree (route_pattern);
 
 
 --
@@ -9347,6 +10052,13 @@ CREATE INDEX idx_track_status ON public.tracks USING btree (track_id, is_unliste
 --
 
 CREATE INDEX idx_tracks_stream_conditions_gin ON public.tracks USING gin (stream_conditions);
+
+
+--
+-- Name: idx_tts_genre_time_score; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX idx_tts_genre_time_score ON public.track_trending_scores USING btree (genre, time_range, score DESC, track_id);
 
 
 --
@@ -9791,6 +10503,300 @@ CREATE INDEX sla_auditor_version_data_nodeendpoint_index ON public.sla_auditor_v
 
 
 --
+-- Name: sol_claimable_account_transfers_from_idx; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX sol_claimable_account_transfers_from_idx ON public.sol_claimable_account_transfers USING btree (from_account);
+
+
+--
+-- Name: INDEX sol_claimable_account_transfers_from_idx; Type: COMMENT; Schema: public; Owner: -
+--
+
+COMMENT ON INDEX public.sol_claimable_account_transfers_from_idx IS 'Used for getting transfers by recipient.';
+
+
+--
+-- Name: sol_claimable_account_transfers_sender_eth_address_idx; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX sol_claimable_account_transfers_sender_eth_address_idx ON public.sol_claimable_account_transfers USING btree (sender_eth_address);
+
+
+--
+-- Name: INDEX sol_claimable_account_transfers_sender_eth_address_idx; Type: COMMENT; Schema: public; Owner: -
+--
+
+COMMENT ON INDEX public.sol_claimable_account_transfers_sender_eth_address_idx IS 'Used for getting transfers by sender user wallet.';
+
+
+--
+-- Name: sol_claimable_account_transfers_to_idx; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX sol_claimable_account_transfers_to_idx ON public.sol_claimable_account_transfers USING btree (to_account);
+
+
+--
+-- Name: INDEX sol_claimable_account_transfers_to_idx; Type: COMMENT; Schema: public; Owner: -
+--
+
+COMMENT ON INDEX public.sol_claimable_account_transfers_to_idx IS 'Used for getting transfers by sender.';
+
+
+--
+-- Name: sol_claimable_accounts_account_idx; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX sol_claimable_accounts_account_idx ON public.sol_claimable_accounts USING btree (account);
+
+
+--
+-- Name: INDEX sol_claimable_accounts_account_idx; Type: COMMENT; Schema: public; Owner: -
+--
+
+COMMENT ON INDEX public.sol_claimable_accounts_account_idx IS 'Used for getting user wallet by account.';
+
+
+--
+-- Name: sol_claimable_accounts_ethereum_address_idx; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX sol_claimable_accounts_ethereum_address_idx ON public.sol_claimable_accounts USING btree (ethereum_address, mint);
+
+
+--
+-- Name: INDEX sol_claimable_accounts_ethereum_address_idx; Type: COMMENT; Schema: public; Owner: -
+--
+
+COMMENT ON INDEX public.sol_claimable_accounts_ethereum_address_idx IS 'Used for getting account by user wallet and mint.';
+
+
+--
+-- Name: sol_payments_to_account; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX sol_payments_to_account ON public.sol_payments USING btree (to_account);
+
+
+--
+-- Name: INDEX sol_payments_to_account; Type: COMMENT; Schema: public; Owner: -
+--
+
+COMMENT ON INDEX public.sol_payments_to_account IS 'Used for getting payments to a particular user.';
+
+
+--
+-- Name: sol_purchases_buyer_user_id_idx; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX sol_purchases_buyer_user_id_idx ON public.sol_purchases USING btree (buyer_user_id, is_valid);
+
+
+--
+-- Name: INDEX sol_purchases_buyer_user_id_idx; Type: COMMENT; Schema: public; Owner: -
+--
+
+COMMENT ON INDEX public.sol_purchases_buyer_user_id_idx IS 'Used for getting purchases by a user.';
+
+
+--
+-- Name: sol_purchases_content_idx; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX sol_purchases_content_idx ON public.sol_purchases USING btree (content_id, content_type, access_type, is_valid);
+
+
+--
+-- Name: INDEX sol_purchases_content_idx; Type: COMMENT; Schema: public; Owner: -
+--
+
+COMMENT ON INDEX public.sol_purchases_content_idx IS 'Used for getting sales of particular content.';
+
+
+--
+-- Name: sol_purchases_from_account_idx; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX sol_purchases_from_account_idx ON public.sol_purchases USING btree (from_account, is_valid);
+
+
+--
+-- Name: INDEX sol_purchases_from_account_idx; Type: COMMENT; Schema: public; Owner: -
+--
+
+COMMENT ON INDEX public.sol_purchases_from_account_idx IS 'Used for getting purchases by a user via their account.';
+
+
+--
+-- Name: sol_purchases_valid_idx; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX sol_purchases_valid_idx ON public.sol_purchases USING btree (is_valid, valid_after_blocknumber);
+
+
+--
+-- Name: INDEX sol_purchases_valid_idx; Type: COMMENT; Schema: public; Owner: -
+--
+
+COMMENT ON INDEX public.sol_purchases_valid_idx IS 'Used for updating purchases to be valid after the specified blocknumber is reached.';
+
+
+--
+-- Name: sol_reward_disbursements_challenge_idx; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX sol_reward_disbursements_challenge_idx ON public.sol_reward_disbursements USING btree (challenge_id, specifier);
+
+
+--
+-- Name: INDEX sol_reward_disbursements_challenge_idx; Type: COMMENT; Schema: public; Owner: -
+--
+
+COMMENT ON INDEX public.sol_reward_disbursements_challenge_idx IS 'Used for getting reward disbursements for a specific challenge type or claim.';
+
+
+--
+-- Name: sol_reward_disbursements_user_bank_idx; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX sol_reward_disbursements_user_bank_idx ON public.sol_reward_disbursements USING btree (user_bank);
+
+
+--
+-- Name: INDEX sol_reward_disbursements_user_bank_idx; Type: COMMENT; Schema: public; Owner: -
+--
+
+COMMENT ON INDEX public.sol_reward_disbursements_user_bank_idx IS 'Used for getting reward disbursements for a user.';
+
+
+--
+-- Name: sol_slot_checkpoints_from_slot_idx; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX sol_slot_checkpoints_from_slot_idx ON public.sol_slot_checkpoints USING btree (subscription_hash, from_slot);
+
+
+--
+-- Name: sol_slot_checkpoints_to_slot_idx; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX sol_slot_checkpoints_to_slot_idx ON public.sol_slot_checkpoints USING btree (subscription_hash, to_slot);
+
+
+--
+-- Name: sol_swaps_from_account_idx; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX sol_swaps_from_account_idx ON public.sol_swaps USING btree (from_account);
+
+
+--
+-- Name: sol_swaps_from_mint_idx; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX sol_swaps_from_mint_idx ON public.sol_swaps USING btree (from_mint);
+
+
+--
+-- Name: sol_swaps_to_account_idx; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX sol_swaps_to_account_idx ON public.sol_swaps USING btree (to_account);
+
+
+--
+-- Name: sol_swaps_to_mint_idx; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX sol_swaps_to_mint_idx ON public.sol_swaps USING btree (to_mint);
+
+
+--
+-- Name: sol_token_account_balance_changes_account_idx; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX sol_token_account_balance_changes_account_idx ON public.sol_token_account_balance_changes USING btree (account, slot);
+
+
+--
+-- Name: INDEX sol_token_account_balance_changes_account_idx; Type: COMMENT; Schema: public; Owner: -
+--
+
+COMMENT ON INDEX public.sol_token_account_balance_changes_account_idx IS 'Used for getting recent transactions by account.';
+
+
+--
+-- Name: sol_token_account_balance_changes_block_timestamp; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX sol_token_account_balance_changes_block_timestamp ON public.sol_token_account_balance_changes USING btree (block_timestamp DESC, mint);
+
+
+--
+-- Name: INDEX sol_token_account_balance_changes_block_timestamp; Type: COMMENT; Schema: public; Owner: -
+--
+
+COMMENT ON INDEX public.sol_token_account_balance_changes_block_timestamp IS 'Used for finding member count from > 24hrs ago.';
+
+
+--
+-- Name: sol_token_account_balance_changes_mint_idx; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX sol_token_account_balance_changes_mint_idx ON public.sol_token_account_balance_changes USING btree (mint, slot);
+
+
+--
+-- Name: INDEX sol_token_account_balance_changes_mint_idx; Type: COMMENT; Schema: public; Owner: -
+--
+
+COMMENT ON INDEX public.sol_token_account_balance_changes_mint_idx IS 'Used for getting recent transactions by mint.';
+
+
+--
+-- Name: sol_token_account_balance_changes_owner_slot_idx; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX sol_token_account_balance_changes_owner_slot_idx ON public.sol_token_account_balance_changes USING btree (owner, slot DESC);
+
+
+--
+-- Name: INDEX sol_token_account_balance_changes_owner_slot_idx; Type: COMMENT; Schema: public; Owner: -
+--
+
+COMMENT ON INDEX public.sol_token_account_balance_changes_owner_slot_idx IS 'Used for associating connected wallets with the transaction.';
+
+
+--
+-- Name: sol_token_account_balances_mint_idx; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX sol_token_account_balances_mint_idx ON public.sol_token_account_balances USING btree (mint);
+
+
+--
+-- Name: INDEX sol_token_account_balances_mint_idx; Type: COMMENT; Schema: public; Owner: -
+--
+
+COMMENT ON INDEX public.sol_token_account_balances_mint_idx IS 'Used for getting current balances by mint.';
+
+
+--
+-- Name: sol_token_transfers_from_account_idx; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX sol_token_transfers_from_account_idx ON public.sol_token_transfers USING btree (from_account);
+
+
+--
+-- Name: sol_token_transfers_to_account_idx; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX sol_token_transfers_to_account_idx ON public.sol_token_transfers USING btree (to_account);
+
+
+--
 -- Name: tag_track_user_idx; Type: INDEX; Schema: public; Owner: -
 --
 
@@ -9917,6 +10923,20 @@ CREATE INDEX users_new_wallet_idx ON public.users USING btree (wallet);
 
 
 --
+-- Name: artist_coins on_artist_coins_change; Type: TRIGGER; Schema: public; Owner: -
+--
+
+CREATE TRIGGER on_artist_coins_change AFTER INSERT OR DELETE OR UPDATE ON public.artist_coins FOR EACH ROW EXECUTE FUNCTION public.handle_artist_coins_change();
+
+
+--
+-- Name: TRIGGER on_artist_coins_change ON artist_coins; Type: COMMENT; Schema: public; Owner: -
+--
+
+COMMENT ON TRIGGER on_artist_coins_change ON public.artist_coins IS 'Notifies when artist coins are added, removed, or updated.';
+
+
+--
 -- Name: challenge_disbursements on_challenge_disbursement; Type: TRIGGER; Schema: public; Owner: -
 --
 
@@ -9991,6 +11011,20 @@ CREATE TRIGGER on_save AFTER INSERT ON public.saves FOR EACH ROW EXECUTE FUNCTIO
 --
 
 CREATE TRIGGER on_share AFTER INSERT ON public.shares FOR EACH ROW EXECUTE FUNCTION public.handle_share();
+
+
+--
+-- Name: sol_token_account_balance_changes on_sol_token_account_balance_changes; Type: TRIGGER; Schema: public; Owner: -
+--
+
+CREATE TRIGGER on_sol_token_account_balance_changes AFTER INSERT ON public.sol_token_account_balance_changes FOR EACH ROW EXECUTE FUNCTION public.handle_sol_token_balance_change();
+
+
+--
+-- Name: TRIGGER on_sol_token_account_balance_changes ON sol_token_account_balance_changes; Type: COMMENT; Schema: public; Owner: -
+--
+
+COMMENT ON TRIGGER on_sol_token_account_balance_changes ON public.sol_token_account_balance_changes IS 'Updates sol_token_account_balances whenever a sol_token_balance_change is inserted with a higher slot.';
 
 
 --

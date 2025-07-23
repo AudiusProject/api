@@ -6,6 +6,7 @@ import (
 	"time"
 
 	"bridgerton.audius.co/api/dbv1"
+	"bridgerton.audius.co/database"
 	"bridgerton.audius.co/trashid"
 	"github.com/stretchr/testify/assert"
 )
@@ -53,7 +54,7 @@ func TestExploreBestSelling(t *testing.T) {
 	albums[2]["is_delete"] = true
 	albums[3]["is_private"] = true
 
-	fixtures := FixtureMap{
+	fixtures := database.FixtureMap{
 		"users":     users,
 		"tracks":    tracks,
 		"playlists": albums,
@@ -277,7 +278,7 @@ func TestExploreBestSelling(t *testing.T) {
 		},
 	}
 
-	createFixtures(app, fixtures)
+	database.Seed(app.pool, fixtures)
 
 	{
 		var BestSellingResponse struct {

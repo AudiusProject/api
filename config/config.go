@@ -11,6 +11,7 @@ import (
 
 type Config struct {
 	Env                string
+	Git                string
 	LogLevel           string
 	ReadDbUrl          string
 	WriteDbUrl         string
@@ -28,9 +29,11 @@ type Config struct {
 	Rewards            []rewards.Reward
 	AudiusdURL         string
 	ChainId            string
+	BirdeyeToken       string
 }
 
 var Cfg = Config{
+	Git:                os.Getenv("GIT_SHA"),
 	Env:                os.Getenv("ENV"),
 	LogLevel:           os.Getenv("logLevel"),
 	ReadDbUrl:          os.Getenv("readDbUrl"),
@@ -42,6 +45,7 @@ var Cfg = Config{
 	AxiomDataset:       os.Getenv("axiomDataset"),
 	NetworkTakeRate:    10,
 	AudiusdURL:         os.Getenv("audiusdUrl"),
+	BirdeyeToken:       os.Getenv("birdeyeToken"),
 }
 
 func init() {
