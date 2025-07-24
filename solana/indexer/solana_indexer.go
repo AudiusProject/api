@@ -3,7 +3,6 @@ package indexer
 import (
 	"context"
 	"fmt"
-	"time"
 
 	"bridgerton.audius.co/config"
 	"bridgerton.audius.co/logging"
@@ -47,9 +46,8 @@ type SolanaIndexer struct {
 	grpcClient GrpcClient
 	processor  Processor
 
-	config      config.Config
-	pool        DbPool
-	flushTicker *time.Ticker
+	config config.Config
+	pool   DbPool
 
 	checkpointId string
 
@@ -80,12 +78,11 @@ func New(config config.Config) *SolanaIndexer {
 	})
 
 	s := &SolanaIndexer{
-		rpcClient:   rpcClient,
-		grpcClient:  grpcClient,
-		logger:      logger,
-		config:      config,
-		pool:        pool,
-		flushTicker: time.NewTicker(time.Second * 15),
+		rpcClient:  rpcClient,
+		grpcClient: grpcClient,
+		logger:     logger,
+		config:     config,
+		pool:       pool,
 		processor: NewDefaultProcessor(
 			rpcClient,
 			pool,
@@ -93,28 +90,13 @@ func New(config config.Config) *SolanaIndexer {
 		),
 	}
 
-	go func() {
-		for range s.flushTicker.C {
-			s.syncLogs()
-		}
-	}()
-
 	return s
-}
-
-func (s *SolanaIndexer) syncLogs() {
-	err := s.logger.Sync()
-	if err != nil {
-		s.logger.Error("failed to sync logger", zap.Error(err))
-	}
 }
 
 func (s *SolanaIndexer) Close() {
 	if p, ok := s.processor.(*DefaultProcessor); ok {
 		p.ReportCacheStats(s.logger)
 	}
-	s.syncLogs()
-	s.flushTicker.Stop()
 	s.grpcClient.Close()
 	s.pool.Close()
 }
