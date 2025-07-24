@@ -104,10 +104,6 @@ func New(config config.Config) *SolanaIndexer {
 }
 
 func (s *SolanaIndexer) syncLogs() {
-	if p, ok := s.processor.(*DefaultProcessor); ok {
-		p.ReportCacheStats(s.logger)
-	}
-
 	err := s.logger.Sync()
 	if err != nil {
 		s.logger.Error("failed to sync logger", zap.Error(err))
@@ -115,6 +111,9 @@ func (s *SolanaIndexer) syncLogs() {
 }
 
 func (s *SolanaIndexer) Close() {
+	if p, ok := s.processor.(*DefaultProcessor); ok {
+		p.ReportCacheStats(s.logger)
+	}
 	s.syncLogs()
 	s.flushTicker.Stop()
 	s.grpcClient.Close()
