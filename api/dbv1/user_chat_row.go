@@ -50,7 +50,7 @@ func (row UserChatRow) MarshalJSON() ([]byte, error) {
 
 	recheckPermissions := false
 	for _, member := range row.ChatMembers {
-		if member.ClearedHistoryAt.Valid && member.ClearedHistoryAt.Time.After(row.LastMessageAt) {
+		if member.ClearedHistoryAt.Valid && (row.LastMessageAt == nil || member.ClearedHistoryAt.Time.After(*row.LastMessageAt)) {
 			recheckPermissions = true
 		}
 	}

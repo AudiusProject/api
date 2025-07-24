@@ -159,8 +159,18 @@ func (app *ApiServer) getChats(c *fiber.Ctx) error {
 	}
 
 	if len(rows) > 0 {
-		beforeCursorPos = rows[len(rows)-1].LastMessageAt
-		afterCursorPos = rows[0].LastMessageAt
+		lastRow := rows[len(rows)-1]
+		if lastRow.LastMessageAt != nil {
+			beforeCursorPos = *lastRow.LastMessageAt
+		} else {
+			beforeCursorPos = lastRow.CreatedAt
+		}
+		firstRow := rows[0]
+		if firstRow.LastMessageAt != nil {
+			afterCursorPos = *firstRow.LastMessageAt
+		} else {
+			afterCursorPos = firstRow.CreatedAt
+		}
 	}
 	summaryRaw, err := app.pool.Query(c.Context(), sqlSummary, pgx.NamedArgs{
 		"user_id": userId,
