@@ -54,6 +54,11 @@ func NewZapLogger(config config.Config) *zap.Logger {
 				axiom.SetOrganizationID("audius-Lu52"),
 			),
 			adapter.SetDataset(config.AxiomDataset),
+			adapter.SetLevelEnabler(
+				zap.LevelEnablerFunc(func(lvl zapcore.Level) bool {
+					return lvl >= level
+				}),
+			),
 		)
 		if err != nil {
 			panic(err)
@@ -76,7 +81,13 @@ func SyncOnTicks(ctx context.Context, logger *zap.Logger, tickDuration time.Dura
 			return ctx.Err()
 		case <-ticker.C:
 			if err := logger.Sync(); err != nil {
-				logger.Error("failed to sync logger on tick", zap.Error(err))
+				// This specific error occurs when running in a container
+				// where /dev/stdout is not a valid file descriptor.
+				// We can ignore it since it doesn't affect logging to Axiom.
+				// See: https://github.com/uber-go/zap/issues/328#issuecomment-284337436
+				if err != os.ErrInvalid {
+					logger.Error("failed to sync logger on tick", zap.Error(err))
+				}
 			}
 		}
 	}
