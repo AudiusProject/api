@@ -1,7 +1,9 @@
 package logging
 
 import (
+	"context"
 	"os"
+	"time"
 
 	"bridgerton.audius.co/config"
 	adapter "github.com/axiomhq/axiom-go/adapters/zap"
@@ -62,4 +64,20 @@ func NewZapLogger(config config.Config) *zap.Logger {
 
 	logger := zap.New(core)
 	return logger
+}
+
+func SyncOnTicks(ctx context.Context, logger *zap.Logger, tickDuration time.Duration) error {
+	ticker := time.NewTicker(tickDuration)
+	defer ticker.Stop()
+
+	for {
+		select {
+		case <-ctx.Done():
+			return ctx.Err()
+		case <-ticker.C:
+			if err := logger.Sync(); err != nil {
+				logger.Error("failed to sync logger on tick", zap.Error(err))
+			}
+		}
+	}
 }

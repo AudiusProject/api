@@ -7,6 +7,7 @@ import (
 	"strings"
 	"time"
 
+	"bridgerton.audius.co/logging"
 	"github.com/gagliardetto/solana-go"
 	pb "github.com/rpcpool/yellowstone-grpc/examples/golang/proto"
 	"go.uber.org/zap"
@@ -23,6 +24,7 @@ type artistCoinsChangedNotification struct {
 }
 
 func (s *SolanaIndexer) Subscribe(ctx context.Context) error {
+	go logging.SyncOnTicks(ctx, s.logger, time.Second*15)
 	conn, err := s.pool.Acquire(ctx)
 	if err != nil {
 		return fmt.Errorf("failed to acquire database connection: %w", err)
