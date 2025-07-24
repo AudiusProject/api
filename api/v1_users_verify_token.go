@@ -61,8 +61,12 @@ func (app *ApiServer) v1UsersVerifyToken(c *fiber.Ctx) error {
 	finalHash := crypto.Keccak256Hash(prefixedMessage)
 
 	if len(signatureBytes) != 65 {
-		return fiber.NewError(fiber.StatusBadRequest, "The JWT signature could not be decoded")
+		return fiber.NewError(fiber.StatusBadRequest, "The JWT signature was incorrectly signed")
 	}
+	// Ethereum signatures are 65 bytes long, with the last byte being the recovery ID.
+	// The recovery ID is 0 or 1, and is used to determine which public key was used to sign the message.
+	// The recovery ID is 27 or 28, and is used to determine which public key was used to sign the message.
+	// We need to subtract 27 from the recovery ID to get the correct public key.
 	if signatureBytes[64] >= 27 {
 		signatureBytes[64] -= 27
 	}
@@ -88,7 +92,7 @@ func (app *ApiServer) v1UsersVerifyToken(c *fiber.Ctx) error {
 
 	var payload map[string]interface{}
 	if err := json.Unmarshal(stringifiedPayload, &payload); err != nil {
-		return fiber.NewError(fiber.StatusBadRequest, "JWT payload could not be decoded")
+		return fiber.NewError(fiber.StatusBadRequest, "JWT payload could not be unmarshalled")
 	}
 
 	// Convert numeric fields to strings to match legacy behavior
