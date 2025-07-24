@@ -328,6 +328,7 @@ func NewApiServer(config config.Config) *ApiServer {
 		g.Get("/users/handle/:handle/albums", app.v1UserAlbums)
 		g.Get("/users/handle/:handle/playlists", app.v1UserPlaylists)
 		g.Get("/users/handle/:handle/tracks/ai_attributed", app.v1UserTracksAiAttributed)
+		g.Get("/users/handle/:handle/tracks/ai-attributed", app.v1UserTracksAiAttributed)
 		g.Get("/users/handle/:handle/reposts", app.v1UsersReposts)
 
 		g.Use("/users/:userId", app.requireUserIdMiddleware)
@@ -372,6 +373,7 @@ func NewApiServer(config config.Config) *ApiServer {
 		g.Get("/users/:userId/coins", app.v1UsersCoins)
 		g.Get("/users/:userId/coins/:mint", app.v1UsersCoin)
 		g.Get("/users/:userId/authorized_apps", app.v1UsersAuthorizedApps)
+		g.Get("/users/:userId/authorized-apps", app.v1UsersAuthorizedApps)
 
 		// Tracks
 		g.Get("/tracks", app.v1Tracks)
@@ -400,16 +402,21 @@ func NewApiServer(config config.Config) *ApiServer {
 		g.Get("/tracks/:trackId/favorites", app.v1TrackFavorites)
 		g.Get("/tracks/:trackId/comments", app.v1TrackComments)
 		g.Get("/tracks/:trackId/comment_count", app.v1TrackCommentCount)
+		g.Get("/tracks/:trackId/comment-count", app.v1TrackCommentCount)
 		g.Get("/tracks/:trackId/comment_notification_setting", app.v1TrackCommentNotificationSetting)
+		g.Get("/tracks/:trackId/comment-notification-setting", app.v1TrackCommentNotificationSetting)
 		g.Get("/tracks/:trackId/remixing", app.v1TrackRemixing)
 		g.Get("/tracks/:trackId/top_listeners", app.v1TrackTopListeners)
+		g.Get("/tracks/:trackId/top-listeners", app.v1TrackTopListeners)
 
 		// Playlists
 		g.Get("/playlists", app.v1Playlists)
 		g.Get("/playlists/search", app.v1PlaylistsSearch)
 		g.Get("/playlists/unclaimed_id", app.v1PlaylistsUnclaimedId)
+		g.Get("/playlists/unclaimed-id", app.v1PlaylistsUnclaimedId)
 		g.Get("/playlists/trending", app.v1PlaylistsTrending)
 		g.Get("/playlists/by_permalink/:handle/:slug", app.v1PlaylistByPermalink)
+		g.Get("/playlists/by-permalink/:handle/:slug", app.v1PlaylistByPermalink)
 
 		g.Use("/playlists/:playlistId", app.requirePlaylistIdMiddleware)
 		g.Get("/playlists/:playlistId", app.v1Playlist)
@@ -427,6 +434,7 @@ func NewApiServer(config config.Config) *ApiServer {
 
 		// Developer Apps
 		g.Get("/developer_apps/:address", app.v1DeveloperApps)
+		g.Get("/developer-apps/:address", app.v1DeveloperApps)
 
 		// Rewards
 		g.Post("/rewards/claim", app.v1ClaimRewards)
@@ -436,10 +444,12 @@ func NewApiServer(config config.Config) *ApiServer {
 
 		// Comments
 		g.Get("/comments/unclaimed_id", app.v1CommentsUnclaimedId)
+		g.Get("/comments/unclaimed-id", app.v1CommentsUnclaimedId)
 		g.Get("/comments/:commentId", app.v1Comment)
 
 		// Events
 		g.Get("/events/unclaimed_id", app.v1EventsUnclaimedId)
+		g.Get("/events/unclaimed-id", app.v1EventsUnclaimedId)
 		g.Get("/events", app.v1Events)
 		g.Get("/events/all", app.v1Events)
 		g.Get("/events/entity", app.v1Events)
@@ -499,6 +509,7 @@ func NewApiServer(config config.Config) *ApiServer {
 
 	// Block confirmation
 	app.Get("/block_confirmation", app.BlockConfirmation)
+	app.Get("/block-confirmation", app.BlockConfirmation)
 
 	// Solana health
 	app.Get("/solana/health", app.solanaHealth)

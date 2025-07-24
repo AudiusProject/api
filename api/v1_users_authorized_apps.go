@@ -9,7 +9,7 @@ import (
 )
 
 type GetUsersAuthorizedAppsQueryParams struct {
-	Limit  int `query:"limit" default:"50" validate:"min=1,max=100"`
+	Limit  int `query:"limit" default:"10" validate:"min=1,max=100"`
 	Offset int `query:"offset" default:"0" validate:"min=0"`
 }
 
@@ -42,14 +42,9 @@ func (app *ApiServer) v1UsersAuthorizedApps(c *fiber.Ctx) error {
 	start := queryParams.Offset
 	end := queryParams.Offset + queryParams.Limit
 
-	for i, row := range rows {
-		if i < start {
-			continue
-		}
-		if i >= end {
-			break
-		}
-
+	authorizedApps = make([]UserAuthorizedApp, 0, queryParams.Limit)
+	for i := start; i < end && i < len(rows); i++ {
+		row := rows[i]
 		grantorUserID, err := trashid.EncodeHashId(int(row.GrantorUserID))
 		if err != nil {
 			return err
