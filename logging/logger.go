@@ -54,8 +54,12 @@ func NewZapLogger(config config.Config) *zap.Logger {
 				axiom.SetOrganizationID("audius-Lu52"),
 			),
 			adapter.SetDataset(config.AxiomDataset),
+			adapter.SetLevelEnabler(
+				zap.LevelEnablerFunc(func(lvl zapcore.Level) bool {
+					return lvl >= level
+				}),
+			),
 		)
-		axiomAdapter.Enabled(zap.InfoLevel)
 		if err != nil {
 			panic(err)
 		}
