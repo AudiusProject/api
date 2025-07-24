@@ -2,6 +2,7 @@ package logging
 
 import (
 	"context"
+	"errors"
 	"os"
 	"time"
 
@@ -85,7 +86,7 @@ func SyncOnTicks(ctx context.Context, logger *zap.Logger, tickDuration time.Dura
 				// where /dev/stdout is not a valid file descriptor.
 				// We can ignore it since it doesn't affect logging to Axiom.
 				// See: https://github.com/uber-go/zap/issues/328#issuecomment-284337436
-				if err != os.ErrInvalid {
+				if !errors.Is(err, os.ErrInvalid) {
 					logger.Error("failed to sync logger on tick", zap.Error(err))
 				}
 			}
