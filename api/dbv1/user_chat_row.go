@@ -11,8 +11,8 @@ import (
 type UserChatRow struct {
 	ChatID                 string            `db:"chat_id" json:"chat_id"`
 	CreatedAt              time.Time         `db:"created_at" json:"created_at"`
-	LastMessage            string            `db:"last_message" json:"last_message"`
-	LastMessageAt          time.Time         `db:"last_message_at" json:"last_message_at"`
+	LastMessage            *string           `db:"last_message" json:"last_message"`
+	LastMessageAt          *time.Time        `db:"last_message_at" json:"last_message_at"`
 	LastMessageIsPlaintext bool              `db:"last_message_is_plaintext" json:"last_message_is_plaintext"`
 	InviteCode             string            `db:"invite_code" json:"invite_code"`
 	LastActiveAt           sql.NullTime      `db:"last_active_at" json:"last_read_at"`
