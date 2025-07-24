@@ -73,13 +73,10 @@ func SyncOnTicks(ctx context.Context, logger *zap.Logger, tickDuration time.Dura
 	for {
 		select {
 		case <-ctx.Done():
-			if err := logger.Sync(); err != nil {
-				logger.Error("failed to sync logger on context done", zap.Error(err))
-			}
 			return ctx.Err()
 		case <-ticker.C:
 			if err := logger.Sync(); err != nil {
-				logger.Error("failed to sync logger", zap.Error(err))
+				logger.Error("failed to sync logger on tick", zap.Error(err))
 			}
 		}
 	}
