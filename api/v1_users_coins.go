@@ -108,7 +108,10 @@ func (app *ApiServer) v1UsersCoins(c *fiber.Ctx) error {
 			balances_with_prices.balance,
 			balances_with_prices.balance_usd
 		FROM balances_with_prices
-		ORDER BY balances_with_prices.balance_usd DESC, balances_with_prices.mint ASC
+		ORDER BY
+			balances_with_prices.ticker = '$AUDIO' DESC,
+			balances_with_prices.balance_usd DESC,
+			balances_with_prices.mint ASC
 		LIMIT @limit
 		OFFSET @offset
 	;`
