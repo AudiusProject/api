@@ -93,9 +93,8 @@ func New(config config.Config) *SolanaIndexer {
 		),
 	}
 
-	flushTicker := time.NewTicker(time.Second * 15)
 	go func() {
-		for range flushTicker.C {
+		for range s.flushTicker.C {
 			s.syncLogs()
 		}
 	}()
