@@ -4159,6 +4159,7 @@ components:
           $ref: '#/components/schemas/decoded_user_token'
     decoded_user_token:
       required:
+      - apiKey
       - email
       - handle
       - iat
@@ -4168,6 +4169,8 @@ components:
       - verified
       type: object
       properties:
+        apiKey:
+          type: string
         userId:
           type: string
         email:
