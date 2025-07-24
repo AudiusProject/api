@@ -10167,7 +10167,6 @@ components:
           $ref: '#/components/schemas/comment_notification_action_data'
     comment_notification_action_data:
       required:
-      - comment_id
       - comment_user_id
       - entity_id
       - type
@@ -10224,7 +10223,6 @@ components:
           $ref: '#/components/schemas/comment_thread_notification_action_data'
     comment_thread_notification_action_data:
       required:
-      - comment_id
       - comment_user_id
       - entity_id
       - entity_user_id
@@ -10284,7 +10282,6 @@ components:
           $ref: '#/components/schemas/comment_mention_notification_action_data'
     comment_mention_notification_action_data:
       required:
-      - comment_id
       - comment_user_id
       - entity_id
       - entity_user_id
@@ -10344,7 +10341,6 @@ components:
           $ref: '#/components/schemas/comment_reaction_notification_action_data'
     comment_reaction_notification_action_data:
       required:
-      - comment_id
       - entity_id
       - entity_user_id
       - reacter_user_id
