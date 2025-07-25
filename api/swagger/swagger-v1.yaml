@@ -5266,6 +5266,7 @@ components:
       required:
         - mint
         - ticker
+        - decimals
         - balance
         - balance_usd
       type: object
@@ -5278,6 +5279,10 @@ components:
           type: string
           description: The coin symbol
           example: "$AUDIO"
+        decimals:
+          type: integer
+          description: The number of decimals for the coin
+          example: 8
         balance:
           type: integer
           description: The balance of the coin in the user's account (in wei)
@@ -5298,15 +5303,30 @@ components:
     user_coin_with_accounts:
       type: object
       required:
-        - totalBalance
-        - totalBalanceUSD
+        - mint
+        - ticker
+        - decimals
+        - balance
+        - balance_usd
         - accounts
       properties:
-        totalBalance: 
+        mint:
+          type: string
+          description: The coin mint address
+          example: "9LzCMqDgTKYz9Drzqnpgee3SGa89up3a247ypMj2xrqM"
+        ticker:
+          type: string
+          description: The coin symbol
+          example: "$AUDIO"
+        decimals:
+          type: integer
+          description: The number of decimals for the coin
+          example: 8
+        balance:
           type: integer
           description: The total balance of the coin in the user's account (in wei)
           example: 1000000000
-        totalBalanceUSD:
+        balance_usd:
           type: number
           description: The total balance of the coin in the user's account in USD
           example: 1.23

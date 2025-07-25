@@ -22,6 +22,7 @@ type GetArtistCoinsQueryParams struct {
 type ArtistCoin struct {
 	Ticker                  string                 `json:"ticker"`
 	Mint                    string                 `json:"mint"`
+	Decimals                int                    `json:"decimals"`
 	OwnerId                 trashid.HashId         `db:"user_id" json:"owner_id"`
 	Members                 int                    `json:"members"`
 	Members24hChangePercent *float64               `json:"members_24h_change_percent"`
@@ -150,6 +151,7 @@ func (app *ApiServer) v1Coins(c *fiber.Ctx) error {
 		SELECT 
 			artist_coins.ticker,
 			artist_coins.mint,
+			artist_coins.decimals,
 			artist_coins.user_id,
 			artist_coins.created_at,
 			COALESCE(members.count, 0) AS members,
