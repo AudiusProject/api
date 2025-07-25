@@ -1,3 +1,5 @@
+-- Migrates old AUDIO tables to new Solana tables that are mint agnostic.
+
 -- user_bank_accounts => sol_claimable_accounts ~1min
 INSERT INTO sol_claimable_accounts 
 	(signature, instruction_index, slot, mint, ethereum_address, account)
@@ -34,7 +36,22 @@ JOIN users AS to_users
 JOIN user_bank_accounts AS to_user_banks
 	ON to_users.wallet = to_user_banks.ethereum_address
 ON CONFLICT DO NOTHING;
-
+	
+-- challenge_disbursements => sol_reward_disbursements ~45s
+INSERT INTO sol_reward_disbursements
+	(signature, instruction_index, amount, slot, user_bank, challenge_id, specifier)
+SELECT
+	challenge_disbursements.signature,
+	0 AS instruction_index, -- not true in all cases, but good enough
+	amount::bigint,
+	challenge_disbursements.slot,
+	user_bank_accounts.bank_account as user_bank,
+	challenge_id,
+	specifier
+FROM challenge_disbursements
+JOIN users ON users.user_id = challenge_disbursements.user_id
+JOIN user_bank_accounts ON user_bank_accounts.ethereum_address = users.wallet
+ON CONFLICT DO NOTHING;
 
 -- audio_transactions_history => sol_token_account_balance_changes ~1min
 INSERT INTO sol_token_account_balance_changes
@@ -50,4 +67,5 @@ SELECT
 	updated_at,
 	created_at,
 	transaction_created_at AS block_timestamp
-FROM audio_transactions_history;	
+FROM audio_transactions_history
+ON CONFLICT DO NOTHING;
