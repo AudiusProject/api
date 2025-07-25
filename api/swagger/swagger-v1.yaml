@@ -5326,7 +5326,7 @@ components:
           type: integer
           description: The total balance of the coin in the user's account (in wei)
           example: 1000000000
-        balanceUSD:
+        balance_usd:
           type: number
           description: The total balance of the coin in the user's account in USD
           example: 1.23
