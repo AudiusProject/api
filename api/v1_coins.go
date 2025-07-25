@@ -60,10 +60,12 @@ func (app *ApiServer) v1Coins(c *fiber.Ctx) error {
 		WITH member_changes_userbank AS (
 			SELECT
 				sol_token_account_balance_changes.mint,
-				COUNT(DISTINCT users.user_id) 
-					FILTER (WHERE balance > 0 AND change = balance) AS new_members,
-				COUNT(DISTINCT users.user_id) 
-					FILTER (WHERE balance = 0 AND change < 0) AS members_lost
+				(
+					COUNT(DISTINCT users.user_id) 
+						FILTER (WHERE balance > 0 AND change = balance)
+				 	- COUNT(DISTINCT users.user_id) 
+						FILTER (WHERE balance = 0 AND change < 0)
+				) AS net_new_members
 			FROM sol_token_account_balance_changes
 			JOIN sol_claimable_accounts
 				ON sol_claimable_accounts.account = sol_token_account_balance_changes.account
@@ -74,10 +76,12 @@ func (app *ApiServer) v1Coins(c *fiber.Ctx) error {
 		), member_changes_associated_wallets AS (
 			SELECT
 				sol_token_account_balance_changes.mint,
-				COUNT(DISTINCT associated_wallets.user_id) 
-					FILTER (WHERE balance > 0 AND change = balance) AS new_members,
-				COUNT(DISTINCT associated_wallets.user_id) 
-					FILTER (WHERE balance = 0 AND change < 0) AS members_lost
+				(
+					COUNT(DISTINCT associated_wallets.user_id) 
+						FILTER (WHERE balance > 0 AND change = balance)
+				 	- COUNT(DISTINCT associated_wallets.user_id) 
+						FILTER (WHERE balance = 0 AND change < 0)
+				) AS net_new_members
 			FROM sol_token_account_balance_changes
 			JOIN associated_wallets
 				ON associated_wallets.wallet = sol_token_account_balance_changes.owner
@@ -88,11 +92,8 @@ func (app *ApiServer) v1Coins(c *fiber.Ctx) error {
 			GROUP BY sol_token_account_balance_changes.mint	
 		), net_member_changes AS (
 			SELECT
-				(
-					COALESCE(SUM(member_changes.new_members), 0) - 
-					COALESCE(SUM(member_changes.members_lost), 0)		
-				) AS members,
-				member_changes.mint
+				member_changes.mint,
+				COALESCE(SUM(member_changes.net_new_members), 0) AS change
 			FROM (
 				SELECT * FROM member_changes_userbank
 				UNION ALL SELECT * FROM member_changes_associated_wallets
@@ -125,8 +126,8 @@ func (app *ApiServer) v1Coins(c *fiber.Ctx) error {
 			artist_coins.created_at,
 			COALESCE(member_counts.members, 0) AS members,
 			COALESCE(
-				(net_member_changes.members * 100.0) / 
-				NULLIF(member_counts.members - net_member_changes.members, 0)
+				(net_member_changes.change * 100.0) / 
+				NULLIF(member_counts.members - net_member_changes.change, 0)
 			, 0) AS members_24h_change_percent
 		FROM artist_coins
 		LEFT JOIN member_counts ON artist_coins.mint = member_counts.mint
