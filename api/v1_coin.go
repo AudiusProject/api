@@ -69,6 +69,7 @@ func (app *ApiServer) v1Coin(c *fiber.Ctx) error {
 		SELECT 
 			artist_coins.ticker,
 			artist_coins.mint,
+			artist_coins.decimals,
 			artist_coins.user_id,
 			artist_coins.created_at,
 			COALESCE(member_counts.members, 0) AS members,

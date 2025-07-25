@@ -74,6 +74,7 @@ func (app *ApiServer) v1UsersCoin(c *fiber.Ctx) error {
 		SELECT 
 			artist_coins.ticker,
 			balances_by_mint.mint,
+			artist_coins.decimals,
 			balances_by_mint.balance AS balance,
 			(balances_by_mint.balance * @price) / POWER(10, artist_coins.decimals) AS balance_usd,
 			JSON_AGG(

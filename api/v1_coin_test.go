@@ -161,8 +161,9 @@ func TestGetCoin(t *testing.T) {
 
 		jsonAssert(t, body, map[string]any{
 			"data.ticker":                     "$USDC",
-			"data.owner_id":                   trashid.MustEncodeHashID(2),
 			"data.mint":                       "EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v",
+			"data.decimals":                   6,
+			"data.owner_id":                   trashid.MustEncodeHashID(2),
 			"data.members":                    0,
 			"data.members_24h_change_percent": -100.0,
 		})
@@ -175,8 +176,9 @@ func TestGetCoin(t *testing.T) {
 
 		jsonAssert(t, body, map[string]any{
 			"data.ticker":                     "$AUDIO",
-			"data.owner_id":                   trashid.MustEncodeHashID(1),
 			"data.mint":                       "9LzCMqDgTKYz9Drzqnpgee3SGa89up3a247ypMj2xrqM",
+			"data.decimals":                   8,
+			"data.owner_id":                   trashid.MustEncodeHashID(1),
 			"data.members":                    2,
 			"data.members_24h_change_percent": 100.0,
 		})
