@@ -16,6 +16,7 @@ type GetUsersCoinsQueryParams struct {
 type UserCoin struct {
 	Ticker     string  `json:"ticker"`
 	Mint       string  `json:"mint"`
+	Decimals   int     `json:"decimals"`
 	Balance    float64 `json:"balance"`
 	BalanceUSD float64 `json:"balance_usd"`
 }
@@ -96,6 +97,7 @@ func (app *ApiServer) v1UsersCoins(c *fiber.Ctx) error {
 			SELECT 
 				artist_coins.ticker,
 				balances_by_mint.mint,
+				artist_coins.decimals,
 				balances_by_mint.balance AS balance,
 				(balances_by_mint.balance * prices.price) / POWER(10, artist_coins.decimals) AS balance_usd
 			FROM balances_by_mint
@@ -105,6 +107,7 @@ func (app *ApiServer) v1UsersCoins(c *fiber.Ctx) error {
 		SELECT
 			balances_with_prices.ticker,
 			balances_with_prices.mint,
+			balances_with_prices.decimals,
 			balances_with_prices.balance,
 			balances_with_prices.balance_usd
 		FROM balances_with_prices
