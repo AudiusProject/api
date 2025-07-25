@@ -113,7 +113,7 @@ func TestUserCoin(t *testing.T) {
 	}
 
 	database.Seed(app.pool, fixtures)
-	app.birdeyeClient = &MockBirdeyeClient{}
+	app.birdeyeClient = &mockBirdeyeClient{}
 
 	// AUDIO
 	{

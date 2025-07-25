@@ -113,7 +113,7 @@ func TestUserCoins(t *testing.T) {
 	}
 
 	database.Seed(app.pool, fixtures)
-	app.birdeyeClient = &MockBirdeyeClient{}
+	app.birdeyeClient = &mockBirdeyeClient{}
 
 	status, body := testGet(t, app, "/v1/users/"+trashid.MustEncodeHashID(1)+"/coins")
 	assert.Equal(t, 200, status)

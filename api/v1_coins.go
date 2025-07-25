@@ -86,8 +86,6 @@ func (app *ApiServer) v1Coins(c *fiber.Ctx) error {
 			JOIN associated_wallets
 				ON associated_wallets.wallet = sol_token_account_balance_changes.owner
 				AND associated_wallets.chain = 'sol'
-			JOIN blocks
-				ON associated_wallets.blockhash = blocks.blockhash
 			WHERE block_timestamp > NOW() - INTERVAL '24 hours'
 			GROUP BY sol_token_account_balance_changes.mint	
 		), net_member_changes AS (
@@ -127,7 +125,10 @@ func (app *ApiServer) v1Coins(c *fiber.Ctx) error {
 			COALESCE(member_counts.members, 0) AS members,
 			COALESCE(
 				(net_member_changes.change * 100.0) / 
-				NULLIF(member_counts.members - net_member_changes.change, 0)
+				NULLIF(
+					COALESCE(member_counts.members, 0) - 
+					COALESCE(net_member_changes.change, 0)
+				, 0)
 			, 0) AS members_24h_change_percent
 		FROM artist_coins
 		LEFT JOIN member_counts ON artist_coins.mint = member_counts.mint

@@ -66,26 +66,6 @@ func TestGetCoins(t *testing.T) {
 				"mint":             "9LzCMqDgTKYz9Drzqnpgee3SGa89up3a247ypMj2xrqM",
 			},
 		},
-		"sol_token_account_balances": {
-			{
-				"mint":    "9LzCMqDgTKYz9Drzqnpgee3SGa89up3a247ypMj2xrqM",
-				"account": "associated",
-				"owner":   "owner_wallet",
-				"balance": 1000000000,
-			},
-			{
-				"mint":    "EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v",
-				"account": "associated2",
-				"owner":   "owner_wallet2",
-				"balance": 0, // should be ignored as a member
-			},
-			{
-				"mint":    "9LzCMqDgTKYz9Drzqnpgee3SGa89up3a247ypMj2xrqM",
-				"account": "associated3",
-				"owner":   "owner_wallet3", // should be deduped as user 1
-				"balance": 1000000000,
-			},
-		},
 		"sol_token_account_balance_changes": {
 			// claimable tokens wallet that received tokens yesterday
 			{
@@ -99,6 +79,7 @@ func TestGetCoins(t *testing.T) {
 			},
 			// wallet that was not empty yesterday, but empty today
 			{
+				"slot":            1,
 				"signature":       "change2",
 				"mint":            "EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v",
 				"account":         "associated2",
@@ -107,11 +88,41 @@ func TestGetCoins(t *testing.T) {
 				"balance":         1000000000,
 				"block_timestamp": time.Now().Add(-time.Hour * 25),
 			},
+			{
+				"slot":            2,
+				"signature":       "change3",
+				"mint":            "EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v",
+				"account":         "associated2",
+				"owner":           "owner_wallet2",
+				"change":          -1000000000,
+				"balance":         0,
+				"block_timestamp": time.Now().Add(-time.Hour * 1),
+			},
+			// wallet that was added today
+			{
+				"signature":       "change4",
+				"mint":            "9LzCMqDgTKYz9Drzqnpgee3SGa89up3a247ypMj2xrqM",
+				"account":         "associated",
+				"owner":           "owner_wallet",
+				"change":          1000000000,
+				"balance":         1000000000,
+				"block_timestamp": time.Now().Add(-time.Hour * 1),
+			},
+			// wallet added today that should be deduped as user 1 above
+			{
+				"signature":       "change5",
+				"mint":            "9LzCMqDgTKYz9Drzqnpgee3SGa89up3a247ypMj2xrqM",
+				"account":         "associated3",
+				"owner":           "owner_wallet3",
+				"change":          1000000000,
+				"balance":         1000000000,
+				"block_timestamp": time.Now().Add(-time.Hour * 1),
+			},
 		},
 	}
 
 	database.Seed(app.pool, fixtures)
-	app.birdeyeClient = &MockBirdeyeClient{}
+	app.birdeyeClient = &mockBirdeyeClient{}
 
 	// no filters
 	{
