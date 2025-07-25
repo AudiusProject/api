@@ -78,6 +78,7 @@ func SyncOnTicks(ctx context.Context, logger *zap.Logger, tickDuration time.Dura
 	for {
 		select {
 		case <-ctx.Done():
+			logger.Sync()
 			return ctx.Err()
 		case <-ticker.C:
 			// Ignore errors from sync as a specific error occurs when running
