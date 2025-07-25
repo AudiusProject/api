@@ -48,39 +48,56 @@ func (app *ApiServer) v1Coins(c *fiber.Ctx) error {
 		tickerFilter = `AND artist_coins.ticker = ANY(@tickers)`
 	}
 
+	/*
+	 * The bulk of this query is calculating the member changes for the last
+	 * 24 hours. It calculates how many balances went from 0 to >0 (new members)
+	 * and how many went from >0 to 0 (members lost) for both userbank and associated wallets.
+	 * It then combines these counts to get the net member changes.
+	 * Finally, it calculates the total number of members and the percentage change
+	 * in members over the last 24 hours (net changes / (current members + net changes)).
+	 */
 	sql := `
-		WITH member_counts_24h_ago AS (
-			SELECT 
-				COUNT(DISTINCT balances_24h_ago.user_id) AS members,
-				balances_24h_ago.mint
+		WITH member_changes_userbank AS (
+			SELECT
+				sol_token_account_balance_changes.mint,
+				COUNT(DISTINCT users.user_id) 
+					FILTER (WHERE balance > 0 AND change = balance) AS new_members,
+				COUNT(DISTINCT users.user_id) 
+					FILTER (WHERE balance = 0 AND change < 0) AS members_lost
+			FROM sol_token_account_balance_changes
+			JOIN sol_claimable_accounts
+				ON sol_claimable_accounts.account = sol_token_account_balance_changes.account
+			JOIN users
+				ON users.wallet = sol_claimable_accounts.ethereum_address
+			WHERE block_timestamp > NOW() - INTERVAL '24 hours'
+			GROUP BY sol_token_account_balance_changes.mint
+		), member_changes_associated_wallets AS (
+			SELECT
+				sol_token_account_balance_changes.mint,
+				COUNT(DISTINCT associated_wallets.user_id) 
+					FILTER (WHERE balance > 0 AND change = balance) AS new_members,
+				COUNT(DISTINCT associated_wallets.user_id) 
+					FILTER (WHERE balance = 0 AND change < 0) AS members_lost
+			FROM sol_token_account_balance_changes
+			JOIN associated_wallets
+				ON associated_wallets.wallet = sol_token_account_balance_changes.owner
+				AND associated_wallets.chain = 'sol'
+			JOIN blocks
+				ON associated_wallets.blockhash = blocks.blockhash
+			WHERE block_timestamp > NOW() - INTERVAL '24 hours'
+			GROUP BY sol_token_account_balance_changes.mint	
+		), net_member_changes AS (
+			SELECT
+				(
+					COALESCE(SUM(member_changes.new_members), 0) - 
+					COALESCE(SUM(member_changes.members_lost), 0)		
+				) AS members,
+				member_changes.mint
 			FROM (
-				SELECT DISTINCT ON (
-						sol_token_account_balance_changes.mint, 
-						sol_token_account_balance_changes.account, 
-						users.user_id, 
-						associated_wallets.user_id
-					)
-					sol_token_account_balance_changes.mint,
-					sol_token_account_balance_changes.account,
-					sol_token_account_balance_changes.balance,
-					COALESCE(associated_wallets.user_id, users.user_id) AS user_id
-				FROM sol_token_account_balance_changes
-				LEFT JOIN associated_wallets 
-					ON associated_wallets.wallet = sol_token_account_balance_changes.owner
-				LEFT JOIN sol_claimable_accounts 
-					ON sol_claimable_accounts.account = sol_token_account_balance_changes.account
-				LEFT JOIN users ON users.wallet = sol_claimable_accounts.ethereum_address
-				WHERE block_timestamp < NOW() - INTERVAL '24 hours'
-					AND (associated_wallets.user_id IS NOT NULL OR users.user_id IS NOT NULL)
-				ORDER BY 
-					sol_token_account_balance_changes.mint, 
-					sol_token_account_balance_changes.account, 
-					users.user_id, 
-					associated_wallets.user_id, 
-					block_timestamp DESC
-			) AS balances_24h_ago
-			WHERE balance > 0
-			GROUP BY balances_24h_ago.mint
+				SELECT * FROM member_changes_userbank
+				UNION ALL SELECT * FROM member_changes_associated_wallets
+			) member_changes
+			GROUP BY member_changes.mint
 		), member_counts AS (
 			SELECT
 				member_balances.mint,
@@ -108,12 +125,12 @@ func (app *ApiServer) v1Coins(c *fiber.Ctx) error {
 			artist_coins.created_at,
 			COALESCE(member_counts.members, 0) AS members,
 			COALESCE(
-				(COALESCE(member_counts.members, 0) - member_counts_24h_ago.members) * 100.0 /
-				NULLIF(member_counts_24h_ago.members, 0)
+				(net_member_changes.members * 100.0) / 
+				NULLIF(member_counts.members - net_member_changes.members, 0)
 			, 0) AS members_24h_change_percent
 		FROM artist_coins
 		LEFT JOIN member_counts ON artist_coins.mint = member_counts.mint
-		LEFT JOIN member_counts_24h_ago ON artist_coins.mint = member_counts_24h_ago.mint
+		LEFT JOIN net_member_changes ON artist_coins.mint = net_member_changes.mint
 		WHERE 1=1
 			` + mintFilter + `
 			` + ownerIdFilter + `
