@@ -129,8 +129,8 @@ func (s *SolanaIndexer) Subscribe(ctx context.Context) error {
 					zap.String("newMint", notifData.NewMint),
 					zap.String("operation", notifData.Operation))
 				cancel()
-				<-subCtx.Done()
 				s.grpcClient.Close()
+				<-subCtx.Done()
 				break
 			}
 		}
