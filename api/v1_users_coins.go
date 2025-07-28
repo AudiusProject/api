@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"strings"
 
+	"bridgerton.audius.co/trashid"
 	"github.com/gofiber/fiber/v2"
 	"github.com/jackc/pgx/v5"
 )
@@ -14,11 +15,12 @@ type GetUsersCoinsQueryParams struct {
 }
 
 type UserCoin struct {
-	Ticker     string  `json:"ticker"`
-	Mint       string  `json:"mint"`
-	Decimals   int     `json:"decimals"`
-	Balance    float64 `json:"balance"`
-	BalanceUSD float64 `json:"balance_usd"`
+	Ticker     string         `json:"ticker"`
+	Mint       string         `json:"mint"`
+	Decimals   int            `json:"decimals"`
+	OwnerID    trashid.HashId `json:"owner_id"`
+	Balance    float64        `json:"balance"`
+	BalanceUSD float64        `json:"balance_usd"`
 }
 
 func (app *ApiServer) v1UsersCoins(c *fiber.Ctx) error {
@@ -98,6 +100,7 @@ func (app *ApiServer) v1UsersCoins(c *fiber.Ctx) error {
 				artist_coins.ticker,
 				balances_by_mint.mint,
 				artist_coins.decimals,
+				artist_coins.user_id,
 				balances_by_mint.balance AS balance,
 				(balances_by_mint.balance * prices.price) / POWER(10, artist_coins.decimals) AS balance_usd
 			FROM balances_by_mint
@@ -108,6 +111,7 @@ func (app *ApiServer) v1UsersCoins(c *fiber.Ctx) error {
 			balances_with_prices.ticker,
 			balances_with_prices.mint,
 			balances_with_prices.decimals,
+			balances_with_prices.user_id AS owner_id,
 			balances_with_prices.balance,
 			balances_with_prices.balance_usd
 		FROM balances_with_prices

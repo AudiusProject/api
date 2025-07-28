@@ -5283,6 +5283,10 @@ components:
           type: integer
           description: The number of decimals for the coin
           example: 8
+        owner_id:
+          type: string
+          description: The ID of the user associated with the coin
+          example: "7eP5n"
         balance:
           type: integer
           description: The balance of the coin in the user's account (in wei)

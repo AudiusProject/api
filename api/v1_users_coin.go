@@ -75,6 +75,7 @@ func (app *ApiServer) v1UsersCoin(c *fiber.Ctx) error {
 			artist_coins.ticker,
 			balances_by_mint.mint,
 			artist_coins.decimals,
+			artist_coins.user_id AS owner_id,
 			balances_by_mint.balance AS balance,
 			(balances_by_mint.balance * @price) / POWER(10, artist_coins.decimals) AS balance_usd,
 			JSON_AGG(
@@ -96,8 +97,9 @@ func (app *ApiServer) v1UsersCoin(c *fiber.Ctx) error {
 		GROUP BY
 			artist_coins.ticker,
 			balances_by_mint.mint,
-			balances_by_mint.balance,
-			artist_coins.decimals
+			artist_coins.decimals,
+			artist_coins.user_id,
+			balances_by_mint.balance
 	;`
 
 	rows, err := app.pool.Query(c.Context(), sql, pgx.NamedArgs{
