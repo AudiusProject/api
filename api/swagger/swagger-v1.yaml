@@ -4970,7 +4970,7 @@ components:
           type: string
           description: The coin mint address
           example: "DezXAZ8z7PnrnRJjz3wXBoRgixCa6xjnB7YaB1pPB263"
-        user_id:
+        owner_id:
           type: string
           description: The ID of the user associated with the coin
           example: "7eP5n"
