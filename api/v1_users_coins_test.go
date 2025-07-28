@@ -123,6 +123,7 @@ func TestUserCoins(t *testing.T) {
 		"data.0.ticker":      "$AUDIO",
 		"data.0.mint":        "9LzCMqDgTKYz9Drzqnpgee3SGa89up3a247ypMj2xrqM",
 		"data.0.decimals":    8,
+		"data.0.owner_id":    trashid.MustEncodeHashID(1),
 		"data.0.balance":     1800000000, // 18 AUDIO
 		"data.0.balance_usd": 180.0,      // Assuming $10 per AUDIO
 		"data.1.ticker":      "$USDC",
