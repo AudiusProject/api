@@ -128,9 +128,14 @@ func (q *Queries) FullTracksKeyed(ctx context.Context, arg FullTracksParams) (ma
 		// Get access from the bulk access map
 		access := accessMap[track.TrackID]
 
+		id3Tags := &Id3Tags{
+			Title:  track.Title.String,
+			Artist: user.Name.String,
+		}
+
 		var stream *MediaLink
 		if access.Stream {
-			stream, err = mediaLink(track.TrackCid.String, track.TrackID, arg.MyID.(int32))
+			stream, err = mediaLink(track.TrackCid.String, track.TrackID, arg.MyID.(int32), id3Tags)
 			if err != nil {
 				return nil, err
 			}
@@ -138,7 +143,7 @@ func (q *Queries) FullTracksKeyed(ctx context.Context, arg FullTracksParams) (ma
 
 		var download *MediaLink
 		if track.IsDownloadable && access.Download {
-			download, err = mediaLink(track.OrigFileCid.String, track.TrackID, arg.MyID.(int32))
+			download, err = mediaLink(track.OrigFileCid.String, track.TrackID, arg.MyID.(int32), id3Tags)
 			if err != nil {
 				return nil, err
 			}
@@ -146,7 +151,7 @@ func (q *Queries) FullTracksKeyed(ctx context.Context, arg FullTracksParams) (ma
 
 		var preview *MediaLink
 		if track.PreviewCid.String != "" {
-			preview, err = mediaLink(track.PreviewCid.String, track.TrackID, arg.MyID.(int32))
+			preview, err = mediaLink(track.PreviewCid.String, track.TrackID, arg.MyID.(int32), id3Tags)
 			if err != nil {
 				return nil, err
 			}

@@ -19,7 +19,12 @@ type MediaLink struct {
 	Mirrors []string `json:"mirrors"`
 }
 
-func mediaLink(cid string, trackId int32, userId int32) (*MediaLink, error) {
+type Id3Tags struct {
+	Title  string `json:"title"`
+	Artist string `json:"artist"`
+}
+
+func mediaLink(cid string, trackId int32, userId int32, id3Tags *Id3Tags) (*MediaLink, error) {
 	first, rest := rendezvous.GlobalHasher.ReplicaSet3(cid)
 
 	timestamp := time.Now().Unix() * 1000
@@ -48,6 +53,12 @@ func mediaLink(cid string, trackId int32, userId int32) (*MediaLink, error) {
 
 	basePath := fmt.Sprintf("tracks/cidstream/%s", cid)
 	path := fmt.Sprintf("%s?%s", basePath, queryParams.Encode())
+
+	if id3Tags != nil {
+		queryParams.Set("id3", "true")
+		queryParams.Set("id3_artist", id3Tags.Artist)
+		queryParams.Set("id3_title", id3Tags.Title)
+	}
 
 	return &MediaLink{
 		Url:     fmt.Sprintf("%s/%s", first, path),
