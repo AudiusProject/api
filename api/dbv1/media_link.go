@@ -51,14 +51,14 @@ func mediaLink(cid string, trackId int32, userId int32, id3Tags *Id3Tags) (*Medi
 	queryParams := url.Values{}
 	queryParams.Set("signature", string(signatureJSON))
 
-	basePath := fmt.Sprintf("tracks/cidstream/%s", cid)
-	path := fmt.Sprintf("%s?%s", basePath, queryParams.Encode())
-
 	if id3Tags != nil {
 		queryParams.Set("id3", "true")
 		queryParams.Set("id3_artist", id3Tags.Artist)
 		queryParams.Set("id3_title", id3Tags.Title)
 	}
+
+	basePath := fmt.Sprintf("tracks/cidstream/%s", cid)
+	path := fmt.Sprintf("%s?%s", basePath, queryParams.Encode())
 
 	return &MediaLink{
 		Url:     fmt.Sprintf("%s/%s", first, path),
