@@ -4956,7 +4956,7 @@ components:
       type: object
       required:
         - mint
-        - user_id
+        - owner_id
         - members
         - members_change_24h_percent
         - created_at
@@ -5267,6 +5267,7 @@ components:
         - mint
         - ticker
         - decimals
+        - owner_id
         - balance
         - balance_usd
       type: object
