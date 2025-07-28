@@ -143,6 +143,8 @@ func TestSubscription(t *testing.T) {
 		mock.Anything,
 	).Return(nil)
 
+	grpcMock.On("Close").Return()
+
 	rpcMock := &mockRpcClient{}
 	rpcMock.On("GetSlot", mock.Anything, mock.Anything).
 		Return(uint64(100), nil)
