@@ -160,6 +160,9 @@ func (c *Client) GetPrices(ctx context.Context, mints []string) (*TokenPriceMap,
 			mintsToFetch = append(mintsToFetch, mint)
 		}
 	}
+	if len(mintsToFetch) == 0 {
+		return &result, nil
+	}
 
 	url := fmt.Sprintf("https://public-api.birdeye.so/defi/multi_price?list_address=%s", strings.Join(mintsToFetch, ","))
 	req, err := http.NewRequestWithContext(ctx, "GET", url, nil)
