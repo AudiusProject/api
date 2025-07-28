@@ -30,11 +30,18 @@ func (app *ApiServer) v1TrackStream(c *fiber.Ctx) error {
 
 	streamURL := tryFindWorkingUrl(track.Stream)
 
+	q := streamURL.Query()
 	if skipPlayCount := c.Query("skip_play_count"); skipPlayCount != "" {
-		q := streamURL.Query()
 		q.Set("skip_play_count", skipPlayCount)
-		streamURL.RawQuery = q.Encode()
 	}
+
+	// set id3 tags as query params in stream url
+	// audiusd will set the id3 tags on the fly
+	q.Set("id3", "true")
+	q.Set("id3_artist", track.User.Handle.String)
+	q.Set("id3_title", track.Title.String)
+
+	streamURL.RawQuery = q.Encode()
 
 	return c.Redirect(streamURL.String(), fiber.StatusFound)
 }
