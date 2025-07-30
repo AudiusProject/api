@@ -24,7 +24,26 @@ func (app *ApiServer) v1CoinInsights(c *fiber.Ctx) error {
 		})
 	}
 
-	// See v1_coins for the query explanation.
+	/*
+	 * The bulk of this query is calculating the member changes for the last 24h.
+	 *
+	 * t_balance_changes
+	 * 		collects all balance changes for the last 24h for the specified mint.
+	 * t_user_balance_changes
+	 * 		connects t_balance_changes to users via associated_wallets and
+	 * 		sol_claimable_accounts, summing the changes for each user.
+	 * t_user_balances
+	 * 		collects the current balances by user for the mint.
+	 * member_changes
+	 * 		calculates the net member changes by counting how many user balances
+	 * 		went from 0 to >0 (new members) and how many went from >0 to 0
+	 * 		(members lost) for each mint.
+	 * members
+	 * 		calculates the total number of members for each mint by counting distinct
+	 * 		user_ids with a balance > 0
+	 * Finally, the main query selects the artist coins and joins the member counts
+	 * and member changes, calculating the percentage change in members over the last 24h.
+	 */
 	sql := `
 		WITH 
 		t_balance_changes AS (

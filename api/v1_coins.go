@@ -43,28 +43,6 @@ func (app *ApiServer) v1Coins(c *fiber.Ctx) error {
 		tickerFilter = `AND artist_coins.ticker = ANY(@tickers)`
 	}
 
-	/*
-	 * The bulk of this query is calculating the member changes for the last 24h.
-	 *
-	 * t_user_balance_changes
-	 * 		collects all balance changes for the last 24h for both userbank and
-	 * 		associated wallets and joins to get user_ids.
-	 * t_user_balances
-	 * 		collects the current balances for both userbank and associated wallets
-	 * 		and joins to get user_ids.
-	 * total_user_balance_changes
-	 * 		sums the 24h change and total balance over all wallets for each
-	 *		user per mint.
-	 * member_changes
-	 * 		calculates the net member changes by counting how many user balances
-	 * 		went from 0 to >0 (new members) and how many went from >0 to 0
-	 * 		(members lost) for each mint.
-	 * members
-	 * 		calculates the total number of members for each mint by counting distinct
-	 * 		user_ids with a balance > 0
-	 * Finally, the main query selects the artist coins and joins the member counts
-	 * and member changes, calculating the percentage change in members over the last 24h.
-	 */
 	sql := `
 		SELECT 
 			artist_coins.ticker,
