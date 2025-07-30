@@ -13,7 +13,7 @@ type ArtistCoinInsights struct {
 
 type MembersStatsRow struct {
 	Members                 int     `json:"members"`
-	Members24hChangePercent float64 `json:"members_24h_change_percent"`
+	Members24hChangePercent float64 `json:"membersChange24hPercent"`
 }
 
 func (app *ApiServer) v1CoinInsights(c *fiber.Ctx) error {
