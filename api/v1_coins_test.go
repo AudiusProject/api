@@ -10,7 +10,6 @@ import (
 )
 
 func TestGetCoins(t *testing.T) {
-	t.Skip("Skipping testGetCoins due to member counting being temporarily disabled for performance reasons")
 	app := emptyTestApp(t)
 
 	fixtures := database.FixtureMap{

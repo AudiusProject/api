@@ -50,7 +50,6 @@ func (m *mockBirdeyeClient) GetPrices(ctx context.Context, mints []string) (*bir
 }
 
 func TestGetCoin(t *testing.T) {
-	t.Skip("Skipping testGetCoin due to member counting being temporarily disabled for performance reasons")
 	app := emptyTestApp(t)
 
 	fixtures := database.FixtureMap{
