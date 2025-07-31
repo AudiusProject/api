@@ -69,7 +69,7 @@ BEGIN
     ON sol_user_balances.mint = artist_coins.mint
     AND sol_user_balances.balance > 0
   WHERE chat_blast.blast_id = blast_id_param
-    AND chat_blast.audience = 'coin_holder_audience'
+    AND chat_blast.audience = 'coin_holder_audience';
 
 END;
 $$ LANGUAGE plpgsql;
