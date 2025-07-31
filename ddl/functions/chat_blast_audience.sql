@@ -61,7 +61,6 @@ BEGIN
   UNION
 
   -- coin_holder_audience
-  -- Case 1: userbank ie. sol_claimable_accounts
   SELECT chat_blast.blast_id, sol_user_balances.user_id AS to_user_id
   FROM chat_blast
   JOIN artist_coins 
