@@ -4997,6 +4997,18 @@ components:
           type: string
           description: The ID of the user associated with the coin
           example: "7eP5n"
+        logo_uri:
+          type: string
+          description: URL to the coin's logo image
+          example: "https://arweave.net/hQiPZOsRZXGXBJd_82PhVdlM_hACsT_q6wqwf5cSY7I"
+        description:
+          type: string
+          description: A longform description about the coin
+          example: "The Official Bonk Inu token\nLorem ipsum dolor sit amet, consectetur adipiscing elit."
+        website:
+          type: string
+          description: The official website for the coin
+          example: "https://www.bonkcoin.com/"
         created_at:
           type: string
           description: The date and time when the coin was added to Audius.
