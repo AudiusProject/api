@@ -17,11 +17,14 @@ type GetArtistCoinsQueryParams struct {
 }
 
 type ArtistCoin struct {
-	Ticker    string         `json:"ticker"`
-	Mint      string         `json:"mint"`
-	Decimals  int            `json:"decimals"`
-	OwnerId   trashid.HashId `db:"user_id" json:"owner_id"`
-	CreatedAt time.Time      `json:"created_at"`
+	Ticker      string         `json:"ticker"`
+	Mint        string         `json:"mint"`
+	Decimals    int            `json:"decimals"`
+	OwnerId     trashid.HashId `db:"user_id" json:"owner_id"`
+	LogoUri     *string        `json:"logo_uri,omitempty"`
+	Description *string        `json:"description,omitempty"`
+	Website     *string        `json:"website,omitempty"`
+	CreatedAt   time.Time      `json:"created_at"`
 }
 
 func (app *ApiServer) v1Coins(c *fiber.Ctx) error {
@@ -49,6 +52,9 @@ func (app *ApiServer) v1Coins(c *fiber.Ctx) error {
 			artist_coins.mint,
 			artist_coins.decimals,
 			artist_coins.user_id,
+			artist_coins.logo_uri,
+			artist_coins.description,
+			artist_coins.website,
 			artist_coins.created_at
 		FROM artist_coins
 		WHERE 1=1

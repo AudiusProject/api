@@ -19,6 +19,9 @@ func (app *ApiServer) v1Coin(c *fiber.Ctx) error {
 			artist_coins.mint,
 			artist_coins.decimals,
 			artist_coins.user_id,
+			artist_coins.logo_uri,
+			artist_coins.description,
+			artist_coins.website,
 			artist_coins.created_at
 		FROM artist_coins
 		WHERE artist_coins.mint = @mint
