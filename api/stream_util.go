@@ -32,8 +32,6 @@ func tryFindWorkingUrl(mediaLink *dbv1.MediaLink) *url.URL {
 	for _, u := range urls {
 		q := u.Query()
 		q.Set("skip_play_count", "true")
-		// skip id3 tags when checking if the stream is working
-		q.Set("id3", "false")
 		u.RawQuery = q.Encode()
 
 		req, err := http.NewRequest("GET", u.String(), nil)
