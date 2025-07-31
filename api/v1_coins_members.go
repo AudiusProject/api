@@ -39,34 +39,14 @@ func (app *ApiServer) v1CoinsMembers(c *fiber.Ctx) error {
 	}
 
 	sql := `
-		WITH user_wallet_balances AS (
-			SELECT
-				sol_token_account_balances.balance,
-				associated_wallets.user_id
-			FROM sol_token_account_balances
-			JOIN associated_wallets 
-				ON associated_wallets.wallet = sol_token_account_balances.owner
-				AND associated_wallets.chain = 'sol'
-			WHERE sol_token_account_balances.mint = @mint
-			UNION ALL
-			SELECT
-				sol_token_account_balances.balance,
-				users.user_id
-			FROM sol_token_account_balances
-			JOIN sol_claimable_accounts
-				ON sol_claimable_accounts.account = sol_token_account_balances.account
-			JOIN users 
-				ON users.wallet = sol_claimable_accounts.ethereum_address
-			WHERE sol_token_account_balances.mint = @mint
-		)
 		SELECT
 			user_id,
-			SUM(balance) AS balance
-		FROM user_wallet_balances
-		GROUP BY user_id
-		HAVING SUM(balance) >= @min_balance
+			balance
+		FROM sol_user_balances
+		WHERE balance >= @min_balance
+			AND mint = @mint
 		ORDER BY 
-			SUM(balance) ` + sortDirection + `,
+			balance ` + sortDirection + `,
 			user_id ASC
 		LIMIT @limit
 		OFFSET @offset
