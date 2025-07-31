@@ -30,3 +30,13 @@ setup::
 
 apidiff::
 	open http://localhost:1323/apidiff.html
+
+test-schema::
+	@set -a; \
+	. .env; \
+    if [ -z "$$writeDbUrl" ]; then \
+		echo "writeDbUrl is not set in .env"; \
+		exit 1; \
+	fi; \
+	adjustedUrl=$$(echo "$$writeDbUrl" | sed 's/localhost/host.docker.internal/g'); \
+	docker compose exec db bash -c "pg_dump '$$adjustedUrl' --schema-only --no-owner --no-acl > ./sql/01_schema.sql"
