@@ -2,7 +2,7 @@
 -- PostgreSQL database dump
 --
 
--- Dumped from database version 17.4 (Debian 17.4-1.pgdg120+2)
+-- Dumped from database version 17.5 (Debian 17.5-1.pgdg120+1)
 -- Dumped by pg_dump version 17.4 (Debian 17.4-1.pgdg120+2)
 
 SET statement_timeout = 0;
@@ -2029,6 +2029,52 @@ $$;
 
 
 --
+-- Name: handle_associated_wallets(); Type: FUNCTION; Schema: public; Owner: -
+--
+
+CREATE FUNCTION public.handle_associated_wallets() RETURNS trigger
+    LANGUAGE plpgsql
+    AS $$
+DECLARE
+    v_mint varchar;
+BEGIN
+    -- For INSERT, always run
+    IF TG_OP = 'INSERT' THEN
+        FOR v_mint IN
+            SELECT DISTINCT mint FROM sol_token_account_balances WHERE owner = NEW.wallet
+        LOOP
+            PERFORM update_sol_user_balance_mint(NEW.user_id, v_mint);
+        END LOOP;
+    END IF;
+
+    -- For UPDATE, only run if is_delete changed
+    IF TG_OP = 'UPDATE' AND (NEW.is_delete IS DISTINCT FROM OLD.is_delete) THEN
+        FOR v_mint IN
+            SELECT DISTINCT mint FROM sol_token_account_balances WHERE owner = NEW.wallet
+        LOOP
+            PERFORM update_sol_user_balance_mint(NEW.user_id, v_mint);
+        END LOOP;
+    END IF;
+
+    -- For DELETE, always run
+    IF TG_OP = 'DELETE' THEN
+        FOR v_mint IN
+            SELECT DISTINCT mint FROM sol_token_account_balances WHERE owner = OLD.wallet
+        LOOP
+            PERFORM update_sol_user_balance_mint(OLD.user_id, v_mint);
+        END LOOP;
+    END IF;
+
+    RETURN NULL;
+EXCEPTION
+    WHEN OTHERS THEN
+        RAISE WARNING 'An error occurred in %: %', TG_NAME, SQLERRM;
+        RETURN NULL;
+END;
+$$;
+
+
+--
 -- Name: handle_challenge_disbursement(); Type: FUNCTION; Schema: public; Owner: -
 --
 
@@ -3440,12 +3486,41 @@ $$;
 
 
 --
+-- Name: handle_sol_claimable_accounts(); Type: FUNCTION; Schema: public; Owner: -
+--
+
+CREATE FUNCTION public.handle_sol_claimable_accounts() RETURNS trigger
+    LANGUAGE plpgsql
+    AS $$
+DECLARE
+    v_user_id int;
+BEGIN
+    FOR v_user_id IN
+        SELECT user_id
+        FROM users
+        WHERE users.wallet = NEW.ethereum_address
+    LOOP
+        PERFORM update_sol_user_balance_mint(v_user_id, NEW.mint);
+    END LOOP;
+
+    RETURN NULL;
+EXCEPTION
+    WHEN OTHERS THEN
+        RAISE WARNING 'An error occurred in %: %', TG_NAME, SQLERRM;
+        RETURN NULL;
+END;
+$$;
+
+
+--
 -- Name: handle_sol_token_balance_change(); Type: FUNCTION; Schema: public; Owner: -
 --
 
 CREATE FUNCTION public.handle_sol_token_balance_change() RETURNS trigger
     LANGUAGE plpgsql
     AS $$
+DECLARE
+    v_user_id int;
 BEGIN
     INSERT INTO sol_token_account_balances (account, mint, owner, balance, slot, updated_at)
     VALUES (NEW.account, NEW.mint, NEW.owner, NEW.balance, NEW.slot, NOW())
@@ -3455,6 +3530,22 @@ BEGIN
         slot = EXCLUDED.slot,
         updated_at = NOW()
         WHERE sol_token_account_balances.slot < EXCLUDED.slot;
+    
+    FOR v_user_id IN
+        SELECT user_id
+        FROM associated_wallets
+        WHERE wallet = NEW.owner
+          AND chain = 'sol'
+        UNION ALL
+        SELECT user_id
+        FROM users
+        JOIN sol_claimable_accounts ON sol_claimable_accounts.ethereum_address = users.wallet
+        WHERE sol_claimable_accounts.account = NEW.account
+          AND sol_claimable_accounts.mint = NEW.mint
+    LOOP
+        PERFORM update_sol_user_balance_mint(v_user_id, NEW.mint);
+    END LOOP;
+
     RETURN NULL;
 EXCEPTION
     WHEN OTHERS THEN
@@ -5039,6 +5130,56 @@ $$;
 
 
 --
+-- Name: update_sol_user_balance_mint(integer, character varying); Type: FUNCTION; Schema: public; Owner: -
+--
+
+CREATE FUNCTION public.update_sol_user_balance_mint(p_user_id integer, p_mint character varying) RETURNS void
+    LANGUAGE plpgsql
+    AS $$
+BEGIN
+    INSERT INTO sol_user_balances
+        (user_id, mint, balance, updated_at, created_at)
+    SELECT
+        p_user_id,
+        p_mint,
+        SUM(balance),
+        NOW(),
+        NOW()
+    FROM (
+        SELECT 
+            p_user_id AS user_id, 
+            COALESCE(balance, 0) AS balance
+        FROM associated_wallets 
+        JOIN sol_token_account_balances AS associated_wallet_balances
+            ON associated_wallet_balances.owner = associated_wallets.wallet
+            AND associated_wallet_balances.mint = p_mint
+        WHERE associated_wallets.user_id = p_user_id
+            AND associated_wallets.chain = 'sol'
+            AND associated_wallets.is_delete = FALSE
+
+        UNION ALL
+
+        SELECT 
+            p_user_id AS user_id, 
+            COALESCE(balance, 0) AS balance
+        FROM users
+        JOIN sol_claimable_accounts
+            ON sol_claimable_accounts.ethereum_address = users.wallet
+            AND sol_claimable_accounts.mint = p_mint
+        JOIN sol_token_account_balances
+            ON sol_token_account_balances.account = sol_claimable_accounts.account
+        WHERE users.user_id = p_user_id
+    ) AS balances
+    GROUP BY user_id
+    ON CONFLICT (user_id, mint)
+    DO UPDATE SET
+        balance = EXCLUDED.balance,
+        updated_at = NOW();
+END;
+$$;
+
+
+--
 -- Name: audius_ts_dict; Type: TEXT SEARCH DICTIONARY; Schema: public; Owner: -
 --
 
@@ -6463,6 +6604,56 @@ ALTER SEQUENCE public.eth_blocks_last_scanned_block_seq OWNED BY public.eth_bloc
 
 
 --
+-- Name: eth_db_migrations; Type: TABLE; Schema: public; Owner: -
+--
+
+CREATE TABLE public.eth_db_migrations (
+    version bigint NOT NULL,
+    dirty boolean NOT NULL
+);
+
+
+--
+-- Name: eth_funding_rounds; Type: TABLE; Schema: public; Owner: -
+--
+
+CREATE TABLE public.eth_funding_rounds (
+    round_num integer NOT NULL,
+    blocknumber bigint NOT NULL,
+    creation_time timestamp without time zone NOT NULL
+);
+
+
+--
+-- Name: eth_registered_endpoints; Type: TABLE; Schema: public; Owner: -
+--
+
+CREATE TABLE public.eth_registered_endpoints (
+    id integer NOT NULL,
+    service_type text NOT NULL,
+    owner text NOT NULL,
+    delegate_wallet text NOT NULL,
+    endpoint text NOT NULL,
+    blocknumber bigint NOT NULL
+);
+
+
+--
+-- Name: eth_service_providers; Type: TABLE; Schema: public; Owner: -
+--
+
+CREATE TABLE public.eth_service_providers (
+    address text NOT NULL,
+    deployer_stake bigint NOT NULL,
+    deployer_cut bigint NOT NULL,
+    valid_bounds boolean NOT NULL,
+    number_of_endpoints integer NOT NULL,
+    min_account_stake bigint NOT NULL,
+    max_account_stake bigint NOT NULL
+);
+
+
+--
 -- Name: events; Type: TABLE; Schema: public; Owner: -
 --
 
@@ -7452,6 +7643,26 @@ CREATE TABLE public.sol_token_transfers (
 --
 
 COMMENT ON TABLE public.sol_token_transfers IS 'Stores SPL token transfers for tracked mints.';
+
+
+--
+-- Name: sol_user_balances; Type: TABLE; Schema: public; Owner: -
+--
+
+CREATE TABLE public.sol_user_balances (
+    user_id integer NOT NULL,
+    mint text NOT NULL,
+    balance bigint NOT NULL,
+    updated_at timestamp without time zone DEFAULT CURRENT_TIMESTAMP NOT NULL,
+    created_at timestamp without time zone DEFAULT CURRENT_TIMESTAMP NOT NULL
+);
+
+
+--
+-- Name: TABLE sol_user_balances; Type: COMMENT; Schema: public; Owner: -
+--
+
+COMMENT ON TABLE public.sol_user_balances IS 'Stores the balances of Solana tokens for users.';
 
 
 --
@@ -8885,6 +9096,38 @@ ALTER TABLE ONLY public.eth_blocks
 
 
 --
+-- Name: eth_db_migrations eth_db_migrations_pkey; Type: CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.eth_db_migrations
+    ADD CONSTRAINT eth_db_migrations_pkey PRIMARY KEY (version);
+
+
+--
+-- Name: eth_funding_rounds eth_funding_rounds_pkey; Type: CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.eth_funding_rounds
+    ADD CONSTRAINT eth_funding_rounds_pkey PRIMARY KEY (round_num);
+
+
+--
+-- Name: eth_registered_endpoints eth_registered_endpoints_pkey; Type: CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.eth_registered_endpoints
+    ADD CONSTRAINT eth_registered_endpoints_pkey PRIMARY KEY (id, service_type);
+
+
+--
+-- Name: eth_service_providers eth_service_providers_pkey; Type: CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.eth_service_providers
+    ADD CONSTRAINT eth_service_providers_pkey PRIMARY KEY (address);
+
+
+--
 -- Name: events events_pkey; Type: CONSTRAINT; Schema: public; Owner: -
 --
 
@@ -9277,6 +9520,14 @@ ALTER TABLE ONLY public.sol_token_transfers
 
 
 --
+-- Name: sol_user_balances sol_user_balances_pkey; Type: CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.sol_user_balances
+    ADD CONSTRAINT sol_user_balances_pkey PRIMARY KEY (user_id, mint);
+
+
+--
 -- Name: sound_recordings sound_recordings_pkey; Type: CONSTRAINT; Schema: public; Owner: -
 --
 
@@ -9618,6 +9869,13 @@ CREATE INDEX chat_chat_id_idx ON public.chat USING btree (chat_id);
 --
 
 CREATE INDEX chat_member_user_idx ON public.chat_member USING btree (user_id);
+
+
+--
+-- Name: eth_registered_endpoints_wallet_idx; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX eth_registered_endpoints_wallet_idx ON public.eth_registered_endpoints USING btree (delegate_wallet);
 
 
 --
@@ -10727,17 +10985,10 @@ COMMENT ON INDEX public.sol_token_account_balance_changes_account_idx IS 'Used f
 
 
 --
--- Name: sol_token_account_balance_changes_block_timestamp; Type: INDEX; Schema: public; Owner: -
+-- Name: sol_token_account_balance_changes_mint_block_timestamp; Type: INDEX; Schema: public; Owner: -
 --
 
-CREATE INDEX sol_token_account_balance_changes_block_timestamp ON public.sol_token_account_balance_changes USING btree (block_timestamp DESC, mint);
-
-
---
--- Name: INDEX sol_token_account_balance_changes_block_timestamp; Type: COMMENT; Schema: public; Owner: -
---
-
-COMMENT ON INDEX public.sol_token_account_balance_changes_block_timestamp IS 'Used for finding member count from > 24hrs ago.';
+CREATE INDEX sol_token_account_balance_changes_mint_block_timestamp ON public.sol_token_account_balance_changes USING btree (mint, block_timestamp DESC);
 
 
 --
@@ -10783,6 +11034,13 @@ COMMENT ON INDEX public.sol_token_account_balances_mint_idx IS 'Used for getting
 
 
 --
+-- Name: sol_token_account_balances_owner_idx; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX sol_token_account_balances_owner_idx ON public.sol_token_account_balances USING btree (owner);
+
+
+--
 -- Name: sol_token_transfers_from_account_idx; Type: INDEX; Schema: public; Owner: -
 --
 
@@ -10794,6 +11052,20 @@ CREATE INDEX sol_token_transfers_from_account_idx ON public.sol_token_transfers 
 --
 
 CREATE INDEX sol_token_transfers_to_account_idx ON public.sol_token_transfers USING btree (to_account);
+
+
+--
+-- Name: sol_user_balances_mint_user_id_idx; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX sol_user_balances_mint_user_id_idx ON public.sol_user_balances USING btree (mint, user_id);
+
+
+--
+-- Name: INDEX sol_user_balances_mint_user_id_idx; Type: COMMENT; Schema: public; Owner: -
+--
+
+COMMENT ON INDEX public.sol_user_balances_mint_user_id_idx IS 'Index for quick access to user balances by mint and user ID.';
 
 
 --
@@ -10937,6 +11209,20 @@ COMMENT ON TRIGGER on_artist_coins_change ON public.artist_coins IS 'Notifies wh
 
 
 --
+-- Name: associated_wallets on_associated_wallets; Type: TRIGGER; Schema: public; Owner: -
+--
+
+CREATE TRIGGER on_associated_wallets AFTER INSERT OR DELETE OR UPDATE ON public.associated_wallets FOR EACH ROW EXECUTE FUNCTION public.handle_associated_wallets();
+
+
+--
+-- Name: TRIGGER on_associated_wallets ON associated_wallets; Type: COMMENT; Schema: public; Owner: -
+--
+
+COMMENT ON TRIGGER on_associated_wallets ON public.associated_wallets IS 'Updates sol_user_balances when associated_wallets are added and removed';
+
+
+--
 -- Name: challenge_disbursements on_challenge_disbursement; Type: TRIGGER; Schema: public; Owner: -
 --
 
@@ -11011,6 +11297,20 @@ CREATE TRIGGER on_save AFTER INSERT ON public.saves FOR EACH ROW EXECUTE FUNCTIO
 --
 
 CREATE TRIGGER on_share AFTER INSERT ON public.shares FOR EACH ROW EXECUTE FUNCTION public.handle_share();
+
+
+--
+-- Name: sol_claimable_accounts on_sol_claimable_accounts; Type: TRIGGER; Schema: public; Owner: -
+--
+
+CREATE TRIGGER on_sol_claimable_accounts AFTER INSERT ON public.sol_claimable_accounts FOR EACH ROW EXECUTE FUNCTION public.handle_sol_claimable_accounts();
+
+
+--
+-- Name: TRIGGER on_sol_claimable_accounts ON sol_claimable_accounts; Type: COMMENT; Schema: public; Owner: -
+--
+
+COMMENT ON TRIGGER on_sol_claimable_accounts ON public.sol_claimable_accounts IS 'Updates sol_user_balances whenever a sol_claimable_account is inserted.';
 
 
 --

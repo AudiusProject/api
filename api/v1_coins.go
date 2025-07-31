@@ -1,14 +1,11 @@
 package api
 
 import (
-	"sync"
 	"time"
 
-	"bridgerton.audius.co/api/birdeye"
 	"bridgerton.audius.co/trashid"
 	"github.com/gofiber/fiber/v2"
 	"github.com/jackc/pgx/v5"
-	"go.uber.org/zap"
 )
 
 type GetArtistCoinsQueryParams struct {
@@ -20,14 +17,11 @@ type GetArtistCoinsQueryParams struct {
 }
 
 type ArtistCoin struct {
-	Ticker                  string                 `json:"ticker"`
-	Mint                    string                 `json:"mint"`
-	Decimals                int                    `json:"decimals"`
-	OwnerId                 trashid.HashId         `db:"user_id" json:"owner_id"`
-	Members                 int                    `json:"members"`
-	Members24hChangePercent *float64               `json:"members_24h_change_percent"`
-	CreatedAt               time.Time              `json:"created_at"`
-	TokenInfo               *birdeye.TokenOverview `db:"-" json:"token_info"`
+	Ticker    string         `json:"ticker"`
+	Mint      string         `json:"mint"`
+	Decimals  int            `json:"decimals"`
+	OwnerId   trashid.HashId `db:"user_id" json:"owner_id"`
+	CreatedAt time.Time      `json:"created_at"`
 }
 
 func (app *ApiServer) v1Coins(c *fiber.Ctx) error {
@@ -55,9 +49,7 @@ func (app *ApiServer) v1Coins(c *fiber.Ctx) error {
 			artist_coins.mint,
 			artist_coins.decimals,
 			artist_coins.user_id,
-			artist_coins.created_at,
-			123 as members, -- Placeholder for members count
-			50 as members_24h_change_percent -- Placeholder for 24h change percent
+			artist_coins.created_at
 		FROM artist_coins
 		WHERE 1=1
 			` + mintFilter + `
@@ -83,24 +75,6 @@ func (app *ApiServer) v1Coins(c *fiber.Ctx) error {
 	if err != nil {
 		return err
 	}
-
-	wg := sync.WaitGroup{}
-	for i := range coinRows {
-		wg.Add(1)
-		go func(i int) {
-			defer wg.Done()
-			mint := coinRows[i].Mint
-			overview, err := app.birdeyeClient.GetTokenOverview(c.Context(), mint, "24h")
-			if err != nil {
-				app.logger.Error("Error fetching token overview",
-					zap.String("mint", mint),
-					zap.Error(err))
-				return
-			}
-			coinRows[i].TokenInfo = overview
-		}(i)
-	}
-	wg.Wait()
 
 	return c.JSON(fiber.Map{
 		"data": coinRows,

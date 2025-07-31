@@ -8,7 +8,6 @@ import (
 
 	"bridgerton.audius.co/api/birdeye"
 	"bridgerton.audius.co/database"
-	"bridgerton.audius.co/trashid"
 	"github.com/stretchr/testify/assert"
 )
 
@@ -49,8 +48,7 @@ func (m *mockBirdeyeClient) GetPrices(ctx context.Context, mints []string) (*bir
 	return &prices, nil
 }
 
-func TestGetCoin(t *testing.T) {
-	t.Skip("Skipping testGetCoin due to member counting being temporarily disabled for performance reasons")
+func TestGetCoinInsights(t *testing.T) {
 	app := emptyTestApp(t)
 
 	fixtures := database.FixtureMap{
@@ -222,31 +220,23 @@ func TestGetCoin(t *testing.T) {
 
 	// negative change
 	{
-		status, body := testGet(t, app, "/v1/coins/EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v")
+		status, body := testGet(t, app, "/v1/coins/EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v/insights")
 		assert.Equal(t, 200, status)
 
 		jsonAssert(t, body, map[string]any{
-			"data.ticker":                     "$USDC",
-			"data.mint":                       "EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v",
-			"data.decimals":                   6,
-			"data.owner_id":                   trashid.MustEncodeHashID(2),
-			"data.members":                    0,
-			"data.members_24h_change_percent": -100.0,
+			"data.members":                 0,
+			"data.membersChange24hPercent": -100.0,
 		})
 	}
 
 	// positive change
 	{
-		status, body := testGet(t, app, "/v1/coins/9LzCMqDgTKYz9Drzqnpgee3SGa89up3a247ypMj2xrqM")
+		status, body := testGet(t, app, "/v1/coins/9LzCMqDgTKYz9Drzqnpgee3SGa89up3a247ypMj2xrqM/insights")
 		assert.Equal(t, 200, status)
 
 		jsonAssert(t, body, map[string]any{
-			"data.ticker":                     "$AUDIO",
-			"data.mint":                       "9LzCMqDgTKYz9Drzqnpgee3SGa89up3a247ypMj2xrqM",
-			"data.decimals":                   8,
-			"data.owner_id":                   trashid.MustEncodeHashID(1),
-			"data.members":                    3,
-			"data.members_24h_change_percent": 50.0,
+			"data.members":                 3,
+			"data.membersChange24hPercent": 50.0,
 		})
 	}
 }
