@@ -81,10 +81,9 @@ func NewApiServer(config config.Config) *ApiServer {
 
 	// disable sql logging in ENV "test"
 	if config.Env != "test" {
-		traceLogLevel := logging.GetTraceLogLevel(config.LogLevel)
 		connConfig.ConnConfig.Tracer = &tracelog.TraceLog{
-			Logger:   logging.NewSqlLogger(traceLogLevel),
-			LogLevel: traceLogLevel,
+			Logger:   logging.NewSqlLogger(logger, config.ZapLevel),
+			LogLevel: tracelog.LogLevelTrace, // capture everything into sql logger
 		}
 	}
 
@@ -103,10 +102,9 @@ func NewApiServer(config config.Config) *ApiServer {
 		}
 
 		if config.Env != "test" {
-			traceLogLevel := logging.GetTraceLogLevel(config.LogLevel)
 			writeConnConfig.ConnConfig.Tracer = &tracelog.TraceLog{
-				Logger:   logging.NewSqlLogger(traceLogLevel),
-				LogLevel: traceLogLevel,
+				Logger:   logging.NewSqlLogger(logger, config.ZapLevel),
+				LogLevel: tracelog.LogLevelTrace, // capture everything into sql logger
 			}
 		}
 
