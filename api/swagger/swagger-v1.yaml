@@ -1856,32 +1856,6 @@ paths:
         "500":
           description: Server error
           content: {}
-  /users/id:
-    get:
-      tags:
-      - users
-      description: Gets a User ID from an associated wallet address
-      operationId: Get User ID from Wallet
-      parameters:
-      - name: associated_wallet
-        in: query
-        description: Wallet address
-        required: true
-        schema:
-          type: string
-      responses:
-        "200":
-          description: Success
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/user_associated_wallet_response'
-        "400":
-          description: Bad request
-          content: {}
-        "500":
-          description: Server error
-          content: {}
   /users/search:
     get:
       tags:
@@ -4072,16 +4046,6 @@ components:
           type: array
           items:
             $ref: '#/components/schemas/user'
-    user_associated_wallet_response:
-      type: object
-      properties:
-        data:
-          $ref: '#/components/schemas/encoded_user_id'
-    encoded_user_id:
-      type: object
-      properties:
-        user_id:
-          type: string
     user_addresses_response:
       type: object
       properties:
