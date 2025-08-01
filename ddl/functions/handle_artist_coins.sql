@@ -12,11 +12,10 @@ $$ LANGUAGE plpgsql;
 
 DO $$ 
 BEGIN
-    DROP TRIGGER IF EXISTS on_artist_coins_change ON artist_coins;
     CREATE TRIGGER on_artist_coins_change
-    AFTER INSERT OR DELETE ON artist_coins
+    AFTER INSERT OR UPDATE OR DELETE ON artist_coins
     FOR EACH ROW EXECUTE FUNCTION handle_artist_coins_change();
 EXCEPTION
-    WHEN others THEN NULL;
+    WHEN others THEN NULL;  -- Ignore if trigger already exists
 END $$;
-COMMENT ON TRIGGER on_artist_coins_change ON artist_coins IS 'Notifies when artist coins are added or removed.';
+COMMENT ON TRIGGER on_artist_coins_change ON artist_coins IS 'Notifies when artist coins are added, removed, or updated.'
