@@ -61,7 +61,9 @@ func (app *ApiServer) v1Coins(c *fiber.Ctx) error {
 			` + mintFilter + `
 			` + ownerIdFilter + `
 			` + tickerFilter + `
-		ORDER BY artist_coins.created_at ASC
+		ORDER BY 
+			artist_coins.ticker = '$AUDIO' DESC,
+			artist_coins.created_at ASC
 		LIMIT @limit
 		OFFSET @offset
 	`
