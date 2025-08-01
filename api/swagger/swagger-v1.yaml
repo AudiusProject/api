@@ -1703,7 +1703,7 @@ paths:
       tags:
       - users
       description: Gets User IDs from any Ethereum wallet address or Solana account address associated with their Audius account.
-      operationId: Get User IDs by Wallet Addresses
+      operationId: Get User IDs by Addresses
       parameters:
       - name: address
         in: query
@@ -1724,7 +1724,7 @@ paths:
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/user_addresses_response'
+                $ref: '#/components/schemas/user_ids_addresses_response'
   /users/handle/{handle}:
     get:
       tags:
@@ -4046,21 +4046,23 @@ components:
           type: array
           items:
             $ref: '#/components/schemas/user'
-    user_addresses_response:
+    user_ids_addresses_response:
       type: object
       properties:
         data:
           type: array
           items:
-            type: object
-            required:
-            - user_id
-            - address
-            properties:
-              user_id:
-                type: string
-              address:
-                type: string
+            $ref: '#/components/schemas/user_id_address'
+    user_id_address:
+      type: object
+      required:
+      - user_id
+      - address
+      properties:
+        user_id:
+          type: string
+        address:
+          type: string
     connected_wallets_response:
       type: object
       properties:
