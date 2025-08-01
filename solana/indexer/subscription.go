@@ -124,6 +124,10 @@ func (s *SolanaIndexer) Subscribe(ctx context.Context) error {
 					s.logger.Error("failed to unmarshal artist_coins changed notification", zap.Error(err))
 					continue
 				}
+				if notifData.Operation != "INSERT" && notifData.Operation != "DELETE" {
+					// ignore updates
+					continue
+				}
 				s.logger.Info("artist_coins changed, re-starting subscription",
 					zap.String("oldMint", notifData.OldMint),
 					zap.String("newMint", notifData.NewMint),
