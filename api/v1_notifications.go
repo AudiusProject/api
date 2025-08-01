@@ -12,7 +12,18 @@ import (
 	"github.com/tidwall/sjson"
 )
 
+type GetNotificationsQueryParams struct {
+	Limit      int      `query:"limit" default:"20" validate:"min=0,max=100"`
+	ValidTypes []string `query:"valid_types"`
+	GroupID    string   `query:"group_id" validate:"omitempty"`
+	Timestamp  float64  `query:"timestamp" validate:"omitempty,min=0"`
+}
+
 func (app *ApiServer) v1Notifications(c *fiber.Ctx) error {
+	params := GetNotificationsQueryParams{}
+	if err := app.ParseAndValidateQueryParams(c, &params); err != nil {
+		return err
+	}
 
 	sql := `
 WITH user_seen as (
@@ -128,14 +139,14 @@ limit @limit::int
 	}
 
 	// add optional valid_types
-	for _, t := range queryMulti(c, "valid_types") {
+	for _, t := range params.ValidTypes {
 		if !slices.Contains(validTypes, t) {
 			validTypes = append(validTypes, t)
 		}
 	}
 
 	userId := app.getUserId(c)
-	limit := c.QueryInt("limit", 20)
+	limit := params.Limit
 
 	// python returns 20 items when limit=0
 	// and client relies on this for showing unread count
@@ -155,8 +166,8 @@ limit @limit::int
 		"user_id":          userId,
 		"limit":            limit,
 		"valid_types":      validTypes,
-		"group_id_offset":  c.Query("group_id"),
-		"timestamp_offset": c.QueryFloat("timestamp"),
+		"group_id_offset":  params.GroupID,
+		"timestamp_offset": params.Timestamp,
 	})
 	if err != nil {
 		return err
