@@ -49,7 +49,7 @@ user_created_at as (
 )
 SELECT
 	n.type,
-	n.group_id as group_id,
+	n.group_id AS group_id,
 	json_agg(
 		json_build_object(
 			'type', type,
@@ -58,19 +58,19 @@ SELECT
 			'data', data
 		)
 		ORDER BY timestamp DESC
-	)::jsonb as actions,
+	)::jsonb AS actions,
 	CASE
-		WHEN user_seen.seen_at is not NULL THEN now()::timestamp != user_seen.seen_at
-		ELSE EXISTS(SELECT 1 from notification_seen ns where ns.user_id = @user_id)
-	END::boolean as is_seen,
+		WHEN user_seen.seen_at IS NOT NULL THEN now()::timestamp != user_seen.seen_at
+		ELSE EXISTS(SELECT 1 from notification_seen ns WHERE ns.user_id = @user_id)
+	END::boolean AS is_seen,
 	CASE
 		WHEN user_seen.seen_at != now()::timestamp THEN EXTRACT(EPOCH FROM COALESCE(user_seen.seen_at, n.timestamp))
 		ELSE null
 	END AS seen_at
 FROM
     notification n
-LEFT JOIN user_seen on
-  user_seen.seen_at >= n.timestamp and user_seen.prev_seen_at < n.timestamp
+LEFT JOIN user_seen ON
+  user_seen.seen_at >= n.timestamp AND user_seen.prev_seen_at < n.timestamp
 WHERE
   ((ARRAY[@user_id] && n.user_ids) OR (n.type = 'announcement' AND n.timestamp > (SELECT created_at FROM user_created_at)))
   AND n.type = ANY(@valid_types)
