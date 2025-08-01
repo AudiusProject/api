@@ -25,6 +25,7 @@ WITH user_seen as (
     user_id = @user_id
   ORDER BY
     seen_at desc
+	LIMIT 10
 ),
 user_created_at as (
   SELECT
@@ -36,27 +37,25 @@ user_created_at as (
   AND is_current
 )
 SELECT
-    n.type,
-    n.group_id as group_id,
-    json_agg(
-      json_build_object(
-        'type', type,
-        'specifier', specifier,
-        'timestamp', EXTRACT(EPOCH FROM timestamp),
-        'data', data
-      )
-      ORDER BY timestamp DESC
-    )::jsonb as actions,
-    CASE
-      WHEN user_seen.seen_at is not NULL THEN now()::timestamp != user_seen.seen_at
-      ELSE EXISTS(SELECT 1 from notification_seen ns where ns.user_id = @user_id)
-    END::boolean as is_seen,
-
-    CASE
-      WHEN user_seen.seen_at != now()::timestamp THEN EXTRACT(EPOCH FROM user_seen.seen_at)
-      ELSE null
-    END AS seen_at
-
+	n.type,
+	n.group_id as group_id,
+	json_agg(
+		json_build_object(
+			'type', type,
+			'specifier', specifier,
+			'timestamp', EXTRACT(EPOCH FROM timestamp),
+			'data', data
+		)
+		ORDER BY timestamp DESC
+	)::jsonb as actions,
+	CASE
+		WHEN user_seen.seen_at is not NULL THEN now()::timestamp != user_seen.seen_at
+		ELSE EXISTS(SELECT 1 from notification_seen ns where ns.user_id = @user_id)
+	END::boolean as is_seen,
+	CASE
+		WHEN user_seen.seen_at != now()::timestamp THEN EXTRACT(EPOCH FROM COALESCE(user_seen.seen_at, n.timestamp))
+		ELSE null
+	END AS seen_at
 FROM
     notification n
 LEFT JOIN user_seen on
@@ -74,7 +73,7 @@ WHERE
     )
   )
 GROUP BY
-  n.type, n.group_id, user_seen.seen_at, user_seen.prev_seen_at
+  n.type, n.group_id, user_seen.seen_at, user_seen.prev_seen_at, n.timestamp
 ORDER BY
   user_seen.seen_at desc NULLS LAST,
   max(n.timestamp) desc,
