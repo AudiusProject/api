@@ -9,7 +9,6 @@ import (
 	"os/signal"
 	"reflect"
 	"strconv"
-	"strings"
 	"time"
 
 	"bridgerton.audius.co/api/birdeye"
@@ -49,117 +48,6 @@ var swaggerV1 []byte
 //go:embed swagger/swagger-v1-full.yaml
 var swaggerV1Full []byte
 
-// Simple readable SQL logger
-type ReadableSQLLogger struct {
-	logger *zap.Logger
-}
-
-func NewReadableSQLLogger(logger *zap.Logger) *ReadableSQLLogger {
-	return &ReadableSQLLogger{logger: logger}
-}
-
-func (l *ReadableSQLLogger) Log(ctx context.Context, level tracelog.LogLevel, msg string, data map[string]interface{}) {
-	if data["sql"] != nil {
-		sql := data["sql"].(string)
-		sql = strings.ReplaceAll(sql, "\\n", "\n")
-
-		// Handle both positional ($1, $2) and named (@param) parameters
-		if args, ok := data["args"].([]interface{}); ok && len(args) > 0 {
-			fmt.Printf("DEBUG: Found args, length: %d\n", len(args))
-			fmt.Printf("DEBUG: First arg type: %T\n", args[0])
-
-			// Check if first arg is a map (named parameters) - handle both regular maps and pgx.NamedArgs
-			if argMap, ok := args[0].(map[string]interface{}); ok {
-				fmt.Printf("DEBUG: Successfully cast to map, keys: %v\n", reflect.ValueOf(argMap).MapKeys())
-				// Named parameters
-				for name, value := range argMap {
-					placeholder := "@" + name
-					var strValue string
-					switch v := value.(type) {
-					case string:
-						strValue = fmt.Sprintf("'%s'", strings.ReplaceAll(v, "'", "''"))
-					case nil:
-						strValue = "NULL"
-					case []interface{}:
-						// Handle arrays
-						var elements []string
-						for _, elem := range v {
-							switch e := elem.(type) {
-							case string:
-								elements = append(elements, fmt.Sprintf("'%s'", strings.ReplaceAll(e, "'", "''")))
-							default:
-								elements = append(elements, fmt.Sprintf("%v", e))
-							}
-						}
-						strValue = fmt.Sprintf("ARRAY[%s]", strings.Join(elements, ", "))
-					default:
-						strValue = fmt.Sprintf("%v", v)
-					}
-					sql = strings.ReplaceAll(sql, placeholder, strValue)
-				}
-			} else {
-				fmt.Printf("DEBUG: Failed to cast to map, trying reflection\n")
-				// Try to use reflection to access pgx.NamedArgs
-				argValue := reflect.ValueOf(args[0])
-				fmt.Printf("DEBUG: Reflection kind: %s\n", argValue.Kind())
-				if argValue.Kind() == reflect.Map {
-					fmt.Printf("DEBUG: It's a map! Keys: %v\n", argValue.MapKeys())
-					iter := argValue.MapRange()
-					for iter.Next() {
-						name := iter.Key().String()
-						value := iter.Value().Interface()
-						placeholder := "@" + name
-						var strValue string
-						switch v := value.(type) {
-						case string:
-							strValue = fmt.Sprintf("'%s'", strings.ReplaceAll(v, "'", "''"))
-						case nil:
-							strValue = "NULL"
-						case []interface{}:
-							// Handle arrays
-							var elements []string
-							for _, elem := range v {
-								switch e := elem.(type) {
-								case string:
-									elements = append(elements, fmt.Sprintf("'%s'", strings.ReplaceAll(e, "'", "''")))
-								default:
-									elements = append(elements, fmt.Sprintf("%v", e))
-								}
-							}
-							strValue = fmt.Sprintf("ARRAY[%s]", strings.Join(elements, ", "))
-						default:
-							strValue = fmt.Sprintf("%v", v)
-						}
-						fmt.Printf("DEBUG: Replacing %s with %s\n", placeholder, strValue)
-						sql = strings.ReplaceAll(sql, placeholder, strValue)
-					}
-				} else {
-					fmt.Printf("DEBUG: Not a map, using positional parameters\n")
-					// Positional parameters
-					for i, arg := range args {
-						placeholder := fmt.Sprintf("$%d", i+1)
-						var value string
-						switch v := arg.(type) {
-						case string:
-							value = fmt.Sprintf("'%s'", strings.ReplaceAll(v, "'", "''"))
-						case nil:
-							value = "NULL"
-						default:
-							value = fmt.Sprintf("%v", v)
-						}
-						sql = strings.ReplaceAll(sql, placeholder, value)
-					}
-				}
-			}
-		}
-
-		// Just print the clean SQL directly
-		fmt.Printf("\n=== SQL QUERY (%v) ===\n%s\n=== END SQL ===\n\n", data["time"].(time.Duration), sql)
-		return
-	}
-	// For non-SQL messages, don't log anything to keep it clean
-}
-
 func RequestTimer() fiber.Handler {
 	return func(c *fiber.Ctx) error {
 		c.Locals("start", time.Now())
@@ -194,7 +82,7 @@ func NewApiServer(config config.Config) *ApiServer {
 	// disable sql logging in ENV "test"
 	if config.Env != "test" {
 		connConfig.ConnConfig.Tracer = &tracelog.TraceLog{
-			Logger:   NewReadableSQLLogger(logger),
+			Logger:   logging.NewReadableSQLLogger(logger),
 			LogLevel: logging.GetTraceLogLevel(config.LogLevel),
 		}
 	}
@@ -215,7 +103,7 @@ func NewApiServer(config config.Config) *ApiServer {
 
 		if config.Env != "test" {
 			writeConnConfig.ConnConfig.Tracer = &tracelog.TraceLog{
-				Logger:   NewReadableSQLLogger(logger),
+				Logger:   logging.NewReadableSQLLogger(logger),
 				LogLevel: logging.GetTraceLogLevel(config.LogLevel),
 			}
 		}
