@@ -1698,6 +1698,33 @@ paths:
         "500":
           description: Server error
           content: {}
+  /users/address:
+    get:
+      tags:
+      - users
+      description: Gets User IDs from any Ethereum wallet address or Solana account address associated with their Audius account.
+      operationId: Get User IDs by Wallet Addresses
+      parameters:
+      - name: address
+        in: query
+        description: Wallet address
+        required: true
+        style: form
+        explode: true
+        example:
+          - "0x1234567890abcdef1234567890abcdef12345678"
+          - "E2LCbKdo2L3ikt1gK6pwp1pDLuhAfHBNf6fEQXpAqrf9"
+        schema:
+          type: array
+          items:
+            type: string
+      responses:
+        "200":
+          description: Success
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/user_addresses_response'
   /users/handle/{handle}:
     get:
       tags:
@@ -4055,6 +4082,21 @@ components:
       properties:
         user_id:
           type: string
+    user_addresses_response:
+      type: object
+      properties:
+        data:
+          type: array
+          items:
+            type: object
+            required:
+            - user_id
+            - address
+            properties:
+              user_id:
+                type: string
+              address:
+                type: string
     connected_wallets_response:
       type: object
       properties:

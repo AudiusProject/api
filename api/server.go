@@ -316,6 +316,7 @@ func NewApiServer(config config.Config) *ApiServer {
 	for _, g := range []fiber.Router{v1, v1Full} {
 		// Users
 		g.Get("/users", app.v1Users)
+		g.Get("/users/address", app.v1UserIdsByAddresses)
 		g.Get("/users/search", app.v1UsersSearch)
 		g.Get("/users/unclaimed_id", app.v1UsersUnclaimedId)
 		g.Get("/users/top", app.v1UsersTop)
