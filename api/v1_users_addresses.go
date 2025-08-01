@@ -26,7 +26,7 @@ func (app *ApiServer) v1UserIdsByAddresses(c *fiber.Ctx) error {
 			AND users.is_deactivated = FALSE
 			AND users.is_current = TRUE
 
-		UNION
+		UNION ALL
 
 		-- Associated wallets
 		SELECT 
@@ -37,7 +37,7 @@ func (app *ApiServer) v1UserIdsByAddresses(c *fiber.Ctx) error {
 			AND associated_wallets.is_current = TRUE
 			AND associated_wallets.is_delete = FALSE
 
-		UNION
+		UNION ALL
 
 		-- User bank accounts
 		SELECT 
