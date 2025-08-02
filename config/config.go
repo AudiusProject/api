@@ -7,12 +7,14 @@ import (
 	core_config "github.com/AudiusProject/audiusd/pkg/core/config"
 	"github.com/AudiusProject/audiusd/pkg/rewards"
 	_ "github.com/joho/godotenv/autoload"
+	"go.uber.org/zap/zapcore"
 )
 
 type Config struct {
 	Env                  string
 	Git                  string
 	LogLevel             string
+	ZapLevel             zapcore.Level
 	ReadDbUrl            string
 	WriteDbUrl           string
 	RunMigrations        bool
@@ -51,6 +53,13 @@ var Cfg = Config{
 }
 
 func init() {
+	// Parse zap level from config
+	zapLevel, err := zapcore.ParseLevel(Cfg.LogLevel)
+	if err != nil {
+		zapLevel = zapcore.InfoLevel
+	}
+	Cfg.ZapLevel = zapLevel
+
 	Cfg.SolanaConfig = NewSolanaConfig()
 
 	switch env := os.Getenv("ENV"); env {

@@ -12,7 +12,18 @@ import (
 	"github.com/tidwall/sjson"
 )
 
+type GetNotificationsQueryParams struct {
+	Limit      int      `query:"limit" default:"20" validate:"min=0,max=100"`
+	ValidTypes []string `query:"valid_types"`
+	GroupID    string   `query:"group_id" validate:"omitempty"`
+	Timestamp  float64  `query:"timestamp" validate:"omitempty,min=0"`
+}
+
 func (app *ApiServer) v1Notifications(c *fiber.Ctx) error {
+	params := GetNotificationsQueryParams{}
+	if err := app.ParseAndValidateQueryParams(c, &params); err != nil {
+		return err
+	}
 
 	sql := `
 WITH user_seen as (
@@ -25,6 +36,7 @@ WITH user_seen as (
     user_id = @user_id
   ORDER BY
     seen_at desc
+	LIMIT 10
 ),
 user_created_at as (
   SELECT
@@ -36,31 +48,29 @@ user_created_at as (
   AND is_current
 )
 SELECT
-    n.type,
-    n.group_id as group_id,
-    json_agg(
-      json_build_object(
-        'type', type,
-        'specifier', specifier,
-        'timestamp', EXTRACT(EPOCH FROM timestamp),
-        'data', data
-      )
-      ORDER BY timestamp DESC
-    )::jsonb as actions,
-    CASE
-      WHEN user_seen.seen_at is not NULL THEN now()::timestamp != user_seen.seen_at
-      ELSE EXISTS(SELECT 1 from notification_seen ns where ns.user_id = @user_id)
-    END::boolean as is_seen,
-
-    CASE
-      WHEN user_seen.seen_at != now()::timestamp THEN EXTRACT(EPOCH FROM user_seen.seen_at)
-      ELSE null
-    END AS seen_at
-
+	n.type,
+	n.group_id AS group_id,
+	json_agg(
+		json_build_object(
+			'type', type,
+			'specifier', specifier,
+			'timestamp', EXTRACT(EPOCH FROM timestamp),
+			'data', data
+		)
+		ORDER BY timestamp DESC
+	)::jsonb AS actions,
+	CASE
+		WHEN user_seen.seen_at IS NOT NULL THEN now()::timestamp != user_seen.seen_at
+		ELSE EXISTS(SELECT 1 from notification_seen ns WHERE ns.user_id = @user_id)
+	END::boolean AS is_seen,
+	CASE
+		WHEN user_seen.seen_at != now()::timestamp THEN EXTRACT(EPOCH FROM COALESCE(user_seen.seen_at, n.timestamp))
+		ELSE null
+	END AS seen_at
 FROM
     notification n
-LEFT JOIN user_seen on
-  user_seen.seen_at >= n.timestamp and user_seen.prev_seen_at < n.timestamp
+LEFT JOIN user_seen ON
+  user_seen.seen_at >= n.timestamp AND user_seen.prev_seen_at < n.timestamp
 WHERE
   ((ARRAY[@user_id] && n.user_ids) OR (n.type = 'announcement' AND n.timestamp > (SELECT created_at FROM user_created_at)))
   AND n.type = ANY(@valid_types)
@@ -74,7 +84,7 @@ WHERE
     )
   )
 GROUP BY
-  n.type, n.group_id, user_seen.seen_at, user_seen.prev_seen_at
+  n.type, n.group_id, user_seen.seen_at, user_seen.prev_seen_at, n.timestamp
 ORDER BY
   user_seen.seen_at desc NULLS LAST,
   max(n.timestamp) desc,
@@ -129,14 +139,14 @@ limit @limit::int
 	}
 
 	// add optional valid_types
-	for _, t := range queryMulti(c, "valid_types") {
+	for _, t := range params.ValidTypes {
 		if !slices.Contains(validTypes, t) {
 			validTypes = append(validTypes, t)
 		}
 	}
 
 	userId := app.getUserId(c)
-	limit := c.QueryInt("limit", 20)
+	limit := params.Limit
 
 	// python returns 20 items when limit=0
 	// and client relies on this for showing unread count
@@ -156,8 +166,8 @@ limit @limit::int
 		"user_id":          userId,
 		"limit":            limit,
 		"valid_types":      validTypes,
-		"group_id_offset":  c.Query("group_id"),
-		"timestamp_offset": c.QueryFloat("timestamp"),
+		"group_id_offset":  params.GroupID,
+		"timestamp_offset": params.Timestamp,
 	})
 	if err != nil {
 		return err

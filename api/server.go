@@ -34,7 +34,6 @@ import (
 	"github.com/gofiber/fiber/v2/middleware/recover"
 	"github.com/gofiber/fiber/v2/middleware/requestid"
 	"github.com/gofiber/fiber/v2/utils"
-	pgxzap "github.com/jackc/pgx-zap"
 	"github.com/jackc/pgx/v5/pgxpool"
 	"github.com/jackc/pgx/v5/tracelog"
 	"github.com/maypok86/otter"
@@ -83,8 +82,8 @@ func NewApiServer(config config.Config) *ApiServer {
 	// disable sql logging in ENV "test"
 	if config.Env != "test" {
 		connConfig.ConnConfig.Tracer = &tracelog.TraceLog{
-			Logger:   pgxzap.NewLogger(logger),
-			LogLevel: logging.GetTraceLogLevel(config.LogLevel),
+			Logger:   logging.NewSqlLogger(logger, config.ZapLevel),
+			LogLevel: tracelog.LogLevelTrace, // capture everything into sql logger
 		}
 	}
 
@@ -104,8 +103,8 @@ func NewApiServer(config config.Config) *ApiServer {
 
 		if config.Env != "test" {
 			writeConnConfig.ConnConfig.Tracer = &tracelog.TraceLog{
-				Logger:   pgxzap.NewLogger(logger),
-				LogLevel: logging.GetTraceLogLevel(config.LogLevel),
+				Logger:   logging.NewSqlLogger(logger, config.ZapLevel),
+				LogLevel: tracelog.LogLevelTrace, // capture everything into sql logger
 			}
 		}
 
