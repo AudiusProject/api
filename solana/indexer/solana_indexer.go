@@ -46,8 +46,9 @@ type SolanaIndexer struct {
 	grpcClient GrpcClient
 	processor  Processor
 
-	config config.Config
-	pool   DbPool
+	config      config.Config
+	pool        DbPool
+	workerCount int32
 
 	checkpointId string
 
@@ -66,6 +67,12 @@ func New(config config.Config) *SolanaIndexer {
 		panic(fmt.Errorf("error parsing database URL: %w", err))
 	}
 
+	// The min write pool size is set to the number of workers
+	// plus 1 for the connection that listens for artist_coins changes,
+	// and add 10 as a buffer.
+	workerCount := int32(config.SolanaIndexerWorkers)
+	connConfig.MaxConns = workerCount + 1 + 10
+
 	pool, err := pgxpool.NewWithConfig(context.Background(), connConfig)
 	if err != nil {
 		panic(fmt.Errorf("error connecting to database: %w", err))
@@ -78,11 +85,12 @@ func New(config config.Config) *SolanaIndexer {
 	})
 
 	s := &SolanaIndexer{
-		rpcClient:  rpcClient,
-		grpcClient: grpcClient,
-		logger:     logger,
-		config:     config,
-		pool:       pool,
+		rpcClient:   rpcClient,
+		grpcClient:  grpcClient,
+		logger:      logger,
+		config:      config,
+		pool:        pool,
+		workerCount: workerCount,
 		processor: NewDefaultProcessor(
 			rpcClient,
 			pool,

@@ -77,7 +77,8 @@ func updateCheckpoint(ctx context.Context, db database.DBTX, id string, slot uin
 			UPDATE sol_slot_checkpoints
 			SET to_slot = @to_slot,
 				updated_at = NOW()
-			WHERE id = @id;
+			WHERE id = @id
+				AND to_slot < @to_slot;
 		`, pgx.NamedArgs{
 		"to_slot": slot,
 		"id":      id,
