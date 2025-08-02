@@ -70,7 +70,7 @@ func New(config config.Config) *SolanaIndexer {
 	// The min write pool size is set to 2x the number of workers
 	// plus 1 for the connection that listens for artist_coins changes.
 	workerCount := int32(config.SolanaIndexerWorkers)
-	connConfig.MaxConns = workerCount*2 + 1
+	connConfig.MaxConns = max(workerCount*2+1, 10)
 
 	pool, err := pgxpool.NewWithConfig(context.Background(), connConfig)
 	if err != nil {
