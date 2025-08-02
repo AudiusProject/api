@@ -47,7 +47,7 @@ var Cfg = Config{
 	NetworkTakeRate:      10,
 	AudiusdURL:           os.Getenv("audiusdUrl"),
 	BirdeyeToken:         os.Getenv("birdeyeToken"),
-	SolanaIndexerWorkers: 20,
+	SolanaIndexerWorkers: 50,
 }
 
 func init() {

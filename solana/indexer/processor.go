@@ -108,12 +108,6 @@ func (p *DefaultProcessor) ProcessTransaction(
 	blockTime time.Time,
 	logger *zap.Logger,
 ) error {
-	sqlTx, err := p.pool.Begin(ctx)
-	if err != nil {
-		return fmt.Errorf("failed to begin sql transaction: %w", err)
-	}
-	defer sqlTx.Rollback(ctx)
-
 	if tx == nil {
 		return fmt.Errorf("no transaction to process")
 	}
@@ -147,7 +141,7 @@ func (p *DefaultProcessor) ProcessTransaction(
 
 	signature := tx.Signatures[0].String()
 
-	err = processBalanceChanges(ctx, p.pool, slot, meta, tx, blockTime, txLogger)
+	err := processBalanceChanges(ctx, p.pool, slot, meta, tx, blockTime, txLogger)
 	if err != nil {
 		return fmt.Errorf("failed to process balance changes: %w", err)
 	}
@@ -183,10 +177,6 @@ func (p *DefaultProcessor) ProcessTransaction(
 		}
 	}
 
-	err = sqlTx.Commit(ctx)
-	if err != nil {
-		return fmt.Errorf("failed to commit sql transaction: %w", err)
-	}
 	return nil
 }
 

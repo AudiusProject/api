@@ -67,10 +67,11 @@ func New(config config.Config) *SolanaIndexer {
 		panic(fmt.Errorf("error parsing database URL: %w", err))
 	}
 
-	// The min write pool size is set to 2x the number of workers
-	// plus 1 for the connection that listens for artist_coins changes.
+	// The min write pool size is set to the number of workers
+	// plus 1 for the connection that listens for artist_coins changes,
+	// and add 10 as a buffer.
 	workerCount := int32(config.SolanaIndexerWorkers)
-	connConfig.MaxConns = max(workerCount*2+1, 10)
+	connConfig.MaxConns = workerCount + 1 + 10
 
 	pool, err := pgxpool.NewWithConfig(context.Background(), connConfig)
 	if err != nil {
