@@ -60,33 +60,32 @@ func (p *DefaultProcessor) ProcessSignature(ctx context.Context, slot uint64, tx
 
 	// Check if the transaction is in the cache
 	if p.transactionCache != nil {
-		if hit, ok := p.transactionCache.Get(txSig); ok {
+		if _, ok := p.transactionCache.Get(txSig); ok {
 			logger.Debug("cache hit")
-			txRes = hit
+			// If we hit the cache, it's already been processed
+			return nil
 		} else {
 			logger.Debug("cache miss")
 		}
 	}
 
 	// If the transaction is not in the cache, fetch it from the RPC
-	if txRes == nil {
-		res, err := withRetries(func() (*rpc.GetTransactionResult, error) {
-			return p.rpcClient.GetTransaction(
-				ctx,
-				txSig,
-				&rpc.GetTransactionOpts{
-					Commitment:                     rpc.CommitmentConfirmed,
-					MaxSupportedTransactionVersion: &rpc.MaxSupportedTransactionVersion0,
-				},
-			)
-		}, 5, 1*time.Second)
-		if err != nil {
-			return fmt.Errorf("failed to get transaction: %w", err)
-		}
-		if p.transactionCache != nil {
-			p.transactionCache.Set(txSig, res)
-			txRes = res
-		}
+	res, err := withRetries(func() (*rpc.GetTransactionResult, error) {
+		return p.rpcClient.GetTransaction(
+			ctx,
+			txSig,
+			&rpc.GetTransactionOpts{
+				Commitment:                     rpc.CommitmentConfirmed,
+				MaxSupportedTransactionVersion: &rpc.MaxSupportedTransactionVersion0,
+			},
+		)
+	}, 5, 1*time.Second)
+	if err != nil {
+		return fmt.Errorf("failed to get transaction: %w", err)
+	}
+	if p.transactionCache != nil {
+		p.transactionCache.Set(txSig, res)
+		txRes = res
 	}
 
 	tx, err := txRes.Transaction.GetTransaction()

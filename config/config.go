@@ -10,42 +10,44 @@ import (
 )
 
 type Config struct {
-	Env                string
-	Git                string
-	LogLevel           string
-	ReadDbUrl          string
-	WriteDbUrl         string
-	RunMigrations      bool
-	EsUrl              string
-	Nodes              []Node
-	DeadNodes          []string
-	DelegatePrivateKey string
-	AxiomToken         string
-	AxiomDataset       string
-	PythonUpstreams    []string
-	NetworkTakeRate    float64
-	SolanaConfig       SolanaConfig
-	AntiAbuseOracles   []string
-	Rewards            []rewards.Reward
-	AudiusdURL         string
-	ChainId            string
-	BirdeyeToken       string
+	Env                  string
+	Git                  string
+	LogLevel             string
+	ReadDbUrl            string
+	WriteDbUrl           string
+	RunMigrations        bool
+	EsUrl                string
+	Nodes                []Node
+	DeadNodes            []string
+	DelegatePrivateKey   string
+	AxiomToken           string
+	AxiomDataset         string
+	PythonUpstreams      []string
+	NetworkTakeRate      float64
+	SolanaConfig         SolanaConfig
+	AntiAbuseOracles     []string
+	Rewards              []rewards.Reward
+	AudiusdURL           string
+	ChainId              string
+	BirdeyeToken         string
+	SolanaIndexerWorkers int
 }
 
 var Cfg = Config{
-	Git:                os.Getenv("GIT_SHA"),
-	Env:                os.Getenv("ENV"),
-	LogLevel:           os.Getenv("logLevel"),
-	ReadDbUrl:          os.Getenv("readDbUrl"),
-	WriteDbUrl:         os.Getenv("writeDbUrl"),
-	RunMigrations:      os.Getenv("runMigrations") == "true",
-	EsUrl:              os.Getenv("elasticsearchUrl"),
-	DelegatePrivateKey: os.Getenv("delegatePrivateKey"),
-	AxiomToken:         os.Getenv("axiomToken"),
-	AxiomDataset:       os.Getenv("axiomDataset"),
-	NetworkTakeRate:    10,
-	AudiusdURL:         os.Getenv("audiusdUrl"),
-	BirdeyeToken:       os.Getenv("birdeyeToken"),
+	Git:                  os.Getenv("GIT_SHA"),
+	Env:                  os.Getenv("ENV"),
+	LogLevel:             os.Getenv("logLevel"),
+	ReadDbUrl:            os.Getenv("readDbUrl"),
+	WriteDbUrl:           os.Getenv("writeDbUrl"),
+	RunMigrations:        os.Getenv("runMigrations") == "true",
+	EsUrl:                os.Getenv("elasticsearchUrl"),
+	DelegatePrivateKey:   os.Getenv("delegatePrivateKey"),
+	AxiomToken:           os.Getenv("axiomToken"),
+	AxiomDataset:         os.Getenv("axiomDataset"),
+	NetworkTakeRate:      10,
+	AudiusdURL:           os.Getenv("audiusdUrl"),
+	BirdeyeToken:         os.Getenv("birdeyeToken"),
+	SolanaIndexerWorkers: 20,
 }
 
 func init() {
@@ -66,6 +68,7 @@ func init() {
 		Cfg.Rewards = core_config.MakeRewards(core_config.DevClaimAuthorities, core_config.DevRewardExtensions)
 		Cfg.AudiusdURL = "http://audius-protocol-creator-node-1"
 		Cfg.ChainId = "audius-mainnet-alpha-beta"
+		Cfg.SolanaIndexerWorkers = 1
 	case "stage":
 		fallthrough
 	case "staging":
