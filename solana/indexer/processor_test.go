@@ -63,7 +63,6 @@ func TestProcessTransaction_CallsInsertClaimableAccount(t *testing.T) {
 	poolMock, err := pgxmock.NewPool()
 	require.NoError(t, err, "failed to create mock database pool")
 	defer poolMock.Close()
-	poolMock.ExpectBegin()
 	poolMock.ExpectQuery("SELECT mint FROM artist_coins").
 		WillReturnError(pgx.ErrNoRows)
 	poolMock.ExpectExec("INSERT INTO sol_claimable_accounts").
@@ -76,7 +75,6 @@ func TestProcessTransaction_CallsInsertClaimableAccount(t *testing.T) {
 			"account":          createInst.UserBank().PublicKey.String(),
 		}).
 		WillReturnResult(pgxmock.NewResult("INSERT", 1))
-	poolMock.ExpectCommit()
 
 	p := &DefaultProcessor{
 		pool: poolMock,
@@ -229,7 +227,6 @@ func TestProcessTransaction_CallsInsertRewardDisbursement(t *testing.T) {
 	poolMock, err := pgxmock.NewPool()
 	require.NoError(t, err, "failed to create mock database pool")
 	defer poolMock.Close()
-	poolMock.ExpectBegin()
 	poolMock.ExpectQuery("SELECT mint FROM artist_coins").
 		WillReturnError(pgx.ErrNoRows)
 	poolMock.ExpectExec("INSERT INTO sol_reward_disbursements").
@@ -243,7 +240,6 @@ func TestProcessTransaction_CallsInsertRewardDisbursement(t *testing.T) {
 			"specifier":        "37364e80",
 		}).
 		WillReturnResult(pgxmock.NewResult("INSERT", 1))
-	poolMock.ExpectCommit()
 
 	p := &DefaultProcessor{
 		pool: poolMock,
@@ -301,7 +297,6 @@ func TestProcessTransaction_CallsInsertPayment(t *testing.T) {
 	poolMock, err := pgxmock.NewPool()
 	require.NoError(t, err, "failed to create mock database pool")
 	defer poolMock.Close()
-	poolMock.ExpectBegin()
 	poolMock.ExpectQuery("SELECT mint FROM artist_coins").
 		WillReturnError(pgx.ErrNoRows)
 	poolMock.ExpectExec("INSERT INTO sol_payments").
@@ -314,7 +309,6 @@ func TestProcessTransaction_CallsInsertPayment(t *testing.T) {
 			"toAccount":        dest.PublicKey().String(),
 		}).
 		WillReturnResult(pgxmock.NewResult("INSERT", 1))
-	poolMock.ExpectCommit()
 
 	p := &DefaultProcessor{
 		pool: poolMock,
@@ -386,7 +380,6 @@ func TestProcessTransaction_CallsInsertPurchase(t *testing.T) {
 	poolMock, err := pgxmock.NewPool()
 	require.NoError(t, err, "failed to create mock database pool")
 	defer poolMock.Close()
-	poolMock.ExpectBegin()
 	poolMock.ExpectQuery("SELECT mint FROM artist_coins").
 		WillReturnError(pgx.ErrNoRows)
 	poolMock.ExpectExec("INSERT INTO sol_payments").
@@ -417,7 +410,6 @@ func TestProcessTransaction_CallsInsertPurchase(t *testing.T) {
 			"country":               "USA",
 		}).
 		WillReturnResult(pgxmock.NewResult("INSERT", 1))
-	poolMock.ExpectCommit()
 
 	p := &DefaultProcessor{
 		pool: poolMock,
@@ -526,7 +518,6 @@ func TestProcessTransaction_CallsInsertBalanceChange(t *testing.T) {
 	defer poolMock.Close()
 	// balance change insertion order can vary
 	poolMock.MatchExpectationsInOrder(false)
-	poolMock.ExpectBegin()
 	poolMock.ExpectQuery("SELECT mint FROM artist_coins").
 		WillReturnRows(
 			pgxmock.NewRows([]string{"mints"}).
@@ -537,7 +528,6 @@ func TestProcessTransaction_CallsInsertBalanceChange(t *testing.T) {
 	poolMock.ExpectExec("INSERT INTO sol_token_account_balance_changes").
 		WithArgs(expectedArgs2).
 		WillReturnResult(pgxmock.NewResult("INSERT", 1))
-	poolMock.ExpectCommit()
 
 	p := &DefaultProcessor{
 		pool: poolMock,
