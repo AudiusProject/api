@@ -147,7 +147,6 @@ func TestProcessTransaction_CallsInsertClaimableAccountTransfer(t *testing.T) {
 	poolMock, err := pgxmock.NewPool()
 	require.NoError(t, err, "failed to create mock database pool")
 	defer poolMock.Close()
-	poolMock.ExpectBegin()
 	poolMock.ExpectQuery("SELECT mint FROM artist_coins").
 		WillReturnError(pgx.ErrNoRows)
 	poolMock.ExpectExec("INSERT INTO sol_claimable_account_transfers").
@@ -161,7 +160,6 @@ func TestProcessTransaction_CallsInsertClaimableAccountTransfer(t *testing.T) {
 			"senderEthAddress": strings.ToLower(ethAddress.String()),
 		}).
 		WillReturnResult(pgxmock.NewResult("INSERT", 1))
-	poolMock.ExpectCommit()
 
 	p := &DefaultProcessor{
 		pool: poolMock,
