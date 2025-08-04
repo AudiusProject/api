@@ -60,33 +60,32 @@ func (p *DefaultProcessor) ProcessSignature(ctx context.Context, slot uint64, tx
 
 	// Check if the transaction is in the cache
 	if p.transactionCache != nil {
-		if hit, ok := p.transactionCache.Get(txSig); ok {
+		if _, ok := p.transactionCache.Get(txSig); ok {
 			logger.Debug("cache hit")
-			txRes = hit
+			// If we hit the cache, it's already been processed
+			return nil
 		} else {
 			logger.Debug("cache miss")
 		}
 	}
 
 	// If the transaction is not in the cache, fetch it from the RPC
-	if txRes == nil {
-		res, err := withRetries(func() (*rpc.GetTransactionResult, error) {
-			return p.rpcClient.GetTransaction(
-				ctx,
-				txSig,
-				&rpc.GetTransactionOpts{
-					Commitment:                     rpc.CommitmentConfirmed,
-					MaxSupportedTransactionVersion: &rpc.MaxSupportedTransactionVersion0,
-				},
-			)
-		}, 5, 1*time.Second)
-		if err != nil {
-			return fmt.Errorf("failed to get transaction: %w", err)
-		}
-		if p.transactionCache != nil {
-			p.transactionCache.Set(txSig, res)
-			txRes = res
-		}
+	res, err := withRetries(func() (*rpc.GetTransactionResult, error) {
+		return p.rpcClient.GetTransaction(
+			ctx,
+			txSig,
+			&rpc.GetTransactionOpts{
+				Commitment:                     rpc.CommitmentConfirmed,
+				MaxSupportedTransactionVersion: &rpc.MaxSupportedTransactionVersion0,
+			},
+		)
+	}, 5, 1*time.Second)
+	if err != nil {
+		return fmt.Errorf("failed to get transaction: %w", err)
+	}
+	if p.transactionCache != nil {
+		p.transactionCache.Set(txSig, res)
+		txRes = res
 	}
 
 	tx, err := txRes.Transaction.GetTransaction()
@@ -109,12 +108,6 @@ func (p *DefaultProcessor) ProcessTransaction(
 	blockTime time.Time,
 	logger *zap.Logger,
 ) error {
-	sqlTx, err := p.pool.Begin(ctx)
-	if err != nil {
-		return fmt.Errorf("failed to begin sql transaction: %w", err)
-	}
-	defer sqlTx.Rollback(ctx)
-
 	if tx == nil {
 		return fmt.Errorf("no transaction to process")
 	}
@@ -148,7 +141,7 @@ func (p *DefaultProcessor) ProcessTransaction(
 
 	signature := tx.Signatures[0].String()
 
-	err = processBalanceChanges(ctx, p.pool, slot, meta, tx, blockTime, txLogger)
+	err := processBalanceChanges(ctx, p.pool, slot, meta, tx, blockTime, txLogger)
 	if err != nil {
 		return fmt.Errorf("failed to process balance changes: %w", err)
 	}
@@ -184,10 +177,6 @@ func (p *DefaultProcessor) ProcessTransaction(
 		}
 	}
 
-	err = sqlTx.Commit(ctx)
-	if err != nil {
-		return fmt.Errorf("failed to commit sql transaction: %w", err)
-	}
 	return nil
 }
 
