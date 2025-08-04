@@ -28,6 +28,8 @@ tags:
   description: Events related operations
 - name: explore
   description: Explore related operations
+- name: rewards
+  description: Rewards related operations
 paths:
   /challenges/undisbursed:
     get:
@@ -3573,6 +3575,31 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/coin_members_response'
+  /rewards/claim:
+    post:
+      tags:
+      - rewards
+      description: Claims all the filtered undisbursed rewards for a user
+      operationId: Claim Rewards
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/claim_rewards_request'
+      responses:
+        "200":
+          description: Success
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/claim_rewards_response'
+        "400":
+          description: Bad request - No rewards to claim or invalid parameters
+          content: {}
+        "500":
+          description: Server error
+          content: {}
 
 components:
   schemas:
@@ -5460,6 +5487,55 @@ components:
       properties:
         data:
           $ref: '#/components/schemas/user_coin_with_accounts'
+    claim_rewards_response:
+      type: object
+      required:
+        - data
+      properties:
+        data:
+          type: array
+          items:
+            type: object
+            properties:
+              challengeId:
+                type: string
+                description: The challenge ID
+                example: "u"
+              specifier:
+                type: string
+                description: The challenge specifier
+                example: "7eP5n"
+              amount:
+                type: string
+                description: The reward amount
+                example: "1000000000"
+              signatures:
+                type: array
+                items:
+                  type: string
+                description: Transaction signatures
+                example: ["5j7s1QjmRKFuDbCWMRVRNibSV2VAAEcNKP6HWU7GwPdXkBZvhz8n4vQl7bBq8tN4Rz9x1Kj3mP5wQ8rT2Y6zA"]
+              error:
+                type: string
+                description: Error message if claim failed
+                example: "Insufficient balance"
+    claim_rewards_request:
+      type: object
+      required:
+        - userId
+      properties:
+        challengeId:
+          type: string
+          description: The challenge ID to filter rewards (optional)
+          example: "u"
+        specifier:
+          type: string
+          description: The specifier to filter rewards (optional)
+          example: "7eP5n"
+        userId:
+          type: string
+          description: The user ID to claim rewards for
+          example: "7eP5n"
   responses:
     ParseError:
       description: When a mask can't be parsed
