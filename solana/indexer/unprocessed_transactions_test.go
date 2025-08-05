@@ -21,7 +21,7 @@ func TestUnprocessedTransactions(t *testing.T) {
 	// Insert a test unprocessed transaction
 	signature := "test_signature"
 	errorMessage := "test error message"
-	err := insertUnprocessedTransaction(ctx, pool, signature, errorMessage)
+	err := insertUnprocessedTransaction(ctx, pool, signature, 0, errorMessage)
 	require.NoError(t, err)
 
 	// Verify the transaction was inserted
@@ -70,7 +70,7 @@ func TestRetryUnprocessedTransactions(t *testing.T) {
 		var sigBytes [64]byte
 		copy(sigBytes[:], []byte("test_signature_"+strconv.FormatInt(int64(i), 10)))
 		signature := solana.SignatureFromBytes(sigBytes[:])
-		insertUnprocessedTransaction(ctx, pool, signature.String(), "test error message")
+		insertUnprocessedTransaction(ctx, pool, signature.String(), 0, "test error message")
 	}
 
 	err := s.RetryUnprocessedTransactions(ctx)

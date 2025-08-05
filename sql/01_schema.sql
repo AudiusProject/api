@@ -7642,7 +7642,8 @@ CREATE TABLE public.sol_unprocessed_txs (
     signature text NOT NULL,
     error_message text,
     created_at timestamp without time zone DEFAULT CURRENT_TIMESTAMP NOT NULL,
-    updated_at timestamp without time zone DEFAULT CURRENT_TIMESTAMP NOT NULL
+    updated_at timestamp without time zone DEFAULT CURRENT_TIMESTAMP NOT NULL,
+    slot bigint DEFAULT 0 NOT NULL
 );
 
 

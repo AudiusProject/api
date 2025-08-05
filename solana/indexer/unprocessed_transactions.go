@@ -29,16 +29,16 @@ func (s *SolanaIndexer) RetryUnprocessedTransactions(ctx context.Context) error 
 			break
 		}
 
-		for _, txSig := range failedTxs {
+		for _, tx := range failedTxs {
 			count++
-			err = s.processor.ProcessSignature(ctx, 0, solana.MustSignatureFromBase58(txSig), logger)
+			err = s.processor.ProcessSignature(ctx, tx.Slot, solana.MustSignatureFromBase58(tx.Signature), logger)
 			if err != nil {
-				logger.Error("failed to process transaction", zap.String("signature", txSig), zap.Error(err))
+				logger.Error("failed to process transaction", zap.String("signature", tx.Signature), zap.Error(err))
 				offset++
 				continue
 			}
-			logger.Debug("successfully processed transaction", zap.String("signature", txSig))
-			deleteUnprocessedTransaction(ctx, s.pool, txSig)
+			logger.Debug("successfully processed transaction", zap.String("signature", tx.Signature))
+			deleteUnprocessedTransaction(ctx, s.pool, tx.Signature)
 		}
 	}
 	if count == 0 {
@@ -53,8 +53,13 @@ func (s *SolanaIndexer) RetryUnprocessedTransactions(ctx context.Context) error 
 	return nil
 }
 
-func getUnprocessedTransactions(ctx context.Context, db database.DBTX, limit, offset int) ([]string, error) {
-	sql := `SELECT signature FROM sol_unprocessed_txs LIMIT @limit OFFSET @offset;`
+type unprocessedTransaction struct {
+	Signature string
+	Slot      uint64
+}
+
+func getUnprocessedTransactions(ctx context.Context, db database.DBTX, limit, offset int) ([]unprocessedTransaction, error) {
+	sql := `SELECT signature, slot FROM sol_unprocessed_txs LIMIT @limit OFFSET @offset;`
 	rows, err := db.Query(ctx, sql, pgx.NamedArgs{
 		"limit":  limit,
 		"offset": offset,
@@ -65,20 +70,21 @@ func getUnprocessedTransactions(ctx context.Context, db database.DBTX, limit, of
 		}
 		return nil, fmt.Errorf("failed to query unprocessed transactions: %w", err)
 	}
-	signatures, err := pgx.CollectRows(rows, pgx.RowTo[string])
+	signatures, err := pgx.CollectRows(rows, pgx.RowToStructByName[unprocessedTransaction])
 	if err != nil {
 		return nil, fmt.Errorf("failed to collect unprocessed transaction signatures: %w", err)
 	}
 	return signatures, nil
 }
 
-func insertUnprocessedTransaction(ctx context.Context, db database.DBTX, signature, errorMessage string) error {
+func insertUnprocessedTransaction(ctx context.Context, db database.DBTX, signature string, slot uint64, errorMessage string) error {
 	sql := `
-		INSERT INTO sol_unprocessed_txs (signature, error_message) VALUES (@signature, @error_message) 
+		INSERT INTO sol_unprocessed_txs (signature, slot, error_message) VALUES (@signature, @slot, @error_message) 
 		ON CONFLICT (signature) DO UPDATE SET error_message = @error_message, updated_at = NOW()
 	;`
 	_, err := db.Exec(ctx, sql, pgx.NamedArgs{
 		"signature":     signature,
+		"slot":          slot,
 		"error_message": errorMessage,
 	})
 	if err != nil {
