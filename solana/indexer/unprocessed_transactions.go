@@ -37,7 +37,7 @@ func (s *SolanaIndexer) RetryUnprocessedTransactions(ctx context.Context) error 
 				offset++
 				continue
 			}
-			logger.Info("successfully processed transaction", zap.String("signature", txSig))
+			logger.Debug("successfully processed transaction", zap.String("signature", txSig))
 			deleteUnprocessedTransaction(ctx, s.pool, txSig)
 		}
 	}
