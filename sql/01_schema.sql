@@ -7635,6 +7635,18 @@ COMMENT ON TABLE public.sol_token_transfers IS 'Stores SPL token transfers for t
 
 
 --
+-- Name: sol_unprocessed_txs; Type: TABLE; Schema: public; Owner: -
+--
+
+CREATE TABLE public.sol_unprocessed_txs (
+    signature text NOT NULL,
+    error_message text,
+    created_at timestamp without time zone DEFAULT CURRENT_TIMESTAMP NOT NULL,
+    updated_at timestamp without time zone DEFAULT CURRENT_TIMESTAMP NOT NULL
+);
+
+
+--
 -- Name: sol_user_balances; Type: TABLE; Schema: public; Owner: -
 --
 
@@ -9506,6 +9518,14 @@ ALTER TABLE ONLY public.sol_token_account_balances
 
 ALTER TABLE ONLY public.sol_token_transfers
     ADD CONSTRAINT sol_token_transfers_pkey PRIMARY KEY (signature, instruction_index);
+
+
+--
+-- Name: sol_unprocessed_txs sol_unprocessed_txs_pkey; Type: CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.sol_unprocessed_txs
+    ADD CONSTRAINT sol_unprocessed_txs_pkey PRIMARY KEY (signature);
 
 
 --

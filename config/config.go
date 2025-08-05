@@ -3,6 +3,8 @@ package config
 import (
 	"log"
 	"os"
+	"strconv"
+	"time"
 
 	core_config "github.com/AudiusProject/audiusd/pkg/core/config"
 	"github.com/AudiusProject/audiusd/pkg/rewards"
@@ -11,45 +13,47 @@ import (
 )
 
 type Config struct {
-	Env                  string
-	Git                  string
-	LogLevel             string
-	ZapLevel             zapcore.Level
-	ReadDbUrl            string
-	WriteDbUrl           string
-	RunMigrations        bool
-	EsUrl                string
-	Nodes                []Node
-	DeadNodes            []string
-	DelegatePrivateKey   string
-	AxiomToken           string
-	AxiomDataset         string
-	PythonUpstreams      []string
-	NetworkTakeRate      float64
-	SolanaConfig         SolanaConfig
-	AntiAbuseOracles     []string
-	Rewards              []rewards.Reward
-	AudiusdURL           string
-	ChainId              string
-	BirdeyeToken         string
-	SolanaIndexerWorkers int
+	Env                        string
+	Git                        string
+	LogLevel                   string
+	ZapLevel                   zapcore.Level
+	ReadDbUrl                  string
+	WriteDbUrl                 string
+	RunMigrations              bool
+	EsUrl                      string
+	Nodes                      []Node
+	DeadNodes                  []string
+	DelegatePrivateKey         string
+	AxiomToken                 string
+	AxiomDataset               string
+	PythonUpstreams            []string
+	NetworkTakeRate            float64
+	SolanaConfig               SolanaConfig
+	AntiAbuseOracles           []string
+	Rewards                    []rewards.Reward
+	AudiusdURL                 string
+	ChainId                    string
+	BirdeyeToken               string
+	SolanaIndexerWorkers       int
+	SolanaIndexerRetryInterval time.Duration
 }
 
 var Cfg = Config{
-	Git:                  os.Getenv("GIT_SHA"),
-	Env:                  os.Getenv("ENV"),
-	LogLevel:             os.Getenv("logLevel"),
-	ReadDbUrl:            os.Getenv("readDbUrl"),
-	WriteDbUrl:           os.Getenv("writeDbUrl"),
-	RunMigrations:        os.Getenv("runMigrations") == "true",
-	EsUrl:                os.Getenv("elasticsearchUrl"),
-	DelegatePrivateKey:   os.Getenv("delegatePrivateKey"),
-	AxiomToken:           os.Getenv("axiomToken"),
-	AxiomDataset:         os.Getenv("axiomDataset"),
-	NetworkTakeRate:      10,
-	AudiusdURL:           os.Getenv("audiusdUrl"),
-	BirdeyeToken:         os.Getenv("birdeyeToken"),
-	SolanaIndexerWorkers: 50,
+	Git:                        os.Getenv("GIT_SHA"),
+	Env:                        os.Getenv("ENV"),
+	LogLevel:                   os.Getenv("logLevel"),
+	ReadDbUrl:                  os.Getenv("readDbUrl"),
+	WriteDbUrl:                 os.Getenv("writeDbUrl"),
+	RunMigrations:              os.Getenv("runMigrations") == "true",
+	EsUrl:                      os.Getenv("elasticsearchUrl"),
+	DelegatePrivateKey:         os.Getenv("delegatePrivateKey"),
+	AxiomToken:                 os.Getenv("axiomToken"),
+	AxiomDataset:               os.Getenv("axiomDataset"),
+	NetworkTakeRate:            10,
+	AudiusdURL:                 os.Getenv("audiusdUrl"),
+	BirdeyeToken:               os.Getenv("birdeyeToken"),
+	SolanaIndexerWorkers:       50,
+	SolanaIndexerRetryInterval: 5 * time.Minute,
 }
 
 func init() {
@@ -117,5 +121,24 @@ func init() {
 		Cfg.ChainId = "audius-mainnet-alpha-beta"
 	default:
 		log.Fatalf("Unknown environment: %s", env)
+	}
+
+	// Solana indexer config
+	retryInterval := os.Getenv("solanaIndexerRetryInterval")
+	if retryInterval != "" {
+		parsedInterval, err := time.ParseDuration(retryInterval)
+		if err != nil {
+			panic("Invalid solanaIndexerRetryInterval: " + err.Error())
+		}
+		Cfg.SolanaIndexerRetryInterval = parsedInterval
+	}
+
+	workers := os.Getenv("solanaIndexerWorkers")
+	if workers != "" {
+		parsedWorkers, err := strconv.Atoi(workers)
+		if err != nil {
+			panic("Invalid solanaIndexerWorkers: " + err.Error())
+		}
+		Cfg.SolanaIndexerWorkers = parsedWorkers
 	}
 }

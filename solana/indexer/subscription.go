@@ -247,6 +247,9 @@ func (s *SolanaIndexer) handleMessage(ctx context.Context, msg *pb.SubscribeUpda
 		err := s.processor.ProcessSignature(ctx, accUpdate.Slot, txSig, logger)
 		if err != nil {
 			logger.Error("failed to process signature", zap.Error(err))
+			if insertErr := insertUnprocessedTransaction(ctx, s.pool, txSig.String(), err.Error()); insertErr != nil {
+				logger.Error("failed to insert unprocessed transaction", zap.Error(insertErr))
+			}
 		}
 	}
 }

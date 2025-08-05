@@ -12,6 +12,7 @@ import (
 	pb "github.com/rpcpool/yellowstone-grpc/examples/golang/proto"
 	"github.com/stretchr/testify/mock"
 	"github.com/test-go/testify/assert"
+	"github.com/test-go/testify/require"
 	"go.uber.org/zap"
 )
 
@@ -187,4 +188,35 @@ func TestSubscription(t *testing.T) {
 	err = <-done
 	assert.True(t, errors.Is(err, context.Canceled), err.Error())
 	grpcMock.AssertExpectations(t)
+}
+
+func TestSubscription_Unprocessed(t *testing.T) {
+	pool := database.CreateTestDatabase(t, "test_solana_indexer")
+	processor := &mockProcessor{}
+
+	processor.On("ProcessSignature", mock.Anything, mock.Anything, mock.Anything, mock.Anything).
+		Return(errors.New("test error"))
+
+	s := &SolanaIndexer{
+		processor: processor,
+		pool:      pool,
+		logger:    zap.NewNop(),
+	}
+
+	signature := solana.MustSignatureFromBase58("58sUxCqs2sbErrZhH1A1YcFrYpK35Ph2AHpySxkCcRkeer1bJmfyCRKxQ7qeR26AA1qEnDb58KJwviDJXGqkAStQ")
+
+	s.handleMessage(t.Context(), &pb.SubscribeUpdate{
+		UpdateOneof: &pb.SubscribeUpdate_Account{
+			Account: &pb.SubscribeUpdateAccount{
+				Account: &pb.SubscribeUpdateAccountInfo{
+					TxnSignature: signature[:],
+				},
+			},
+		},
+	})
+
+	unprocessedTxs, err := getUnprocessedTransactions(t.Context(), pool, 100, 0)
+	require.NoError(t, err, "failed to get unprocessed transactions")
+	assert.Len(t, unprocessedTxs, 1, "expected one unprocessed transaction")
+	assert.Equal(t, "58sUxCqs2sbErrZhH1A1YcFrYpK35Ph2AHpySxkCcRkeer1bJmfyCRKxQ7qeR26AA1qEnDb58KJwviDJXGqkAStQ", unprocessedTxs[0], "unexpected unprocessed transaction")
 }

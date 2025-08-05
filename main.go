@@ -64,7 +64,7 @@ func main() {
 			ctx, stop := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM, syscall.SIGINT, os.Interrupt)
 			defer stop()
 
-			if err := solanaIndexer.Subscribe(ctx); err != nil {
+			if err := solanaIndexer.Start(ctx); err != nil {
 				if !errors.Is(err, context.Canceled) {
 					panic(err)
 				}
