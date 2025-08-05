@@ -21,14 +21,14 @@ func TestUnprocessedTransactions(t *testing.T) {
 	// Insert a test unprocessed transaction
 	signature := "test_signature"
 	errorMessage := "test error message"
-	err := insertUnprocessedTransaction(ctx, pool, signature, errorMessage)
+	err := insertUnprocessedTransaction(ctx, pool, signature, 0, errorMessage)
 	require.NoError(t, err)
 
 	// Verify the transaction was inserted
 	res, err := getUnprocessedTransactions(ctx, pool, 10, 0)
 	require.NoError(t, err)
 	assert.Len(t, res, 1)
-	assert.Equal(t, signature, res[0])
+	assert.Equal(t, signature, res[0].Signature)
 
 	// Delete the unprocessed transaction
 	err = deleteUnprocessedTransaction(ctx, pool, signature)
@@ -70,7 +70,7 @@ func TestRetryUnprocessedTransactions(t *testing.T) {
 		var sigBytes [64]byte
 		copy(sigBytes[:], []byte("test_signature_"+strconv.FormatInt(int64(i), 10)))
 		signature := solana.SignatureFromBytes(sigBytes[:])
-		insertUnprocessedTransaction(ctx, pool, signature.String(), "test error message")
+		insertUnprocessedTransaction(ctx, pool, signature.String(), 0, "test error message")
 	}
 
 	err := s.RetryUnprocessedTransactions(ctx)
@@ -81,5 +81,5 @@ func TestRetryUnprocessedTransactions(t *testing.T) {
 	unprocessedTxs, err := getUnprocessedTransactions(ctx, pool, 100, 0)
 	require.NoError(t, err)
 	assert.Len(t, unprocessedTxs, 1, "expected a single unprocessed transaction after retry")
-	assert.Equal(t, failingSig.String(), unprocessedTxs[0], "expected the failing transaction to remain unprocessed")
+	assert.Equal(t, failingSig.String(), unprocessedTxs[0].Signature, "expected the failing transaction to remain unprocessed")
 }

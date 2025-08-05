@@ -218,5 +218,5 @@ func TestSubscription_Unprocessed(t *testing.T) {
 	unprocessedTxs, err := getUnprocessedTransactions(t.Context(), pool, 100, 0)
 	require.NoError(t, err, "failed to get unprocessed transactions")
 	assert.Len(t, unprocessedTxs, 1, "expected one unprocessed transaction")
-	assert.Equal(t, "58sUxCqs2sbErrZhH1A1YcFrYpK35Ph2AHpySxkCcRkeer1bJmfyCRKxQ7qeR26AA1qEnDb58KJwviDJXGqkAStQ", unprocessedTxs[0], "unexpected unprocessed transaction")
+	assert.Equal(t, "58sUxCqs2sbErrZhH1A1YcFrYpK35Ph2AHpySxkCcRkeer1bJmfyCRKxQ7qeR26AA1qEnDb58KJwviDJXGqkAStQ", unprocessedTxs[0].Signature, "unexpected unprocessed transaction")
 }
