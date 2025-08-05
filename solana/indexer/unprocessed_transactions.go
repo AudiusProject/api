@@ -19,7 +19,7 @@ func (s *SolanaIndexer) RetryUnprocessedTransactions(ctx context.Context) error 
 	)
 	count := 0
 	start := time.Now()
-	logger.Info("starting retry of unprocessed transactions...")
+	logger.Debug("starting retry of unprocessed transactions...")
 	for {
 		failedTxs, err := getUnprocessedTransactions(ctx, s.pool, limit, offset)
 		if err != nil {
