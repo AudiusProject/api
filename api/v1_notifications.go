@@ -87,9 +87,24 @@ FROM
     notification n
 LEFT JOIN user_seen ON
   user_seen.seen_at >= n.timestamp AND user_seen.prev_seen_at < n.timestamp
+-- Join with tracks table to filter out deleted tracks for "create" notifications that have track_id
+LEFT JOIN tracks t ON 
+  n.type = 'create' AND 
+  n.data ? 'track_id' AND
+  t.track_id = (n.data->>'track_id')::integer AND 
+  t.is_current = true
+LEFT JOIN playlists p ON
+  n.type = 'create' AND 
+  n.data ? 'playlist_id' AND
+  p.playlist_id = (n.data->>'playlist_id')::integer AND 
+  p.is_current = true
 WHERE
   ((ARRAY[@user_id] && n.user_ids) OR (n.type = 'announcement' AND n.timestamp > (SELECT created_at FROM user_created_at)))
   AND (n.type = ANY(@types) OR @types IS NULL)
+  -- Filter out notifications for deleted tracks (only for create notifications that have track_id)
+  AND (n.type != 'create' OR NOT (n.data ? 'track_id') OR t.is_delete = false)
+  -- Filter out notifications for deleted playlists (only for create notifications that have playlist_id)
+  AND (n.type != 'create' OR NOT (n.data ? 'playlist_id') OR p.is_delete = false)
   AND (
     (@timestamp_offset = 0 AND @group_id_offset = '') OR
     (@timestamp_offset = 0 AND @group_id_offset != '' AND n.group_id < @group_id_offset) OR
