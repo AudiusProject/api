@@ -41,6 +41,10 @@ func (s *SolanaIndexer) RetryUnprocessedTransactions(ctx context.Context) error 
 			deleteUnprocessedTransaction(ctx, s.pool, txSig)
 		}
 	}
+	if count == 0 {
+		logger.Debug("no unprocessed transactions to retry")
+		return nil
+	}
 	logger.Info("finished retry of unprocessed transactions",
 		zap.Int("count", count),
 		zap.Int("failed", offset),
