@@ -658,6 +658,21 @@ paths:
           - month
           - year
           - allTime
+      - name: type
+        in: query
+        description: The type of content to filter by
+        schema:
+          type: string
+          default: playlist
+          enum:
+          - playlist
+          - album
+      - name: omit_tracks
+        in: query
+        description: Whether to omit tracks from the response
+        schema:
+          type: boolean
+          default: false
       responses:
         "200":
           description: Success

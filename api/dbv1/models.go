@@ -895,12 +895,16 @@ type AppNameMetricsTrailingWeek struct {
 	Count int64  `json:"count"`
 }
 
+// Stores the token mints for artist coins that the indexer is tracking and their tickers.
 type ArtistCoin struct {
-	Mint      string    `json:"mint"`
-	Ticker    string    `json:"ticker"`
-	UserID    int32     `json:"user_id"`
-	Decimals  int32     `json:"decimals"`
-	CreatedAt time.Time `json:"created_at"`
+	Mint        string      `json:"mint"`
+	Ticker      string      `json:"ticker"`
+	UserID      int32       `json:"user_id"`
+	Decimals    int32       `json:"decimals"`
+	CreatedAt   time.Time   `json:"created_at"`
+	LogoUri     pgtype.Text `json:"logo_uri"`
+	Description pgtype.Text `json:"description"`
+	Website     pgtype.Text `json:"website"`
 }
 
 type AssociatedWallet struct {
@@ -1050,10 +1054,15 @@ type CidDatum struct {
 	Data []byte      `json:"data"`
 }
 
+// Stores collectibles data for users
 type Collectible struct {
-	UserID      int32              `json:"user_id"`
-	Data        json.RawMessage    `json:"data"`
-	Blockhash   string             `json:"blockhash"`
+	// User ID of the person who owns the collectibles
+	UserID int32 `json:"user_id"`
+	// Data about the collectibles
+	Data json.RawMessage `json:"data"`
+	// Blockhash of the most recent block that changed the collectibles data
+	Blockhash string `json:"blockhash"`
+	// Block number of the most recent block that changed the collectibles data
 	Blocknumber int32              `json:"blocknumber"`
 	CreatedAt   pgtype.Timestamptz `json:"created_at"`
 	UpdatedAt   pgtype.Timestamptz `json:"updated_at"`
@@ -1223,29 +1232,67 @@ type DeveloperApp struct {
 	ImageUrl         pgtype.Text    `json:"image_url"`
 }
 
+// Tracks who has access to encrypted emails
 type EmailAccess struct {
-	ID               int32              `json:"id"`
-	EmailOwnerUserID int32              `json:"email_owner_user_id"`
-	ReceivingUserID  int32              `json:"receiving_user_id"`
-	GrantorUserID    int32              `json:"grantor_user_id"`
-	EncryptedKey     string             `json:"encrypted_key"`
-	CreatedAt        pgtype.Timestamptz `json:"created_at"`
-	UpdatedAt        pgtype.Timestamptz `json:"updated_at"`
-	IsInitial        bool               `json:"is_initial"`
+	ID int32 `json:"id"`
+	// The user ID of the email owner
+	EmailOwnerUserID int32 `json:"email_owner_user_id"`
+	// The user ID of the person granted access
+	ReceivingUserID int32 `json:"receiving_user_id"`
+	// The user ID of the person who granted access
+	GrantorUserID int32 `json:"grantor_user_id"`
+	// The symmetric key (SK) encrypted for the receiving user
+	EncryptedKey string             `json:"encrypted_key"`
+	CreatedAt    pgtype.Timestamptz `json:"created_at"`
+	UpdatedAt    pgtype.Timestamptz `json:"updated_at"`
+	IsInitial    bool               `json:"is_initial"`
 }
 
+// Stores encrypted email addresses
 type EncryptedEmail struct {
-	ID               int32              `json:"id"`
-	EmailOwnerUserID int32              `json:"email_owner_user_id"`
-	EncryptedEmail   string             `json:"encrypted_email"`
-	CreatedAt        pgtype.Timestamptz `json:"created_at"`
-	UpdatedAt        pgtype.Timestamptz `json:"updated_at"`
+	ID int32 `json:"id"`
+	// The user ID of the email owner
+	EmailOwnerUserID int32 `json:"email_owner_user_id"`
+	// The encrypted email address (base64 encoded)
+	EncryptedEmail string             `json:"encrypted_email"`
+	CreatedAt      pgtype.Timestamptz `json:"created_at"`
+	UpdatedAt      pgtype.Timestamptz `json:"updated_at"`
 }
 
 type EthBlock struct {
 	LastScannedBlock int32     `json:"last_scanned_block"`
 	CreatedAt        time.Time `json:"created_at"`
 	UpdatedAt        time.Time `json:"updated_at"`
+}
+
+type EthDbMigration struct {
+	Version int64 `json:"version"`
+	Dirty   bool  `json:"dirty"`
+}
+
+type EthFundingRound struct {
+	RoundNum     int32     `json:"round_num"`
+	Blocknumber  int64     `json:"blocknumber"`
+	CreationTime time.Time `json:"creation_time"`
+}
+
+type EthRegisteredEndpoint struct {
+	ID             int32  `json:"id"`
+	ServiceType    string `json:"service_type"`
+	Owner          string `json:"owner"`
+	DelegateWallet string `json:"delegate_wallet"`
+	Endpoint       string `json:"endpoint"`
+	Blocknumber    int64  `json:"blocknumber"`
+}
+
+type EthServiceProvider struct {
+	Address           string `json:"address"`
+	DeployerStake     int64  `json:"deployer_stake"`
+	DeployerCut       int64  `json:"deployer_cut"`
+	ValidBounds       bool   `json:"valid_bounds"`
+	NumberOfEndpoints int32  `json:"number_of_endpoints"`
+	MinAccountStake   int64  `json:"min_account_stake"`
+	MaxAccountStake   int64  `json:"max_account_stake"`
 }
 
 type Event struct {
@@ -1628,6 +1675,7 @@ type SlaRollup struct {
 	Time       time.Time `json:"time"`
 }
 
+// Stores claimable tokens program Create instructions for tracked mints.
 type SolClaimableAccount struct {
 	Signature        string `json:"signature"`
 	InstructionIndex int32  `json:"instruction_index"`
@@ -1637,6 +1685,7 @@ type SolClaimableAccount struct {
 	Account          string `json:"account"`
 }
 
+// Stores claimable tokens program Transfer instructions for tracked mints.
 type SolClaimableAccountTransfer struct {
 	Signature        string `json:"signature"`
 	InstructionIndex int32  `json:"instruction_index"`
@@ -1647,6 +1696,7 @@ type SolClaimableAccountTransfer struct {
 	SenderEthAddress string `json:"sender_eth_address"`
 }
 
+// Stores payment router program Route instruction recipients and amounts for tracked mints.
 type SolPayment struct {
 	Signature        string `json:"signature"`
 	InstructionIndex int32  `json:"instruction_index"`
@@ -1656,23 +1706,27 @@ type SolPayment struct {
 	ToAccount        string `json:"to_account"`
 }
 
+// Stores payment router program Route instructions that are paired with purchase information for tracked mints.
 type SolPurchase struct {
-	Signature             string      `json:"signature"`
-	InstructionIndex      int32       `json:"instruction_index"`
-	Amount                int64       `json:"amount"`
-	Slot                  int64       `json:"slot"`
-	FromAccount           string      `json:"from_account"`
-	ContentType           string      `json:"content_type"`
-	ContentID             int32       `json:"content_id"`
-	BuyerUserID           int32       `json:"buyer_user_id"`
-	AccessType            string      `json:"access_type"`
-	ValidAfterBlocknumber int64       `json:"valid_after_blocknumber"`
-	IsValid               pgtype.Bool `json:"is_valid"`
-	City                  pgtype.Text `json:"city"`
-	Region                pgtype.Text `json:"region"`
-	Country               pgtype.Text `json:"country"`
+	Signature        string `json:"signature"`
+	InstructionIndex int32  `json:"instruction_index"`
+	Amount           int64  `json:"amount"`
+	Slot             int64  `json:"slot"`
+	FromAccount      string `json:"from_account"`
+	ContentType      string `json:"content_type"`
+	ContentID        int32  `json:"content_id"`
+	BuyerUserID      int32  `json:"buyer_user_id"`
+	AccessType       string `json:"access_type"`
+	// Purchase transactions include the blocknumber that the content was most recently updated in order to ensure that the relevant pricing information has been indexed before evaluating whether the purchase is valid.
+	ValidAfterBlocknumber int64 `json:"valid_after_blocknumber"`
+	// A purchase is valid if it meets the pricing information set by the artist. If the pricing information is not available yet (as indicated by the valid_after_blocknumber), then is_valid will be NULL which indicates a "pending" state.
+	IsValid pgtype.Bool `json:"is_valid"`
+	City    pgtype.Text `json:"city"`
+	Region  pgtype.Text `json:"region"`
+	Country pgtype.Text `json:"country"`
 }
 
+// Stores reward manager program Evaluate instructions for tracked mints.
 type SolRewardDisbursement struct {
 	Signature        string `json:"signature"`
 	InstructionIndex int32  `json:"instruction_index"`
@@ -1683,6 +1737,7 @@ type SolRewardDisbursement struct {
 	Specifier        string `json:"specifier"`
 }
 
+// Stores checkpoints for Solana slots to track indexing progress.
 type SolSlotCheckpoint struct {
 	ID               pgtype.UUID     `json:"id"`
 	FromSlot         int64           `json:"from_slot"`
@@ -1693,6 +1748,7 @@ type SolSlotCheckpoint struct {
 	CreatedAt        time.Time       `json:"created_at"`
 }
 
+// Stores eg. Jupiter swaps for tracked mints.
 type SolSwap struct {
 	Signature        string `json:"signature"`
 	InstructionIndex int32  `json:"instruction_index"`
@@ -1705,6 +1761,7 @@ type SolSwap struct {
 	ToAmount         int64  `json:"to_amount"`
 }
 
+// Stores current token balances for all accounts of tracked mints.
 type SolTokenAccountBalance struct {
 	Account   string    `json:"account"`
 	Mint      string    `json:"mint"`
@@ -1715,6 +1772,7 @@ type SolTokenAccountBalance struct {
 	CreatedAt time.Time `json:"created_at"`
 }
 
+// Stores token balance changes for all accounts of tracked mints.
 type SolTokenAccountBalanceChange struct {
 	Signature      string    `json:"signature"`
 	Mint           string    `json:"mint"`
@@ -1728,6 +1786,7 @@ type SolTokenAccountBalanceChange struct {
 	BlockTimestamp time.Time `json:"block_timestamp"`
 }
 
+// Stores SPL token transfers for tracked mints.
 type SolTokenTransfer struct {
 	Signature        string `json:"signature"`
 	InstructionIndex int32  `json:"instruction_index"`
@@ -1737,6 +1796,15 @@ type SolTokenTransfer struct {
 	ToAccount        string `json:"to_account"`
 }
 
+type SolUnprocessedTx struct {
+	Signature    string      `json:"signature"`
+	ErrorMessage pgtype.Text `json:"error_message"`
+	CreatedAt    time.Time   `json:"created_at"`
+	UpdatedAt    time.Time   `json:"updated_at"`
+	Slot         int64       `json:"slot"`
+}
+
+// Stores the balances of Solana tokens for users.
 type SolUserBalance struct {
 	UserID    int32     `json:"user_id"`
 	Mint      string    `json:"mint"`
@@ -1807,80 +1875,83 @@ type TagTrackUser struct {
 }
 
 type Track struct {
-	Blockhash                          pgtype.Text             `json:"blockhash"`
-	TrackID                            int32                   `json:"track_id"`
-	IsCurrent                          bool                    `json:"is_current"`
-	IsDelete                           bool                    `json:"is_delete"`
-	OwnerID                            int32                   `json:"owner_id"`
-	Title                              pgtype.Text             `json:"title"`
-	CoverArt                           pgtype.Text             `json:"cover_art"`
-	Tags                               pgtype.Text             `json:"tags"`
-	Genre                              pgtype.Text             `json:"genre"`
-	Mood                               pgtype.Text             `json:"mood"`
-	CreditsSplits                      pgtype.Text             `json:"credits_splits"`
-	CreateDate                         pgtype.Text             `json:"create_date"`
-	FileType                           pgtype.Text             `json:"file_type"`
-	MetadataMultihash                  pgtype.Text             `json:"metadata_multihash"`
-	Blocknumber                        pgtype.Int4             `json:"blocknumber"`
-	CreatedAt                          time.Time               `json:"created_at"`
-	Description                        pgtype.Text             `json:"description"`
-	Isrc                               pgtype.Text             `json:"isrc"`
-	Iswc                               pgtype.Text             `json:"iswc"`
-	License                            pgtype.Text             `json:"license"`
-	UpdatedAt                          time.Time               `json:"updated_at"`
-	CoverArtSizes                      pgtype.Text             `json:"cover_art_sizes"`
-	IsUnlisted                         bool                    `json:"is_unlisted"`
-	FieldVisibility                    json.RawMessage         `json:"field_visibility"`
-	RouteID                            pgtype.Text             `json:"route_id"`
-	StemOf                             []byte                  `json:"stem_of"`
-	RemixOf                            []byte                  `json:"remix_of"`
-	Txhash                             string                  `json:"txhash"`
-	Slot                               pgtype.Int4             `json:"slot"`
-	IsAvailable                        bool                    `json:"is_available"`
-	StreamConditions                   *AccessGate             `json:"stream_conditions"`
-	TrackCid                           pgtype.Text             `json:"track_cid"`
-	IsPlaylistUpload                   bool                    `json:"is_playlist_upload"`
-	Duration                           pgtype.Int4             `json:"duration"`
-	AiAttributionUserID                pgtype.Int4             `json:"ai_attribution_user_id"`
-	PreviewCid                         pgtype.Text             `json:"preview_cid"`
-	AudioUploadID                      pgtype.Text             `json:"audio_upload_id"`
-	PreviewStartSeconds                pgtype.Float8           `json:"preview_start_seconds"`
-	ReleaseDate                        *time.Time              `json:"release_date"`
-	TrackSegments                      json.RawMessage         `json:"track_segments"`
-	IsScheduledRelease                 bool                    `json:"is_scheduled_release"`
-	IsDownloadable                     bool                    `json:"is_downloadable"`
-	DownloadConditions                 *AccessGate             `json:"download_conditions"`
-	IsOriginalAvailable                bool                    `json:"is_original_available"`
-	OrigFileCid                        pgtype.Text             `json:"orig_file_cid"`
-	OrigFilename                       pgtype.Text             `json:"orig_filename"`
-	PlaylistsContainingTrack           []int32                 `json:"playlists_containing_track"`
-	PlacementHosts                     pgtype.Text             `json:"placement_hosts"`
-	DdexApp                            pgtype.Text             `json:"ddex_app"`
-	DdexReleaseIds                     json.RawMessage         `json:"ddex_release_ids"`
-	Artists                            json.RawMessage         `json:"artists"`
-	ResourceContributors               json.RawMessage         `json:"resource_contributors"`
-	IndirectResourceContributors       json.RawMessage         `json:"indirect_resource_contributors"`
-	RightsController                   json.RawMessage         `json:"rights_controller"`
-	CopyrightLine                      json.RawMessage         `json:"copyright_line"`
-	ProducerCopyrightLine              json.RawMessage         `json:"producer_copyright_line"`
-	ParentalWarningType                pgtype.Text             `json:"parental_warning_type"`
-	PlaylistsPreviouslyContainingTrack json.RawMessage         `json:"playlists_previously_containing_track"`
-	AllowedApiKeys                     []string                `json:"allowed_api_keys"`
-	Bpm                                pgtype.Float8           `json:"bpm"`
-	MusicalKey                         pgtype.Text             `json:"musical_key"`
-	AudioAnalysisErrorCount            int32                   `json:"audio_analysis_error_count"`
-	IsCustomBpm                        pgtype.Bool             `json:"is_custom_bpm"`
-	IsCustomMusicalKey                 pgtype.Bool             `json:"is_custom_musical_key"`
-	CommentsDisabled                   pgtype.Bool             `json:"comments_disabled"`
-	PinnedCommentID                    pgtype.Int4             `json:"pinned_comment_id"`
-	CoverOriginalSongTitle             pgtype.Text             `json:"cover_original_song_title"`
-	CoverOriginalArtist                pgtype.Text             `json:"cover_original_artist"`
-	IsOwnedByUser                      bool                    `json:"is_owned_by_user"`
-	IsStreamGated                      pgtype.Bool             `json:"is_stream_gated"`
-	IsDownloadGated                    pgtype.Bool             `json:"is_download_gated"`
-	NoAiUse                            pgtype.Bool             `json:"no_ai_use"`
-	ParentalWarning                    NullParentalWarningType `json:"parental_warning"`
-	TerritoryCodes                     []string                `json:"territory_codes"`
+	Blockhash                          pgtype.Text     `json:"blockhash"`
+	TrackID                            int32           `json:"track_id"`
+	IsCurrent                          bool            `json:"is_current"`
+	IsDelete                           bool            `json:"is_delete"`
+	OwnerID                            int32           `json:"owner_id"`
+	Title                              pgtype.Text     `json:"title"`
+	CoverArt                           pgtype.Text     `json:"cover_art"`
+	Tags                               pgtype.Text     `json:"tags"`
+	Genre                              pgtype.Text     `json:"genre"`
+	Mood                               pgtype.Text     `json:"mood"`
+	CreditsSplits                      pgtype.Text     `json:"credits_splits"`
+	CreateDate                         pgtype.Text     `json:"create_date"`
+	FileType                           pgtype.Text     `json:"file_type"`
+	MetadataMultihash                  pgtype.Text     `json:"metadata_multihash"`
+	Blocknumber                        pgtype.Int4     `json:"blocknumber"`
+	CreatedAt                          time.Time       `json:"created_at"`
+	Description                        pgtype.Text     `json:"description"`
+	Isrc                               pgtype.Text     `json:"isrc"`
+	Iswc                               pgtype.Text     `json:"iswc"`
+	License                            pgtype.Text     `json:"license"`
+	UpdatedAt                          time.Time       `json:"updated_at"`
+	CoverArtSizes                      pgtype.Text     `json:"cover_art_sizes"`
+	IsUnlisted                         bool            `json:"is_unlisted"`
+	FieldVisibility                    json.RawMessage `json:"field_visibility"`
+	RouteID                            pgtype.Text     `json:"route_id"`
+	StemOf                             []byte          `json:"stem_of"`
+	RemixOf                            []byte          `json:"remix_of"`
+	Txhash                             string          `json:"txhash"`
+	Slot                               pgtype.Int4     `json:"slot"`
+	IsAvailable                        bool            `json:"is_available"`
+	StreamConditions                   *AccessGate     `json:"stream_conditions"`
+	TrackCid                           pgtype.Text     `json:"track_cid"`
+	IsPlaylistUpload                   bool            `json:"is_playlist_upload"`
+	Duration                           pgtype.Int4     `json:"duration"`
+	AiAttributionUserID                pgtype.Int4     `json:"ai_attribution_user_id"`
+	PreviewCid                         pgtype.Text     `json:"preview_cid"`
+	AudioUploadID                      pgtype.Text     `json:"audio_upload_id"`
+	PreviewStartSeconds                pgtype.Float8   `json:"preview_start_seconds"`
+	ReleaseDate                        *time.Time      `json:"release_date"`
+	TrackSegments                      json.RawMessage `json:"track_segments"`
+	IsScheduledRelease                 bool            `json:"is_scheduled_release"`
+	IsDownloadable                     bool            `json:"is_downloadable"`
+	DownloadConditions                 *AccessGate     `json:"download_conditions"`
+	IsOriginalAvailable                bool            `json:"is_original_available"`
+	OrigFileCid                        pgtype.Text     `json:"orig_file_cid"`
+	OrigFilename                       pgtype.Text     `json:"orig_filename"`
+	PlaylistsContainingTrack           []int32         `json:"playlists_containing_track"`
+	PlacementHosts                     pgtype.Text     `json:"placement_hosts"`
+	DdexApp                            pgtype.Text     `json:"ddex_app"`
+	DdexReleaseIds                     json.RawMessage `json:"ddex_release_ids"`
+	Artists                            json.RawMessage `json:"artists"`
+	ResourceContributors               json.RawMessage `json:"resource_contributors"`
+	IndirectResourceContributors       json.RawMessage `json:"indirect_resource_contributors"`
+	RightsController                   json.RawMessage `json:"rights_controller"`
+	CopyrightLine                      json.RawMessage `json:"copyright_line"`
+	ProducerCopyrightLine              json.RawMessage `json:"producer_copyright_line"`
+	ParentalWarningType                pgtype.Text     `json:"parental_warning_type"`
+	PlaylistsPreviouslyContainingTrack json.RawMessage `json:"playlists_previously_containing_track"`
+	AllowedApiKeys                     []string        `json:"allowed_api_keys"`
+	Bpm                                pgtype.Float8   `json:"bpm"`
+	MusicalKey                         pgtype.Text     `json:"musical_key"`
+	AudioAnalysisErrorCount            int32           `json:"audio_analysis_error_count"`
+	IsCustomBpm                        pgtype.Bool     `json:"is_custom_bpm"`
+	IsCustomMusicalKey                 pgtype.Bool     `json:"is_custom_musical_key"`
+	CommentsDisabled                   pgtype.Bool     `json:"comments_disabled"`
+	PinnedCommentID                    pgtype.Int4     `json:"pinned_comment_id"`
+	// Title of the original song if this track is a cover
+	CoverOriginalSongTitle pgtype.Text `json:"cover_original_song_title"`
+	// Artist of the original song if this track is a cover
+	CoverOriginalArtist pgtype.Text `json:"cover_original_artist"`
+	// Indicates whether the track is owned by the user for publishing payouts
+	IsOwnedByUser   bool                    `json:"is_owned_by_user"`
+	IsStreamGated   pgtype.Bool             `json:"is_stream_gated"`
+	IsDownloadGated pgtype.Bool             `json:"is_download_gated"`
+	NoAiUse         pgtype.Bool             `json:"no_ai_use"`
+	ParentalWarning NullParentalWarningType `json:"parental_warning"`
+	TerritoryCodes  []string                `json:"territory_codes"`
 }
 
 type TrackDelistStatus struct {

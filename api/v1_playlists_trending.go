@@ -2,6 +2,7 @@ package api
 
 import (
 	"net/http"
+	"strings"
 
 	"bridgerton.audius.co/api/dbv1"
 	"github.com/gofiber/fiber/v2"
@@ -9,9 +10,11 @@ import (
 )
 
 type GetTrendingPlaylistsParams struct {
-	Limit  int    `query:"limit" default:"30" validate:"min=1,max=100"`
-	Offset int    `query:"offset" default:"0" validate:"min=0"`
-	Time   string `query:"time" default:"week" validate:"oneof=week month year"`
+	Limit      int    `query:"limit" default:"30" validate:"min=1,max=100"`
+	Offset     int    `query:"offset" default:"0" validate:"min=0"`
+	Time       string `query:"time" default:"week" validate:"oneof=week month year"`
+	Type       string `query:"type" default:"playlist" validate:"oneof=playlist album"`
+	OmitTracks bool   `query:"omit_tracks" default:"false"`
 }
 
 func (app *ApiServer) v1PlaylistsTrending(c *fiber.Ctx) error {
@@ -21,13 +24,31 @@ func (app *ApiServer) v1PlaylistsTrending(c *fiber.Ctx) error {
 	}
 
 	myId := app.getMyId(c)
+	filters := []string{
+		"is_private = false",
+		"is_delete = false",
+		"is_current = true",
+	}
+	if params.Type == "album" {
+		filters = append(filters, "is_album = true")
+	} else {
+		filters = append(filters, "is_album = false")
+	}
+
+	having := []string{}
+	if params.Type == "album" {
+		having = append(having, "COUNT(track_id) >= 1")
+	} else {
+		having = append(having, "COUNT(track_id) >= 5")
+		having = append(having, "COUNT(DISTINCT owner_id) >= 5")
+	}
 
 	sql := `
 		WITH qualified_playlists AS MATERIALIZED (
 			WITH valid_playlists AS (
 				SELECT playlist_id
 				FROM playlists
-				WHERE is_album = false AND is_private = false AND is_delete = false AND is_current = true
+				WHERE ` + strings.Join(filters, " AND ") + `
 			),
 			playlist_content AS (
 				SELECT
@@ -49,8 +70,7 @@ func (app *ApiServer) v1PlaylistsTrending(c *fiber.Ctx) error {
 			GROUP BY
 				playlist_id
 			HAVING
-				COUNT(DISTINCT owner_id) >= 5
-				AND COUNT(track_id) >= 5
+				` + strings.Join(having, " AND ") + `
 		),
 		filtered_scores AS MATERIALIZED (
 			SELECT
@@ -91,6 +111,7 @@ func (app *ApiServer) v1PlaylistsTrending(c *fiber.Ctx) error {
 			Ids:  ids,
 			MyID: myId,
 		},
+		OmitTracks: params.OmitTracks,
 	})
 	if err != nil {
 		return err
