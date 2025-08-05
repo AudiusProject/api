@@ -53,7 +53,7 @@ var Cfg = Config{
 	AudiusdURL:                 os.Getenv("audiusdUrl"),
 	BirdeyeToken:               os.Getenv("birdeyeToken"),
 	SolanaIndexerWorkers:       50,
-	SolanaIndexerRetryInterval: 30 * time.Second,
+	SolanaIndexerRetryInterval: 5 * time.Minute,
 }
 
 func init() {
