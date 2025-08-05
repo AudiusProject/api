@@ -3,6 +3,7 @@ package indexer
 import (
 	"context"
 	"fmt"
+	"time"
 
 	"bridgerton.audius.co/config"
 	"bridgerton.audius.co/logging"
@@ -102,11 +103,25 @@ func New(config config.Config) *SolanaIndexer {
 }
 
 func (s *SolanaIndexer) Start(ctx context.Context) error {
-	err := s.RetryUnprocessedTransactions(ctx)
-	if err != nil {
-		return fmt.Errorf("failed to process unprocessed transactions: %w", err)
-	}
-	err = s.Subscribe(ctx)
+	ticker := time.NewTicker(s.config.SolanaIndexerRetryInterval)
+	defer ticker.Stop()
+
+	go func() {
+		for {
+			select {
+			case <-ctx.Done():
+				s.logger.Info("context cancelled, stopping retry ticker")
+				return
+			case <-ticker.C:
+				err := s.RetryUnprocessedTransactions(ctx)
+				if err != nil {
+					s.logger.Error("failed to retry unprocessed transactions", zap.Error(err))
+				}
+			}
+		}
+	}()
+
+	err := s.Subscribe(ctx)
 	if err != nil {
 		return fmt.Errorf("failed to subscribe: %w", err)
 	}

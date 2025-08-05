@@ -3,6 +3,7 @@ package indexer
 import (
 	"context"
 	"fmt"
+	"time"
 
 	"bridgerton.audius.co/database"
 	"github.com/gagliardetto/solana-go"
@@ -16,6 +17,9 @@ func (s *SolanaIndexer) RetryUnprocessedTransactions(ctx context.Context) error 
 	logger := s.logger.With(
 		zap.String("indexerSource", "retryUnprocessedTransactions"),
 	)
+	count := 0
+	start := time.Now()
+	logger.Info("starting retry of unprocessed transactions...")
 	for {
 		failedTxs, err := getUnprocessedTransactions(ctx, s.pool, limit, offset)
 		if err != nil {
@@ -26,6 +30,7 @@ func (s *SolanaIndexer) RetryUnprocessedTransactions(ctx context.Context) error 
 		}
 
 		for _, txSig := range failedTxs {
+			count++
 			err = s.processor.ProcessSignature(ctx, 0, solana.MustSignatureFromBase58(txSig), logger)
 			if err != nil {
 				logger.Error("failed to process transaction", zap.String("signature", txSig), zap.Error(err))
@@ -36,6 +41,11 @@ func (s *SolanaIndexer) RetryUnprocessedTransactions(ctx context.Context) error 
 			deleteUnprocessedTransaction(ctx, s.pool, txSig)
 		}
 	}
+	logger.Info("finished retry of unprocessed transactions",
+		zap.Int("count", count),
+		zap.Int("failed", offset),
+		zap.Duration("duration", time.Since(start)),
+	)
 	return nil
 }
 
