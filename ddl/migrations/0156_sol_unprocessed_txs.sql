@@ -1,0 +1,6 @@
+CREATE TABLE IF NOT EXISTS sol_unprocessed_txs (
+    signature TEXT NOT NULL PRIMARY KEY,
+    error_message TEXT,
+    created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP
+);

@@ -14,6 +14,7 @@ type solanaHealth struct {
 	ChainSlot           uint64     `json:"chain_slot"`
 	IndexedSlot         uint64     `json:"indexed_slot"`
 	LastIndexerUpdateAt *time.Time `json:"last_indexer_update_at"`
+	UnprocessedCount    int        `json:"unprocessed_count"`
 }
 
 type solanaCheckpoint struct {
@@ -21,7 +22,8 @@ type solanaCheckpoint struct {
 	UpdatedAt *time.Time `db:"updated_at"`
 }
 
-const MAX_SLOT_DIFF = 200
+const MAX_SLOT_DIFF = 100
+const MAX_UNPROCESSED_TXS = 10
 
 func (app *ApiServer) solanaHealth(c *fiber.Ctx) error {
 	sql := `
@@ -52,6 +54,15 @@ func (app *ApiServer) solanaHealth(c *fiber.Ctx) error {
 		LastIndexerUpdateAt: checkpoint.UpdatedAt,
 	}
 
+	err = app.pool.QueryRow(c.Context(), `SELECT COUNT(*) FROM sol_unprocessed_txs`).Scan(&health.UnprocessedCount)
+	if err != nil {
+		if err == pgx.ErrNoRows {
+			health.UnprocessedCount = 0
+		} else {
+			return fmt.Errorf("failed to get unprocessed transactions count: %w", err)
+		}
+	}
+
 	if checkpoint.ToSlot != nil {
 		health.IndexedSlot = uint64(*checkpoint.ToSlot)
 	}
@@ -59,6 +70,10 @@ func (app *ApiServer) solanaHealth(c *fiber.Ctx) error {
 		health.SlotDiff = health.ChainSlot - health.IndexedSlot
 	}
 	if health.SlotDiff > MAX_SLOT_DIFF {
+		c.Status(fiber.StatusInternalServerError)
+	}
+
+	if health.UnprocessedCount > MAX_UNPROCESSED_TXS {
 		c.Status(fiber.StatusInternalServerError)
 	}
 

@@ -101,6 +101,18 @@ func New(config config.Config) *SolanaIndexer {
 	return s
 }
 
+func (s *SolanaIndexer) Start(ctx context.Context) error {
+	err := s.RetryUnprocessedTransactions(ctx)
+	if err != nil {
+		return fmt.Errorf("failed to process unprocessed transactions: %w", err)
+	}
+	err = s.Subscribe(ctx)
+	if err != nil {
+		return fmt.Errorf("failed to subscribe: %w", err)
+	}
+	return nil
+}
+
 func (s *SolanaIndexer) Close() {
 	if p, ok := s.processor.(*DefaultProcessor); ok {
 		p.ReportCacheStats(s.logger)
