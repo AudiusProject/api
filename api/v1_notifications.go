@@ -26,6 +26,13 @@ func (app *ApiServer) v1Notifications(c *fiber.Ctx) error {
 	}
 
 	sql := `
+-- user_seen is a window function that gets windows between seen events.
+--
+-- seen_at	              prev_seen_at
+-- now()	                "2025-08-05 16:27:53"
+-- "2025-08-05 16:27:53"	"2025-08-04 21:50:38"
+-- "2025-08-04 21:50:38"	"2025-08-04 18:12:41"
+--
 WITH user_seen as (
   SELECT
     LAG(seen_at, 1, now()::timestamp) OVER ( ORDER BY seen_at desc ) AS seen_at,
@@ -36,7 +43,7 @@ WITH user_seen as (
     user_id = @user_id
   ORDER BY
     seen_at desc
-	LIMIT 10
+  LIMIT 10
 ),
 user_created_at as (
   SELECT
@@ -60,11 +67,19 @@ SELECT
 		ORDER BY timestamp DESC
 	)::jsonb AS actions,
 	CASE
-		WHEN user_seen.seen_at IS NOT NULL THEN now()::timestamp != user_seen.seen_at
+		-- If seen at is not null, we were able to match a window between seen events
+		WHEN user_seen.seen_at IS NOT NULL THEN 
+			CASE 
+			  -- In all cases except the most recent window, this means we've already seen
+				-- the notification
+				WHEN now()::timestamp != user_seen.seen_at THEN true
+				ELSE false
+			END
+		-- Otherwise, we've only seen notifications before if we have some row in notification_seen
 		ELSE EXISTS(SELECT 1 from notification_seen ns WHERE ns.user_id = @user_id)
 	END::boolean AS is_seen,
 	CASE
-		WHEN user_seen.seen_at != now()::timestamp THEN EXTRACT(EPOCH FROM COALESCE(user_seen.seen_at, n.timestamp))
+		WHEN user_seen.seen_at != now()::timestamp THEN EXTRACT(EPOCH FROM user_seen.seen_at)
 		ELSE null
 	END AS seen_at
 FROM
@@ -84,7 +99,15 @@ WHERE
     )
   )
 GROUP BY
-  n.type, n.group_id, user_seen.seen_at, user_seen.prev_seen_at, n.timestamp
+  n.type, n.group_id, user_seen.seen_at, user_seen.prev_seen_at,
+  CASE
+		-- Group notifications individually that are older than any of the seen windows
+		-- and we know that the user has seen at least one notification before
+    WHEN user_seen.seen_at IS NULL AND
+			EXISTS(SELECT 1 from notification_seen ns WHERE ns.user_id = @user_id) 
+    THEN n.timestamp
+    ELSE NULL 
+  END
 ORDER BY
   user_seen.seen_at desc NULLS LAST,
   max(n.timestamp) desc,
