@@ -13,10 +13,11 @@ import (
 )
 
 type GetNotificationsQueryParams struct {
-	Limit      int      `query:"limit" default:"20" validate:"min=0,max=100"`
-	ValidTypes []string `query:"valid_types"`
-	GroupID    string   `query:"group_id" validate:"omitempty"`
-	Timestamp  float64  `query:"timestamp" validate:"omitempty,min=0"`
+	// Note that when limit is 0, we return 20 items to calculate unread count
+	Limit     int      `query:"limit" default:"20" validate:"min=0,max=100"`
+	Types     []string `query:"types" validate:"dive,oneof=announcement follow repost save remix cosign create tip_receive tip_send challenge_reward repost_of_repost save_of_repost tastemaker reaction supporter_dethroned supporter_rank_up supporting_rank_up milestone track_milestone track_added_to_playlist playlist_milestone tier_change trending trending_playlist trending_underground usdc_purchase_buyer usdc_purchase_seller track_added_to_purchased_album request_manager approve_manager_request claimable_reward comment comment_thread comment_mention comment_reaction listen_streak_reminder fan_remix_contest_started fan_remix_contest_ended fan_remix_contest_ending_soon fan_remix_contest_winners_selected artist_remix_contest_ended artist_remix_contest_ending_soon artist_remix_contest_submissions"`
+	GroupID   string   `query:"group_id" validate:"omitempty"`
+	Timestamp float64  `query:"timestamp" validate:"omitempty,min=0"`
 }
 
 func (app *ApiServer) v1Notifications(c *fiber.Ctx) error {
@@ -88,7 +89,7 @@ LEFT JOIN user_seen ON
   user_seen.seen_at >= n.timestamp AND user_seen.prev_seen_at < n.timestamp
 WHERE
   ((ARRAY[@user_id] && n.user_ids) OR (n.type = 'announcement' AND n.timestamp > (SELECT created_at FROM user_created_at)))
-  AND n.type = ANY(@valid_types)
+  AND (n.type = ANY(@types) OR @types IS NULL)
   AND (
     (@timestamp_offset = 0 AND @group_id_offset = '') OR
     (@timestamp_offset = 0 AND @group_id_offset != '' AND n.group_id < @group_id_offset) OR
@@ -115,68 +116,7 @@ ORDER BY
 limit @limit::int
 ;
 `
-
-	// default types are always enabled
-	validTypes := []string{
-		"follow",
-		"repost",
-		"save",
-		"tip_send",
-		"tip_receive",
-		"track_added_to_purchased_album",
-		"track_added_to_playlist",
-		"tastemaker",
-		"supporter_rank_up",
-		"supporting_rank_up",
-		"supporter_dethroned",
-		"challenge_reward",
-		"claimable_reward",
-		"tier_change",
-		"create",
-		"remix",
-		"cosign",
-		"trending_playlist",
-		"trending",
-		"trending_underground",
-		"milestone",
-		"announcement",
-		"reaction",
-		"repost_of_repost",
-		"save_of_repost",
-		"usdc_purchase_seller",
-		"usdc_purchase_buyer",
-		"request_manager",
-		"approve_manager_request",
-		"comment",
-		"comment_thread",
-		"comment_mention",
-		"comment_reaction",
-		"listen_streak_reminder",
-		"fan_remix_contest_ended",
-		"artist_remix_contest_ended",
-		"artist_remix_contest_ending_soon",
-		"fan_remix_contest_ending_soon",
-		"fan_remix_contest_winners_selected",
-		"fan_remix_contest_started",
-		"artist_remix_contest_submissions",
-	}
-
-	// add optional valid_types
-	for _, t := range params.ValidTypes {
-		if !slices.Contains(validTypes, t) {
-			validTypes = append(validTypes, t)
-		}
-	}
-
 	userId := app.getUserId(c)
-	limit := params.Limit
-
-	// python returns 20 items when limit=0
-	// and client relies on this for showing unread count
-	if limit == 0 {
-		limit = 20
-	}
-
 	type GetNotifsRow struct {
 		Type    string            `json:"type"`
 		GroupID string            `json:"group_id"`
@@ -187,8 +127,8 @@ limit @limit::int
 
 	rows, err := app.pool.Query(c.Context(), sql, pgx.NamedArgs{
 		"user_id":          userId,
-		"limit":            limit,
-		"valid_types":      validTypes,
+		"limit":            params.Limit,
+		"types":            params.Types,
 		"group_id_offset":  params.GroupID,
 		"timestamp_offset": params.Timestamp,
 	})
