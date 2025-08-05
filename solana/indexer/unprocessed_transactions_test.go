@@ -28,7 +28,7 @@ func TestUnprocessedTransactions(t *testing.T) {
 	res, err := getUnprocessedTransactions(ctx, pool, 10, 0)
 	require.NoError(t, err)
 	assert.Len(t, res, 1)
-	assert.Equal(t, signature, res[0])
+	assert.Equal(t, signature, res[0].Signature)
 
 	// Delete the unprocessed transaction
 	err = deleteUnprocessedTransaction(ctx, pool, signature)
@@ -81,5 +81,5 @@ func TestRetryUnprocessedTransactions(t *testing.T) {
 	unprocessedTxs, err := getUnprocessedTransactions(ctx, pool, 100, 0)
 	require.NoError(t, err)
 	assert.Len(t, unprocessedTxs, 1, "expected a single unprocessed transaction after retry")
-	assert.Equal(t, failingSig.String(), unprocessedTxs[0], "expected the failing transaction to remain unprocessed")
+	assert.Equal(t, failingSig.String(), unprocessedTxs[0].Signature, "expected the failing transaction to remain unprocessed")
 }
