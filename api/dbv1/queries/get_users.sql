@@ -71,7 +71,7 @@ SELECT
 
   -- payout wallet
   coalesce(
-    (SELECT spl_usdc_payout_wallet FROM user_payout_wallet_history pwh WHERE pwh.user_id = u.user_id AND spl_usdc_payout_wallet IS NOT NULL ORDER BY block_timestamp DESC LIMIT 1),
+    spl_usdc_payout_wallet,
     usdc_user_bank_accounts.bank_account,
     ''
   )::text as payout_wallet,

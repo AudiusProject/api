@@ -13,11 +13,11 @@ type Split struct {
 }
 
 type ExtendedSplit struct {
-	UserID       *int    `json:"user_id"`
+	UserID       *int    `json:"user_id,omitempty"`
 	Percentage   float64 `json:"percentage"`
+	EthWallet    *string `json:"eth_wallet,omitempty"`
+	PayoutWallet string  `json:"payout_wallet,omitempty"`
 	Amount       int     `json:"amount"`
-	PayoutWallet string  `json:"payout_wallet"`
-	EthWallet    *string `json:"eth_wallet"` // optional because staking bridge does not have eth_wallet
 }
 
 type splitCalculation struct {
@@ -115,9 +115,9 @@ func CalculateSplits(price *int, splits []Split, networkTakeRate *float64) ([]Ex
 		result = append(result, ExtendedSplit{
 			UserID:       split.UserID,
 			Percentage:   split.Percentage,
-			Amount:       split.Amount,
-			PayoutWallet: split.PayoutWallet,
 			EthWallet:    split.EthWallet,
+			PayoutWallet: split.PayoutWallet,
+			Amount:       split.Amount,
 		})
 	}
 
@@ -126,9 +126,9 @@ func CalculateSplits(price *int, splits []Split, networkTakeRate *float64) ([]Ex
 	result = append(result, ExtendedSplit{
 		UserID:       nil,
 		Percentage:   takeRate,
-		Amount:       networkCut,
-		PayoutWallet: stakingBridgeWallet,
 		EthWallet:    nil,
+		PayoutWallet: stakingBridgeWallet,
+		Amount:       networkCut,
 	})
 
 	return result, nil
