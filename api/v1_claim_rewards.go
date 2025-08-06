@@ -131,25 +131,6 @@ func getAntiAbuseOracleAttestation(args GetAntiAbuseOracleAttestationParams) (*S
 	return &attestation, nil
 }
 
-// Selects three uniquely owned, healthy validators at random
-// TODO: add health checks?
-func getValidators(validators []config.Node, count int, excludedOperators []string) ([]string, error) {
-	shuffled := slices.Clone(validators)
-	rand.Shuffle(len(validators), func(i, j int) {
-		shuffled[i], shuffled[j] = shuffled[j], shuffled[i]
-	})
-
-	selected := make([]string, 0)
-	for i := 0; i < len(shuffled) && len(selected) < count; i++ {
-		node := shuffled[i]
-		if !slices.Contains(excludedOperators, node.OwnerWallet) {
-			selected = append(selected, node.Endpoint)
-			excludedOperators = append(excludedOperators, node.OwnerWallet)
-		}
-	}
-	return selected, nil
-}
-
 type GetValidatorAttestationParams struct {
 	Validator      string
 	Claim          rewards.RewardClaim
@@ -225,27 +206,53 @@ func getValidatorAttestation(args GetValidatorAttestationParams) (*SenderAttesta
 }
 
 // Gets reward claim attestations from AAO and Validators in parallel.
+// Now handles validator selection internally with retry logic for failures.
 func fetchAttestations(
 	ctx context.Context,
 	rewardClaim RewardClaim,
-	validators []string,
+	allValidators []config.Node,
+	excludedOperators []string,
 	antiAbuseOracle config.Node,
 	signature string,
 	hasAntiAbuseOracleAttestation bool,
+	minVotes int,
 ) ([]SenderAttestation, error) {
+
+	// Shuffle the validators for random selection
+	shuffled := slices.Clone(allValidators)
+	rand.Shuffle(len(shuffled), func(i, j int) {
+		shuffled[i], shuffled[j] = shuffled[j], shuffled[i]
+	})
+
+	// Track which operators we've already used (including excluded ones)
+	usedOperators := make(map[string]bool)
+	for _, excluded := range excludedOperators {
+		usedOperators[excluded] = true
+	}
+
+	// Track which specific validators we've marked as bad
+	badValidators := make(map[string]bool)
 
 	offset := 0
 	if !hasAntiAbuseOracleAttestation {
 		offset = 1
 	}
-	attestations := make([]SenderAttestation, len(validators)+offset)
 
-	ctx, cancel := context.WithTimeout(ctx, 10*time.Second)
+	// We need minVotes - len(excludedOperators) successful validator attestations
+	validatorsNeeded := minVotes - len(excludedOperators)
+	attestations := make([]SenderAttestation, 0, validatorsNeeded+offset)
+
+	ctx, cancel := context.WithTimeout(ctx, 30*time.Second)
 	defer cancel()
-	innerGroup, _ := errgroup.WithContext(ctx)
+
+	// Start AAO attestation in parallel if needed
+	var aaoAttestation *SenderAttestation
+	var aaoErr error
+	aaoDone := make(chan struct{})
 
 	if !hasAntiAbuseOracleAttestation {
-		innerGroup.Go(func() error {
+		go func() {
+			defer close(aaoDone)
 			aaoClaim := rewardClaim.RewardClaim
 			aaoClaim.AntiAbuseOracleEthAddress = ""
 			getAntiAbuseAttestationParams := GetAntiAbuseOracleAttestationParams{
@@ -253,37 +260,115 @@ func fetchAttestations(
 				Handle:                  rewardClaim.Handle,
 				AntiAbuseOracleEndpoint: antiAbuseOracle.Endpoint,
 			}
-			aaoAttestation, err := getAntiAbuseOracleAttestation(getAntiAbuseAttestationParams)
-			if err != nil {
-				return err
-			}
-			attestations[0] = *aaoAttestation
-			return nil
-		})
+			aaoAttestation, aaoErr = getAntiAbuseOracleAttestation(getAntiAbuseAttestationParams)
+		}()
+	} else {
+		close(aaoDone)
 	}
 
-	for i, validator := range validators {
-		innerGroup.Go(func() error {
-			getValidatorAttestationParams := GetValidatorAttestationParams{
-				Validator:      validator,
-				Claim:          rewardClaim.RewardClaim,
-				UserEthAddress: rewardClaim.RecipientEthAddress,
-				Signature:      signature,
-			}
-			validatorAttestation, err := getValidatorAttestation(getValidatorAttestationParams)
+	// Get validator attestations in parallel rounds
+	successfulValidators := 0
+	currentIndex := 0
 
-			if err != nil {
-				return err
+	for successfulValidators < validatorsNeeded && currentIndex < len(shuffled) {
+		// Select up to validatorsNeeded validators for this round
+		var candidateNodes []config.Node
+		var candidateIndices []int
+		candidateOwners := make(map[string]bool) // Track owners in this round
+
+		for i := currentIndex; i < len(shuffled) && len(candidateNodes) < validatorsNeeded; i++ {
+			node := shuffled[i]
+			// Skip if we've already used this owner globally or this specific validator is marked bad
+			if usedOperators[node.OwnerWallet] || badValidators[node.Endpoint] {
+				continue
 			}
-			attestations[i+offset] = *validatorAttestation
-			return nil
-		})
+			// Skip if we've already picked this owner in this round
+			if candidateOwners[node.OwnerWallet] {
+				continue
+			}
+			candidateNodes = append(candidateNodes, node)
+			candidateIndices = append(candidateIndices, i)
+			candidateOwners[node.OwnerWallet] = true
+		}
+
+		if len(candidateNodes) == 0 {
+			break // No more valid candidates
+		}
+
+		// Try to get attestations from all candidates in parallel
+		type validatorResult struct {
+			index       int
+			attestation *SenderAttestation
+			err         error
+		}
+
+		results := make([]validatorResult, len(candidateNodes))
+		validatorGroup := &errgroup.Group{}
+
+		for i, node := range candidateNodes {
+			i, node := i, node // capture loop variables
+			validatorGroup.Go(func() error {
+				getValidatorAttestationParams := GetValidatorAttestationParams{
+					Validator:      node.Endpoint,
+					Claim:          rewardClaim.RewardClaim,
+					UserEthAddress: rewardClaim.RecipientEthAddress,
+					Signature:      signature,
+				}
+
+				attestation, err := getValidatorAttestation(getValidatorAttestationParams)
+				results[i] = validatorResult{
+					index:       candidateIndices[i],
+					attestation: attestation,
+					err:         err,
+				}
+				return nil // Don't fail the group on individual validator errors
+			})
+		}
+
+		// Wait for all validators in this round to complete
+		validatorGroup.Wait()
+
+		// Process results
+		for _, result := range results {
+			node := shuffled[result.index]
+			if result.err != nil {
+				// Mark this validator as bad
+				badValidators[node.Endpoint] = true
+				continue
+			}
+
+			// Success - add attestation and mark owner as used
+			attestations = append(attestations, *result.attestation)
+			usedOperators[node.OwnerWallet] = true
+			successfulValidators++
+
+			// Stop if we have enough
+			if successfulValidators >= validatorsNeeded {
+				break
+			}
+		}
+
+		// Move to next batch of validators
+		if len(candidateIndices) > 0 {
+			currentIndex = candidateIndices[len(candidateIndices)-1] + 1
+		} else {
+			currentIndex = len(shuffled) // No more candidates found
+		}
 	}
 
-	err := innerGroup.Wait()
-	if err != nil {
-		return nil, err
+	// Wait for AAO attestation to complete
+	<-aaoDone
+	if aaoErr != nil {
+		return nil, fmt.Errorf("failed to get anti-abuse oracle attestation: %w", aaoErr)
 	}
+	if aaoAttestation != nil {
+		attestations = append([]SenderAttestation{*aaoAttestation}, attestations...)
+	}
+
+	if successfulValidators < validatorsNeeded {
+		return nil, fmt.Errorf("could only get %d validator attestations, need %d", successfulValidators, validatorsNeeded)
+	}
+
 	return attestations, nil
 }
 
@@ -458,18 +543,15 @@ func claimReward(
 	}
 
 	// Fetch AAO and validator attestations
-	validatorsNeeded := int(rewardManagerStateData.MinVotes) - len(existingValidatorOwners)
-	selectedValidators, err := getValidators(validators, validatorsNeeded, existingValidatorOwners)
-	if err != nil {
-		return nil, err
-	}
 	attestations, err := fetchAttestations(
 		ctx,
 		rewardClaim,
-		selectedValidators,
+		validators,
+		existingValidatorOwners,
 		antiAbuseOracle,
 		signature,
 		hasAntiAbuseOracleAttestation,
+		int(rewardManagerStateData.MinVotes),
 	)
 	if err != nil {
 		return nil, err
