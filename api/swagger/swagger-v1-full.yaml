@@ -242,7 +242,7 @@ paths:
         description: The number of notifications to return
         schema:
           type: integer
-      - name: valid_types
+      - name: types
         in: query
         description: Additional valid notification types to return
         style: form
@@ -295,26 +295,6 @@ paths:
             - artist_remix_contest_ended
             - artist_remix_contest_ending_soon
             - artist_remix_contest_submissions
-          default: [
-                "repost",
-                "save",
-                "follow",
-                "tip_send",
-                "tip_receive",
-                "milestone",
-                "supporter_rank_up",
-                "supporting_rank_up",
-                "challenge_reward",
-                "tier_change",
-                "create",
-                "remix",
-                "cosign",
-                "trending",
-                "supporter_dethroned",
-                "announcement",
-                "reaction",
-                "track_added_to_playlist"
-              ]
       responses:
         "200":
           description: Success
