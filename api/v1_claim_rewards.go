@@ -380,10 +380,15 @@ func sendRewardClaimTransactions(
 	rewardClaim RewardClaim,
 	attestations []SenderAttestation,
 ) ([]solana.Signature, error) {
-	tx := solana.NewTransactionBuilder()
+	// Transaction to send attestations in a separate transaction
+	partialTx := solana.NewTransactionBuilder()
+	// Transaction to send attestations and evaluate in one transaction
+	// If partialTx is sent, remainderTx contains only the rest of the instructions
+	remainderTx := solana.NewTransactionBuilder()
 
 	feePayer := transactionSender.GetFeePayer()
-	tx.SetFeePayer(feePayer.PublicKey())
+	partialTx.SetFeePayer(feePayer.PublicKey())
+	remainderTx.SetFeePayer(feePayer.PublicKey())
 
 	for i, attestation := range attestations {
 		instructionIndex := uint8(i * 2)
@@ -404,8 +409,10 @@ func sendRewardClaimTransactions(
 			return nil, fmt.Errorf("failed to build submitAttestation instruction: %w", err)
 		}
 
-		tx.AddInstruction(submitAttestationSecpInstruction)
-		tx.AddInstruction(submitAttestationInstruction.Build())
+		partialTx.AddInstruction(submitAttestationSecpInstruction)
+		partialTx.AddInstruction(submitAttestationInstruction.Build())
+		remainderTx.AddInstruction(submitAttestationSecpInstruction)
+		remainderTx.AddInstruction(submitAttestationInstruction.Build())
 	}
 
 	lookupTable, err := rewardManagerClient.GetLookupTable(ctx)
@@ -420,22 +427,21 @@ func sendRewardClaimTransactions(
 
 	// If no attestations need to be submitted, don't need to split into two txs
 	if len(attestations) > 0 {
-		preTx := tx
-		preTx.WithOpt(solana.TransactionAddressTables(addressLookupTables))
-		err = transactionSender.AddPriorityFees(ctx, preTx, spl.AddPriorityFeesParams{Percentile: 99, Multiplier: 1})
+		partialTx.WithOpt(solana.TransactionAddressTables(addressLookupTables))
+		err = transactionSender.AddPriorityFees(ctx, partialTx, spl.AddPriorityFeesParams{Percentile: 99, Multiplier: 1})
 		if err != nil {
 			return nil, err
 		}
-		err = transactionSender.AddComputeBudgetLimit(ctx, preTx, spl.AddComputeBudgetLimitParams{Padding: 1000, Multiplier: 1.2})
+		err = transactionSender.AddComputeBudgetLimit(ctx, partialTx, spl.AddComputeBudgetLimitParams{Padding: 1000, Multiplier: 1.2})
 		if err != nil {
 			return nil, err
 		}
-		preTxBuilt, err := preTx.Build()
+		partialTxBuilt, err := partialTx.Build()
 		if err != nil {
 			return nil, err
 		}
 
-		preTxBinary, err := preTxBuilt.MarshalBinary()
+		partialTxBinary, err := partialTxBuilt.MarshalBinary()
 		if err != nil {
 			return nil, err
 		}
@@ -444,13 +450,13 @@ func sendRewardClaimTransactions(
 		// If not, send the attestations in a separate transaction.
 		estimatedEvaluateInstructionSize := 205
 		threshold := spl.MAX_TRANSACTION_SIZE - estimatedEvaluateInstructionSize
-		if len(preTxBinary) > threshold {
-			sig, err := transactionSender.SendTransactionWithRetries(ctx, preTx, rpc.CommitmentConfirmed, rpc.TransactionOpts{})
+		if len(partialTxBinary) > threshold {
+			sig, err := transactionSender.SendTransactionWithRetries(ctx, partialTx, rpc.CommitmentConfirmed, rpc.TransactionOpts{})
 			if err != nil {
 				return nil, err
 			}
 			txSignatures = append(txSignatures, *sig)
-			tx = solana.NewTransactionBuilder()
+			remainderTx = solana.NewTransactionBuilder()
 		}
 	}
 
@@ -473,19 +479,19 @@ func sendRewardClaimTransactions(
 		return nil, fmt.Errorf("failed to build evaluateAttestation instruction: %w", err)
 	}
 
-	tx.AddInstruction(evaluateAttestationInstruction.Build())
+	remainderTx.AddInstruction(evaluateAttestationInstruction.Build())
 
-	tx.WithOpt(solana.TransactionAddressTables(addressLookupTables))
-	err = transactionSender.AddComputeBudgetLimit(ctx, tx, spl.AddComputeBudgetLimitParams{Padding: 1000, Multiplier: 1.2})
+	remainderTx.WithOpt(solana.TransactionAddressTables(addressLookupTables))
+	err = transactionSender.AddComputeBudgetLimit(ctx, remainderTx, spl.AddComputeBudgetLimitParams{Padding: 1000, Multiplier: 1.2})
 	if err != nil {
 		return nil, err
 	}
-	err = transactionSender.AddPriorityFees(ctx, tx, spl.AddPriorityFeesParams{Percentile: 99, Multiplier: 1})
+	err = transactionSender.AddPriorityFees(ctx, remainderTx, spl.AddPriorityFeesParams{Percentile: 99, Multiplier: 1})
 	if err != nil {
 		return nil, err
 	}
 
-	sig, err := transactionSender.SendTransactionWithRetries(ctx, tx, rpc.CommitmentConfirmed, rpc.TransactionOpts{})
+	sig, err := transactionSender.SendTransactionWithRetries(ctx, remainderTx, rpc.CommitmentConfirmed, rpc.TransactionOpts{})
 	if err != nil {
 		return nil, err
 	}
