@@ -29,6 +29,13 @@ func (app *ApiServer) v1TrackCommentCount(c *fiber.Ctx) error {
 		HAVING SUM(aggregate_user.follower_count) >= @karmaCommentCountThreshold
 	),
 
+	-- Users who have low abuse score
+	low_abuse_score AS (
+		SELECT user_id
+		FROM aggregate_user
+		WHERE score < 0
+	),
+
 	-- Comments reported by high-karma users
 	high_karma_reporters AS (
 		SELECT comment_id
@@ -52,6 +59,11 @@ func (app *ApiServer) v1TrackCommentCount(c *fiber.Ctx) error {
 		)
 		AND @myId != comments.user_id  -- always show comments to their poster
 	)
+	LEFT JOIN low_abuse_score ON (
+		low_abuse_score.user_id = comments.user_id
+		AND @myId != comments.user_id  -- always show comments to their poster
+		AND track.owner_id != comments.user_id  -- always show comments from the track owner
+	)
 	WHERE comments.entity_id = @trackId
 		AND comments.entity_type = 'Track'
 		AND comments.is_delete = false
@@ -73,6 +85,8 @@ func (app *ApiServer) v1TrackCommentCount(c *fiber.Ctx) error {
 			muted_users.muted_user_id IS NULL
 			OR muted_users.is_delete = true
 		)
+		-- Filter out comments from users with low abuse score
+		AND low_abuse_score.user_id IS NULL
 	`
 
 	rows, err := app.pool.Query(c.Context(), sql, pgx.NamedArgs{
