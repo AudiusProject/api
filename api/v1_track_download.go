@@ -1,34 +1,29 @@
 package api
 
 import (
-	"path/filepath"
-	"strings"
-
 	"bridgerton.audius.co/api/dbv1"
 	"github.com/gofiber/fiber/v2"
 )
 
-func createFilename(track *dbv1.FullTrack, isOriginal bool) string {
-	origFilename := track.OrigFilename
-	if origFilename.String == "" {
-		origFilename = track.Title
+func createFilename(track *dbv1.FullTrack) string {
+	filename := track.OrigFilename.String
+	if filename == "" && track.OrigFileCid.String == "" {
+		filename = track.Title.String + ".mp3"
 	}
+	return filename
+}
 
-	if isOriginal {
-		return origFilename.String
-	}
-
-	// Remove extension and add .mp3
-	ext := filepath.Ext(origFilename.String)
-	nameWithoutExt := strings.TrimSuffix(origFilename.String, ext)
-	return nameWithoutExt + ".mp3"
+type trackDownloadParams struct {
+	Filename string `query:"filename"`
 }
 
 func (app *ApiServer) v1TrackDownload(c *fiber.Ctx) error {
 	myId := app.getMyId(c)
 	trackId := c.Locals("trackId").(int)
-	filename := c.Query("filename")
-	isOriginal := c.Query("is_original") == "true"
+	var params trackDownloadParams
+	if err := c.QueryParser(&params); err != nil {
+		return err
+	}
 
 	tracks, err := app.queries.FullTracks(c.Context(), dbv1.FullTracksParams{
 		GetTracksParams: dbv1.GetTracksParams{
@@ -46,17 +41,21 @@ func (app *ApiServer) v1TrackDownload(c *fiber.Ctx) error {
 
 	track := tracks[0]
 	if !track.Access.Download {
-		return fiber.NewError(fiber.StatusForbidden, "track not downloadable")
+		return fiber.NewError(fiber.StatusForbidden, "you are not allowed to download this track")
+	}
+
+	if track.Download == nil {
+		return fiber.NewError(fiber.StatusNotFound, "track is not downloadable")
 	}
 
 	downloadUrl := tryFindWorkingUrl(track.Download)
 
 	q := downloadUrl.Query()
 	q.Set("skip_play_count", "true")
-	if filename != "" {
-		q.Set("filename", filename)
+	if params.Filename != "" {
+		q.Set("filename", params.Filename)
 	} else {
-		q.Set("filename", createFilename(&track, isOriginal))
+		q.Set("filename", createFilename(&track))
 	}
 	downloadUrl.RawQuery = q.Encode()
 

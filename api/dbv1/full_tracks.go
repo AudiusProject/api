@@ -143,7 +143,11 @@ func (q *Queries) FullTracksKeyed(ctx context.Context, arg FullTracksParams) (ma
 
 		var download *MediaLink
 		if track.IsDownloadable && access.Download {
-			download, err = mediaLink(track.OrigFileCid.String, track.TrackID, arg.MyID.(int32), id3Tags)
+			cid := track.OrigFileCid.String
+			if cid == "" {
+				cid = track.TrackCid.String
+			}
+			download, err = mediaLink(cid, track.TrackID, arg.MyID.(int32), nil)
 			if err != nil {
 				return nil, err
 			}
