@@ -6,11 +6,11 @@ import (
 )
 
 func createFilename(track *dbv1.FullTrack) string {
-	origFilename := track.OrigFilename
-	if origFilename.String == "" {
-		origFilename = track.Title
+	filename := track.OrigFilename.String
+	if filename == "" && track.OrigFileCid.String == "" {
+		filename = track.Title.String + ".mp3"
 	}
-	return origFilename.String
+	return filename
 }
 
 type trackDownloadParams struct {
@@ -42,6 +42,10 @@ func (app *ApiServer) v1TrackDownload(c *fiber.Ctx) error {
 	track := tracks[0]
 	if !track.Access.Download {
 		return fiber.NewError(fiber.StatusForbidden, "track not downloadable")
+	}
+
+	if track.Download == nil {
+		return fiber.NewError(fiber.StatusNotFound, "track not downloadable")
 	}
 
 	downloadUrl := tryFindWorkingUrl(track.Download)
