@@ -41,11 +41,11 @@ func (app *ApiServer) v1TrackDownload(c *fiber.Ctx) error {
 
 	track := tracks[0]
 	if !track.Access.Download {
-		return fiber.NewError(fiber.StatusForbidden, "track not downloadable")
+		return fiber.NewError(fiber.StatusForbidden, "you are not allowed to download this track")
 	}
 
 	if track.Download == nil {
-		return fiber.NewError(fiber.StatusNotFound, "track not downloadable")
+		return fiber.NewError(fiber.StatusNotFound, "track is not downloadable")
 	}
 
 	downloadUrl := tryFindWorkingUrl(track.Download)
