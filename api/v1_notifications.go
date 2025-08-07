@@ -20,6 +20,17 @@ type GetNotificationsQueryParams struct {
 	Timestamp float64  `query:"timestamp" validate:"omitempty,min=0"`
 }
 
+var unsupportedNotificationTypes = []string{
+	// No frontend support
+	"usdc_transfer",
+	"usdc_withdrawal",
+	"reward_in_cooldown",
+	// Deprecated
+	"milestone_follower_count",
+	"remix_contest_started",
+	"claimble_reward",
+}
+
 func (app *ApiServer) v1Notifications(c *fiber.Ctx) error {
 	params := GetNotificationsQueryParams{}
 	if err := app.ParseAndValidateQueryParams(c, &params); err != nil {
@@ -102,7 +113,7 @@ WHERE
   ((ARRAY[@user_id] && n.user_ids) OR (n.type = 'announcement' AND n.timestamp > (SELECT created_at FROM user_created_at)))
   AND (n.type = ANY(@types) OR @types IS NULL)
 	-- Ignore notification types not supported by frontend
-	AND (n.type != 'usdc_transfer')
+	AND (n.type != ALL(@unsupported_types))
   -- Filter out notifications for deleted tracks (only for create notifications that have track_id)
   AND (n.type != 'create' OR NOT (n.data ? 'track_id') OR t.is_delete = false)
   -- Filter out notifications for deleted playlists (only for create notifications that have playlist_id)
@@ -143,11 +154,12 @@ limit @limit::int
 	}
 
 	rows, err := app.pool.Query(c.Context(), sql, pgx.NamedArgs{
-		"user_id":          userId,
-		"limit":            params.Limit,
-		"types":            params.Types,
-		"group_id_offset":  params.GroupID,
-		"timestamp_offset": params.Timestamp,
+		"user_id":           userId,
+		"limit":             params.Limit,
+		"types":             params.Types,
+		"group_id_offset":   params.GroupID,
+		"timestamp_offset":  params.Timestamp,
+		"unsupported_types": unsupportedNotificationTypes,
 	})
 	if err != nil {
 		return err
