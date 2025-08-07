@@ -1466,12 +1466,6 @@ paths:
                   We perform checks on it and pass it through to CN.
         schema:
           type: string
-      - name: original
-        in: query
-        description: Optional - true if downloading original file
-        schema:
-          type: boolean
-          default: false
       - name: filename
         in: query
         description: "Optional - name of file to download. If not provided, defaults\
