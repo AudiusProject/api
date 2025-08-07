@@ -259,18 +259,18 @@ func fetchAttestations(
 		})
 	}
 
-	// Get validator attestations in parallel rounds
+	// Get validator attestations in batches of minVotes
+	// Mark used owners and bad validators to avoid re-selecting them
 	successfulValidators := 0
 	currentIndex := 0
-
 	for successfulValidators < minVotes && currentIndex < len(shuffled) {
-		// Select up to validatorsNeeded validators for this round
+		// Collect a group of minVotes candidate nodes
 		var candidateNodes []config.Node
-		var candidateIndices []int
 		candidateOwners := make(map[string]bool) // Track owners in this round
+		for currentIndex < len(shuffled) && len(candidateNodes) < minVotes {
+			node := shuffled[currentIndex]
+			currentIndex++
 
-		for i := currentIndex; i < len(shuffled) && len(candidateNodes) < minVotes; i++ {
-			node := shuffled[i]
 			// Skip if we've already used this owner globally or this specific validator is marked bad
 			if usedOwners[node.OwnerWallet] || badValidators[node.Endpoint] {
 				continue
@@ -280,7 +280,6 @@ func fetchAttestations(
 				continue
 			}
 			candidateNodes = append(candidateNodes, node)
-			candidateIndices = append(candidateIndices, i)
 			candidateOwners[node.OwnerWallet] = true
 		}
 
@@ -289,7 +288,7 @@ func fetchAttestations(
 		}
 
 		type validatorResult struct {
-			index       int
+			node        config.Node
 			attestation *SenderAttestation
 			err         error
 		}
@@ -308,7 +307,7 @@ func fetchAttestations(
 
 				attestation, err := getValidatorAttestation(getValidatorAttestationParams)
 				results[i] = validatorResult{
-					index:       candidateIndices[i],
+					node:        node,
 					attestation: attestation,
 					err:         err,
 				}
@@ -319,28 +318,18 @@ func fetchAttestations(
 		validatorGroup.Wait()
 
 		for _, result := range results {
-			node := shuffled[result.index]
 			if result.err != nil {
-				badValidators[node.Endpoint] = true
+				badValidators[result.node.Endpoint] = true
 				continue
 			}
-
-			// Success - add attestation and mark owner as used
 			attestations = append(attestations, *result.attestation)
-			usedOwners[node.OwnerWallet] = true
+			usedOwners[result.node.OwnerWallet] = true
 			successfulValidators++
 
 			// Stop if we have enough validators
 			if successfulValidators >= minVotes {
 				break
 			}
-		}
-
-		// Move to next batch of validators
-		if len(candidateIndices) > 0 {
-			currentIndex = candidateIndices[len(candidateIndices)-1] + 1
-		} else {
-			currentIndex = len(shuffled) // No more candidates found
 		}
 	}
 
@@ -353,7 +342,7 @@ func fetchAttestations(
 	}
 
 	if successfulValidators < minVotes {
-		return nil, fmt.Errorf("could only get %d validator attestations, need %d", successfulValidators, validatorsNeeded)
+		return nil, fmt.Errorf("could only get %d validator attestations, need %d", successfulValidators, minVotes)
 	}
 
 	return attestations, nil
