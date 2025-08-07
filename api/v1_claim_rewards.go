@@ -205,8 +205,8 @@ func getValidatorAttestation(args GetValidatorAttestationParams) (*SenderAttesta
 	return &attestation, nil
 }
 
-// Gets reward claim attestations from AAO and Validators in parallel.
-// Now handles validator selection internally with retry logic for failures.
+// Gets reward claim attestations from AAO and Validators in parallel,
+// handling retries and reselection
 func fetchAttestations(
 	ctx context.Context,
 	rewardClaim RewardClaim,
@@ -218,19 +218,16 @@ func fetchAttestations(
 	minVotes int,
 ) ([]SenderAttestation, error) {
 
-	// Shuffle the validators for random selection
+	// Shuffle the validators
 	shuffled := slices.Clone(allValidators)
 	rand.Shuffle(len(shuffled), func(i, j int) {
 		shuffled[i], shuffled[j] = shuffled[j], shuffled[i]
 	})
 
-	// Track which operators we've already used (including excluded ones)
-	usedOperators := make(map[string]bool)
+	usedOwners := make(map[string]bool)
 	for _, excluded := range excludedOperators {
-		usedOperators[excluded] = true
+		usedOwners[excluded] = true
 	}
-
-	// Track which specific validators we've marked as bad
 	badValidators := make(map[string]bool)
 
 	offset := 0
@@ -238,21 +235,17 @@ func fetchAttestations(
 		offset = 1
 	}
 
-	// We need minVotes - len(excludedOperators) successful validator attestations
-	validatorsNeeded := minVotes - len(excludedOperators)
-	attestations := make([]SenderAttestation, 0, validatorsNeeded+offset)
+	attestations := make([]SenderAttestation, 0, minVotes+offset)
 
 	ctx, cancel := context.WithTimeout(ctx, 30*time.Second)
 	defer cancel()
 
 	// Start AAO attestation in parallel if needed
 	var aaoAttestation *SenderAttestation
-	var aaoErr error
-	aaoDone := make(chan struct{})
+	aaoGroup := &errgroup.Group{}
 
 	if !hasAntiAbuseOracleAttestation {
-		go func() {
-			defer close(aaoDone)
+		aaoGroup.Go(func() error {
 			aaoClaim := rewardClaim.RewardClaim
 			aaoClaim.AntiAbuseOracleEthAddress = ""
 			getAntiAbuseAttestationParams := GetAntiAbuseOracleAttestationParams{
@@ -260,26 +253,26 @@ func fetchAttestations(
 				Handle:                  rewardClaim.Handle,
 				AntiAbuseOracleEndpoint: antiAbuseOracle.Endpoint,
 			}
-			aaoAttestation, aaoErr = getAntiAbuseOracleAttestation(getAntiAbuseAttestationParams)
-		}()
-	} else {
-		close(aaoDone)
+			var err error
+			aaoAttestation, err = getAntiAbuseOracleAttestation(getAntiAbuseAttestationParams)
+			return err
+		})
 	}
 
 	// Get validator attestations in parallel rounds
 	successfulValidators := 0
 	currentIndex := 0
 
-	for successfulValidators < validatorsNeeded && currentIndex < len(shuffled) {
+	for successfulValidators < minVotes && currentIndex < len(shuffled) {
 		// Select up to validatorsNeeded validators for this round
 		var candidateNodes []config.Node
 		var candidateIndices []int
 		candidateOwners := make(map[string]bool) // Track owners in this round
 
-		for i := currentIndex; i < len(shuffled) && len(candidateNodes) < validatorsNeeded; i++ {
+		for i := currentIndex; i < len(shuffled) && len(candidateNodes) < minVotes; i++ {
 			node := shuffled[i]
 			// Skip if we've already used this owner globally or this specific validator is marked bad
-			if usedOperators[node.OwnerWallet] || badValidators[node.Endpoint] {
+			if usedOwners[node.OwnerWallet] || badValidators[node.Endpoint] {
 				continue
 			}
 			// Skip if we've already picked this owner in this round
@@ -295,13 +288,11 @@ func fetchAttestations(
 			break // No more valid candidates
 		}
 
-		// Try to get attestations from all candidates in parallel
 		type validatorResult struct {
 			index       int
 			attestation *SenderAttestation
 			err         error
 		}
-
 		results := make([]validatorResult, len(candidateNodes))
 		validatorGroup := &errgroup.Group{}
 
@@ -325,25 +316,22 @@ func fetchAttestations(
 			})
 		}
 
-		// Wait for all validators in this round to complete
 		validatorGroup.Wait()
 
-		// Process results
 		for _, result := range results {
 			node := shuffled[result.index]
 			if result.err != nil {
-				// Mark this validator as bad
 				badValidators[node.Endpoint] = true
 				continue
 			}
 
 			// Success - add attestation and mark owner as used
 			attestations = append(attestations, *result.attestation)
-			usedOperators[node.OwnerWallet] = true
+			usedOwners[node.OwnerWallet] = true
 			successfulValidators++
 
-			// Stop if we have enough
-			if successfulValidators >= validatorsNeeded {
+			// Stop if we have enough validators
+			if successfulValidators >= minVotes {
 				break
 			}
 		}
@@ -357,15 +345,14 @@ func fetchAttestations(
 	}
 
 	// Wait for AAO attestation to complete
-	<-aaoDone
-	if aaoErr != nil {
-		return nil, fmt.Errorf("failed to get anti-abuse oracle attestation: %w", aaoErr)
+	if err := aaoGroup.Wait(); err != nil {
+		return nil, fmt.Errorf("failed to get anti-abuse oracle attestation: %w", err)
 	}
 	if aaoAttestation != nil {
 		attestations = append([]SenderAttestation{*aaoAttestation}, attestations...)
 	}
 
-	if successfulValidators < validatorsNeeded {
+	if successfulValidators < minVotes {
 		return nil, fmt.Errorf("could only get %d validator attestations, need %d", successfulValidators, validatorsNeeded)
 	}
 
