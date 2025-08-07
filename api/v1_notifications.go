@@ -15,7 +15,7 @@ import (
 type GetNotificationsQueryParams struct {
 	// Note that when limit is 0, we return 20 items to calculate unread count
 	Limit     int      `query:"limit" default:"20" validate:"min=0,max=100"`
-	Types     []string `query:"types" validate:"dive,oneof=announcement follow repost save remix cosign create tip_receive tip_send challenge_reward repost_of_repost save_of_repost tastemaker reaction supporter_dethroned supporter_rank_up supporting_rank_up milestone track_milestone track_added_to_playlist playlist_milestone tier_change trending trending_playlist trending_underground usdc_purchase_buyer usdc_purchase_seller track_added_to_purchased_album request_manager approve_manager_request claimable_reward comment comment_thread comment_mention comment_reaction listen_streak_reminder fan_remix_contest_started fan_remix_contest_ended fan_remix_contest_ending_soon fan_remix_contest_winners_selected artist_remix_contest_ended artist_remix_contest_ending_soon artist_remix_contest_submissions"`
+	Types     []string `query:"types" validate:"dive,oneof=announcement follow repost save remix cosign create tip_receive tip_send challenge_reward repost_of_repost save_of_repost tastemaker reaction supporter_dethroned supporter_rank_up supporting_rank_up milestone track_added_to_playlist tier_change trending trending_playlist trending_underground usdc_purchase_buyer usdc_purchase_seller track_added_to_purchased_album request_manager approve_manager_request claimable_reward comment comment_thread comment_mention comment_reaction listen_streak_reminder fan_remix_contest_started fan_remix_contest_ended fan_remix_contest_ending_soon fan_remix_contest_winners_selected artist_remix_contest_ended artist_remix_contest_ending_soon artist_remix_contest_submissions"`
 	GroupID   string   `query:"group_id" validate:"omitempty"`
 	Timestamp float64  `query:"timestamp" validate:"omitempty,min=0"`
 }
@@ -101,6 +101,8 @@ LEFT JOIN playlists p ON
 WHERE
   ((ARRAY[@user_id] && n.user_ids) OR (n.type = 'announcement' AND n.timestamp > (SELECT created_at FROM user_created_at)))
   AND (n.type = ANY(@types) OR @types IS NULL)
+	-- Ignore notification types not supported by frontend
+	AND (n.type != 'usdc_transfer')
   -- Filter out notifications for deleted tracks (only for create notifications that have track_id)
   AND (n.type != 'create' OR NOT (n.data ? 'track_id') OR t.is_delete = false)
   -- Filter out notifications for deleted playlists (only for create notifications that have playlist_id)
