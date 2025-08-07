@@ -39,9 +39,9 @@ type TrackAccessInfoResponse struct {
 	DownloadConditions *ExtendedAccessGate `json:"download_conditions"`
 }
 
-func getExtendedPurchaseGate(gate *dbv1.FullAccessGate, userMap map[int32]dbv1.FullUser) *ExtendedAccessGate {
+func getExtendedPurchaseGate(gate *dbv1.FullAccessGate, userMap map[int32]dbv1.FullUser) (*ExtendedAccessGate, error) {
 	if gate == nil {
-		return nil
+		return nil, nil
 	}
 
 	// Handle non-purchase gates
@@ -50,13 +50,29 @@ func getExtendedPurchaseGate(gate *dbv1.FullAccessGate, userMap map[int32]dbv1.F
 			FollowUserID:  gate.FollowUserID,
 			TipUserID:     gate.TipUserID,
 			NftCollection: gate.NftCollection,
-		}
+		}, nil
 	}
 
 	// Handle USDC purchase gates
 	price := gate.UsdcPurchase.Price
 	originalSplits := gate.UsdcPurchase.Splits
-	fmt.Println("originalSplits", originalSplits)
+
+	// Precompute totals for percentage calculations
+	networkWallet := config.Cfg.SolanaConfig.StakingBridgeUsdcTokenAccount.String()
+	var total int64
+	var networkAmount int64
+	for wallet, amount := range originalSplits {
+		total += amount
+		if wallet == networkWallet {
+			networkAmount = amount
+		}
+	}
+	userTotal := total - networkAmount
+	// Assert that this math lines up with the original price
+	expectedTotal := int64(gate.UsdcPurchase.Price * 10000)
+	if expectedTotal != total {
+		return nil, fmt.Errorf("assertion failed: gate.Price * 10000 (%d) != total (%d)", expectedTotal, total)
+	}
 
 	extendedSplits := []ExtendedSplit{}
 	for wallet, split := range originalSplits {
@@ -64,14 +80,15 @@ func getExtendedPurchaseGate(gate *dbv1.FullAccessGate, userMap map[int32]dbv1.F
 		extSplit := ExtendedSplit{
 			Amount: split,
 		}
+
 		if user, exists := userMap[userID]; exists {
 			extSplit.UserID = &userID
 			extSplit.EthWallet = &user.Wallet.String
 			extSplit.PayoutWallet = user.PayoutWallet
-			// Percentage is amount / (total amount - network amount)
-		} else if wallet == config.Cfg.SolanaConfig.StakingBridgeUsdcTokenAccount.String() {
+			extSplit.Percentage = (float64(split) / float64(userTotal)) * 100.0
+		} else if wallet == networkWallet {
 			extSplit.PayoutWallet = wallet
-			// Percentage is amount / total amount
+			extSplit.Percentage = (float64(split) / float64(total)) * 100.0
 		}
 		extendedSplits = append(extendedSplits, extSplit)
 	}
@@ -84,7 +101,7 @@ func getExtendedPurchaseGate(gate *dbv1.FullAccessGate, userMap map[int32]dbv1.F
 		FollowUserID:  gate.FollowUserID,
 		TipUserID:     gate.TipUserID,
 		NftCollection: gate.NftCollection,
-	}
+	}, nil
 }
 
 func (app *ApiServer) v1TrackAccessInfo(c *fiber.Ctx) error {
@@ -144,11 +161,17 @@ func (app *ApiServer) v1TrackAccessInfo(c *fiber.Ctx) error {
 	// Make extended access gates
 	var extendedStreamConditions *ExtendedAccessGate
 	if track.StreamConditions != nil {
-		extendedStreamConditions = getExtendedPurchaseGate(track.StreamConditions, userMap)
+		extendedStreamConditions, err = getExtendedPurchaseGate(track.StreamConditions, userMap)
+		if err != nil {
+			return err
+		}
 	}
 	var extendedDownloadConditions *ExtendedAccessGate
 	if track.DownloadConditions != nil {
-		extendedDownloadConditions = getExtendedPurchaseGate(track.DownloadConditions, userMap)
+		extendedDownloadConditions, err = getExtendedPurchaseGate(track.DownloadConditions, userMap)
+		if err != nil {
+			return err
+		}
 	}
 
 	response := TrackAccessInfoResponse{
