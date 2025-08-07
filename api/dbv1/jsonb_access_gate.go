@@ -32,6 +32,8 @@ func (gate PurchaseGate) ToFullPurchaseGate(cfg config.Config, userMap map[int32
 
 	splitMap := map[string]int64{}
 	remainderMap := map[string]float64{}
+	userIds := map[string]int32{}
+
 	var sum int64
 	for _, split := range gate.Splits {
 
@@ -42,6 +44,7 @@ func (gate PurchaseGate) ToFullPurchaseGate(cfg config.Config, userMap map[int32
 			splitMap[user.PayoutWallet] = amount
 			sum += amount
 			remainderMap[user.PayoutWallet] = amountF64 - float64(amount)
+			userIds[user.PayoutWallet] = split.UserID
 		} else {
 			// if user is not in map, or payout_wallet no exist
 			// the rounding error will be split amongst other parties.
@@ -69,8 +72,9 @@ func (gate PurchaseGate) ToFullPurchaseGate(cfg config.Config, userMap map[int32
 	// add network take last (after rounding error is distributed)
 	splitMap[cfg.SolanaConfig.StakingBridgeUsdcTokenAccount.String()] = int64(networkCut)
 	return &FullPurchaseGate{
-		Price:  gate.Price,
-		Splits: splitMap,
+		Price:   gate.Price,
+		Splits:  splitMap,
+		UserIds: userIds,
 	}
 }
 
@@ -94,6 +98,7 @@ type FullAccessGate struct {
 }
 
 type FullPurchaseGate struct {
-	Price  float64          `json:"price"`
-	Splits map[string]int64 `json:"splits"`
+	Price   float64          `json:"price"`
+	Splits  map[string]int64 `json:"splits"`
+	UserIds map[string]int32 `json:"user_ids"`
 }

@@ -1,15 +1,25 @@
 package api
 
 import (
+	"fmt"
+
 	"bridgerton.audius.co/api/dbv1"
+	"bridgerton.audius.co/config"
 	"bridgerton.audius.co/trashid"
-	"bridgerton.audius.co/utils"
 	"github.com/gofiber/fiber/v2"
 )
 
+type ExtendedSplit struct {
+	UserID       *int32  `json:"user_id,omitempty"`
+	Percentage   float64 `json:"percentage"`
+	PayoutWallet string  `json:"payout_wallet,omitempty"`
+	EthWallet    *string `json:"eth_wallet,omitempty"`
+	Amount       int64   `json:"amount"`
+}
+
 type ExtendedPurchaseGate struct {
-	Price  *float64              `json:"price"`
-	Splits []utils.ExtendedSplit `json:"splits"`
+	Price  *float64        `json:"price"`
+	Splits []ExtendedSplit `json:"splits"`
 }
 
 type ExtendedAccessGate struct {
@@ -29,7 +39,7 @@ type TrackAccessInfoResponse struct {
 	DownloadConditions *ExtendedAccessGate `json:"download_conditions"`
 }
 
-func getExtendedPurchaseGate(gate *dbv1.AccessGate, userMap map[int32]dbv1.FullUser) *ExtendedAccessGate {
+func getExtendedPurchaseGate(gate *dbv1.FullAccessGate, userMap map[int32]dbv1.FullUser) *ExtendedAccessGate {
 	if gate == nil {
 		return nil
 	}
@@ -43,53 +53,27 @@ func getExtendedPurchaseGate(gate *dbv1.AccessGate, userMap map[int32]dbv1.FullU
 		}
 	}
 
-	// Process USDC purchase gate
+	// Handle USDC purchase gates
 	price := gate.UsdcPurchase.Price
 	originalSplits := gate.UsdcPurchase.Splits
+	fmt.Println("originalSplits", originalSplits)
 
-	// Convert PurchaseSplit to utils.Split
-	splits := make([]utils.Split, len(originalSplits))
-	for i, split := range originalSplits {
-		userID := int(split.UserID)
-		splits[i] = utils.Split{
-			UserID:     &userID,
-			Percentage: split.Percentage,
+	extendedSplits := []ExtendedSplit{}
+	for wallet, split := range originalSplits {
+		userID := gate.UsdcPurchase.UserIds[wallet]
+		extSplit := ExtendedSplit{
+			Amount: split,
 		}
-	}
-
-	// Calculate extended splits with amounts using the utils function
-	priceInCents := int(price) // Convert dollars to cents
-	extendedSplits, err := utils.CalculateSplits(&priceInCents, splits, nil)
-	if err != nil {
-		// Handle error - return original structure without extended info
-		return &ExtendedAccessGate{
-			UsdcPurchase: &ExtendedPurchaseGate{
-				Price:  &price,
-				Splits: []utils.ExtendedSplit{},
-			},
+		if user, exists := userMap[userID]; exists {
+			extSplit.UserID = &userID
+			extSplit.EthWallet = &user.Wallet.String
+			extSplit.PayoutWallet = user.PayoutWallet
+			// Percentage is amount / (total amount - network amount)
+		} else if wallet == config.Cfg.SolanaConfig.StakingBridgeUsdcTokenAccount.String() {
+			extSplit.PayoutWallet = wallet
+			// Percentage is amount / total amount
 		}
-	}
-
-	// Add wallet information to extended splits
-	for i := range extendedSplits {
-		if extendedSplits[i].UserID != nil {
-			userID := int32(*extendedSplits[i].UserID)
-			if user, exists := userMap[userID]; exists {
-				// Convert pgtype.Text to *string
-				var ethWallet *string
-				if user.Wallet.Valid {
-					ethWallet = &user.Wallet.String
-				}
-				extendedSplits[i].EthWallet = ethWallet
-
-				// Use PayoutWallet from user if available, otherwise use UsdcWallet
-				if user.PayoutWallet != "" {
-					extendedSplits[i].PayoutWallet = user.PayoutWallet
-				} else if user.UsdcWallet.Valid {
-					extendedSplits[i].PayoutWallet = user.UsdcWallet.String
-				}
-			}
-		}
+		extendedSplits = append(extendedSplits, extSplit)
 	}
 
 	return &ExtendedAccessGate{
@@ -118,53 +102,30 @@ func (app *ApiServer) v1TrackAccessInfo(c *fiber.Ctx) error {
 	if err != nil {
 		return err
 	}
-
 	if len(tracks) == 0 {
 		return fiber.NewError(fiber.StatusNotFound, "track not found")
 	}
-
 	track := tracks[0]
-
-	// Get raw track data to access original splits
-	rawTracks, err := app.queries.GetTracks(c.Context(), dbv1.GetTracksParams{
-		MyID:            myId,
-		Ids:             []int32{int32(trackId)},
-		IncludeUnlisted: true,
-	})
-	if err != nil {
-		return err
-	}
-
-	if len(rawTracks) == 0 {
-		return fiber.NewError(fiber.StatusNotFound, "raw track not found")
-	}
-
-	rawTrack := rawTracks[0]
 
 	// Get all user IDs from the original splits to build user map
 	userIDs := make(map[int32]struct{})
-
-	// Collect user IDs from stream conditions
-	if rawTrack.StreamConditions != nil && rawTrack.StreamConditions.UsdcPurchase != nil {
-		for _, split := range rawTrack.StreamConditions.UsdcPurchase.Splits {
-			userIDs[split.UserID] = struct{}{}
+	if track.StreamConditions != nil && track.StreamConditions.UsdcPurchase != nil {
+		for _, userId := range track.StreamConditions.UsdcPurchase.UserIds {
+			userIDs[userId] = struct{}{}
+		}
+	}
+	if track.DownloadConditions != nil && track.DownloadConditions.UsdcPurchase != nil {
+		for _, userId := range track.DownloadConditions.UsdcPurchase.UserIds {
+			userIDs[userId] = struct{}{}
 		}
 	}
 
-	// Collect user IDs from download conditions
-	if rawTrack.DownloadConditions != nil && rawTrack.DownloadConditions.UsdcPurchase != nil {
-		for _, split := range rawTrack.DownloadConditions.UsdcPurchase.Splits {
-			userIDs[split.UserID] = struct{}{}
-		}
-	}
-
-	// Convert user IDs to slice
 	userIDSlice := make([]int32, 0, len(userIDs))
 	for userID := range userIDs {
 		userIDSlice = append(userIDSlice, userID)
 	}
 
-	// Get user information for wallet data
+	// Fetch full users
 	userMap := make(map[int32]dbv1.FullUser)
 	if len(userIDSlice) > 0 {
 		users, err := app.queries.FullUsers(c.Context(), dbv1.GetUsersParams{
@@ -180,19 +141,16 @@ func (app *ApiServer) v1TrackAccessInfo(c *fiber.Ctx) error {
 		}
 	}
 
-	// Process stream conditions with extended purchase gate information
+	// Make extended access gates
 	var extendedStreamConditions *ExtendedAccessGate
-	if rawTrack.StreamConditions != nil {
-		extendedStreamConditions = getExtendedPurchaseGate(rawTrack.StreamConditions, userMap)
+	if track.StreamConditions != nil {
+		extendedStreamConditions = getExtendedPurchaseGate(track.StreamConditions, userMap)
 	}
-
-	// Process download conditions with extended purchase gate information
 	var extendedDownloadConditions *ExtendedAccessGate
-	if rawTrack.DownloadConditions != nil {
-		extendedDownloadConditions = getExtendedPurchaseGate(rawTrack.DownloadConditions, userMap)
+	if track.DownloadConditions != nil {
+		extendedDownloadConditions = getExtendedPurchaseGate(track.DownloadConditions, userMap)
 	}
 
-	// Create response with extended access gate information
 	response := TrackAccessInfoResponse{
 		Access:             track.Access,
 		UserId:             track.UserID,
