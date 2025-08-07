@@ -13,10 +13,11 @@ import (
 )
 
 type GetNotificationsQueryParams struct {
-	Limit      int      `query:"limit" default:"20" validate:"min=0,max=100"`
-	ValidTypes []string `query:"valid_types"`
-	GroupID    string   `query:"group_id" validate:"omitempty"`
-	Timestamp  float64  `query:"timestamp" validate:"omitempty,min=0"`
+	// Note that when limit is 0, we return 20 items to calculate unread count
+	Limit     int      `query:"limit" default:"20" validate:"min=0,max=100"`
+	Types     []string `query:"types" validate:"dive,oneof=announcement follow repost save remix cosign create tip_receive tip_send challenge_reward repost_of_repost save_of_repost tastemaker reaction supporter_dethroned supporter_rank_up supporting_rank_up milestone track_added_to_playlist tier_change trending trending_playlist trending_underground usdc_purchase_buyer usdc_purchase_seller track_added_to_purchased_album request_manager approve_manager_request claimable_reward comment comment_thread comment_mention comment_reaction listen_streak_reminder fan_remix_contest_started fan_remix_contest_ended fan_remix_contest_ending_soon fan_remix_contest_winners_selected artist_remix_contest_ended artist_remix_contest_ending_soon artist_remix_contest_submissions"`
+	GroupID   string   `query:"group_id" validate:"omitempty"`
+	Timestamp float64  `query:"timestamp" validate:"omitempty,min=0"`
 }
 
 func (app *ApiServer) v1Notifications(c *fiber.Ctx) error {
@@ -26,6 +27,13 @@ func (app *ApiServer) v1Notifications(c *fiber.Ctx) error {
 	}
 
 	sql := `
+-- user_seen is a window function that gets windows between seen events.
+--
+-- seen_at	              prev_seen_at
+-- now()	                "2025-08-05 16:27:53"
+-- "2025-08-05 16:27:53"	"2025-08-04 21:50:38"
+-- "2025-08-04 21:50:38"	"2025-08-04 18:12:41"
+--
 WITH user_seen as (
   SELECT
     LAG(seen_at, 1, now()::timestamp) OVER ( ORDER BY seen_at desc ) AS seen_at,
@@ -36,7 +44,7 @@ WITH user_seen as (
     user_id = @user_id
   ORDER BY
     seen_at desc
-	LIMIT 10
+  LIMIT 10
 ),
 user_created_at as (
   SELECT
@@ -60,20 +68,45 @@ SELECT
 		ORDER BY timestamp DESC
 	)::jsonb AS actions,
 	CASE
-		WHEN user_seen.seen_at IS NOT NULL THEN now()::timestamp != user_seen.seen_at
+		-- If seen at is not null, we were able to match a window between seen events
+		WHEN user_seen.seen_at IS NOT NULL THEN 
+			CASE 
+			  -- In all cases except the most recent window, this means we've already seen
+				-- the notification
+				WHEN now()::timestamp != user_seen.seen_at THEN true
+				ELSE false
+			END
+		-- Otherwise, we've only seen notifications before if we have some row in notification_seen
 		ELSE EXISTS(SELECT 1 from notification_seen ns WHERE ns.user_id = @user_id)
 	END::boolean AS is_seen,
 	CASE
-		WHEN user_seen.seen_at != now()::timestamp THEN EXTRACT(EPOCH FROM COALESCE(user_seen.seen_at, n.timestamp))
+		WHEN user_seen.seen_at != now()::timestamp THEN EXTRACT(EPOCH FROM user_seen.seen_at)
 		ELSE null
 	END AS seen_at
 FROM
     notification n
 LEFT JOIN user_seen ON
   user_seen.seen_at >= n.timestamp AND user_seen.prev_seen_at < n.timestamp
+-- Join with tracks table to filter out deleted tracks for "create" notifications that have track_id
+LEFT JOIN tracks t ON 
+  n.type = 'create' AND 
+  n.data ? 'track_id' AND
+  t.track_id = (n.data->>'track_id')::integer AND 
+  t.is_current = true
+LEFT JOIN playlists p ON
+  n.type = 'create' AND 
+  n.data ? 'playlist_id' AND
+  p.playlist_id = (n.data->>'playlist_id')::integer AND 
+  p.is_current = true
 WHERE
   ((ARRAY[@user_id] && n.user_ids) OR (n.type = 'announcement' AND n.timestamp > (SELECT created_at FROM user_created_at)))
-  AND n.type = ANY(@valid_types)
+  AND (n.type = ANY(@types) OR @types IS NULL)
+	-- Ignore notification types not supported by frontend
+	AND (n.type != 'usdc_transfer')
+  -- Filter out notifications for deleted tracks (only for create notifications that have track_id)
+  AND (n.type != 'create' OR NOT (n.data ? 'track_id') OR t.is_delete = false)
+  -- Filter out notifications for deleted playlists (only for create notifications that have playlist_id)
+  AND (n.type != 'create' OR NOT (n.data ? 'playlist_id') OR p.is_delete = false)
   AND (
     (@timestamp_offset = 0 AND @group_id_offset = '') OR
     (@timestamp_offset = 0 AND @group_id_offset != '' AND n.group_id < @group_id_offset) OR
@@ -84,7 +117,15 @@ WHERE
     )
   )
 GROUP BY
-  n.type, n.group_id, user_seen.seen_at, user_seen.prev_seen_at, n.timestamp
+  n.type, n.group_id, user_seen.seen_at, user_seen.prev_seen_at,
+  CASE
+		-- Group notifications individually that are older than any of the seen windows
+		-- and we know that the user has seen at least one notification before
+    WHEN user_seen.seen_at IS NULL AND
+			EXISTS(SELECT 1 from notification_seen ns WHERE ns.user_id = @user_id) 
+    THEN n.timestamp
+    ELSE NULL 
+  END
 ORDER BY
   user_seen.seen_at desc NULLS LAST,
   max(n.timestamp) desc,
@@ -92,68 +133,7 @@ ORDER BY
 limit @limit::int
 ;
 `
-
-	// default types are always enabled
-	validTypes := []string{
-		"follow",
-		"repost",
-		"save",
-		"tip_send",
-		"tip_receive",
-		"track_added_to_purchased_album",
-		"track_added_to_playlist",
-		"tastemaker",
-		"supporter_rank_up",
-		"supporting_rank_up",
-		"supporter_dethroned",
-		"challenge_reward",
-		"claimable_reward",
-		"tier_change",
-		"create",
-		"remix",
-		"cosign",
-		"trending_playlist",
-		"trending",
-		"trending_underground",
-		"milestone",
-		"announcement",
-		"reaction",
-		"repost_of_repost",
-		"save_of_repost",
-		"usdc_purchase_seller",
-		"usdc_purchase_buyer",
-		"request_manager",
-		"approve_manager_request",
-		"comment",
-		"comment_thread",
-		"comment_mention",
-		"comment_reaction",
-		"listen_streak_reminder",
-		"fan_remix_contest_ended",
-		"artist_remix_contest_ended",
-		"artist_remix_contest_ending_soon",
-		"fan_remix_contest_ending_soon",
-		"fan_remix_contest_winners_selected",
-		"fan_remix_contest_started",
-		"artist_remix_contest_submissions",
-	}
-
-	// add optional valid_types
-	for _, t := range params.ValidTypes {
-		if !slices.Contains(validTypes, t) {
-			validTypes = append(validTypes, t)
-		}
-	}
-
 	userId := app.getUserId(c)
-	limit := params.Limit
-
-	// python returns 20 items when limit=0
-	// and client relies on this for showing unread count
-	if limit == 0 {
-		limit = 20
-	}
-
 	type GetNotifsRow struct {
 		Type    string            `json:"type"`
 		GroupID string            `json:"group_id"`
@@ -164,8 +144,8 @@ limit @limit::int
 
 	rows, err := app.pool.Query(c.Context(), sql, pgx.NamedArgs{
 		"user_id":          userId,
-		"limit":            limit,
-		"valid_types":      validTypes,
+		"limit":            params.Limit,
+		"types":            params.Types,
 		"group_id_offset":  params.GroupID,
 		"timestamp_offset": params.Timestamp,
 	})

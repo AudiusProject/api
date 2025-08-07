@@ -6,19 +6,93 @@ import (
 )
 
 func (app *ApiServer) v1TrackComments(c *fiber.Ctx) error {
+	myId := app.getMyId(c)
+	trackId := c.Locals("trackId")
 
 	sql := `
-	SELECT comment_id as id
+	WITH 
+	track AS (
+		SELECT track_id, owner_id
+		FROM tracks
+		WHERE track_id = @track_id
+	),
+
+	-- Users muted by high-karma users
+	muted_by_karma AS (
+		SELECT muted_user_id
+		FROM muted_users
+		JOIN aggregate_user ON muted_users.user_id = aggregate_user.user_id
+		WHERE muted_users.is_delete = false
+		GROUP BY muted_user_id
+		HAVING SUM(aggregate_user.follower_count) >= @karmaCommentCountThreshold
+	),
+
+	-- Users who have low abuse score
+	low_abuse_score AS (
+		SELECT user_id
+		FROM aggregate_user
+		WHERE score < 0
+	),
+
+	-- Comments reported by high-karma users
+	high_karma_reporters AS (
+		SELECT comment_reports.comment_id
+		FROM comment_reports
+		JOIN aggregate_user ON comment_reports.user_id = aggregate_user.user_id
+		WHERE comment_reports.is_delete = false
+		GROUP BY comment_reports.comment_id
+		HAVING SUM(aggregate_user.follower_count) >= @karmaCommentCountThreshold
+	)
+
+	SELECT comments.comment_id as id
 	FROM comments
+	LEFT JOIN track ON comments.entity_id = track.track_id
 	LEFT JOIN comment_threads USING (comment_id)
-	WHERE entity_id = @track_id
-	AND parent_comment_id IS NULL
-	AND entity_type = 'Track'
-	AND comments.is_delete = false
+	LEFT JOIN comment_reports ON comments.comment_id = comment_reports.comment_id
+	LEFT JOIN muted_users ON (
+		muted_users.muted_user_id = comments.user_id
+		AND (
+			muted_users.user_id = @myId
+			OR muted_users.user_id = track.owner_id
+			OR muted_users.muted_user_id IN (SELECT muted_user_id FROM muted_by_karma)
+		)
+		AND @myId != comments.user_id  -- always show comments to their poster
+	)
+	LEFT JOIN low_abuse_score ON (
+		low_abuse_score.user_id = comments.user_id
+		AND @myId != comments.user_id  -- always show comments to their poster
+		AND track.owner_id != comments.user_id  -- always show comments from the track owner
+	)
+	WHERE comments.entity_id = @track_id
+		AND parent_comment_id IS NULL
+		AND entity_type = 'Track'
+		AND comments.is_delete = false
+		-- Filter out comments that are reported, unless:
+		-- 1. No report exists, OR
+		-- 2. Report is not from current user or track owner AND comment is not reported by high-karma users, OR  
+		-- 3. Report is deleted
+		AND (
+			comment_reports.comment_id IS NULL
+			OR (
+				comment_reports.user_id != COALESCE(@myId, 0)
+				AND comment_reports.user_id != track.owner_id
+				AND comments.comment_id NOT IN (SELECT hkr.comment_id FROM high_karma_reporters hkr)
+			)
+			OR comment_reports.is_delete = true
+		)
+		-- Filter out muted comments unless the mute relationship is deleted
+		AND (
+			muted_users.muted_user_id IS NULL
+			OR muted_users.is_delete = true
+		)
+		-- Filter out comments from users with low abuse score
+		AND low_abuse_score.user_id IS NULL
 	`
 
 	args := pgx.NamedArgs{
-		"track_id": c.Locals("trackId"),
+		"myId":                       myId,
+		"track_id":                   trackId,
+		"karmaCommentCountThreshold": karmaCommentCountThreshold,
 	}
 
 	return app.queryFullComments(c, sql, args)

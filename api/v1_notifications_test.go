@@ -4,6 +4,7 @@ import (
 	"testing"
 
 	"bridgerton.audius.co/database"
+	"bridgerton.audius.co/trashid"
 	"github.com/stretchr/testify/assert"
 )
 
@@ -33,7 +34,7 @@ func TestV1Notifications(t *testing.T) {
 
 	database.Seed(app.pool, fixtures)
 
-	status, body := testGet(t, app, "/v1/notifications/1")
+	status, body := testGet(t, app, "/v1/notifications/"+trashid.MustEncodeHashID(1))
 	assert.Equal(t, 200, status)
 
 	jsonAssert(t, body, map[string]any{
@@ -50,5 +51,131 @@ func TestV1Notifications(t *testing.T) {
 		"data.notifications.1.actions.0.data.is_album":    false,
 		"data.notifications.1.actions.0.data.playlist_id": "WQ2P9",
 	})
+}
 
+func TestV1Notifications_NotDeletedTrack(t *testing.T) {
+	app := emptyTestApp(t)
+
+	fixtures := database.FixtureMap{
+		"tracks": []map[string]any{
+			{
+				"track_id":  67576,
+				"owner_id":  10,
+				"is_delete": false,
+			},
+		},
+		"notification": []map[string]any{
+			{
+				"id":        1,
+				"specifier": "67576",
+				"group_id":  "create:track:user_id:67576",
+				"type":      "create",
+				"user_ids":  []int{1},
+				"data":      []byte(`{"track_id": 67576}`),
+			},
+			{
+				"id":        2,
+				"specifier": "190321",
+				"group_id":  "milestone:PLAYLIST_REPOST_COUNT:id:128608:threshold:10",
+				"type":      "milestone",
+				"user_ids":  []int{1},
+				"data":      []byte(`{"type": "PLAYLIST_REPOST_COUNT", "threshold": 10, "playlist_id": 128608} `),
+			},
+		},
+	}
+
+	database.Seed(app.pool, fixtures)
+
+	status, body := testGet(t, app, "/v1/notifications/"+trashid.MustEncodeHashID(1))
+	assert.Equal(t, 200, status)
+
+	jsonAssert(t, body, map[string]any{
+		"data.notifications.#":      2,
+		"data.notifications.0.type": "milestone",
+		"data.notifications.1.type": "create",
+	})
+}
+
+func TestV1Notifications_DeletedTrack(t *testing.T) {
+	app := emptyTestApp(t)
+
+	fixtures := database.FixtureMap{
+		"tracks": []map[string]any{
+			{
+				"track_id":  67576,
+				"owner_id":  10,
+				"is_delete": true,
+			},
+		},
+		"notification": []map[string]any{
+			{
+				"id":        1,
+				"specifier": "67576",
+				"group_id":  "create:track:user_id:67576",
+				"type":      "create",
+				"user_ids":  []int{1},
+				"data":      []byte(`{"track_id": 67576}`),
+			},
+			{
+				"id":        2,
+				"specifier": "190321",
+				"group_id":  "milestone:PLAYLIST_REPOST_COUNT:id:128608:threshold:10",
+				"type":      "milestone",
+				"user_ids":  []int{1},
+				"data":      []byte(`{"type": "PLAYLIST_REPOST_COUNT", "threshold": 10, "playlist_id": 128608} `),
+			},
+		},
+	}
+
+	database.Seed(app.pool, fixtures)
+
+	status, body := testGet(t, app, "/v1/notifications/"+trashid.MustEncodeHashID(1))
+	assert.Equal(t, 200, status)
+
+	jsonAssert(t, body, map[string]any{
+		"data.notifications.#":      1,
+		"data.notifications.0.type": "milestone",
+	})
+}
+
+func TestV1Notifications_DeletedPlaylist(t *testing.T) {
+	app := emptyTestApp(t)
+
+	fixtures := database.FixtureMap{
+		"playlists": []map[string]any{
+			{
+				"playlist_id":       67576,
+				"playlist_owner_id": 10,
+				"is_delete":         true,
+			},
+		},
+		"notification": []map[string]any{
+			{
+				"id":        1,
+				"specifier": "67576",
+				"group_id":  "create:playlist:user_id:67576",
+				"type":      "create",
+				"user_ids":  []int{1},
+				"data":      []byte(`{"playlist_id": 67576}`),
+			},
+			{
+				"id":        2,
+				"specifier": "190321",
+				"group_id":  "milestone:PLAYLIST_REPOST_COUNT:id:128608:threshold:10",
+				"type":      "milestone",
+				"user_ids":  []int{1},
+				"data":      []byte(`{"type": "PLAYLIST_REPOST_COUNT", "threshold": 10, "playlist_id": 128608} `),
+			},
+		},
+	}
+
+	database.Seed(app.pool, fixtures)
+
+	status, body := testGet(t, app, "/v1/notifications/"+trashid.MustEncodeHashID(1))
+	assert.Equal(t, 200, status)
+
+	jsonAssert(t, body, map[string]any{
+		"data.notifications.#":      1,
+		"data.notifications.0.type": "milestone",
+	})
 }
