@@ -131,25 +131,6 @@ func getAntiAbuseOracleAttestation(args GetAntiAbuseOracleAttestationParams) (*S
 	return &attestation, nil
 }
 
-// Selects three uniquely owned, healthy validators at random
-// TODO: add health checks?
-func getValidators(validators []config.Node, count int, excludedOperators []string) ([]string, error) {
-	shuffled := slices.Clone(validators)
-	rand.Shuffle(len(validators), func(i, j int) {
-		shuffled[i], shuffled[j] = shuffled[j], shuffled[i]
-	})
-
-	selected := make([]string, 0)
-	for i := 0; i < len(shuffled) && len(selected) < count; i++ {
-		node := shuffled[i]
-		if !slices.Contains(excludedOperators, node.OwnerWallet) {
-			selected = append(selected, node.Endpoint)
-			excludedOperators = append(excludedOperators, node.OwnerWallet)
-		}
-	}
-	return selected, nil
-}
-
 type GetValidatorAttestationParams struct {
 	Validator      string
 	Claim          rewards.RewardClaim
@@ -224,28 +205,47 @@ func getValidatorAttestation(args GetValidatorAttestationParams) (*SenderAttesta
 	return &attestation, nil
 }
 
-// Gets reward claim attestations from AAO and Validators in parallel.
+// Gets reward claim attestations from AAO and Validators in parallel,
+// handling retries and reselection
 func fetchAttestations(
 	ctx context.Context,
 	rewardClaim RewardClaim,
-	validators []string,
+	allValidators []config.Node,
+	excludedOperators []string,
 	antiAbuseOracle config.Node,
 	signature string,
 	hasAntiAbuseOracleAttestation bool,
+	minVotes int,
 ) ([]SenderAttestation, error) {
+
+	// Shuffle the validators
+	shuffled := slices.Clone(allValidators)
+	rand.Shuffle(len(shuffled), func(i, j int) {
+		shuffled[i], shuffled[j] = shuffled[j], shuffled[i]
+	})
+
+	usedOwners := make(map[string]bool)
+	for _, excluded := range excludedOperators {
+		usedOwners[excluded] = true
+	}
+	badValidators := make(map[string]bool)
 
 	offset := 0
 	if !hasAntiAbuseOracleAttestation {
 		offset = 1
 	}
-	attestations := make([]SenderAttestation, len(validators)+offset)
 
-	ctx, cancel := context.WithTimeout(ctx, 10*time.Second)
+	attestations := make([]SenderAttestation, 0, minVotes+offset)
+
+	ctx, cancel := context.WithTimeout(ctx, 30*time.Second)
 	defer cancel()
-	innerGroup, _ := errgroup.WithContext(ctx)
+
+	// Start AAO attestation in parallel if needed
+	var aaoAttestation *SenderAttestation
+	aaoGroup := &errgroup.Group{}
 
 	if !hasAntiAbuseOracleAttestation {
-		innerGroup.Go(func() error {
+		aaoGroup.Go(func() error {
 			aaoClaim := rewardClaim.RewardClaim
 			aaoClaim.AntiAbuseOracleEthAddress = ""
 			getAntiAbuseAttestationParams := GetAntiAbuseOracleAttestationParams{
@@ -253,37 +253,98 @@ func fetchAttestations(
 				Handle:                  rewardClaim.Handle,
 				AntiAbuseOracleEndpoint: antiAbuseOracle.Endpoint,
 			}
-			aaoAttestation, err := getAntiAbuseOracleAttestation(getAntiAbuseAttestationParams)
-			if err != nil {
-				return err
-			}
-			attestations[0] = *aaoAttestation
-			return nil
+			var err error
+			aaoAttestation, err = getAntiAbuseOracleAttestation(getAntiAbuseAttestationParams)
+			return err
 		})
 	}
 
-	for i, validator := range validators {
-		innerGroup.Go(func() error {
-			getValidatorAttestationParams := GetValidatorAttestationParams{
-				Validator:      validator,
-				Claim:          rewardClaim.RewardClaim,
-				UserEthAddress: rewardClaim.RecipientEthAddress,
-				Signature:      signature,
-			}
-			validatorAttestation, err := getValidatorAttestation(getValidatorAttestationParams)
+	// Get validator attestations in batches of minVotes
+	// Mark used owners and bad validators to avoid re-selecting them
+	successfulValidators := 0
+	currentIndex := 0
+	for successfulValidators < minVotes && currentIndex < len(shuffled) {
+		// Collect a group of minVotes candidate nodes
+		var candidateNodes []config.Node
+		candidateOwners := make(map[string]bool) // Track owners in this round
+		for currentIndex < len(shuffled) && len(candidateNodes) < minVotes {
+			node := shuffled[currentIndex]
+			currentIndex++
 
-			if err != nil {
-				return err
+			// Skip if we've already used this owner globally or this specific validator is marked bad
+			if usedOwners[node.OwnerWallet] || badValidators[node.Endpoint] {
+				continue
 			}
-			attestations[i+offset] = *validatorAttestation
-			return nil
-		})
+			// Skip if we've already picked this owner in this round
+			if candidateOwners[node.OwnerWallet] {
+				continue
+			}
+			candidateNodes = append(candidateNodes, node)
+			candidateOwners[node.OwnerWallet] = true
+		}
+
+		if len(candidateNodes) == 0 {
+			break // No more valid candidates
+		}
+
+		type validatorResult struct {
+			node        config.Node
+			attestation *SenderAttestation
+			err         error
+		}
+		results := make([]validatorResult, len(candidateNodes))
+		validatorGroup := &errgroup.Group{}
+
+		for i, node := range candidateNodes {
+			i, node := i, node // capture loop variables
+			validatorGroup.Go(func() error {
+				getValidatorAttestationParams := GetValidatorAttestationParams{
+					Validator:      node.Endpoint,
+					Claim:          rewardClaim.RewardClaim,
+					UserEthAddress: rewardClaim.RecipientEthAddress,
+					Signature:      signature,
+				}
+
+				attestation, err := getValidatorAttestation(getValidatorAttestationParams)
+				results[i] = validatorResult{
+					node:        node,
+					attestation: attestation,
+					err:         err,
+				}
+				return nil // Don't fail the group on individual validator errors
+			})
+		}
+
+		validatorGroup.Wait()
+
+		for _, result := range results {
+			if result.err != nil {
+				badValidators[result.node.Endpoint] = true
+				continue
+			}
+			attestations = append(attestations, *result.attestation)
+			usedOwners[result.node.OwnerWallet] = true
+			successfulValidators++
+
+			// Stop if we have enough validators
+			if successfulValidators >= minVotes {
+				break
+			}
+		}
 	}
 
-	err := innerGroup.Wait()
-	if err != nil {
-		return nil, err
+	// Wait for AAO attestation to complete
+	if err := aaoGroup.Wait(); err != nil {
+		return nil, fmt.Errorf("failed to get anti-abuse oracle attestation: %w", err)
 	}
+	if aaoAttestation != nil {
+		attestations = append([]SenderAttestation{*aaoAttestation}, attestations...)
+	}
+
+	if successfulValidators < minVotes {
+		return nil, fmt.Errorf("could only get %d validator attestations, need %d", successfulValidators, minVotes)
+	}
+
 	return attestations, nil
 }
 
@@ -295,10 +356,15 @@ func sendRewardClaimTransactions(
 	rewardClaim RewardClaim,
 	attestations []SenderAttestation,
 ) ([]solana.Signature, error) {
-	tx := solana.NewTransactionBuilder()
+	// Transaction to send attestations in a separate transaction
+	partialTx := solana.NewTransactionBuilder()
+	// Transaction to send attestations and evaluate in one transaction
+	// If partialTx is sent, remainderTx contains only the rest of the instructions
+	remainderTx := solana.NewTransactionBuilder()
 
 	feePayer := transactionSender.GetFeePayer()
-	tx.SetFeePayer(feePayer.PublicKey())
+	partialTx.SetFeePayer(feePayer.PublicKey())
+	remainderTx.SetFeePayer(feePayer.PublicKey())
 
 	for i, attestation := range attestations {
 		instructionIndex := uint8(i * 2)
@@ -319,8 +385,10 @@ func sendRewardClaimTransactions(
 			return nil, fmt.Errorf("failed to build submitAttestation instruction: %w", err)
 		}
 
-		tx.AddInstruction(submitAttestationSecpInstruction)
-		tx.AddInstruction(submitAttestationInstruction.Build())
+		partialTx.AddInstruction(submitAttestationSecpInstruction)
+		partialTx.AddInstruction(submitAttestationInstruction.Build())
+		remainderTx.AddInstruction(submitAttestationSecpInstruction)
+		remainderTx.AddInstruction(submitAttestationInstruction.Build())
 	}
 
 	lookupTable, err := rewardManagerClient.GetLookupTable(ctx)
@@ -335,22 +403,21 @@ func sendRewardClaimTransactions(
 
 	// If no attestations need to be submitted, don't need to split into two txs
 	if len(attestations) > 0 {
-		preTx := tx
-		preTx.WithOpt(solana.TransactionAddressTables(addressLookupTables))
-		err = transactionSender.AddPriorityFees(ctx, preTx, spl.AddPriorityFeesParams{Percentile: 99, Multiplier: 1})
+		partialTx.WithOpt(solana.TransactionAddressTables(addressLookupTables))
+		err = transactionSender.AddPriorityFees(ctx, partialTx, spl.AddPriorityFeesParams{Percentile: 99, Multiplier: 1})
 		if err != nil {
 			return nil, err
 		}
-		err = transactionSender.AddComputeBudgetLimit(ctx, preTx, spl.AddComputeBudgetLimitParams{Padding: 1000, Multiplier: 1.2})
+		err = transactionSender.AddComputeBudgetLimit(ctx, partialTx, spl.AddComputeBudgetLimitParams{Padding: 1000, Multiplier: 1.2})
 		if err != nil {
 			return nil, err
 		}
-		preTxBuilt, err := preTx.Build()
+		partialTxBuilt, err := partialTx.Build()
 		if err != nil {
 			return nil, err
 		}
 
-		preTxBinary, err := preTxBuilt.MarshalBinary()
+		partialTxBinary, err := partialTxBuilt.MarshalBinary()
 		if err != nil {
 			return nil, err
 		}
@@ -359,13 +426,13 @@ func sendRewardClaimTransactions(
 		// If not, send the attestations in a separate transaction.
 		estimatedEvaluateInstructionSize := 205
 		threshold := spl.MAX_TRANSACTION_SIZE - estimatedEvaluateInstructionSize
-		if len(preTxBinary) > threshold {
-			sig, err := transactionSender.SendTransactionWithRetries(ctx, preTx, rpc.CommitmentConfirmed, rpc.TransactionOpts{})
+		if len(partialTxBinary) > threshold {
+			sig, err := transactionSender.SendTransactionWithRetries(ctx, partialTx, rpc.CommitmentConfirmed, rpc.TransactionOpts{})
 			if err != nil {
 				return nil, err
 			}
 			txSignatures = append(txSignatures, *sig)
-			tx = solana.NewTransactionBuilder()
+			remainderTx = solana.NewTransactionBuilder()
 		}
 	}
 
@@ -388,19 +455,19 @@ func sendRewardClaimTransactions(
 		return nil, fmt.Errorf("failed to build evaluateAttestation instruction: %w", err)
 	}
 
-	tx.AddInstruction(evaluateAttestationInstruction.Build())
+	remainderTx.AddInstruction(evaluateAttestationInstruction.Build())
 
-	tx.WithOpt(solana.TransactionAddressTables(addressLookupTables))
-	err = transactionSender.AddComputeBudgetLimit(ctx, tx, spl.AddComputeBudgetLimitParams{Padding: 1000, Multiplier: 1.2})
+	remainderTx.WithOpt(solana.TransactionAddressTables(addressLookupTables))
+	err = transactionSender.AddComputeBudgetLimit(ctx, remainderTx, spl.AddComputeBudgetLimitParams{Padding: 1000, Multiplier: 1.2})
 	if err != nil {
 		return nil, err
 	}
-	err = transactionSender.AddPriorityFees(ctx, tx, spl.AddPriorityFeesParams{Percentile: 99, Multiplier: 1})
+	err = transactionSender.AddPriorityFees(ctx, remainderTx, spl.AddPriorityFeesParams{Percentile: 99, Multiplier: 1})
 	if err != nil {
 		return nil, err
 	}
 
-	sig, err := transactionSender.SendTransactionWithRetries(ctx, tx, rpc.CommitmentConfirmed, rpc.TransactionOpts{})
+	sig, err := transactionSender.SendTransactionWithRetries(ctx, remainderTx, rpc.CommitmentConfirmed, rpc.TransactionOpts{})
 	if err != nil {
 		return nil, err
 	}
@@ -458,18 +525,15 @@ func claimReward(
 	}
 
 	// Fetch AAO and validator attestations
-	validatorsNeeded := int(rewardManagerStateData.MinVotes) - len(existingValidatorOwners)
-	selectedValidators, err := getValidators(validators, validatorsNeeded, existingValidatorOwners)
-	if err != nil {
-		return nil, err
-	}
 	attestations, err := fetchAttestations(
 		ctx,
 		rewardClaim,
-		selectedValidators,
+		validators,
+		existingValidatorOwners,
 		antiAbuseOracle,
 		signature,
 		hasAntiAbuseOracleAttestation,
+		int(rewardManagerStateData.MinVotes),
 	)
 	if err != nil {
 		return nil, err
