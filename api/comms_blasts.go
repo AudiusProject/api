@@ -87,6 +87,16 @@ func (app *ApiServer) getNewBlasts(c *fiber.Ctx) error {
 					)
 				)
 		)
+		OR from_user_id IN (
+			-- coin_holder_audience via sol_user_balances
+			SELECT ac.user_id
+			FROM artist_coins ac
+			JOIN sol_user_balances sub ON sub.mint = ac.mint
+			WHERE blast.audience = 'coin_holder_audience'
+				AND ac.user_id = blast.from_user_id
+				AND sub.user_id = @user_id
+				AND sub.balance > 0
+		)
 	)
 	SELECT * FROM all_new
 	WHERE created_at > (select t from last_permission_change)
