@@ -848,6 +848,27 @@ paths:
           enum:
           - sender
           - receiver
+      - name: min_slot
+        in: query
+        description: The minimum Solana slot to pull tips from
+        schema:
+          type: integer
+          default: 0
+      - name: max_slot
+        in: query
+        description: The maximum Solana slot to pull tips from
+        schema:
+          type: integer
+          default: 0
+      - name: tx_signatures
+        in: query
+        description: A list of transaction signatures of tips to fetch
+        style: form
+        explode: false
+        schema:
+          type: array
+          items:
+            type: string
       responses:
         "200":
           description: Success
