@@ -32,7 +32,7 @@ func (q *UserSearchQuery) Map() map[string]any {
 		builder.Should(
 			esquery.MultiMatch().Query(q.Query).
 				Fields("name", "handle").
-				Boost(10).
+				Boost(1000).
 				Operator(esquery.OperatorAnd),
 		)
 
