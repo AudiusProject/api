@@ -2,6 +2,7 @@ package dbv1
 
 import (
 	"context"
+	"fmt"
 	"time"
 
 	"bridgerton.audius.co/trashid"
@@ -39,7 +40,7 @@ type fullTipRow struct {
 }
 
 type FullTip struct {
-	Amount             int64       `json:"amount"`
+	Amount             string      `json:"amount"`
 	Sender             FullUser    `json:"sender"`
 	Receiver           FullUser    `json:"receiver"`
 	CreatedAt          time.Time   `json:"created_at"`
@@ -49,7 +50,7 @@ type FullTip struct {
 }
 
 type MinTip struct {
-	Amount    int64     `json:"amount"`
+	Amount    string    `json:"amount"`
 	Sender    MinUser   `json:"sender"`
 	Receiver  MinUser   `json:"receiver"`
 	CreatedAt time.Time `json:"created_at"`
@@ -57,9 +58,10 @@ type MinTip struct {
 
 func ToMinTip(fullTip FullTip) MinTip {
 	return MinTip{
-		Amount:   fullTip.Amount,
-		Sender:   ToMinUser(fullTip.Sender),
-		Receiver: ToMinUser(fullTip.Receiver),
+		Amount:    fullTip.Amount,
+		Sender:    ToMinUser(fullTip.Sender),
+		Receiver:  ToMinUser(fullTip.Receiver),
+		CreatedAt: fullTip.CreatedAt,
 	}
 }
 
@@ -96,11 +98,13 @@ func (q *Queries) FullTips(ctx context.Context, arg GetTipsParams) ([]FullTip, e
 
 	// Filtering on receiver
 	if arg.ReceiverMinFollowers > 0 {
-		joins = append(joins, "JOIN aggregate_user au ON au.user_id = ut.receiver_user_id")
+		joins = append(joins, `
+			JOIN aggregate_user au ON au.user_id = ut.receiver_user_id`)
 		conditions = append(conditions, "au.follower_count >= @receiver_min_followers")
 	}
 	if arg.ReceiverIsVerified {
-		joins = append(joins, "JOIN users u ON u.user_id = ut.receiver_user_id")
+		joins = append(joins, `
+			JOIN users u ON u.user_id = ut.receiver_user_id`)
 		conditions = append(conditions, "u.is_current = true AND u.is_verified = true")
 	}
 
@@ -108,33 +112,50 @@ func (q *Queries) FullTips(ctx context.Context, arg GetTipsParams) ([]FullTip, e
 	if arg.UserId != 0 && arg.CurrentUserFollows != nil {
 		switch *arg.CurrentUserFollows {
 		case "receiver":
-			joins = append(joins, "JOIN followees f_recv ON ut.receiver_user_id = f_recv.followee_user_id")
+			joins = append(joins, `
+				JOIN followees f_recv
+				  ON ut.receiver_user_id = f_recv.followee_user_id`)
 		case "sender":
-			joins = append(joins, "JOIN followees f_send ON ut.sender_user_id = f_send.followee_user_id")
+			joins = append(joins, `
+				JOIN followees f_send
+				  ON ut.sender_user_id = f_send.followee_user_id`)
 		case "sender_or_receiver":
 			joins = append(joins,
-				"LEFT JOIN followees f_send ON ut.sender_user_id = f_send.followee_user_id",
-				"LEFT JOIN followees f_recv ON ut.receiver_user_id = f_recv.followee_user_id")
-			conditions = append(conditions, "(f_send.followee_user_id IS NOT NULL OR f_recv.followee_user_id IS NOT NULL)")
+				`LEFT JOIN followees f_send
+				   ON ut.sender_user_id = f_send.followee_user_id`,
+				`LEFT JOIN followees f_recv
+				   ON ut.receiver_user_id = f_recv.followee_user_id`,
+			)
+			conditions = append(conditions,
+				"(f_send.followee_user_id IS NOT NULL OR f_recv.followee_user_id IS NOT NULL)",
+			)
 		}
 	}
 
 	// Filtering on slot
 	if arg.MinSlot != nil && *arg.MinSlot > 0 {
-		conditions = append(conditions, "ut.slot >= @min_slot")
+		conditions = append(conditions,
+			"ut.slot >= @min_slot",
+		)
 	}
 	if arg.MaxSlot != nil && *arg.MaxSlot > 0 {
-		conditions = append(conditions, "ut.slot <= @max_slot")
+		conditions = append(conditions,
+			"ut.slot <= @max_slot",
+		)
 	}
 
 	// Filtering on recipient
 	if len(arg.ExcludeRecipients) > 0 {
-		conditions = append(conditions, "ut.receiver_user_id != ALL(@exclude_recipients::int[])")
+		conditions = append(conditions,
+			"ut.receiver_user_id != ALL(@exclude_recipients::int[])",
+		)
 	}
 
 	// Filtering on tx signature
 	if arg.TxSignatures != nil && len(*arg.TxSignatures) > 0 {
-		conditions = append(conditions, "ut.signature = ANY(@tx_signatures::text[])")
+		conditions = append(conditions,
+			"ut.signature = ANY(@tx_signatures::text[])",
+		)
 	}
 
 	// Construct the full query
@@ -157,6 +178,7 @@ func (q *Queries) FullTips(ctx context.Context, arg GetTipsParams) ([]FullTip, e
 		ORDER BY ut.slot DESC
 		LIMIT @limit OFFSET @offset
 	)`
+
 	// Add followee tippers CTE if user_id is provided
 	if arg.UserId != 0 {
 		sql += `,
@@ -170,7 +192,6 @@ func (q *Queries) FullTips(ctx context.Context, arg GetTipsParams) ([]FullTip, e
 	)`
 	}
 
-	// Final SELECT with aggregation
 	sql += `
 	SELECT 
 		t.signature as tx_signature,
@@ -192,15 +213,22 @@ func (q *Queries) FullTips(ctx context.Context, arg GetTipsParams) ([]FullTip, e
 		'{}'::int[] as followee_supporters`
 	}
 
-	sql += `	FROM tips t`
-
+	sql += `
+		FROM tips t`
 	if arg.UserId != 0 {
 		sql += `
-	LEFT JOIN followee_tippers ft ON ft.receiver_user_id = t.receiver_user_id`
+		LEFT JOIN followee_tippers ft ON ft.receiver_user_id = t.receiver_user_id`
 	}
-
-	sql += `	GROUP BY t.signature, t.slot, t.sender_user_id, t.receiver_user_id, t.amount, t.created_at, t.updated_at
-	ORDER BY t.slot DESC`
+	sql += `
+		GROUP BY 
+			t.signature, 
+			t.slot, 
+			t.sender_user_id, 
+			t.receiver_user_id, 
+			t.amount, 
+			t.created_at, 
+			t.updated_at
+		ORDER BY t.slot DESC`
 
 	rows, err := q.db.Query(ctx, sql, pgx.NamedArgs{
 		"user_id":                arg.UserId,
@@ -256,7 +284,7 @@ func (q *Queries) FullTips(ctx context.Context, arg GetTipsParams) ([]FullTip, e
 		receiver, _ := userMap[int32(row.ReceiverUserId)]
 
 		tips[i] = FullTip{
-			Amount:             row.Amount,
+			Amount:             fmt.Sprintf("%d", row.Amount/1e8*1e18),
 			Sender:             sender,
 			Receiver:           receiver,
 			Slot:               row.Slot,
