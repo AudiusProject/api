@@ -171,8 +171,6 @@ func (app *ApiServer) getChatMessages(c *fiber.Ctx) error {
 				afterCursorPos = rows[0].CreatedAt
 			}
 
-			// Use the same summary query but adapted for blast messages
-
 			summaryRaw, err := app.pool.Query(c.Context(), blastSummarySQL, pgx.NamedArgs{
 				"user_id": userId,
 				"chat_id": routeParams.ChatID,
