@@ -72,3 +72,14 @@ func v1TracksResponse(c *fiber.Ctx, tracks []dbv1.FullTrack) error {
 		"data": dbv1.ToMinTracks(tracks),
 	})
 }
+
+func v1TipsResponse(c *fiber.Ctx, tips []dbv1.FullTip) error {
+	if c.Locals("isFull").(bool) {
+		return c.JSON(fiber.Map{
+			"data": tips,
+		})
+	}
+	return c.JSON(fiber.Map{
+		"data": dbv1.ToMinTips(tips),
+	})
+}

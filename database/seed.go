@@ -169,6 +169,13 @@ var (
 			"is_delete":   false,
 			"chain":       nil,
 		},
+		"user_tips": {
+			"sender_user_id":   nil,
+			"receiver_user_id": nil,
+			"amount":           1000,
+			"created_at":       time.Now(),
+			"signature":        nil,
+		},
 		"aggregate_user_tips": {
 			"sender_user_id":   nil,
 			"receiver_user_id": nil,
