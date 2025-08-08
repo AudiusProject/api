@@ -10,18 +10,18 @@ import (
 )
 
 type GetTipsParams struct {
-	MyId                 int32     `json:"my_id"`
-	Limit                int       `json:"limit"`
-	Offset               int       `json:"offset"`
-	UserId               int32     `json:"user_id"`
-	ReceiverMinFollowers int       `json:"receiver_min_followers"`
-	ReceiverIsVerified   bool      `json:"receiver_is_verified"`
-	CurrentUserFollows   *string   `json:"current_user_follows"`
-	UniqueBy             *string   `json:"unique_by"`
-	MinSlot              *int      `json:"min_slot"`
-	MaxSlot              *int      `json:"max_slot"`
-	TxSignatures         *[]string `json:"tx_signatures"`
-	ExcludeRecipients    []int32   `json:"exclude_recipients"`
+	MyId                 int32    `json:"my_id"`
+	Limit                int      `json:"limit"`
+	Offset               int      `json:"offset"`
+	UserId               int32    `json:"user_id"`
+	ReceiverMinFollowers int      `json:"receiver_min_followers"`
+	ReceiverIsVerified   bool     `json:"receiver_is_verified"`
+	CurrentUserFollows   *string  `json:"current_user_follows"`
+	UniqueBy             *string  `json:"unique_by"`
+	MinSlot              *int     `json:"min_slot"`
+	MaxSlot              *int     `json:"max_slot"`
+	TxSignatures         []string `json:"tx_signatures"`
+	ExcludeRecipients    []int32  `json:"exclude_recipients"`
 }
 
 type Supporter struct {
@@ -36,7 +36,7 @@ type fullTipRow struct {
 	CreatedAt          time.Time      `json:"created_at"`
 	UpdatedAt          time.Time      `json:"updated_at"`
 	FolloweeSupporters []int32        `json:"followee_supporters"`
-	TxSignature        string         `json:"tx_signature"`
+	Signature          string         `json:"signature"`
 }
 
 type FullTip struct {
@@ -152,9 +152,9 @@ func (q *Queries) FullTips(ctx context.Context, arg GetTipsParams) ([]FullTip, e
 	}
 
 	// Filtering on tx signature
-	if arg.TxSignatures != nil && len(*arg.TxSignatures) > 0 {
+	if len(arg.TxSignatures) > 0 {
 		conditions = append(conditions,
-			"ut.signature = ANY(@tx_signatures::text[])",
+			"ut.signature = ANY(@tx_signatures)",
 		)
 	}
 
@@ -194,7 +194,7 @@ func (q *Queries) FullTips(ctx context.Context, arg GetTipsParams) ([]FullTip, e
 
 	sql += `
 	SELECT 
-		t.signature as tx_signature,
+		t.signature,
 		t.slot,
 		t.sender_user_id,
 		t.receiver_user_id,
@@ -284,13 +284,14 @@ func (q *Queries) FullTips(ctx context.Context, arg GetTipsParams) ([]FullTip, e
 		receiver, _ := userMap[int32(row.ReceiverUserId)]
 
 		tips[i] = FullTip{
-			Amount:             fmt.Sprintf("%d", row.Amount/1e8*1e18),
+			// Convert from 1e8 (solana) to 1e18 (eth): multiply by 1e10
+			Amount:             fmt.Sprintf("%d", row.Amount*1e10),
 			Sender:             sender,
 			Receiver:           receiver,
 			Slot:               row.Slot,
 			CreatedAt:          row.CreatedAt,
 			FolloweeSupporters: supporters,
-			TxSignature:        row.TxSignature,
+			TxSignature:        row.Signature,
 		}
 	}
 
