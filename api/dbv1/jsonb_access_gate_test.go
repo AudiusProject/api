@@ -20,9 +20,15 @@ func TestPurchaseGateMath(t *testing.T) {
 
 	checkSplits := func(fullGate *FullPurchaseGate, expected []int64) {
 		var sum int64
+
+		splitMap := make(map[string]int64)
+		for _, split := range fullGate.Splits {
+			splitMap[split.PayoutWallet] = split.Amount
+		}
+
 		for idx, expectedVal := range expected {
 			wallet := fmt.Sprintf("wallet%d", idx+1)
-			actual := fullGate.Splits[wallet]
+			actual := splitMap[wallet]
 			assert.Equal(t, expectedVal, actual, fmt.Sprintf("expected %s split to be %d got %d", wallet, expectedVal, actual))
 			sum += actual
 		}

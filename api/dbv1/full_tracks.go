@@ -5,7 +5,6 @@ import (
 	"encoding/json"
 	"fmt"
 
-	"bridgerton.audius.co/config"
 	"bridgerton.audius.co/trashid"
 	"github.com/jackc/pgx/v5/pgtype"
 )
@@ -30,8 +29,8 @@ type FullTrack struct {
 	FolloweeReposts    []*FolloweeRepost   `json:"followee_reposts"`
 	FolloweeFavorites  []*FolloweeFavorite `json:"followee_favorites"`
 	RemixOf            FullRemixOf         `json:"remix_of"`
-	StreamConditions   *FullAccessGate     `json:"stream_conditions"`
-	DownloadConditions *FullAccessGate     `json:"download_conditions"`
+	StreamConditions   *AccessGate         `json:"stream_conditions"`
+	DownloadConditions *AccessGate         `json:"download_conditions"`
 }
 
 func (q *Queries) FullTracksKeyed(ctx context.Context, arg FullTracksParams) (map[int32]FullTrack, error) {
@@ -174,8 +173,8 @@ func (q *Queries) FullTracksKeyed(ctx context.Context, arg FullTracksParams) (ma
 			FolloweeFavorites:  fullFolloweeFavorites(track.FolloweeFavorites),
 			FolloweeReposts:    fullFolloweeReposts(track.FolloweeReposts),
 			RemixOf:            fullRemixOf,
-			StreamConditions:   track.StreamConditions.toFullAccessGate(config.Cfg, userMap),
-			DownloadConditions: track.DownloadConditions.toFullAccessGate(config.Cfg, userMap),
+			StreamConditions:   track.StreamConditions,
+			DownloadConditions: track.DownloadConditions,
 			Access:             access,
 		}
 		trackMap[track.TrackID] = fullTrack
