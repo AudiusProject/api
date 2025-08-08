@@ -1,6 +1,8 @@
 package api
 
 import (
+	"errors"
+	"strings"
 	"time"
 
 	"bridgerton.audius.co/api/dbv1"
@@ -64,6 +66,49 @@ func (app *ApiServer) getChatMessages(c *fiber.Ctx) error {
 	;
 	`
 
+	outgoingBlastSQL := `
+	SELECT
+		b.blast_id as message_id,
+		@chat_id as chat_id,
+		b.from_user_id as user_id,
+		b.created_at,
+		'' as audience,
+		b.plaintext as ciphertext,
+		true as is_plaintext,
+		'[]'::json AS reactions
+	FROM chat_blast b
+	WHERE b.from_user_id = @user_id
+		AND concat_ws(':', audience, audience_content_type, 
+			CASE 
+				WHEN audience_content_id IS NOT NULL THEN id_encode(audience_content_id)
+				ELSE NULL 
+			END) = @chat_id
+	  AND b.created_at < @before
+	  AND b.created_at > @after
+	ORDER BY b.created_at DESC
+	LIMIT @limit
+	`
+
+	blastSummarySQL := `
+	WITH messages AS (
+		SELECT
+			b.blast_id as message_id, b.created_at
+		FROM chat_blast b
+		WHERE b.from_user_id = @user_id
+			AND concat_ws(':', audience, audience_content_type, 
+				CASE 
+					WHEN audience_content_id IS NOT NULL THEN id_encode(audience_content_id)
+					ELSE NULL 
+				END) = @chat_id
+		)
+	SELECT
+		(SELECT COUNT(*) AS total_count FROM messages),
+		(SELECT COUNT(*) FROM messages WHERE created_at < @before) AS before_count,
+		(SELECT COUNT(*) FROM messages WHERE created_at > @after) AS after_count,
+		@before AS prev,
+		@after AS next
+	`
+
 	routeParams := &GetChatMessageRouteParams{}
 	err := c.ParamsParser(routeParams)
 	if err != nil {
@@ -89,6 +134,67 @@ func (app *ApiServer) getChatMessages(c *fiber.Ctx) error {
 	}
 	if queryParams.After != nil {
 		afterCursorPos = *queryParams.After
+	}
+
+	// Special case to handle outgoing blasts...
+	if queryParams.IsBlast {
+		parts := strings.Split(routeParams.ChatID, ":")
+		if len(parts) < 1 {
+			return errors.New("bad request: invalid blast id")
+		}
+		audience := parts[0]
+
+		if audience == "follower_audience" ||
+			audience == "tipper_audience" ||
+			audience == "customer_audience" ||
+			audience == "remixer_audience" ||
+			audience == "coin_holder_audience" {
+
+			rawRows, err := app.pool.Query(c.Context(), outgoingBlastSQL, pgx.NamedArgs{
+				"user_id": userId,
+				"chat_id": routeParams.ChatID,
+				"before":  beforeCursorPos,
+				"after":   afterCursorPos,
+				"limit":   queryParams.Limit,
+			})
+			if err != nil {
+				return err
+			}
+
+			rows, err := pgx.CollectRows(rawRows, pgx.RowToStructByName[dbv1.ChatMessageAndReactionsRow])
+			if err != nil {
+				return err
+			}
+
+			if len(rows) > 0 {
+				beforeCursorPos = rows[len(rows)-1].CreatedAt
+				afterCursorPos = rows[0].CreatedAt
+			}
+
+			summaryRaw, err := app.pool.Query(c.Context(), blastSummarySQL, pgx.NamedArgs{
+				"user_id": userId,
+				"chat_id": routeParams.ChatID,
+				"before":  beforeCursorPos,
+				"after":   afterCursorPos,
+			})
+			if err != nil {
+				return err
+			}
+			summary, err := pgx.CollectExactlyOneRow(summaryRaw, pgx.RowToStructByName[CommsSummary])
+			if err != nil {
+				return err
+			}
+
+			return c.JSON(CommsResponse{
+				Data:    rows,
+				Summary: &summary,
+				Health: CommsHealth{
+					IsHealthy: true,
+				},
+			})
+		} else {
+			return errors.New("bad request: unsupported audience " + audience)
+		}
 	}
 
 	rawRows, err := app.pool.Query(c.Context(), sql, pgx.NamedArgs{
