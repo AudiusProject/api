@@ -3,6 +3,7 @@ package dbv1
 import (
 	"context"
 	"fmt"
+	"strings"
 	"time"
 
 	"bridgerton.audius.co/trashid"
@@ -165,13 +166,7 @@ func (q *Queries) FullTips(ctx context.Context, arg GetTipsParams) ([]FullTip, e
 	}
 
 	if len(conditions) > 0 {
-		sql += " WHERE "
-		for i, condition := range conditions {
-			if i > 0 {
-				sql += " AND "
-			}
-			sql += condition
-		}
+		sql += " WHERE " + strings.Join(conditions, " AND ")
 	}
 
 	sql += `
