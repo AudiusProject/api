@@ -141,7 +141,9 @@ func validatePurchase(ctx context.Context, cfg config.Config, db database.DBTX, 
 	gate := relevantPrice.ToFullPurchaseGate(cfg, payoutWalletMap)
 
 	payments := inst.GetRouteMap()
-	for acc, expectedAmt := range gate.Splits {
+	for _, split := range gate.Splits {
+		acc := split.PayoutWallet
+		expectedAmt := split.Amount
 		key, err := solana.PublicKeyFromBase58(acc)
 		if err != nil {
 			return &ret, fmt.Errorf("invalid splits %s: %w", acc, err)

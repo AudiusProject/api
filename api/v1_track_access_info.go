@@ -1,32 +1,17 @@
 package api
 
 import (
-	"fmt"
-
 	"bridgerton.audius.co/api/dbv1"
 	"bridgerton.audius.co/config"
 	"bridgerton.audius.co/trashid"
 	"github.com/gofiber/fiber/v2"
 )
 
-type ExtendedSplit struct {
-	UserID       *int32  `json:"user_id,omitempty"`
-	Percentage   float64 `json:"percentage"`
-	PayoutWallet string  `json:"payout_wallet,omitempty"`
-	EthWallet    *string `json:"eth_wallet,omitempty"`
-	Amount       int64   `json:"amount"`
-}
-
-type ExtendedPurchaseGate struct {
-	Price  *float64        `json:"price"`
-	Splits []ExtendedSplit `json:"splits"`
-}
-
 type ExtendedAccessGate struct {
-	UsdcPurchase  *ExtendedPurchaseGate `json:"usdc_purchase,omitempty"`
-	FollowUserID  *int64                `json:"follow_user_id,omitempty"`
-	TipUserID     *int64                `json:"tip_user_id,omitempty"`
-	NftCollection *map[string]any       `json:"nft_collection,omitempty"`
+	UsdcPurchase  *dbv1.FullPurchaseGate `json:"usdc_purchase,omitempty"`
+	FollowUserID  *int64                 `json:"follow_user_id,omitempty"`
+	TipUserID     *int64                 `json:"tip_user_id,omitempty"`
+	NftCollection *map[string]any        `json:"nft_collection,omitempty"`
 }
 
 type TrackAccessInfoResponse struct {
@@ -39,7 +24,7 @@ type TrackAccessInfoResponse struct {
 	DownloadConditions *ExtendedAccessGate `json:"download_conditions"`
 }
 
-func getExtendedPurchaseGate(gate *dbv1.FullAccessGate, userMap map[int32]dbv1.FullUser) (*ExtendedAccessGate, error) {
+func getExtendedPurchaseGate(gate *dbv1.AccessGate, userMap map[int32]dbv1.FullUser) (*ExtendedAccessGate, error) {
 	if gate == nil {
 		return nil, nil
 	}
@@ -53,51 +38,8 @@ func getExtendedPurchaseGate(gate *dbv1.FullAccessGate, userMap map[int32]dbv1.F
 		}, nil
 	}
 
-	// Handle USDC purchase gates
-	price := gate.UsdcPurchase.Price
-	originalSplits := gate.UsdcPurchase.Splits
-
-	// Precompute totals for percentage calculations
-	networkWallet := config.Cfg.SolanaConfig.StakingBridgeUsdcTokenAccount.String()
-	var total int64
-	var networkAmount int64
-	for wallet, amount := range originalSplits {
-		total += amount
-		if wallet == networkWallet {
-			networkAmount = amount
-		}
-	}
-	userTotal := total - networkAmount
-	// Assert that this math lines up with the original price
-	expectedTotal := int64(gate.UsdcPurchase.Price * 10000)
-	if expectedTotal != total {
-		return nil, fmt.Errorf("assertion failed: gate.Price * 10000 (%d) != total (%d)", expectedTotal, total)
-	}
-
-	extendedSplits := []ExtendedSplit{}
-	for wallet, split := range originalSplits {
-		userID := gate.UsdcPurchase.UserIds[wallet]
-		extSplit := ExtendedSplit{
-			Amount: split,
-		}
-
-		if user, exists := userMap[userID]; exists {
-			extSplit.UserID = &userID
-			extSplit.EthWallet = &user.Wallet.String
-			extSplit.PayoutWallet = user.PayoutWallet
-			extSplit.Percentage = (float64(split) / float64(userTotal)) * 100.0
-		} else if wallet == networkWallet {
-			extSplit.PayoutWallet = wallet
-			extSplit.Percentage = (float64(split) / float64(total)) * 100.0
-		}
-		extendedSplits = append(extendedSplits, extSplit)
-	}
-
 	return &ExtendedAccessGate{
-		UsdcPurchase: &ExtendedPurchaseGate{
-			Price:  &price,
-			Splits: extendedSplits,
-		},
+		UsdcPurchase:  gate.UsdcPurchase.ToFullPurchaseGate(config.Cfg, userMap),
 		FollowUserID:  gate.FollowUserID,
 		TipUserID:     gate.TipUserID,
 		NftCollection: gate.NftCollection,
@@ -127,13 +69,13 @@ func (app *ApiServer) v1TrackAccessInfo(c *fiber.Ctx) error {
 	// Get all user IDs from the original splits to build user map
 	userIDs := make(map[int32]struct{})
 	if track.StreamConditions != nil && track.StreamConditions.UsdcPurchase != nil {
-		for _, userId := range track.StreamConditions.UsdcPurchase.UserIds {
-			userIDs[userId] = struct{}{}
+		for _, split := range track.StreamConditions.UsdcPurchase.Splits {
+			userIDs[split.UserID] = struct{}{}
 		}
 	}
 	if track.DownloadConditions != nil && track.DownloadConditions.UsdcPurchase != nil {
-		for _, userId := range track.DownloadConditions.UsdcPurchase.UserIds {
-			userIDs[userId] = struct{}{}
+		for _, split := range track.DownloadConditions.UsdcPurchase.Splits {
+			userIDs[split.UserID] = struct{}{}
 		}
 	}
 

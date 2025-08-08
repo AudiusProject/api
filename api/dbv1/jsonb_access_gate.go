@@ -32,7 +32,6 @@ func (gate PurchaseGate) ToFullPurchaseGate(cfg config.Config, userMap map[int32
 
 	splitMap := map[string]int64{}
 	remainderMap := map[string]float64{}
-	userIds := map[string]int32{}
 
 	var sum int64
 	for _, split := range gate.Splits {
@@ -44,7 +43,6 @@ func (gate PurchaseGate) ToFullPurchaseGate(cfg config.Config, userMap map[int32
 			splitMap[user.PayoutWallet] = amount
 			sum += amount
 			remainderMap[user.PayoutWallet] = amountF64 - float64(amount)
-			userIds[user.PayoutWallet] = split.UserID
 		} else {
 			// if user is not in map, or payout_wallet no exist
 			// the rounding error will be split amongst other parties.
@@ -70,35 +68,52 @@ func (gate PurchaseGate) ToFullPurchaseGate(cfg config.Config, userMap map[int32
 	}
 
 	// add network take last (after rounding error is distributed)
-	splitMap[cfg.SolanaConfig.StakingBridgeUsdcTokenAccount.String()] = int64(networkCut)
-	return &FullPurchaseGate{
-		Price:   gate.Price,
-		Splits:  splitMap,
-		UserIds: userIds,
-	}
-}
+	networkWallet := cfg.SolanaConfig.StakingBridgeUsdcTokenAccount.String()
+	splitMap[networkWallet] = int64(networkCut)
 
-func (usage *AccessGate) toFullAccessGate(cfg config.Config, userMap map[int32]FullUser) *FullAccessGate {
-	if usage == nil {
-		return nil
-	}
-	if usage.UsdcPurchase != nil {
-		return &FullAccessGate{
-			UsdcPurchase: usage.UsdcPurchase.ToFullPurchaseGate(cfg, userMap),
+	splits := make([]FullSplit, 0, len(splitMap))
+	for wallet, amount := range splitMap {
+		split := FullSplit{
+			Amount:       amount,
+			PayoutWallet: wallet,
 		}
+
+		if wallet != networkWallet {
+			// For user splits, calculate percentage based on the user portion (excluding network cut)
+			split.Percentage = (float64(amount) / float64(price)) * 100.0
+
+			for _, originalSplit := range gate.Splits {
+				if user, exists := userMap[originalSplit.UserID]; exists && user.PayoutWallet == wallet {
+					split.UserID = &originalSplit.UserID
+					if user.Wallet.Valid {
+						split.EthWallet = &user.Wallet.String
+					}
+					break
+				}
+			}
+		} else {
+			// For network wallet, calculate percentage based on total price
+			split.Percentage = (float64(amount) / float64(priceInUsdc)) * 100.0
+		}
+
+		splits = append(splits, split)
 	}
-	return &FullAccessGate{
-		AccessGate: *usage,
+
+	return &FullPurchaseGate{
+		Price:  gate.Price,
+		Splits: splits,
 	}
 }
 
-type FullAccessGate struct {
-	AccessGate
-	UsdcPurchase *FullPurchaseGate `json:"usdc_purchase,omitempty"`
+type FullSplit struct {
+	UserID       *int32  `json:"user_id,omitempty"`
+	Percentage   float64 `json:"percentage"`
+	PayoutWallet string  `json:"payout_wallet,omitempty"`
+	EthWallet    *string `json:"eth_wallet,omitempty"`
+	Amount       int64   `json:"amount"`
 }
 
 type FullPurchaseGate struct {
-	Price   float64          `json:"price"`
-	Splits  map[string]int64 `json:"splits"`
-	UserIds map[string]int32 `json:"user_ids"`
+	Price  float64     `json:"price"`
+	Splits []FullSplit `json:"splits"`
 }
