@@ -23,11 +23,9 @@ func (app *ApiServer) v1Tips(c *fiber.Ctx) error {
 		return err
 	}
 
-	userId := app.getUserId(c)
-
 	tips, err := app.queries.FullTips(c.Context(), dbv1.GetTipsParams{
 		MyId:                 app.getMyId(c),
-		UserId:               userId,
+		UserId:               app.getMyId(c),
 		Limit:                params.Limit,
 		Offset:               params.Offset,
 		ReceiverMinFollowers: params.ReceiverMinFollowers,
