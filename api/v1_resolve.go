@@ -11,9 +11,9 @@ import (
 )
 
 var (
-	trackURLRegex    = regexp.MustCompile(`^/(?P<handle>[^/]*)/(?P<slug>[^/]*)$`)
-	playlistURLRegex = regexp.MustCompile(`/(?P<handle>[^/]*)/(?P<playlistType>playlist|album)/(?P<slug>[^/]*)$`)
-	userURLRegex     = regexp.MustCompile(`^/(?P<handle>[^/]*)$`)
+	trackURLRegex    = regexp.MustCompile(`^/?(?P<handle>[^/]+)/(?P<slug>[^/]+)$`)
+	playlistURLRegex = regexp.MustCompile(`/?(?P<handle>[^/]+)/(?P<playlistType>playlist|album)/(?P<slug>[^/]+)$`)
+	userURLRegex     = regexp.MustCompile(`^/?(?P<handle>[^/]+)$`)
 )
 
 func (app *ApiServer) v1Resolve(c *fiber.Ctx) error {
