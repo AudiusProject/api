@@ -100,7 +100,7 @@ func TestGetChatMessages(t *testing.T) {
 		},
 	}
 
-	database.Seed(app.pool, fixtures)
+	database.Seed(app.pool.Replicas[0], fixtures)
 
 	t.Run("get regular chat messages", func(t *testing.T) {
 		// Test getting regular chat messages (not blasts)
@@ -265,7 +265,7 @@ func TestGetChatMessagesWithClearedHistory(t *testing.T) {
 		},
 	}
 
-	database.Seed(app.pool, fixtures)
+	database.Seed(app.pool.Replicas[0], fixtures)
 
 	t.Run("only get messages after cleared history", func(t *testing.T) {
 		status, body := testGetWithWallet(t, app, "/comms/chats/test-chat-cleared/messages", "0x7d273271690538cf855e5b3002a0dd8c154bb060")

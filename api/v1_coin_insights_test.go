@@ -214,7 +214,7 @@ func TestGetCoinInsights(t *testing.T) {
 		},
 	}
 
-	database.Seed(app.pool, fixtures)
+	database.Seed(app.pool.Replicas[0], fixtures)
 
 	app.birdeyeClient = &mockBirdeyeClient{}
 

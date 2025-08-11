@@ -105,7 +105,7 @@ func TestV1UsersSales(t *testing.T) {
 		},
 	}
 
-	database.Seed(app.pool, fixtures)
+	database.Seed(app.pool.Replicas[0], fixtures)
 
 	// default sort, check all fields of a couple
 	{

@@ -56,7 +56,7 @@ func TestV1UsersListenCountsMonthly(t *testing.T) {
 		},
 	}
 
-	database.Seed(app.pool, fixtures)
+	database.Seed(app.pool.Replicas[0], fixtures)
 
 	start := now.Format(time.RFC3339)
 	end := nextMonth.AddDate(0, 1, 0).Format(time.RFC3339)

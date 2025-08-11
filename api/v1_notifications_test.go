@@ -32,7 +32,7 @@ func TestV1Notifications(t *testing.T) {
 		},
 	}
 
-	database.Seed(app.pool, fixtures)
+	database.Seed(app.pool.Replicas[0], fixtures)
 
 	status, body := testGet(t, app, "/v1/notifications/"+trashid.MustEncodeHashID(1))
 	assert.Equal(t, 200, status)
@@ -84,7 +84,7 @@ func TestV1Notifications_NotDeletedTrack(t *testing.T) {
 		},
 	}
 
-	database.Seed(app.pool, fixtures)
+	database.Seed(app.pool.Replicas[0], fixtures)
 
 	status, body := testGet(t, app, "/v1/notifications/"+trashid.MustEncodeHashID(1))
 	assert.Equal(t, 200, status)
@@ -127,7 +127,7 @@ func TestV1Notifications_DeletedTrack(t *testing.T) {
 		},
 	}
 
-	database.Seed(app.pool, fixtures)
+	database.Seed(app.pool.Replicas[0], fixtures)
 
 	status, body := testGet(t, app, "/v1/notifications/"+trashid.MustEncodeHashID(1))
 	assert.Equal(t, 200, status)
@@ -169,7 +169,7 @@ func TestV1Notifications_DeletedPlaylist(t *testing.T) {
 		},
 	}
 
-	database.Seed(app.pool, fixtures)
+	database.Seed(app.pool.Replicas[0], fixtures)
 
 	status, body := testGet(t, app, "/v1/notifications/"+trashid.MustEncodeHashID(1))
 	assert.Equal(t, 200, status)

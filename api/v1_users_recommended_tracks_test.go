@@ -56,7 +56,7 @@ func TestV1UsersRecommendedTracks(t *testing.T) {
 			"created_at":   time.Now(),
 		}
 	}
-	database.Seed(app.pool, database.FixtureMap{
+	database.Seed(app.pool.Replicas[0], database.FixtureMap{
 		"users":                 users,
 		"tracks":                tracks,
 		"track_trending_scores": trackTrendingScores,

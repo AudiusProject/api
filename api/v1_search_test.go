@@ -157,10 +157,10 @@ func TestSearch(t *testing.T) {
 		},
 	}
 
-	database.Seed(app.pool, fixtures)
+	database.Seed(app.pool.Replicas[0], fixtures)
 
 	// index data to ES
-	esindexer.ReindexForTest(app.pool, app.esClient)
+	esindexer.ReindexForTest(app.pool.Replicas[0], app.esClient)
 
 	// users:
 	{

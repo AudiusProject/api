@@ -26,7 +26,7 @@ func TestV1UserIdsByAddresses(t *testing.T) {
 			{"account": "sol_acc_2", "ethereum_address": "0xdef", "mint": "mint2", "signature": "sig2"},
 		},
 	}
-	database.Seed(app.pool, fixtures)
+	database.Seed(app.pool.Replicas[0], fixtures)
 
 	{
 		// Query for all types of addresses

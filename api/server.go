@@ -60,35 +60,17 @@ func NewApiServer(config config.Config) *ApiServer {
 		With(zap.String("service", "ApiServer"))
 	requestValidator := initRequestValidator()
 
-	connConfig, err := pgxpool.ParseConfig(config.ReadDbUrl)
-	if err != nil {
-		logger.Error("read db connect failed", zap.Error(err))
+	// Create DBPools from read replicas
+	var connectionStrings []string
+	if len(config.ReadDbReplicas) > 0 && config.ReadDbReplicas[0] != "" {
+		// Use read replicas if configured
+		connectionStrings = config.ReadDbReplicas
+	} else {
+		// Fall back to single read database
+		connectionStrings = []string{config.ReadDbUrl}
 	}
 
-	// register enum types with connection
-	// this is mostly to support COPY protocol as used by tests
-	// connConfig.AfterConnect = func(ctx context.Context, conn *pgx.Conn) error {
-	// 	enumNames := []string{"challengetype"}
-	// 	for _, name := range enumNames {
-	// 		typ, err := conn.LoadType(ctx, name)
-	// 		if err != nil {
-	// 			panic(err)
-	// 		}
-	// 		conn.TypeMap().RegisterType(typ)
-	// 	}
-	// 	return nil
-	// }
-
-	// disable sql logging in ENV "test"
-	if config.Env != "test" {
-		connConfig.ConnConfig.Tracer = &tracelog.TraceLog{
-			Logger:   logging.NewSqlLogger(logger, config.ZapLevel),
-			LogLevel: tracelog.LogLevelTrace, // capture everything into sql logger
-		}
-	}
-
-	pool, err := pgxpool.NewWithConfig(context.Background(), connConfig)
-
+	pool, err := dbv1.NewDBPools(connectionStrings, logger, config.Env, config.ZapLevel)
 	if err != nil {
 		logger.Fatal("read db connect failed", zap.Error(err))
 	}
@@ -568,7 +550,7 @@ type BirdeyeClient interface {
 
 type ApiServer struct {
 	*fiber.App
-	pool                  *pgxpool.Pool
+	pool                  *dbv1.DBPools
 	writePool             *pgxpool.Pool
 	queries               *dbv1.Queries
 	esClient              *elasticsearch.Client

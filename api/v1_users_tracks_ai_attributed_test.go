@@ -115,7 +115,7 @@ func TestGetUserTracksAiAttributed(t *testing.T) {
 	fixtures["reposts"] = append(fixtures["reposts"], generateReposts(5, 25)...)
 	fixtures["saves"] = append(fixtures["saves"], generateSaves(5, 25)...)
 
-	database.Seed(app.pool, fixtures)
+	database.Seed(app.pool.Replicas[0], fixtures)
 
 	var userTracksResponse struct {
 		Data []dbv1.FullTrack

@@ -156,7 +156,7 @@ func TestWalletCache(t *testing.T) {
 		}
 	}
 
-	database.Seed(app.pool, fixtures)
+	database.Seed(app.pool.Replicas[0], fixtures)
 
 	// Test that caching doesn't reuse context params
 	for i := range 1000 {

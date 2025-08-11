@@ -83,7 +83,7 @@ func TestUsersAuthorizedApps(t *testing.T) {
 		},
 	}
 
-	database.Seed(app.pool, fixtures)
+	database.Seed(app.pool.Replicas[0], fixtures)
 
 	status, body := testGet(t, app, "/v1/users/"+trashid.MustEncodeHashID(1)+"/authorized_apps")
 	assert.Equal(t, 200, status)
@@ -115,7 +115,7 @@ func TestUsersAuthorizedAppsEmpty(t *testing.T) {
 		},
 	}
 
-	database.Seed(app.pool, fixtures)
+	database.Seed(app.pool.Replicas[0], fixtures)
 
 	status, body := testGet(t, app, "/v1/users/"+trashid.MustEncodeHashID(1)+"/authorized_apps")
 	assert.Equal(t, 200, status)
@@ -175,7 +175,7 @@ func TestUsersAuthorizedAppsPagination(t *testing.T) {
 		},
 	}
 
-	database.Seed(app.pool, fixtures)
+	database.Seed(app.pool.Replicas[0], fixtures)
 
 	// Test limit=1
 	status, body := testGet(t, app, "/v1/users/"+trashid.MustEncodeHashID(1)+"/authorized_apps?limit=1")

@@ -24,7 +24,7 @@ func TestResolveUserHandleToId(t *testing.T) {
 		}
 	}
 
-	database.Seed(app.pool, fixtures)
+	database.Seed(app.pool.Replicas[0], fixtures)
 
 	// This test verifies we aren't hitting a cache pollution bug due
 	// to fiber params not being copied before being used in the cache key. We are

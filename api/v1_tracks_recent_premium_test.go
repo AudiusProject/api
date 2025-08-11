@@ -69,7 +69,7 @@ func TestV1TracksRecentPremium(t *testing.T) {
 		},
 	}
 
-	database.Seed(app.pool, fixtures)
+	database.Seed(app.pool.Replicas[0], fixtures)
 
 	{
 		status, body := testGet(t, app, "/v1/full/tracks/recent-premium")

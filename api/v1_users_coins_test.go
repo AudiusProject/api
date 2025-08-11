@@ -112,7 +112,7 @@ func TestUserCoins(t *testing.T) {
 		},
 	}
 
-	database.Seed(app.pool, fixtures)
+	database.Seed(app.pool.Replicas[0], fixtures)
 	app.birdeyeClient = &mockBirdeyeClient{}
 
 	status, body := testGet(t, app, "/v1/users/"+trashid.MustEncodeHashID(1)+"/coins")

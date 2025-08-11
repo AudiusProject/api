@@ -80,7 +80,7 @@ func TestUsersVerifyTokenValidSignature(t *testing.T) {
 		},
 	}
 
-	database.Seed(app.pool, fixtures)
+	database.Seed(app.pool.Replicas[0], fixtures)
 
 	// Create JWT payload
 	payload := map[string]interface{}{
@@ -142,7 +142,7 @@ func TestUsersVerifyTokenWithManager(t *testing.T) {
 		},
 	}
 
-	database.Seed(app.pool, fixtures)
+	database.Seed(app.pool.Replicas[0], fixtures)
 
 	// Create JWT payload for user 1 but sign with manager's key
 	payload := map[string]interface{}{
@@ -256,7 +256,7 @@ func TestUsersVerifyTokenUnauthorizedWallet(t *testing.T) {
 		},
 	}
 
-	database.Seed(app.pool, fixtures)
+	database.Seed(app.pool.Replicas[0], fixtures)
 
 	// Create JWT payload for user 1 but sign with user 2's key (without manager relationship)
 	payload := map[string]interface{}{
@@ -289,7 +289,7 @@ func TestUsersVerifyTokenInvalidPayload(t *testing.T) {
 		},
 	}
 
-	database.Seed(app.pool, fixtures)
+	database.Seed(app.pool.Replicas[0], fixtures)
 
 	// Create JWT payload without userId
 	payload := map[string]interface{}{

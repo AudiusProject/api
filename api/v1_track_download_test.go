@@ -38,7 +38,7 @@ func TestGetTrackDownload_Original(t *testing.T) {
 			},
 		},
 	}
-	database.Seed(app.pool, fixtures)
+	database.Seed(app.pool.Replicas[0], fixtures)
 	req := httptest.NewRequest("GET", "/v1/tracks/"+trashid.MustEncodeHashID(1)+"/download", nil)
 	res, err := app.Test(req, -1)
 	assert.NoError(t, err)

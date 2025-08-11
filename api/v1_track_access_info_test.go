@@ -60,7 +60,7 @@ func TestV1TrackAccessInfo(t *testing.T) {
 			},
 		},
 	}
-	database.Seed(app.pool, fixtures)
+	database.Seed(app.pool.Replicas[0], fixtures)
 
 	{
 		status, body := testGet(t, app, "/v1/tracks/"+trashid.MustEncodeHashID(1001)+"/access-info")

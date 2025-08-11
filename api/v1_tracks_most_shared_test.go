@@ -92,7 +92,7 @@ func TestV1TracksMostShared(t *testing.T) {
 		},
 	}
 
-	database.Seed(app.pool, fixtures)
+	database.Seed(app.pool.Replicas[0], fixtures)
 
 	// Default case (by week), track 1 has most shares, track 3 has none in the past week
 	{
