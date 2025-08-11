@@ -3769,6 +3769,8 @@ components:
           type: string
         release_date:
           type: string
+        isrc:
+          type: string
         remix_of:
           $ref: '#/components/schemas/remix_parent'
         repost_count:

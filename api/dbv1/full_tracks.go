@@ -216,6 +216,7 @@ type MinTrack struct {
 	IsOriginalAvailable      bool         `json:"is_original_available"`
 	Mood                     pgtype.Text  `json:"mood"`
 	ReleaseDate              interface{}  `json:"release_date"`
+	Isrc                     pgtype.Text  `json:"isrc"`
 	RemixOf                  interface{}  `json:"remix_of"`
 	RepostCount              int32        `json:"repost_count"`
 	FavoriteCount            int32        `json:"favorite_count"`
@@ -246,6 +247,7 @@ func ToMinTrack(fullTrack FullTrack) MinTrack {
 		IsOriginalAvailable:      fullTrack.IsOriginalAvailable,
 		Mood:                     fullTrack.Mood,
 		ReleaseDate:              fullTrack.ReleaseDate,
+		Isrc:                     fullTrack.Isrc,
 		RemixOf:                  fullTrack.RemixOf,
 		RepostCount:              fullTrack.RepostCount,
 		FavoriteCount:            fullTrack.FavoriteCount,
