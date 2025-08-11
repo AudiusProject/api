@@ -73,7 +73,7 @@ func TestV1TracksFeelingLucky(t *testing.T) {
 		},
 	}
 
-	database.Seed(app.pool, fixtures)
+	database.Seed(app.pool.Replicas[0], fixtures)
 
 	{
 		var resp struct {

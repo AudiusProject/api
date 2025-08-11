@@ -28,7 +28,7 @@ func TestGetTrackCommentCount(t *testing.T) {
 			{"comment_id": 3, "user_id": 4, "entity_id": 1, "entity_type": "Track"},
 		},
 	}
-	database.Seed(app.pool, fixtures)
+	database.Seed(app.pool.Replicas[0], fixtures)
 
 	// Check count for user 1
 	{
@@ -75,7 +75,7 @@ func TestGetTrackCommentCountUserReportedComment(t *testing.T) {
 			{"comment_id": 1, "user_id": 2}, // User 2 reported comment 1
 		},
 	}
-	database.Seed(app.pool, fixtures)
+	database.Seed(app.pool.Replicas[0], fixtures)
 
 	// Check count for user 2
 	{
@@ -135,7 +135,7 @@ func TestGetTrackCommentCountArtistReportedComment(t *testing.T) {
 			{"comment_id": 1, "user_id": 1}, // Reported by track owner
 		},
 	}
-	database.Seed(app.pool, fixtures)
+	database.Seed(app.pool.Replicas[0], fixtures)
 
 	// Check count for anonymous user
 	{
@@ -195,7 +195,7 @@ func TestGetTrackCommentCountWithKarmaReportedComment(t *testing.T) {
 			{"comment_id": 2, "user_id": 2}, // Reported by high-karma user
 		},
 	}
-	database.Seed(app.pool, fixtures)
+	database.Seed(app.pool.Replicas[0], fixtures)
 	_, err := app.pool.Exec(context.Background(), `
 		UPDATE aggregate_user SET follower_count = $1 WHERE user_id = $2
 	`, karmaCommentCountThreshold+1, 2)
@@ -258,7 +258,7 @@ func TestGetTrackCommentCountDeletedComment(t *testing.T) {
 			{"comment_id": 3, "user_id": 4, "entity_id": 1, "entity_type": "Track", "is_delete": false},
 		},
 	}
-	database.Seed(app.pool, fixtures)
+	database.Seed(app.pool.Replicas[0], fixtures)
 
 	status, body := testGet(t, app, "/v1/tracks/"+trashid.MustEncodeHashID(1)+"/comment_count")
 	assert.Equal(t, 200, status)
@@ -289,7 +289,7 @@ func TestGetTrackCommentCountMutedUser(t *testing.T) {
 			{"user_id": 2, "muted_user_id": 3}, // User 2 mutes user 3
 		},
 	}
-	database.Seed(app.pool, fixtures)
+	database.Seed(app.pool.Replicas[0], fixtures)
 
 	// For user 2 who muted user 3, should only see 1 comment
 	{
@@ -349,7 +349,7 @@ func TestGetTrackCommentCountArtistMutedUser(t *testing.T) {
 			{"user_id": 1, "muted_user_id": 2}, // Artist (user 1) mutes user 2
 		},
 	}
-	database.Seed(app.pool, fixtures)
+	database.Seed(app.pool.Replicas[0], fixtures)
 
 	// The artist who muted should only see 1 comment
 	{
@@ -422,7 +422,7 @@ func TestGetTrackCommentCountHighKarmaMutedUser(t *testing.T) {
 			{"user_id": 3, "muted_user_id": 2}, // High karma user 3 mutes user 2
 		},
 	}
-	database.Seed(app.pool, fixtures)
+	database.Seed(app.pool.Replicas[0], fixtures)
 	_, err := app.pool.Exec(context.Background(), `
 		UPDATE aggregate_user SET follower_count = $1 WHERE user_id = $2
 	`, karmaCommentCountThreshold+1, 3)

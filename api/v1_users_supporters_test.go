@@ -27,7 +27,7 @@ func TestV1UsersSupporters(t *testing.T) {
 		},
 	}
 
-	database.Seed(app.pool, fixtures)
+	database.Seed(app.pool.Replicas[0], fixtures)
 
 	{
 		status, body := testGet(t, app, "/v1/users/7eP5n/supporters")

@@ -42,7 +42,7 @@ func TestGetUserAlbums(t *testing.T) {
 			{"playlist_id": 2, "repost_count": 20, "save_count": 10},
 		},
 	}
-	database.Seed(app.pool, fixtures)
+	database.Seed(app.pool.Replicas[0], fixtures)
 
 	var userAlbumsResponse struct {
 		Data []dbv1.FullPlaylist
@@ -98,7 +98,7 @@ func TestGetUserAlbums_SortRecentDesc(t *testing.T) {
 			{"playlist_id": 2, "repost_count": 20, "save_count": 10},
 		},
 	}
-	database.Seed(app.pool, fixtures)
+	database.Seed(app.pool.Replicas[0], fixtures)
 
 	var userAlbumsResponse struct {
 		Data []dbv1.FullPlaylist
@@ -144,7 +144,7 @@ func TestGetUserAlbums_SortPopularAsc(t *testing.T) {
 			{"playlist_id": 2, "repost_count": 20, "save_count": 10},
 		},
 	}
-	database.Seed(app.pool, fixtures)
+	database.Seed(app.pool.Replicas[0], fixtures)
 
 	var userAlbumsResponse struct {
 		Data []dbv1.FullPlaylist
@@ -193,7 +193,7 @@ func TestGetUserAlbums_FilterAlbumsPublic(t *testing.T) {
 			{"playlist_id": 2, "repost_count": 20, "save_count": 10},
 		},
 	}
-	database.Seed(app.pool, fixtures)
+	database.Seed(app.pool.Replicas[0], fixtures)
 
 	var userAlbumsResponse struct {
 		Data []dbv1.FullPlaylist
@@ -242,7 +242,7 @@ func TestGetUserAlbums_FilterAlbumsPrivate(t *testing.T) {
 			{"playlist_id": 2, "repost_count": 20, "save_count": 10},
 		},
 	}
-	database.Seed(app.pool, fixtures)
+	database.Seed(app.pool.Replicas[0], fixtures)
 
 	var userAlbumsResponse struct {
 		Data []dbv1.FullPlaylist

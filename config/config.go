@@ -4,6 +4,7 @@ import (
 	"log"
 	"os"
 	"strconv"
+	"strings"
 	"time"
 
 	core_config "github.com/AudiusProject/audiusd/pkg/core/config"
@@ -18,6 +19,7 @@ type Config struct {
 	LogLevel                   string
 	ZapLevel                   zapcore.Level
 	ReadDbUrl                  string
+	ReadDbReplicas             []string
 	WriteDbUrl                 string
 	RunMigrations              bool
 	EsUrl                      string
@@ -43,6 +45,7 @@ var Cfg = Config{
 	Env:                        os.Getenv("ENV"),
 	LogLevel:                   os.Getenv("logLevel"),
 	ReadDbUrl:                  os.Getenv("readDbUrl"),
+	ReadDbReplicas:             strings.Split(os.Getenv("readDbReplicas"), ","),
 	WriteDbUrl:                 os.Getenv("writeDbUrl"),
 	RunMigrations:              os.Getenv("runMigrations") == "true",
 	EsUrl:                      os.Getenv("elasticsearchUrl"),

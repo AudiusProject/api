@@ -12,7 +12,7 @@ import (
 func TestUsersNowPlayingActive(t *testing.T) {
 	app := emptyTestApp(t)
 
-	database.Seed(app.pool, database.FixtureMap{
+	database.Seed(app.pool.Replicas[0], database.FixtureMap{
 		"users": []map[string]any{
 			{
 				"user_id": 1,
@@ -49,7 +49,7 @@ func TestUsersNowPlayingActive(t *testing.T) {
 func TestUsersNowPlayingJustFinished(t *testing.T) {
 	app := emptyTestApp(t)
 
-	database.Seed(app.pool, database.FixtureMap{
+	database.Seed(app.pool.Replicas[0], database.FixtureMap{
 		"users": []map[string]any{
 			{
 				"user_id": 2,
@@ -87,7 +87,7 @@ func TestUsersNowPlayingJustFinished(t *testing.T) {
 func TestUsersNowPlayingFinishedAWhileAgo(t *testing.T) {
 	app := emptyTestApp(t)
 
-	database.Seed(app.pool, database.FixtureMap{
+	database.Seed(app.pool.Replicas[0], database.FixtureMap{
 		"users": []map[string]any{
 			{
 				"user_id": 2,
@@ -125,7 +125,7 @@ func TestUsersNowPlayingNoPlays(t *testing.T) {
 	app := emptyTestApp(t)
 
 	// create user & track but no play
-	database.Seed(app.pool, database.FixtureMap{
+	database.Seed(app.pool.Replicas[0], database.FixtureMap{
 		"users": []map[string]any{
 			{"user_id": 3, "handle": "tester"},
 		},

@@ -84,7 +84,7 @@ func TestV1UsersRelated(t *testing.T) {
 			},
 		},
 	}
-	database.Seed(app.pool, fixtures)
+	database.Seed(app.pool.Replicas[0], fixtures)
 
 	var userResponse struct {
 		Data []dbv1.FullUser

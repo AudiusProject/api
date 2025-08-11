@@ -22,7 +22,7 @@ func TestGetTrackCommentNotificationSetting(t *testing.T) {
 			},
 		},
 	}
-	database.Seed(app.pool, fixtures)
+	database.Seed(app.pool.Replicas[0], fixtures)
 	status, body := testGetWithWallet(
 		t, app,
 		"/v1/tracks/"+trashid.MustEncodeHashID(1)+"/comment_notification_setting?user_id="+trashid.MustEncodeHashID(1),
@@ -48,7 +48,7 @@ func TestGetTrackCommentNotificationSettingMuted(t *testing.T) {
 			},
 		},
 	}
-	database.Seed(app.pool, fixtures)
+	database.Seed(app.pool.Replicas[0], fixtures)
 	status, body := testGetWithWallet(
 		t, app,
 		"/v1/tracks/"+trashid.MustEncodeHashID(2)+"/comment_notification_setting?user_id="+trashid.MustEncodeHashID(1),
@@ -67,7 +67,7 @@ func TestGetTrackCommentNotificationSettingNotFound(t *testing.T) {
 			{"user_id": 1, "wallet": "0x7d273271690538cf855e5b3002a0dd8c154bb060"},
 		},
 	}
-	database.Seed(app.pool, fixtures)
+	database.Seed(app.pool.Replicas[0], fixtures)
 	status, body := testGetWithWallet(
 		t, app,
 		"/v1/tracks/"+trashid.MustEncodeHashID(999)+"/comment_notification_setting?user_id="+trashid.MustEncodeHashID(1),

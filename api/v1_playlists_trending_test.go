@@ -83,7 +83,7 @@ func TestGetTrendingPlaylists(t *testing.T) {
 		})
 	}
 
-	database.Seed(app.pool, fixtures)
+	database.Seed(app.pool.Replicas[0], fixtures)
 	status, body := testGet(t, app, "/v1/playlists/trending?limit=5", nil)
 	assert.Equal(t, 200, status)
 
@@ -168,7 +168,7 @@ func TestGetTrendingPlaylists_Albums(t *testing.T) {
 		}
 	}
 
-	database.Seed(app.pool, fixtures)
+	database.Seed(app.pool.Replicas[0], fixtures)
 	{
 		status, body := testGet(t, app, "/v1/playlists/trending?limit=5&type=album", nil)
 		assert.Equal(t, 200, status)

@@ -58,7 +58,7 @@ func TestGetTrackStems(t *testing.T) {
 		},
 	}
 
-	database.Seed(app.pool, fixtures)
+	database.Seed(app.pool.Replicas[0], fixtures)
 
 	status, body := testGet(t, app, fmt.Sprintf("/v1/full/tracks/%s/stems", trashid.MustEncodeHashID(1)))
 	assert.Equal(t, 200, status)

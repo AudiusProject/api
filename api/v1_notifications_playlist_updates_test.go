@@ -59,7 +59,7 @@ func TestV1NotificationsPlaylistUpdates(t *testing.T) {
 		},
 	}
 
-	database.Seed(app.pool, fixtures)
+	database.Seed(app.pool.Replicas[0], fixtures)
 
 	status, body := testGet(t, app, fmt.Sprintf("/v1/notifications/%s/playlist_updates", trashid.MustEncodeHashID(int(userID))))
 	assert.Equal(t, 200, status)

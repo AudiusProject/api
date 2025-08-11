@@ -107,7 +107,7 @@ func TestGetTips(t *testing.T) {
 		},
 	}
 
-	database.Seed(app.pool, fixtures)
+	database.Seed(app.pool.Replicas[0], fixtures)
 
 	// Basic test - get all tips without authentication
 	{

@@ -91,7 +91,7 @@ func TestV1TrackRemixing(t *testing.T) {
 		},
 	}
 
-	database.Seed(app.pool, fixtures)
+	database.Seed(app.pool.Replicas[0], fixtures)
 
 	status, body := testGet(t, app, "/v1/full/tracks/"+trashid.MustEncodeHashID(10)+"/remixing")
 	assert.Equal(t, 200, status)
