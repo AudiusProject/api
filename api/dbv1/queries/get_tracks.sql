@@ -171,6 +171,7 @@ SELECT
   )::jsonb as remix_of,
 
   stem_of,
+  track_segments, -- todo: can we just get rid of this now?
   t.updated_at,
   t.owner_id as user_id,
   t.is_delete,

@@ -48,6 +48,7 @@ var (
 			"txhash":                                "tx_123abc",
 			"is_unlisted":                           false,
 			"is_available":                          true,
+			"track_segments":                        "[]", // JSONB string
 			"is_scheduled_release":                  false,
 			"is_downloadable":                       false,
 			"is_original_available":                 false,

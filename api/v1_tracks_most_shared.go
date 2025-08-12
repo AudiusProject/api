@@ -43,13 +43,11 @@ func (app *ApiServer) v1TracksMostShared(c *fiber.Ctx) error {
 		SELECT t.track_id
 		FROM most_shared ms
 		JOIN tracks t ON ms.share_item_id = t.track_id
-		JOIN users u ON t.owner_id = u.user_id
 		WHERE
 			t.is_current = true AND
 			t.is_unlisted = false AND
 			t.is_available = true AND
-			t.is_delete = false AND
-			u.is_deactivated = false
+			t.is_delete = false
 		LIMIT @limit
 		OFFSET @offset;
 		`
