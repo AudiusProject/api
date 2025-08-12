@@ -36,7 +36,7 @@ jobs:
         with:
           context: .
           push: true
-          tags: audius/api:${{ steps.meta.outputs.tags }}-amd64
+          tags: ${{ steps.meta.outputs.tags }}-amd64
           labels: ${{ steps.meta.outputs.labels }}
           cache-from: type=registry,ref=audius/api:buildcache
           cache-to: type=registry,ref=audius/api:buildcache,mode=max
@@ -75,7 +75,7 @@ jobs:
         with:
           context: .
           push: true
-          tags: audius/api:${{ steps.meta.outputs.tags }}-arm64
+          tags: ${{ steps.meta.outputs.tags }}-arm64
           labels: ${{ steps.meta.outputs.labels }}
           cache-from: type=registry,ref=audius/api:buildcache
           cache-to: type=registry,ref=audius/api:buildcache,mode=max
