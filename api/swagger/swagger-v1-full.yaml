@@ -4997,7 +4997,6 @@ components:
       - route_id
       - stream
       - title
-      - track_segments
       - updated_at
       - user
       - user_id
@@ -5105,10 +5104,6 @@ components:
           type: string
         stem_of:
           $ref: '#/components/schemas/stem_parent'
-        track_segments:
-          type: array
-          items:
-            $ref: '#/components/schemas/track_segment'
         updated_at:
           type: string
         user_id:
@@ -7813,7 +7808,6 @@ components:
       - route_id
       - stream
       - title
-      - track_segments
       - updated_at
       - user
       - user_id
@@ -7921,10 +7915,6 @@ components:
           type: string
         stem_of:
           $ref: '#/components/schemas/stem_parent'
-        track_segments:
-          type: array
-          items:
-            $ref: '#/components/schemas/track_segment'
         updated_at:
           type: string
         user_id:
