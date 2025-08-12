@@ -1,6 +1,8 @@
 package dbv1
 
 import (
+	"sort"
+
 	"bridgerton.audius.co/config"
 )
 
@@ -98,6 +100,11 @@ func (gate PurchaseGate) ToFullPurchaseGate(cfg config.Config, userMap map[int32
 
 		splits = append(splits, split)
 	}
+
+	// Sort splits by the payout_wallet
+	sort.Slice(splits, func(i, j int) bool {
+		return splits[i].PayoutWallet < splits[j].PayoutWallet
+	})
 
 	return &FullPurchaseGate{
 		Price:  gate.Price,
