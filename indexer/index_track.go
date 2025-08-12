@@ -24,6 +24,7 @@ func (ci *CoreIndexer) createTrack(txInfo TxInfo, em *core_proto.ManageEntityLeg
 		"txhash":                                txInfo.txhash,
 		"is_unlisted":                           false,
 		"is_available":                          true,
+		"track_segments":                        "[]", // JSONB string
 		"is_scheduled_release":                  false,
 		"is_downloadable":                       false,
 		"is_original_available":                 false,

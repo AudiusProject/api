@@ -72,12 +72,10 @@ func (app *ApiServer) v1UsersRecommendedTracks(c *fiber.Ctx) error {
 		SELECT t.track_id
 		FROM top_tracks_per_genre
 		JOIN tracks t ON top_tracks_per_genre.track_id = t.track_id
-		JOIN users u ON t.owner_id = u.user_id
 		WHERE
 			t.is_unlisted = false
 			AND t.is_current = true
 			AND t.is_delete = false
-			AND u.is_deactivated = false
 		ORDER BY random()
 		LIMIT 10
 	`
