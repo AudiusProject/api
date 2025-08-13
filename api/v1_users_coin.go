@@ -73,30 +73,34 @@ func (app *ApiServer) v1UsersCoin(c *fiber.Ctx) error {
 		)
 		SELECT 
 			artist_coins.ticker,
-			balances_by_mint.mint,
+			artist_coins.mint,
 			artist_coins.decimals,
 			artist_coins.user_id AS owner_id,
-			balances_by_mint.balance AS balance,
-			(balances_by_mint.balance * @price) / POWER(10, artist_coins.decimals) AS balance_usd,
-			JSON_AGG(
-				JSON_BUILD_OBJECT(
-					'account', balances.account,
-					'owner', balances.owner,
-					'balance', balances.balance,
-					'balance_usd', (balances.balance * @price) / POWER(10, artist_coins.decimals),
-					'is_in_app_wallet', balances.is_in_app_wallet
-				)
+			COALESCE(balances_by_mint.balance, 0) AS balance,
+			COALESCE((balances_by_mint.balance * @price) / POWER(10, artist_coins.decimals), 0) AS balance_usd,
+			COALESCE(
+				JSON_AGG(
+					JSON_BUILD_OBJECT(
+						'account', balances.account,
+						'owner', balances.owner,
+						'balance', balances.balance,
+						'balance_usd', (balances.balance * @price) / POWER(10, artist_coins.decimals),
+						'is_in_app_wallet', balances.is_in_app_wallet
+					)
+				) FILTER (WHERE balances.account IS NOT NULL),
+				'[]'::json
 			) AS accounts
-		FROM balances_by_mint
-		JOIN artist_coins ON artist_coins.mint = balances_by_mint.mint
-		JOIN (
+		FROM artist_coins
+		LEFT JOIN balances_by_mint ON artist_coins.mint = balances_by_mint.mint
+		LEFT JOIN (
 			SELECT *
 			FROM balances
 			ORDER BY balances.balance DESC
 		) AS balances ON balances.mint = balances_by_mint.mint
+		WHERE artist_coins.mint = @mint
 		GROUP BY
 			artist_coins.ticker,
-			balances_by_mint.mint,
+			artist_coins.mint,
 			artist_coins.decimals,
 			artist_coins.user_id,
 			balances_by_mint.balance
