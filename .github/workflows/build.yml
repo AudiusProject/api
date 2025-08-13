@@ -124,6 +124,7 @@ jobs:
             for tag in $OUTPUT_TAGS; do
               TAG_ARGS="$TAG_ARGS --tag $tag"
             done
+            echo "docker buildx imagetools create $TAG_ARGS $INPUT_TAGS"
             docker buildx imagetools create $TAG_ARGS $INPUT_TAGS
 
       - name: Checkout code
