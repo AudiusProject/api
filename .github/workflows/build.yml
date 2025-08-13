@@ -127,6 +127,9 @@ jobs:
             echo $TAG_ARGS
             echo "docker buildx imagetools create $TAG_ARGS ${{ steps.arch-meta.outputs.tags }}"
 
+      - name: Checkout code
+        uses: actions/checkout@v4
+        
       - name: Get short SHA for release
         if: github.ref == 'refs/heads/main'
         run: |
