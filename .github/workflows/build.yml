@@ -28,7 +28,7 @@ jobs:
         with:
           images: audius/api
           tags: |
-            type=raw,value=latest,enable=${{ github.ref == 'refs/heads/main' }}
+            type=raw,value=latest-amd64,enable=${{ github.ref == 'refs/heads/main' }}
             type=sha,prefix=
 
       - name: Build and push
@@ -67,7 +67,7 @@ jobs:
         with:
           images: audius/api
           tags: |
-            type=raw,value=latest,enable=${{ github.ref == 'refs/heads/main' }}
+            type=raw,value=latest-arm64,enable=${{ github.ref == 'refs/heads/main' }}
             type=sha,prefix=
 
       - name: Build and push
