@@ -104,7 +104,7 @@ jobs:
         with:
           images: audius/api
           tags: |
-            type=raw,value=latest,enable=${{ github.ref == 'refs/heads/main' }}
+            type=raw,value=latesttest
             type=sha,prefix=
 
       - name: Extract arch builds metadata for Docker
@@ -118,10 +118,11 @@ jobs:
 
       - name: Create and push Docker manifest
         run: |
-            TAG_ARGS=""
+            TAG_ARGS=
             for tag in ${{ steps.meta.outputs.tags }}; do
               TAG_ARGS="$TAG_ARGS --tag $tag"
             done
+            echo $TAG_ARGS
             docker buildx imagetools create $TAG_ARGS ${{ steps.arch-meta.outputs.tags }}
 
       - name: Get short SHA for release
