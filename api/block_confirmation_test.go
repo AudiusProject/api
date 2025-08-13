@@ -15,12 +15,12 @@ func TestBlockConfirmation(t *testing.T) {
 		"core_indexed_blocks": {
 			{
 				"height":    1,
-				"chain_id":  "audius-mainnet-alpha-beta",
+				"chain_id":  "audius-devnet",
 				"blockhash": "0xabc123",
 			},
 			{
 				"height":    2,
-				"chain_id":  "audius-mainnet-alpha-beta",
+				"chain_id":  "audius-devnet",
 				"blockhash": "0xabc234",
 			},
 		},
