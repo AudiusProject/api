@@ -48,6 +48,12 @@ func (app *ApiServer) v1UsersCoins(c *fiber.Ctx) error {
 		mints = append(mints, mint)
 	}
 
+	if len(mints) == 0 {
+		return c.JSON(fiber.Map{
+			"data": []UserCoin{},
+		})
+	}
+
 	prices, err := app.birdeyeClient.GetPrices(c.Context(), mints)
 	if err != nil || prices == nil {
 		return fmt.Errorf("failed to get prices: %w", err)
