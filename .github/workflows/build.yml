@@ -118,11 +118,12 @@ jobs:
 
       - name: Create and push Docker manifest
         run: |
-            echo ${{ steps.meta.outputs.tags}}
-            TAG_ARGS=
-            while read -r tag; do
+            TAGS="$(echo "${{ steps.meta.outputs.tags }}" | tr '\n' ' ')"
+            echo $TAGS
+            TAG_ARGS=""
+            for tag in $TAGS; do
               TAG_ARGS="$TAG_ARGS --tag $tag"
-            done <<< "${{ steps.meta.outputs.tags }}"
+            done
             echo $TAG_ARGS
             echo "docker buildx imagetools create $TAG_ARGS ${{ steps.arch-meta.outputs.tags }}"
 
