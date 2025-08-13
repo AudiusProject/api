@@ -87,7 +87,7 @@ jobs:
     runs-on: ubuntu-latest
     permissions:
       contents: write
-    needs: [build-amd64, build-arm64]
+    #needs: [build-amd64, build-arm64]
     steps:
       - name: Set up Docker Buildx
         uses: docker/setup-buildx-action@v3
@@ -104,7 +104,7 @@ jobs:
         with:
           images: audius/api
           tags: |
-            type=raw,value=latesttest
+            type=raw,value=latest,enable=${{ github.ref == 'refs/heads/main' }}
             type=sha,prefix=
 
       - name: Extract arch builds metadata for Docker
@@ -123,7 +123,7 @@ jobs:
               TAG_ARGS="$TAG_ARGS --tag $tag"
             done
             echo $TAG_ARGS
-            docker buildx imagetools create $TAG_ARGS ${{ steps.arch-meta.outputs.tags }}
+            echo "docker buildx imagetools create $TAG_ARGS ${{ steps.arch-meta.outputs.tags }}"
 
       - name: Get short SHA for release
         if: github.ref == 'refs/heads/main'
