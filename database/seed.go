@@ -176,6 +176,7 @@ var (
 			"amount":           1000,
 			"created_at":       time.Now(),
 			"signature":        nil,
+			"slot":             101,
 		},
 		"aggregate_user_tips": {
 			"sender_user_id":   nil,
@@ -399,10 +400,11 @@ var (
 			"block_timestamp":   time.Now(),
 		},
 		"artist_coins": {
-			"ticker":   nil,
-			"mint":     nil,
-			"user_id":  nil,
-			"decimals": nil,
+			"ticker":     nil,
+			"mint":       nil,
+			"user_id":    nil,
+			"decimals":   nil,
+			"created_at": time.Now(),
 		},
 		"sol_token_account_balances": {
 			"account": nil,
@@ -472,6 +474,23 @@ var (
 			"audience_content_type": nil,
 			"plaintext":             nil,
 			"created_at":            time.Now(),
+		},
+		"sol_user_balances": {
+			"user_id":    nil,
+			"mint":       nil,
+			"balance":    0,
+			"created_at": time.Now(),
+		},
+		"chat_blocked_users": {
+			"blocker_user_id": nil,
+			"blockee_user_id": nil,
+			"created_at":      time.Now(),
+		},
+		"chat_permissions": {
+			"user_id":    nil,
+			"permits":    nil,
+			"allowed":    true,
+			"updated_at": time.Now(),
 		},
 	}
 )
@@ -551,7 +570,7 @@ func Seed(pool *pgxpool.Pool, fixtures FixtureMap) {
 	// explicitly do the "entity" tables first
 	// so that data dependencies exist before attempting to do saves, follows, etc.
 	// (also do aggregates first so we can override the ones the entities autocreate)
-	entityTables := []string{"aggregate_user", "aggregate_track", "aggregate_playlist", "users", "tracks", "playlists", "sol_token_account_balances", "chat", "chat_member", "chat_message", "chat_blast"}
+	entityTables := []string{"aggregate_user", "aggregate_track", "aggregate_playlist", "users", "tracks", "playlists", "sol_token_account_balances", "chat", "chat_member", "chat_message", "chat_blast", "sol_user_balances", "chat_blocked_users", "chat_permissions"}
 	for _, tableName := range entityTables {
 		if rows, ok := fixtures[tableName]; ok {
 			SeedTable(pool, tableName, rows)
