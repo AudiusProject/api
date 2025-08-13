@@ -119,7 +119,7 @@ jobs:
       - name: Create and push Docker manifest
         run: |
             TAG_ARGS=
-            for tag in ${{ steps.meta.outputs.tags }}; do
+            for tag in "${{ steps.meta.outputs.tags }}"; do
               TAG_ARGS="$TAG_ARGS --tag $tag"
             done
             echo $TAG_ARGS
