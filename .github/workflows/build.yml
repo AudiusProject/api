@@ -108,13 +108,11 @@ jobs:
             type=sha,prefix=
 
       - name: Create and push Docker manifest
-        uses: docker/manifest-action@v2
-        with:
-          images: |
-            audius/api:${{ steps.meta.outputs.tags }}-amd64
-            audius/api:${{ steps.meta.outputs.tags }}-arm64
-          tags: ${{ steps.meta.outputs.tags }}
-          labels: ${{ steps.meta.outputs.labels }}
+        run: |
+          docker manifest create ${{ steps.meta.outputs.tags }} \
+            ${{ steps.meta.outputs.tags }}-amd64 \
+            ${{ steps.meta.outputs.tags }}-arm64
+          docker manifest push ${{ steps.meta.outputs.tags }}
 
       - name: Get short SHA for release
         if: github.ref == 'refs/heads/main'
