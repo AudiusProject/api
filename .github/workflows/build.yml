@@ -118,11 +118,14 @@ jobs:
 
       - name: Create and push Docker manifest
         run: |
+            TAGS="$(echo "${{ steps.meta.outputs.tags }}" | tr '\n' ' ')"
+            echo $TAGS
             TAG_ARGS=""
-            for tag in ${{ steps.meta.outputs.tags }}; do
+            for tag in $TAGS; do
               TAG_ARGS="$TAG_ARGS --tag $tag"
             done
-            docker buildx imagetools create $TAG_ARGS ${{ steps.arch-meta.outputs.tags }}
+            echo $TAG_ARGS
+            echo "docker buildx imagetools create $TAG_ARGS ${{ steps.arch-meta.outputs.tags }}"
 
       - name: Get short SHA for release
         if: github.ref == 'refs/heads/main'
