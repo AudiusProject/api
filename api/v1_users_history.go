@@ -63,15 +63,15 @@ func (app *ApiServer) v1UsersHistory(c *fiber.Ctx) error {
 
 	sql := `
 	WITH history AS (
-		SELECT 
-			(jsonb_array_elements(listening_history)->>'track_id')::int AS track_id, 
-			(jsonb_array_elements(listening_history)->>'play_count')::int AS play_count, 
-			(jsonb_array_elements(listening_history)->>'timestamp')::timestamp AS timestamp 
+		SELECT
+			(jsonb_array_elements(listening_history)->>'track_id')::int AS track_id,
+			(jsonb_array_elements(listening_history)->>'play_count')::int AS play_count,
+			(jsonb_array_elements(listening_history)->>'timestamp')::timestamp AS timestamp
 		FROM user_listening_history
 		WHERE user_id = @userId
 	)
 	SELECT history.track_id AS item_id,
-		history.timestamp AS item_created_at, 
+		history.timestamp AS item_created_at,
 		'track' AS item_type,
 		@class AS class
 	FROM history
@@ -119,8 +119,9 @@ func (app *ApiServer) v1UsersHistory(c *fiber.Ctx) error {
 	// get tracks
 	tracks, err := app.queries.FullTracksKeyed(c.Context(), dbv1.FullTracksParams{
 		GetTracksParams: dbv1.GetTracksParams{
-			Ids:  trackIds,
-			MyID: myId,
+			Ids:             trackIds,
+			MyID:            myId,
+			IncludeUnlisted: true,
 		},
 	})
 	if err != nil {
