@@ -3283,6 +3283,11 @@ paths:
           enum:
           - asc
           - desc
+      - name: user_id
+        in: query
+        description: The user ID of the user making the request
+        schema:
+          type: string
       - name: Encoded-Data-Message
         in: header
         description: The data that was signed by the user for signature recovery
