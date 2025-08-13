@@ -83,8 +83,11 @@ func init() {
 		Cfg.Nodes = DevNodes
 		Cfg.Rewards = core_config.MakeRewards(core_config.DevClaimAuthorities, core_config.DevRewardExtensions)
 		Cfg.AudiusdURL = "http://audius-protocol-creator-node-1"
-		Cfg.ChainId = "audius-mainnet-alpha-beta"
+		Cfg.ChainId = "audius-devnet"
 		Cfg.SolanaIndexerWorkers = 1
+		Cfg.PythonUpstreams = []string{
+			"http://audius-protocol-discovery-provider-1",
+		}
 	case "stage":
 		fallthrough
 	case "staging":
@@ -94,9 +97,6 @@ func init() {
 		Cfg.AntiAbuseOracles = []string{"https://discoveryprovider.staging.audius.co"}
 		Cfg.PythonUpstreams = []string{
 			"https://discoveryprovider.staging.audius.co",
-			"https://discoveryprovider2.staging.audius.co",
-			"https://discoveryprovider3.staging.audius.co",
-			"https://discoveryprovider5.staging.audius.co",
 		}
 		Cfg.Nodes = StageNodes
 		Cfg.DeadNodes = []string{}
@@ -112,8 +112,6 @@ func init() {
 		Cfg.AntiAbuseOracles = []string{"https://discoveryprovider.audius.co"}
 		Cfg.PythonUpstreams = []string{
 			"https://discoveryprovider.audius.co",
-			"https://discoveryprovider2.audius.co",
-			"https://discoveryprovider3.audius.co",
 		}
 		Cfg.Nodes = ProdNodes
 		Cfg.DeadNodes = []string{
