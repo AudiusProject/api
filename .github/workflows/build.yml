@@ -118,12 +118,13 @@ jobs:
 
       - name: Create and push Docker manifest
         run: |
-            TAGS="$(echo "${{ steps.meta.outputs.tags }}" | tr '\n' ' ')"
+            OUTPUT_TAGS="$(echo "${{ steps.meta.outputs.tags }}" | tr '\n' ' ')"
+            INPUT_TAGS="$(echo "${{ steps.arch-meta.outputs.tags }}" | tr '\n' ' ')"
             TAG_ARGS=""
-            for tag in $TAGS; do
+            for tag in $OUTPUT_TAGS; do
               TAG_ARGS="$TAG_ARGS --tag $tag"
             done
-            docker buildx imagetools create $TAG_ARGS ${{ steps.arch-meta.outputs.tags }}
+            docker buildx imagetools create $TAG_ARGS $INPUT_TAGS
 
       - name: Checkout code
         uses: actions/checkout@v4
