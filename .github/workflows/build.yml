@@ -38,8 +38,8 @@ jobs:
           push: true
           tags: ${{ steps.meta.outputs.tags }}-amd64
           labels: ${{ steps.meta.outputs.labels }}
-          cache-from: type=registry,ref=audius/api:buildcache
-          cache-to: type=registry,ref=audius/api:buildcache,mode=max
+          cache-from: type=registry,ref=audius/api:buildcache-amd64
+          cache-to: type=registry,ref=audius/api:buildcache-amd64,mode=max
           build-args: |
             GIT_SHA=${{ github.sha }}
           platforms: linux/amd64
@@ -77,8 +77,8 @@ jobs:
           push: true
           tags: ${{ steps.meta.outputs.tags }}-arm64
           labels: ${{ steps.meta.outputs.labels }}
-          cache-from: type=registry,ref=audius/api:buildcache
-          cache-to: type=registry,ref=audius/api:buildcache,mode=max
+          cache-from: type=registry,ref=audius/api:buildcache-arm64
+          cache-to: type=registry,ref=audius/api:buildcache-arm64,mode=max
           build-args: |
             GIT_SHA=${{ github.sha }}
           platforms: linux/arm64
