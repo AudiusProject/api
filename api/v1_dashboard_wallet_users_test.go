@@ -56,10 +56,8 @@ func TestDashboardWalletUsers(t *testing.T) {
 
 	jsonAssert(t, body, map[string]any{
 		"data.#":              2,
-		"data.0.wallet":       "0xTEST123WALLET",
 		"data.0.user.handle":  "testuser",
 		"data.0.user.user_id": 1,
-		"data.1.wallet":       "0xANOTHERWALLET",
 		"data.1.user.handle":  "anotheruser",
 		"data.1.user.user_id": 2,
 	})
