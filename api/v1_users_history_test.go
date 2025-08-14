@@ -3,6 +3,8 @@ package api
 import (
 	"testing"
 
+	"bridgerton.audius.co/database"
+	"bridgerton.audius.co/trashid"
 	"github.com/stretchr/testify/assert"
 )
 
@@ -63,4 +65,77 @@ func TestUserListeningHistory(t *testing.T) {
 		"data.0.item.id":    "eJpoL",
 		"data.0.item.title": "Trending Gated Jazz Track 1",
 	})
+}
+
+func TestUserListeningHistoryUnlisted(t *testing.T) {
+	app := emptyTestApp(t)
+
+	fixtures := database.FixtureMap{
+		"users": []map[string]any{
+			{
+				"user_id": 1,
+				"handle":  "user1",
+			},
+			{
+				"user_id": 2,
+				"handle":  "user2",
+				"wallet":  "0x7d273271690538cf855e5b3002a0dd8c154bb060",
+			},
+		},
+		"tracks": []map[string]any{
+			{
+				"track_id":    1,
+				"title":       "Public Track",
+				"owner_id":    1,
+				"is_unlisted": false,
+				"created_at":  parseTime(t, "2024-01-01"),
+			},
+			{
+				"track_id":    2,
+				"title":       "Unlisted Track",
+				"owner_id":    1,
+				"is_unlisted": true,
+				"created_at":  parseTime(t, "2024-01-01"),
+			},
+		},
+		"user_listening_history": []map[string]any{
+			{
+				"user_id": 2,
+				"listening_history": []map[string]any{
+					{
+						"track_id":   1,
+						"play_count": 1,
+						"timestamp":  parseTime(t, "2024-01-01"),
+					},
+					{
+						"track_id":   2,
+						"play_count": 1,
+						"timestamp":  parseTime(t, "2024-01-01"),
+					},
+				},
+			},
+		},
+	}
+
+	database.Seed(app.pool.Replicas[0], fixtures)
+	user2Id := trashid.MustEncodeHashID(2)
+
+	{
+		status, body := testGetWithWallet(t, app, "/v1/full/users/"+user2Id+"/history/tracks?user_id="+user2Id, "0x7d273271690538cf855e5b3002a0dd8c154bb060")
+		assert.Equal(t, 200, status)
+		jsonAssert(t, body, map[string]any{
+			"data.#":         2,
+			"data.0.item_id": 1,
+			"data.1.item_id": 2,
+		})
+	}
+
+	{
+		status, body := testGet(t, app, "/v1/full/users/"+user2Id+"/history/tracks")
+		assert.Equal(t, 200, status)
+		jsonAssert(t, body, map[string]any{
+			"data.#":         1,
+			"data.0.item_id": 1,
+		})
+	}
 }
