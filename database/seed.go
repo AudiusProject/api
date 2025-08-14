@@ -492,6 +492,16 @@ var (
 			"allowed":    true,
 			"updated_at": time.Now(),
 		},
+		"dashboard_wallet_users": {
+			"wallet":      nil,
+			"user_id":     nil,
+			"txhash":      "tx123",
+			"is_delete":   false,
+			"created_at":  time.Now(),
+			"updated_at":  time.Now(),
+			"blockhash":   "block_abc123",
+			"blocknumber": 101,
+		},
 	}
 )
 
