@@ -19,6 +19,11 @@ type DashboardWalletUser struct {
 	User   dbv1.FullUser `json:"user"`
 }
 
+type MinDashboardWalletUser struct {
+	Wallet string       `json:"wallet"`
+	User   dbv1.MinUser `json:"user"`
+}
+
 func (app *ApiServer) v1DashboardWalletUsers(c *fiber.Ctx) error {
 	params := DashboardWalletUsersParams{}
 	if err := app.ParseAndValidateQueryParams(c, &params); err != nil {
@@ -74,14 +79,26 @@ func (app *ApiServer) v1DashboardWalletUsers(c *fiber.Ctx) error {
 	for _, u := range users {
 		userMap[u.UserID] = u
 	}
-	result := make([]DashboardWalletUser, 0, len(walletUserRows))
-	for _, row := range walletUserRows {
-		if user, ok := userMap[row.UserID]; ok {
-			result = append(result, DashboardWalletUser{Wallet: row.Wallet, User: user})
-		}
-	}
 
-	return c.JSON(fiber.Map{
-		"data": result,
-	})
+	if app.getIsFull(c) {
+		result := make([]DashboardWalletUser, 0, len(walletUserRows))
+		for _, row := range walletUserRows {
+			if user, ok := userMap[row.UserID]; ok {
+				result = append(result, DashboardWalletUser{Wallet: row.Wallet, User: user})
+			}
+		}
+		return c.JSON(fiber.Map{
+			"data": result,
+		})
+	} else {
+		result := make([]MinDashboardWalletUser, 0, len(walletUserRows))
+		for _, row := range walletUserRows {
+			if user, ok := userMap[row.UserID]; ok {
+				result = append(result, MinDashboardWalletUser{Wallet: row.Wallet, User: dbv1.ToMinUser(user)})
+			}
+		}
+		return c.JSON(fiber.Map{
+			"data": result,
+		})
+	}
 }
