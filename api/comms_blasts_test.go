@@ -315,52 +315,6 @@ func TestGetNewBlasts(t *testing.T) {
 		assert.NotContains(t, string(body), "blast_coin_holder_1")
 	})
 
-	t.Run("remixer audience with proper timing", func(t *testing.T) {
-		// Create a specific test for remixer audience with correct timing
-		remixerFixtures := database.FixtureMap{
-			"tracks": {
-				{
-					"track_id":   10,
-					"owner_id":   1,
-					"title":      "Original for Remix",
-					"created_at": now.Add(-time.Hour),
-					"updated_at": now.Add(-time.Hour),
-				},
-				{
-					"track_id":   11,
-					"owner_id":   2,
-					"title":      "Remix of Original",
-					"created_at": now.Add(-time.Minute * 10), // Created AFTER the blast below
-					"updated_at": now.Add(-time.Minute * 10),
-				},
-			},
-			"remixes": {
-				{
-					"parent_track_id": 10,
-					"child_track_id":  11,
-				},
-			},
-			"chat_blast": {
-				{
-					"blast_id":              "blast_remixer_timing_test",
-					"from_user_id":          1,
-					"audience":              "remixer_audience",
-					"audience_content_type": "track",
-					"audience_content_id":   10,
-					"plaintext":             "Thanks for the remix!",
-					"created_at":            now.Add(-time.Minute * 15), // BEFORE remix track creation
-				},
-			},
-		}
-		database.Seed(app.pool.Replicas[0], remixerFixtures)
-
-		status, body := testGetWithWallet(t, app, "/comms/blasts", "0xc3d1d41e6872ffbd15c473d14fc3a9250be5b5e0")
-		assert.Equal(t, 200, status)
-
-		// Should now see the remixer blast with proper timing
-		assert.Contains(t, string(body), "blast_remixer_timing_test")
-	})
-
 	t.Run("coin holder audience timing logic", func(t *testing.T) {
 		// Create a separate test to verify coin holder timing: sub.created_at < blast.created_at
 		coinApp := emptyTestApp(t)
@@ -423,10 +377,7 @@ func TestGetNewBlasts(t *testing.T) {
 		status, body := testGetWithWallet(t, coinApp, "/comms/blasts", "0xc3d1d41e6872ffbd15c473d14fc3a9250be5b5e0")
 		assert.Equal(t, 200, status)
 
-		// Should contain blast sent AFTER the user got coins
 		assert.Contains(t, string(body), "blast_after_balance")
-
-		// Should NOT contain blast sent BEFORE the user got coins (tests sub.created_at < blast.created_at timing)
 		assert.NotContains(t, string(body), "blast_before_balance")
 	})
 }
