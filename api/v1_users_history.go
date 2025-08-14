@@ -1,6 +1,7 @@
 package api
 
 import (
+	"strings"
 	"time"
 
 	"bridgerton.audius.co/api/dbv1"
@@ -61,6 +62,20 @@ func (app *ApiServer) v1UsersHistory(c *fiber.Ctx) error {
 		class = "track_activity_full"
 	}
 
+	filters := []string{}
+	if params.Query != "" {
+		filters = append(filters, "tracks.title ILIKE '%' || @query || '%' OR users.name ILIKE '%' || @query || '%'")
+	}
+
+	if myId == 0 || myId != userId {
+		filters = append(filters, "tracks.is_unlisted = false")
+	}
+
+	filterString := ""
+	if len(filters) > 0 {
+		filterString = "WHERE " + strings.Join(filters, " AND ")
+	}
+
 	sql := `
 	WITH history AS (
 		SELECT
@@ -79,8 +94,7 @@ func (app *ApiServer) v1UsersHistory(c *fiber.Ctx) error {
 	LEFT JOIN aggregate_track ON tracks.track_id = aggregate_track.track_id
 	LEFT JOIN users ON tracks.owner_id = users.user_id
 	LEFT JOIN aggregate_plays ON history.track_id = aggregate_plays.play_item_id
-	WHERE tracks.title ILIKE '%' || @query || '%'
-		OR users.name ILIKE '%' || @query || '%'
+	` + filterString + `
 	` + orderBy + `
 	LIMIT @limit OFFSET @offset
 	;
