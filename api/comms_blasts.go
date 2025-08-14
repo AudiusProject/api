@@ -71,6 +71,7 @@ func (app *ApiServer) getNewBlasts(c *fiber.Ctx) error {
 						AND blast.audience_content_id = og.track_id
 					)
 				)
+				AND t.created_at < blast.created_at
 		)
 		OR from_user_id IN (
 			-- customer_audience
@@ -86,6 +87,7 @@ func (app *ApiServer) getNewBlasts(c *fiber.Ctx) error {
 						AND blast.audience_content_id = p.content_id
 					)
 				)
+				AND p.created_at < blast.created_at
 		)
 		OR from_user_id IN (
 			-- coin_holder_audience via sol_user_balances
@@ -96,6 +98,8 @@ func (app *ApiServer) getNewBlasts(c *fiber.Ctx) error {
 				AND ac.user_id = blast.from_user_id
 				AND sub.user_id = @user_id
 				AND sub.balance > 0
+				-- TODO: PE-6663 This isn't entirely correct yet, need to check "time of most recent membership"
+				AND sub.created_at < blast.created_at
 		)
 	)
 	SELECT * FROM all_new
