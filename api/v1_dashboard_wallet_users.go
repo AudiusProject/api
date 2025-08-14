@@ -64,9 +64,6 @@ func (app *ApiServer) v1DashboardWalletUsers(c *fiber.Ctx) error {
 		return err
 	}
 
-	if len(walletUserRows) == 0 {
-		return c.JSON(fiber.Map{"data": []DashboardWalletUser{}})
-	}
 	userIds := make([]int32, len(walletUserRows))
 	for i, row := range walletUserRows {
 		userIds[i] = row.UserID
