@@ -28,6 +28,7 @@ var unsupportedNotificationTypes = []string{
 	// Deprecated
 	"milestone_follower_count",
 	"remix_contest_started",
+	"remix_contest_ending_soon",
 	"claimble_reward",
 	// Broken
 	"remix",
