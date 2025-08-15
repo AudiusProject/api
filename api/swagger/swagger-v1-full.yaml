@@ -8768,14 +8768,11 @@ components:
       required:
       - parent_track_id
       - track_id
-      - track_owner_id
       type: object
       properties:
         parent_track_id:
           type: string
         track_id:
-          type: string
-        track_owner_id:
           type: string
     cosign_notification:
       required:
@@ -8816,14 +8813,11 @@ components:
     cosign_notification_action_data:
       required:
       - parent_track_id
-      - parent_track_owner_id
       - track_id
       - track_owner_id
       type: object
       properties:
         parent_track_id:
-          type: string
-        parent_track_owner_id:
           type: string
         track_id:
           type: string
