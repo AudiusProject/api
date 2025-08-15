@@ -29,6 +29,8 @@ var unsupportedNotificationTypes = []string{
 	"milestone_follower_count",
 	"remix_contest_started",
 	"claimble_reward",
+	// Broken
+	"remix",
 }
 
 func (app *ApiServer) v1Notifications(c *fiber.Ctx) error {
