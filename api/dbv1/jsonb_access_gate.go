@@ -101,9 +101,15 @@ func (gate PurchaseGate) ToFullPurchaseGate(cfg config.Config, userMap map[int32
 		splits = append(splits, split)
 	}
 
-	// Sort splits by the payout_wallet
+	// Sort splits by the userId
 	sort.Slice(splits, func(i, j int) bool {
-		return splits[i].PayoutWallet < splits[j].PayoutWallet
+		if splits[i].UserID == nil {
+			return false
+		}
+		if splits[j].UserID == nil {
+			return true
+		}
+		return *splits[i].UserID < *splits[j].UserID
 	})
 
 	return &FullPurchaseGate{
