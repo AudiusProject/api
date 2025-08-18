@@ -52,11 +52,13 @@ func TestV1TrackAccessInfo(t *testing.T) {
 		},
 		"users": []map[string]any{
 			{
-				"user_id":                175425,
-				"handle":                 "testartist",
-				"handle_lc":              "testartist",
-				"wallet":                 "0xd4302f79457d5f5fcd54afd9e5a1a399723e7c30",
-				"spl_usdc_payout_wallet": "CYV7ZwfhNWnB15ysEDiL6gMwTv8PKGR7LCbkan5G7rri",
+				"user_id":   175425,
+				"handle":    "testartist",
+				"handle_lc": "testartist",
+				"wallet":    "0xd4302f79457d5f5fcd54afd9e5a1a399723e7c30",
+				// Note that this address intentionally starts with a z to test that
+				// sorting is correct (split with userid shows up first)
+				"spl_usdc_payout_wallet": "zRkzQYez2yMUmfe3kdWUjNhCXmw6xgReovBCsyVGi5E",
 			},
 		},
 	}
@@ -83,7 +85,7 @@ func TestV1TrackAccessInfo(t *testing.T) {
 			"data.stream_conditions.usdc_purchase.splits.0.percentage":    100.0,
 			"data.stream_conditions.usdc_purchase.splits.0.amount":        900000,
 			"data.stream_conditions.usdc_purchase.splits.0.eth_wallet":    "0xd4302f79457d5f5fcd54afd9e5a1a399723e7c30",
-			"data.stream_conditions.usdc_purchase.splits.0.payout_wallet": "CYV7ZwfhNWnB15ysEDiL6gMwTv8PKGR7LCbkan5G7rri",
+			"data.stream_conditions.usdc_purchase.splits.0.payout_wallet": "zRkzQYez2yMUmfe3kdWUjNhCXmw6xgReovBCsyVGi5E",
 
 			// Network cut in stream conditions
 			"data.stream_conditions.usdc_purchase.splits.1.user_id":       nil,
@@ -100,7 +102,7 @@ func TestV1TrackAccessInfo(t *testing.T) {
 			"data.download_conditions.usdc_purchase.splits.0.percentage":    100.0,
 			"data.download_conditions.usdc_purchase.splits.0.amount":        900000,
 			"data.download_conditions.usdc_purchase.splits.0.eth_wallet":    "0xd4302f79457d5f5fcd54afd9e5a1a399723e7c30",
-			"data.download_conditions.usdc_purchase.splits.0.payout_wallet": "CYV7ZwfhNWnB15ysEDiL6gMwTv8PKGR7LCbkan5G7rri",
+			"data.download_conditions.usdc_purchase.splits.0.payout_wallet": "zRkzQYez2yMUmfe3kdWUjNhCXmw6xgReovBCsyVGi5E",
 
 			// Network cut in download conditions
 			"data.download_conditions.usdc_purchase.splits.1.user_id":       nil,
