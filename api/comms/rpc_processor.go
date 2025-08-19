@@ -91,7 +91,7 @@ func (proc *RPCProcessor) Apply(ctx context.Context, rpcLog *RpcLog) error {
 		return nil
 	}
 
-	// check for "internal" message...
+	// check for "internal" message, which are from the legacy implementation
 	if strings.HasPrefix(rawRpc.Method, "internal.") {
 		logger.Warn("recieved internal message, skipping")
 		return nil

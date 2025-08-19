@@ -5,11 +5,10 @@ import (
 	"time"
 )
 
-// RpcLog is passed around between servers
-// It has the rpc and sig (from header)
-// The relay server that receives the RPC will stamp it with relayed_by and relayed_at
-// relayed_by and relayed_at are used so that peer servers can consume a http-feeds style event feed
-// from every peer
+// RpcLog was previously used to track messages sent between comms peer servers.
+// We are now using it as a record of RPC requests received from clients.
+// RelayedAt will be the timestamp when the server received the request.
+// RelayedBy will be hard-coded to "bridge" to differentiate it from legacy rpclog messages.
 type RpcLog struct {
 	ID         string          `db:"id" json:"id"`
 	RelayedAt  time.Time       `db:"relayed_at" json:"relayed_at"`

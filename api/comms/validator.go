@@ -445,18 +445,6 @@ func validateChatMembership(pool *dbv1.DBPools, ctx context.Context, userId int3
 	return nil
 }
 
-// TODO: REMOVE?
-// Recheck chat permissions before sending further messages if a member of the chat
-// has cleared their chat history
-// func RecheckPermissionsRequired(lastMessageAt time.Time, members []db.ChatMember) bool {
-// 	for _, member := range members {
-// 		if member.ClearedHistoryAt.Valid && member.ClearedHistoryAt.Time.After(lastMessageAt) {
-// 			return true
-// 		}
-// 	}
-// 	return false
-// }
-
 func validatePermissions(pool *dbv1.DBPools, ctx context.Context, sender int32, receiver int32) error {
 	permissionFailure := errors.New("Not permitted to send messages to this user")
 
