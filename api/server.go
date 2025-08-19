@@ -500,6 +500,8 @@ func NewApiServer(config config.Config) *ApiServer {
 
 	comms.Get("/blasts", app.getNewBlasts)
 
+	comms.Post("/mutate", app.mutateChat)
+
 	// Block confirmation
 	app.Get("/block_confirmation", app.BlockConfirmation)
 	app.Get("/block-confirmation", app.BlockConfirmation)
