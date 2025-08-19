@@ -9,29 +9,24 @@ import (
 	"time"
 
 	"bridgerton.audius.co/api/dbv1"
+	"bridgerton.audius.co/config"
 	"bridgerton.audius.co/trashid"
+	"go.uber.org/zap"
 
-	// "comms.audius.co/discovery/config"
-	// "comms.audius.co/discovery/db"
-	// "comms.audius.co/discovery/db/queries"
-	// "comms.audius.co/discovery/misc"
-	// "comms.audius.co/discovery/schema"
-	// "github.com/jmoiron/sqlx"
-
+	"github.com/jackc/pgx/v5/pgtype"
+	"github.com/jackc/pgx/v5/pgxpool"
 	"github.com/tidwall/gjson"
-	// "gorm.io/gorm/logger"
 )
 
 type RPCProcessor struct {
 	sync.Mutex
 	pool      *dbv1.DBPools
+	writePool *pgxpool.Pool
 	validator *Validator
-
-	// TODO
-	discoveryConfig *config.DiscoveryConfig
+	logger    *zap.Logger
 }
 
-func NewProcessor(pool *dbv1.DBPools, discoveryConfig *config.DiscoveryConfig) (*RPCProcessor, error) {
+func NewProcessor(pool *dbv1.DBPools, writePool *pgxpool.Pool, config *config.Config, logger *zap.Logger) (*RPCProcessor, error) {
 
 	// set up validator + limiter
 	limiter, err := NewRateLimiter()
@@ -39,24 +34,13 @@ func NewProcessor(pool *dbv1.DBPools, discoveryConfig *config.DiscoveryConfig) (
 		return nil, err
 	}
 
-	aaoServer := "https://discoveryprovider.audius.co"
-	if discoveryConfig.IsStaging {
-		aaoServer = "https://discoveryprovider.staging.audius.co"
-	}
-
-	if discoveryConfig.IsDev {
-		aaoServer = "http://audius-protocol-discovery-provider-1"
-	}
-
-	validator := &Validator{
-		pool:      pool,
-		limiter:   limiter,
-		aaoServer: aaoServer,
-	}
+	validator := NewValidator(pool, limiter, config, logger)
 
 	proc := &RPCProcessor{
-		validator:       validator,
-		discoveryConfig: discoveryConfig,
+		validator: validator,
+		pool:      pool,
+		writePool: writePool,
+		logger:    logger,
 	}
 
 	return proc, nil
@@ -65,20 +49,25 @@ func NewProcessor(pool *dbv1.DBPools, discoveryConfig *config.DiscoveryConfig) (
 // TODO: replace logger
 // Clean up wallet recovery (do we even need it?)
 // Change format or at least naming of RpcLog
+// TODO: logger with() functionality to track details of current rpc message
 // Do we still need to check for already applied?
 // - Maybe the validation needs to happen inside a transaction, since we check for existing stuff there?
 
 // Validates + applies a message
-func (proc *RPCProcessor) Apply(rpcLog *RpcLog) error {
-
-	logger := slog.With("sig", rpcLog.Sig)
+func (proc *RPCProcessor) Apply(ctx context.Context, rpcLog *RpcLog) error {
+	logger := proc.logger.With(
+		zap.String("sig", rpcLog.Sig),
+		// TODO: audit
+		// zap.String("from_wallet", rpcLog.FromWallet),
+		// zap.String("relayed_by", rpcLog.RelayedBy),
+		// zap.Time("relayed_at", rpcLog.RelayedAt),
+	)
 	var err error
 
-	// check for already applied
 	var exists int
-	db.Conn.Get(&exists, `select count(*) from rpc_log where sig = $1`, rpcLog.Sig)
+	proc.pool.QueryRow(ctx, `select count(*) from rpc_log where sig = $1`, rpcLog.Sig).Scan(&exists)
 	if exists == 1 {
-		logger.Debug("rpc already in log, skipping duplicate", "sig", rpcLog.Sig)
+		logger.Debug("rpc already in log, skipping duplicate", zap.String("sig", rpcLog.Sig))
 		return nil
 	}
 
@@ -90,15 +79,15 @@ func (proc *RPCProcessor) Apply(rpcLog *RpcLog) error {
 	}
 
 	// validate signing wallet
-	wallet, err := misc.RecoverWallet(rpcLog.Rpc, rpcLog.Sig)
+	wallet, err := recoverSigningWallet(rpcLog.Sig, rpcLog.Rpc)
 	if err != nil {
 		logger.Warn("unable to recover wallet, skipping")
 		return nil
 	}
-	logger.Debug("recovered wallet", "took", takeSplit())
+	logger.Debug("recovered wallet", zap.Duration("took", takeSplit()))
 
 	if wallet != rpcLog.FromWallet {
-		logger.Warn("recovered wallet no match", "recovered", wallet, "expected", rpcLog.FromWallet, "realeyd_by", rpcLog.RelayedBy)
+		logger.Warn("recovered wallet no match", zap.String("recovered", wallet), zap.String("expected", rpcLog.FromWallet), zap.String("realeyd_by", rpcLog.RelayedBy))
 		return nil
 	}
 
@@ -112,19 +101,14 @@ func (proc *RPCProcessor) Apply(rpcLog *RpcLog) error {
 
 	// check for "internal" message...
 	if strings.HasPrefix(rawRpc.Method, "internal.") {
-		err := proc.applyInternalMessage(rpcLog, &rawRpc)
-		if err != nil {
-			logger.Info("failed to apply internal rpc", "error", err)
-		} else {
-			logger.Info("applied internal RPC", "sig", rpcLog.Sig)
-		}
+		logger.Warn("recieved internal message, skipping")
 		return nil
 	}
 
 	// get ts
 	messageTs := rpcLog.RelayedAt
 
-	userId, err := GetRPCCurrentUserID(rpcLog, &rawRpc)
+	userId, err := proc.GetRPCCurrentUserID(ctx, rpcLog, &rawRpc)
 	if err != nil {
 		logger.Info("unable to get user ID")
 		return err // or nil?
@@ -134,24 +118,25 @@ func (proc *RPCProcessor) Apply(rpcLog *RpcLog) error {
 	chatId := gjson.GetBytes(rpcLog.Rpc, "params.chat_id").String()
 
 	logger = logger.With(
-		"wallet", wallet,
-		"userId", userId,
-		"relayed_by", rpcLog.RelayedBy,
-		"relayed_at", rpcLog.RelayedAt,
-		"chat_id", chatId,
-		"sig", rpcLog.Sig)
-	logger.Debug("got user", "took", takeSplit())
+		zap.String("wallet", wallet),
+		zap.Int32("userId", userId),
+		zap.String("relayed_by", rpcLog.RelayedBy),
+		zap.Time("relayed_at", rpcLog.RelayedAt),
+		zap.String("chat_id", chatId),
+		zap.String("sig", rpcLog.Sig),
+	)
+	logger.Debug("got user", zap.Duration("took", takeSplit()))
 
 	attemptApply := func() error {
 
 		// write to db
-		tx, err := db.Conn.Beginx()
+		tx, err := proc.writePool.Begin(ctx)
 		if err != nil {
 			return err
 		}
-		defer tx.Rollback()
+		defer tx.Rollback(ctx)
 
-		logger.Debug("begin tx", "took", takeSplit(), "sig", rpcLog.Sig)
+		logger.Debug("begin tx", zap.Duration("took", takeSplit()), zap.String("sig", rpcLog.Sig))
 
 		switch RPCMethod(rawRpc.Method) {
 		case RPCMethodChatCreate:
@@ -160,7 +145,7 @@ func (proc *RPCProcessor) Apply(rpcLog *RpcLog) error {
 			if err != nil {
 				return err
 			}
-			err = chatCreate(tx, userId, messageTs, params)
+			err = chatCreate(tx, ctx, userId, messageTs, params)
 			if err != nil {
 				return err
 			}
@@ -170,7 +155,7 @@ func (proc *RPCProcessor) Apply(rpcLog *RpcLog) error {
 			if err != nil {
 				return err
 			}
-			err = chatDelete(tx, userId, params.ChatID, messageTs)
+			err = chatDelete(tx, ctx, userId, params.ChatID, messageTs)
 			if err != nil {
 				return err
 			}
@@ -180,7 +165,7 @@ func (proc *RPCProcessor) Apply(rpcLog *RpcLog) error {
 			if err != nil {
 				return err
 			}
-			err = chatSendMessage(tx, userId, params.ChatID, params.MessageID, messageTs, params.Message)
+			err = chatSendMessage(tx, ctx, userId, params.ChatID, params.MessageID, messageTs, params.Message)
 			if err != nil {
 				return err
 			}
@@ -190,7 +175,7 @@ func (proc *RPCProcessor) Apply(rpcLog *RpcLog) error {
 			if err != nil {
 				return err
 			}
-			err = chatReactMessage(tx, userId, params.ChatID, params.MessageID, params.Reaction, messageTs)
+			err = chatReactMessage(tx, ctx, userId, params.ChatID, params.MessageID, params.Reaction, messageTs)
 			if err != nil {
 				return err
 			}
@@ -201,16 +186,19 @@ func (proc *RPCProcessor) Apply(rpcLog *RpcLog) error {
 			if err != nil {
 				return err
 			}
+
 			// do nothing if last active at >= message timestamp
-			lastActive, err := queries.LastActiveAt(tx, context.Background(), queries.ChatMembershipParams{
-				ChatID: params.ChatID,
-				UserID: userId,
-			})
+			var lastActive pgtype.Timestamp
+			const lastActiveAtQuery = `
+select last_active_at from chat_member where chat_id = $1 and user_id = $2`
+
+			err = tx.QueryRow(ctx, lastActiveAtQuery, params.ChatID, userId).Scan(&lastActive)
 			if err != nil {
 				return err
 			}
+
 			if !lastActive.Valid || messageTs.After(lastActive.Time) {
-				err = chatReadMessages(tx, userId, params.ChatID, messageTs)
+				err = chatReadMessages(tx, ctx, userId, params.ChatID, messageTs)
 				if err != nil {
 					return err
 				}
@@ -221,7 +209,7 @@ func (proc *RPCProcessor) Apply(rpcLog *RpcLog) error {
 			if err != nil {
 				return err
 			}
-			err = chatSetPermissions(tx, userId, params.Permit, params.PermitList, params.Allow, messageTs)
+			err = chatSetPermissions(tx, ctx, userId, params.Permit, params.PermitList, params.Allow, messageTs)
 			if err != nil {
 				return err
 			}
@@ -235,7 +223,7 @@ func (proc *RPCProcessor) Apply(rpcLog *RpcLog) error {
 			if err != nil {
 				return err
 			}
-			err = chatBlock(tx, userId, int32(blockeeUserId), messageTs)
+			err = chatBlock(tx, ctx, userId, int32(blockeeUserId), messageTs)
 			if err != nil {
 				return err
 			}
@@ -249,7 +237,7 @@ func (proc *RPCProcessor) Apply(rpcLog *RpcLog) error {
 			if err != nil {
 				return err
 			}
-			err = chatUnblock(tx, userId, int32(unblockedUserId), messageTs)
+			err = chatUnblock(tx, ctx, userId, int32(unblockedUserId), messageTs)
 			if err != nil {
 				return err
 			}
@@ -261,13 +249,13 @@ func (proc *RPCProcessor) Apply(rpcLog *RpcLog) error {
 				return err
 			}
 
-			outgoingMessages, err := chatBlast(tx, userId, messageTs, params)
+			outgoingMessages, err := chatBlast(tx, ctx, userId, messageTs, params)
 			if err != nil {
 				return err
 			}
 			// Send chat message websocket event to all recipients who have existing chats
 			for _, outgoingMessage := range outgoingMessages {
-				j, err := json.Marshal(outgoingMessage.ChatMessageRPC)
+				_, err := json.Marshal(outgoingMessage.ChatMessageRPC)
 				if err != nil {
 					slog.Error("err: invalid json", "err", err)
 				} else {
@@ -276,30 +264,77 @@ func (proc *RPCProcessor) Apply(rpcLog *RpcLog) error {
 				}
 			}
 		default:
-			logger.Warn("no handler for ", rawRpc.Method)
+			logger.Warn("no handler for ", zap.String("method", rawRpc.Method))
 		}
 
-		logger.Debug("called handler", "took", takeSplit())
+		logger.Debug("called handler", zap.Duration("took", takeSplit()))
 
-		err = tx.Commit()
+		err = tx.Commit(ctx)
 		if err != nil {
 			return err
 		}
-		logger.Debug("commited", "took", takeSplit())
+		logger.Debug("commited", zap.Duration("took", takeSplit()))
 
 		// TODO
 		// send out websocket events fire + forget style
 		// websocketNotify(rpcLog.Rpc, userId, messageTs.Round(time.Microsecond))
-		logger.Debug("websocket push done", "took", takeSplit())
+		logger.Debug("websocket push done", zap.Duration("took", takeSplit()))
 
 		return nil
 	}
 
 	err = attemptApply()
 	if err != nil {
-		logger.Warn("apply failed", "err", err)
+		logger.Warn("apply failed", zap.Error(err))
 	}
 	return err
+}
+
+func (proc *RPCProcessor) GetRPCCurrentUserID(ctx context.Context, rpcLog *RpcLog, rawRpc *RawRPC) (int32, error) {
+	walletAddress := rpcLog.FromWallet
+	encodedCurrentUserId := rawRpc.CurrentUserID
+
+	// attempt to read the (newly added) current_user_id field
+	if encodedCurrentUserId != "" {
+		if u, err := trashid.DecodeHashId(encodedCurrentUserId); err == nil && u > 0 {
+
+			const checkCurrentUserQuery = `
+			select count(*) > 0
+			from users
+			where is_current = true
+				and user_id = $1
+				and wallet = lower($2)
+				and handle IS NOT NULL
+				and is_available = TRUE
+				and is_deactivated = FALSE
+			`
+			// valid current_user_id + wallet combo?
+			// for now just check that the pair exists in the user table
+			// in the future this can check a "grants" table that a given operation is permitted
+			isValid := false
+			err := proc.pool.QueryRow(ctx, checkCurrentUserQuery, u, walletAddress).Scan(&isValid)
+			if err == nil && isValid {
+				return int32(u), nil
+			} else {
+				proc.logger.Warn("invalid current_user_id", zap.Error(err), zap.String("wallet", walletAddress), zap.String("encoded_user_id", encodedCurrentUserId), zap.Int("user_id", u))
+			}
+		}
+	}
+
+	const getUserIDFromWalletQuery = `
+		select user_id
+		from users
+		where is_current = TRUE
+		and handle IS NOT NULL
+		and is_available = TRUE
+		and is_deactivated = FALSE
+		and wallet = LOWER($1)
+		order by user_id asc
+		`
+	// fallback to looking up user_id using wallet alone
+	var userId int32
+	err := proc.pool.QueryRow(ctx, getUserIDFromWalletQuery, walletAddress).Scan(&userId)
+	return userId, err
 }
 
 // func websocketNotify(rpcJson json.RawMessage, userId int32, timestamp time.Time) {

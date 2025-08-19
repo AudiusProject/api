@@ -389,13 +389,13 @@ const (
 type ChatPermission string
 
 const (
-	All       ChatPermission = "all"
-	Followees ChatPermission = "followees"
-	Followers ChatPermission = "followers"
-	None      ChatPermission = "none"
-	Tippees   ChatPermission = "tippees"
-	Tippers   ChatPermission = "tippers"
-	Verified  ChatPermission = "verified"
+	ChatPermissionAll       ChatPermission = "all"
+	ChatPermissionFollowees ChatPermission = "followees"
+	ChatPermissionFollowers ChatPermission = "followers"
+	ChatPermissionNone      ChatPermission = "none"
+	ChatPermissionTippees   ChatPermission = "tippees"
+	ChatPermissionTippers   ChatPermission = "tippers"
+	ChatPermissionVerified  ChatPermission = "verified"
 )
 
 type RPCMethod string

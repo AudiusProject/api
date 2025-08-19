@@ -19,3 +19,8 @@ func ChatID(id1, id2 int) string {
 	}
 	return chatId
 }
+
+// Returns a unique Message ID for a blast message in a chat.
+func BlastMessageID(blastID, chatID string) string {
+	return blastID + chatID
+}

@@ -3,7 +3,6 @@ package comms
 import (
 	"bytes"
 	"context"
-	"database/sql"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -12,7 +11,9 @@ import (
 	"time"
 
 	"bridgerton.audius.co/api/dbv1"
+	"bridgerton.audius.co/config"
 	"bridgerton.audius.co/trashid"
+	"github.com/jackc/pgx/v5"
 	"go.uber.org/zap"
 )
 
@@ -27,11 +28,12 @@ type Validator struct {
 	aaoServer string
 }
 
-func NewValidator(pool *dbv1.DBPools, limiter *RateLimiter, aaoServer string) *Validator {
+func NewValidator(pool *dbv1.DBPools, limiter *RateLimiter, config *config.Config, logger *zap.Logger) *Validator {
 	return &Validator{
 		pool:      pool,
 		limiter:   limiter,
-		aaoServer: aaoServer,
+		aaoServer: config.AAOServer,
+		logger:    logger,
 	}
 }
 
@@ -378,27 +380,27 @@ func (vtor *Validator) validateNewMessageRateLimit(pool *dbv1.DBPools, ctx conte
 		where user_id = $1
 		and created_at > now() - interval '60 seconds';
 		`
-		var s1, s10, s60 sql.NullInt64
+		var s1, s10, s60 int64
 		err = pool.QueryRow(ctx, query, userId).Scan(&s1, &s10, &s60)
 		if err != nil {
 			slog.Error("burst rate limit query failed", "err", err)
 		}
 
 		// 10 per second in last second
-		if s1.Int64 > 10 {
+		if s1 > 10 {
 			slog.Warn("message rate limit exceeded", "bucket", "1s", "user_id", userId, "count", s1)
 			return ErrMessageRateLimitExceeded
 
 		}
 
 		// 7 per second for last 10 seconds
-		if s10.Int64 > 70 {
+		if s10 > 70 {
 			slog.Warn("message rate limit exceeded", "bucket", "10s", "user_id", userId, "count", s10)
 			return ErrMessageRateLimitExceeded
 		}
 
 		// 5 per second for last 60 seconds
-		if s60.Int64 > 300 {
+		if s60 > 300 {
 			slog.Warn("message rate limit exceeded", "bucket", "60s", "user_id", userId, "count", s60)
 			return ErrMessageRateLimitExceeded
 		}
@@ -518,7 +520,7 @@ func validatePermittedToMessage(pool *dbv1.DBPools, ctx context.Context, userId 
 	var isPermitted bool
 	err := pool.QueryRow(ctx, query, chatId, userId).Scan(&isPermitted)
 	if err != nil {
-		if err == sql.ErrNoRows {
+		if err == pgx.ErrNoRows {
 			return errors.New("Chat must have 2 members")
 		}
 		return err
@@ -538,7 +540,7 @@ func validateSenderPassesAbuseCheck(pool *dbv1.DBPools, ctx context.Context, use
 	var handle string
 	err := pool.QueryRow(ctx, `SELECT handle FROM users WHERE user_id = $1`, userId).Scan(&handle)
 	if err != nil {
-		if err == sql.ErrNoRows {
+		if err == pgx.ErrNoRows {
 			return fmt.Errorf("user %d not found", userId)
 		}
 		return err
