@@ -76,7 +76,7 @@ func chatCreate(tx pgx.Tx, ctx context.Context, userId int32, ts time.Time, para
 		values
 			($1, $2, $3, $4, $5)
 		on conflict do nothing
-		`, BlastMessageID(blast.BlastID, params.ChatID), params.ChatID, blast.FromUserID, blast.CreatedAt, blast.BlastID)
+		`, trashid.BlastMessageID(blast.BlastID, params.ChatID), params.ChatID, blast.FromUserID, blast.CreatedAt, blast.BlastID)
 		if err != nil {
 			return err
 		}
@@ -411,7 +411,7 @@ func getNewBlasts(tx pgx.Tx, ctx context.Context, arg getNewBlastsParams) ([]bla
 	}
 
 	for idx, blastRow := range items {
-		chatId := ChatID(int(arg.UserID), int(blastRow.FromUserID))
+		chatId := trashid.ChatID(int(arg.UserID), int(blastRow.FromUserID))
 		items[idx].PendingChatID = chatId
 
 		if blastRow.AudienceContentID.Valid {

@@ -97,7 +97,7 @@ func chatBlast(tx pgx.Tx, ctx context.Context, userId int32, ts time.Time, param
 	// Formulate chat rpc messages for recipients who have an existing chat with sender
 	var outgoingMessages []OutgoingChatMessage
 	for _, result := range results {
-		messageID := BlastMessageID(params.BlastID, result.ChatID)
+		messageID := trashid.BlastMessageID(params.BlastID, result.ChatID)
 
 		isPlaintext := true
 		outgoingMessages = append(outgoingMessages, OutgoingChatMessage{

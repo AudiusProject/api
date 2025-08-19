@@ -3,7 +3,6 @@ package comms
 import (
 	"context"
 	"encoding/json"
-	"log/slog"
 	"strings"
 	"sync"
 	"time"
@@ -46,21 +45,14 @@ func NewProcessor(pool *dbv1.DBPools, writePool *pgxpool.Pool, config *config.Co
 	return proc, nil
 }
 
-// TODO: replace logger
-// Clean up wallet recovery (do we even need it?)
-// Change format or at least naming of RpcLog
-// TODO: logger with() functionality to track details of current rpc message
-// Do we still need to check for already applied?
-// - Maybe the validation needs to happen inside a transaction, since we check for existing stuff there?
+func (proc *RPCProcessor) Validate(ctx context.Context, userId int32, rawRpc RawRPC) error {
+	return proc.validator.Validate(ctx, userId, rawRpc)
+}
 
 // Validates + applies a message
 func (proc *RPCProcessor) Apply(ctx context.Context, rpcLog *RpcLog) error {
 	logger := proc.logger.With(
 		zap.String("sig", rpcLog.Sig),
-		// TODO: audit
-		// zap.String("from_wallet", rpcLog.FromWallet),
-		// zap.String("relayed_by", rpcLog.RelayedBy),
-		// zap.Time("relayed_at", rpcLog.RelayedAt),
 	)
 	var err error
 
@@ -257,7 +249,7 @@ select last_active_at from chat_member where chat_id = $1 and user_id = $2`
 			for _, outgoingMessage := range outgoingMessages {
 				_, err := json.Marshal(outgoingMessage.ChatMessageRPC)
 				if err != nil {
-					slog.Error("err: invalid json", "err", err)
+					logger.Error("err: invalid json", zap.Error(err))
 				} else {
 					// TODO
 					// websocketNotify(json.RawMessage(j), userId, messageTs.Round(time.Microsecond))

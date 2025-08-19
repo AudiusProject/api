@@ -6,7 +6,6 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
-	"log/slog"
 	"net/http"
 	"time"
 
@@ -39,16 +38,6 @@ func NewValidator(pool *dbv1.DBPools, limiter *RateLimiter, config *config.Confi
 
 func (vtor *Validator) Validate(ctx context.Context, userId int32, rawRpc RawRPC) error {
 	methodName := RPCMethod(rawRpc.Method)
-
-	// actually skip timestamp check for now...
-	// POST endpoint will check for recency...
-	// but peer servers could get it later...
-	// and we don't want to skip message that's over a min old.
-
-	// Always check timestamp
-	// if time.Now().UnixMilli()-rawRpc.Timestamp > sharedConfig.SignatureTimeToLiveMs {
-	// 	return errors.New("Invalid timestamp")
-	// }
 
 	// banned?
 	isBanned, err := vtor.isBanned(ctx, userId)
@@ -130,7 +119,7 @@ func (vtor *Validator) validateChatCreate(ctx context.Context, userId int32, rpc
 	}
 
 	// Check that the creator is non-abusive
-	err = validateSenderPassesAbuseCheck(vtor.pool, ctx, userId, vtor.aaoServer)
+	err = validateSenderPassesAbuseCheck(vtor.pool, ctx, vtor.logger, userId, vtor.aaoServer)
 	if err != nil {
 		return err
 	}
@@ -299,9 +288,6 @@ func (vtor *Validator) validateChatUnblock(userId int32, rpc RawRPC) error {
 	if !exists {
 		return errors.New("user is not blocked")
 	}
-	if err != nil {
-		return err
-	}
 
 	return nil
 }
@@ -383,25 +369,25 @@ func (vtor *Validator) validateNewMessageRateLimit(pool *dbv1.DBPools, ctx conte
 		var s1, s10, s60 int64
 		err = pool.QueryRow(ctx, query, userId).Scan(&s1, &s10, &s60)
 		if err != nil {
-			slog.Error("burst rate limit query failed", "err", err)
+			vtor.logger.Error("burst rate limit query failed", zap.Error(err))
 		}
 
 		// 10 per second in last second
 		if s1 > 10 {
-			slog.Warn("message rate limit exceeded", "bucket", "1s", "user_id", userId, "count", s1)
+			vtor.logger.Warn("message rate limit exceeded", zap.String("bucket", "1s"), zap.Int32("user_id", userId), zap.Int64("count", s1))
 			return ErrMessageRateLimitExceeded
 
 		}
 
 		// 7 per second for last 10 seconds
 		if s10 > 70 {
-			slog.Warn("message rate limit exceeded", "bucket", "10s", "user_id", userId, "count", s10)
+			vtor.logger.Warn("message rate limit exceeded", zap.String("bucket", "10s"), zap.Int32("user_id", userId), zap.Int64("count", s10))
 			return ErrMessageRateLimitExceeded
 		}
 
 		// 5 per second for last 60 seconds
 		if s60 > 300 {
-			slog.Warn("message rate limit exceeded", "bucket", "60s", "user_id", userId, "count", s60)
+			vtor.logger.Warn("message rate limit exceeded", zap.String("bucket", "60s"), zap.Int32("user_id", userId), zap.Int64("count", s60))
 			return ErrMessageRateLimitExceeded
 		}
 	}
@@ -535,7 +521,8 @@ func validatePermittedToMessage(pool *dbv1.DBPools, ctx context.Context, userId 
 
 var ErrAttestationFailed = errors.New("attestation failed")
 
-func validateSenderPassesAbuseCheck(pool *dbv1.DBPools, ctx context.Context, userId int32, aaoServer string) error {
+// TODO: Better AAO usage that corresponds to the claim rewards code
+func validateSenderPassesAbuseCheck(pool *dbv1.DBPools, ctx context.Context, logger *zap.Logger, userId int32, aaoServer string) error {
 	// Keeping this somewhat opaque as it gets sent to client
 	var handle string
 	err := pool.QueryRow(ctx, `SELECT handle FROM users WHERE user_id = $1`, userId).Scan(&handle)
@@ -551,23 +538,23 @@ func validateSenderPassesAbuseCheck(pool *dbv1.DBPools, ctx context.Context, use
 	requestBody := []byte(`{ "challengeId": "x", "challengeSpecifier": "x", "amount": 0 }`)
 	resp, err := http.Post(url, "application/json", bytes.NewBuffer(requestBody))
 	if err != nil {
-		slog.Error("Error checking user attestation", "error", err, "handle", handle)
+		logger.Error("Error checking user attestation", zap.Error(err), zap.String("handle", handle))
 		return err
 	}
 	defer resp.Body.Close()
 
 	if resp.StatusCode < 200 || resp.StatusCode >= 300 {
-		slog.Warn("User failed AAO check", "userId", userId, "status", resp.StatusCode)
+		logger.Warn("User failed AAO check", zap.Int32("userId", userId), zap.Int("status", resp.StatusCode))
 		return ErrAttestationFailed
 	}
 	return nil
 }
 
-// HasNewBlastFromUser efficiently checks if a new blast exists from a specific user
+// hasNewBlastFromUser efficiently checks if a new blast exists from a specific user
 // without fetching all blast data. Returns true if a valid blast exists, false otherwise.
 func hasNewBlastFromUser(pool *dbv1.DBPools, ctx context.Context, userID int32, fromUserID int32) (bool, error) {
 	// Construct the expected chat ID for this user pair
-	expectedChatID := ChatID(int(userID), int(fromUserID))
+	expectedChatID := trashid.ChatID(int(userID), int(fromUserID))
 
 	// This query checks for the existence of a new blast from a specific user
 	// using the same logic as GetNewBlasts but optimized for existence check

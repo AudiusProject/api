@@ -1,10 +1,10 @@
 package comms
 
 var (
+	// TODO: verify this is correct
 	SigHeader             = "x-sig"
 	SignatureTimeToLiveMs = int64(1000 * 60 * 60 * 12) // 12 hours
 
-	// TODO: Do we need these configurable?
 	// Rate limit config
 	RateLimitRulesBucketName            = "rateLimitRules"
 	RateLimitTimeframeHours             = "timeframeHours"

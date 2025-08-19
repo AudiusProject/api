@@ -26,7 +26,5 @@ func (limiter *RateLimiter) Get(rule string) int {
 		return val
 	}
 
-	// TODO
-	// return config.DefaultRateLimitRules[rule]
-	return 0
+	return DefaultRateLimitRules[rule]
 }
