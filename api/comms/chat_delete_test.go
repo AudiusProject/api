@@ -2,7 +2,6 @@ package comms
 
 import (
 	"context"
-	"database/sql"
 	"fmt"
 	"math/rand"
 	"strconv"
@@ -11,6 +10,7 @@ import (
 
 	"bridgerton.audius.co/database"
 	"bridgerton.audius.co/trashid"
+	"github.com/jackc/pgx/v5/pgtype"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
@@ -35,15 +35,7 @@ func TestChatDeletion(t *testing.T) {
 	inviteCode1 := strconv.Itoa(seededRand.Int())
 	inviteCode2 := strconv.Itoa(seededRand.Int())
 
-	// Create chat
-	err = chatCreate(tx, ctx, 1, time.Now(), ChatCreateRPCParams{
-		ChatID: chatId,
-		Invites: []PurpleInvite{
-			{UserID: trashid.MustEncodeHashID(1), InviteCode: inviteCode1},
-			{UserID: trashid.MustEncodeHashID(2), InviteCode: inviteCode2},
-		},
-	})
-	require.NoError(t, err)
+	SetupChatWithMembers(t, tx, ctx, chatId, 1, 2, inviteCode1, inviteCode2)
 
 	// Commit the transaction so the validator can see the data
 	err = tx.Commit(ctx)
@@ -51,7 +43,7 @@ func TestChatDeletion(t *testing.T) {
 
 	assertDeleted := func(chatId string, userId int32, expectDeleted bool) {
 		row := pool.QueryRow(ctx, "select cleared_history_at from chat_member where chat_id = $1 and user_id = $2", chatId, userId)
-		var clearedHistoryAt sql.NullTime
+		var clearedHistoryAt pgtype.Timestamp
 		err = row.Scan(&clearedHistoryAt)
 		assert.NoError(t, err)
 		if expectDeleted {
