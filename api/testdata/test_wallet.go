@@ -3,6 +3,7 @@ package testdata
 import (
 	"crypto/ecdsa"
 	"encoding/base64"
+	"testing"
 
 	"github.com/ethereum/go-ethereum/crypto"
 )
@@ -14,7 +15,7 @@ type TestWallet struct {
 }
 
 // CreateTestWallet creates a new test wallet from a private key hex string
-func CreateTestWallet(privateKeyHex string) (*TestWallet, error) {
+func CreateTestWallet(t *testing.T, privateKeyHex string) *TestWallet {
 	// Remove "0x" prefix if present
 	if len(privateKeyHex) > 2 && privateKeyHex[:2] == "0x" {
 		privateKeyHex = privateKeyHex[2:]
@@ -22,13 +23,13 @@ func CreateTestWallet(privateKeyHex string) (*TestWallet, error) {
 
 	privateKey, err := crypto.HexToECDSA(privateKeyHex)
 	if err != nil {
-		return nil, err
+		t.Fatalf("Failed to create test wallet: %v", err)
 	}
 
 	publicKey := privateKey.Public()
 	publicKeyECDSA, ok := publicKey.(*ecdsa.PublicKey)
 	if !ok {
-		return nil, err
+		t.Fatalf("Failed to create test wallet: %v", err)
 	}
 
 	address := crypto.PubkeyToAddress(*publicKeyECDSA)
@@ -36,7 +37,7 @@ func CreateTestWallet(privateKeyHex string) (*TestWallet, error) {
 	return &TestWallet{
 		PrivateKey: privateKey,
 		Address:    address.Hex(),
-	}, nil
+	}
 }
 
 // SignData signs the given data with the test wallet's private key
