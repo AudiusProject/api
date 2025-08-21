@@ -12,6 +12,7 @@ import (
 	"bridgerton.audius.co/trashid"
 	"go.uber.org/zap"
 
+	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgtype"
 	"github.com/jackc/pgx/v5/pgxpool"
 	"github.com/tidwall/gjson"
@@ -129,6 +130,18 @@ func (proc *RPCProcessor) Apply(ctx context.Context, rpcLog *RpcLog) error {
 		defer tx.Rollback(ctx)
 
 		logger.Debug("begin tx", zap.Duration("took", takeSplit()), zap.String("sig", rpcLog.Sig))
+
+		count, err := insertRpcLogRow(tx, ctx, rpcLog)
+		if err != nil {
+			return err
+		}
+		if count == 0 {
+			// No rows were inserted because the sig (id) is already in rpc_log.
+			// Do not process redelivered messages that have already been processed.
+			logger.Info("rpc already in log, skipping duplicate", zap.String("sig", rpcLog.Sig))
+			return nil
+		}
+		logger.Debug("inserted RPC", zap.Duration("took", takeSplit()))
 
 		switch RPCMethod(rawRpc.Method) {
 		case RPCMethodChatCreate:
@@ -327,6 +340,19 @@ func (proc *RPCProcessor) GetRPCCurrentUserID(ctx context.Context, rpcLog *RpcLo
 	var userId int32
 	err := proc.pool.QueryRow(ctx, getUserIDFromWalletQuery, walletAddress).Scan(&userId)
 	return userId, err
+}
+
+func insertRpcLogRow(tx pgx.Tx, ctx context.Context, rpcLog *RpcLog) (int64, error) {
+	query := `
+		INSERT INTO rpc_log (relayed_by, relayed_at, applied_at, from_wallet, rpc, sig)
+		VALUES ($1, $2, $3, $4, $5, $6)
+		ON CONFLICT DO NOTHING
+		`
+	result, err := tx.Exec(ctx, query, rpcLog.RelayedBy, rpcLog.RelayedAt, time.Now(), rpcLog.FromWallet, rpcLog.Rpc, rpcLog.Sig)
+	if err != nil {
+		return 0, err
+	}
+	return result.RowsAffected(), nil
 }
 
 // func websocketNotify(rpcJson json.RawMessage, userId int32, timestamp time.Time) {

@@ -296,6 +296,7 @@ func NewApiServer(config config.Config) *ApiServer {
 		app.Use("/v1/full/tracks/best_new_releases", BalancerForward(config.PythonUpstreams))
 		app.Use("/v1/full/tracks/most_loved", BalancerForward(config.PythonUpstreams))
 		app.Use("/v1/full/tracks/remixables", BalancerForward(config.PythonUpstreams))
+		app.Use("/comms/chats/ws", BalancerForward(config.PythonUpstreams))
 	}
 
 	v1 := app.Group("/v1")

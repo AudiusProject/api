@@ -359,9 +359,9 @@ func (vtor *Validator) validateNewMessageRateLimit(pool *dbv1.DBPools, ctx conte
 	{
 		query := `
 		select
-			sum(case when created_at > now() - interval '1 second' then 1 else 0 end) as s1,
-			sum(case when created_at > now() - interval '10 seconds' then 1 else 0 end) as s10,
-			sum(case when created_at > now() - interval '60 seconds' then 1 else 0 end) as s60
+			coalesce(sum(case when created_at > now() - interval '1 second' then 1 else 0 end), 0) as s1,
+			coalesce(sum(case when created_at > now() - interval '10 seconds' then 1 else 0 end), 0) as s10,
+			coalesce(sum(case when created_at > now() - interval '60 seconds' then 1 else 0 end), 0) as s60
 		from chat_message
 		where user_id = $1
 		and created_at > now() - interval '60 seconds';
@@ -532,7 +532,7 @@ func validateSenderPassesAbuseCheck(pool *dbv1.DBPools, ctx context.Context, log
 	defer resp.Body.Close()
 
 	if resp.StatusCode < 200 || resp.StatusCode >= 300 {
-		logger.Warn("User failed AAO check", zap.Int32("userId", userId), zap.Int("status", resp.StatusCode))
+		logger.Warn("User failed AAO check", zap.Int32("userId", userId), zap.Int("status", resp.StatusCode), zap.String("aaoServer", aaoServer))
 		return ErrAttestationFailed
 	}
 	return nil

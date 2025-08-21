@@ -41,9 +41,15 @@ func (app *ApiServer) mutateChat(c *fiber.Ctx) error {
 	err = app.commsRpcProcessor.Validate(c.Context(), int32(userId), rawRpc)
 	if err != nil {
 		if errors.Is(err, comms.ErrAttestationFailed) {
-			return c.JSON(403, "bad request: "+err.Error())
+			return fiber.NewError(
+				fiber.StatusForbidden,
+				"forbidden to make this request: "+err.Error(),
+			)
 		}
-		return c.JSON(400, "bad request: "+err.Error())
+		return fiber.NewError(
+			fiber.StatusBadRequest,
+			"bad request: "+err.Error(),
+		)
 	}
 
 	err = app.commsRpcProcessor.Apply(c.Context(), rpcLog)
@@ -52,5 +58,5 @@ func (app *ApiServer) mutateChat(c *fiber.Ctx) error {
 		return err
 	}
 	app.logger.Debug("comms rpc apply succeeded", zap.String("payload", string(payload)), zap.String("wallet", wallet), zap.Bool("relay", true))
-	return c.JSON(200)
+	return c.JSON(rpcLog)
 }
