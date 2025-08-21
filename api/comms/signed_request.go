@@ -36,14 +36,5 @@ func recoverSigningWallet(signatureHex string, signedData []byte) (string, error
 
 	wallet := crypto.PubkeyToAddress(*pubkey).Hex()
 
-	// TODO: Still need this? We have a function for getting these in another file
-	// seed the user pubkey if missing
-	// err = pubkeystore.SetPubkeyForWallet(wallet, pubkey)
-	// if err != nil {
-	// 	slog.Warn("failed to SetPubkeyForWallet", "wallet", wallet, "err", err)
-	// } else {
-	// 	slog.Info("SetPubkeyForWallet OK", "wallet", wallet)
-	// }
-
 	return wallet, nil
 }

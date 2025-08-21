@@ -28,10 +28,14 @@ type Validator struct {
 }
 
 func NewValidator(pool *dbv1.DBPools, limiter *RateLimiter, config *config.Config, logger *zap.Logger) *Validator {
+	if len(config.AntiAbuseOracles) == 0 {
+		panic("no anti-abuse oracles configured, can't initialize comms validator")
+	}
+
 	return &Validator{
 		pool:      pool,
 		limiter:   limiter,
-		aaoServer: config.AAOServer,
+		aaoServer: config.AntiAbuseOracles[0],
 		logger:    logger,
 	}
 }

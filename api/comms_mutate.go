@@ -37,7 +37,6 @@ func (app *ApiServer) mutateChat(c *fiber.Ctx) error {
 		return err
 	}
 
-	// TODO: Decide if we want to validate first and then apply or validate inside apply within a transaction
 	err = app.commsRpcProcessor.Validate(c.Context(), int32(userId), rawRpc)
 	if err != nil {
 		if errors.Is(err, comms.ErrAttestationFailed) {

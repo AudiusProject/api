@@ -8,12 +8,6 @@ import (
 	"github.com/jackc/pgx/v5"
 )
 
-/*
-todo:
-
-- maybe blast_id should be computed like: `md5(from_user_id || audience || plaintext)`
-
-*/
 // Result struct to hold chat_id and to_user_id
 type ChatBlastResult struct {
 	ChatID   string `db:"chat_id"`

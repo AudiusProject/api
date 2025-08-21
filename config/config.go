@@ -38,7 +38,6 @@ type Config struct {
 	BirdeyeToken               string
 	SolanaIndexerWorkers       int
 	SolanaIndexerRetryInterval time.Duration
-	AAOServer                  string
 }
 
 var Cfg = Config{
@@ -89,7 +88,6 @@ func init() {
 		Cfg.PythonUpstreams = []string{
 			"http://audius-protocol-discovery-provider-1",
 		}
-		Cfg.AAOServer = "http://audius-protocol-discovery-provider-1"
 	case "stage":
 		fallthrough
 	case "staging":
@@ -105,7 +103,6 @@ func init() {
 		Cfg.Rewards = core_config.MakeRewards(core_config.StageClaimAuthorities, core_config.StageRewardExtensions)
 		Cfg.AudiusdURL = "creatornode11.staging.audius.co"
 		Cfg.ChainId = "audius-testnet-alpha"
-		Cfg.AAOServer = "https://discoveryprovider.staging.audius.co"
 	case "prod":
 		fallthrough
 	case "production":
@@ -123,7 +120,6 @@ func init() {
 		Cfg.Rewards = core_config.MakeRewards(core_config.ProdClaimAuthorities, core_config.ProdRewardExtensions)
 		Cfg.AudiusdURL = "creatornode.audius.co"
 		Cfg.ChainId = "audius-mainnet-alpha-beta"
-		Cfg.AAOServer = "https://discoveryprovider.audius.co"
 	default:
 		log.Fatalf("Unknown environment: %s", env)
 	}
