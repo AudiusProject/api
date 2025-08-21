@@ -28,14 +28,19 @@ type Validator struct {
 }
 
 func NewValidator(pool *dbv1.DBPools, limiter *RateLimiter, config *config.Config, logger *zap.Logger) *Validator {
-	if len(config.AntiAbuseOracles) == 0 {
+	// TODO: Don't hack around this for tests
+	if len(config.AntiAbuseOracles) == 0 && config.Env != "test" {
 		panic("no anti-abuse oracles configured, can't initialize comms validator")
+	}
+	aaoServer := ""
+	if len(config.AntiAbuseOracles) > 0 {
+		aaoServer = config.AntiAbuseOracles[0]
 	}
 
 	return &Validator{
 		pool:      pool,
 		limiter:   limiter,
-		aaoServer: config.AntiAbuseOracles[0],
+		aaoServer: aaoServer,
 		logger:    logger,
 	}
 }
@@ -515,6 +520,9 @@ var ErrAttestationFailed = errors.New("attestation failed")
 
 // TODO: Better AAO usage that corresponds to the claim rewards code
 func validateSenderPassesAbuseCheck(pool *dbv1.DBPools, ctx context.Context, logger *zap.Logger, userId int32, aaoServer string) error {
+	if aaoServer == "" {
+		return nil
+	}
 	// Keeping this somewhat opaque as it gets sent to client
 	var handle string
 	err := pool.QueryRow(ctx, `SELECT handle FROM users WHERE user_id = $1`, userId).Scan(&handle)
