@@ -1,6 +1,7 @@
 package api
 
 import (
+	"bytes"
 	"context"
 	"encoding/json"
 	"fmt"
@@ -29,9 +30,11 @@ func emptyTestApp(t *testing.T) *ApiServer {
 	pool := database.CreateTestDatabase(t, "test_api")
 
 	app := NewApiServer(config.Config{
-		Env:       "test",
-		ReadDbUrl: pool.Config().ConnString(),
-		EsUrl:     "http://localhost:21401",
+		Env:           "test",
+		ReadDbUrl:     pool.Config().ConnString(),
+		WriteDbUrl:    pool.Config().ConnString(),
+		RunMigrations: false,
+		EsUrl:         "http://localhost:21401",
 		// Dummy key
 		DelegatePrivateKey: "0633fddb74e32b3cbc64382e405146319c11a1a52dc96598e557c5dbe2f31468",
 		SolanaConfig:       config.SolanaConfig{RpcProviders: []string{""}},
@@ -39,6 +42,9 @@ func emptyTestApp(t *testing.T) *ApiServer {
 
 	t.Cleanup(func() {
 		app.pool.Close()
+		if app.writePool != nil {
+			app.writePool.Close()
+		}
 	})
 
 	return app
@@ -213,6 +219,23 @@ func testGet(t *testing.T, app *ApiServer, path string, dest ...any) (int, []byt
 	}
 
 	return res.StatusCode, body
+}
+
+func testPost(t *testing.T, app *ApiServer, path string, body []byte, headers map[string]string, dest ...any) (int, []byte) {
+	req := httptest.NewRequest("POST", path, bytes.NewBuffer(body))
+	for k, v := range headers {
+		req.Header.Set(k, v)
+	}
+	res, err := app.Test(req, -1)
+	assert.NoError(t, err)
+	resBody, _ := io.ReadAll(res.Body)
+
+	if len(dest) > 0 {
+		err = json.Unmarshal(resBody, &dest[0])
+		assert.NoError(t, err)
+	}
+
+	return res.StatusCode, resBody
 }
 
 func jsonAssert(t *testing.T, body []byte, expectations map[string]any) bool {
