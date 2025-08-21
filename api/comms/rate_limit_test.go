@@ -14,6 +14,7 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
+// TODO: This has been skipped forever, fix it or remove it
 func TestRateLimit(t *testing.T) {
 	// todo: update for no-nats
 	t.Skip()
