@@ -12,6 +12,7 @@ import (
 	"time"
 
 	"bridgerton.audius.co/api/birdeye"
+	comms "bridgerton.audius.co/api/comms"
 	"bridgerton.audius.co/api/dbv1"
 	"bridgerton.audius.co/config"
 	"bridgerton.audius.co/esindexer"
@@ -163,6 +164,11 @@ func NewApiServer(config config.Config) *ApiServer {
 		metricsCollector = NewMetricsCollector(logger, writePool)
 	}
 
+	commsRpcProcessor, err := comms.NewProcessor(pool, writePool, &config, logger)
+	if err != nil {
+		panic(err)
+	}
+
 	app := &ApiServer{
 		App: fiber.New(fiber.Config{
 			JSONEncoder:    json.Marshal,
@@ -171,6 +177,7 @@ func NewApiServer(config config.Config) *ApiServer {
 			ReadBufferSize: 32_768,
 			UnescapePath:   true,
 		}),
+		commsRpcProcessor:     commsRpcProcessor,
 		env:                   config.Env,
 		skipAuthCheck:         skipAuthCheck,
 		pool:                  pool,
@@ -289,6 +296,7 @@ func NewApiServer(config config.Config) *ApiServer {
 		app.Use("/v1/full/tracks/best_new_releases", BalancerForward(config.PythonUpstreams))
 		app.Use("/v1/full/tracks/most_loved", BalancerForward(config.PythonUpstreams))
 		app.Use("/v1/full/tracks/remixables", BalancerForward(config.PythonUpstreams))
+		app.Use("/comms/chats/ws", BalancerForward(config.PythonUpstreams))
 	}
 
 	v1 := app.Group("/v1")
@@ -500,6 +508,8 @@ func NewApiServer(config config.Config) *ApiServer {
 
 	comms.Get("/blasts", app.getNewBlasts)
 
+	comms.Post("/mutate", app.mutateChat)
+
 	// Block confirmation
 	app.Get("/block_confirmation", app.BlockConfirmation)
 	app.Get("/block-confirmation", app.BlockConfirmation)
@@ -553,6 +563,7 @@ type BirdeyeClient interface {
 
 type ApiServer struct {
 	*fiber.App
+	commsRpcProcessor     *comms.RPCProcessor
 	pool                  *dbv1.DBPools
 	writePool             *pgxpool.Pool
 	queries               *dbv1.Queries

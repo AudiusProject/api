@@ -1,0 +1,378 @@
+package comms
+
+import (
+	"context"
+	"encoding/json"
+	"strings"
+	"sync"
+	"time"
+
+	"bridgerton.audius.co/api/dbv1"
+	"bridgerton.audius.co/config"
+	"bridgerton.audius.co/trashid"
+	"go.uber.org/zap"
+
+	"github.com/jackc/pgx/v5"
+	"github.com/jackc/pgx/v5/pgtype"
+	"github.com/jackc/pgx/v5/pgxpool"
+	"github.com/tidwall/gjson"
+)
+
+type RPCProcessor struct {
+	sync.Mutex
+	pool      *dbv1.DBPools
+	writePool *pgxpool.Pool
+	validator *Validator
+	logger    *zap.Logger
+}
+
+func NewProcessor(pool *dbv1.DBPools, writePool *pgxpool.Pool, config *config.Config, logger *zap.Logger) (*RPCProcessor, error) {
+
+	// set up validator + limiter
+	limiter, err := NewRateLimiter()
+	if err != nil {
+		return nil, err
+	}
+
+	validator := NewValidator(pool, limiter, config, logger)
+
+	proc := &RPCProcessor{
+		validator: validator,
+		pool:      pool,
+		writePool: writePool,
+		logger:    logger,
+	}
+
+	return proc, nil
+}
+
+func (proc *RPCProcessor) Validate(ctx context.Context, userId int32, rawRpc RawRPC) error {
+	return proc.validator.Validate(ctx, userId, rawRpc)
+}
+
+// Validates + applies a message
+func (proc *RPCProcessor) Apply(ctx context.Context, rpcLog *RpcLog) error {
+	logger := proc.logger.With(
+		zap.String("sig", rpcLog.Sig),
+	)
+	var err error
+
+	var exists int
+	proc.pool.QueryRow(ctx, `select count(*) from rpc_log where sig = $1`, rpcLog.Sig).Scan(&exists)
+	if exists == 1 {
+		logger.Debug("rpc already in log, skipping duplicate", zap.String("sig", rpcLog.Sig))
+		return nil
+	}
+
+	startTime := time.Now()
+	takeSplit := func() time.Duration {
+		split := time.Since(startTime)
+		startTime = time.Now()
+		return split
+	}
+
+	// validate signing wallet
+	wallet, err := recoverSigningWallet(rpcLog.Sig, rpcLog.Rpc)
+	if err != nil {
+		logger.Warn("unable to recover wallet, skipping")
+		return nil
+	}
+	logger.Debug("recovered wallet", zap.Duration("took", takeSplit()))
+
+	if wallet != rpcLog.FromWallet {
+		logger.Warn("recovered wallet no match", zap.String("recovered", wallet), zap.String("expected", rpcLog.FromWallet), zap.String("realeyd_by", rpcLog.RelayedBy))
+		return nil
+	}
+
+	// parse raw rpc
+	var rawRpc RawRPC
+	err = json.Unmarshal(rpcLog.Rpc, &rawRpc)
+	if err != nil {
+		logger.Info(err.Error())
+		return nil
+	}
+
+	// check for "internal" message, which are from the legacy implementation
+	if strings.HasPrefix(rawRpc.Method, "internal.") {
+		logger.Warn("recieved internal message, skipping")
+		return nil
+	}
+
+	// get ts
+	messageTs := rpcLog.RelayedAt
+
+	userId, err := proc.GetRPCCurrentUserID(ctx, rpcLog, &rawRpc)
+	if err != nil {
+		logger.Info("unable to get user ID")
+		return err // or nil?
+	}
+
+	// for debugging
+	chatId := gjson.GetBytes(rpcLog.Rpc, "params.chat_id").String()
+
+	logger = logger.With(
+		zap.String("wallet", wallet),
+		zap.Int32("userId", userId),
+		zap.String("relayed_by", rpcLog.RelayedBy),
+		zap.Time("relayed_at", rpcLog.RelayedAt),
+		zap.String("chat_id", chatId),
+		zap.String("sig", rpcLog.Sig),
+	)
+	logger.Debug("got user", zap.Duration("took", takeSplit()))
+
+	attemptApply := func() error {
+
+		// write to db
+		tx, err := proc.writePool.Begin(ctx)
+		if err != nil {
+			return err
+		}
+		defer tx.Rollback(ctx)
+
+		logger.Debug("begin tx", zap.Duration("took", takeSplit()), zap.String("sig", rpcLog.Sig))
+
+		count, err := insertRpcLogRow(tx, ctx, rpcLog)
+		if err != nil {
+			return err
+		}
+		if count == 0 {
+			// No rows were inserted because the sig (id) is already in rpc_log.
+			// Do not process redelivered messages that have already been processed.
+			logger.Info("rpc already in log, skipping duplicate", zap.String("sig", rpcLog.Sig))
+			return nil
+		}
+		logger.Debug("inserted RPC", zap.Duration("took", takeSplit()))
+
+		switch RPCMethod(rawRpc.Method) {
+		case RPCMethodChatCreate:
+			var params ChatCreateRPCParams
+			err = json.Unmarshal(rawRpc.Params, &params)
+			if err != nil {
+				return err
+			}
+			err = chatCreate(tx, ctx, userId, messageTs, params)
+			if err != nil {
+				return err
+			}
+		case RPCMethodChatDelete:
+			var params ChatDeleteRPCParams
+			err = json.Unmarshal(rawRpc.Params, &params)
+			if err != nil {
+				return err
+			}
+			err = chatDelete(tx, ctx, userId, params.ChatID, messageTs)
+			if err != nil {
+				return err
+			}
+		case RPCMethodChatMessage:
+			var params ChatMessageRPCParams
+			err = json.Unmarshal(rawRpc.Params, &params)
+			if err != nil {
+				return err
+			}
+			err = chatSendMessage(tx, ctx, userId, params.ChatID, params.MessageID, messageTs, params.Message)
+			if err != nil {
+				return err
+			}
+		case RPCMethodChatReact:
+			var params ChatReactRPCParams
+			err = json.Unmarshal(rawRpc.Params, &params)
+			if err != nil {
+				return err
+			}
+			err = chatReactMessage(tx, ctx, userId, params.ChatID, params.MessageID, params.Reaction, messageTs)
+			if err != nil {
+				return err
+			}
+
+		case RPCMethodChatRead:
+			var params ChatReadRPCParams
+			err = json.Unmarshal(rawRpc.Params, &params)
+			if err != nil {
+				return err
+			}
+
+			// do nothing if last active at >= message timestamp
+			var lastActive pgtype.Timestamp
+			const lastActiveAtQuery = `
+select last_active_at from chat_member where chat_id = $1 and user_id = $2`
+
+			err = tx.QueryRow(ctx, lastActiveAtQuery, params.ChatID, userId).Scan(&lastActive)
+			if err != nil {
+				return err
+			}
+
+			if !lastActive.Valid || messageTs.After(lastActive.Time) {
+				err = chatReadMessages(tx, ctx, userId, params.ChatID, messageTs)
+				if err != nil {
+					return err
+				}
+			}
+		case RPCMethodChatPermit:
+			var params ChatPermitRPCParams
+			err = json.Unmarshal(rawRpc.Params, &params)
+			if err != nil {
+				return err
+			}
+			err = chatSetPermissions(tx, ctx, userId, params.Permit, params.PermitList, params.Allow, messageTs)
+			if err != nil {
+				return err
+			}
+		case RPCMethodChatBlock:
+			var params ChatBlockRPCParams
+			err = json.Unmarshal(rawRpc.Params, &params)
+			if err != nil {
+				return err
+			}
+			blockeeUserId, err := trashid.DecodeHashId(params.UserID)
+			if err != nil {
+				return err
+			}
+			err = chatBlock(tx, ctx, userId, int32(blockeeUserId), messageTs)
+			if err != nil {
+				return err
+			}
+		case RPCMethodChatUnblock:
+			var params ChatUnblockRPCParams
+			err = json.Unmarshal(rawRpc.Params, &params)
+			if err != nil {
+				return err
+			}
+			unblockedUserId, err := trashid.DecodeHashId(params.UserID)
+			if err != nil {
+				return err
+			}
+			err = chatUnblock(tx, ctx, userId, int32(unblockedUserId), messageTs)
+			if err != nil {
+				return err
+			}
+
+		case RPCMethodChatBlast:
+			var params ChatBlastRPCParams
+			err = json.Unmarshal(rawRpc.Params, &params)
+			if err != nil {
+				return err
+			}
+
+			outgoingMessages, err := chatBlast(tx, ctx, userId, messageTs, params)
+			if err != nil {
+				return err
+			}
+			// Send chat message websocket event to all recipients who have existing chats
+			for _, outgoingMessage := range outgoingMessages {
+				_, err := json.Marshal(outgoingMessage.ChatMessageRPC)
+				if err != nil {
+					logger.Error("err: invalid json", zap.Error(err))
+				} else {
+					// TODO
+					// websocketNotify(json.RawMessage(j), userId, messageTs.Round(time.Microsecond))
+				}
+			}
+		default:
+			logger.Warn("no handler for ", zap.String("method", rawRpc.Method))
+		}
+
+		logger.Debug("called handler", zap.Duration("took", takeSplit()))
+
+		err = tx.Commit(ctx)
+		if err != nil {
+			return err
+		}
+		logger.Debug("commited", zap.Duration("took", takeSplit()))
+
+		// TODO
+		// send out websocket events fire + forget style
+		// websocketNotify(rpcLog.Rpc, userId, messageTs.Round(time.Microsecond))
+		logger.Debug("websocket push done", zap.Duration("took", takeSplit()))
+
+		return nil
+	}
+
+	err = attemptApply()
+	if err != nil {
+		logger.Warn("apply failed", zap.Error(err))
+	}
+	return err
+}
+
+func (proc *RPCProcessor) GetRPCCurrentUserID(ctx context.Context, rpcLog *RpcLog, rawRpc *RawRPC) (int32, error) {
+	walletAddress := rpcLog.FromWallet
+	encodedCurrentUserId := rawRpc.CurrentUserID
+
+	// attempt to read the (newly added) current_user_id field
+	if encodedCurrentUserId != "" {
+		if u, err := trashid.DecodeHashId(encodedCurrentUserId); err == nil && u > 0 {
+
+			const checkCurrentUserQuery = `
+			select count(*) > 0
+			from users
+			where is_current = true
+				and user_id = $1
+				and wallet = lower($2)
+				and handle IS NOT NULL
+				and is_available = TRUE
+				and is_deactivated = FALSE
+			`
+			// valid current_user_id + wallet combo?
+			// for now just check that the pair exists in the user table
+			// in the future this can check a "grants" table that a given operation is permitted
+			isValid := false
+			err := proc.pool.QueryRow(ctx, checkCurrentUserQuery, u, walletAddress).Scan(&isValid)
+			if err == nil && isValid {
+				return int32(u), nil
+			} else {
+				proc.logger.Warn("invalid current_user_id", zap.Error(err), zap.String("wallet", walletAddress), zap.String("encoded_user_id", encodedCurrentUserId), zap.Int("user_id", u))
+			}
+		}
+	}
+
+	const getUserIDFromWalletQuery = `
+		select user_id
+		from users
+		where is_current = TRUE
+		and handle IS NOT NULL
+		and is_available = TRUE
+		and is_deactivated = FALSE
+		and wallet = LOWER($1)
+		order by user_id asc
+		`
+	// fallback to looking up user_id using wallet alone
+	var userId int32
+	err := proc.pool.QueryRow(ctx, getUserIDFromWalletQuery, walletAddress).Scan(&userId)
+	return userId, err
+}
+
+func insertRpcLogRow(tx pgx.Tx, ctx context.Context, rpcLog *RpcLog) (int64, error) {
+	query := `
+		INSERT INTO rpc_log (relayed_by, relayed_at, applied_at, from_wallet, rpc, sig)
+		VALUES ($1, $2, $3, $4, $5, $6)
+		ON CONFLICT DO NOTHING
+		`
+	result, err := tx.Exec(ctx, query, rpcLog.RelayedBy, rpcLog.RelayedAt, time.Now(), rpcLog.FromWallet, rpcLog.Rpc, rpcLog.Sig)
+	if err != nil {
+		return 0, err
+	}
+	return result.RowsAffected(), nil
+}
+
+// func websocketNotify(rpcJson json.RawMessage, userId int32, timestamp time.Time) {
+// 	if chatId := gjson.GetBytes(rpcJson, "params.chat_id").String(); chatId != "" {
+
+// 		var userIds []int32
+// 		err := db.Conn.Select(&userIds, `select user_id from chat_member where chat_id = $1 and is_hidden = false`, chatId)
+// 		if err != nil {
+// 			logger.Warn("failed to load chat members for websocket push " + err.Error())
+// 			return
+// 		}
+
+// 		for _, receiverUserId := range userIds {
+// 			websocketPush(userId, receiverUserId, rpcJson, timestamp)
+// 		}
+// 	} else if gjson.GetBytes(rpcJson, "method").String() == "chat.blast" {
+// 		go func() {
+// 			// Add delay before broadcasting blast messages - see PAY-3573
+// 			time.Sleep(30 * time.Second)
+// 			websocketPushAll(userId, rpcJson, timestamp)
+// 		}()
+// 	}
+// }
