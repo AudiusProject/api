@@ -196,7 +196,7 @@ limit @limit::int
 				notif.Type != "comment_thread" &&
 				notif.Type != "comment_mention" &&
 				notif.Type != "comment_reaction" {
-				action, _ = sjson.SetBytes(action, "data.type", val.String())
+				action, _ = sjson.SetBytes(action, "data.type", strings.ToLower(val.String()))
 			}
 
 			// for playlist milestones: is_album: default to false
