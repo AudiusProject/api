@@ -12,7 +12,7 @@ import (
 
 func TestChatCreate(t *testing.T) {
 	// Create test database
-	pool := database.CreateTestDatabase(t, "test_api")
+	pool := database.CreateTestDatabase(t, "test_comms")
 	defer pool.Close()
 
 	ctx := context.Background()

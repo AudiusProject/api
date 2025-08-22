@@ -23,11 +23,11 @@ var (
 type Validator struct {
 	logger    *zap.Logger
 	pool      *dbv1.DBPools
-	limiter   *RateLimiter
+	rateLimit RateLimitConfig
 	aaoServer string
 }
 
-func NewValidator(pool *dbv1.DBPools, limiter *RateLimiter, config *config.Config, logger *zap.Logger) *Validator {
+func NewValidator(pool *dbv1.DBPools, rateLimit RateLimitConfig, config *config.Config, logger *zap.Logger) *Validator {
 	// TODO: Don't hack around this for tests
 	if len(config.AntiAbuseOracles) == 0 && config.Env != "test" {
 		panic("no anti-abuse oracles configured, can't initialize comms validator")
@@ -39,7 +39,7 @@ func NewValidator(pool *dbv1.DBPools, limiter *RateLimiter, config *config.Confi
 
 	return &Validator{
 		pool:      pool,
-		limiter:   limiter,
+		rateLimit: rateLimit,
 		aaoServer: aaoServer,
 		logger:    logger,
 	}
@@ -328,11 +328,10 @@ func (vtor *Validator) validateNewChatRateLimit(pool *dbv1.DBPools, ctx context.
 
 	// rate_limit_seconds
 
-	limiter := vtor.limiter
-	timeframe := limiter.Get(RateLimitTimeframeHours)
+	timeframe := vtor.rateLimit.TimeframeHours
 
 	// Max num of new chats permitted per timeframe
-	maxNumChats := limiter.Get(RateLimitMaxNumNewChats)
+	maxNumChats := vtor.rateLimit.MaxNumNewChats
 
 	cursor := vtor.calculateRateLimitCursor(timeframe)
 
@@ -364,6 +363,13 @@ func (vtor *Validator) validateNewChatRateLimit(pool *dbv1.DBPools, ctx context.
 func (vtor *Validator) validateNewMessageRateLimit(pool *dbv1.DBPools, ctx context.Context, userId int32, chatId string) error {
 	var err error
 
+	timeframe := vtor.rateLimit.TimeframeHours
+
+	// Max number of new messages permitted per timeframe
+	maxNumMessages1s := int64(vtor.rateLimit.MaxMessagesPerRecipient1s)
+	maxNumMessages10s := int64(vtor.rateLimit.MaxMessagesPerRecipient10s)
+	maxNumMessages60s := int64(vtor.rateLimit.MaxMessagesPerRecipient60s)
+
 	// BurstRateLimit
 	{
 		query := `
@@ -382,33 +388,30 @@ func (vtor *Validator) validateNewMessageRateLimit(pool *dbv1.DBPools, ctx conte
 		}
 
 		// 10 per second in last second
-		if s1 > 10 {
+		if s1 > maxNumMessages1s {
 			vtor.logger.Warn("message rate limit exceeded", zap.String("bucket", "1s"), zap.Int32("user_id", userId), zap.Int64("count", s1))
 			return ErrMessageRateLimitExceeded
 
 		}
 
 		// 7 per second for last 10 seconds
-		if s10 > 70 {
+		if s10 > maxNumMessages10s {
 			vtor.logger.Warn("message rate limit exceeded", zap.String("bucket", "10s"), zap.Int32("user_id", userId), zap.Int64("count", s10))
 			return ErrMessageRateLimitExceeded
 		}
 
 		// 5 per second for last 60 seconds
-		if s60 > 300 {
+		if s60 > maxNumMessages60s {
 			vtor.logger.Warn("message rate limit exceeded", zap.String("bucket", "60s"), zap.Int32("user_id", userId), zap.Int64("count", s60))
 			return ErrMessageRateLimitExceeded
 		}
 	}
 
-	limiter := vtor.limiter
-	timeframe := limiter.Get(RateLimitTimeframeHours)
-
 	// Max number of new messages permitted per timeframe
-	maxNumMessages := limiter.Get(RateLimitMaxNumMessages)
+	maxNumMessages := vtor.rateLimit.MaxNumMessages
 
 	// Max number of new messages permitted per recipient (chat) per timeframe
-	maxNumMessagesPerRecipient := limiter.Get(RateLimitMaxNumMessagesPerRecipient)
+	maxNumMessagesPerRecipient := vtor.rateLimit.MaxNumMessagesPerRecipient
 
 	// Cursor for rate limit timeframe
 	cursor := vtor.calculateRateLimitCursor(timeframe)

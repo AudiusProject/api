@@ -16,7 +16,7 @@ import (
 
 func TestChatDeletion(t *testing.T) {
 	// Create test database
-	pool := database.CreateTestDatabase(t, "test_api")
+	pool := database.CreateTestDatabase(t, "test_comms")
 	defer pool.Close()
 
 	ctx := context.Background()
@@ -43,7 +43,7 @@ func TestChatDeletion(t *testing.T) {
 		}
 	}
 
-	validator := CreateTestValidator(t, pool)
+	validator := CreateTestValidator(t, pool, DefaultRateLimitConfig, DefaultTestValidatorConfig)
 
 	{
 		// Test that user1Id can delete their chat (they are a member)

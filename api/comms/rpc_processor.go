@@ -27,13 +27,8 @@ type RPCProcessor struct {
 
 func NewProcessor(pool *dbv1.DBPools, writePool *pgxpool.Pool, config *config.Config, logger *zap.Logger) (*RPCProcessor, error) {
 
-	// set up validator + limiter
-	limiter, err := NewRateLimiter()
-	if err != nil {
-		return nil, err
-	}
-
-	validator := NewValidator(pool, limiter, config, logger)
+	// set up validator
+	validator := NewValidator(pool, DefaultRateLimitConfig, config, logger)
 
 	proc := &RPCProcessor{
 		validator: validator,

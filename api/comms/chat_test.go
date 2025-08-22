@@ -16,7 +16,7 @@ import (
 
 func TestChat(t *testing.T) {
 	// Create test database
-	pool := database.CreateTestDatabase(t, "test_api")
+	pool := database.CreateTestDatabase(t, "test_comms")
 	defer pool.Close()
 
 	ctx := context.Background()
@@ -29,7 +29,7 @@ func TestChat(t *testing.T) {
 
 	SetupChatWithMembers(t, pool, ctx, chatId, user1Id, user2Id, "test1", "test2")
 
-	validator := CreateTestValidator(t, pool)
+	validator := CreateTestValidator(t, pool, DefaultRateLimitConfig, DefaultTestValidatorConfig)
 
 	// validate user1Id and user2Id can both send messages in this chat
 	{

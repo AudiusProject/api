@@ -12,17 +12,13 @@ import (
 	"go.uber.org/zap"
 )
 
+var DefaultTestValidatorConfig = &config.Config{
+	Env:              "test",
+	AntiAbuseOracles: []string{}, // Empty for tests
+}
+
 // CreateTestValidator creates a validator instance for testing
-func CreateTestValidator(t *testing.T, pool *pgxpool.Pool) *Validator {
-	limiter, err := NewRateLimiter()
-	require.NoError(t, err)
-
-	// Create a minimal test config
-	testConfig := &config.Config{
-		Env:              "test",
-		AntiAbuseOracles: []string{}, // Empty for tests
-	}
-
+func CreateTestValidator(t *testing.T, pool *pgxpool.Pool, rateLimit RateLimitConfig, config *config.Config) *Validator {
 	// Create a test logger
 	logger := zap.NewNop()
 
@@ -32,7 +28,7 @@ func CreateTestValidator(t *testing.T, pool *pgxpool.Pool) *Validator {
 	}
 
 	// Create validator
-	return NewValidator(dbPools, limiter, testConfig, logger)
+	return NewValidator(dbPools, rateLimit, config, logger)
 }
 
 // SetupChatWithMembers creates a chat with the given members for testing

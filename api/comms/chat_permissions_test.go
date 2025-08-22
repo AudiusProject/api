@@ -15,7 +15,7 @@ import (
 
 func TestChatPermissions(t *testing.T) {
 	// Create test database
-	pool := database.CreateTestDatabase(t, "test_api")
+	pool := database.CreateTestDatabase(t, "test_comms")
 	defer pool.Close()
 
 	ctx := context.Background()
@@ -39,7 +39,7 @@ func TestChatPermissions(t *testing.T) {
 	require.NoError(t, err)
 
 	// Create validator for validation testing
-	validator := CreateTestValidator(t, pool)
+	validator := CreateTestValidator(t, pool, DefaultRateLimitConfig, DefaultTestValidatorConfig)
 
 	assertPermissionValidation := func(sender int32, receiver int32, errorExpected bool) {
 		assertChatCreateAllowed(t, ctx, validator, sender, receiver, !errorExpected)

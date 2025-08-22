@@ -16,13 +16,13 @@ import (
 
 func TestChatBlocking(t *testing.T) {
 	// Create test database
-	pool := database.CreateTestDatabase(t, "test_api")
+	pool := database.CreateTestDatabase(t, "test_comms")
 	defer pool.Close()
 
 	ctx := context.Background()
 
 	// Create validator for validation testing
-	validator := CreateTestValidator(t, pool)
+	validator := CreateTestValidator(t, pool, DefaultRateLimitConfig, DefaultTestValidatorConfig)
 
 	// reset tables under test
 	_, err := pool.Exec(ctx, "truncate table chat_blocked_users cascade")
