@@ -160,7 +160,7 @@ func NewApiServer(config config.Config) *ApiServer {
 
 	// Initialize metrics collector if writePool is available
 	var metricsCollector *MetricsCollector
-	if writePool != nil {
+	if writePool != nil && config.Env != "test" {
 		metricsCollector = NewMetricsCollector(logger, writePool)
 	}
 

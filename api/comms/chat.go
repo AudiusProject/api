@@ -4,12 +4,13 @@ import (
 	"context"
 	"time"
 
+	"bridgerton.audius.co/api/dbv1"
 	"bridgerton.audius.co/trashid"
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgtype"
 )
 
-func chatCreate(tx pgx.Tx, ctx context.Context, userId int32, ts time.Time, params ChatCreateRPCParams) error {
+func chatCreate(db dbv1.DBTX, ctx context.Context, userId int32, ts time.Time, params ChatCreateRPCParams) error {
 	var err error
 
 	// first find any blasts that should seed this chat ...
@@ -20,7 +21,7 @@ func chatCreate(tx pgx.Tx, ctx context.Context, userId int32, ts time.Time, para
 			return err
 		}
 
-		pending, err := getNewBlasts(tx, context.Background(), getNewBlastsParams{
+		pending, err := getNewBlasts(db, context.Background(), getNewBlastsParams{
 			UserID: int32(invitedUserId),
 			ChatID: params.ChatID,
 		})
@@ -34,7 +35,7 @@ func chatCreate(tx pgx.Tx, ctx context.Context, userId int32, ts time.Time, para
 	// in which case there will be two different chat secrets
 	// to deterministically resolve this, if there is a conflict
 	// we keep the chat with the earliest relayed_at (created_at) timestamp
-	_, err = tx.Exec(ctx, `
+	_, err = db.Exec(ctx, `
 		insert into chat
 			(chat_id, created_at, last_message_at)
 		values
@@ -55,7 +56,7 @@ func chatCreate(tx pgx.Tx, ctx context.Context, userId int32, ts time.Time, para
 
 		// similar to above... if there is a conflict when creating chat_member records
 		// keep the version with the earliest relayed_at (created_at) timestamp.
-		_, err = tx.Exec(ctx, `
+		_, err = db.Exec(ctx, `
 		insert into chat_member
 			(chat_id, invited_by_user_id, invite_code, user_id, created_at)
 		values
@@ -70,7 +71,7 @@ func chatCreate(tx pgx.Tx, ctx context.Context, userId int32, ts time.Time, para
 	}
 
 	for _, blast := range blasts {
-		_, err = tx.Exec(ctx, `
+		_, err = db.Exec(ctx, `
 		insert into chat_message
 			(message_id, chat_id, user_id, created_at, blast_id)
 		values
@@ -82,19 +83,19 @@ func chatCreate(tx pgx.Tx, ctx context.Context, userId int32, ts time.Time, para
 		}
 	}
 
-	err = chatUpdateLatestFields(tx, ctx, params.ChatID)
+	err = chatUpdateLatestFields(db, ctx, params.ChatID)
 
 	return err
 }
 
-func chatDelete(tx pgx.Tx, ctx context.Context, userId int32, chatId string, messageTimestamp time.Time) error {
-	_, err := tx.Exec(ctx, "update chat_member set cleared_history_at = $1, last_active_at = $1, unread_count = 0, is_hidden = true where chat_id = $2 and user_id = $3", messageTimestamp, chatId, userId)
+func chatDelete(db dbv1.DBTX, ctx context.Context, userId int32, chatId string, messageTimestamp time.Time) error {
+	_, err := db.Exec(ctx, "update chat_member set cleared_history_at = $1, last_active_at = $1, unread_count = 0, is_hidden = true where chat_id = $2 and user_id = $3", messageTimestamp, chatId, userId)
 	return err
 }
 
-func chatUpdateLatestFields(tx pgx.Tx, ctx context.Context, chatId string) error {
+func chatUpdateLatestFields(db dbv1.DBTX, ctx context.Context, chatId string) error {
 	// universal latest message thing
-	_, err := tx.Exec(ctx, `
+	_, err := db.Exec(ctx, `
 	with latest as (
 		select
 			m.chat_id,
@@ -124,7 +125,7 @@ func chatUpdateLatestFields(tx pgx.Tx, ctx context.Context, chatId string) error
 	// set chat_member.is_hidden to false
 	// if there are any non-blast messages, reactions,
 	// or any blasts from the other party after cleared_history_at
-	_, err = tx.Exec(ctx, `
+	_, err = db.Exec(ctx, `
 	UPDATE chat_member member
 	SET is_hidden = NOT EXISTS(
 
@@ -158,23 +159,23 @@ func chatUpdateLatestFields(tx pgx.Tx, ctx context.Context, chatId string) error
 	return err
 }
 
-func chatSendMessage(tx pgx.Tx, ctx context.Context, userId int32, chatId string, messageId string, messageTimestamp time.Time, ciphertext string) error {
+func chatSendMessage(db dbv1.DBTX, ctx context.Context, userId int32, chatId string, messageId string, messageTimestamp time.Time, ciphertext string) error {
 	var err error
 
-	_, err = tx.Exec(ctx, "insert into chat_message (message_id, chat_id, user_id, created_at, ciphertext) values ($1, $2, $3, $4, $5)",
+	_, err = db.Exec(ctx, "insert into chat_message (message_id, chat_id, user_id, created_at, ciphertext) values ($1, $2, $3, $4, $5)",
 		messageId, chatId, userId, messageTimestamp, ciphertext)
 	if err != nil {
 		return err
 	}
 
 	// update chat's info on last message
-	err = chatUpdateLatestFields(tx, ctx, chatId)
+	err = chatUpdateLatestFields(db, ctx, chatId)
 	if err != nil {
 		return err
 	}
 
 	// sending a message implicitly marks activity for sender...
-	err = chatReadMessages(tx, ctx, userId, chatId, messageTimestamp)
+	err = chatReadMessages(db, ctx, userId, chatId, messageTimestamp)
 	if err != nil {
 		return err
 	}
@@ -182,10 +183,10 @@ func chatSendMessage(tx pgx.Tx, ctx context.Context, userId int32, chatId string
 	return err
 }
 
-func chatReactMessage(tx pgx.Tx, ctx context.Context, userId int32, chatId string, messageId string, reaction *string, messageTimestamp time.Time) error {
+func chatReactMessage(db dbv1.DBTX, ctx context.Context, userId int32, chatId string, messageId string, reaction *string, messageTimestamp time.Time) error {
 	var err error
 	if reaction != nil {
-		_, err = tx.Exec(ctx, `
+		_, err = db.Exec(ctx, `
 		insert into chat_message_reactions
 			(user_id, message_id, reaction, created_at, updated_at)
 		values
@@ -194,19 +195,19 @@ func chatReactMessage(tx pgx.Tx, ctx context.Context, userId int32, chatId strin
 		do update set reaction = $3, updated_at = $4 where chat_message_reactions.updated_at < $4`,
 			userId, messageId, *reaction, messageTimestamp)
 	} else {
-		_, err = tx.Exec(ctx, "delete from chat_message_reactions where user_id = $1 and message_id = $2 and updated_at < $3", userId, messageId, messageTimestamp)
+		_, err = db.Exec(ctx, "delete from chat_message_reactions where user_id = $1 and message_id = $2 and updated_at < $3", userId, messageId, messageTimestamp)
 	}
 	if err != nil {
 		return err
 	}
 
 	// update chat's info on reaction
-	err = chatUpdateLatestFields(tx, ctx, chatId)
+	err = chatUpdateLatestFields(db, ctx, chatId)
 	return err
 }
 
-func chatReadMessages(tx pgx.Tx, ctx context.Context, userId int32, chatId string, readTimestamp time.Time) error {
-	_, err := tx.Exec(ctx, "update chat_member set unread_count = 0, last_active_at = $1 where chat_id = $2 and user_id = $3",
+func chatReadMessages(db dbv1.DBTX, ctx context.Context, userId int32, chatId string, readTimestamp time.Time) error {
+	_, err := db.Exec(ctx, "update chat_member set unread_count = 0, last_active_at = $1 where chat_id = $2 and user_id = $3",
 		readTimestamp, chatId, userId)
 	return err
 }
@@ -229,8 +230,8 @@ func isInPermitList(permit ChatPermission, permitList []ChatPermission) bool {
 	return false
 }
 
-func updatePermissions(tx pgx.Tx, ctx context.Context, userId int32, permit ChatPermission, permitAllowed bool, messageTimestamp time.Time) error {
-	_, err := tx.Exec(ctx, `
+func updatePermissions(db dbv1.DBTX, ctx context.Context, userId int32, permit ChatPermission, permitAllowed bool, messageTimestamp time.Time) error {
+	_, err := db.Exec(ctx, `
     insert into chat_permissions (user_id, permits, allowed, updated_at)
     values ($1, $2, $3, $4)
     on conflict (user_id, permits)
@@ -239,11 +240,11 @@ func updatePermissions(tx pgx.Tx, ctx context.Context, userId int32, permit Chat
 	return err
 }
 
-func chatSetPermissions(tx pgx.Tx, ctx context.Context, userId int32, permits ChatPermission, permitList []ChatPermission, allow *bool, messageTimestamp time.Time) error {
+func chatSetPermissions(db dbv1.DBTX, ctx context.Context, userId int32, permits ChatPermission, permitList []ChatPermission, allow *bool, messageTimestamp time.Time) error {
 
 	// if "all" or "none" or is singular permission style (allow == nil) delete any old rows
 	if allow == nil || permits == ChatPermissionAll || permits == ChatPermissionNone || isInPermitList(ChatPermissionAll, permitList) || isInPermitList(ChatPermissionNone, permitList) {
-		_, err := tx.Exec(ctx, `
+		_, err := db.Exec(ctx, `
 			delete from chat_permissions where user_id = $1 and updated_at < $2
 		`, userId, messageTimestamp)
 		if err != nil {
@@ -254,7 +255,7 @@ func chatSetPermissions(tx pgx.Tx, ctx context.Context, userId int32, permits Ch
 	// old: singular permission style
 	if allow == nil {
 		// insert
-		_, err := tx.Exec(ctx, `
+		_, err := db.Exec(ctx, `
 		insert into chat_permissions (user_id, permits, updated_at)
 		values ($1, $2, $3)
 		on conflict do nothing`, userId, permits, messageTimestamp)
@@ -263,17 +264,17 @@ func chatSetPermissions(tx pgx.Tx, ctx context.Context, userId int32, permits Ch
 
 	// Special case for "all" and "none" - no other rows should be inserted
 	if isInPermitList(ChatPermissionAll, permitList) {
-		err := updatePermissions(tx, ctx, userId, ChatPermissionAll, true, messageTimestamp)
+		err := updatePermissions(db, ctx, userId, ChatPermissionAll, true, messageTimestamp)
 		return err
 	} else if isInPermitList(ChatPermissionNone, permitList) {
-		err := updatePermissions(tx, ctx, userId, ChatPermissionNone, true, messageTimestamp)
+		err := updatePermissions(db, ctx, userId, ChatPermissionNone, true, messageTimestamp)
 		return err
 	}
 
 	// new: multiple (checkbox) permission style
 	for _, permit := range permissions {
 		permitAllowed := isInPermitList(permit, permitList)
-		err := updatePermissions(tx, ctx, userId, permit, permitAllowed, messageTimestamp)
+		err := updatePermissions(db, ctx, userId, permit, permitAllowed, messageTimestamp)
 		if err != nil {
 			return err
 		}
@@ -281,13 +282,13 @@ func chatSetPermissions(tx pgx.Tx, ctx context.Context, userId int32, permits Ch
 	return nil
 }
 
-func chatBlock(tx pgx.Tx, ctx context.Context, userId int32, blockeeUserId int32, messageTimestamp time.Time) error {
-	_, err := tx.Exec(ctx, "insert into chat_blocked_users (blocker_user_id, blockee_user_id, created_at) values ($1, $2, $3) on conflict do nothing", userId, blockeeUserId, messageTimestamp)
+func chatBlock(db dbv1.DBTX, ctx context.Context, userId int32, blockeeUserId int32, messageTimestamp time.Time) error {
+	_, err := db.Exec(ctx, "insert into chat_blocked_users (blocker_user_id, blockee_user_id, created_at) values ($1, $2, $3) on conflict do nothing", userId, blockeeUserId, messageTimestamp)
 	return err
 }
 
-func chatUnblock(tx pgx.Tx, ctx context.Context, userId int32, unblockedUserId int32, messageTimestamp time.Time) error {
-	_, err := tx.Exec(ctx, "delete from chat_blocked_users where blocker_user_id = $1 and blockee_user_id = $2 and created_at < $3", userId, unblockedUserId, messageTimestamp)
+func chatUnblock(db dbv1.DBTX, ctx context.Context, userId int32, unblockedUserId int32, messageTimestamp time.Time) error {
+	_, err := db.Exec(ctx, "delete from chat_blocked_users where blocker_user_id = $1 and blockee_user_id = $2 and created_at < $3", userId, unblockedUserId, messageTimestamp)
 	return err
 }
 
@@ -309,7 +310,7 @@ type getNewBlastsParams struct {
 }
 
 // Helper function to get new blasts as potential chat seeds for creating a chat
-func getNewBlasts(tx pgx.Tx, ctx context.Context, arg getNewBlastsParams) ([]blastRow, error) {
+func getNewBlasts(tx dbv1.DBTX, ctx context.Context, arg getNewBlastsParams) ([]blastRow, error) {
 
 	// this query is to find new blasts for the current user
 	// which don't already have a existing chat.
