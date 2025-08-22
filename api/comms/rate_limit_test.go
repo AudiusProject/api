@@ -44,10 +44,6 @@ func TestRateLimit(t *testing.T) {
 	// 	assert.NoError(t, err)
 	// }
 
-	tx, err := pool.Begin(ctx)
-	require.NoError(t, err)
-	defer tx.Rollback(ctx)
-
 	seededRand := rand.New(rand.NewSource(time.Now().UnixNano()))
 	user1Id := seededRand.Int31()
 	user2Id := seededRand.Int31()
@@ -63,13 +59,13 @@ func TestRateLimit(t *testing.T) {
 	// user1Id created a new chat with user2Id 48 hours ago
 	chatId1 := strconv.Itoa(seededRand.Int())
 	chatTs := time.Now().UTC().Add(-time.Hour * time.Duration(48))
-	_, err = tx.Exec(ctx, "insert into chat (chat_id, created_at, last_message_at) values ($1, $2, $2)", chatId1, chatTs)
+	_, err = pool.Exec(ctx, "insert into chat (chat_id, created_at, last_message_at) values ($1, $2, $2)", chatId1, chatTs)
 	require.NoError(t, err)
-	_, err = tx.Exec(ctx, "insert into chat_member (chat_id, invited_by_user_id, invite_code, user_id, created_at) values ($1, $2, $1, $2, $4), ($1, $2, $1, $3, $4)", chatId1, user1Id, user2Id, chatTs)
+	_, err = pool.Exec(ctx, "insert into chat_member (chat_id, invited_by_user_id, invite_code, user_id, created_at) values ($1, $2, $1, $2, $4), ($1, $2, $1, $3, $4)", chatId1, user1Id, user2Id, chatTs)
 	require.NoError(t, err)
 
 	// user1Id messaged user2Id 48 hours ago
-	err = chatSendMessage(tx, ctx, user1Id, chatId1, "1", chatTs, "Hello")
+	err = chatSendMessage(pool, ctx, user1Id, chatId1, "1", chatTs, "Hello")
 	require.NoError(t, err)
 
 	// user1Id messages user2Id twice now
@@ -79,15 +75,17 @@ func TestRateLimit(t *testing.T) {
 	}
 	err = validator.validateChatMessage(ctx, user1Id, messageRpc)
 	assert.NoError(t, err)
-	err = chatSendMessage(tx, ctx, user1Id, chatId1, "2", time.Now().UTC(), message)
+	err = chatSendMessage(pool, ctx, user1Id, chatId1, "2", time.Now().UTC(), message)
 	require.NoError(t, err)
+
 	message = "Hello today 2"
 	messageRpc = RawRPC{
 		Params: []byte(fmt.Sprintf(`{"chat_id": "%s", "message": "%s"}`, chatId1, message)),
 	}
 	err = validator.validateChatMessage(ctx, user1Id, messageRpc)
 	assert.NoError(t, err)
-	err = chatSendMessage(tx, ctx, user1Id, chatId1, "3", time.Now().UTC(), message)
+
+	err = chatSendMessage(pool, ctx, user1Id, chatId1, "3", time.Now().UTC(), message)
 	require.NoError(t, err)
 
 	// user1Id messages user2Id a 3rd time
@@ -106,7 +104,8 @@ func TestRateLimit(t *testing.T) {
 	}
 	err = validator.validateChatCreate(ctx, user1Id, createRpc)
 	assert.NoError(t, err)
-	SetupChatWithMembers(t, tx, ctx, chatId2, user1Id, user3Id, chatId2, chatId2)
+
+	SetupChatWithMembers(t, pool, ctx, chatId2, user1Id, user3Id, chatId2, chatId2)
 
 	// user1Id messages user3Id
 	// Still blocked by rate limiter (hit max # messages with user2Id in the past 24h)
@@ -118,13 +117,13 @@ func TestRateLimit(t *testing.T) {
 	assert.ErrorContains(t, err, "User has exceeded the maximum number of new messages")
 
 	// Remove message 3 from db so can test other rate limits
-	_, err = tx.Exec(ctx, "delete from chat_message where message_id = '3'")
+	_, err = pool.Exec(ctx, "delete from chat_message where message_id = '3'")
 	require.NoError(t, err)
 
 	// user1Id should be able to message user3Id now
 	err = validator.validateChatMessage(ctx, user1Id, messageRpc)
 	assert.NoError(t, err)
-	err = chatSendMessage(tx, ctx, user1Id, chatId2, "3", time.Now().UTC(), message)
+	err = chatSendMessage(pool, ctx, user1Id, chatId2, "3", time.Now().UTC(), message)
 	require.NoError(t, err)
 
 	// user1Id creates a new chat with user4Id (2 chats created in 24h)
@@ -134,7 +133,7 @@ func TestRateLimit(t *testing.T) {
 	}
 	err = validator.validateChatCreate(ctx, user1Id, createRpc)
 	assert.NoError(t, err)
-	SetupChatWithMembers(t, tx, ctx, chatId3, user1Id, user4Id, chatId3, chatId3)
+	SetupChatWithMembers(t, pool, ctx, chatId3, user1Id, user4Id, chatId3, chatId3)
 
 	// user1Id messages user4Id
 	message = "Hi user4Id again"
@@ -143,7 +142,7 @@ func TestRateLimit(t *testing.T) {
 	}
 	err = validator.validateChatMessage(ctx, user1Id, messageRpc)
 	assert.NoError(t, err)
-	err = chatSendMessage(tx, ctx, user1Id, chatId3, "4", time.Now().UTC(), message)
+	err = chatSendMessage(pool, ctx, user1Id, chatId3, "4", time.Now().UTC(), message)
 	require.NoError(t, err)
 
 	// user1Id messages user4Id again (4th message to anyone in 24h)
@@ -163,9 +162,6 @@ func TestRateLimit(t *testing.T) {
 	}
 	err = validator.validateChatCreate(ctx, user1Id, createRpc)
 	assert.ErrorContains(t, err, "An invited user has exceeded the maximum number of new chats")
-
-	err = tx.Commit(ctx)
-	assert.NoError(t, err)
 }
 
 func TestBurstRateLimit(t *testing.T) {
@@ -179,36 +175,20 @@ func TestBurstRateLimit(t *testing.T) {
 	_, err := pool.Exec(ctx, "truncate table chat cascade")
 	require.NoError(t, err)
 
-	tx, err := pool.Begin(ctx)
-	require.NoError(t, err)
-	defer tx.Rollback(ctx)
-
 	chatId := trashid.ChatID(1, 2) // Use deterministic chat ID
 	user1Id := int32(1)
 	user2Id := int32(2)
 
-	SetupChatWithMembers(t, tx, ctx, chatId, user1Id, user2Id, chatId, chatId)
-
-	// Commit the transaction so the validator can see the data
-	err = tx.Commit(ctx)
-	require.NoError(t, err)
+	SetupChatWithMembers(t, pool, ctx, chatId, user1Id, user2Id, chatId, chatId)
 
 	// Create validator for validation testing
 	validator := CreateTestValidator(t, pool)
 
 	// hit the 1 second limit... send a burst of messages
 	for i := 1; i < 16; i++ {
-		// Start a new transaction for each message
-		tx2, err := pool.Begin(ctx)
-		require.NoError(t, err)
-
 		message := fmt.Sprintf("burst %d", i)
-		err = chatSendMessage(tx2, ctx, user1Id, chatId, message, time.Now().UTC(), message)
+		err = chatSendMessage(pool, ctx, user1Id, chatId, message, time.Now().UTC(), message)
 		assert.NoError(t, err, "i is", i)
-
-		// Commit the message so the rate limiter can see it
-		err = tx2.Commit(ctx)
-		assert.NoError(t, err)
 
 		messageRpc := RawRPC{
 			Params: []byte(fmt.Sprintf(`{"chat_id": "%s", "message": "%s"}`, chatId, message)),
