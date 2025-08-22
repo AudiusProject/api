@@ -190,6 +190,15 @@ limit @limit::int
 		for idx, action := range notif.Actions {
 			action = trashid.HashifyJson(action)
 
+			// lowercase type field if not a comment notification
+			if val := gjson.GetBytes(action, "data.type"); val.Exists() &&
+				notif.Type != "comment" &&
+				notif.Type != "comment_thread" &&
+				notif.Type != "comment_mention" &&
+				notif.Type != "comment_reaction" {
+				action, _ = sjson.SetBytes(action, "data.type", val.String())
+			}
+
 			// for playlist milestones: is_album: default to false
 			if strings.HasPrefix(notif.GroupID, "milestone:PLAYLIST_") {
 				isAlbum := gjson.GetBytes(action, "data.is_album").Bool()
