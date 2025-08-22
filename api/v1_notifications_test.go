@@ -179,3 +179,31 @@ func TestV1Notifications_DeletedPlaylist(t *testing.T) {
 		"data.notifications.0.type": "milestone",
 	})
 }
+
+func TestV1Notifications_Comment(t *testing.T) {
+	app := emptyTestApp(t)
+
+	fixtures := database.FixtureMap{
+		"notification": []map[string]any{
+			{
+				"id":        1,
+				"specifier": "67576",
+				"group_id":  "comment:track:user_id:67576:comment_id:1",
+				"type":      "comment",
+				"user_ids":  []int{1},
+				"data":      []byte(`{"comment_id": 1, "type": "Track"}`),
+			},
+		},
+	}
+
+	database.Seed(app.pool.Replicas[0], fixtures)
+
+	status, body := testGet(t, app, "/v1/notifications/"+trashid.MustEncodeHashID(1))
+	assert.Equal(t, 200, status)
+
+	jsonAssert(t, body, map[string]any{
+		"data.notifications.#":                     1,
+		"data.notifications.0.type":                "comment",
+		"data.notifications.0.actions.0.data.type": "Track",
+	})
+}
