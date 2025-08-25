@@ -4,6 +4,7 @@ import (
 	"context"
 	_ "embed"
 	"fmt"
+	"net"
 	"net/http"
 	"os"
 	"os/signal"
@@ -682,7 +683,13 @@ func (as *ApiServer) Serve() {
 		as.logger.Sync()
 	}()
 
-	if err := as.Listen(":1323"); err != nil && err != http.ErrServerClosed {
+	// Bind to both ipv4 and ipv6
+	listener, err := net.Listen("tcp", "[::]:1323")
+	if err != nil {
+		as.logger.Fatal("Failed to create listener", zap.Error(err))
+	}
+
+	if err := as.Listener(listener); err != nil && err != http.ErrServerClosed {
 		as.logger.Fatal("Failed to start server", zap.Error(err))
 	}
 }
