@@ -424,7 +424,7 @@ func sendRewardClaimTransactions(
 
 		// Check to see if there's room for the evaluate instruction.
 		// If not, send the attestations in a separate transaction.
-		estimatedEvaluateInstructionSize := 205
+		estimatedEvaluateInstructionSize := 145
 		threshold := spl.MAX_TRANSACTION_SIZE - estimatedEvaluateInstructionSize
 		if len(partialTxBinary) > threshold {
 			sig, err := transactionSender.SendTransactionWithRetries(ctx, partialTx, rpc.CommitmentConfirmed, rpc.TransactionOpts{})
@@ -533,7 +533,8 @@ func claimReward(
 		antiAbuseOracle,
 		signature,
 		hasAntiAbuseOracleAttestation,
-		int(rewardManagerStateData.MinVotes),
+		// Fetch the remaining attestations needed to meet the min votes requirement
+		int(rewardManagerStateData.MinVotes)-len(existingValidatorOwners),
 	)
 	if err != nil {
 		return nil, err
