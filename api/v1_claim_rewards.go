@@ -424,6 +424,8 @@ func sendRewardClaimTransactions(
 
 		// Check to see if there's room for the evaluate instruction.
 		// If not, send the attestations in a separate transaction.
+		// Minimum 4 new accounts + instruction data containing
+		// amount, challengeId, specifier
 		estimatedEvaluateInstructionSize := 205
 		threshold := spl.MAX_TRANSACTION_SIZE - estimatedEvaluateInstructionSize
 		if len(partialTxBinary) > threshold {
@@ -533,7 +535,8 @@ func claimReward(
 		antiAbuseOracle,
 		signature,
 		hasAntiAbuseOracleAttestation,
-		int(rewardManagerStateData.MinVotes),
+		// Fetch the remaining attestations needed to meet the min votes requirement
+		int(rewardManagerStateData.MinVotes)-len(existingValidatorOwners),
 	)
 	if err != nil {
 		return nil, err
