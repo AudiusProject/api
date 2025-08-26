@@ -14,7 +14,6 @@ import (
 )
 
 func TestChatPermissions(t *testing.T) {
-	// Create test database
 	pool := database.CreateTestDatabase(t, "test_comms")
 	defer pool.Close()
 

@@ -38,7 +38,6 @@ func TestChatBlastFollowers(t *testing.T) {
 	t5 := time.Now().Add(time.Second * -50).UTC()
 	t6 := time.Now().Add(time.Second * -40).UTC()
 
-	// Create test database
 	pool := database.CreateTestDatabase(t, "test_comms")
 	defer pool.Close()
 	database.Seed(pool, database.FixtureMap{
