@@ -11,8 +11,7 @@ import (
 
 // Result struct to hold chat_id and to_user_id
 type ChatBlastResult struct {
-	ChatID   string `db:"chat_id"`
-	ToUserID int32  `db:"to_user_id"`
+	ChatID string `db:"chat_id"`
 }
 
 type OutgoingChatMessage struct {
@@ -80,11 +79,7 @@ func chatBlast(db dbv1.DBTX, ctx context.Context, userId int32, ts time.Time, pa
 	defer rows.Close()
 
 	// Scan the results into the results slice
-	results, err = pgx.CollectRows(rows, func(row pgx.CollectableRow) (ChatBlastResult, error) {
-		var result ChatBlastResult
-		err := row.Scan(&result.ChatID, &result.ToUserID)
-		return result, err
-	})
+	results, err = pgx.CollectRows(rows, pgx.RowToStructByName[ChatBlastResult])
 	if err != nil {
 		return nil, err
 	}

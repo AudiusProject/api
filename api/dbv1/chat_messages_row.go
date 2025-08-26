@@ -34,12 +34,19 @@ type JSONTime struct {
 type Reactions []ChatMessageReactionRow
 
 func (reactions *Reactions) Scan(value interface{}) error {
-	bytes, ok := value.([]byte)
-	if !ok {
-		return errors.New("type assertion to []byte failed")
+	if value == nil {
+		*reactions = nil
+		return nil
 	}
 
-	return json.Unmarshal(bytes, reactions)
+	switch v := value.(type) {
+	case []byte:
+		return json.Unmarshal(v, reactions)
+	case string:
+		return json.Unmarshal([]byte(v), reactions)
+	default:
+		return errors.New("type assertion failed: expected []byte or string for JSON scanning")
+	}
 }
 
 // Override JSONB timestamp unmarshaling since the postgres driver
