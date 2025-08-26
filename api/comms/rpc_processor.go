@@ -12,7 +12,6 @@ import (
 	"bridgerton.audius.co/trashid"
 	"go.uber.org/zap"
 
-	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgtype"
 	"github.com/jackc/pgx/v5/pgxpool"
 	"github.com/tidwall/gjson"
@@ -28,13 +27,8 @@ type RPCProcessor struct {
 
 func NewProcessor(pool *dbv1.DBPools, writePool *pgxpool.Pool, config *config.Config, logger *zap.Logger) (*RPCProcessor, error) {
 
-	// set up validator + limiter
-	limiter, err := NewRateLimiter()
-	if err != nil {
-		return nil, err
-	}
-
-	validator := NewValidator(pool, limiter, config, logger)
+	// set up validator
+	validator := NewValidator(pool, DefaultRateLimitConfig, config, logger)
 
 	proc := &RPCProcessor{
 		validator: validator,
@@ -342,13 +336,13 @@ func (proc *RPCProcessor) GetRPCCurrentUserID(ctx context.Context, rpcLog *RpcLo
 	return userId, err
 }
 
-func insertRpcLogRow(tx pgx.Tx, ctx context.Context, rpcLog *RpcLog) (int64, error) {
+func insertRpcLogRow(db dbv1.DBTX, ctx context.Context, rpcLog *RpcLog) (int64, error) {
 	query := `
 		INSERT INTO rpc_log (relayed_by, relayed_at, applied_at, from_wallet, rpc, sig)
 		VALUES ($1, $2, $3, $4, $5, $6)
 		ON CONFLICT DO NOTHING
 		`
-	result, err := tx.Exec(ctx, query, rpcLog.RelayedBy, rpcLog.RelayedAt, time.Now(), rpcLog.FromWallet, rpcLog.Rpc, rpcLog.Sig)
+	result, err := db.Exec(ctx, query, rpcLog.RelayedBy, rpcLog.RelayedAt, time.Now(), rpcLog.FromWallet, rpcLog.Rpc, rpcLog.Sig)
 	if err != nil {
 		return 0, err
 	}

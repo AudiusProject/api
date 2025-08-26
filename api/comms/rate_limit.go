@@ -1,30 +1,23 @@
 package comms
 
-import (
-	"sync"
-)
-
-func NewRateLimiter() (*RateLimiter, error) {
-
-	limiter := &RateLimiter{
-		limits: map[string]int{},
-	}
-
-	return limiter, nil
+// RateLimitConfig contains all rate limiting configuration
+type RateLimitConfig struct {
+	TimeframeHours             int
+	MaxNumMessages             int
+	MaxNumMessagesPerRecipient int
+	MaxNumNewChats             int
+	MaxMessagesPerRecipient1s  int
+	MaxMessagesPerRecipient10s int
+	MaxMessagesPerRecipient60s int
 }
 
-type RateLimiter struct {
-	sync.RWMutex
-	limits map[string]int
-}
-
-func (limiter *RateLimiter) Get(rule string) int {
-	limiter.RLock()
-	defer limiter.RUnlock()
-
-	if val := limiter.limits[rule]; val != 0 {
-		return val
-	}
-
-	return DefaultRateLimitRules[rule]
+// DefaultRateLimitConfig provides default rate limiting values
+var DefaultRateLimitConfig = RateLimitConfig{
+	TimeframeHours:             24,
+	MaxNumMessages:             2000,
+	MaxNumMessagesPerRecipient: 1000,
+	MaxNumNewChats:             100000,
+	MaxMessagesPerRecipient1s:  10,
+	MaxMessagesPerRecipient10s: 70,
+	MaxMessagesPerRecipient60s: 300,
 }

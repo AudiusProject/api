@@ -466,6 +466,11 @@ var (
 			"ciphertext": nil,
 			"blast_id":   nil,
 		},
+		"chat_ban": {
+			"user_id":    nil,
+			"is_banned":  false,
+			"updated_at": time.Now(),
+		},
 		"chat_blast": {
 			"blast_id":              nil,
 			"from_user_id":          nil,

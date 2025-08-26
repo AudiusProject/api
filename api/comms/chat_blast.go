@@ -4,6 +4,7 @@ import (
 	"context"
 	"time"
 
+	"bridgerton.audius.co/api/dbv1"
 	"bridgerton.audius.co/trashid"
 	"github.com/jackc/pgx/v5"
 )
@@ -18,7 +19,7 @@ type OutgoingChatMessage struct {
 	ChatMessageRPC ChatMessageRPC `json:"chat_message_rpc"`
 }
 
-func chatBlast(tx pgx.Tx, ctx context.Context, userId int32, ts time.Time, params ChatBlastRPCParams) ([]OutgoingChatMessage, error) {
+func chatBlast(db dbv1.DBTX, ctx context.Context, userId int32, ts time.Time, params ChatBlastRPCParams) ([]OutgoingChatMessage, error) {
 	var audienceContentID *int
 	if params.AudienceContentID != nil {
 		id, _ := trashid.DecodeHashId(*params.AudienceContentID)
@@ -26,7 +27,7 @@ func chatBlast(tx pgx.Tx, ctx context.Context, userId int32, ts time.Time, param
 	}
 
 	// insert params.Message into chat_blast table
-	_, err := tx.Exec(ctx, `
+	_, err := db.Exec(ctx, `
 		insert into chat_blast
 			(blast_id, from_user_id, audience, audience_content_type, audience_content_id, plaintext, created_at)
 		values
@@ -72,7 +73,7 @@ func chatBlast(tx pgx.Tx, ctx context.Context, userId int32, ts time.Time, param
 	SELECT chat_id FROM targ;
 	`
 
-	rows, err := tx.Query(ctx, fanOutSql, params.BlastID, ts)
+	rows, err := db.Query(ctx, fanOutSql, params.BlastID, ts)
 	if err != nil {
 		return nil, err
 	}
@@ -105,7 +106,7 @@ func chatBlast(tx pgx.Tx, ctx context.Context, userId int32, ts time.Time, param
 					Audience:    &params.Audience,
 				}}})
 
-		if err := chatUpdateLatestFields(tx, ctx, result.ChatID); err != nil {
+		if err := chatUpdateLatestFields(db, ctx, result.ChatID); err != nil {
 			return nil, err
 		}
 	}
