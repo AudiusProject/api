@@ -11,7 +11,6 @@ import (
 	"bridgerton.audius.co/database"
 	"bridgerton.audius.co/trashid"
 	"github.com/stretchr/testify/assert"
-	"github.com/stretchr/testify/require"
 )
 
 func TestChatBlocking(t *testing.T) {
@@ -23,12 +22,6 @@ func TestChatBlocking(t *testing.T) {
 	// Create validator for validation testing
 	validator := CreateTestValidator(t, pool, DefaultRateLimitConfig, DefaultTestValidatorConfig)
 
-	// reset tables under test
-	_, err := pool.Exec(ctx, "truncate table chat_blocked_users cascade")
-	require.NoError(t, err)
-	_, err = pool.Exec(ctx, "truncate table chat cascade")
-	require.NoError(t, err)
-
 	seededRand := rand.New(rand.NewSource(time.Now().UnixNano()))
 	user1Id := seededRand.Int31()
 	user2Id := seededRand.Int31()
@@ -36,7 +29,7 @@ func TestChatBlocking(t *testing.T) {
 	assertBlocked := func(blockerUserId int32, blockeeUserId int32, timestamp time.Time, expected int) {
 		row := pool.QueryRow(ctx, "select count(*) from chat_blocked_users where blocker_user_id = $1 and blockee_user_id = $2 and created_at = $3", blockerUserId, blockeeUserId, timestamp)
 		var count int
-		err = row.Scan(&count)
+		err := row.Scan(&count)
 		assert.NoError(t, err)
 		assert.Equal(t, expected, count)
 	}
@@ -50,7 +43,7 @@ func TestChatBlocking(t *testing.T) {
 			Params: []byte(fmt.Sprintf(`{"user_id": "%s"}`, encodedUserId)),
 		}
 
-		err = validator.validateChatBlock(user1Id, exampleRpc)
+		err := validator.validateChatBlock(user1Id, exampleRpc)
 		assert.NoError(t, err)
 	}
 

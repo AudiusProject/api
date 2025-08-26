@@ -24,18 +24,28 @@ func TestChatPermissions(t *testing.T) {
 	user2Id := seededRand.Int31()
 	user3Id := seededRand.Int31()
 
-	// Set up test data
-	// user 1 follows user 2
-	_, err := pool.Exec(ctx, "insert into follows (follower_user_id, followee_user_id, is_current, is_delete, created_at) values ($1, $2, true, false, now())", user1Id, user2Id)
-	require.NoError(t, err)
-	// user 3 has tipped user 1
-	_, err = pool.Exec(ctx, `
-	insert into user_tips
-		(slot, signature, sender_user_id, receiver_user_id, amount, created_at, updated_at)
-	values
-		(1, 'c', $1, $2, 100, now(), now())
-	`, user3Id, user1Id)
-	require.NoError(t, err)
+	database.Seed(pool, database.FixtureMap{
+		"users": {
+			{"user_id": user1Id, "wallet": "wallet1", "handle": "user1"},
+			{"user_id": user2Id, "wallet": "wallet2", "handle": "user2"},
+			{"user_id": user3Id, "wallet": "wallet3", "handle": "user3"},
+		},
+		"follows": {
+			{
+				"follower_user_id": user1Id,
+				"followee_user_id": user2Id,
+			},
+		},
+		"user_tips": {
+			{
+				"slot":             101,
+				"signature":        "c",
+				"amount":           100,
+				"sender_user_id":   user3Id,
+				"receiver_user_id": user1Id,
+			},
+		},
+	})
 
 	// Create validator for validation testing
 	validator := CreateTestValidator(t, pool, DefaultRateLimitConfig, DefaultTestValidatorConfig)

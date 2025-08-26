@@ -43,7 +43,7 @@ func TestChatBlastFollowers(t *testing.T) {
 	database.Seed(pool, database.FixtureMap{
 		"users": {
 			{"user_id": 68, "wallet": "wallet68", "handle": "user68"},
-			{"user_id": 69, "wallet": "wallet69", "handle": "user69"},
+			{"user_id": 1, "wallet": "wallet1", "handle": "user1"},
 			{"user_id": 100, "wallet": "wallet100", "handle": "user100"},
 			{"user_id": 101, "wallet": "wallet101", "handle": "user101"},
 			{"user_id": 102, "wallet": "wallet102", "handle": "user102"},
@@ -52,36 +52,36 @@ func TestChatBlastFollowers(t *testing.T) {
 		},
 		"follows": {{
 			"follower_user_id": 68,
-			"followee_user_id": 69,
+			"followee_user_id": 1,
 			"created_at":       t0,
 		}, {
-			"follower_user_id": 69,
+			"follower_user_id": 1,
 			"followee_user_id": 68,
 			"created_at":       t0,
 		},
 			{
 				"follower_user_id": 100,
-				"followee_user_id": 69,
+				"followee_user_id": 1,
 				"created_at":       t0,
 			},
 			{
 				"follower_user_id": 101,
-				"followee_user_id": 69,
+				"followee_user_id": 1,
 				"created_at":       t0,
 			},
 			{
 				"follower_user_id": 102,
-				"followee_user_id": 69,
+				"followee_user_id": 1,
 				"created_at":       t0,
 			},
 			{
 				"follower_user_id": 103,
-				"followee_user_id": 69,
+				"followee_user_id": 1,
 				"created_at":       t0,
 			},
 			{
 				"follower_user_id": 104,
-				"followee_user_id": 69,
+				"followee_user_id": 1,
 				"created_at":       t0,
 			},
 		},
@@ -94,9 +94,9 @@ func TestChatBlastFollowers(t *testing.T) {
 	var count = 0
 	var messages []chatMessageAndReactionsRow
 
-	// Blaster (user 69) closes inbox
+	// Blaster (user 1) closes inbox
 	// But recipients should still be able to upgrade.
-	err := chatSetPermissions(pool, ctx, 69, ChatPermissionNone, nil, nil, t0)
+	err := chatSetPermissions(pool, ctx, 1, ChatPermissionNone, nil, nil, t0)
 	assert.NoError(t, err)
 
 	// Other user (104) closes inbox
@@ -104,40 +104,40 @@ func TestChatBlastFollowers(t *testing.T) {
 	assert.NoError(t, err)
 
 	// ----------------- some threads already exist -------------
-	// user 100 starts a thread with 69 before first blast
-	chatId_100_69 := trashid.ChatID(100, 69)
-	chatId_69_103 := trashid.ChatID(69, 103)
+	// user 100 starts a thread with 1 before first blast
+	chatId_100_1 := trashid.ChatID(100, 1)
+	chatId_1_103 := trashid.ChatID(1, 103)
 	{
 		err := chatCreate(pool, ctx, 100, t1, ChatCreateRPCParams{
-			ChatID: chatId_100_69,
+			ChatID: chatId_100_1,
 			Invites: []PurpleInvite{
 				{UserID: trashid.MustEncodeHashID(100), InviteCode: "x"},
-				{UserID: trashid.MustEncodeHashID(69), InviteCode: "x"},
+				{UserID: trashid.MustEncodeHashID(1), InviteCode: "x"},
 			},
 		})
 		assert.NoError(t, err)
 
 		// send a message in chat
-		err = chatSendMessage(pool, ctx, 100, chatId_100_69, "pre1", t1, "100 here sending 69 a message")
+		err = chatSendMessage(pool, ctx, 100, chatId_100_1, "pre1", t1, "100 here sending 1 a message")
 		assert.NoError(t, err)
 
-		messages = mustGetMessagesAndReactions(t, pool, ctx, 100, chatId_100_69)
+		messages = mustGetMessagesAndReactions(t, pool, ctx, 100, chatId_100_1)
 		assert.Len(t, messages, 1)
 		assert.False(t, messages[0].IsPlaintext)
 
-		messages = mustGetMessagesAndReactions(t, pool, ctx, 69, chatId_100_69)
+		messages = mustGetMessagesAndReactions(t, pool, ctx, 1, chatId_100_1)
 		assert.Len(t, messages, 1)
 
 		ch, err := getUserChat(pool, ctx, chatMembershipParams{
-			UserID: 69,
-			ChatID: chatId_100_69,
+			UserID: 1,
+			ChatID: chatId_100_1,
 		})
 		assert.NoError(t, err)
 		assert.False(t, ch.LastMessageIsPlaintext)
 
-		// user 69 now has 1 (real) chats
+		// user 1 now has 1 (real) chats
 		chats, err := getUserChats(pool, ctx, userChatsParams{
-			UserID: 69,
+			UserID: 1,
 			Limit:  10,
 			Before: time.Now().Add(time.Hour * 2).UTC(),
 			After:  time.Now().Add(time.Hour * -2).UTC(),
@@ -146,21 +146,21 @@ func TestChatBlastFollowers(t *testing.T) {
 		assert.Len(t, chats, 1)
 	}
 
-	// user 69 starts empty thread with 103 before first blast
+	// user 1 starts empty thread with 103 before first blast
 	{
-		err := chatCreate(pool, ctx, 69, t1, ChatCreateRPCParams{
-			ChatID: chatId_69_103,
+		err := chatCreate(pool, ctx, 1, t1, ChatCreateRPCParams{
+			ChatID: chatId_1_103,
 			Invites: []PurpleInvite{
-				{UserID: trashid.MustEncodeHashID(69), InviteCode: "x"},
+				{UserID: trashid.MustEncodeHashID(1), InviteCode: "x"},
 				{UserID: trashid.MustEncodeHashID(103), InviteCode: "x"},
 			},
 		})
 		assert.NoError(t, err)
 
-		// user 69 still has 1 (real) chats
+		// user 1 still has 1 (real) chats
 		// because this is empty
 		chats, err := getUserChats(pool, ctx, userChatsParams{
-			UserID: 69,
+			UserID: 1,
 			Limit:  10,
 			Before: time.Now().Add(time.Hour * 2).UTC(),
 			After:  time.Now().Add(time.Hour * -2).UTC(),
@@ -170,9 +170,9 @@ func TestChatBlastFollowers(t *testing.T) {
 	}
 
 	// ----------------- a first blast ------------------------
-	chatId_101_69 := trashid.ChatID(101, 69)
+	chatId_101_1 := trashid.ChatID(101, 1)
 
-	outgoingMessages, err := chatBlast(pool, ctx, 69, t2, ChatBlastRPCParams{
+	outgoingMessages, err := chatBlast(pool, ctx, 1, t2, ChatBlastRPCParams{
 		BlastID:  "b1",
 		Audience: FollowerAudience,
 		Message:  "what up fam",
@@ -188,20 +188,20 @@ func TestChatBlastFollowers(t *testing.T) {
 	pool.QueryRow(ctx, `select count(*) from chat_blast`).Scan(&count)
 	assert.Equal(t, 1, count)
 
-	pool.QueryRow(ctx, `select count(*) from chat where chat_id = $1`, chatId_101_69).Scan(&count)
+	pool.QueryRow(ctx, `select count(*) from chat where chat_id = $1`, chatId_101_1).Scan(&count)
 	assert.Equal(t, 0, count)
 
-	pool.QueryRow(ctx, `select count(*) from chat_member where chat_id = $1`, chatId_101_69).Scan(&count)
+	pool.QueryRow(ctx, `select count(*) from chat_member where chat_id = $1`, chatId_101_1).Scan(&count)
 	assert.Equal(t, 0, count)
 
-	pool.QueryRow(ctx, `select count(*) from chat_message where chat_id = $1`, chatId_101_69).Scan(&count)
+	pool.QueryRow(ctx, `select count(*) from chat_message where chat_id = $1`, chatId_101_1).Scan(&count)
 	assert.Equal(t, 0, count)
 
-	// user 69 gets chat list...
+	// user 1 gets chat list...
 	{
-		// user 69 now has a (pre-existing) chat and a blast
+		// user 1 now has a (pre-existing) chat and a blast
 		chats, err := getUserChats(pool, ctx, userChatsParams{
-			UserID: 69,
+			UserID: 1,
 			Limit:  10,
 			Before: time.Now().Add(time.Hour * 2).UTC(),
 			After:  time.Now().Add(time.Hour * -2).UTC(),
@@ -215,7 +215,7 @@ func TestChatBlastFollowers(t *testing.T) {
 				blastCount++
 			}
 		}
-		assert.Equal(t, "D79jn:eYZmn", chats[1].ChatID)
+		assert.Equal(t, "7eP5n:eYZmn", chats[1].ChatID)
 		assert.Equal(t, 1, blastCount)
 	}
 
@@ -227,10 +227,10 @@ func TestChatBlastFollowers(t *testing.T) {
 		assert.NoError(t, err)
 		assert.Len(t, blasts, 0)
 
-		messages = mustGetMessagesAndReactions(t, pool, ctx, 100, chatId_100_69)
+		messages = mustGetMessagesAndReactions(t, pool, ctx, 100, chatId_100_1)
 		assert.Len(t, messages, 2)
 
-		messages = mustGetMessagesAndReactions(t, pool, ctx, 69, chatId_100_69)
+		messages = mustGetMessagesAndReactions(t, pool, ctx, 1, chatId_100_1)
 		assert.Len(t, messages, 2)
 	}
 
@@ -242,10 +242,10 @@ func TestChatBlastFollowers(t *testing.T) {
 		assert.NoError(t, err)
 		assert.Len(t, blasts, 0)
 
-		messages = mustGetMessagesAndReactions(t, pool, ctx, 103, chatId_69_103)
+		messages = mustGetMessagesAndReactions(t, pool, ctx, 103, chatId_1_103)
 		assert.Len(t, messages, 1)
 
-		messages = mustGetMessagesAndReactions(t, pool, ctx, 69, chatId_69_103)
+		messages = mustGetMessagesAndReactions(t, pool, ctx, 1, chatId_1_103)
 		assert.Len(t, messages, 1)
 	}
 
@@ -269,7 +269,7 @@ func TestChatBlastFollowers(t *testing.T) {
 
 	// user 999 does not
 	{
-		assertChatCreateAllowed(t, ctx, validator, 999, 69, false)
+		assertChatCreateAllowed(t, ctx, validator, 999, 1, false)
 
 		blasts, err := getNewBlasts(pool, ctx, getNewBlastsParams{
 			UserID: 999,
@@ -281,33 +281,33 @@ func TestChatBlastFollowers(t *testing.T) {
 	// user 101 upgrades it to a real DM
 	{
 
-		assertChatCreateAllowed(t, ctx, validator, 101, 69, true)
+		assertChatCreateAllowed(t, ctx, validator, 101, 1, true)
 
 		err = chatCreate(pool, ctx, 101, t3, ChatCreateRPCParams{
-			ChatID: chatId_101_69,
+			ChatID: chatId_101_1,
 			Invites: []PurpleInvite{
 				{UserID: trashid.MustEncodeHashID(101), InviteCode: "earlier"},
-				{UserID: trashid.MustEncodeHashID(69), InviteCode: "earlier"},
+				{UserID: trashid.MustEncodeHashID(1), InviteCode: "earlier"},
 			},
 		})
 		assert.NoError(t, err)
 
-		pool.QueryRow(ctx, `select count(*) from chat where chat_id = $1`, chatId_101_69).Scan(&count)
+		pool.QueryRow(ctx, `select count(*) from chat where chat_id = $1`, chatId_101_1).Scan(&count)
 		assert.Equal(t, 1, count)
 
-		pool.QueryRow(ctx, `select count(*) from chat_member where chat_id = $1`, chatId_101_69).Scan(&count)
+		pool.QueryRow(ctx, `select count(*) from chat_member where chat_id = $1`, chatId_101_1).Scan(&count)
 		assert.Equal(t, 2, count)
 
-		pool.QueryRow(ctx, `select count(*) from chat_member where is_hidden = false and chat_id = $1 and user_id = 101`, chatId_101_69).Scan(&count)
+		pool.QueryRow(ctx, `select count(*) from chat_member where is_hidden = false and chat_id = $1 and user_id = 101`, chatId_101_1).Scan(&count)
 		assert.Equal(t, 1, count)
 
-		pool.QueryRow(ctx, `select count(*) from chat_member where is_hidden = true and chat_id = $1 and user_id = 69`, chatId_101_69).Scan(&count)
+		pool.QueryRow(ctx, `select count(*) from chat_member where is_hidden = true and chat_id = $1 and user_id = 1`, chatId_101_1).Scan(&count)
 		assert.Equal(t, 1, count)
 
-		pool.QueryRow(ctx, `select count(*) from chat_message where chat_id = $1`, chatId_101_69).Scan(&count)
+		pool.QueryRow(ctx, `select count(*) from chat_message where chat_id = $1`, chatId_101_1).Scan(&count)
 		assert.Equal(t, 1, count)
 
-		messages = mustGetMessagesAndReactions(t, pool, ctx, 101, chatId_101_69)
+		messages = mustGetMessagesAndReactions(t, pool, ctx, 101, chatId_101_1)
 		assert.Len(t, messages, 1)
 	}
 
@@ -332,26 +332,26 @@ func TestChatBlastFollowers(t *testing.T) {
 		assert.Len(t, chats, 1)
 	}
 
-	// after upgrade... user 69 doesn't actually see the chat because it is hidden
+	// after upgrade... user 1 doesn't actually see the chat because it is hidden
 	{
 		chats, err := getUserChats(pool, ctx, userChatsParams{
-			UserID: 69,
+			UserID: 1,
 			Limit:  50,
 			Before: time.Now().Add(time.Hour * 12),
 			After:  time.Now().Add(time.Hour * -12),
 		})
 		assert.NoError(t, err)
 		for _, chat := range chats {
-			if chat.ChatID == chatId_101_69 {
-				assert.Fail(t, "chat id should be hidden from user 69", chatId_101_69)
+			if chat.ChatID == chatId_101_1 {
+				assert.Fail(t, "chat id should be hidden from user 1", chatId_101_1)
 			}
 		}
 	}
 
-	// artist view: user 69 can get this blast
+	// artist view: user 1 can get this blast
 	{
 		chat, err := getUserChat(pool, ctx, chatMembershipParams{
-			UserID: 69,
+			UserID: 1,
 			ChatID: string(FollowerAudience),
 		})
 		assert.NoError(t, err)
@@ -364,7 +364,7 @@ func TestChatBlastFollowers(t *testing.T) {
 	err = chatSetPermissions(pool, ctx, 104, ChatPermissionAll, nil, nil, t3)
 	assert.NoError(t, err)
 
-	outgoingMessages2, err := chatBlast(pool, ctx, 69, t4, ChatBlastRPCParams{
+	outgoingMessages2, err := chatBlast(pool, ctx, 1, t4, ChatBlastRPCParams{
 		BlastID:  "b2",
 		Audience: FollowerAudience,
 		Message:  "happy wed",
@@ -382,12 +382,12 @@ func TestChatBlastFollowers(t *testing.T) {
 
 	// user 101 above should have second blast added to the chat history...
 	{
-		chatId := trashid.ChatID(101, 69)
+		chatId := trashid.ChatID(101, 1)
 
 		pool.QueryRow(ctx, `select count(*) from chat_message where chat_id = $1`, chatId).Scan(&count)
 		assert.Equal(t, 2, count)
 
-		messages = mustGetMessagesAndReactions(t, pool, ctx, 69, chatId)
+		messages = mustGetMessagesAndReactions(t, pool, ctx, 1, chatId)
 		assert.Len(t, messages, 2)
 
 		assert.Equal(t, "happy wed", messages[0].Ciphertext)
@@ -397,7 +397,7 @@ func TestChatBlastFollowers(t *testing.T) {
 		assert.Greater(t, messages[0].CreatedAt, messages[1].CreatedAt)
 
 		ch, err := getUserChat(pool, ctx, chatMembershipParams{
-			UserID: 69,
+			UserID: 1,
 			ChatID: chatId,
 		})
 		assert.NoError(t, err)
@@ -410,7 +410,7 @@ func TestChatBlastFollowers(t *testing.T) {
 			chatReactMessage(pool, ctx, 101, chatId, messages[0].MessageID, &heart, t5)
 
 			// reaction shows up
-			messages = mustGetMessagesAndReactions(t, pool, ctx, 69, chatId)
+			messages = mustGetMessagesAndReactions(t, pool, ctx, 1, chatId)
 			assert.Equal(t, "heart", messages[0].Reactions[0].Reaction)
 		}
 
@@ -429,13 +429,13 @@ func TestChatBlastFollowers(t *testing.T) {
 
 	}
 
-	// user 101 replies... now user 69 should see the thread
+	// user 101 replies... now user 1 should see the thread
 	{
-		err = chatSendMessage(pool, ctx, 101, chatId_101_69, "respond_to_blast", t6, "101 responding to a blast from 69")
+		err = chatSendMessage(pool, ctx, 101, chatId_101_1, "respond_to_blast", t6, "101 responding to a blast from 1")
 		assert.NoError(t, err)
 
 		chats, err := getUserChats(pool, ctx, userChatsParams{
-			UserID: 69,
+			UserID: 1,
 			Limit:  50,
 			Before: time.Now().Add(time.Hour * 12),
 			After:  time.Now().Add(time.Hour * -12),
@@ -443,13 +443,13 @@ func TestChatBlastFollowers(t *testing.T) {
 		assert.NoError(t, err)
 		found := false
 		for _, chat := range chats {
-			if chat.ChatID == chatId_101_69 {
+			if chat.ChatID == chatId_101_1 {
 				found = true
 				break
 			}
 		}
 		if !found {
-			assert.Fail(t, "chat id should now be visible to user 69", chatId_101_69)
+			assert.Fail(t, "chat id should now be visible to user 1", chatId_101_1)
 		}
 	}
 
@@ -463,36 +463,36 @@ func TestChatBlastFollowers(t *testing.T) {
 		assert.Len(t, blasts, 1)
 
 		// 104 does upgrade
-		chatId_104_69 := trashid.ChatID(104, 69)
+		chatId_104_1 := trashid.ChatID(104, 1)
 
 		err = chatCreate(pool, ctx, 104, t6, ChatCreateRPCParams{
-			ChatID: chatId_104_69,
+			ChatID: chatId_104_1,
 			Invites: []PurpleInvite{
 				{UserID: trashid.MustEncodeHashID(104), InviteCode: "earlier"},
-				{UserID: trashid.MustEncodeHashID(69), InviteCode: "earlier"},
+				{UserID: trashid.MustEncodeHashID(1), InviteCode: "earlier"},
 			},
 		})
 		assert.NoError(t, err)
 
 		// 104 convo seeded with 1 message
 
-		messages := mustGetMessagesAndReactions(t, pool, ctx, 104, chatId_104_69)
+		messages := mustGetMessagesAndReactions(t, pool, ctx, 104, chatId_104_1)
 		assert.Len(t, messages, 1)
-		messages = mustGetMessagesAndReactions(t, pool, ctx, 69, chatId_104_69)
+		messages = mustGetMessagesAndReactions(t, pool, ctx, 1, chatId_104_1)
 		assert.Len(t, messages, 1)
 	}
 
 	// ------ sender can get blasts in a given thread ----------
 	{
 		chat, err := getUserChat(pool, ctx, chatMembershipParams{
-			UserID: 69,
+			UserID: 1,
 			ChatID: string(FollowerAudience),
 		})
 		assert.NoError(t, err)
 		assert.Equal(t, string(FollowerAudience), chat.ChatID)
 
 		messages, err := getChatMessagesAndReactions(pool, ctx, chatMessagesAndReactionsParams{
-			UserID:  69,
+			UserID:  1,
 			ChatID:  "follower_audience",
 			IsBlast: true,
 			Before:  time.Now().Add(time.Hour * 2).UTC(),
@@ -505,12 +505,12 @@ func TestChatBlastFollowers(t *testing.T) {
 
 	// ------- bi-directional blasting works with upgrade --------
 
-	// 69 re-opens inbox
-	err = chatSetPermissions(pool, ctx, 69, ChatPermissionAll, nil, nil, t1)
+	// 1 re-opens inbox
+	err = chatSetPermissions(pool, ctx, 1, ChatPermissionAll, nil, nil, t1)
 	assert.NoError(t, err)
 
 	// 68 sends a blast
-	chatId_68_69 := trashid.ChatID(68, 69)
+	chatId_68_1 := trashid.ChatID(68, 1)
 
 	_, err = chatBlast(pool, ctx, 68, t4, ChatBlastRPCParams{
 		BlastID:  "blast_from_68",
@@ -520,24 +520,24 @@ func TestChatBlastFollowers(t *testing.T) {
 	assert.NoError(t, err)
 
 	// one side does upgrade
-	err = chatCreate(pool, ctx, 69, t5, ChatCreateRPCParams{
-		ChatID: chatId_68_69,
+	err = chatCreate(pool, ctx, 1, t5, ChatCreateRPCParams{
+		ChatID: chatId_68_1,
 		Invites: []PurpleInvite{
 			{UserID: trashid.MustEncodeHashID(68), InviteCode: "earlier"},
-			{UserID: trashid.MustEncodeHashID(69), InviteCode: "earlier"},
+			{UserID: trashid.MustEncodeHashID(1), InviteCode: "earlier"},
 		},
 	})
 	assert.NoError(t, err)
 
 	// both parties should have 3 messages message
 	{
-		messages := mustGetMessagesAndReactions(t, pool, ctx, 68, chatId_68_69)
+		messages := mustGetMessagesAndReactions(t, pool, ctx, 68, chatId_68_1)
 		assert.Len(t, messages, 3)
 	}
 
 	// both parties should have 3 messages message
 	{
-		messages := mustGetMessagesAndReactions(t, pool, ctx, 69, chatId_68_69)
+		messages := mustGetMessagesAndReactions(t, pool, ctx, 1, chatId_68_1)
 		assert.Len(t, messages, 3)
 	}
 }
@@ -547,13 +547,13 @@ func TestChatBlastTippers(t *testing.T) {
 	defer pool.Close()
 	database.Seed(pool, database.FixtureMap{
 		"users": {
-			{"user_id": 69, "wallet": "wallet69", "handle": "user69"},
+			{"user_id": 1, "wallet": "wallet1", "handle": "user1"},
 			{"user_id": 201, "wallet": "wallet201", "handle": "user201"},
 		},
 		"user_tips": {
 			{
 				"sender_user_id":   201,
-				"receiver_user_id": 69,
+				"receiver_user_id": 1,
 				"amount":           1000,
 				"slot":             101,
 				"signature":        "tip_sig_123",
@@ -563,8 +563,8 @@ func TestChatBlastTippers(t *testing.T) {
 
 	ctx := context.Background()
 
-	// 69 sends blast to supporters
-	tipperOutgoing, err := chatBlast(pool, ctx, 69, time.Now().UTC(), ChatBlastRPCParams{
+	// 1 sends blast to supporters
+	tipperOutgoing, err := chatBlast(pool, ctx, 1, time.Now().UTC(), ChatBlastRPCParams{
 		BlastID:  "blast_tippers_1",
 		Audience: TipperAudience,
 		Message:  "thanks for your support",
@@ -586,12 +586,12 @@ func TestChatBlastTippers(t *testing.T) {
 		assert.Len(t, pending, 1)
 	}
 
-	// 69 upgrades
-	chatId_69_201 := trashid.ChatID(69, 201)
+	// 1 upgrades
+	chatId_1_201 := trashid.ChatID(1, 201)
 	err = chatCreate(pool, ctx, 101, time.Now().UTC(), ChatCreateRPCParams{
-		ChatID: chatId_69_201,
+		ChatID: chatId_1_201,
 		Invites: []PurpleInvite{
-			{UserID: trashid.MustEncodeHashID(69), InviteCode: "earlier"},
+			{UserID: trashid.MustEncodeHashID(1), InviteCode: "earlier"},
 			{UserID: trashid.MustEncodeHashID(201), InviteCode: "earlier"},
 		},
 	})
@@ -599,11 +599,11 @@ func TestChatBlastTippers(t *testing.T) {
 
 	// both users have 1 message
 	{
-		messages := mustGetMessagesAndReactions(t, pool, ctx, 69, chatId_69_201)
+		messages := mustGetMessagesAndReactions(t, pool, ctx, 1, chatId_1_201)
 		assert.Len(t, messages, 1)
 	}
 	{
-		messages := mustGetMessagesAndReactions(t, pool, ctx, 201, chatId_69_201)
+		messages := mustGetMessagesAndReactions(t, pool, ctx, 201, chatId_1_201)
 		assert.Len(t, messages, 1)
 	}
 
@@ -618,7 +618,7 @@ func TestChatBlastTippers(t *testing.T) {
 
 	{
 		chat, err := getUserChat(pool, ctx, chatMembershipParams{
-			UserID: 69,
+			UserID: 1,
 			ChatID: string(TipperAudience),
 		})
 		assert.NoError(t, err)
@@ -632,13 +632,13 @@ func TestChatBlastRemixers(t *testing.T) {
 	defer pool.Close()
 	database.Seed(pool, database.FixtureMap{
 		"users": {
-			{"user_id": 69, "wallet": "wallet69", "handle": "user69"},
+			{"user_id": 1, "wallet": "wallet1", "handle": "user1"},
 			{"user_id": 202, "wallet": "wallet202", "handle": "user202"},
 		},
 		"tracks": {
 			{
 				"track_id": 1,
-				"owner_id": 69,
+				"owner_id": 1,
 			},
 			{
 				"track_id": 2,
@@ -655,8 +655,8 @@ func TestChatBlastRemixers(t *testing.T) {
 
 	ctx := context.Background()
 
-	// 69 sends blast to remixers
-	remixerOutgoing, err := chatBlast(pool, ctx, 69, time.Now().UTC(), ChatBlastRPCParams{
+	// 1 sends blast to remixers
+	remixerOutgoing, err := chatBlast(pool, ctx, 1, time.Now().UTC(), ChatBlastRPCParams{
 		BlastID:             "blast_remixers_1",
 		Audience:            RemixerAudience,
 		AudienceContentType: &trackContentType,
@@ -679,8 +679,8 @@ func TestChatBlastRemixers(t *testing.T) {
 		assert.Len(t, pending, 1)
 	}
 
-	// 69 sends another blast to all remixers
-	_, err = chatBlast(pool, ctx, 69, time.Now().UTC(), ChatBlastRPCParams{
+	// 1 sends another blast to all remixers
+	_, err = chatBlast(pool, ctx, 1, time.Now().UTC(), ChatBlastRPCParams{
 		BlastID:  "blast_remixers_2",
 		Audience: RemixerAudience,
 		Message:  "new stems coming soon",
@@ -696,27 +696,27 @@ func TestChatBlastRemixers(t *testing.T) {
 	}
 
 	// 202 upgrades... should have 2 messages
-	chatId_202_69 := trashid.ChatID(202, 69)
+	chatId_202_1 := trashid.ChatID(202, 1)
 	err = chatCreate(pool, ctx, 202, time.Now().UTC(), ChatCreateRPCParams{
-		ChatID: chatId_202_69,
+		ChatID: chatId_202_1,
 		Invites: []PurpleInvite{
 			{UserID: trashid.MustEncodeHashID(202), InviteCode: "earlier"},
-			{UserID: trashid.MustEncodeHashID(69), InviteCode: "earlier"},
+			{UserID: trashid.MustEncodeHashID(1), InviteCode: "earlier"},
 		},
 	})
 	assert.NoError(t, err)
 
 	// both users have 2 messages
 	{
-		messages := mustGetMessagesAndReactions(t, pool, ctx, 202, chatId_202_69)
+		messages := mustGetMessagesAndReactions(t, pool, ctx, 202, chatId_202_1)
 		assert.Len(t, messages, 2)
 	}
 	{
-		messages := mustGetMessagesAndReactions(t, pool, ctx, 69, chatId_202_69)
+		messages := mustGetMessagesAndReactions(t, pool, ctx, 1, chatId_202_1)
 		assert.Len(t, messages, 2)
 	}
 
-	_, err = chatBlast(pool, ctx, 69, time.Now().UTC(), ChatBlastRPCParams{
+	_, err = chatBlast(pool, ctx, 1, time.Now().UTC(), ChatBlastRPCParams{
 		BlastID:             "blast_remixers_3",
 		Audience:            RemixerAudience,
 		AudienceContentType: &trackContentType,
@@ -727,18 +727,18 @@ func TestChatBlastRemixers(t *testing.T) {
 
 	// both users have 3 messages
 	{
-		messages := mustGetMessagesAndReactions(t, pool, ctx, 202, chatId_202_69)
+		messages := mustGetMessagesAndReactions(t, pool, ctx, 202, chatId_202_1)
 		assert.Len(t, messages, 3)
 	}
 	{
-		messages := mustGetMessagesAndReactions(t, pool, ctx, 69, chatId_202_69)
+		messages := mustGetMessagesAndReactions(t, pool, ctx, 1, chatId_202_1)
 		assert.Len(t, messages, 3)
 	}
 
 	{
 		blastChatId := "remixer_audience:track:" + trashid.MustEncodeHashID(1)
 		chat, err := getUserChat(pool, ctx, chatMembershipParams{
-			UserID: 69,
+			UserID: 1,
 			ChatID: blastChatId,
 		})
 		assert.NoError(t, err)
@@ -747,7 +747,7 @@ func TestChatBlastRemixers(t *testing.T) {
 
 	{
 		chat, err := getUserChat(pool, ctx, chatMembershipParams{
-			UserID: 69,
+			UserID: 1,
 			ChatID: "remixer_audience",
 		})
 		assert.NoError(t, err)
@@ -761,19 +761,19 @@ func TestChatBlastPurchasers(t *testing.T) {
 	defer pool.Close()
 	database.Seed(pool, database.FixtureMap{
 		"users": {
-			{"user_id": 69, "wallet": "wallet69", "handle": "user69"},
+			{"user_id": 1, "wallet": "wallet1", "handle": "user1"},
 			{"user_id": 203, "wallet": "wallet203", "handle": "user203"},
 		},
 		"tracks": {
 			{
 				"track_id": 1,
-				"owner_id": 69,
+				"owner_id": 1,
 			},
 		},
 		"usdc_purchases": {
 			{
 				"buyer_user_id":  203,
-				"seller_user_id": 69,
+				"seller_user_id": 1,
 				"content_type":   "track",
 				"content_id":     1,
 				"amount":         5990000, // 5.99USDC in micro-units
@@ -785,7 +785,7 @@ func TestChatBlastPurchasers(t *testing.T) {
 
 	ctx := context.Background()
 
-	_, err := chatBlast(pool, ctx, 69, time.Now().UTC(), ChatBlastRPCParams{
+	_, err := chatBlast(pool, ctx, 1, time.Now().UTC(), ChatBlastRPCParams{
 		BlastID:  "blast_customers_1",
 		Audience: CustomerAudience,
 		Message:  "thank you for yr purchase",
@@ -802,7 +802,7 @@ func TestChatBlastPurchasers(t *testing.T) {
 
 	{
 		chat, err := getUserChat(pool, ctx, chatMembershipParams{
-			UserID: 69,
+			UserID: 1,
 			ChatID: "customer_audience",
 		})
 		assert.NoError(t, err)
@@ -812,7 +812,7 @@ func TestChatBlastPurchasers(t *testing.T) {
 	// no blasts for a specific track customer yet... so this is a not found error
 	{
 		_, err := getUserChat(pool, ctx, chatMembershipParams{
-			UserID: 69,
+			UserID: 1,
 			ChatID: "customer_audience:track:1",
 		})
 		assert.Error(t, err)
@@ -831,7 +831,7 @@ func TestChatBlastCoinHolders(t *testing.T) {
 		},
 		"artist_coins": {
 			{
-				"user_id":  69,
+				"user_id":  1,
 				"ticker":   "$ARTIST1",
 				"mint":     "mint123",
 				"decimals": 8,
@@ -880,8 +880,8 @@ func TestChatBlastCoinHolders(t *testing.T) {
 	`, time.Now().UTC())
 	assert.NoError(t, err)
 
-	// 69 sends blast to coin holders
-	_, err = chatBlast(pool, ctx, 69, time.Now().UTC(), ChatBlastRPCParams{
+	// 1 sends blast to coin holders
+	_, err = chatBlast(pool, ctx, 1, time.Now().UTC(), ChatBlastRPCParams{
 		BlastID:  "blast_coin_holders_1",
 		Audience: CoinHolderAudience,
 		Message:  "thanks for holding my coin",
@@ -916,24 +916,24 @@ func TestChatBlastCoinHolders(t *testing.T) {
 	}
 
 	// 204 upgrades to real DM
-	chatId_204_69 := trashid.ChatID(204, 69)
+	chatId_204_1 := trashid.ChatID(204, 1)
 	err = chatCreate(pool, ctx, 204, time.Now().UTC(), ChatCreateRPCParams{
-		ChatID: chatId_204_69,
+		ChatID: chatId_204_1,
 		Invites: []PurpleInvite{
 			{UserID: trashid.MustEncodeHashID(204), InviteCode: "earlier"},
-			{UserID: trashid.MustEncodeHashID(69), InviteCode: "earlier"},
+			{UserID: trashid.MustEncodeHashID(1), InviteCode: "earlier"},
 		},
 	})
 	assert.NoError(t, err)
 
 	// Both users should have 1 message
 	{
-		messages := mustGetMessagesAndReactions(t, pool, ctx, 204, chatId_204_69)
+		messages := mustGetMessagesAndReactions(t, pool, ctx, 204, chatId_204_1)
 		assert.Len(t, messages, 1)
 		assert.Equal(t, "thanks for holding my coin", messages[0].Ciphertext)
 	}
 	{
-		messages := mustGetMessagesAndReactions(t, pool, ctx, 69, chatId_204_69)
+		messages := mustGetMessagesAndReactions(t, pool, ctx, 1, chatId_204_1)
 		assert.Len(t, messages, 1)
 	}
 
@@ -966,7 +966,7 @@ func TestChatBlastCoinHolders(t *testing.T) {
 	}
 
 	// Send another blast - now 205 should be included
-	_, err = chatBlast(pool, ctx, 69, time.Now().UTC(), ChatBlastRPCParams{
+	_, err = chatBlast(pool, ctx, 1, time.Now().UTC(), ChatBlastRPCParams{
 		BlastID:  "blast_coin_holders_2",
 		Audience: CoinHolderAudience,
 		Message:  "welcome new holders",
@@ -984,7 +984,7 @@ func TestChatBlastCoinHolders(t *testing.T) {
 
 	// User 204 should have the new blast added to existing chat
 	{
-		messages := mustGetMessagesAndReactions(t, pool, ctx, 204, chatId_204_69)
+		messages := mustGetMessagesAndReactions(t, pool, ctx, 204, chatId_204_1)
 		assert.Len(t, messages, 2)
 		assert.Equal(t, "welcome new holders", messages[0].Ciphertext)
 		assert.Equal(t, "thanks for holding my coin", messages[1].Ciphertext)
@@ -993,7 +993,7 @@ func TestChatBlastCoinHolders(t *testing.T) {
 	// Test blast chat view for sender
 	{
 		chat, err := getUserChat(pool, ctx, chatMembershipParams{
-			UserID: 69,
+			UserID: 1,
 			ChatID: "coin_holder_audience",
 		})
 		assert.NoError(t, err)
