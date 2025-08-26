@@ -14,7 +14,7 @@ import (
 
 /**
 The queries in this file were migrated from protocol to support the existing tests without
-needing extensive modifications. They are not meant to be used in endpoints or productions logic
+needing extensive modifications. They are not meant to be used in endpoints or production logic.
 **/
 
 type chatMessagesAndReactionsParams struct {
