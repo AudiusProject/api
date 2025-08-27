@@ -107,6 +107,101 @@ func TestGetTrendingPlaylists(t *testing.T) {
 	})
 }
 
+func TestGetTrendingPlaylistsTrackLimit(t *testing.T) {
+	app := emptyTestApp(t)
+
+	fixtures := database.FixtureMap{
+		"playlists":                []map[string]any{},
+		"tracks":                   []map[string]any{},
+		"playlist_tracks":          []map[string]any{},
+		"playlist_trending_scores": []map[string]any{},
+		"users":                    []map[string]any{},
+	}
+	// Make sure we have enough unique owners
+	for _, userID := range []int{1, 2, 3, 4, 5, 6} {
+		fixtures["users"] = append(fixtures["users"], map[string]any{
+			"user_id":   userID,
+			"handle":    fmt.Sprintf("testuser%d", userID),
+			"handle_lc": fmt.Sprintf("testuser%d", userID),
+			"wallet":    fmt.Sprintf("0x%064x", userID),
+		})
+	}
+	// 5 tracks with unique owners
+	for _, trackID := range []int{1, 2, 3, 4, 5, 6} {
+		fixtures["tracks"] = append(fixtures["tracks"], map[string]any{
+			"track_id": trackID,
+			"owner_id": trackID,
+		})
+	}
+	fixtures["playlists"] = append(fixtures["playlists"], map[string]any{
+		"playlist_id":       1,
+		"playlist_owner_id": 1,
+		"is_current":        true,
+		"is_delete":         false,
+		"is_private":        false,
+		"playlist_contents": map[string]any{
+			"track_ids": []map[string]any{
+				{
+					"track":         1,
+					"time":          1,
+					"metadata_time": 1,
+				},
+				{
+					"track":         2,
+					"time":          2,
+					"metadata_time": 2,
+				},
+				{
+					"track":         3,
+					"time":          3,
+					"metadata_time": 3,
+				},
+				{
+					"track":         4,
+					"time":          4,
+					"metadata_time": 4,
+				},
+				{
+					"track":         5,
+					"time":          5,
+					"metadata_time": 5,
+				},
+				{
+					"track":         6,
+					"time":          6,
+					"metadata_time": 6,
+				},
+			},
+		},
+		"is_album": false,
+	})
+	fixtures["playlist_trending_scores"] = append(fixtures["playlist_trending_scores"], map[string]any{
+		"playlist_id": 1,
+		"type":        "PLAYLISTS",
+		"version":     "pnagD",
+		"time_range":  "week",
+		"score":       100,
+	})
+	for _, trackID := range []int{1, 2, 3, 4, 5, 6} {
+		fixtures["playlist_tracks"] = append(fixtures["playlist_tracks"], map[string]any{
+			"playlist_id": 1,
+			"track_id":    trackID,
+		})
+	}
+
+	database.Seed(app.pool.Replicas[0], fixtures)
+	status, body := testGet(t, app, "/v1/playlists/trending?limit=1", nil)
+	assert.Equal(t, 200, status)
+
+	jsonAssert(t, body, map[string]any{
+		"data.#": 1,
+	})
+	jsonAssert(t, body, map[string]any{
+		"data.0.tracks.#":    5,
+		"data.0.track_count": 6,
+	})
+}
+
 func TestGetTrendingPlaylists_Albums(t *testing.T) {
 	app := emptyTestApp(t)
 

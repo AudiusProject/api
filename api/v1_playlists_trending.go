@@ -112,6 +112,8 @@ func (app *ApiServer) v1PlaylistsTrending(c *fiber.Ctx) error {
 			MyID: myId,
 		},
 		OmitTracks: params.OmitTracks,
+		// Limit these to 5 items to prevent slow load times
+		TrackLimit: 5,
 	})
 	if err != nil {
 		return err

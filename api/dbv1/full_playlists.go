@@ -11,6 +11,7 @@ import (
 type FullPlaylistsParams struct {
 	GetPlaylistsParams
 	OmitTracks bool
+	TrackLimit int // 0 means use default (200), positive values set the limit
 }
 
 type FullPlaylist struct {
@@ -50,11 +51,15 @@ func (q *Queries) FullPlaylistsKeyed(ctx context.Context, arg FullPlaylistsParam
 		userIds[idx] = p.PlaylistOwnerID
 
 		if !arg.OmitTracks {
+			trackLimit := 200
+			if arg.TrackLimit != 0 {
+				trackLimit = arg.TrackLimit
+			}
 			// some playlists have over a thousand tracks which causes slow load times,
 			// so we limit the track hydration here to prevent bad experience.
 			trackStubs := p.PlaylistContents.TrackIDs
-			if len(trackStubs) > 200 {
-				trackStubs = trackStubs[:200]
+			if len(trackStubs) > trackLimit {
+				trackStubs = trackStubs[:trackLimit]
 			}
 			for _, t := range trackStubs {
 				trackIds = append(trackIds, int32(t.Track))
@@ -125,7 +130,7 @@ func (q *Queries) FullPlaylistsKeyed(ctx context.Context, arg FullPlaylistsParam
 			User:              user,
 			UserID:            user.ID,
 			Tracks:            tracks,
-			TrackCount:        int32(len(tracks)),
+			TrackCount:        int32(len(playlist.PlaylistContents.TrackIDs)),
 			FolloweeFavorites: fullFolloweeFavorites(playlist.FolloweeFavorites),
 			FolloweeReposts:   fullFolloweeReposts(playlist.FolloweeReposts),
 			PlaylistContents:  fullPlaylistContents,
