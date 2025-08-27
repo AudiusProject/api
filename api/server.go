@@ -511,6 +511,10 @@ func NewApiServer(config config.Config) *ApiServer {
 
 	comms.Post("/mutate", app.mutateChat)
 
+	// These are stubbed in case they are called and will log warnings
+	comms.Get("/rpc/bulk", app.getRpcBulkStub)
+	comms.Post("/rpc/receive", app.postRpcReceiveStub)
+
 	// Block confirmation
 	app.Get("/block_confirmation", app.BlockConfirmation)
 	app.Get("/block-confirmation", app.BlockConfirmation)
