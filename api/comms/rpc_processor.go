@@ -12,6 +12,7 @@ import (
 	"bridgerton.audius.co/trashid"
 	"go.uber.org/zap"
 
+	"github.com/gofiber/contrib/websocket"
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgconn"
 	"github.com/jackc/pgx/v5/pgtype"
@@ -481,4 +482,8 @@ func (proc *RPCProcessor) handleRpcLogInserted(ctx context.Context, notification
 		}()
 	}
 	return nil
+}
+
+func (proc *RPCProcessor) RegisterWebsocket(userId int32, conn *websocket.Conn) {
+	proc.websocketManager.RegisterWebsocket(userId, conn)
 }

@@ -169,7 +169,8 @@ func NewApiServer(config config.Config) *ApiServer {
 	if err != nil {
 		panic(err)
 	}
-	commsWebsocketManager := comms.NewCommsWebsocketManager(logger)
+	// TODO: probably a better name lol
+	commsRpcProcessor.StartListening()
 
 	app := &ApiServer{
 		App: fiber.New(fiber.Config{
@@ -180,7 +181,6 @@ func NewApiServer(config config.Config) *ApiServer {
 			UnescapePath:   true,
 		}),
 		commsRpcProcessor:     commsRpcProcessor,
-		commsWebsocketManager: commsWebsocketManager,
 		env:                   config.Env,
 		skipAuthCheck:         skipAuthCheck,
 		pool:                  pool,
@@ -572,7 +572,6 @@ type BirdeyeClient interface {
 type ApiServer struct {
 	*fiber.App
 	commsRpcProcessor     *comms.RPCProcessor
-	commsWebsocketManager *comms.CommsWebsocketManager
 	pool                  *dbv1.DBPools
 	writePool             *pgxpool.Pool
 	queries               *dbv1.Queries

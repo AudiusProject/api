@@ -13,6 +13,6 @@ func (app *ApiServer) getChatWebsocket(c *fiber.Ctx) error {
 	}
 	return websocket.New(func(conn *websocket.Conn) {
 		// Register the websocket connection
-		app.commsWebsocketManager.RegisterWebsocket(int32(userId), conn)
+		app.commsRpcProcessor.RegisterWebsocket(int32(userId), conn)
 	})(c)
 }
