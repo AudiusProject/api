@@ -12,29 +12,50 @@ import (
 	"bridgerton.audius.co/trashid"
 	"go.uber.org/zap"
 
+	"github.com/jackc/pgx/v5"
+	"github.com/jackc/pgx/v5/pgconn"
 	"github.com/jackc/pgx/v5/pgtype"
 	"github.com/jackc/pgx/v5/pgxpool"
+	"github.com/jackc/pgxlisten"
 	"github.com/tidwall/gjson"
 )
 
+var rpcLogChannel = "rpc_log_inserted"
+
+type rpcLogInsertedNotification struct {
+	Signature string `json:"sig"`
+}
+
 type RPCProcessor struct {
 	sync.Mutex
-	pool      *dbv1.DBPools
-	writePool *pgxpool.Pool
-	validator *Validator
-	logger    *zap.Logger
+	pool             *dbv1.DBPools
+	writePool        *pgxpool.Pool
+	validator        *Validator
+	logger           *zap.Logger
+	websocketManager *CommsWebsocketManager
+
+	// PostgreSQL LISTEN/NOTIFY fields
+	listener     *pgxlisten.Listener
+	listenCtx    context.Context
+	listenCancel context.CancelFunc
+	listenWg     sync.WaitGroup
 }
 
 func NewProcessor(pool *dbv1.DBPools, writePool *pgxpool.Pool, config *config.Config, logger *zap.Logger) (*RPCProcessor, error) {
-
+	ctx, cancel := context.WithCancel(context.Background())
 	// set up validator
 	validator := NewValidator(pool, DefaultRateLimitConfig, config, logger)
+	websocketManager := NewCommsWebsocketManager(logger)
 
 	proc := &RPCProcessor{
-		validator: validator,
-		pool:      pool,
-		writePool: writePool,
-		logger:    logger,
+		validator:        validator,
+		pool:             pool,
+		writePool:        writePool,
+		logger:           logger,
+		websocketManager: websocketManager,
+
+		listenCtx:    ctx,
+		listenCancel: cancel,
 	}
 
 	return proc, nil
@@ -349,24 +370,115 @@ func insertRpcLogRow(db dbv1.DBTX, ctx context.Context, rpcLog *RpcLog) (int64, 
 	return result.RowsAffected(), nil
 }
 
-// func websocketNotify(rpcJson json.RawMessage, userId int32, timestamp time.Time) {
-// 	if chatId := gjson.GetBytes(rpcJson, "params.chat_id").String(); chatId != "" {
+/** Watch for pg_notify() on new rpc_logs so we can send websocket events to the appropriate users */
+func (proc *RPCProcessor) StartListening() error {
+	if proc.listener != nil {
+		return nil // Already listening
+	}
 
-// 		var userIds []int32
-// 		err := db.Conn.Select(&userIds, `select user_id from chat_member where chat_id = $1 and is_hidden = false`, chatId)
-// 		if err != nil {
-// 			logger.Warn("failed to load chat members for websocket push " + err.Error())
-// 			return
-// 		}
+	proc.listener = &pgxlisten.Listener{
+		Connect: func(ctx context.Context) (*pgx.Conn, error) {
+			// Use the write pool for listening to ensure we get notifications from the primary database
+			conn, err := proc.writePool.Acquire(ctx)
+			if err != nil {
+				return nil, err
+			}
+			return conn.Conn(), nil
+		},
+		LogError: func(ctx context.Context, err error) {
+			proc.logger.Error("Comms RPC pg_notify listener error", zap.Error(err))
+		},
+		ReconnectDelay: 10 * time.Second,
+	}
 
-// 		for _, receiverUserId := range userIds {
-// 			websocketPush(userId, receiverUserId, rpcJson, timestamp)
-// 		}
-// 	} else if gjson.GetBytes(rpcJson, "method").String() == "chat.blast" {
-// 		go func() {
-// 			// Add delay before broadcasting blast messages - see PAY-3573
-// 			time.Sleep(30 * time.Second)
-// 			websocketPushAll(userId, rpcJson, timestamp)
-// 		}()
-// 	}
-// }
+	proc.listener.Handle(rpcLogChannel, pgxlisten.HandlerFunc(proc.handleRpcLogInserted))
+
+	// Start listening in a goroutine
+	proc.listenWg.Add(1)
+	go func() {
+		defer proc.listenWg.Done()
+		if err := proc.listener.Listen(proc.listenCtx); err != nil {
+			proc.logger.Error("Comms RPC pg_notify listener failed", zap.Error(err))
+		}
+	}()
+
+	proc.logger.Info("Started listening for comms rpc_log insertions")
+	return nil
+}
+
+// StopListening stops the PostgreSQL listener
+func (proc *RPCProcessor) StopListening() {
+	if proc.listenCancel != nil {
+		proc.listenCancel()
+	}
+
+	if proc.listener != nil {
+		// The listener will be stopped when the context is cancelled
+		proc.listener = nil
+	}
+
+	// Wait for the listener goroutine to finish
+	proc.listenWg.Wait()
+	proc.logger.Info("Stopped listening for comms rpc_log insertions")
+}
+
+// handleRpcLogInserted processes incoming PostgreSQL notifications
+func (proc *RPCProcessor) handleRpcLogInserted(ctx context.Context, notification *pgconn.Notification, conn *pgx.Conn) error {
+	proc.logger.Debug("Received PostgreSQL notification",
+		zap.String("channel", notification.Channel),
+		zap.String("payload", notification.Payload))
+
+	// Parse the notification payload
+	var payload rpcLogInsertedNotification
+	if err := json.Unmarshal([]byte(notification.Payload), &payload); err != nil {
+		proc.logger.Error("Failed to parse notification payload", zap.Error(err))
+		return err
+	}
+
+	var rpcLog RpcLog
+	err := proc.writePool.QueryRow(ctx, `select rpc from rpc_log where sig = $1`, payload.Signature).Scan(&rpcLog)
+	if err != nil {
+		proc.logger.Error("Failed to query rpc log", zap.Error(err))
+		return err
+	}
+
+	// parse raw rpc
+	var rawRpc RawRPC
+	err = json.Unmarshal(rpcLog.Rpc, &rawRpc)
+	if err != nil {
+		proc.logger.Error("failed to parse raw rpc " + err.Error())
+		return err
+	}
+
+	senderUserId, err := proc.GetRPCCurrentUserID(ctx, &rpcLog, &rawRpc)
+	if err != nil {
+		proc.logger.Error("failed to get current user id for websocket push " + err.Error())
+		return err
+	}
+
+	if chatId := gjson.GetBytes(rpcLog.Rpc, "params.chat_id").String(); chatId != "" {
+		userRows, err := proc.writePool.Query(ctx, `select user_id from chat_member where chat_id = $1 and is_hidden = false`, chatId)
+		if err != nil {
+			proc.logger.Error("failed to load chat members for websocket push " + err.Error())
+			// TODO: Will this mess anything up?
+			return err
+		}
+		userIds, err := pgx.CollectRows(userRows, pgx.RowTo[int32])
+		if err != nil {
+			proc.logger.Error("failed to collect user ids for websocket push " + err.Error())
+			// TODO: Will this mess anything up?
+			return err
+		}
+
+		for _, receiverUserId := range userIds {
+			proc.websocketManager.WebsocketPush(int32(senderUserId), receiverUserId, rpcLog.Rpc, rpcLog.AppliedAt)
+		}
+	} else if gjson.GetBytes(rpcLog.Rpc, "method").String() == "chat.blast" {
+		go func() {
+			// Add delay before broadcasting blast messages - see PAY-3573
+			time.Sleep(30 * time.Second)
+			proc.websocketManager.WebsocketPushAll(int32(senderUserId), rpcLog.Rpc, rpcLog.AppliedAt)
+		}()
+	}
+	return nil
+}

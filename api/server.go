@@ -169,6 +169,7 @@ func NewApiServer(config config.Config) *ApiServer {
 	if err != nil {
 		panic(err)
 	}
+	commsWebsocketManager := comms.NewCommsWebsocketManager(logger)
 
 	app := &ApiServer{
 		App: fiber.New(fiber.Config{
@@ -179,6 +180,7 @@ func NewApiServer(config config.Config) *ApiServer {
 			UnescapePath:   true,
 		}),
 		commsRpcProcessor:     commsRpcProcessor,
+		commsWebsocketManager: commsWebsocketManager,
 		env:                   config.Env,
 		skipAuthCheck:         skipAuthCheck,
 		pool:                  pool,
@@ -503,6 +505,7 @@ func NewApiServer(config config.Config) *ApiServer {
 	comms.Get("/chats/permissions", app.getChatPermissions)
 	comms.Get("/chats/blockers", app.getChatBlockers)
 	comms.Get("/chats/blockees", app.getChatBlockees)
+	comms.Get("/chats/ws", app.getChatWebsocket)
 
 	comms.Get("/chats/:chatId/messages", app.getChatMessages)
 	comms.Get("/chats/:chatId", app.getChat)
@@ -569,6 +572,7 @@ type BirdeyeClient interface {
 type ApiServer struct {
 	*fiber.App
 	commsRpcProcessor     *comms.RPCProcessor
+	commsWebsocketManager *comms.CommsWebsocketManager
 	pool                  *dbv1.DBPools
 	writePool             *pgxpool.Pool
 	queries               *dbv1.Queries
