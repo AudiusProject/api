@@ -197,7 +197,8 @@ func TestGetTrendingPlaylistsTrackLimit(t *testing.T) {
 		"data.#": 1,
 	})
 	jsonAssert(t, body, map[string]any{
-		"data.0.tracks.#": 5,
+		"data.0.tracks.#":    5,
+		"data.0.track_count": 6,
 	})
 }
 

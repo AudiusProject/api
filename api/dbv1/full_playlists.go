@@ -130,7 +130,7 @@ func (q *Queries) FullPlaylistsKeyed(ctx context.Context, arg FullPlaylistsParam
 			User:              user,
 			UserID:            user.ID,
 			Tracks:            tracks,
-			TrackCount:        int32(len(tracks)),
+			TrackCount:        int32(len(playlist.PlaylistContents.TrackIDs)),
 			FolloweeFavorites: fullFolloweeFavorites(playlist.FolloweeFavorites),
 			FolloweeReposts:   fullFolloweeReposts(playlist.FolloweeReposts),
 			PlaylistContents:  fullPlaylistContents,
