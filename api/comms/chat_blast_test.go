@@ -90,18 +90,21 @@ func TestChatBlastFollowers(t *testing.T) {
 
 	ctx := context.Background()
 
-	// TODO: Scoped
 	var count = 0
 	var messages []chatMessageAndReactionsRow
 
 	// Blaster (user 1) closes inbox
 	// But recipients should still be able to upgrade.
-	err := chatSetPermissions(pool, ctx, 1, ChatPermissionNone, nil, nil, t0)
-	assert.NoError(t, err)
+	{
+		err := chatSetPermissions(pool, ctx, 1, ChatPermissionNone, nil, nil, t0)
+		assert.NoError(t, err)
+	}
 
 	// Other user (104) closes inbox
-	err = chatSetPermissions(pool, ctx, 104, ChatPermissionNone, nil, nil, t0)
-	assert.NoError(t, err)
+	{
+		err := chatSetPermissions(pool, ctx, 104, ChatPermissionNone, nil, nil, t0)
+		assert.NoError(t, err)
+	}
 
 	// ----------------- some threads already exist -------------
 	// user 100 starts a thread with 1 before first blast
