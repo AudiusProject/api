@@ -5138,7 +5138,6 @@ components:
         - v24hUSD
         - vHistory24h
         - members
-        - membersChange24hPercent
       properties:
         address:
           type: string
@@ -5344,10 +5343,6 @@ components:
           type: integer
           description: The number of Audius users holding the coin
           example: 10000
-        membersChange24hPercent:
-          type: number
-          description: The percentage change in the number of members holding the coin over the last 24 hours
-          example: 0.25
     coin_insights_response:
       type: object
       properties:
