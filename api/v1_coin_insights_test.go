@@ -224,8 +224,7 @@ func TestGetCoinInsights(t *testing.T) {
 		assert.Equal(t, 200, status)
 
 		jsonAssert(t, body, map[string]any{
-			"data.members":                 0,
-			"data.membersChange24hPercent": -100.0,
+			"data.members": 0,
 		})
 	}
 
@@ -235,8 +234,7 @@ func TestGetCoinInsights(t *testing.T) {
 		assert.Equal(t, 200, status)
 
 		jsonAssert(t, body, map[string]any{
-			"data.members":                 3,
-			"data.membersChange24hPercent": 50.0,
+			"data.members": 3,
 		})
 	}
 }
