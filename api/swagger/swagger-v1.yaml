@@ -3464,6 +3464,11 @@ paths:
           type: array
           items:
             type: string
+      - name: query
+        in: query
+        description: Search by the coin name or ticker
+        schema:
+          type: string
       - name: offset
         in: query
         description: The number of items to skip. Useful for pagination (page number
