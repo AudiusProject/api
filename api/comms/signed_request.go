@@ -16,11 +16,11 @@ func ReadSignedPost(c *fiber.Ctx) ([]byte, string, error) {
 	payload := c.Body()
 
 	sigHex := c.Get(SigHeader)
-	wallet, err := recoverSigningWallet(sigHex, payload)
+	wallet, err := RecoverSigningWallet(sigHex, payload)
 	return payload, wallet, err
 }
 
-func recoverSigningWallet(signatureHex string, signedData []byte) (string, error) {
+func RecoverSigningWallet(signatureHex string, signedData []byte) (string, error) {
 	sig, err := base64.StdEncoding.DecodeString(signatureHex)
 	if err != nil {
 		err = errors.New("bad sig header: " + err.Error())

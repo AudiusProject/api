@@ -30,6 +30,7 @@ import (
 	"github.com/gagliardetto/solana-go/rpc"
 	"github.com/gofiber/contrib/fiberzap/v2"
 	"github.com/gofiber/contrib/swagger"
+	"github.com/gofiber/contrib/websocket"
 	"github.com/gofiber/fiber/v2"
 	"github.com/gofiber/fiber/v2/middleware/adaptor"
 	"github.com/gofiber/fiber/v2/middleware/cors"
@@ -299,7 +300,6 @@ func NewApiServer(config config.Config) *ApiServer {
 		app.Use("/v1/full/tracks/best_new_releases", BalancerForward(config.PythonUpstreams))
 		app.Use("/v1/full/tracks/most_loved", BalancerForward(config.PythonUpstreams))
 		app.Use("/v1/full/tracks/remixables", BalancerForward(config.PythonUpstreams))
-		app.Use("/comms/chats/ws", BalancerForward(config.PythonUpstreams))
 	}
 
 	v1 := app.Group("/v1")
@@ -505,7 +505,7 @@ func NewApiServer(config config.Config) *ApiServer {
 	comms.Get("/chats/permissions", app.getChatPermissions)
 	comms.Get("/chats/blockers", app.getChatBlockers)
 	comms.Get("/chats/blockees", app.getChatBlockees)
-	comms.Get("/chats/ws", app.getChatWebsocket)
+	comms.Get("/chats/ws", app.validateWebsocketMiddleware, websocket.New(app.getChatWebsocket))
 
 	comms.Get("/chats/:chatId/messages", app.getChatMessages)
 	comms.Get("/chats/:chatId", app.getChat)

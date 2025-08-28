@@ -18,7 +18,6 @@ type CommsWebsocketManager struct {
 }
 
 func NewCommsWebsocketManager(logger *zap.Logger) *CommsWebsocketManager {
-
 	return &CommsWebsocketManager{
 		websockets:     make(map[int32][]*websocket.Conn),
 		recentMessages: []*recentMessage{},

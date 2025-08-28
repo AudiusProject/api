@@ -88,7 +88,7 @@ func (proc *RPCProcessor) Apply(ctx context.Context, rpcLog *RpcLog) error {
 	}
 
 	// validate signing wallet
-	wallet, err := recoverSigningWallet(rpcLog.Sig, rpcLog.Rpc)
+	wallet, err := RecoverSigningWallet(rpcLog.Sig, rpcLog.Rpc)
 	if err != nil {
 		logger.Warn("unable to recover wallet, skipping")
 		return nil

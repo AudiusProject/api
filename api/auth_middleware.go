@@ -3,8 +3,11 @@ package api
 import (
 	"context"
 	"fmt"
+	"strconv"
 	"strings"
+	"time"
 
+	comms "bridgerton.audius.co/api/comms"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/crypto"
 	"github.com/gofiber/fiber/v2"
@@ -170,5 +173,86 @@ func (app *ApiServer) getUserIDFromWallet(ctx context.Context, wallet string) (i
 	}
 
 	app.resolveWalletCache.Set(key, userId)
+	return userId, nil
+}
+
+/*
+* Parses query string for a signed comms GET request and returns the userId
+associated with the signing wallet
+*/
+func (app *ApiServer) userIdForSignedCommsRequest(c *fiber.Ctx) (int, error) {
+	if c.Method() != "GET" {
+		return 0, fiber.NewError(fiber.StatusBadRequest, "readSignedGet: bad method: "+c.Method())
+	}
+
+	sigBase64 := c.Get(comms.SigHeader)
+
+	// for websocket request, read from query param instead of header
+	if querySig := c.Query("signature"); sigBase64 == "" && querySig != "" {
+		sigBase64 = querySig
+	}
+
+	// Check that timestamp is not too old
+	timestamp, err := strconv.ParseInt(c.Query("timestamp"), 0, 64)
+	if err != nil {
+		return 0, fiber.NewError(fiber.StatusBadRequest, "failed to parse timestamp: "+err.Error())
+	}
+
+	tsAge := time.Now().UnixMilli() - timestamp
+	if tsAge < 0 {
+		tsAge *= -1
+	}
+	if tsAge > comms.SignatureTimeToLiveMs {
+		return 0, fiber.NewError(fiber.StatusBadRequest, "timestamp not current")
+	}
+
+	// Strip out the app_name and api_key query parameters to get the true signature payload
+	// Get the current request URI and parse it
+	uri := c.Request().URI()
+	path := string(uri.Path())
+	query := string(uri.QueryString())
+
+	// Parse query parameters
+	queryParams := make(map[string]string)
+	if query != "" {
+		// Simple query string parsing
+		pairs := strings.Split(query, "&")
+		for _, pair := range pairs {
+			if idx := strings.Index(pair, "="); idx != -1 {
+				key := pair[:idx]
+				value := pair[idx+1:]
+				queryParams[key] = value
+			}
+		}
+	}
+
+	// Remove the parameters we want to exclude
+	delete(queryParams, "app_name")
+	delete(queryParams, "api_key")
+	delete(queryParams, "signature")
+
+	// Rebuild the query string
+	var newQueryParts []string
+	for key, value := range queryParams {
+		newQueryParts = append(newQueryParts, key+"="+value)
+	}
+
+	// Build the final URL string
+	urlStr := path
+	if len(newQueryParts) > 0 {
+		urlStr += "?" + strings.Join(newQueryParts, "&")
+	}
+
+	payload := []byte(urlStr)
+
+	wallet, err := comms.RecoverSigningWallet(sigBase64, payload)
+	if err != nil {
+		return 0, fiber.NewError(fiber.StatusBadRequest, "failed to recoverSigningWallet: "+err.Error())
+	}
+	userId, err := app.getUserIDFromWallet(c.Context(), wallet)
+	if err != nil {
+		return 0, err
+	}
+
 	return userId, nil
 }
