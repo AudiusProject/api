@@ -5048,11 +5048,16 @@ components:
     coin:
       type: object
       required:
+        - name
         - mint
         - decimals
         - owner_id
         - created_at
       properties:
+        name:
+          type: string
+          description: The coin name
+          example: "Bonk Inu"
         ticker:
           type: string
           description: The coin symbol
