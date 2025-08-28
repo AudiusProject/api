@@ -3464,6 +3464,11 @@ paths:
           type: array
           items:
             type: string
+      - name: query
+        in: query
+        description: Search by the coin name or ticker
+        schema:
+          type: string
       - name: offset
         in: query
         description: The number of items to skip. Useful for pagination (page number
@@ -5048,11 +5053,16 @@ components:
     coin:
       type: object
       required:
+        - name
         - mint
         - decimals
         - owner_id
         - created_at
       properties:
+        name:
+          type: string
+          description: The coin name
+          example: "Bonk Inu"
         ticker:
           type: string
           description: The coin symbol

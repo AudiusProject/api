@@ -1,0 +1,2 @@
+ALTER TABLE artist_coins
+    ADD COLUMN name TEXT NOT NULL DEFAULT '';
