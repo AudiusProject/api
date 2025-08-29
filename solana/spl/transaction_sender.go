@@ -140,8 +140,11 @@ func (ts *TransactionSender) AddPriorityFees(ctx context.Context, tx *solana.Tra
 	return nil
 }
 
-func (ts *TransactionSender) GetFeePayer() solana.Wallet {
-	return ts.feePayers[rand.IntN(len(ts.feePayers))]
+func (ts *TransactionSender) GetFeePayer() (*solana.Wallet, error) {
+	if len(ts.feePayers) == 0 {
+		return nil, errors.New("no fee payers available")
+	}
+	return &ts.feePayers[rand.IntN(len(ts.feePayers))], nil
 }
 
 func (ts *TransactionSender) SendTransactionWithRetries(ctx context.Context, txBuilder *solana.TransactionBuilder, commitment rpc.CommitmentType, opts rpc.TransactionOpts) (*solana.Signature, error) {

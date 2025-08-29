@@ -362,7 +362,10 @@ func sendRewardClaimTransactions(
 	// If partialTx is sent, remainderTx contains only the rest of the instructions
 	remainderTx := solana.NewTransactionBuilder()
 
-	feePayer := transactionSender.GetFeePayer()
+	feePayer, err := transactionSender.GetFeePayer()
+	if err != nil {
+		return nil, err
+	}
 	partialTx.SetFeePayer(feePayer.PublicKey())
 	remainderTx.SetFeePayer(feePayer.PublicKey())
 
