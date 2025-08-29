@@ -11,17 +11,17 @@ import (
 )
 
 const (
-	sendQueueSize      = 128 // bounded per-conn buffer; tune
+	sendQueueSize      = 128 // per-connection limit
 	pingInterval       = 30 * time.Second
 	readIdleTimeout    = 60 * time.Second
-	writeDeadline      = 5 * time.Second
+	writeDeadline      = 10 * time.Second // Timeout for pushing a message to a client
 	recentTTL          = 10 * time.Second
-	maxIncomingMsgSize = 1 << 20 // 1MB safety
+	maxIncomingMsgSize = 1 << 20 // 1MB limit to incoming messages
 )
 
 type CommsWebsocketManager struct {
 	mu             sync.RWMutex
-	clients        map[int32]map[*Client]struct{} // userId -> set of clients
+	clients        map[int32]map[*Client]struct{} // userId -> set of clients (could be connected from multiple devices)
 	recentMessages []*recentMessage
 	logger         *zap.Logger
 }
@@ -94,7 +94,6 @@ func (m *CommsWebsocketManager) RegisterWebsocket(userId int32, conn *websocket.
 }
 
 func (m *CommsWebsocketManager) removeClient(cl *Client) {
-	// Safe to call multiple times.
 	m.mu.Lock()
 	defer m.mu.Unlock()
 	set := m.clients[cl.userId]
@@ -106,7 +105,7 @@ func (m *CommsWebsocketManager) removeClient(cl *Client) {
 			}
 		}
 	}
-	// Close underlying connection and channels (idempotent-ish)
+	// Close underlying connection and channels
 	_ = cl.conn.Close()
 	select {
 	case <-cl.quit:
@@ -129,7 +128,6 @@ func (cl *Client) readPump() {
 	for {
 		mt, r, err := cl.conn.NextReader()
 		if err != nil {
-			// The read error is the *real* close reason.
 			cl.manager.logger.Debug("ws read closed",
 				zap.Int32("userId", cl.userId),
 				zap.Error(err))
@@ -174,26 +172,6 @@ func (cl *Client) writePump() {
 				return
 			}
 
-			// Optional micro-batching: drain any immediately queued messages
-			drained := 0
-		batch:
-			for drained < 16 {
-				select {
-				case msg2 := <-cl.send:
-					_ = cl.conn.SetWriteDeadline(time.Now().Add(writeDeadline))
-					if err := cl.conn.WriteMessage(websocket.TextMessage, msg2); err != nil {
-						cl.manager.logger.Info("ws write error (batch)",
-							zap.Int32("userId", cl.userId),
-							zap.Error(err))
-						cl.manager.removeClient(cl)
-						return
-					}
-					drained++
-				default:
-					break batch
-				}
-			}
-
 		case <-ticker.C:
 			// Keep-alive ping
 			_ = cl.conn.SetWriteDeadline(time.Now().Add(writeDeadline))
@@ -212,7 +190,7 @@ func (cl *Client) writePump() {
 	}
 }
 
-// Push to a single receiver. Builds payload once, then fanouts to all of receiver's clients.
+// Push to a single receiver (all connected clients)
 func (m *CommsWebsocketManager) WebsocketPush(senderUserId int32, receiverUserId int32, rpcJson json.RawMessage, timestamp time.Time) {
 	encodedSenderUserId, _ := trashid.EncodeHashId(int(senderUserId))
 	encodedReceiverUserId, _ := trashid.EncodeHashId(int(receiverUserId))
@@ -246,15 +224,15 @@ func (m *CommsWebsocketManager) WebsocketPush(senderUserId int32, receiverUserId
 		case cl.send <- payload:
 			// ok
 		default:
-			// Backpressure policy: close slow consumers OR drop message.
-			// Here we choose to drop the client (safer for real-time systems).
+			// If we get here, the client buffer is full (too slow in processing)
+			// and we will drop them for now. They can re-connect if needed.
 			m.logger.Info("ws buffer full; dropping client",
 				zap.Int32("userId", receiverUserId))
 			m.removeClient(cl)
 		}
 	}
 
-	// Maintain recent message cache with TTL
+	// Clear expired messages out of the recentMessages buffer
 	m.mu.Lock()
 	now := time.Now()
 	kept := m.recentMessages[:0]
@@ -275,6 +253,7 @@ func (m *CommsWebsocketManager) WebsocketPush(senderUserId int32, receiverUserId
 		zap.Int("numClients", len(targets)))
 }
 
+// Push to all connected clients
 func (m *CommsWebsocketManager) WebsocketPushAll(senderUserId int32, rpcJson json.RawMessage, timestamp time.Time) {
 	m.mu.RLock()
 	userIds := make([]int32, 0, len(m.clients))
