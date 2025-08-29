@@ -2,6 +2,8 @@ package comms
 
 import (
 	"context"
+	"crypto/ecdsa"
+	"encoding/base64"
 	"encoding/json"
 	"strings"
 	"sync"
@@ -12,6 +14,7 @@ import (
 	"bridgerton.audius.co/trashid"
 	"go.uber.org/zap"
 
+	"github.com/ethereum/go-ethereum/crypto"
 	"github.com/gofiber/contrib/websocket"
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgconn"
@@ -88,7 +91,7 @@ func (proc *RPCProcessor) Apply(ctx context.Context, rpcLog *RpcLog) error {
 	}
 
 	// validate signing wallet
-	wallet, err := RecoverSigningWallet(rpcLog.Sig, rpcLog.Rpc)
+	wallet, _, err := RecoverSigningWallet(rpcLog.Sig, rpcLog.Rpc)
 	if err != nil {
 		logger.Warn("unable to recover wallet, skipping")
 		return nil
@@ -270,19 +273,9 @@ select last_active_at from chat_member where chat_id = $1 and user_id = $2`
 				return err
 			}
 
-			outgoingMessages, err := chatBlast(tx, ctx, userId, messageTs, params)
+			_, err := chatBlast(tx, ctx, userId, messageTs, params)
 			if err != nil {
 				return err
-			}
-			// Send chat message websocket event to all recipients who have existing chats
-			for _, outgoingMessage := range outgoingMessages {
-				_, err := json.Marshal(outgoingMessage.ChatMessageRPC)
-				if err != nil {
-					logger.Error("err: invalid json", zap.Error(err))
-				} else {
-					// TODO
-					// websocketNotify(json.RawMessage(j), userId, messageTs.Round(time.Microsecond))
-				}
 			}
 		default:
 			logger.Warn("no handler for ", zap.String("method", rawRpc.Method))
@@ -295,12 +288,6 @@ select last_active_at from chat_member where chat_id = $1 and user_id = $2`
 			return err
 		}
 		logger.Debug("commited", zap.Duration("took", takeSplit()))
-
-		// TODO
-		// send out websocket events fire + forget style
-		// websocketNotify(rpcLog.Rpc, userId, messageTs.Round(time.Microsecond))
-		logger.Debug("websocket push done", zap.Duration("took", takeSplit()))
-
 		return nil
 	}
 
@@ -436,8 +423,10 @@ func (proc *RPCProcessor) handleRpcLogInserted(ctx context.Context, notification
 		return err
 	}
 
-	var rpcLog RpcLog
-	err := proc.writePool.QueryRow(ctx, `select rpc from rpc_log where sig = $1`, payload.Signature).Scan(&rpcLog)
+	var rpcData json.RawMessage
+	var fromWallet string
+	var relayedAt time.Time
+	err := proc.writePool.QueryRow(ctx, `select rpc, from_wallet, relayed_at from rpc_log where sig = $1`, payload.Signature).Scan(&rpcData, &fromWallet, &relayedAt)
 	if err != nil {
 		proc.logger.Error("Failed to query rpc log", zap.Error(err))
 		return err
@@ -445,40 +434,44 @@ func (proc *RPCProcessor) handleRpcLogInserted(ctx context.Context, notification
 
 	// parse raw rpc
 	var rawRpc RawRPC
-	err = json.Unmarshal(rpcLog.Rpc, &rawRpc)
+	err = json.Unmarshal(rpcData, &rawRpc)
 	if err != nil {
 		proc.logger.Error("failed to parse raw rpc " + err.Error())
 		return err
 	}
 
-	senderUserId, err := proc.GetRPCCurrentUserID(ctx, &rpcLog, &rawRpc)
+	senderUserId, err := proc.GetRPCCurrentUserID(ctx, &RpcLog{
+		Rpc:        rpcData,
+		FromWallet: fromWallet,
+	}, &rawRpc)
 	if err != nil {
 		proc.logger.Error("failed to get current user id for websocket push " + err.Error())
 		return err
 	}
 
-	if chatId := gjson.GetBytes(rpcLog.Rpc, "params.chat_id").String(); chatId != "" {
+	// Ensure UTC when sending to clients
+	messageTs := relayedAt.UTC().Round(time.Microsecond)
+
+	if chatId := gjson.GetBytes(rpcData, "params.chat_id").String(); chatId != "" {
 		userRows, err := proc.writePool.Query(ctx, `select user_id from chat_member where chat_id = $1 and is_hidden = false`, chatId)
 		if err != nil {
 			proc.logger.Error("failed to load chat members for websocket push " + err.Error())
-			// TODO: Will this mess anything up?
 			return err
 		}
 		userIds, err := pgx.CollectRows(userRows, pgx.RowTo[int32])
 		if err != nil {
 			proc.logger.Error("failed to collect user ids for websocket push " + err.Error())
-			// TODO: Will this mess anything up?
 			return err
 		}
 
 		for _, receiverUserId := range userIds {
-			proc.websocketManager.WebsocketPush(int32(senderUserId), receiverUserId, rpcLog.Rpc, rpcLog.AppliedAt)
+			proc.websocketManager.WebsocketPush(int32(senderUserId), receiverUserId, rpcData, messageTs)
 		}
-	} else if gjson.GetBytes(rpcLog.Rpc, "method").String() == "chat.blast" {
+	} else if gjson.GetBytes(rpcData, "method").String() == "chat.blast" {
 		go func() {
 			// Add delay before broadcasting blast messages - see PAY-3573
 			time.Sleep(30 * time.Second)
-			proc.websocketManager.WebsocketPushAll(int32(senderUserId), rpcLog.Rpc, rpcLog.AppliedAt)
+			proc.websocketManager.WebsocketPushAll(int32(senderUserId), rpcData, messageTs)
 		}()
 	}
 	return nil
@@ -486,4 +479,13 @@ func (proc *RPCProcessor) handleRpcLogInserted(ctx context.Context, notification
 
 func (proc *RPCProcessor) RegisterWebsocket(userId int32, conn *websocket.Conn) {
 	proc.websocketManager.RegisterWebsocket(userId, conn)
+}
+
+func (proc *RPCProcessor) SetPubkeyForUser(userId int32, pubkey *ecdsa.PublicKey) {
+	pubkeyBytes := crypto.FromECDSAPub(pubkey)
+	pubkeyBase64 := base64.StdEncoding.EncodeToString(pubkeyBytes)
+	_, err := proc.writePool.Exec(context.Background(), `insert into user_pubkeys values ($1, $2) on conflict do nothing`, userId, pubkeyBase64)
+	if err != nil {
+		proc.logger.Warn("failed to set pubkey for user", zap.Error(err))
+	}
 }

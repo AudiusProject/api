@@ -245,7 +245,7 @@ func (app *ApiServer) userIdForSignedCommsRequest(c *fiber.Ctx) (int, error) {
 
 	payload := []byte(urlStr)
 
-	wallet, err := comms.RecoverSigningWallet(sigBase64, payload)
+	wallet, pubkey, err := comms.RecoverSigningWallet(sigBase64, payload)
 	if err != nil {
 		return 0, fiber.NewError(fiber.StatusBadRequest, "failed to recoverSigningWallet: "+err.Error())
 	}
@@ -254,5 +254,28 @@ func (app *ApiServer) userIdForSignedCommsRequest(c *fiber.Ctx) (int, error) {
 		return 0, err
 	}
 
+	app.commsRpcProcessor.SetPubkeyForUser(int32(userId), pubkey)
+
 	return userId, nil
+}
+
+func (app *ApiServer) readSignedCommsPostRequest(c *fiber.Ctx) ([]byte, string, int, error) {
+	if c.Method() != "POST" {
+		return nil, "", 0, fiber.NewError(fiber.StatusBadRequest, "readSignedPost bad method: "+c.Method())
+	}
+
+	payload := c.Body()
+
+	sigHex := c.Get(comms.SigHeader)
+	wallet, pubkey, err := comms.RecoverSigningWallet(sigHex, payload)
+	if err != nil {
+		return nil, "", 0, err
+	}
+	userId, err := app.getUserIDFromWallet(c.Context(), wallet)
+	if err != nil {
+		return nil, "", 0, err
+	}
+
+	app.commsRpcProcessor.SetPubkeyForUser(int32(userId), pubkey)
+	return payload, wallet, userId, nil
 }
