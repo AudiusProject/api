@@ -2,6 +2,7 @@ package api
 
 import (
 	"encoding/json"
+	"fmt"
 	"strings"
 	"testing"
 	"time"
@@ -51,7 +52,6 @@ func postMutateRPCData(t *testing.T, app *ApiServer, currentUserID string, metho
 // protocol repo) in the comms package
 func TestPostMutateChat(t *testing.T) {
 	testWallet1 := testdata.CreateTestWallet(t, user1WalletKey)
-	testWallet2 := testdata.CreateTestWallet(t, user2WalletKey)
 	app := emptyTestApp(t)
 
 	// Setup test data
@@ -69,7 +69,7 @@ func TestPostMutateChat(t *testing.T) {
 			{
 				"user_id":    2,
 				"handle":     "user2",
-				"wallet":     strings.ToLower(testWallet2.Address),
+				"wallet":     "0x7d273271690538cf855e5b3002a0dd8c154bb060",
 				"created_at": now.Add(-time.Hour),
 				"updated_at": now.Add(-time.Hour),
 				"is_current": true,
@@ -83,8 +83,9 @@ func TestPostMutateChat(t *testing.T) {
 	var user2EncodedID = trashid.MustEncodeHashID(2)
 
 	t.Run("valid create, skip dupes", func(t *testing.T) {
+		chatId := trashid.ChatID(1, 2)
 		params := comms.ChatCreateRPCParams{
-			ChatID: trashid.ChatID(1, 2),
+			ChatID: chatId,
 			Invites: []comms.PurpleInvite{
 				{
 					UserID:     user1EncodedID,
@@ -98,10 +99,18 @@ func TestPostMutateChat(t *testing.T) {
 		}
 
 		{
-			// Test getting regular chat messages (not blasts)
 			status, _ := postMutateRPCData(t, app, user1EncodedID, comms.RPCMethodChatCreate, params, now.UnixMilli(), testWallet1)
 			assert.Equal(t, 200, status)
-			// TODO: Fetch and check it
+
+			url := fmt.Sprintf("/comms/chats/%s", chatId)
+
+			status, body := testGetWithWallet(t, app, url, "0x7d273271690538cf855e5b3002a0dd8c154bb060")
+			assert.Equal(t, 200, status)
+			jsonAssert(t, body, map[string]any{
+				"data.invite_code":            "test",
+				"data.chat_members.0.user_id": user1EncodedID,
+				"data.chat_members.1.user_id": user2EncodedID,
+			})
 		}
 
 		{
@@ -111,9 +120,3 @@ func TestPostMutateChat(t *testing.T) {
 		}
 	})
 }
-
-/* TODO:
-- 403 when attestation fails
-- 400 when we can't get user id from wallet
-- 400 when readSignedPost fails
-*/

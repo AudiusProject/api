@@ -332,9 +332,9 @@ func TestInsertBalanceChangeTriggers(t *testing.T) {
 
 		// Now associate the wallet and verify the user balance is updated
 		_, err = pool.Exec(t.Context(),
-			`INSERT INTO associated_wallets 
+			`INSERT INTO associated_wallets
 				(id, user_id, wallet, chain, blockhash, blocknumber, is_current, is_delete)
-			VALUES 
+			VALUES
 				($1, $2, $3, $4, $5, $6, $7, $8)
 			`,
 			3, 1, "owner3", "sol", "blockhash3", 101, true, false,

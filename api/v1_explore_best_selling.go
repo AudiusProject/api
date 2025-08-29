@@ -28,7 +28,10 @@ func (app *ApiServer) v1ExploreBestSelling(c *fiber.Ctx) error {
 		return err
 	}
 
-	filters := []string{"created_at > NOW() - INTERVAL '6 months'"}
+	filters := []string{
+		"created_at > NOW() - INTERVAL '6 months'",
+		"seller_user_id not in (878588928, 90455359, 612014)",
+	}
 	switch params.Type {
 	case "track":
 		filters = append(filters, "content_type = 'track'")

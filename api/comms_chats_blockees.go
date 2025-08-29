@@ -8,7 +8,7 @@ import (
 
 func (app *ApiServer) getChatBlockees(c *fiber.Ctx) error {
 	sql := `
-	SELECT blocker_user_id AS user_id
+	SELECT blockee_user_id AS user_id
 	FROM chat_blocked_users 
 	WHERE blocker_user_id = @user_id;
 	`
