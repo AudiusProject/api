@@ -362,7 +362,10 @@ func sendRewardClaimTransactions(
 	// If partialTx is sent, remainderTx contains only the rest of the instructions
 	remainderTx := solana.NewTransactionBuilder()
 
-	feePayer := transactionSender.GetFeePayer()
+	feePayer, err := transactionSender.GetFeePayer()
+	if err != nil {
+		return nil, err
+	}
 	partialTx.SetFeePayer(feePayer.PublicKey())
 	remainderTx.SetFeePayer(feePayer.PublicKey())
 
@@ -426,7 +429,7 @@ func sendRewardClaimTransactions(
 		// If not, send the attestations in a separate transaction.
 		// Minimum 4 new accounts + instruction data containing
 		// amount, challengeId, specifier
-		estimatedEvaluateInstructionSize := 205
+		estimatedEvaluateInstructionSize := 210
 		threshold := spl.MAX_TRANSACTION_SIZE - estimatedEvaluateInstructionSize
 		if len(partialTxBinary) > threshold {
 			sig, err := transactionSender.SendTransactionWithRetries(ctx, partialTx, rpc.CommitmentConfirmed, rpc.TransactionOpts{})
