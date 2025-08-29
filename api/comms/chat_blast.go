@@ -34,7 +34,7 @@ func chatBlast(db dbv1.DBTX, ctx context.Context, userId int32, ts time.Time, pa
 			($1, $2, $3, $4, $5, $6, $7)
 		on conflict (blast_id)
 		do nothing
-		`, params.BlastID, userId, params.Audience, params.AudienceContentType, audienceContentID, params.Message, ts)
+		`, params.BlastID, userId, params.Audience, params.AudienceContentType, audienceContentID, params.Message, ts.UTC())
 	if err != nil {
 		return nil, err
 	}
@@ -73,7 +73,7 @@ func chatBlast(db dbv1.DBTX, ctx context.Context, userId int32, ts time.Time, pa
 	SELECT chat_id FROM targ;
 	`
 
-	rows, err := db.Query(ctx, fanOutSql, params.BlastID, ts)
+	rows, err := db.Query(ctx, fanOutSql, params.BlastID, ts.UTC())
 	if err != nil {
 		return nil, err
 	}

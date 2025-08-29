@@ -118,7 +118,7 @@ func (proc *RPCProcessor) Apply(ctx context.Context, rpcLog *RpcLog) error {
 	}
 
 	// get ts
-	messageTs := rpcLog.RelayedAt
+	messageTs := rpcLog.RelayedAt.UTC()
 
 	userId, err := proc.GetRPCCurrentUserID(ctx, rpcLog, &rawRpc)
 	if err != nil {
@@ -351,7 +351,7 @@ func insertRpcLogRow(db dbv1.DBTX, ctx context.Context, rpcLog *RpcLog) (int64, 
 		VALUES ($1, $2, $3, $4, $5, $6)
 		ON CONFLICT DO NOTHING
 		`
-	result, err := db.Exec(ctx, query, rpcLog.RelayedBy, rpcLog.RelayedAt, time.Now(), rpcLog.FromWallet, rpcLog.Rpc, rpcLog.Sig)
+	result, err := db.Exec(ctx, query, rpcLog.RelayedBy, rpcLog.RelayedAt.UTC(), time.Now().UTC(), rpcLog.FromWallet, rpcLog.Rpc, rpcLog.Sig)
 	if err != nil {
 		return 0, err
 	}
@@ -450,7 +450,7 @@ func (proc *RPCProcessor) handleRpcLogInserted(ctx context.Context, notification
 	}
 
 	// Ensure UTC when sending to clients
-	messageTs := relayedAt.UTC().Round(time.Microsecond)
+	messageTs := relayedAt.Round(time.Microsecond)
 
 	if chatId := gjson.GetBytes(rpcData, "params.chat_id").String(); chatId != "" {
 		userRows, err := proc.writePool.Query(ctx, `select user_id from chat_member where chat_id = $1 and is_hidden = false`, chatId)

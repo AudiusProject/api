@@ -26,7 +26,7 @@ func (app *ApiServer) mutateChat(c *fiber.Ctx) error {
 
 	rpcLog := &comms.RpcLog{
 		RelayedBy:  "bridge",
-		RelayedAt:  time.Now(),
+		RelayedAt:  time.Now().UTC(),
 		FromWallet: wallet,
 		Rpc:        payload,
 		Sig:        c.Get(comms.SigHeader),
