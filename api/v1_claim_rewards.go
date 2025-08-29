@@ -429,7 +429,7 @@ func sendRewardClaimTransactions(
 		// If not, send the attestations in a separate transaction.
 		// Minimum 4 new accounts + instruction data containing
 		// amount, challengeId, specifier
-		estimatedEvaluateInstructionSize := 210
+		estimatedEvaluateInstructionSize := 205
 		threshold := spl.MAX_TRANSACTION_SIZE - estimatedEvaluateInstructionSize
 		if len(partialTxBinary) > threshold {
 			sig, err := transactionSender.SendTransactionWithRetries(ctx, partialTx, rpc.CommitmentConfirmed, rpc.TransactionOpts{})
