@@ -9,7 +9,6 @@ import (
 	"bridgerton.audius.co/database"
 	"bridgerton.audius.co/trashid"
 	"github.com/stretchr/testify/assert"
-	"github.com/stretchr/testify/require"
 )
 
 func TestBurstRateLimit(t *testing.T) {
@@ -18,10 +17,6 @@ func TestBurstRateLimit(t *testing.T) {
 	defer pool.Close()
 
 	ctx := context.Background()
-
-	// reset tables under test
-	_, err := pool.Exec(ctx, "truncate table chat cascade")
-	require.NoError(t, err)
 
 	chatId := trashid.ChatID(1, 2) // Use deterministic chat ID
 	user1Id := int32(1)
@@ -38,7 +33,7 @@ func TestBurstRateLimit(t *testing.T) {
 	// hit the 1 second limit... send a burst of messages
 	for i := 1; i < 5; i++ {
 		message := fmt.Sprintf("burst %d", i)
-		err = chatSendMessage(pool, ctx, user1Id, chatId, message, time.Now().UTC(), message)
+		err := chatSendMessage(pool, ctx, user1Id, chatId, message, time.Now().UTC(), message)
 		assert.NoError(t, err, "i is", i)
 
 		messageRpc := RawRPC{
