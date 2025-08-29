@@ -12,11 +12,6 @@ import (
 	"github.com/jackc/pgx/v5/pgtype"
 )
 
-/**
-The queries in this file were migrated from protocol to support the existing tests without
-needing extensive modifications. They are not meant to be used in endpoints or production logic.
-**/
-
 type chatMessagesAndReactionsParams struct {
 	UserID  int32     `db:"user_id" json:"user_id"`
 	ChatID  string    `db:"chat_id" json:"chat_id"`
@@ -97,29 +92,31 @@ func getChatMessagesAndReactions(db dbv1.DBTX, ctx context.Context, arg chatMess
 			result, err := db.Query(ctx, `
 			SELECT
 				b.blast_id as message_id,
-				$2 as chat_id,
+				@chat_id as chat_id,
 				b.from_user_id as user_id,
 				b.created_at,
 				b.plaintext as ciphertext,
 				true as is_plaintext,
 				'[]'::json AS reactions
 			FROM chat_blast b
-			WHERE b.from_user_id = $1
+			WHERE b.from_user_id = @user_id
 				AND concat_ws(':', audience, audience_content_type,
 					CASE
 						WHEN audience_content_id IS NOT NULL THEN id_encode(audience_content_id)
 						ELSE NULL
-					END) = $2
-			  AND b.created_at < $3
-			  AND b.created_at > $4
+					END) = @chat_id
+			  AND b.created_at < @before
+			  AND b.created_at > @after
 			ORDER BY b.created_at DESC
-			LIMIT $5
+			LIMIT @limit
 			`,
-				arg.UserID,
-				arg.ChatID,
-				arg.Before,
-				arg.After,
-				arg.Limit,
+				pgx.NamedArgs{
+					"user_id": arg.UserID,
+					"chat_id": arg.ChatID,
+					"before":  arg.Before,
+					"after":   arg.After,
+					"limit":   arg.Limit,
+				},
 			)
 			if err != nil {
 				return nil, err
@@ -143,20 +140,22 @@ func getChatMessagesAndReactions(db dbv1.DBTX, ctx context.Context, arg chatMess
 		FROM chat_message
 		JOIN chat_member ON chat_message.chat_id = chat_member.chat_id
 		LEFT JOIN chat_blast USING (blast_id)
-		WHERE chat_member.user_id = $1
-			AND chat_message.chat_id = $2
-			AND chat_message.created_at < $4
-			AND chat_message.created_at > $5
+		WHERE chat_member.user_id = @user_id
+			AND chat_message.chat_id = @chat_id
+			AND chat_message.created_at < @before
+			AND chat_message.created_at > @after
 			AND (chat_member.cleared_history_at IS NULL
 				OR chat_message.created_at > chat_member.cleared_history_at
 			)
 		ORDER BY chat_message.created_at DESC, chat_message.message_id
-		LIMIT $3`,
-		arg.UserID,
-		arg.ChatID,
-		arg.Limit,
-		arg.Before,
-		arg.After,
+		LIMIT @limit`,
+		pgx.NamedArgs{
+			"user_id": arg.UserID,
+			"chat_id": arg.ChatID,
+			"before":  arg.Before,
+			"after":   arg.After,
+			"limit":   arg.Limit,
+		},
 	)
 	if err != nil {
 		return nil, err
@@ -203,7 +202,7 @@ SELECT
 	null as audience_content_id
 FROM chat_member
 JOIN chat ON chat.chat_id = chat_member.chat_id
-WHERE chat_member.user_id = $1 AND chat_member.chat_id = $2
+WHERE chat_member.user_id = @user_id AND chat_member.chat_id = @chat_id
 
 union all (
 
@@ -226,12 +225,12 @@ union all (
 		audience_content_type,
 		audience_content_id
   FROM chat_blast b
-  WHERE from_user_id = $1
+  WHERE from_user_id = @user_id
     AND concat_ws(':', audience, audience_content_type,
 			CASE
 				WHEN audience_content_id IS NOT NULL THEN id_encode(audience_content_id)
 				ELSE NULL
-			END) = $2
+			END) = @chat_id
   ORDER BY
     audience,
     audience_content_type,
@@ -241,10 +240,10 @@ union all (
 `
 
 func getUserChat(db dbv1.DBTX, ctx context.Context, arg chatMembershipParams) (userChatRow, error) {
-	rows, err := db.Query(ctx, userChatQuery,
-		arg.UserID,
-		arg.ChatID,
-	)
+	rows, err := db.Query(ctx, userChatQuery, pgx.NamedArgs{
+		"user_id": arg.UserID,
+		"chat_id": arg.ChatID,
+	})
 	if err != nil {
 		return userChatRow{}, err
 	}
@@ -281,11 +280,11 @@ SELECT
 	null as audience_content_id
 FROM chat_member
 JOIN chat ON chat.chat_id = chat_member.chat_id
-WHERE chat_member.user_id = $1
+WHERE chat_member.user_id = @user_id
   AND chat_member.is_hidden = false
   AND chat.last_message IS NOT NULL
-	AND chat.last_message_at < $3
-	AND chat.last_message_at > $4
+	AND chat.last_message_at < @before
+	AND chat.last_message_at > @after
   AND (chat_member.cleared_history_at IS NULL
 	  OR chat.last_message_at > chat_member.cleared_history_at)
 
@@ -311,9 +310,9 @@ union all (
 		audience_content_type,
 		audience_content_id
   FROM chat_blast b
-  WHERE from_user_id = $1
-	AND b.created_at < $3
-	AND b.created_at > $4
+  WHERE from_user_id = @user_id
+	AND b.created_at < @before
+	AND b.created_at > @after
   ORDER BY
     audience,
     audience_content_type,
@@ -322,11 +321,16 @@ union all (
 )
 
 ORDER BY last_message_at DESC, is_blast DESC, chat_id ASC
-LIMIT $2
+LIMIT @limit
 `
 
 func getUserChats(db dbv1.DBTX, ctx context.Context, arg userChatsParams) ([]userChatRow, error) {
-	rows, err := db.Query(ctx, userChatsQuery, arg.UserID, arg.Limit, arg.Before, arg.After)
+	rows, err := db.Query(ctx, userChatsQuery, pgx.NamedArgs{
+		"user_id": arg.UserID,
+		"limit":   arg.Limit,
+		"before":  arg.Before,
+		"after":   arg.After,
+	})
 	if err != nil {
 		return nil, err
 	}
