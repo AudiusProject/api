@@ -5757,7 +5757,9 @@ CREATE TABLE public.artist_coins (
     created_at timestamp without time zone DEFAULT CURRENT_TIMESTAMP NOT NULL,
     logo_uri text,
     description text,
-    website text
+    website text,
+    name text DEFAULT ''::text NOT NULL,
+    dbc_pool text DEFAULT ''::text NOT NULL
 );
 
 
