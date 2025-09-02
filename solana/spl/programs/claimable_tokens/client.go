@@ -30,7 +30,10 @@ func (cc *ClaimableTokensClient) CreateUserBank(
 	ethAddress common.Address,
 	mint solana.PublicKey,
 ) error {
-	payer := cc.sender.GetFeePayer()
+	payer, err := cc.sender.GetFeePayer()
+	if err != nil {
+		return err
+	}
 	inst, err := NewCreateTokenAccountInstruction(ethAddress, mint, payer.PublicKey())
 	if err != nil {
 		return err

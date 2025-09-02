@@ -78,9 +78,11 @@ func NewSolanaConfig() SolanaConfig {
 		walletKeys := strings.Split(keyString, ",")
 		cfg.FeePayers = make([]solana.Wallet, len(walletKeys))
 		for i, privkeyString := range walletKeys {
-			privkey := solana.MustPrivateKeyFromBase58(privkeyString)
-			cfg.FeePayers[i] = solana.Wallet{
-				PrivateKey: privkey,
+			if privkeyString != "" {
+				privkey := solana.MustPrivateKeyFromBase58(privkeyString)
+				cfg.FeePayers[i] = solana.Wallet{
+					PrivateKey: privkey,
+				}
 			}
 		}
 	} else {
