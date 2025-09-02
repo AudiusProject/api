@@ -149,7 +149,7 @@ type TokenPriceData struct {
 // Map from mint to token price data
 type TokenPriceMap map[string]TokenPriceData
 
-func (c *Client) GetPrices(ctx context.Context, mints []string) (*TokenPriceMap, error) {
+func (c *Client) GetPrices(ctx context.Context, mints []string) (TokenPriceMap, error) {
 	result := make(TokenPriceMap)
 
 	mintsToFetch := make([]string, 0, len(mints))
@@ -161,7 +161,7 @@ func (c *Client) GetPrices(ctx context.Context, mints []string) (*TokenPriceMap,
 		}
 	}
 	if len(mintsToFetch) == 0 {
-		return &result, nil
+		return result, nil
 	}
 
 	url := fmt.Sprintf("https://public-api.birdeye.so/defi/multi_price?list_address=%s", strings.Join(mintsToFetch, ","))
@@ -195,5 +195,5 @@ func (c *Client) GetPrices(ctx context.Context, mints []string) (*TokenPriceMap,
 		result[mint] = priceData
 	}
 
-	return &result, nil
+	return result, nil
 }

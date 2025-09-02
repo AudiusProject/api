@@ -1,0 +1,2 @@
+ALTER TABLE artist_coins
+    ADD COLUMN dbc_pool TEXT DEFAULT NULL;
