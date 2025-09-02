@@ -10,12 +10,12 @@ import (
 type ArtistCoinInsights struct {
 	birdeye.TokenOverview
 	MembersStatsRow
-	DynamicBondingCurve DynamicBondingCurveInsights `json:"dynamic_bonding_curve,omitempty"`
+	DynamicBondingCurve *DynamicBondingCurveInsights `json:"dynamic_bonding_curve"`
 }
 
 type MembersStatsRow struct {
-	DbcPool string `db:"dbc_pool" json:"-"`
-	Members int    `json:"members"`
+	DbcPool *string `db:"dbc_pool" json:"-"`
+	Members int     `json:"members"`
 }
 
 type DynamicBondingCurveInsights struct {
@@ -72,7 +72,14 @@ func (app *ApiServer) v1CoinInsights(c *fiber.Ctx) error {
 		TokenOverview:   *overview,
 	}
 
-	dbcPool := solana.MustPublicKeyFromBase58(insights.DbcPool)
+	if insights.DbcPool == nil || *insights.DbcPool == "" {
+		// No DBC pool, return early
+		return c.JSON(fiber.Map{
+			"data": insights,
+		})
+	}
+
+	dbcPool := solana.MustPublicKeyFromBase58(*insights.DbcPool)
 
 	dbcPrice, err := app.meteoraDbcClient.GetQuotePrice(
 		c.Context(),
@@ -101,8 +108,8 @@ func (app *ApiServer) v1CoinInsights(c *fiber.Ctx) error {
 	}
 	audioPrice := prices[app.solanaConfig.MintAudio.String()].Value
 
-	insights.DynamicBondingCurve = DynamicBondingCurveInsights{
-		Pool:          insights.DbcPool,
+	insights.DynamicBondingCurve = &DynamicBondingCurveInsights{
+		Pool:          *insights.DbcPool,
 		PriceUSD:      dbcPrice * audioPrice,
 		CurveProgress: dbcProgress,
 	}
