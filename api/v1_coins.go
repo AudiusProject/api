@@ -14,9 +14,11 @@ type GetArtistCoinsQueryParams struct {
 	OwnerIds []trashid.HashId `query:"owner_id"`
 	Limit    int              `query:"limit" default:"50" validate:"min=1,max=100"`
 	Offset   int              `query:"offset" default:"0" validate:"min=0"`
+	Query    string           `query:"query"`
 }
 
 type ArtistCoin struct {
+	Name        string         `json:"name"`
 	Ticker      string         `json:"ticker"`
 	Mint        string         `json:"mint"`
 	Decimals    int            `json:"decimals"`
@@ -45,9 +47,17 @@ func (app *ApiServer) v1Coins(c *fiber.Ctx) error {
 	if len(queryParams.Tickers) > 0 {
 		tickerFilter = `AND artist_coins.ticker = ANY(@tickers)`
 	}
+	queryFilter := ""
+	if queryParams.Query != "" {
+		queryFilter = `AND (
+			artist_coins.ticker ILIKE '%' || @query || '%' OR
+			artist_coins.name ILIKE '%' || @query || '%'
+		)`
+	}
 
 	sql := `
-		SELECT 
+		SELECT
+			artist_coins.name,
 			artist_coins.ticker,
 			artist_coins.mint,
 			artist_coins.decimals,
@@ -61,6 +71,7 @@ func (app *ApiServer) v1Coins(c *fiber.Ctx) error {
 			` + mintFilter + `
 			` + ownerIdFilter + `
 			` + tickerFilter + `
+			` + queryFilter + `
 		ORDER BY 
 			artist_coins.ticker = '$AUDIO' DESC,
 			artist_coins.created_at ASC
@@ -74,6 +85,7 @@ func (app *ApiServer) v1Coins(c *fiber.Ctx) error {
 		"owner_ids": queryParams.OwnerIds,
 		"limit":     queryParams.Limit,
 		"offset":    queryParams.Offset,
+		"query":     queryParams.Query,
 	})
 	if err != nil {
 		return err
