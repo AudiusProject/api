@@ -14,7 +14,8 @@ func (app *ApiServer) v1Coin(c *fiber.Ctx) error {
 	}
 
 	sql := `
-		SELECT 
+		SELECT
+			artist_coins.name,
 			artist_coins.ticker,
 			artist_coins.mint,
 			artist_coins.decimals,
