@@ -5759,7 +5759,7 @@ CREATE TABLE public.artist_coins (
     description text,
     website text,
     name text DEFAULT ''::text NOT NULL,
-    dbc_pool text DEFAULT ''::text NOT NULL
+    dbc_pool text DEFAULT NULL
 );
 
 
