@@ -12,9 +12,9 @@ import (
 	"strconv"
 	"time"
 
-	"bridgerton.audius.co/api/birdeye"
 	comms "bridgerton.audius.co/api/comms"
 	"bridgerton.audius.co/api/dbv1"
+	"bridgerton.audius.co/birdeye"
 	"bridgerton.audius.co/config"
 	"bridgerton.audius.co/esindexer"
 	"bridgerton.audius.co/logging"

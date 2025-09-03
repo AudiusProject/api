@@ -6,7 +6,7 @@ import (
 	"testing"
 	"time"
 
-	"bridgerton.audius.co/api/birdeye"
+	"bridgerton.audius.co/birdeye"
 	"bridgerton.audius.co/database"
 	"github.com/stretchr/testify/assert"
 )

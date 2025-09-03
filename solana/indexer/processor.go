@@ -6,6 +6,7 @@ import (
 	"time"
 
 	"bridgerton.audius.co/config"
+	"bridgerton.audius.co/database"
 	"bridgerton.audius.co/solana/spl/programs/claimable_tokens"
 	"bridgerton.audius.co/solana/spl/programs/payment_router"
 	"bridgerton.audius.co/solana/spl/programs/reward_manager"
@@ -29,14 +30,14 @@ type Processor interface {
 
 type DefaultProcessor struct {
 	rpcClient        RpcClient
-	pool             DbPool
+	pool             database.DbPool
 	config           config.Config
 	transactionCache *otter.Cache[solana.Signature, *rpc.GetTransactionResult]
 }
 
 func NewDefaultProcessor(
 	rpcClient RpcClient,
-	pool DbPool,
+	pool database.DbPool,
 	config config.Config,
 ) *DefaultProcessor {
 	cache, err := otter.MustBuilder[solana.Signature, *rpc.GetTransactionResult](50).
