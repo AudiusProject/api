@@ -1,7 +1,7 @@
 package api
 
 import (
-	"bridgerton.audius.co/api/birdeye"
+	"bridgerton.audius.co/birdeye"
 	"github.com/gagliardetto/solana-go"
 	"github.com/gofiber/fiber/v2"
 	"github.com/jackc/pgx/v5"

@@ -6,24 +6,15 @@ import (
 	"time"
 
 	"bridgerton.audius.co/config"
+	"bridgerton.audius.co/database"
+	"bridgerton.audius.co/jobs"
 	"bridgerton.audius.co/logging"
 	"github.com/gagliardetto/solana-go"
 	"github.com/gagliardetto/solana-go/rpc"
-	"github.com/jackc/pgx/v5"
-	"github.com/jackc/pgx/v5/pgconn"
 	"github.com/jackc/pgx/v5/pgxpool"
 	pb "github.com/rpcpool/yellowstone-grpc/examples/golang/proto"
 	"go.uber.org/zap"
 )
-
-type DbPool interface {
-	Acquire(context.Context) (*pgxpool.Conn, error)
-	Begin(context.Context) (pgx.Tx, error)
-	Exec(context.Context, string, ...any) (pgconn.CommandTag, error)
-	Query(context.Context, string, ...any) (pgx.Rows, error)
-	QueryRow(context.Context, string, ...any) pgx.Row
-	Close()
-}
 
 type RpcClient interface {
 	GetBlockWithOpts(context.Context, uint64, *rpc.GetBlockOpts) (*rpc.GetBlockResult, error)
@@ -48,7 +39,7 @@ type SolanaIndexer struct {
 	processor  Processor
 
 	config      config.Config
-	pool        DbPool
+	pool        database.DbPool
 	workerCount int32
 
 	checkpointId string
@@ -59,7 +50,7 @@ type SolanaIndexer struct {
 // Creates a Solana indexer.
 func New(config config.Config) *SolanaIndexer {
 	logger := logging.NewZapLogger(config).
-		With(zap.String("service", "SolanaIndexer"))
+		Named("SolanaIndexer")
 
 	rpcClient := rpc.New(config.SolanaConfig.RpcProviders[0])
 
@@ -103,23 +94,10 @@ func New(config config.Config) *SolanaIndexer {
 }
 
 func (s *SolanaIndexer) Start(ctx context.Context) error {
-	ticker := time.NewTicker(s.config.SolanaIndexerRetryInterval)
-	defer ticker.Stop()
+	go s.ScheduleRetries(ctx, s.config.SolanaIndexerRetryInterval)
 
-	go func() {
-		for {
-			select {
-			case <-ctx.Done():
-				s.logger.Info("context cancelled, stopping retry ticker")
-				return
-			case <-ticker.C:
-				err := s.RetryUnprocessedTransactions(ctx)
-				if err != nil {
-					s.logger.Error("failed to retry unprocessed transactions", zap.Error(err))
-				}
-			}
-		}
-	}()
+	go jobs.NewCoinStatsJob(s.config, s.pool).
+		ScheduleEvery(ctx, 5*time.Minute)
 
 	err := s.Subscribe(ctx)
 	if err != nil {
