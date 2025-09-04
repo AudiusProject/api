@@ -5522,6 +5522,9 @@ components:
           type: array
           items:
             type: object
+            required:
+              - challengeId
+              - specifier
             properties:
               challengeId:
                 type: string
