@@ -1,4 +1,3 @@
-DROP TABLE IF EXISTS artist_coin_pools;
 CREATE TABLE IF NOT EXISTS artist_coin_pools (
     address TEXT NOT NULL PRIMARY KEY,
     base_mint TEXT NOT NULL,
