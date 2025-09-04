@@ -151,7 +151,29 @@ SELECT
   null as profile_picture_legacy, -- todo
 
   has_collectibles,
-  allow_ai_attribution
+  allow_ai_attribution,
+
+  (
+    SELECT logo_uri FROM artist_coins
+    WHERE artist_coins.mint = COALESCE(
+      -- Owned first
+      (
+        SELECT artist_coins.mint
+        FROM artist_coins
+        WHERE artist_coins.user_id = u.user_id
+        LIMIT 1
+      ),
+      -- Then most held
+      (
+        SELECT sol_user_balances.mint
+        FROM sol_user_balances
+        WHERE sol_user_balances.user_id = u.user_id
+          AND sol_user_balances.mint != '9LzCMqDgTKYz9Drzqnpgee3SGa89up3a247ypMj2xrqM' -- ignore wAUDIO
+        ORDER BY sol_user_balances.balance DESC
+        LIMIT 1
+      )
+    )
+  ) AS coin_badge
 
 FROM users u
 JOIN aggregate_user using (user_id)
@@ -227,6 +249,7 @@ type GetUsersRow struct {
 	ProfilePictureLegacy           interface{}    `json:"profile_picture_legacy"`
 	HasCollectibles                bool           `json:"has_collectibles"`
 	AllowAiAttribution             bool           `json:"allow_ai_attribution"`
+	CoinBadge                      pgtype.Text    `json:"coin_badge"`
 }
 
 func (q *Queries) GetUsers(ctx context.Context, arg GetUsersParams) ([]GetUsersRow, error) {
@@ -298,6 +321,7 @@ func (q *Queries) GetUsers(ctx context.Context, arg GetUsersParams) ([]GetUsersR
 			&i.ProfilePictureLegacy,
 			&i.HasCollectibles,
 			&i.AllowAiAttribution,
+			&i.CoinBadge,
 		); err != nil {
 			return nil, err
 		}

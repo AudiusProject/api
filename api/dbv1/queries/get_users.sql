@@ -136,7 +136,29 @@ SELECT
   null as profile_picture_legacy, -- todo
 
   has_collectibles,
-  allow_ai_attribution
+  allow_ai_attribution,
+
+  (
+    SELECT logo_uri FROM artist_coins
+    WHERE artist_coins.mint = COALESCE(
+      -- Owned first
+      (
+        SELECT artist_coins.mint
+        FROM artist_coins
+        WHERE artist_coins.user_id = u.user_id
+        LIMIT 1
+      ),
+      -- Then most held
+      (
+        SELECT sol_user_balances.mint
+        FROM sol_user_balances
+        WHERE sol_user_balances.user_id = u.user_id
+          AND sol_user_balances.mint != '9LzCMqDgTKYz9Drzqnpgee3SGa89up3a247ypMj2xrqM' -- ignore wAUDIO
+        ORDER BY sol_user_balances.balance DESC
+        LIMIT 1
+      )
+    )
+  ) AS coin_badge
 
 FROM users u
 JOIN aggregate_user using (user_id)
