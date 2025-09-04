@@ -3,6 +3,7 @@ package api
 import (
 	"context"
 	"fmt"
+	"net/url"
 	"strconv"
 	"strings"
 	"time"
@@ -206,41 +207,24 @@ func (app *ApiServer) userIdForSignedCommsRequest(c *fiber.Ctx) (int, error) {
 		return 0, fiber.NewError(fiber.StatusBadRequest, "timestamp not current")
 	}
 
-	// Strip out the app_name and api_key query parameters to get the true signature payload
-	// Get the current request URI and parse it
+	// Strip out app_name,api_key,signature to get the parameters that are actually used to generate the signature
 	uri := c.Request().URI()
 	path := string(uri.Path())
 	query := string(uri.QueryString())
 
-	// Parse query parameters
-	queryParams := make(map[string]string)
-	if query != "" {
-		// Simple query string parsing
-		pairs := strings.Split(query, "&")
-		for _, pair := range pairs {
-			if idx := strings.Index(pair, "="); idx != -1 {
-				key := pair[:idx]
-				value := pair[idx+1:]
-				queryParams[key] = value
-			}
-		}
+	queryParams, err := url.ParseQuery(query)
+	if err != nil {
+		return 0, fiber.NewError(fiber.StatusBadRequest, "failed to parse query parameters: "+err.Error())
 	}
 
-	// Remove the parameters we want to exclude
-	delete(queryParams, "app_name")
-	delete(queryParams, "api_key")
-	delete(queryParams, "signature")
-
-	// Rebuild the query string
-	var newQueryParts []string
-	for key, value := range queryParams {
-		newQueryParts = append(newQueryParts, key+"="+value)
-	}
+	queryParams.Del("app_name")
+	queryParams.Del("api_key")
+	queryParams.Del("signature")
 
 	// Build the final URL string
 	urlStr := path
-	if len(newQueryParts) > 0 {
-		urlStr += "?" + strings.Join(newQueryParts, "&")
+	if len(queryParams) > 0 {
+		urlStr += "?" + queryParams.Encode()
 	}
 
 	payload := []byte(urlStr)

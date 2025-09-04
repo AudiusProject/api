@@ -24,10 +24,24 @@ import (
 	"github.com/tidwall/gjson"
 )
 
-var rpcLogChannel = "rpc_log_inserted"
+var (
+	chatMessageInsertedChannel = "chat_message_inserted"
+	chatBlastInsertedChannel   = "chat_blast_inserted"
+	chatMessageReactionChanged = "chat_message_reaction_changed"
+)
 
-type rpcLogInsertedNotification struct {
-	Signature string `json:"sig"`
+type chatMessageInsertedNotification struct {
+	MessageID string `json:"message_id"`
+}
+
+type chatBlastInsertedNotification struct {
+	BlastID string `json:"blast_id"`
+}
+
+type chatMessageReactionInsertedNotification struct {
+	MessageID string  `json:"message_id"`
+	UserID    int32   `json:"user_id"`
+	Reaction  *string `json:"reaction"`
 }
 
 type RPCProcessor struct {
@@ -273,7 +287,7 @@ select last_active_at from chat_member where chat_id = $1 and user_id = $2`
 				return err
 			}
 
-			_, err := chatBlast(tx, ctx, userId, messageTs, params)
+			_, err = chatBlast(tx, ctx, userId, messageTs, params)
 			if err != nil {
 				return err
 			}
@@ -358,7 +372,7 @@ func insertRpcLogRow(db dbv1.DBTX, ctx context.Context, rpcLog *RpcLog) (int64, 
 	return result.RowsAffected(), nil
 }
 
-/** Watch for pg_notify() on new rpc_logs so we can send websocket events to the appropriate users */
+/** Watch for pg_notify() on new chat messages and blast messages so we can send websocket events to the appropriate users */
 func (proc *RPCProcessor) StartListening() error {
 	if proc.listener != nil {
 		return nil // Already listening
@@ -379,7 +393,9 @@ func (proc *RPCProcessor) StartListening() error {
 		ReconnectDelay: 10 * time.Second,
 	}
 
-	proc.listener.Handle(rpcLogChannel, pgxlisten.HandlerFunc(proc.handleRpcLogInserted))
+	proc.listener.Handle(chatMessageInsertedChannel, pgxlisten.HandlerFunc(proc.handleChatMessageInserted))
+	proc.listener.Handle(chatBlastInsertedChannel, pgxlisten.HandlerFunc(proc.handleChatBlastInserted))
+	proc.listener.Handle(chatMessageReactionChanged, pgxlisten.HandlerFunc(proc.handleChatMessageReactionChanged))
 
 	// Start listening in a goroutine
 	proc.listenWg.Add(1)
@@ -390,7 +406,7 @@ func (proc *RPCProcessor) StartListening() error {
 		}
 	}()
 
-	proc.logger.Info("Started listening for comms rpc_log insertions")
+	proc.logger.Info("Started listening for comms chat_message_inserted, chat_blast_inserted, and chat_message_reaction_inserted notifications")
 	return nil
 }
 
@@ -407,73 +423,211 @@ func (proc *RPCProcessor) StopListening() {
 
 	// Wait for the listener goroutine to finish
 	proc.listenWg.Wait()
-	proc.logger.Info("Stopped listening for comms rpc_log insertions")
+	proc.logger.Info("Stopped listening for comms chat_message_inserted, chat_blast_inserted, and chat_message_reaction_inserted notifications")
 }
 
-// handleRpcLogInserted processes incoming PostgreSQL notifications
-func (proc *RPCProcessor) handleRpcLogInserted(ctx context.Context, notification *pgconn.Notification, conn *pgx.Conn) error {
-	proc.logger.Debug("Received PostgreSQL notification",
+func (proc *RPCProcessor) handleChatMessageInserted(ctx context.Context, notification *pgconn.Notification, conn *pgx.Conn) error {
+	proc.logger.Debug("Received PostgreSQL notification for chat message",
+		zap.String("channel", notification.Channel),
+		zap.String("payload", notification.Payload))
+
+	var payload chatMessageInsertedNotification
+	if err := json.Unmarshal([]byte(notification.Payload), &payload); err != nil {
+		proc.logger.Error("Failed to parse chat message notification payload", zap.Error(err))
+		return err
+	}
+
+	type InsertedChatMessage struct {
+		MessageID   string      `db:"message_id"`
+		ChatID      string      `db:"chat_id"`
+		UserID      int32       `db:"user_id"`
+		CreatedAt   time.Time   `db:"created_at"`
+		Ciphertext  pgtype.Text `db:"ciphertext"`
+		IsPlaintext bool        `db:"is_plaintext"`
+	}
+	// Joins on blasts to get message text if the origin was a blast
+	row, err := proc.writePool.Query(ctx, `
+		SELECT
+			chat_message.message_id,
+			chat_message.chat_id,
+			chat_message.user_id,
+			chat_message.created_at,
+			COALESCE(chat_message.ciphertext, chat_blast.plaintext) AS ciphertext,
+			chat_blast.plaintext IS NOT NULL as is_plaintext
+		FROM chat_message
+		JOIN chat_member ON chat_message.chat_id = chat_member.chat_id
+		LEFT JOIN chat_blast USING (blast_id)
+		WHERE message_id = $1`, payload.MessageID)
+	if err != nil {
+		proc.logger.Error("Failed to query chat message", zap.Error(err))
+		return err
+	}
+	chatMessage, err := pgx.CollectOneRow(row, pgx.RowToStructByName[InsertedChatMessage])
+	if err != nil {
+		proc.logger.Error("Failed to collect chat message", zap.Error(err))
+		return err
+	}
+
+	// Get chat members to notify
+	userRows, err := proc.writePool.Query(ctx, `select user_id from chat_member where chat_id = $1 and is_hidden = false`, chatMessage.ChatID)
+	if err != nil {
+		proc.logger.Error("failed to load chat members for websocket push " + err.Error())
+		return err
+	}
+	userIds, err := pgx.CollectRows(userRows, pgx.RowTo[int32])
+	if err != nil {
+		proc.logger.Error("failed to collect user ids for websocket push " + err.Error())
+		return err
+	}
+
+	messageData := ChatMessageRPC{
+		Method: MethodChatMessage,
+		Params: ChatMessageRPCParams{
+			ChatID:      chatMessage.ChatID,
+			MessageID:   chatMessage.MessageID,
+			IsPlaintext: &chatMessage.IsPlaintext,
+			Message:     chatMessage.Ciphertext.String,
+		},
+	}
+
+	messageJson, err := json.Marshal(messageData)
+	if err != nil {
+		proc.logger.Error("Failed to marshal message data", zap.Error(err))
+		return err
+	}
+
+	messageTs := chatMessage.CreatedAt.UTC().Round(time.Microsecond)
+
+	// Send to all chat members except the sender
+	for _, receiverUserId := range userIds {
+		if receiverUserId != chatMessage.UserID {
+			proc.websocketManager.WebsocketPush(chatMessage.UserID, receiverUserId, messageJson, messageTs)
+		}
+	}
+
+	return nil
+}
+
+func (proc *RPCProcessor) handleChatBlastInserted(ctx context.Context, notification *pgconn.Notification, conn *pgx.Conn) error {
+	proc.logger.Debug("Received PostgreSQL notification for chat blast",
+		zap.String("channel", notification.Channel),
+		zap.String("payload", notification.Payload))
+
+	var payload chatBlastInsertedNotification
+	if err := json.Unmarshal([]byte(notification.Payload), &payload); err != nil {
+		proc.logger.Error("Failed to parse chat blast notification payload", zap.Error(err))
+		return err
+	}
+
+	row, err := proc.writePool.Query(ctx, `
+		SELECT blast_id, from_user_id, audience, audience_content_id, plaintext, created_at, audience_content_type
+		FROM chat_blast
+		WHERE blast_id = $1`, payload.BlastID)
+	if err != nil {
+		proc.logger.Error("Failed to query chat blast", zap.Error(err))
+		return err
+	}
+	chatBlast, err := pgx.CollectOneRow(row, pgx.RowToStructByName[dbv1.ChatBlast])
+	if err != nil {
+		proc.logger.Error("Failed to collect chat blast", zap.Error(err))
+		return err
+	}
+
+	blastData := ChatBlastRPC{
+		Method: MethodChatBlast,
+		Params: ChatBlastRPCParams{
+			BlastID:  chatBlast.BlastID,
+			Audience: ChatBlastAudience(chatBlast.Audience),
+			Message:  chatBlast.Plaintext,
+		},
+	}
+
+	if chatBlast.AudienceContentID.Valid {
+		audienceContentID, err := trashid.EncodeHashId(int(chatBlast.AudienceContentID.Int32))
+		if err != nil {
+			proc.logger.Error("Failed to encode audience content id", zap.Error(err))
+			return err
+		}
+		blastData.Params.AudienceContentID = &audienceContentID
+	}
+	if chatBlast.AudienceContentType.Valid {
+		audienceContentType := AudienceContentType(chatBlast.AudienceContentType.String)
+		blastData.Params.AudienceContentType = &audienceContentType
+	}
+
+	blastJson, err := json.Marshal(blastData)
+	if err != nil {
+		proc.logger.Error("Failed to marshal blast data", zap.Error(err))
+		return err
+	}
+
+	blastTs := chatBlast.CreatedAt.Time.Round(time.Microsecond)
+
+	// Send to all connected clients (blast messages go to everyone)
+	go func() {
+		proc.websocketManager.WebsocketPushAll(chatBlast.FromUserID, blastJson, blastTs)
+	}()
+
+	return nil
+}
+
+func (proc *RPCProcessor) handleChatMessageReactionChanged(ctx context.Context, notification *pgconn.Notification, conn *pgx.Conn) error {
+	proc.logger.Debug("Received PostgreSQL notification for chat message reaction",
 		zap.String("channel", notification.Channel),
 		zap.String("payload", notification.Payload))
 
 	// Parse the notification payload
-	var payload rpcLogInsertedNotification
+	var payload chatMessageReactionInsertedNotification
 	if err := json.Unmarshal([]byte(notification.Payload), &payload); err != nil {
-		proc.logger.Error("Failed to parse notification payload", zap.Error(err))
+		proc.logger.Error("Failed to parse chat message reaction notification payload", zap.Error(err))
 		return err
 	}
 
-	var rpcData json.RawMessage
-	var fromWallet string
-	var relayedAt time.Time
-	err := proc.writePool.QueryRow(ctx, `select rpc, from_wallet, relayed_at from rpc_log where sig = $1`, payload.Signature).Scan(&rpcData, &fromWallet, &relayedAt)
+	// Get the chat_id for this message to find members to notify
+	var chatID string
+	err := proc.writePool.QueryRow(ctx, `SELECT chat_id FROM chat_message WHERE message_id = $1`, payload.MessageID).Scan(&chatID)
 	if err != nil {
-		proc.logger.Error("Failed to query rpc log", zap.Error(err))
+		proc.logger.Error("Failed to get chat_id for message", zap.Error(err))
 		return err
 	}
 
-	// parse raw rpc
-	var rawRpc RawRPC
-	err = json.Unmarshal(rpcData, &rawRpc)
+	// Get chat members to notify
+	userRows, err := proc.writePool.Query(ctx, `select user_id from chat_member where chat_id = $1 and is_hidden = false`, chatID)
 	if err != nil {
-		proc.logger.Error("failed to parse raw rpc " + err.Error())
+		proc.logger.Error("failed to load chat members for websocket push " + err.Error())
 		return err
 	}
-
-	senderUserId, err := proc.GetRPCCurrentUserID(ctx, &RpcLog{
-		Rpc:        rpcData,
-		FromWallet: fromWallet,
-	}, &rawRpc)
+	userIds, err := pgx.CollectRows(userRows, pgx.RowTo[int32])
 	if err != nil {
-		proc.logger.Error("failed to get current user id for websocket push " + err.Error())
+		proc.logger.Error("failed to collect user ids for websocket push " + err.Error())
 		return err
 	}
 
-	// Ensure UTC when sending to clients
-	messageTs := relayedAt.Round(time.Microsecond)
-
-	if chatId := gjson.GetBytes(rpcData, "params.chat_id").String(); chatId != "" {
-		userRows, err := proc.writePool.Query(ctx, `select user_id from chat_member where chat_id = $1 and is_hidden = false`, chatId)
-		if err != nil {
-			proc.logger.Error("failed to load chat members for websocket push " + err.Error())
-			return err
-		}
-		userIds, err := pgx.CollectRows(userRows, pgx.RowTo[int32])
-		if err != nil {
-			proc.logger.Error("failed to collect user ids for websocket push " + err.Error())
-			return err
-		}
-
-		for _, receiverUserId := range userIds {
-			proc.websocketManager.WebsocketPush(int32(senderUserId), receiverUserId, rpcData, messageTs)
-		}
-	} else if gjson.GetBytes(rpcData, "method").String() == "chat.blast" {
-		go func() {
-			// Add delay before broadcasting blast messages - see PAY-3573
-			time.Sleep(30 * time.Second)
-			proc.websocketManager.WebsocketPushAll(int32(senderUserId), rpcData, messageTs)
-		}()
+	reactionData := ChatReactRPC{
+		Method: MethodChatReact,
+		Params: ChatReactRPCParams{
+			ChatID:    chatID,
+			MessageID: payload.MessageID,
+			Reaction:  payload.Reaction,
+		},
 	}
+
+	reactionJson, err := json.Marshal(reactionData)
+	if err != nil {
+		proc.logger.Error("Failed to marshal reaction data", zap.Error(err))
+		return err
+	}
+
+	// Use current time since we don't have the timestamp in the notification
+	reactionTs := time.Now().UTC().Round(time.Microsecond)
+
+	// Send to all chat members except the sender
+	for _, receiverUserId := range userIds {
+		if receiverUserId != payload.UserID {
+			proc.websocketManager.WebsocketPush(payload.UserID, receiverUserId, reactionJson, reactionTs)
+		}
+	}
+
 	return nil
 }
 
