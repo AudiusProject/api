@@ -139,7 +139,11 @@ SELECT
   allow_ai_attribution,
 
   (
-    SELECT logo_uri FROM artist_coins
+    SELECT JSON_BUILD_OBJECT(
+      'mint', mint,
+      'logo_uri', logo_uri
+    )::jsonb
+    FROM artist_coins
     WHERE artist_coins.mint = COALESCE(
       -- Owned first
       (
