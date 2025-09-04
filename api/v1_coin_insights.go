@@ -10,7 +10,7 @@ import (
 type ArtistCoinInsights struct {
 	birdeye.TokenOverview
 	MembersStatsRow
-	DynamicBondingCurve *DynamicBondingCurveInsights `json:"dynamic_bonding_curve"`
+	DynamicBondingCurve *DynamicBondingCurveInsights `json:"dynamicBondingCurve"`
 }
 
 type MembersStatsRow struct {
@@ -20,8 +20,8 @@ type MembersStatsRow struct {
 
 type DynamicBondingCurveInsights struct {
 	Pool          string  `json:"pool"`
-	PriceUSD      float64 `json:"price_usd"`
-	CurveProgress float64 `json:"curve_progress"`
+	PriceUSD      float64 `json:"priceUSD"`
+	CurveProgress float64 `json:"curveProgress"`
 }
 
 func (app *ApiServer) v1CoinInsights(c *fiber.Ctx) error {
