@@ -40,6 +40,15 @@ func (app *ApiServer) v1Playlists(c *fiber.Ctx) error {
 		ids = append(ids, newIds...)
 	}
 
+	upcs := queryMulti(c, "upc")
+	if len(upcs) > 0 {
+		newIds, err := app.queries.GetPlaylistIdsByUPC(c.Context(), upcs)
+		if err != nil {
+			return err
+		}
+		ids = append(ids, newIds...)
+	}
+
 	playlists, err := app.queries.FullPlaylists(c.Context(), dbv1.FullPlaylistsParams{
 		GetPlaylistsParams: dbv1.GetPlaylistsParams{
 			MyID: myId,
