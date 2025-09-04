@@ -903,6 +903,15 @@ paths:
           type: array
           items:
             type: string
+      - name: isrc
+        in: query
+        description: The ISRC of the track(s)
+        style: form
+        explode: true
+        schema:
+          type: array
+          items:
+            type: string
       responses:
         "200":
           description: Success

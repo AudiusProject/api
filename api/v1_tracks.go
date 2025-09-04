@@ -38,6 +38,16 @@ func (app *ApiServer) v1Tracks(c *fiber.Ctx) error {
 		ids = append(ids, newIds...)
 	}
 
+	// Add ISRC ID mappings
+	isrcs := queryMulti(c, "isrc")
+	if len(isrcs) > 0 {
+		newIds, err := app.queries.GetTrackIdsByISRC(c.Context(), isrcs)
+		if err != nil {
+			return err
+		}
+		ids = append(ids, newIds...)
+	}
+
 	tracks, err := app.queries.FullTracks(c.Context(), dbv1.FullTracksParams{
 		GetTracksParams: dbv1.GetTracksParams{
 			MyID:            int32(myId),
