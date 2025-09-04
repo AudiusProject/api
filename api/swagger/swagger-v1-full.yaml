@@ -5290,7 +5290,12 @@ components:
         artist_pick_track_id:
           type: string
         artist_coin_badge:
-          type: string
+          type: object
+          properties:
+            mint:
+              type: string
+            logo_uri:
+              type: string
         bio:
           type: string
         cover_photo:
