@@ -97,7 +97,7 @@ func (s *SolanaIndexer) Start(ctx context.Context) error {
 	go s.ScheduleRetries(ctx, s.config.SolanaIndexerRetryInterval)
 
 	go jobs.NewCoinStatsJob(s.config, s.pool).
-		ScheduleEvery(ctx, 5*time.Minute)
+		ScheduleEvery(ctx, 5*time.Minute).Run(ctx)
 
 	err := s.Subscribe(ctx)
 	if err != nil {
