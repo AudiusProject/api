@@ -10,6 +10,9 @@ import (
 	"bridgerton.audius.co/config"
 	"bridgerton.audius.co/database"
 	"bridgerton.audius.co/logging"
+	"bridgerton.audius.co/solana/spl/programs/meteora_dbc"
+	"github.com/gagliardetto/solana-go"
+	"github.com/gagliardetto/solana-go/rpc"
 	"github.com/jackc/pgx/v5"
 	"go.uber.org/zap"
 )
@@ -23,6 +26,7 @@ const tokenPageSize = 1000
 
 type CoinStatsJob struct {
 	birdeyeClient *birdeye.Client
+	meteoraClient *meteora_dbc.Client
 	pool          database.DbPool
 	logger        *zap.Logger
 
@@ -33,37 +37,47 @@ type CoinStatsJob struct {
 func NewCoinStatsJob(config config.Config, pool database.DbPool) *CoinStatsJob {
 	logger := logging.NewZapLogger(config).Named("CoinStatsJob")
 	birdeyeClient := birdeye.New(config.BirdeyeToken)
+	rpcClient := rpc.New(config.SolanaConfig.RpcProviders[0])
+	meteoraClient := meteora_dbc.NewClient(rpcClient, logger)
 
 	return &CoinStatsJob{
 		birdeyeClient: birdeyeClient,
+		meteoraClient: meteoraClient,
 		logger:        logger,
 		pool:          pool,
 	}
 }
 
 // ScheduleEvery runs the job every `duration` until the context is cancelled.
-func (j *CoinStatsJob) ScheduleEvery(ctx context.Context, duration time.Duration) error {
-	ticker := time.NewTicker(duration)
-	defer ticker.Stop()
-	for {
-		select {
-		case <-ticker.C:
-			j.logger.Info("Job started")
-			if err := j.run(ctx); err != nil {
-				j.logger.Error("Job run failed", zap.Error(err))
-			} else {
-				j.logger.Info("Job completed successfully")
+func (j *CoinStatsJob) ScheduleEvery(ctx context.Context, duration time.Duration) *CoinStatsJob {
+	go func() {
+		ticker := time.NewTicker(duration)
+		defer ticker.Stop()
+		for {
+			select {
+			case <-ticker.C:
+				j.logger.Info("Job started")
+				j.Run(ctx)
+			case <-ctx.Done():
+				j.logger.Info("Job shutting down")
+				return
 			}
-		case <-ctx.Done():
-			j.logger.Info("Job shutting down")
-			return nil
 		}
+	}()
+	return j
+}
+
+// Run executes the job once
+func (j *CoinStatsJob) Run(ctx context.Context) {
+	if err := j.run(ctx); err != nil {
+		j.logger.Error("Job run failed", zap.Error(err))
+	} else {
+		j.logger.Info("Job completed successfully")
 	}
 }
 
-// run executes the job once. Ensures only one instance runs at a time.
 // For each artist coin in the database, fetches the latest stats from Birdeye and
-// updates the artist_coin_stats table.
+// updates the artist_coin_stats table. Ensures only one instance runs at a time.
 func (j *CoinStatsJob) run(ctx context.Context) error {
 	j.mutex.Lock()
 	if j.isRunning {
@@ -89,22 +103,64 @@ func (j *CoinStatsJob) run(ctx context.Context) error {
 			return fmt.Errorf("error getting token batch: %w", err)
 		}
 
-		for _, mint := range batch {
-			overview, err := j.birdeyeClient.GetTokenOverview(ctx, mint, "24h")
+		for _, coin := range batch {
+			err := j.updateStats(ctx, coin)
 			if err != nil {
-				return fmt.Errorf("error getting token overview for mint %s: %w", mint, err)
+				j.logger.Error("error updating stats", zap.String("mint", coin.Mint), zap.Error(err))
 			}
-			err = j.insertArtistCoinStats(ctx, mint, overview)
-			if err != nil {
-				return fmt.Errorf("error inserting artist coin stats for mint %s: %w", mint, err)
+			if coin.Pool != nil && *coin.Pool != "" {
+				err := j.updatePool(ctx, coin)
+				if err != nil {
+					j.logger.Error("error updating pool", zap.String("mint", coin.Mint), zap.Error(err))
+				}
 			}
 
-			// Prevent rate limiting
+			// Prevent rate limiting on birdeye
 			time.Sleep(birdeyeDelay)
 		}
 		j.logger.Info("Processed batch", zap.Int("offset", offset), zap.Int("batch_size", len(batch)))
 	}
 
+	return nil
+}
+
+func (j *CoinStatsJob) updateStats(ctx context.Context, coin ArtistCoin) error {
+	overview, err := j.birdeyeClient.GetTokenOverview(ctx, coin.Mint, "24h")
+	if err != nil {
+		return fmt.Errorf("error getting token overview: %w", err)
+	}
+	err = j.insertArtistCoinStats(ctx, coin.Mint, overview)
+	if err != nil {
+		return fmt.Errorf("error inserting artist coin stats: %w", err)
+	}
+	return nil
+}
+
+func (j *CoinStatsJob) updatePool(ctx context.Context, coin ArtistCoin) error {
+	pool, err := j.meteoraClient.GetPool(ctx, solana.MustPublicKeyFromBase58(*coin.Pool))
+	if err != nil {
+		return fmt.Errorf("error getting pool: %w", err)
+	}
+
+	poolConfig, err := j.meteoraClient.GetPoolConfig(ctx, pool.Config)
+	if err != nil {
+		return fmt.Errorf("error getting pool config: %w", err)
+	}
+
+	price, err := j.meteoraClient.GetQuotePrice(ctx, solana.MustPublicKeyFromBase58(*coin.Pool), int(poolConfig.TokenDecimal), 6)
+	if err != nil {
+		return fmt.Errorf("error getting quote price: %w", err)
+	}
+
+	progress, err := j.meteoraClient.GetPoolCurveProgress(ctx, solana.MustPublicKeyFromBase58(*coin.Pool))
+	if err != nil {
+		return fmt.Errorf("error getting pool curve progress: %w", err)
+	}
+
+	err = j.insertPool(ctx, *pool, *poolConfig, price, progress)
+	if err != nil {
+		return fmt.Errorf("error inserting pool: %w", err)
+	}
 	return nil
 }
 
@@ -117,22 +173,23 @@ func (j *CoinStatsJob) getTokenCount(ctx context.Context) (int, error) {
 	return count, nil
 }
 
-func (j *CoinStatsJob) getTokenBatch(ctx context.Context, limit, offset int) ([]string, error) {
-	rows, err := j.pool.Query(ctx, "SELECT mint FROM artist_coins ORDER BY mint LIMIT $1 OFFSET $2", limit, offset)
+type ArtistCoin struct {
+	Mint string  `db:"mint"`
+	Pool *string `db:"dbc_pool"`
+}
+
+func (j *CoinStatsJob) getTokenBatch(ctx context.Context, limit, offset int) ([]ArtistCoin, error) {
+	rows, err := j.pool.Query(ctx, "SELECT mint, dbc_pool FROM artist_coins ORDER BY mint LIMIT $1 OFFSET $2", limit, offset)
 	if err != nil {
 		return nil, err
 	}
-	defer rows.Close()
 
-	mints := make([]string, 0, limit)
-	for rows.Next() {
-		var mint string
-		if err := rows.Scan(&mint); err != nil {
-			return nil, err
-		}
-		mints = append(mints, mint)
+	coins, err := pgx.CollectRows(rows, pgx.RowToStructByName[ArtistCoin])
+	if err != nil {
+		return nil, err
 	}
-	return mints, nil
+
+	return coins, nil
 }
 
 func (j *CoinStatsJob) insertArtistCoinStats(ctx context.Context, mint string, overview *birdeye.TokenOverview) error {
@@ -238,6 +295,79 @@ func (j *CoinStatsJob) insertArtistCoinStats(ctx context.Context, mint string, o
 		"v_sell_history_24h_usd":           overview.VSellHistory24hUSD,
 		"v_sell_24h_change_percent":        overview.VSell24hChangePercent,
 		"number_markets":                   overview.NumberMarkets,
+	})
+	return err
+}
+
+func (j *CoinStatsJob) insertPool(ctx context.Context, pool meteora_dbc.Pool, poolConfig meteora_dbc.PoolConfig, price float64, curveProgress float64) error {
+	_, err := j.pool.Exec(ctx, `
+        INSERT INTO artist_coin_pools (
+            address,
+            base_mint,
+            quote_mint,
+            token_decimals,
+            base_reserve,
+            quote_reserve,
+            migration_base_threshold,
+            migration_quote_threshold,
+            protocol_quote_fee,
+            partner_quote_fee,
+            creator_base_fee,
+            creator_quote_fee,
+            price,
+            curve_progress,
+            is_migrated,
+            updated_at
+        ) VALUES (
+            @address,
+            @base_mint,
+            @quote_mint,
+            @token_decimals,
+            @base_reserve,
+            @quote_reserve,
+            @migration_base_threshold,
+            @migration_quote_threshold,
+            @protocol_quote_fee,
+            @partner_quote_fee,
+            @creator_base_fee,
+            @creator_quote_fee,
+            @price,
+            @curve_progress,
+            @is_migrated,
+            NOW()
+        )
+        ON CONFLICT (address) DO UPDATE SET
+            base_mint = EXCLUDED.base_mint,
+            quote_mint = EXCLUDED.quote_mint,
+            token_decimals = EXCLUDED.token_decimals,
+            base_reserve = EXCLUDED.base_reserve,
+            quote_reserve = EXCLUDED.quote_reserve,
+            migration_quote_threshold = EXCLUDED.migration_quote_threshold,
+            migration_base_threshold = EXCLUDED.migration_base_threshold,
+            protocol_quote_fee = EXCLUDED.protocol_quote_fee,
+            partner_quote_fee = EXCLUDED.partner_quote_fee,
+            creator_base_fee = EXCLUDED.creator_base_fee,
+            creator_quote_fee = EXCLUDED.creator_quote_fee,
+            price = EXCLUDED.price,
+            curve_progress = EXCLUDED.curve_progress,
+            is_migrated = EXCLUDED.is_migrated,
+            updated_at = NOW()
+    `, pgx.NamedArgs{
+		"address":                   pool.Config.String(),
+		"base_mint":                 pool.BaseMint.String(),
+		"quote_mint":                poolConfig.QuoteMint.String(),
+		"token_decimals":            int(poolConfig.TokenDecimal),
+		"base_reserve":              pool.BaseReserve,
+		"quote_reserve":             pool.QuoteReserve,
+		"migration_quote_threshold": poolConfig.MigrationQuoteThreshold,
+		"migration_base_threshold":  poolConfig.MigrationBaseThreshold,
+		"protocol_quote_fee":        pool.ProtocolQuoteFee,
+		"partner_quote_fee":         pool.PartnerQuoteFee,
+		"creator_base_fee":          pool.CreatorBaseFee,
+		"creator_quote_fee":         pool.CreatorQuoteFee,
+		"price":                     price,
+		"curve_progress":            curveProgress,
+		"is_migrated":               pool.IsMigrated != 0,
 	})
 	return err
 }
