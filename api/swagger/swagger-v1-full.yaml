@@ -5246,6 +5246,7 @@ components:
       required:
       - album_count
       - allow_ai_attribution
+      - artist_coin_badge
       - associated_sol_wallets_balance
       - associated_wallets_balance
       - balance
@@ -5287,6 +5288,8 @@ components:
         album_count:
           type: integer
         artist_pick_track_id:
+          type: string
+        artist_coin_badge:
           type: string
         bio:
           type: string
