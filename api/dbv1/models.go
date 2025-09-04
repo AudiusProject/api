@@ -905,6 +905,53 @@ type ArtistCoin struct {
 	LogoUri     pgtype.Text `json:"logo_uri"`
 	Description pgtype.Text `json:"description"`
 	Website     pgtype.Text `json:"website"`
+	Name        string      `json:"name"`
+	DbcPool     pgtype.Text `json:"dbc_pool"`
+}
+
+type ArtistCoinStat struct {
+	Mint                         string        `json:"mint"`
+	MarketCap                    pgtype.Float8 `json:"market_cap"`
+	Fdv                          pgtype.Float8 `json:"fdv"`
+	Liquidity                    pgtype.Float8 `json:"liquidity"`
+	LastTradeUnixTime            pgtype.Int8   `json:"last_trade_unix_time"`
+	LastTradeHumanTime           pgtype.Text   `json:"last_trade_human_time"`
+	Price                        pgtype.Float8 `json:"price"`
+	History24hPrice              pgtype.Float8 `json:"history_24h_price"`
+	PriceChange24hPercent        pgtype.Float8 `json:"price_change_24h_percent"`
+	UniqueWallet24h              pgtype.Int4   `json:"unique_wallet_24h"`
+	UniqueWalletHistory24h       pgtype.Int4   `json:"unique_wallet_history_24h"`
+	UniqueWallet24hChangePercent pgtype.Float8 `json:"unique_wallet_24h_change_percent"`
+	TotalSupply                  pgtype.Float8 `json:"total_supply"`
+	CirculatingSupply            pgtype.Float8 `json:"circulating_supply"`
+	Holder                       pgtype.Int4   `json:"holder"`
+	Trade24h                     pgtype.Int4   `json:"trade_24h"`
+	TradeHistory24h              pgtype.Int4   `json:"trade_history_24h"`
+	Trade24hChangePercent        pgtype.Float8 `json:"trade_24h_change_percent"`
+	Sell24h                      pgtype.Int4   `json:"sell_24h"`
+	SellHistory24h               pgtype.Int4   `json:"sell_history_24h"`
+	Sell24hChangePercent         pgtype.Float8 `json:"sell_24h_change_percent"`
+	Buy24h                       pgtype.Int4   `json:"buy_24h"`
+	BuyHistory24h                pgtype.Int4   `json:"buy_history_24h"`
+	Buy24hChangePercent          pgtype.Float8 `json:"buy_24h_change_percent"`
+	V24h                         pgtype.Float8 `json:"v_24h"`
+	V24hUsd                      pgtype.Float8 `json:"v_24h_usd"`
+	VHistory24h                  pgtype.Float8 `json:"v_history_24h"`
+	VHistory24hUsd               pgtype.Float8 `json:"v_history_24h_usd"`
+	V24hChangePercent            pgtype.Float8 `json:"v_24h_change_percent"`
+	VBuy24h                      pgtype.Float8 `json:"v_buy_24h"`
+	VBuy24hUsd                   pgtype.Float8 `json:"v_buy_24h_usd"`
+	VBuyHistory24h               pgtype.Float8 `json:"v_buy_history_24h"`
+	VBuyHistory24hUsd            pgtype.Float8 `json:"v_buy_history_24h_usd"`
+	VBuy24hChangePercent         pgtype.Float8 `json:"v_buy_24h_change_percent"`
+	VSell24h                     pgtype.Float8 `json:"v_sell_24h"`
+	VSell24hUsd                  pgtype.Float8 `json:"v_sell_24h_usd"`
+	VSellHistory24h              pgtype.Float8 `json:"v_sell_history_24h"`
+	VSellHistory24hUsd           pgtype.Float8 `json:"v_sell_history_24h_usd"`
+	VSell24hChangePercent        pgtype.Float8 `json:"v_sell_24h_change_percent"`
+	NumberMarkets                pgtype.Int4   `json:"number_markets"`
+	CreatedAt                    time.Time     `json:"created_at"`
+	UpdatedAt                    time.Time     `json:"updated_at"`
 }
 
 type AssociatedWallet struct {
