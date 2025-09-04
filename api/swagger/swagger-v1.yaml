@@ -5148,6 +5148,7 @@ components:
         - v24hUSD
         - vHistory24h
         - members
+        - dynamicBondingCurve
       properties:
         address:
           type: string
@@ -5353,6 +5354,26 @@ components:
           type: integer
           description: The number of Audius users holding the coin
           example: 10000
+        dynamicBondingCurve:
+          type: object
+          description: Information about the dynamic bonding curve if one exists for the Coin
+          required:
+            - pool
+            - priceUSD
+            - curveProgress
+          properties:
+            pool:
+              type: string
+              description: Address of the bonding curve pool
+              example: "2AAsAwNPTNBk5N466xyPiwqdgbc5WLbDTdnn9gVuDKaN" 
+            priceUSD:
+              type: number
+              description: Current price in USD
+              example: 0.000029571022098881748
+            curveProgress:
+              type: number
+              description: Progress along the bonding curve (0.0 - 1.0)
+              example: 0.75
     coin_insights_response:
       type: object
       properties:

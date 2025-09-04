@@ -2,8 +2,8 @@
 -- PostgreSQL database dump
 --
 
--- Dumped from database version 17.5 (Debian 17.5-1.pgdg120+1)
--- Dumped by pg_dump version 17.4 (Debian 17.4-1.pgdg120+2)
+-- Dumped from database version 17.6 (Debian 17.6-1.pgdg13+1)
+-- Dumped by pg_dump version 17.6 (Debian 17.6-1.pgdg13+1)
 
 SET statement_timeout = 0;
 SET lock_timeout = 0;
@@ -5746,6 +5746,56 @@ CREATE MATERIALIZED VIEW public.app_name_metrics_trailing_week AS
 
 
 --
+-- Name: artist_coin_stats; Type: TABLE; Schema: public; Owner: -
+--
+
+CREATE TABLE public.artist_coin_stats (
+    mint text NOT NULL,
+    market_cap double precision,
+    fdv double precision,
+    liquidity double precision,
+    last_trade_unix_time bigint,
+    last_trade_human_time text,
+    price double precision,
+    history_24h_price double precision,
+    price_change_24h_percent double precision,
+    unique_wallet_24h integer,
+    unique_wallet_history_24h integer,
+    unique_wallet_24h_change_percent double precision,
+    total_supply double precision,
+    circulating_supply double precision,
+    holder integer,
+    trade_24h integer,
+    trade_history_24h integer,
+    trade_24h_change_percent double precision,
+    sell_24h integer,
+    sell_history_24h integer,
+    sell_24h_change_percent double precision,
+    buy_24h integer,
+    buy_history_24h integer,
+    buy_24h_change_percent double precision,
+    v_24h double precision,
+    v_24h_usd double precision,
+    v_history_24h double precision,
+    v_history_24h_usd double precision,
+    v_24h_change_percent double precision,
+    v_buy_24h double precision,
+    v_buy_24h_usd double precision,
+    v_buy_history_24h double precision,
+    v_buy_history_24h_usd double precision,
+    v_buy_24h_change_percent double precision,
+    v_sell_24h double precision,
+    v_sell_24h_usd double precision,
+    v_sell_history_24h double precision,
+    v_sell_history_24h_usd double precision,
+    v_sell_24h_change_percent double precision,
+    number_markets integer,
+    created_at timestamp without time zone DEFAULT CURRENT_TIMESTAMP NOT NULL,
+    updated_at timestamp without time zone DEFAULT CURRENT_TIMESTAMP NOT NULL
+);
+
+
+--
 -- Name: artist_coins; Type: TABLE; Schema: public; Owner: -
 --
 
@@ -5758,7 +5808,8 @@ CREATE TABLE public.artist_coins (
     logo_uri text,
     description text,
     website text,
-    name text DEFAULT ''::text NOT NULL
+    name text DEFAULT ''::text NOT NULL,
+    dbc_pool text
 );
 
 
@@ -8752,6 +8803,14 @@ ALTER TABLE ONLY public.api_metrics_routes
 
 ALTER TABLE ONLY public.app_name_metrics
     ADD CONSTRAINT app_name_metrics_pkey PRIMARY KEY (id);
+
+
+--
+-- Name: artist_coin_stats artist_coin_stats_pkey; Type: CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.artist_coin_stats
+    ADD CONSTRAINT artist_coin_stats_pkey PRIMARY KEY (mint);
 
 
 --

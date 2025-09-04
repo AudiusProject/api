@@ -59,8 +59,8 @@ func (app *ApiServer) v1UsersCoins(c *fiber.Ctx) error {
 		return fmt.Errorf("failed to get prices: %w", err)
 	}
 
-	pricesRows := make([]string, 0, len(*prices))
-	for mint, price := range *prices {
+	pricesRows := make([]string, 0, len(prices))
+	for mint, price := range prices {
 		pricesRows = append(pricesRows, fmt.Sprintf("('%s', %f)", mint, price.Value))
 	}
 

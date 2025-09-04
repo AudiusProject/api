@@ -109,7 +109,7 @@ func (app *ApiServer) v1UsersCoin(c *fiber.Ctx) error {
 	rows, err := app.pool.Query(c.Context(), sql, pgx.NamedArgs{
 		"user_id": app.getUserId(c),
 		"mint":    params.Mint,
-		"price":   (*prices)[params.Mint].Value,
+		"price":   prices[params.Mint].Value,
 	})
 	if err != nil {
 		return err

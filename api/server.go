@@ -12,14 +12,15 @@ import (
 	"strconv"
 	"time"
 
-	"bridgerton.audius.co/api/birdeye"
 	comms "bridgerton.audius.co/api/comms"
 	"bridgerton.audius.co/api/dbv1"
+	"bridgerton.audius.co/birdeye"
 	"bridgerton.audius.co/config"
 	"bridgerton.audius.co/esindexer"
 	"bridgerton.audius.co/logging"
 	"bridgerton.audius.co/solana/spl"
 	"bridgerton.audius.co/solana/spl/programs/claimable_tokens"
+	"bridgerton.audius.co/solana/spl/programs/meteora_dbc"
 	"bridgerton.audius.co/solana/spl/programs/reward_manager"
 	"bridgerton.audius.co/trashid"
 	"github.com/AudiusProject/audiusd/pkg/rewards"
@@ -149,6 +150,10 @@ func NewApiServer(config config.Config) *ApiServer {
 	if err != nil {
 		panic(err)
 	}
+	meteoraDbcClient := meteora_dbc.NewClient(
+		solanaRpc,
+		logger,
+	)
 
 	esClient, err := esindexer.Dial(config.EsUrl)
 	if err != nil {
@@ -202,6 +207,7 @@ func NewApiServer(config config.Config) *ApiServer {
 		metricsCollector:      metricsCollector,
 		birdeyeClient:         birdeye.New(config.BirdeyeToken),
 		solanaRpcClient:       solanaRpc,
+		meteoraDbcClient:      meteoraDbcClient,
 	}
 
 	// Set up a custom decoder for HashIds so they can be parsed in lists
@@ -563,7 +569,7 @@ func NewApiServer(config config.Config) *ApiServer {
 
 type BirdeyeClient interface {
 	GetTokenOverview(ctx context.Context, mint string, frames string) (*birdeye.TokenOverview, error)
-	GetPrices(ctx context.Context, mints []string) (*birdeye.TokenPriceMap, error)
+	GetPrices(ctx context.Context, mints []string) (birdeye.TokenPriceMap, error)
 }
 
 type ApiServer struct {
@@ -592,6 +598,7 @@ type ApiServer struct {
 	metricsCollector      *MetricsCollector
 	birdeyeClient         BirdeyeClient
 	solanaRpcClient       *rpc.Client
+	meteoraDbcClient      *meteora_dbc.Client
 }
 
 func (app *ApiServer) home(c *fiber.Ctx) error {

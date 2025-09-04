@@ -1,7 +1,8 @@
 package api
 
 import (
-	"bridgerton.audius.co/api/birdeye"
+	"bridgerton.audius.co/birdeye"
+	"github.com/gagliardetto/solana-go"
 	"github.com/gofiber/fiber/v2"
 	"github.com/jackc/pgx/v5"
 )
@@ -9,10 +10,18 @@ import (
 type ArtistCoinInsights struct {
 	birdeye.TokenOverview
 	MembersStatsRow
+	DynamicBondingCurve *DynamicBondingCurveInsights `json:"dynamicBondingCurve"`
 }
 
 type MembersStatsRow struct {
-	Members int `json:"members"`
+	DbcPool *string `db:"dbc_pool" json:"-"`
+	Members int     `json:"members"`
+}
+
+type DynamicBondingCurveInsights struct {
+	Pool          string  `json:"pool"`
+	PriceUSD      float64 `json:"priceUSD"`
+	CurveProgress float64 `json:"curveProgress"`
 }
 
 func (app *ApiServer) v1CoinInsights(c *fiber.Ctx) error {
@@ -24,9 +33,16 @@ func (app *ApiServer) v1CoinInsights(c *fiber.Ctx) error {
 	}
 
 	sql := `
-		SELECT COUNT(DISTINCT user_id) AS members
-		FROM sol_user_balances
-		WHERE mint = @mint AND balance > 0
+		SELECT 
+			dbc_pool,
+			COUNT(DISTINCT sol_user_balances.user_id) AS members
+		FROM artist_coins
+		LEFT JOIN sol_user_balances 
+			ON sol_user_balances.mint = artist_coins.mint
+			AND sol_user_balances.balance > 0
+		WHERE artist_coins.mint = @mint
+		GROUP BY dbc_pool
+		LIMIT 1
 	`
 
 	rows, err := app.pool.Query(c.Context(), sql, pgx.NamedArgs{
@@ -54,6 +70,48 @@ func (app *ApiServer) v1CoinInsights(c *fiber.Ctx) error {
 	insights := ArtistCoinInsights{
 		MembersStatsRow: membersStatsRows,
 		TokenOverview:   *overview,
+	}
+
+	if insights.DbcPool == nil || *insights.DbcPool == "" {
+		// No DBC pool, return early
+		return c.JSON(fiber.Map{
+			"data": insights,
+		})
+	}
+
+	dbcPool := solana.MustPublicKeyFromBase58(*insights.DbcPool)
+
+	dbcPrice, err := app.meteoraDbcClient.GetQuotePrice(
+		c.Context(),
+		dbcPool,
+		overview.Decimals,
+		8, // Audio has 8 decimals
+	)
+	if err != nil {
+		return err
+	}
+
+	dbcProgress, err := app.meteoraDbcClient.GetPoolCurveProgress(
+		c.Context(),
+		dbcPool,
+	)
+	if err != nil {
+		return err
+	}
+
+	prices, err := app.birdeyeClient.GetPrices(
+		c.Context(),
+		[]string{app.solanaConfig.MintAudio.String()},
+	)
+	if err != nil {
+		return err
+	}
+	audioPrice := prices[app.solanaConfig.MintAudio.String()].Value
+
+	insights.DynamicBondingCurve = &DynamicBondingCurveInsights{
+		Pool:          *insights.DbcPool,
+		PriceUSD:      dbcPrice * audioPrice,
+		CurveProgress: dbcProgress,
 	}
 
 	return c.JSON(fiber.Map{
