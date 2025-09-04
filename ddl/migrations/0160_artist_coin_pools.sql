@@ -1,3 +1,4 @@
+DROP TABLE IF EXISTS artist_coin_pools;
 CREATE TABLE IF NOT EXISTS artist_coin_pools (
     address TEXT NOT NULL PRIMARY KEY,
     base_mint TEXT NOT NULL,
@@ -12,6 +13,7 @@ CREATE TABLE IF NOT EXISTS artist_coin_pools (
     creator_base_fee NUMERIC,
     creator_quote_fee NUMERIC,
     price DOUBLE PRECISION,
+    price_usd DOUBLE PRECISION,
     curve_progress DOUBLE PRECISION,
     is_migrated BOOLEAN,
     created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
