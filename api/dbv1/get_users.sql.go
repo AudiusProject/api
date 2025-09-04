@@ -173,7 +173,7 @@ SELECT
         LIMIT 1
       )
     )
-  ) AS coin_badge
+  ) AS artist_coin_badge
 
 FROM users u
 JOIN aggregate_user using (user_id)
@@ -249,7 +249,7 @@ type GetUsersRow struct {
 	ProfilePictureLegacy           interface{}    `json:"profile_picture_legacy"`
 	HasCollectibles                bool           `json:"has_collectibles"`
 	AllowAiAttribution             bool           `json:"allow_ai_attribution"`
-	CoinBadge                      pgtype.Text    `json:"coin_badge"`
+	ArtistCoinBadge                pgtype.Text    `json:"artist_coin_badge"`
 }
 
 func (q *Queries) GetUsers(ctx context.Context, arg GetUsersParams) ([]GetUsersRow, error) {
@@ -321,7 +321,7 @@ func (q *Queries) GetUsers(ctx context.Context, arg GetUsersParams) ([]GetUsersR
 			&i.ProfilePictureLegacy,
 			&i.HasCollectibles,
 			&i.AllowAiAttribution,
-			&i.CoinBadge,
+			&i.ArtistCoinBadge,
 		); err != nil {
 			return nil, err
 		}

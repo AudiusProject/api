@@ -158,7 +158,7 @@ SELECT
         LIMIT 1
       )
     )
-  ) AS coin_badge
+  ) AS artist_coin_badge
 
 FROM users u
 JOIN aggregate_user using (user_id)
