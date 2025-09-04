@@ -5115,14 +5115,9 @@ components:
         Additional token information from Birdeye's defi token overview API.
         Includes price, volume, supply, market cap, and other on-chain and market data.
       required:
-        - address
-        - decimals
-        - symbol
-        - name
+        - mint
         - marketCap
         - fdv
-        - extensions
-        - logoURI
         - liquidity
         - lastTradeUnixTime
         - lastTradeHumanTime
@@ -5147,7 +5142,6 @@ components:
         - v24h
         - v24hUSD
         - vHistory24h
-        - members
         - dynamicBondingCurve
       properties:
         address:
@@ -5198,10 +5192,6 @@ components:
               type: string
               description: Discord invite URL
               example: "https://discord.gg/ubqvDDFUhf"
-        logoURI:
-          type: string
-          description: URL to the token's logo image
-          example: "https://arweave.net/hQiPZOsRZXGXBJd_82PhVdlM_hACsT_q6wqwf5cSY7I"
         liquidity:
           type: number
           description: Current liquidity in USD
@@ -5350,22 +5340,23 @@ components:
           type: integer
           description: Number of markets the token is traded on
           example: 317
-        members:
-          type: integer
-          description: The number of Audius users holding the coin
-          example: 10000
         dynamicBondingCurve:
           type: object
           description: Information about the dynamic bonding curve if one exists for the Coin
           required:
-            - pool
+            - address
+            - price
             - priceUSD
             - curveProgress
           properties:
-            pool:
+            address:
               type: string
               description: Address of the bonding curve pool
               example: "2AAsAwNPTNBk5N466xyPiwqdgbc5WLbDTdnn9gVuDKaN" 
+            price:
+              type: number
+              description: Current price in the pool's quote token (e.g., AUDIO)
+              example: 0.0028402095736478586927
             priceUSD:
               type: number
               description: Current price in USD

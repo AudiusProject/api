@@ -157,7 +157,14 @@ func (j *CoinStatsJob) updatePool(ctx context.Context, coin ArtistCoin) error {
 		return fmt.Errorf("error getting pool curve progress: %w", err)
 	}
 
-	err = j.insertPool(ctx, *pool, *poolConfig, price, progress)
+	pricesRes, err := j.birdeyeClient.GetPrices(ctx, []string{poolConfig.QuoteMint.String()})
+	if err != nil {
+		return fmt.Errorf("error getting quote prices: %w", err)
+	}
+
+	priceUSD := pricesRes[poolConfig.QuoteMint.String()].Value * price
+
+	err = j.insertPool(ctx, *pool, *poolConfig, price, priceUSD, progress)
 	if err != nil {
 		return fmt.Errorf("error inserting pool: %w", err)
 	}
@@ -299,7 +306,14 @@ func (j *CoinStatsJob) insertArtistCoinStats(ctx context.Context, mint string, o
 	return err
 }
 
-func (j *CoinStatsJob) insertPool(ctx context.Context, pool meteora_dbc.Pool, poolConfig meteora_dbc.PoolConfig, price float64, curveProgress float64) error {
+func (j *CoinStatsJob) insertPool(
+	ctx context.Context,
+	pool meteora_dbc.Pool,
+	poolConfig meteora_dbc.PoolConfig,
+	price float64,
+	priceUSD float64,
+	curveProgress float64,
+) error {
 	_, err := j.pool.Exec(ctx, `
         INSERT INTO artist_coin_pools (
             address,
@@ -315,6 +329,7 @@ func (j *CoinStatsJob) insertPool(ctx context.Context, pool meteora_dbc.Pool, po
             creator_base_fee,
             creator_quote_fee,
             price,
+			price_usd,
             curve_progress,
             is_migrated,
             updated_at
@@ -332,6 +347,7 @@ func (j *CoinStatsJob) insertPool(ctx context.Context, pool meteora_dbc.Pool, po
             @creator_base_fee,
             @creator_quote_fee,
             @price,
+			@price_usd,
             @curve_progress,
             @is_migrated,
             NOW()
@@ -349,6 +365,7 @@ func (j *CoinStatsJob) insertPool(ctx context.Context, pool meteora_dbc.Pool, po
             creator_base_fee = EXCLUDED.creator_base_fee,
             creator_quote_fee = EXCLUDED.creator_quote_fee,
             price = EXCLUDED.price,
+			price_usd = EXCLUDED.price_usd,
             curve_progress = EXCLUDED.curve_progress,
             is_migrated = EXCLUDED.is_migrated,
             updated_at = NOW()
@@ -366,6 +383,7 @@ func (j *CoinStatsJob) insertPool(ctx context.Context, pool meteora_dbc.Pool, po
 		"creator_base_fee":          pool.CreatorBaseFee,
 		"creator_quote_fee":         pool.CreatorQuoteFee,
 		"price":                     price,
+		"price_usd":                 priceUSD,
 		"curve_progress":            curveProgress,
 		"is_migrated":               pool.IsMigrated != 0,
 	})
