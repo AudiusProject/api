@@ -1,0 +1,78 @@
+package api
+
+import (
+	"time"
+
+	"github.com/gofiber/fiber/v2"
+	"github.com/jackc/pgx/v5"
+)
+
+type CreateCoinBody struct {
+	Mint     string `json:"mint" validate:"required"`
+	Ticker   string `json:"ticker" validate:"required"`
+	Decimals int32  `json:"decimals" validate:"required,min=0,max=18"`
+	Name     string `json:"name" validate:"required"`
+}
+
+func (app *ApiServer) v1CreateCoin(c *fiber.Ctx) error {
+	body := CreateCoinBody{}
+	err := c.BodyParser(&body)
+	if err != nil {
+		return err
+	}
+	if body.Mint == "" {
+		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
+			"error": "mint is required",
+		})
+	}
+	if body.Ticker == "" {
+		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
+			"error": "ticker is required",
+		})
+	}
+	if body.Name == "" {
+		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
+			"error": "name is required",
+		})
+	}
+
+	userID := app.getMyId(c)
+
+	// Insert into database
+	sql := `
+		INSERT INTO artist_coins (mint, ticker, user_id, decimals, name)
+		VALUES (@mint, @ticker, @user_id, @decimals, @name)
+		ON CONFLICT (mint) DO UPDATE SET
+			ticker = EXCLUDED.ticker,
+			user_id = EXCLUDED.user_id,
+			decimals = EXCLUDED.decimals,
+			name = EXCLUDED.name
+		RETURNING mint, ticker, user_id, decimals, name, created_at
+	`
+
+	row := app.pool.QueryRow(c.Context(), sql, pgx.NamedArgs{
+		"mint":     body.Mint,
+		"ticker":   body.Ticker,
+		"user_id":  userID,
+		"decimals": body.Decimals,
+		"name":     body.Name,
+	})
+
+	var result struct {
+		Mint      string    `json:"mint"`
+		Ticker    string    `json:"ticker"`
+		UserID    int32     `json:"user_id"`
+		Decimals  int32     `json:"decimals"`
+		Name      string    `json:"name"`
+		CreatedAt time.Time `json:"created_at"`
+	}
+	if err := row.Scan(&result.Mint, &result.Ticker, &result.UserID, &result.Decimals, &result.Name, &result.CreatedAt); err != nil {
+		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{
+			"error": "Failed to create coin",
+		})
+	}
+
+	return c.Status(fiber.StatusCreated).JSON(fiber.Map{
+		"data": result,
+	})
+}

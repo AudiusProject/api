@@ -286,3 +286,29 @@ func testGetWithWallet(t *testing.T, app *ApiServer, path string, walletAddress 
 
 	return res.StatusCode, body
 }
+
+func testPostWithWallet(t *testing.T, app *ApiServer, path string, walletAddress string, body []byte, headers map[string]string, dest ...any) (int, []byte) {
+	req := httptest.NewRequest("POST", path, bytes.NewBuffer(body))
+	fmt.Println("req", req)
+
+	// Add signature headers if wallet address is provided
+	if walletAddress != "" {
+		sigData := testdata.GetSignatureData(walletAddress)
+		req.Header.Set("Encoded-Data-Message", sigData.Message)
+		req.Header.Set("Encoded-Data-Signature", sigData.Signature)
+	}
+
+	for k, v := range headers {
+		req.Header.Set(k, v)
+	}
+	res, err := app.Test(req, -1)
+	assert.NoError(t, err)
+	resBody, _ := io.ReadAll(res.Body)
+
+	if len(dest) > 0 {
+		err = json.Unmarshal(resBody, &dest[0])
+		assert.NoError(t, err)
+	}
+
+	return res.StatusCode, resBody
+}

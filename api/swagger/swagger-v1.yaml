@@ -3510,6 +3510,41 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/coins_response'
+    post:
+      tags:
+        - coins
+      operationId: Create Coin
+      description: 'Creates a new artist coin'
+      parameters:
+      - name: user_id
+        in: query
+        description: The user ID to create a coin
+        required: true
+        schema:
+          type: string
+          example: "7eP5n"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/create_coin_request'
+      responses:
+        '201':
+          description: Success - Coin created
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/create_coin_response'
+        '400':
+          description: Bad request - Invalid parameters
+          content: {}
+        '401':
+          description: Unauthorized - User not authenticated
+          content: {}
+        '500':
+          description: Server error
+          content: {}
   /coins/{mint}:
     get:
       tags:
@@ -5127,6 +5162,70 @@ components:
           type: array
           items:
             $ref: '#/components/schemas/coin'
+    create_coin_request:
+      type: object
+      required:
+        - mint
+        - ticker
+        - decimals
+        - name
+      properties:
+        mint:
+          type: string
+          description: The mint address of the coin
+          example: "bearR26zyyB3fNQm5wWv1ZfN8MPQDUMwaAuoG79b1Yj"
+        ticker:
+          type: string
+          description: The coin symbol/ticker
+          example: "$BEAR"
+        decimals:
+          type: integer
+          description: The number of decimals for the coin (0-18)
+          minimum: 0
+          maximum: 18
+          example: 9
+        name:
+          type: string
+          description: The coin name
+          example: "BEAR"
+    create_coin_response:
+      type: object
+      properties:
+        data:
+          type: object
+          required:
+            - mint
+            - ticker
+            - user_id
+            - decimals
+            - name
+            - created_at
+          properties:
+            mint:
+              type: string
+              description: The mint address of the coin
+              example: "bearR26zyyB3fNQm5wWv1ZfN8MPQDUMwaAuoG79b1Yj"
+            ticker:
+              type: string
+              description: The coin symbol/ticker
+              example: "$BEAR"
+            user_id:
+              type: integer
+              description: The user ID who created the coin
+              example: 1
+            decimals:
+              type: integer
+              description: The number of decimals for the coin
+              example: 9
+            name:
+              type: string
+              description: The coin name
+              example: "BEAR"
+            created_at:
+              type: string
+              format: date-time
+              description: The date and time when the coin was created
+              example: "2024-01-15T10:30:00Z"
     coin_insights:
       type: object
       description: |
