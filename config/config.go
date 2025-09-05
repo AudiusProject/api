@@ -38,6 +38,7 @@ type Config struct {
 	BirdeyeToken               string
 	SolanaIndexerWorkers       int
 	SolanaIndexerRetryInterval time.Duration
+	CommsMessagePush           bool
 }
 
 var Cfg = Config{
@@ -57,6 +58,7 @@ var Cfg = Config{
 	BirdeyeToken:               os.Getenv("birdeyeToken"),
 	SolanaIndexerWorkers:       50,
 	SolanaIndexerRetryInterval: 5 * time.Minute,
+	CommsMessagePush:           true,
 }
 
 func init() {
@@ -122,6 +124,14 @@ func init() {
 		Cfg.ChainId = "audius-mainnet-alpha-beta"
 	default:
 		log.Fatalf("Unknown environment: %s", env)
+	}
+
+	if os.Getenv("commsMessagePush") != "" {
+		commsMessagePushEnabled, err := strconv.ParseBool(os.Getenv("commsMessagePush"))
+		if err != nil {
+			log.Fatalf("Invalid commsMessagePush: %s", err)
+		}
+		Cfg.CommsMessagePush = commsMessagePushEnabled
 	}
 
 	// Solana indexer config

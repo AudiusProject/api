@@ -4,6 +4,7 @@ import (
 	"strings"
 
 	"bridgerton.audius.co/trashid"
+	"github.com/gofiber/contrib/websocket"
 	"github.com/gofiber/fiber/v2"
 	"github.com/gofiber/fiber/v2/utils"
 )
@@ -89,5 +90,17 @@ func (app *ApiServer) requirePlaylistIdMiddleware(c *fiber.Ctx) error {
 		return fiber.NewError(fiber.StatusBadRequest, "invalid playlistId")
 	}
 	c.Locals("playlistId", playlistId)
+	return c.Next()
+}
+
+func (app *ApiServer) validateWebsocketMiddleware(c *fiber.Ctx) error {
+	if !websocket.IsWebSocketUpgrade(c) {
+		return fiber.ErrUpgradeRequired
+	}
+	userId, err := app.userIdForSignedCommsRequest(c)
+	if err != nil {
+		return err
+	}
+	c.Locals("websocketUserId", userId)
 	return c.Next()
 }

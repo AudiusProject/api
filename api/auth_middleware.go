@@ -3,8 +3,12 @@ package api
 import (
 	"context"
 	"fmt"
+	"net/url"
+	"strconv"
 	"strings"
+	"time"
 
+	comms "bridgerton.audius.co/api/comms"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/crypto"
 	"github.com/gofiber/fiber/v2"
@@ -171,4 +175,91 @@ func (app *ApiServer) getUserIDFromWallet(ctx context.Context, wallet string) (i
 
 	app.resolveWalletCache.Set(key, userId)
 	return userId, nil
+}
+
+/*
+* Parses query string for a signed comms GET request and returns the userId
+associated with the signing wallet
+*/
+func (app *ApiServer) userIdForSignedCommsRequest(c *fiber.Ctx) (int, error) {
+	if c.Method() != "GET" {
+		return 0, fiber.NewError(fiber.StatusBadRequest, "readSignedGet: bad method: "+c.Method())
+	}
+
+	sigBase64 := c.Get(comms.SigHeader)
+
+	// for websocket request, read from query param instead of header
+	if querySig := c.Query("signature"); sigBase64 == "" && querySig != "" {
+		sigBase64 = querySig
+	}
+
+	// Check that timestamp is not too old
+	timestamp, err := strconv.ParseInt(c.Query("timestamp"), 0, 64)
+	if err != nil {
+		return 0, fiber.NewError(fiber.StatusBadRequest, "failed to parse timestamp: "+err.Error())
+	}
+
+	tsAge := time.Now().UnixMilli() - timestamp
+	if tsAge < 0 {
+		tsAge *= -1
+	}
+	if tsAge > comms.SignatureTimeToLiveMs {
+		return 0, fiber.NewError(fiber.StatusBadRequest, "timestamp not current")
+	}
+
+	// Strip out app_name,api_key,signature to get the parameters that are actually used to generate the signature
+	uri := c.Request().URI()
+	path := string(uri.Path())
+	query := string(uri.QueryString())
+
+	queryParams, err := url.ParseQuery(query)
+	if err != nil {
+		return 0, fiber.NewError(fiber.StatusBadRequest, "failed to parse query parameters: "+err.Error())
+	}
+
+	queryParams.Del("app_name")
+	queryParams.Del("api_key")
+	queryParams.Del("signature")
+
+	// Build the final URL string
+	urlStr := path
+	if len(queryParams) > 0 {
+		urlStr += "?" + queryParams.Encode()
+	}
+
+	payload := []byte(urlStr)
+
+	wallet, pubkey, err := comms.RecoverSigningWallet(sigBase64, payload)
+	if err != nil {
+		return 0, fiber.NewError(fiber.StatusBadRequest, "failed to recoverSigningWallet: "+err.Error())
+	}
+	userId, err := app.getUserIDFromWallet(c.Context(), wallet)
+	if err != nil {
+		return 0, err
+	}
+
+	app.commsRpcProcessor.SetPubkeyForUser(int32(userId), pubkey)
+
+	return userId, nil
+}
+
+func (app *ApiServer) readSignedCommsPostRequest(c *fiber.Ctx) ([]byte, string, int, error) {
+	if c.Method() != "POST" {
+		return nil, "", 0, fiber.NewError(fiber.StatusBadRequest, "readSignedPost bad method: "+c.Method())
+	}
+
+	payload := c.Body()
+
+	sigHex := c.Get(comms.SigHeader)
+	wallet, pubkey, err := comms.RecoverSigningWallet(sigHex, payload)
+	if err != nil {
+		return nil, "", 0, err
+	}
+	userId, err := app.getUserIDFromWallet(c.Context(), wallet)
+	if err != nil {
+		return nil, "", 0, err
+	}
+
+	app.commsRpcProcessor.SetPubkeyForUser(int32(userId), pubkey)
+	return payload, wallet, userId, nil
 }

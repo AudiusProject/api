@@ -12,7 +12,7 @@ import (
 )
 
 func (app *ApiServer) mutateChat(c *fiber.Ctx) error {
-	payload, wallet, err := comms.ReadSignedPost(c)
+	payload, wallet, userId, err := app.readSignedCommsPostRequest(c)
 	if err != nil {
 		return fiber.NewError(fiber.StatusBadRequest, "bad request: "+err.Error())
 	}
@@ -26,15 +26,10 @@ func (app *ApiServer) mutateChat(c *fiber.Ctx) error {
 
 	rpcLog := &comms.RpcLog{
 		RelayedBy:  "bridge",
-		RelayedAt:  time.Now(),
+		RelayedAt:  time.Now().UTC(),
 		FromWallet: wallet,
 		Rpc:        payload,
 		Sig:        c.Get(comms.SigHeader),
-	}
-
-	userId, err := app.getUserIDFromWallet(c.Context(), wallet)
-	if err != nil {
-		return err
 	}
 
 	err = app.commsRpcProcessor.Validate(c.Context(), int32(userId), rawRpc)

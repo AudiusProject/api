@@ -27,7 +27,7 @@ func TestChatBlocking(t *testing.T) {
 	user2Id := seededRand.Int31()
 
 	assertBlocked := func(blockerUserId int32, blockeeUserId int32, timestamp time.Time, expected int) {
-		row := pool.QueryRow(ctx, "select count(*) from chat_blocked_users where blocker_user_id = $1 and blockee_user_id = $2 and created_at = $3", blockerUserId, blockeeUserId, timestamp)
+		row := pool.QueryRow(ctx, "select count(*) from chat_blocked_users where blocker_user_id = $1 and blockee_user_id = $2 and created_at = $3", blockerUserId, blockeeUserId, timestamp.UTC())
 		var count int
 		err := row.Scan(&count)
 		assert.NoError(t, err)
