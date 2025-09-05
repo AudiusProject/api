@@ -3559,7 +3559,6 @@ paths:
         schema:
           type: string
           example: 9LzCMqDgTKYz9Drzqnpgee3SGa89up3a247ypMj2xrqM
-          example: $AUDIO
       responses:
         '200':
           description: Success
