@@ -15,8 +15,10 @@ func TestV1CreateCoin(t *testing.T) {
 	database.Seed(app.pool.Replicas[0], database.FixtureMap{
 		"users": {
 			{
-				"user_id": 1,
-				"wallet":  "0x7d273271690538cf855e5b3002a0dd8c154bb060",
+				"user_id":     1,
+				"wallet":      "0x7d273271690538cf855e5b3002a0dd8c154bb060",
+				"is_verified": true,
+				"is_current":  true,
 			},
 		},
 	})
@@ -60,8 +62,10 @@ func TestV1CreateCoin_DuplicateMint(t *testing.T) {
 	database.Seed(app.pool.Replicas[0], database.FixtureMap{
 		"users": {
 			{
-				"user_id": 1,
-				"wallet":  "0x7d273271690538cf855e5b3002a0dd8c154bb060",
+				"user_id":     1,
+				"wallet":      "0x7d273271690538cf855e5b3002a0dd8c154bb060",
+				"is_verified": true,
+				"is_current":  true,
 			},
 		},
 	})
@@ -133,4 +137,44 @@ func TestV1CreateCoin_DuplicateMint(t *testing.T) {
 
 	// Clean up
 	app.pool.Exec(context.Background(), "DELETE FROM artist_coins WHERE mint = $1", "bearR26zyyB3fNQm5wWv1ZfN8MPQDUMwaAuoG79b1Yj")
+}
+
+func TestV1CreateCoin_UnverifiedUser(t *testing.T) {
+	app := emptyTestApp(t)
+	database.Seed(app.pool.Replicas[0], database.FixtureMap{
+		"users": {
+			{
+				"user_id":     2,
+				"wallet":      "0xc3d1d41e6872ffbd15c473d14fc3a9250be5b5e0", // Use existing wallet with signature data
+				"is_verified": false,                                        // User is not verified
+				"is_current":  true,
+			},
+		},
+	})
+
+	requestBody := CreateCoinBody{
+		Mint:     "bearR26zyyB3fNQm5wWv1ZfN8MPQDUMwaAuoG79b1Yj",
+		Ticker:   "$BEAR",
+		Decimals: 9,
+		Name:     "BEAR",
+		LogoUri:  "https://example.com/bear-logo.png",
+	}
+	requestBodyBytes, err := json.Marshal(requestBody)
+	assert.NoError(t, err)
+
+	status, body := testPostWithWallet(t, app, "/v1/coins?user_id="+trashid.MustEncodeHashID(2), "0xc3d1d41e6872ffbd15c473d14fc3a9250be5b5e0", requestBodyBytes, map[string]string{
+		"Content-Type": "application/json",
+	})
+
+	assert.Equal(t, 403, status)
+	jsonAssert(t, body, map[string]any{
+		"error": "User must be verified to create coins",
+	})
+
+	// Verify the coin was NOT created in the database
+	var count int
+	err = app.pool.QueryRow(context.Background(), "SELECT COUNT(*) FROM artist_coins WHERE mint = $1",
+		"bearR26zyyB3fNQm5wWv1ZfN8MPQDUMwaAuoG79b1Yj").Scan(&count)
+	assert.NoError(t, err)
+	assert.Equal(t, 0, count)
 }

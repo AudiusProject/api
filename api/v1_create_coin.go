@@ -42,6 +42,24 @@ func (app *ApiServer) v1CreateCoin(c *fiber.Ctx) error {
 
 	userID := app.getMyId(c)
 
+	// Check if user is verified
+	var isVerified bool
+	err = app.pool.QueryRow(c.Context(), `
+		SELECT is_verified FROM users
+		WHERE user_id = $1 AND is_current = true
+	`, userID).Scan(&isVerified)
+
+	if err != nil {
+		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{
+			"error": "Failed to verify user status",
+		})
+	}
+	if !isVerified {
+		return c.Status(fiber.StatusForbidden).JSON(fiber.Map{
+			"error": "User must be verified to create coins",
+		})
+	}
+
 	sql := `
 		INSERT INTO artist_coins (mint, ticker, user_id, decimals, name, logo_uri)
 		VALUES (@mint, @ticker, @user_id, @decimals, @name, @logo_uri)
