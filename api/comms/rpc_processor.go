@@ -60,10 +60,17 @@ type RPCProcessor struct {
 }
 
 func NewProcessor(pool *dbv1.DBPools, writePool *pgxpool.Pool, config *config.Config, logger *zap.Logger) (*RPCProcessor, error) {
-	ctx, cancel := context.WithCancel(context.Background())
+
 	// set up validator
 	validator := NewValidator(pool, DefaultRateLimitConfig, config, logger)
-	websocketManager := NewCommsWebsocketManager(logger)
+
+	var websocketManager *CommsWebsocketManager
+	var ctx context.Context
+	var cancel context.CancelFunc
+	if config.CommsMessagePush {
+		ctx, cancel = context.WithCancel(context.Background())
+		websocketManager = NewCommsWebsocketManager(logger)
+	}
 
 	proc := &RPCProcessor{
 		validator:        validator,
@@ -76,7 +83,29 @@ func NewProcessor(pool *dbv1.DBPools, writePool *pgxpool.Pool, config *config.Co
 		listenCancel: cancel,
 	}
 
+	if config.CommsMessagePush {
+		proc.startPgNotifyListeners()
+	}
+
 	return proc, nil
+}
+
+func (proc *RPCProcessor) Shutdown() {
+	// If no listener, nothing to do
+	if proc.listenCancel == nil {
+		return
+	}
+
+	proc.listenCancel()
+
+	if proc.listener != nil {
+		// The listener will be stopped when the context is cancelled
+		proc.listener = nil
+	}
+
+	// Wait for the listener goroutine to finish
+	proc.listenWg.Wait()
+	proc.logger.Info("Stopped listening for comms chat_message_inserted, chat_blast_inserted, and chat_message_reaction_inserted notifications")
 }
 
 func (proc *RPCProcessor) Validate(ctx context.Context, userId int32, rawRpc RawRPC) error {
@@ -373,7 +402,7 @@ func insertRpcLogRow(db dbv1.DBTX, ctx context.Context, rpcLog *RpcLog) (int64, 
 }
 
 /** Watch for pg_notify() on new chat messages and blast messages so we can send websocket events to the appropriate users */
-func (proc *RPCProcessor) StartListening() error {
+func (proc *RPCProcessor) startPgNotifyListeners() error {
 	if proc.listener != nil {
 		return nil // Already listening
 	}
@@ -408,22 +437,6 @@ func (proc *RPCProcessor) StartListening() error {
 
 	proc.logger.Info("Started listening for comms chat_message_inserted, chat_blast_inserted, and chat_message_reaction_inserted notifications")
 	return nil
-}
-
-// StopListening stops the PostgreSQL listener
-func (proc *RPCProcessor) StopListening() {
-	if proc.listenCancel != nil {
-		proc.listenCancel()
-	}
-
-	if proc.listener != nil {
-		// The listener will be stopped when the context is cancelled
-		proc.listener = nil
-	}
-
-	// Wait for the listener goroutine to finish
-	proc.listenWg.Wait()
-	proc.logger.Info("Stopped listening for comms chat_message_inserted, chat_blast_inserted, and chat_message_reaction_inserted notifications")
 }
 
 func (proc *RPCProcessor) handleChatMessageInserted(ctx context.Context, notification *pgconn.Notification, conn *pgx.Conn) error {

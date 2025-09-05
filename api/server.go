@@ -170,8 +170,6 @@ func NewApiServer(config config.Config) *ApiServer {
 	if err != nil {
 		panic(err)
 	}
-	// TODO: probably a better name lol
-	commsRpcProcessor.StartListening()
 
 	app := &ApiServer{
 		App: fiber.New(fiber.Config{
@@ -672,6 +670,7 @@ func (as *ApiServer) Serve() {
 	signal.Notify(c, os.Interrupt)
 	go func() {
 		<-c
+		as.commsRpcProcessor.Shutdown()
 		flushTicker.Stop()
 
 		// Shutdown metrics collector if it exists
