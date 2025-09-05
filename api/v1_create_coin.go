@@ -15,6 +15,7 @@ type CreateCoinBody struct {
 	Ticker   string `json:"ticker" validate:"required"`
 	Decimals int32  `json:"decimals" validate:"required,min=0,max=18"`
 	Name     string `json:"name" validate:"required"`
+	LogoUri  string `json:"logo_uri"`
 }
 
 func (app *ApiServer) v1CreateCoin(c *fiber.Ctx) error {
@@ -42,9 +43,9 @@ func (app *ApiServer) v1CreateCoin(c *fiber.Ctx) error {
 	userID := app.getMyId(c)
 
 	sql := `
-		INSERT INTO artist_coins (mint, ticker, user_id, decimals, name)
-		VALUES (@mint, @ticker, @user_id, @decimals, @name)
-		RETURNING mint, ticker, user_id, decimals, name, created_at
+		INSERT INTO artist_coins (mint, ticker, user_id, decimals, name, logo_uri)
+		VALUES (@mint, @ticker, @user_id, @decimals, @name, @logo_uri)
+		RETURNING mint, ticker, user_id, decimals, name, logo_uri, created_at
 	`
 
 	row := app.writePool.QueryRow(c.Context(), sql, pgx.NamedArgs{
@@ -53,6 +54,7 @@ func (app *ApiServer) v1CreateCoin(c *fiber.Ctx) error {
 		"user_id":  userID,
 		"decimals": body.Decimals,
 		"name":     body.Name,
+		"logo_uri": body.LogoUri,
 	})
 
 	var result struct {
@@ -61,10 +63,11 @@ func (app *ApiServer) v1CreateCoin(c *fiber.Ctx) error {
 		UserID    int32     `json:"user_id"`
 		Decimals  int32     `json:"decimals"`
 		Name      string    `json:"name"`
+		LogoUri   string    `json:"logo_uri"`
 		CreatedAt time.Time `json:"created_at"`
 	}
 
-	if err := row.Scan(&result.Mint, &result.Ticker, &result.UserID, &result.Decimals, &result.Name, &result.CreatedAt); err != nil {
+	if err := row.Scan(&result.Mint, &result.Ticker, &result.UserID, &result.Decimals, &result.Name, &result.LogoUri, &result.CreatedAt); err != nil {
 		var pgErr *pgconn.PgError
 		if errors.As(err, &pgErr) && pgErr.Code == pgerrcode.UniqueViolation {
 			if pgErr.ConstraintName == "artist_coins_pkey" {
