@@ -27,7 +27,7 @@ func TestV1Coin(t *testing.T) {
 
 	database.Seed(app.pool.Replicas[0], fixtures)
 
-	// Test with mint address
+	// Test /coins/:mint endpoint with mint address
 	{
 		status, body := testGet(t, app, "/v1/coins/9LzCMqDgTKYz9Drzqnpgee3SGa89up3a247ypMj2xrqM")
 		assert.Equal(t, 200, status)
@@ -41,9 +41,9 @@ func TestV1Coin(t *testing.T) {
 		})
 	}
 
-	// Test with ticker
+	// Test /coins/ticker/:ticker endpoint with ticker
 	{
-		status, body := testGet(t, app, "/v1/coins/$AUDIO")
+		status, body := testGet(t, app, "/v1/coins/ticker/$AUDIO")
 		assert.Equal(t, 200, status)
 
 		jsonAssert(t, body, map[string]any{
@@ -55,9 +55,16 @@ func TestV1Coin(t *testing.T) {
 		})
 	}
 
-	// Test with non-existent mint/ticker
+	// Test with non-existent mint
 	{
 		status, body := testGet(t, app, "/v1/coins/nonexistent")
+		assert.Equal(t, 404, status)
+		assert.Contains(t, string(body), "no rows")
+	}
+
+	// Test with non-existent ticker
+	{
+		status, body := testGet(t, app, "/v1/coins/ticker/$NONEXISTENT")
 		assert.Equal(t, 404, status)
 		assert.Contains(t, string(body), "no rows")
 	}
