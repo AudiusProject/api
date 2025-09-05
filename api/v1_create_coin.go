@@ -1,10 +1,13 @@
 package api
 
 import (
+	"errors"
 	"time"
 
 	"github.com/gofiber/fiber/v2"
+	"github.com/jackc/pgerrcode"
 	"github.com/jackc/pgx/v5"
+	"github.com/jackc/pgx/v5/pgconn"
 )
 
 type CreateCoinBody struct {
@@ -38,19 +41,13 @@ func (app *ApiServer) v1CreateCoin(c *fiber.Ctx) error {
 
 	userID := app.getMyId(c)
 
-	// Insert into database
 	sql := `
 		INSERT INTO artist_coins (mint, ticker, user_id, decimals, name)
 		VALUES (@mint, @ticker, @user_id, @decimals, @name)
-		ON CONFLICT (mint) DO UPDATE SET
-			ticker = EXCLUDED.ticker,
-			user_id = EXCLUDED.user_id,
-			decimals = EXCLUDED.decimals,
-			name = EXCLUDED.name
 		RETURNING mint, ticker, user_id, decimals, name, created_at
 	`
 
-	row := app.pool.QueryRow(c.Context(), sql, pgx.NamedArgs{
+	row := app.writePool.QueryRow(c.Context(), sql, pgx.NamedArgs{
 		"mint":     body.Mint,
 		"ticker":   body.Ticker,
 		"user_id":  userID,
@@ -66,7 +63,21 @@ func (app *ApiServer) v1CreateCoin(c *fiber.Ctx) error {
 		Name      string    `json:"name"`
 		CreatedAt time.Time `json:"created_at"`
 	}
+
 	if err := row.Scan(&result.Mint, &result.Ticker, &result.UserID, &result.Decimals, &result.Name, &result.CreatedAt); err != nil {
+		var pgErr *pgconn.PgError
+		if errors.As(err, &pgErr) && pgErr.Code == pgerrcode.UniqueViolation {
+			if pgErr.ConstraintName == "artist_coins_pkey" {
+				return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
+					"error": "Mint already exists",
+				})
+			}
+			if pgErr.ConstraintName == "artist_coins_ticker_unique" {
+				return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
+					"error": "Ticker already exists",
+				})
+			}
+		}
 		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{
 			"error": "Failed to create coin",
 		})
