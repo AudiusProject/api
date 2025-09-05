@@ -26,6 +26,7 @@ func TestV1CreateCoin(t *testing.T) {
 		Ticker:   "$BEAR",
 		Decimals: 9,
 		Name:     "BEAR",
+		LogoUri:  "https://example.com/bear-logo.png",
 	}
 	requestBodyBytes, err := json.Marshal(requestBody)
 	assert.NoError(t, err)
@@ -40,6 +41,7 @@ func TestV1CreateCoin(t *testing.T) {
 		"data.user_id":  1,
 		"data.decimals": 9,
 		"data.name":     "BEAR",
+		"data.logo_uri": "https://example.com/bear-logo.png",
 	})
 
 	// Verify the coin was actually created in the database
@@ -69,6 +71,7 @@ func TestV1CreateCoin_DuplicateMint(t *testing.T) {
 		Ticker:   "$BEAR",
 		Decimals: 9,
 		Name:     "BEAR",
+		LogoUri:  "https://example.com/bear-logo.png",
 	}
 	requestBodyBytes, err := json.Marshal(requestBody)
 	assert.NoError(t, err)
@@ -83,6 +86,7 @@ func TestV1CreateCoin_DuplicateMint(t *testing.T) {
 		"data.user_id":  1,
 		"data.decimals": 9,
 		"data.name":     "BEAR",
+		"data.logo_uri": "https://example.com/bear-logo.png",
 	})
 
 	// Verify the coin was actually created in the database
@@ -97,6 +101,7 @@ func TestV1CreateCoin_DuplicateMint(t *testing.T) {
 		Ticker:   "$SNAKE",
 		Decimals: 9,
 		Name:     "SNAKE",
+		LogoUri:  "https://example.com/snake-logo.png",
 	}
 	requestBodyBytes, _ = json.Marshal(requestBody)
 	status, body = testPostWithWallet(t, app, "/v1/coins?user_id="+trashid.MustEncodeHashID(1), "0x7d273271690538cf855e5b3002a0dd8c154bb060", requestBodyBytes, map[string]string{
@@ -114,6 +119,7 @@ func TestV1CreateCoin_DuplicateMint(t *testing.T) {
 		Ticker:   "$BEAR",
 		Decimals: 9,
 		Name:     "BEAR",
+		LogoUri:  "https://example.com/bear-logo.png",
 	}
 	requestBodyBytes, _ = json.Marshal(requestBody)
 	status, body = testPostWithWallet(t, app, "/v1/coins?user_id="+trashid.MustEncodeHashID(1), "0x7d273271690538cf855e5b3002a0dd8c154bb060", requestBodyBytes, map[string]string{

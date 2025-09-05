@@ -5215,6 +5215,10 @@ components:
           type: string
           description: The coin name
           example: "BEAR"
+        logo_uri:
+          type: string
+          description: The URI for the coin's logo image
+          example: "https://example.com/logo.png"
     create_coin_response:
       type: object
       properties:
@@ -5248,6 +5252,10 @@ components:
               type: string
               description: The coin name
               example: "BEAR"
+            logo_uri:
+              type: string
+              description: The URI for the coin's logo image
+              example: "https://example.com/logo.png"
             created_at:
               type: string
               format: date-time
