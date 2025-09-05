@@ -57,8 +57,9 @@ func (app *ApiServer) v1PlaylistTracks(c *fiber.Ctx) error {
 
 	tracks, err := app.queries.FullTracks(c.Context(), dbv1.FullTracksParams{
 		GetTracksParams: dbv1.GetTracksParams{
-			Ids:  trackIds,
-			MyID: myId,
+			Ids:             trackIds,
+			MyID:            myId,
+			IncludeUnlisted: true,
 		},
 	})
 
