@@ -3566,6 +3566,33 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/coin_response'
+  /coins/ticker/{ticker}:
+    get:
+      tags:
+        - coins
+      operationId: Get Coin By Ticker
+      description: 'Gets information about a specific coin by its ticker'
+      parameters:
+      - name: ticker
+        in: path
+        description: The ticker of the coin
+        required: true
+        schema:
+          type: string
+          example: $AUDIO
+      responses:
+        '200':
+          description: Success
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/coin_response'
+        '400':
+          description: Bad request
+          content: {}
+        '500':
+          description: Server error
+          content: {}
   /coins/{mint}/insights:
     get:
       tags:
