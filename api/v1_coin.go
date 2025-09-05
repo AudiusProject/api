@@ -6,10 +6,10 @@ import (
 )
 
 func (app *ApiServer) v1Coin(c *fiber.Ctx) error {
-	mint := c.Params("mint")
-	if mint == "" {
+	input := c.Params("identifier")
+	if input == "" {
 		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
-			"error": "mint parameter is required",
+			"error": "identifier parameter is required (either mint or ticker)",
 		})
 	}
 
@@ -25,12 +25,13 @@ func (app *ApiServer) v1Coin(c *fiber.Ctx) error {
 			artist_coins.website,
 			artist_coins.created_at
 		FROM artist_coins
-		WHERE artist_coins.mint = @mint
+		WHERE artist_coins.mint = @input
+		   OR artist_coins.ticker = @input
 		LIMIT 1
 	`
 
 	rows, err := app.pool.Query(c.Context(), sql, pgx.NamedArgs{
-		"mint": mint,
+		"input": input,
 	})
 	if err != nil {
 		return err

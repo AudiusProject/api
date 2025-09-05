@@ -478,7 +478,7 @@ func NewApiServer(config config.Config) *ApiServer {
 
 		// Artist coins
 		g.Get("/coins", app.v1Coins)
-		g.Get("/coins/:mint", app.v1Coin)
+		g.Get("/coins/:identifier", app.v1Coin)
 		g.Get("/coins/:mint/insights", app.v1CoinInsights)
 		g.Get("/coins/:mint/members", app.v1CoinsMembers)
 		g.Post("/coins", app.v1CreateCoin)
