@@ -1,7 +1,6 @@
 package api
 
 import (
-	"fmt"
 	"testing"
 
 	"bridgerton.audius.co/database"
@@ -87,7 +86,6 @@ func TestV1PlaylistTracks(t *testing.T) {
 	{
 		status, body := testGet(t, app, "/v1/playlists/"+playlistId+"/tracks", nil)
 		assert.Equal(t, 200, status)
-		fmt.Println(string(body))
 		jsonAssert(t, body, map[string]any{
 			"data.#":          4,
 			"data.0.track_id": trashid.MustEncodeHashID(1),
