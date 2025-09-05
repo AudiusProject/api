@@ -424,6 +424,7 @@ func NewApiServer(config config.Config) *ApiServer {
 		g.Get("/playlists/:playlistId/stream", app.v1PlaylistStream)
 		g.Get("/playlists/:playlistId/reposts", app.v1PlaylistReposts)
 		g.Get("/playlists/:playlistId/favorites", app.v1PlaylistFavorites)
+		g.Get("/playlists/:playlistId/tracks", app.v1PlaylistTracks)
 
 		// Explore
 		g.Get("/explore/best-selling", app.v1ExploreBestSelling)
