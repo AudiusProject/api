@@ -659,6 +659,48 @@ func (ns NullUsdcPurchaseContentType) Value() (driver.Value, error) {
 	return string(ns.UsdcPurchaseContentType), nil
 }
 
+type ValidatorEvent string
+
+const (
+	ValidatorEventRegistered   ValidatorEvent = "registered"
+	ValidatorEventDeregistered ValidatorEvent = "deregistered"
+)
+
+func (e *ValidatorEvent) Scan(src interface{}) error {
+	switch s := src.(type) {
+	case []byte:
+		*e = ValidatorEvent(s)
+	case string:
+		*e = ValidatorEvent(s)
+	default:
+		return fmt.Errorf("unsupported scan type for ValidatorEvent: %T", src)
+	}
+	return nil
+}
+
+type NullValidatorEvent struct {
+	ValidatorEvent ValidatorEvent `json:"validator_event"`
+	Valid          bool           `json:"valid"` // Valid is true if ValidatorEvent is not NULL
+}
+
+// Scan implements the Scanner interface.
+func (ns *NullValidatorEvent) Scan(value interface{}) error {
+	if value == nil {
+		ns.ValidatorEvent, ns.Valid = "", false
+		return nil
+	}
+	ns.Valid = true
+	return ns.ValidatorEvent.Scan(value)
+}
+
+// Value implements the driver Valuer interface.
+func (ns NullValidatorEvent) Value() (driver.Value, error) {
+	if !ns.Valid {
+		return nil, nil
+	}
+	return string(ns.ValidatorEvent), nil
+}
+
 type WalletChain string
 
 const (
@@ -907,6 +949,27 @@ type ArtistCoin struct {
 	Website     pgtype.Text `json:"website"`
 	Name        string      `json:"name"`
 	DbcPool     pgtype.Text `json:"dbc_pool"`
+}
+
+type ArtistCoinPool struct {
+	Address                 string         `json:"address"`
+	BaseMint                string         `json:"base_mint"`
+	QuoteMint               pgtype.Text    `json:"quote_mint"`
+	TokenDecimals           pgtype.Int4    `json:"token_decimals"`
+	BaseReserve             pgtype.Numeric `json:"base_reserve"`
+	QuoteReserve            pgtype.Numeric `json:"quote_reserve"`
+	MigrationBaseThreshold  pgtype.Numeric `json:"migration_base_threshold"`
+	MigrationQuoteThreshold pgtype.Numeric `json:"migration_quote_threshold"`
+	ProtocolQuoteFee        pgtype.Numeric `json:"protocol_quote_fee"`
+	PartnerQuoteFee         pgtype.Numeric `json:"partner_quote_fee"`
+	CreatorBaseFee          pgtype.Numeric `json:"creator_base_fee"`
+	CreatorQuoteFee         pgtype.Numeric `json:"creator_quote_fee"`
+	Price                   pgtype.Float8  `json:"price"`
+	PriceUsd                pgtype.Float8  `json:"price_usd"`
+	CurveProgress           pgtype.Float8  `json:"curve_progress"`
+	IsMigrated              pgtype.Bool    `json:"is_migrated"`
+	CreatedAt               time.Time      `json:"created_at"`
+	UpdatedAt               time.Time      `json:"updated_at"`
 }
 
 type ArtistCoinStat struct {
@@ -1199,6 +1262,22 @@ type CoreDbMigration struct {
 	AppliedAt pgtype.Timestamptz `json:"applied_at"`
 }
 
+type CoreErn struct {
+	ID                 int64    `json:"id"`
+	Address            string   `json:"address"`
+	Index              int64    `json:"index"`
+	TxHash             string   `json:"tx_hash"`
+	Sender             string   `json:"sender"`
+	MessageControlType int16    `json:"message_control_type"`
+	PartyAddresses     []string `json:"party_addresses"`
+	ResourceAddresses  []string `json:"resource_addresses"`
+	ReleaseAddresses   []string `json:"release_addresses"`
+	DealAddresses      []string `json:"deal_addresses"`
+	RawMessage         []byte   `json:"raw_message"`
+	RawAcknowledgment  []byte   `json:"raw_acknowledgment"`
+	BlockHeight        int64    `json:"block_height"`
+}
+
 type CoreIndexedBlock struct {
 	Blockhash  string      `json:"blockhash"`
 	Parenthash pgtype.Text `json:"parenthash"`
@@ -1206,6 +1285,31 @@ type CoreIndexedBlock struct {
 	Height     int32       `json:"height"`
 	PlaysSlot  pgtype.Int4 `json:"plays_slot"`
 	EmBlock    pgtype.Int4 `json:"em_block"`
+}
+
+type CoreMead struct {
+	ID                int64    `json:"id"`
+	Address           string   `json:"address"`
+	TxHash            string   `json:"tx_hash"`
+	Index             int64    `json:"index"`
+	Sender            string   `json:"sender"`
+	ResourceAddresses []string `json:"resource_addresses"`
+	ReleaseAddresses  []string `json:"release_addresses"`
+	RawMessage        []byte   `json:"raw_message"`
+	RawAcknowledgment []byte   `json:"raw_acknowledgment"`
+	BlockHeight       int64    `json:"block_height"`
+}
+
+type CorePie struct {
+	ID                int64    `json:"id"`
+	Address           string   `json:"address"`
+	TxHash            string   `json:"tx_hash"`
+	Index             int64    `json:"index"`
+	Sender            string   `json:"sender"`
+	PartyAddresses    []string `json:"party_addresses"`
+	RawMessage        []byte   `json:"raw_message"`
+	RawAcknowledgment []byte   `json:"raw_acknowledgment"`
+	BlockHeight       int64    `json:"block_height"`
 }
 
 type CoreTransaction struct {
@@ -1324,12 +1428,13 @@ type EthFundingRound struct {
 }
 
 type EthRegisteredEndpoint struct {
-	ID             int32  `json:"id"`
-	ServiceType    string `json:"service_type"`
-	Owner          string `json:"owner"`
-	DelegateWallet string `json:"delegate_wallet"`
-	Endpoint       string `json:"endpoint"`
-	Blocknumber    int64  `json:"blocknumber"`
+	ID             int32     `json:"id"`
+	ServiceType    string    `json:"service_type"`
+	Owner          string    `json:"owner"`
+	DelegateWallet string    `json:"delegate_wallet"`
+	Endpoint       string    `json:"endpoint"`
+	Blocknumber    int64     `json:"blocknumber"`
+	RegisteredAt   time.Time `json:"registered_at"`
 }
 
 type EthServiceProvider struct {
@@ -1340,6 +1445,11 @@ type EthServiceProvider struct {
 	NumberOfEndpoints int32  `json:"number_of_endpoints"`
 	MinAccountStake   int64  `json:"min_account_stake"`
 	MaxAccountStake   int64  `json:"max_account_stake"`
+}
+
+type EthStaked struct {
+	Address     string `json:"address"`
+	TotalStaked int64  `json:"total_staked"`
 }
 
 type Event struct {
@@ -2260,4 +2370,16 @@ type UserTip struct {
 	Amount         int64     `json:"amount"`
 	CreatedAt      time.Time `json:"created_at"`
 	UpdatedAt      time.Time `json:"updated_at"`
+}
+
+type ValidatorHistory struct {
+	Rowid        int32          `json:"rowid"`
+	Endpoint     string         `json:"endpoint"`
+	EthAddress   string         `json:"eth_address"`
+	CometAddress string         `json:"comet_address"`
+	SpID         int64          `json:"sp_id"`
+	ServiceType  string         `json:"service_type"`
+	EventType    ValidatorEvent `json:"event_type"`
+	EventTime    time.Time      `json:"event_time"`
+	EventBlock   int64          `json:"event_block"`
 }
