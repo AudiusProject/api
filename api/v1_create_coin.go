@@ -71,9 +71,7 @@ func (app *ApiServer) v1CreateCoin(c *fiber.Ctx) error {
 	}
 
 	if hasExistingCoin {
-		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
-			"error": "User has already created a coin",
-		})
+		return fiber.NewError(fiber.StatusBadRequest, "User has already created a coin")
 	}
 
 	sql := `
