@@ -60,6 +60,22 @@ func (app *ApiServer) v1CreateCoin(c *fiber.Ctx) error {
 		})
 	}
 
+	// Check if user has already created a coin
+	var hasExistingCoin bool
+	err = app.pool.QueryRow(c.Context(), `
+		SELECT EXISTS(SELECT 1 FROM artist_coins WHERE user_id = $1)
+	`, userID).Scan(&hasExistingCoin)
+
+	if err != nil {
+		return err
+	}
+
+	if hasExistingCoin {
+		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
+			"error": "User has already created a coin",
+		})
+	}
+
 	sql := `
 		INSERT INTO artist_coins (mint, ticker, user_id, decimals, name, logo_uri)
 		VALUES (@mint, @ticker, @user_id, @decimals, @name, @logo_uri)
