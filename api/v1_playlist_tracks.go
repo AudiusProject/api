@@ -19,6 +19,7 @@ func (app *ApiServer) v1PlaylistTracks(c *fiber.Ctx) error {
 		return err
 	}
 
+	excludeGated := c.QueryBool("exclude_gated", true)
 	myId := app.getMyId(c)
 	playlistId, err := trashid.DecodeHashId(c.Params("playlistId"))
 	if err != nil {
@@ -30,8 +31,8 @@ func (app *ApiServer) v1PlaylistTracks(c *fiber.Ctx) error {
 		"t.is_delete = false",
 		"t.is_current = true",
 	}
-	if params.ExcludeGated {
-		filters = append(filters, "t.is_stream_gated = false")
+	if excludeGated {
+		filters = append(filters, "t.is_stream_gated != true")
 	}
 	filterString := strings.Join(filters, " AND ")
 

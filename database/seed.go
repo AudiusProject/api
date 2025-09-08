@@ -57,6 +57,7 @@ var (
 			"audio_analysis_error_count":            0,
 			"is_owned_by_user":                      false,
 			"stream_conditions":                     nil,
+			"is_stream_gated":                       false,
 			"download_conditions":                   nil,
 		},
 		"playlists": {

@@ -53,27 +53,11 @@ func TestV1PlaylistTracks(t *testing.T) {
 				"playlist_owner_id": 1,
 				"playlist_contents": map[string]any{
 					"track_ids": []map[string]any{
-						{
-							"track":         1,
-							"time":          1,
-							"metadata_time": 1,
-						},
-						{
-							"track":         2,
-							"time":          2,
-							"metadata_time": 2,
-						},
-
-						{
-							"track":         3,
-							"time":          3,
-							"metadata_time": 3,
-						},
-						{
-							"track":         4,
-							"time":          4,
-							"metadata_time": 4,
-						},
+						{"track": 1, "time": 1, "metadata_time": 1},
+						{"track": 2, "time": 2, "metadata_time": 2},
+						{"track": 3, "time": 3, "metadata_time": 3},
+						{"track": 4, "time": 4, "metadata_time": 4},
+						{"track": 5, "time": 5, "metadata_time": 5},
 					},
 				},
 			},
@@ -87,11 +71,11 @@ func TestV1PlaylistTracks(t *testing.T) {
 		status, body := testGet(t, app, "/v1/playlists/"+playlistId+"/tracks", nil)
 		assert.Equal(t, 200, status)
 		jsonAssert(t, body, map[string]any{
-			"data.#":          4,
-			"data.0.track_id": trashid.MustEncodeHashID(1),
-			"data.1.track_id": trashid.MustEncodeHashID(2),
-			"data.2.track_id": trashid.MustEncodeHashID(3),
-			"data.3.track_id": trashid.MustEncodeHashID(4),
+			"data.#":    4,
+			"data.0.id": trashid.MustEncodeHashID(1),
+			"data.1.id": trashid.MustEncodeHashID(2),
+			"data.2.id": trashid.MustEncodeHashID(3),
+			"data.3.id": trashid.MustEncodeHashID(4),
 		})
 	}
 
@@ -99,8 +83,8 @@ func TestV1PlaylistTracks(t *testing.T) {
 		status, body := testGet(t, app, "/v1/playlists/"+playlistId+"/tracks?exclude_gated=false", nil)
 		assert.Equal(t, 200, status)
 		jsonAssert(t, body, map[string]any{
-			"data.#":          1,
-			"data.0.track_id": trashid.MustEncodeHashID(5),
+			"data.#":    5,
+			"data.4.id": trashid.MustEncodeHashID(5),
 		})
 	}
 }
