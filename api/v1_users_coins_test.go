@@ -29,6 +29,18 @@ func TestUserCoins(t *testing.T) {
 				"created_at": time.Now(),
 			},
 		},
+		"artist_coin_stats": {
+			{
+				"mint":       "9LzCMqDgTKYz9Drzqnpgee3SGa89up3a247ypMj2xrqM",
+				"price":      10.0,
+				"updated_at": time.Now(),
+			},
+			{
+				"mint":       "EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v",
+				"price":      1.0,
+				"updated_at": time.Now(),
+			},
+		},
 		"users": {
 			{
 				"user_id": 1,
@@ -113,7 +125,6 @@ func TestUserCoins(t *testing.T) {
 	}
 
 	database.Seed(app.pool.Replicas[0], fixtures)
-	app.birdeyeClient = &mockBirdeyeClient{}
 
 	status, body := testGet(t, app, "/v1/users/"+trashid.MustEncodeHashID(1)+"/coins")
 	assert.Equal(t, 200, status)

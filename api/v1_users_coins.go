@@ -2,7 +2,6 @@ package api
 
 import (
 	"fmt"
-	"strings"
 
 	"bridgerton.audius.co/trashid"
 	"github.com/gofiber/fiber/v2"
@@ -54,20 +53,8 @@ func (app *ApiServer) v1UsersCoins(c *fiber.Ctx) error {
 		})
 	}
 
-	prices, err := app.birdeyeClient.GetPrices(c.Context(), mints)
-	if err != nil || prices == nil {
-		return fmt.Errorf("failed to get prices: %w", err)
-	}
-
-	pricesRows := make([]string, 0, len(prices))
-	for mint, price := range prices {
-		pricesRows = append(pricesRows, fmt.Sprintf("('%s', %f)", mint, price.Value))
-	}
-
 	sql := `
-		WITH prices (mint, price) AS (
-			VALUES ` + strings.Join(pricesRows, ",\n\t\t\t") + `
-		), balances AS (
+		WITH balances AS (
 			SELECT
 				user_bank_balances.mint,
 				user_bank_balances.balance AS balance,
@@ -75,12 +62,12 @@ func (app *ApiServer) v1UsersCoins(c *fiber.Ctx) error {
 				user_bank_balances.owner AS owner,
 				TRUE as is_in_app_wallet
 			FROM users
-			JOIN sol_claimable_accounts 
+			JOIN sol_claimable_accounts
 				ON sol_claimable_accounts.ethereum_address = users.wallet
-			JOIN sol_token_account_balances AS user_bank_balances 
+			JOIN sol_token_account_balances AS user_bank_balances
 				ON user_bank_balances.account = sol_claimable_accounts.account
 			WHERE users.user_id = @user_id
-			UNION ALL 
+			UNION ALL
 			SELECT
 				associated_wallet_balances.mint,
 				associated_wallet_balances.balance AS balance,
@@ -88,10 +75,10 @@ func (app *ApiServer) v1UsersCoins(c *fiber.Ctx) error {
 				associated_wallet_balances.owner AS owner,
 				FALSE as is_in_app_wallet
 			FROM users
-			JOIN associated_wallets 
+			JOIN associated_wallets
 				ON associated_wallets.user_id = users.user_id
-			JOIN sol_token_account_balances AS associated_wallet_balances 
-				ON associated_wallet_balances.owner = associated_wallets.wallet 
+			JOIN sol_token_account_balances AS associated_wallet_balances
+				ON associated_wallet_balances.owner = associated_wallets.wallet
 				AND associated_wallets.chain = 'sol'
 			WHERE associated_wallets.user_id = @user_id
 		), balances_by_mint AS (
@@ -102,16 +89,16 @@ func (app *ApiServer) v1UsersCoins(c *fiber.Ctx) error {
 			GROUP BY balances.mint
 		),
 		balances_with_prices AS (
-			SELECT 
+			SELECT
 				artist_coins.ticker,
 				balances_by_mint.mint,
 				artist_coins.decimals,
 				artist_coins.user_id,
 				balances_by_mint.balance AS balance,
-				(balances_by_mint.balance * prices.price) / POWER(10, artist_coins.decimals) AS balance_usd
+				(balances_by_mint.balance * stats.price) / POWER(10, artist_coins.decimals) AS balance_usd
 			FROM balances_by_mint
-			JOIN prices ON balances_by_mint.mint = prices.mint
 			JOIN artist_coins ON artist_coins.mint = balances_by_mint.mint
+			JOIN artist_coin_stats stats ON stats.mint = balances_by_mint.mint
 		)
 		SELECT
 			balances_with_prices.ticker,
