@@ -407,6 +407,11 @@ var (
 			"decimals":   nil,
 			"created_at": time.Now(),
 		},
+		"artist_coin_stats": {
+			"mint":       nil,
+			"created_at": time.Now(),
+			"updated_at": time.Now(),
+		},
 		"sol_token_account_balances": {
 			"account": nil,
 			"owner":   "owner-acc",

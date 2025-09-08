@@ -36,11 +36,6 @@ func (app *ApiServer) v1UsersCoin(c *fiber.Ctx) error {
 		return fiber.NewError(fiber.StatusBadRequest, fmt.Sprintf("invalid mint address: %s", params.Mint))
 	}
 
-	prices, err := app.birdeyeClient.GetPrices(c.Context(), []string{params.Mint})
-	if err != nil || prices == nil {
-		return fmt.Errorf("failed to get price: %w", err)
-	}
-
 	sql := `
 		WITH balances AS (
 			SELECT
@@ -84,20 +79,21 @@ func (app *ApiServer) v1UsersCoin(c *fiber.Ctx) error {
 			artist_coins.decimals,
 			artist_coins.user_id AS owner_id,
 			COALESCE(balances_by_mint.balance, 0) AS balance,
-			COALESCE((balances_by_mint.balance * @price) / POWER(10, artist_coins.decimals), 0) AS balance_usd,
+			COALESCE((balances_by_mint.balance * stats.price) / POWER(10, artist_coins.decimals), 0) AS balance_usd,
 			COALESCE(
 				JSON_AGG(
 					JSON_BUILD_OBJECT(
 						'account', balances.account,
 						'owner', balances.owner,
 						'balance', balances.balance,
-						'balance_usd', (balances.balance * @price) / POWER(10, artist_coins.decimals),
+						'balance_usd', (balances.balance * stats.price) / POWER(10, artist_coins.decimals),
 						'is_in_app_wallet', balances.is_in_app_wallet
 					)
 				) FILTER (WHERE balances.account IS NOT NULL),
 				'[]'::json
 			) AS accounts
 		FROM artist_coins
+		JOIN artist_coin_stats stats ON artist_coins.mint = stats.mint
 		LEFT JOIN balances_by_mint ON artist_coins.mint = balances_by_mint.mint
 		LEFT JOIN (
 			SELECT *
@@ -110,13 +106,13 @@ func (app *ApiServer) v1UsersCoin(c *fiber.Ctx) error {
 			artist_coins.mint,
 			artist_coins.decimals,
 			artist_coins.user_id,
-			balances_by_mint.balance
+			balances_by_mint.balance,
+			stats.price
 	;`
 
 	rows, err := app.pool.Query(c.Context(), sql, pgx.NamedArgs{
 		"user_id": app.getUserId(c),
 		"mint":    params.Mint,
-		"price":   prices[params.Mint].Value,
 	})
 	if err != nil {
 		return err
