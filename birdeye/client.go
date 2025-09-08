@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"io"
 	"net/http"
 	"strings"
 	"time"
@@ -16,6 +17,16 @@ type Client struct {
 	tokenOverviewCache otter.Cache[string, *TokenOverview]
 	pricesCache        otter.Cache[string, *TokenPriceData]
 	httpClient         *http.Client
+}
+
+func attemptExtractErrorMessage(body io.Reader) string {
+	var respBody struct {
+		Message string `json:"message"`
+	}
+	if err := json.NewDecoder(body).Decode(&respBody); err != nil {
+		return ""
+	}
+	return respBody.Message
 }
 
 func New(token string) *Client {
@@ -180,7 +191,8 @@ func (c *Client) GetPrices(ctx context.Context, mints []string) (TokenPriceMap, 
 	defer resp.Body.Close()
 
 	if resp.StatusCode != http.StatusOK {
-		return nil, fmt.Errorf("unexpected status code: %d", resp.StatusCode)
+		errMsg := attemptExtractErrorMessage(resp.Body)
+		return nil, fmt.Errorf("unexpected status code: %d (%s)", resp.StatusCode, errMsg)
 	}
 
 	var respBody struct {

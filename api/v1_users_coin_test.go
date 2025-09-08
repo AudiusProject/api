@@ -165,4 +165,10 @@ func TestUserCoin(t *testing.T) {
 			"data.accounts.0.is_in_app_wallet": false,
 		})
 	}
+
+	// Don't accept tickers on this endpoint
+	{
+		status, _ := testGet(t, app, "/v1/users/"+trashid.MustEncodeHashID(1)+"/coins/AUDIO")
+		assert.Equal(t, 400, status)
+	}
 }
