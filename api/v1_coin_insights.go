@@ -53,11 +53,6 @@ type ArtistCoinStatsRow struct {
 	UpdatedAt                    time.Time                    `json:"updatedAt" db:"updated_at"`
 }
 
-type MembersStatsRow struct {
-	DbcPool *string `db:"dbc_pool" json:"-"`
-	Members int     `json:"members"`
-}
-
 type DynamicBondingCurveInsights struct {
 	Address       string  `json:"address"`
 	Price         float64 `json:"price"`
@@ -75,7 +70,7 @@ func (app *ApiServer) v1CoinInsights(c *fiber.Ctx) error {
 	}
 
 	sql := `
-		SELECT 
+		SELECT
 			artist_coin_stats.*,
 			JSON_BUILD_OBJECT(
 				'address', artist_coin_pools.address,
@@ -85,9 +80,6 @@ func (app *ApiServer) v1CoinInsights(c *fiber.Ctx) error {
 				'isMigrated', artist_coin_pools.is_migrated
 			) AS dynamic_bonding_curve
 		FROM artist_coin_stats
-		LEFT JOIN sol_user_balances 
-			ON sol_user_balances.mint = artist_coin_stats.mint
-			AND sol_user_balances.balance > 0
 		LEFT JOIN artist_coin_pools
 			ON artist_coin_pools.base_mint = artist_coin_stats.mint
 		WHERE artist_coin_stats.mint = @mint

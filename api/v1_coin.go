@@ -17,14 +17,25 @@ func (app *ApiServer) v1Coin(c *fiber.Ctx) error {
 		SELECT
 			artist_coins.name,
 			artist_coins.ticker,
-			artist_coins.mint,
 			artist_coins.decimals,
 			artist_coins.user_id,
 			artist_coins.logo_uri,
 			artist_coins.description,
 			artist_coins.website,
-			artist_coins.created_at
+			artist_coins.created_at as coin_created_at,
+			artist_coin_stats.*,
+			JSON_BUILD_OBJECT(
+				'address', artist_coin_pools.address,
+				'price', artist_coin_pools.price,
+				'priceUSD', artist_coin_pools.price_usd,
+				'curveProgress', artist_coin_pools.curve_progress,
+				'isMigrated', artist_coin_pools.is_migrated
+			) AS dynamic_bonding_curve
 		FROM artist_coins
+		JOIN artist_coin_stats
+			ON artist_coin_stats.mint = artist_coins.mint
+		LEFT JOIN artist_coin_pools
+			ON artist_coin_pools.base_mint = artist_coin_stats.mint
 		WHERE artist_coins.mint = @mint
 		LIMIT 1
 	`
@@ -58,14 +69,25 @@ func (app *ApiServer) v1CoinByTicker(c *fiber.Ctx) error {
 		SELECT
 			artist_coins.name,
 			artist_coins.ticker,
-			artist_coins.mint,
 			artist_coins.decimals,
 			artist_coins.user_id,
 			artist_coins.logo_uri,
 			artist_coins.description,
 			artist_coins.website,
-			artist_coins.created_at
+			artist_coins.created_at as coin_created_at,
+			artist_coin_stats.*,
+			JSON_BUILD_OBJECT(
+				'address', artist_coin_pools.address,
+				'price', artist_coin_pools.price,
+				'priceUSD', artist_coin_pools.price_usd,
+				'curveProgress', artist_coin_pools.curve_progress,
+				'isMigrated', artist_coin_pools.is_migrated
+			) AS dynamic_bonding_curve
 		FROM artist_coins
+		JOIN artist_coin_stats
+			ON artist_coin_stats.mint = artist_coins.mint
+		LEFT JOIN artist_coin_pools
+			ON artist_coin_pools.base_mint = artist_coin_stats.mint
 		WHERE artist_coins.ticker = @ticker
 		LIMIT 1
 	`
