@@ -5310,7 +5310,7 @@ components:
         artist_coin_badge:
           type: object
           properties:
-            mint:
+            ticker:
               type: string
             logo_uri:
               type: string

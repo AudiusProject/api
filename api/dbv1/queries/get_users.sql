@@ -140,7 +140,7 @@ SELECT
 
   (
     SELECT JSON_BUILD_OBJECT(
-      'mint', mint,
+      'ticker', ticker,
       'logo_uri', logo_uri
     )::jsonb
     FROM artist_coins
