@@ -3503,6 +3503,27 @@ paths:
           default: 50
           minimum: 1
           maximum: 100
+      - name: sort_method
+        in: query
+        description: Field to use for sorting the results
+        schema:
+          type: string
+          default: market_cap
+          enum:
+          - market_cap
+          - volume
+          - price
+          - created_at
+          - holder
+      - name: sort_direction
+        in: query
+        description: The sort direction
+        schema:
+          type: string
+          default: desc
+          enum:
+          - asc
+          - desc
       responses:
         '200':
           description: Success
