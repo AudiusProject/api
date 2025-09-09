@@ -18,7 +18,7 @@ type ArtistCoin struct {
 	LogoUri     *string        `json:"logo_uri,omitempty"`
 	Description *string        `json:"description,omitempty"`
 	Website     *string        `json:"website,omitempty"`
-	CreatedAt   time.Time      `json:"created_at" db:"coin_created_at"`
+	CreatedAt   time.Time      `json:"created_at"`
 
 	MarketCap                    float64                      `json:"marketCap" db:"market_cap"`
 	FDV                          float64                      `json:"fdv" db:"fdv"`
@@ -61,7 +61,6 @@ type ArtistCoin struct {
 	NumberMarkets                int                          `json:"numberMarkets" db:"number_markets"`
 	DynamicBondingCurve          *DynamicBondingCurveInsights `json:"dynamicBondingCurve" db:"dynamic_bonding_curve"`
 	UpdatedAt                    time.Time                    `json:"updatedAt" db:"updated_at"`
-	StatsCreatedAt               time.Time                    `json:"-" db:"created_at"`
 }
 
 type GetArtistCoinsQueryParams struct {
@@ -103,8 +102,6 @@ func (app *ApiServer) v1Coins(c *fiber.Ctx) error {
 
 	sortMethod := "market_cap"
 	switch queryParams.SortMethod {
-	case "market_cap":
-		sortMethod = "market_cap"
 	case "price":
 		sortMethod = "price"
 	case "volume":
@@ -120,39 +117,77 @@ func (app *ApiServer) v1Coins(c *fiber.Ctx) error {
 		sortDirection = "asc"
 	}
 
-	sortString := fmt.Sprintf("artist_coin_stats.%s %s", sortMethod, sortDirection)
+	sortString := fmt.Sprintf("%s %s", sortMethod, sortDirection)
 
 	sql := `
 		SELECT
 			artist_coins.name,
 			artist_coins.ticker,
+			artist_coins.mint,
 			artist_coins.decimals,
 			artist_coins.user_id,
 			artist_coins.logo_uri,
 			artist_coins.description,
 			artist_coins.website,
-			artist_coins.created_at as coin_created_at,
-			artist_coin_stats.*,
+			artist_coins.created_at,
+			COALESCE(artist_coin_stats.market_cap, 0) as market_cap,
+			COALESCE(artist_coin_stats.fdv, 0) as fdv,
+			COALESCE(artist_coin_stats.liquidity, 0) as liquidity,
+			COALESCE(artist_coin_stats.last_trade_unix_time, 0) as last_trade_unix_time,
+			COALESCE(artist_coin_stats.last_trade_human_time, '') as last_trade_human_time,
+			COALESCE(artist_coin_stats.price, 0) as price,
+			COALESCE(artist_coin_stats.history_24h_price, 0) as history_24h_price,
+			COALESCE(artist_coin_stats.price_change_24h_percent, 0) as price_change_24h_percent,
+			COALESCE(artist_coin_stats.unique_wallet_24h, 0) as unique_wallet_24h,
+			COALESCE(artist_coin_stats.unique_wallet_history_24h, 0) as unique_wallet_history_24h,
+			COALESCE(artist_coin_stats.unique_wallet_24h_change_percent, 0) as unique_wallet_24h_change_percent,
+			COALESCE(artist_coin_stats.total_supply, 0) as total_supply,
+			COALESCE(artist_coin_stats.circulating_supply, 0) as circulating_supply,
+			COALESCE(artist_coin_stats.holder, 0) as holder,
+			COALESCE(artist_coin_stats.trade_24h, 0) as trade_24h,
+			COALESCE(artist_coin_stats.trade_history_24h, 0) as trade_history_24h,
+			COALESCE(artist_coin_stats.trade_24h_change_percent, 0) as trade_24h_change_percent,
+			COALESCE(artist_coin_stats.sell_24h, 0) as sell_24h,
+			COALESCE(artist_coin_stats.sell_history_24h, 0) as sell_history_24h,
+			COALESCE(artist_coin_stats.sell_24h_change_percent, 0) as sell_24h_change_percent,
+			COALESCE(artist_coin_stats.buy_24h, 0) as buy_24h,
+			COALESCE(artist_coin_stats.buy_history_24h, 0) as buy_history_24h,
+			COALESCE(artist_coin_stats.buy_24h_change_percent, 0) as buy_24h_change_percent,
+			COALESCE(artist_coin_stats.v_24h, 0) as v_24h,
+			COALESCE(artist_coin_stats.v_24h_usd, 0) as v_24h_usd,
+			COALESCE(artist_coin_stats.v_history_24h, 0) as v_history_24h,
+			COALESCE(artist_coin_stats.v_history_24h_usd, 0) as v_history_24h_usd,
+			COALESCE(artist_coin_stats.v_24h_change_percent, 0) as v_24h_change_percent,
+			COALESCE(artist_coin_stats.v_buy_24h, 0) as v_buy_24h,
+			COALESCE(artist_coin_stats.v_buy_24h_usd, 0) as v_buy_24h_usd,
+			COALESCE(artist_coin_stats.v_buy_history_24h, 0) as v_buy_history_24h,
+			COALESCE(artist_coin_stats.v_buy_history_24h_usd, 0) as v_buy_history_24h_usd,
+			COALESCE(artist_coin_stats.v_buy_24h_change_percent, 0) as v_buy_24h_change_percent,
+			COALESCE(artist_coin_stats.v_sell_24h, 0) as v_sell_24h,
+			COALESCE(artist_coin_stats.v_sell_24h_usd, 0) as v_sell_24h_usd,
+			COALESCE(artist_coin_stats.v_sell_history_24h, 0) as v_sell_history_24h,
+			COALESCE(artist_coin_stats.v_sell_history_24h_usd, 0) as v_sell_history_24h_usd,
+			COALESCE(artist_coin_stats.v_sell_24h_change_percent, 0) as v_sell_24h_change_percent,
+			COALESCE(artist_coin_stats.number_markets, 0) as number_markets,
 			JSON_BUILD_OBJECT(
-				'address', artist_coin_pools.address,
-				'price', artist_coin_pools.price,
-				'priceUSD', artist_coin_pools.price_usd,
-				'curveProgress', artist_coin_pools.curve_progress,
-				'isMigrated', artist_coin_pools.is_migrated
-			) AS dynamic_bonding_curve
+				'address', COALESCE(artist_coin_pools.address, ''),
+				'price', COALESCE(artist_coin_pools.price, 0),
+				'priceUSD', COALESCE(artist_coin_pools.price_usd, 0),
+				'curveProgress', COALESCE(artist_coin_pools.curve_progress, 0),
+				'isMigrated', COALESCE(artist_coin_pools.is_migrated, false)
+			) AS dynamic_bonding_curve,
+			COALESCE(artist_coin_stats.updated_at, artist_coins.created_at) as updated_at
 		FROM artist_coins
-		JOIN artist_coin_stats
+		LEFT JOIN artist_coin_stats
 			ON artist_coin_stats.mint = artist_coins.mint
 		LEFT JOIN artist_coin_pools
-			ON artist_coin_pools.base_mint = artist_coin_stats.mint
+			ON artist_coin_pools.base_mint = artist_coins.mint
 		WHERE 1=1
 			` + mintFilter + `
 			` + ownerIdFilter + `
 			` + tickerFilter + `
 			` + queryFilter + `
-		ORDER BY
-			artist_coins.ticker = '$AUDIO' DESC,
-			` + sortString + `
+		ORDER BY ` + sortString + `
 		LIMIT @limit
 		OFFSET @offset
 	`
@@ -169,7 +204,7 @@ func (app *ApiServer) v1Coins(c *fiber.Ctx) error {
 		return err
 	}
 
-	coinRows, err := pgx.CollectRows(rows, pgx.RowToStructByName[ArtistCoin])
+	coinRows, err := pgx.CollectRows(rows, pgx.RowToStructByNameLax[ArtistCoin])
 	if err != nil {
 		return err
 	}
