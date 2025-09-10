@@ -98,6 +98,7 @@ func (q *Queries) GetBulkTrackAccess(
 	tipUserIDs := make(map[int32]struct{})
 	trackIDs := make(map[int32]struct{})
 	playlistIDs := make(map[int32]struct{})
+	tokenGateTokenMints := make(map[string]struct{})
 	prevPlaylistData := make(map[int32][]byte) // trackID -> JSON of previous playlists
 	prevPlaylistsMap := make(map[int32][]struct {
 		PlaylistID  int32  `json:"playlist_id"`
@@ -117,6 +118,9 @@ func (q *Queries) GetBulkTrackAccess(
 			}
 			if track.StreamConditions.TipUserID != nil {
 				tipUserIDs[int32(*track.StreamConditions.TipUserID)] = struct{}{}
+			}
+			if track.StreamConditions.TokenGate != nil {
+				tokenGateTokenMints[track.StreamConditions.TokenGate.TokenMint] = struct{}{}
 			}
 			if track.StreamConditions.UsdcPurchase != nil {
 				trackIDs[track.TrackID] = struct{}{}
@@ -142,6 +146,9 @@ func (q *Queries) GetBulkTrackAccess(
 			}
 			if track.DownloadConditions.TipUserID != nil {
 				tipUserIDs[int32(*track.DownloadConditions.TipUserID)] = struct{}{}
+			}
+			if track.DownloadConditions.TokenGate != nil {
+				tokenGateTokenMints[track.DownloadConditions.TokenGate.TokenMint] = struct{}{}
 			}
 			if track.DownloadConditions.UsdcPurchase != nil {
 				trackIDs[track.TrackID] = struct{}{}
@@ -178,6 +185,11 @@ func (q *Queries) GetBulkTrackAccess(
 		trackIDsSlice = append(trackIDsSlice, id)
 	}
 
+	tokenGateTokenMintsSlice := make([]string, 0, len(tokenGateTokenMints))
+	for tokenMint := range tokenGateTokenMints {
+		tokenGateTokenMintsSlice = append(tokenGateTokenMintsSlice, tokenMint)
+	}
+
 	playlistIDsSlice := make([]int32, 0, len(playlistIDs))
 	for id := range playlistIDs {
 		playlistIDsSlice = append(playlistIDsSlice, id)
@@ -189,6 +201,7 @@ func (q *Queries) GetBulkTrackAccess(
 	purchasedTracks := make(map[int32]bool)
 	purchasedPlaylists := make(map[int32]bool)
 	prevPurchasedPlaylists := make(map[int32]bool)
+	userTokenBalances := make(map[string]int64)
 
 	g, ctx := errgroup.WithContext(ctx)
 
@@ -257,6 +270,30 @@ func (q *Queries) GetBulkTrackAccess(
 				var trackID int32
 				if err := rows.Scan(&trackID); err == nil {
 					purchasedTracks[trackID] = true
+				}
+			}
+			return rows.Err()
+		})
+	}
+
+	// Query for token balances
+	if len(tokenGateTokenMintsSlice) > 0 {
+		g.Go(func() error {
+			rows, err := q.db.Query(ctx, `
+				SELECT mint, COALESCE(balance, 0)
+				FROM sol_user_balances
+				WHERE user_id = $1
+				AND mint = ANY($2)
+			`, myId, tokenGateTokenMintsSlice)
+			if err != nil {
+				return err
+			}
+			defer rows.Close()
+			for rows.Next() {
+				var mint string
+				var balance int64
+				if err := rows.Scan(&mint, &balance); err == nil {
+					userTokenBalances[mint] = balance
 				}
 			}
 			return rows.Err()
@@ -358,6 +395,11 @@ func (q *Queries) GetBulkTrackAccess(
 				hasAccess = followedUsers[int32(*track.StreamConditions.FollowUserID)]
 			case track.StreamConditions.TipUserID != nil:
 				hasAccess = tippedUsers[int32(*track.StreamConditions.TipUserID)]
+			case track.StreamConditions.TokenGate != nil:
+				tokenMint := track.StreamConditions.TokenGate.TokenMint
+				requiredAmount := track.StreamConditions.TokenGate.TokenAmount
+				userBalance := userTokenBalances[tokenMint]
+				hasAccess = userBalance >= requiredAmount
 			case track.StreamConditions.UsdcPurchase != nil:
 				// Check direct purchase
 				hasAccess = purchasedTracks[track.TrackID]
@@ -397,6 +439,11 @@ func (q *Queries) GetBulkTrackAccess(
 				hasAccess = followedUsers[int32(*track.DownloadConditions.FollowUserID)]
 			case track.DownloadConditions.TipUserID != nil:
 				hasAccess = tippedUsers[int32(*track.DownloadConditions.TipUserID)]
+			case track.DownloadConditions.TokenGate != nil:
+				tokenMint := track.DownloadConditions.TokenGate.TokenMint
+				requiredAmount := track.DownloadConditions.TokenGate.TokenAmount
+				userBalance := userTokenBalances[tokenMint]
+				hasAccess = userBalance >= requiredAmount
 			case track.DownloadConditions.UsdcPurchase != nil:
 				// Check direct purchase
 				hasAccess = purchasedTracks[track.TrackID]

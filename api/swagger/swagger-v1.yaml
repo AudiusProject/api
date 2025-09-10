@@ -4781,8 +4781,9 @@ components:
       oneOf:
       - $ref: '#/components/schemas/tip_gate'
       - $ref: '#/components/schemas/follow_gate'
-      - $ref: '#/components/schemas/extended_purchase_gate'
+      - $ref: '#/components/schemas/purchase_gate'
       - $ref: '#/components/schemas/nft_gate'
+      - $ref: '#/components/schemas/token_gate'
     tip_gate:
       required:
       - tip_user_id
@@ -4799,7 +4800,29 @@ components:
         follow_user_id:
           type: integer
           description: Must follow the given user ID to unlock
-    extended_purchase_gate:
+    token_gate:
+      required:
+      - token_gate
+      type: object
+      properties:
+        token_gate:
+          type: object
+          description: Must hold an NFT of the given collection to unlock
+          allOf:
+          - $ref: '#/components/schemas/extended_token_gate'
+    extended_token_gate:
+      required:
+      - token_mint
+      - token_amount
+      type: object
+      properties:
+        token_mint:
+          type: string
+          description: The mint of the token needed to unlock
+        token_amount:
+          type: integer
+          description: The amount of the token needed to unlock
+    purchase_gate:
       required:
       - usdc_purchase
       type: object
