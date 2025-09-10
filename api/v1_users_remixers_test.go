@@ -96,6 +96,15 @@ func TestV1UsersRemixers(t *testing.T) {
 		assert.Equal(t, "remixer3", userResponse.Data[2].Handle.String)
 	}
 
+	// Test count for all remixers for user 1
+	{
+		status, body := testGet(t, app, "/v1/users/"+trashid.MustEncodeHashID(1)+"/remixers/count")
+		assert.Equal(t, 200, status)
+		jsonAssert(t, body, map[string]any{
+			"data": 3,
+		})
+	}
+
 	// Test getting remixers filtered by track_id=100
 	{
 		status, _ := testGet(t, app, "/v1/users/"+trashid.MustEncodeHashID(1)+"/remixers?track_id=100", &userResponse)
@@ -104,6 +113,15 @@ func TestV1UsersRemixers(t *testing.T) {
 		// Only remixer1 (user 2) and remixer3 (user 4) remixed track 100
 		assert.Equal(t, "remixer1", userResponse.Data[0].Handle.String)
 		assert.Equal(t, "remixer3", userResponse.Data[1].Handle.String)
+	}
+
+	// Test count for remixers filtered by track_id=100
+	{
+		status, body := testGet(t, app, "/v1/users/"+trashid.MustEncodeHashID(1)+"/remixers/count?track_id=100")
+		assert.Equal(t, 200, status)
+		jsonAssert(t, body, map[string]any{
+			"data": 2,
+		})
 	}
 
 	// Test getting remixers filtered by track_id=101
