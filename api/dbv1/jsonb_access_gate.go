@@ -15,6 +15,13 @@ type AccessGate struct {
 	TipUserID *int64 `json:"tip_user_id,omitempty"`
 
 	NftCollection *map[string]any `json:"nft_collection,omitempty"`
+
+	TokenGate *TokenGate `json:"token_gate,omitempty"`
+}
+
+type TokenGate struct {
+	TokenMint   string `json:"token_mint"`
+	TokenAmount int64  `json:"token_amount"`
 }
 
 type PurchaseSplit struct {

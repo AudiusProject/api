@@ -12,6 +12,7 @@ type ExtendedAccessGate struct {
 	FollowUserID  *int64                 `json:"follow_user_id,omitempty"`
 	TipUserID     *int64                 `json:"tip_user_id,omitempty"`
 	NftCollection *map[string]any        `json:"nft_collection,omitempty"`
+	TokenGate     *dbv1.TokenGate        `json:"token_gate,omitempty"`
 }
 
 type TrackAccessInfoResponse struct {
@@ -35,6 +36,7 @@ func getExtendedPurchaseGate(gate *dbv1.AccessGate, userMap map[int32]dbv1.FullU
 			FollowUserID:  gate.FollowUserID,
 			TipUserID:     gate.TipUserID,
 			NftCollection: gate.NftCollection,
+			TokenGate:     gate.TokenGate,
 		}, nil
 	}
 
@@ -43,6 +45,7 @@ func getExtendedPurchaseGate(gate *dbv1.AccessGate, userMap map[int32]dbv1.FullU
 		FollowUserID:  gate.FollowUserID,
 		TipUserID:     gate.TipUserID,
 		NftCollection: gate.NftCollection,
+		TokenGate:     gate.TokenGate,
 	}, nil
 }
 
