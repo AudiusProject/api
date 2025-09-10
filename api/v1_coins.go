@@ -1,21 +1,13 @@
 package api
 
 import (
+	"fmt"
 	"time"
 
 	"bridgerton.audius.co/trashid"
 	"github.com/gofiber/fiber/v2"
 	"github.com/jackc/pgx/v5"
 )
-
-type GetArtistCoinsQueryParams struct {
-	Tickers  []string         `query:"ticker"`
-	Mints    []string         `query:"mint"`
-	OwnerIds []trashid.HashId `query:"owner_id"`
-	Limit    int              `query:"limit" default:"50" validate:"min=1,max=100"`
-	Offset   int              `query:"offset" default:"0" validate:"min=0"`
-	Query    string           `query:"query"`
-}
 
 type ArtistCoin struct {
 	Name        string         `json:"name"`
@@ -27,6 +19,59 @@ type ArtistCoin struct {
 	Description *string        `json:"description,omitempty"`
 	Website     *string        `json:"website,omitempty"`
 	CreatedAt   time.Time      `json:"created_at"`
+
+	MarketCap                    float64                      `json:"marketCap" db:"market_cap"`
+	FDV                          float64                      `json:"fdv" db:"fdv"`
+	Liquidity                    float64                      `json:"liquidity" db:"liquidity"`
+	LastTradeUnixTime            int64                        `json:"lastTradeUnixTime" db:"last_trade_unix_time"`
+	LastTradeHumanTime           string                       `json:"lastTradeHumanTime" db:"last_trade_human_time"`
+	Price                        float64                      `json:"price" db:"price"`
+	History24hPrice              float64                      `json:"history24hPrice" db:"history_24h_price"`
+	PriceChange24hPercent        float64                      `json:"priceChange24hPercent" db:"price_change_24h_percent"`
+	UniqueWallet24h              int                          `json:"uniqueWallet24h" db:"unique_wallet_24h"`
+	UniqueWalletHistory24h       int                          `json:"uniqueWalletHistory24h" db:"unique_wallet_history_24h"`
+	UniqueWallet24hChangePercent float64                      `json:"uniqueWallet24hChangePercent" db:"unique_wallet_24h_change_percent"`
+	TotalSupply                  float64                      `json:"totalSupply" db:"total_supply"`
+	CirculatingSupply            float64                      `json:"circulatingSupply" db:"circulating_supply"`
+	Holder                       int                          `json:"holder" db:"holder"`
+	Trade24h                     int                          `json:"trade24h" db:"trade_24h"`
+	TradeHistory24h              int                          `json:"tradeHistory24h" db:"trade_history_24h"`
+	Trade24hChangePercent        float64                      `json:"trade24hChangePercent" db:"trade_24h_change_percent"`
+	Sell24h                      int                          `json:"sell24h" db:"sell_24h"`
+	SellHistory24h               int                          `json:"sellHistory24h" db:"sell_history_24h"`
+	Sell24hChangePercent         float64                      `json:"sell24hChangePercent" db:"sell_24h_change_percent"`
+	Buy24h                       int                          `json:"buy24h" db:"buy_24h"`
+	BuyHistory24h                int                          `json:"buyHistory24h" db:"buy_history_24h"`
+	Buy24hChangePercent          float64                      `json:"buy24hChangePercent" db:"buy_24h_change_percent"`
+	V24h                         float64                      `json:"v24h" db:"v_24h"`
+	V24hUSD                      float64                      `json:"v24hUSD" db:"v_24h_usd"`
+	VHistory24h                  float64                      `json:"vHistory24h" db:"v_history_24h"`
+	VHistory24hUSD               float64                      `json:"vHistory24hUSD" db:"v_history_24h_usd"`
+	V24hChangePercent            float64                      `json:"v24hChangePercent" db:"v_24h_change_percent"`
+	VBuy24h                      float64                      `json:"vBuy24h" db:"v_buy_24h"`
+	VBuy24hUSD                   float64                      `json:"vBuy24hUSD" db:"v_buy_24h_usd"`
+	VBuyHistory24h               float64                      `json:"vBuyHistory24h" db:"v_buy_history_24h"`
+	VBuyHistory24hUSD            float64                      `json:"vBuyHistory24hUSD" db:"v_buy_history_24h_usd"`
+	VBuy24hChangePercent         float64                      `json:"vBuy24hChangePercent" db:"v_buy_24h_change_percent"`
+	VSell24h                     float64                      `json:"vSell24h" db:"v_sell_24h"`
+	VSell24hUSD                  float64                      `json:"vSell24hUSD" db:"v_sell_24h_usd"`
+	VSellHistory24h              float64                      `json:"vSellHistory24h" db:"v_sell_history_24h"`
+	VSellHistory24hUSD           float64                      `json:"vSellHistory24hUSD" db:"v_sell_history_24h_usd"`
+	VSell24hChangePercent        float64                      `json:"vSell24hChangePercent" db:"v_sell_24h_change_percent"`
+	NumberMarkets                int                          `json:"numberMarkets" db:"number_markets"`
+	DynamicBondingCurve          *DynamicBondingCurveInsights `json:"dynamicBondingCurve" db:"dynamic_bonding_curve"`
+	UpdatedAt                    time.Time                    `json:"updatedAt" db:"updated_at"`
+}
+
+type GetArtistCoinsQueryParams struct {
+	Tickers       []string         `query:"ticker"`
+	Mints         []string         `query:"mint"`
+	OwnerIds      []trashid.HashId `query:"owner_id"`
+	Limit         int              `query:"limit" default:"50" validate:"min=1,max=100"`
+	Offset        int              `query:"offset" default:"0" validate:"min=0"`
+	Query         string           `query:"query"`
+	SortMethod    string           `query:"sort_method" default:"market_cap" validate:"oneof=market_cap price volume created_at holder"`
+	SortDirection string           `query:"sort_direction" default:"desc" validate:"oneof=asc desc"`
 }
 
 func (app *ApiServer) v1Coins(c *fiber.Ctx) error {
@@ -55,6 +100,25 @@ func (app *ApiServer) v1Coins(c *fiber.Ctx) error {
 		)`
 	}
 
+	sortMethod := "market_cap"
+	switch queryParams.SortMethod {
+	case "price":
+		sortMethod = "price"
+	case "volume":
+		sortMethod = "v_24h_usd"
+	case "created_at":
+		sortMethod = "created_at"
+	case "holder":
+		sortMethod = "holder"
+	}
+
+	sortDirection := "desc"
+	if queryParams.SortDirection == "asc" {
+		sortDirection = "asc"
+	}
+
+	sortString := fmt.Sprintf("%s %s", sortMethod, sortDirection)
+
 	sql := `
 		SELECT
 			artist_coins.name,
@@ -65,16 +129,65 @@ func (app *ApiServer) v1Coins(c *fiber.Ctx) error {
 			artist_coins.logo_uri,
 			artist_coins.description,
 			artist_coins.website,
-			artist_coins.created_at
+			artist_coins.created_at,
+			COALESCE(artist_coin_stats.market_cap, 0) as market_cap,
+			COALESCE(artist_coin_stats.fdv, 0) as fdv,
+			COALESCE(artist_coin_stats.liquidity, 0) as liquidity,
+			COALESCE(artist_coin_stats.last_trade_unix_time, 0) as last_trade_unix_time,
+			COALESCE(artist_coin_stats.last_trade_human_time, '') as last_trade_human_time,
+			COALESCE(artist_coin_stats.price, 0) as price,
+			COALESCE(artist_coin_stats.history_24h_price, 0) as history_24h_price,
+			COALESCE(artist_coin_stats.price_change_24h_percent, 0) as price_change_24h_percent,
+			COALESCE(artist_coin_stats.unique_wallet_24h, 0) as unique_wallet_24h,
+			COALESCE(artist_coin_stats.unique_wallet_history_24h, 0) as unique_wallet_history_24h,
+			COALESCE(artist_coin_stats.unique_wallet_24h_change_percent, 0) as unique_wallet_24h_change_percent,
+			COALESCE(artist_coin_stats.total_supply, 0) as total_supply,
+			COALESCE(artist_coin_stats.circulating_supply, 0) as circulating_supply,
+			COALESCE(artist_coin_stats.holder, 0) as holder,
+			COALESCE(artist_coin_stats.trade_24h, 0) as trade_24h,
+			COALESCE(artist_coin_stats.trade_history_24h, 0) as trade_history_24h,
+			COALESCE(artist_coin_stats.trade_24h_change_percent, 0) as trade_24h_change_percent,
+			COALESCE(artist_coin_stats.sell_24h, 0) as sell_24h,
+			COALESCE(artist_coin_stats.sell_history_24h, 0) as sell_history_24h,
+			COALESCE(artist_coin_stats.sell_24h_change_percent, 0) as sell_24h_change_percent,
+			COALESCE(artist_coin_stats.buy_24h, 0) as buy_24h,
+			COALESCE(artist_coin_stats.buy_history_24h, 0) as buy_history_24h,
+			COALESCE(artist_coin_stats.buy_24h_change_percent, 0) as buy_24h_change_percent,
+			COALESCE(artist_coin_stats.v_24h, 0) as v_24h,
+			COALESCE(artist_coin_stats.v_24h_usd, 0) as v_24h_usd,
+			COALESCE(artist_coin_stats.v_history_24h, 0) as v_history_24h,
+			COALESCE(artist_coin_stats.v_history_24h_usd, 0) as v_history_24h_usd,
+			COALESCE(artist_coin_stats.v_24h_change_percent, 0) as v_24h_change_percent,
+			COALESCE(artist_coin_stats.v_buy_24h, 0) as v_buy_24h,
+			COALESCE(artist_coin_stats.v_buy_24h_usd, 0) as v_buy_24h_usd,
+			COALESCE(artist_coin_stats.v_buy_history_24h, 0) as v_buy_history_24h,
+			COALESCE(artist_coin_stats.v_buy_history_24h_usd, 0) as v_buy_history_24h_usd,
+			COALESCE(artist_coin_stats.v_buy_24h_change_percent, 0) as v_buy_24h_change_percent,
+			COALESCE(artist_coin_stats.v_sell_24h, 0) as v_sell_24h,
+			COALESCE(artist_coin_stats.v_sell_24h_usd, 0) as v_sell_24h_usd,
+			COALESCE(artist_coin_stats.v_sell_history_24h, 0) as v_sell_history_24h,
+			COALESCE(artist_coin_stats.v_sell_history_24h_usd, 0) as v_sell_history_24h_usd,
+			COALESCE(artist_coin_stats.v_sell_24h_change_percent, 0) as v_sell_24h_change_percent,
+			COALESCE(artist_coin_stats.number_markets, 0) as number_markets,
+			JSON_BUILD_OBJECT(
+				'address', COALESCE(artist_coin_pools.address, ''),
+				'price', COALESCE(artist_coin_pools.price, 0),
+				'priceUSD', COALESCE(artist_coin_pools.price_usd, 0),
+				'curveProgress', COALESCE(artist_coin_pools.curve_progress, 0),
+				'isMigrated', COALESCE(artist_coin_pools.is_migrated, false)
+			) AS dynamic_bonding_curve,
+			COALESCE(artist_coin_stats.updated_at, artist_coins.created_at) as updated_at
 		FROM artist_coins
+		LEFT JOIN artist_coin_stats
+			ON artist_coin_stats.mint = artist_coins.mint
+		LEFT JOIN artist_coin_pools
+			ON artist_coin_pools.base_mint = artist_coins.mint
 		WHERE 1=1
 			` + mintFilter + `
 			` + ownerIdFilter + `
 			` + tickerFilter + `
 			` + queryFilter + `
-		ORDER BY 
-			artist_coins.ticker = '$AUDIO' DESC,
-			artist_coins.created_at ASC
+		ORDER BY ` + sortString + `
 		LIMIT @limit
 		OFFSET @offset
 	`
@@ -91,7 +204,7 @@ func (app *ApiServer) v1Coins(c *fiber.Ctx) error {
 		return err
 	}
 
-	coinRows, err := pgx.CollectRows(rows, pgx.RowToStructByName[ArtistCoin])
+	coinRows, err := pgx.CollectRows(rows, pgx.RowToStructByNameLax[ArtistCoin])
 	if err != nil {
 		return err
 	}

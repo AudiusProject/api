@@ -32,31 +32,29 @@ func TestGetCoins(t *testing.T) {
 				"created_at":  time.Now(),
 			},
 		},
+		"artist_coin_stats": {
+			{
+				"mint":       "9LzCMqDgTKYz9Drzqnpgee3SGa89up3a247ypMj2xrqM",
+				"market_cap": 10000,
+				"holder":     10,
+				"v_24h_usd":  100,
+				"price":      10.0,
+				"created_at": time.Now(),
+			},
+			{
+				"mint":       "EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v",
+				"market_cap": 1000,
+				"holder":     20,
+				"v_24h_usd":  50,
+				"price":      1.0,
+				"created_at": time.Now(),
+			},
+		},
 	}
 
 	database.Seed(app.pool.Replicas[0], fixtures)
 
 	app.birdeyeClient = &mockBirdeyeClient{}
-
-	// no filters
-	{
-		status, body := testGet(t, app, "/v1/coins")
-		assert.Equal(t, 200, status)
-
-		jsonAssert(t, body, map[string]any{
-			"data.0.ticker":      "$AUDIO",
-			"data.0.mint":        "9LzCMqDgTKYz9Drzqnpgee3SGa89up3a247ypMj2xrqM",
-			"data.0.decimals":    8,
-			"data.0.owner_id":    trashid.MustEncodeHashID(1),
-			"data.1.ticker":      "$USDC",
-			"data.1.mint":        "EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v",
-			"data.1.decimals":    6,
-			"data.1.owner_id":    trashid.MustEncodeHashID(2),
-			"data.1.logo_uri":    "https://example.com/usdc-logo.png",
-			"data.1.description": "USDC is a stablecoin pegged to the US dollar.",
-			"data.1.website":     "https://www.circle.com/en/usdc",
-		})
-	}
 
 	// filter by owner_id
 	{
@@ -99,4 +97,105 @@ func TestGetCoins(t *testing.T) {
 			"data.1":          nil,
 		})
 	}
+
+	// default sort (market_cap desc)
+	{
+		status, body := testGet(t, app, "/v1/coins")
+		assert.Equal(t, 200, status)
+
+		jsonAssert(t, body, map[string]any{
+			"data.0.ticker": "$AUDIO",
+		})
+	}
+
+	// market_cap asc
+	{
+		status, body := testGet(t, app, "/v1/coins?sort_method=market_cap&sort_direction=asc")
+		assert.Equal(t, 200, status)
+
+		jsonAssert(t, body, map[string]any{
+			"data.0.ticker": "$USDC",
+		})
+	}
+
+	// price desc
+	{
+		status, body := testGet(t, app, "/v1/coins?sort_method=price&sort_direction=desc")
+		assert.Equal(t, 200, status)
+
+		jsonAssert(t, body, map[string]any{
+			"data.0.ticker": "$AUDIO",
+		})
+	}
+
+	// price asc
+	{
+		status, body := testGet(t, app, "/v1/coins?sort_method=price&sort_direction=asc")
+		assert.Equal(t, 200, status)
+
+		jsonAssert(t, body, map[string]any{
+			"data.0.ticker": "$USDC",
+		})
+	}
+
+	// volume desc
+	{
+		status, body := testGet(t, app, "/v1/coins?sort_method=volume&sort_direction=desc")
+		assert.Equal(t, 200, status)
+
+		jsonAssert(t, body, map[string]any{
+			"data.0.ticker": "$AUDIO",
+		})
+	}
+
+	// volume asc
+	{
+		status, body := testGet(t, app, "/v1/coins?sort_method=volume&sort_direction=asc")
+		assert.Equal(t, 200, status)
+
+		jsonAssert(t, body, map[string]any{
+			"data.0.ticker": "$USDC",
+		})
+	}
+
+	// holder desc
+	{
+		status, body := testGet(t, app, "/v1/coins?sort_method=holder&sort_direction=desc")
+		assert.Equal(t, 200, status)
+
+		jsonAssert(t, body, map[string]any{
+			"data.0.ticker": "$USDC",
+		})
+	}
+
+	// holder asc
+	{
+		status, body := testGet(t, app, "/v1/coins?sort_method=holder&sort_direction=asc")
+		assert.Equal(t, 200, status)
+
+		jsonAssert(t, body, map[string]any{
+			"data.0.ticker": "$AUDIO",
+		})
+	}
+
+	// created_at desc
+	{
+		status, body := testGet(t, app, "/v1/coins?sort_method=created_at&sort_direction=desc")
+		assert.Equal(t, 200, status)
+
+		jsonAssert(t, body, map[string]any{
+			"data.0.ticker": "$USDC",
+		})
+	}
+
+	// created_at asc
+	{
+		status, body := testGet(t, app, "/v1/coins?sort_method=created_at&sort_direction=asc")
+		assert.Equal(t, 200, status)
+
+		jsonAssert(t, body, map[string]any{
+			"data.0.ticker": "$AUDIO",
+		})
+	}
+
 }
