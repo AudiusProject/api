@@ -4,7 +4,7 @@ import (
 	"context"
 	"fmt"
 
-	"bridgerton.audius.co/birdeye"
+	"api.audius.co/birdeye"
 )
 
 type mockBirdeyeClient struct{}

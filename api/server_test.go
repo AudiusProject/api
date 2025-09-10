@@ -10,9 +10,9 @@ import (
 	"strings"
 	"testing"
 
-	"bridgerton.audius.co/api/testdata"
-	"bridgerton.audius.co/config"
-	"bridgerton.audius.co/database"
+	"api.audius.co/api/testdata"
+	"api.audius.co/config"
+	"api.audius.co/database"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"github.com/tidwall/gjson"

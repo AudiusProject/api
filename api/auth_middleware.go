@@ -8,7 +8,7 @@ import (
 	"strings"
 	"time"
 
-	comms "bridgerton.audius.co/api/comms"
+	comms "api.audius.co/api/comms"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/crypto"
 	"github.com/gofiber/fiber/v2"

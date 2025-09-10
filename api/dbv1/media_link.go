@@ -8,8 +8,8 @@ import (
 	"strings"
 	"time"
 
-	"bridgerton.audius.co/config"
-	"bridgerton.audius.co/rendezvous"
+	"api.audius.co/config"
+	"api.audius.co/rendezvous"
 	"github.com/ethereum/go-ethereum/common/hexutil"
 	"github.com/ethereum/go-ethereum/crypto"
 )

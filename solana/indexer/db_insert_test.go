@@ -4,7 +4,7 @@ import (
 	"testing"
 	"time"
 
-	"bridgerton.audius.co/database"
+	"api.audius.co/database"
 	"github.com/rpcpool/yellowstone-grpc/examples/golang/proto"
 	"github.com/test-go/testify/assert"
 )

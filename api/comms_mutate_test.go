@@ -7,10 +7,10 @@ import (
 	"testing"
 	"time"
 
-	comms "bridgerton.audius.co/api/comms"
-	"bridgerton.audius.co/api/testdata"
-	"bridgerton.audius.co/database"
-	"bridgerton.audius.co/trashid"
+	comms "api.audius.co/api/comms"
+	"api.audius.co/api/testdata"
+	"api.audius.co/database"
+	"api.audius.co/trashid"
 	"github.com/stretchr/testify/assert"
 )
 

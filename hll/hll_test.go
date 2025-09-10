@@ -6,7 +6,7 @@ import (
 	"testing"
 	"time"
 
-	"bridgerton.audius.co/database"
+	"api.audius.co/database"
 	"github.com/jackc/pgx/v5/pgxpool"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -92,8 +92,8 @@ func TestHLL_AggregationWorks(t *testing.T) {
 	var totalCount, uniqueCount int64
 
 	query := fmt.Sprintf(`
-		SELECT hll_sketch, total_count, unique_count 
-		FROM %s 
+		SELECT hll_sketch, total_count, unique_count
+		FROM %s
 		WHERE date = $1`, tableName)
 
 	err = pool.QueryRow(ctx, query, dateBucket).Scan(&sketchData, &totalCount, &uniqueCount)
@@ -164,8 +164,8 @@ func TestHLL_MergeExistingSketch(t *testing.T) {
 	var totalCount, uniqueCount int64
 
 	query := fmt.Sprintf(`
-		SELECT total_count, unique_count 
-		FROM %s 
+		SELECT total_count, unique_count
+		FROM %s
 		WHERE date = $1`, tableName)
 
 	err = pool.QueryRow(ctx, query, dateBucket).Scan(&totalCount, &uniqueCount)

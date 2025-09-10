@@ -5,7 +5,7 @@ import (
 	"encoding/json"
 	"time"
 
-	"bridgerton.audius.co/trashid"
+	"api.audius.co/trashid"
 )
 
 type UserChatRow struct {

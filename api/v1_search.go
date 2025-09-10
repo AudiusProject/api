@@ -4,8 +4,8 @@ import (
 	"strconv"
 	"strings"
 
-	"bridgerton.audius.co/api/dbv1"
-	"bridgerton.audius.co/api/searchv1"
+	"api.audius.co/api/dbv1"
+	"api.audius.co/api/searchv1"
 	"github.com/gofiber/fiber/v2"
 	"golang.org/x/sync/errgroup"
 )

@@ -3,7 +3,7 @@ package api
 import (
 	"testing"
 
-	"bridgerton.audius.co/trashid"
+	"api.audius.co/trashid"
 	"github.com/stretchr/testify/assert"
 )
 

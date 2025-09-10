@@ -4,7 +4,7 @@ import (
 	"fmt"
 	"time"
 
-	"bridgerton.audius.co/api/dbv1"
+	"api.audius.co/api/dbv1"
 	"github.com/gofiber/fiber/v2"
 )
 

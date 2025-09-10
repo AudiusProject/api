@@ -6,8 +6,8 @@ import (
 	"testing"
 	"time"
 
-	"bridgerton.audius.co/database"
-	"bridgerton.audius.co/trashid"
+	"api.audius.co/database"
+	"api.audius.co/trashid"
 	"github.com/jackc/pgx/v5/pgxpool"
 	"github.com/stretchr/testify/assert"
 )

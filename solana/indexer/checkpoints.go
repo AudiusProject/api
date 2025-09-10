@@ -7,7 +7,7 @@ import (
 	"encoding/json"
 	"fmt"
 
-	"bridgerton.audius.co/database"
+	"api.audius.co/database"
 	"github.com/jackc/pgx/v5"
 	pb "github.com/rpcpool/yellowstone-grpc/examples/golang/proto"
 )
@@ -27,7 +27,7 @@ func insertBackfillCheckpoint(ctx context.Context, db database.DBTX, fromSlot ui
 
 	var checkpointId string
 	err = db.QueryRow(ctx, `
-			INSERT INTO sol_slot_checkpoints (from_slot, to_slot, subscription, subscription_hash) 
+			INSERT INTO sol_slot_checkpoints (from_slot, to_slot, subscription, subscription_hash)
 			VALUES (@from_slot, @to_slot, @subscription, @subscription_hash)
 			RETURNING id;
 		`, pgx.NamedArgs{
@@ -55,7 +55,7 @@ func insertCheckpointStart(ctx context.Context, db database.DBTX, fromSlot uint6
 
 	var checkpointId string
 	err = db.QueryRow(ctx, `
-		INSERT INTO sol_slot_checkpoints (from_slot, to_slot, subscription, subscription_hash) 
+		INSERT INTO sol_slot_checkpoints (from_slot, to_slot, subscription, subscription_hash)
 		VALUES (@from_slot, @to_slot, @subscription, @subscription_hash)
 		RETURNING id;
 	`, pgx.NamedArgs{
@@ -96,9 +96,9 @@ func getCheckpointSlot(ctx context.Context, db database.DBTX, subscription *pb.S
 	subscriptionHash := hex.EncodeToString(sum[:])
 
 	sql := `
-		SELECT COALESCE(MAX(to_slot), 0) 
-		FROM sol_slot_checkpoints 
-		WHERE subscription_hash = @subscription_hash 
+		SELECT COALESCE(MAX(to_slot), 0)
+		FROM sol_slot_checkpoints
+		WHERE subscription_hash = @subscription_hash
 		LIMIT 1;
 	`
 

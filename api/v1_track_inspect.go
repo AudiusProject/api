@@ -5,8 +5,8 @@ import (
 	"fmt"
 	"net/http"
 
-	"bridgerton.audius.co/api/dbv1"
-	"bridgerton.audius.co/rendezvous"
+	"api.audius.co/api/dbv1"
+	"api.audius.co/rendezvous"
 	"github.com/gofiber/fiber/v2"
 	"golang.org/x/sync/errgroup"
 )

@@ -1,7 +1,7 @@
 package api
 
 import (
-	"bridgerton.audius.co/trashid"
+	"api.audius.co/trashid"
 	"github.com/gofiber/fiber/v2"
 	"github.com/jackc/pgx/v5"
 )
@@ -9,7 +9,7 @@ import (
 func (app *ApiServer) getChatBlockees(c *fiber.Ctx) error {
 	sql := `
 	SELECT blockee_user_id AS user_id
-	FROM chat_blocked_users 
+	FROM chat_blocked_users
 	WHERE blocker_user_id = @user_id;
 	`
 

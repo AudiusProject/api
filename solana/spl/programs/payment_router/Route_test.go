@@ -6,7 +6,7 @@ import (
 	"fmt"
 	"testing"
 
-	"bridgerton.audius.co/solana/spl/programs/payment_router"
+	"api.audius.co/solana/spl/programs/payment_router"
 	"github.com/gagliardetto/solana-go"
 	"github.com/gagliardetto/solana-go/text"
 	"github.com/stretchr/testify/assert"

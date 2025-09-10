@@ -9,7 +9,7 @@ import (
 	"sync"
 	"time"
 
-	"bridgerton.audius.co/config"
+	"api.audius.co/config"
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgconn"
 	"github.com/jackc/pgxlisten"

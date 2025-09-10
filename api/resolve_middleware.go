@@ -3,7 +3,7 @@ package api
 import (
 	"strings"
 
-	"bridgerton.audius.co/trashid"
+	"api.audius.co/trashid"
 	"github.com/gofiber/contrib/websocket"
 	"github.com/gofiber/fiber/v2"
 	"github.com/gofiber/fiber/v2/utils"

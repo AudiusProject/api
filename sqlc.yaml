@@ -38,7 +38,7 @@ sql:
 
           - column: "users.user_id"
             go_type:
-              import: "bridgerton.audius.co/trashid"
+              import: "api.audius.co/trashid"
               type: "HashId"
 
           - column: "users.profile_type"
@@ -48,11 +48,11 @@ sql:
 
           - column: "developer_apps.user_id"
             go_type:
-              import: "bridgerton.audius.co/trashid"
+              import: "api.audius.co/trashid"
               type: "HashId"
           - column: "grants.user_id"
             go_type:
-              import: "bridgerton.audius.co/trashid"
+              import: "api.audius.co/trashid"
               type: "HashId"
 
           - column: "tracks.copyright_line"

@@ -9,7 +9,7 @@ import (
 	"slices"
 	"syscall"
 
-	"bridgerton.audius.co/config"
+	"api.audius.co/config"
 	"github.com/elastic/go-elasticsearch/v8"
 	"github.com/elastic/go-elasticsearch/v8/esutil"
 	"github.com/jackc/pgx/v5/pgxpool"

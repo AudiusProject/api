@@ -8,7 +8,7 @@ package dbv1
 import (
 	"context"
 
-	"bridgerton.audius.co/trashid"
+	"api.audius.co/trashid"
 )
 
 const getUserForHandle = `-- name: GetUserForHandle :one

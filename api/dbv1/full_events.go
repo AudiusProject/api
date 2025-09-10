@@ -3,7 +3,7 @@ package dbv1
 import (
 	"context"
 
-	"bridgerton.audius.co/trashid"
+	"api.audius.co/trashid"
 )
 
 type FullEvent struct {

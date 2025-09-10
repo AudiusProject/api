@@ -9,9 +9,9 @@ import (
 	"net/http"
 	"time"
 
-	"bridgerton.audius.co/api/dbv1"
-	"bridgerton.audius.co/config"
-	"bridgerton.audius.co/trashid"
+	"api.audius.co/api/dbv1"
+	"api.audius.co/config"
+	"api.audius.co/trashid"
 	"github.com/jackc/pgx/v5"
 	"go.uber.org/zap"
 )

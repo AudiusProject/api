@@ -1,8 +1,8 @@
 package api
 
 import (
-	"bridgerton.audius.co/api/fields"
-	"bridgerton.audius.co/trashid"
+	"api.audius.co/api/fields"
+	"api.audius.co/trashid"
 	"github.com/gofiber/fiber/v2"
 	"github.com/jackc/pgx/v5"
 )

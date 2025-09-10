@@ -5,9 +5,9 @@ import (
 	"os"
 	"strings"
 
-	"bridgerton.audius.co/solana/spl/programs/claimable_tokens"
-	"bridgerton.audius.co/solana/spl/programs/payment_router"
-	"bridgerton.audius.co/solana/spl/programs/reward_manager"
+	"api.audius.co/solana/spl/programs/claimable_tokens"
+	"api.audius.co/solana/spl/programs/payment_router"
+	"api.audius.co/solana/spl/programs/reward_manager"
 	"github.com/gagliardetto/solana-go"
 )
 

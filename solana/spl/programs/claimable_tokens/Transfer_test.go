@@ -5,7 +5,7 @@ import (
 	"encoding/hex"
 	"testing"
 
-	"bridgerton.audius.co/solana/spl/programs/claimable_tokens"
+	"api.audius.co/solana/spl/programs/claimable_tokens"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/gagliardetto/solana-go"
 	"github.com/gagliardetto/solana-go/text"

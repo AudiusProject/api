@@ -6,7 +6,7 @@ import (
 	"net/http/httptest"
 	"testing"
 
-	"bridgerton.audius.co/database"
+	"api.audius.co/database"
 	"github.com/gofiber/fiber/v2"
 	"github.com/stretchr/testify/assert"
 )

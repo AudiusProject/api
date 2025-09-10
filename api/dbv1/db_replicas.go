@@ -4,7 +4,7 @@ import (
 	"context"
 	"math/rand"
 
-	"bridgerton.audius.co/logging"
+	"api.audius.co/logging"
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgconn"
 	"github.com/jackc/pgx/v5/pgxpool"

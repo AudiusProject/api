@@ -4,8 +4,8 @@ import (
 	"fmt"
 	"strings"
 
-	"bridgerton.audius.co/api/dbv1"
-	"bridgerton.audius.co/trashid"
+	"api.audius.co/api/dbv1"
+	"api.audius.co/trashid"
 	"github.com/gofiber/fiber/v2"
 )
 

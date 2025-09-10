@@ -6,7 +6,7 @@ import (
 	"strings"
 	"time"
 
-	"bridgerton.audius.co/trashid"
+	"api.audius.co/trashid"
 	"github.com/jackc/pgx/v5"
 )
 
@@ -84,7 +84,7 @@ func (q *Queries) FullTips(ctx context.Context, arg GetTipsParams) ([]FullTip, e
 			AND follower_user_id = @user_id
 	),
 	tips AS (
-		SELECT 
+		SELECT
 			ut.signature,
 			ut.slot,
 			ut.sender_user_id,
@@ -178,7 +178,7 @@ func (q *Queries) FullTips(ctx context.Context, arg GetTipsParams) ([]FullTip, e
 	if arg.UserId != 0 {
 		sql += `,
 	followee_tippers AS (
-		SELECT 
+		SELECT
 			aut.sender_user_id,
 			aut.receiver_user_id,
 			f.followee_user_id
@@ -188,7 +188,7 @@ func (q *Queries) FullTips(ctx context.Context, arg GetTipsParams) ([]FullTip, e
 	}
 
 	sql += `
-	SELECT 
+	SELECT
 		t.signature,
 		t.slot,
 		t.sender_user_id,
@@ -200,7 +200,7 @@ func (q *Queries) FullTips(ctx context.Context, arg GetTipsParams) ([]FullTip, e
 	if arg.UserId != 0 {
 		sql += `,
 		COALESCE(
-			array_agg(ft.sender_user_id) FILTER (WHERE ft.sender_user_id IS NOT NULL), 
+			array_agg(ft.sender_user_id) FILTER (WHERE ft.sender_user_id IS NOT NULL),
 			'{}'::int[]
 		) as followee_supporters`
 	} else {
@@ -215,13 +215,13 @@ func (q *Queries) FullTips(ctx context.Context, arg GetTipsParams) ([]FullTip, e
 		LEFT JOIN followee_tippers ft ON ft.receiver_user_id = t.receiver_user_id`
 	}
 	sql += `
-		GROUP BY 
-			t.signature, 
-			t.slot, 
-			t.sender_user_id, 
-			t.receiver_user_id, 
-			t.amount, 
-			t.created_at, 
+		GROUP BY
+			t.signature,
+			t.slot,
+			t.sender_user_id,
+			t.receiver_user_id,
+			t.amount,
+			t.created_at,
 			t.updated_at
 		ORDER BY t.slot DESC`
 

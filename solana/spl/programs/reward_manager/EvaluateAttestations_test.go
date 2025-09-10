@@ -6,7 +6,7 @@ import (
 	"fmt"
 	"testing"
 
-	"bridgerton.audius.co/solana/spl/programs/reward_manager"
+	"api.audius.co/solana/spl/programs/reward_manager"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/gagliardetto/solana-go"
 	"github.com/gagliardetto/solana-go/text"

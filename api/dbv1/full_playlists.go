@@ -4,7 +4,7 @@ import (
 	"context"
 	"fmt"
 
-	"bridgerton.audius.co/trashid"
+	"api.audius.co/trashid"
 	"github.com/jackc/pgx/v5/pgtype"
 )
 

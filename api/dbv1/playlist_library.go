@@ -5,7 +5,7 @@ import (
 	"fmt"
 	"runtime"
 
-	"bridgerton.audius.co/trashid"
+	"api.audius.co/trashid"
 )
 
 // PlaylistLibraryItem represents a generic item in the playlist library

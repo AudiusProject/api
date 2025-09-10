@@ -3,8 +3,8 @@ package api
 import (
 	"testing"
 
-	"bridgerton.audius.co/api/dbv1"
-	"bridgerton.audius.co/database"
+	"api.audius.co/api/dbv1"
+	"api.audius.co/database"
 	"github.com/stretchr/testify/assert"
 )
 

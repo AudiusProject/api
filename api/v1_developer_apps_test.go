@@ -4,7 +4,7 @@ import (
 	"strings"
 	"testing"
 
-	"bridgerton.audius.co/api/dbv1"
+	"api.audius.co/api/dbv1"
 	"github.com/stretchr/testify/assert"
 )
 

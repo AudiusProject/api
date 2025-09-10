@@ -5,7 +5,7 @@ import (
 	"net/url"
 	"time"
 
-	"bridgerton.audius.co/api/dbv1"
+	"api.audius.co/api/dbv1"
 )
 
 // tryFindWorkingUrl attempts to validate a media link by checking if it can serve content.

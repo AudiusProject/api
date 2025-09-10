@@ -5,7 +5,7 @@ import (
 	"errors"
 	"time"
 
-	comms "bridgerton.audius.co/api/comms"
+	comms "api.audius.co/api/comms"
 
 	"github.com/gofiber/fiber/v2"
 	"go.uber.org/zap"

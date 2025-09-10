@@ -1,7 +1,7 @@
 package api
 
 import (
-	"bridgerton.audius.co/api/dbv1"
+	"api.audius.co/api/dbv1"
 	"github.com/gofiber/fiber/v2"
 	"github.com/jackc/pgx/v5"
 )
@@ -28,7 +28,7 @@ func (app *ApiServer) getChat(c *fiber.Ctx) error {
 	NULL AS audience_content_id,
 	(
 		SELECT json_agg(json_build_object(
-			'user_id', chat_member.user_id, 
+			'user_id', chat_member.user_id,
 			'cleared_history_at', chat_member.cleared_history_at
 		))
 		FROM chat_member
@@ -41,10 +41,10 @@ func (app *ApiServer) getChat(c *fiber.Ctx) error {
 	-- Query blasts as well
 	UNION ALL (
 		SELECT DISTINCT ON (audience, audience_content_type, audience_content_id)
-			concat_ws(':', audience, audience_content_type, 
-					CASE 
+			concat_ws(':', audience, audience_content_type,
+					CASE
 						WHEN audience_content_id IS NOT NULL THEN id_encode(audience_content_id)
-						ELSE NULL 
+						ELSE NULL
 					END) AS chat_id,
 			min(created_at) OVER (PARTITION BY audience, audience_content_type, audience_content_id) AS created_at,
 			plaintext AS last_message,
@@ -61,10 +61,10 @@ func (app *ApiServer) getChat(c *fiber.Ctx) error {
 			json_build_array()::jsonb AS members
 		FROM chat_blast b
 		WHERE from_user_id = @user_id
-			AND concat_ws(':', audience, audience_content_type, 
-					CASE 
+			AND concat_ws(':', audience, audience_content_type,
+					CASE
 						WHEN audience_content_id IS NOT NULL THEN id_encode(audience_content_id)
-						ELSE NULL 
+						ELSE NULL
 					END) = @chat_id
 		ORDER BY
 			audience,

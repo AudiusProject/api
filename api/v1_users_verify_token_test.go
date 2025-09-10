@@ -9,8 +9,8 @@ import (
 	"testing"
 	"time"
 
-	"bridgerton.audius.co/database"
-	"bridgerton.audius.co/trashid"
+	"api.audius.co/database"
+	"api.audius.co/trashid"
 	"github.com/ethereum/go-ethereum/crypto"
 	"github.com/stretchr/testify/assert"
 )

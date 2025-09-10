@@ -5,7 +5,7 @@ import (
 	"sync"
 	"time"
 
-	"bridgerton.audius.co/trashid"
+	"api.audius.co/trashid"
 	"github.com/gofiber/contrib/websocket"
 	"go.uber.org/zap"
 )

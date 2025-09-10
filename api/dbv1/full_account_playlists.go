@@ -4,7 +4,7 @@ import (
 	"context"
 	"fmt"
 
-	"bridgerton.audius.co/trashid"
+	"api.audius.co/trashid"
 )
 
 type FullAccountPlaylistOwner struct {

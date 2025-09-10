@@ -5,7 +5,7 @@ import (
 	"strconv"
 	"testing"
 
-	"bridgerton.audius.co/database"
+	"api.audius.co/database"
 	"github.com/gagliardetto/solana-go"
 	"github.com/stretchr/testify/mock"
 	"github.com/stretchr/testify/require"

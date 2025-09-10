@@ -6,7 +6,7 @@ import (
 	"net/http/httptest"
 	"testing"
 
-	"bridgerton.audius.co/config"
+	"api.audius.co/config"
 	"github.com/AudiusProject/audiusd/pkg/rewards"
 	"github.com/gagliardetto/solana-go"
 	"github.com/stretchr/testify/assert"

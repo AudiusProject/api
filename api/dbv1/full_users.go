@@ -5,8 +5,8 @@ import (
 	"fmt"
 	"strings"
 
-	"bridgerton.audius.co/rendezvous"
-	"bridgerton.audius.co/trashid"
+	"api.audius.co/rendezvous"
+	"api.audius.co/trashid"
 	"github.com/jackc/pgx/v5/pgtype"
 )
 

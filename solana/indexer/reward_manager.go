@@ -5,8 +5,8 @@ import (
 	"fmt"
 	"strings"
 
-	"bridgerton.audius.co/database"
-	"bridgerton.audius.co/solana/spl/programs/reward_manager"
+	"api.audius.co/database"
+	"api.audius.co/solana/spl/programs/reward_manager"
 	"github.com/gagliardetto/solana-go"
 	"github.com/jackc/pgx/v5"
 	"go.uber.org/zap"
