@@ -5,7 +5,7 @@ import (
 	"strings"
 	"time"
 
-	"bridgerton.audius.co/api/dbv1"
+	"api.audius.co/api/dbv1"
 	"github.com/gofiber/fiber/v2"
 	"github.com/jackc/pgx/v5"
 )
@@ -78,10 +78,10 @@ func (app *ApiServer) getChatMessages(c *fiber.Ctx) error {
 		'[]'::json AS reactions
 	FROM chat_blast b
 	WHERE b.from_user_id = @user_id
-		AND concat_ws(':', audience, audience_content_type, 
-			CASE 
+		AND concat_ws(':', audience, audience_content_type,
+			CASE
 				WHEN audience_content_id IS NOT NULL THEN id_encode(audience_content_id)
-				ELSE NULL 
+				ELSE NULL
 			END) = @chat_id
 	  AND b.created_at < @before
 	  AND b.created_at > @after
@@ -95,10 +95,10 @@ func (app *ApiServer) getChatMessages(c *fiber.Ctx) error {
 			b.blast_id as message_id, b.created_at
 		FROM chat_blast b
 		WHERE b.from_user_id = @user_id
-			AND concat_ws(':', audience, audience_content_type, 
-				CASE 
+			AND concat_ws(':', audience, audience_content_type,
+				CASE
 					WHEN audience_content_id IS NOT NULL THEN id_encode(audience_content_id)
-					ELSE NULL 
+					ELSE NULL
 				END) = @chat_id
 		)
 	SELECT

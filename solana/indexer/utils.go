@@ -5,7 +5,7 @@ import (
 	"fmt"
 	"time"
 
-	"bridgerton.audius.co/database"
+	"api.audius.co/database"
 	"github.com/jackc/pgx/v5"
 )
 

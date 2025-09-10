@@ -4,7 +4,7 @@ import (
 	"encoding/json"
 	"strings"
 
-	"bridgerton.audius.co/trashid"
+	"api.audius.co/trashid"
 )
 
 type ChatPermissionsRow struct {

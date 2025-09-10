@@ -6,7 +6,7 @@ import (
 	"testing"
 	"time"
 
-	"bridgerton.audius.co/database"
+	"api.audius.co/database"
 	"github.com/gagliardetto/solana-go"
 	"github.com/gagliardetto/solana-go/rpc"
 	pb "github.com/rpcpool/yellowstone-grpc/examples/golang/proto"
@@ -167,7 +167,7 @@ func TestSubscription(t *testing.T) {
 	time.Sleep(200 * time.Millisecond)
 
 	_, err := pool.Exec(ctx, `
-			INSERT INTO artist_coins (user_id, mint, ticker, decimals) 
+			INSERT INTO artist_coins (user_id, mint, ticker, decimals)
 			VALUES ($1, $2, $3, $4)
 		`, 1, mint2, "TEST2", 9)
 	if err != nil {

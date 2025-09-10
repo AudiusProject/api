@@ -3,7 +3,7 @@ package api
 import (
 	"time"
 
-	"bridgerton.audius.co/trashid"
+	"api.audius.co/trashid"
 	"github.com/gofiber/fiber/v2"
 	"github.com/jackc/pgx/v5"
 )

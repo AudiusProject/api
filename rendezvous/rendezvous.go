@@ -12,7 +12,7 @@ import (
 	"sort"
 	"strings"
 
-	"bridgerton.audius.co/config"
+	"api.audius.co/config"
 )
 
 var GlobalHasher *RendezvousHasher

@@ -7,7 +7,7 @@ import (
 	"os"
 	"testing"
 
-	"bridgerton.audius.co/database"
+	"api.audius.co/database"
 	core_proto "github.com/AudiusProject/audiusd/pkg/api/core/v1"
 	"github.com/stretchr/testify/assert"
 	"google.golang.org/protobuf/proto"

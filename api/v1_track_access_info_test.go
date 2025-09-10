@@ -3,9 +3,9 @@ package api
 import (
 	"testing"
 
-	"bridgerton.audius.co/config"
-	"bridgerton.audius.co/database"
-	"bridgerton.audius.co/trashid"
+	"api.audius.co/config"
+	"api.audius.co/database"
+	"api.audius.co/trashid"
 	"github.com/stretchr/testify/assert"
 )
 

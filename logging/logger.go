@@ -5,7 +5,7 @@ import (
 	"os"
 	"time"
 
-	"bridgerton.audius.co/config"
+	"api.audius.co/config"
 	adapter "github.com/axiomhq/axiom-go/adapters/zap"
 	"github.com/axiomhq/axiom-go/axiom"
 	"go.uber.org/zap"

@@ -5,7 +5,7 @@ import (
 	"fmt"
 	"time"
 
-	"bridgerton.audius.co/database"
+	"api.audius.co/database"
 	"github.com/gagliardetto/solana-go"
 	"github.com/jackc/pgx/v5"
 	"go.uber.org/zap"
@@ -99,7 +99,7 @@ func getUnprocessedTransactions(ctx context.Context, db database.DBTX, limit, of
 
 func insertUnprocessedTransaction(ctx context.Context, db database.DBTX, signature string, slot uint64, errorMessage string) error {
 	sql := `
-		INSERT INTO sol_unprocessed_txs (signature, slot, error_message) VALUES (@signature, @slot, @error_message) 
+		INSERT INTO sol_unprocessed_txs (signature, slot, error_message) VALUES (@signature, @slot, @error_message)
 		ON CONFLICT (signature) DO UPDATE SET error_message = @error_message, updated_at = NOW()
 	;`
 	_, err := db.Exec(ctx, sql, pgx.NamedArgs{

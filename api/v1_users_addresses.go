@@ -1,7 +1,7 @@
 package api
 
 import (
-	"bridgerton.audius.co/trashid"
+	"api.audius.co/trashid"
 	"github.com/gofiber/fiber/v2"
 	"github.com/jackc/pgx/v5"
 )
@@ -22,14 +22,14 @@ func (app *ApiServer) v1UserIdsByAddresses(c *fiber.Ctx) error {
 			users.user_id,
 			users.wallet AS address
 		FROM users
-		WHERE users.wallet = ANY(@addresses) 
+		WHERE users.wallet = ANY(@addresses)
 			AND users.is_deactivated = FALSE
 			AND users.is_current = TRUE
 
 		UNION ALL
 
 		-- Associated wallets
-		SELECT 
+		SELECT
 			associated_wallets.user_id,
 			associated_wallets.wallet AS address
 		FROM associated_wallets
@@ -40,11 +40,11 @@ func (app *ApiServer) v1UserIdsByAddresses(c *fiber.Ctx) error {
 		UNION ALL
 
 		-- User bank accounts
-		SELECT 
-			users.user_id, 
-			sol_claimable_accounts.account AS address	
+		SELECT
+			users.user_id,
+			sol_claimable_accounts.account AS address
 		FROM sol_claimable_accounts
-		JOIN users 
+		JOIN users
 			ON users.wallet = sol_claimable_accounts.ethereum_address
 		WHERE sol_claimable_accounts.account = ANY(@addresses)
 	;`

@@ -7,7 +7,7 @@ import (
 	"strings"
 	"time"
 
-	"bridgerton.audius.co/logging"
+	"api.audius.co/logging"
 	"github.com/gagliardetto/solana-go"
 	pb "github.com/rpcpool/yellowstone-grpc/examples/golang/proto"
 	"go.uber.org/zap"

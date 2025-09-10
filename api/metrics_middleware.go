@@ -5,8 +5,8 @@ import (
 	"runtime"
 	"time"
 
-	"bridgerton.audius.co/hll"
-	"bridgerton.audius.co/utils"
+	"api.audius.co/hll"
+	"api.audius.co/utils"
 	"github.com/gofiber/fiber/v2"
 	fiberutils "github.com/gofiber/fiber/v2/utils"
 	"github.com/jackc/pgx/v5/pgxpool"
@@ -229,7 +229,7 @@ func (rmc *MetricsCollector) flushMetrics() {
 				INSERT INTO api_metrics_apps (date, api_key, app_name, request_count, created_at, updated_at)
 				VALUES ($1, $2, $3, $4, NOW(), NOW())
 				ON CONFLICT (date, api_key, app_name)
-				DO UPDATE SET 
+				DO UPDATE SET
 					request_count = api_metrics_apps.request_count + EXCLUDED.request_count,
 					updated_at = NOW()
 			`, date, data.ApiKey, data.AppName, data.RequestCount)
@@ -256,7 +256,7 @@ func (rmc *MetricsCollector) flushMetrics() {
 				INSERT INTO api_metrics_routes (date, route_pattern, method, request_count, created_at, updated_at)
 				VALUES ($1, $2, $3, $4, NOW(), NOW())
 				ON CONFLICT (date, route_pattern, method)
-				DO UPDATE SET 
+				DO UPDATE SET
 					request_count = api_metrics_routes.request_count + EXCLUDED.request_count,
 					updated_at = NOW()
 			`, date, data.RoutePattern, data.Method, data.RequestCount)

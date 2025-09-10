@@ -3,7 +3,7 @@ package reward_manager_test
 import (
 	"testing"
 
-	"bridgerton.audius.co/solana/spl/programs/reward_manager"
+	"api.audius.co/solana/spl/programs/reward_manager"
 	"github.com/gagliardetto/solana-go"
 	"github.com/test-go/testify/assert"
 	"github.com/test-go/testify/require"

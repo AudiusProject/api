@@ -4,7 +4,7 @@ import (
 	"fmt"
 	"testing"
 
-	"bridgerton.audius.co/config"
+	"api.audius.co/config"
 	"github.com/stretchr/testify/assert"
 )
 

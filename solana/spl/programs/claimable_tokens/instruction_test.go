@@ -3,7 +3,7 @@ package claimable_tokens_test
 import (
 	"testing"
 
-	"bridgerton.audius.co/solana/spl/programs/claimable_tokens"
+	"api.audius.co/solana/spl/programs/claimable_tokens"
 	"github.com/gagliardetto/solana-go"
 	"github.com/test-go/testify/assert"
 	"github.com/test-go/testify/require"

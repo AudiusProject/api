@@ -5,8 +5,8 @@ import (
 	"testing"
 	"time"
 
-	"bridgerton.audius.co/api/dbv1"
-	"bridgerton.audius.co/config"
+	"api.audius.co/api/dbv1"
+	"api.audius.co/config"
 	"github.com/jackc/pgx/v5/pgxpool"
 	"github.com/stretchr/testify/require"
 	"go.uber.org/zap"

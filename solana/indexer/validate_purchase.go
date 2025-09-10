@@ -5,10 +5,10 @@ import (
 	"fmt"
 	"time"
 
-	"bridgerton.audius.co/api/dbv1"
-	"bridgerton.audius.co/config"
-	"bridgerton.audius.co/database"
-	"bridgerton.audius.co/solana/spl/programs/payment_router"
+	"api.audius.co/api/dbv1"
+	"api.audius.co/config"
+	"api.audius.co/database"
+	"api.audius.co/solana/spl/programs/payment_router"
 	"github.com/gagliardetto/solana-go"
 	"github.com/jackc/pgx/v5"
 )
@@ -70,14 +70,14 @@ func getPayoutWallets(ctx context.Context, db database.DBTX, price dbv1.Purchase
 				AND user_id = ANY(@userIds)
 			GROUP BY user_id
 		)
-		SELECT 
+		SELECT
 			users.user_id,
 			COALESCE(
-					user_payout_wallet_history.spl_usdc_payout_wallet, 
+					user_payout_wallet_history.spl_usdc_payout_wallet,
 					usdc_user_bank_accounts.bank_account
 				) AS payout_wallet
 		FROM users
-		LEFT JOIN usdc_user_bank_accounts 
+		LEFT JOIN usdc_user_bank_accounts
 			ON usdc_user_bank_accounts.ethereum_address = users.wallet
 		LEFT JOIN max_block_timestamps
 			ON max_block_timestamps.user_id = users.user_id

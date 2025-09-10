@@ -5,7 +5,7 @@ import (
 	"strings"
 	"time"
 
-	"bridgerton.audius.co/trashid"
+	"api.audius.co/trashid"
 	"github.com/gofiber/fiber/v2"
 	"github.com/jackc/pgx/v5"
 )
@@ -113,7 +113,7 @@ func (app *ApiServer) v1UsersPurchases(c *fiber.Ctx) error {
 					AND (@contentType = '' OR @contentType = 'track')
 			)
 		)
-		SELECT 
+		SELECT
 			purchases_with_content.seller_user_id,
 			purchases_with_content.buyer_user_id,
 			purchases_with_content.amount,

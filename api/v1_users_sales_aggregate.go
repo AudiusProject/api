@@ -1,7 +1,7 @@
 package api
 
 import (
-	"bridgerton.audius.co/trashid"
+	"api.audius.co/trashid"
 	"github.com/gofiber/fiber/v2"
 	"github.com/jackc/pgx/v5"
 )
@@ -24,17 +24,17 @@ func (app *ApiServer) v1UsersSalesAggregate(c *fiber.Ctx) error {
 	}
 
 	sql := `
-		SELECT 
+		SELECT
 			content_id,
 			content_type,
 			COUNT(buyer_user_id) as purchase_count
-		FROM 
-			usdc_purchases 
-		WHERE 
+		FROM
+			usdc_purchases
+		WHERE
 			seller_user_id = @userId
-		GROUP BY 
+		GROUP BY
 			content_id, content_type
-		ORDER BY 
+		ORDER BY
 			purchase_count DESC
 		OFFSET @offset
 		LIMIT @limit

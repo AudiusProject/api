@@ -1,7 +1,7 @@
 package api
 
 import (
-	"bridgerton.audius.co/config"
+	"api.audius.co/config"
 	"github.com/gofiber/fiber/v2"
 	"github.com/jackc/pgx/v5"
 )
@@ -22,14 +22,14 @@ func (app *ApiServer) BlockConfirmation(c *fiber.Ctx) error {
 	SELECT
 		(
 			SELECT EXISTS (
-				SELECT 1 FROM core_indexed_blocks 
+				SELECT 1 FROM core_indexed_blocks
 				WHERE chain_id = @chainId AND height = @blockNumber
 				LIMIT 1
 			)
 		) AS block_passed,
 		(
 			SELECT EXISTS (
-				SELECT 1 FROM core_indexed_blocks 
+				SELECT 1 FROM core_indexed_blocks
 				WHERE chain_id = @chainId AND blockhash = @blockHash
 				LIMIT 1
 			)

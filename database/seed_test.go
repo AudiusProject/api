@@ -3,7 +3,7 @@ package database_test
 import (
 	"testing"
 
-	"bridgerton.audius.co/database"
+	"api.audius.co/database"
 	"github.com/stretchr/testify/assert"
 )
 

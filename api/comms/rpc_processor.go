@@ -9,9 +9,9 @@ import (
 	"sync"
 	"time"
 
-	"bridgerton.audius.co/api/dbv1"
-	"bridgerton.audius.co/config"
-	"bridgerton.audius.co/trashid"
+	"api.audius.co/api/dbv1"
+	"api.audius.co/config"
+	"api.audius.co/trashid"
 	"go.uber.org/zap"
 
 	"github.com/ethereum/go-ethereum/crypto"

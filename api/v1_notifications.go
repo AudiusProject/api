@@ -5,7 +5,7 @@ import (
 	"slices"
 	"strings"
 
-	"bridgerton.audius.co/trashid"
+	"api.audius.co/trashid"
 	"github.com/gofiber/fiber/v2"
 	"github.com/jackc/pgx/v5"
 	"github.com/tidwall/gjson"
@@ -83,8 +83,8 @@ SELECT
 	)::jsonb AS actions,
 	CASE
 		-- If seen at is not null, we were able to match a window between seen events
-		WHEN user_seen.seen_at IS NOT NULL THEN 
-			CASE 
+		WHEN user_seen.seen_at IS NOT NULL THEN
+			CASE
 			  -- In all cases except the most recent window, this means we've already seen
 				-- the notification
 				WHEN now()::timestamp != user_seen.seen_at THEN true
@@ -102,15 +102,15 @@ FROM
 LEFT JOIN user_seen ON
   user_seen.seen_at >= n.timestamp AND user_seen.prev_seen_at < n.timestamp
 -- Join with tracks table to filter out deleted tracks for "create" notifications that have track_id
-LEFT JOIN tracks t ON 
-  n.type = 'create' AND 
+LEFT JOIN tracks t ON
+  n.type = 'create' AND
   n.data ? 'track_id' AND
-  t.track_id = (n.data->>'track_id')::integer AND 
+  t.track_id = (n.data->>'track_id')::integer AND
   t.is_current = true
 LEFT JOIN playlists p ON
-  n.type = 'create' AND 
+  n.type = 'create' AND
   n.data ? 'playlist_id' AND
-  p.playlist_id = (n.data->>'playlist_id')::integer AND 
+  p.playlist_id = (n.data->>'playlist_id')::integer AND
   p.is_current = true
 WHERE
   ((ARRAY[@user_id] && n.user_ids) OR (n.type = 'announcement' AND n.timestamp > (SELECT created_at FROM user_created_at)))
@@ -136,9 +136,9 @@ GROUP BY
 		-- Group notifications individually that are older than any of the seen windows
 		-- and we know that the user has seen at least one notification before
     WHEN user_seen.seen_at IS NULL AND
-			EXISTS(SELECT 1 from notification_seen ns WHERE ns.user_id = @user_id) 
+			EXISTS(SELECT 1 from notification_seen ns WHERE ns.user_id = @user_id)
     THEN n.timestamp
-    ELSE NULL 
+    ELSE NULL
   END
 ORDER BY
   user_seen.seen_at desc NULLS LAST,

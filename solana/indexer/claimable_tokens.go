@@ -5,9 +5,9 @@ import (
 	"fmt"
 	"strings"
 
-	"bridgerton.audius.co/database"
-	"bridgerton.audius.co/solana/spl/programs/claimable_tokens"
-	"bridgerton.audius.co/solana/spl/programs/secp256k1"
+	"api.audius.co/database"
+	"api.audius.co/solana/spl/programs/claimable_tokens"
+	"api.audius.co/solana/spl/programs/secp256k1"
 	bin "github.com/gagliardetto/binary"
 	"github.com/gagliardetto/solana-go"
 	"github.com/jackc/pgx/v5"

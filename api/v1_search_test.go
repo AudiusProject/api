@@ -3,8 +3,8 @@ package api
 import (
 	"testing"
 
-	"bridgerton.audius.co/database"
-	"bridgerton.audius.co/esindexer"
+	"api.audius.co/database"
+	"api.audius.co/esindexer"
 	"github.com/test-go/testify/require"
 )
 

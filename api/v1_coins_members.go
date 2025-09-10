@@ -1,7 +1,7 @@
 package api
 
 import (
-	"bridgerton.audius.co/trashid"
+	"api.audius.co/trashid"
 	"github.com/gofiber/fiber/v2"
 	"github.com/jackc/pgx/v5"
 )
@@ -45,7 +45,7 @@ func (app *ApiServer) v1CoinsMembers(c *fiber.Ctx) error {
 		FROM sol_user_balances
 		WHERE balance >= @min_balance
 			AND mint = @mint
-		ORDER BY 
+		ORDER BY
 			balance ` + sortDirection + `,
 			user_id ASC
 		LIMIT @limit

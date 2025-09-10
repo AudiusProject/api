@@ -5,9 +5,9 @@ import (
 	"fmt"
 	"time"
 
-	"bridgerton.audius.co/config"
-	"bridgerton.audius.co/database"
-	"bridgerton.audius.co/solana/spl/programs/payment_router"
+	"api.audius.co/config"
+	"api.audius.co/database"
+	"api.audius.co/solana/spl/programs/payment_router"
 	"github.com/gagliardetto/solana-go"
 	"github.com/jackc/pgx/v5"
 	"go.uber.org/zap"
@@ -107,7 +107,7 @@ type purchaseRow struct {
 
 func insertPurchase(ctx context.Context, db database.DBTX, row purchaseRow) error {
 	sql := `
-	INSERT INTO sol_purchases 
+	INSERT INTO sol_purchases
 		(signature, instruction_index, amount, slot, from_account, content_type, content_id, buyer_user_id, access_type, valid_after_blocknumber, is_valid, city, region, country)
 	VALUES
 		(@signature, @instructionIndex, @amount, @slot, @fromAccount, @contentType, @contentId, @buyerUserId, @accessType, @validAfterBlocknumber, @isValid, @city, @region, @country)

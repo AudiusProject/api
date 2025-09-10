@@ -8,7 +8,7 @@ import (
 
 	"slices"
 
-	"bridgerton.audius.co/database"
+	"api.audius.co/database"
 	"github.com/gagliardetto/solana-go"
 	"github.com/gagliardetto/solana-go/rpc"
 	"github.com/jackc/pgx/v5"

@@ -5,9 +5,9 @@ import (
 	"testing"
 	"time"
 
-	"bridgerton.audius.co/config"
-	"bridgerton.audius.co/database"
-	"bridgerton.audius.co/solana/spl/programs/payment_router"
+	"api.audius.co/config"
+	"api.audius.co/database"
+	"api.audius.co/solana/spl/programs/payment_router"
 	"github.com/gagliardetto/solana-go"
 	"github.com/test-go/testify/assert"
 	"github.com/test-go/testify/require"

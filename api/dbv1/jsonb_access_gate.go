@@ -3,7 +3,7 @@ package dbv1
 import (
 	"sort"
 
-	"bridgerton.audius.co/config"
+	"api.audius.co/config"
 )
 
 // struct for stream_conditions + download_conditions

@@ -9,12 +9,12 @@ import (
 	"slices"
 	"syscall"
 
-	"bridgerton.audius.co/api"
-	"bridgerton.audius.co/config"
-	"bridgerton.audius.co/ddl"
-	"bridgerton.audius.co/esindexer"
-	"bridgerton.audius.co/indexer"
-	solana_indexer "bridgerton.audius.co/solana/indexer"
+	"api.audius.co/api"
+	"api.audius.co/config"
+	"api.audius.co/ddl"
+	"api.audius.co/esindexer"
+	"api.audius.co/indexer"
+	solana_indexer "api.audius.co/solana/indexer"
 )
 
 func main() {

@@ -1,4 +1,4 @@
-module bridgerton.audius.co
+module api.audius.co
 
 go 1.24.2
 

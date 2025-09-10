@@ -3,7 +3,7 @@ package dbv1
 import (
 	"encoding/json"
 
-	"bridgerton.audius.co/trashid"
+	"api.audius.co/trashid"
 )
 
 func fullFolloweeReposts(raw json.RawMessage) []*FolloweeRepost {

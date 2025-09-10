@@ -5,7 +5,7 @@ import (
 	"math/big"
 	"testing"
 
-	"bridgerton.audius.co/solana/spl/programs/meteora_dbc"
+	"api.audius.co/solana/spl/programs/meteora_dbc"
 	bin "github.com/gagliardetto/binary"
 	"github.com/test-go/testify/assert"
 	"github.com/test-go/testify/require"

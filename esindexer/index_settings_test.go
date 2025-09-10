@@ -3,7 +3,7 @@ package esindexer
 import (
 	"testing"
 
-	"bridgerton.audius.co/utils"
+	"api.audius.co/utils"
 )
 
 func TestCommonIndexSettings(t *testing.T) {

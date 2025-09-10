@@ -1,7 +1,7 @@
 package api
 
 import (
-	"bridgerton.audius.co/trashid"
+	"api.audius.co/trashid"
 	"github.com/gofiber/fiber/v2"
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgtype"
@@ -11,11 +11,11 @@ func (app *ApiServer) v1UsersChallenges(c *fiber.Ctx) error {
 	sql := `
 	-- Start with the user ID and verification status
 	WITH user_row AS (
-		SELECT 
-			user_id, 
+		SELECT
+			user_id,
 			is_verified
-		FROM users 
-		WHERE users.is_current 
+		FROM users
+		WHERE users.is_current
 			AND users.user_id = @userId
 	),
 
@@ -53,7 +53,7 @@ func (app *ApiServer) v1UsersChallenges(c *fiber.Ctx) error {
 		LEFT JOIN user_challenges_filtered ON challenges.id = user_challenges_filtered.challenge_id
 		CROSS JOIN user_row
 		LEFT JOIN challenge_disbursements_filtered
-			ON user_challenges_filtered.challenge_id = challenge_disbursements_filtered.challenge_id 
+			ON user_challenges_filtered.challenge_id = challenge_disbursements_filtered.challenge_id
 			AND user_challenges_filtered.specifier = challenge_disbursements_filtered.specifier
 		WHERE challenges.active
 			AND (challenges.type != 'trending' OR user_challenges_filtered.is_complete)
@@ -130,8 +130,8 @@ func (app *ApiServer) v1UsersChallenges(c *fiber.Ctx) error {
 			max_steps,
 			challenge_type,
 			all_user_challenges.amount,
-			(SELECT SUM(disbursed_amount) 
-					FROM all_user_challenges 
+			(SELECT SUM(disbursed_amount)
+					FROM all_user_challenges
 					WHERE challenge_id = 'e'
 				) AS disbursed_amount,
 			cooldown_days
@@ -150,9 +150,9 @@ func (app *ApiServer) v1UsersChallenges(c *fiber.Ctx) error {
 			is_active,
 			false AS is_disbursed,
 			SUM(user_amount) AS current_step_count,
-			CASE WHEN SUM(user_amount) = 0 
-					THEN max_steps 
-					ELSE SUM(user_amount) 
+			CASE WHEN SUM(user_amount) = 0
+					THEN max_steps
+					ELSE SUM(user_amount)
 				END AS max_steps,
 			challenge_type,
 			1 AS amount,

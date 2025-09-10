@@ -5,7 +5,7 @@ import (
 	"errors"
 	"time"
 
-	"bridgerton.audius.co/trashid"
+	"api.audius.co/trashid"
 )
 
 type ChatMessageAndReactionsRow struct {
