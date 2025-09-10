@@ -56,23 +56,6 @@ func (q *Queries) GetPlaylistAccess(
 
 		return hasTipped
 
-	// case conditions.TokenGate != nil:
-	// 	tokenMint := conditions.TokenGate.TokenMint
-	// 	requiredAmount := conditions.TokenGate.TokenAmount
-	// 	var userBalance int64
-	// 	err := q.db.QueryRow(ctx, `
-	// 		SELECT COALESCE(balance, 0)
-	// 		FROM sol_user_balances
-	// 		WHERE user_id = $1
-	// 		AND mint = $2
-	// 	`, myId, tokenMint).Scan(&userBalance)
-
-	// 	if err != nil {
-	// 		return false
-	// 	}
-
-	// 	return userBalance >= requiredAmount
-
 	case conditions.UsdcPurchase != nil:
 		// Purchased the album directly
 		var hasPurchased bool
