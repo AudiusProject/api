@@ -7,14 +7,12 @@ import (
 	"github.com/jackc/pgx/v5"
 )
 
-type GetUsersRemixersQueryParams struct {
-	Limit   int `query:"limit" default:"10" validate:"min=1,max=100"`
-	Offset  int `query:"offset" default:"0" validate:"min=0"`
+type GetUsersRemixersCountQueryParams struct {
 	TrackID int `query:"track_id" validate:"omitempty,min=1"`
 }
 
-func (app *ApiServer) v1UsersRemixers(c *fiber.Ctx) error {
-	params := GetUsersRemixersQueryParams{}
+func (app *ApiServer) v1UsersRemixersCount(c *fiber.Ctx) error {
+	params := GetUsersRemixersCountQueryParams{}
 	if err := app.ParseAndValidateQueryParams(c, &params); err != nil {
 		return err
 	}
@@ -32,24 +30,29 @@ func (app *ApiServer) v1UsersRemixers(c *fiber.Ctx) error {
 	}
 
 	sql := `
-		SELECT DISTINCT
-			t2.owner_id
+		SELECT count(DISTINCT t2.owner_id) as count
 		FROM
 			remixes r
 		JOIN tracks t1 ON r.parent_track_id = t1.track_id
 		JOIN tracks t2 ON r.child_track_id = t2.track_id
-		WHERE
-			` + strings.Join(filters, " AND ") + `
-		ORDER BY
-			t2.owner_id ASC
-		OFFSET @offset
-		LIMIT @limit
+		WHERE ` + strings.Join(filters, " AND ") + `
 	;`
 
-	return app.queryFullUsers(c, sql, pgx.NamedArgs{
+	rows, err := app.pool.Query(c.Context(), sql, pgx.NamedArgs{
 		"userId":  app.getUserId(c),
 		"trackId": params.TrackID,
-		"offset":  params.Offset,
-		"limit":   params.Limit,
+	})
+
+	if err != nil {
+		return err
+	}
+
+	count, err := pgx.CollectOneRow(rows, pgx.RowTo[int32])
+	if err != nil {
+		return err
+	}
+
+	return c.JSON(fiber.Map{
+		"data": count,
 	})
 }

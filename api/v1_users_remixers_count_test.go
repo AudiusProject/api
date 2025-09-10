@@ -3,13 +3,12 @@ package api
 import (
 	"testing"
 
-	"api.audius.co/api/dbv1"
 	"api.audius.co/database"
 	"api.audius.co/trashid"
 	"github.com/stretchr/testify/assert"
 )
 
-func TestV1UsersRemixers(t *testing.T) {
+func TestV1UsersRemixersCount(t *testing.T) {
 	app := emptyTestApp(t)
 	fixtures := database.FixtureMap{
 		"tracks": []map[string]any{
@@ -81,44 +80,30 @@ func TestV1UsersRemixers(t *testing.T) {
 	}
 	database.Seed(app.pool.Replicas[0], fixtures)
 
-	var userResponse struct {
-		Data []dbv1.FullUser
+	// Test count for all remixers for user 1
+	{
+		status, body := testGet(t, app, "/v1/users/"+trashid.MustEncodeHashID(1)+"/remixers/count")
+		assert.Equal(t, 200, status)
+		jsonAssert(t, body, map[string]any{
+			"data": 3,
+		})
 	}
 
-	// Test getting all remixers for user 1
+	// Test count for remixers filtered by track_id=100
 	{
-		status, _ := testGet(t, app, "/v1/users/"+trashid.MustEncodeHashID(1)+"/remixers", &userResponse)
+		status, body := testGet(t, app, "/v1/users/"+trashid.MustEncodeHashID(1)+"/remixers/count?track_id=100")
 		assert.Equal(t, 200, status)
-		assert.Len(t, userResponse.Data, 3)
-		// Results should be ordered by user_id ASC
-		assert.Equal(t, "remixer1", userResponse.Data[0].Handle.String)
-		assert.Equal(t, "remixer2", userResponse.Data[1].Handle.String)
-		assert.Equal(t, "remixer3", userResponse.Data[2].Handle.String)
+		jsonAssert(t, body, map[string]any{
+			"data": 2,
+		})
 	}
 
-	// Test getting remixers filtered by track_id=100
+	// Test count for non-existent track filter
 	{
-		status, _ := testGet(t, app, "/v1/users/"+trashid.MustEncodeHashID(1)+"/remixers?track_id=100", &userResponse)
+		status, body := testGet(t, app, "/v1/users/"+trashid.MustEncodeHashID(1)+"/remixers/count?track_id=999")
 		assert.Equal(t, 200, status)
-		assert.Len(t, userResponse.Data, 2)
-		// Only remixer1 (user 2) and remixer3 (user 4) remixed track 100
-		assert.Equal(t, "remixer1", userResponse.Data[0].Handle.String)
-		assert.Equal(t, "remixer3", userResponse.Data[1].Handle.String)
-	}
-
-	// Test getting remixers filtered by track_id=101
-	{
-		status, _ := testGet(t, app, "/v1/users/"+trashid.MustEncodeHashID(1)+"/remixers?track_id=101", &userResponse)
-		assert.Equal(t, 200, status)
-		assert.Len(t, userResponse.Data, 1)
-		// Only remixer2 (user 3) remixed track 101
-		assert.Equal(t, "remixer2", userResponse.Data[0].Handle.String)
-	}
-
-	// Test non-existent track filter
-	{
-		status, _ := testGet(t, app, "/v1/users/"+trashid.MustEncodeHashID(1)+"/remixers?track_id=999", &userResponse)
-		assert.Equal(t, 200, status)
-		assert.Len(t, userResponse.Data, 0)
+		jsonAssert(t, body, map[string]any{
+			"data": 0,
+		})
 	}
 }
