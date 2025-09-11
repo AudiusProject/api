@@ -5508,6 +5508,10 @@ components:
           type: string
           description: The URI for the coin's logo image
           example: "https://example.com/logo.png"
+        description:
+          type: string
+          description: The description of the coin
+          example: "A majestic bear token for wildlife conservation"
     create_coin_response:
       type: object
       properties:
