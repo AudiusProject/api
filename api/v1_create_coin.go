@@ -11,11 +11,12 @@ import (
 )
 
 type CreateCoinBody struct {
-	Mint     string `json:"mint" validate:"required"`
-	Ticker   string `json:"ticker" validate:"required"`
-	Decimals int32  `json:"decimals" validate:"required,min=0,max=18"`
-	Name     string `json:"name" validate:"required"`
-	LogoUri  string `json:"logo_uri"`
+	Mint        string `json:"mint" validate:"required"`
+	Ticker      string `json:"ticker" validate:"required"`
+	Decimals    int32  `json:"decimals" validate:"required,min=0,max=18"`
+	Name        string `json:"name" validate:"required"`
+	LogoUri     string `json:"logo_uri"`
+	Description string `json:"description"`
 }
 
 func (app *ApiServer) v1CreateCoin(c *fiber.Ctx) error {
@@ -75,31 +76,33 @@ func (app *ApiServer) v1CreateCoin(c *fiber.Ctx) error {
 	}
 
 	sql := `
-		INSERT INTO artist_coins (mint, ticker, user_id, decimals, name, logo_uri)
-		VALUES (@mint, @ticker, @user_id, @decimals, @name, @logo_uri)
-		RETURNING mint, ticker, user_id, decimals, name, logo_uri, created_at
+		INSERT INTO artist_coins (mint, ticker, user_id, decimals, name, logo_uri, description)
+		VALUES (@mint, @ticker, @user_id, @decimals, @name, @logo_uri, @description)
+		RETURNING mint, ticker, user_id, decimals, name, logo_uri, description, created_at
 	`
 
 	row := app.writePool.QueryRow(c.Context(), sql, pgx.NamedArgs{
-		"mint":     body.Mint,
-		"ticker":   body.Ticker,
-		"user_id":  userID,
-		"decimals": body.Decimals,
-		"name":     body.Name,
-		"logo_uri": body.LogoUri,
+		"mint":        body.Mint,
+		"ticker":      body.Ticker,
+		"user_id":     userID,
+		"decimals":    body.Decimals,
+		"name":        body.Name,
+		"logo_uri":    body.LogoUri,
+		"description": body.Description,
 	})
 
 	var result struct {
-		Mint      string    `json:"mint"`
-		Ticker    string    `json:"ticker"`
-		UserID    int32     `json:"user_id"`
-		Decimals  int32     `json:"decimals"`
-		Name      string    `json:"name"`
-		LogoUri   string    `json:"logo_uri"`
-		CreatedAt time.Time `json:"created_at"`
+		Mint        string    `json:"mint"`
+		Ticker      string    `json:"ticker"`
+		UserID      int32     `json:"user_id"`
+		Decimals    int32     `json:"decimals"`
+		Name        string    `json:"name"`
+		LogoUri     string    `json:"logo_uri"`
+		Description string    `json:"description"`
+		CreatedAt   time.Time `json:"created_at"`
 	}
 
-	if err := row.Scan(&result.Mint, &result.Ticker, &result.UserID, &result.Decimals, &result.Name, &result.LogoUri, &result.CreatedAt); err != nil {
+	if err := row.Scan(&result.Mint, &result.Ticker, &result.UserID, &result.Decimals, &result.Name, &result.LogoUri, &result.Description, &result.CreatedAt); err != nil {
 		var pgErr *pgconn.PgError
 		if errors.As(err, &pgErr) && pgErr.Code == pgerrcode.UniqueViolation {
 			if pgErr.ConstraintName == "artist_coins_pkey" {
