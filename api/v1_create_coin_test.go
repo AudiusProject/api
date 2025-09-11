@@ -38,11 +38,11 @@ func TestV1CreateCoin(t *testing.T) {
 
 	assert.Equal(t, 201, status)
 	jsonAssert(t, body, map[string]any{
-		"data.mint":     "bearR26zyyB3fNQm5wWv1ZfN8MPQDUMwaAuoG79b1Yj",
-		"data.ticker":   "$BEAR",
-		"data.user_id":  1,
-		"data.decimals": 9,
-		"data.name":     "BEAR",
+		"data.mint":        "bearR26zyyB3fNQm5wWv1ZfN8MPQDUMwaAuoG79b1Yj",
+		"data.ticker":      "$BEAR",
+		"data.user_id":     1,
+		"data.decimals":    9,
+		"data.name":        "BEAR",
 		"data.logo_uri":    "https://example.com/bear-logo.png",
 		"data.description": "A majestic bear token for wildlife conservation",
 	})
@@ -91,11 +91,11 @@ func TestV1CreateCoin_DuplicateMint(t *testing.T) {
 
 	assert.Equal(t, 201, status)
 	jsonAssert(t, body, map[string]any{
-		"data.mint":     "bearR26zyyB3fNQm5wWv1ZfN8MPQDUMwaAuoG79b1Yj",
-		"data.ticker":   "$BEAR",
-		"data.user_id":  1,
-		"data.decimals": 9,
-		"data.name":     "BEAR",
+		"data.mint":        "bearR26zyyB3fNQm5wWv1ZfN8MPQDUMwaAuoG79b1Yj",
+		"data.ticker":      "$BEAR",
+		"data.user_id":     1,
+		"data.decimals":    9,
+		"data.name":        "BEAR",
 		"data.logo_uri":    "https://example.com/bear-logo.png",
 		"data.description": "A majestic bear token for wildlife conservation",
 	})
