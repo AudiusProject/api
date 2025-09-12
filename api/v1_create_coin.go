@@ -14,9 +14,9 @@ type CreateCoinBody struct {
 	Mint        string `json:"mint" validate:"required"`
 	Ticker      string `json:"ticker" validate:"required"`
 	Decimals    int32  `json:"decimals" validate:"required,min=0,max=18"`
-	Name        string `json:"name" validate:"required"`
+	Name        string `json:"name" validate:"required,max=32"`
 	LogoUri     string `json:"logo_uri"`
-	Description string `json:"description"`
+	Description string `json:"description" validate:"max=2500"`
 }
 
 func (app *ApiServer) v1CreateCoin(c *fiber.Ctx) error {
