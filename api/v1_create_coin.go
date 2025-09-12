@@ -21,14 +21,11 @@ type CreateCoinBody struct {
 
 func (app *ApiServer) v1CreateCoin(c *fiber.Ctx) error {
 	body := CreateCoinBody{}
-	err := c.BodyParser(&body)
-	if err != nil {
+	if err := app.ParseAndValidateBody(c, &body); err != nil {
 		return err
 	}
 
-	if err := app.ValidateBody(&body); err != nil {
-		return err
-	}
+	var err error
 	if body.Mint == "" {
 		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
 			"error": "mint is required",
