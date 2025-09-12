@@ -552,6 +552,16 @@ var (
 			"blockhash":   "block_abc123",
 			"blocknumber": 101,
 		},
+		"email_access": {
+			"id":                  nil,
+			"email_owner_user_id": nil,
+			"receiving_user_id":   nil,
+			"grantor_user_id":     nil,
+			"encrypted_key":       "test",
+			"is_initial":          false,
+			"created_at":          time.Now(),
+			"updated_at":          time.Now(),
+		},
 	}
 )
 

@@ -333,6 +333,7 @@ func NewApiServer(config config.Config) *ApiServer {
 		g.Get("/users/:userId", app.v1User)
 		g.Get("/users/:userId/challenges", app.v1UsersChallenges)
 		g.Get("/users/:userId/comments", app.v1UsersComments)
+		g.Get("/users/:userId/emails/:grantorUserId/key", app.v1UsersEmailsKey)
 		g.Get("/users/:userId/followers", app.v1UsersFollowers)
 		g.Get("/users/:userId/following", app.v1UsersFollowing)
 		g.Get("/users/:userId/favorites", app.v1UsersFavorites)
