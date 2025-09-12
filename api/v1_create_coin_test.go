@@ -348,3 +348,32 @@ func TestV1CreateCoin_DescriptionTooLong(t *testing.T) {
 		"error": "Description is invalid",
 	})
 }
+
+func TestV1CreateCoin_MissingRequiredFields(t *testing.T) {
+	app := emptyTestApp(t)
+	database.Seed(app.pool.Replicas[0], database.FixtureMap{
+		"users": {
+			{
+				"user_id":     1,
+				"wallet":      "0x7d273271690538cf855e5b3002a0dd8c154bb060",
+				"is_verified": true,
+			},
+		},
+	})
+
+	requestBody := CreateCoinBody{
+		// Missing required fields: Mint, Ticker, Name, Decimals
+		LogoUri:     "https://example.com/logo.png",
+		Description: "A test coin",
+	}
+	requestBodyBytes, err := json.Marshal(requestBody)
+	assert.NoError(t, err)
+
+	status, _ := testPostWithWallet(t, app, "/v1/coins?user_id="+trashid.MustEncodeHashID(1), "0x7d273271690538cf855e5b3002a0dd8c154bb060", requestBodyBytes, map[string]string{
+		"Content-Type": "application/json",
+	})
+
+	// This should return 400 Bad Request due to missing required fields
+	assert.Equal(t, 400, status)
+	// The validator will return an error for the first missing required field it encounters
+}

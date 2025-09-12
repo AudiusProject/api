@@ -25,28 +25,11 @@ func (app *ApiServer) v1CreateCoin(c *fiber.Ctx) error {
 		return err
 	}
 
-	var err error
-	if body.Mint == "" {
-		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
-			"error": "mint is required",
-		})
-	}
-	if body.Ticker == "" {
-		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
-			"error": "ticker is required",
-		})
-	}
-	if body.Name == "" {
-		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
-			"error": "name is required",
-		})
-	}
-
 	userID := app.getMyId(c)
 
 	// Check if user is verified and active
 	var isVerified bool
-	err = app.pool.QueryRow(c.Context(), `
+	err := app.pool.QueryRow(c.Context(), `
 		SELECT is_verified FROM users
 		WHERE user_id = $1
 			AND is_current = true
