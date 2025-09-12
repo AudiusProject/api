@@ -14,38 +14,22 @@ type CreateCoinBody struct {
 	Mint        string `json:"mint" validate:"required"`
 	Ticker      string `json:"ticker" validate:"required"`
 	Decimals    int32  `json:"decimals" validate:"required,min=0,max=18"`
-	Name        string `json:"name" validate:"required"`
+	Name        string `json:"name" validate:"required,max=32"`
 	LogoUri     string `json:"logo_uri"`
-	Description string `json:"description"`
+	Description string `json:"description" validate:"max=2500"`
 }
 
 func (app *ApiServer) v1CreateCoin(c *fiber.Ctx) error {
 	body := CreateCoinBody{}
-	err := c.BodyParser(&body)
-	if err != nil {
+	if err := app.ParseAndValidateBody(c, &body); err != nil {
 		return err
-	}
-	if body.Mint == "" {
-		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
-			"error": "mint is required",
-		})
-	}
-	if body.Ticker == "" {
-		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
-			"error": "ticker is required",
-		})
-	}
-	if body.Name == "" {
-		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
-			"error": "name is required",
-		})
 	}
 
 	userID := app.getMyId(c)
 
 	// Check if user is verified and active
 	var isVerified bool
-	err = app.pool.QueryRow(c.Context(), `
+	err := app.pool.QueryRow(c.Context(), `
 		SELECT is_verified FROM users
 		WHERE user_id = $1
 			AND is_current = true

@@ -721,3 +721,11 @@ func (as *ApiServer) ParseAndValidateQueryParams(c *fiber.Ctx, v any) error {
 	defaults.SetDefaults(v)
 	return as.requestValidator.Validate(v)
 }
+
+func (as *ApiServer) ParseAndValidateBody(c *fiber.Ctx, v any) error {
+	if err := c.BodyParser(v); err != nil {
+		return fiber.NewError(fiber.StatusBadRequest, err.Error())
+	}
+	defaults.SetDefaults(v)
+	return as.requestValidator.Validate(v)
+}
