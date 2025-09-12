@@ -25,6 +25,10 @@ func (app *ApiServer) v1CreateCoin(c *fiber.Ctx) error {
 	if err != nil {
 		return err
 	}
+
+	if err := app.ValidateBody(&body); err != nil {
+		return err
+	}
 	if body.Mint == "" {
 		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
 			"error": "mint is required",
