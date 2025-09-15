@@ -54,7 +54,7 @@ func TestV1UsersDeveloperApps(t *testing.T) {
 	database.Seed(app.pool.Replicas[0], fixtures)
 
 	{
-		status, body := testGet(t, app, "/v1/users/"+trashid.MustEncodeHashID(1)+"/developer_apps")
+		status, body := testGet(t, app, "/v1/users/"+trashid.MustEncodeHashID(1)+"/developer-apps")
 		assert.Equal(t, 200, status)
 		jsonAssert(t, body, map[string]any{
 			"data.#":             2,
@@ -70,7 +70,7 @@ func TestV1UsersDeveloperApps(t *testing.T) {
 	}
 
 	{
-		status, body := testGet(t, app, "/v1/users/"+trashid.MustEncodeHashID(2)+"/developer_apps")
+		status, body := testGet(t, app, "/v1/users/"+trashid.MustEncodeHashID(2)+"/developer-apps")
 		assert.Equal(t, 200, status)
 		jsonAssert(t, body, map[string]any{
 			"data.#": 0,
