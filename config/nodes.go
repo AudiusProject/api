@@ -750,29 +750,6 @@ var (
 			IsStorageDisabled:   true,
 		},
 		{
-			DelegateOwnerWallet: "0x5E98cBEEAA2aCEDEc0833AC3D1634E2A7aE0f3c2",
-			Endpoint:            "https://discoveryprovider2.staging.audius.co",
-			OwnerWallet:         "0x5E98cBEEAA2aCEDEc0833AC3D1634E2A7aE0f3c2",
-			IsStorageDisabled:   true,
-		},
-		{
-			DelegateOwnerWallet: "0xf7C96916bd37Ad76D4EEDd6536B81c29706C8056",
-			Endpoint:            "https://discoveryprovider3.staging.audius.co",
-			OwnerWallet:         "0xf7C96916bd37Ad76D4EEDd6536B81c29706C8056",
-			IsStorageDisabled:   true,
-		},
-		{
-			DelegateOwnerWallet: "0x8311f59B72522e728231dC60226359A51878F9A1",
-			Endpoint:            "https://discoveryprovider5.staging.audius.co",
-			OwnerWallet:         "0x8311f59B72522e728231dC60226359A51878F9A1",
-			IsStorageDisabled:   true,
-		},
-		{
-			DelegateOwnerWallet: "0x6b52969934076318863243fb92E9C4b3A08267b5",
-			Endpoint:            "https://creatornode12.staging.audius.co",
-			OwnerWallet:         "0x5E98cBEEAA2aCEDEc0833AC3D1634E2A7aE0f3c2",
-		},
-		{
 			DelegateOwnerWallet: "0xDC2BDF1F23381CA2eC9e9c70D4FD96CD8645D090",
 			Endpoint:            "https://creatornode5.staging.audius.co",
 			OwnerWallet:         "0xf7C96916bd37Ad76D4EEDd6536B81c29706C8056",
@@ -795,6 +772,11 @@ var (
 		{
 			DelegateOwnerWallet: "0x4c88d2c0f4c4586b41621aD6e98882ae904B98f6",
 			Endpoint:            "https://creatornode11.staging.audius.co",
+			OwnerWallet:         "0x5E98cBEEAA2aCEDEc0833AC3D1634E2A7aE0f3c2",
+		},
+		{
+			DelegateOwnerWallet: "0x6b52969934076318863243fb92E9C4b3A08267b5",
+			Endpoint:            "https://creatornode12.staging.audius.co",
 			OwnerWallet:         "0x5E98cBEEAA2aCEDEc0833AC3D1634E2A7aE0f3c2",
 		},
 	}
