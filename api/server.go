@@ -411,6 +411,7 @@ func NewApiServer(config config.Config) *ApiServer {
 		g.Get("/tracks/:trackId/comment_notification_setting", app.v1TrackCommentNotificationSetting)
 		g.Get("/tracks/:trackId/comment-notification-setting", app.v1TrackCommentNotificationSetting)
 		g.Get("/tracks/:trackId/remixing", app.v1TrackRemixing)
+		g.Get("/tracks/:trackId/subsequent", app.v1TrackSubsequent)
 		g.Get("/tracks/:trackId/top_listeners", app.v1TrackTopListeners)
 		g.Get("/tracks/:trackId/top-listeners", app.v1TrackTopListeners)
 
