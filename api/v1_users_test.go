@@ -1,6 +1,7 @@
 package api
 
 import (
+	"encoding/json"
 	"testing"
 
 	"api.audius.co/api/dbv1"
@@ -24,6 +25,15 @@ func TestUserQuery(t *testing.T) {
 		assert.False(t, user.DoesCurrentUserFollow)
 		assert.False(t, user.DoesFollowCurrentUser)
 		assert.Equal(t, int64(0), user.CurrentUserFolloweeFollowCount)
+
+		// Test that artist_coin_badge includes ticker field
+		assert.NotNil(t, user.ArtistCoinBadge)
+		var artistCoinBadge map[string]interface{}
+		err = json.Unmarshal(user.ArtistCoinBadge, &artistCoinBadge)
+		assert.NoError(t, err)
+		assert.Equal(t, "$TESTCOIN", artistCoinBadge["ticker"])
+		assert.Equal(t, "test_mint_address_123", artistCoinBadge["mint"])
+		assert.Equal(t, "https://example.com/test-logo.png", artistCoinBadge["logo_uri"])
 	}
 
 	// as stereosteve
