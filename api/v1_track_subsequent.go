@@ -22,6 +22,11 @@ func (app *ApiServer) v1TrackSubsequent(c *fiber.Ctx) error {
 		return err
 	}
 
+	/*
+		Mildly funky query that is meant to preserve legacy DN behavior on ordering. The most efficient
+		way to do this ended up being separate CTEs for tracks within the same block and after, with a final
+		merge at the end.
+	*/
 	sql := `
 	WITH current_track AS (
 		SELECT track_id, created_at
