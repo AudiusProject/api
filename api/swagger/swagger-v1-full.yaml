@@ -5314,6 +5314,9 @@ components:
               type: string
             logo_uri:
               type: string
+            ticker:
+              type: string
+              description: The coin symbol/ticker
         bio:
           type: string
         cover_photo:
