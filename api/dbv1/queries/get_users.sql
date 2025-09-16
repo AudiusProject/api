@@ -141,7 +141,8 @@ SELECT
   (
     SELECT JSON_BUILD_OBJECT(
       'mint', mint,
-      'logo_uri', logo_uri
+      'logo_uri', logo_uri,
+      'ticker', ticker
     )::jsonb
     FROM artist_coins
     WHERE artist_coins.mint = COALESCE(
