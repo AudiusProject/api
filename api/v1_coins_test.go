@@ -13,6 +13,18 @@ func TestGetCoins(t *testing.T) {
 	app := emptyTestApp(t)
 
 	fixtures := database.FixtureMap{
+		"users": {
+			{
+				"user_id":   1,
+				"handle":    "DJSpaceGoat",
+				"handle_lc": "djspacegoat",
+			},
+			{
+				"user_id":   2,
+				"handle":    "BigArtistPerson",
+				"handle_lc": "bigartistperson",
+			},
+		},
 		"artist_coins": {
 			{
 				"ticker":     "$AUDIO",
@@ -81,6 +93,16 @@ func TestGetCoins(t *testing.T) {
 			"data.0.mint":     "EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v",
 			"data.0.owner_id": trashid.MustEncodeHashID(2),
 			"data.1":          nil,
+		})
+	}
+
+	// query by handle
+	{
+		status, body := testGet(t, app, "/v1/coins?query=space")
+		assert.Equal(t, 200, status)
+
+		jsonAssert(t, body, map[string]any{
+			"data.0.ticker": "$AUDIO",
 		})
 	}
 

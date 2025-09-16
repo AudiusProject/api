@@ -96,7 +96,8 @@ func (app *ApiServer) v1Coins(c *fiber.Ctx) error {
 	if queryParams.Query != "" {
 		queryFilter = `AND (
 			artist_coins.ticker ILIKE '%' || @query || '%' OR
-			artist_coins.name ILIKE '%' || @query || '%'
+			artist_coins.name ILIKE '%' || @query || '%' OR
+			users.handle_lc ILIKE '%' || @query || '%'
 		)`
 	}
 
@@ -182,6 +183,8 @@ func (app *ApiServer) v1Coins(c *fiber.Ctx) error {
 			ON artist_coin_stats.mint = artist_coins.mint
 		LEFT JOIN artist_coin_pools
 			ON artist_coin_pools.base_mint = artist_coins.mint
+		LEFT JOIN users
+			ON users.user_id = artist_coins.user_id
 		WHERE 1=1
 			` + mintFilter + `
 			` + ownerIdFilter + `
