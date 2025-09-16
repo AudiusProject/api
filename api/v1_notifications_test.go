@@ -207,3 +207,105 @@ func TestV1Notifications_Comment(t *testing.T) {
 		"data.notifications.0.actions.0.data.type": "Track",
 	})
 }
+
+func TestV1Notifications_DeactivatedUser(t *testing.T) {
+	app := emptyTestApp(t)
+
+	fixtures := database.FixtureMap{
+		"users": []map[string]any{
+			{
+				"user_id":        67576,
+				"is_deactivated": true,
+			},
+			{
+				"user_id":        1235,
+				"is_deactivated": false,
+			},
+		},
+		"notification": []map[string]any{
+			{ // Deactivated user
+				"id":        1,
+				"specifier": "1234",
+				"group_id":  "comment:track:user_id:67576:comment_id:1",
+				"type":      "comment",
+				"user_ids":  []int{1},
+				"data":      []byte(`{"comment_id": 1, "type": "Track", "entity_user_id": 67576}`),
+			},
+			{
+				"id":        2,
+				"specifier": "1235",
+				"group_id":  "comment:track:user_id:1235:comment_id:1",
+				"type":      "comment",
+				"user_ids":  []int{1},
+				"data":      []byte(`{"comment_id": 1, "type": "Track", "entity_user_id": 1235}`),
+			},
+		},
+	}
+
+	database.Seed(app.pool.Replicas[0], fixtures)
+
+	status, body := testGet(t, app, "/v1/notifications/"+trashid.MustEncodeHashID(1))
+	assert.Equal(t, 200, status)
+
+	jsonAssert(t, body, map[string]any{
+		"data.notifications.#":                     1,
+		"data.notifications.0.type":                "comment",
+		"data.notifications.0.actions.0.specifier": trashid.MustEncodeHashID(1235),
+	})
+}
+
+func TestV1Notifications_LowScore(t *testing.T) {
+	app := emptyTestApp(t)
+
+	fixtures := database.FixtureMap{
+		"users": []map[string]any{
+			{
+				"user_id":        67576,
+				"is_deactivated": false,
+			},
+			{
+				"user_id":        1235,
+				"is_deactivated": false,
+			},
+		},
+		"aggregate_user": []map[string]any{
+			{
+				"user_id": 67576,
+				"score":   -1,
+			},
+			{
+				"user_id": 1235,
+				"score":   0,
+			},
+		},
+		"notification": []map[string]any{
+			{ // Low score
+				"id":        1,
+				"specifier": "67576",
+				"group_id":  "comment:track:user_id:67576:comment_id:1",
+				"type":      "comment",
+				"user_ids":  []int{1},
+				"data":      []byte(`{"comment_id": 1, "type": "Track", "entity_user_id": 67576}`),
+			},
+			{
+				"id":        2,
+				"specifier": "1235",
+				"group_id":  "comment:track:user_id:1235:comment_id:1",
+				"type":      "comment",
+				"user_ids":  []int{1},
+				"data":      []byte(`{"comment_id": 1, "type": "Track", "entity_user_id": 1235}`),
+			},
+		},
+	}
+
+	database.Seed(app.pool.Replicas[0], fixtures)
+
+	status, body := testGet(t, app, "/v1/notifications/"+trashid.MustEncodeHashID(1))
+	assert.Equal(t, 200, status)
+
+	jsonAssert(t, body, map[string]any{
+		"data.notifications.#":                     1,
+		"data.notifications.0.type":                "comment",
+		"data.notifications.0.actions.0.specifier": trashid.MustEncodeHashID(1235),
+	})
+}

@@ -107,18 +107,24 @@ LEFT JOIN tracks t ON
   n.data ? 'track_id' AND
   t.track_id = (n.data->>'track_id')::integer AND
   t.is_current = true
+-- Join with playlists table to filter out deleted playlists for "create" notifications that have playlist_id
 LEFT JOIN playlists p ON
   n.type = 'create' AND
   n.data ? 'playlist_id' AND
   p.playlist_id = (n.data->>'playlist_id')::integer AND
   p.is_current = true
+-- Join with users table to filter out deactivated users
 LEFT JOIN users u ON
 	(
 		(n.data ? 'user_id' AND u.user_id = (n.data->>'user_id')::integer)
 		OR
 		(n.data ? 'entity_user_id' AND u.user_id = (n.data->>'entity_user_id')::integer)
+		OR
+		(n.data ? 'follower_user_id' AND u.user_id = (n.data->>'follower_user_id')::integer)
 	)
 	AND u.is_current = true
+-- Join with aggregate_user table to filter out users with low score
+LEFT JOIN aggregate_user a ON u.user_id = a.user_id
 WHERE
   ((ARRAY[@user_id] && n.user_ids) OR (n.type = 'announcement' AND n.timestamp > (SELECT created_at FROM user_created_at)))
   AND (n.type = ANY(@types) OR @types IS NULL)
@@ -133,8 +139,15 @@ WHERE
 		(
 			(n.data ? 'user_id' OR n.data ? 'entity_user_id')
 			AND u.is_deactivated = false
+			AND a.score >= 0
 		)
-		OR (NOT (n.data ? 'user_id' OR n.data ? 'entity_user_id'))
+		OR (
+			NOT (
+				n.data ? 'user_id'
+				OR n.data ? 'entity_user_id'
+				OR n.data ? 'follower_user_id'
+			)
+		)
 	)
   AND (
     (@timestamp_offset = 0 AND @group_id_offset = '') OR
