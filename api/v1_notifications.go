@@ -112,6 +112,13 @@ LEFT JOIN playlists p ON
   n.data ? 'playlist_id' AND
   p.playlist_id = (n.data->>'playlist_id')::integer AND
   p.is_current = true
+LEFT JOIN users u ON
+	(
+		(n.data ? 'user_id' AND u.user_id = (n.data->>'user_id')::integer)
+		OR
+		(n.data ? 'entity_user_id' AND u.user_id = (n.data->>'entity_user_id')::integer)
+	)
+	AND u.is_current = true
 WHERE
   ((ARRAY[@user_id] && n.user_ids) OR (n.type = 'announcement' AND n.timestamp > (SELECT created_at FROM user_created_at)))
   AND (n.type = ANY(@types) OR @types IS NULL)
@@ -121,6 +128,14 @@ WHERE
   AND (n.type != 'create' OR NOT (n.data ? 'track_id') OR t.is_delete = false)
   -- Filter out notifications for deleted playlists (only for create notifications that have playlist_id)
   AND (n.type != 'create' OR NOT (n.data ? 'playlist_id') OR p.is_delete = false)
+	-- Filter out notifications from deleted users
+	AND (
+		(
+			(n.data ? 'user_id' OR n.data ? 'entity_user_id')
+			AND u.is_deactivated = false
+		)
+		OR (NOT (n.data ? 'user_id' OR n.data ? 'entity_user_id'))
+	)
   AND (
     (@timestamp_offset = 0 AND @group_id_offset = '') OR
     (@timestamp_offset = 0 AND @group_id_offset != '' AND n.group_id < @group_id_offset) OR

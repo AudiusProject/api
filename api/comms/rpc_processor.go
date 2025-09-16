@@ -83,7 +83,7 @@ func NewProcessor(pool *dbv1.DBPools, writePool *pgxpool.Pool, config *config.Co
 		listenCancel: cancel,
 	}
 
-	if config.CommsMessagePush {
+	if config.CommsMessagePush && writePool != nil {
 		proc.startPgNotifyListeners()
 	}
 
