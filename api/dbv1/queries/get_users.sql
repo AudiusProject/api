@@ -159,7 +159,8 @@ SELECT
         FROM sol_user_balances
         JOIN artist_coins ON artist_coins.mint = sol_user_balances.mint -- ensure mapped in artist_coins
         WHERE sol_user_balances.user_id = u.user_id
-          AND sol_user_balances.mint != '9LzCMqDgTKYz9Drzqnpgee3SGa89up3a247ypMj2xrqM' -- ignore wAUDIO
+          AND sol_user_balances.mint != '9LzCMqDgTKYz9Drzqnpgee3SGa89up3a247ypMj2xrqM' -- ignore prod wAUDIO
+          AND sol_user_balances.mint != 'BELGiMZQ34SDE6x2FUaML2UHDAgBLS64xvhXjX5tBBZo' -- ignore stage wAUDIO
           AND sol_user_balances.mint != 'EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZy4z6cQ' -- ignore USDC
         ORDER BY sol_user_balances.balance DESC
         LIMIT 1
