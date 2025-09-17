@@ -95,5 +95,5 @@ func (app *ApiServer) v1TrackComments(c *fiber.Ctx) error {
 		"karmaCommentCountThreshold": karmaCommentCountThreshold,
 	}
 
-	return app.queryFullComments(c, sql, args)
+	return app.queryFullComments(c, sql, args, true)
 }

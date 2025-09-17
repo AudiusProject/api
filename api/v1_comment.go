@@ -21,5 +21,5 @@ func (app *ApiServer) v1Comment(c *fiber.Ctx) error {
 
 	return app.queryFullComments(c, sql, pgx.NamedArgs{
 		"comment_id": commentId,
-	})
+	}, true)
 }
