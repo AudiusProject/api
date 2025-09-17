@@ -10,8 +10,9 @@ import (
 )
 
 type GetCommentsParams struct {
-	MyID interface{} `json:"my_id"`
-	Ids  []int32     `json:"ids"`
+	MyID            interface{} `json:"my_id"`
+	Ids             []int32     `json:"ids"`
+	IncludeUnlisted bool        `json:"include_unlisted"`
 }
 
 type FullComment struct {
@@ -126,12 +127,14 @@ func (q *Queries) FullCommentsKeyed(ctx context.Context, arg GetCommentsParams) 
 	JOIN tracks ON entity_id = track_id
 	LEFT JOIN comment_threads USING (comment_id)
 	WHERE comment_id = ANY(@ids::int[])
+	AND (@include_unlisted = true OR tracks.is_unlisted = false)
 	ORDER BY comments.created_at DESC
 	`
 
 	rows, err := q.db.Query(ctx, sql, pgx.NamedArgs{
-		"ids":   arg.Ids,
-		"my_id": arg.MyID,
+		"ids":              arg.Ids,
+		"my_id":            arg.MyID,
+		"include_unlisted": arg.IncludeUnlisted,
 	})
 	if err != nil {
 		return nil, err
@@ -153,8 +156,9 @@ func (q *Queries) FullCommentsKeyed(ctx context.Context, arg GetCommentsParams) 
 		replyIds = append(replyIds, comment.ReplyIds...)
 	}
 	replyMap, err := q.FullCommentsKeyed(ctx, GetCommentsParams{
-		MyID: arg.MyID,
-		Ids:  replyIds,
+		MyID:            arg.MyID,
+		Ids:             replyIds,
+		IncludeUnlisted: arg.IncludeUnlisted,
 	})
 	if err != nil {
 		return nil, err

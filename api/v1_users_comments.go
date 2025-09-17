@@ -20,5 +20,5 @@ func (app *ApiServer) v1UsersComments(c *fiber.Ctx) error {
 		"user_id": app.getUserId(c),
 	}
 
-	return app.queryFullComments(c, sql, args)
+	return app.queryFullComments(c, sql, args, false)
 }

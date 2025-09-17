@@ -12,7 +12,12 @@ type GetCommentsParams struct {
 	Offset     int    `query:"offset" default:"0" validate:"min=0"`
 }
 
-func (app *ApiServer) queryFullComments(c *fiber.Ctx, sql string, args pgx.NamedArgs) error {
+func (app *ApiServer) queryFullComments(
+	c *fiber.Ctx,
+	sql string,
+	args pgx.NamedArgs,
+	includeUnlisted bool,
+) error {
 	var params = GetCommentsParams{}
 	if err := app.ParseAndValidateQueryParams(c, &params); err != nil {
 		return err
@@ -48,8 +53,9 @@ func (app *ApiServer) queryFullComments(c *fiber.Ctx, sql string, args pgx.Named
 	}
 
 	comments, err := app.queries.FullComments(c.Context(), dbv1.GetCommentsParams{
-		Ids:  commentIds,
-		MyID: app.getMyId(c),
+		Ids:             commentIds,
+		MyID:            app.getMyId(c),
+		IncludeUnlisted: includeUnlisted,
 	})
 	if err != nil {
 		return err
