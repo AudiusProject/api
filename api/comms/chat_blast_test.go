@@ -1004,6 +1004,149 @@ func TestChatBlastCoinHolders(t *testing.T) {
 	}
 }
 
+func TestChatBlastCoinHoldersExcludesSender(t *testing.T) {
+	pool := database.CreateTestDatabase(t, "test_comms")
+	defer pool.Close()
+
+	// Setup: Artist (user 1) owns their own artist coin and has a positive balance
+	// This tests the bug where the sender would be included in their own blast recipients,
+	// further resulting in the blast being fanned-out to all their existing chats.
+	database.Seed(pool, database.FixtureMap{
+		"users": {
+			{"user_id": 1, "wallet": "wallet1", "handle": "user1"},
+			{"user_id": 207, "wallet": "wallet207", "handle": "user207"},
+			{"user_id": 208, "wallet": "wallet208", "handle": "user208"},
+		},
+		"artist_coins": {
+			{
+				"user_id":  1,
+				"ticker":   "$ARTIST1",
+				"mint":     "mint123",
+				"decimals": 8,
+			},
+		},
+		"sol_claimable_accounts": {
+			{
+				"signature":        "sig1",
+				"account":          "account1",
+				"ethereum_address": "wallet1",
+				"mint":             "mint123",
+			},
+			{
+				"signature":        "sig2",
+				"account":          "account207",
+				"ethereum_address": "wallet207",
+				"mint":             "mint123",
+			},
+			{
+				"signature":        "sig3",
+				"account":          "account208",
+				"ethereum_address": "wallet208",
+				"mint":             "mint123",
+			},
+		},
+	})
+
+	ctx := context.Background()
+	blastTime := time.Now().UTC()
+
+	// Insert balance changes - artist (user 1) has positive balance in their own coin
+	// This is the scenario that would cause the bug
+	_, err := pool.Exec(ctx, `
+		insert into sol_token_account_balance_changes
+		(signature, mint, owner, account, change, balance, slot, created_at, block_timestamp)
+		values
+		-- artist owns their own coin
+		('tx_artist', 'mint123', 'wallet1', 'account1', 50000, 50000, 10001, $1, $1),
+		-- other holders
+		('tx207', 'mint123', 'wallet207', 'account207', 1000, 1000, 10002, $1, $1)
+		`, blastTime)
+	assert.NoError(t, err)
+
+	// Create some existing chats with the artist
+	chatId_1_207 := trashid.ChatID(1, 207)
+	chatId_1_208 := trashid.ChatID(1, 208)
+
+	err = chatCreate(pool, ctx, 1, blastTime.Add(-time.Hour), ChatCreateRPCParams{
+		ChatID: chatId_1_207,
+		Invites: []PurpleInvite{
+			{UserID: trashid.MustEncodeHashID(1), InviteCode: "x"},
+			{UserID: trashid.MustEncodeHashID(207), InviteCode: "x"},
+		},
+	})
+	assert.NoError(t, err)
+
+	err = chatCreate(pool, ctx, 1, blastTime.Add(-time.Hour), ChatCreateRPCParams{
+		ChatID: chatId_1_208,
+		Invites: []PurpleInvite{
+			{UserID: trashid.MustEncodeHashID(1), InviteCode: "x"},
+			{UserID: trashid.MustEncodeHashID(208), InviteCode: "x"},
+		},
+	})
+	assert.NoError(t, err)
+
+	// Verify existing chats have 0 messages initially
+	messages := mustGetMessagesAndReactions(t, pool, ctx, 1, chatId_1_207)
+	assert.Len(t, messages, 0)
+	messages = mustGetMessagesAndReactions(t, pool, ctx, 1, chatId_1_208)
+	assert.Len(t, messages, 0)
+
+	// Send blast to coin holders
+	outgoingMessages, err := chatBlast(pool, ctx, 1, blastTime, ChatBlastRPCParams{
+		BlastID:  "blast_exclude_sender",
+		Audience: CoinHolderAudience,
+		Message:  "thanks to all my coin holders",
+	})
+	assert.NoError(t, err)
+
+	assert.Len(t, outgoingMessages, 1, "Should have 1 outgoing message to user 207")
+
+	// Verify the recipients determined by chat_blast_audience function
+	// This is the core test: ensure the sender is NOT included in the audience
+	var recipients []struct {
+		BlastID  string `db:"blast_id"`
+		ToUserID int32  `db:"to_user_id"`
+	}
+
+	rows, err := pool.Query(ctx, "SELECT blast_id, to_user_id FROM chat_blast_audience('blast_exclude_sender')")
+	assert.NoError(t, err)
+	defer rows.Close()
+
+	for rows.Next() {
+		var recipient struct {
+			BlastID  string `db:"blast_id"`
+			ToUserID int32  `db:"to_user_id"`
+		}
+		err := rows.Scan(&recipient.BlastID, &recipient.ToUserID)
+		assert.NoError(t, err)
+		recipients = append(recipients, recipient)
+	}
+
+	// Should have 1 recipient: 207, but NOT 1 (the sender)
+	assert.Len(t, recipients, 1, "Should have 1 recipients from chat_blast_audience function")
+
+	recipientIDs := make([]int32, len(recipients))
+	for i, recipient := range recipients {
+		recipientIDs[i] = recipient.ToUserID
+	}
+	assert.Contains(t, recipientIDs, int32(207), "Should include user 207 as recipient")
+	assert.NotContains(t, recipientIDs, int32(1), "Should NOT include sender (user 1) as recipient")
+
+	// Verify that existing chat with non-holder did NOT receive the blast message
+	// (they should remain at 0 messages)
+	messages = mustGetMessagesAndReactions(t, pool, ctx, 1, chatId_1_208)
+	assert.Len(t, messages, 0, "Existing chat should not receive blast message")
+
+	pending, err := getNewBlasts(pool, ctx, getNewBlastsParams{UserID: 208})
+	assert.NoError(t, err)
+	assert.Len(t, pending, 0, "User 208 should have 0 pending blasts")
+
+	// Verify that sender (user 1) has NO pending blasts
+	pending, err = getNewBlasts(pool, ctx, getNewBlastsParams{UserID: 1})
+	assert.NoError(t, err)
+	assert.Len(t, pending, 0, "Sender should have 0 pending blasts")
+}
+
 func stringPointer(val string) *string {
 	return &val
 }
