@@ -273,7 +273,7 @@ func NewApiServer(config config.Config) *ApiServer {
 
 			return fields
 		},
-		Fields: []string{"status", "method", "url", "route", "ip"},
+		Fields: []string{"status", "method", "url", "route"},
 	}))
 
 	app.Get("/", app.home)
