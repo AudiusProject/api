@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 
 	"github.com/gofiber/fiber/v2"
+	"github.com/jackc/pgx/v5"
 )
 
 type CollectiblesRow struct {
@@ -15,13 +16,15 @@ func (app *ApiServer) v1UsersCollectibles(c *fiber.Ctx) error {
 
 	sql := `
 		SELECT data FROM collectibles
-		WHERE user_id = $1
+		WHERE user_id = @userId
 		LIMIT 1
 	`
 
 	var collectible CollectiblesRow
 
-	err := app.pool.QueryRow(c.Context(), sql, userId).Scan(&collectible.Data)
+	err := app.pool.QueryRow(c.Context(), sql, pgx.NamedArgs{
+		"userId": userId,
+	}).Scan(&collectible.Data)
 	if err != nil {
 		return err
 	}
