@@ -23,6 +23,7 @@ import (
 	"api.audius.co/solana/spl/programs/meteora_dbc"
 	"api.audius.co/solana/spl/programs/reward_manager"
 	"api.audius.co/trashid"
+	apiutils "api.audius.co/utils"
 	"github.com/AudiusProject/audiusd/pkg/rewards"
 	"github.com/AudiusProject/audiusd/pkg/sdk"
 	"github.com/Doist/unfurlist"
@@ -266,6 +267,9 @@ func NewApiServer(config config.Config) *ApiServer {
 			if requestId, ok := c.Locals("requestId").(string); ok && requestId != "" {
 				fields = append(fields, zap.String("request_id", requestId))
 			}
+
+			ipAddress := apiutils.GetIP(c)
+			fields = append(fields, zap.String("ip", ipAddress))
 
 			return fields
 		},
