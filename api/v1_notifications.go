@@ -113,18 +113,6 @@ LEFT JOIN playlists p ON
   n.data ? 'playlist_id' AND
   p.playlist_id = (n.data->>'playlist_id')::integer AND
   p.is_current = true
--- Join with users table to filter out deactivated users
-LEFT JOIN users u ON
-	(
-		(n.data ? 'user_id' AND u.user_id = (n.data->>'user_id')::integer)
-		OR
-		(n.data ? 'entity_user_id' AND u.user_id = (n.data->>'entity_user_id')::integer)
-		OR
-		(n.data ? 'follower_user_id' AND u.user_id = (n.data->>'follower_user_id')::integer)
-	)
-	AND u.is_current = true
--- Join with aggregate_user table to filter out users with low score
-LEFT JOIN aggregate_user a ON u.user_id = a.user_id
 WHERE
   ((ARRAY[@user_id] && n.user_ids) OR (n.type = 'announcement' AND n.timestamp > (SELECT created_at FROM user_created_at)))
   AND (n.type = ANY(@types) OR @types IS NULL)
@@ -134,18 +122,66 @@ WHERE
   AND (n.type != 'create' OR NOT (n.data ? 'track_id') OR t.is_delete = false)
   -- Filter out notifications for deleted playlists (only for create notifications that have playlist_id)
   AND (n.type != 'create' OR NOT (n.data ? 'playlist_id') OR p.is_delete = false)
-	-- Filter out notifications from deleted users
+	-- Filter out notifications from deleted/low score users
 	AND (
-		(
-			(n.data ? 'user_id' OR n.data ? 'entity_user_id')
-			AND u.is_deactivated = false
-			AND a.score >= 0
+		-- If notification has no user data fields, allow it through
+		NOT (
+			n.data ? 'user_id'
+			OR n.data ? 'follower_user_id'
+			OR n.data ? 'comment_user_id'
+			OR n.data ? 'entity_user_id'
 		)
 		OR (
-			NOT (
+			-- If notification has user data fields, ensure ALL referenced users are valid and active with good score
+			(
 				n.data ? 'user_id'
-				OR n.data ? 'entity_user_id'
 				OR n.data ? 'follower_user_id'
+				OR n.data ? 'comment_user_id'
+				OR n.data ? 'entity_user_id'
+			)
+			AND (
+				-- Check user_id if present
+				NOT (n.data ? 'user_id') OR EXISTS (
+					SELECT 1 FROM users u2 
+					JOIN aggregate_user a2 ON u2.user_id = a2.user_id
+					WHERE u2.user_id = (n.data->>'user_id')::integer 
+					AND u2.is_current = true 
+					AND u2.is_deactivated = false 
+					AND a2.score >= 0
+				)
+			)
+			AND (
+				-- Check follower_user_id if present
+				NOT (n.data ? 'follower_user_id') OR EXISTS (
+					SELECT 1 FROM users u2 
+					JOIN aggregate_user a2 ON u2.user_id = a2.user_id
+					WHERE u2.user_id = (n.data->>'follower_user_id')::integer 
+					AND u2.is_current = true 
+					AND u2.is_deactivated = false 
+					AND a2.score >= 0
+				)
+			)
+			AND (
+				-- Check comment_user_id if present
+				NOT (n.data ? 'comment_user_id') OR EXISTS (
+					SELECT 1 FROM users u2 
+					JOIN aggregate_user a2 ON u2.user_id = a2.user_id
+					WHERE u2.user_id = (n.data->>'comment_user_id')::integer 
+					AND u2.is_current = true 
+					AND u2.is_deactivated = false 
+					AND a2.score >= 0
+				)
+			)
+			AND (
+				-- Check entity_user_id if present
+				NOT (n.data ? 'entity_user_id') OR EXISTS (
+					SELECT 1 FROM users u2 
+					JOIN aggregate_user a2 ON u2.user_id = a2.user_id
+					WHERE u2.user_id = (n.data->>'entity_user_id')::integer 
+					AND u2.is_current = true 
+					AND u2.is_deactivated = false 
+					AND a2.score >= 0
+				)
 			)
 		)
 	)
