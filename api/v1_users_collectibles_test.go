@@ -32,12 +32,23 @@ func TestUsersCollectibles(t *testing.T) {
 
 	database.Seed(app.writePool, fixtures)
 
-	status, body := testGet(t, app, "/v1/users/"+trashid.MustEncodeHashID(1)+"/collectibles")
-	assert.Equal(t, 200, status)
+	{
+		status, body := testGet(t, app, "/v1/users/"+trashid.MustEncodeHashID(1)+"/collectibles")
+		assert.Equal(t, 200, status)
 
-	jsonAssert(t, body, map[string]any{
-		"data.1:::0x1234": "{}",
-		"data.order.#":    1,
-		"data.order.0":    "1:::0x1234",
-	})
+		jsonAssert(t, body, map[string]any{
+			"data.data.1:::0x1234": "{}",
+			"data.data.order.#":    1,
+			"data.data.order.0":    "1:::0x1234",
+		})
+	}
+
+	{
+		status, body := testGet(t, app, "/v1/users/"+trashid.MustEncodeHashID(2)+"/collectibles")
+		assert.Equal(t, 200, status)
+
+		jsonAssert(t, body, map[string]any{
+			"data": nil,
+		})
+	}
 }

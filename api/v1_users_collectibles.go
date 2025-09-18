@@ -26,10 +26,15 @@ func (app *ApiServer) v1UsersCollectibles(c *fiber.Ctx) error {
 		"userId": userId,
 	}).Scan(&collectible.Data)
 	if err != nil {
+		if err == pgx.ErrNoRows {
+			return c.JSON(fiber.Map{
+				"data": nil,
+			})
+		}
 		return err
 	}
 
 	return c.JSON(fiber.Map{
-		"data": collectible.Data,
+		"data": collectible,
 	})
 }
