@@ -11,7 +11,7 @@ import (
 
 type GetBestSellingParams struct {
 	Limit  int    `query:"limit" default:"10" validate:"min=1,max=100"`
-	Offset int    `query:"offset" default:"0" validate:"min=0"`
+	Offset int    `query:"offset" default:"0" validate:"min=0,max=200"`
 	Type   string `query:"type" default:"all" validate:"oneof=all track album"`
 }
 
