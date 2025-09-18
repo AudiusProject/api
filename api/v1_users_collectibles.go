@@ -17,7 +17,6 @@ func (app *ApiServer) v1UsersCollectibles(c *fiber.Ctx) error {
 	sql := `
 		SELECT data FROM collectibles
 		WHERE user_id = @userId
-		LIMIT 1
 	`
 
 	var collectible CollectiblesRow
