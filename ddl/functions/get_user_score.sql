@@ -12,6 +12,7 @@ create or replace function get_user_score(target_user_id integer) returns table(
         follower_count bigint,
         chat_block_count bigint,
         is_audius_impersonator boolean,
+        has_badwords boolean,
         karma bigint,
         score bigint
     ) language sql as $function$ with play_activity as (
@@ -64,6 +65,18 @@ create or replace function get_user_score(target_user_id integer) returns table(
             end as is_audius_impersonator,
             case
                 when (
+                    exists (
+                        select 1
+                        from unnest(array['airdrop']) as badword
+                        where users.handle_lc ilike '%' || badword || '%'
+                           or lower(users.name) like '%' || badword || '%'
+                    )
+                )
+                and users.is_verified = false then true
+                else false
+            end as has_badwords,
+            case
+                when (
                     -- give max karma to users with more than 1000 followers
                     -- karma is too slow for users with many followers
                     au.follower_count > 1000
@@ -99,6 +112,7 @@ select a.*,
         a.chat_block_count,
         a.following_count,
         a.is_audius_impersonator,
+        a.has_badwords,
         a.distinct_tracks_played,
         a.karma
     ) as score
