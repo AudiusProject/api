@@ -562,6 +562,14 @@ var (
 			"created_at":          time.Now(),
 			"updated_at":          time.Now(),
 		},
+		"collectibles": {
+			"user_id":     nil,
+			"data":        nil,
+			"blockhash":   "block_abc123",
+			"blocknumber": 101,
+			"created_at":  time.Now(),
+			"updated_at":  time.Now(),
+		},
 	}
 )
 
