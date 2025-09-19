@@ -119,9 +119,17 @@ WHERE
 	-- Ignore notification types not supported by frontend
 	AND (n.type != ALL(@unsupported_types))
   -- Filter out notifications for deleted tracks (only for create notifications that have track_id)
-  AND (n.type != 'create' OR NOT (n.data ? 'track_id') OR t.is_delete = false)
+  AND (
+		n.type != 'create'
+		OR NOT (n.data ? 'track_id')
+		OR (t.is_delete = false AND t.is_unlisted = false)
+	)
   -- Filter out notifications for deleted playlists (only for create notifications that have playlist_id)
-  AND (n.type != 'create' OR NOT (n.data ? 'playlist_id') OR p.is_delete = false)
+  AND (
+		n.type != 'create'
+		OR NOT (n.data ? 'playlist_id')
+		OR (p.is_delete = false AND p.is_private = false)
+	)
 	-- Filter out notifications from deleted/low score users
 	AND (
 		-- If notification has no user data fields, allow it through
