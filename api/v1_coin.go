@@ -188,3 +188,44 @@ func (app *ApiServer) v1CoinByTicker(c *fiber.Ctx) error {
 		"data": coinRow,
 	})
 }
+
+func (app *ApiServer) v1CoinTickerAvailable(c *fiber.Ctx) error {
+	ticker := c.Params("ticker")
+	if ticker == "" {
+		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
+			"error": "ticker parameter is required",
+		})
+	}
+
+	// Check if ticker exists in the database
+	sql := `
+		SELECT COUNT(*) 
+		FROM artist_coins 
+		WHERE ticker = @ticker
+	`
+
+	rows, err := app.pool.Query(c.Context(), sql, pgx.NamedArgs{
+		"ticker": ticker,
+	})
+	if err != nil {
+		return err
+	}
+
+	var count int
+	err = rows.Scan(&count)
+	if err != nil {
+		return err
+	}
+
+	// If count is 0, ticker is available (return 404 like handle validation)
+	if count == 0 {
+		return c.Status(fiber.StatusNotFound).JSON(fiber.Map{
+			"available": true,
+		})
+	}
+
+	// If count > 0, ticker is taken (return 200 with available: false)
+	return c.JSON(fiber.Map{
+		"available": false,
+	})
+}

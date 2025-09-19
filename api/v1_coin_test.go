@@ -69,3 +69,52 @@ func TestV1Coin(t *testing.T) {
 		assert.Contains(t, string(body), "no rows")
 	}
 }
+
+func TestV1CoinTickerAvailable(t *testing.T) {
+	app := emptyTestApp(t)
+
+	fixtures := database.FixtureMap{
+		"artist_coins": {
+			{
+				"ticker":     "$AUDIO",
+				"decimals":   8,
+				"user_id":    1,
+				"mint":       "9LzCMqDgTKYz9Drzqnpgee3SGa89up3a247ypMj2xrqM",
+				"name":       "Audius",
+				"created_at": time.Now().Add(-time.Second),
+			},
+		},
+	}
+
+	database.Seed(app.pool.Replicas[0], fixtures)
+
+	// Test ticker that exists (should return 200 with available: false)
+	{
+		status, body := testGet(t, app, "/v1/coins/ticker/$AUDIO/available")
+		assert.Equal(t, 200, status)
+
+		jsonAssert(t, body, map[string]any{
+			"available": false,
+		})
+	}
+
+	// Test ticker that doesn't exist (should return 404 with available: true)
+	{
+		status, body := testGet(t, app, "/v1/coins/ticker/$NONEXISTENT/available")
+		assert.Equal(t, 404, status)
+
+		jsonAssert(t, body, map[string]any{
+			"available": true,
+		})
+	}
+
+	// Test with empty ticker parameter (should return 400)
+	{
+		status, body := testGet(t, app, "/v1/coins/ticker//available")
+		assert.Equal(t, 400, status)
+
+		jsonAssert(t, body, map[string]any{
+			"error": "ticker parameter is required",
+		})
+	}
+}

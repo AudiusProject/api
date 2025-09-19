@@ -3619,6 +3619,54 @@ paths:
         '500':
           description: Server error
           content: {}
+  /coins/ticker/{ticker}/available:
+    get:
+      tags:
+        - coins
+      operationId: Check Coin Ticker Availability
+      description: 'Checks if a coin ticker is available for use'
+      parameters:
+      - name: ticker
+        in: path
+        description: The ticker to check for availability
+        required: true
+        schema:
+          type: string
+          example: $NEWCOIN
+      responses:
+        '200':
+          description: Ticker is taken (not available)
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  available:
+                    type: boolean
+                    example: false
+        '404':
+          description: Ticker is available
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  available:
+                    type: boolean
+                    example: true
+        '400':
+          description: Bad request - ticker parameter is required
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  error:
+                    type: string
+                    example: "ticker parameter is required"
+        '500':
+          description: Server error
+          content: {}
   /coins/{mint}/insights:
     get:
       tags:
