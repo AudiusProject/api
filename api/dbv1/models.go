@@ -949,6 +949,7 @@ type ArtistCoin struct {
 	Website     pgtype.Text `json:"website"`
 	Name        string      `json:"name"`
 	DbcPool     pgtype.Text `json:"dbc_pool"`
+	HasDiscord  bool        `json:"has_discord"`
 }
 
 type ArtistCoinPool struct {
@@ -1408,6 +1409,17 @@ type EncryptedEmail struct {
 	EncryptedEmail string             `json:"encrypted_email"`
 	CreatedAt      pgtype.Timestamptz `json:"created_at"`
 	UpdatedAt      pgtype.Timestamptz `json:"updated_at"`
+}
+
+type EthActiveProposal struct {
+	ID                        int64  `json:"id"`
+	Proposer                  string `json:"proposer"`
+	SubmissionBlockNumber     int64  `json:"submission_block_number"`
+	TargetContractRegistryKey string `json:"target_contract_registry_key"`
+	TargetContractAddress     string `json:"target_contract_address"`
+	CallValue                 int64  `json:"call_value"`
+	FunctionSignature         string `json:"function_signature"`
+	CallData                  string `json:"call_data"`
 }
 
 type EthBlock struct {

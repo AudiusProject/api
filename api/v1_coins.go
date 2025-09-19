@@ -18,6 +18,7 @@ type ArtistCoin struct {
 	LogoUri     *string        `json:"logo_uri,omitempty"`
 	Description *string        `json:"description,omitempty"`
 	Website     *string        `json:"website,omitempty"`
+	HasDiscord  bool           `json:"has_discord"`
 	CreatedAt   time.Time      `json:"created_at"`
 
 	MarketCap                    float64                      `json:"marketCap" db:"market_cap"`
@@ -130,6 +131,7 @@ func (app *ApiServer) v1Coins(c *fiber.Ctx) error {
 			artist_coins.logo_uri,
 			artist_coins.description,
 			artist_coins.website,
+			artist_coins.has_discord,
 			artist_coins.created_at,
 			COALESCE(artist_coin_stats.market_cap, 0) as market_cap,
 			COALESCE(artist_coin_stats.fdv, 0) as fdv,
