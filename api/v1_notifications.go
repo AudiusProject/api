@@ -128,7 +128,7 @@ WHERE
   AND (
 		n.type != 'create'
 		OR NOT (n.data ? 'playlist_id')
-		OR (p.is_delete = false AND p.is_unlisted = false)
+		OR (p.is_delete = false AND p.is_private = false)
 	)
 	-- Filter out notifications from deleted/low score users
 	AND (

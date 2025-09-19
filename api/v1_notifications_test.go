@@ -309,3 +309,99 @@ func TestV1Notifications_LowScore(t *testing.T) {
 		"data.notifications.0.actions.0.specifier": trashid.MustEncodeHashID(1235),
 	})
 }
+
+func TestV1Notifications_UnlistedTrack(t *testing.T) {
+	app := emptyTestApp(t)
+
+	fixtures := database.FixtureMap{
+		"users": []map[string]any{
+			{
+				"user_id":        67576,
+				"is_deactivated": true,
+			},
+		},
+		"tracks": []map[string]any{
+			{
+				"track_id":    1,
+				"owner_id":    10,
+				"is_unlisted": false,
+			},
+			{
+				"track_id":    2,
+				"owner_id":    10,
+				"is_unlisted": true,
+			},
+		},
+		"notification": []map[string]any{
+			{
+				"id":        1,
+				"specifier": trashid.MustEncodeHashID(1),
+				"group_id":  "create:track:user_id:10",
+				"type":      "create",
+				"user_ids":  []int{1},
+				"data":      []byte(`{"track_id": 1}`),
+			},
+			{
+				"id":        2,
+				"specifier": trashid.MustEncodeHashID(2),
+				"group_id":  "create:track:user_id:10",
+				"type":      "create",
+				"user_ids":  []int{1},
+				"data":      []byte(`{"track_id": 2}`),
+			},
+		},
+	}
+
+	database.Seed(app.pool.Replicas[0], fixtures)
+
+	status, body := testGet(t, app, "/v1/notifications/"+trashid.MustEncodeHashID(1))
+	assert.Equal(t, 200, status)
+
+	jsonAssert(t, body, map[string]any{
+		"data.notifications.#":                     1,
+		"data.notifications.0.type":                "create",
+		"data.notifications.0.actions.0.specifier": trashid.MustEncodeHashID(1),
+	})
+}
+
+func TestV1Notifications_PrivatePlaylist(t *testing.T) {
+	app := emptyTestApp(t)
+
+	fixtures := database.FixtureMap{
+		"playlists": []map[string]any{
+			{
+				"playlist_id":       67576,
+				"playlist_owner_id": 10,
+				"is_private":        true,
+			},
+		},
+		"notification": []map[string]any{
+			{
+				"id":        1,
+				"specifier": trashid.MustEncodeHashID(67576),
+				"group_id":  "create:playlist:user_id:67576",
+				"type":      "create",
+				"user_ids":  []int{1},
+				"data":      []byte(`{"playlist_id": 67576}`),
+			},
+			{
+				"id":        2,
+				"specifier": trashid.MustEncodeHashID(67576),
+				"group_id":  "milestone:PLAYLIST_REPOST_COUNT:id:128608:threshold:10",
+				"type":      "milestone",
+				"user_ids":  []int{1},
+				"data":      []byte(`{"type": "PLAYLIST_REPOST_COUNT", "threshold": 10, "playlist_id": 128608} `),
+			},
+		},
+	}
+
+	database.Seed(app.pool.Replicas[0], fixtures)
+
+	status, body := testGet(t, app, "/v1/notifications/"+trashid.MustEncodeHashID(1))
+	assert.Equal(t, 200, status)
+
+	jsonAssert(t, body, map[string]any{
+		"data.notifications.#":      1,
+		"data.notifications.0.type": "milestone",
+	})
+}
