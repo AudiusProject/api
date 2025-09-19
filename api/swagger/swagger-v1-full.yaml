@@ -2266,47 +2266,6 @@ paths:
         "500":
           description: Server error
           content: {}
-  /tracks/{user_id}/nft-gated-signatures:
-    get:
-      tags:
-      - tracks
-      description: Gets gated track signatures for passed in gated track ids
-      operationId: Get NFT Gated Track Signatures
-      parameters:
-      - name: user_id
-        in: path
-        description: The user for whom we are generating gated track signatures.
-        required: true
-        schema:
-          type: string
-      - name: track_ids
-        in: query
-        description: A list of track ids. The order of these track ids will match
-          the order of the token ids.
-        style: form
-        explode: true
-        schema:
-          type: array
-          items:
-            type: integer
-      - name: token_ids
-        in: query
-        description: |-
-          A list of ERC1155 token ids. The order of these token ids will match the order of the track ids.
-                  There may be multiple token ids for a given track id, so we use a '-' as the delimiter for a track id's token ids.
-        style: form
-        explode: true
-        schema:
-          type: array
-          items:
-            type: string
-      responses:
-        "200":
-          description: Success
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/nft_gated_track_signatures_response'
   /transactions:
     get:
       tags:
@@ -6284,57 +6243,6 @@ components:
           type: array
           items:
             $ref: '#/components/schemas/track_full'
-    nft_gated_track_signatures_response:
-      required:
-      - latest_chain_block
-      - latest_chain_slot_plays
-      - latest_indexed_block
-      - latest_indexed_slot_plays
-      - signature
-      - timestamp
-      - version
-      type: object
-      properties:
-        latest_chain_block:
-          type: integer
-        latest_indexed_block:
-          type: integer
-        latest_chain_slot_plays:
-          type: integer
-        latest_indexed_slot_plays:
-          type: integer
-        signature:
-          type: string
-        timestamp:
-          type: string
-        version:
-          $ref: '#/components/schemas/version_metadata'
-        data:
-          $ref: '#/components/schemas/nft_gated_track_signature_mapping'
-    nft_gated_track_signature_mapping:
-      type: object
-      additionalProperties:
-        $ref: '#/components/schemas/nft_gated_track_signature'
-    nft_gated_track_signature:
-      required:
-      - mp3
-      - original
-      type: object
-      properties:
-        mp3:
-          $ref: '#/components/schemas/nft_gated_track_signature_data'
-        original:
-          $ref: '#/components/schemas/nft_gated_track_signature_data'
-    nft_gated_track_signature_data:
-      required:
-      - data
-      - signature
-      type: object
-      properties:
-        data:
-          type: string
-        signature:
-          type: string
     full_playlist_response:
       required:
       - latest_chain_block
