@@ -3,7 +3,6 @@ package indexer
 import (
 	"context"
 	"fmt"
-	"sync"
 	"time"
 
 	"api.audius.co/config"
@@ -95,24 +94,32 @@ func New(config config.Config) *SolanaIndexer {
 }
 
 func (s *SolanaIndexer) Start(ctx context.Context) error {
-	var wg sync.WaitGroup
-
 	go s.ScheduleRetries(ctx, s.config.SolanaIndexerRetryInterval)
 
-	jobs.NewCoinStatsJob(s.config, s.pool).
-		ScheduleEvery(ctx, 5*time.Minute, &wg).Run(ctx)
+	// coinStatsCtx := context.WithoutCancel(ctx)
+	// go jobs.NewCoinStatsJob(s.config, s.pool).
+	// 	ScheduleEvery(coinStatsCtx, 5*time.Minute).Run(coinStatsCtx)
 
-	jobs.NewCoinDBCJob(s.config, s.pool).
-		ScheduleEvery(ctx, 30*time.Second, &wg).Run(ctx)
+	// coinDBCJobCtx := context.WithoutCancel(ctx)
+	// go jobs.NewCoinDBCJob(s.config, s.pool).
+	// 	ScheduleEvery(coinDBCJobCtx, 30*time.Second).Run(coinDBCJobCtx)
+
+	statsJob := jobs.NewCoinStatsJob(s.config, s.pool)
+	statsCtx := context.WithoutCancel(ctx)
+	statsJob.ScheduleEvery(statsCtx, 5*time.Minute)
+	go statsJob.Run(statsCtx)
+
+	dbcJob := jobs.NewCoinDBCJob(s.config, s.pool)
+	dbcCtx := context.WithoutCancel(ctx)
+	dbcJob.ScheduleEvery(dbcCtx, 30*time.Second)
+	go dbcJob.Run(dbcCtx)
 
 	err := s.Subscribe(ctx)
 	if err != nil {
 		return fmt.Errorf("failed to subscribe: %w", err)
 	}
 
-	<-ctx.Done()
-	wg.Wait()
-	return ctx.Err()
+	return nil
 }
 
 func (s *SolanaIndexer) Close() {

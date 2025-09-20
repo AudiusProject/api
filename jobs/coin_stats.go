@@ -39,19 +39,15 @@ func NewCoinStatsJob(config config.Config, pool database.DbPool) *CoinStatsJob {
 }
 
 // ScheduleEvery runs the job every `duration` until the context is cancelled.
-// It will wait for any in-flight run to finish before returning after ctx is cancelled.
-func (j *CoinStatsJob) ScheduleEvery(ctx context.Context, duration time.Duration, wg *sync.WaitGroup) *CoinStatsJob {
-	wg.Add(1)
+func (j *CoinStatsJob) ScheduleEvery(ctx context.Context, duration time.Duration) *CoinStatsJob {
 	go func() {
-		defer wg.Done()
 		ticker := time.NewTicker(duration)
 		defer ticker.Stop()
 		for {
 			select {
 			case <-ticker.C:
 				j.logger.Info("Job started")
-				jobCtx := context.WithoutCancel(ctx)
-				j.Run(jobCtx)
+				j.Run(ctx)
 			case <-ctx.Done():
 				j.logger.Info("Job shutting down")
 				return

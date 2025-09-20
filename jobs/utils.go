@@ -11,8 +11,7 @@ import (
 const tokenPageSize = 1000
 
 type ArtistCoin struct {
-	Mint string  `db:"mint"`
-	Pool *string `db:"dbc_pool"`
+	Mint string `db:"mint"`
 }
 
 func GetTokenCount(ctx context.Context, pool database.DbPool) (int, error) {
@@ -25,7 +24,7 @@ func GetTokenCount(ctx context.Context, pool database.DbPool) (int, error) {
 }
 
 func GetTokenBatch(ctx context.Context, pool database.DbPool, limit, offset int) ([]ArtistCoin, error) {
-	rows, err := pool.Query(ctx, "SELECT mint, dbc_pool FROM artist_coins ORDER BY mint LIMIT $1 OFFSET $2", limit, offset)
+	rows, err := pool.Query(ctx, "SELECT mint FROM artist_coins ORDER BY mint LIMIT $1 OFFSET $2", limit, offset)
 	if err != nil {
 		return nil, err
 	}
