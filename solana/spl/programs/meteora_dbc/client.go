@@ -9,6 +9,8 @@ import (
 	"go.uber.org/zap"
 )
 
+var DbcProgramID = solana.MustPublicKeyFromBase58("dbcij3LWUppWqq96dh6gJWwBifmcGfLSB5D4DuSMaqN")
+
 type Client struct {
 	client *rpc.Client
 	logger *zap.Logger

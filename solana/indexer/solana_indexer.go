@@ -3,6 +3,7 @@ package indexer
 import (
 	"context"
 	"fmt"
+	"sync"
 	"time"
 
 	"api.audius.co/config"
@@ -94,16 +95,24 @@ func New(config config.Config) *SolanaIndexer {
 }
 
 func (s *SolanaIndexer) Start(ctx context.Context) error {
+	var wg sync.WaitGroup
+
 	go s.ScheduleRetries(ctx, s.config.SolanaIndexerRetryInterval)
 
-	go jobs.NewCoinStatsJob(s.config, s.pool).
-		ScheduleEvery(ctx, 5*time.Minute).Run(ctx)
+	jobs.NewCoinStatsJob(s.config, s.pool).
+		ScheduleEvery(ctx, 5*time.Minute, &wg).Run(ctx)
+
+	jobs.NewCoinDBCJob(s.config, s.pool).
+		ScheduleEvery(ctx, 30*time.Second, &wg).Run(ctx)
 
 	err := s.Subscribe(ctx)
 	if err != nil {
 		return fmt.Errorf("failed to subscribe: %w", err)
 	}
-	return nil
+
+	<-ctx.Done()
+	wg.Wait()
+	return ctx.Err()
 }
 
 func (s *SolanaIndexer) Close() {
