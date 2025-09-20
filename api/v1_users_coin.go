@@ -77,6 +77,7 @@ func (app *ApiServer) v1UsersCoin(c *fiber.Ctx) error {
 			artist_coins.ticker,
 			artist_coins.mint,
 			artist_coins.decimals,
+			artist_coins.has_discord,
 			artist_coins.user_id AS owner_id,
 			COALESCE(balances_by_mint.balance, 0) AS balance,
 			COALESCE((balances_by_mint.balance * stats.price) / POWER(10, artist_coins.decimals), 0) AS balance_usd,
