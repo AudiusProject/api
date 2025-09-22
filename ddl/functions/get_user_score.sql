@@ -1,5 +1,6 @@
 -- identical to get_user_scores but for a single user
 -- used to generate a user score for attestations and in UI tool
+begin;
 drop function if exists get_user_score(integer);
 create or replace function get_user_score(target_user_id integer) returns table(
         -- order matters
@@ -68,11 +69,11 @@ create or replace function get_user_score(target_user_id integer) returns table(
                     exists (
                         select 1
                         from unnest(array['airdrop']) as badword
-                        where users.handle_lc ilike '%' || badword || '%'
-                           or lower(users.name) like '%' || badword || '%'
+                        where u.handle_lc ilike '%' || badword || '%'
+                           or lower(u.name) like '%' || badword || '%'
                     )
                 )
-                and users.is_verified = false then true
+                and u.is_verified = false then true
                 else false
             end as has_badwords,
             case
@@ -118,3 +119,4 @@ select a.*,
     ) as score
 from aggregate_scores a;
 $function$;
+commit;
