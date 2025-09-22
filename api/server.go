@@ -177,6 +177,9 @@ func NewApiServer(config config.Config) *ApiServer {
 		panic(err)
 	}
 
+	contentNodeMonitor := NewContentNodeMonitor(config, logger)
+	contentNodeMonitor.Start()
+
 	app := &ApiServer{
 		App: fiber.New(fiber.Config{
 			JSONEncoder:    json.Marshal,
@@ -210,6 +213,7 @@ func NewApiServer(config config.Config) *ApiServer {
 		birdeyeClient:         birdeye.New(config.BirdeyeToken),
 		solanaRpcClient:       solanaRpc,
 		meteoraDbcClient:      meteoraDbcClient,
+		contentNodeMonitor:    contentNodeMonitor,
 	}
 
 	// Set up a custom decoder for HashIds so they can be parsed in lists
@@ -542,6 +546,9 @@ func NewApiServer(config config.Config) *ApiServer {
 	app.Get("/block_confirmation", app.BlockConfirmation)
 	app.Get("/block-confirmation", app.BlockConfirmation)
 
+	// Health check
+	app.Get("/health_check", app.healthCheck)
+
 	// Solana health
 	app.Get("/solana/health", app.solanaHealth)
 
@@ -616,6 +623,7 @@ type ApiServer struct {
 	birdeyeClient         BirdeyeClient
 	solanaRpcClient       *rpc.Client
 	meteoraDbcClient      *meteora_dbc.Client
+	contentNodeMonitor    *ContentNodeMonitor
 }
 
 func (app *ApiServer) home(c *fiber.Ctx) error {
@@ -699,6 +707,11 @@ func (as *ApiServer) Serve() {
 		// Shutdown metrics collector if it exists
 		if as.metricsCollector != nil {
 			as.metricsCollector.Shutdown()
+		}
+
+		// Shutdown content node monitor if it exists
+		if as.contentNodeMonitor != nil {
+			as.contentNodeMonitor.Stop()
 		}
 
 		// Shutdown HLL aggregator if it exists

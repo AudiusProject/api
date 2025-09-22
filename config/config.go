@@ -38,6 +38,7 @@ type Config struct {
 	BirdeyeToken               string
 	SolanaIndexerWorkers       int
 	SolanaIndexerRetryInterval time.Duration
+	ContentNodeMonitorInterval time.Duration
 	CommsMessagePush           bool
 }
 
@@ -58,6 +59,7 @@ var Cfg = Config{
 	BirdeyeToken:               os.Getenv("birdeyeToken"),
 	SolanaIndexerWorkers:       50,
 	SolanaIndexerRetryInterval: 5 * time.Minute,
+	ContentNodeMonitorInterval: 2 * time.Minute,
 	CommsMessagePush:           true,
 }
 
@@ -151,5 +153,14 @@ func init() {
 			panic("Invalid solanaIndexerWorkers: " + err.Error())
 		}
 		Cfg.SolanaIndexerWorkers = parsedWorkers
+	}
+
+	contentNodeMonitorInterval := os.Getenv("contentNodeMonitorInterval")
+	if contentNodeMonitorInterval != "" {
+		parsedInterval, err := time.ParseDuration(contentNodeMonitorInterval)
+		if err != nil {
+			panic("Invalid contentNodeMonitorInterval: " + err.Error())
+		}
+		Cfg.ContentNodeMonitorInterval = parsedInterval
 	}
 }
