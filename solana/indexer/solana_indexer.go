@@ -96,13 +96,21 @@ func New(config config.Config) *SolanaIndexer {
 func (s *SolanaIndexer) Start(ctx context.Context) error {
 	go s.ScheduleRetries(ctx, s.config.SolanaIndexerRetryInterval)
 
-	go jobs.NewCoinStatsJob(s.config, s.pool).
-		ScheduleEvery(ctx, 5*time.Minute).Run(ctx)
+	statsJob := jobs.NewCoinStatsJob(s.config, s.pool)
+	statsCtx := context.WithoutCancel(ctx)
+	statsJob.ScheduleEvery(statsCtx, 5*time.Minute)
+	go statsJob.Run(statsCtx)
+
+	dbcJob := jobs.NewCoinDBCJob(s.config, s.pool)
+	dbcCtx := context.WithoutCancel(ctx)
+	dbcJob.ScheduleEvery(dbcCtx, 30*time.Second)
+	go dbcJob.Run(dbcCtx)
 
 	err := s.Subscribe(ctx)
 	if err != nil {
 		return fmt.Errorf("failed to subscribe: %w", err)
 	}
+
 	return nil
 }
 
