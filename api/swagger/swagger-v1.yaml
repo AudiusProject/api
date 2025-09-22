@@ -5186,6 +5186,7 @@ components:
         - mint
         - decimals
         - owner_id
+        - has_discord
         - created_at
         - marketCap
         - fdv
@@ -5247,6 +5248,10 @@ components:
           type: string
           description: The official website for the coin
           example: "https://www.bonkcoin.com/"
+        has_discord:
+          type: boolean
+          description: Whether the coin has a Discord server
+          example: true
         created_at:
           type: string
           description: The date and time when the coin was added to Audius.
@@ -5845,6 +5850,7 @@ components:
         - decimals
         - owner_id
         - balance
+        - has_discord
         - balance_usd
       type: object
       properties:
@@ -5864,6 +5870,10 @@ components:
           type: string
           description: The ID of the user associated with the coin
           example: "7eP5n"
+        has_discord:
+          type: boolean
+          description: Whether the coin has a Discord server
+          example: true
         balance:
           type: integer
           description: The balance of the coin in the user's account (in wei)

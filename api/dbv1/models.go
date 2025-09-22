@@ -1409,6 +1409,17 @@ type EncryptedEmail struct {
 	UpdatedAt      pgtype.Timestamptz `json:"updated_at"`
 }
 
+type EthActiveProposal struct {
+	ID                        int64  `json:"id"`
+	Proposer                  string `json:"proposer"`
+	SubmissionBlockNumber     int64  `json:"submission_block_number"`
+	TargetContractRegistryKey string `json:"target_contract_registry_key"`
+	TargetContractAddress     string `json:"target_contract_address"`
+	CallValue                 int64  `json:"call_value"`
+	FunctionSignature         string `json:"function_signature"`
+	CallData                  string `json:"call_data"`
+}
+
 type EthBlock struct {
 	LastScannedBlock int32     `json:"last_scanned_block"`
 	CreatedAt        time.Time `json:"created_at"`

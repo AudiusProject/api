@@ -34,6 +34,13 @@ func (app *ApiServer) v1TrackComments(c *fiber.Ctx) error {
 		WHERE score < 0
 	),
 
+	-- Deactivated users
+	deactivated_users AS (
+		SELECT user_id
+		FROM users
+		WHERE is_deactivated = true
+	),
+
 	-- Comments reported by high-karma users
 	high_karma_reporters AS (
 		SELECT comment_reports.comment_id
@@ -63,6 +70,11 @@ func (app *ApiServer) v1TrackComments(c *fiber.Ctx) error {
 		AND @myId != comments.user_id  -- always show comments to their poster
 		AND track.owner_id != comments.user_id  -- always show comments from the track owner
 	)
+	LEFT JOIN deactivated_users ON (
+		deactivated_users.user_id = comments.user_id
+		AND @myId != comments.user_id  -- always show comments to their poster
+		AND track.owner_id != comments.user_id  -- always show comments from the track owner
+	)
 	WHERE comments.entity_id = @track_id
 		AND parent_comment_id IS NULL
 		AND entity_type = 'Track'
@@ -87,6 +99,8 @@ func (app *ApiServer) v1TrackComments(c *fiber.Ctx) error {
 		)
 		-- Filter out comments from users with low abuse score
 		AND low_abuse_score.user_id IS NULL
+		-- Filter out comments from deactivated users
+		AND deactivated_users.user_id IS NULL
 	`
 
 	args := pgx.NamedArgs{

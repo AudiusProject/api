@@ -1191,16 +1191,29 @@ BEGIN
   UNION
 
   -- coin_holder_audience
-  SELECT chat_blast.blast_id, sol_user_balances.user_id AS to_user_id
-  FROM chat_blast
-  JOIN artist_coins 
-    ON artist_coins.user_id = chat_blast.from_user_id
-  JOIN sol_user_balances 
-    ON sol_user_balances.mint = artist_coins.mint
-    AND sol_user_balances.balance > 0
-  WHERE chat_blast.blast_id = blast_id_param
+  -- Case 1: userbank ie. sol_claimable_accounts
+  SELECT chat_blast.blast_id, u.user_id AS to_user_id
+  FROM artist_coins ac
+  JOIN chat_blast ON chat_blast.blast_id = blast_id_param
     AND chat_blast.audience = 'coin_holder_audience'
-    AND sol_user_balances.user_id != chat_blast.from_user_id;
+    AND ac.user_id = chat_blast.from_user_id
+  JOIN sol_claimable_accounts sca ON sca.mint = ac.mint
+  JOIN sol_token_account_balances stab ON stab.account = sca.account
+  JOIN users u ON u.wallet = sca.ethereum_address
+  WHERE stab.balance > 0
+
+  UNION
+
+  -- Case 2: associated_wallets
+  SELECT chat_blast.blast_id, u.user_id AS to_user_id
+  FROM artist_coins ac
+  JOIN chat_blast ON chat_blast.blast_id = blast_id_param
+    AND chat_blast.audience = 'coin_holder_audience'
+    AND ac.user_id = chat_blast.from_user_id
+  JOIN sol_token_account_balances stab ON stab.mint = ac.mint
+  JOIN associated_wallets aw ON aw.wallet = stab.owner
+  JOIN users u ON u.user_id = aw.user_id
+  WHERE stab.balance > 0;
 
 END;
 $$;
@@ -2130,6 +2143,87 @@ $$;
 
 
 --
+-- Name: handle_chat_blast(); Type: FUNCTION; Schema: public; Owner: -
+--
+
+CREATE FUNCTION public.handle_chat_blast() RETURNS trigger
+    LANGUAGE plpgsql
+    AS $$
+declare
+begin
+  PERFORM pg_notify('chat_blast_inserted', json_build_object('blast_id', new.blast_id)::text);
+  return null;
+
+exception
+  when others then
+    raise warning 'An error occurred in %: %', tg_name, sqlerrm;
+    raise;
+
+end;
+$$;
+
+
+--
+-- Name: handle_chat_message(); Type: FUNCTION; Schema: public; Owner: -
+--
+
+CREATE FUNCTION public.handle_chat_message() RETURNS trigger
+    LANGUAGE plpgsql
+    AS $$
+declare
+begin
+  PERFORM pg_notify('chat_message_inserted', json_build_object('message_id', new.message_id)::text);
+  return null;
+
+exception
+  when others then
+    raise warning 'An error occurred in %: %', tg_name, sqlerrm;
+    raise;
+
+end;
+$$;
+
+
+--
+-- Name: handle_chat_message_reaction_changed(); Type: FUNCTION; Schema: public; Owner: -
+--
+
+CREATE FUNCTION public.handle_chat_message_reaction_changed() RETURNS trigger
+    LANGUAGE plpgsql
+    AS $$
+declare
+  message_id text;
+  user_id bigint;
+  reaction text;
+begin
+  -- Get the values from either NEW or OLD record
+  if tg_op = 'DELETE' then
+    message_id := old.message_id;
+    user_id := old.user_id;
+    reaction := null; -- Set reaction to null for deletions
+  else
+    message_id := new.message_id;
+    user_id := new.user_id;
+    reaction := new.reaction;
+  end if;
+
+  PERFORM pg_notify('chat_message_reaction_changed', json_build_object(
+    'message_id', message_id,
+    'user_id', user_id,
+    'reaction', reaction
+  )::text);
+  return coalesce(new, old);
+
+exception
+  when others then
+    raise warning 'An error occurred in %: %', tg_name, sqlerrm;
+    raise;
+
+end;
+$$;
+
+
+--
 -- Name: handle_comment(); Type: FUNCTION; Schema: public; Owner: -
 --
 
@@ -2294,6 +2388,28 @@ exception
     when others then
       raise warning 'An error occurred in %: %', tg_name, sqlerrm;
       return null;
+end;
+$$;
+
+
+--
+-- Name: handle_comms_rpc_log(); Type: FUNCTION; Schema: public; Owner: -
+--
+
+CREATE FUNCTION public.handle_comms_rpc_log() RETURNS trigger
+    LANGUAGE plpgsql
+    AS $$
+declare
+begin
+  -- Send notification with the signature (primary key) of the new rpc_log record
+  PERFORM pg_notify('rpc_log_inserted', json_build_object('sig', new.sig)::text);
+  return null;
+
+exception
+  when others then
+    raise warning 'An error occurred in %: %', tg_name, sqlerrm;
+    raise;
+
 end;
 $$;
 
@@ -4299,7 +4415,6 @@ BEGIN
         country = 'Ukraine' OR
         country = 'United Arab Emirates' OR
         country = 'United Kingdom' OR
-        country = 'United States' OR
         country = 'Uruguay' OR
         country = 'Uzbekistan' OR
         country = 'Vanuatu' OR
@@ -4444,7 +4559,6 @@ BEGIN
         country = 'MU' OR
         country = 'MV' OR
         country = 'MW' OR
-        country = 'MX' OR
         country = 'MY' OR
         country = 'MZ' OR
         country = 'NA' OR
@@ -4513,7 +4627,6 @@ BEGIN
         country = 'TZ' OR
         country = 'UA' OR
         country = 'UG' OR
-        country = 'US' OR
         country = 'UY' OR
         country = 'UZ' OR
         country = 'VA' OR
@@ -5873,7 +5986,9 @@ CREATE TABLE public.artist_coins (
     logo_uri text,
     description text,
     website text,
-    name text DEFAULT ''::text NOT NULL
+    name text DEFAULT ''::text NOT NULL,
+    dbc_pool text,
+    has_discord boolean DEFAULT false NOT NULL
 );
 
 
@@ -6788,6 +6903,22 @@ CREATE SEQUENCE public.encrypted_emails_id_seq
 --
 
 ALTER SEQUENCE public.encrypted_emails_id_seq OWNED BY public.encrypted_emails.id;
+
+
+--
+-- Name: eth_active_proposals; Type: TABLE; Schema: public; Owner: -
+--
+
+CREATE TABLE public.eth_active_proposals (
+    id bigint NOT NULL,
+    proposer text NOT NULL,
+    submission_block_number bigint NOT NULL,
+    target_contract_registry_key text NOT NULL,
+    target_contract_address text NOT NULL,
+    call_value bigint NOT NULL,
+    function_signature text NOT NULL,
+    call_data text NOT NULL
+);
 
 
 --
@@ -9443,6 +9574,14 @@ ALTER TABLE ONLY public.encrypted_emails
 
 
 --
+-- Name: eth_active_proposals eth_active_proposals_pkey; Type: CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.eth_active_proposals
+    ADD CONSTRAINT eth_active_proposals_pkey PRIMARY KEY (id);
+
+
+--
 -- Name: eth_blocks eth_blocks_pkey; Type: CONSTRAINT; Schema: public; Owner: -
 --
 
@@ -11700,6 +11839,27 @@ CREATE TRIGGER on_challenge_disbursement AFTER INSERT ON public.challenge_disbur
 
 
 --
+-- Name: chat_blast on_chat_blast; Type: TRIGGER; Schema: public; Owner: -
+--
+
+CREATE TRIGGER on_chat_blast AFTER INSERT ON public.chat_blast FOR EACH ROW EXECUTE FUNCTION public.handle_chat_blast();
+
+
+--
+-- Name: chat_message on_chat_message; Type: TRIGGER; Schema: public; Owner: -
+--
+
+CREATE TRIGGER on_chat_message AFTER INSERT ON public.chat_message FOR EACH ROW EXECUTE FUNCTION public.handle_chat_message();
+
+
+--
+-- Name: chat_message_reactions on_chat_message_reaction_changed; Type: TRIGGER; Schema: public; Owner: -
+--
+
+CREATE TRIGGER on_chat_message_reaction_changed AFTER INSERT OR DELETE OR UPDATE ON public.chat_message_reactions FOR EACH ROW EXECUTE FUNCTION public.handle_chat_message_reaction_changed();
+
+
+--
 -- Name: comments on_comment; Type: TRIGGER; Schema: public; Owner: -
 --
 
@@ -11753,6 +11913,13 @@ CREATE TRIGGER on_reaction AFTER INSERT ON public.reactions FOR EACH ROW EXECUTE
 --
 
 CREATE TRIGGER on_repost AFTER INSERT ON public.reposts FOR EACH ROW EXECUTE FUNCTION public.handle_repost();
+
+
+--
+-- Name: rpc_log on_rpc_log; Type: TRIGGER; Schema: public; Owner: -
+--
+
+CREATE TRIGGER on_rpc_log AFTER INSERT ON public.rpc_log FOR EACH ROW EXECUTE FUNCTION public.handle_comms_rpc_log();
 
 
 --
