@@ -17,6 +17,8 @@ import (
 	"go.uber.org/zap"
 )
 
+const AUDIO_DECIMALS = 8
+
 type CoinDBCJob struct {
 	meteoraClient *meteora_dbc.Client
 	dbc           *dbc.DBC
@@ -129,7 +131,7 @@ func (j *CoinDBCJob) updatePool(ctx context.Context, poolPubkey solana.PublicKey
 		return fmt.Errorf("error getting pool config: %w", err)
 	}
 
-	price, err := j.meteoraClient.GetQuotePrice(ctx, poolPubkey, int(poolConfig.TokenDecimal), 6)
+	price, err := j.meteoraClient.GetQuotePrice(ctx, poolPubkey, int(poolConfig.TokenDecimal), AUDIO_DECIMALS)
 	if err != nil {
 		return fmt.Errorf("error getting quote price: %w", err)
 	}
