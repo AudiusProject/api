@@ -96,14 +96,6 @@ func New(config config.Config) *SolanaIndexer {
 func (s *SolanaIndexer) Start(ctx context.Context) error {
 	go s.ScheduleRetries(ctx, s.config.SolanaIndexerRetryInterval)
 
-	// coinStatsCtx := context.WithoutCancel(ctx)
-	// go jobs.NewCoinStatsJob(s.config, s.pool).
-	// 	ScheduleEvery(coinStatsCtx, 5*time.Minute).Run(coinStatsCtx)
-
-	// coinDBCJobCtx := context.WithoutCancel(ctx)
-	// go jobs.NewCoinDBCJob(s.config, s.pool).
-	// 	ScheduleEvery(coinDBCJobCtx, 30*time.Second).Run(coinDBCJobCtx)
-
 	statsJob := jobs.NewCoinStatsJob(s.config, s.pool)
 	statsCtx := context.WithoutCancel(ctx)
 	statsJob.ScheduleEvery(statsCtx, 5*time.Minute)
