@@ -474,6 +474,7 @@ func NewApiServer(config config.Config) *ApiServer {
 		// Challenges
 		g.Get("/challenges/undisbursed", app.v1ChallengesUndisbursed)
 		g.Get("/challenges/undisbursed/:userId", app.v1ChallengesUndisbursed)
+		g.Get("/challenges/:challengeId/info", app.v1ChallengesInfo)
 
 		// Metrics
 		g.Get("/metrics/genres", app.v1MetricsGenres)
