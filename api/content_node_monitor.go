@@ -12,8 +12,8 @@ import (
 	"go.uber.org/zap"
 )
 
-// ContentNodeMonitor monitors the health of content nodes by periodically
-// checking their /health_check endpoints and maintaining a list of healthy nodes.
+// ContentNodeMonitor pings storage enabled nodes on a timer and caches a list
+// of the ones that responded.
 type ContentNodeMonitor struct {
 	config              config.Config
 	storageEnabledNodes []config.Node // Filtered list of nodes with storage enabled
@@ -136,7 +136,6 @@ func (m *ContentNodeMonitor) updateHealthyNodes() {
 		}(node)
 	}
 
-	// Collect results with timeout detection
 	var healthyNodes []config.Node
 
 nodeCheckLoop:
@@ -146,6 +145,7 @@ nodeCheckLoop:
 			if result.healthy {
 				healthyNodes = append(healthyNodes, result.node)
 			}
+		// Done indicates timeout, so we break and stop checking
 		case <-ctx.Done():
 			m.logger.Error("Content node health check timed out",
 				zap.Error(ctx.Err()),
@@ -155,7 +155,6 @@ nodeCheckLoop:
 		}
 	}
 
-	// Update the healthy nodes list atomically
 	m.mu.Lock()
 	m.healthyNodes = healthyNodes
 	m.mu.Unlock()
@@ -165,7 +164,6 @@ nodeCheckLoop:
 		zap.Int("total_nodes", len(m.storageEnabledNodes)))
 }
 
-// checkSingleNodeHealth checks the health of a single node with retries.
 func (m *ContentNodeMonitor) checkSingleNodeHealth(ctx context.Context, node config.Node) bool {
 	const maxRetries = 3
 
@@ -187,9 +185,7 @@ func (m *ContentNodeMonitor) checkSingleNodeHealth(ctx context.Context, node con
 	return false
 }
 
-// checkNodeEndpoint makes a single HTTP request to check node health.
 func (m *ContentNodeMonitor) checkNodeEndpoint(ctx context.Context, node config.Node) bool {
-	// Construct the health check URL
 	healthURL := fmt.Sprintf("%s/health_check", node.Endpoint)
 
 	req, err := http.NewRequestWithContext(ctx, "GET", healthURL, nil)
@@ -203,6 +199,5 @@ func (m *ContentNodeMonitor) checkNodeEndpoint(ctx context.Context, node config.
 	}
 	defer resp.Body.Close()
 
-	// Consider 200 status as healthy
 	return resp.StatusCode == http.StatusOK
 }
