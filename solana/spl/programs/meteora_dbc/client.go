@@ -73,7 +73,7 @@ func (c *Client) GetQuotePrice(ctx context.Context, poolAccount solana.PublicKey
 	sqrtPriceSquared := new(big.Int).Mul(sqrtPrice, sqrtPrice)
 	decimalsFactor := new(big.Int).Exp(big.NewInt(10), big.NewInt(int64(tokenBaseDecimals-tokenQuoteDecimals)), nil)
 
-	numerator := new(big.Int).Mul(sqrtPriceSquared, decimalsFactor)
+	numerator := new(big.Int).Div(sqrtPriceSquared, decimalsFactor)
 	divisor := new(big.Int).Exp(big.NewInt(2), big.NewInt(128), nil)
 	quotient := new(big.Rat).SetFrac(numerator, divisor)
 
