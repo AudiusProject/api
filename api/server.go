@@ -302,18 +302,6 @@ func NewApiServer(config config.Config) *ApiServer {
 	app.Use(app.resolveMyIdMiddleware)
 	app.Use(app.authMiddleware)
 
-	// some not-yet-implemented routes will match handlers below
-	// and won't fall thru to python reverse proxy handler
-	// so add some exclusions here to make `bridge.audius.co` less broken
-	// todo: implement these endpoints in bridgerton.
-	{
-		app.Use("/v1/full/playlists/top", BalancerForward(config.PythonUpstreams))
-
-		app.Use("/v1/full/tracks/best_new_releases", BalancerForward(config.PythonUpstreams))
-		app.Use("/v1/full/tracks/most_loved", BalancerForward(config.PythonUpstreams))
-		app.Use("/v1/full/tracks/remixables", BalancerForward(config.PythonUpstreams))
-	}
-
 	v1 := app.Group("/v1")
 	v1Full := app.Group("/v1/full")
 
@@ -578,9 +566,6 @@ func NewApiServer(config config.Config) *ApiServer {
 			FileContent: swaggerV1Full,
 		}))
 	}
-
-	// proxy unhandled requests thru to existing discovery API
-	app.Use(BalancerForward(config.PythonUpstreams))
 
 	// gracefully handle 404
 	// (this won't get hit so long as above proxy is in place)
