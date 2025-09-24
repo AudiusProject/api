@@ -124,7 +124,7 @@ func TestUserCoins(t *testing.T) {
 		},
 	}
 
-	database.Seed(app.pool.Replicas[0], fixtures)
+	database.Seed(app.writePool, fixtures)
 
 	status, body := testGet(t, app, "/v1/users/"+trashid.MustEncodeHashID(1)+"/coins")
 	assert.Equal(t, 200, status)
@@ -215,7 +215,7 @@ func TestUserCoinsOrdering(t *testing.T) {
 		},
 	}
 
-	database.Seed(app.pool.Replicas[0], fixtures)
+	database.Seed(app.writePool, fixtures)
 
 	status, body := testGet(t, app, "/v1/users/"+trashid.MustEncodeHashID(2)+"/coins")
 	assert.Equal(t, 200, status)
@@ -296,7 +296,7 @@ func TestUserCoinsZeroBalanceOwned(t *testing.T) {
 		},
 	}
 
-	database.Seed(app.pool.Replicas[0], fixtures)
+	database.Seed(app.writePool, fixtures)
 
 	status, body := testGet(t, app, "/v1/users/"+trashid.MustEncodeHashID(2)+"/coins")
 	assert.Equal(t, 200, status)
@@ -389,7 +389,7 @@ func TestUserCoinsFilterZeroBalance(t *testing.T) {
 		},
 	}
 
-	database.Seed(app.pool.Replicas[0], fixtures)
+	database.Seed(app.writePool, fixtures)
 
 	status, body := testGet(t, app, "/v1/users/"+trashid.MustEncodeHashID(2)+"/coins")
 	assert.Equal(t, 200, status)
