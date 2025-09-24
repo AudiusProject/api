@@ -1,8 +1,6 @@
 package api
 
 import (
-	"fmt"
-
 	"api.audius.co/trashid"
 	"github.com/gofiber/fiber/v2"
 	"github.com/jackc/pgx/v5"
@@ -27,31 +25,6 @@ func (app *ApiServer) v1UsersCoins(c *fiber.Ctx) error {
 	queryParams := GetUsersCoinsQueryParams{}
 	if err := app.ParseAndValidateQueryParams(c, &queryParams); err != nil {
 		return err
-	}
-
-	mintSql := `
-		SELECT mint
-		FROM artist_coins;
-	`
-	var mints []string
-	rows, err := app.pool.Query(c.Context(), mintSql)
-	if err != nil {
-		return fmt.Errorf("failed to query mints: %w", err)
-	}
-	defer rows.Close()
-
-	for rows.Next() {
-		var mint string
-		if err := rows.Scan(&mint); err != nil {
-			return fmt.Errorf("failed to scan mint: %w", err)
-		}
-		mints = append(mints, mint)
-	}
-
-	if len(mints) == 0 {
-		return c.JSON(fiber.Map{
-			"data": []UserCoin{},
-		})
 	}
 
 	sql := `
@@ -115,12 +88,17 @@ func (app *ApiServer) v1UsersCoins(c *fiber.Ctx) error {
 		OFFSET @offset
 	;`
 
-	rows, err = app.pool.Query(c.Context(), sql, pgx.NamedArgs{
+	rows, err := app.pool.Query(c.Context(), sql, pgx.NamedArgs{
 		"user_id": app.getUserId(c),
 		"limit":   queryParams.Limit,
 		"offset":  queryParams.Offset,
 	})
 	if err != nil {
+		if err == pgx.ErrNoRows {
+			return c.JSON(fiber.Map{
+				"data": []UserCoin{},
+			})
+		}
 		return err
 	}
 
