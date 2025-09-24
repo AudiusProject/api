@@ -7,8 +7,12 @@ import (
 func (app *ApiServer) v1MetricsTotalWallets(c *fiber.Ctx) error {
 	var total int64
 	if err := app.pool.QueryRow(c.Context(), `
-        SELECT COUNT(*)::bigint
-        FROM users
+		SELECT SUM(count)::bigint AS total
+		FROM (
+			SELECT COUNT(*)::bigint AS count FROM users
+			UNION ALL
+			SELECT COUNT(*)::bigint AS count FROM sol_claimable_accounts
+		) AS combined
     `).Scan(&total); err != nil {
 		return err
 	}
