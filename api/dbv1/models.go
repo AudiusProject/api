@@ -846,7 +846,6 @@ type ArtistCoin struct {
 	Description pgtype.Text `json:"description"`
 	Website     pgtype.Text `json:"website"`
 	Name        string      `json:"name"`
-	DbcPool     pgtype.Text `json:"dbc_pool"`
 	HasDiscord  bool        `json:"has_discord"`
 }
 
