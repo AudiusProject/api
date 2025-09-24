@@ -89,18 +89,41 @@ func (app *ApiServer) v1UsersCoins(c *fiber.Ctx) error {
 			FROM balances
 			GROUP BY balances.mint
 		),
+		-- Include owned coins even if they have zero balance
+		owned_coins AS (
+			SELECT
+				artist_coins.mint,
+				0 AS balance
+			FROM artist_coins
+			WHERE artist_coins.user_id = @user_id
+		),
+		all_coins AS (
+			SELECT mint, balance FROM balances_by_mint
+			UNION ALL
+			SELECT mint, balance FROM owned_coins
+			WHERE mint NOT IN (SELECT mint FROM balances_by_mint)
+		),
+		-- Filter out coins with zero balance unless user owns them
+		filtered_coins AS (
+			SELECT mint, balance
+			FROM all_coins
+			WHERE balance > 0 
+			   OR mint IN (SELECT mint FROM owned_coins)
+		),
 		balances_with_prices AS (
 			SELECT
 				artist_coins.ticker,
-				balances_by_mint.mint,
+				filtered_coins.mint,
 				artist_coins.decimals,
 				artist_coins.has_discord,
 				artist_coins.user_id,
-				balances_by_mint.balance AS balance,
-				(balances_by_mint.balance * stats.price) / POWER(10, artist_coins.decimals) AS balance_usd
-			FROM balances_by_mint
-			JOIN artist_coins ON artist_coins.mint = balances_by_mint.mint
-			JOIN artist_coin_stats stats ON stats.mint = balances_by_mint.mint
+				filtered_coins.balance AS balance,
+				(filtered_coins.balance * stats.price) / POWER(10, artist_coins.decimals) AS balance_usd,
+				-- Add flag to identify if this is the user's owned coin
+				(artist_coins.user_id = @user_id) AS is_owned_coin
+			FROM filtered_coins
+			JOIN artist_coins ON artist_coins.mint = filtered_coins.mint
+			JOIN artist_coin_stats stats ON stats.mint = filtered_coins.mint
 		)
 		SELECT
 			balances_with_prices.ticker,
@@ -112,8 +135,13 @@ func (app *ApiServer) v1UsersCoins(c *fiber.Ctx) error {
 			balances_with_prices.balance_usd
 		FROM balances_with_prices
 		ORDER BY
+			-- Always show user's owned coins first, regardless of balance
+			balances_with_prices.is_owned_coin DESC,
+			-- Then prioritize AUDIO
 			balances_with_prices.ticker = '$AUDIO' DESC,
+			-- Then by balance USD
 			balances_with_prices.balance_usd DESC,
+			-- Finally by mint for consistent ordering
 			balances_with_prices.mint ASC
 		LIMIT @limit
 		OFFSET @offset
