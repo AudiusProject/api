@@ -203,7 +203,7 @@ func TestUserCoinsOrdering(t *testing.T) {
 				"mint":    "9LzCMqDgTKYz9Drzqnpgee3SGa89up3a247ypMj2xrqM",
 				"account": "associated",
 				"owner":   "owner_wallet",
-				"balance": 100000000000, // 100 AUDIO
+				"balance": 10000000000, // 100 AUDIO
 			},
 			// User 2 has 50 MYCOIN (worth $5) - their own coin
 			{
@@ -232,7 +232,7 @@ func TestUserCoinsOrdering(t *testing.T) {
 		"data.0.balance_usd": 5.0,
 		"data.1.ticker":      "$AUDIO", // Higher balance but not owned
 		"data.1.mint":        "9LzCMqDgTKYz9Drzqnpgee3SGa89up3a247ypMj2xrqM",
-		"data.1.balance":     100000000000, // 100 AUDIO
+		"data.1.balance":     10000000000, // 100 AUDIO
 		"data.1.balance_usd": 100.0,
 	})
 }
@@ -290,7 +290,7 @@ func TestUserCoinsZeroBalanceOwned(t *testing.T) {
 				"mint":    "9LzCMqDgTKYz9Drzqnpgee3SGa89up3a247ypMj2xrqM",
 				"account": "associated",
 				"owner":   "owner_wallet",
-				"balance": 50000000000, // 50 AUDIO
+				"balance": 5000000000, // 50 AUDIO
 			},
 			// Note: No balance entry for ZEROCOIN - user has zero balance
 		},
@@ -312,7 +312,7 @@ func TestUserCoinsZeroBalanceOwned(t *testing.T) {
 		"data.0.balance_usd": 0.0,
 		"data.1.ticker":      "$AUDIO", // Higher balance but not owned
 		"data.1.mint":        "9LzCMqDgTKYz9Drzqnpgee3SGa89up3a247ypMj2xrqM",
-		"data.1.balance":     50000000000, // 50 AUDIO
+		"data.1.balance":     5000000000, // 50 AUDIO
 		"data.1.balance_usd": 50.0,
 	})
 }
@@ -381,7 +381,7 @@ func TestUserCoinsFilterZeroBalance(t *testing.T) {
 				"mint":    "9LzCMqDgTKYz9Drzqnpgee3SGa89up3a247ypMj2xrqM",
 				"account": "associated",
 				"owner":   "owner_wallet",
-				"balance": 50000000000, // 50 AUDIO
+				"balance": 5000000000, // 50 AUDIO
 			},
 			// User 2 has zero balance in MYCOIN (their own coin) - should still appear
 			// User 2 has zero balance in OTHERCOIN (not their coin) - should be filtered out
@@ -397,7 +397,7 @@ func TestUserCoinsFilterZeroBalance(t *testing.T) {
 	// Should only return 2 coins: MYCOIN (owned, zero balance) and AUDIO (positive balance)
 	// OTHERCOIN should be filtered out because user doesn't own it and has zero balance
 	jsonAssert(t, body, map[string]any{
-		"data.#":             2, // Only 2 coins, not 3
+		"data.#":             2,         // Only 2 coins, not 3
 		"data.0.ticker":      "$MYCOIN", // Owned coin should come first, even with zero balance
 		"data.0.mint":        "mycoin_mint_address_123",
 		"data.0.decimals":    9,
@@ -406,7 +406,7 @@ func TestUserCoinsFilterZeroBalance(t *testing.T) {
 		"data.0.balance_usd": 0.0,
 		"data.1.ticker":      "$AUDIO", // Positive balance
 		"data.1.mint":        "9LzCMqDgTKYz9Drzqnpgee3SGa89up3a247ypMj2xrqM",
-		"data.1.balance":     50000000000, // 50 AUDIO
+		"data.1.balance":     5000000000, // 50 AUDIO
 		"data.1.balance_usd": 50.0,
 	})
 }

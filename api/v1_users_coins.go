@@ -88,61 +88,29 @@ func (app *ApiServer) v1UsersCoins(c *fiber.Ctx) error {
 				SUM(balances.balance) AS balance
 			FROM balances
 			GROUP BY balances.mint
-		),
-		-- Include owned coins even if they have zero balance
-		owned_coins AS (
-			SELECT
-				artist_coins.mint,
-				0 AS balance
-			FROM artist_coins
-			WHERE artist_coins.user_id = @user_id
-		),
-		all_coins AS (
-			SELECT mint, balance FROM balances_by_mint
-			UNION ALL
-			SELECT mint, balance FROM owned_coins
-			WHERE mint NOT IN (SELECT mint FROM balances_by_mint)
-		),
-		-- Filter out coins with zero balance unless user owns them
-		filtered_coins AS (
-			SELECT mint, balance
-			FROM all_coins
-			WHERE balance > 0 
-			   OR mint IN (SELECT mint FROM owned_coins)
-		),
-		balances_with_prices AS (
-			SELECT
-				artist_coins.ticker,
-				filtered_coins.mint,
-				artist_coins.decimals,
-				artist_coins.has_discord,
-				artist_coins.user_id,
-				filtered_coins.balance AS balance,
-				(filtered_coins.balance * stats.price) / POWER(10, artist_coins.decimals) AS balance_usd,
-				-- Add flag to identify if this is the user's owned coin
-				(artist_coins.user_id = @user_id) AS is_owned_coin
-			FROM filtered_coins
-			JOIN artist_coins ON artist_coins.mint = filtered_coins.mint
-			JOIN artist_coin_stats stats ON stats.mint = filtered_coins.mint
 		)
 		SELECT
-			balances_with_prices.ticker,
-			balances_with_prices.mint,
-			balances_with_prices.decimals,
-			balances_with_prices.has_discord,
-			balances_with_prices.user_id AS owner_id,
-			balances_with_prices.balance,
-			balances_with_prices.balance_usd
-		FROM balances_with_prices
+			artist_coins.ticker,
+			artist_coins.mint,
+			artist_coins.decimals,
+			artist_coins.has_discord,
+			artist_coins.user_id AS owner_id,
+			COALESCE(balances_by_mint.balance, 0) AS balance,
+			(COALESCE(balances_by_mint.balance, 0) * stats.price) / POWER(10, artist_coins.decimals) AS balance_usd
+		FROM artist_coins
+		LEFT JOIN balances_by_mint ON balances_by_mint.mint = artist_coins.mint
+		JOIN artist_coin_stats stats ON stats.mint = artist_coins.mint
+		WHERE artist_coins.user_id = @user_id  -- Show owned coins
+		   OR balance > 0  -- Show coins with positive balance
 		ORDER BY
 			-- Always show user's owned coins first, regardless of balance
-			balances_with_prices.is_owned_coin DESC,
+			(artist_coins.user_id = @user_id) DESC,
 			-- Then prioritize AUDIO
-			balances_with_prices.ticker = '$AUDIO' DESC,
+			artist_coins.ticker = '$AUDIO' DESC,
 			-- Then by number of coins (balance)
-			balances_with_prices.balance DESC,
+			balance DESC,
 			-- Finally by mint for consistent ordering
-			balances_with_prices.mint ASC
+			artist_coins.mint ASC
 		LIMIT @limit
 		OFFSET @offset
 	;`
