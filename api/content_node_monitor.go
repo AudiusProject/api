@@ -84,14 +84,9 @@ func (m *ContentNodeMonitor) GetContentNodes() []config.Node {
 	return result
 }
 
-// monitorLoop runs the main monitoring loop.
+// monitorLoop runs the main monitoring loop. (every 2 minutes)
 func (m *ContentNodeMonitor) monitorLoop() {
-	timePeriod := m.config.ContentNodeMonitorInterval
-	if timePeriod == 0 {
-		timePeriod = 2 * time.Minute
-	}
-
-	ticker := time.NewTicker(timePeriod)
+	ticker := time.NewTicker(2 * time.Minute)
 	defer ticker.Stop()
 
 	// Perform initial health check
