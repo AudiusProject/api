@@ -88,33 +88,29 @@ func (app *ApiServer) v1UsersCoins(c *fiber.Ctx) error {
 				SUM(balances.balance) AS balance
 			FROM balances
 			GROUP BY balances.mint
-		),
-		balances_with_prices AS (
-			SELECT
-				artist_coins.ticker,
-				balances_by_mint.mint,
-				artist_coins.decimals,
-				artist_coins.has_discord,
-				artist_coins.user_id,
-				balances_by_mint.balance AS balance,
-				(balances_by_mint.balance * stats.price) / POWER(10, artist_coins.decimals) AS balance_usd
-			FROM balances_by_mint
-			JOIN artist_coins ON artist_coins.mint = balances_by_mint.mint
-			JOIN artist_coin_stats stats ON stats.mint = balances_by_mint.mint
 		)
 		SELECT
-			balances_with_prices.ticker,
-			balances_with_prices.mint,
-			balances_with_prices.decimals,
-			balances_with_prices.has_discord,
-			balances_with_prices.user_id AS owner_id,
-			balances_with_prices.balance,
-			balances_with_prices.balance_usd
-		FROM balances_with_prices
+			artist_coins.ticker,
+			artist_coins.mint,
+			artist_coins.decimals,
+			artist_coins.has_discord,
+			artist_coins.user_id AS owner_id,
+			COALESCE(balances_by_mint.balance, 0) AS balance,
+			(COALESCE(balances_by_mint.balance, 0) * stats.price) / POWER(10, artist_coins.decimals) AS balance_usd
+		FROM artist_coins
+		LEFT JOIN balances_by_mint ON balances_by_mint.mint = artist_coins.mint
+		JOIN artist_coin_stats stats ON stats.mint = artist_coins.mint
+		WHERE artist_coins.user_id = @user_id  -- Show owned coins
+		   OR balance > 0  -- Show coins with positive balance
 		ORDER BY
-			balances_with_prices.ticker = '$AUDIO' DESC,
-			balances_with_prices.balance_usd DESC,
-			balances_with_prices.mint ASC
+			-- Always show user's owned coins first, regardless of balance
+			(artist_coins.user_id = @user_id) DESC,
+			-- Then prioritize AUDIO
+			artist_coins.ticker = '$AUDIO' DESC,
+			-- Then by number of coins (balance)
+			balance DESC,
+			-- Finally by mint for consistent ordering
+			artist_coins.mint ASC
 		LIMIT @limit
 		OFFSET @offset
 	;`

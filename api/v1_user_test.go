@@ -127,6 +127,17 @@ func TestGetUserCoinBadges(t *testing.T) {
 				"mint":    "test_mint_address_124",
 				"balance": 500,
 			},
+			// User 4 owns $STEVE but has zero balance in it, has other coins
+			{
+				"user_id": 4,
+				"mint":    "test_mint_address_124",
+				"balance": 0,
+			},
+			{
+				"user_id": 4,
+				"mint":    "test_mint_address_123",
+				"balance": 300,
+			},
 		},
 	}
 
@@ -163,6 +174,18 @@ func TestGetUserCoinBadges(t *testing.T) {
 			"data.0.artist_coin_badge.mint":     "test_mint_address_123",
 			"data.0.artist_coin_badge.ticker":   "$TESTCOIN",
 			"data.0.artist_coin_badge.logo_uri": "https://example.com/test-logo.png",
+		})
+	}
+
+	// Always show artist's created coin even with zero balance
+	{
+		status, body := testGet(t, app, "/v1/full/users/"+trashid.MustEncodeHashID(4))
+		assert.Equal(t, 200, status)
+
+		jsonAssert(t, body, map[string]any{
+			"data.0.artist_coin_badge.mint":     "test_mint_address_124",
+			"data.0.artist_coin_badge.ticker":   "$STEVE",
+			"data.0.artist_coin_badge.logo_uri": "https://example.com/steve-logo.png",
 		})
 	}
 }
