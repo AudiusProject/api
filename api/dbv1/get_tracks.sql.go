@@ -300,9 +300,9 @@ type GetTracksRow struct {
 	CopyrightLine                      json.RawMessage `json:"copyright_line"`
 	ProducerCopyrightLine              json.RawMessage `json:"producer_copyright_line"`
 	ParentalWarningType                pgtype.Text     `json:"parental_warning_type"`
-	IsStreamGated                      pgtype.Bool     `json:"is_stream_gated"`
+	IsStreamGated                      bool            `json:"is_stream_gated"`
 	StreamConditions                   *AccessGate     `json:"stream_conditions"`
-	IsDownloadGated                    pgtype.Bool     `json:"is_download_gated"`
+	IsDownloadGated                    bool            `json:"is_download_gated"`
 	DownloadConditions                 *AccessGate     `json:"download_conditions"`
 	CoverOriginalSongTitle             pgtype.Text     `json:"cover_original_song_title"`
 	CoverOriginalArtist                pgtype.Text     `json:"cover_original_artist"`
