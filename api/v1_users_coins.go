@@ -94,11 +94,6 @@ func (app *ApiServer) v1UsersCoins(c *fiber.Ctx) error {
 		"offset":  queryParams.Offset,
 	})
 	if err != nil {
-		if err == pgx.ErrNoRows {
-			return c.JSON(fiber.Map{
-				"data": []UserCoin{},
-			})
-		}
 		return err
 	}
 

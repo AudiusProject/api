@@ -198,3 +198,32 @@ func TestV1CoinsMembers(t *testing.T) {
 		})
 	}
 }
+
+func TestV1CoinsMemberEmpty(t *testing.T) {
+	app := emptyTestApp(t)
+
+	fixtures := database.FixtureMap{
+		"artist_coins": {
+			{
+				"ticker":   "$ARTISTCOIN",
+				"decimals": 1,
+				"user_id":  1,
+				"mint":     "artistcoin_mint",
+			},
+		},
+	}
+
+	database.Seed(app.writePool, fixtures)
+
+	{
+		status, body := testGet(
+			t, app,
+			"/v1/coins/artistcoin_mint/members",
+		)
+
+		assert.Equal(t, 200, status)
+		jsonAssert(t, body, map[string]any{
+			"data.#": 0,
+		})
+	}
+}

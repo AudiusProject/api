@@ -66,8 +66,6 @@ func TestGetCoins(t *testing.T) {
 
 	database.Seed(app.pool.Replicas[0], fixtures)
 
-	app.birdeyeClient = &mockBirdeyeClient{}
-
 	// filter by owner_id
 	{
 		status, body := testGet(t, app, "/v1/coins?owner_id="+trashid.MustEncodeHashID(1))
@@ -220,4 +218,17 @@ func TestGetCoins(t *testing.T) {
 		})
 	}
 
+}
+
+func TestGetCoinsEmpty(t *testing.T) {
+	app := emptyTestApp(t)
+
+	{
+		status, body := testGet(t, app, "/v1/coins")
+		assert.Equal(t, 200, status)
+
+		jsonAssert(t, body, map[string]any{
+			"data.#": 0,
+		})
+	}
 }
