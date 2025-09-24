@@ -139,8 +139,8 @@ func (app *ApiServer) v1UsersCoins(c *fiber.Ctx) error {
 			balances_with_prices.is_owned_coin DESC,
 			-- Then prioritize AUDIO
 			balances_with_prices.ticker = '$AUDIO' DESC,
-			-- Then by balance USD
-			balances_with_prices.balance_usd DESC,
+			-- Then by number of coins (balance)
+			balances_with_prices.balance DESC,
 			-- Finally by mint for consistent ordering
 			balances_with_prices.mint ASC
 		LIMIT @limit
