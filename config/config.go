@@ -28,7 +28,6 @@ type Config struct {
 	DelegatePrivateKey         string
 	AxiomToken                 string
 	AxiomDataset               string
-	PythonUpstreams            []string
 	NetworkTakeRate            float64
 	SolanaConfig               SolanaConfig
 	AntiAbuseOracles           []string
@@ -87,9 +86,6 @@ func init() {
 		Cfg.AudiusdURL = "http://audius-protocol-creator-node-1"
 		Cfg.ChainId = "audius-devnet"
 		Cfg.SolanaIndexerWorkers = 1
-		Cfg.PythonUpstreams = []string{
-			"http://audius-protocol-discovery-provider-1",
-		}
 	case "stage":
 		fallthrough
 	case "staging":
@@ -97,9 +93,6 @@ func init() {
 			log.Fatalf("Missing required %s env var: delegatePrivateKey", env)
 		}
 		Cfg.AntiAbuseOracles = []string{"https://discoveryprovider.staging.audius.co"}
-		Cfg.PythonUpstreams = []string{
-			"https://discoveryprovider.staging.audius.co",
-		}
 		Cfg.Nodes = StageNodes
 		Cfg.DeadNodes = []string{}
 		Cfg.Rewards = core_config.MakeRewards(core_config.StageClaimAuthorities, core_config.StageRewardExtensions)
@@ -112,9 +105,6 @@ func init() {
 			log.Fatalf("Missing required %s env var: delegatePrivateKey", env)
 		}
 		Cfg.AntiAbuseOracles = []string{"https://discoveryprovider.audius.co"}
-		Cfg.PythonUpstreams = []string{
-			"https://discoveryprovider.audius.co",
-		}
 		Cfg.Nodes = ProdNodes
 		Cfg.DeadNodes = []string{
 			"https://content.grassfed.network",

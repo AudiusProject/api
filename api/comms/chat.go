@@ -396,6 +396,7 @@ func getNewBlasts(tx dbv1.DBTX, ctx context.Context, arg getNewBlastsParams) ([]
 			JOIN sol_user_balances sub ON sub.mint = ac.mint
 			WHERE blast.audience = 'coin_holder_audience'
 				AND ac.user_id = blast.from_user_id
+				AND ac.user_id != @user_id
 				AND sub.user_id = @user_id
 				AND sub.balance > 0
 				-- TODO: PE-6663 This isn't entirely correct yet, need to check "time of most recent membership"

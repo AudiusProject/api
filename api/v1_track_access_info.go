@@ -123,9 +123,9 @@ func (app *ApiServer) v1TrackAccessInfo(c *fiber.Ctx) error {
 		Access:             track.Access,
 		UserId:             track.UserID,
 		Blocknumber:        track.Blocknumber.Int32,
-		IsStreamGated:      track.IsStreamGated.Bool,
+		IsStreamGated:      track.IsStreamGated,
 		StreamConditions:   extendedStreamConditions,
-		IsDownloadGated:    track.IsDownloadGated.Bool,
+		IsDownloadGated:    track.IsDownloadGated,
 		DownloadConditions: extendedDownloadConditions,
 	}
 

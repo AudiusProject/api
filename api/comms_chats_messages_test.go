@@ -169,7 +169,7 @@ func TestGetChatMessages(t *testing.T) {
 
 	t.Run("invalid chat id for blast", func(t *testing.T) {
 		status, _ := testGetWithWallet(t, app, "/comms/chats//messages?is_blast=true", "0x7d273271690538cf855e5b3002a0dd8c154bb060")
-		assert.Equal(t, 503, status) // Returns 503 because empty path doesn't match the route
+		assert.Equal(t, 404, status) // Returns 404 because empty path doesn't match the route
 	})
 
 	t.Run("no messages found", func(t *testing.T) {

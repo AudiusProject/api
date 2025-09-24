@@ -361,49 +361,6 @@ func (ns NullProfileTypeEnum) Value() (driver.Value, error) {
 	return string(ns.ProfileTypeEnum), nil
 }
 
-type ProofStatus string
-
-const (
-	ProofStatusUnresolved ProofStatus = "unresolved"
-	ProofStatusPass       ProofStatus = "pass"
-	ProofStatusFail       ProofStatus = "fail"
-)
-
-func (e *ProofStatus) Scan(src interface{}) error {
-	switch s := src.(type) {
-	case []byte:
-		*e = ProofStatus(s)
-	case string:
-		*e = ProofStatus(s)
-	default:
-		return fmt.Errorf("unsupported scan type for ProofStatus: %T", src)
-	}
-	return nil
-}
-
-type NullProofStatus struct {
-	ProofStatus ProofStatus `json:"proof_status"`
-	Valid       bool        `json:"valid"` // Valid is true if ProofStatus is not NULL
-}
-
-// Scan implements the Scanner interface.
-func (ns *NullProofStatus) Scan(value interface{}) error {
-	if value == nil {
-		ns.ProofStatus, ns.Valid = "", false
-		return nil
-	}
-	ns.Valid = true
-	return ns.ProofStatus.Scan(value)
-}
-
-// Value implements the driver Valuer interface.
-func (ns NullProofStatus) Value() (driver.Value, error) {
-	if !ns.Valid {
-		return nil, nil
-	}
-	return string(ns.ProofStatus), nil
-}
-
 type Reposttype string
 
 const (
@@ -659,48 +616,6 @@ func (ns NullUsdcPurchaseContentType) Value() (driver.Value, error) {
 	return string(ns.UsdcPurchaseContentType), nil
 }
 
-type ValidatorEvent string
-
-const (
-	ValidatorEventRegistered   ValidatorEvent = "registered"
-	ValidatorEventDeregistered ValidatorEvent = "deregistered"
-)
-
-func (e *ValidatorEvent) Scan(src interface{}) error {
-	switch s := src.(type) {
-	case []byte:
-		*e = ValidatorEvent(s)
-	case string:
-		*e = ValidatorEvent(s)
-	default:
-		return fmt.Errorf("unsupported scan type for ValidatorEvent: %T", src)
-	}
-	return nil
-}
-
-type NullValidatorEvent struct {
-	ValidatorEvent ValidatorEvent `json:"validator_event"`
-	Valid          bool           `json:"valid"` // Valid is true if ValidatorEvent is not NULL
-}
-
-// Scan implements the Scanner interface.
-func (ns *NullValidatorEvent) Scan(value interface{}) error {
-	if value == nil {
-		ns.ValidatorEvent, ns.Valid = "", false
-		return nil
-	}
-	ns.Valid = true
-	return ns.ValidatorEvent.Scan(value)
-}
-
-// Value implements the driver Valuer interface.
-func (ns NullValidatorEvent) Value() (driver.Value, error) {
-	if !ns.Valid {
-		return nil, nil
-	}
-	return string(ns.ValidatorEvent), nil
-}
-
 type WalletChain string
 
 const (
@@ -741,12 +656,6 @@ func (ns NullWalletChain) Value() (driver.Value, error) {
 		return nil, nil
 	}
 	return string(ns.WalletChain), nil
-}
-
-type AccessKey struct {
-	ID      int32  `json:"id"`
-	TrackID string `json:"track_id"`
-	PubKey  string `json:"pub_key"`
 }
 
 type AggregateDailyAppNameMetric struct {
@@ -855,7 +764,7 @@ type AggregateUser struct {
 	DominantGenre      pgtype.Text `json:"dominant_genre"`
 	DominantGenreCount pgtype.Int4 `json:"dominant_genre_count"`
 	Score              pgtype.Int4 `json:"score"`
-	TotalTrackCount    pgtype.Int8 `json:"total_track_count"`
+	TotalTrackCount    pgtype.Int4 `json:"total_track_count"`
 	TrackShareCount    pgtype.Int4 `json:"track_share_count"`
 }
 
@@ -872,17 +781,6 @@ type AlbumPriceHistory struct {
 	Blocknumber     int32           `json:"blocknumber"`
 	BlockTimestamp  time.Time       `json:"block_timestamp"`
 	CreatedAt       time.Time       `json:"created_at"`
-}
-
-type AlembicVersion struct {
-	VersionNum string `json:"version_num"`
-}
-
-type AntiAbuseBlockedUser struct {
-	HandleLc  string     `json:"handle_lc"`
-	IsBlocked bool       `json:"is_blocked"`
-	CreatedAt *time.Time `json:"created_at"`
-	UpdatedAt *time.Time `json:"updated_at"`
 }
 
 type ApiMetricsApp struct {
@@ -948,6 +846,7 @@ type ArtistCoin struct {
 	Description pgtype.Text `json:"description"`
 	Website     pgtype.Text `json:"website"`
 	Name        string      `json:"name"`
+	HasDiscord  bool        `json:"has_discord"`
 }
 
 type ArtistCoinPool struct {
@@ -1241,42 +1140,6 @@ type CommentThread struct {
 	ParentCommentID int32 `json:"parent_comment_id"`
 }
 
-type CoreAppState struct {
-	BlockHeight int64      `json:"block_height"`
-	AppHash     []byte     `json:"app_hash"`
-	CreatedAt   *time.Time `json:"created_at"`
-}
-
-type CoreBlock struct {
-	Rowid     int64     `json:"rowid"`
-	Height    int64     `json:"height"`
-	ChainID   string    `json:"chain_id"`
-	Hash      string    `json:"hash"`
-	Proposer  string    `json:"proposer"`
-	CreatedAt time.Time `json:"created_at"`
-}
-
-type CoreDbMigration struct {
-	ID        string             `json:"id"`
-	AppliedAt pgtype.Timestamptz `json:"applied_at"`
-}
-
-type CoreErn struct {
-	ID                 int64    `json:"id"`
-	Address            string   `json:"address"`
-	Index              int64    `json:"index"`
-	TxHash             string   `json:"tx_hash"`
-	Sender             string   `json:"sender"`
-	MessageControlType int16    `json:"message_control_type"`
-	PartyAddresses     []string `json:"party_addresses"`
-	ResourceAddresses  []string `json:"resource_addresses"`
-	ReleaseAddresses   []string `json:"release_addresses"`
-	DealAddresses      []string `json:"deal_addresses"`
-	RawMessage         []byte   `json:"raw_message"`
-	RawAcknowledgment  []byte   `json:"raw_acknowledgment"`
-	BlockHeight        int64    `json:"block_height"`
-}
-
 type CoreIndexedBlock struct {
 	Blockhash  string      `json:"blockhash"`
 	Parenthash pgtype.Text `json:"parenthash"`
@@ -1284,60 +1147,6 @@ type CoreIndexedBlock struct {
 	Height     int32       `json:"height"`
 	PlaysSlot  pgtype.Int4 `json:"plays_slot"`
 	EmBlock    pgtype.Int4 `json:"em_block"`
-}
-
-type CoreMead struct {
-	ID                int64    `json:"id"`
-	Address           string   `json:"address"`
-	TxHash            string   `json:"tx_hash"`
-	Index             int64    `json:"index"`
-	Sender            string   `json:"sender"`
-	ResourceAddresses []string `json:"resource_addresses"`
-	ReleaseAddresses  []string `json:"release_addresses"`
-	RawMessage        []byte   `json:"raw_message"`
-	RawAcknowledgment []byte   `json:"raw_acknowledgment"`
-	BlockHeight       int64    `json:"block_height"`
-}
-
-type CorePie struct {
-	ID                int64    `json:"id"`
-	Address           string   `json:"address"`
-	TxHash            string   `json:"tx_hash"`
-	Index             int64    `json:"index"`
-	Sender            string   `json:"sender"`
-	PartyAddresses    []string `json:"party_addresses"`
-	RawMessage        []byte   `json:"raw_message"`
-	RawAcknowledgment []byte   `json:"raw_acknowledgment"`
-	BlockHeight       int64    `json:"block_height"`
-}
-
-type CoreTransaction struct {
-	Rowid       int64     `json:"rowid"`
-	BlockID     int64     `json:"block_id"`
-	Index       int32     `json:"index"`
-	TxHash      string    `json:"tx_hash"`
-	Transaction []byte    `json:"transaction"`
-	CreatedAt   time.Time `json:"created_at"`
-}
-
-type CoreTxStat struct {
-	ID          int32      `json:"id"`
-	TxType      string     `json:"tx_type"`
-	TxHash      string     `json:"tx_hash"`
-	BlockHeight int64      `json:"block_height"`
-	CreatedAt   *time.Time `json:"created_at"`
-}
-
-type CoreValidator struct {
-	Rowid        int32  `json:"rowid"`
-	PubKey       string `json:"pub_key"`
-	Endpoint     string `json:"endpoint"`
-	EthAddress   string `json:"eth_address"`
-	CometAddress string `json:"comet_address"`
-	EthBlock     string `json:"eth_block"`
-	NodeType     string `json:"node_type"`
-	SpID         string `json:"sp_id"`
-	CometPubKey  string `json:"comet_pub_key"`
 }
 
 type Country struct {
@@ -1409,57 +1218,10 @@ type EncryptedEmail struct {
 	UpdatedAt      pgtype.Timestamptz `json:"updated_at"`
 }
 
-type EthActiveProposal struct {
-	ID                        int64  `json:"id"`
-	Proposer                  string `json:"proposer"`
-	SubmissionBlockNumber     int64  `json:"submission_block_number"`
-	TargetContractRegistryKey string `json:"target_contract_registry_key"`
-	TargetContractAddress     string `json:"target_contract_address"`
-	CallValue                 int64  `json:"call_value"`
-	FunctionSignature         string `json:"function_signature"`
-	CallData                  string `json:"call_data"`
-}
-
 type EthBlock struct {
 	LastScannedBlock int32     `json:"last_scanned_block"`
 	CreatedAt        time.Time `json:"created_at"`
 	UpdatedAt        time.Time `json:"updated_at"`
-}
-
-type EthDbMigration struct {
-	Version int64 `json:"version"`
-	Dirty   bool  `json:"dirty"`
-}
-
-type EthFundingRound struct {
-	RoundNum     int32     `json:"round_num"`
-	Blocknumber  int64     `json:"blocknumber"`
-	CreationTime time.Time `json:"creation_time"`
-}
-
-type EthRegisteredEndpoint struct {
-	ID             int32     `json:"id"`
-	ServiceType    string    `json:"service_type"`
-	Owner          string    `json:"owner"`
-	DelegateWallet string    `json:"delegate_wallet"`
-	Endpoint       string    `json:"endpoint"`
-	Blocknumber    int64     `json:"blocknumber"`
-	RegisteredAt   time.Time `json:"registered_at"`
-}
-
-type EthServiceProvider struct {
-	Address           string `json:"address"`
-	DeployerStake     int64  `json:"deployer_stake"`
-	DeployerCut       int64  `json:"deployer_cut"`
-	ValidBounds       bool   `json:"valid_bounds"`
-	NumberOfEndpoints int32  `json:"number_of_endpoints"`
-	MinAccountStake   int64  `json:"min_account_stake"`
-	MaxAccountStake   int64  `json:"max_account_stake"`
-}
-
-type EthStaked struct {
-	Address     string `json:"address"`
-	TotalStaked int64  `json:"total_staked"`
 }
 
 type Event struct {
@@ -1512,12 +1274,6 @@ type IndexingCheckpoint struct {
 	Tablename      string      `json:"tablename"`
 	LastCheckpoint int32       `json:"last_checkpoint"`
 	Signature      pgtype.Text `json:"signature"`
-}
-
-type ManagementKey struct {
-	ID      int32  `json:"id"`
-	TrackID string `json:"track_id"`
-	Address string `json:"address"`
 }
 
 type Milestone struct {
@@ -1603,6 +1359,7 @@ type Playlist struct {
 	Slot                        pgtype.Int4      `json:"slot"`
 	MetadataMultihash           pgtype.Text      `json:"metadata_multihash"`
 	IsImageAutogenerated        bool             `json:"is_image_autogenerated"`
+	IsStreamGated               bool             `json:"is_stream_gated"`
 	StreamConditions            *AccessGate      `json:"stream_conditions"`
 	DdexApp                     pgtype.Text      `json:"ddex_app"`
 	DdexReleaseIds              []byte           `json:"ddex_release_ids"`
@@ -1612,7 +1369,6 @@ type Playlist struct {
 	ParentalWarningType         pgtype.Text      `json:"parental_warning_type"`
 	IsScheduledRelease          bool             `json:"is_scheduled_release"`
 	ReleaseDate                 *time.Time       `json:"release_date"`
-	IsStreamGated               pgtype.Bool      `json:"is_stream_gated"`
 }
 
 type PlaylistRoute struct {
@@ -1652,6 +1408,11 @@ type PlaylistTrendingScore struct {
 	TimeRange  string    `json:"time_range"`
 	Score      float64   `json:"score"`
 	CreatedAt  time.Time `json:"created_at"`
+}
+
+type Pubkey struct {
+	Wallet string      `json:"wallet"`
+	Pubkey pgtype.Text `json:"pubkey"`
 }
 
 type Reaction struct {
@@ -1772,6 +1533,14 @@ type RpcLog struct {
 	AppliedAt  time.Time `json:"applied_at"`
 }
 
+type Rpclog struct {
+	Cuid         string      `json:"cuid"`
+	Wallet       pgtype.Text `json:"wallet"`
+	Method       pgtype.Text `json:"method"`
+	Params       []byte      `json:"params"`
+	JetstreamSeq pgtype.Int4 `json:"jetstream_seq"`
+}
+
 type Safe struct {
 	Blockhash      pgtype.Text `json:"blockhash"`
 	Blocknumber    pgtype.Int4 `json:"blocknumber"`
@@ -1796,6 +1565,10 @@ type SchemaVersion struct {
 	AppliedAt pgtype.Timestamptz `json:"applied_at"`
 }
 
+type SequelizeMetum struct {
+	Name string `json:"name"`
+}
+
 type Share struct {
 	Blockhash   pgtype.Text `json:"blockhash"`
 	Blocknumber pgtype.Int4 `json:"blocknumber"`
@@ -1808,38 +1581,13 @@ type Share struct {
 }
 
 type SkippedTransaction struct {
-	ID          int32                   `json:"id"`
-	Blocknumber int32                   `json:"blocknumber"`
-	Blockhash   string                  `json:"blockhash"`
-	Txhash      string                  `json:"txhash"`
-	CreatedAt   time.Time               `json:"created_at"`
-	UpdatedAt   time.Time               `json:"updated_at"`
-	Level       Skippedtransactionlevel `json:"level"`
-}
-
-type SlaAuditorVersionDatum struct {
-	ID           int32              `json:"id"`
-	NodeEndpoint string             `json:"node_endpoint"`
-	NodeVersion  string             `json:"node_version"`
-	MinVersion   string             `json:"min_version"`
-	Owner        string             `json:"owner"`
-	Ok           bool               `json:"ok"`
-	Timestamp    pgtype.Timestamptz `json:"timestamp"`
-}
-
-type SlaNodeReport struct {
-	ID             int32       `json:"id"`
-	Address        string      `json:"address"`
-	BlocksProposed int32       `json:"blocks_proposed"`
-	SlaRollupID    pgtype.Int4 `json:"sla_rollup_id"`
-}
-
-type SlaRollup struct {
-	ID         int32     `json:"id"`
-	TxHash     string    `json:"tx_hash"`
-	BlockStart int64     `json:"block_start"`
-	BlockEnd   int64     `json:"block_end"`
-	Time       time.Time `json:"time"`
+	ID          int32                       `json:"id"`
+	Blocknumber int32                       `json:"blocknumber"`
+	Blockhash   string                      `json:"blockhash"`
+	Txhash      string                      `json:"txhash"`
+	CreatedAt   time.Time                   `json:"created_at"`
+	UpdatedAt   time.Time                   `json:"updated_at"`
+	Level       NullSkippedtransactionlevel `json:"level"`
 }
 
 // Stores claimable tokens program Create instructions for tracked mints.
@@ -1980,14 +1728,6 @@ type SolUserBalance struct {
 	CreatedAt time.Time `json:"created_at"`
 }
 
-type SoundRecording struct {
-	ID               int32       `json:"id"`
-	SoundRecordingID string      `json:"sound_recording_id"`
-	TrackID          string      `json:"track_id"`
-	Cid              string      `json:"cid"`
-	EncodingDetails  pgtype.Text `json:"encoding_details"`
-}
-
 type SplTokenTx struct {
 	LastScannedSlot int32              `json:"last_scanned_slot"`
 	Signature       string             `json:"signature"`
@@ -1998,23 +1738,6 @@ type SplTokenTx struct {
 type Stem struct {
 	ParentTrackID int32 `json:"parent_track_id"`
 	ChildTrackID  int32 `json:"child_track_id"`
-}
-
-type StorageProof struct {
-	ID              int32       `json:"id"`
-	BlockHeight     int64       `json:"block_height"`
-	Address         string      `json:"address"`
-	Cid             pgtype.Text `json:"cid"`
-	ProofSignature  pgtype.Text `json:"proof_signature"`
-	Proof           pgtype.Text `json:"proof"`
-	ProverAddresses []string    `json:"prover_addresses"`
-	Status          ProofStatus `json:"status"`
-}
-
-type StorageProofPeer struct {
-	ID              int32    `json:"id"`
-	BlockHeight     int64    `json:"block_height"`
-	ProverAddresses []string `json:"prover_addresses"`
 }
 
 type Subscription struct {
@@ -2072,6 +1795,7 @@ type Track struct {
 	Txhash                             string          `json:"txhash"`
 	Slot                               pgtype.Int4     `json:"slot"`
 	IsAvailable                        bool            `json:"is_available"`
+	IsStreamGated                      bool            `json:"is_stream_gated"`
 	StreamConditions                   *AccessGate     `json:"stream_conditions"`
 	TrackCid                           pgtype.Text     `json:"track_cid"`
 	IsPlaylistUpload                   bool            `json:"is_playlist_upload"`
@@ -2084,6 +1808,7 @@ type Track struct {
 	TrackSegments                      json.RawMessage `json:"track_segments"`
 	IsScheduledRelease                 bool            `json:"is_scheduled_release"`
 	IsDownloadable                     bool            `json:"is_downloadable"`
+	IsDownloadGated                    bool            `json:"is_download_gated"`
 	DownloadConditions                 *AccessGate     `json:"download_conditions"`
 	IsOriginalAvailable                bool            `json:"is_original_available"`
 	OrigFileCid                        pgtype.Text     `json:"orig_file_cid"`
@@ -2114,8 +1839,6 @@ type Track struct {
 	CoverOriginalArtist pgtype.Text `json:"cover_original_artist"`
 	// Indicates whether the track is owned by the user for publishing payouts
 	IsOwnedByUser   bool                    `json:"is_owned_by_user"`
-	IsStreamGated   pgtype.Bool             `json:"is_stream_gated"`
-	IsDownloadGated pgtype.Bool             `json:"is_download_gated"`
 	NoAiUse         pgtype.Bool             `json:"no_ai_use"`
 	ParentalWarning NullParentalWarningType `json:"parental_warning"`
 	TerritoryCodes  []string                `json:"territory_codes"`
@@ -2150,11 +1873,6 @@ type TrackPriceHistory struct {
 	BlockTimestamp  time.Time              `json:"block_timestamp"`
 	CreatedAt       time.Time              `json:"created_at"`
 	Access          UsdcPurchaseAccessType `json:"access"`
-}
-
-type TrackRelease struct {
-	ID      int32  `json:"id"`
-	TrackID string `json:"track_id"`
 }
 
 type TrackRoute struct {
@@ -2380,16 +2098,4 @@ type UserTip struct {
 	Amount         int64     `json:"amount"`
 	CreatedAt      time.Time `json:"created_at"`
 	UpdatedAt      time.Time `json:"updated_at"`
-}
-
-type ValidatorHistory struct {
-	Rowid        int32          `json:"rowid"`
-	Endpoint     string         `json:"endpoint"`
-	EthAddress   string         `json:"eth_address"`
-	CometAddress string         `json:"comet_address"`
-	SpID         int64          `json:"sp_id"`
-	ServiceType  string         `json:"service_type"`
-	EventType    ValidatorEvent `json:"event_type"`
-	EventTime    time.Time      `json:"event_time"`
-	EventBlock   int64          `json:"event_block"`
 }
