@@ -479,6 +479,9 @@ func NewApiServer(config config.Config) *ApiServer {
 		// Metrics
 		g.Get("/metrics/genres", app.v1MetricsGenres)
 		g.Get("/metrics/plays", app.v1MetricsPlays)
+		g.Get("/metrics/total_plays", app.v1MetricsTotalPlays)
+		g.Get("/metrics/total_artists", app.v1MetricsTotalArtists)
+		g.Get("/metrics/total_wallets", app.v1MetricsTotalWallets)
 		g.Get("/metrics/aggregates/apps/:time_range", app.v1MetricsApps)
 		g.Get("/metrics/aggregates/routes/:time_range", app.v1MetricsRoutes)
 		g.Get("/metrics/aggregates/routes/trailing/:time_range", app.v1MetricsRoutesTrailing)
