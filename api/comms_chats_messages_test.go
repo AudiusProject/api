@@ -141,6 +141,7 @@ func TestGetChatMessages(t *testing.T) {
 			"data.0.message_id":     "blast1",
 			"data.0.sender_user_id": trashid.MustEncodeHashID(1),
 			"data.0.message":        "Hello followers!",
+			"data.0.audience":       "follower_audience",
 			"data.0.is_plaintext":   true,
 			"health.is_healthy":     true,
 		})
@@ -157,6 +158,7 @@ func TestGetChatMessages(t *testing.T) {
 			"data.0.message_id":     "blast2",
 			"data.0.sender_user_id": trashid.MustEncodeHashID(1),
 			"data.0.message":        "Thanks for buying my track!",
+			"data.0.audience":       "customer_audience",
 			"data.0.is_plaintext":   true,
 			"health.is_healthy":     true,
 		})
