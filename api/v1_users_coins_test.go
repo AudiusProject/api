@@ -126,22 +126,56 @@ func TestUserCoins(t *testing.T) {
 
 	database.Seed(app.writePool, fixtures)
 
-	status, body := testGet(t, app, "/v1/users/"+trashid.MustEncodeHashID(1)+"/coins")
-	assert.Equal(t, 200, status)
+	{
+		status, body := testGet(t, app, "/v1/users/"+trashid.MustEncodeHashID(1)+"/coins")
+		assert.Equal(t, 200, status)
 
-	jsonAssert(t, body, map[string]any{
-		"data.#":             2,
-		"data.0.ticker":      "$AUDIO",
-		"data.0.mint":        "9LzCMqDgTKYz9Drzqnpgee3SGa89up3a247ypMj2xrqM",
-		"data.0.decimals":    8,
-		"data.0.owner_id":    trashid.MustEncodeHashID(1),
-		"data.0.balance":     1800000000, // 18 AUDIO
-		"data.0.balance_usd": 180.0,      // Assuming $10 per AUDIO
-		"data.1.ticker":      "$USDC",
-		"data.1.mint":        "EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v",
-		"data.1.balance":     7000000, // 7 USDC
-		"data.1.balance_usd": 7.0,
-	})
+		jsonAssert(t, body, map[string]any{
+			"data.#":             2,
+			"data.0.ticker":      "$AUDIO",
+			"data.0.mint":        "9LzCMqDgTKYz9Drzqnpgee3SGa89up3a247ypMj2xrqM",
+			"data.0.decimals":    8,
+			"data.0.owner_id":    trashid.MustEncodeHashID(1),
+			"data.0.balance":     1800000000, // 18 AUDIO
+			"data.0.balance_usd": 180.0,      // Assuming $10 per AUDIO
+			"data.1.ticker":      "$USDC",
+			"data.1.mint":        "EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v",
+			"data.1.balance":     7000000, // 7 USDC
+			"data.1.balance_usd": 7.0,
+		})
+	}
+}
+
+func TestUserCoinsNoCoins(t *testing.T) {
+	app := emptyTestApp(t)
+
+	fixtures := database.FixtureMap{
+		"users": {
+			{
+				"user_id": 1,
+				"wallet":  "0x1234567890123456789012345678901234567890",
+			},
+		},
+		"sol_claimable_accounts": {
+			{
+				"signature":        "claimable_signature_1",
+				"account":          "claimable",
+				"ethereum_address": "0x1234567890123456789012345678901234567890",
+				"mint":             "9LzCMqDgTKYz9Drzqnpgee3SGa89up3a247ypMj2xrqM",
+			},
+		},
+	}
+
+	database.Seed(app.writePool, fixtures)
+
+	{
+		status, body := testGet(t, app, "/v1/users/"+trashid.MustEncodeHashID(1)+"/coins")
+		assert.Equal(t, 200, status)
+
+		jsonAssert(t, body, map[string]any{
+			"data.#": 0,
+		})
+	}
 }
 
 func TestUserCoinsOrdering(t *testing.T) {
