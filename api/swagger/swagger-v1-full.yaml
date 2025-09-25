@@ -4819,6 +4819,7 @@ paths:
             enum:
             - purchase_content
             - transfer
+            - internal_transfer
             - prepare_withdrawal
             - recover_withdrawal
             - withdrawal
@@ -4870,6 +4871,7 @@ paths:
             enum:
             - purchase_content
             - transfer
+            - internal_transfer
             - prepare_withdrawal
             - recover_withdrawal
             - withdrawal

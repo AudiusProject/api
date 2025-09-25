@@ -35,6 +35,7 @@ type GetUsdcTransactionsParams struct {
 var validTransactionTypes = []string{
 	"purchase_content",
 	"transfer",
+	"internal_transfer",
 	"prepare_withdrawal",
 	"recover_withdrawal",
 	"withdrawal",
