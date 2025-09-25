@@ -72,7 +72,7 @@ func (app *ApiServer) getChatMessages(c *fiber.Ctx) error {
 		@chat_id as chat_id,
 		b.from_user_id as user_id,
 		b.created_at,
-		'' as audience,
+		b.audience,
 		b.plaintext as ciphertext,
 		true as is_plaintext,
 		'[]'::json AS reactions
