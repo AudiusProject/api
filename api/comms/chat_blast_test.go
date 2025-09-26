@@ -42,53 +42,46 @@ func TestChatBlastFollowers(t *testing.T) {
 	defer pool.Close()
 	database.Seed(pool, database.FixtureMap{
 		"users": {
-			{"user_id": 68, "wallet": "wallet68", "handle": "user68", "blocknumber": 0},
-			{"user_id": 1, "wallet": "wallet1", "handle": "user1", "blocknumber": 0},
-			{"user_id": 100, "wallet": "wallet100", "handle": "user100", "blocknumber": 0},
-			{"user_id": 101, "wallet": "wallet101", "handle": "user101", "blocknumber": 0},
-			{"user_id": 102, "wallet": "wallet102", "handle": "user102", "blocknumber": 0},
-			{"user_id": 103, "wallet": "wallet103", "handle": "user103", "blocknumber": 0},
-			{"user_id": 104, "wallet": "wallet104", "handle": "user104", "blocknumber": 0},
+			{"user_id": 68, "wallet": "wallet68", "handle": "user68"},
+			{"user_id": 1, "wallet": "wallet1", "handle": "user1"},
+			{"user_id": 100, "wallet": "wallet100", "handle": "user100"},
+			{"user_id": 101, "wallet": "wallet101", "handle": "user101"},
+			{"user_id": 102, "wallet": "wallet102", "handle": "user102"},
+			{"user_id": 103, "wallet": "wallet103", "handle": "user103"},
+			{"user_id": 104, "wallet": "wallet104", "handle": "user104"},
 		},
 		"follows": {{
 			"follower_user_id": 68,
 			"followee_user_id": 1,
-			"blocknumber":      0,
 			"created_at":       t0,
 		}, {
 			"follower_user_id": 1,
 			"followee_user_id": 68,
-			"blocknumber":      0,
 			"created_at":       t0,
 		},
 			{
 				"follower_user_id": 100,
 				"followee_user_id": 1,
-				"blocknumber":      0,
 				"created_at":       t0,
 			},
 			{
 				"follower_user_id": 101,
 				"followee_user_id": 1,
-				"blocknumber":      0,
 				"created_at":       t0,
 			},
 			{
 				"follower_user_id": 102,
 				"followee_user_id": 1,
-				"blocknumber":      0,
 				"created_at":       t0,
 			},
 			{
 				"follower_user_id": 103,
 				"followee_user_id": 1,
-				"blocknumber":      0,
 				"created_at":       t0,
 			},
 			{
 				"follower_user_id": 104,
 				"followee_user_id": 1,
-				"blocknumber":      0,
 				"created_at":       t0,
 			},
 		},
@@ -557,8 +550,8 @@ func TestChatBlastTippers(t *testing.T) {
 	defer pool.Close()
 	database.Seed(pool, database.FixtureMap{
 		"users": {
-			{"user_id": 1, "wallet": "wallet1", "handle": "user1", "blocknumber": 0},
-			{"user_id": 201, "wallet": "wallet201", "handle": "user201", "blocknumber": 0},
+			{"user_id": 1, "wallet": "wallet1", "handle": "user1"},
+			{"user_id": 201, "wallet": "wallet201", "handle": "user201"},
 		},
 		"user_tips": {
 			{
@@ -642,19 +635,17 @@ func TestChatBlastRemixers(t *testing.T) {
 	defer pool.Close()
 	database.Seed(pool, database.FixtureMap{
 		"users": {
-			{"user_id": 1, "wallet": "wallet1", "handle": "user1", "blocknumber": 0},
-			{"user_id": 202, "wallet": "wallet202", "handle": "user202", "blocknumber": 0},
+			{"user_id": 1, "wallet": "wallet1", "handle": "user1"},
+			{"user_id": 202, "wallet": "wallet202", "handle": "user202"},
 		},
 		"tracks": {
 			{
-				"track_id":    1,
-				"owner_id":    1,
-				"blocknumber": 0,
+				"track_id": 1,
+				"owner_id": 1,
 			},
 			{
-				"track_id":    2,
-				"owner_id":    202,
-				"blocknumber": 0,
+				"track_id": 2,
+				"owner_id": 202,
 			},
 		},
 		"remixes": {
@@ -773,14 +764,13 @@ func TestChatBlastPurchasers(t *testing.T) {
 	defer pool.Close()
 	database.Seed(pool, database.FixtureMap{
 		"users": {
-			{"user_id": 1, "wallet": "wallet1", "handle": "user1", "blocknumber": 0},
-			{"user_id": 203, "wallet": "wallet203", "handle": "user203", "blocknumber": 0},
+			{"user_id": 1, "wallet": "wallet1", "handle": "user1"},
+			{"user_id": 203, "wallet": "wallet203", "handle": "user203"},
 		},
 		"tracks": {
 			{
-				"track_id":    1,
-				"owner_id":    1,
-				"blocknumber": 0,
+				"track_id": 1,
+				"owner_id": 1,
 			},
 		},
 		"usdc_purchases": {
@@ -837,11 +827,11 @@ func TestChatBlastCoinHolders(t *testing.T) {
 	defer pool.Close()
 	database.Seed(pool, database.FixtureMap{
 		"users": {
-			{"user_id": 1, "wallet": "wallet1", "handle": "user1", "blocknumber": 0},
-			{"user_id": 204, "wallet": "wallet204", "handle": "user204", "blocknumber": 0},
-			{"user_id": 205, "wallet": "wallet205", "handle": "user205", "blocknumber": 0},
-			{"user_id": 206, "wallet": "wallet206", "handle": "user206", "blocknumber": 0},
-			{"user_id": 209, "wallet": "wallet209", "handle": "user209", "blocknumber": 0},
+			{"user_id": 1, "wallet": "wallet1", "handle": "user1"},
+			{"user_id": 204, "wallet": "wallet204", "handle": "user204"},
+			{"user_id": 205, "wallet": "wallet205", "handle": "user205"},
+			{"user_id": 206, "wallet": "wallet206", "handle": "user206"},
+			{"user_id": 209, "wallet": "wallet209", "handle": "user209"},
 		},
 		"artist_coins": {
 			{
@@ -1060,9 +1050,9 @@ func TestChatBlastCoinHoldersExcludesSender(t *testing.T) {
 	// further resulting in the blast being fanned-out to all their existing chats.
 	database.Seed(pool, database.FixtureMap{
 		"users": {
-			{"user_id": 1, "wallet": "wallet1", "handle": "user1", "blocknumber": 0},
-			{"user_id": 207, "wallet": "wallet207", "handle": "user207", "blocknumber": 0},
-			{"user_id": 208, "wallet": "wallet208", "handle": "user208", "blocknumber": 0},
+			{"user_id": 1, "wallet": "wallet1", "handle": "user1"},
+			{"user_id": 207, "wallet": "wallet207", "handle": "user207"},
+			{"user_id": 208, "wallet": "wallet208", "handle": "user208"},
 		},
 		"artist_coins": {
 			{
