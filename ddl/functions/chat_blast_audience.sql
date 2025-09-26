@@ -68,7 +68,7 @@ BEGIN
     ON artist_coins.user_id = chat_blast.from_user_id
   JOIN sol_user_balances
     ON sol_user_balances.mint = artist_coins.mint
-    AND sol_user_balances.balance > 0
+    AND sol_user_balances.balance >= POWER(10, artist_coins.decimals) -- must hold at least 1 coin
   WHERE chat_blast.blast_id = blast_id_param
     AND chat_blast.audience = 'coin_holder_audience'
     AND sol_user_balances.user_id != chat_blast.from_user_id;
