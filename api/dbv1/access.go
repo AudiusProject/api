@@ -3,6 +3,7 @@ package dbv1
 import (
 	"context"
 	"encoding/json"
+	"math"
 
 	"golang.org/x/sync/errgroup"
 )
@@ -202,6 +203,7 @@ func (q *Queries) GetBulkTrackAccess(
 	purchasedPlaylists := make(map[int32]bool)
 	prevPurchasedPlaylists := make(map[int32]bool)
 	userTokenBalances := make(map[string]int64)
+	coinDecimals := make(map[string]int32)
 
 	g, ctx := errgroup.WithContext(ctx)
 
@@ -294,6 +296,27 @@ func (q *Queries) GetBulkTrackAccess(
 				var balance int64
 				if err := rows.Scan(&mint, &balance); err == nil {
 					userTokenBalances[mint] = balance
+				}
+			}
+			return rows.Err()
+		})
+
+		// Query for coin decimals
+		g.Go(func() error {
+			rows, err := q.db.Query(ctx, `
+				SELECT mint, decimals
+				FROM artist_coins
+				WHERE mint = ANY($1)
+			`, tokenGateTokenMintsSlice)
+			if err != nil {
+				return err
+			}
+			defer rows.Close()
+			for rows.Next() {
+				var mint string
+				var decimals int32
+				if err := rows.Scan(&mint, &decimals); err == nil {
+					coinDecimals[mint] = decimals
 				}
 			}
 			return rows.Err()
@@ -398,6 +421,9 @@ func (q *Queries) GetBulkTrackAccess(
 			case track.StreamConditions.TokenGate != nil:
 				tokenMint := track.StreamConditions.TokenGate.TokenMint
 				requiredAmount := track.StreamConditions.TokenGate.TokenAmount
+				if decimals, exists := coinDecimals[tokenMint]; exists {
+					requiredAmount = requiredAmount * int64(math.Pow10(int(decimals)))
+				}
 				userBalance := userTokenBalances[tokenMint]
 				hasAccess = userBalance >= requiredAmount
 			case track.StreamConditions.UsdcPurchase != nil:
@@ -442,6 +468,9 @@ func (q *Queries) GetBulkTrackAccess(
 			case track.DownloadConditions.TokenGate != nil:
 				tokenMint := track.DownloadConditions.TokenGate.TokenMint
 				requiredAmount := track.DownloadConditions.TokenGate.TokenAmount
+				if decimals, exists := coinDecimals[tokenMint]; exists {
+					requiredAmount = requiredAmount * int64(math.Pow10(int(decimals)))
+				}
 				userBalance := userTokenBalances[tokenMint]
 				hasAccess = userBalance >= requiredAmount
 			case track.DownloadConditions.UsdcPurchase != nil:
