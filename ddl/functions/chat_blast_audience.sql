@@ -4,7 +4,7 @@ CREATE OR REPLACE FUNCTION chat_blast_audience(blast_id_param TEXT) RETURNS TABL
 ) AS $$
 BEGIN
 
-  RETURN QUERY
+  RETURN QUERYdharit
   -- follower_audience
   SELECT chat_blast.blast_id, follower_user_id AS to_user_id
   FROM follows

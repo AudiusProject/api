@@ -4,12 +4,14 @@ import (
 	"context"
 	"fmt"
 	"math/rand"
+	"os"
 	"sync"
 	"testing"
 
+	"api.audius.co/config"
+	"api.audius.co/ddl"
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgxpool"
-	"github.com/test-go/testify/require"
 )
 
 var testMutex = sync.Mutex{}
@@ -49,20 +51,27 @@ func CreateTestDatabase(t *testing.T, template string) *pgxpool.Pool {
 	}
 
 	if t != nil {
-		t.Cleanup(func() {
-			pool.Close()
+		// t.Cleanup(func() {
+		// 	pool.Close()
 
-			testMutex.Lock()
-			defer testMutex.Unlock()
+		// 	testMutex.Lock()
+		// 	defer testMutex.Unlock()
 
-			conn, err := pgx.Connect(ctx, "postgres://postgres:example@localhost:21300/"+template)
-			require.NoError(t, err)
-			defer conn.Close(ctx)
+		// 	conn, err := pgx.Connect(ctx, "postgres://postgres:example@localhost:21300/"+template)
+		// 	require.NoError(t, err)
+		// 	defer conn.Close(ctx)
 
-			_, err = conn.Exec(ctx, "DROP DATABASE IF EXISTS "+dbName)
-			require.NoError(t, err)
+		// 	_, err = conn.Exec(ctx, "DROP DATABASE IF EXISTS "+dbName)
+		// 	require.NoError(t, err)
 
-		})
+		// })
+	}
+	config.Cfg.RunMigrations = true
+	config.Cfg.WriteDbUrl = connString
+	fmt.Println("Current working directory:", func() string { dir, _ := os.Getwd(); return dir }())
+	err = ddl.RunMigrations()
+	if err != nil {
+		panic(err)
 	}
 	return pool
 }

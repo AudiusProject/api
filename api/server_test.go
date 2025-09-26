@@ -33,7 +33,7 @@ func emptyTestApp(t *testing.T) *ApiServer {
 		Env:           "test",
 		ReadDbUrl:     pool.Config().ConnString(),
 		WriteDbUrl:    pool.Config().ConnString(),
-		RunMigrations: false,
+		RunMigrations: true,
 		EsUrl:         "http://localhost:21401",
 		// Dummy key
 		DelegatePrivateKey: "0633fddb74e32b3cbc64382e405146319c11a1a52dc96598e557c5dbe2f31468",
