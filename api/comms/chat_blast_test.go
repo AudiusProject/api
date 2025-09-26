@@ -42,46 +42,53 @@ func TestChatBlastFollowers(t *testing.T) {
 	defer pool.Close()
 	database.Seed(pool, database.FixtureMap{
 		"users": {
-			{"user_id": 68, "wallet": "wallet68", "handle": "user68"},
-			{"user_id": 1, "wallet": "wallet1", "handle": "user1"},
-			{"user_id": 100, "wallet": "wallet100", "handle": "user100"},
-			{"user_id": 101, "wallet": "wallet101", "handle": "user101"},
-			{"user_id": 102, "wallet": "wallet102", "handle": "user102"},
-			{"user_id": 103, "wallet": "wallet103", "handle": "user103"},
-			{"user_id": 104, "wallet": "wallet104", "handle": "user104"},
+			{"user_id": 68, "wallet": "wallet68", "handle": "user68", "blocknumber": 0},
+			{"user_id": 1, "wallet": "wallet1", "handle": "user1", "blocknumber": 0},
+			{"user_id": 100, "wallet": "wallet100", "handle": "user100", "blocknumber": 0},
+			{"user_id": 101, "wallet": "wallet101", "handle": "user101", "blocknumber": 0},
+			{"user_id": 102, "wallet": "wallet102", "handle": "user102", "blocknumber": 0},
+			{"user_id": 103, "wallet": "wallet103", "handle": "user103", "blocknumber": 0},
+			{"user_id": 104, "wallet": "wallet104", "handle": "user104", "blocknumber": 0},
 		},
 		"follows": {{
 			"follower_user_id": 68,
 			"followee_user_id": 1,
+			"blocknumber":      0,
 			"created_at":       t0,
 		}, {
 			"follower_user_id": 1,
 			"followee_user_id": 68,
+			"blocknumber":      0,
 			"created_at":       t0,
 		},
 			{
 				"follower_user_id": 100,
 				"followee_user_id": 1,
+				"blocknumber":      0,
 				"created_at":       t0,
 			},
 			{
 				"follower_user_id": 101,
 				"followee_user_id": 1,
+				"blocknumber":      0,
 				"created_at":       t0,
 			},
 			{
 				"follower_user_id": 102,
 				"followee_user_id": 1,
+				"blocknumber":      0,
 				"created_at":       t0,
 			},
 			{
 				"follower_user_id": 103,
 				"followee_user_id": 1,
+				"blocknumber":      0,
 				"created_at":       t0,
 			},
 			{
 				"follower_user_id": 104,
 				"followee_user_id": 1,
+				"blocknumber":      0,
 				"created_at":       t0,
 			},
 		},
@@ -550,8 +557,8 @@ func TestChatBlastTippers(t *testing.T) {
 	defer pool.Close()
 	database.Seed(pool, database.FixtureMap{
 		"users": {
-			{"user_id": 1, "wallet": "wallet1", "handle": "user1"},
-			{"user_id": 201, "wallet": "wallet201", "handle": "user201"},
+			{"user_id": 1, "wallet": "wallet1", "handle": "user1", "blocknumber": 0},
+			{"user_id": 201, "wallet": "wallet201", "handle": "user201", "blocknumber": 0},
 		},
 		"user_tips": {
 			{
@@ -635,17 +642,19 @@ func TestChatBlastRemixers(t *testing.T) {
 	defer pool.Close()
 	database.Seed(pool, database.FixtureMap{
 		"users": {
-			{"user_id": 1, "wallet": "wallet1", "handle": "user1"},
-			{"user_id": 202, "wallet": "wallet202", "handle": "user202"},
+			{"user_id": 1, "wallet": "wallet1", "handle": "user1", "blocknumber": 0},
+			{"user_id": 202, "wallet": "wallet202", "handle": "user202", "blocknumber": 0},
 		},
 		"tracks": {
 			{
-				"track_id": 1,
-				"owner_id": 1,
+				"track_id":    1,
+				"owner_id":    1,
+				"blocknumber": 0,
 			},
 			{
-				"track_id": 2,
-				"owner_id": 202,
+				"track_id":    2,
+				"owner_id":    202,
+				"blocknumber": 0,
 			},
 		},
 		"remixes": {
@@ -764,13 +773,14 @@ func TestChatBlastPurchasers(t *testing.T) {
 	defer pool.Close()
 	database.Seed(pool, database.FixtureMap{
 		"users": {
-			{"user_id": 1, "wallet": "wallet1", "handle": "user1"},
-			{"user_id": 203, "wallet": "wallet203", "handle": "user203"},
+			{"user_id": 1, "wallet": "wallet1", "handle": "user1", "blocknumber": 0},
+			{"user_id": 203, "wallet": "wallet203", "handle": "user203", "blocknumber": 0},
 		},
 		"tracks": {
 			{
-				"track_id": 1,
-				"owner_id": 1,
+				"track_id":    1,
+				"owner_id":    1,
+				"blocknumber": 0,
 			},
 		},
 		"usdc_purchases": {
@@ -827,17 +837,18 @@ func TestChatBlastCoinHolders(t *testing.T) {
 	defer pool.Close()
 	database.Seed(pool, database.FixtureMap{
 		"users": {
-			{"user_id": 1, "wallet": "wallet1", "handle": "user1"},
-			{"user_id": 204, "wallet": "wallet204", "handle": "user204"},
-			{"user_id": 205, "wallet": "wallet205", "handle": "user205"},
-			{"user_id": 206, "wallet": "wallet206", "handle": "user206"},
+			{"user_id": 1, "wallet": "wallet1", "handle": "user1", "blocknumber": 0},
+			{"user_id": 204, "wallet": "wallet204", "handle": "user204", "blocknumber": 0},
+			{"user_id": 205, "wallet": "wallet205", "handle": "user205", "blocknumber": 0},
+			{"user_id": 206, "wallet": "wallet206", "handle": "user206", "blocknumber": 0},
+			{"user_id": 209, "wallet": "wallet209", "handle": "user209", "blocknumber": 0},
 		},
 		"artist_coins": {
 			{
 				"user_id":  1,
 				"ticker":   "$ARTIST1",
 				"mint":     "mint123",
-				"decimals": 8,
+				"decimals": 9,
 			},
 		},
 		"sol_claimable_accounts": {
@@ -859,6 +870,12 @@ func TestChatBlastCoinHolders(t *testing.T) {
 				"ethereum_address": "wallet206",
 				"mint":             "mint123",
 			},
+			{
+				"signature":        "sig4",
+				"account":          "account209",
+				"ethereum_address": "wallet209",
+				"mint":             "mint123",
+			},
 		},
 	})
 
@@ -868,9 +885,12 @@ func TestChatBlastCoinHolders(t *testing.T) {
 	insert into sol_token_account_balance_changes
 	(signature, mint, owner, account, change, balance, slot, created_at, block_timestamp)
 	values
-	-- user 204: positive balance before blast
-	('tx1', 'mint123', 'wallet204', 'account204', 1000, 1000, 10001, $1, $1),
-	('tx2', 'mint123', 'wallet206', 'account206', 500, 500, 10003, $1, $1);
+	-- user 204: positive balance at least 1 total coin before blast
+	('tx1', 'mint123', 'wallet204', 'account204', 1000000000, 1000000000, 10001, $1, $1),
+	-- user 206: positive balance 5 total coin before blast
+	('tx2', 'mint123', 'wallet206', 'account206', 500000000, 500000000, 10003, $1, $1),
+	-- user 209: positive balance before blast but less than 1 total coin
+	('tx3', 'mint123', 'wallet209', 'account209', 1, 1, 10005, $1, $1);
 	`, time.Now().UTC())
 	assert.NoError(t, err)
 
@@ -879,7 +899,7 @@ func TestChatBlastCoinHolders(t *testing.T) {
 	(signature, mint, owner, account, change, balance, slot, created_at, block_timestamp)
 	values
 	-- user 206: had positive balance, then sold to zero before blast
-	('tx3', 'mint123', 'wallet206', 'account206', -500, 0, 10004, $1, $1);
+	('tx3', 'mint123', 'wallet206', 'account206', -500000000, 0, 10004, $1, $1);
 	`, time.Now().UTC())
 	assert.NoError(t, err)
 
@@ -913,6 +933,15 @@ func TestChatBlastCoinHolders(t *testing.T) {
 	{
 		pending, err := getNewBlasts(pool, ctx, getNewBlastsParams{
 			UserID: 206,
+		})
+		assert.NoError(t, err)
+		assert.Len(t, pending, 0)
+	}
+
+	// User 209 should have no pending blast (less than 1 total coin)
+	{
+		pending, err := getNewBlasts(pool, ctx, getNewBlastsParams{
+			UserID: 209,
 		})
 		assert.NoError(t, err)
 		assert.Len(t, pending, 0)
@@ -955,7 +984,7 @@ func TestChatBlastCoinHolders(t *testing.T) {
 	(signature, mint, owner, account, change, balance, slot, created_at, block_timestamp)
 	values
 	-- user 205 gets tokens AFTER the blast
-	('tx5', 'mint123', 'wallet205', 'account205', 2000, 2000, 10005, $1, $1);
+	('tx5', 'mint123', 'wallet205', 'account205', 1000000000, 1000000000, 10005, $1, $1);
 	`, time.Now().UTC())
 	assert.NoError(t, err)
 
@@ -968,7 +997,16 @@ func TestChatBlastCoinHolders(t *testing.T) {
 		assert.Len(t, pending, 0)
 	}
 
-	// Send another blast - now 205 should be included
+	// User 209 should still have no pending blast (still zero balance after second blast)
+	{
+		pending, err := getNewBlasts(pool, ctx, getNewBlastsParams{
+			UserID: 209,
+		})
+		assert.NoError(t, err)
+		assert.Len(t, pending, 0)
+	}
+
+	// Send another blast - now 205 should be included, but 209 should still be excluded
 	_, err = chatBlast(pool, ctx, 1, time.Now().UTC(), ChatBlastRPCParams{
 		BlastID:  "blast_coin_holders_2",
 		Audience: CoinHolderAudience,
@@ -983,6 +1021,15 @@ func TestChatBlastCoinHolders(t *testing.T) {
 		})
 		assert.NoError(t, err)
 		assert.Len(t, pending, 1)
+	}
+
+	// User 209 should still have no pending blast (still zero balance)
+	{
+		pending, err := getNewBlasts(pool, ctx, getNewBlastsParams{
+			UserID: 209,
+		})
+		assert.NoError(t, err)
+		assert.Len(t, pending, 0)
 	}
 
 	// User 204 should have the new blast added to existing chat
@@ -1013,9 +1060,9 @@ func TestChatBlastCoinHoldersExcludesSender(t *testing.T) {
 	// further resulting in the blast being fanned-out to all their existing chats.
 	database.Seed(pool, database.FixtureMap{
 		"users": {
-			{"user_id": 1, "wallet": "wallet1", "handle": "user1"},
-			{"user_id": 207, "wallet": "wallet207", "handle": "user207"},
-			{"user_id": 208, "wallet": "wallet208", "handle": "user208"},
+			{"user_id": 1, "wallet": "wallet1", "handle": "user1", "blocknumber": 0},
+			{"user_id": 207, "wallet": "wallet207", "handle": "user207", "blocknumber": 0},
+			{"user_id": 208, "wallet": "wallet208", "handle": "user208", "blocknumber": 0},
 		},
 		"artist_coins": {
 			{
@@ -1056,10 +1103,10 @@ func TestChatBlastCoinHoldersExcludesSender(t *testing.T) {
 		insert into sol_token_account_balance_changes
 		(signature, mint, owner, account, change, balance, slot, created_at, block_timestamp)
 		values
-		-- artist owns their own coin
-		('tx_artist', 'mint123', 'wallet1', 'account1', 50000, 50000, 10001, $1, $1),
+		-- artist holds their own coin
+		('tx_artist', 'mint123', 'wallet1', 'account1', 500000000, 500000000, 10001, $1, $1),
 		-- other holders
-		('tx207', 'mint123', 'wallet207', 'account207', 1000, 1000, 10002, $1, $1)
+		('tx207', 'mint123', 'wallet207', 'account207', 1000000000, 1000000000, 10002, $1, $1)
 		`, blastTime)
 	assert.NoError(t, err)
 
