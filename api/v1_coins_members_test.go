@@ -15,7 +15,7 @@ func TestV1CoinsMembers(t *testing.T) {
 		"artist_coins": {
 			{
 				"ticker":   "$ARTISTCOIN",
-				"decimals": 1,
+				"decimals": 0,
 				"user_id":  1,
 				"mint":     "artistcoin_mint",
 			},

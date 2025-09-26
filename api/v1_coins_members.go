@@ -11,10 +11,10 @@ type GetCoinsMembersRouteParams struct {
 }
 
 type GetCoinsMembersQueryParams struct {
-	MinBalance    int64  `query:"min_balance" default:"1" validate:"min=0"`
-	SortDirection string `query:"sort_direction" default:"desc" validate:"oneof=asc desc"`
-	Limit         int    `query:"limit" default:"10" validate:"min=1,max=100"`
-	Offset        int    `query:"offset" default:"0" validate:"min=0"`
+	MinBalance    float64 `query:"min_balance" default:"1.0" validate:"min=0"`
+	SortDirection string  `query:"sort_direction" default:"desc" validate:"oneof=asc desc"`
+	Limit         int     `query:"limit" default:"10" validate:"min=1,max=100"`
+	Offset        int     `query:"offset" default:"0" validate:"min=0"`
 }
 
 type CoinMember struct {
@@ -40,14 +40,15 @@ func (app *ApiServer) v1CoinsMembers(c *fiber.Ctx) error {
 
 	sql := `
 		SELECT
-			user_id,
+			sol_user_balances.user_id,
 			balance
 		FROM sol_user_balances
-		WHERE balance >= @min_balance
-			AND mint = @mint
+		JOIN artist_coins ON artist_coins.mint = sol_user_balances.mint
+		WHERE balance >= @min_balance * POWER(10, artist_coins.decimals)
+			AND sol_user_balances.mint = @mint
 		ORDER BY
 			balance ` + sortDirection + `,
-			user_id ASC
+			sol_user_balances.user_id ASC
 		LIMIT @limit
 		OFFSET @offset
 	`
