@@ -41,8 +41,10 @@ test-schema::
 	@set -a; \
 	. .env; \
     if [ -z "$$writeDbUrl" ]; then \
-		echo "writeDbUrl is not set in .env"; \
-		exit 1; \
+		echo "writeDbUrl is not set in .env - using test db"; \
+		writeDbUrl=postgresql://postgres:example@localhost:21300/postgres; \
 	fi; \
+	make migrate; \
 	adjustedUrl=$$(echo "$$writeDbUrl" | sed 's/localhost/host.docker.internal/g'); \
-	docker compose exec db bash -c "pg_dump '$$adjustedUrl' --schema-only --no-owner --no-acl > ./sql/01_schema.sql"
+	docker compose exec db bash -c "pg_dump '$$adjustedUrl' --schema-only --no-owner --no-acl > ./sql/01_schema.sql"; \
+	echo "schema dumped to ./sql/01_schema.sql"
