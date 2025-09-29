@@ -26,7 +26,6 @@ func main() {
 	switch command {
 	case "server":
 		{
-			fmt.Println("Running migrations...")
 			ddl.RunMigrations()
 
 			fmt.Println("Running server...")
@@ -35,8 +34,8 @@ func main() {
 		}
 	case "indexer":
 		{
-			fmt.Println("Running indexer...")
 			ddl.RunMigrations()
+			fmt.Println("Running indexer...")
 			_, err := indexer.NewIndexer(indexer.CoreIndexerConfig{
 				DbUrl: config.Cfg.WriteDbUrl,
 			})
@@ -47,7 +46,6 @@ func main() {
 		}
 	case "es-indexer":
 		{
-
 			collections := os.Args[2:]
 			drop := slices.Contains(collections, "drop")
 			fmt.Printf("Reindexing ElasticSearch (collections=%s, drop=%t)...\n", collections, drop)
@@ -55,8 +53,8 @@ func main() {
 		}
 	case "solana-indexer":
 		{
-			fmt.Println("Running solana-indexer...")
 			ddl.RunMigrations()
+			fmt.Println("Running solana-indexer...")
 			solanaIndexer := solana_indexer.New(config.Cfg)
 			defer solanaIndexer.Close()
 
@@ -69,6 +67,11 @@ func main() {
 					panic(err)
 				}
 			}
+		}
+	case "migrate":
+		{
+			ddl.RunMigrations()
+			os.Exit(0)
 		}
 	default:
 		fmt.Printf("Unrecognized command: %s", command)

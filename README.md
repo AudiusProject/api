@@ -50,29 +50,17 @@ docker compose up -d
 make test
 ```
 
-#### To run tests against custom migrations
-
-Launch a postgres instance
+#### To run tests with custom migrations
 ```
-docker run --rm --name postgres \             
-  -e POSTGRES_PASSWORD=postgres \
-  -e POSTGRES_DB=audius_discovery \
-  -p 5432:5432 \
-  -d postgres
-```
-
-Add writeDbUrl and runMigrations to your .env
-```
-writeDbUrl='postgresql://postgres:postgres@localhost:5432/audius_discovery'
-runMigrations=true
-```
-
-Update the schema and run tests
-```
-make
-make test-schema
 docker compose up -d
-make test # or run tests in IDE
+
+# update .env to contain
+writeDbUrl=postgresql://postgres:example@localhost:21300/postgres
+runMigrations=true
+
+make migrate
+make test-schema
+make test
 ```
 
 ### Build
