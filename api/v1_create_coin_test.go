@@ -407,7 +407,7 @@ func TestV1CreateCoin_InvalidMintLength(t *testing.T) {
 
 	assert.Equal(t, 400, status)
 	jsonAssert(t, body, map[string]any{
-		"error": "Mint address must be exactly 44 characters",
+		"error": "Mint is invalid",
 	})
 }
 
@@ -440,7 +440,7 @@ func TestV1CreateCoin_InvalidTickerFormat(t *testing.T) {
 
 	assert.Equal(t, 400, status)
 	jsonAssert(t, body, map[string]any{
-		"error": "Ticker must start with $",
+		"error": "Ticker is invalid",
 	})
 }
 
@@ -473,7 +473,7 @@ func TestV1CreateCoin_InvalidTickerCharacters(t *testing.T) {
 
 	assert.Equal(t, 400, status)
 	jsonAssert(t, body, map[string]any{
-		"error": "Ticker must contain only letters and numbers after $",
+		"error": "Ticker is invalid",
 	})
 }
 
@@ -506,7 +506,7 @@ func TestV1CreateCoin_InvalidNameCharacters(t *testing.T) {
 
 	assert.Equal(t, 400, status)
 	jsonAssert(t, body, map[string]any{
-		"error": "Name contains invalid characters",
+		"error": "Name is invalid",
 	})
 }
 
@@ -539,6 +539,6 @@ func TestV1CreateCoin_InvalidLogoUri(t *testing.T) {
 
 	assert.Equal(t, 400, status)
 	jsonAssert(t, body, map[string]any{
-		"error": "Logo URI must be a valid HTTP/HTTPS URL",
+		"error": "LogoUri is invalid",
 	})
 }

@@ -11,11 +11,11 @@ import (
 )
 
 type CreateCoinBody struct {
-	Mint        string `json:"mint" validate:"required,min=32,max=44"`
-	Ticker      string `json:"ticker" validate:"required,min=2,max=10,startswith=$"`
+	Mint        string `json:"mint" validate:"required,solana_address"`
+	Ticker      string `json:"ticker" validate:"required,min=2,max=10,coin_ticker"`
 	Decimals    int32  `json:"decimals" validate:"required,min=0,max=18"`
-	Name        string `json:"name" validate:"required,min=1,max=32"`
-	LogoUri     string `json:"logo_uri" validate:"omitempty,url"`
+	Name        string `json:"name" validate:"required,min=1,max=32,unicode_name"`
+	LogoUri     string `json:"logo_uri" validate:"omitempty,http_url"`
 	Description string `json:"description" validate:"max=2500"`
 }
 
@@ -57,13 +57,6 @@ func (app *ApiServer) v1CreateCoin(c *fiber.Ctx) error {
 
 	if hasExistingCoin {
 		return fiber.NewError(fiber.StatusBadRequest, "User has already created a coin")
-	}
-
-	// Additional validations
-	if err := validateCoinData(body); err != nil {
-		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
-			"error": err.Error(),
-		})
 	}
 
 	sql := `
@@ -115,55 +108,4 @@ func (app *ApiServer) v1CreateCoin(c *fiber.Ctx) error {
 	return c.Status(fiber.StatusCreated).JSON(fiber.Map{
 		"data": result,
 	})
-}
-
-// validateCoinData performs additional business logic validations
-func validateCoinData(body CreateCoinBody) error {
-	// Validate mint address format (should be base58 encoded Solana address)
-	if len(body.Mint) != 44 {
-		return errors.New("Mint address must be exactly 44 characters")
-	}
-
-	// Validate ticker format
-	if len(body.Ticker) < 2 || len(body.Ticker) > 10 {
-		return errors.New("Ticker must be between 2 and 10 characters")
-	}
-	if body.Ticker[0] != '$' {
-		return errors.New("Ticker must start with $")
-	}
-
-	// Check for valid ticker characters (alphanumeric after $)
-	for i := 1; i < len(body.Ticker); i++ {
-		char := body.Ticker[i]
-		if !((char >= 'A' && char <= 'Z') || (char >= 'a' && char <= 'z') || (char >= '0' && char <= '9')) {
-			return errors.New("Ticker must contain only letters and numbers after $")
-		}
-	}
-
-	// Validate name format (no special characters, reasonable length)
-	if len(body.Name) < 1 {
-		return errors.New("Name cannot be empty")
-	}
-
-	// Check for reasonable name characters (letters, numbers, spaces, hyphens)
-	for _, char := range body.Name {
-		if !((char >= 'A' && char <= 'Z') || (char >= 'a' && char <= 'z') ||
-			(char >= '0' && char <= '9') || char == ' ' || char == '-' || char == '_') {
-			return errors.New("Name contains invalid characters")
-		}
-	}
-
-	// Validate logo URI if provided
-	if body.LogoUri != "" {
-		if len(body.LogoUri) > 500 {
-			return errors.New("Logo URI is too long")
-		}
-		// Basic URL format check
-		if !(len(body.LogoUri) >= 7 &&
-			(body.LogoUri[:7] == "http://" || body.LogoUri[:8] == "https://")) {
-			return errors.New("Logo URI must be a valid HTTP/HTTPS URL")
-		}
-	}
-
-	return nil
 }
