@@ -8,13 +8,7 @@ import (
 	"api.audius.co/config"
 )
 
-func RunMigrations(forceMigration bool) error {
-	fmt.Println("Running migrations...")
-	if !config.Cfg.RunMigrations && !forceMigration {
-		fmt.Println("Skipping migrations. Set env runMigrations=true to run.")
-		return nil
-	}
-
+func RunMigrations() error {
 	cmd := exec.Command("bash", "pg_migrate.sh")
 	cmd.Dir = "ddl"
 
