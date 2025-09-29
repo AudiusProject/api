@@ -3,8 +3,11 @@ package api
 import (
 	"fmt"
 	"reflect"
+	"regexp"
 	"strings"
+	"sync"
 
+	"github.com/gagliardetto/solana-go"
 	"github.com/go-playground/validator/v10"
 	"github.com/gofiber/fiber/v2"
 )
@@ -24,6 +27,8 @@ func initRequestValidator() *RequestValidator {
 		return name
 	}
 	requestValidator.RegisterTagNameFunc(tagNameFunc)
+	requestValidator.RegisterValidation("coin_ticker", isCoinTicker)
+	requestValidator.RegisterValidation("solana_address", isSolanaAddress)
 	return &RequestValidator{validator: requestValidator}
 }
 
@@ -42,4 +47,32 @@ func (v RequestValidator) Validate(data any) error {
 		return fiber.NewError(fiber.StatusBadRequest, strings.Join(validationErrors, "; "))
 	}
 	return nil
+}
+
+const (
+	coinTickerRegexString = "^\\$[a-zA-Z0-9]+$"
+)
+
+var (
+	coinTickerRegex = lazyRegexCompile(coinTickerRegexString)
+)
+
+func lazyRegexCompile(str string) func() *regexp.Regexp {
+	var regex *regexp.Regexp
+	var once sync.Once
+	return func() *regexp.Regexp {
+		once.Do(func() {
+			regex = regexp.MustCompile(str)
+		})
+		return regex
+	}
+}
+
+func isCoinTicker(fl validator.FieldLevel) bool {
+	return coinTickerRegex().MatchString(fl.Field().String())
+}
+
+func isSolanaAddress(fl validator.FieldLevel) bool {
+	_, err := solana.PublicKeyFromBase58(fl.Field().String())
+	return err == nil
 }

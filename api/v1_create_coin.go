@@ -11,11 +11,11 @@ import (
 )
 
 type CreateCoinBody struct {
-	Mint        string `json:"mint" validate:"required"`
-	Ticker      string `json:"ticker" validate:"required"`
+	Mint        string `json:"mint" validate:"required,solana_address"`
+	Ticker      string `json:"ticker" validate:"required,min=2,max=10,coin_ticker"`
 	Decimals    int32  `json:"decimals" validate:"required,min=0,max=18"`
-	Name        string `json:"name" validate:"required,max=32"`
-	LogoUri     string `json:"logo_uri"`
+	Name        string `json:"name" validate:"required,min=1,max=32"`
+	LogoUri     string `json:"logo_uri" validate:"omitempty,url"`
 	Description string `json:"description" validate:"max=2500"`
 }
 
@@ -39,12 +39,11 @@ func (app *ApiServer) v1CreateCoin(c *fiber.Ctx) error {
 	if err != nil {
 		return err
 	}
-	// TODO (PE-6821) This is temporarily disabled to allow for testing
-	// if !isVerified {
-	// 	return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
-	// 		"error": "User must be verified to create coins",
-	// 	})
-	// }
+	if !isVerified {
+		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
+			"error": "User must be verified to create coins",
+		})
+	}
 
 	// Check if user has already created a coin
 	var hasExistingCoin bool
