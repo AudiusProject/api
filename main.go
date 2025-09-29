@@ -26,7 +26,6 @@ func main() {
 	switch command {
 	case "server":
 		{
-			fmt.Println("Running migrations...")
 			ddl.RunMigrations()
 
 			fmt.Println("Running server...")
@@ -35,7 +34,6 @@ func main() {
 		}
 	case "indexer":
 		{
-			fmt.Println("Running migrations...")
 			ddl.RunMigrations()
 			fmt.Println("Running indexer...")
 			_, err := indexer.NewIndexer(indexer.CoreIndexerConfig{
@@ -55,7 +53,6 @@ func main() {
 		}
 	case "solana-indexer":
 		{
-			fmt.Println("Running migrations...")
 			ddl.RunMigrations()
 			fmt.Println("Running solana-indexer...")
 			solanaIndexer := solana_indexer.New(config.Cfg)
@@ -73,7 +70,6 @@ func main() {
 		}
 	case "migrate":
 		{
-			fmt.Println("Running migrations...")
 			ddl.RunMigrations()
 			os.Exit(0)
 		}
