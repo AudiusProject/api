@@ -5670,7 +5670,11 @@ CREATE TABLE public.artist_coins (
     description text,
     website text,
     name text DEFAULT ''::text NOT NULL,
-    has_discord boolean DEFAULT false NOT NULL
+    has_discord boolean DEFAULT false NOT NULL,
+    updated_at timestamp without time zone DEFAULT now(),
+    twitter text,
+    instagram text,
+    tiktok text
 );
 
 
