@@ -14,8 +14,8 @@ type CreateCoinBody struct {
 	Mint        string `json:"mint" validate:"required,solana_address"`
 	Ticker      string `json:"ticker" validate:"required,min=2,max=10,coin_ticker"`
 	Decimals    int32  `json:"decimals" validate:"required,min=0,max=18"`
-	Name        string `json:"name" validate:"required,min=1,max=32,unicode_name"`
-	LogoUri     string `json:"logo_uri" validate:"omitempty,http_url"`
+	Name        string `json:"name" validate:"required,min=1,max=32"`
+	LogoUri     string `json:"logo_uri" validate:"omitempty,url"`
 	Description string `json:"description" validate:"max=2500"`
 }
 

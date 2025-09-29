@@ -29,7 +29,6 @@ func initRequestValidator() *RequestValidator {
 	requestValidator.RegisterTagNameFunc(tagNameFunc)
 	requestValidator.RegisterValidation("coin_ticker", isCoinTicker)
 	requestValidator.RegisterValidation("solana_address", isSolanaAddress)
-	requestValidator.RegisterValidation("unicode_name", isUnicodeName)
 	return &RequestValidator{validator: requestValidator}
 }
 
@@ -51,13 +50,11 @@ func (v RequestValidator) Validate(data any) error {
 }
 
 const (
-	coinTickerRegexString  = "^\\$[a-zA-Z0-9]+$"
-	unicodeNameRegexString = "^[\\p{L}\\p{N} _-]+$"
+	coinTickerRegexString = "^\\$[a-zA-Z0-9]+$"
 )
 
 var (
-	coinTickerRegex  = lazyRegexCompile(coinTickerRegexString)
-	unicodeNameRegex = lazyRegexCompile(unicodeNameRegexString)
+	coinTickerRegex = lazyRegexCompile(coinTickerRegexString)
 )
 
 func lazyRegexCompile(str string) func() *regexp.Regexp {
@@ -78,8 +75,4 @@ func isCoinTicker(fl validator.FieldLevel) bool {
 func isSolanaAddress(fl validator.FieldLevel) bool {
 	_, err := solana.PublicKeyFromBase58(fl.Field().String())
 	return err == nil
-}
-
-func isUnicodeName(fl validator.FieldLevel) bool {
-	return unicodeNameRegex().MatchString(fl.Field().String())
 }
