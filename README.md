@@ -44,9 +44,35 @@ The API backend for the Audius mobile apps and [audius.co](https://audius.co)
 
 ### Tests
 
+#### To run tests against the existing schemas
 ```
 docker compose up -d
 make test
+```
+
+#### To run tests against custom migrations
+
+Launch a postgres instance
+```
+docker run --rm --name postgres \             
+  -e POSTGRES_PASSWORD=postgres \
+  -e POSTGRES_DB=audius_discovery \
+  -p 5432:5432 \
+  -d postgres
+```
+
+Add writeDbUrl and runMigrations to your .env
+```
+writeDbUrl='postgresql://postgres:postgres@localhost:5432/audius_discovery'
+runMigrations=true
+```
+
+Update the schema and run tests
+```
+make
+make test-schema
+docker compose up -d
+make test # or run tests in IDE
 ```
 
 ### Build
