@@ -90,16 +90,18 @@ func (app *ApiServer) getNewBlasts(c *fiber.Ctx) error {
 				AND p.created_at < blast.created_at
 		)
 		OR from_user_id IN (
-			-- coin_holder_audience via sol_user_balances
+			-- coin_holder_audience
 			SELECT ac.user_id
 			FROM artist_coins ac
-			JOIN sol_user_balances sub ON sub.mint = ac.mint
 			WHERE blast.audience = 'coin_holder_audience'
 				AND ac.user_id = blast.from_user_id
-				AND sub.user_id = @user_id
-				AND sub.balance > 0
-				-- TODO: PE-6663 This isn't entirely correct yet, need to check "time of most recent membership"
-				AND sub.created_at < blast.created_at
+				AND ac.user_id != @user_id
+				-- Hold at least one full coin at the time the blast was created
+				AND user_mint_balance_at(
+					@user_id,
+					ac.mint,
+					blast.created_at
+				) >= power(10::bigint, ac.decimals)
 		)
 	)
 	SELECT * FROM all_new
