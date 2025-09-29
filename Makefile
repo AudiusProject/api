@@ -14,6 +14,9 @@ solana-indexer::
 
 up: dev
 
+migrate::
+	go run main.go migrate
+
 test::
 	sqlc generate
 	go test -count=1 -cover ./...

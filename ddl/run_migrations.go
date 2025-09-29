@@ -9,6 +9,7 @@ import (
 )
 
 func RunMigrations() error {
+	fmt.Println("Running migrations...")
 	if !config.Cfg.RunMigrations {
 		fmt.Println("Skipping migrations. Set env runMigrations=true to run.")
 		return nil
@@ -23,5 +24,8 @@ func RunMigrations() error {
 
 	out, err := cmd.CombinedOutput()
 	fmt.Println("pg_migrate.sh: ", string(out))
+	if err != nil {
+		fmt.Println("Error running pg_migrate.sh:", err)
+	}
 	return err
 }

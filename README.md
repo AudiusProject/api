@@ -50,29 +50,30 @@ docker compose up -d
 make test
 ```
 
-#### To run tests against custom migrations
+#### To run tests with custom migrations
 
-Launch a postgres instance
+Launch a postgres instance based on the standard schema
 ```
-docker run --rm --name postgres \             
+docker run --rm --name postgres \
   -e POSTGRES_PASSWORD=postgres \
   -e POSTGRES_DB=audius_discovery \
+  -v ./sql/01_schema.sql:/docker-entrypoint-initdb.d/01_schema.sql:ro \
   -p 5432:5432 \
   -d postgres
 ```
 
 Add writeDbUrl and runMigrations to your .env
 ```
-writeDbUrl='postgresql://postgres:postgres@localhost:5432/audius_discovery'
+writeDbUrl=postgresql://postgres:postgres@localhost:5432/audius_discovery
 runMigrations=true
 ```
 
 Update the schema and run tests
 ```
-make
-make test-schema
+make migrate
 docker compose up -d
-make test # or run tests in IDE
+make test-schema
+make test
 ```
 
 ### Build

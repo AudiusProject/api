@@ -2,9 +2,8 @@
 -- PostgreSQL database dump
 --
 
-
--- Dumped from database version 15.5 (Debian 15.5-1.pgdg120+1)
--- Dumped by pg_dump version 17.6 (Debian 17.6-1.pgdg13+1)
+-- Dumped from database version 17.5 (Debian 17.5-1.pgdg120+1)
+-- Dumped by pg_dump version 17.5 (Debian 17.5-1.pgdg120+1)
 
 SET statement_timeout = 0;
 SET lock_timeout = 0;
@@ -1171,7 +1170,7 @@ BEGIN
     ON artist_coins.user_id = chat_blast.from_user_id
   JOIN sol_user_balances
     ON sol_user_balances.mint = artist_coins.mint
-    AND sol_user_balances.balance > 0
+    AND sol_user_balances.balance >= POWER(10, artist_coins.decimals) -- must hold at least 1 coin
   WHERE chat_blast.blast_id = blast_id_param
     AND chat_blast.audience = 'coin_holder_audience'
     AND sol_user_balances.user_id != chat_blast.from_user_id;
@@ -1243,10 +1242,10 @@ $$;
 
 
 --
--- Name: compute_user_score(bigint, bigint, bigint, bigint, bigint, boolean, bigint, bigint); Type: FUNCTION; Schema: public; Owner: -
+-- Name: compute_user_score(bigint, bigint, bigint, bigint, bigint, boolean, boolean, bigint, bigint); Type: FUNCTION; Schema: public; Owner: -
 --
 
-CREATE FUNCTION public.compute_user_score(play_count bigint, follower_count bigint, challenge_count bigint, chat_block_count bigint, following_count bigint, is_audius_impersonator boolean, distinct_tracks_played bigint, karma bigint) RETURNS bigint
+CREATE FUNCTION public.compute_user_score(play_count bigint, follower_count bigint, challenge_count bigint, chat_block_count bigint, following_count bigint, is_audius_impersonator boolean, has_badwords boolean, distinct_tracks_played bigint, karma bigint) RETURNS bigint
     LANGUAGE sql IMMUTABLE
     AS $$
 select (play_count / 2) + follower_count - challenge_count - (chat_block_count * 100) + karma + case
@@ -1254,6 +1253,9 @@ select (play_count / 2) + follower_count - challenge_count - (chat_block_count *
         else 0
     end + case
         when is_audius_impersonator then -1000
+        else 0
+    end + case
+        when has_badwords then -1000
         else 0
     end + case
         when distinct_tracks_played <= 3 then -10
@@ -1702,7 +1704,7 @@ $$;
 -- Name: get_user_score(integer); Type: FUNCTION; Schema: public; Owner: -
 --
 
-CREATE FUNCTION public.get_user_score(target_user_id integer) RETURNS TABLE(user_id integer, handle_lc text, play_count bigint, distinct_tracks_played bigint, challenge_count bigint, following_count bigint, follower_count bigint, chat_block_count bigint, is_audius_impersonator boolean, karma bigint, score bigint)
+CREATE FUNCTION public.get_user_score(target_user_id integer) RETURNS TABLE(user_id integer, handle_lc text, play_count bigint, distinct_tracks_played bigint, challenge_count bigint, following_count bigint, follower_count bigint, chat_block_count bigint, is_audius_impersonator boolean, has_badwords boolean, karma bigint, score bigint)
     LANGUAGE sql
     AS $$ with play_activity as (
         select p.user_id,
@@ -1754,6 +1756,18 @@ CREATE FUNCTION public.get_user_score(target_user_id integer) RETURNS TABLE(user
             end as is_audius_impersonator,
             case
                 when (
+                    exists (
+                        select 1
+                        from unnest(array['airdrop']) as badword
+                        where u.handle_lc ilike '%' || badword || '%'
+                           or lower(u.name) like '%' || badword || '%'
+                    )
+                )
+                and u.is_verified = false then true
+                else false
+            end as has_badwords,
+            case
+                when (
                     -- give max karma to users with more than 1000 followers
                     -- karma is too slow for users with many followers
                     au.follower_count > 1000
@@ -1789,6 +1803,7 @@ select a.*,
         a.chat_block_count,
         a.following_count,
         a.is_audius_impersonator,
+        a.has_badwords,
         a.distinct_tracks_played,
         a.karma
     ) as score
@@ -1800,7 +1815,7 @@ $$;
 -- Name: get_user_scores(integer[]); Type: FUNCTION; Schema: public; Owner: -
 --
 
-CREATE FUNCTION public.get_user_scores(target_user_ids integer[] DEFAULT NULL::integer[]) RETURNS TABLE(user_id integer, handle_lc text, play_count bigint, distinct_tracks_played bigint, follower_count bigint, following_count bigint, challenge_count bigint, chat_block_count bigint, is_audius_impersonator boolean, karma bigint, score bigint)
+CREATE FUNCTION public.get_user_scores(target_user_ids integer[] DEFAULT NULL::integer[]) RETURNS TABLE(user_id integer, handle_lc text, play_count bigint, distinct_tracks_played bigint, follower_count bigint, following_count bigint, challenge_count bigint, chat_block_count bigint, is_audius_impersonator boolean, has_badwords boolean, karma bigint, score bigint)
     LANGUAGE sql
     AS $$ with play_activity as (
         select plays.user_id,
@@ -1859,6 +1874,18 @@ CREATE FUNCTION public.get_user_scores(target_user_ids integer[] DEFAULT NULL::i
             end as is_audius_impersonator,
             case
                 when (
+                    exists (
+                        select 1
+                        from unnest(array['airdrop']) as badword
+                        where users.handle_lc ilike '%' || badword || '%'
+                           or lower(users.name) like '%' || badword || '%'
+                    )
+                )
+                and users.is_verified = false then true
+                else false
+            end as has_badwords,
+            case
+                when (
                     -- give max karma to users with more than 1000 followers
                     -- karma is too slow for users with many followers
                     aggregate_user.follower_count > 1000
@@ -1897,6 +1924,7 @@ select a.*,
         a.chat_block_count,
         a.following_count,
         a.is_audius_impersonator,
+        a.has_badwords,
         a.distinct_tracks_played,
         a.karma
     ) as score
@@ -1983,14 +2011,14 @@ begin
   select * into reward_manager_tx from reward_manager_txs where reward_manager_txs.signature = new.signature limit 1;
 
   if reward_manager_tx is not null then
-		select id into existing_notification
+		select id into existing_notification 
 		from notification
 		where
 		type = 'challenge_reward' and
 		new.user_id = any(user_ids) and
 		timestamp >= (new.created_at - interval '1 hour')
 		limit 1;
-
+		
 		if existing_notification is null then
 			-- create a notification for the challenge disbursement
 			insert into notification
@@ -2109,14 +2137,14 @@ CREATE FUNCTION public.handle_comment() RETURNS trigger
     AS $$
 begin
   if new.entity_type = 'Track' then
-    insert into aggregate_track (track_id)
-    values (new.entity_id)
+    insert into aggregate_track (track_id) 
+    values (new.entity_id) 
     on conflict do nothing;
   end if;
 
   -- update agg track
   if new.entity_type = 'Track' then
-    update aggregate_track
+    update aggregate_track 
     set comment_count = (
       select count(*)
       from comments c
@@ -2176,9 +2204,9 @@ begin
   -- Only proceed if this is a remix contest event
   if new.event_type = 'remix_contest' and new.is_deleted = false then
     -- Get the owner of the track and check if it's public
-    select owner_id, not is_unlisted into owner_user_id, track_is_public
-    from tracks
-    where is_current and track_id = new.entity_id
+    select owner_id, not is_unlisted into owner_user_id, track_is_public 
+    from tracks 
+    where is_current and track_id = new.entity_id 
     limit 1;
 
     -- Only create notifications if the track is public
@@ -2258,11 +2286,11 @@ begin
     delta := 1;
   end if;
 
-  update aggregate_user
-  set following_count = following_count + delta
+  update aggregate_user 
+  set following_count = following_count + delta 
   where user_id = new.follower_user_id;
 
-  update aggregate_user
+  update aggregate_user 
   set follower_count = follower_count + delta
   where user_id = new.followee_user_id
   returning follower_count into new_follower_count;
@@ -2271,7 +2299,7 @@ begin
   select new_follower_count into milestone where new_follower_count in (10, 25, 50, 100, 250, 500, 1000, 5000, 10000, 20000, 50000, 100000, 1000000);
   select score < 0 into is_shadowbanned from aggregate_user where user_id = new.follower_user_id;
   if milestone is not null and new.is_delete is false and is_shadowbanned = false then
-      insert into milestones
+      insert into milestones 
         (id, name, threshold, blocknumber, slot, timestamp)
       values
         (new.followee_user_id, 'FOLLOWER_COUNT', milestone, new.blocknumber, new.slot, new.created_at)
@@ -2320,7 +2348,7 @@ exception
     raise warning 'An error occurred in %: %', tg_name, sqlerrm;
     raise;
 
-end;
+end; 
 $$;
 
 
@@ -2376,7 +2404,7 @@ begin
                 'challenge_reward',
                 'challenge_reward:' || new.user_id || ':challenge:' || new.challenge_id || ':specifier:' || new.specifier,
                 new.user_id,
-                case
+                case 
                     when new.challenge_id = 'e' then
                         json_build_object(
                             'specifier', new.specifier,
@@ -2394,9 +2422,9 @@ begin
             )
             on conflict do nothing;
         else
-            -- transactional notifications cover this
+            -- transactional notifications cover this 
             if (new.challenge_id != 'b' and new.challenge_id != 's') then
-                select id into existing_notification
+                select id into existing_notification 
                 from notification
                 where
                 type = 'reward_in_cooldown' and
@@ -2446,7 +2474,7 @@ begin
     insert into aggregate_plays (play_item_id, count) values (new.play_item_id, 0) on conflict do nothing;
 
     update aggregate_plays
-        set count = count + 1
+        set count = count + 1 
         where play_item_id = new.play_item_id
         returning count into new_listen_count;
 
@@ -2461,8 +2489,8 @@ begin
         and timestamp = date_trunc('month', new.created_at)
         and country = coalesce(new.country, '');
 
-    select new_listen_count
-        into milestone
+    select new_listen_count 
+        into milestone 
         where new_listen_count in (10,25,50,100,250,500,1000,2500,5000,10000,25000,50000,100000,250000,500000,1000000);
 
     if milestone is not null then
@@ -2662,7 +2690,7 @@ begin
           json_build_object('track_id', new.track_id, 'playlist_id', new.playlist_id, 'playlist_owner_id', playlist_record.playlist_owner_id)
         from album_purchasers as album_purchaser;
   end if;
-
+  
   return null;
 
 exception
@@ -2689,16 +2717,16 @@ declare
 begin
 
   raise NOTICE 'start';
-
+  
   if new.reaction_type = 'tip' then
 
     raise NOTICE 'is tip';
 
-    SELECT amount, sender_user_id, receiver_user_id
-    INTO tip_amount, tip_sender_user_id, tip_receiver_user_id
-    FROM user_tips ut
+    SELECT amount, sender_user_id, receiver_user_id 
+    INTO tip_amount, tip_sender_user_id, tip_receiver_user_id 
+    FROM user_tips ut 
     WHERE ut.signature = new.reacted_to;
-
+    
     raise NOTICE 'did select % %', tip_sender_user_id, tip_receiver_user_id;
     raise NOTICE 'did select %', new.reacted_to;
 
@@ -2793,7 +2821,7 @@ begin
   end if;
 
   -- update agg user
-  update aggregate_user
+  update aggregate_user 
   set repost_count = (
     select count(*)
     from reposts r
@@ -2806,7 +2834,7 @@ begin
   -- update agg track or playlist
   if new.repost_type = 'track' then
     milestone_name := 'TRACK_REPOST_COUNT';
-    update aggregate_track
+    update aggregate_track 
     set repost_count = (
       select count(*)
       from reposts r
@@ -2832,7 +2860,7 @@ begin
           and r.is_delete is false
           and r.repost_type = new.repost_type
           and r.repost_item_id = new.repost_item_id
-    )
+    )    
     where playlist_id = new.repost_item_id
     returning repost_count into new_val;
 
@@ -2846,7 +2874,7 @@ begin
   select score < 0 into is_shadowbanned from aggregate_user where user_id = new.user_id;
 
   if new.is_delete = false and milestone is not null and owner_user_id is not null and is_shadowbanned = false then
-    insert into milestones
+    insert into milestones 
       (id, name, threshold, blocknumber, slot, timestamp)
     values
       (new.repost_item_id, milestone_name, milestone, new.blocknumber, new.slot, new.created_at)
@@ -2947,7 +2975,7 @@ begin
 				'user_id',
 				new.user_id,
 				'type',
-        case
+        case 
           when is_album then 'album'
           else new.repost_type
         end
@@ -3051,7 +3079,7 @@ begin
     where p.playlist_id = new.save_item_id
     and p.is_current
     on conflict do nothing;
-
+    
     select ap.is_album into is_album
     from aggregate_playlist ap
     where ap.playlist_id = new.save_item_id;
@@ -3076,7 +3104,7 @@ begin
   if new.save_type = 'track' then
     milestone_name := 'TRACK_SAVE_COUNT';
 
-    update aggregate_track
+    update aggregate_track 
     set save_count = (
       select count(*)
       from saves r
@@ -3090,7 +3118,7 @@ begin
     returning save_count into new_val;
 
     -- update agg user
-    update aggregate_user
+    update aggregate_user 
     set track_save_count = (
       select count(*)
       from saves r
@@ -3100,7 +3128,7 @@ begin
         and r.save_type = new.save_type
     )
     where user_id = new.user_id;
-
+    
   	if new.is_delete IS FALSE then
 		  select tracks.owner_id, tracks.remix_of into owner_user_id, track_remix_of from tracks where is_current and track_id = new.save_item_id;
 	  end if;
@@ -3131,7 +3159,7 @@ begin
   select score < 0 into is_shadowbanned from aggregate_user where user_id = new.user_id;
 
   if new.is_delete = false and milestone is not null and is_shadowbanned = false then
-    insert into milestones
+    insert into milestones 
       (id, name, threshold, blocknumber, slot, timestamp)
     values
       (new.save_item_id, milestone_name, milestone, new.blocknumber, new.slot, new.created_at)
@@ -3175,10 +3203,10 @@ begin
       insert into notification
         (blocknumber, user_ids, timestamp, type, specifier, group_id, data)
         values
-        (
+        ( 
           new.blocknumber,
-          ARRAY [owner_user_id],
-          new.created_at,
+          ARRAY [owner_user_id], 
+          new.created_at, 
           'save',
           new.user_id,
           'save:' || new.save_item_id || ':type:'|| new.save_type,
@@ -3237,7 +3265,7 @@ begin
           'user_id',
           new.user_id,
           'type',
-          case
+          case 
             when is_album then 'album'
             else new.save_type
           end
@@ -3251,16 +3279,16 @@ begin
     if new.is_delete is false and new.save_type = 'track' and track_remix_of is not null and is_shadowbanned = false then
       select
         case when tracks.owner_id = new.user_id then TRUE else FALSE end as boolean into is_remix_cosign
-        from tracks
+        from tracks 
         where is_current and track_id = (track_remix_of->'tracks'->0->>'parent_track_id')::int;
       if is_remix_cosign then
         insert into notification
           (blocknumber, user_ids, timestamp, type, specifier, group_id, data)
           values
-          (
+          ( 
             new.blocknumber,
-            ARRAY [owner_user_id],
-            new.created_at,
+            ARRAY [owner_user_id], 
+            new.created_at, 
             'cosign',
             new.user_id,
             'cosign:parent_track' || (track_remix_of->'tracks'->0->>'parent_track_id')::int || ':original_track:'|| new.save_item_id,
@@ -3282,7 +3310,7 @@ exception
       raise warning 'An error occurred in %: %', tg_name, sqlerrm;
       raise;
 
-end;
+end; 
 $$;
 
 
@@ -3397,7 +3425,7 @@ BEGIN
         slot = EXCLUDED.slot,
         updated_at = NOW()
         WHERE sol_token_account_balances.slot < EXCLUDED.slot;
-
+    
     FOR v_user_id IN
         SELECT user_id
         FROM associated_wallets
@@ -3709,7 +3737,7 @@ begin
     when others then
         raise warning 'An error occurred in %: %', tg_name, sqlerrm;
         return null;
-end;
+end; 
 $$;
 
 
@@ -3808,7 +3836,7 @@ begin
   ) as tier (label, val)
   WHERE
     substr(new.current_balance, 1, GREATEST(1, length(new.current_balance) - 18))::bigint >= tier.val
-  ORDER BY
+  ORDER BY 
     tier.val DESC
   limit 1;
 
@@ -3818,7 +3846,7 @@ begin
   ) as tier (label, val)
   WHERE
     substr(new.previous_balance, 1, GREATEST(1, length(new.previous_balance) - 18))::bigint >= tier.val
-  ORDER BY
+  ORDER BY 
     tier.val DESC
   limit 1;
 
@@ -3827,10 +3855,10 @@ begin
     insert into notification
       (blocknumber, user_ids, timestamp, type, specifier, group_id, data)
     values
-      (
+      ( 
         new.blocknumber,
-        ARRAY [new.user_id],
-        new.updated_at,
+        ARRAY [new.user_id], 
+        new.updated_at, 
         'tier_change',
         new.user_id,
         'tier_change:user_id:' || new.user_id ||  ':tier:' || new_tier || ':blocknumber:' || new.blocknumber,
@@ -3866,10 +3894,10 @@ begin
   insert into notification
     (slot, user_ids, timestamp, type, specifier, group_id, data)
   values
-    (
+    ( 
       new.slot,
-      ARRAY [new.receiver_user_id],
-      new.created_at,
+      ARRAY [new.receiver_user_id], 
+      new.created_at, 
       'tip_receive',
       new.receiver_user_id,
       'tip_receive:user_id:' || new.receiver_user_id || ':signature:' || new.signature,
@@ -3880,10 +3908,10 @@ begin
         'tx_signature', new.signature
       )
     ),
-    (
+    ( 
       new.slot,
-      ARRAY [new.sender_user_id],
-      new.created_at,
+      ARRAY [new.sender_user_id], 
+      new.created_at, 
       'tip_send',
       new.sender_user_id,
       'tip_send:user_id:' || new.sender_user_id || ':signature:' || new.signature,
@@ -4421,7 +4449,7 @@ declare
 begin
     -- fetch the user_id where wallet matches grantee_address
     select user_id into matched_user_id from users where lower(wallet) = lower(NEW.grantee_address);
-
+    
     if matched_user_id is not null then
         -- if the grant is newly created (i.e. the grant is not deleted, is not approved yet, and was just created indicated by created timestamp = last updated timestamp) OR grant went from deleted (revoked) to not deleted and is not approved yet...
         if (TG_OP = 'INSERT' and NEW.is_revoked = FALSE and NEW.is_approved is null and NEW.created_at = NEW.updated_at or
@@ -4475,7 +4503,7 @@ exception
   when others then
       raise warning 'An error occurred in %: %', tg_name, sqlerrm;
       return null;
-end;
+end; 
 $$;
 
 
@@ -4982,10 +5010,10 @@ BEGIN
         NOW(),
         NOW()
     FROM (
-        SELECT
-            p_user_id AS user_id,
+        SELECT 
+            p_user_id AS user_id, 
             COALESCE(balance, 0) AS balance
-        FROM associated_wallets
+        FROM associated_wallets 
         JOIN sol_token_account_balances AS associated_wallet_balances
             ON associated_wallet_balances.owner = associated_wallets.wallet
             AND associated_wallet_balances.mint = p_mint
@@ -4995,8 +5023,8 @@ BEGIN
 
         UNION ALL
 
-        SELECT
-            p_user_id AS user_id,
+        SELECT 
+            p_user_id AS user_id, 
             COALESCE(balance, 0) AS balance
         FROM users
         JOIN sol_claimable_accounts
@@ -5505,10 +5533,10 @@ CREATE TABLE public.app_name_metrics (
 --
 
 CREATE MATERIALIZED VIEW public.app_name_metrics_all_time AS
- SELECT app_name_metrics.application_name AS name,
-    sum(app_name_metrics.count) AS count
+ SELECT application_name AS name,
+    sum(count) AS count
    FROM public.app_name_metrics
-  GROUP BY app_name_metrics.application_name
+  GROUP BY application_name
   WITH NO DATA;
 
 
@@ -5531,11 +5559,11 @@ ALTER TABLE public.app_name_metrics ALTER COLUMN id ADD GENERATED ALWAYS AS IDEN
 --
 
 CREATE MATERIALIZED VIEW public.app_name_metrics_trailing_month AS
- SELECT app_name_metrics.application_name AS name,
-    sum(app_name_metrics.count) AS count
+ SELECT application_name AS name,
+    sum(count) AS count
    FROM public.app_name_metrics
-  WHERE (app_name_metrics."timestamp" > (now() - '1 mon'::interval))
-  GROUP BY app_name_metrics.application_name
+  WHERE ("timestamp" > (now() - '1 mon'::interval))
+  GROUP BY application_name
   WITH NO DATA;
 
 
@@ -5544,11 +5572,11 @@ CREATE MATERIALIZED VIEW public.app_name_metrics_trailing_month AS
 --
 
 CREATE MATERIALIZED VIEW public.app_name_metrics_trailing_week AS
- SELECT app_name_metrics.application_name AS name,
-    sum(app_name_metrics.count) AS count
+ SELECT application_name AS name,
+    sum(count) AS count
    FROM public.app_name_metrics
-  WHERE (app_name_metrics."timestamp" > (now() - '7 days'::interval))
-  GROUP BY app_name_metrics.application_name
+  WHERE ("timestamp" > (now() - '7 days'::interval))
+  GROUP BY application_name
   WITH NO DATA;
 
 
@@ -6751,8 +6779,8 @@ CREATE TABLE public.route_metrics (
 --
 
 CREATE MATERIALIZED VIEW public.route_metrics_all_time AS
- SELECT count(DISTINCT route_metrics.ip) AS unique_count,
-    sum(route_metrics.count) AS count
+ SELECT count(DISTINCT ip) AS unique_count,
+    sum(count) AS count
    FROM public.route_metrics
   WITH NO DATA;
 
@@ -6762,11 +6790,11 @@ CREATE MATERIALIZED VIEW public.route_metrics_all_time AS
 --
 
 CREATE MATERIALIZED VIEW public.route_metrics_day_bucket AS
- SELECT count(DISTINCT route_metrics.ip) AS unique_count,
-    sum(route_metrics.count) AS count,
-    date_trunc('day'::text, route_metrics."timestamp") AS "time"
+ SELECT count(DISTINCT ip) AS unique_count,
+    sum(count) AS count,
+    date_trunc('day'::text, "timestamp") AS "time"
    FROM public.route_metrics
-  GROUP BY (date_trunc('day'::text, route_metrics."timestamp"))
+  GROUP BY (date_trunc('day'::text, "timestamp"))
   WITH NO DATA;
 
 
@@ -6789,11 +6817,11 @@ ALTER TABLE public.route_metrics ALTER COLUMN id ADD GENERATED ALWAYS AS IDENTIT
 --
 
 CREATE MATERIALIZED VIEW public.route_metrics_month_bucket AS
- SELECT count(DISTINCT route_metrics.ip) AS unique_count,
-    sum(route_metrics.count) AS count,
-    date_trunc('month'::text, route_metrics."timestamp") AS "time"
+ SELECT count(DISTINCT ip) AS unique_count,
+    sum(count) AS count,
+    date_trunc('month'::text, "timestamp") AS "time"
    FROM public.route_metrics
-  GROUP BY (date_trunc('month'::text, route_metrics."timestamp"))
+  GROUP BY (date_trunc('month'::text, "timestamp"))
   WITH NO DATA;
 
 
@@ -6802,10 +6830,10 @@ CREATE MATERIALIZED VIEW public.route_metrics_month_bucket AS
 --
 
 CREATE MATERIALIZED VIEW public.route_metrics_trailing_month AS
- SELECT count(DISTINCT route_metrics.ip) AS unique_count,
-    sum(route_metrics.count) AS count
+ SELECT count(DISTINCT ip) AS unique_count,
+    sum(count) AS count
    FROM public.route_metrics
-  WHERE (route_metrics."timestamp" > (now() - '1 mon'::interval))
+  WHERE ("timestamp" > (now() - '1 mon'::interval))
   WITH NO DATA;
 
 
@@ -6814,10 +6842,10 @@ CREATE MATERIALIZED VIEW public.route_metrics_trailing_month AS
 --
 
 CREATE MATERIALIZED VIEW public.route_metrics_trailing_week AS
- SELECT count(DISTINCT route_metrics.ip) AS unique_count,
-    sum(route_metrics.count) AS count
+ SELECT count(DISTINCT ip) AS unique_count,
+    sum(count) AS count
    FROM public.route_metrics
-  WHERE (route_metrics."timestamp" > (now() - '7 days'::interval))
+  WHERE ("timestamp" > (now() - '7 days'::interval))
   WITH NO DATA;
 
 
@@ -7292,16 +7320,16 @@ CREATE TABLE public.supporter_rank_ups (
 --
 
 CREATE MATERIALIZED VIEW public.tag_track_user AS
- SELECT unnest(t.tags) AS tag,
-    t.track_id,
-    t.owner_id
+ SELECT unnest(tags) AS tag,
+    track_id,
+    owner_id
    FROM ( SELECT string_to_array(lower((tracks.tags)::text), ','::text) AS tags,
             tracks.track_id,
             tracks.owner_id
            FROM public.tracks
           WHERE (((tracks.tags)::text <> ''::text) AND (tracks.tags IS NOT NULL) AND (tracks.is_current IS TRUE) AND (tracks.is_unlisted IS FALSE) AND (tracks.stem_of IS NULL))
           ORDER BY tracks.updated_at DESC) t
-  GROUP BY (unnest(t.tags)), t.track_id, t.owner_id
+  GROUP BY (unnest(tags)), track_id, owner_id
   WITH NO DATA;
 
 
@@ -8996,6 +9024,13 @@ ALTER TABLE ONLY public.user_tips
 
 ALTER TABLE ONLY public.users
     ADD CONSTRAINT users_pkey PRIMARY KEY (txhash, user_id);
+
+
+--
+-- Name: agg_user_has_tracks_idx; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX agg_user_has_tracks_idx ON public.aggregate_user USING btree (user_id) WHERE (total_track_count > 0);
 
 
 --
