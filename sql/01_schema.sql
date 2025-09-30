@@ -5674,7 +5674,10 @@ CREATE TABLE public.artist_coins (
     updated_at timestamp without time zone DEFAULT now(),
     twitter text,
     instagram text,
-    tiktok text
+    tiktok text,
+    x_handle text,
+    instagram_handle text,
+    tiktok_handle text
 );
 
 

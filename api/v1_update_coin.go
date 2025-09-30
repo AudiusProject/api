@@ -2,6 +2,7 @@ package api
 
 import (
 	"errors"
+	"log"
 	"strings"
 	"time"
 
@@ -10,11 +11,11 @@ import (
 )
 
 type UpdateCoinBody struct {
-	Description string `json:"description" validate:"max=2500"`
-	Twitter     string `json:"twitter" validate:"omitempty,url"`
-	Instagram   string `json:"instagram" validate:"omitempty,url"`
-	Tiktok      string `json:"tiktok" validate:"omitempty,url"`
-	Website     string `json:"website" validate:"omitempty,url"`
+	Description     string `json:"description" validate:"max=2500"`
+	XHandle         string `json:"x_handle" validate:"omitempty,url"`
+	InstagramHandle string `json:"instagram_handle" validate:"omitempty,url"`
+	TiktokHandle    string `json:"tiktok_handle" validate:"omitempty,url"`
+	Website         string `json:"website" validate:"omitempty,url"`
 }
 
 func (app *ApiServer) v1UpdateCoin(c *fiber.Ctx) error {
@@ -56,17 +57,17 @@ func (app *ApiServer) v1UpdateCoin(c *fiber.Ctx) error {
 		setParts = append(setParts, "description = @description")
 		args["description"] = body.Description
 	}
-	if body.Twitter != "" {
-		setParts = append(setParts, "twitter = @twitter")
-		args["twitter"] = body.Twitter
+	if body.XHandle != "" {
+		setParts = append(setParts, "x_handle = @x_handle")
+		args["x_handle"] = body.XHandle
 	}
-	if body.Instagram != "" {
-		setParts = append(setParts, "instagram = @instagram")
-		args["instagram"] = body.Instagram
+	if body.InstagramHandle != "" {
+		setParts = append(setParts, "instagram_handle = @instagram_handle")
+		args["instagram_handle"] = body.InstagramHandle
 	}
-	if body.Tiktok != "" {
-		setParts = append(setParts, "tiktok = @tiktok")
-		args["tiktok"] = body.Tiktok
+	if body.TiktokHandle != "" {
+		setParts = append(setParts, "tiktok_handle = @tiktok_handle")
+		args["tiktok_handle"] = body.TiktokHandle
 	}
 	if body.Website != "" {
 		setParts = append(setParts, "website = @website")
@@ -77,28 +78,29 @@ func (app *ApiServer) v1UpdateCoin(c *fiber.Ctx) error {
 		UPDATE artist_coins
 		SET ` + strings.Join(setParts, ", ") + `
 		WHERE mint = @mint
-		RETURNING mint, ticker, user_id, decimals, name, logo_uri, description, twitter, instagram, tiktok, website, created_at, updated_at
+		RETURNING mint, ticker, user_id, decimals, name, logo_uri, description, x_handle, instagram_handle, tiktok_handle, website, created_at, updated_at
 	`
 
 	row := app.writePool.QueryRow(c.Context(), sql, args)
 
 	var result struct {
-		Mint        string    `json:"mint"`
-		Ticker      string    `json:"ticker"`
-		UserID      int32     `json:"user_id"`
-		Decimals    int32     `json:"decimals"`
-		Name        string    `json:"name"`
-		LogoUri     *string   `json:"logo_uri"`
-		Description *string   `json:"description"`
-		Twitter     *string   `json:"twitter"`
-		Instagram   *string   `json:"instagram"`
-		Tiktok      *string   `json:"tiktok"`
-		Website     *string   `json:"website"`
-		CreatedAt   time.Time `json:"created_at"`
-		UpdatedAt   time.Time `json:"updated_at"`
+		Mint            string    `json:"mint"`
+		Ticker          string    `json:"ticker"`
+		UserID          int32     `json:"user_id"`
+		Decimals        int32     `json:"decimals"`
+		Name            string    `json:"name"`
+		LogoUri         *string   `json:"logo_uri"`
+		Description     *string   `json:"description"`
+		XHandle         *string   `json:"x_handle"`
+		InstagramHandle *string   `json:"instagram_handle"`
+		TiktokHandle    *string   `json:"tiktok_handle"`
+		Website         *string   `json:"website"`
+		CreatedAt       time.Time `json:"created_at"`
+		UpdatedAt       time.Time `json:"updated_at"`
 	}
 
-	if err := row.Scan(&result.Mint, &result.Ticker, &result.UserID, &result.Decimals, &result.Name, &result.LogoUri, &result.Description, &result.Twitter, &result.Instagram, &result.Tiktok, &result.Website, &result.CreatedAt, &result.UpdatedAt); err != nil {
+	if err := row.Scan(&result.Mint, &result.Ticker, &result.UserID, &result.Decimals, &result.Name, &result.LogoUri, &result.Description, &result.XHandle, &result.InstagramHandle, &result.TiktokHandle, &result.Website, &result.CreatedAt, &result.UpdatedAt); err != nil {
+		log.Println("Failed to update coin", err)
 		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{
 			"error": "Failed to update coin",
 		})
