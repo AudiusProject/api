@@ -837,16 +837,23 @@ type AppNameMetricsTrailingWeek struct {
 
 // Stores the token mints for artist coins that the indexer is tracking and their tickers.
 type ArtistCoin struct {
-	Mint        string      `json:"mint"`
-	Ticker      string      `json:"ticker"`
-	UserID      int32       `json:"user_id"`
-	Decimals    int32       `json:"decimals"`
-	CreatedAt   time.Time   `json:"created_at"`
-	LogoUri     pgtype.Text `json:"logo_uri"`
-	Description pgtype.Text `json:"description"`
-	Website     pgtype.Text `json:"website"`
-	Name        string      `json:"name"`
-	HasDiscord  bool        `json:"has_discord"`
+	Mint            string      `json:"mint"`
+	Ticker          string      `json:"ticker"`
+	UserID          int32       `json:"user_id"`
+	Decimals        int32       `json:"decimals"`
+	CreatedAt       time.Time   `json:"created_at"`
+	LogoUri         pgtype.Text `json:"logo_uri"`
+	Description     pgtype.Text `json:"description"`
+	Website         pgtype.Text `json:"website"`
+	Name            string      `json:"name"`
+	HasDiscord      bool        `json:"has_discord"`
+	UpdatedAt       *time.Time  `json:"updated_at"`
+	Twitter         pgtype.Text `json:"twitter"`
+	Instagram       pgtype.Text `json:"instagram"`
+	Tiktok          pgtype.Text `json:"tiktok"`
+	XHandle         pgtype.Text `json:"x_handle"`
+	InstagramHandle pgtype.Text `json:"instagram_handle"`
+	TiktokHandle    pgtype.Text `json:"tiktok_handle"`
 }
 
 type ArtistCoinPool struct {

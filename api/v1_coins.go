@@ -10,20 +10,20 @@ import (
 )
 
 type ArtistCoin struct {
-	Name            string         `json:"name"`
-	Ticker          string         `json:"ticker"`
-	Mint            string         `json:"mint"`
-	Decimals        int            `json:"decimals"`
-	OwnerId         trashid.HashId `db:"user_id" json:"owner_id"`
-	LogoUri         *string        `json:"logo_uri,omitempty"`
-	Description     *string        `json:"description,omitempty"`
-	Website         *string        `json:"website,omitempty"`
-	XHandle         *string        `json:"x_handle,omitempty"`
-	InstagramHandle *string        `json:"instagram_handle,omitempty"`
-	TiktokHandle    *string        `json:"tiktok_handle,omitempty"`
-	HasDiscord      bool           `json:"has_discord"`
-	CreatedAt       time.Time      `json:"created_at"`
-	CoinUpdatedAt   time.Time      `json:"coin_updated_at"`
+	Name          string         `json:"name"`
+	Ticker        string         `json:"ticker"`
+	Mint          string         `json:"mint"`
+	Decimals      int            `json:"decimals"`
+	OwnerId       trashid.HashId `db:"user_id" json:"owner_id"`
+	LogoUri       *string        `json:"logo_uri,omitempty"`
+	Description   *string        `json:"description,omitempty"`
+	Link1         *string        `json:"link_1,omitempty"`
+	Link2         *string        `json:"link_2,omitempty"`
+	Link3         *string        `json:"link_3,omitempty"`
+	Link4         *string        `json:"link_4,omitempty"`
+	HasDiscord    bool           `json:"has_discord"`
+	CreatedAt     time.Time      `json:"created_at"`
+	CoinUpdatedAt time.Time      `json:"coin_updated_at"`
 
 	MarketCap                    float64                      `json:"marketCap" db:"market_cap"`
 	FDV                          float64                      `json:"fdv" db:"fdv"`
@@ -134,10 +134,10 @@ func (app *ApiServer) v1Coins(c *fiber.Ctx) error {
 			artist_coins.user_id,
 			artist_coins.logo_uri,
 			artist_coins.description,
-			artist_coins.website,
-			artist_coins.x_handle,
-			artist_coins.instagram_handle,
-			artist_coins.tiktok_handle,
+			artist_coins.link_1,
+			artist_coins.link_2,
+			artist_coins.link_3,
+			artist_coins.link_4,
 			artist_coins.has_discord,
 			artist_coins.created_at,
 			COALESCE(artist_coin_stats.market_cap, 0) as market_cap,

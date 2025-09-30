@@ -2,10 +2,8 @@
 -- PostgreSQL database dump
 --
 
-\restrict a0IZxGXdl6WhaWakKqorCfkiJ9WFMKp2UklK3KwBJPVXApP8VGbey7oyv91Ucqa
-
--- Dumped from database version 17.5 (Debian 17.5-1.pgdg120+1)
--- Dumped by pg_dump version 17.6 (Debian 17.6-1.pgdg13+1)
+-- Dumped from database version 17.4 (Debian 17.4-1.pgdg120+2)
+-- Dumped by pg_dump version 17.5 (Debian 17.5-1.pgdg120+1)
 
 SET statement_timeout = 0;
 SET lock_timeout = 0;
@@ -5720,16 +5718,16 @@ CREATE TABLE public.artist_coins (
     created_at timestamp without time zone DEFAULT CURRENT_TIMESTAMP NOT NULL,
     logo_uri text,
     description text,
-    website text,
     name text DEFAULT ''::text NOT NULL,
     has_discord boolean DEFAULT false NOT NULL,
     updated_at timestamp without time zone DEFAULT now(),
     twitter text,
     instagram text,
     tiktok text,
-    x_handle text,
-    instagram_handle text,
-    tiktok_handle text
+    link_1 text,
+    link_2 text,
+    link_3 text,
+    link_4 text
 );
 
 
@@ -10850,6 +10848,4 @@ ALTER TABLE ONLY public.users
 --
 -- PostgreSQL database dump complete
 --
-
-\unrestrict a0IZxGXdl6WhaWakKqorCfkiJ9WFMKp2UklK3KwBJPVXApP8VGbey7oyv91Ucqa
 

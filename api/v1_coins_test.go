@@ -40,7 +40,6 @@ func TestGetCoins(t *testing.T) {
 				"mint":        "EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v",
 				"logo_uri":    "https://example.com/usdc-logo.png",
 				"description": "USDC is a stablecoin pegged to the US dollar.",
-				"website":     "https://www.circle.com/en/usdc",
 				"created_at":  time.Now(),
 			},
 		},

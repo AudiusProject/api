@@ -5293,6 +5293,22 @@ components:
           type: string
           description: The official website for the coin
           example: "https://www.bonkcoin.com/"
+        link_1:
+          type: string
+          description: Generic link URL for the coin
+          example: "https://x.com/bear_token"
+        link_2:
+          type: string
+          description: Generic link URL for the coin
+          example: "https://instagram.com/bear_token"
+        link_3:
+          type: string
+          description: Generic link URL for the coin
+          example: "https://tiktok.com/@bear_token"
+        link_4:
+          type: string
+          description: Generic link URL for the coin
+          example: "https://bear-token.com"
         has_discord:
           type: boolean
           description: Whether the coin has a Discord server
@@ -5613,21 +5629,24 @@ components:
           description: The description of the coin (max 2500 characters)
           example: "Updated description for the bear token"
           maxLength: 2500
-        x_handle:
+        link_1:
           type: string
-          description: X (Twitter) handle for the coin (without @ symbol)
-          example: "bear_token"
-        instagram_handle:
+          description: Generic link URL for the coin
+          example: "https://x.com/bear_token"
+          format: uri
+        link_2:
           type: string
-          description: Instagram handle for the coin (without @ symbol)
-          example: "bear_token"
-        tiktok_handle:
+          description: Generic link URL for the coin
+          example: "https://instagram.com/bear_token"
+          format: uri
+        link_3:
           type: string
-          description: TikTok handle for the coin (without @ symbol)
-          example: "bear_token"
-        website:
+          description: Generic link URL for the coin
+          example: "https://tiktok.com/@bear_token"
+          format: uri
+        link_4:
           type: string
-          description: Website URL for the coin
+          description: Generic link URL for the coin
           example: "https://bear-token.com"
           format: uri
     update_coin_response:
