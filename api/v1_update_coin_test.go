@@ -33,17 +33,17 @@ func TestV1UpdateCoin(t *testing.T) {
 		},
 	})
 
-	xHandle := "bear_token"
-	instagramHandle := "bear_token"
-	tiktokHandle := "bear_token"
-	website := "https://bear-token.com"
+	link1 := "https://x.com/bear_token"
+	link2 := "https://instagram.com/bear_token"
+	link3 := "https://tiktok.com/@bear_token"
+	link4 := "https://bear-token.com"
 
 	requestBody := UpdateCoinBody{
-		Description:     "Updated description for the bear token",
-		XHandle:         &xHandle,
-		InstagramHandle: &instagramHandle,
-		TiktokHandle:    &tiktokHandle,
-		Website:         &website,
+		Description: "Updated description for the bear token",
+		Link1:       &link1,
+		Link2:       &link2,
+		Link3:       &link3,
+		Link4:       &link4,
 	}
 	requestBodyBytes, err := json.Marshal(requestBody)
 	assert.NoError(t, err)
@@ -59,14 +59,14 @@ func TestV1UpdateCoin(t *testing.T) {
 	status, body = testGet(t, app, "/v1/coins/bearR26zyyB3fNQm5wWv1ZfN8MPQDUMwaAuoG79b1Yj")
 	assert.Equal(t, 200, status)
 	jsonAssert(t, body, map[string]any{
-		"data.mint":             "bearR26zyyB3fNQm5wWv1ZfN8MPQDUMwaAuoG79b1Yj",
-		"data.ticker":           "$BEAR",
-		"data.name":             "BEAR",
-		"data.description":      "Updated description for the bear token",
-		"data.x_handle":         "bear_token",
-		"data.instagram_handle": "bear_token",
-		"data.tiktok_handle":    "bear_token",
-		"data.website":          "https://bear-token.com",
+		"data.mint":        "bearR26zyyB3fNQm5wWv1ZfN8MPQDUMwaAuoG79b1Yj",
+		"data.ticker":      "$BEAR",
+		"data.name":        "BEAR",
+		"data.description": "Updated description for the bear token",
+		"data.link_1":      "https://x.com/bear_token",
+		"data.link_2":      "https://instagram.com/bear_token",
+		"data.link_3":      "https://tiktok.com/@bear_token",
+		"data.link_4":      "https://bear-token.com",
 	})
 }
 
@@ -82,17 +82,17 @@ func TestV1UpdateCoin_CoinNotFound(t *testing.T) {
 		},
 	})
 
-	xHandle2 := "test_handle"
-	instagramHandle2 := "test_handle"
-	tiktokHandle2 := "test_handle"
-	website2 := "https://test.com"
+	link1_2 := "https://test1.com"
+	link2_2 := "https://test2.com"
+	link3_2 := "https://test3.com"
+	link4_2 := "https://test4.com"
 
 	requestBody := UpdateCoinBody{
-		Description:     "Updated description",
-		XHandle:         &xHandle2,
-		InstagramHandle: &instagramHandle2,
-		TiktokHandle:    &tiktokHandle2,
-		Website:         &website2,
+		Description: "Updated description",
+		Link1:       &link1_2,
+		Link2:       &link2_2,
+		Link3:       &link3_2,
+		Link4:       &link4_2,
 	}
 	requestBodyBytes, err := json.Marshal(requestBody)
 	assert.NoError(t, err)
@@ -132,17 +132,17 @@ func TestV1UpdateCoin_Unauthorized(t *testing.T) {
 		},
 	})
 
-	xHandle3 := "test_handle_3"
-	instagramHandle3 := "test_handle_3"
-	tiktokHandle3 := "test_handle_3"
-	website3 := "https://test.com"
+	link1_3 := "https://test1_3.com"
+	link2_3 := "https://test2_3.com"
+	link3_3 := "https://test3_3.com"
+	link4_3 := "https://test4_3.com"
 
 	requestBody := UpdateCoinBody{
-		Description:     "Updated description",
-		XHandle:         &xHandle3,
-		InstagramHandle: &instagramHandle3,
-		TiktokHandle:    &tiktokHandle3,
-		Website:         &website3,
+		Description: "Updated description",
+		Link1:       &link1_3,
+		Link2:       &link2_3,
+		Link3:       &link3_3,
+		Link4:       &link4_3,
 	}
 	requestBodyBytes, err := json.Marshal(requestBody)
 	assert.NoError(t, err)
@@ -228,10 +228,10 @@ func TestV1UpdateCoin_IndividualFields(t *testing.T) {
 		"success": true,
 	})
 
-	// Test updating only Twitter
-	xHandle4 := "bear_token_handle"
+	// Test updating only Link1
+	link1_4 := "https://bear_token_handle.com"
 	requestBody = UpdateCoinBody{
-		XHandle: &xHandle4,
+		Link1: &link1_4,
 	}
 	requestBodyBytes, err = json.Marshal(requestBody)
 	assert.NoError(t, err)
@@ -244,14 +244,14 @@ func TestV1UpdateCoin_IndividualFields(t *testing.T) {
 	})
 
 	// Test updating multiple fields at once
-	instagramHandle5 := "bear_token_insta"
-	tiktokHandle5 := "bear_token_tiktok"
-	website5 := "https://bear-token.com"
+	link2_5 := "https://bear_token_insta.com"
+	link3_5 := "https://bear_token_tiktok.com"
+	link4_5 := "https://bear-token.com"
 
 	requestBody = UpdateCoinBody{
-		InstagramHandle: &instagramHandle5,
-		TiktokHandle:    &tiktokHandle5,
-		Website:         &website5,
+		Link2: &link2_5,
+		Link3: &link3_5,
+		Link4: &link4_5,
 	}
 	requestBodyBytes, err = json.Marshal(requestBody)
 	assert.NoError(t, err)
@@ -321,10 +321,10 @@ func TestV1UpdateCoin_URLValidation(t *testing.T) {
 		},
 	})
 
-	// Test invalid Website URL
-	invalidWebsite := "definitely-not-a-url"
+	// Test invalid Link4 URL
+	invalidLink4 := "definitely-not-a-url"
 	requestBody := UpdateCoinBody{
-		Website: &invalidWebsite,
+		Link4: &invalidLink4,
 	}
 	requestBodyBytes, err := json.Marshal(requestBody)
 	assert.NoError(t, err)
@@ -334,16 +334,16 @@ func TestV1UpdateCoin_URLValidation(t *testing.T) {
 	assert.Equal(t, 400, status)
 
 	// Test valid URLs work
-	validXHandle := "example_handle"
-	validInstagramHandle := "example_handle"
-	validTiktokHandle := "example_handle"
-	validWebsite := "https://example.com"
+	validLink1 := "https://example1.com"
+	validLink2 := "https://example2.com"
+	validLink3 := "https://example3.com"
+	validLink4 := "https://example4.com"
 
 	requestBody = UpdateCoinBody{
-		XHandle:         &validXHandle,
-		InstagramHandle: &validInstagramHandle,
-		TiktokHandle:    &validTiktokHandle,
-		Website:         &validWebsite,
+		Link1: &validLink1,
+		Link2: &validLink2,
+		Link3: &validLink3,
+		Link4: &validLink4,
 	}
 	requestBodyBytes, err = json.Marshal(requestBody)
 	assert.NoError(t, err)
@@ -355,13 +355,13 @@ func TestV1UpdateCoin_URLValidation(t *testing.T) {
 		"success": true,
 	})
 
-	// Test deleting handles by passing empty strings
+	// Test deleting links by passing empty strings
 	emptyString := ""
 	requestBody = UpdateCoinBody{
-		XHandle:         &emptyString,
-		InstagramHandle: &emptyString,
-		TiktokHandle:    &emptyString,
-		Website:         &emptyString,
+		Link1: &emptyString,
+		Link2: &emptyString,
+		Link3: &emptyString,
+		Link4: &emptyString,
 	}
 	requestBodyBytes, err = json.Marshal(requestBody)
 	assert.NoError(t, err)
@@ -370,16 +370,16 @@ func TestV1UpdateCoin_URLValidation(t *testing.T) {
 
 	assert.Equal(t, 200, status)
 	jsonAssert(t, body, map[string]any{
-		"data.x_handle":         nil,
-		"data.instagram_handle": nil,
-		"data.tiktok_handle":    nil,
-		"data.website":          nil,
+		"data.link_1": nil,
+		"data.link_2": nil,
+		"data.link_3": nil,
+		"data.link_4": nil,
 	})
 }
 
 func TestV1UpdateCoin_DeleteFields(t *testing.T) {
-	// Test deleting x_handle only
-	t.Run("delete x_handle", func(t *testing.T) {
+	// Test deleting link_1 only
+	t.Run("delete link_1", func(t *testing.T) {
 		app := emptyTestApp(t)
 		database.Seed(app.writePool, database.FixtureMap{
 			"users": {
@@ -391,23 +391,23 @@ func TestV1UpdateCoin_DeleteFields(t *testing.T) {
 			},
 			"artist_coins": {
 				{
-					"mint":             "bearR26zyyB3fNQm5wWv1ZfN8MPQDUMwaAuoG79b1Yj",
-					"ticker":           "$BEAR",
-					"user_id":          1,
-					"decimals":         9,
-					"name":             "BEAR",
-					"description":      "Original description",
-					"x_handle":         "original_handle",
-					"instagram_handle": "original_handle",
-					"tiktok_handle":    "original_handle",
-					"website":          "https://original.com",
+					"mint":        "bearR26zyyB3fNQm5wWv1ZfN8MPQDUMwaAuoG79b1Yj",
+					"ticker":      "$BEAR",
+					"user_id":     1,
+					"decimals":    9,
+					"name":        "BEAR",
+					"description": "Original description",
+					"link_1":      "https://original1.com",
+					"link_2":      "https://original2.com",
+					"link_3":      "https://original3.com",
+					"link_4":      "https://original4.com",
 				},
 			},
 		})
 
 		emptyString := ""
 		requestBody := UpdateCoinBody{
-			XHandle: &emptyString,
+			Link1: &emptyString,
 		}
 		requestBodyBytes, err := json.Marshal(requestBody)
 		assert.NoError(t, err)
@@ -423,15 +423,15 @@ func TestV1UpdateCoin_DeleteFields(t *testing.T) {
 		status, body = testGet(t, app, "/v1/coins/bearR26zyyB3fNQm5wWv1ZfN8MPQDUMwaAuoG79b1Yj")
 		assert.Equal(t, 200, status)
 		jsonAssert(t, body, map[string]any{
-			"data.x_handle":         nil,
-			"data.instagram_handle": "original_handle",
-			"data.tiktok_handle":    "original_handle",
-			"data.website":          "https://original.com",
+			"data.link_1": nil,
+			"data.link_2": "https://original2.com",
+			"data.link_3": "https://original3.com",
+			"data.link_4": "https://original4.com",
 		})
 	})
 
-	// Test deleting instagram_handle only
-	t.Run("delete instagram_handle", func(t *testing.T) {
+	// Test deleting link_2 only
+	t.Run("delete link_2", func(t *testing.T) {
 		app := emptyTestApp(t)
 		database.Seed(app.writePool, database.FixtureMap{
 			"users": {
@@ -443,23 +443,23 @@ func TestV1UpdateCoin_DeleteFields(t *testing.T) {
 			},
 			"artist_coins": {
 				{
-					"mint":             "bearR26zyyB3fNQm5wWv1ZfN8MPQDUMwaAuoG79b1Yj",
-					"ticker":           "$BEAR",
-					"user_id":          1,
-					"decimals":         9,
-					"name":             "BEAR",
-					"description":      "Original description",
-					"x_handle":         "original_handle",
-					"instagram_handle": "original_handle",
-					"tiktok_handle":    "original_handle",
-					"website":          "https://original.com",
+					"mint":        "bearR26zyyB3fNQm5wWv1ZfN8MPQDUMwaAuoG79b1Yj",
+					"ticker":      "$BEAR",
+					"user_id":     1,
+					"decimals":    9,
+					"name":        "BEAR",
+					"description": "Original description",
+					"link_1":      "https://original1.com",
+					"link_2":      "https://original2.com",
+					"link_3":      "https://original3.com",
+					"link_4":      "https://original4.com",
 				},
 			},
 		})
 
 		emptyString := ""
 		requestBody := UpdateCoinBody{
-			InstagramHandle: &emptyString,
+			Link2: &emptyString,
 		}
 		requestBodyBytes, err := json.Marshal(requestBody)
 		assert.NoError(t, err)
@@ -475,10 +475,10 @@ func TestV1UpdateCoin_DeleteFields(t *testing.T) {
 		status, body = testGet(t, app, "/v1/coins/bearR26zyyB3fNQm5wWv1ZfN8MPQDUMwaAuoG79b1Yj")
 		assert.Equal(t, 200, status)
 		jsonAssert(t, body, map[string]any{
-			"data.x_handle":         "original_handle",
-			"data.instagram_handle": nil,
-			"data.tiktok_handle":    "original_handle",
-			"data.website":          "https://original.com",
+			"data.link_1": "https://original1.com",
+			"data.link_2": nil,
+			"data.link_3": "https://original3.com",
+			"data.link_4": "https://original4.com",
 		})
 	})
 
@@ -495,26 +495,26 @@ func TestV1UpdateCoin_DeleteFields(t *testing.T) {
 			},
 			"artist_coins": {
 				{
-					"mint":             "bearR26zyyB3fNQm5wWv1ZfN8MPQDUMwaAuoG79b1Yj",
-					"ticker":           "$BEAR",
-					"user_id":          1,
-					"decimals":         9,
-					"name":             "BEAR",
-					"description":      "Original description",
-					"x_handle":         "original_handle",
-					"instagram_handle": "original_handle",
-					"tiktok_handle":    "original_handle",
-					"website":          "https://original.com",
+					"mint":        "bearR26zyyB3fNQm5wWv1ZfN8MPQDUMwaAuoG79b1Yj",
+					"ticker":      "$BEAR",
+					"user_id":     1,
+					"decimals":    9,
+					"name":        "BEAR",
+					"description": "Original description",
+					"link_1":      "https://original1.com",
+					"link_2":      "https://original2.com",
+					"link_3":      "https://original3.com",
+					"link_4":      "https://original4.com",
 				},
 			},
 		})
 
 		emptyString := ""
 		requestBody := UpdateCoinBody{
-			XHandle:         &emptyString,
-			InstagramHandle: &emptyString,
-			TiktokHandle:    &emptyString,
-			Website:         &emptyString,
+			Link1: &emptyString,
+			Link2: &emptyString,
+			Link3: &emptyString,
+			Link4: &emptyString,
 		}
 		requestBodyBytes, err := json.Marshal(requestBody)
 		assert.NoError(t, err)
@@ -530,10 +530,10 @@ func TestV1UpdateCoin_DeleteFields(t *testing.T) {
 		status, body = testGet(t, app, "/v1/coins/bearR26zyyB3fNQm5wWv1ZfN8MPQDUMwaAuoG79b1Yj")
 		assert.Equal(t, 200, status)
 		jsonAssert(t, body, map[string]any{
-			"data.x_handle":         nil,
-			"data.instagram_handle": nil,
-			"data.tiktok_handle":    nil,
-			"data.website":          nil,
+			"data.link_1": nil,
+			"data.link_2": nil,
+			"data.link_3": nil,
+			"data.link_4": nil,
 		})
 	})
 }

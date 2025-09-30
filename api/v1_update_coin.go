@@ -11,11 +11,11 @@ import (
 )
 
 type UpdateCoinBody struct {
-	Description     string  `json:"description" validate:"max=2500"`
-	XHandle         *string `json:"x_handle,omitempty"`
-	InstagramHandle *string `json:"instagram_handle,omitempty"`
-	TiktokHandle    *string `json:"tiktok_handle,omitempty"`
-	Website         *string `json:"website,omitempty"`
+	Description string  `json:"description" validate:"max=2500"`
+	Link1       *string `json:"link_1,omitempty"`
+	Link2       *string `json:"link_2,omitempty"`
+	Link3       *string `json:"link_3,omitempty"`
+	Link4       *string `json:"link_4,omitempty"`
 }
 
 func validateURL(s string) error {
@@ -70,45 +70,63 @@ func (app *ApiServer) v1UpdateCoin(c *fiber.Ctx) error {
 		args["description"] = body.Description
 		hasUpdates = true
 	}
-	if body.XHandle != nil {
-		setParts = append(setParts, "x_handle = @x_handle")
-		if *body.XHandle == "" {
-			args["x_handle"] = nil
-		} else {
-			args["x_handle"] = *body.XHandle
-		}
-		hasUpdates = true
-	}
-	if body.InstagramHandle != nil {
-		setParts = append(setParts, "instagram_handle = @instagram_handle")
-		if *body.InstagramHandle == "" {
-			args["instagram_handle"] = nil
-		} else {
-			args["instagram_handle"] = *body.InstagramHandle
-		}
-		hasUpdates = true
-	}
-	if body.TiktokHandle != nil {
-		setParts = append(setParts, "tiktok_handle = @tiktok_handle")
-		if *body.TiktokHandle == "" {
-			args["tiktok_handle"] = nil
-		} else {
-			args["tiktok_handle"] = *body.TiktokHandle
-		}
-		hasUpdates = true
-	}
-	if body.Website != nil {
-		if *body.Website != "" {
+	if body.Link1 != nil {
+		if *body.Link1 != "" {
 			// Validate URL format for non-empty values
-			if err := validateURL(*body.Website); err != nil {
-				return fiber.NewError(fiber.StatusBadRequest, "Invalid website URL format")
+			if err := validateURL(*body.Link1); err != nil {
+				return fiber.NewError(fiber.StatusBadRequest, "Invalid link_1 URL format")
 			}
 		}
-		setParts = append(setParts, "website = @website")
-		if *body.Website == "" {
-			args["website"] = nil
+		setParts = append(setParts, "link_1 = @link_1")
+		if *body.Link1 == "" {
+			args["link_1"] = nil
 		} else {
-			args["website"] = *body.Website
+			args["link_1"] = *body.Link1
+		}
+		hasUpdates = true
+	}
+	if body.Link2 != nil {
+		if *body.Link2 != "" {
+			// Validate URL format for non-empty values
+			if err := validateURL(*body.Link2); err != nil {
+				return fiber.NewError(fiber.StatusBadRequest, "Invalid link_2 URL format")
+			}
+		}
+		setParts = append(setParts, "link_2 = @link_2")
+		if *body.Link2 == "" {
+			args["link_2"] = nil
+		} else {
+			args["link_2"] = *body.Link2
+		}
+		hasUpdates = true
+	}
+	if body.Link3 != nil {
+		if *body.Link3 != "" {
+			// Validate URL format for non-empty values
+			if err := validateURL(*body.Link3); err != nil {
+				return fiber.NewError(fiber.StatusBadRequest, "Invalid link_3 URL format")
+			}
+		}
+		setParts = append(setParts, "link_3 = @link_3")
+		if *body.Link3 == "" {
+			args["link_3"] = nil
+		} else {
+			args["link_3"] = *body.Link3
+		}
+		hasUpdates = true
+	}
+	if body.Link4 != nil {
+		if *body.Link4 != "" {
+			// Validate URL format for non-empty values
+			if err := validateURL(*body.Link4); err != nil {
+				return fiber.NewError(fiber.StatusBadRequest, "Invalid link_4 URL format")
+			}
+		}
+		setParts = append(setParts, "link_4 = @link_4")
+		if *body.Link4 == "" {
+			args["link_4"] = nil
+		} else {
+			args["link_4"] = *body.Link4
 		}
 		hasUpdates = true
 	}

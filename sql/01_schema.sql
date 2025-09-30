@@ -5718,16 +5718,16 @@ CREATE TABLE public.artist_coins (
     created_at timestamp without time zone DEFAULT CURRENT_TIMESTAMP NOT NULL,
     logo_uri text,
     description text,
-    website text,
     name text DEFAULT ''::text NOT NULL,
     has_discord boolean DEFAULT false NOT NULL,
     updated_at timestamp without time zone DEFAULT now(),
     twitter text,
     instagram text,
     tiktok text,
-    x_handle text,
-    instagram_handle text,
-    tiktok_handle text
+    link_1 text,
+    link_2 text,
+    link_3 text,
+    link_4 text
 );
 
 

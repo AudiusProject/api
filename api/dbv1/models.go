@@ -844,9 +844,16 @@ type ArtistCoin struct {
 	CreatedAt   time.Time   `json:"created_at"`
 	LogoUri     pgtype.Text `json:"logo_uri"`
 	Description pgtype.Text `json:"description"`
-	Website     pgtype.Text `json:"website"`
 	Name        string      `json:"name"`
 	HasDiscord  bool        `json:"has_discord"`
+	UpdatedAt   *time.Time  `json:"updated_at"`
+	Twitter     pgtype.Text `json:"twitter"`
+	Instagram   pgtype.Text `json:"instagram"`
+	Tiktok      pgtype.Text `json:"tiktok"`
+	Link1       pgtype.Text `json:"link_1"`
+	Link2       pgtype.Text `json:"link_2"`
+	Link3       pgtype.Text `json:"link_3"`
+	Link4       pgtype.Text `json:"link_4"`
 }
 
 type ArtistCoinPool struct {
