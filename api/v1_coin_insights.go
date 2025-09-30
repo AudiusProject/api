@@ -77,7 +77,8 @@ func (app *ApiServer) v1CoinInsights(c *fiber.Ctx) error {
 				'price', artist_coin_pools.price,
 				'priceUSD', artist_coin_pools.price_usd,
 				'curveProgress', artist_coin_pools.curve_progress,
-				'isMigrated', artist_coin_pools.is_migrated
+				'isMigrated', artist_coin_pools.is_migrated,
+				'creatorQuoteFee', artist_coin_pools.creator_quote_fee
 			) AS dynamic_bonding_curve
 		FROM artist_coin_stats
 		LEFT JOIN artist_coin_pools
