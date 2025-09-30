@@ -277,10 +277,25 @@ limit @limit::int
 				action, _ = sjson.SetBytes(action, "data.is_album", isAlbum)
 			}
 
-			// amount + tip_amount: to_wei_string
-			for _, fieldPath := range []string{"data.amount", "data.tip_amount"} {
-				if val := gjson.GetBytes(action, fieldPath); val.Exists() {
-					action, _ = sjson.SetBytes(action, fieldPath, val.String()+"0000000000")
+			// For notifications in $AUDIO, we need to add 0000000000 to the amount field
+			// to convert from SPL to wei
+			if notif.Type == "tip_send" ||
+				notif.Type == "tip_receive" ||
+				notif.Type == "challenge_reward" ||
+				notif.Type == "claimable_reward" ||
+				notif.Type == "reaction" {
+				for _, fieldPath := range []string{"data.amount", "data.tip_amount"} {
+					if val := gjson.GetBytes(action, fieldPath); val.Exists() {
+						action, _ = sjson.SetBytes(action, fieldPath, val.String()+"0000000000")
+					}
+				}
+			}
+			// For notifications in $USDC, convert to string, but do not add padding
+			if notif.Type == "usdc_purchase_buyer" || notif.Type == "usdc_purchase_seller" {
+				for _, fieldPath := range []string{"data.amount", "data.extra_amount"} {
+					if val := gjson.GetBytes(action, fieldPath); val.Exists() {
+						action, _ = sjson.SetBytes(action, fieldPath, val.String())
+					}
 				}
 			}
 
