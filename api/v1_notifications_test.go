@@ -15,7 +15,7 @@ func TestV1Notifications(t *testing.T) {
 		"notification": []map[string]any{
 			{
 				"id":        1,
-				"specifier": "1234",
+				"specifier": "111",
 				"group_id":  "tip_send:user_id:111:signature:eee",
 				"type":      "tip_send",
 				"user_ids":  []int{1},
@@ -23,11 +23,19 @@ func TestV1Notifications(t *testing.T) {
 			},
 			{
 				"id":        2,
-				"specifier": "190321",
+				"specifier": "128608",
 				"group_id":  "milestone:PLAYLIST_REPOST_COUNT:id:128608:threshold:10",
 				"type":      "milestone",
 				"user_ids":  []int{1},
 				"data":      []byte(`{"type": "PLAYLIST_REPOST_COUNT", "threshold": 10, "playlist_id": 128608} `),
+			},
+			{
+				"id":        3,
+				"specifier": "100",
+				"group_id":  "usdc_purchase_seller:seller_user_id:1:buyer_user_id:100:content_id:1118440:content_type:track",
+				"type":      "usdc_purchase_seller",
+				"user_ids":  []int{1},
+				"data":      []byte(`{"amount": 3000000, "vendor": "user_bank", "content_id": 1118440, "content_type": "track", "extra_amount": 0, "buyer_user_id": 100, "seller_user_id": 1}`),
 			},
 		},
 	}
@@ -38,18 +46,28 @@ func TestV1Notifications(t *testing.T) {
 	assert.Equal(t, 200, status)
 
 	jsonAssert(t, body, map[string]any{
-		"data.notifications.0.type":                            "tip_send",
-		"data.notifications.0.actions.0.specifier":             "D2Wde",
-		"data.notifications.0.actions.0.data.amount":           "1000000000000000000",
-		"data.notifications.0.actions.0.data.tip_tx_signature": "asdf",
-		"data.notifications.0.actions.0.data.sender_user_id":   "D91oD",
-		"data.notifications.0.actions.0.data.receiver_user_id": "n0AML",
+		"data.notifications.0.type":                          "usdc_purchase_seller",
+		"data.notifications.0.actions.0.specifier":           trashid.MustEncodeHashID(100),
+		"data.notifications.0.actions.0.data.amount":         "3000000",
+		"data.notifications.0.actions.0.data.vendor":         "user_bank",
+		"data.notifications.0.actions.0.data.content_id":     trashid.MustEncodeHashID(1118440),
+		"data.notifications.0.actions.0.data.content_type":   "track",
+		"data.notifications.0.actions.0.data.extra_amount":   "0",
+		"data.notifications.0.actions.0.data.buyer_user_id":  trashid.MustEncodeHashID(100),
+		"data.notifications.0.actions.0.data.seller_user_id": trashid.MustEncodeHashID(1),
 
-		"data.notifications.1.type":                       "milestone",
-		"data.notifications.1.actions.0.specifier":        "4W2ay",
-		"data.notifications.1.actions.0.data.type":        "playlist_repost_count",
-		"data.notifications.1.actions.0.data.is_album":    false,
-		"data.notifications.1.actions.0.data.playlist_id": "WQ2P9",
+		"data.notifications.1.type":                            "tip_send",
+		"data.notifications.1.actions.0.specifier":             trashid.MustEncodeHashID(111),
+		"data.notifications.1.actions.0.data.amount":           "1000000000000000000",
+		"data.notifications.1.actions.0.data.tip_tx_signature": "asdf",
+		"data.notifications.1.actions.0.data.sender_user_id":   trashid.MustEncodeHashID(111),
+		"data.notifications.1.actions.0.data.receiver_user_id": trashid.MustEncodeHashID(222),
+
+		"data.notifications.2.type":                       "milestone",
+		"data.notifications.2.actions.0.specifier":        trashid.MustEncodeHashID(128608),
+		"data.notifications.2.actions.0.data.type":        "playlist_repost_count",
+		"data.notifications.2.actions.0.data.is_album":    false,
+		"data.notifications.2.actions.0.data.playlist_id": trashid.MustEncodeHashID(128608),
 	})
 }
 
