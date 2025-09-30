@@ -9,12 +9,6 @@ import (
 )
 
 func RunMigrations() error {
-	fmt.Println("Running migrations...")
-	if !config.Cfg.RunMigrations {
-		fmt.Println("Skipping migrations. Set env runMigrations=true to run.")
-		return nil
-	}
-
 	cmd := exec.Command("bash", "pg_migrate.sh")
 	cmd.Dir = "ddl"
 

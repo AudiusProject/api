@@ -23,18 +23,22 @@ func main() {
 		command = os.Args[1]
 	}
 
+	if !config.Cfg.RunMigrations && command != "migrate" {
+		fmt.Println("Skipping migrations. Set env runMigrations=true to run.")
+	} else {
+		fmt.Println("Running migrations...")
+		ddl.RunMigrations()
+	}
+
 	switch command {
 	case "server":
 		{
-			ddl.RunMigrations()
-
 			fmt.Println("Running server...")
 			as := api.NewApiServer(config.Cfg)
 			as.Serve()
 		}
 	case "indexer":
 		{
-			ddl.RunMigrations()
 			fmt.Println("Running indexer...")
 			_, err := indexer.NewIndexer(indexer.CoreIndexerConfig{
 				DbUrl: config.Cfg.WriteDbUrl,
@@ -53,7 +57,6 @@ func main() {
 		}
 	case "solana-indexer":
 		{
-			ddl.RunMigrations()
 			fmt.Println("Running solana-indexer...")
 			solanaIndexer := solana_indexer.New(config.Cfg)
 			defer solanaIndexer.Close()
@@ -70,7 +73,7 @@ func main() {
 		}
 	case "migrate":
 		{
-			ddl.RunMigrations()
+			// no-op, handled prior to switch/case
 			os.Exit(0)
 		}
 	default:
