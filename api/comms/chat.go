@@ -397,10 +397,12 @@ func getNewBlasts(tx dbv1.DBTX, ctx context.Context, arg getNewBlastsParams) ([]
 			WHERE blast.audience = 'coin_holder_audience'
 				AND ac.user_id = blast.from_user_id
 				AND ac.user_id != @user_id
-				AND sub.user_id = @user_id
-				AND sub.balance >= POWER(10, ac.decimals) -- must hold at least 1 coin
-				-- TODO: PE-6663 This isn't entirely correct yet, need to check "time of most recent membership"
-				AND sub.created_at < blast.created_at
+				-- Hold at least one full coin at the time the blast was created
+				AND user_mint_balance_at(
+					@user_id,
+					ac.mint,
+					blast.created_at
+				) >= power(10::bigint, ac.decimals)
 		)
 	)
 	SELECT * FROM all_new

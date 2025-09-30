@@ -2,8 +2,10 @@
 -- PostgreSQL database dump
 --
 
+\restrict a0IZxGXdl6WhaWakKqorCfkiJ9WFMKp2UklK3KwBJPVXApP8VGbey7oyv91Ucqa
+
 -- Dumped from database version 17.5 (Debian 17.5-1.pgdg120+1)
--- Dumped by pg_dump version 17.5 (Debian 17.5-1.pgdg120+1)
+-- Dumped by pg_dump version 17.6 (Debian 17.6-1.pgdg13+1)
 
 SET statement_timeout = 0;
 SET lock_timeout = 0;
@@ -1168,12 +1170,17 @@ BEGIN
   FROM chat_blast
   JOIN artist_coins
     ON artist_coins.user_id = chat_blast.from_user_id
+    -- Initial list of coin holders to check, filtered below to ensure they had coins at the time the blast was created
   JOIN sol_user_balances
     ON sol_user_balances.mint = artist_coins.mint
-    AND sol_user_balances.balance >= POWER(10, artist_coins.decimals) -- must hold at least 1 coin
   WHERE chat_blast.blast_id = blast_id_param
     AND chat_blast.audience = 'coin_holder_audience'
-    AND sol_user_balances.user_id != chat_blast.from_user_id;
+    AND sol_user_balances.user_id != chat_blast.from_user_id
+    AND user_mint_balance_at(
+      sol_user_balances.user_id,
+      artist_coins.mint,
+      chat_blast.created_at
+    ) >= POWER(10, artist_coins.decimals);
 
 END;
 $$;
@@ -5040,6 +5047,51 @@ BEGIN
         balance = EXCLUDED.balance,
         updated_at = NOW();
 END;
+$$;
+
+
+--
+-- Name: user_mint_balance_at(integer, text, timestamp with time zone); Type: FUNCTION; Schema: public; Owner: -
+--
+
+CREATE FUNCTION public.user_mint_balance_at(p_user_id integer, p_mint text, p_cutoff timestamp with time zone) RETURNS bigint
+    LANGUAGE sql STABLE PARALLEL SAFE
+    AS $$
+WITH owners AS (
+  SELECT aw.wallet AS owner_address
+  FROM associated_wallets aw
+  WHERE aw.user_id = p_user_id
+    AND aw.chain = 'sol'
+    AND aw.is_delete = FALSE
+),
+accounts AS (
+  SELECT sca.account
+  FROM users u
+  JOIN sol_claimable_accounts sca
+    ON sca.ethereum_address = u.wallet
+  WHERE u.user_id = p_user_id
+),
+latest AS (
+  SELECT DISTINCT ON (s.mint, s.account) s.balance
+  FROM (
+    SELECT stabc.*
+    FROM sol_token_account_balance_changes stabc
+    WHERE stabc.mint = p_mint
+      AND stabc.block_timestamp <= p_cutoff
+      AND stabc.account IN (SELECT account FROM accounts)
+
+    UNION ALL
+
+    SELECT stabc.*
+    FROM sol_token_account_balance_changes stabc
+    WHERE stabc.mint = p_mint
+      AND stabc.block_timestamp <= p_cutoff
+      AND stabc.owner IN (SELECT owner_address FROM owners)
+  ) AS s
+  ORDER BY s.mint, s.account, s.block_timestamp DESC, s.slot DESC
+)
+SELECT COALESCE(SUM(balance), 0)::bigint
+FROM latest;
 $$;
 
 
@@ -10791,4 +10843,6 @@ ALTER TABLE ONLY public.users
 --
 -- PostgreSQL database dump complete
 --
+
+\unrestrict a0IZxGXdl6WhaWakKqorCfkiJ9WFMKp2UklK3KwBJPVXApP8VGbey7oyv91Ucqa
 

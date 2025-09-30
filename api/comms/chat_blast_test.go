@@ -1097,7 +1097,7 @@ func TestChatBlastCoinHoldersExcludesSender(t *testing.T) {
 		('tx_artist', 'mint123', 'wallet1', 'account1', 500000000, 500000000, 10001, $1, $1),
 		-- other holders
 		('tx207', 'mint123', 'wallet207', 'account207', 1000000000, 1000000000, 10002, $1, $1)
-		`, blastTime)
+		`, blastTime.Add(-time.Minute))
 	assert.NoError(t, err)
 
 	// Create some existing chats with the artist

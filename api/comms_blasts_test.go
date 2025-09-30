@@ -41,6 +41,14 @@ func TestGetNewBlasts(t *testing.T) {
 				"is_current": true,
 			},
 		},
+		"sol_claimable_accounts": {
+			{
+				"signature":        "sig_123",
+				"mint":             "9LzCMqDgTKYz9Drzqnpgee3SGa89up3a247ypMj2xrqM",
+				"ethereum_address": "0xc3d1d41e6872ffbd15c473d14fc3a9250be5b5e0",
+				"account":          "0x1234567890",
+			},
+		},
 		"tracks": {
 			{
 				"track_id":   1,
@@ -130,12 +138,16 @@ func TestGetNewBlasts(t *testing.T) {
 				"created_at": now.Add(-time.Hour),
 			},
 		},
-		"sol_user_balances": {
+		"sol_token_account_balance_changes": {
 			{
-				"user_id":    2,
-				"mint":       "9LzCMqDgTKYz9Drzqnpgee3SGa89up3a247ypMj2xrqM",
-				"balance":    1000000,
-				"created_at": now.Add(-time.Hour * 2), // Balance before blast
+				"signature": "sig_123",
+				"account":   "0x1234567890",
+				"mint":      "9LzCMqDgTKYz9Drzqnpgee3SGa89up3a247ypMj2xrqM",
+				// Hold at least 1 full coin at the time the blast was created
+				"change":          100000000,
+				"balance":         100000000,
+				"slot":            2,
+				"block_timestamp": now.Add(-time.Hour * 2),
 			},
 		},
 		"chat_blast": {
@@ -337,6 +349,38 @@ func TestGetNewBlasts(t *testing.T) {
 					"updated_at": now.Add(-time.Hour * 2),
 					"is_current": true,
 				},
+				{
+					"user_id":    51,
+					"handle":     "mixed_coin_holder",
+					"wallet":     "0x4954d18926ba0ed9378938444731be4e622537b2",
+					"created_at": now.Add(-time.Hour * 2),
+					"updated_at": now.Add(-time.Hour * 2),
+					"is_current": true,
+				},
+			},
+			"associated_wallets": {
+				{
+					"user_id": 51,
+					"id":      1,
+					"wallet":  "0x12367890",
+					"chain":   "sol",
+				},
+			},
+			"sol_claimable_accounts": {
+				// User 50 account for $TEST
+				{
+					"signature":        "sig_123",
+					"mint":             "TestMint123456789",
+					"account":          "0xuser50claimableaccount",
+					"ethereum_address": "0xc3d1d41e6872ffbd15c473d14fc3a9250be5b5e0",
+				},
+				// User 51 account for $TEST
+				{
+					"signature":        "sig_234",
+					"mint":             "TestMint123456789",
+					"account":          "0xuser51claimableaccount",
+					"ethereum_address": "0x4954d18926ba0ed9378938444731be4e622537b2",
+				},
 			},
 			"artist_coins": {
 				{
@@ -347,21 +391,55 @@ func TestGetNewBlasts(t *testing.T) {
 					"created_at": now.Add(-time.Hour * 2),
 				},
 			},
-			"sol_user_balances": {
+			"sol_token_account_balance_changes": {
 				{
-					"user_id":    50,
-					"mint":       "TestMint123456789",
-					"balance":    5000000,             // User holds 50 tokens
-					"created_at": now.Add(-time.Hour), // Balance created 1 hour ago
+					"signature": "sig_012",
+					"account":   "0xuser50claimableaccount",
+					"mint":      "TestMint123456789",
+					"change":    -100000000,
+					"balance":   0,
+					"slot":      2,
+					// Lost balance before old blast was created
+					"block_timestamp": now.Add(-time.Hour * 8),
+				},
+				{
+					"signature":       "sig_123",
+					"account":         "0xuser50claimableaccount",
+					"mint":            "TestMint123456789",
+					"change":          500000000,
+					"balance":         500000000,
+					"slot":            3,
+					"block_timestamp": now.Add(-time.Hour),
+				},
+				{
+					// User 51 has half a coin in associated account and half in claimable account
+					"signature":       "sig_123",
+					"account":         "0xuser51associatedaccount",
+					"owner":           "0x12367890",
+					"mint":            "TestMint123456789",
+					"change":          50000000,
+					"balance":         50000000,
+					"slot":            3,
+					"block_timestamp": now.Add(-time.Hour),
+				},
+				{
+					"signature":       "sig_123",
+					"account":         "0xuser51claimableaccount",
+					"mint":            "TestMint123456789",
+					"change":          50000000,
+					"balance":         50000000,
+					"slot":            3,
+					"block_timestamp": now.Add(-time.Hour),
 				},
 			},
 			"chat_blast": {
+				// Blast sent at time period when users had no coins
 				{
 					"blast_id":     "blast_before_balance",
 					"from_user_id": 1,
 					"audience":     "coin_holder_audience",
 					"plaintext":    "Blast sent before user got coins (should NOT appear)",
-					"created_at":   now.Add(-time.Hour * 6), // Way BEFORE coin balance (which is 5 hours ago)
+					"created_at":   now.Add(-time.Hour * 6),
 				},
 				{
 					"blast_id":     "blast_after_balance",
@@ -374,11 +452,21 @@ func TestGetNewBlasts(t *testing.T) {
 		}
 		database.Seed(coinApp.pool.Replicas[0], coinFixtures)
 
-		status, body := testGetWithWallet(t, coinApp, "/comms/blasts", "0xc3d1d41e6872ffbd15c473d14fc3a9250be5b5e0")
-		assert.Equal(t, 200, status)
+		{
+			status, body := testGetWithWallet(t, coinApp, "/comms/blasts", "0xc3d1d41e6872ffbd15c473d14fc3a9250be5b5e0")
+			assert.Equal(t, 200, status)
 
-		assert.Contains(t, string(body), "blast_after_balance")
-		assert.NotContains(t, string(body), "blast_before_balance")
+			assert.Contains(t, string(body), "blast_after_balance")
+			assert.NotContains(t, string(body), "blast_before_balance")
+		}
+
+		{
+			status, body := testGetWithWallet(t, coinApp, "/comms/blasts", "0x4954d18926ba0ed9378938444731be4e622537b2")
+			assert.Equal(t, 200, status)
+
+			assert.Contains(t, string(body), "blast_after_balance")
+			assert.NotContains(t, string(body), "blast_before_balance")
+		}
 	})
 }
 

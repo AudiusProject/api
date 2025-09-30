@@ -639,12 +639,14 @@ func hasNewBlastFromUser(pool *dbv1.DBPools, ctx context.Context, userID int32, 
 			(blast.audience = 'coin_holder_audience' and exists (
 				SELECT 1
 				FROM artist_coins ac
-				JOIN sol_user_balances sub ON sub.mint = ac.mint
 				WHERE ac.user_id = blast.from_user_id
-					AND sub.user_id = $1
-					AND sub.balance > 0
-					-- TODO: PE-6663 This isn't entirely correct yet, need to check "time of most recent membership"
-					AND sub.created_at < blast.created_at
+					AND ac.user_id != $1
+					-- Hold at least one full coin at the time the blast was created
+					AND user_mint_balance_at(
+						$1,
+						ac.mint,
+						blast.created_at
+					) >= power(10::bigint, ac.decimals)
 			))
 		)
 	)`

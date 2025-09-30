@@ -66,12 +66,17 @@ BEGIN
   FROM chat_blast
   JOIN artist_coins
     ON artist_coins.user_id = chat_blast.from_user_id
+    -- Initial list of coin holders to check, filtered below to ensure they had coins at the time the blast was created
   JOIN sol_user_balances
     ON sol_user_balances.mint = artist_coins.mint
-    AND sol_user_balances.balance >= POWER(10, artist_coins.decimals) -- must hold at least 1 coin
   WHERE chat_blast.blast_id = blast_id_param
     AND chat_blast.audience = 'coin_holder_audience'
-    AND sol_user_balances.user_id != chat_blast.from_user_id;
+    AND sol_user_balances.user_id != chat_blast.from_user_id
+    AND user_mint_balance_at(
+      sol_user_balances.user_id,
+      artist_coins.mint,
+      chat_blast.created_at
+    ) >= POWER(10, artist_coins.decimals);
 
 END;
 $$ LANGUAGE plpgsql;
