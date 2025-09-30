@@ -3,19 +3,30 @@ package api
 import (
 	"errors"
 	"log"
+	"net/url"
 	"strings"
-	"time"
 
 	"github.com/gofiber/fiber/v2"
 	"github.com/jackc/pgx/v5"
 )
 
 type UpdateCoinBody struct {
-	Description     string `json:"description" validate:"max=2500"`
-	XHandle         string `json:"x_handle" validate:"omitempty,url"`
-	InstagramHandle string `json:"instagram_handle" validate:"omitempty,url"`
-	TiktokHandle    string `json:"tiktok_handle" validate:"omitempty,url"`
-	Website         string `json:"website" validate:"omitempty,url"`
+	Description     string  `json:"description" validate:"max=2500"`
+	XHandle         *string `json:"x_handle,omitempty"`
+	InstagramHandle *string `json:"instagram_handle,omitempty"`
+	TiktokHandle    *string `json:"tiktok_handle,omitempty"`
+	Website         *string `json:"website,omitempty"`
+}
+
+func validateURL(s string) error {
+	u, err := url.Parse(s)
+	if err != nil {
+		return err
+	}
+	if u.Scheme == "" || u.Host == "" {
+		return errors.New("invalid URL format")
+	}
+	return nil
 }
 
 func (app *ApiServer) v1UpdateCoin(c *fiber.Ctx) error {
@@ -52,61 +63,75 @@ func (app *ApiServer) v1UpdateCoin(c *fiber.Ctx) error {
 	// Build dynamic UPDATE query based on provided fields
 	setParts := []string{"updated_at = NOW()"}
 	args := pgx.NamedArgs{"mint": mint}
+	hasUpdates := false
 
 	if body.Description != "" {
 		setParts = append(setParts, "description = @description")
 		args["description"] = body.Description
+		hasUpdates = true
 	}
-	if body.XHandle != "" {
+	if body.XHandle != nil {
 		setParts = append(setParts, "x_handle = @x_handle")
-		args["x_handle"] = body.XHandle
+		if *body.XHandle == "" {
+			args["x_handle"] = nil
+		} else {
+			args["x_handle"] = *body.XHandle
+		}
+		hasUpdates = true
 	}
-	if body.InstagramHandle != "" {
+	if body.InstagramHandle != nil {
 		setParts = append(setParts, "instagram_handle = @instagram_handle")
-		args["instagram_handle"] = body.InstagramHandle
+		if *body.InstagramHandle == "" {
+			args["instagram_handle"] = nil
+		} else {
+			args["instagram_handle"] = *body.InstagramHandle
+		}
+		hasUpdates = true
 	}
-	if body.TiktokHandle != "" {
+	if body.TiktokHandle != nil {
 		setParts = append(setParts, "tiktok_handle = @tiktok_handle")
-		args["tiktok_handle"] = body.TiktokHandle
+		if *body.TiktokHandle == "" {
+			args["tiktok_handle"] = nil
+		} else {
+			args["tiktok_handle"] = *body.TiktokHandle
+		}
+		hasUpdates = true
 	}
-	if body.Website != "" {
+	if body.Website != nil {
+		if *body.Website != "" {
+			// Validate URL format for non-empty values
+			if err := validateURL(*body.Website); err != nil {
+				return fiber.NewError(fiber.StatusBadRequest, "Invalid website URL format")
+			}
+		}
 		setParts = append(setParts, "website = @website")
-		args["website"] = body.Website
+		if *body.Website == "" {
+			args["website"] = nil
+		} else {
+			args["website"] = *body.Website
+		}
+		hasUpdates = true
+	}
+
+	if !hasUpdates {
+		return fiber.NewError(fiber.StatusBadRequest, "At least one field must be provided for update")
 	}
 
 	sql := `
 		UPDATE artist_coins
 		SET ` + strings.Join(setParts, ", ") + `
 		WHERE mint = @mint
-		RETURNING mint, ticker, user_id, decimals, name, logo_uri, description, x_handle, instagram_handle, tiktok_handle, website, created_at, updated_at
 	`
 
-	row := app.writePool.QueryRow(c.Context(), sql, args)
-
-	var result struct {
-		Mint            string    `json:"mint"`
-		Ticker          string    `json:"ticker"`
-		UserID          int32     `json:"user_id"`
-		Decimals        int32     `json:"decimals"`
-		Name            string    `json:"name"`
-		LogoUri         *string   `json:"logo_uri"`
-		Description     *string   `json:"description"`
-		XHandle         *string   `json:"x_handle"`
-		InstagramHandle *string   `json:"instagram_handle"`
-		TiktokHandle    *string   `json:"tiktok_handle"`
-		Website         *string   `json:"website"`
-		CreatedAt       time.Time `json:"created_at"`
-		UpdatedAt       time.Time `json:"updated_at"`
-	}
-
-	if err := row.Scan(&result.Mint, &result.Ticker, &result.UserID, &result.Decimals, &result.Name, &result.LogoUri, &result.Description, &result.XHandle, &result.InstagramHandle, &result.TiktokHandle, &result.Website, &result.CreatedAt, &result.UpdatedAt); err != nil {
+	_, err = app.writePool.Exec(c.Context(), sql, args)
+	if err != nil {
 		log.Println("Failed to update coin", err)
 		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{
 			"error": "Failed to update coin",
 		})
 	}
 
-	return c.JSON(fiber.Map{
-		"data": result,
+	return c.Status(fiber.StatusOK).JSON(fiber.Map{
+		"success": true,
 	})
 }

@@ -2,6 +2,7 @@ package api
 
 import (
 	"encoding/json"
+	"strings"
 	"testing"
 
 	"api.audius.co/database"
@@ -11,7 +12,7 @@ import (
 
 func TestV1UpdateCoin(t *testing.T) {
 	app := emptyTestApp(t)
-	database.Seed(app.pool.Replicas[0], database.FixtureMap{
+	database.Seed(app.writePool, database.FixtureMap{
 		"users": {
 			{
 				"user_id":     1,
@@ -32,33 +33,26 @@ func TestV1UpdateCoin(t *testing.T) {
 		},
 	})
 
+	xHandle := "bear_token"
+	instagramHandle := "bear_token"
+	tiktokHandle := "bear_token"
+	website := "https://bear-token.com"
+
 	requestBody := UpdateCoinBody{
 		Description:     "Updated description for the bear token",
-		XHandle:         "https://x.com/bear_token",
-		InstagramHandle: "https://instagram.com/bear_token",
-		TiktokHandle:    "https://tiktok.com/@bear_token",
-		Website:         "https://bear-token.com",
+		XHandle:         &xHandle,
+		InstagramHandle: &instagramHandle,
+		TiktokHandle:    &tiktokHandle,
+		Website:         &website,
 	}
 	requestBodyBytes, err := json.Marshal(requestBody)
 	assert.NoError(t, err)
 
-	status, body := testPostWithWallet(t, app, "/v1/coins/bearR26zyyB3fNQm5wWv1ZfN8MPQDUMwaAuoG79b1Yj?user_id="+trashid.MustEncodeHashID(1), "0x7d273271690538cf855e5b3002a0dd8c154bb060", requestBodyBytes, map[string]string{
-		"Content-Type": "application/json",
-	})
+	status, body := testPostWithWallet(t, app, "/v1/coins/bearR26zyyB3fNQm5wWv1ZfN8MPQDUMwaAuoG79b1Yj?user_id="+trashid.MustEncodeHashID(1), "0x7d273271690538cf855e5b3002a0dd8c154bb060", requestBodyBytes, nil)
 
 	assert.Equal(t, 200, status)
 	jsonAssert(t, body, map[string]any{
-		"data.mint":             "bearR26zyyB3fNQm5wWv1ZfN8MPQDUMwaAuoG79b1Yj",
-		"data.ticker":           "$BEAR",
-		"data.user_id":          1,
-		"data.decimals":         9,
-		"data.name":             "BEAR",
-		"data.logo_uri":         "https://example.com/bear-logo.png",
-		"data.description":      "Updated description for the bear token",
-		"data.x_handle":         "https://x.com/bear_token",
-		"data.instagram_handle": "https://instagram.com/bear_token",
-		"data.tiktok_handle":    "https://tiktok.com/@bear_token",
-		"data.website":          "https://bear-token.com",
+		"success": true,
 	})
 
 	// Verify the coin was actually updated by fetching it via API
@@ -69,16 +63,16 @@ func TestV1UpdateCoin(t *testing.T) {
 		"data.ticker":           "$BEAR",
 		"data.name":             "BEAR",
 		"data.description":      "Updated description for the bear token",
-		"data.x_handle":         "https://x.com/bear_token",
-		"data.instagram_handle": "https://instagram.com/bear_token",
-		"data.tiktok_handle":    "https://tiktok.com/@bear_token",
+		"data.x_handle":         "bear_token",
+		"data.instagram_handle": "bear_token",
+		"data.tiktok_handle":    "bear_token",
 		"data.website":          "https://bear-token.com",
 	})
 }
 
 func TestV1UpdateCoin_CoinNotFound(t *testing.T) {
 	app := emptyTestApp(t)
-	database.Seed(app.pool.Replicas[0], database.FixtureMap{
+	database.Seed(app.writePool, database.FixtureMap{
 		"users": {
 			{
 				"user_id":     1,
@@ -88,19 +82,22 @@ func TestV1UpdateCoin_CoinNotFound(t *testing.T) {
 		},
 	})
 
+	xHandle2 := "test_handle"
+	instagramHandle2 := "test_handle"
+	tiktokHandle2 := "test_handle"
+	website2 := "https://test.com"
+
 	requestBody := UpdateCoinBody{
 		Description:     "Updated description",
-		XHandle:         "https://x.com/test",
-		InstagramHandle: "https://instagram.com/test",
-		TiktokHandle:    "https://tiktok.com/@test",
-		Website:         "https://test.com",
+		XHandle:         &xHandle2,
+		InstagramHandle: &instagramHandle2,
+		TiktokHandle:    &tiktokHandle2,
+		Website:         &website2,
 	}
 	requestBodyBytes, err := json.Marshal(requestBody)
 	assert.NoError(t, err)
 
-	status, body := testPostWithWallet(t, app, "/v1/coins/nonexistentMint?user_id="+trashid.MustEncodeHashID(1), "0x7d273271690538cf855e5b3002a0dd8c154bb060", requestBodyBytes, map[string]string{
-		"Content-Type": "application/json",
-	})
+	status, body := testPostWithWallet(t, app, "/v1/coins/nonexistentMint?user_id="+trashid.MustEncodeHashID(1), "0x7d273271690538cf855e5b3002a0dd8c154bb060", requestBodyBytes, nil)
 
 	assert.Equal(t, 404, status)
 	jsonAssert(t, body, map[string]any{
@@ -110,7 +107,7 @@ func TestV1UpdateCoin_CoinNotFound(t *testing.T) {
 
 func TestV1UpdateCoin_Unauthorized(t *testing.T) {
 	app := emptyTestApp(t)
-	database.Seed(app.pool.Replicas[0], database.FixtureMap{
+	database.Seed(app.writePool, database.FixtureMap{
 		"users": {
 			{
 				"user_id":     1,
@@ -135,20 +132,23 @@ func TestV1UpdateCoin_Unauthorized(t *testing.T) {
 		},
 	})
 
+	xHandle3 := "test_handle_3"
+	instagramHandle3 := "test_handle_3"
+	tiktokHandle3 := "test_handle_3"
+	website3 := "https://test.com"
+
 	requestBody := UpdateCoinBody{
 		Description:     "Updated description",
-		XHandle:         "https://x.com/test",
-		InstagramHandle: "https://instagram.com/test",
-		TiktokHandle:    "https://tiktok.com/@test",
-		Website:         "https://test.com",
+		XHandle:         &xHandle3,
+		InstagramHandle: &instagramHandle3,
+		TiktokHandle:    &tiktokHandle3,
+		Website:         &website3,
 	}
 	requestBodyBytes, err := json.Marshal(requestBody)
 	assert.NoError(t, err)
 
 	// Try to update with user 2 (who doesn't own the coin)
-	status, body := testPostWithWallet(t, app, "/v1/coins/bearR26zyyB3fNQm5wWv1ZfN8MPQDUMwaAuoG79b1Yj?user_id="+trashid.MustEncodeHashID(2), "0xc3d1d41e6872ffbd15c473d14fc3a9250be5b5e0", requestBodyBytes, map[string]string{
-		"Content-Type": "application/json",
-	})
+	status, body := testPostWithWallet(t, app, "/v1/coins/bearR26zyyB3fNQm5wWv1ZfN8MPQDUMwaAuoG79b1Yj?user_id="+trashid.MustEncodeHashID(2), "0xc3d1d41e6872ffbd15c473d14fc3a9250be5b5e0", requestBodyBytes, nil)
 
 	assert.Equal(t, 403, status)
 	jsonAssert(t, body, map[string]any{
@@ -158,7 +158,7 @@ func TestV1UpdateCoin_Unauthorized(t *testing.T) {
 
 func TestV1UpdateCoin_Validation(t *testing.T) {
 	app := emptyTestApp(t)
-	database.Seed(app.pool.Replicas[0], database.FixtureMap{
+	database.Seed(app.writePool, database.FixtureMap{
 		"users": {
 			{
 				"user_id":     1,
@@ -179,10 +179,7 @@ func TestV1UpdateCoin_Validation(t *testing.T) {
 	})
 
 	// Test with description that's too long (>2500 chars)
-	longDescription := ""
-	for len(longDescription) <= 2500 {
-		longDescription += "a"
-	}
+	longDescription := strings.Repeat("a", 2501)
 
 	requestBody := UpdateCoinBody{
 		Description: longDescription,
@@ -190,17 +187,14 @@ func TestV1UpdateCoin_Validation(t *testing.T) {
 	requestBodyBytes, err := json.Marshal(requestBody)
 	assert.NoError(t, err)
 
-	status, _ := testPostWithWallet(t, app, "/v1/coins/bearR26zyyB3fNQm5wWv1ZfN8MPQDUMwaAuoG79b1Yj?user_id="+trashid.MustEncodeHashID(1), "0x7d273271690538cf855e5b3002a0dd8c154bb060", requestBodyBytes, map[string]string{
-		"Content-Type": "application/json",
-	})
+	status, _ := testPostWithWallet(t, app, "/v1/coins/bearR26zyyB3fNQm5wWv1ZfN8MPQDUMwaAuoG79b1Yj?user_id="+trashid.MustEncodeHashID(1), "0x7d273271690538cf855e5b3002a0dd8c154bb060", requestBodyBytes, nil)
 
 	assert.Equal(t, 400, status)
-	// The validation error will be handled by the ParseAndValidateBody method
 }
 
 func TestV1UpdateCoin_IndividualFields(t *testing.T) {
 	app := emptyTestApp(t)
-	database.Seed(app.pool.Replicas[0], database.FixtureMap{
+	database.Seed(app.writePool, database.FixtureMap{
 		"users": {
 			{
 				"user_id":     1,
@@ -227,65 +221,52 @@ func TestV1UpdateCoin_IndividualFields(t *testing.T) {
 	requestBodyBytes, err := json.Marshal(requestBody)
 	assert.NoError(t, err)
 
-	status, body := testPostWithWallet(t, app, "/v1/coins/bearR26zyyB3fNQm5wWv1ZfN8MPQDUMwaAuoG79b1Yj?user_id="+trashid.MustEncodeHashID(1), "0x7d273271690538cf855e5b3002a0dd8c154bb060", requestBodyBytes, map[string]string{
-		"Content-Type": "application/json",
-	})
+	status, body := testPostWithWallet(t, app, "/v1/coins/bearR26zyyB3fNQm5wWv1ZfN8MPQDUMwaAuoG79b1Yj?user_id="+trashid.MustEncodeHashID(1), "0x7d273271690538cf855e5b3002a0dd8c154bb060", requestBodyBytes, nil)
 
 	assert.Equal(t, 200, status)
 	jsonAssert(t, body, map[string]any{
-		"data.description":      "Updated description only",
-		"data.x_handle":         "",
-		"data.instagram_handle": "",
-		"data.tiktok_handle":    "",
-		"data.website":          "",
+		"success": true,
 	})
 
 	// Test updating only Twitter
+	xHandle4 := "bear_token_handle"
 	requestBody = UpdateCoinBody{
-		XHandle: "https://x.com/bear_token",
+		XHandle: &xHandle4,
 	}
 	requestBodyBytes, err = json.Marshal(requestBody)
 	assert.NoError(t, err)
 
-	status, body = testPostWithWallet(t, app, "/v1/coins/bearR26zyyB3fNQm5wWv1ZfN8MPQDUMwaAuoG79b1Yj?user_id="+trashid.MustEncodeHashID(1), "0x7d273271690538cf855e5b3002a0dd8c154bb060", requestBodyBytes, map[string]string{
-		"Content-Type": "application/json",
-	})
+	status, body = testPostWithWallet(t, app, "/v1/coins/bearR26zyyB3fNQm5wWv1ZfN8MPQDUMwaAuoG79b1Yj?user_id="+trashid.MustEncodeHashID(1), "0x7d273271690538cf855e5b3002a0dd8c154bb060", requestBodyBytes, nil)
 
 	assert.Equal(t, 200, status)
 	jsonAssert(t, body, map[string]any{
-		"data.description":      "Updated description only",
-		"data.x_handle":         "https://x.com/bear_token",
-		"data.instagram_handle": "",
-		"data.tiktok_handle":    "",
-		"data.website":          "",
+		"success": true,
 	})
 
 	// Test updating multiple fields at once
+	instagramHandle5 := "bear_token_insta"
+	tiktokHandle5 := "bear_token_tiktok"
+	website5 := "https://bear-token.com"
+
 	requestBody = UpdateCoinBody{
-		InstagramHandle: "https://instagram.com/bear_token",
-		TiktokHandle:    "https://tiktok.com/@bear_token",
-		Website:         "https://bear-token.com",
+		InstagramHandle: &instagramHandle5,
+		TiktokHandle:    &tiktokHandle5,
+		Website:         &website5,
 	}
 	requestBodyBytes, err = json.Marshal(requestBody)
 	assert.NoError(t, err)
 
-	status, body = testPostWithWallet(t, app, "/v1/coins/bearR26zyyB3fNQm5wWv1ZfN8MPQDUMwaAuoG79b1Yj?user_id="+trashid.MustEncodeHashID(1), "0x7d273271690538cf855e5b3002a0dd8c154bb060", requestBodyBytes, map[string]string{
-		"Content-Type": "application/json",
-	})
+	status, body = testPostWithWallet(t, app, "/v1/coins/bearR26zyyB3fNQm5wWv1ZfN8MPQDUMwaAuoG79b1Yj?user_id="+trashid.MustEncodeHashID(1), "0x7d273271690538cf855e5b3002a0dd8c154bb060", requestBodyBytes, nil)
 
 	assert.Equal(t, 200, status)
 	jsonAssert(t, body, map[string]any{
-		"data.description":      "Updated description only",
-		"data.x_handle":         "https://x.com/bear_token",
-		"data.instagram_handle": "https://instagram.com/bear_token",
-		"data.tiktok_handle":    "https://tiktok.com/@bear_token",
-		"data.website":          "https://bear-token.com",
+		"success": true,
 	})
 }
 
-func TestV1UpdateCoin_URLValidation(t *testing.T) {
+func TestV1UpdateCoin_NoFields(t *testing.T) {
 	app := emptyTestApp(t)
-	database.Seed(app.pool.Replicas[0], database.FixtureMap{
+	database.Seed(app.writePool, database.FixtureMap{
 		"users": {
 			{
 				"user_id":     1,
@@ -305,77 +286,254 @@ func TestV1UpdateCoin_URLValidation(t *testing.T) {
 		},
 	})
 
-	// Test invalid Twitter URL
+	// Test updating with no fields provided (empty request body) - should fail
+	requestBody := UpdateCoinBody{}
+	requestBodyBytes, err := json.Marshal(requestBody)
+	assert.NoError(t, err)
+
+	status, body := testPostWithWallet(t, app, "/v1/coins/bearR26zyyB3fNQm5wWv1ZfN8MPQDUMwaAuoG79b1Yj?user_id="+trashid.MustEncodeHashID(1), "0x7d273271690538cf855e5b3002a0dd8c154bb060", requestBodyBytes, nil)
+
+	assert.Equal(t, 400, status)
+	jsonAssert(t, body, map[string]any{
+		"error": "At least one field must be provided for update",
+	})
+}
+
+func TestV1UpdateCoin_URLValidation(t *testing.T) {
+	app := emptyTestApp(t)
+	database.Seed(app.writePool, database.FixtureMap{
+		"users": {
+			{
+				"user_id":     1,
+				"wallet":      "0x7d273271690538cf855e5b3002a0dd8c154bb060",
+				"is_verified": true,
+			},
+		},
+		"artist_coins": {
+			{
+				"mint":        "bearR26zyyB3fNQm5wWv1ZfN8MPQDUMwaAuoG79b1Yj",
+				"ticker":      "$BEAR",
+				"user_id":     1,
+				"decimals":    9,
+				"name":        "BEAR",
+				"description": "Original description",
+			},
+		},
+	})
+
+	// Test invalid Website URL
+	invalidWebsite := "definitely-not-a-url"
 	requestBody := UpdateCoinBody{
-		XHandle: "not-a-valid-url",
+		Website: &invalidWebsite,
 	}
 	requestBodyBytes, err := json.Marshal(requestBody)
 	assert.NoError(t, err)
 
-	status, _ := testPostWithWallet(t, app, "/v1/coins/bearR26zyyB3fNQm5wWv1ZfN8MPQDUMwaAuoG79b1Yj?user_id="+trashid.MustEncodeHashID(1), "0x7d273271690538cf855e5b3002a0dd8c154bb060", requestBodyBytes, map[string]string{
-		"Content-Type": "application/json",
-	})
-
-	assert.Equal(t, 400, status)
-
-	// Test invalid Instagram URL
-	requestBody = UpdateCoinBody{
-		InstagramHandle: "also-not-valid",
-	}
-	requestBodyBytes, err = json.Marshal(requestBody)
-	assert.NoError(t, err)
-
-	status, _ = testPostWithWallet(t, app, "/v1/coins/bearR26zyyB3fNQm5wWv1ZfN8MPQDUMwaAuoG79b1Yj?user_id="+trashid.MustEncodeHashID(1), "0x7d273271690538cf855e5b3002a0dd8c154bb060", requestBodyBytes, map[string]string{
-		"Content-Type": "application/json",
-	})
-
-	assert.Equal(t, 400, status)
-
-	// Test invalid TikTok URL
-	requestBody = UpdateCoinBody{
-		TiktokHandle: "invalid-url",
-	}
-	requestBodyBytes, err = json.Marshal(requestBody)
-	assert.NoError(t, err)
-
-	status, _ = testPostWithWallet(t, app, "/v1/coins/bearR26zyyB3fNQm5wWv1ZfN8MPQDUMwaAuoG79b1Yj?user_id="+trashid.MustEncodeHashID(1), "0x7d273271690538cf855e5b3002a0dd8c154bb060", requestBodyBytes, map[string]string{
-		"Content-Type": "application/json",
-	})
-
-	assert.Equal(t, 400, status)
-
-	// Test invalid Website URL
-	requestBody = UpdateCoinBody{
-		Website: "definitely-not-a-url",
-	}
-	requestBodyBytes, err = json.Marshal(requestBody)
-	assert.NoError(t, err)
-
-	status, _ = testPostWithWallet(t, app, "/v1/coins/bearR26zyyB3fNQm5wWv1ZfN8MPQDUMwaAuoG79b1Yj?user_id="+trashid.MustEncodeHashID(1), "0x7d273271690538cf855e5b3002a0dd8c154bb060", requestBodyBytes, map[string]string{
-		"Content-Type": "application/json",
-	})
+	status, _ := testPostWithWallet(t, app, "/v1/coins/bearR26zyyB3fNQm5wWv1ZfN8MPQDUMwaAuoG79b1Yj?user_id="+trashid.MustEncodeHashID(1), "0x7d273271690538cf855e5b3002a0dd8c154bb060", requestBodyBytes, nil)
 
 	assert.Equal(t, 400, status)
 
 	// Test valid URLs work
+	validXHandle := "example_handle"
+	validInstagramHandle := "example_handle"
+	validTiktokHandle := "example_handle"
+	validWebsite := "https://example.com"
+
 	requestBody = UpdateCoinBody{
-		XHandle:         "https://x.com/example",
-		InstagramHandle: "https://www.instagram.com/example",
-		TiktokHandle:    "https://www.tiktok.com/@example",
-		Website:         "https://example.com",
+		XHandle:         &validXHandle,
+		InstagramHandle: &validInstagramHandle,
+		TiktokHandle:    &validTiktokHandle,
+		Website:         &validWebsite,
 	}
 	requestBodyBytes, err = json.Marshal(requestBody)
 	assert.NoError(t, err)
 
-	status, body := testPostWithWallet(t, app, "/v1/coins/bearR26zyyB3fNQm5wWv1ZfN8MPQDUMwaAuoG79b1Yj?user_id="+trashid.MustEncodeHashID(1), "0x7d273271690538cf855e5b3002a0dd8c154bb060", requestBodyBytes, map[string]string{
-		"Content-Type": "application/json",
-	})
+	status, body := testPostWithWallet(t, app, "/v1/coins/bearR26zyyB3fNQm5wWv1ZfN8MPQDUMwaAuoG79b1Yj?user_id="+trashid.MustEncodeHashID(1), "0x7d273271690538cf855e5b3002a0dd8c154bb060", requestBodyBytes, nil)
 
 	assert.Equal(t, 200, status)
 	jsonAssert(t, body, map[string]any{
-		"data.x_handle":         "https://x.com/example",
-		"data.instagram_handle": "https://www.instagram.com/example",
-		"data.tiktok_handle":    "https://www.tiktok.com/@example",
-		"data.website":          "https://example.com",
+		"success": true,
+	})
+
+	// Test deleting handles by passing empty strings
+	emptyString := ""
+	requestBody = UpdateCoinBody{
+		XHandle:         &emptyString,
+		InstagramHandle: &emptyString,
+		TiktokHandle:    &emptyString,
+		Website:         &emptyString,
+	}
+	requestBodyBytes, err = json.Marshal(requestBody)
+	assert.NoError(t, err)
+
+	status, body = testPostWithWallet(t, app, "/v1/coins/bearR26zyyB3fNQm5wWv1ZfN8MPQDUMwaAuoG79b1Yj?user_id="+trashid.MustEncodeHashID(1), "0x7d273271690538cf855e5b3002a0dd8c154bb060", requestBodyBytes, nil)
+
+	assert.Equal(t, 200, status)
+	jsonAssert(t, body, map[string]any{
+		"data.x_handle":         nil,
+		"data.instagram_handle": nil,
+		"data.tiktok_handle":    nil,
+		"data.website":          nil,
+	})
+}
+
+func TestV1UpdateCoin_DeleteFields(t *testing.T) {
+	// Test deleting x_handle only
+	t.Run("delete x_handle", func(t *testing.T) {
+		app := emptyTestApp(t)
+		database.Seed(app.writePool, database.FixtureMap{
+			"users": {
+				{
+					"user_id":     1,
+					"wallet":      "0x7d273271690538cf855e5b3002a0dd8c154bb060",
+					"is_verified": true,
+				},
+			},
+			"artist_coins": {
+				{
+					"mint":             "bearR26zyyB3fNQm5wWv1ZfN8MPQDUMwaAuoG79b1Yj",
+					"ticker":           "$BEAR",
+					"user_id":          1,
+					"decimals":         9,
+					"name":             "BEAR",
+					"description":      "Original description",
+					"x_handle":         "original_handle",
+					"instagram_handle": "original_handle",
+					"tiktok_handle":    "original_handle",
+					"website":          "https://original.com",
+				},
+			},
+		})
+
+		emptyString := ""
+		requestBody := UpdateCoinBody{
+			XHandle: &emptyString,
+		}
+		requestBodyBytes, err := json.Marshal(requestBody)
+		assert.NoError(t, err)
+
+		status, body := testPostWithWallet(t, app, "/v1/coins/bearR26zyyB3fNQm5wWv1ZfN8MPQDUMwaAuoG79b1Yj?user_id="+trashid.MustEncodeHashID(1), "0x7d273271690538cf855e5b3002a0dd8c154bb060", requestBodyBytes, nil)
+
+		assert.Equal(t, 200, status)
+		jsonAssert(t, body, map[string]any{
+			"success": true,
+		})
+
+		// Verify the deletion via GET
+		status, body = testGet(t, app, "/v1/coins/bearR26zyyB3fNQm5wWv1ZfN8MPQDUMwaAuoG79b1Yj")
+		assert.Equal(t, 200, status)
+		jsonAssert(t, body, map[string]any{
+			"data.x_handle":         nil,
+			"data.instagram_handle": "original_handle",
+			"data.tiktok_handle":    "original_handle",
+			"data.website":          "https://original.com",
+		})
+	})
+
+	// Test deleting instagram_handle only
+	t.Run("delete instagram_handle", func(t *testing.T) {
+		app := emptyTestApp(t)
+		database.Seed(app.writePool, database.FixtureMap{
+			"users": {
+				{
+					"user_id":     1,
+					"wallet":      "0x7d273271690538cf855e5b3002a0dd8c154bb060",
+					"is_verified": true,
+				},
+			},
+			"artist_coins": {
+				{
+					"mint":             "bearR26zyyB3fNQm5wWv1ZfN8MPQDUMwaAuoG79b1Yj",
+					"ticker":           "$BEAR",
+					"user_id":          1,
+					"decimals":         9,
+					"name":             "BEAR",
+					"description":      "Original description",
+					"x_handle":         "original_handle",
+					"instagram_handle": "original_handle",
+					"tiktok_handle":    "original_handle",
+					"website":          "https://original.com",
+				},
+			},
+		})
+
+		emptyString := ""
+		requestBody := UpdateCoinBody{
+			InstagramHandle: &emptyString,
+		}
+		requestBodyBytes, err := json.Marshal(requestBody)
+		assert.NoError(t, err)
+
+		status, body := testPostWithWallet(t, app, "/v1/coins/bearR26zyyB3fNQm5wWv1ZfN8MPQDUMwaAuoG79b1Yj?user_id="+trashid.MustEncodeHashID(1), "0x7d273271690538cf855e5b3002a0dd8c154bb060", requestBodyBytes, nil)
+
+		assert.Equal(t, 200, status)
+		jsonAssert(t, body, map[string]any{
+			"success": true,
+		})
+
+		// Verify the deletion via GET
+		status, body = testGet(t, app, "/v1/coins/bearR26zyyB3fNQm5wWv1ZfN8MPQDUMwaAuoG79b1Yj")
+		assert.Equal(t, 200, status)
+		jsonAssert(t, body, map[string]any{
+			"data.x_handle":         "original_handle",
+			"data.instagram_handle": nil,
+			"data.tiktok_handle":    "original_handle",
+			"data.website":          "https://original.com",
+		})
+	})
+
+	// Test deleting all handles
+	t.Run("delete all handles", func(t *testing.T) {
+		app := emptyTestApp(t)
+		database.Seed(app.writePool, database.FixtureMap{
+			"users": {
+				{
+					"user_id":     1,
+					"wallet":      "0x7d273271690538cf855e5b3002a0dd8c154bb060",
+					"is_verified": true,
+				},
+			},
+			"artist_coins": {
+				{
+					"mint":             "bearR26zyyB3fNQm5wWv1ZfN8MPQDUMwaAuoG79b1Yj",
+					"ticker":           "$BEAR",
+					"user_id":          1,
+					"decimals":         9,
+					"name":             "BEAR",
+					"description":      "Original description",
+					"x_handle":         "original_handle",
+					"instagram_handle": "original_handle",
+					"tiktok_handle":    "original_handle",
+					"website":          "https://original.com",
+				},
+			},
+		})
+
+		emptyString := ""
+		requestBody := UpdateCoinBody{
+			XHandle:         &emptyString,
+			InstagramHandle: &emptyString,
+			TiktokHandle:    &emptyString,
+			Website:         &emptyString,
+		}
+		requestBodyBytes, err := json.Marshal(requestBody)
+		assert.NoError(t, err)
+
+		status, body := testPostWithWallet(t, app, "/v1/coins/bearR26zyyB3fNQm5wWv1ZfN8MPQDUMwaAuoG79b1Yj?user_id="+trashid.MustEncodeHashID(1), "0x7d273271690538cf855e5b3002a0dd8c154bb060", requestBodyBytes, nil)
+
+		assert.Equal(t, 200, status)
+		jsonAssert(t, body, map[string]any{
+			"success": true,
+		})
+
+		// Verify all deletions via GET
+		status, body = testGet(t, app, "/v1/coins/bearR26zyyB3fNQm5wWv1ZfN8MPQDUMwaAuoG79b1Yj")
+		assert.Equal(t, 200, status)
+		jsonAssert(t, body, map[string]any{
+			"data.x_handle":         nil,
+			"data.instagram_handle": nil,
+			"data.tiktok_handle":    nil,
+			"data.website":          nil,
+		})
 	})
 }

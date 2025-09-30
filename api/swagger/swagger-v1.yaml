@@ -3592,6 +3592,51 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/coin_response'
+    post:
+      tags:
+        - coins
+      operationId: Update Coin
+      description: 'Updates information about a specific coin by its mint address'
+      parameters:
+      - name: mint
+        in: path
+        description: The mint address of the coin
+        required: true
+        schema:
+          type: string
+          example: bearR26zyyB3fNQm5wWv1ZfN8MPQDUMwaAuoG79b1Yj
+      - name: user_id
+        in: query
+        description: The user ID making the update (must be the coin owner)
+        required: true
+        schema:
+          type: string
+          example: "7eP5n"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/update_coin_request'
+      responses:
+        '200':
+          description: Success - Coin updated
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/update_coin_response'
+        '400':
+          description: Bad request - Invalid parameters or no fields provided
+          content: {}
+        '403':
+          description: Forbidden - User does not own the coin
+          content: {}
+        '404':
+          description: Not found - Coin does not exist
+          content: {}
+        '500':
+          description: Server error
+          content: {}
   /coins/ticker/{ticker}:
     get:
       tags:
@@ -5559,6 +5604,39 @@ components:
               format: date-time
               description: The date and time when the coin was created
               example: "2024-01-15T10:30:00Z"
+    update_coin_request:
+      type: object
+      description: Request body for updating coin information
+      properties:
+        description:
+          type: string
+          description: The description of the coin (max 2500 characters)
+          example: "Updated description for the bear token"
+          maxLength: 2500
+        x_handle:
+          type: string
+          description: X (Twitter) handle for the coin (without @ symbol)
+          example: "bear_token"
+        instagram_handle:
+          type: string
+          description: Instagram handle for the coin (without @ symbol)
+          example: "bear_token"
+        tiktok_handle:
+          type: string
+          description: TikTok handle for the coin (without @ symbol)
+          example: "bear_token"
+        website:
+          type: string
+          description: Website URL for the coin
+          example: "https://bear-token.com"
+          format: uri
+    update_coin_response:
+      type: object
+      properties:
+        success:
+          type: boolean
+          description: Indicates if the update was successful
+          example: true
     coin_insights:
       type: object
       description: |
