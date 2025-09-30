@@ -13,7 +13,7 @@ import (
 	"api.audius.co/config"
 	"api.audius.co/ddl"
 	"api.audius.co/esindexer"
-	"api.audius.co/indexer"
+	core_indexer "api.audius.co/indexer"
 	solana_indexer "api.audius.co/solana/indexer"
 )
 
@@ -40,12 +40,19 @@ func main() {
 	case "indexer":
 		{
 			fmt.Println("Running indexer...")
-			_, err := indexer.NewIndexer(indexer.CoreIndexerConfig{
-				DbUrl: config.Cfg.WriteDbUrl,
-			})
-			if err != nil {
-				fmt.Println("Error creating indexer:", err)
-				os.Exit(1)
+
+			indexer := core_indexer.NewIndexer(config.Cfg)
+
+			defer indexer.Close()
+
+			// Capture termination signals for graceful shutdown of the indexer
+			ctx, stop := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM, syscall.SIGINT, os.Interrupt)
+			defer stop()
+
+			if err := indexer.Start(ctx); err != nil {
+				if !errors.Is(err, context.Canceled) {
+					panic(err)
+				}
 			}
 		}
 	case "es-indexer":

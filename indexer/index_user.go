@@ -1,67 +1,39 @@
 package indexer
 
 import (
-	"encoding/json"
-	"strings"
+	"crypto/ecdsa"
+	"encoding/base64"
+	"log"
 
-	core_proto "github.com/AudiusProject/audiusd/pkg/api/core/v1"
-	"github.com/jackc/pgx/v5"
+	corev1 "github.com/AudiusProject/audiusd/pkg/api/core/v1"
+	core_config "github.com/AudiusProject/audiusd/pkg/core/config"
+	"github.com/AudiusProject/audiusd/pkg/core/server"
+	"github.com/ethereum/go-ethereum/crypto"
 )
 
-func (ci *CoreIndexer) createUser(txInfo TxInfo, em *core_proto.ManageEntityLegacy) error {
-	var metadata GenericMetadata
-	json.Unmarshal([]byte(em.Metadata), &metadata)
-
-	args := pgx.NamedArgs{
-		"user_id":              em.EntityId,
-		"handle_lc":            strings.ToLower(metadata.Data["handle"].(string)),
-		"is_current":           true,
-		"is_verified":          false,
-		"created_at":           txInfo.timestamp,
-		"updated_at":           txInfo.timestamp,
-		"has_collectibles":     false,
-		"txhash":               txInfo.txhash,
-		"is_deactivated":       false,
-		"is_available":         true,
-		"is_storage_v2":        false,
-		"allow_ai_attribution": false,
-	}
-
-	for k, v := range metadata.Data {
-		if k == "events" {
-			continue
-		}
-		args[k] = v
-	}
-
-	return ci.doInsert("users", args)
+func (ci *CoreIndexer) SetPubkeyForUser(userId int32, pubkey *ecdsa.PublicKey) {
+	pubkeyBytes := crypto.FromECDSAPub(pubkey)
+	pubkeyBase64 := base64.StdEncoding.EncodeToString(pubkeyBytes)
+	log.Printf("userId: %d, pubkeyBase64: %s", userId, pubkeyBase64)
+	// _, err := proc.writePool.Exec(context.Background(), `insert into user_pubkeys values ($1, $2) on conflict do nothing`, userId, pubkeyBase64)
+	// if err != nil {
+	// 	proc.logger.Warn("failed to set pubkey for user", zap.Error(err))
+	// }
 }
 
-func (ci *CoreIndexer) updateUser(txInfo TxInfo, em *core_proto.ManageEntityLegacy) error {
-	var metadata GenericMetadata
-	json.Unmarshal([]byte(em.Metadata), &metadata)
-
-	args := pgx.NamedArgs{}
-
-	// todo: verify this user is authorized to edit
-	// todo: better validation of fields + values
-
-	for k, v := range metadata.Data {
-		if k == "events" || k == "handle" {
-			continue
-		}
-		args[k] = v
+func (ci *CoreIndexer) createUser(em *corev1.ManageEntityLegacy) error {
+	// TODO: need user_id from em tx
+	// TODO: insert
+	_, pubkey, err := server.RecoverPubkeyFromCoreTx(&core_config.Config{
+		AcdcChainID:              ci.Config.AcdcChainID,
+		AcdcEntityManagerAddress: ci.Config.AcdcEntityManagerAddress,
+	}, em)
+	if err != nil {
+		return err
 	}
 
-	if _, exists := args["isDeactivated"]; exists {
-		// sometimes metadata is camelCase
-		// which breaks doUpdate
-		// so silently skip for now...
-		// todo: better validation
-		return nil
-	}
+	// TODO: check if user already exists
 
-	return ci.doUpdate("users", args, pgx.NamedArgs{
-		"user_id": em.EntityId,
-	})
+	ci.SetPubkeyForUser(int32(em.EntityId), pubkey)
+	return nil
 }

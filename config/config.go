@@ -38,6 +38,8 @@ type Config struct {
 	SolanaIndexerWorkers       int
 	SolanaIndexerRetryInterval time.Duration
 	CommsMessagePush           bool
+	AcdcChainID                uint
+	AcdcEntityManagerAddress   string
 }
 
 var Cfg = Config{
@@ -86,6 +88,9 @@ func init() {
 		Cfg.AudiusdURL = "http://audius-protocol-creator-node-1"
 		Cfg.ChainId = "audius-devnet"
 		Cfg.SolanaIndexerWorkers = 1
+
+		Cfg.AcdcChainID = core_config.DevAcdcChainID
+		Cfg.AcdcEntityManagerAddress = core_config.DevAcdcAddress
 	case "stage":
 		fallthrough
 	case "staging":
@@ -98,6 +103,9 @@ func init() {
 		Cfg.Rewards = core_config.MakeRewards(core_config.StageClaimAuthorities, core_config.StageRewardExtensions)
 		Cfg.AudiusdURL = "creatornode11.staging.audius.co"
 		Cfg.ChainId = "audius-testnet-alpha"
+
+		Cfg.AcdcChainID = core_config.StageAcdcChainID
+		Cfg.AcdcEntityManagerAddress = core_config.StageAcdcAddress
 	case "prod":
 		fallthrough
 	case "production":
@@ -112,6 +120,9 @@ func init() {
 		Cfg.Rewards = core_config.MakeRewards(core_config.ProdClaimAuthorities, core_config.ProdRewardExtensions)
 		Cfg.AudiusdURL = "creatornode.audius.co"
 		Cfg.ChainId = "audius-mainnet-alpha-beta"
+
+		Cfg.AcdcChainID = core_config.ProdAcdcChainID
+		Cfg.AcdcEntityManagerAddress = core_config.ProdAcdcAddress
 	default:
 		log.Fatalf("Unknown environment: %s", env)
 	}

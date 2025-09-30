@@ -3,169 +3,122 @@ package indexer
 import (
 	"context"
 	"fmt"
-	"maps"
-	"strings"
+	"log"
 	"time"
 
-	core_proto "github.com/AudiusProject/audiusd/pkg/api/core/v1"
-	"github.com/AudiusProject/audiusd/pkg/common"
-	"github.com/jackc/pgx/v5"
+	"api.audius.co/config"
+	"api.audius.co/database"
+	"api.audius.co/logging"
+	"connectrpc.com/connect"
+	corev1 "github.com/AudiusProject/audiusd/pkg/api/core/v1"
+	"github.com/AudiusProject/audiusd/pkg/sdk"
 	"github.com/jackc/pgx/v5/pgxpool"
+	"go.uber.org/zap"
 )
 
 type CoreIndexer struct {
-	ctx  context.Context
-	pool *pgxpool.Pool
+	pool    database.DbPool
+	Config  config.Config
+	logger  *zap.Logger
+	closeCh chan struct{}
 }
 
-type CoreIndexerConfig struct {
-	DbUrl string
-}
+func NewIndexer(config config.Config) *CoreIndexer {
 
-func NewIndexer(config CoreIndexerConfig) (*CoreIndexer, error) {
-	bg := context.Background()
-	pool, err := pgxpool.New(bg, config.DbUrl)
+	connConfig, err := pgxpool.ParseConfig(config.WriteDbUrl)
 	if err != nil {
-		return nil, err
+		panic(fmt.Errorf("error parsing database URL: %w", err))
+	}
+
+	pool, err := pgxpool.NewWithConfig(context.Background(), connConfig)
+	if err != nil {
+		panic(fmt.Errorf("error connecting to database: %w", err))
 	}
 
 	ci := &CoreIndexer{
-		bg,
-		pool,
+		pool:   pool,
+		Config: config,
+		logger: logging.NewZapLogger(config).
+			Named("CoreIndexer"),
 	}
 
-	return ci, nil
+	return ci
 }
 
-func (ci *CoreIndexer) handleTx(signedTx *core_proto.SignedTransaction) error {
+// TODO: open tx, during commit set block height, rollback etc.
 
-	// txInfo contains some context around the tx:
-	// blockhash + blocknumber
-	// also need block timestamp
-	// todo: where best place to get?
-	txHash, err := common.ToTxHash(signedTx)
+func (ci *CoreIndexer) Start(ctx context.Context) error {
+	sdk := sdk.NewAudiusdSDK(ci.Config.AudiusdURL)
+	nodeInfo, err := sdk.Core.GetNodeInfo(context.Background(), connect.NewRequest(&corev1.GetNodeInfoRequest{}))
 	if err != nil {
 		return err
 	}
 
-	txInfo := TxInfo{
-		txhash:      txHash,
-		blockhash:   "todo",
-		blocknumber: 123,
-		timestamp:   time.Now(),
-	}
+	ci.logger.Info("Core indexer started at height", zap.Int64("height", nodeInfo.Msg.CurrentHeight))
 
-	switch signedTx.GetTransaction().(type) {
-	case *core_proto.SignedTransaction_Plays:
-		// play := signedTx.GetPlays()
-		// fmt.Println("PLAY", play)
+	height := nodeInfo.Msg.CurrentHeight
 
-	case *core_proto.SignedTransaction_ManageEntity:
-		em := signedTx.GetManageEntity()
-		action := em.Action + em.EntityType
-		var err error
-
-		// TODO: verify signature
-		// TODO: and that em.Signer is authorized for em.UserId
-
-		switch action {
-		case "CreateUser":
-			err = ci.createUser(txInfo, em)
-		case "UpdateUser":
-			err = ci.updateUser(txInfo, em)
-
-		case "CreateTrack":
-			err = ci.createTrack(txInfo, em)
-		case "UpdateTrack":
-			err = ci.updateTrack(txInfo, em)
-		case "DeleteTrack":
-			err = ci.deleteTrack(txInfo, em)
-		case "DownloadTrack":
-			err = ci.downloadTrack(txInfo, em)
-
-		case "CreatePlaylist":
-			err = ci.createPlaylist(txInfo, em)
-		case "UpdatePlaylist":
-			err = ci.updatePlaylist(txInfo, em)
-
-		case "CreateComment":
-			err = ci.createComment(txInfo, em)
-
-		case "FollowUser":
-			err = ci.followUser(txInfo, em)
-		case "UnfollowUser":
-			err = ci.unfollowUser(txInfo, em)
-		case "RepostPlaylist", "RepostTrack":
-			err = ci.repost(txInfo, em)
-		case "SaveTrack", "SavePlaylist":
-			err = ci.favorite(txInfo, em)
-		case "UnsaveTrack", "UnsavePlaylist":
-			err = ci.unfavorite(txInfo, em)
-		case "ViewNotification":
-			err = ci.viewNotification(txInfo, em)
+	for {
+		select {
+		case <-ctx.Done():
+			ci.logger.Info("Shutting down core indexer")
+			return nil
 		default:
-			fmt.Println("no handler for ", action)
+		}
+		block, err := sdk.Core.GetBlock(context.Background(), connect.NewRequest(&corev1.GetBlockRequest{
+			Height: height,
+		}))
+		if err != nil {
+			log.Fatal(err)
 		}
 
-		return err
+		// channel timer prob better
+		if block.Msg.Block.Height < 0 {
+			time.Sleep(1 * time.Second)
+			continue
+		}
 
-	default:
-		// fmt.Println("Unknown transaction type")
+		// TODO: Block also has a current chain height, to calc block diff
+		err = ci.handleBlock(block.Msg.Block)
+		if err != nil {
+			log.Fatal(err)
+		}
+
+		height++
 	}
+}
 
+func (ci *CoreIndexer) handleBlock(block *corev1.Block) error {
+	for _, tx := range block.Transactions {
+		if txData := tx.GetTransaction(); txData != nil {
+			switch txData.GetTransaction().(type) {
+			case *corev1.SignedTransaction_ManageEntity:
+				em := txData.GetManageEntity()
+				if em == nil {
+					ci.logger.Error("ManageEntity transaction with empty data", zap.Any("tx", tx))
+					continue
+				}
+				err := ci.handleManageEntity(em)
+				if err != nil {
+					ci.logger.Error("Error processing manage entity tx", zap.Error(err))
+					continue
+				}
+			}
+		}
+	}
 	return nil
 }
 
-type TxInfo struct {
-	blockhash   string
-	blocknumber int
-	txhash      string
-	timestamp   time.Time
+func (ci *CoreIndexer) handleManageEntity(em *corev1.ManageEntityLegacy) error {
+	operation := em.Action + em.EntityType
+	switch operation {
+	case "CreateUser":
+		return ci.createUser(em)
+	default:
+		return nil
+	}
 }
 
-type GenericMetadata struct {
-	CID  string         `json:"cid"`
-	Data map[string]any `json:"data"`
-}
-
-func (ci *CoreIndexer) doInsert(tableName string, args pgx.NamedArgs) error {
-	fields := []string{}
-	placeholders := []string{}
-	for field := range args {
-		fields = append(fields, field)
-		placeholders = append(placeholders, "@"+field)
-	}
-	stmt := fmt.Sprintf("insert into %s (%s) values (%s)",
-		tableName,
-		strings.Join(fields, ", "),
-		strings.Join(placeholders, ", "),
-	)
-
-	_, err := ci.pool.Exec(ci.ctx, stmt, args)
-	return err
-}
-
-func (ci *CoreIndexer) doUpdate(tableName string, args pgx.NamedArgs, where pgx.NamedArgs) error {
-	fields := []string{}
-	for field := range args {
-		fields = append(fields, fmt.Sprintf("%s = @%s", field, field))
-	}
-
-	wheres := []string{}
-	for field := range where {
-		wheres = append(wheres, fmt.Sprintf("%s = @%s", field, field))
-	}
-
-	stmt := fmt.Sprintf("update %s set %s where %s",
-		tableName,
-		strings.Join(fields, ", "),
-		strings.Join(wheres, " AND "),
-	)
-
-	maps.Copy(args, where)
-
-	// fmt.Println(stmt, args)
-
-	_, err := ci.pool.Exec(ci.ctx, stmt, args)
-	return err
+func (ci *CoreIndexer) Close() {
+	ci.pool.Close()
 }
