@@ -14,7 +14,7 @@ import (
 	"github.com/ethereum/go-ethereum/crypto"
 )
 
-func (ci *CoreIndexer) SetPubkeyForUser(dbTx pgx.Tx, logger *zap.Logger, userId int32, pubkey *ecdsa.PublicKey) {
+func (ci *CoreIndexer) setPubkeyForUser(dbTx pgx.Tx, logger *zap.Logger, userId int32, pubkey *ecdsa.PublicKey) {
 	pubkeyBytes := crypto.FromECDSAPub(pubkey)
 	pubkeyBase64 := base64.StdEncoding.EncodeToString(pubkeyBytes)
 
@@ -29,13 +29,13 @@ func (ci *CoreIndexer) SetPubkeyForUser(dbTx pgx.Tx, logger *zap.Logger, userId 
 
 func (ci *CoreIndexer) createUser(dbTx pgx.Tx, logger *zap.Logger, em *corev1.ManageEntityLegacy) error {
 	_, pubkey, err := server.RecoverPubkeyFromCoreTx(&core_config.Config{
-		AcdcChainID:              ci.Config.AcdcChainID,
-		AcdcEntityManagerAddress: ci.Config.AcdcEntityManagerAddress,
+		AcdcChainID:              ci.Config.AudiusdChainID,
+		AcdcEntityManagerAddress: ci.Config.AudiusdEntityManagerAddress,
 	}, em)
 	if err != nil {
 		return err
 	}
 
-	ci.SetPubkeyForUser(dbTx, logger, int32(em.EntityId), pubkey)
+	ci.setPubkeyForUser(dbTx, logger, int32(em.EntityId), pubkey)
 	return nil
 }
