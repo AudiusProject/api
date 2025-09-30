@@ -295,6 +295,9 @@ func testGetWithWallet(t *testing.T, app *ApiServer, path string, walletAddress 
 func testPostWithWallet(t *testing.T, app *ApiServer, path string, walletAddress string, body []byte, headers map[string]string, dest ...any) (int, []byte) {
 	req := httptest.NewRequest("POST", path, bytes.NewBuffer(body))
 
+	// Set default Content-Type header
+	req.Header.Set("Content-Type", "application/json")
+
 	// Add signature headers if wallet address is provided
 	if walletAddress != "" {
 		sigData := testdata.GetSignatureData(walletAddress)
