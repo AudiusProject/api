@@ -8,7 +8,7 @@ You can reindex all the prod data to local machine thusly:
 - `time go run main.go es-indexer drop all`
 - `go run main.go`
 
-Over in `audius-protocol`:
+Over in `apps`:
 
 - in `packages/sdk/src/sdk/config/production.ts` set `"apiEndpoint": "http://localhost:1323",`
 - `npm run preview:prod`

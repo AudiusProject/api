@@ -4,7 +4,7 @@ package reward_manager
 //
 // Caution: Some error values overlap with system program errors.
 //
-// See also: https://github.com/AudiusProject/audius-protocol/blob/2a37bcff1bb1a82efdf187d1723b3457dc0dcb9b/solana-programs/reward-manager/program/src/error.rs
+// See also: https://github.com/AudiusProject/apps/blob/2a37bcff1bb1a82efdf187d1723b3457dc0dcb9b/solana-programs/reward-manager/program/src/error.rs
 type RewardManagerError int
 
 const (
