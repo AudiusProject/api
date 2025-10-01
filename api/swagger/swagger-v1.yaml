@@ -5513,6 +5513,9 @@ components:
             - price
             - priceUSD
             - curveProgress
+            - creatorQuoteFee
+            - totalTradingQuoteFee
+            - totalProtocolQuoteFee
           properties:
             address:
               type: string
@@ -5538,6 +5541,14 @@ components:
               type: number
               description: Creator quote fee for the bonding curve
               example: 0.05
+            totalTradingQuoteFee:
+              type: number
+              description: Total trading quote fee accumulated
+              example: 0.001
+            totalProtocolQuoteFee:
+              type: number
+              description: Total protocol quote fee accumulated
+              example: 0.002
     coin_response:
       type: object
       properties:
@@ -5903,6 +5914,9 @@ components:
             - price
             - priceUSD
             - curveProgress
+            - creatorQuoteFee
+            - totalTradingQuoteFee
+            - totalProtocolQuoteFee
           properties:
             address:
               type: string
@@ -5928,6 +5942,14 @@ components:
               type: number
               description: Creator quote fee for the bonding curve
               example: 0.05
+            totalTradingQuoteFee:
+              type: number
+              description: Total trading quote fee accumulated
+              example: 0.001
+            totalProtocolQuoteFee:
+              type: number
+              description: Total protocol quote fee accumulated
+              example: 0.002
     coin_insights_response:
       type: object
       properties:
