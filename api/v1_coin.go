@@ -73,7 +73,8 @@ func (app *ApiServer) v1Coin(c *fiber.Ctx) error {
 				'price', COALESCE(artist_coin_pools.price, 0),
 				'priceUSD', COALESCE(artist_coin_pools.price_usd, 0),
 				'curveProgress', COALESCE(artist_coin_pools.curve_progress, 0),
-				'isMigrated', COALESCE(artist_coin_pools.is_migrated, false)
+				'isMigrated', COALESCE(artist_coin_pools.is_migrated, false),
+				'creatorQuoteFee', COALESCE(artist_coin_pools.creator_quote_fee, 0)
 			) AS dynamic_bonding_curve,
 			COALESCE(artist_coin_stats.updated_at, artist_coins.created_at) as updated_at
 		FROM artist_coins
@@ -170,7 +171,8 @@ func (app *ApiServer) v1CoinByTicker(c *fiber.Ctx) error {
 				'price', COALESCE(artist_coin_pools.price, 0),
 				'priceUSD', COALESCE(artist_coin_pools.price_usd, 0),
 				'curveProgress', COALESCE(artist_coin_pools.curve_progress, 0),
-				'isMigrated', COALESCE(artist_coin_pools.is_migrated, false)
+				'isMigrated', COALESCE(artist_coin_pools.is_migrated, false),
+				'creatorQuoteFee', COALESCE(artist_coin_pools.creator_quote_fee, 0)
 			) AS dynamic_bonding_curve,
 			COALESCE(artist_coin_stats.updated_at, artist_coins.created_at) as updated_at
 		FROM artist_coins
