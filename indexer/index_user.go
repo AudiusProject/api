@@ -1,67 +1,41 @@
 package indexer
 
 import (
-	"encoding/json"
-	"strings"
+	"context"
+	"crypto/ecdsa"
+	"encoding/base64"
 
-	core_proto "github.com/AudiusProject/audiusd/pkg/api/core/v1"
-	"github.com/jackc/pgx/v5"
+	dbv1 "api.audius.co/database"
+	"go.uber.org/zap"
+
+	corev1 "github.com/AudiusProject/audiusd/pkg/api/core/v1"
+	core_config "github.com/AudiusProject/audiusd/pkg/core/config"
+	"github.com/AudiusProject/audiusd/pkg/core/server"
+	"github.com/ethereum/go-ethereum/crypto"
 )
 
-func (ci *CoreIndexer) createUser(txInfo TxInfo, em *core_proto.ManageEntityLegacy) error {
-	var metadata GenericMetadata
-	json.Unmarshal([]byte(em.Metadata), &metadata)
+func (ci *CoreIndexer) setPubkeyForUser(dbTx dbv1.DBTX, logger *zap.Logger, userId int32, pubkey *ecdsa.PublicKey) {
+	pubkeyBytes := crypto.FromECDSAPub(pubkey)
+	pubkeyBase64 := base64.StdEncoding.EncodeToString(pubkeyBytes)
 
-	args := pgx.NamedArgs{
-		"user_id":              em.EntityId,
-		"handle_lc":            strings.ToLower(metadata.Data["handle"].(string)),
-		"is_current":           true,
-		"is_verified":          false,
-		"created_at":           txInfo.timestamp,
-		"updated_at":           txInfo.timestamp,
-		"has_collectibles":     false,
-		"txhash":               txInfo.txhash,
-		"is_deactivated":       false,
-		"is_available":         true,
-		"is_storage_v2":        false,
-		"allow_ai_attribution": false,
+	logger.Info("CreateUser, setting pubkey", zap.Int32("userId", userId), zap.String("pubkeyBase64", pubkeyBase64))
+
+	_, err := dbTx.Exec(context.Background(), `insert into user_pubkeys values ($1, $2) on conflict do nothing`, userId, pubkeyBase64)
+
+	if err != nil {
+		logger.Warn("failed to set pubkey for user", zap.Int32("userId", userId), zap.String("pubkeyBase64", pubkeyBase64), zap.Error(err))
 	}
-
-	for k, v := range metadata.Data {
-		if k == "events" {
-			continue
-		}
-		args[k] = v
-	}
-
-	return ci.doInsert("users", args)
 }
 
-func (ci *CoreIndexer) updateUser(txInfo TxInfo, em *core_proto.ManageEntityLegacy) error {
-	var metadata GenericMetadata
-	json.Unmarshal([]byte(em.Metadata), &metadata)
-
-	args := pgx.NamedArgs{}
-
-	// todo: verify this user is authorized to edit
-	// todo: better validation of fields + values
-
-	for k, v := range metadata.Data {
-		if k == "events" || k == "handle" {
-			continue
-		}
-		args[k] = v
+func (ci *CoreIndexer) createUser(dbTx dbv1.DBTX, logger *zap.Logger, em *corev1.ManageEntityLegacy) error {
+	_, pubkey, err := server.RecoverPubkeyFromCoreTx(&core_config.Config{
+		AcdcChainID:              ci.Config.AudiusdChainID,
+		AcdcEntityManagerAddress: ci.Config.AudiusdEntityManagerAddress,
+	}, em)
+	if err != nil {
+		return err
 	}
 
-	if _, exists := args["isDeactivated"]; exists {
-		// sometimes metadata is camelCase
-		// which breaks doUpdate
-		// so silently skip for now...
-		// todo: better validation
-		return nil
-	}
-
-	return ci.doUpdate("users", args, pgx.NamedArgs{
-		"user_id": em.EntityId,
-	})
+	ci.setPubkeyForUser(dbTx, logger, int32(em.EntityId), pubkey)
+	return nil
 }

@@ -14,30 +14,32 @@ import (
 )
 
 type Config struct {
-	Env                        string
-	Git                        string
-	LogLevel                   string
-	ZapLevel                   zapcore.Level
-	ReadDbUrl                  string
-	ReadDbReplicas             []string
-	WriteDbUrl                 string
-	RunMigrations              bool
-	EsUrl                      string
-	Nodes                      []Node
-	DeadNodes                  []string
-	DelegatePrivateKey         string
-	AxiomToken                 string
-	AxiomDataset               string
-	NetworkTakeRate            float64
-	SolanaConfig               SolanaConfig
-	AntiAbuseOracles           []string
-	Rewards                    []rewards.Reward
-	AudiusdURL                 string
-	ChainId                    string
-	BirdeyeToken               string
-	SolanaIndexerWorkers       int
-	SolanaIndexerRetryInterval time.Duration
-	CommsMessagePush           bool
+	Env                         string
+	Git                         string
+	LogLevel                    string
+	ZapLevel                    zapcore.Level
+	ReadDbUrl                   string
+	ReadDbReplicas              []string
+	WriteDbUrl                  string
+	RunMigrations               bool
+	EsUrl                       string
+	Nodes                       []Node
+	DeadNodes                   []string
+	DelegatePrivateKey          string
+	AxiomToken                  string
+	AxiomDataset                string
+	NetworkTakeRate             float64
+	SolanaConfig                SolanaConfig
+	AntiAbuseOracles            []string
+	Rewards                     []rewards.Reward
+	AudiusdURL                  string
+	ChainId                     string
+	BirdeyeToken                string
+	SolanaIndexerWorkers        int
+	SolanaIndexerRetryInterval  time.Duration
+	CommsMessagePush            bool
+	AudiusdChainID              uint
+	AudiusdEntityManagerAddress string
 }
 
 var Cfg = Config{
@@ -86,6 +88,9 @@ func init() {
 		Cfg.AudiusdURL = "http://audius-protocol-creator-node-1"
 		Cfg.ChainId = "audius-devnet"
 		Cfg.SolanaIndexerWorkers = 1
+
+		Cfg.AudiusdChainID = core_config.DevAcdcChainID
+		Cfg.AudiusdEntityManagerAddress = core_config.DevAcdcAddress
 	case "stage":
 		fallthrough
 	case "staging":
@@ -98,6 +103,9 @@ func init() {
 		Cfg.Rewards = core_config.MakeRewards(core_config.StageClaimAuthorities, core_config.StageRewardExtensions)
 		Cfg.AudiusdURL = "creatornode11.staging.audius.co"
 		Cfg.ChainId = "audius-testnet-alpha"
+
+		Cfg.AudiusdChainID = core_config.StageAcdcChainID
+		Cfg.AudiusdEntityManagerAddress = core_config.StageAcdcAddress
 	case "prod":
 		fallthrough
 	case "production":
@@ -112,6 +120,9 @@ func init() {
 		Cfg.Rewards = core_config.MakeRewards(core_config.ProdClaimAuthorities, core_config.ProdRewardExtensions)
 		Cfg.AudiusdURL = "creatornode.audius.co"
 		Cfg.ChainId = "audius-mainnet-alpha-beta"
+
+		Cfg.AudiusdChainID = core_config.ProdAcdcChainID
+		Cfg.AudiusdEntityManagerAddress = core_config.ProdAcdcAddress
 	default:
 		log.Fatalf("Unknown environment: %s", env)
 	}
