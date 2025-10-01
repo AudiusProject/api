@@ -5515,7 +5515,6 @@ components:
             - curveProgress
             - creatorQuoteFee
             - totalTradingQuoteFee
-            - totalProtocolQuoteFee
           properties:
             address:
               type: string
@@ -5545,10 +5544,6 @@ components:
               type: number
               description: Total trading quote fee accumulated
               example: 0.001
-            totalProtocolQuoteFee:
-              type: number
-              description: Total protocol quote fee accumulated
-              example: 0.002
     coin_response:
       type: object
       properties:
@@ -5916,7 +5911,6 @@ components:
             - curveProgress
             - creatorQuoteFee
             - totalTradingQuoteFee
-            - totalProtocolQuoteFee
           properties:
             address:
               type: string
@@ -5946,10 +5940,6 @@ components:
               type: number
               description: Total trading quote fee accumulated
               example: 0.001
-            totalProtocolQuoteFee:
-              type: number
-              description: Total protocol quote fee accumulated
-              example: 0.002
     coin_insights_response:
       type: object
       properties:
