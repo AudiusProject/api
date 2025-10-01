@@ -185,7 +185,8 @@ func (app *ApiServer) v1Coins(c *fiber.Ctx) error {
 				'priceUSD', COALESCE(artist_coin_pools.price_usd, 0),
 				'curveProgress', COALESCE(artist_coin_pools.curve_progress, 0),
 				'isMigrated', COALESCE(artist_coin_pools.is_migrated, false),
-				'creatorQuoteFee', COALESCE(artist_coin_pools.creator_quote_fee, 0)
+				'creatorQuoteFee', COALESCE(artist_coin_pools.creator_quote_fee, 0),
+				'totalTradingQuoteFee', COALESCE(artist_coin_pools.total_trading_quote_fee, 0)
 			) AS dynamic_bonding_curve,
 			COALESCE(artist_coin_stats.updated_at, artist_coins.created_at) as updated_at
 		FROM artist_coins

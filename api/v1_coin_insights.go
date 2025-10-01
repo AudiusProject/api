@@ -54,12 +54,13 @@ type ArtistCoinStatsRow struct {
 }
 
 type DynamicBondingCurveInsights struct {
-	Address         string  `json:"address"`
-	Price           float64 `json:"price"`
-	PriceUSD        float64 `json:"priceUSD"`
-	CurveProgress   float64 `json:"curveProgress"`
-	IsMigrated      bool    `json:"isMigrated"`
-	CreatorQuoteFee float64 `json:"creatorQuoteFee"`
+	Address              string  `json:"address"`
+	Price                float64 `json:"price"`
+	PriceUSD             float64 `json:"priceUSD"`
+	CurveProgress        float64 `json:"curveProgress"`
+	IsMigrated           bool    `json:"isMigrated"`
+	CreatorQuoteFee      float64 `json:"creatorQuoteFee"`
+	TotalTradingQuoteFee float64 `json:"totalTradingQuoteFee"`
 }
 
 func (app *ApiServer) v1CoinInsights(c *fiber.Ctx) error {
@@ -73,14 +74,15 @@ func (app *ApiServer) v1CoinInsights(c *fiber.Ctx) error {
 	sql := `
 		SELECT
 			artist_coin_stats.*,
-			JSON_BUILD_OBJECT(
-				'address', artist_coin_pools.address,
-				'price', artist_coin_pools.price,
-				'priceUSD', artist_coin_pools.price_usd,
-				'curveProgress', artist_coin_pools.curve_progress,
-				'isMigrated', artist_coin_pools.is_migrated,
-				'creatorQuoteFee', artist_coin_pools.creator_quote_fee
-			) AS dynamic_bonding_curve
+		JSON_BUILD_OBJECT(
+			'address', artist_coin_pools.address,
+			'price', artist_coin_pools.price,
+			'priceUSD', artist_coin_pools.price_usd,
+			'curveProgress', artist_coin_pools.curve_progress,
+			'isMigrated', artist_coin_pools.is_migrated,
+			'creatorQuoteFee', artist_coin_pools.creator_quote_fee,
+			'totalTradingQuoteFee', COALESCE(artist_coin_pools.total_trading_quote_fee, 0)
+		) AS dynamic_bonding_curve
 		FROM artist_coin_stats
 		LEFT JOIN artist_coin_pools
 			ON artist_coin_pools.base_mint = artist_coin_stats.mint
