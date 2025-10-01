@@ -2,7 +2,7 @@ package testdata
 
 var ArtistCoinsFixtures = []map[string]any{
 	{
-		"ticker":     "$TESTCOIN",
+		"ticker":     "TESTCOIN",
 		"decimals":   8,
 		"user_id":    1, // Default user (rayjacobson)
 		"mint":       "test_mint_address_123",
@@ -10,7 +10,7 @@ var ArtistCoinsFixtures = []map[string]any{
 		"created_at": "2024-01-01 00:00:00",
 	},
 	{
-		"ticker":     "$AUDIO",
+		"ticker":     "AUDIO",
 		"decimals":   8,
 		"user_id":    2, // stereosteve
 		"mint":       "9LzCMqDgTKYz9Drzqnpgee3SGa89up3a247ypMj2xrqM",

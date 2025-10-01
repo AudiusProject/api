@@ -64,7 +64,7 @@ func TestGetUserCoinBadges(t *testing.T) {
 		},
 		"artist_coins": {
 			{
-				"ticker":     "$TESTCOIN",
+				"ticker":     "TESTCOIN",
 				"decimals":   8,
 				"user_id":    3,
 				"mint":       "test_mint_address_123",
@@ -72,7 +72,7 @@ func TestGetUserCoinBadges(t *testing.T) {
 				"created_at": "2024-01-01 00:00:00",
 			},
 			{
-				"ticker":     "$STEVE",
+				"ticker":     "STEVE",
 				"decimals":   8,
 				"user_id":    4,
 				"mint":       "test_mint_address_124",
@@ -80,7 +80,7 @@ func TestGetUserCoinBadges(t *testing.T) {
 				"created_at": "2024-01-01 00:00:00",
 			},
 			{
-				"ticker":     "$AUDIO",
+				"ticker":     "AUDIO",
 				"decimals":   8,
 				"user_id":    3,
 				"mint":       "9LzCMqDgTKYz9Drzqnpgee3SGa89up3a247ypMj2xrqM",
@@ -150,7 +150,7 @@ func TestGetUserCoinBadges(t *testing.T) {
 
 		jsonAssert(t, body, map[string]any{
 			"data.0.artist_coin_badge.mint":     "test_mint_address_123",
-			"data.0.artist_coin_badge.ticker":   "$TESTCOIN",
+			"data.0.artist_coin_badge.ticker":   "TESTCOIN",
 			"data.0.artist_coin_badge.logo_uri": "https://example.com/test-logo.png",
 		})
 	}
@@ -172,7 +172,7 @@ func TestGetUserCoinBadges(t *testing.T) {
 
 		jsonAssert(t, body, map[string]any{
 			"data.0.artist_coin_badge.mint":     "test_mint_address_123",
-			"data.0.artist_coin_badge.ticker":   "$TESTCOIN",
+			"data.0.artist_coin_badge.ticker":   "TESTCOIN",
 			"data.0.artist_coin_badge.logo_uri": "https://example.com/test-logo.png",
 		})
 	}
@@ -184,7 +184,7 @@ func TestGetUserCoinBadges(t *testing.T) {
 
 		jsonAssert(t, body, map[string]any{
 			"data.0.artist_coin_badge.mint":     "test_mint_address_124",
-			"data.0.artist_coin_badge.ticker":   "$STEVE",
+			"data.0.artist_coin_badge.ticker":   "STEVE",
 			"data.0.artist_coin_badge.logo_uri": "https://example.com/steve-logo.png",
 		})
 	}

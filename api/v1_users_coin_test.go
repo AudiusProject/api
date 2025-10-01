@@ -15,14 +15,14 @@ func TestUserCoin(t *testing.T) {
 	fixtures := database.FixtureMap{
 		"artist_coins": {
 			{
-				"ticker":     "$AUDIO",
+				"ticker":     "AUDIO",
 				"decimals":   8,
 				"user_id":    1,
 				"mint":       "9LzCMqDgTKYz9Drzqnpgee3SGa89up3a247ypMj2xrqM",
 				"created_at": time.Now().Add(-time.Second),
 			},
 			{
-				"ticker":     "$USDC",
+				"ticker":     "USDC",
 				"decimals":   6,
 				"user_id":    2,
 				"mint":       "EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v",
@@ -132,7 +132,7 @@ func TestUserCoin(t *testing.T) {
 		assert.Equal(t, 200, status)
 
 		jsonAssert(t, body, map[string]any{
-			"data.ticker":                      "$AUDIO",
+			"data.ticker":                      "AUDIO",
 			"data.mint":                        "9LzCMqDgTKYz9Drzqnpgee3SGa89up3a247ypMj2xrqM",
 			"data.decimals":                    8,
 			"data.owner_id":                    trashid.MustEncodeHashID(1),
@@ -162,7 +162,7 @@ func TestUserCoin(t *testing.T) {
 		assert.Equal(t, 200, status)
 
 		jsonAssert(t, body, map[string]any{
-			"data.ticker":                      "$USDC",
+			"data.ticker":                      "USDC",
 			"data.mint":                        "EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v",
 			"data.decimals":                    6,
 			"data.owner_id":                    trashid.MustEncodeHashID(2),

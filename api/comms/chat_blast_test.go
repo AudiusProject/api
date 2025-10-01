@@ -836,7 +836,7 @@ func TestChatBlastCoinHolders(t *testing.T) {
 		"artist_coins": {
 			{
 				"user_id":  1,
-				"ticker":   "$ARTIST1",
+				"ticker":   "ARTIST1",
 				"mint":     "mint123",
 				"decimals": 9,
 			},
@@ -1057,7 +1057,7 @@ func TestChatBlastCoinHoldersExcludesSender(t *testing.T) {
 		"artist_coins": {
 			{
 				"user_id":  1,
-				"ticker":   "$ARTIST1",
+				"ticker":   "ARTIST1",
 				"mint":     "mint123",
 				"decimals": 8,
 			},

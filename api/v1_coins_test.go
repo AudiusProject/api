@@ -27,14 +27,14 @@ func TestGetCoins(t *testing.T) {
 		},
 		"artist_coins": {
 			{
-				"ticker":     "$AUDIO",
+				"ticker":     "AUDIO",
 				"decimals":   8,
 				"user_id":    1,
 				"mint":       "9LzCMqDgTKYz9Drzqnpgee3SGa89up3a247ypMj2xrqM",
 				"created_at": time.Now().Add(-time.Second),
 			},
 			{
-				"ticker":      "$USDC",
+				"ticker":      "USDC",
 				"decimals":    6,
 				"user_id":     2,
 				"mint":        "EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v",
@@ -71,7 +71,7 @@ func TestGetCoins(t *testing.T) {
 		assert.Equal(t, 200, status)
 
 		jsonAssert(t, body, map[string]any{
-			"data.0.ticker":   "$AUDIO",
+			"data.0.ticker":   "AUDIO",
 			"data.0.mint":     "9LzCMqDgTKYz9Drzqnpgee3SGa89up3a247ypMj2xrqM",
 			"data.0.decimals": 8,
 			"data.0.owner_id": trashid.MustEncodeHashID(1),
@@ -85,7 +85,7 @@ func TestGetCoins(t *testing.T) {
 		assert.Equal(t, 200, status)
 
 		jsonAssert(t, body, map[string]any{
-			"data.0.ticker":   "$USDC",
+			"data.0.ticker":   "USDC",
 			"data.0.decimals": 6,
 			"data.0.mint":     "EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v",
 			"data.0.owner_id": trashid.MustEncodeHashID(2),
@@ -99,7 +99,7 @@ func TestGetCoins(t *testing.T) {
 		assert.Equal(t, 200, status)
 
 		jsonAssert(t, body, map[string]any{
-			"data.0.ticker": "$AUDIO",
+			"data.0.ticker": "AUDIO",
 		})
 	}
 
@@ -109,7 +109,7 @@ func TestGetCoins(t *testing.T) {
 		assert.Equal(t, 200, status)
 
 		jsonAssert(t, body, map[string]any{
-			"data.0.ticker":   "$USDC",
+			"data.0.ticker":   "USDC",
 			"data.0.mint":     "EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v",
 			"data.0.decimals": 6,
 			"data.0.owner_id": trashid.MustEncodeHashID(2),
@@ -123,7 +123,7 @@ func TestGetCoins(t *testing.T) {
 		assert.Equal(t, 200, status)
 
 		jsonAssert(t, body, map[string]any{
-			"data.0.ticker": "$AUDIO",
+			"data.0.ticker": "AUDIO",
 		})
 	}
 
@@ -133,7 +133,7 @@ func TestGetCoins(t *testing.T) {
 		assert.Equal(t, 200, status)
 
 		jsonAssert(t, body, map[string]any{
-			"data.0.ticker": "$USDC",
+			"data.0.ticker": "USDC",
 		})
 	}
 
@@ -143,7 +143,7 @@ func TestGetCoins(t *testing.T) {
 		assert.Equal(t, 200, status)
 
 		jsonAssert(t, body, map[string]any{
-			"data.0.ticker": "$AUDIO",
+			"data.0.ticker": "AUDIO",
 		})
 	}
 
@@ -153,7 +153,7 @@ func TestGetCoins(t *testing.T) {
 		assert.Equal(t, 200, status)
 
 		jsonAssert(t, body, map[string]any{
-			"data.0.ticker": "$USDC",
+			"data.0.ticker": "USDC",
 		})
 	}
 
@@ -163,7 +163,7 @@ func TestGetCoins(t *testing.T) {
 		assert.Equal(t, 200, status)
 
 		jsonAssert(t, body, map[string]any{
-			"data.0.ticker": "$AUDIO",
+			"data.0.ticker": "AUDIO",
 		})
 	}
 
@@ -173,7 +173,7 @@ func TestGetCoins(t *testing.T) {
 		assert.Equal(t, 200, status)
 
 		jsonAssert(t, body, map[string]any{
-			"data.0.ticker": "$USDC",
+			"data.0.ticker": "USDC",
 		})
 	}
 
@@ -183,7 +183,7 @@ func TestGetCoins(t *testing.T) {
 		assert.Equal(t, 200, status)
 
 		jsonAssert(t, body, map[string]any{
-			"data.0.ticker": "$USDC",
+			"data.0.ticker": "USDC",
 		})
 	}
 
@@ -193,7 +193,7 @@ func TestGetCoins(t *testing.T) {
 		assert.Equal(t, 200, status)
 
 		jsonAssert(t, body, map[string]any{
-			"data.0.ticker": "$AUDIO",
+			"data.0.ticker": "AUDIO",
 		})
 	}
 
@@ -203,7 +203,7 @@ func TestGetCoins(t *testing.T) {
 		assert.Equal(t, 200, status)
 
 		jsonAssert(t, body, map[string]any{
-			"data.0.ticker": "$USDC",
+			"data.0.ticker": "USDC",
 		})
 	}
 
@@ -213,7 +213,7 @@ func TestGetCoins(t *testing.T) {
 		assert.Equal(t, 200, status)
 
 		jsonAssert(t, body, map[string]any{
-			"data.0.ticker": "$AUDIO",
+			"data.0.ticker": "AUDIO",
 		})
 	}
 

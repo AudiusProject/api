@@ -31,7 +31,7 @@ func TestUserQuery(t *testing.T) {
 		var artistCoinBadge map[string]interface{}
 		err = json.Unmarshal(user.ArtistCoinBadge, &artistCoinBadge)
 		assert.NoError(t, err)
-		assert.Equal(t, "$TESTCOIN", artistCoinBadge["ticker"])
+		assert.Equal(t, "TESTCOIN", artistCoinBadge["ticker"])
 		assert.Equal(t, "test_mint_address_123", artistCoinBadge["mint"])
 		assert.Equal(t, "https://example.com/test-logo.png", artistCoinBadge["logo_uri"])
 	}
