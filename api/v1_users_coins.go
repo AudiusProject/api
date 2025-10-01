@@ -79,7 +79,7 @@ func (app *ApiServer) v1UsersCoins(c *fiber.Ctx) error {
 			-- Always show user's owned coins first, regardless of balance
 			(artist_coins.user_id = @user_id) DESC,
 			-- Then prioritize AUDIO
-			artist_coins.ticker = '$AUDIO' DESC,
+			artist_coins.ticker = 'AUDIO' DESC,
 			-- Then by number of coins (balance)
 			balance DESC,
 			-- Finally by mint for consistent ordering

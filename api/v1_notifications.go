@@ -150,44 +150,44 @@ WHERE
 			AND (
 				-- Check user_id if present
 				NOT (n.data ? 'user_id') OR EXISTS (
-					SELECT 1 FROM users u2 
+					SELECT 1 FROM users u2
 					JOIN aggregate_user a2 ON u2.user_id = a2.user_id
-					WHERE u2.user_id = (n.data->>'user_id')::integer 
-					AND u2.is_current = true 
-					AND u2.is_deactivated = false 
+					WHERE u2.user_id = (n.data->>'user_id')::integer
+					AND u2.is_current = true
+					AND u2.is_deactivated = false
 					AND a2.score >= 0
 				)
 			)
 			AND (
 				-- Check follower_user_id if present
 				NOT (n.data ? 'follower_user_id') OR EXISTS (
-					SELECT 1 FROM users u2 
+					SELECT 1 FROM users u2
 					JOIN aggregate_user a2 ON u2.user_id = a2.user_id
-					WHERE u2.user_id = (n.data->>'follower_user_id')::integer 
-					AND u2.is_current = true 
-					AND u2.is_deactivated = false 
+					WHERE u2.user_id = (n.data->>'follower_user_id')::integer
+					AND u2.is_current = true
+					AND u2.is_deactivated = false
 					AND a2.score >= 0
 				)
 			)
 			AND (
 				-- Check comment_user_id if present
 				NOT (n.data ? 'comment_user_id') OR EXISTS (
-					SELECT 1 FROM users u2 
+					SELECT 1 FROM users u2
 					JOIN aggregate_user a2 ON u2.user_id = a2.user_id
-					WHERE u2.user_id = (n.data->>'comment_user_id')::integer 
-					AND u2.is_current = true 
-					AND u2.is_deactivated = false 
+					WHERE u2.user_id = (n.data->>'comment_user_id')::integer
+					AND u2.is_current = true
+					AND u2.is_deactivated = false
 					AND a2.score >= 0
 				)
 			)
 			AND (
 				-- Check entity_user_id if present
 				NOT (n.data ? 'entity_user_id') OR EXISTS (
-					SELECT 1 FROM users u2 
+					SELECT 1 FROM users u2
 					JOIN aggregate_user a2 ON u2.user_id = a2.user_id
-					WHERE u2.user_id = (n.data->>'entity_user_id')::integer 
-					AND u2.is_current = true 
-					AND u2.is_deactivated = false 
+					WHERE u2.user_id = (n.data->>'entity_user_id')::integer
+					AND u2.is_current = true
+					AND u2.is_deactivated = false
 					AND a2.score >= 0
 				)
 			)
@@ -277,7 +277,7 @@ limit @limit::int
 				action, _ = sjson.SetBytes(action, "data.is_album", isAlbum)
 			}
 
-			// For notifications in $AUDIO, we need to add 0000000000 to the amount field
+			// For notifications in AUDIO, we need to add 0000000000 to the amount field
 			// to convert from SPL to wei
 			if notif.Type == "tip_send" ||
 				notif.Type == "tip_receive" ||

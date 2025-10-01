@@ -15,7 +15,7 @@ func TestV1Coin(t *testing.T) {
 	fixtures := database.FixtureMap{
 		"artist_coins": {
 			{
-				"ticker":     "$AUDIO",
+				"ticker":     "AUDIO",
 				"decimals":   8,
 				"user_id":    1,
 				"mint":       "9LzCMqDgTKYz9Drzqnpgee3SGa89up3a247ypMj2xrqM",
@@ -33,7 +33,7 @@ func TestV1Coin(t *testing.T) {
 		assert.Equal(t, 200, status)
 
 		jsonAssert(t, body, map[string]any{
-			"data.ticker":   "$AUDIO",
+			"data.ticker":   "AUDIO",
 			"data.mint":     "9LzCMqDgTKYz9Drzqnpgee3SGa89up3a247ypMj2xrqM",
 			"data.decimals": 8,
 			"data.name":     "Audius",
@@ -43,11 +43,11 @@ func TestV1Coin(t *testing.T) {
 
 	// Test /coins/ticker/:ticker endpoint with ticker
 	{
-		status, body := testGet(t, app, "/v1/coins/ticker/$AUDIO")
+		status, body := testGet(t, app, "/v1/coins/ticker/AUDIO")
 		assert.Equal(t, 200, status)
 
 		jsonAssert(t, body, map[string]any{
-			"data.ticker":   "$AUDIO",
+			"data.ticker":   "AUDIO",
 			"data.mint":     "9LzCMqDgTKYz9Drzqnpgee3SGa89up3a247ypMj2xrqM",
 			"data.decimals": 8,
 			"data.name":     "Audius",
@@ -64,7 +64,7 @@ func TestV1Coin(t *testing.T) {
 
 	// Test with non-existent ticker
 	{
-		status, body := testGet(t, app, "/v1/coins/ticker/$NONEXISTENT")
+		status, body := testGet(t, app, "/v1/coins/ticker/NONEXISTENT")
 		assert.Equal(t, 404, status)
 		assert.Contains(t, string(body), "no rows")
 	}

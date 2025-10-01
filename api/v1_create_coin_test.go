@@ -24,7 +24,7 @@ func TestV1CreateCoin(t *testing.T) {
 
 	requestBody := CreateCoinBody{
 		Mint:        "bearR26zyyB3fNQm5wWv1ZfN8MPQDUMwaAuoG79b1Yj",
-		Ticker:      "$BEAR",
+		Ticker:      "BEAR",
 		Decimals:    9,
 		Name:        "BEAR",
 		LogoUri:     "https://example.com/bear-logo.png",
@@ -39,7 +39,7 @@ func TestV1CreateCoin(t *testing.T) {
 	assert.Equal(t, 201, status)
 	jsonAssert(t, body, map[string]any{
 		"data.mint":        "bearR26zyyB3fNQm5wWv1ZfN8MPQDUMwaAuoG79b1Yj",
-		"data.ticker":      "$BEAR",
+		"data.ticker":      "BEAR",
 		"data.user_id":     1,
 		"data.decimals":    9,
 		"data.name":        "BEAR",
@@ -52,7 +52,7 @@ func TestV1CreateCoin(t *testing.T) {
 	assert.Equal(t, 200, status)
 	jsonAssert(t, body, map[string]any{
 		"data.mint":   "bearR26zyyB3fNQm5wWv1ZfN8MPQDUMwaAuoG79b1Yj",
-		"data.ticker": "$BEAR",
+		"data.ticker": "BEAR",
 		"data.name":   "BEAR",
 	})
 
@@ -77,7 +77,7 @@ func TestV1CreateCoin_DuplicateMint(t *testing.T) {
 
 	requestBody := CreateCoinBody{
 		Mint:        "bearR26zyyB3fNQm5wWv1ZfN8MPQDUMwaAuoG79b1Yj",
-		Ticker:      "$BEAR",
+		Ticker:      "BEAR",
 		Decimals:    9,
 		Name:        "BEAR",
 		LogoUri:     "https://example.com/bear-logo.png",
@@ -92,7 +92,7 @@ func TestV1CreateCoin_DuplicateMint(t *testing.T) {
 	assert.Equal(t, 201, status)
 	jsonAssert(t, body, map[string]any{
 		"data.mint":        "bearR26zyyB3fNQm5wWv1ZfN8MPQDUMwaAuoG79b1Yj",
-		"data.ticker":      "$BEAR",
+		"data.ticker":      "BEAR",
 		"data.user_id":     1,
 		"data.decimals":    9,
 		"data.name":        "BEAR",
@@ -105,14 +105,14 @@ func TestV1CreateCoin_DuplicateMint(t *testing.T) {
 	assert.Equal(t, 200, status)
 	jsonAssert(t, body, map[string]any{
 		"data.mint":   "bearR26zyyB3fNQm5wWv1ZfN8MPQDUMwaAuoG79b1Yj",
-		"data.ticker": "$BEAR",
+		"data.ticker": "BEAR",
 		"data.name":   "BEAR",
 	})
 
 	// Try to create the coin again with a duplicate mint using a different user
 	requestBody = CreateCoinBody{
 		Mint:        "bearR26zyyB3fNQm5wWv1ZfN8MPQDUMwaAuoG79b1Yj",
-		Ticker:      "$SNAKE",
+		Ticker:      "SNAKE",
 		Decimals:    9,
 		Name:        "SNAKE",
 		LogoUri:     "https://example.com/snake-logo.png",
@@ -131,7 +131,7 @@ func TestV1CreateCoin_DuplicateMint(t *testing.T) {
 	// Try to create the coin again with a duplicate ticker using a different user
 	requestBody = CreateCoinBody{
 		Mint:        "snakeR26zyyB3fNQm5wWv1ZfN8MPQDUMwaAuoG79b1Y",
-		Ticker:      "$BEAR",
+		Ticker:      "BEAR",
 		Decimals:    9,
 		Name:        "BEAR",
 		LogoUri:     "https://example.com/bear-logo.png",
@@ -163,7 +163,7 @@ func TestV1CreateCoin_UnverifiedUser(t *testing.T) {
 
 	requestBody := CreateCoinBody{
 		Mint:        "bearR26zyyB3fNQm5wWv1ZfN8MPQDUMwaAuoG79b1Yj",
-		Ticker:      "$BEAR",
+		Ticker:      "BEAR",
 		Decimals:    9,
 		Name:        "BEAR",
 		LogoUri:     "https://example.com/bear-logo.png",
@@ -201,7 +201,7 @@ func TestV1CreateCoin_DeactivatedUser(t *testing.T) {
 
 	requestBody := CreateCoinBody{
 		Mint:        "bearR26zyyB3fNQm5wWv1ZfN8MPQDUMwaAuoG79b1Yj",
-		Ticker:      "$BEAR",
+		Ticker:      "BEAR",
 		Decimals:    9,
 		Name:        "BEAR",
 		LogoUri:     "https://example.com/bear-logo.png",
@@ -237,7 +237,7 @@ func TestV1CreateCoin_UserAlreadyHasCoin(t *testing.T) {
 		"artist_coins": {
 			{
 				"mint":       "existingMint12345678901234567890123456789012",
-				"ticker":     "$FIRST",
+				"ticker":     "FIRST",
 				"user_id":    4,
 				"decimals":   9,
 				"name":       "First Coin",
@@ -250,7 +250,7 @@ func TestV1CreateCoin_UserAlreadyHasCoin(t *testing.T) {
 	// Try to create a second coin for the same user
 	requestBody := CreateCoinBody{
 		Mint:        "secondMint123456789012345678901234567890123",
-		Ticker:      "$SECOND",
+		Ticker:      "SECOND",
 		Decimals:    9,
 		Name:        "Second Coin",
 		LogoUri:     "https://example.com/second-logo.png",
@@ -288,7 +288,7 @@ func TestV1CreateCoin_NameTooLong(t *testing.T) {
 
 	requestBody := CreateCoinBody{
 		Mint:        "bearR26zyyB3fNQm5wWv1ZfN8MPQDUMwaAuoG79b1Yj",
-		Ticker:      "$BEAR",
+		Ticker:      "BEAR",
 		Decimals:    9,
 		Name:        longName,
 		LogoUri:     "https://example.com/bear-logo.png",
@@ -329,7 +329,7 @@ func TestV1CreateCoin_DescriptionTooLong(t *testing.T) {
 
 	requestBody := CreateCoinBody{
 		Mint:        "bearR26zyyB3fNQm5wWv1ZfN8MPQDUMwaAuoG79b1Yj",
-		Ticker:      "$BEAR",
+		Ticker:      "BEAR",
 		Decimals:    9,
 		Name:        "BEAR",
 		LogoUri:     "https://example.com/bear-logo.png",
@@ -392,7 +392,7 @@ func TestV1CreateCoin_InvalidMintLength(t *testing.T) {
 
 	requestBody := CreateCoinBody{
 		Mint:        "shortMint", // Too short (should be 44 chars)
-		Ticker:      "$BEAR",
+		Ticker:      "BEAR",
 		Decimals:    9,
 		Name:        "BEAR",
 		LogoUri:     "https://example.com/bear-logo.png",
@@ -411,39 +411,6 @@ func TestV1CreateCoin_InvalidMintLength(t *testing.T) {
 	})
 }
 
-func TestV1CreateCoin_InvalidTickerFormat(t *testing.T) {
-	app := emptyTestApp(t)
-	database.Seed(app.pool.Replicas[0], database.FixtureMap{
-		"users": {
-			{
-				"user_id":     1,
-				"wallet":      "0x7d273271690538cf855e5b3002a0dd8c154bb060",
-				"is_verified": true,
-			},
-		},
-	})
-
-	requestBody := CreateCoinBody{
-		Mint:        "bearR26zyyB3fNQm5wWv1ZfN8MPQDUMwaAuoG79b1Yj",
-		Ticker:      "BEAR", // Missing $ prefix
-		Decimals:    9,
-		Name:        "BEAR",
-		LogoUri:     "https://example.com/bear-logo.png",
-		Description: "A majestic bear token",
-	}
-	requestBodyBytes, err := json.Marshal(requestBody)
-	assert.NoError(t, err)
-
-	status, body := testPostWithWallet(t, app, "/v1/coins?user_id="+trashid.MustEncodeHashID(1), "0x7d273271690538cf855e5b3002a0dd8c154bb060", requestBodyBytes, map[string]string{
-		"Content-Type": "application/json",
-	})
-
-	assert.Equal(t, 400, status)
-	jsonAssert(t, body, map[string]any{
-		"error": "Ticker is invalid",
-	})
-}
-
 func TestV1CreateCoin_InvalidTickerCharacters(t *testing.T) {
 	app := emptyTestApp(t)
 	database.Seed(app.pool.Replicas[0], database.FixtureMap{
@@ -458,7 +425,7 @@ func TestV1CreateCoin_InvalidTickerCharacters(t *testing.T) {
 
 	requestBody := CreateCoinBody{
 		Mint:        "bearR26zyyB3fNQm5wWv1ZfN8MPQDUMwaAuoG79b1Yj",
-		Ticker:      "$BE@R", // Invalid character @
+		Ticker:      "BE@R", // Invalid character @
 		Decimals:    9,
 		Name:        "BEAR",
 		LogoUri:     "https://example.com/bear-logo.png",
@@ -491,7 +458,7 @@ func TestV1CreateCoin_InvalidLogoUri(t *testing.T) {
 
 	requestBody := CreateCoinBody{
 		Mint:        "bearR26zyyB3fNQm5wWv1ZfN8MPQDUMwaAuoG79b1Yj",
-		Ticker:      "$BEAR",
+		Ticker:      "BEAR",
 		Decimals:    9,
 		Name:        "BEAR",
 		LogoUri:     "not-a-valid-url", // Invalid URL format

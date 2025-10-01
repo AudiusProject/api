@@ -23,7 +23,7 @@ func TestV1UpdateCoin(t *testing.T) {
 		"artist_coins": {
 			{
 				"mint":        "bearR26zyyB3fNQm5wWv1ZfN8MPQDUMwaAuoG79b1Yj",
-				"ticker":      "$BEAR",
+				"ticker":      "BEAR",
 				"user_id":     1,
 				"decimals":    9,
 				"name":        "BEAR",
@@ -60,7 +60,7 @@ func TestV1UpdateCoin(t *testing.T) {
 	assert.Equal(t, 200, status)
 	jsonAssert(t, body, map[string]any{
 		"data.mint":        "bearR26zyyB3fNQm5wWv1ZfN8MPQDUMwaAuoG79b1Yj",
-		"data.ticker":      "$BEAR",
+		"data.ticker":      "BEAR",
 		"data.name":        "BEAR",
 		"data.description": "Updated description for the bear token",
 		"data.link_1":      "https://x.com/bear_token",
@@ -123,7 +123,7 @@ func TestV1UpdateCoin_Unauthorized(t *testing.T) {
 		"artist_coins": {
 			{
 				"mint":        "bearR26zyyB3fNQm5wWv1ZfN8MPQDUMwaAuoG79b1Yj",
-				"ticker":      "$BEAR",
+				"ticker":      "BEAR",
 				"user_id":     1, // Owned by user 1
 				"decimals":    9,
 				"name":        "BEAR",
@@ -169,7 +169,7 @@ func TestV1UpdateCoin_Validation(t *testing.T) {
 		"artist_coins": {
 			{
 				"mint":        "bearR26zyyB3fNQm5wWv1ZfN8MPQDUMwaAuoG79b1Yj",
-				"ticker":      "$BEAR",
+				"ticker":      "BEAR",
 				"user_id":     1,
 				"decimals":    9,
 				"name":        "BEAR",
@@ -205,7 +205,7 @@ func TestV1UpdateCoin_IndividualFields(t *testing.T) {
 		"artist_coins": {
 			{
 				"mint":        "bearR26zyyB3fNQm5wWv1ZfN8MPQDUMwaAuoG79b1Yj",
-				"ticker":      "$BEAR",
+				"ticker":      "BEAR",
 				"user_id":     1,
 				"decimals":    9,
 				"name":        "BEAR",
@@ -277,7 +277,7 @@ func TestV1UpdateCoin_NoFields(t *testing.T) {
 		"artist_coins": {
 			{
 				"mint":        "bearR26zyyB3fNQm5wWv1ZfN8MPQDUMwaAuoG79b1Yj",
-				"ticker":      "$BEAR",
+				"ticker":      "BEAR",
 				"user_id":     1,
 				"decimals":    9,
 				"name":        "BEAR",
@@ -312,7 +312,7 @@ func TestV1UpdateCoin_URLValidation(t *testing.T) {
 		"artist_coins": {
 			{
 				"mint":        "bearR26zyyB3fNQm5wWv1ZfN8MPQDUMwaAuoG79b1Yj",
-				"ticker":      "$BEAR",
+				"ticker":      "BEAR",
 				"user_id":     1,
 				"decimals":    9,
 				"name":        "BEAR",
@@ -392,7 +392,7 @@ func TestV1UpdateCoin_DeleteFields(t *testing.T) {
 			"artist_coins": {
 				{
 					"mint":        "bearR26zyyB3fNQm5wWv1ZfN8MPQDUMwaAuoG79b1Yj",
-					"ticker":      "$BEAR",
+					"ticker":      "BEAR",
 					"user_id":     1,
 					"decimals":    9,
 					"name":        "BEAR",
@@ -444,7 +444,7 @@ func TestV1UpdateCoin_DeleteFields(t *testing.T) {
 			"artist_coins": {
 				{
 					"mint":        "bearR26zyyB3fNQm5wWv1ZfN8MPQDUMwaAuoG79b1Yj",
-					"ticker":      "$BEAR",
+					"ticker":      "BEAR",
 					"user_id":     1,
 					"decimals":    9,
 					"name":        "BEAR",
@@ -496,7 +496,7 @@ func TestV1UpdateCoin_DeleteFields(t *testing.T) {
 			"artist_coins": {
 				{
 					"mint":        "bearR26zyyB3fNQm5wWv1ZfN8MPQDUMwaAuoG79b1Yj",
-					"ticker":      "$BEAR",
+					"ticker":      "BEAR",
 					"user_id":     1,
 					"decimals":    9,
 					"name":        "BEAR",

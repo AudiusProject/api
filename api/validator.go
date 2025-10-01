@@ -50,7 +50,7 @@ func (v RequestValidator) Validate(data any) error {
 }
 
 const (
-	coinTickerRegexString = "^\\$[a-zA-Z0-9]+$"
+	coinTickerRegexString = "^[a-zA-Z0-9]+$"
 )
 
 var (
