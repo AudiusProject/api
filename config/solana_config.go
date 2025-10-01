@@ -34,7 +34,7 @@ type SolanaConfig struct {
 
 const (
 	// Dev
-	DevSolanaRelay                   = "http://audius-protocol-discovery-provider-1/solana/relay"
+	DevSolanaRelay                   = "http://audius-discovery-provider-1/solana/relay"
 	DevMintAudio                     = "37RCjhgV1qGV2Q54EHFScdxZ22ydRMdKMtVgod47fDP3"
 	DevMintUSDC                      = "26Q7gP8UfkDzi7GMFEQxTJaNJ8D2ybCUjex58M5MLu8y"
 	DevRewardManagerProgramID        = "testLsJKtyABc9UXJF8JWFKf1YH4LmqCWBC42c6akPb"

@@ -82,10 +82,10 @@ func init() {
 			// Dummy key
 			Cfg.DelegatePrivateKey = "13422b9affd75ff80f94f1ea394e6a6097830cb58cda2d3542f37464ecaee7df"
 		}
-		Cfg.AntiAbuseOracles = []string{"http://audius-protocol-discovery-provider-1"}
+		Cfg.AntiAbuseOracles = []string{"http://audius-discovery-provider-1"}
 		Cfg.Nodes = DevNodes
 		Cfg.Rewards = core_config.MakeRewards(core_config.DevClaimAuthorities, core_config.DevRewardExtensions)
-		Cfg.AudiusdURL = "http://audius-protocol-creator-node-1"
+		Cfg.AudiusdURL = "http://audius-creator-node-1"
 		Cfg.ChainId = "audius-devnet"
 		Cfg.SolanaIndexerWorkers = 1
 
