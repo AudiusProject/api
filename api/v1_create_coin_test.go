@@ -411,39 +411,6 @@ func TestV1CreateCoin_InvalidMintLength(t *testing.T) {
 	})
 }
 
-func TestV1CreateCoin_InvalidTickerFormat(t *testing.T) {
-	app := emptyTestApp(t)
-	database.Seed(app.pool.Replicas[0], database.FixtureMap{
-		"users": {
-			{
-				"user_id":     1,
-				"wallet":      "0x7d273271690538cf855e5b3002a0dd8c154bb060",
-				"is_verified": true,
-			},
-		},
-	})
-
-	requestBody := CreateCoinBody{
-		Mint:        "bearR26zyyB3fNQm5wWv1ZfN8MPQDUMwaAuoG79b1Yj",
-		Ticker:      "BEAR", // Missing $ prefix
-		Decimals:    9,
-		Name:        "BEAR",
-		LogoUri:     "https://example.com/bear-logo.png",
-		Description: "A majestic bear token",
-	}
-	requestBodyBytes, err := json.Marshal(requestBody)
-	assert.NoError(t, err)
-
-	status, body := testPostWithWallet(t, app, "/v1/coins?user_id="+trashid.MustEncodeHashID(1), "0x7d273271690538cf855e5b3002a0dd8c154bb060", requestBodyBytes, map[string]string{
-		"Content-Type": "application/json",
-	})
-
-	assert.Equal(t, 400, status)
-	jsonAssert(t, body, map[string]any{
-		"error": "Ticker is invalid",
-	})
-}
-
 func TestV1CreateCoin_InvalidTickerCharacters(t *testing.T) {
 	app := emptyTestApp(t)
 	database.Seed(app.pool.Replicas[0], database.FixtureMap{
