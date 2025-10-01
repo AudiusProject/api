@@ -5530,6 +5530,14 @@ components:
               type: number
               description: Progress along the bonding curve (0.0 - 1.0)
               example: 0.75
+            isMigrated:
+              type: boolean
+              description: Whether the bonding curve has been migrated
+              example: false
+            creatorQuoteFee:
+              type: number
+              description: Creator quote fee for the bonding curve
+              example: 0.05
     coin_response:
       type: object
       properties:
@@ -5912,6 +5920,14 @@ components:
               type: number
               description: Progress along the bonding curve (0.0 - 1.0)
               example: 0.75
+            isMigrated:
+              type: boolean
+              description: Whether the bonding curve has been migrated
+              example: false
+            creatorQuoteFee:
+              type: number
+              description: Creator quote fee for the bonding curve
+              example: 0.05
     coin_insights_response:
       type: object
       properties:
