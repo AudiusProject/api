@@ -54,11 +54,12 @@ type ArtistCoinStatsRow struct {
 }
 
 type DynamicBondingCurveInsights struct {
-	Address       string  `json:"address"`
-	Price         float64 `json:"price"`
-	PriceUSD      float64 `json:"priceUSD"`
-	CurveProgress float64 `json:"curveProgress"`
-	IsMigrated    bool    `json:"isMigrated"`
+	Address         string  `json:"address"`
+	Price           float64 `json:"price"`
+	PriceUSD        float64 `json:"priceUSD"`
+	CurveProgress   float64 `json:"curveProgress"`
+	IsMigrated      bool    `json:"isMigrated"`
+	CreatorQuoteFee float64 `json:"creatorQuoteFee"`
 }
 
 func (app *ApiServer) v1CoinInsights(c *fiber.Ctx) error {
