@@ -132,7 +132,7 @@ func TestGetNewBlasts(t *testing.T) {
 		"artist_coins": {
 			{
 				"user_id":    1,
-				"ticker":     "$ARTIST1",
+				"ticker":     "ARTIST1",
 				"mint":       "9LzCMqDgTKYz9Drzqnpgee3SGa89up3a247ypMj2xrqM",
 				"decimals":   8,
 				"created_at": now.Add(-time.Hour),
@@ -385,7 +385,7 @@ func TestGetNewBlasts(t *testing.T) {
 			"artist_coins": {
 				{
 					"user_id":    1,
-					"ticker":     "$TEST",
+					"ticker":     "TEST",
 					"mint":       "TestMint123456789",
 					"decimals":   8,
 					"created_at": now.Add(-time.Hour * 2),

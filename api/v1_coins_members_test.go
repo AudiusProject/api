@@ -14,7 +14,7 @@ func TestV1CoinsMembers(t *testing.T) {
 	fixtures := database.FixtureMap{
 		"artist_coins": {
 			{
-				"ticker":   "$ARTISTCOIN",
+				"ticker":   "ARTISTCOIN",
 				"decimals": 0,
 				"user_id":  1,
 				"mint":     "artistcoin_mint",
@@ -205,7 +205,7 @@ func TestV1CoinsMemberEmpty(t *testing.T) {
 	fixtures := database.FixtureMap{
 		"artist_coins": {
 			{
-				"ticker":   "$ARTISTCOIN",
+				"ticker":   "ARTISTCOIN",
 				"decimals": 1,
 				"user_id":  1,
 				"mint":     "artistcoin_mint",

@@ -5573,7 +5573,7 @@ components:
         ticker:
           type: string
           description: The coin symbol/ticker
-          example: "$BEAR"
+          example: "BEAR"
         decimals:
           type: integer
           description: The number of decimals for the coin (0-18)
@@ -5612,7 +5612,7 @@ components:
             ticker:
               type: string
               description: The coin symbol/ticker
-              example: "$BEAR"
+              example: "BEAR"
             user_id:
               type: integer
               description: The user ID who created the coin
