@@ -7,7 +7,7 @@ import (
 	"time"
 
 	"api.audius.co/config"
-	"api.audius.co/database"
+	dbv1 "api.audius.co/database"
 	"api.audius.co/logging"
 	"connectrpc.com/connect"
 	corev1 "github.com/AudiusProject/audiusd/pkg/api/core/v1"
@@ -18,7 +18,7 @@ import (
 )
 
 type CoreIndexer struct {
-	pool    database.DbPool
+	pool    dbv1.DbPool
 	Config  config.Config
 	logger  *zap.Logger
 	closeCh chan struct{}
@@ -144,7 +144,7 @@ func (ci *CoreIndexer) handleBlock(block *corev1.Block) error {
 	return nil
 }
 
-func (ci *CoreIndexer) handleManageEntity(dbTx pgx.Tx, logger *zap.Logger, em *corev1.ManageEntityLegacy) error {
+func (ci *CoreIndexer) handleManageEntity(dbTx dbv1.DBTX, logger *zap.Logger, em *corev1.ManageEntityLegacy) error {
 	operation := em.Action + em.EntityType
 	switch operation {
 	case "CreateUser":

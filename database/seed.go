@@ -570,6 +570,15 @@ var (
 			"created_at":  time.Now(),
 			"updated_at":  time.Now(),
 		},
+		"indexing_checkpoints": {
+			"tablename":       nil,
+			"last_checkpoint": nil,
+			"signature":       nil,
+		},
+		"user_pubkeys": {
+			"user_id":       nil,
+			"pubkey_base64": nil,
+		},
 	}
 )
 

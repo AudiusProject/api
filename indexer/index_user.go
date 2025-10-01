@@ -5,7 +5,7 @@ import (
 	"crypto/ecdsa"
 	"encoding/base64"
 
-	"github.com/jackc/pgx/v5"
+	dbv1 "api.audius.co/database"
 	"go.uber.org/zap"
 
 	corev1 "github.com/AudiusProject/audiusd/pkg/api/core/v1"
@@ -14,7 +14,7 @@ import (
 	"github.com/ethereum/go-ethereum/crypto"
 )
 
-func (ci *CoreIndexer) setPubkeyForUser(dbTx pgx.Tx, logger *zap.Logger, userId int32, pubkey *ecdsa.PublicKey) {
+func (ci *CoreIndexer) setPubkeyForUser(dbTx dbv1.DBTX, logger *zap.Logger, userId int32, pubkey *ecdsa.PublicKey) {
 	pubkeyBytes := crypto.FromECDSAPub(pubkey)
 	pubkeyBase64 := base64.StdEncoding.EncodeToString(pubkeyBytes)
 
@@ -27,7 +27,7 @@ func (ci *CoreIndexer) setPubkeyForUser(dbTx pgx.Tx, logger *zap.Logger, userId 
 	}
 }
 
-func (ci *CoreIndexer) createUser(dbTx pgx.Tx, logger *zap.Logger, em *corev1.ManageEntityLegacy) error {
+func (ci *CoreIndexer) createUser(dbTx dbv1.DBTX, logger *zap.Logger, em *corev1.ManageEntityLegacy) error {
 	_, pubkey, err := server.RecoverPubkeyFromCoreTx(&core_config.Config{
 		AcdcChainID:              ci.Config.AudiusdChainID,
 		AcdcEntityManagerAddress: ci.Config.AudiusdEntityManagerAddress,
