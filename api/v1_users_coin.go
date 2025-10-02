@@ -81,14 +81,14 @@ func (app *ApiServer) v1UsersCoin(c *fiber.Ctx) error {
 			artist_coins.has_discord,
 			artist_coins.user_id AS owner_id,
 			COALESCE(balances_by_mint.balance, 0) AS balance,
-			COALESCE((balances_by_mint.balance * stats.price) / POWER(10, artist_coins.decimals), 0) AS balance_usd,
+			COALESCE((balances_by_mint.balance * COALESCE(stats.price, pools.price_usd)) / POWER(10, artist_coins.decimals), 0) AS balance_usd,
 			COALESCE(
 				JSON_AGG(
 					JSON_BUILD_OBJECT(
 						'account', balances.account,
 						'owner', balances.owner,
 						'balance', balances.balance,
-						'balance_usd', (balances.balance * stats.price) / POWER(10, artist_coins.decimals),
+						'balance_usd', (balances.balance * COALESCE(stats.price, pools.price_usd)) / POWER(10, artist_coins.decimals),
 						'is_in_app_wallet', balances.is_in_app_wallet
 					)
 				) FILTER (WHERE balances.account IS NOT NULL),
@@ -96,6 +96,7 @@ func (app *ApiServer) v1UsersCoin(c *fiber.Ctx) error {
 			) AS accounts
 		FROM artist_coins
 		LEFT JOIN artist_coin_stats stats ON artist_coins.mint = stats.mint
+		LEFT JOIN artist_coin_pools pools ON artist_coins.mint = pools.base_mint
 		LEFT JOIN balances_by_mint ON artist_coins.mint = balances_by_mint.mint
 		LEFT JOIN (
 			SELECT *
