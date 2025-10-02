@@ -2,7 +2,6 @@ package api
 
 import (
 	"context"
-	"math"
 
 	core_indexer "api.audius.co/indexer"
 	"connectrpc.com/connect"
@@ -44,8 +43,7 @@ func (app *ApiServer) getCoreIndexerHealth(ctx context.Context) (*coreIndexerHea
 		return nil, fiber.NewError(fiber.StatusInternalServerError, "Failed to get core indexer last block height")
 	}
 
-	// Indexer can actually be ahead of the block our RPC returns!
-	blockDiff := int64(math.Max(0, float64(chainHeight-indexerLastBlockHeight)))
+	blockDiff := chainHeight - indexerLastBlockHeight
 
 	return &coreIndexerHealth{
 		LastIndexedBlock: indexerLastBlockHeight,
