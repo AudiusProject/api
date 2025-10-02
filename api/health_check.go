@@ -1,7 +1,14 @@
 package api
 
 import (
+	"context"
+	"math"
+
+	core_indexer "api.audius.co/indexer"
+	"connectrpc.com/connect"
+	corev1 "github.com/AudiusProject/audiusd/pkg/api/core/v1"
 	"github.com/gofiber/fiber/v2"
+	"go.uber.org/zap"
 )
 
 type contentNode struct {
@@ -15,7 +22,35 @@ type networkInfo struct {
 }
 
 type healthCheckResponse struct {
-	Network networkInfo `json:"network"`
+	CoreIndexer *coreIndexerHealth `json:"core_indexer"`
+	Network     networkInfo        `json:"network"`
+}
+
+type coreIndexerHealth struct {
+	LastIndexedBlock int64 `json:"last_indexed_block"`
+	BlockDiff        int64 `json:"block_diff"`
+}
+
+func (app *ApiServer) getCoreIndexerHealth(ctx context.Context) (*coreIndexerHealth, error) {
+	nodeInfo, err := app.auds.Core.GetNodeInfo(ctx, connect.NewRequest(&corev1.GetNodeInfoRequest{}))
+	if err != nil {
+		return nil, fiber.NewError(fiber.StatusInternalServerError, "Failed to get core node info")
+	}
+	chainHeight := nodeInfo.Msg.CurrentHeight
+
+	var indexerLastBlockHeight int64
+	err = app.pool.QueryRow(ctx, "SELECT COALESCE(last_checkpoint, 0) FROM indexing_checkpoints WHERE tablename = $1", core_indexer.CoreIndexerCheckpointName).Scan(&indexerLastBlockHeight)
+	if err != nil {
+		return nil, fiber.NewError(fiber.StatusInternalServerError, "Failed to get core indexer last block height")
+	}
+
+	// Indexer can actually be ahead of the block our RPC returns!
+	blockDiff := int64(math.Max(0, float64(chainHeight-indexerLastBlockHeight)))
+
+	return &coreIndexerHealth{
+		LastIndexedBlock: indexerLastBlockHeight,
+		BlockDiff:        blockDiff,
+	}, nil
 }
 
 func (app *ApiServer) healthCheck(c *fiber.Ctx) error {
@@ -29,7 +64,13 @@ func (app *ApiServer) healthCheck(c *fiber.Ctx) error {
 		}
 	}
 
+	coreIndexerHealth, err := app.getCoreIndexerHealth(c.Context())
+	if err != nil {
+		app.logger.Error("Failed to get core indexer health", zap.Error(err))
+	}
+
 	health := healthCheckResponse{
+		CoreIndexer: coreIndexerHealth,
 		Network: networkInfo{
 			ContentNodes: contentNodes,
 		},
