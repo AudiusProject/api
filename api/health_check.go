@@ -80,7 +80,9 @@ func (app *ApiServer) healthCheck(c *fiber.Ctx) error {
 	}
 
 	if params.MaxCoreIndexerBlockDiff != nil {
-		if coreIndexerHealth.BlockDiff > *params.MaxCoreIndexerBlockDiff {
+		// If max diff was requested but we failed to calculate it,
+		// return 500 just to be safe.
+		if coreIndexerHealth == nil || coreIndexerHealth.BlockDiff > *params.MaxCoreIndexerBlockDiff {
 			c.Status(fiber.StatusInternalServerError)
 		}
 	}
