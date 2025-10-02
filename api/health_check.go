@@ -53,7 +53,17 @@ func (app *ApiServer) getCoreIndexerHealth(ctx context.Context) (*coreIndexerHea
 	}, nil
 }
 
+type HealthCheckQueryParams struct {
+	MaxCoreIndexerBlockDiff *int64 `query:"max_core_indexer_block_diff" validate:"omitempty,min=0"`
+}
+
 func (app *ApiServer) healthCheck(c *fiber.Ctx) error {
+	var params HealthCheckQueryParams
+	err := app.ParseAndValidateQueryParams(c, &params)
+	if err != nil {
+		return err
+	}
+
 	healthyNodes := app.contentNodeMonitor.GetContentNodes()
 	// Convert config.Node to contentNode
 	contentNodes := make([]contentNode, len(healthyNodes))
@@ -67,6 +77,12 @@ func (app *ApiServer) healthCheck(c *fiber.Ctx) error {
 	coreIndexerHealth, err := app.getCoreIndexerHealth(c.Context())
 	if err != nil {
 		app.logger.Error("Failed to get core indexer health", zap.Error(err))
+	}
+
+	if params.MaxCoreIndexerBlockDiff != nil {
+		if coreIndexerHealth.BlockDiff > *params.MaxCoreIndexerBlockDiff {
+			c.Status(fiber.StatusInternalServerError)
+		}
 	}
 
 	health := healthCheckResponse{
