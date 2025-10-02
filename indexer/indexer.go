@@ -25,7 +25,7 @@ type CoreIndexer struct {
 }
 
 const (
-	coreIndexerCheckpointName = "api_core_indexer_last_height"
+	CoreIndexerCheckpointName = "api_core_indexer_last_height"
 )
 
 func NewIndexer(config config.Config) *CoreIndexer {
@@ -54,7 +54,7 @@ func (ci *CoreIndexer) Start(ctx context.Context) error {
 	sdk := sdk.NewAudiusdSDK(ci.Config.AudiusdURL)
 
 	var height int64
-	err := ci.pool.QueryRow(context.Background(), `select last_checkpoint from indexing_checkpoints where tablename = $1`, coreIndexerCheckpointName).Scan(&height)
+	err := ci.pool.QueryRow(context.Background(), `select last_checkpoint from indexing_checkpoints where tablename = $1`, CoreIndexerCheckpointName).Scan(&height)
 	if err != nil {
 		if err == pgx.ErrNoRows {
 			nodeInfo, err := sdk.Core.GetNodeInfo(context.Background(), connect.NewRequest(&corev1.GetNodeInfoRequest{}))
@@ -128,7 +128,7 @@ func (ci *CoreIndexer) handleBlock(block *corev1.Block) error {
 	_, err = dbTx.Exec(context.Background(), `
 	insert into indexing_checkpoints values ($1, $2)
 	on conflict (tablename) do update set last_checkpoint = excluded.last_checkpoint
-	`, coreIndexerCheckpointName, block.Height)
+	`, CoreIndexerCheckpointName, block.Height)
 
 	if err != nil {
 		return err
