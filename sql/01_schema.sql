@@ -2017,14 +2017,14 @@ begin
   select * into reward_manager_tx from reward_manager_txs where reward_manager_txs.signature = new.signature limit 1;
 
   if reward_manager_tx is not null then
-		select id into existing_notification
+		select id into existing_notification 
 		from notification
 		where
 		type = 'challenge_reward' and
 		new.user_id = any(user_ids) and
 		timestamp >= (new.created_at - interval '1 hour')
 		limit 1;
-
+		
 		if existing_notification is null then
 			-- create a notification for the challenge disbursement
 			insert into notification
@@ -2143,14 +2143,14 @@ CREATE FUNCTION public.handle_comment() RETURNS trigger
     AS $$
 begin
   if new.entity_type = 'Track' then
-    insert into aggregate_track (track_id)
-    values (new.entity_id)
+    insert into aggregate_track (track_id) 
+    values (new.entity_id) 
     on conflict do nothing;
   end if;
 
   -- update agg track
   if new.entity_type = 'Track' then
-    update aggregate_track
+    update aggregate_track 
     set comment_count = (
       select count(*)
       from comments c
@@ -2210,9 +2210,9 @@ begin
   -- Only proceed if this is a remix contest event
   if new.event_type = 'remix_contest' and new.is_deleted = false then
     -- Get the owner of the track and check if it's public
-    select owner_id, not is_unlisted into owner_user_id, track_is_public
-    from tracks
-    where is_current and track_id = new.entity_id
+    select owner_id, not is_unlisted into owner_user_id, track_is_public 
+    from tracks 
+    where is_current and track_id = new.entity_id 
     limit 1;
 
     -- Only create notifications if the track is public
@@ -2292,11 +2292,11 @@ begin
     delta := 1;
   end if;
 
-  update aggregate_user
-  set following_count = following_count + delta
+  update aggregate_user 
+  set following_count = following_count + delta 
   where user_id = new.follower_user_id;
 
-  update aggregate_user
+  update aggregate_user 
   set follower_count = follower_count + delta
   where user_id = new.followee_user_id
   returning follower_count into new_follower_count;
@@ -2305,7 +2305,7 @@ begin
   select new_follower_count into milestone where new_follower_count in (10, 25, 50, 100, 250, 500, 1000, 5000, 10000, 20000, 50000, 100000, 1000000);
   select score < 0 into is_shadowbanned from aggregate_user where user_id = new.follower_user_id;
   if milestone is not null and new.is_delete is false and is_shadowbanned = false then
-      insert into milestones
+      insert into milestones 
         (id, name, threshold, blocknumber, slot, timestamp)
       values
         (new.followee_user_id, 'FOLLOWER_COUNT', milestone, new.blocknumber, new.slot, new.created_at)
@@ -2354,7 +2354,7 @@ exception
     raise warning 'An error occurred in %: %', tg_name, sqlerrm;
     raise;
 
-end;
+end; 
 $$;
 
 
@@ -2410,7 +2410,7 @@ begin
                 'challenge_reward',
                 'challenge_reward:' || new.user_id || ':challenge:' || new.challenge_id || ':specifier:' || new.specifier,
                 new.user_id,
-                case
+                case 
                     when new.challenge_id = 'e' then
                         json_build_object(
                             'specifier', new.specifier,
@@ -2428,9 +2428,9 @@ begin
             )
             on conflict do nothing;
         else
-            -- transactional notifications cover this
+            -- transactional notifications cover this 
             if (new.challenge_id != 'b' and new.challenge_id != 's') then
-                select id into existing_notification
+                select id into existing_notification 
                 from notification
                 where
                 type = 'reward_in_cooldown' and
@@ -2480,7 +2480,7 @@ begin
     insert into aggregate_plays (play_item_id, count) values (new.play_item_id, 0) on conflict do nothing;
 
     update aggregate_plays
-        set count = count + 1
+        set count = count + 1 
         where play_item_id = new.play_item_id
         returning count into new_listen_count;
 
@@ -2495,8 +2495,8 @@ begin
         and timestamp = date_trunc('month', new.created_at)
         and country = coalesce(new.country, '');
 
-    select new_listen_count
-        into milestone
+    select new_listen_count 
+        into milestone 
         where new_listen_count in (10,25,50,100,250,500,1000,2500,5000,10000,25000,50000,100000,250000,500000,1000000);
 
     if milestone is not null then
@@ -2696,7 +2696,7 @@ begin
           json_build_object('track_id', new.track_id, 'playlist_id', new.playlist_id, 'playlist_owner_id', playlist_record.playlist_owner_id)
         from album_purchasers as album_purchaser;
   end if;
-
+  
   return null;
 
 exception
@@ -2723,16 +2723,16 @@ declare
 begin
 
   raise NOTICE 'start';
-
+  
   if new.reaction_type = 'tip' then
 
     raise NOTICE 'is tip';
 
-    SELECT amount, sender_user_id, receiver_user_id
-    INTO tip_amount, tip_sender_user_id, tip_receiver_user_id
-    FROM user_tips ut
+    SELECT amount, sender_user_id, receiver_user_id 
+    INTO tip_amount, tip_sender_user_id, tip_receiver_user_id 
+    FROM user_tips ut 
     WHERE ut.signature = new.reacted_to;
-
+    
     raise NOTICE 'did select % %', tip_sender_user_id, tip_receiver_user_id;
     raise NOTICE 'did select %', new.reacted_to;
 
@@ -2827,7 +2827,7 @@ begin
   end if;
 
   -- update agg user
-  update aggregate_user
+  update aggregate_user 
   set repost_count = (
     select count(*)
     from reposts r
@@ -2840,7 +2840,7 @@ begin
   -- update agg track or playlist
   if new.repost_type = 'track' then
     milestone_name := 'TRACK_REPOST_COUNT';
-    update aggregate_track
+    update aggregate_track 
     set repost_count = (
       select count(*)
       from reposts r
@@ -2866,7 +2866,7 @@ begin
           and r.is_delete is false
           and r.repost_type = new.repost_type
           and r.repost_item_id = new.repost_item_id
-    )
+    )    
     where playlist_id = new.repost_item_id
     returning repost_count into new_val;
 
@@ -2880,7 +2880,7 @@ begin
   select score < 0 into is_shadowbanned from aggregate_user where user_id = new.user_id;
 
   if new.is_delete = false and milestone is not null and owner_user_id is not null and is_shadowbanned = false then
-    insert into milestones
+    insert into milestones 
       (id, name, threshold, blocknumber, slot, timestamp)
     values
       (new.repost_item_id, milestone_name, milestone, new.blocknumber, new.slot, new.created_at)
@@ -2981,7 +2981,7 @@ begin
 				'user_id',
 				new.user_id,
 				'type',
-        case
+        case 
           when is_album then 'album'
           else new.repost_type
         end
@@ -3085,7 +3085,7 @@ begin
     where p.playlist_id = new.save_item_id
     and p.is_current
     on conflict do nothing;
-
+    
     select ap.is_album into is_album
     from aggregate_playlist ap
     where ap.playlist_id = new.save_item_id;
@@ -3110,7 +3110,7 @@ begin
   if new.save_type = 'track' then
     milestone_name := 'TRACK_SAVE_COUNT';
 
-    update aggregate_track
+    update aggregate_track 
     set save_count = (
       select count(*)
       from saves r
@@ -3124,7 +3124,7 @@ begin
     returning save_count into new_val;
 
     -- update agg user
-    update aggregate_user
+    update aggregate_user 
     set track_save_count = (
       select count(*)
       from saves r
@@ -3134,7 +3134,7 @@ begin
         and r.save_type = new.save_type
     )
     where user_id = new.user_id;
-
+    
   	if new.is_delete IS FALSE then
 		  select tracks.owner_id, tracks.remix_of into owner_user_id, track_remix_of from tracks where is_current and track_id = new.save_item_id;
 	  end if;
@@ -3165,7 +3165,7 @@ begin
   select score < 0 into is_shadowbanned from aggregate_user where user_id = new.user_id;
 
   if new.is_delete = false and milestone is not null and is_shadowbanned = false then
-    insert into milestones
+    insert into milestones 
       (id, name, threshold, blocknumber, slot, timestamp)
     values
       (new.save_item_id, milestone_name, milestone, new.blocknumber, new.slot, new.created_at)
@@ -3209,10 +3209,10 @@ begin
       insert into notification
         (blocknumber, user_ids, timestamp, type, specifier, group_id, data)
         values
-        (
+        ( 
           new.blocknumber,
-          ARRAY [owner_user_id],
-          new.created_at,
+          ARRAY [owner_user_id], 
+          new.created_at, 
           'save',
           new.user_id,
           'save:' || new.save_item_id || ':type:'|| new.save_type,
@@ -3271,7 +3271,7 @@ begin
           'user_id',
           new.user_id,
           'type',
-          case
+          case 
             when is_album then 'album'
             else new.save_type
           end
@@ -3285,16 +3285,16 @@ begin
     if new.is_delete is false and new.save_type = 'track' and track_remix_of is not null and is_shadowbanned = false then
       select
         case when tracks.owner_id = new.user_id then TRUE else FALSE end as boolean into is_remix_cosign
-        from tracks
+        from tracks 
         where is_current and track_id = (track_remix_of->'tracks'->0->>'parent_track_id')::int;
       if is_remix_cosign then
         insert into notification
           (blocknumber, user_ids, timestamp, type, specifier, group_id, data)
           values
-          (
+          ( 
             new.blocknumber,
-            ARRAY [owner_user_id],
-            new.created_at,
+            ARRAY [owner_user_id], 
+            new.created_at, 
             'cosign',
             new.user_id,
             'cosign:parent_track' || (track_remix_of->'tracks'->0->>'parent_track_id')::int || ':original_track:'|| new.save_item_id,
@@ -3316,7 +3316,7 @@ exception
       raise warning 'An error occurred in %: %', tg_name, sqlerrm;
       raise;
 
-end;
+end; 
 $$;
 
 
@@ -3431,7 +3431,7 @@ BEGIN
         slot = EXCLUDED.slot,
         updated_at = NOW()
         WHERE sol_token_account_balances.slot < EXCLUDED.slot;
-
+    
     FOR v_user_id IN
         SELECT user_id
         FROM associated_wallets
@@ -3743,7 +3743,7 @@ begin
     when others then
         raise warning 'An error occurred in %: %', tg_name, sqlerrm;
         return null;
-end;
+end; 
 $$;
 
 
@@ -3842,7 +3842,7 @@ begin
   ) as tier (label, val)
   WHERE
     substr(new.current_balance, 1, GREATEST(1, length(new.current_balance) - 18))::bigint >= tier.val
-  ORDER BY
+  ORDER BY 
     tier.val DESC
   limit 1;
 
@@ -3852,7 +3852,7 @@ begin
   ) as tier (label, val)
   WHERE
     substr(new.previous_balance, 1, GREATEST(1, length(new.previous_balance) - 18))::bigint >= tier.val
-  ORDER BY
+  ORDER BY 
     tier.val DESC
   limit 1;
 
@@ -3861,10 +3861,10 @@ begin
     insert into notification
       (blocknumber, user_ids, timestamp, type, specifier, group_id, data)
     values
-      (
+      ( 
         new.blocknumber,
-        ARRAY [new.user_id],
-        new.updated_at,
+        ARRAY [new.user_id], 
+        new.updated_at, 
         'tier_change',
         new.user_id,
         'tier_change:user_id:' || new.user_id ||  ':tier:' || new_tier || ':blocknumber:' || new.blocknumber,
@@ -3900,10 +3900,10 @@ begin
   insert into notification
     (slot, user_ids, timestamp, type, specifier, group_id, data)
   values
-    (
+    ( 
       new.slot,
-      ARRAY [new.receiver_user_id],
-      new.created_at,
+      ARRAY [new.receiver_user_id], 
+      new.created_at, 
       'tip_receive',
       new.receiver_user_id,
       'tip_receive:user_id:' || new.receiver_user_id || ':signature:' || new.signature,
@@ -3914,10 +3914,10 @@ begin
         'tx_signature', new.signature
       )
     ),
-    (
+    ( 
       new.slot,
-      ARRAY [new.sender_user_id],
-      new.created_at,
+      ARRAY [new.sender_user_id], 
+      new.created_at, 
       'tip_send',
       new.sender_user_id,
       'tip_send:user_id:' || new.sender_user_id || ':signature:' || new.signature,
@@ -4455,7 +4455,7 @@ declare
 begin
     -- fetch the user_id where wallet matches grantee_address
     select user_id into matched_user_id from users where lower(wallet) = lower(NEW.grantee_address);
-
+    
     if matched_user_id is not null then
         -- if the grant is newly created (i.e. the grant is not deleted, is not approved yet, and was just created indicated by created timestamp = last updated timestamp) OR grant went from deleted (revoked) to not deleted and is not approved yet...
         if (TG_OP = 'INSERT' and NEW.is_revoked = FALSE and NEW.is_approved is null and NEW.created_at = NEW.updated_at or
@@ -4509,7 +4509,7 @@ exception
   when others then
       raise warning 'An error occurred in %: %', tg_name, sqlerrm;
       return null;
-end;
+end; 
 $$;
 
 
@@ -5016,10 +5016,10 @@ BEGIN
         NOW(),
         NOW()
     FROM (
-        SELECT
-            p_user_id AS user_id,
+        SELECT 
+            p_user_id AS user_id, 
             COALESCE(balance, 0) AS balance
-        FROM associated_wallets
+        FROM associated_wallets 
         JOIN sol_token_account_balances AS associated_wallet_balances
             ON associated_wallet_balances.owner = associated_wallets.wallet
             AND associated_wallet_balances.mint = p_mint
@@ -5029,8 +5029,8 @@ BEGIN
 
         UNION ALL
 
-        SELECT
-            p_user_id AS user_id,
+        SELECT 
+            p_user_id AS user_id, 
             COALESCE(balance, 0) AS balance
         FROM users
         JOIN sol_claimable_accounts
@@ -5653,7 +5653,8 @@ CREATE TABLE public.artist_coin_pools (
     curve_progress double precision,
     is_migrated boolean,
     created_at timestamp without time zone DEFAULT CURRENT_TIMESTAMP NOT NULL,
-    updated_at timestamp without time zone DEFAULT CURRENT_TIMESTAMP NOT NULL
+    updated_at timestamp without time zone DEFAULT CURRENT_TIMESTAMP NOT NULL,
+    total_trading_quote_fee numeric
 );
 
 

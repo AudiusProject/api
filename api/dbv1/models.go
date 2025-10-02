@@ -875,6 +875,7 @@ type ArtistCoinPool struct {
 	IsMigrated              pgtype.Bool    `json:"is_migrated"`
 	CreatedAt               time.Time      `json:"created_at"`
 	UpdatedAt               time.Time      `json:"updated_at"`
+	TotalTradingQuoteFee    pgtype.Numeric `json:"total_trading_quote_fee"`
 }
 
 type ArtistCoinStat struct {
