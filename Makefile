@@ -47,4 +47,5 @@ test-schema::
 	fi; \
 	adjustedUrl=$$(echo "$$writeDbUrl" | sed 's/localhost/host.docker.internal/g'); \
 	docker compose exec db bash -c "pg_dump '$$adjustedUrl' --schema-only --no-owner --no-acl > ./sql/01_schema.sql"; \
+	sed '/^\\restrict /d;/^\\unrestrict /d' ./sql/01_schema.sql > ./sql/01_schema.sql.tmp && mv ./sql/01_schema.sql.tmp ./sql/01_schema.sql; \
 	echo "schema dumped to ./sql/01_schema.sql"
