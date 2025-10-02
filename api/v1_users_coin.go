@@ -110,7 +110,8 @@ func (app *ApiServer) v1UsersCoin(c *fiber.Ctx) error {
 			artist_coins.decimals,
 			artist_coins.user_id,
 			balances_by_mint.balance,
-			stats.price
+			stats.price,
+			pools.price_usd
 	;`
 
 	rows, err := app.pool.Query(c.Context(), sql, pgx.NamedArgs{
