@@ -36,5 +36,11 @@ func (app *ApiServer) v1TrackStream(c *fiber.Ctx) error {
 		streamURL.RawQuery = q.Encode()
 	}
 
+	if c.QueryBool("no_redirect") {
+		return c.JSON(fiber.Map{
+			"data": streamURL.String(),
+		})
+	}
+
 	return c.Redirect(streamURL.String(), fiber.StatusFound)
 }
