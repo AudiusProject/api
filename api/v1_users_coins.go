@@ -72,7 +72,7 @@ func (app *ApiServer) v1UsersCoins(c *fiber.Ctx) error {
 			(COALESCE(balances_by_mint.balance, 0) * stats.price) / POWER(10, artist_coins.decimals) AS balance_usd
 		FROM artist_coins
 		LEFT JOIN balances_by_mint ON balances_by_mint.mint = artist_coins.mint
-		JOIN artist_coin_stats stats ON stats.mint = artist_coins.mint
+		LEFT JOIN artist_coin_stats stats ON stats.mint = artist_coins.mint
 		WHERE artist_coins.user_id = @user_id  -- Show owned coins
 		   OR balance > 0  -- Show coins with positive balance
 		ORDER BY

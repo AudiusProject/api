@@ -1,6 +1,7 @@
 package api
 
 import (
+	"errors"
 	"fmt"
 
 	"github.com/gagliardetto/solana-go"
@@ -94,7 +95,7 @@ func (app *ApiServer) v1UsersCoin(c *fiber.Ctx) error {
 				'[]'::json
 			) AS accounts
 		FROM artist_coins
-		JOIN artist_coin_stats stats ON artist_coins.mint = stats.mint
+		LEFT JOIN artist_coin_stats stats ON artist_coins.mint = stats.mint
 		LEFT JOIN balances_by_mint ON artist_coins.mint = balances_by_mint.mint
 		LEFT JOIN (
 			SELECT *
@@ -121,6 +122,11 @@ func (app *ApiServer) v1UsersCoin(c *fiber.Ctx) error {
 
 	userCoin, err := pgx.CollectExactlyOneRow(rows, pgx.RowToStructByName[UserCoinAccounts])
 	if err != nil {
+		if errors.Is(err, pgx.ErrNoRows) {
+			return c.JSON(fiber.Map{
+				"data": nil,
+			})
+		}
 		return err
 	}
 
