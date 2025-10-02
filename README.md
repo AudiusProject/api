@@ -50,7 +50,7 @@ docker compose up -d
 make test
 ```
 
-#### To run tests with custom migrations
+#### To update schema after migration changes and run tests
 ```
 docker compose up -d
 
@@ -80,21 +80,6 @@ http://localhost:1323/apidiff.html
 Tool for interacting with the postgres server
 
 http://localhost:21301/?pgsql=db&username=postgres
-
-## Schema dump
-
-```
-docker compose exec db bash
-export discoveryDbUrl='a_db_url'
-pg_dump $discoveryDbUrl --schema-only --no-comments --no-owner --no-acl > ./sql/01_schema.sql
-```
-
-If you re-dump schema, reset dev postgres state:
-
-```
-docker compose down --volumes
-docker compose up -d
-```
 
 ## ElasticSearch
 
