@@ -15,6 +15,7 @@ type FakeRpcClient struct {
 	GetSlotFunc                         func(ctx context.Context, commitment rpc.CommitmentType) (uint64, error)
 	GetSignaturesForAddressWithOptsFunc func(ctx context.Context, address solana.PublicKey, opts *rpc.GetSignaturesForAddressOpts) ([]*rpc.TransactionSignature, error)
 	GetTransactionFunc                  func(ctx context.Context, sig solana.Signature, opts *rpc.GetTransactionOpts) (*rpc.GetTransactionResult, error)
+	GetAccountDataBorshIntoFunc         func(ctx context.Context, account solana.PublicKey, out interface{}) error
 }
 
 func (m *FakeRpcClient) GetBlockWithOpts(ctx context.Context, slot uint64, opts *rpc.GetBlockOpts) (*rpc.GetBlockResult, error) {
@@ -43,6 +44,13 @@ func (m *FakeRpcClient) GetTransaction(ctx context.Context, sig solana.Signature
 		return m.GetTransactionFunc(ctx, sig, opts)
 	}
 	return nil, nil
+}
+
+func (m *FakeRpcClient) GetAccountDataBorshInto(ctx context.Context, account solana.PublicKey, out interface{}) error {
+	if m.GetAccountDataBorshIntoFunc != nil {
+		return m.GetAccountDataBorshIntoFunc(ctx, account, out)
+	}
+	return errors.New("GetAccountDataBorshIntoFunc not implemented")
 }
 
 func ZipTransactionResultsAndTransactions(
