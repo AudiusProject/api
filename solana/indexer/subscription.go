@@ -269,11 +269,6 @@ func (s *SolanaIndexer) handleMessage(ctx context.Context, msg *pb.SubscribeUpda
 
 	accUpdate := msg.GetAccount()
 	if accUpdate != nil {
-		if msg.Filters == nil || len(msg.Filters) == 0 {
-			pubkeyBase58 := solana.PublicKeyFromBytes([]byte(accUpdate.Account.Pubkey)).String()
-			logger.Warn("account update with no filters, skipping", zap.String("pubkey", pubkeyBase58), zap.Uint64("slot", accUpdate.Slot))
-			return
-		}
 		for _, filterName := range msg.Filters {
 			for _, config := range s.config.SolanaConfig.DbcPoolConfigs {
 				if filterName == config.String() {
