@@ -82,7 +82,7 @@ func (app *ApiServer) v1Coin(c *fiber.Ctx) error {
 		LEFT JOIN artist_coin_stats
 			ON artist_coin_stats.mint = artist_coins.mint
 		LEFT JOIN artist_coin_pools
-			ON artist_coin_pools.base_mint = artist_coin_stats.mint
+			ON artist_coin_pools.base_mint = artist_coins.mint
 		WHERE artist_coins.mint = @mint
 		LIMIT 1
 	`
