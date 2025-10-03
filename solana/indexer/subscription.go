@@ -221,6 +221,8 @@ func buildSubscriptionRequest(mintAddresses []string, dbcPoolConfigs []string) (
 				{
 					Filter: &pb.SubscribeRequestFilterAccountsFilter_Memcmp{
 						Memcmp: &pb.SubscribeRequestFilterAccountsFilterMemcmp{
+							// Config is at byte offset 72 in the account data
+							// see Pool struct in meteora_dbc/state.go
 							Offset: 72,
 							Data: &pb.SubscribeRequestFilterAccountsFilterMemcmp_Base58{
 								Base58: config,
