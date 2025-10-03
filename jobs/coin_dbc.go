@@ -185,7 +185,8 @@ func (j *CoinDBCJob) insertPool(
 			price_usd,
             curve_progress,
             is_migrated,
-            updated_at
+            updated_at,
+			creator_wallet_address
         ) VALUES (
             @address,
             @base_mint,
@@ -204,7 +205,8 @@ func (j *CoinDBCJob) insertPool(
 			@price_usd,
             @curve_progress,
             @is_migrated,
-            NOW()
+            NOW(),
+			@creator_wallet_address
         )
         ON CONFLICT (address) DO UPDATE SET
             base_mint = EXCLUDED.base_mint,
@@ -223,7 +225,8 @@ func (j *CoinDBCJob) insertPool(
 			price_usd = EXCLUDED.price_usd,
             curve_progress = EXCLUDED.curve_progress,
             is_migrated = EXCLUDED.is_migrated,
-            updated_at = NOW()
+            updated_at = NOW(),
+			creator_wallet_address = EXCLUDED.creator_wallet_address
     `, pgx.NamedArgs{
 		"address":                   poolAddress.String(),
 		"base_mint":                 pool.BaseMint.String(),
@@ -242,6 +245,7 @@ func (j *CoinDBCJob) insertPool(
 		"price_usd":                 priceUSD,
 		"curve_progress":            curveProgress,
 		"is_migrated":               pool.IsMigrated != 0,
+		"creator_wallet_address":    pool.Creator.String(),
 	})
 	return err
 }
