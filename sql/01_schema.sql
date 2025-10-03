@@ -3,8 +3,8 @@
 --
 
 
--- Dumped from database version 17.6 (Debian 17.6-1.pgdg13+1)
--- Dumped by pg_dump version 17.6 (Debian 17.6-1.pgdg13+1)
+-- Dumped from database version 15.13
+-- Dumped by pg_dump version 17.6 (Debian 17.6-2.pgdg13+1)
 
 SET statement_timeout = 0;
 SET lock_timeout = 0;
@@ -23,6 +23,13 @@ SET row_security = off;
 --
 
 CREATE SCHEMA hashids;
+
+
+--
+-- Name: public; Type: SCHEMA; Schema: -; Owner: -
+--
+
+-- *not* creating schema, since initdb creates it
 
 
 --
@@ -173,6 +180,17 @@ CREATE TYPE public.profile_type_enum AS ENUM (
 
 
 --
+-- Name: proof_status; Type: TYPE; Schema: public; Owner: -
+--
+
+CREATE TYPE public.proof_status AS ENUM (
+    'unresolved',
+    'pass',
+    'fail'
+);
+
+
+--
 -- Name: reposttype; Type: TYPE; Schema: public; Owner: -
 --
 
@@ -232,6 +250,16 @@ CREATE TYPE public.usdc_purchase_content_type AS ENUM (
     'track',
     'playlist',
     'album'
+);
+
+
+--
+-- Name: validator_event; Type: TYPE; Schema: public; Owner: -
+--
+
+CREATE TYPE public.validator_event AS ENUM (
+    'registered',
+    'deregistered'
 );
 
 
@@ -969,8 +997,8 @@ BEGIN
       -- Logging the action
       RAISE NOTICE 'Adding foreign key constraint to table %', _table_name;
 
-      EXECUTE format('ALTER TABLE %s ADD CONSTRAINT %s FOREIGN KEY (blocknumber) REFERENCES blocks (number) ON DELETE CASCADE',
-                     quote_ident(_table_name),
+      EXECUTE format('ALTER TABLE %s ADD CONSTRAINT %s FOREIGN KEY (blocknumber) REFERENCES blocks (number) ON DELETE CASCADE', 
+                     quote_ident(_table_name), 
                      quote_ident(_table_name || '_blocknumber_fkey'));
 
    END LOOP;
@@ -1614,9 +1642,9 @@ BEGIN
       -- Logging the deletion
       RAISE NOTICE 'Deleting rows from table % where is_current is false', _table_name;
 
-      EXECUTE format('DELETE FROM %s WHERE is_current = false',
+      EXECUTE format('DELETE FROM %s WHERE is_current = false', 
                      quote_ident(_table_name));
-
+                     
    END LOOP;
 END
 $$;
@@ -1636,7 +1664,7 @@ BEGIN
    LOOP
       RAISE NOTICE 'Deleting rows from table % where is_current is false', _table_name;
 
-      EXECUTE format('DELETE FROM %s WHERE is_current = false',
+      EXECUTE format('DELETE FROM %s WHERE is_current = false', 
                      quote_ident(_table_name));
 
    END LOOP;
@@ -1657,11 +1685,11 @@ BEGIN
    FOREACH _table_name IN ARRAY _table_names
    LOOP
       RAISE NOTICE 'Dropping foreign key constraint to table %', _table_name;
-      EXECUTE format('LOCK TABLE %s IN ACCESS EXCLUSIVE MODE',
+      EXECUTE format('LOCK TABLE %s IN ACCESS EXCLUSIVE MODE', 
                      quote_ident(_table_name));
 
-      EXECUTE format('ALTER TABLE %s DROP CONSTRAINT IF EXISTS %s',
-                     quote_ident(_table_name),
+      EXECUTE format('ALTER TABLE %s DROP CONSTRAINT IF EXISTS %s', 
+                     quote_ident(_table_name), 
                      quote_ident(_table_name || '_blocknumber_fkey'));
 
    END LOOP;
@@ -1703,6 +1731,227 @@ BEGIN
 
     return next;
 END;
+$$;
+
+
+--
+-- Name: get_computed_scores(integer[]); Type: FUNCTION; Schema: public; Owner: -
+--
+
+CREATE FUNCTION public.get_computed_scores(target_user_ids integer[] DEFAULT NULL::integer[]) RETURNS TABLE(user_id integer, handle_lc text, play_count integer, follower_count integer, challenge_count integer, following_count integer, score integer)
+    LANGUAGE sql
+    AS $$
+    with play_activity as (
+        select plays.user_id,
+            count(distinct date_trunc('minute', plays.created_at)) as play_count
+        from plays
+        join users on plays.user_id = users.user_id
+        where target_user_ids is null or plays.user_id = any(target_user_ids)
+        group by plays.user_id
+    ),
+    fast_challenge_completion as (
+        select users.user_id,
+            handle_lc,
+            users.created_at,
+            count(*) as challenge_count,
+            array_agg(user_challenges.challenge_id) as challenge_ids
+        from users
+        left join user_challenges on users.user_id = user_challenges.user_id
+        where user_challenges.is_complete
+            and user_challenges.completed_at - users.created_at <= interval '3 minutes'
+            and user_challenges.challenge_id not in ('m', 'b')
+            and (target_user_ids is null or users.user_id = any(target_user_ids))
+        group by users.user_id, users.handle_lc, users.created_at
+    ),
+    chat_blocks as (
+        select chat_blocked_users.blockee_user_id as user_id,
+            count(*) as block_count
+        from chat_blocked_users
+        join users on chat_blocked_users.blockee_user_id = users.user_id
+        where target_user_ids is null or chat_blocked_users.blockee_user_id = any(target_user_ids)
+        group by chat_blocked_users.blockee_user_id
+    ),
+    aggregate_scores as (
+        select users.user_id,
+            users.handle_lc,
+            users.created_at,
+            coalesce(play_activity.play_count, 0) as play_count,
+            coalesce(fast_challenge_completion.challenge_count, 0) as challenge_count,
+            coalesce(aggregate_user.following_count, 0) as following_count,
+            coalesce(aggregate_user.follower_count, 0) as follower_count,
+            coalesce(chat_blocks.block_count, 0) as block_count
+        from users
+        left join play_activity on users.user_id = play_activity.user_id
+        left join fast_challenge_completion on users.user_id = fast_challenge_completion.user_id
+        left join chat_blocks on users.user_id = chat_blocks.user_id
+        left join aggregate_user on aggregate_user.user_id = users.user_id
+        where users.handle_lc is not null
+            and (target_user_ids is null or users.user_id = any(target_user_ids))
+    )
+    select a.user_id,
+        a.handle_lc,
+        a.play_count,
+        a.follower_count,
+        a.challenge_count,
+        a.following_count,
+        (
+            a.play_count + a.follower_count - a.challenge_count - (a.block_count * 10) +
+            case when a.following_count < 5 then -1 else 0 end
+        ) as score
+    from aggregate_scores a
+$$;
+
+
+--
+-- Name: get_computed_scores(integer); Type: FUNCTION; Schema: public; Owner: -
+--
+
+CREATE FUNCTION public.get_computed_scores(target_user_id integer DEFAULT NULL::integer) RETURNS TABLE(user_id integer, handle_lc text, play_count integer, follower_count integer, challenge_count integer, following_count integer, score integer)
+    LANGUAGE sql
+    AS $$
+    with play_activity as (
+        select plays.user_id,
+            count(distinct date_trunc('minute', plays.created_at)) as play_count
+        from plays
+        join users on plays.user_id = users.user_id
+        where target_user_id is null or plays.user_id = target_user_id
+        group by plays.user_id
+    ),
+    fast_challenge_completion as (
+        select users.user_id,
+            handle_lc,
+            users.created_at,
+            count(*) as challenge_count,
+            array_agg(user_challenges.challenge_id) as challenge_ids
+        from users
+        left join user_challenges on users.user_id = user_challenges.user_id
+        where user_challenges.is_complete
+            and user_challenges.completed_at - users.created_at <= interval '3 minutes'
+            and user_challenges.challenge_id not in ('m', 'b')
+            and (target_user_id is null or users.user_id = target_user_id)
+        group by users.user_id, users.handle_lc, users.created_at
+    ),
+    chat_blocks as (
+        select chat_blocked_users.blockee_user_id as user_id,
+            count(*) as block_count
+        from chat_blocked_users
+        join users on chat_blocked_users.blockee_user_id = users.user_id
+        where target_user_id is null or chat_blocked_users.blockee_user_id = target_user_id
+        group by chat_blocked_users.blockee_user_id
+    ),
+    aggregate_scores as (
+        select users.user_id,
+            users.handle_lc,
+            users.created_at,
+            coalesce(play_activity.play_count, 0) as play_count,
+            coalesce(fast_challenge_completion.challenge_count, 0) as challenge_count,
+            coalesce(aggregate_user.following_count, 0) as following_count,
+            coalesce(aggregate_user.follower_count, 0) as follower_count,
+            coalesce(chat_blocks.block_count, 0) as block_count
+        from users
+        left join play_activity on users.user_id = play_activity.user_id
+        left join fast_challenge_completion on users.user_id = fast_challenge_completion.user_id
+        left join chat_blocks on users.user_id = chat_blocks.user_id
+        left join aggregate_user on aggregate_user.user_id = users.user_id
+        where users.handle_lc is not null
+            and (target_user_id is null or users.user_id = target_user_id)
+    )
+    select
+        a.user_id,
+        a.handle_lc,
+        a.play_count,
+        a.follower_count,
+        a.challenge_count,
+        a.following_count,
+        (
+            a.play_count + a.follower_count - a.challenge_count - (a.block_count * 10) +
+            case when a.following_count < 5 then -1 else 0 end
+        ) as score
+    from aggregate_scores a
+$$;
+
+
+--
+-- Name: get_shadowbanned_users(integer[]); Type: FUNCTION; Schema: public; Owner: -
+--
+
+CREATE FUNCTION public.get_shadowbanned_users(user_ids integer[]) RETURNS TABLE(user_id integer)
+    LANGUAGE plpgsql
+    AS $$ begin return query with scoped_users as (
+        select users.user_id
+        from users
+        where users.user_id = any (user_ids)
+    ),
+    play_activity as (
+        select plays.user_id,
+            count(distinct date_trunc('minute', plays.created_at)) as play_count
+        from plays
+        where plays.user_id is not null
+            and plays.user_id in (
+                select scoped_users.user_id
+                from scoped_users
+            )
+        group by plays.user_id
+    ),
+    fast_challenge_completion as (
+        select users.user_id,
+            handle_lc,
+            users.created_at,
+            count(*) as challenge_count,
+            array_agg(user_challenges.challenge_id) as challenge_ids
+        from users
+            left join user_challenges on users.user_id = user_challenges.user_id
+        where user_challenges.is_complete
+            and user_challenges.completed_at - users.created_at <= interval '3 minutes'
+            and user_challenges.challenge_id not in ('m', 'b')
+            and users.user_id in (
+                select scoped_users.user_id
+                from scoped_users
+            )
+        group by users.user_id,
+            users.handle_lc,
+            users.created_at
+        order by users.created_at desc
+    ),
+    aggregate_scores as (
+        select users.user_id,
+            users.handle_lc,
+            users.created_at,
+            coalesce(play_activity.play_count, 0) as play_count,
+            coalesce(fast_challenge_completion.challenge_count, 0) as challenge_count,
+            coalesce(aggregate_user.following_count, 0) as following_count,
+            coalesce(aggregate_user.follower_count, 0) as follower_count
+        from users
+            left join play_activity on users.user_id = play_activity.user_id
+            left join fast_challenge_completion on users.user_id = fast_challenge_completion.user_id
+            left join aggregate_user on aggregate_user.user_id = users.user_id
+        where users.handle_lc is not null
+            and users.user_id in (
+                select scoped_users.user_id
+                from scoped_users
+            )
+        order by users.created_at desc
+    ),
+    computed_scores as (
+        select a.user_id,
+            a.handle_lc,
+            a.play_count,
+            a.follower_count,
+            a.challenge_count,
+            a.following_count,
+            (
+                a.play_count + a.follower_count - a.challenge_count + case
+                    when a.following_count < 5 then -1
+                    else 0
+                end
+            ) as overall_score
+        from aggregate_scores a
+    )
+select computed_scores.user_id
+from computed_scores
+where overall_score < 0;
+-- filter based on threshold
+end;
 $$;
 
 
@@ -2174,6 +2423,136 @@ $$;
 
 
 --
+-- Name: handle_comment_mention(); Type: FUNCTION; Schema: public; Owner: -
+--
+
+CREATE FUNCTION public.handle_comment_mention() RETURNS trigger
+    LANGUAGE plpgsql
+    AS $$
+declare
+  comment_user_id int;
+  entity_user_id int;
+  entity_id int;
+  entity_type text;
+begin
+  select comments.user_id, comments.entity_id, comments.entity_type
+  into comment_user_id , entity_id, entity_type
+  from comments 
+  where comment_id = new.comment_id;
+
+  select tracks.owner_id 
+  into entity_user_id 
+  from tracks 
+  where track_id = entity_id;
+
+  begin
+    if new.user_id != entity_user_id then
+      insert into notification
+        (blocknumber, user_ids, timestamp, type, specifier, group_id, data)
+        values
+        ( 
+          new.blocknumber,
+          ARRAY [new.user_id], 
+          new.created_at, 
+          'comment_mention',
+          comment_user_id,
+          'comment_mention:' || entity_id || ':type:' || entity_type,
+          json_build_object
+          (
+            'type', entity_type,
+            'entity_id', entity_id,
+            'entity_user_id', entity_user_id,
+            'comment_user_id', comment_user_id
+          )
+        )
+      on conflict do nothing;
+    end if;
+  end;
+
+  return null;
+
+exception
+    when others then
+      raise warning 'An error occurred in %: %', tg_name, sqlerrm;
+      return null;
+end;
+$$;
+
+
+--
+-- Name: handle_comment_thread(); Type: FUNCTION; Schema: public; Owner: -
+--
+
+CREATE FUNCTION public.handle_comment_thread() RETURNS trigger
+    LANGUAGE plpgsql
+    AS $$
+declare
+  parent_comment_user_id int;
+  comment_user_id int;
+  entity_user_id int;
+  entity_id int;
+  entity_type text;
+  blocknumber int;
+  created_at timestamp without time zone;
+  notification_muted boolean;
+begin
+  select comments.user_id, comments.entity_id, comments.entity_type 
+  into parent_comment_user_id, entity_id, entity_type 
+  from comments 
+  where comment_id = new.parent_comment_id;
+
+  select comments.user_id, comments.blocknumber, comments.created_at
+  into comment_user_id, blocknumber, created_at
+  from comments 
+  where comment_id = new.comment_id;
+
+  select tracks.owner_id 
+  into entity_user_id 
+  from tracks 
+  where track_id = entity_id;
+
+  select comment_notification_settings.is_muted
+  into notification_muted
+  from comment_notification_settings
+  where user_id = parent_comment_user_id 
+  and comment_notification_settings.entity_id = new.parent_comment_id
+  and comment_notification_settings.entity_type = 'Comment';
+
+  begin
+    if notification_muted is not true and comment_user_id != parent_comment_user_id then
+      insert into notification
+        (blocknumber, user_ids, timestamp, type, specifier, group_id, data)
+        values
+        ( 
+          blocknumber,
+          ARRAY [parent_comment_user_id],
+          created_at, 
+          'comment_thread',
+          comment_user_id,
+          'comment_thread:' || new.parent_comment_id,
+          json_build_object
+          (
+            'type', entity_type,
+            'entity_id', entity_id,
+            'entity_user_id', entity_user_id,
+            'comment_user_id', comment_user_id
+          )
+        )
+      on conflict do nothing;
+    end if;
+  end;
+
+  return null;
+
+exception
+    when others then
+      raise warning 'An error occurred in %: %', tg_name, sqlerrm;
+      return null;
+end;
+$$;
+
+
+--
 -- Name: handle_comms_rpc_log(); Type: FUNCTION; Schema: public; Owner: -
 --
 
@@ -2437,6 +2816,7 @@ begin
                 new.user_id = any(user_ids) and
                 timestamp >= (new.completed_at - interval '1 hour')
                 limit 1;
+                RAISE NOTICE 'Checking for existing reward_in_cooldown notification for existing_notification: %', existing_notification;
 
                 if existing_notification is null then
                     insert into notification
@@ -4421,6 +4801,34 @@ $$;
 
 
 --
+-- Name: on_new_notification_row(); Type: FUNCTION; Schema: public; Owner: -
+--
+
+CREATE FUNCTION public.on_new_notification_row() RETURNS trigger
+    LANGUAGE plpgsql
+    AS $$
+begin
+  PERFORM pg_notify(TG_TABLE_NAME, json_build_object('notification_id', new.id)::text);
+  return null;
+end; 
+$$;
+
+
+--
+-- Name: on_new_notification_seen_row(); Type: FUNCTION; Schema: public; Owner: -
+--
+
+CREATE FUNCTION public.on_new_notification_seen_row() RETURNS trigger
+    LANGUAGE plpgsql
+    AS $$
+begin
+  PERFORM pg_notify(TG_TABLE_NAME, json_build_object('user_id', new.user_id)::text);
+  return null;
+end; 
+$$;
+
+
+--
 -- Name: on_new_row(); Type: FUNCTION; Schema: public; Owner: -
 --
 
@@ -4854,19 +5262,19 @@ begin
     if codes is null then
         return true;
     end if;
-
+    
     -- array must have at least one element
     if array_length(codes, 1) is null then
         return false;
     end if;
-
+    
     -- check each element to make sure it's a 2 letter ISO code
     for i in 1..array_length(codes, 1) loop
         if codes[i] !~ '^[A-Z]{2}$' then
             return false;
         end if;
     end loop;
-
+    
     return true;
 end;
 $_$;
@@ -4911,7 +5319,6 @@ CREATE TABLE public.tracks (
     txhash character varying DEFAULT ''::character varying NOT NULL,
     slot integer,
     is_available boolean DEFAULT true NOT NULL,
-    is_stream_gated boolean DEFAULT false NOT NULL,
     stream_conditions jsonb,
     track_cid character varying,
     is_playlist_upload boolean DEFAULT false NOT NULL,
@@ -4924,11 +5331,11 @@ CREATE TABLE public.tracks (
     track_segments jsonb DEFAULT '[]'::jsonb NOT NULL,
     is_scheduled_release boolean DEFAULT false NOT NULL,
     is_downloadable boolean DEFAULT false NOT NULL,
-    is_download_gated boolean DEFAULT false NOT NULL,
     download_conditions jsonb,
     is_original_available boolean DEFAULT false NOT NULL,
     orig_file_cid character varying,
     orig_filename character varying,
+    collections_containing_track integer[],
     playlists_containing_track integer[] DEFAULT '{}'::integer[] NOT NULL,
     placement_hosts text,
     ddex_app character varying,
@@ -4952,6 +5359,8 @@ CREATE TABLE public.tracks (
     cover_original_song_title character varying,
     cover_original_artist character varying,
     is_owned_by_user boolean DEFAULT false NOT NULL,
+    is_stream_gated boolean DEFAULT false,
+    is_download_gated boolean DEFAULT false,
     no_ai_use boolean DEFAULT false,
     parental_warning public.parental_warning_type,
     territory_codes text[],
@@ -5174,6 +5583,37 @@ ALTER TEXT SEARCH CONFIGURATION public.audius_ts_config
 CREATE TABLE public."SequelizeMeta" (
     name character varying(255) NOT NULL
 );
+
+
+--
+-- Name: access_keys; Type: TABLE; Schema: public; Owner: -
+--
+
+CREATE TABLE public.access_keys (
+    id integer NOT NULL,
+    track_id text NOT NULL,
+    pub_key text NOT NULL
+);
+
+
+--
+-- Name: access_keys_id_seq; Type: SEQUENCE; Schema: public; Owner: -
+--
+
+CREATE SEQUENCE public.access_keys_id_seq
+    AS integer
+    START WITH 1
+    INCREMENT BY 1
+    NO MINVALUE
+    NO MAXVALUE
+    CACHE 1;
+
+
+--
+-- Name: access_keys_id_seq; Type: SEQUENCE OWNED BY; Schema: public; Owner: -
+--
+
+ALTER SEQUENCE public.access_keys_id_seq OWNED BY public.access_keys.id;
 
 
 --
@@ -5523,6 +5963,27 @@ CREATE TABLE public.album_price_history (
 
 
 --
+-- Name: alembic_version; Type: TABLE; Schema: public; Owner: -
+--
+
+CREATE TABLE public.alembic_version (
+    version_num character varying(32) NOT NULL
+);
+
+
+--
+-- Name: anti_abuse_blocked_users; Type: TABLE; Schema: public; Owner: -
+--
+
+CREATE TABLE public.anti_abuse_blocked_users (
+    handle_lc character varying(255) NOT NULL,
+    is_blocked boolean DEFAULT false NOT NULL,
+    created_at timestamp without time zone DEFAULT CURRENT_TIMESTAMP,
+    updated_at timestamp without time zone DEFAULT CURRENT_TIMESTAMP
+);
+
+
+--
 -- Name: api_metrics_apps; Type: TABLE; Schema: public; Owner: -
 --
 
@@ -5584,10 +6045,10 @@ CREATE TABLE public.app_name_metrics (
 --
 
 CREATE MATERIALIZED VIEW public.app_name_metrics_all_time AS
- SELECT application_name AS name,
-    sum(count) AS count
+ SELECT app_name_metrics.application_name AS name,
+    sum(app_name_metrics.count) AS count
    FROM public.app_name_metrics
-  GROUP BY application_name
+  GROUP BY app_name_metrics.application_name
   WITH NO DATA;
 
 
@@ -5610,11 +6071,11 @@ ALTER TABLE public.app_name_metrics ALTER COLUMN id ADD GENERATED ALWAYS AS IDEN
 --
 
 CREATE MATERIALIZED VIEW public.app_name_metrics_trailing_month AS
- SELECT application_name AS name,
-    sum(count) AS count
+ SELECT app_name_metrics.application_name AS name,
+    sum(app_name_metrics.count) AS count
    FROM public.app_name_metrics
-  WHERE ("timestamp" > (now() - '1 mon'::interval))
-  GROUP BY application_name
+  WHERE (app_name_metrics."timestamp" > (now() - '1 mon'::interval))
+  GROUP BY app_name_metrics.application_name
   WITH NO DATA;
 
 
@@ -5623,11 +6084,11 @@ CREATE MATERIALIZED VIEW public.app_name_metrics_trailing_month AS
 --
 
 CREATE MATERIALIZED VIEW public.app_name_metrics_trailing_week AS
- SELECT application_name AS name,
-    sum(count) AS count
+ SELECT app_name_metrics.application_name AS name,
+    sum(app_name_metrics.count) AS count
    FROM public.app_name_metrics
-  WHERE ("timestamp" > (now() - '7 days'::interval))
-  GROUP BY application_name
+  WHERE (app_name_metrics."timestamp" > (now() - '7 days'::interval))
+  GROUP BY app_name_metrics.application_name
   WITH NO DATA;
 
 
@@ -5654,7 +6115,8 @@ CREATE TABLE public.artist_coin_pools (
     is_migrated boolean,
     created_at timestamp without time zone DEFAULT CURRENT_TIMESTAMP NOT NULL,
     updated_at timestamp without time zone DEFAULT CURRENT_TIMESTAMP NOT NULL,
-    total_trading_quote_fee numeric
+    total_trading_quote_fee numeric,
+    creator_wallet_address text
 );
 
 
@@ -5723,9 +6185,6 @@ CREATE TABLE public.artist_coins (
     name text DEFAULT ''::text NOT NULL,
     has_discord boolean DEFAULT false NOT NULL,
     updated_at timestamp without time zone DEFAULT now(),
-    twitter text,
-    instagram text,
-    tiktok text,
     link_1 text,
     link_2 text,
     link_3 text,
@@ -6176,6 +6635,111 @@ CREATE TABLE public.comments (
 
 
 --
+-- Name: core_app_state; Type: TABLE; Schema: public; Owner: -
+--
+
+CREATE TABLE public.core_app_state (
+    block_height bigint NOT NULL,
+    app_hash bytea NOT NULL,
+    created_at timestamp without time zone DEFAULT CURRENT_TIMESTAMP
+);
+
+
+--
+-- Name: core_blocks; Type: TABLE; Schema: public; Owner: -
+--
+
+CREATE TABLE public.core_blocks (
+    rowid bigint NOT NULL,
+    height bigint NOT NULL,
+    chain_id text NOT NULL,
+    hash text NOT NULL,
+    proposer text NOT NULL,
+    created_at timestamp without time zone NOT NULL
+);
+
+
+--
+-- Name: core_blocks_rowid_seq; Type: SEQUENCE; Schema: public; Owner: -
+--
+
+CREATE SEQUENCE public.core_blocks_rowid_seq
+    START WITH 1
+    INCREMENT BY 1
+    NO MINVALUE
+    NO MAXVALUE
+    CACHE 1;
+
+
+--
+-- Name: core_blocks_rowid_seq; Type: SEQUENCE OWNED BY; Schema: public; Owner: -
+--
+
+ALTER SEQUENCE public.core_blocks_rowid_seq OWNED BY public.core_blocks.rowid;
+
+
+--
+-- Name: core_db_migrations; Type: TABLE; Schema: public; Owner: -
+--
+
+CREATE TABLE public.core_db_migrations (
+    id text NOT NULL,
+    applied_at timestamp with time zone
+);
+
+
+--
+-- Name: core_deals; Type: TABLE; Schema: public; Owner: -
+--
+
+CREATE TABLE public.core_deals (
+    address text NOT NULL,
+    ern_address text NOT NULL,
+    entity_type text NOT NULL,
+    entity_index integer NOT NULL,
+    tx_hash text NOT NULL,
+    block_height bigint NOT NULL,
+    created_at timestamp without time zone DEFAULT now()
+);
+
+
+--
+-- Name: core_ern; Type: TABLE; Schema: public; Owner: -
+--
+
+CREATE TABLE public.core_ern (
+    id bigint NOT NULL,
+    address text NOT NULL,
+    index bigint NOT NULL,
+    tx_hash text NOT NULL,
+    sender text NOT NULL,
+    message_control_type smallint NOT NULL,
+    raw_message bytea NOT NULL,
+    raw_acknowledgment bytea NOT NULL,
+    block_height bigint NOT NULL
+);
+
+
+--
+-- Name: core_ern_id_seq; Type: SEQUENCE; Schema: public; Owner: -
+--
+
+CREATE SEQUENCE public.core_ern_id_seq
+    START WITH 1
+    INCREMENT BY 1
+    NO MINVALUE
+    NO MAXVALUE
+    CACHE 1;
+
+
+--
+-- Name: core_ern_id_seq; Type: SEQUENCE OWNED BY; Schema: public; Owner: -
+--
+
+ALTER SEQUENCE public.core_ern_id_seq OWNED BY public.core_ern.id;
+
+
+--
 -- Name: core_indexed_blocks; Type: TABLE; Schema: public; Owner: -
 --
 
@@ -6187,6 +6751,304 @@ CREATE TABLE public.core_indexed_blocks (
     plays_slot integer DEFAULT 0,
     em_block integer
 );
+
+
+--
+-- Name: core_mead; Type: TABLE; Schema: public; Owner: -
+--
+
+CREATE TABLE public.core_mead (
+    id bigint NOT NULL,
+    address text NOT NULL,
+    tx_hash text NOT NULL,
+    index bigint NOT NULL,
+    sender text NOT NULL,
+    resource_addresses text[] DEFAULT '{}'::text[],
+    release_addresses text[] DEFAULT '{}'::text[],
+    raw_message bytea NOT NULL,
+    raw_acknowledgment bytea NOT NULL,
+    block_height bigint NOT NULL
+);
+
+
+--
+-- Name: core_mead_id_seq; Type: SEQUENCE; Schema: public; Owner: -
+--
+
+CREATE SEQUENCE public.core_mead_id_seq
+    START WITH 1
+    INCREMENT BY 1
+    NO MINVALUE
+    NO MAXVALUE
+    CACHE 1;
+
+
+--
+-- Name: core_mead_id_seq; Type: SEQUENCE OWNED BY; Schema: public; Owner: -
+--
+
+ALTER SEQUENCE public.core_mead_id_seq OWNED BY public.core_mead.id;
+
+
+--
+-- Name: core_parties; Type: TABLE; Schema: public; Owner: -
+--
+
+CREATE TABLE public.core_parties (
+    address text NOT NULL,
+    ern_address text NOT NULL,
+    entity_type text NOT NULL,
+    entity_index integer NOT NULL,
+    tx_hash text NOT NULL,
+    block_height bigint NOT NULL,
+    created_at timestamp without time zone DEFAULT now()
+);
+
+
+--
+-- Name: core_pie; Type: TABLE; Schema: public; Owner: -
+--
+
+CREATE TABLE public.core_pie (
+    id bigint NOT NULL,
+    address text NOT NULL,
+    tx_hash text NOT NULL,
+    index bigint NOT NULL,
+    sender text NOT NULL,
+    party_addresses text[] DEFAULT '{}'::text[],
+    raw_message bytea NOT NULL,
+    raw_acknowledgment bytea NOT NULL,
+    block_height bigint NOT NULL
+);
+
+
+--
+-- Name: core_pie_id_seq; Type: SEQUENCE; Schema: public; Owner: -
+--
+
+CREATE SEQUENCE public.core_pie_id_seq
+    START WITH 1
+    INCREMENT BY 1
+    NO MINVALUE
+    NO MAXVALUE
+    CACHE 1;
+
+
+--
+-- Name: core_pie_id_seq; Type: SEQUENCE OWNED BY; Schema: public; Owner: -
+--
+
+ALTER SEQUENCE public.core_pie_id_seq OWNED BY public.core_pie.id;
+
+
+--
+-- Name: core_releases; Type: TABLE; Schema: public; Owner: -
+--
+
+CREATE TABLE public.core_releases (
+    address text NOT NULL,
+    ern_address text NOT NULL,
+    entity_type text NOT NULL,
+    entity_index integer NOT NULL,
+    tx_hash text NOT NULL,
+    block_height bigint NOT NULL,
+    created_at timestamp without time zone DEFAULT now()
+);
+
+
+--
+-- Name: core_resources; Type: TABLE; Schema: public; Owner: -
+--
+
+CREATE TABLE public.core_resources (
+    address text NOT NULL,
+    ern_address text NOT NULL,
+    entity_type text NOT NULL,
+    entity_index integer NOT NULL,
+    tx_hash text NOT NULL,
+    block_height bigint NOT NULL,
+    created_at timestamp without time zone DEFAULT now()
+);
+
+
+--
+-- Name: core_rewards; Type: TABLE; Schema: public; Owner: -
+--
+
+CREATE TABLE public.core_rewards (
+    id bigint NOT NULL,
+    address text NOT NULL,
+    index bigint NOT NULL,
+    tx_hash text NOT NULL,
+    sender text NOT NULL,
+    reward_id text NOT NULL,
+    name text NOT NULL,
+    amount bigint NOT NULL,
+    claim_authorities text[] DEFAULT '{}'::text[],
+    raw_message bytea NOT NULL,
+    block_height bigint NOT NULL,
+    created_at timestamp with time zone DEFAULT now(),
+    updated_at timestamp with time zone DEFAULT now()
+);
+
+
+--
+-- Name: core_rewards_id_seq; Type: SEQUENCE; Schema: public; Owner: -
+--
+
+CREATE SEQUENCE public.core_rewards_id_seq
+    START WITH 1
+    INCREMENT BY 1
+    NO MINVALUE
+    NO MAXVALUE
+    CACHE 1;
+
+
+--
+-- Name: core_rewards_id_seq; Type: SEQUENCE OWNED BY; Schema: public; Owner: -
+--
+
+ALTER SEQUENCE public.core_rewards_id_seq OWNED BY public.core_rewards.id;
+
+
+--
+-- Name: core_transactions; Type: TABLE; Schema: public; Owner: -
+--
+
+CREATE TABLE public.core_transactions (
+    rowid bigint NOT NULL,
+    block_id bigint NOT NULL,
+    index integer NOT NULL,
+    tx_hash text NOT NULL,
+    transaction bytea NOT NULL,
+    created_at timestamp without time zone NOT NULL
+);
+
+
+--
+-- Name: core_transactions_rowid_seq; Type: SEQUENCE; Schema: public; Owner: -
+--
+
+CREATE SEQUENCE public.core_transactions_rowid_seq
+    START WITH 1
+    INCREMENT BY 1
+    NO MINVALUE
+    NO MAXVALUE
+    CACHE 1;
+
+
+--
+-- Name: core_transactions_rowid_seq; Type: SEQUENCE OWNED BY; Schema: public; Owner: -
+--
+
+ALTER SEQUENCE public.core_transactions_rowid_seq OWNED BY public.core_transactions.rowid;
+
+
+--
+-- Name: core_tx_stats; Type: TABLE; Schema: public; Owner: -
+--
+
+CREATE TABLE public.core_tx_stats (
+    id integer NOT NULL,
+    tx_type text NOT NULL,
+    tx_hash text NOT NULL,
+    block_height bigint NOT NULL,
+    created_at timestamp without time zone DEFAULT CURRENT_TIMESTAMP
+);
+
+
+--
+-- Name: core_tx_stats_id_seq; Type: SEQUENCE; Schema: public; Owner: -
+--
+
+CREATE SEQUENCE public.core_tx_stats_id_seq
+    AS integer
+    START WITH 1
+    INCREMENT BY 1
+    NO MINVALUE
+    NO MAXVALUE
+    CACHE 1;
+
+
+--
+-- Name: core_tx_stats_id_seq; Type: SEQUENCE OWNED BY; Schema: public; Owner: -
+--
+
+ALTER SEQUENCE public.core_tx_stats_id_seq OWNED BY public.core_tx_stats.id;
+
+
+--
+-- Name: core_uploads; Type: TABLE; Schema: public; Owner: -
+--
+
+CREATE TABLE public.core_uploads (
+    id bigint NOT NULL,
+    uploader_address text NOT NULL,
+    cid text NOT NULL,
+    transcoded_cid text NOT NULL,
+    upid text NOT NULL,
+    upload_signature text NOT NULL,
+    validator_address text NOT NULL,
+    validator_signature text NOT NULL,
+    tx_hash text NOT NULL,
+    block_height bigint NOT NULL
+);
+
+
+--
+-- Name: core_uploads_id_seq; Type: SEQUENCE; Schema: public; Owner: -
+--
+
+CREATE SEQUENCE public.core_uploads_id_seq
+    START WITH 1
+    INCREMENT BY 1
+    NO MINVALUE
+    NO MAXVALUE
+    CACHE 1;
+
+
+--
+-- Name: core_uploads_id_seq; Type: SEQUENCE OWNED BY; Schema: public; Owner: -
+--
+
+ALTER SEQUENCE public.core_uploads_id_seq OWNED BY public.core_uploads.id;
+
+
+--
+-- Name: core_validators; Type: TABLE; Schema: public; Owner: -
+--
+
+CREATE TABLE public.core_validators (
+    rowid integer NOT NULL,
+    pub_key text NOT NULL,
+    endpoint text NOT NULL,
+    eth_address text NOT NULL,
+    comet_address text NOT NULL,
+    eth_block text NOT NULL,
+    node_type text NOT NULL,
+    sp_id text NOT NULL,
+    comet_pub_key text NOT NULL
+);
+
+
+--
+-- Name: core_validators_rowid_seq; Type: SEQUENCE; Schema: public; Owner: -
+--
+
+CREATE SEQUENCE public.core_validators_rowid_seq
+    AS integer
+    START WITH 1
+    INCREMENT BY 1
+    NO MINVALUE
+    NO MAXVALUE
+    CACHE 1;
+
+
+--
+-- Name: core_validators_rowid_seq; Type: SEQUENCE OWNED BY; Schema: public; Owner: -
+--
+
+ALTER SEQUENCE public.core_validators_rowid_seq OWNED BY public.core_validators.rowid;
 
 
 --
@@ -6377,6 +7239,22 @@ ALTER SEQUENCE public.encrypted_emails_id_seq OWNED BY public.encrypted_emails.i
 
 
 --
+-- Name: eth_active_proposals; Type: TABLE; Schema: public; Owner: -
+--
+
+CREATE TABLE public.eth_active_proposals (
+    id bigint NOT NULL,
+    proposer text NOT NULL,
+    submission_block_number bigint NOT NULL,
+    target_contract_registry_key text NOT NULL,
+    target_contract_address text NOT NULL,
+    call_value bigint NOT NULL,
+    function_signature text NOT NULL,
+    call_data text NOT NULL
+);
+
+
+--
 -- Name: eth_blocks; Type: TABLE; Schema: public; Owner: -
 --
 
@@ -6405,6 +7283,67 @@ CREATE SEQUENCE public.eth_blocks_last_scanned_block_seq
 --
 
 ALTER SEQUENCE public.eth_blocks_last_scanned_block_seq OWNED BY public.eth_blocks.last_scanned_block;
+
+
+--
+-- Name: eth_db_migrations; Type: TABLE; Schema: public; Owner: -
+--
+
+CREATE TABLE public.eth_db_migrations (
+    version bigint NOT NULL,
+    dirty boolean NOT NULL
+);
+
+
+--
+-- Name: eth_funding_rounds; Type: TABLE; Schema: public; Owner: -
+--
+
+CREATE TABLE public.eth_funding_rounds (
+    round_num integer NOT NULL,
+    blocknumber bigint NOT NULL,
+    creation_time timestamp without time zone NOT NULL
+);
+
+
+--
+-- Name: eth_registered_endpoints; Type: TABLE; Schema: public; Owner: -
+--
+
+CREATE TABLE public.eth_registered_endpoints (
+    id integer NOT NULL,
+    service_type text NOT NULL,
+    owner text NOT NULL,
+    delegate_wallet text NOT NULL,
+    endpoint text NOT NULL,
+    blocknumber bigint NOT NULL,
+    registered_at timestamp without time zone DEFAULT CURRENT_TIMESTAMP NOT NULL
+);
+
+
+--
+-- Name: eth_service_providers; Type: TABLE; Schema: public; Owner: -
+--
+
+CREATE TABLE public.eth_service_providers (
+    address text NOT NULL,
+    deployer_stake bigint NOT NULL,
+    deployer_cut bigint NOT NULL,
+    valid_bounds boolean NOT NULL,
+    number_of_endpoints integer NOT NULL,
+    min_account_stake bigint NOT NULL,
+    max_account_stake bigint NOT NULL
+);
+
+
+--
+-- Name: eth_staked; Type: TABLE; Schema: public; Owner: -
+--
+
+CREATE TABLE public.eth_staked (
+    address text NOT NULL,
+    total_staked bigint NOT NULL
+);
 
 
 --
@@ -6485,6 +7424,37 @@ CREATE TABLE public.indexing_checkpoints (
 
 
 --
+-- Name: management_keys; Type: TABLE; Schema: public; Owner: -
+--
+
+CREATE TABLE public.management_keys (
+    id integer NOT NULL,
+    track_id text NOT NULL,
+    address text NOT NULL
+);
+
+
+--
+-- Name: management_keys_id_seq; Type: SEQUENCE; Schema: public; Owner: -
+--
+
+CREATE SEQUENCE public.management_keys_id_seq
+    AS integer
+    START WITH 1
+    INCREMENT BY 1
+    NO MINVALUE
+    NO MAXVALUE
+    CACHE 1;
+
+
+--
+-- Name: management_keys_id_seq; Type: SEQUENCE OWNED BY; Schema: public; Owner: -
+--
+
+ALTER SEQUENCE public.management_keys_id_seq OWNED BY public.management_keys.id;
+
+
+--
 -- Name: milestones; Type: TABLE; Schema: public; Owner: -
 --
 
@@ -6511,6 +7481,56 @@ CREATE TABLE public.muted_users (
     txhash text NOT NULL,
     blockhash text NOT NULL,
     blocknumber integer
+);
+
+
+--
+-- Name: new_tracks; Type: TABLE; Schema: public; Owner: -
+--
+
+CREATE TABLE public.new_tracks (
+    blockhash character varying,
+    track_id integer,
+    is_current boolean,
+    is_delete boolean,
+    owner_id integer,
+    title text,
+    cover_art character varying,
+    tags character varying,
+    genre character varying,
+    mood character varying,
+    credits_splits character varying,
+    create_date character varying,
+    file_type character varying,
+    metadata_multihash character varying,
+    blocknumber integer,
+    created_at timestamp without time zone,
+    description character varying,
+    isrc character varying,
+    iswc character varying,
+    license character varying,
+    updated_at timestamp without time zone,
+    cover_art_sizes character varying,
+    download jsonb,
+    is_unlisted boolean,
+    field_visibility jsonb,
+    route_id character varying,
+    stem_of jsonb,
+    remix_of jsonb,
+    txhash character varying,
+    slot integer,
+    is_available boolean,
+    is_premium boolean,
+    premium_conditions jsonb,
+    track_cid character varying,
+    is_playlist_upload boolean,
+    duration integer,
+    ai_attribution_user_id integer,
+    preview_cid character varying,
+    audio_upload_id character varying,
+    preview_start_seconds double precision,
+    release_date timestamp without time zone,
+    track_segments jsonb
 );
 
 
@@ -6661,7 +7681,6 @@ CREATE TABLE public.playlists (
     slot integer,
     metadata_multihash character varying,
     is_image_autogenerated boolean DEFAULT false NOT NULL,
-    is_stream_gated boolean DEFAULT false NOT NULL,
     stream_conditions jsonb,
     ddex_app character varying,
     ddex_release_ids jsonb,
@@ -6670,7 +7689,8 @@ CREATE TABLE public.playlists (
     producer_copyright_line jsonb,
     parental_warning_type character varying,
     is_scheduled_release boolean DEFAULT false NOT NULL,
-    release_date timestamp without time zone
+    release_date timestamp without time zone,
+    is_stream_gated boolean DEFAULT false
 );
 
 
@@ -6838,8 +7858,8 @@ CREATE TABLE public.route_metrics (
 --
 
 CREATE MATERIALIZED VIEW public.route_metrics_all_time AS
- SELECT count(DISTINCT ip) AS unique_count,
-    sum(count) AS count
+ SELECT count(DISTINCT route_metrics.ip) AS unique_count,
+    sum(route_metrics.count) AS count
    FROM public.route_metrics
   WITH NO DATA;
 
@@ -6849,11 +7869,11 @@ CREATE MATERIALIZED VIEW public.route_metrics_all_time AS
 --
 
 CREATE MATERIALIZED VIEW public.route_metrics_day_bucket AS
- SELECT count(DISTINCT ip) AS unique_count,
-    sum(count) AS count,
-    date_trunc('day'::text, "timestamp") AS "time"
+ SELECT count(DISTINCT route_metrics.ip) AS unique_count,
+    sum(route_metrics.count) AS count,
+    date_trunc('day'::text, route_metrics."timestamp") AS "time"
    FROM public.route_metrics
-  GROUP BY (date_trunc('day'::text, "timestamp"))
+  GROUP BY (date_trunc('day'::text, route_metrics."timestamp"))
   WITH NO DATA;
 
 
@@ -6876,11 +7896,11 @@ ALTER TABLE public.route_metrics ALTER COLUMN id ADD GENERATED ALWAYS AS IDENTIT
 --
 
 CREATE MATERIALIZED VIEW public.route_metrics_month_bucket AS
- SELECT count(DISTINCT ip) AS unique_count,
-    sum(count) AS count,
-    date_trunc('month'::text, "timestamp") AS "time"
+ SELECT count(DISTINCT route_metrics.ip) AS unique_count,
+    sum(route_metrics.count) AS count,
+    date_trunc('month'::text, route_metrics."timestamp") AS "time"
    FROM public.route_metrics
-  GROUP BY (date_trunc('month'::text, "timestamp"))
+  GROUP BY (date_trunc('month'::text, route_metrics."timestamp"))
   WITH NO DATA;
 
 
@@ -6889,10 +7909,10 @@ CREATE MATERIALIZED VIEW public.route_metrics_month_bucket AS
 --
 
 CREATE MATERIALIZED VIEW public.route_metrics_trailing_month AS
- SELECT count(DISTINCT ip) AS unique_count,
-    sum(count) AS count
+ SELECT count(DISTINCT route_metrics.ip) AS unique_count,
+    sum(route_metrics.count) AS count
    FROM public.route_metrics
-  WHERE ("timestamp" > (now() - '1 mon'::interval))
+  WHERE (route_metrics."timestamp" > (now() - '1 mon'::interval))
   WITH NO DATA;
 
 
@@ -6901,10 +7921,10 @@ CREATE MATERIALIZED VIEW public.route_metrics_trailing_month AS
 --
 
 CREATE MATERIALIZED VIEW public.route_metrics_trailing_week AS
- SELECT count(DISTINCT ip) AS unique_count,
-    sum(count) AS count
+ SELECT count(DISTINCT route_metrics.ip) AS unique_count,
+    sum(route_metrics.count) AS count
    FROM public.route_metrics
-  WHERE ("timestamp" > (now() - '7 days'::interval))
+  WHERE (route_metrics."timestamp" > (now() - '7 days'::interval))
   WITH NO DATA;
 
 
@@ -7046,6 +8066,71 @@ CREATE SEQUENCE public.skipped_transactions_id_seq
 --
 
 ALTER SEQUENCE public.skipped_transactions_id_seq OWNED BY public.skipped_transactions.id;
+
+
+--
+-- Name: sla_node_reports; Type: TABLE; Schema: public; Owner: -
+--
+
+CREATE TABLE public.sla_node_reports (
+    id integer NOT NULL,
+    address character varying NOT NULL,
+    blocks_proposed integer NOT NULL,
+    sla_rollup_id integer
+);
+
+
+--
+-- Name: sla_node_reports_id_seq; Type: SEQUENCE; Schema: public; Owner: -
+--
+
+CREATE SEQUENCE public.sla_node_reports_id_seq
+    AS integer
+    START WITH 1
+    INCREMENT BY 1
+    NO MINVALUE
+    NO MAXVALUE
+    CACHE 1;
+
+
+--
+-- Name: sla_node_reports_id_seq; Type: SEQUENCE OWNED BY; Schema: public; Owner: -
+--
+
+ALTER SEQUENCE public.sla_node_reports_id_seq OWNED BY public.sla_node_reports.id;
+
+
+--
+-- Name: sla_rollups; Type: TABLE; Schema: public; Owner: -
+--
+
+CREATE TABLE public.sla_rollups (
+    id integer NOT NULL,
+    tx_hash text NOT NULL,
+    block_start bigint NOT NULL,
+    block_end bigint NOT NULL,
+    "time" timestamp without time zone NOT NULL
+);
+
+
+--
+-- Name: sla_rollups_id_seq; Type: SEQUENCE; Schema: public; Owner: -
+--
+
+CREATE SEQUENCE public.sla_rollups_id_seq
+    AS integer
+    START WITH 1
+    INCREMENT BY 1
+    NO MINVALUE
+    NO MAXVALUE
+    CACHE 1;
+
+
+--
+-- Name: sla_rollups_id_seq; Type: SEQUENCE OWNED BY; Schema: public; Owner: -
+--
+
+ALTER SEQUENCE public.sla_rollups_id_seq OWNED BY public.sla_rollups.id;
 
 
 --
@@ -7325,6 +8410,39 @@ COMMENT ON TABLE public.sol_user_balances IS 'Stores the balances of Solana toke
 
 
 --
+-- Name: sound_recordings; Type: TABLE; Schema: public; Owner: -
+--
+
+CREATE TABLE public.sound_recordings (
+    id integer NOT NULL,
+    sound_recording_id text NOT NULL,
+    track_id text NOT NULL,
+    cid text NOT NULL,
+    encoding_details text
+);
+
+
+--
+-- Name: sound_recordings_id_seq; Type: SEQUENCE; Schema: public; Owner: -
+--
+
+CREATE SEQUENCE public.sound_recordings_id_seq
+    AS integer
+    START WITH 1
+    INCREMENT BY 1
+    NO MINVALUE
+    NO MAXVALUE
+    CACHE 1;
+
+
+--
+-- Name: sound_recordings_id_seq; Type: SEQUENCE OWNED BY; Schema: public; Owner: -
+--
+
+ALTER SEQUENCE public.sound_recordings_id_seq OWNED BY public.sound_recordings.id;
+
+
+--
 -- Name: spl_token_tx; Type: TABLE; Schema: public; Owner: -
 --
 
@@ -7344,6 +8462,73 @@ CREATE TABLE public.stems (
     parent_track_id integer NOT NULL,
     child_track_id integer NOT NULL
 );
+
+
+--
+-- Name: storage_proof_peers; Type: TABLE; Schema: public; Owner: -
+--
+
+CREATE TABLE public.storage_proof_peers (
+    id integer NOT NULL,
+    block_height bigint NOT NULL,
+    prover_addresses text[] NOT NULL
+);
+
+
+--
+-- Name: storage_proof_peers_id_seq; Type: SEQUENCE; Schema: public; Owner: -
+--
+
+CREATE SEQUENCE public.storage_proof_peers_id_seq
+    AS integer
+    START WITH 1
+    INCREMENT BY 1
+    NO MINVALUE
+    NO MAXVALUE
+    CACHE 1;
+
+
+--
+-- Name: storage_proof_peers_id_seq; Type: SEQUENCE OWNED BY; Schema: public; Owner: -
+--
+
+ALTER SEQUENCE public.storage_proof_peers_id_seq OWNED BY public.storage_proof_peers.id;
+
+
+--
+-- Name: storage_proofs; Type: TABLE; Schema: public; Owner: -
+--
+
+CREATE TABLE public.storage_proofs (
+    id integer NOT NULL,
+    block_height bigint NOT NULL,
+    address text NOT NULL,
+    cid text,
+    proof_signature text,
+    proof text,
+    prover_addresses text[] DEFAULT '{}'::text[] NOT NULL,
+    status public.proof_status DEFAULT 'unresolved'::public.proof_status NOT NULL
+);
+
+
+--
+-- Name: storage_proofs_id_seq; Type: SEQUENCE; Schema: public; Owner: -
+--
+
+CREATE SEQUENCE public.storage_proofs_id_seq
+    AS integer
+    START WITH 1
+    INCREMENT BY 1
+    NO MINVALUE
+    NO MAXVALUE
+    CACHE 1;
+
+
+--
+-- Name: storage_proofs_id_seq; Type: SEQUENCE OWNED BY; Schema: public; Owner: -
+--
+
+ALTER SEQUENCE public.storage_proofs_id_seq OWNED BY public.storage_proofs.id;
 
 
 --
@@ -7379,16 +8564,16 @@ CREATE TABLE public.supporter_rank_ups (
 --
 
 CREATE MATERIALIZED VIEW public.tag_track_user AS
- SELECT unnest(tags) AS tag,
-    track_id,
-    owner_id
+ SELECT unnest(t.tags) AS tag,
+    t.track_id,
+    t.owner_id
    FROM ( SELECT string_to_array(lower((tracks.tags)::text), ','::text) AS tags,
             tracks.track_id,
             tracks.owner_id
            FROM public.tracks
           WHERE (((tracks.tags)::text <> ''::text) AND (tracks.tags IS NOT NULL) AND (tracks.is_current IS TRUE) AND (tracks.is_unlisted IS FALSE) AND (tracks.stem_of IS NULL))
           ORDER BY tracks.updated_at DESC) t
-  GROUP BY (unnest(tags)), track_id, owner_id
+  GROUP BY (unnest(t.tags)), t.track_id, t.owner_id
   WITH NO DATA;
 
 
@@ -7436,6 +8621,36 @@ CREATE TABLE public.track_price_history (
     created_at timestamp without time zone DEFAULT CURRENT_TIMESTAMP NOT NULL,
     access public.usdc_purchase_access_type DEFAULT 'stream'::public.usdc_purchase_access_type NOT NULL
 );
+
+
+--
+-- Name: track_releases; Type: TABLE; Schema: public; Owner: -
+--
+
+CREATE TABLE public.track_releases (
+    id integer NOT NULL,
+    track_id text NOT NULL
+);
+
+
+--
+-- Name: track_releases_id_seq; Type: SEQUENCE; Schema: public; Owner: -
+--
+
+CREATE SEQUENCE public.track_releases_id_seq
+    AS integer
+    START WITH 1
+    INCREMENT BY 1
+    NO MINVALUE
+    NO MAXVALUE
+    CACHE 1;
+
+
+--
+-- Name: track_releases_id_seq; Type: SEQUENCE OWNED BY; Schema: public; Owner: -
+--
+
+ALTER SEQUENCE public.track_releases_id_seq OWNED BY public.track_releases.id;
 
 
 --
@@ -7898,6 +9113,50 @@ CREATE TABLE public.user_tips (
 
 
 --
+-- Name: validator_history; Type: TABLE; Schema: public; Owner: -
+--
+
+CREATE TABLE public.validator_history (
+    rowid integer NOT NULL,
+    endpoint text NOT NULL,
+    eth_address text NOT NULL,
+    comet_address text NOT NULL,
+    sp_id bigint NOT NULL,
+    service_type text NOT NULL,
+    event_type public.validator_event NOT NULL,
+    event_time timestamp without time zone NOT NULL,
+    event_block bigint NOT NULL
+);
+
+
+--
+-- Name: validator_history_rowid_seq; Type: SEQUENCE; Schema: public; Owner: -
+--
+
+CREATE SEQUENCE public.validator_history_rowid_seq
+    AS integer
+    START WITH 1
+    INCREMENT BY 1
+    NO MINVALUE
+    NO MAXVALUE
+    CACHE 1;
+
+
+--
+-- Name: validator_history_rowid_seq; Type: SEQUENCE OWNED BY; Schema: public; Owner: -
+--
+
+ALTER SEQUENCE public.validator_history_rowid_seq OWNED BY public.validator_history.rowid;
+
+
+--
+-- Name: access_keys id; Type: DEFAULT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.access_keys ALTER COLUMN id SET DEFAULT nextval('public.access_keys_id_seq'::regclass);
+
+
+--
 -- Name: aggregate_daily_app_name_metrics id; Type: DEFAULT; Schema: public; Owner: -
 --
 
@@ -7961,6 +9220,69 @@ ALTER TABLE ONLY public.challenge_profile_completion ALTER COLUMN user_id SET DE
 
 
 --
+-- Name: core_blocks rowid; Type: DEFAULT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.core_blocks ALTER COLUMN rowid SET DEFAULT nextval('public.core_blocks_rowid_seq'::regclass);
+
+
+--
+-- Name: core_ern id; Type: DEFAULT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.core_ern ALTER COLUMN id SET DEFAULT nextval('public.core_ern_id_seq'::regclass);
+
+
+--
+-- Name: core_mead id; Type: DEFAULT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.core_mead ALTER COLUMN id SET DEFAULT nextval('public.core_mead_id_seq'::regclass);
+
+
+--
+-- Name: core_pie id; Type: DEFAULT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.core_pie ALTER COLUMN id SET DEFAULT nextval('public.core_pie_id_seq'::regclass);
+
+
+--
+-- Name: core_rewards id; Type: DEFAULT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.core_rewards ALTER COLUMN id SET DEFAULT nextval('public.core_rewards_id_seq'::regclass);
+
+
+--
+-- Name: core_transactions rowid; Type: DEFAULT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.core_transactions ALTER COLUMN rowid SET DEFAULT nextval('public.core_transactions_rowid_seq'::regclass);
+
+
+--
+-- Name: core_tx_stats id; Type: DEFAULT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.core_tx_stats ALTER COLUMN id SET DEFAULT nextval('public.core_tx_stats_id_seq'::regclass);
+
+
+--
+-- Name: core_uploads id; Type: DEFAULT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.core_uploads ALTER COLUMN id SET DEFAULT nextval('public.core_uploads_id_seq'::regclass);
+
+
+--
+-- Name: core_validators rowid; Type: DEFAULT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.core_validators ALTER COLUMN rowid SET DEFAULT nextval('public.core_validators_rowid_seq'::regclass);
+
+
+--
 -- Name: email_access id; Type: DEFAULT; Schema: public; Owner: -
 --
 
@@ -7979,6 +9301,13 @@ ALTER TABLE ONLY public.encrypted_emails ALTER COLUMN id SET DEFAULT nextval('pu
 --
 
 ALTER TABLE ONLY public.eth_blocks ALTER COLUMN last_scanned_block SET DEFAULT nextval('public.eth_blocks_last_scanned_block_seq'::regclass);
+
+
+--
+-- Name: management_keys id; Type: DEFAULT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.management_keys ALTER COLUMN id SET DEFAULT nextval('public.management_keys_id_seq'::regclass);
 
 
 --
@@ -8010,6 +9339,48 @@ ALTER TABLE ONLY public.skipped_transactions ALTER COLUMN id SET DEFAULT nextval
 
 
 --
+-- Name: sla_node_reports id; Type: DEFAULT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.sla_node_reports ALTER COLUMN id SET DEFAULT nextval('public.sla_node_reports_id_seq'::regclass);
+
+
+--
+-- Name: sla_rollups id; Type: DEFAULT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.sla_rollups ALTER COLUMN id SET DEFAULT nextval('public.sla_rollups_id_seq'::regclass);
+
+
+--
+-- Name: sound_recordings id; Type: DEFAULT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.sound_recordings ALTER COLUMN id SET DEFAULT nextval('public.sound_recordings_id_seq'::regclass);
+
+
+--
+-- Name: storage_proof_peers id; Type: DEFAULT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.storage_proof_peers ALTER COLUMN id SET DEFAULT nextval('public.storage_proof_peers_id_seq'::regclass);
+
+
+--
+-- Name: storage_proofs id; Type: DEFAULT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.storage_proofs ALTER COLUMN id SET DEFAULT nextval('public.storage_proofs_id_seq'::regclass);
+
+
+--
+-- Name: track_releases id; Type: DEFAULT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.track_releases ALTER COLUMN id SET DEFAULT nextval('public.track_releases_id_seq'::regclass);
+
+
+--
 -- Name: user_balance_changes user_id; Type: DEFAULT; Schema: public; Owner: -
 --
 
@@ -8038,11 +9409,26 @@ ALTER TABLE ONLY public.user_listening_history ALTER COLUMN user_id SET DEFAULT 
 
 
 --
+-- Name: validator_history rowid; Type: DEFAULT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.validator_history ALTER COLUMN rowid SET DEFAULT nextval('public.validator_history_rowid_seq'::regclass);
+
+
+--
 -- Name: SequelizeMeta SequelizeMeta_pkey; Type: CONSTRAINT; Schema: public; Owner: -
 --
 
 ALTER TABLE ONLY public."SequelizeMeta"
     ADD CONSTRAINT "SequelizeMeta_pkey" PRIMARY KEY (name);
+
+
+--
+-- Name: access_keys access_keys_pkey; Type: CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.access_keys
+    ADD CONSTRAINT access_keys_pkey PRIMARY KEY (id);
 
 
 --
@@ -8139,6 +9525,22 @@ ALTER TABLE ONLY public.aggregate_user_tips
 
 ALTER TABLE ONLY public.album_price_history
     ADD CONSTRAINT album_price_history_pkey PRIMARY KEY (playlist_id, block_timestamp);
+
+
+--
+-- Name: alembic_version alembic_version_pkc; Type: CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.alembic_version
+    ADD CONSTRAINT alembic_version_pkc PRIMARY KEY (version_num);
+
+
+--
+-- Name: anti_abuse_blocked_users anti_abuse_blocked_users_pkey; Type: CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.anti_abuse_blocked_users
+    ADD CONSTRAINT anti_abuse_blocked_users_pkey PRIMARY KEY (handle_lc);
 
 
 --
@@ -8398,6 +9800,150 @@ ALTER TABLE ONLY public.comments
 
 
 --
+-- Name: core_app_state core_app_state_pkey; Type: CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.core_app_state
+    ADD CONSTRAINT core_app_state_pkey PRIMARY KEY (block_height, app_hash);
+
+
+--
+-- Name: core_blocks core_blocks_height_chain_id_key; Type: CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.core_blocks
+    ADD CONSTRAINT core_blocks_height_chain_id_key UNIQUE (height, chain_id);
+
+
+--
+-- Name: core_blocks core_blocks_pkey; Type: CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.core_blocks
+    ADD CONSTRAINT core_blocks_pkey PRIMARY KEY (rowid);
+
+
+--
+-- Name: core_db_migrations core_db_migrations_pkey; Type: CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.core_db_migrations
+    ADD CONSTRAINT core_db_migrations_pkey PRIMARY KEY (id);
+
+
+--
+-- Name: core_deals core_deals_pkey; Type: CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.core_deals
+    ADD CONSTRAINT core_deals_pkey PRIMARY KEY (address);
+
+
+--
+-- Name: core_ern core_ern_pkey; Type: CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.core_ern
+    ADD CONSTRAINT core_ern_pkey PRIMARY KEY (id);
+
+
+--
+-- Name: core_mead core_mead_pkey; Type: CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.core_mead
+    ADD CONSTRAINT core_mead_pkey PRIMARY KEY (id);
+
+
+--
+-- Name: core_parties core_parties_pkey; Type: CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.core_parties
+    ADD CONSTRAINT core_parties_pkey PRIMARY KEY (address);
+
+
+--
+-- Name: core_pie core_pie_pkey; Type: CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.core_pie
+    ADD CONSTRAINT core_pie_pkey PRIMARY KEY (id);
+
+
+--
+-- Name: core_releases core_releases_pkey; Type: CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.core_releases
+    ADD CONSTRAINT core_releases_pkey PRIMARY KEY (address);
+
+
+--
+-- Name: core_resources core_resources_pkey; Type: CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.core_resources
+    ADD CONSTRAINT core_resources_pkey PRIMARY KEY (address);
+
+
+--
+-- Name: core_rewards core_rewards_pkey; Type: CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.core_rewards
+    ADD CONSTRAINT core_rewards_pkey PRIMARY KEY (id);
+
+
+--
+-- Name: core_transactions core_transactions_block_id_index_key; Type: CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.core_transactions
+    ADD CONSTRAINT core_transactions_block_id_index_key UNIQUE (block_id, index);
+
+
+--
+-- Name: core_transactions core_transactions_pkey; Type: CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.core_transactions
+    ADD CONSTRAINT core_transactions_pkey PRIMARY KEY (rowid);
+
+
+--
+-- Name: core_tx_stats core_tx_stats_pkey; Type: CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.core_tx_stats
+    ADD CONSTRAINT core_tx_stats_pkey PRIMARY KEY (id);
+
+
+--
+-- Name: core_tx_stats core_tx_stats_tx_hash_key; Type: CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.core_tx_stats
+    ADD CONSTRAINT core_tx_stats_tx_hash_key UNIQUE (tx_hash);
+
+
+--
+-- Name: core_uploads core_uploads_pkey; Type: CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.core_uploads
+    ADD CONSTRAINT core_uploads_pkey PRIMARY KEY (id);
+
+
+--
+-- Name: core_validators core_validators_pkey; Type: CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.core_validators
+    ADD CONSTRAINT core_validators_pkey PRIMARY KEY (rowid);
+
+
+--
 -- Name: countries countries_pkey; Type: CONSTRAINT; Schema: public; Owner: -
 --
 
@@ -8410,7 +9956,7 @@ ALTER TABLE ONLY public.countries
 --
 
 ALTER TABLE ONLY public.dashboard_wallet_users
-    ADD CONSTRAINT dashboard_wallet_users_pkey PRIMARY KEY (wallet);
+    ADD CONSTRAINT dashboard_wallet_users_pkey PRIMARY KEY (user_id, wallet);
 
 
 --
@@ -8426,7 +9972,7 @@ ALTER TABLE ONLY public.delist_status_cursor
 --
 
 ALTER TABLE ONLY public.developer_apps
-    ADD CONSTRAINT developer_apps_pkey PRIMARY KEY (txhash, address);
+    ADD CONSTRAINT developer_apps_pkey PRIMARY KEY (address, txhash);
 
 
 --
@@ -8462,11 +10008,59 @@ ALTER TABLE ONLY public.encrypted_emails
 
 
 --
+-- Name: eth_active_proposals eth_active_proposals_pkey; Type: CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.eth_active_proposals
+    ADD CONSTRAINT eth_active_proposals_pkey PRIMARY KEY (id);
+
+
+--
 -- Name: eth_blocks eth_blocks_pkey; Type: CONSTRAINT; Schema: public; Owner: -
 --
 
 ALTER TABLE ONLY public.eth_blocks
     ADD CONSTRAINT eth_blocks_pkey PRIMARY KEY (last_scanned_block);
+
+
+--
+-- Name: eth_db_migrations eth_db_migrations_pkey; Type: CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.eth_db_migrations
+    ADD CONSTRAINT eth_db_migrations_pkey PRIMARY KEY (version);
+
+
+--
+-- Name: eth_funding_rounds eth_funding_rounds_pkey; Type: CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.eth_funding_rounds
+    ADD CONSTRAINT eth_funding_rounds_pkey PRIMARY KEY (round_num);
+
+
+--
+-- Name: eth_registered_endpoints eth_registered_endpoints_pkey; Type: CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.eth_registered_endpoints
+    ADD CONSTRAINT eth_registered_endpoints_pkey PRIMARY KEY (id, service_type);
+
+
+--
+-- Name: eth_service_providers eth_service_providers_pkey; Type: CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.eth_service_providers
+    ADD CONSTRAINT eth_service_providers_pkey PRIMARY KEY (address);
+
+
+--
+-- Name: eth_staked eth_staked_pkey; Type: CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.eth_staked
+    ADD CONSTRAINT eth_staked_pkey PRIMARY KEY (address);
 
 
 --
@@ -8482,7 +10076,7 @@ ALTER TABLE ONLY public.events
 --
 
 ALTER TABLE ONLY public.follows
-    ADD CONSTRAINT follows_pkey PRIMARY KEY (followee_user_id, txhash, follower_user_id);
+    ADD CONSTRAINT follows_pkey PRIMARY KEY (follower_user_id, followee_user_id, txhash);
 
 
 --
@@ -8490,7 +10084,7 @@ ALTER TABLE ONLY public.follows
 --
 
 ALTER TABLE ONLY public.grants
-    ADD CONSTRAINT grants_pkey PRIMARY KEY (user_id, txhash, grantee_address);
+    ADD CONSTRAINT grants_pkey PRIMARY KEY (grantee_address, user_id, txhash);
 
 
 --
@@ -8507,6 +10101,14 @@ ALTER TABLE ONLY public.hourly_play_counts
 
 ALTER TABLE ONLY public.indexing_checkpoints
     ADD CONSTRAINT indexing_checkpoints_pkey PRIMARY KEY (tablename);
+
+
+--
+-- Name: management_keys management_keys_pkey; Type: CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.management_keys
+    ADD CONSTRAINT management_keys_pkey PRIMARY KEY (id);
 
 
 --
@@ -8578,7 +10180,7 @@ ALTER TABLE ONLY public.playlist_routes
 --
 
 ALTER TABLE ONLY public.playlist_seen
-    ADD CONSTRAINT playlist_seen_pkey PRIMARY KEY (playlist_id, seen_at, user_id);
+    ADD CONSTRAINT playlist_seen_pkey PRIMARY KEY (user_id, playlist_id, seen_at);
 
 
 --
@@ -8602,7 +10204,7 @@ ALTER TABLE ONLY public.playlist_trending_scores
 --
 
 ALTER TABLE ONLY public.playlists
-    ADD CONSTRAINT playlists_pkey PRIMARY KEY (txhash, playlist_id);
+    ADD CONSTRAINT playlists_pkey PRIMARY KEY (playlist_id, txhash);
 
 
 --
@@ -8658,7 +10260,7 @@ ALTER TABLE ONLY public.reported_comments
 --
 
 ALTER TABLE ONLY public.reposts
-    ADD CONSTRAINT reposts_pkey PRIMARY KEY (txhash, user_id, repost_item_id, repost_type);
+    ADD CONSTRAINT reposts_pkey PRIMARY KEY (user_id, repost_item_id, repost_type, txhash);
 
 
 --
@@ -8722,7 +10324,7 @@ ALTER TABLE ONLY public.rpclog
 --
 
 ALTER TABLE ONLY public.saves
-    ADD CONSTRAINT saves_pkey PRIMARY KEY (save_item_id, user_id, txhash, save_type);
+    ADD CONSTRAINT saves_pkey PRIMARY KEY (user_id, save_item_id, save_type, txhash);
 
 
 --
@@ -8755,6 +10357,30 @@ ALTER TABLE ONLY public.shares
 
 ALTER TABLE ONLY public.skipped_transactions
     ADD CONSTRAINT skipped_transactions_pkey PRIMARY KEY (id);
+
+
+--
+-- Name: sla_node_reports sla_node_reports_address_sla_rollup_id_key; Type: CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.sla_node_reports
+    ADD CONSTRAINT sla_node_reports_address_sla_rollup_id_key UNIQUE (address, sla_rollup_id);
+
+
+--
+-- Name: sla_node_reports sla_node_reports_pkey; Type: CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.sla_node_reports
+    ADD CONSTRAINT sla_node_reports_pkey PRIMARY KEY (id);
+
+
+--
+-- Name: sla_rollups sla_rollups_pkey; Type: CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.sla_rollups
+    ADD CONSTRAINT sla_rollups_pkey PRIMARY KEY (id);
 
 
 --
@@ -8854,6 +10480,14 @@ ALTER TABLE ONLY public.sol_user_balances
 
 
 --
+-- Name: sound_recordings sound_recordings_pkey; Type: CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.sound_recordings
+    ADD CONSTRAINT sound_recordings_pkey PRIMARY KEY (id);
+
+
+--
 -- Name: spl_token_tx spl_token_tx_pkey; Type: CONSTRAINT; Schema: public; Owner: -
 --
 
@@ -8870,11 +10504,43 @@ ALTER TABLE ONLY public.stems
 
 
 --
+-- Name: storage_proof_peers storage_proof_peers_block_height_key; Type: CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.storage_proof_peers
+    ADD CONSTRAINT storage_proof_peers_block_height_key UNIQUE (block_height);
+
+
+--
+-- Name: storage_proof_peers storage_proof_peers_pkey; Type: CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.storage_proof_peers
+    ADD CONSTRAINT storage_proof_peers_pkey PRIMARY KEY (id);
+
+
+--
+-- Name: storage_proofs storage_proofs_address_block_height_key; Type: CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.storage_proofs
+    ADD CONSTRAINT storage_proofs_address_block_height_key UNIQUE (address, block_height);
+
+
+--
+-- Name: storage_proofs storage_proofs_pkey; Type: CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.storage_proofs
+    ADD CONSTRAINT storage_proofs_pkey PRIMARY KEY (id);
+
+
+--
 -- Name: subscriptions subscriptions_pkey; Type: CONSTRAINT; Schema: public; Owner: -
 --
 
 ALTER TABLE ONLY public.subscriptions
-    ADD CONSTRAINT subscriptions_pkey PRIMARY KEY (txhash, user_id, subscriber_id);
+    ADD CONSTRAINT subscriptions_pkey PRIMARY KEY (subscriber_id, user_id, txhash);
 
 
 --
@@ -8910,6 +10576,22 @@ ALTER TABLE ONLY public.track_price_history
 
 
 --
+-- Name: track_releases track_releases_pkey; Type: CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.track_releases
+    ADD CONSTRAINT track_releases_pkey PRIMARY KEY (id);
+
+
+--
+-- Name: track_releases track_releases_track_id_key; Type: CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.track_releases
+    ADD CONSTRAINT track_releases_track_id_key UNIQUE (track_id);
+
+
+--
 -- Name: track_routes track_routes_pkey; Type: CONSTRAINT; Schema: public; Owner: -
 --
 
@@ -8930,7 +10612,7 @@ ALTER TABLE ONLY public.track_trending_scores
 --
 
 ALTER TABLE ONLY public.tracks
-    ADD CONSTRAINT tracks_pkey PRIMARY KEY (txhash, track_id);
+    ADD CONSTRAINT tracks_pkey PRIMARY KEY (track_id, txhash);
 
 
 --
@@ -9082,7 +10764,15 @@ ALTER TABLE ONLY public.user_tips
 --
 
 ALTER TABLE ONLY public.users
-    ADD CONSTRAINT users_pkey PRIMARY KEY (txhash, user_id);
+    ADD CONSTRAINT users_pkey PRIMARY KEY (user_id, txhash);
+
+
+--
+-- Name: validator_history validator_history_pkey; Type: CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.validator_history
+    ADD CONSTRAINT validator_history_pkey PRIMARY KEY (rowid);
 
 
 --
@@ -9149,6 +10839,13 @@ CREATE INDEX chat_member_user_idx ON public.chat_member USING btree (user_id);
 
 
 --
+-- Name: eth_registered_endpoints_wallet_idx; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX eth_registered_endpoints_wallet_idx ON public.eth_registered_endpoints USING btree (delegate_wallet);
+
+
+--
 -- Name: fix_tracks_top_genre_users_idx; Type: INDEX; Schema: public; Owner: -
 --
 
@@ -9167,6 +10864,13 @@ CREATE INDEX follows_blocknumber_idx ON public.follows USING btree (blocknumber)
 --
 
 CREATE INDEX follows_inbound_idx ON public.follows USING btree (followee_user_id, follower_user_id, is_delete);
+
+
+--
+-- Name: idx_access_keys_track_id; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX idx_access_keys_track_id ON public.access_keys USING btree (track_id);
 
 
 --
@@ -9275,6 +10979,321 @@ CREATE INDEX idx_chat_message_user_id ON public.chat_message USING btree (user_i
 
 
 --
+-- Name: idx_core_blocks_chain_id; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX idx_core_blocks_chain_id ON public.core_blocks USING btree (chain_id);
+
+
+--
+-- Name: idx_core_blocks_created_at; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX idx_core_blocks_created_at ON public.core_blocks USING btree (created_at);
+
+
+--
+-- Name: idx_core_blocks_hash; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX idx_core_blocks_hash ON public.core_blocks USING btree (hash);
+
+
+--
+-- Name: idx_core_blocks_height; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX idx_core_blocks_height ON public.core_blocks USING btree (height);
+
+
+--
+-- Name: idx_core_blocks_proposer; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX idx_core_blocks_proposer ON public.core_blocks USING btree (proposer);
+
+
+--
+-- Name: idx_core_deals_block_height; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX idx_core_deals_block_height ON public.core_deals USING btree (block_height);
+
+
+--
+-- Name: idx_core_deals_ern_address; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX idx_core_deals_ern_address ON public.core_deals USING btree (ern_address);
+
+
+--
+-- Name: idx_core_deals_tx_hash; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX idx_core_deals_tx_hash ON public.core_deals USING btree (tx_hash);
+
+
+--
+-- Name: idx_core_ern_address; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX idx_core_ern_address ON public.core_ern USING btree (address);
+
+
+--
+-- Name: idx_core_ern_block_height; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX idx_core_ern_block_height ON public.core_ern USING btree (block_height);
+
+
+--
+-- Name: idx_core_ern_message_control_type; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX idx_core_ern_message_control_type ON public.core_ern USING btree (message_control_type);
+
+
+--
+-- Name: idx_core_ern_sender; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX idx_core_ern_sender ON public.core_ern USING btree (sender);
+
+
+--
+-- Name: idx_core_mead_address; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX idx_core_mead_address ON public.core_mead USING btree (address);
+
+
+--
+-- Name: idx_core_mead_block_height; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX idx_core_mead_block_height ON public.core_mead USING btree (block_height);
+
+
+--
+-- Name: idx_core_mead_sender; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX idx_core_mead_sender ON public.core_mead USING btree (sender);
+
+
+--
+-- Name: idx_core_parties_block_height; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX idx_core_parties_block_height ON public.core_parties USING btree (block_height);
+
+
+--
+-- Name: idx_core_parties_ern_address; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX idx_core_parties_ern_address ON public.core_parties USING btree (ern_address);
+
+
+--
+-- Name: idx_core_parties_tx_hash; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX idx_core_parties_tx_hash ON public.core_parties USING btree (tx_hash);
+
+
+--
+-- Name: idx_core_pie_address; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX idx_core_pie_address ON public.core_pie USING btree (address);
+
+
+--
+-- Name: idx_core_pie_block_height; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX idx_core_pie_block_height ON public.core_pie USING btree (block_height);
+
+
+--
+-- Name: idx_core_pie_sender; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX idx_core_pie_sender ON public.core_pie USING btree (sender);
+
+
+--
+-- Name: idx_core_releases_block_height; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX idx_core_releases_block_height ON public.core_releases USING btree (block_height);
+
+
+--
+-- Name: idx_core_releases_ern_address; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX idx_core_releases_ern_address ON public.core_releases USING btree (ern_address);
+
+
+--
+-- Name: idx_core_releases_tx_hash; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX idx_core_releases_tx_hash ON public.core_releases USING btree (tx_hash);
+
+
+--
+-- Name: idx_core_resources_block_height; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX idx_core_resources_block_height ON public.core_resources USING btree (block_height);
+
+
+--
+-- Name: idx_core_resources_ern_address; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX idx_core_resources_ern_address ON public.core_resources USING btree (ern_address);
+
+
+--
+-- Name: idx_core_resources_tx_hash; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX idx_core_resources_tx_hash ON public.core_resources USING btree (tx_hash);
+
+
+--
+-- Name: idx_core_rewards_address; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX idx_core_rewards_address ON public.core_rewards USING btree (address);
+
+
+--
+-- Name: idx_core_rewards_block_height; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX idx_core_rewards_block_height ON public.core_rewards USING btree (block_height);
+
+
+--
+-- Name: idx_core_rewards_claim_authorities; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX idx_core_rewards_claim_authorities ON public.core_rewards USING gin (claim_authorities);
+
+
+--
+-- Name: idx_core_rewards_reward_id; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX idx_core_rewards_reward_id ON public.core_rewards USING btree (reward_id);
+
+
+--
+-- Name: idx_core_rewards_sender; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX idx_core_rewards_sender ON public.core_rewards USING btree (sender);
+
+
+--
+-- Name: idx_core_stats_tx_type; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX idx_core_stats_tx_type ON public.core_tx_stats USING btree (tx_type);
+
+
+--
+-- Name: idx_core_transactions_block_id; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX idx_core_transactions_block_id ON public.core_transactions USING btree (block_id);
+
+
+--
+-- Name: idx_core_transactions_created_at; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX idx_core_transactions_created_at ON public.core_transactions USING btree (created_at);
+
+
+--
+-- Name: idx_core_transactions_tx_hash; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX idx_core_transactions_tx_hash ON public.core_transactions USING btree (tx_hash);
+
+
+--
+-- Name: idx_core_transactions_tx_hash_lower; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX idx_core_transactions_tx_hash_lower ON public.core_transactions USING btree (lower(tx_hash));
+
+
+--
+-- Name: idx_core_tx_hash; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX idx_core_tx_hash ON public.core_tx_stats USING btree (tx_hash);
+
+
+--
+-- Name: idx_core_tx_stats_created_at; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX idx_core_tx_stats_created_at ON public.core_tx_stats USING btree (created_at);
+
+
+--
+-- Name: idx_core_tx_stats_time_type; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX idx_core_tx_stats_time_type ON public.core_tx_stats USING btree (created_at, tx_type);
+
+
+--
+-- Name: idx_core_uploads_cid; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX idx_core_uploads_cid ON public.core_uploads USING btree (cid);
+
+
+--
+-- Name: idx_core_uploads_transcoded_cid; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX idx_core_uploads_transcoded_cid ON public.core_uploads USING btree (transcoded_cid);
+
+
+--
+-- Name: idx_core_validators_comet_address; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX idx_core_validators_comet_address ON public.core_validators USING btree (comet_address);
+
+
+--
+-- Name: idx_core_validators_endpoint; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX idx_core_validators_endpoint ON public.core_validators USING btree (endpoint);
+
+
+--
+-- Name: idx_core_validators_eth_address; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX idx_core_validators_eth_address ON public.core_validators USING btree (eth_address);
+
+
+--
 -- Name: idx_ddex_release_ids; Type: INDEX; Schema: public; Owner: -
 --
 
@@ -9366,6 +11385,13 @@ CREATE INDEX idx_lower_wallet ON public.users USING btree (lower((wallet)::text)
 
 
 --
+-- Name: idx_management_keys_track_id; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX idx_management_keys_track_id ON public.management_keys USING btree (track_id);
+
+
+--
 -- Name: idx_payment_router_txs_slot; Type: INDEX; Schema: public; Owner: -
 --
 
@@ -9398,6 +11424,55 @@ CREATE INDEX idx_reward_manager_txs_slot ON public.reward_manager_txs USING btre
 --
 
 CREATE INDEX idx_rpc_relayed_by ON public.rpc_log USING btree (relayed_by, relayed_at);
+
+
+--
+-- Name: idx_sla_node_reports_rollup_address; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX idx_sla_node_reports_rollup_address ON public.sla_node_reports USING btree (sla_rollup_id, address);
+
+
+--
+-- Name: idx_sla_rollups_block_end; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX idx_sla_rollups_block_end ON public.sla_rollups USING btree (block_end DESC);
+
+
+--
+-- Name: idx_sound_recordings_track_id; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX idx_sound_recordings_track_id ON public.sound_recordings USING btree (track_id);
+
+
+--
+-- Name: idx_storage_proof_peers_block_height; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX idx_storage_proof_peers_block_height ON public.storage_proof_peers USING btree (block_height DESC);
+
+
+--
+-- Name: idx_storage_proofs_block_height; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX idx_storage_proofs_block_height ON public.storage_proofs USING btree (block_height DESC);
+
+
+--
+-- Name: idx_time; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX idx_time ON public.sla_rollups USING btree ("time" DESC);
+
+
+--
+-- Name: idx_track_releases_track_id; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX idx_track_releases_track_id ON public.track_releases USING btree (track_id);
 
 
 --
@@ -9475,6 +11550,13 @@ CREATE INDEX idx_user_bank_txs_slot ON public.user_bank_txs USING btree (slot);
 --
 
 CREATE INDEX idx_user_status ON public.users USING btree (user_id, is_deactivated, is_available, is_current);
+
+
+--
+-- Name: idx_validator_history_event_time; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX idx_validator_history_event_time ON public.validator_history USING btree (event_time);
 
 
 --
@@ -9692,6 +11774,13 @@ CREATE INDEX ix_user_tips_sender_user_id ON public.user_tips USING btree (sender
 --
 
 CREATE INDEX ix_user_tips_slot ON public.user_tips USING btree (slot);
+
+
+--
+-- Name: ix_users_active_count; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX ix_users_active_count ON public.users USING btree (is_deactivated, is_current, handle_lc, is_available) WHERE ((is_deactivated = false) AND (is_current = true) AND (handle_lc IS NOT NULL) AND (is_available = true));
 
 
 --
@@ -10192,13 +12281,6 @@ CREATE INDEX track_delist_statuses_track_cid_created_at ON public.track_delist_s
 
 
 --
--- Name: track_is_premium_idx; Type: INDEX; Schema: public; Owner: -
---
-
-CREATE INDEX track_is_premium_idx ON public.tracks USING btree (is_stream_gated, is_delete);
-
-
---
 -- Name: track_owner_id_idx; Type: INDEX; Schema: public; Owner: -
 --
 
@@ -10528,6 +12610,20 @@ CREATE TRIGGER trg_follows AFTER INSERT OR UPDATE ON public.follows FOR EACH ROW
 
 
 --
+-- Name: notification trg_notification; Type: TRIGGER; Schema: public; Owner: -
+--
+
+CREATE TRIGGER trg_notification AFTER INSERT ON public.notification FOR EACH ROW EXECUTE FUNCTION public.on_new_notification_row();
+
+
+--
+-- Name: notification_seen trg_notification_seen; Type: TRIGGER; Schema: public; Owner: -
+--
+
+CREATE TRIGGER trg_notification_seen AFTER INSERT ON public.notification_seen FOR EACH ROW EXECUTE FUNCTION public.on_new_notification_seen_row();
+
+
+--
 -- Name: playlists trg_playlists; Type: TRIGGER; Schema: public; Owner: -
 --
 
@@ -10781,6 +12877,22 @@ ALTER TABLE ONLY public.revert_blocks
 
 ALTER TABLE ONLY public.saves
     ADD CONSTRAINT saves_blocknumber_fkey FOREIGN KEY (blocknumber) REFERENCES public.blocks(number) ON DELETE CASCADE;
+
+
+--
+-- Name: shares shares_blocknumber_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.shares
+    ADD CONSTRAINT shares_blocknumber_fkey FOREIGN KEY (blocknumber) REFERENCES public.blocks(number) ON DELETE CASCADE;
+
+
+--
+-- Name: sla_node_reports sla_node_reports_sla_rollup_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.sla_node_reports
+    ADD CONSTRAINT sla_node_reports_sla_rollup_id_fkey FOREIGN KEY (sla_rollup_id) REFERENCES public.sla_rollups(id);
 
 
 --
