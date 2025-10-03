@@ -10,6 +10,7 @@ import (
 	"api.audius.co/jobs"
 	"api.audius.co/logging"
 	"api.audius.co/solana/spl/programs/meteora_dbc"
+	bin "github.com/gagliardetto/binary"
 	"github.com/gagliardetto/solana-go"
 	pb "github.com/rpcpool/yellowstone-grpc/examples/golang/proto"
 	"go.uber.org/zap"
@@ -18,6 +19,9 @@ import (
 // LaserStream from Helius only keeps the last 3000 slots.
 // Subtract 10 slots to be sure that the subscription doesn't fail.
 var MAX_SLOT_GAP = uint64(2990)
+
+// Used to find graduation progress of DBC pools
+const AUDIO_DECIMALS = 8
 
 type artistCoinsChangedNotification struct {
 	Operation string `json:"operation"`
@@ -275,8 +279,18 @@ func (s *SolanaIndexer) handleMessage(ctx context.Context, msg *pb.SubscribeUpda
 			for _, config := range s.config.SolanaConfig.DbcPoolConfigs {
 				if filterName == config.String() {
 					account := solana.PublicKeyFromBytes([]byte(accUpdate.Account.Pubkey))
-					logger.Debug("Updating DBC pool", zap.String("pool", account.String()), zap.String("config", config.String()))
-					err := jobs.NewCoinDBCJob(s.config, s.pool).UpdatePool(ctx, account)
+					logger.Info("Updating DBC pool", zap.String("pool", account.String()), zap.String("config", config.String()))
+					var pool meteora_dbc.Pool
+					err := bin.NewBinDecoder(accUpdate.Account.Data).Decode(&pool)
+
+					dbcClient := meteora_dbc.NewClient(s.rpcClient, logger)
+					poolConfig, err := dbcClient.GetPoolConfig(ctx, pool.Config)
+					if err != nil || poolConfig == nil {
+						logger.Error("failed to get DBC pool config", zap.String("pool", account.String()), zap.String("config", config.String()), zap.Error(err))
+						continue
+					}
+					jobs.NewCoinDBCJob(s.config, s.pool).UpsertPool(ctx, account, pool, *poolConfig)
+
 					if err != nil {
 						logger.Error("failed to update DBC pool", zap.String("pool", account.String()), zap.Error(err))
 					}

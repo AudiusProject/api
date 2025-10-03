@@ -2,22 +2,24 @@ package meteora_dbc
 
 import (
 	"context"
-	"math/big"
 
 	"github.com/gagliardetto/solana-go"
-	"github.com/gagliardetto/solana-go/rpc"
 	"go.uber.org/zap"
 )
 
 var DbcProgramID = solana.MustPublicKeyFromBase58("dbcij3LWUppWqq96dh6gJWwBifmcGfLSB5D4DuSMaqN")
 
+type RpcClient interface {
+	GetAccountDataBorshInto(ctx context.Context, account solana.PublicKey, out interface{}) error
+}
+
 type Client struct {
-	client *rpc.Client
+	client RpcClient
 	logger *zap.Logger
 }
 
 func NewClient(
-	client *rpc.Client,
+	client RpcClient,
 	logger *zap.Logger,
 ) *Client {
 	return &Client{
@@ -55,12 +57,7 @@ func (c *Client) GetPoolCurveProgress(ctx context.Context, poolAccount solana.Pu
 		return 0, err
 	}
 
-	quoteReserve := new(big.Int).SetUint64(pool.QuoteReserve)
-	migrationQuoteThreshold := new(big.Int).SetUint64(config.MigrationQuoteThreshold)
-	quotient := new(big.Rat).SetFrac(quoteReserve, migrationQuoteThreshold)
-	progress, _ := quotient.Float64()
-
-	return progress, nil
+	return pool.GetMigrationProgress(config.MigrationQuoteThreshold), nil
 }
 
 func (c *Client) GetQuotePrice(ctx context.Context, poolAccount solana.PublicKey, tokenBaseDecimals int, tokenQuoteDecimals int) (float64, error) {
@@ -69,15 +66,5 @@ func (c *Client) GetQuotePrice(ctx context.Context, poolAccount solana.PublicKey
 		return 0, err
 	}
 
-	sqrtPrice := pool.SqrtPrice.BigInt()
-	sqrtPriceSquared := new(big.Int).Mul(sqrtPrice, sqrtPrice)
-	decimalsFactor := new(big.Int).Exp(big.NewInt(10), big.NewInt(int64(tokenBaseDecimals-tokenQuoteDecimals)), nil)
-
-	numerator := new(big.Int).Mul(sqrtPriceSquared, decimalsFactor)
-	divisor := new(big.Int).Exp(big.NewInt(2), big.NewInt(128), nil)
-	quotient := new(big.Rat).SetFrac(numerator, divisor)
-
-	price, _ := quotient.Float64()
-
-	return price, nil
+	return pool.GetQuotePrice(tokenBaseDecimals, tokenQuoteDecimals), nil
 }

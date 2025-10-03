@@ -58,6 +58,11 @@ func (m *mockRpcClient) GetTransaction(ctx context.Context, signature solana.Sig
 	return args.Get(0).(*rpc.GetTransactionResult), args.Error(1)
 }
 
+func (m *mockRpcClient) GetAccountDataBorshInto(ctx context.Context, account solana.PublicKey, out interface{}) error {
+	args := m.Called(ctx, account, out)
+	return args.Error(0)
+}
+
 // Tests that the subscription is made for the artist coins in the database
 // and is updated as new artist coins are added and removed.
 func TestSubscription(t *testing.T) {

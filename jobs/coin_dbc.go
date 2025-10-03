@@ -174,25 +174,7 @@ func (j *CoinDBCJob) UpdatePool(ctx context.Context, poolPubkey solana.PublicKey
 		return fmt.Errorf("error getting pool config: %w", err)
 	}
 
-	price, err := j.meteoraClient.GetQuotePrice(ctx, poolPubkey, int(poolConfig.TokenDecimal), AUDIO_DECIMALS)
-	if err != nil {
-		return fmt.Errorf("error getting quote price: %w", err)
-	}
-
-	progress, err := j.meteoraClient.GetPoolCurveProgress(ctx, poolPubkey)
-	if err != nil {
-		return fmt.Errorf("error getting pool curve progress: %w", err)
-	}
-
-	// Fetch USD price for quote mint from database; default to 0 if not found
-	var quoteUSD float64
-	if err := j.pool.QueryRow(ctx, "SELECT price FROM artist_coin_stats WHERE mint = $1", poolConfig.QuoteMint.String()).Scan(&quoteUSD); err != nil {
-		j.logger.Error("error querying quote price; defaulting to 0", zap.String("quote_mint", poolConfig.QuoteMint.String()), zap.Error(err))
-		quoteUSD = 0
-	}
-	priceUSD := quoteUSD * price
-
-	err = j.insertPool(ctx, poolPubkey, *pool, *poolConfig, price, priceUSD, progress)
+	err = j.UpsertPool(ctx, poolPubkey, *pool, *poolConfig)
 	if err != nil {
 		j.logger.Error("error inserting pool", zap.Error(err))
 		return fmt.Errorf("error inserting pool: %w", err)
@@ -200,15 +182,15 @@ func (j *CoinDBCJob) UpdatePool(ctx context.Context, poolPubkey solana.PublicKey
 	return nil
 }
 
-func (j *CoinDBCJob) insertPool(
+func (j *CoinDBCJob) UpsertPool(
 	ctx context.Context,
 	poolAddress solana.PublicKey,
 	pool meteora_dbc.Pool,
 	poolConfig meteora_dbc.PoolConfig,
-	price float64,
-	priceUSD float64,
-	curveProgress float64,
 ) error {
+	price := pool.GetQuotePrice(int(poolConfig.TokenDecimal), AUDIO_DECIMALS)
+	progress := pool.GetMigrationProgress(poolConfig.MigrationQuoteThreshold)
+
 	_, err := j.pool.Exec(ctx, `
         INSERT INTO artist_coin_pools (
             address,
@@ -245,7 +227,7 @@ func (j *CoinDBCJob) insertPool(
             @creator_quote_fee,
             @total_trading_quote_fee,
             @price,
-			@price_usd,
+			@price * (SELECT price FROM artist_coin_stats WHERE mint = @quote_mint),
             @curve_progress,
             @is_migrated,
             NOW(),
@@ -285,8 +267,7 @@ func (j *CoinDBCJob) insertPool(
 		"creator_quote_fee":         pool.CreatorQuoteFee,
 		"total_trading_quote_fee":   pool.Metrics.TotalTradingQuoteFee,
 		"price":                     price,
-		"price_usd":                 priceUSD,
-		"curve_progress":            curveProgress,
+		"curve_progress":            progress,
 		"is_migrated":               pool.IsMigrated != 0,
 		"creator_wallet_address":    pool.Creator.String(),
 	})

@@ -21,6 +21,7 @@ type RpcClient interface {
 	GetSlot(context.Context, rpc.CommitmentType) (uint64, error)
 	GetSignaturesForAddressWithOpts(context.Context, solana.PublicKey, *rpc.GetSignaturesForAddressOpts) ([]*rpc.TransactionSignature, error)
 	GetTransaction(context.Context, solana.Signature, *rpc.GetTransactionOpts) (*rpc.GetTransactionResult, error)
+	GetAccountDataBorshInto(ctx context.Context, account solana.PublicKey, out interface{}) error
 }
 
 type GrpcClient interface {

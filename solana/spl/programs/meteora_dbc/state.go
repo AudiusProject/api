@@ -104,34 +104,3 @@ type PoolMetrics struct {
 	TotalTradingBaseFee   uint64
 	TotalTradingQuoteFee  uint64
 }
-
-type Pool struct {
-	Discriminator              [8]uint8
-	VolatilityTracker          VolatilityTracker
-	Config                     solana.PublicKey
-	Creator                    solana.PublicKey
-	BaseMint                   solana.PublicKey
-	BaseVault                  solana.PublicKey
-	QuoteVault                 solana.PublicKey
-	BaseReserve                uint64
-	QuoteReserve               uint64
-	ProtocolBaseFee            uint64
-	ProtocolQuoteFee           uint64
-	PartnerBaseFee             uint64
-	PartnerQuoteFee            uint64
-	SqrtPrice                  bin.Uint128
-	ActivationPoint            uint64
-	PoolType                   uint8
-	IsMigrated                 uint8
-	IsPartnerWithdrawSurplus   uint8
-	IsProtocolWithdrawSurplus  uint8
-	MigrationProgress          uint8
-	IsWithdrawLeftover         uint8
-	IsCreatorWithdrawSurplus   uint8
-	MigrationFeeWithdrawStatus uint8
-	Metrics                    PoolMetrics
-	FinishCurveTimestamp       uint64
-	CreatorBaseFee             uint64
-	CreatorQuoteFee            uint64
-	Padding1                   [7]uint64
-}
