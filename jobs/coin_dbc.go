@@ -99,25 +99,68 @@ func (j *CoinDBCJob) run(ctx context.Context) error {
 		}
 
 		for _, coin := range batch {
-			baseMint := solana.MustPublicKeyFromBase58(coin.Mint)
-			pool, err := j.dbc.GetPoolByBaseMint(ctx, baseMint)
+			found, err := j.UpdatePoolForBaseMint(ctx, coin.Mint, false)
 			if err != nil {
-				j.logger.Error("pool lookup failed", zap.String("mint", coin.Mint), zap.Error(err))
-				continue
-			}
-			if pool == nil {
-				j.logger.Debug("No pool found for mint", zap.String("mint", coin.Mint))
-				continue
-			}
-			poolPubkey := pool.Address
-			if err := j.updatePool(ctx, poolPubkey); err != nil {
 				j.logger.Error("error updating pool", zap.String("mint", coin.Mint), zap.Error(err))
+				continue
+			}
+			if !found {
+				j.logger.Debug("No pool found for mint", zap.String("mint", coin.Mint))
 			}
 		}
 		j.logger.Info("Processed batch", zap.Int("offset", offset), zap.Int("batch_size", len(batch)))
 	}
 
 	return nil
+}
+
+// UpdatePoolForBaseMint fetches pool data and updates the DB for a single base mint.
+// If poll is true, it will poll until the pool is created or timeout is reached.
+func (j *CoinDBCJob) UpdatePoolForBaseMint(
+	ctx context.Context,
+	baseMintStr string,
+	poll bool,
+) (bool, error) {
+	pollInterval := 2 * time.Second
+	timeout := 30 * time.Second
+
+	baseMint := solana.MustPublicKeyFromBase58(baseMintStr)
+
+	getPoolAndUpdate := func() (bool, error) {
+		pool, err := j.dbc.GetPoolByBaseMint(ctx, baseMint)
+		if err != nil {
+			return false, fmt.Errorf("pool lookup failed: %w", err)
+		}
+		if pool == nil {
+			return false, nil
+		}
+		if err := j.updatePool(ctx, pool.Address); err != nil {
+			return false, err
+		}
+		return true, nil
+	}
+
+	found, err := getPoolAndUpdate()
+	if err != nil || found || !poll {
+		return found, err
+	}
+
+	// Poll for creation
+	deadline := time.Now().Add(timeout)
+	for {
+		if time.Now().After(deadline) {
+			return false, nil
+		}
+		select {
+		case <-ctx.Done():
+			return false, ctx.Err()
+		case <-time.After(pollInterval):
+			found, err = getPoolAndUpdate()
+			if err != nil || found {
+				return found, err
+			}
+		}
+	}
 }
 
 func (j *CoinDBCJob) updatePool(ctx context.Context, poolPubkey solana.PublicKey) error {
