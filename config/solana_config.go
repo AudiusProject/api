@@ -30,6 +30,8 @@ type SolanaConfig struct {
 	StakingBridgeUsdcTokenAccount solana.PublicKey
 
 	PaymentRouterProgramID solana.PublicKey
+
+	DbcPoolConfigs []solana.PublicKey
 }
 
 const (
@@ -87,6 +89,11 @@ func NewSolanaConfig() SolanaConfig {
 		}
 	} else {
 		cfg.FeePayers = make([]solana.Wallet, 0)
+	}
+
+	cfg.DbcPoolConfigs = []solana.PublicKey{
+		solana.MustPublicKeyFromBase58("aDBCdATdhH3381hLjHPUjcg3DqdQ5cE5ke9fZDV9zbw"),  // Final config
+		solana.MustPublicKeyFromBase58("2seGMFauXC22DX8hbop1gh54W1uW8YREWhsU7JuCptTj"), // test config
 	}
 
 	switch env := os.Getenv("ENV"); env {
