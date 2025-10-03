@@ -190,6 +190,7 @@ func NewApiServer(config config.Config) *ApiServer {
 		}),
 		commsRpcProcessor:     commsRpcProcessor,
 		env:                   config.Env,
+		audiusAppUrl:          config.AudiusAppUrl,
 		skipAuthCheck:         skipAuthCheck,
 		pool:                  pool,
 		writePool:             writePool,
@@ -361,6 +362,8 @@ func NewApiServer(config config.Config) *ApiServer {
 		g.Get("/users/:userId/purchases", app.v1UsersPurchases)
 		g.Get("/users/:userId/purchases/count", app.v1UsersPurchasesCount)
 		g.Get("/users/:userId/sales", app.v1UsersSales)
+		g.Get("/users/:userId/sales/download", app.v1UsersSalesDownloadCsv)
+		g.Get("/users/:userId/sales/download/json", app.v1UsersSalesDownloadJson)
 		g.Get("/users/:userId/sales/count", app.v1UsersSalesCount)
 		g.Get("/users/:userId/sales/aggregate", app.v1UsersSalesAggregate)
 		g.Get("/users/:userId/muted", app.v1UsersMuted)
@@ -607,6 +610,7 @@ type ApiServer struct {
 	validators            []config.Node
 	env                   string
 	auds                  *sdk.AudiusdSDK
+	audiusAppUrl          string
 	skipAuthCheck         bool // set to true in a test if you don't care about auth middleware
 	metricsCollector      *MetricsCollector
 	birdeyeClient         BirdeyeClient
