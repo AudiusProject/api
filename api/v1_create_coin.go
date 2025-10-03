@@ -108,9 +108,9 @@ func (app *ApiServer) v1CreateCoin(c *fiber.Ctx) error {
 		})
 	}
 
-	// Temporarily run the job for all pools to ensure the new coin will have a price
-	// In the future we'll likely want to subscribe to the specific pool account in indexer instead
-	jobs.NewCoinDBCJob(config.Cfg, app.writePool).Run(c.Context())
+	// Update the pool for the new coin
+	coinJob := jobs.NewCoinDBCJob(config.Cfg, app.writePool)
+	coinJob.UpdatePoolForBaseMint(c.Context(), result.Mint, true)
 
 	return c.Status(fiber.StatusCreated).JSON(fiber.Map{
 		"data": result,
