@@ -7,26 +7,30 @@ import (
 	"sync"
 	"time"
 
-	"api.audius.co/config"
+	"connectrpc.com/connect"
+	ethv1 "github.com/AudiusProject/audiusd/pkg/api/eth/v1"
 
+	"api.audius.co/config"
+	"github.com/AudiusProject/audiusd/pkg/sdk"
 	"go.uber.org/zap"
 )
 
 // ContentNodeMonitor pings storage enabled nodes on a timer and caches a list
 // of the ones that responded.
 type ContentNodeMonitor struct {
-	config              config.Config
-	storageEnabledNodes []config.Node // Filtered list of nodes with storage enabled
-	healthyNodes        []config.Node
-	mu                  sync.RWMutex
-	stopChan            chan struct{}
-	running             bool
-	runningMu           sync.Mutex
-	httpClient          *http.Client
-	logger              *zap.Logger
+	auds         *sdk.AudiusdSDK
+	config       config.Config
+	healthyNodes []config.Node
+	mu           sync.RWMutex
+	stopChan     chan struct{}
+	running      bool
+	runningMu    sync.Mutex
+	httpClient   *http.Client
+	logger       *zap.Logger
 }
 
 func NewContentNodeMonitor(cfg config.Config, logger *zap.Logger) *ContentNodeMonitor {
+	auds := sdk.NewAudiusdSDK(cfg.AudiusdURL)
 	// Filter nodes to only include those with storage enabled
 	var storageEnabledNodes []config.Node
 	for _, node := range cfg.Nodes {
@@ -36,9 +40,9 @@ func NewContentNodeMonitor(cfg config.Config, logger *zap.Logger) *ContentNodeMo
 	}
 
 	return &ContentNodeMonitor{
-		config:              cfg,
-		storageEnabledNodes: storageEnabledNodes,
-		healthyNodes:        storageEnabledNodes,
+		auds:         auds,
+		config:       cfg,
+		healthyNodes: storageEnabledNodes,
 		httpClient: &http.Client{
 			Timeout: 5 * time.Second,
 		},
@@ -102,6 +106,27 @@ func (m *ContentNodeMonitor) monitorLoop() {
 	}
 }
 
+func (m *ContentNodeMonitor) getRegisteredNodes(ctx context.Context) ([]config.Node, error) {
+	endpoints, err := m.auds.Eth.GetRegisteredEndpoints(ctx, connect.NewRequest(&ethv1.GetRegisteredEndpointsRequest{}))
+	if err != nil {
+		return []config.Node{}, err
+	}
+	var nodes []config.Node
+	var endpointStrings []string
+	for _, endpoint := range endpoints.Msg.Endpoints {
+		if endpoint.ServiceType == "content-node" {
+			nodes = append(nodes, config.Node{
+				Endpoint:            endpoint.Endpoint,
+				DelegateOwnerWallet: endpoint.DelegateWallet,
+				OwnerWallet:         endpoint.Owner,
+				IsStorageDisabled:   false,
+			})
+			endpointStrings = append(endpointStrings, endpoint.Endpoint)
+		}
+	}
+	return nodes, nil
+}
+
 func (m *ContentNodeMonitor) updateHealthyNodes() {
 	// Use a mutex to ensure only one health check runs at a time
 	m.runningMu.Lock()
@@ -121,10 +146,16 @@ func (m *ContentNodeMonitor) updateHealthyNodes() {
 		healthy bool
 	}
 
-	resultChan := make(chan healthResult, len(m.storageEnabledNodes))
+	registeredNodes, err := m.getRegisteredNodes(ctx)
+	if err != nil {
+		m.logger.Error("Failed to get registered nodes", zap.Error(err))
+		return
+	}
+
+	resultChan := make(chan healthResult, len(registeredNodes))
 
 	// Check health in parallel
-	for _, node := range m.storageEnabledNodes {
+	for _, node := range registeredNodes {
 		go func(n config.Node) {
 			healthy := m.checkSingleNodeHealth(ctx, n)
 			resultChan <- healthResult{node: n, healthy: healthy}
@@ -134,7 +165,7 @@ func (m *ContentNodeMonitor) updateHealthyNodes() {
 	var healthyNodes []config.Node
 
 nodeCheckLoop:
-	for i := 0; i < len(m.storageEnabledNodes); i++ {
+	for i := 0; i < len(registeredNodes); i++ {
 		select {
 		case result := <-resultChan:
 			if result.healthy {
@@ -145,7 +176,7 @@ nodeCheckLoop:
 			m.logger.Error("Content node health check timed out",
 				zap.Error(ctx.Err()),
 				zap.Int("nodes_checked", i),
-				zap.Int("total_nodes", len(m.storageEnabledNodes)))
+				zap.Int("total_nodes", len(registeredNodes)))
 			break nodeCheckLoop
 		}
 	}
@@ -156,7 +187,7 @@ nodeCheckLoop:
 
 	m.logger.Debug("Content node health check completed",
 		zap.Int("healthy_nodes", len(healthyNodes)),
-		zap.Int("total_nodes", len(m.storageEnabledNodes)))
+		zap.Int("total_nodes", len(registeredNodes)))
 }
 
 func (m *ContentNodeMonitor) checkSingleNodeHealth(ctx context.Context, node config.Node) bool {
