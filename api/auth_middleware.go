@@ -56,6 +56,10 @@ func (app *ApiServer) isAuthorizedRequest(ctx context.Context, userId int32, aut
 		return true
 	}
 
+	if authedWallet == "" {
+		return false
+	}
+
 	cacheKey := fmt.Sprintf("%d:%s", userId, authedWallet)
 	if hit, ok := app.resolveGrantCache.Get(cacheKey); ok {
 		return hit
@@ -124,6 +128,26 @@ func (app *ApiServer) authMiddleware(c *fiber.Ctx) error {
 				"You are not authorized to make this request authedWallet=%s myWallet=%s",
 				wallet,
 				myWallet,
+			),
+		)
+	}
+
+	return c.Next()
+}
+
+// Middleware to require auth for the userId in the route params
+// Returns a 403 if the authedWallet is not authorized to act on behalf of the userId
+// Should be placed after authMiddleware
+func (app *ApiServer) requireAuthForUserId(c *fiber.Ctx) error {
+	wallet := c.Locals("authedWallet").(string)
+	userId := app.getUserId(c)
+	if !app.isAuthorizedRequest(c.Context(), userId, wallet) {
+		return fiber.NewError(
+			fiber.StatusForbidden,
+			fmt.Sprintf(
+				"You are not authorized to make this request authedWallet=%s userId=%d",
+				wallet,
+				userId,
 			),
 		)
 	}
