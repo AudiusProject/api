@@ -4,6 +4,8 @@ import (
 	"errors"
 	"time"
 
+	"api.audius.co/config"
+	"api.audius.co/jobs"
 	"github.com/gofiber/fiber/v2"
 	"github.com/jackc/pgerrcode"
 	"github.com/jackc/pgx/v5"
@@ -105,6 +107,10 @@ func (app *ApiServer) v1CreateCoin(c *fiber.Ctx) error {
 			"error": "Failed to create coin",
 		})
 	}
+
+	// Temporarily run the job for all pools to ensure the new coin will have a price
+	// In the future we'll likely want to subscribe to the specific pool account in indexer instead
+	jobs.NewCoinDBCJob(config.Cfg, app.writePool).Run(c.Context())
 
 	return c.Status(fiber.StatusCreated).JSON(fiber.Map{
 		"data": result,
