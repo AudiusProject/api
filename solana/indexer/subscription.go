@@ -278,7 +278,7 @@ func (s *SolanaIndexer) handleMessage(ctx context.Context, msg *pb.SubscribeUpda
 			for _, config := range s.config.SolanaConfig.DbcPoolConfigs {
 				if filterName == config.String() {
 					account := solana.PublicKeyFromBytes([]byte(accUpdate.Account.Pubkey))
-					logger.Warn("Updating DBC pool", zap.String("pool", account.String()), zap.String("config", config.String()))
+					logger.Debug("Updating DBC pool", zap.String("pool", account.String()), zap.String("config", config.String()))
 					err := jobs.NewCoinDBCJob(s.config, s.pool).UpdatePool(ctx, account)
 					if err != nil {
 						logger.Error("failed to update DBC pool", zap.String("pool", account.String()), zap.Error(err))
