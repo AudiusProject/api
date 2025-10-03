@@ -134,7 +134,7 @@ func (j *CoinDBCJob) UpdatePoolForBaseMint(
 		if pool == nil {
 			return false, nil
 		}
-		if err := j.updatePool(ctx, pool.Address); err != nil {
+		if err := j.UpdatePool(ctx, pool.Address); err != nil {
 			return false, err
 		}
 		return true, nil
@@ -163,7 +163,7 @@ func (j *CoinDBCJob) UpdatePoolForBaseMint(
 	}
 }
 
-func (j *CoinDBCJob) updatePool(ctx context.Context, poolPubkey solana.PublicKey) error {
+func (j *CoinDBCJob) UpdatePool(ctx context.Context, poolPubkey solana.PublicKey) error {
 	pool, err := j.meteoraClient.GetPool(ctx, poolPubkey)
 	if err != nil {
 		return fmt.Errorf("error getting pool: %w", err)

@@ -7,7 +7,9 @@ import (
 	"strings"
 	"time"
 
+	"api.audius.co/jobs"
 	"api.audius.co/logging"
+	"api.audius.co/solana/spl/programs/meteora_dbc"
 	"github.com/gagliardetto/solana-go"
 	pb "github.com/rpcpool/yellowstone-grpc/examples/golang/proto"
 	"go.uber.org/zap"
@@ -79,7 +81,12 @@ func (s *SolanaIndexer) Subscribe(ctx context.Context) error {
 			return fmt.Errorf("failed to get artist coins: %w", err)
 		}
 
-		subscription, err := buildSubscriptionRequest(coins)
+		var dbcPoolConfigs []string
+		for _, config := range s.config.SolanaConfig.DbcPoolConfigs {
+			dbcPoolConfigs = append(dbcPoolConfigs, config.String())
+		}
+
+		subscription, err := buildSubscriptionRequest(coins, dbcPoolConfigs)
 		if err != nil {
 			return fmt.Errorf("failed to create subscription: %w", err)
 		}
@@ -171,7 +178,7 @@ func (s *SolanaIndexer) Subscribe(ctx context.Context) error {
 	}
 }
 
-func buildSubscriptionRequest(mintAddresses []string) (*pb.SubscribeRequest, error) {
+func buildSubscriptionRequest(mintAddresses []string, dbcPoolConfigs []string) (*pb.SubscribeRequest, error) {
 	commitment := pb.CommitmentLevel_CONFIRMED
 	subscription := &pb.SubscribeRequest{
 		Commitment: &commitment,
@@ -205,6 +212,25 @@ func buildSubscriptionRequest(mintAddresses []string) (*pb.SubscribeRequest, err
 			},
 		}
 		subscription.Accounts[mint] = &accountFilter
+	}
+
+	for _, config := range dbcPoolConfigs {
+		dbcFilter := pb.SubscribeRequestFilterAccounts{
+			Owner: []string{meteora_dbc.DbcProgramID.String()},
+			Filters: []*pb.SubscribeRequestFilterAccountsFilter{
+				{
+					Filter: &pb.SubscribeRequestFilterAccountsFilter_Memcmp{
+						Memcmp: &pb.SubscribeRequestFilterAccountsFilterMemcmp{
+							Offset: 72,
+							Data: &pb.SubscribeRequestFilterAccountsFilterMemcmp_Base58{
+								Base58: config,
+							},
+						},
+					},
+				},
+			},
+		}
+		subscription.Accounts[config] = &dbcFilter
 	}
 
 	// Listen to all the Audius programs for transactions (currently redundant)
@@ -243,6 +269,23 @@ func (s *SolanaIndexer) handleMessage(ctx context.Context, msg *pb.SubscribeUpda
 
 	accUpdate := msg.GetAccount()
 	if accUpdate != nil {
+		if msg.Filters == nil || len(msg.Filters) == 0 {
+			pubkeyBase58 := solana.PublicKeyFromBytes([]byte(accUpdate.Account.Pubkey)).String()
+			logger.Warn("account update with no filters, skipping", zap.String("pubkey", pubkeyBase58), zap.Uint64("slot", accUpdate.Slot))
+			return
+		}
+		for _, filterName := range msg.Filters {
+			for _, config := range s.config.SolanaConfig.DbcPoolConfigs {
+				if filterName == config.String() {
+					account := solana.PublicKeyFromBytes([]byte(accUpdate.Account.Pubkey))
+					logger.Warn("Updating DBC pool", zap.String("pool", account.String()), zap.String("config", config.String()))
+					err := jobs.NewCoinDBCJob(s.config, s.pool).UpdatePool(ctx, account)
+					if err != nil {
+						logger.Error("failed to update DBC pool", zap.String("pool", account.String()), zap.Error(err))
+					}
+				}
+			}
+		}
 		txSig := solana.SignatureFromBytes(accUpdate.Account.TxnSignature)
 		err := s.processor.ProcessSignature(ctx, accUpdate.Slot, txSig, logger)
 		if err != nil {
