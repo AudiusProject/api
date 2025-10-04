@@ -5515,6 +5515,7 @@ components:
             - curveProgress
             - creatorQuoteFee
             - totalTradingQuoteFee
+            - creatorWalletAddress
           properties:
             address:
               type: string
@@ -5544,6 +5545,10 @@ components:
               type: number
               description: Total trading quote fee accumulated
               example: 0.001
+            creatorWalletAddress:
+              type: string
+              description: Address of the pool creator's wallet
+              example: "2AAsAwNPTNBk5N466xyPiwqdgbc5WLbDTdnn9gVuDKaN"
     coin_response:
       type: object
       properties:
@@ -5911,6 +5916,7 @@ components:
             - curveProgress
             - creatorQuoteFee
             - totalTradingQuoteFee
+            - creatorWalletAddress
           properties:
             address:
               type: string
@@ -5940,6 +5946,10 @@ components:
               type: number
               description: Total trading quote fee accumulated
               example: 0.001
+            creatorWalletAddress:
+              type: string
+              description: Address of the pool creator's wallet
+              example: "2AAsAwNPTNBk5N466xyPiwqdgbc5WLbDTdnn9gVuDKaN"
     coin_insights_response:
       type: object
       properties:
