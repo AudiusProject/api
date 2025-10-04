@@ -119,7 +119,8 @@ func (s *SolanaIndexer) Subscribe(ctx context.Context) error {
 			fromSlot = lastIndexedSlot
 		} else {
 			if lastIndexedSlot == 0 {
-				s.logger.Warn("no last indexed slot found, starting from minimum slot and skipping backfill", zap.Uint64("fromSlot", minimumSlot))
+				s.logger.Warn("no last indexed slot found, starting from most recent slot (less 100 for safety) and skipping backfill", zap.Uint64("fromSlot", minimumSlot))
+				fromSlot = latestSlot - 100 // start 100 slots back to be safe
 			} else {
 				s.logger.Warn("last indexed slot is too old, starting from minimum slot and backfilling", zap.Uint64("fromSlot", minimumSlot), zap.Uint64("toSlot", lastIndexedSlot))
 				go func(lastIndexedSlot, minimumSlot uint64) {
@@ -128,8 +129,8 @@ func (s *SolanaIndexer) Subscribe(ctx context.Context) error {
 						s.logger.Error("failed to backfill", zap.Uint64("fromSlot", lastIndexedSlot), zap.Uint64("toSlot", minimumSlot), zap.Error(err))
 					}
 				}(lastIndexedSlot, minimumSlot)
+				fromSlot = minimumSlot
 			}
-			fromSlot = minimumSlot
 		}
 
 		s.checkpointId, err = insertCheckpointStart(ctx, s.pool, fromSlot, subscription)
