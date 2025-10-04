@@ -61,6 +61,7 @@ type DynamicBondingCurveInsights struct {
 	IsMigrated           bool    `json:"isMigrated"`
 	CreatorQuoteFee      float64 `json:"creatorQuoteFee"`
 	TotalTradingQuoteFee float64 `json:"totalTradingQuoteFee"`
+	CreatorWalletAddress string  `json:"creatorWalletAddress"`
 }
 
 func (app *ApiServer) v1CoinInsights(c *fiber.Ctx) error {
@@ -81,7 +82,8 @@ func (app *ApiServer) v1CoinInsights(c *fiber.Ctx) error {
 			'curveProgress', artist_coin_pools.curve_progress,
 			'isMigrated', artist_coin_pools.is_migrated,
 			'creatorQuoteFee', artist_coin_pools.creator_quote_fee,
-			'totalTradingQuoteFee', COALESCE(artist_coin_pools.total_trading_quote_fee, 0)
+			'totalTradingQuoteFee', COALESCE(artist_coin_pools.total_trading_quote_fee, 0),
+			'creatorWalletAddress', artist_coin_pools.creator_wallet_address
 		) AS dynamic_bonding_curve
 		FROM artist_coin_stats
 		LEFT JOIN artist_coin_pools
