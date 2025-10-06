@@ -41,12 +41,11 @@ func (app *ApiServer) v1CreateCoin(c *fiber.Ctx) error {
 	if err != nil {
 		return err
 	}
-	// TODO: Temporarily disabled for QA purposes
-	// if !isVerified {
-	// 	return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
-	// 		"error": "User must be verified to create coins",
-	// 	})
-	// }
+	if !isVerified {
+		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
+			"error": "User must be verified to create coins",
+		})
+	}
 
 	// Check if user has already created a coin
 	var hasExistingCoin bool
