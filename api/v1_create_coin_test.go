@@ -149,42 +149,42 @@ func TestV1CreateCoin_DuplicateMint(t *testing.T) {
 
 }
 
-// func TestV1CreateCoin_UnverifiedUser(t *testing.T) {
-// 	app := emptyTestApp(t)
-// 	database.Seed(app.pool.Replicas[0], database.FixtureMap{
-// 		"users": {
-// 			{
-// 				"user_id":     2,
-// 				"wallet":      "0xc3d1d41e6872ffbd15c473d14fc3a9250be5b5e0", // Use existing wallet with signature data
-// 				"is_verified": false,                                        // User is not verified
-// 			},
-// 		},
-// 	})
+func TestV1CreateCoin_UnverifiedUser(t *testing.T) {
+	app := emptyTestApp(t)
+	database.Seed(app.pool.Replicas[0], database.FixtureMap{
+		"users": {
+			{
+				"user_id":     2,
+				"wallet":      "0xc3d1d41e6872ffbd15c473d14fc3a9250be5b5e0", // Use existing wallet with signature data
+				"is_verified": false,                                        // User is not verified
+			},
+		},
+	})
 
-// 	requestBody := CreateCoinBody{
-// 		Mint:        "bearR26zyyB3fNQm5wWv1ZfN8MPQDUMwaAuoG79b1Yj",
-// 		Ticker:      "BEAR",
-// 		Decimals:    9,
-// 		Name:        "BEAR",
-// 		LogoUri:     "https://example.com/bear-logo.png",
-// 		Description: "A majestic bear token for wildlife conservation",
-// 	}
-// 	requestBodyBytes, err := json.Marshal(requestBody)
-// 	assert.NoError(t, err)
+	requestBody := CreateCoinBody{
+		Mint:        "bearR26zyyB3fNQm5wWv1ZfN8MPQDUMwaAuoG79b1Yj",
+		Ticker:      "BEAR",
+		Decimals:    9,
+		Name:        "BEAR",
+		LogoUri:     "https://example.com/bear-logo.png",
+		Description: "A majestic bear token for wildlife conservation",
+	}
+	requestBodyBytes, err := json.Marshal(requestBody)
+	assert.NoError(t, err)
 
-// 	status, body := testPostWithWallet(t, app, "/v1/coins?user_id="+trashid.MustEncodeHashID(2), "0xc3d1d41e6872ffbd15c473d14fc3a9250be5b5e0", requestBodyBytes, map[string]string{
-// 		"Content-Type": "application/json",
-// 	})
+	status, body := testPostWithWallet(t, app, "/v1/coins?user_id="+trashid.MustEncodeHashID(2), "0xc3d1d41e6872ffbd15c473d14fc3a9250be5b5e0", requestBodyBytes, map[string]string{
+		"Content-Type": "application/json",
+	})
 
-// 	assert.Equal(t, 400, status)
-// 	jsonAssert(t, body, map[string]any{
-// 		"error": "User must be verified to create coins",
-// 	})
+	assert.Equal(t, 400, status)
+	jsonAssert(t, body, map[string]any{
+		"error": "User must be verified to create coins",
+	})
 
-// 	// Verify the coin was NOT created by trying to fetch it via API
-// 	status, _ = testGet(t, app, "/v1/coins/bearR26zyyB3fNQm5wWv1ZfN8MPQDUMwaAuoG79b1Yj")
-// 	assert.Equal(t, 404, status)
-// }
+	// Verify the coin was NOT created by trying to fetch it via API
+	status, _ = testGet(t, app, "/v1/coins/bearR26zyyB3fNQm5wWv1ZfN8MPQDUMwaAuoG79b1Yj")
+	assert.Equal(t, 404, status)
+}
 
 func TestV1CreateCoin_DeactivatedUser(t *testing.T) {
 	app := emptyTestApp(t)
