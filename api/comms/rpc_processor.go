@@ -451,12 +451,13 @@ func (proc *RPCProcessor) handleChatMessageInserted(ctx context.Context, notific
 	}
 
 	type InsertedChatMessage struct {
-		MessageID   string      `db:"message_id"`
-		ChatID      string      `db:"chat_id"`
-		UserID      int32       `db:"user_id"`
-		CreatedAt   time.Time   `db:"created_at"`
-		Ciphertext  pgtype.Text `db:"ciphertext"`
-		IsPlaintext bool        `db:"is_plaintext"`
+		MessageID   string            `db:"message_id"`
+		ChatID      string            `db:"chat_id"`
+		UserID      int32             `db:"user_id"`
+		CreatedAt   time.Time         `db:"created_at"`
+		Ciphertext  pgtype.Text       `db:"ciphertext"`
+		IsPlaintext bool              `db:"is_plaintext"`
+		Audience    ChatBlastAudience `db:"audience"`
 	}
 	// Joins on blasts to get message text if the origin was a blast
 	row, err := proc.writePool.Query(ctx, `
@@ -466,6 +467,7 @@ func (proc *RPCProcessor) handleChatMessageInserted(ctx context.Context, notific
 			chat_message.user_id,
 			chat_message.created_at,
 			COALESCE(chat_message.ciphertext, chat_blast.plaintext) AS ciphertext,
+			COALESCE(chat_blast.audience, '') AS audience,
 			chat_blast.plaintext IS NOT NULL as is_plaintext
 		FROM chat_message
 		JOIN chat_member ON chat_message.chat_id = chat_member.chat_id
@@ -500,6 +502,7 @@ func (proc *RPCProcessor) handleChatMessageInserted(ctx context.Context, notific
 			MessageID:   chatMessage.MessageID,
 			IsPlaintext: &chatMessage.IsPlaintext,
 			Message:     chatMessage.Ciphertext.String,
+			Audience:    &chatMessage.Audience,
 		},
 	}
 
