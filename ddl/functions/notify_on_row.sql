@@ -18,6 +18,9 @@ end;
 $$ language plpgsql;
 
 -- register trigger for an insert / update on the following tables
+-- WARNING: Be EXTREMELY careful when touching this because it requires a large number of locks to run.
+-- If you add a table, it is very recommended to run it manually first and babysit it (canceling any blocking queries that show up).
+-- Creating the trigger is fast, but it can easily deadlock the database.
 do $$
 declare
   tbl text;
