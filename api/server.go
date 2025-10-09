@@ -360,6 +360,8 @@ func NewApiServer(config config.Config) *ApiServer {
 		g.Get("/users/:userId/history/tracks", app.v1UsersHistory)
 		g.Get("/users/:userId/listen_counts_monthly", app.v1UsersListenCountsMonthly)
 		g.Get("/users/:userId/purchases", app.requireAuthForUserId, app.v1UsersPurchases)
+		g.Get("/users/:userId/purchases/download", app.requireAuthForUserId, app.v1UsersPurchasesDownloadCsv)
+		g.Get("/users/:userId/purchases/download/json", app.requireAuthForUserId, app.v1UsersPurchasesDownloadJson)
 		g.Get("/users/:userId/purchases/count", app.requireAuthForUserId, app.v1UsersPurchasesCount)
 		g.Get("/users/:userId/sales", app.requireAuthForUserId, app.v1UsersSales)
 		g.Get("/users/:userId/sales/download", app.requireAuthForUserId, app.v1UsersSalesDownloadCsv)

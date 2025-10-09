@@ -16,11 +16,11 @@ type GetUsersSalesDownloadQueryParams struct {
 	GranteeUserID *trashid.HashId `query:"grantee_user_id"`
 }
 
-type UsdcPurchaseWithEmailResponse struct {
-	Sales []UsdcPurchaseWithEmail `json:"sales"`
+type UsdcSaleWithEmailResponse struct {
+	Sales []UsdcSaleWithEmail `json:"sales"`
 }
 
-type UsdcPurchaseWithEmail struct {
+type UsdcSaleWithEmail struct {
 	Title          string    `db:"title" json:"title"`
 	Link           string    `db:"link" json:"link"`
 	PurchasedBy    string    `db:"purchased_by" json:"purchased_by"`
@@ -28,7 +28,6 @@ type UsdcPurchaseWithEmail struct {
 	SalePrice      float64   `db:"sale_price" json:"sale_price"`
 	NetworkFee     float64   `db:"-" json:"network_fee"`
 	PayExtra       float64   `db:"pay_extra" json:"pay_extra"`
-	Splits         []Split   `db:"splits" json:"-"`
 	Total          float64   `db:"-" json:"total"`
 	Country        string    `db:"country" json:"country"`
 	EncryptedEmail *string   `db:"encrypted_email" json:"encrypted_email"`
@@ -36,9 +35,11 @@ type UsdcPurchaseWithEmail struct {
 	BuyerUserID    *int      `db:"buyer_user_id" json:"buyer_user_id"`
 	IsInitial      *bool     `db:"is_initial" json:"is_initial"`
 	PubkeyBase64   *string   `db:"pubkey_base64" json:"pubkey_base64"`
+
+	Splits []Split `db:"splits" json:"-"`
 }
 
-func (app *ApiServer) userSalesForDownload(c *fiber.Ctx) ([]UsdcPurchaseWithEmail, error) {
+func (app *ApiServer) userSalesForDownload(c *fiber.Ctx) ([]UsdcSaleWithEmail, error) {
 	userId := app.getUserId(c)
 	params := GetUsersSalesDownloadQueryParams{}
 	if err := app.ParseAndValidateQueryParams(c, &params); err != nil {
@@ -121,23 +122,23 @@ func (app *ApiServer) userSalesForDownload(c *fiber.Ctx) ([]UsdcPurchaseWithEmai
 		return nil, err
 	}
 
-	sales, err := pgx.CollectRows(rows, pgx.RowToStructByName[UsdcPurchaseWithEmail])
+	sales, err := pgx.CollectRows(rows, pgx.RowToStructByName[UsdcSaleWithEmail])
 	if err != nil {
 		return nil, err
 	}
 
 	for i := range sales {
-		total := 0
-		networkFee := 0
+		networkFee := 0.0
+		total := 0.0
 		for _, split := range sales[i].Splits {
 			if split.PayoutWallet == app.solanaConfig.StakingBridgeUsdcTokenAccount.String() {
-				networkFee -= int(split.Amount)
+				networkFee = 0 - float64(split.Amount)/1000000
 			} else if split.UserID != nil && int(userId) == *split.UserID {
-				total += int(split.Amount)
+				total = float64(split.Amount)/1000000 + sales[i].PayExtra
 			}
 		}
-		sales[i].Total = float64(total) / 1000000
-		sales[i].NetworkFee = float64(networkFee) / 1000000
+		sales[i].NetworkFee = networkFee
+		sales[i].Total = total
 	}
 
 	return sales, nil
@@ -150,7 +151,7 @@ func (app *ApiServer) v1UsersSalesDownloadJson(c *fiber.Ctx) error {
 	}
 
 	return c.JSON(fiber.Map{
-		"data": UsdcPurchaseWithEmailResponse{
+		"data": UsdcSaleWithEmailResponse{
 			Sales: sales,
 		},
 	})
