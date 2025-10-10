@@ -1,10 +1,7 @@
 package api
 
 import (
-	"encoding/csv"
 	"fmt"
-	"strconv"
-	"strings"
 	"time"
 
 	"api.audius.co/trashid"
@@ -21,22 +18,22 @@ type UsdcSaleWithEmailResponse struct {
 }
 
 type UsdcSaleWithEmail struct {
-	Title          string    `db:"title" json:"title"`
-	Link           string    `db:"link" json:"link"`
-	PurchasedBy    string    `db:"purchased_by" json:"purchased_by"`
-	CreatedAt      time.Time `db:"created_at" json:"date"`
-	SalePrice      float64   `db:"sale_price" json:"sale_price"`
-	NetworkFee     float64   `db:"-" json:"network_fee"`
-	PayExtra       float64   `db:"pay_extra" json:"pay_extra"`
-	Total          float64   `db:"-" json:"total"`
-	Country        string    `db:"country" json:"country"`
-	EncryptedEmail *string   `db:"encrypted_email" json:"encrypted_email"`
-	EncryptedKey   *string   `db:"encrypted_key" json:"encrypted_key"`
-	BuyerUserID    *int      `db:"buyer_user_id" json:"buyer_user_id"`
-	IsInitial      *bool     `db:"is_initial" json:"is_initial"`
-	PubkeyBase64   *string   `db:"pubkey_base64" json:"pubkey_base64"`
+	Title          string    `db:"title" json:"title" csv:"title"`
+	Link           string    `db:"link" json:"link" csv:"link"`
+	PurchasedBy    string    `db:"purchased_by" json:"purchased_by" csv:"purchased by"`
+	CreatedAt      time.Time `db:"created_at" json:"date" csv:"date"`
+	SalePrice      float64   `db:"sale_price" json:"sale_price" csv:"sale price"`
+	NetworkFee     float64   `db:"-" json:"network_fee" csv:"network_fee"`
+	PayExtra       float64   `db:"pay_extra" json:"pay_extra" csv:"pay extra"`
+	Total          float64   `db:"-" json:"total" csv:"total"`
+	Country        string    `db:"country" json:"country" csv:"country"`
+	EncryptedEmail *string   `db:"encrypted_email" json:"encrypted_email" csv:"-"`
+	EncryptedKey   *string   `db:"encrypted_key" json:"encrypted_key" csv:"-"`
+	BuyerUserID    *int      `db:"buyer_user_id" json:"buyer_user_id" csv:"-"`
+	IsInitial      *bool     `db:"is_initial" json:"is_initial" csv:"-"`
+	PubkeyBase64   *string   `db:"pubkey_base64" json:"pubkey_base64" csv:"-"`
 
-	Splits []Split `db:"splits" json:"-"`
+	Splits []Split `db:"splits" json:"-" csv:"-"`
 }
 
 func (app *ApiServer) userSalesForDownload(c *fiber.Ctx) ([]UsdcSaleWithEmail, error) {
@@ -163,16 +160,10 @@ func (app *ApiServer) v1UsersSalesDownloadCsv(c *fiber.Ctx) error {
 		return err
 	}
 
-	// Set CSV content type header
 	c.Set("Content-Type", "text/csv")
 	c.Set("Content-Disposition", "attachment; filename=\"sales.csv\"")
 
-	// Create CSV writer
-	var csvBuilder strings.Builder
-	writer := csv.NewWriter(&csvBuilder)
-
-	// Note: csv headers use spaces instead of underscores
-	headers := []string{
+	csvContent, err := WriteCSVFromStructs(sales, []string{
 		"title",
 		"link",
 		"purchased by",
@@ -182,35 +173,10 @@ func (app *ApiServer) v1UsersSalesDownloadCsv(c *fiber.Ctx) error {
 		"pay extra",
 		"total",
 		"country",
-	}
-
-	if err := writer.Write(headers); err != nil {
+	})
+	if err != nil {
 		return err
 	}
 
-	// Write data rows
-	for _, sale := range sales {
-		record := []string{
-			sale.Title,
-			sale.Link,
-			sale.PurchasedBy,
-			sale.CreatedAt.Format(time.RFC3339),
-			strconv.FormatFloat(sale.SalePrice, 'f', 6, 64),
-			strconv.FormatFloat(sale.NetworkFee, 'f', 6, 64),
-			strconv.FormatFloat(sale.PayExtra, 'f', 6, 64),
-			strconv.FormatFloat(sale.Total, 'f', 6, 64),
-			sale.Country,
-		}
-
-		if err := writer.Write(record); err != nil {
-			return err
-		}
-	}
-
-	writer.Flush()
-	if err := writer.Error(); err != nil {
-		return err
-	}
-
-	return c.SendString(csvBuilder.String())
+	return c.SendString(csvContent)
 }

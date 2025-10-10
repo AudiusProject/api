@@ -1,9 +1,6 @@
 package api
 
 import (
-	"encoding/csv"
-	"strconv"
-	"strings"
 	"time"
 
 	"github.com/gofiber/fiber/v2"
@@ -15,18 +12,18 @@ type UsdcPurchasesDownloadResponse struct {
 }
 
 type UsdcPurchaseForDownload struct {
-	Title        string    `db:"title" json:"title"`
-	Link         string    `db:"link" json:"link"`
-	SellerName   string    `db:"seller_name" json:"seller_name"`
-	SellerUserID int       `db:"seller_user_id" json:"seller_user_id"`
-	CreatedAt    time.Time `db:"created_at" json:"date"`
-	SalePrice    float64   `db:"sale_price" json:"sale_price"`
-	PaidToArtist float64   `db:"-" json:"paid_to_artist"`
-	NetworkFee   float64   `db:"-" json:"network_fee"`
-	PayExtra     float64   `db:"pay_extra" json:"pay_extra"`
-	Total        float64   `db:"-" json:"total"`
+	Title        string    `db:"title" json:"title" csv:"title"`
+	Link         string    `db:"link" json:"link" csv:"link"`
+	SellerName   string    `db:"seller_name" json:"seller_name" csv:"artist"`
+	SellerUserID int       `db:"seller_user_id" json:"seller_user_id" csv:"-"`
+	CreatedAt    time.Time `db:"created_at" json:"date" csv:"date"`
+	SalePrice    float64   `db:"sale_price" json:"sale_price" csv:"-"`
+	PaidToArtist float64   `db:"-" json:"paid_to_artist" csv:"paid to artist"`
+	NetworkFee   float64   `db:"-" json:"network_fee" csv:"network_fee"`
+	PayExtra     float64   `db:"pay_extra" json:"pay_extra" csv:"pay extra"`
+	Total        float64   `db:"-" json:"total" csv:"total"`
 
-	Splits []Split `db:"splits" json:"-"`
+	Splits []Split `db:"splits" json:"-" csv:"-"`
 }
 
 func (app *ApiServer) userPurchasesForDownload(c *fiber.Ctx) ([]UsdcPurchaseForDownload, error) {
@@ -141,15 +138,9 @@ func (app *ApiServer) v1UsersPurchasesDownloadCsv(c *fiber.Ctx) error {
 		return err
 	}
 
-	// Set CSV content type header
 	c.Set("Content-Type", "text/csv")
 	c.Set("Content-Disposition", "attachment; filename=\"sales.csv\"")
 
-	// Create CSV writer
-	var csvBuilder strings.Builder
-	writer := csv.NewWriter(&csvBuilder)
-
-	// Note: csv headers use spaces instead of underscores
 	headers := []string{
 		"title",
 		"link",
@@ -161,32 +152,10 @@ func (app *ApiServer) v1UsersPurchasesDownloadCsv(c *fiber.Ctx) error {
 		"total",
 	}
 
-	if err := writer.Write(headers); err != nil {
+	csvContent, err := WriteCSVFromStructs(sales, headers)
+	if err != nil {
 		return err
 	}
 
-	// Write data rows
-	for _, sale := range sales {
-		record := []string{
-			sale.Title,
-			sale.Link,
-			sale.SellerName,
-			sale.CreatedAt.Format(time.RFC3339),
-			strconv.FormatFloat(sale.PaidToArtist, 'f', 6, 64),
-			strconv.FormatFloat(sale.NetworkFee, 'f', 6, 64),
-			strconv.FormatFloat(sale.PayExtra, 'f', 6, 64),
-			strconv.FormatFloat(sale.Total, 'f', 6, 64),
-		}
-
-		if err := writer.Write(record); err != nil {
-			return err
-		}
-	}
-
-	writer.Flush()
-	if err := writer.Error(); err != nil {
-		return err
-	}
-
-	return c.SendString(csvBuilder.String())
+	return c.SendString(csvContent)
 }
