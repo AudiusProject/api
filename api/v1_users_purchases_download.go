@@ -64,18 +64,17 @@ func (app *ApiServer) userPurchasesForDownload(c *fiber.Ctx) ([]UsdcPurchaseForD
 			WHERE (content_type = 'playlist' OR content_type = 'album')
 			-- Tracks
 			UNION ALL (
-				SELECT purchases.*,
+			SELECT purchases.*,
 				users.handle AS seller_handle,
 				users.name AS seller_name,
-				users.user_id AS seller_user_id,
-					tracks.title AS content_title,
-					tracks.owner_id AS owner_id,
-					track_routes.slug AS content_slug,
-				FROM purchases
-				JOIN tracks ON tracks.track_id = purchases.content_id
-				JOIN track_routes ON track_routes.track_id = purchases.content_id
-				JOIN users ON users.user_id = purchases.seller_user_id
-				WHERE content_type = 'track'
+				tracks.title AS content_title,
+				tracks.owner_id AS owner_id,
+				track_routes.slug AS content_slug
+			FROM purchases
+			JOIN tracks ON tracks.track_id = purchases.content_id
+			JOIN track_routes ON track_routes.track_id = purchases.content_id
+			JOIN users ON users.user_id = purchases.seller_user_id
+			WHERE content_type = 'track'
 			)
 		)
 		SELECT
@@ -86,7 +85,7 @@ func (app *ApiServer) userPurchasesForDownload(c *fiber.Ctx) ([]UsdcPurchaseForD
 			purchases_with_content.amount / 1000000 AS sale_price,
 			purchases_with_content.extra_amount / 1000000 AS pay_extra,
 			purchases_with_content.splits,
-			purchases_with_content.seller_user_id AS seller_user_id,
+			purchases_with_content.seller_user_id AS seller_user_id
 		FROM purchases_with_content
 		JOIN users ON users.user_id = purchases_with_content.buyer_user_id
 		ORDER BY purchases_with_content.created_at DESC;`
