@@ -7,9 +7,8 @@ import (
 	"github.com/stretchr/testify/assert"
 )
 
-const user1Wallet = "0x7d273271690538cf855e5b3002a0dd8c154bb060"
-
 func TestV1UsersSalesDownloadJson(t *testing.T) {
+	user1Wallet := "0x7d273271690538cf855e5b3002a0dd8c154bb060"
 	app := emptyTestApp(t)
 
 	fixtures := database.FixtureMap{

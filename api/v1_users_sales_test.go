@@ -9,11 +9,12 @@ import (
 )
 
 func TestV1UsersSales(t *testing.T) {
+	user1Wallet := "0x7d273271690538cf855e5b3002a0dd8c154bb060"
 	app := emptyTestApp(t)
 
 	fixtures := database.FixtureMap{
 		"users": []map[string]any{
-			{"user_id": 1, "handle": "seller"},
+			{"user_id": 1, "handle": "seller", "wallet": user1Wallet},
 			{"user_id": 2, "handle": "buyer1", "name": "c"},
 			{"user_id": 3, "handle": "buyer2", "name": "a"},
 			{"user_id": 4, "handle": "buyer3", "name": "b"},
@@ -109,7 +110,7 @@ func TestV1UsersSales(t *testing.T) {
 
 	// default sort, check all fields of a couple
 	{
-		status, body := testGet(t, app, "/v1/users/7eP5n/sales")
+		status, body := testGetWithWallet(t, app, "/v1/users/7eP5n/sales", user1Wallet)
 		assert.Equal(t, 200, status)
 		jsonAssert(t, body, map[string]any{"data.0.seller_user_id": "7eP5n"})
 		jsonAssert(t, body, map[string]any{"data.0.buyer_user_id": "lebQD"})
@@ -143,7 +144,7 @@ func TestV1UsersSales(t *testing.T) {
 
 	// reverse sort (asc)
 	{
-		status, body := testGet(t, app, "/v1/users/7eP5n/sales?sort_direction=asc")
+		status, body := testGetWithWallet(t, app, "/v1/users/7eP5n/sales?sort_direction=asc", user1Wallet)
 		assert.Equal(t, 200, status)
 		jsonAssert(t, body, map[string]any{"data.0.content_id": "7eP5n", "data.0.content_type": "playlist"})
 		jsonAssert(t, body, map[string]any{"data.1.content_id": "ML51L", "data.1.content_type": "album"})
@@ -155,7 +156,7 @@ func TestV1UsersSales(t *testing.T) {
 
 	// content title sort (asc)
 	{
-		status, body := testGet(t, app, "/v1/users/7eP5n/sales?sort_method=content_title&sort_direction=asc")
+		status, body := testGetWithWallet(t, app, "/v1/users/7eP5n/sales?sort_method=content_title&sort_direction=asc", user1Wallet)
 		assert.Equal(t, 200, status)
 		jsonAssert(t, body, map[string]any{"data.0.content_id": "ELKzn"})
 		jsonAssert(t, body, map[string]any{"data.1.content_id": "7eP5n"})
@@ -167,7 +168,7 @@ func TestV1UsersSales(t *testing.T) {
 
 	// content title sort (desc)
 	{
-		status, body := testGet(t, app, "/v1/users/7eP5n/sales?sort_method=content_title&sort_direction=desc")
+		status, body := testGetWithWallet(t, app, "/v1/users/7eP5n/sales?sort_method=content_title&sort_direction=desc", user1Wallet)
 		assert.Equal(t, 200, status)
 		jsonAssert(t, body, map[string]any{"data.0.content_id": "ML51L"})
 		jsonAssert(t, body, map[string]any{"data.1.content_id": "7eP5n"})
@@ -179,10 +180,16 @@ func TestV1UsersSales(t *testing.T) {
 
 	// content filters
 	{
-		status, body := testGet(t, app, "/v1/users/7eP5n/sales?content_ids=lebQD&content_ids=ML51L&content_type=track")
+		status, body := testGetWithWallet(t, app, "/v1/users/7eP5n/sales?content_ids=lebQD&content_ids=ML51L&content_type=track", user1Wallet)
 		assert.Equal(t, 200, status)
 		jsonAssert(t, body, map[string]any{"data.0.content_id": "ML51L"})
 		jsonAssert(t, body, map[string]any{"data.1.content_id": "lebQD"})
 		jsonAssert(t, body, map[string]any{"data.2.content_id": nil})
+	}
+
+	// should 403 with bad wallet
+	{
+		status, _ := testGet(t, app, "/v1/users/7eP5n/sales")
+		assert.Equal(t, 403, status)
 	}
 }
