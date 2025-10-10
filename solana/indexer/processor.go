@@ -8,6 +8,7 @@ import (
 	"api.audius.co/config"
 	"api.audius.co/database"
 	"api.audius.co/solana/spl/programs/claimable_tokens"
+	"api.audius.co/solana/spl/programs/meteora_dbc"
 	"api.audius.co/solana/spl/programs/payment_router"
 	"api.audius.co/solana/spl/programs/reward_manager"
 	"github.com/gagliardetto/solana-go"
@@ -61,32 +62,33 @@ func (p *DefaultProcessor) ProcessSignature(ctx context.Context, slot uint64, tx
 
 	// Check if the transaction is in the cache
 	if p.transactionCache != nil {
-		if _, ok := p.transactionCache.Get(txSig); ok {
+		if res, ok := p.transactionCache.Get(txSig); ok {
 			logger.Debug("cache hit")
-			// If we hit the cache, it's already been processed
-			return nil
+			txRes = res
 		} else {
 			logger.Debug("cache miss")
 		}
 	}
 
-	// If the transaction is not in the cache, fetch it from the RPC
-	res, err := withRetries(func() (*rpc.GetTransactionResult, error) {
-		return p.rpcClient.GetTransaction(
-			ctx,
-			txSig,
-			&rpc.GetTransactionOpts{
-				Commitment:                     rpc.CommitmentConfirmed,
-				MaxSupportedTransactionVersion: &rpc.MaxSupportedTransactionVersion0,
-			},
-		)
-	}, 5, 1*time.Second)
-	if err != nil {
-		return fmt.Errorf("failed to get transaction: %w", err)
-	}
-	if p.transactionCache != nil {
-		p.transactionCache.Set(txSig, res)
-		txRes = res
+	if txRes == nil {
+		// If the transaction is not in the cache, fetch it from the RPC
+		res, err := withRetriesResult(func() (*rpc.GetTransactionResult, error) {
+			return p.rpcClient.GetTransaction(
+				ctx,
+				txSig,
+				&rpc.GetTransactionOpts{
+					Commitment:                     rpc.CommitmentConfirmed,
+					MaxSupportedTransactionVersion: &rpc.MaxSupportedTransactionVersion0,
+				},
+			)
+		}, 5, 1*time.Second)
+		if err != nil {
+			return fmt.Errorf("failed to get transaction: %w", err)
+		}
+		if p.transactionCache != nil {
+			p.transactionCache.Set(txSig, res)
+			txRes = res
+		}
 	}
 
 	tx, err := txRes.Transaction.GetTransaction()
@@ -173,6 +175,13 @@ func (p *DefaultProcessor) ProcessTransaction(
 				err := processPaymentRouterInstruction(ctx, p.pool, slot, tx, instructionIndex, instruction, signature, blockTime, p.config, instLogger)
 				if err != nil {
 					return fmt.Errorf("error processing payment_router instruction %d: %w", instructionIndex, err)
+				}
+			}
+		case meteora_dbc.ProgramID:
+			{
+				err := processDbcInstruction(ctx, p.pool, p.rpcClient, slot, tx, instructionIndex, instruction, signature, instLogger)
+				if err != nil {
+					return fmt.Errorf("error processing meteora_dbc instruction %d: %w", instructionIndex, err)
 				}
 			}
 		}

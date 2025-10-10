@@ -9,6 +9,15 @@ import (
 	"github.com/jackc/pgx/v5"
 )
 
+type ArtistCoinFees struct {
+	UnclaimedDbcFees    float64 `json:"unclaimed_dbc_fees" db:"unclaimed_dbc_fees"`
+	TotalDbcFees        float64 `json:"total_dbc_fees" db:"total_dbc_fees"`
+	UnclaimedDammV2Fees float64 `json:"unclaimed_damm_v2_fees" db:"unclaimed_damm_v2_fees"`
+	TotalDammV2Fees     float64 `json:"total_damm_v2_fees" db:"total_damm_v2_fees"`
+	UnclaimedFees       float64 `json:"unclaimed_fees" db:"unclaimed_fees"`
+	TotalFees           float64 `json:"total_fees" db:"total_fees"`
+}
+
 type ArtistCoin struct {
 	Name          string         `json:"name"`
 	Ticker        string         `json:"ticker"`
@@ -65,6 +74,7 @@ type ArtistCoin struct {
 	VSell24hChangePercent        float64                      `json:"vSell24hChangePercent" db:"v_sell_24h_change_percent"`
 	NumberMarkets                int                          `json:"numberMarkets" db:"number_markets"`
 	DynamicBondingCurve          *DynamicBondingCurveInsights `json:"dynamicBondingCurve" db:"dynamic_bonding_curve"`
+	ArtistFees                   *ArtistCoinFees              `json:"artistFees" db:"artist_fees"`
 	UpdatedAt                    time.Time                    `json:"updatedAt" db:"updated_at"`
 }
 
@@ -189,6 +199,7 @@ func (app *ApiServer) v1Coins(c *fiber.Ctx) error {
 				'totalTradingQuoteFee', COALESCE(artist_coin_pools.total_trading_quote_fee, 0),
 				'creatorWalletAddress', COALESCE(artist_coin_pools.creator_wallet_address, '')
 			) AS dynamic_bonding_curve,
+			ROW_TO_JSON(calculate_artist_coin_fees(artist_coins.mint)) AS artist_fees,
 			COALESCE(artist_coin_stats.updated_at, artist_coins.created_at) as updated_at
 		FROM artist_coins
 		LEFT JOIN artist_coin_stats

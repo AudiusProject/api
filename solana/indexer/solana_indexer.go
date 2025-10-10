@@ -3,11 +3,9 @@ package indexer
 import (
 	"context"
 	"fmt"
-	"time"
 
 	"api.audius.co/config"
 	"api.audius.co/database"
-	"api.audius.co/jobs"
 	"api.audius.co/logging"
 	"github.com/gagliardetto/solana-go"
 	"github.com/gagliardetto/solana-go/rpc"
@@ -43,6 +41,8 @@ type SolanaIndexer struct {
 	pool        database.DbPool
 	workerCount int32
 
+	dammV2Indexer *DammV2Indexer
+
 	checkpointId string
 
 	logger *zap.Logger
@@ -77,6 +77,16 @@ func New(config config.Config) *SolanaIndexer {
 		MaxReconnectAttempts: 5,
 	})
 
+	dammV2Indexer := &DammV2Indexer{
+		pool: pool,
+		grpcConfig: GrpcConfig{
+			Server:               config.SolanaConfig.GrpcProvider,
+			ApiToken:             config.SolanaConfig.GrpcToken,
+			MaxReconnectAttempts: 5,
+		},
+		logger: logger,
+	}
+
 	s := &SolanaIndexer{
 		rpcClient:   rpcClient,
 		grpcClient:  grpcClient,
@@ -84,6 +94,9 @@ func New(config config.Config) *SolanaIndexer {
 		config:      config,
 		pool:        pool,
 		workerCount: workerCount,
+
+		dammV2Indexer: dammV2Indexer,
+
 		processor: NewDefaultProcessor(
 			rpcClient,
 			pool,
@@ -97,15 +110,17 @@ func New(config config.Config) *SolanaIndexer {
 func (s *SolanaIndexer) Start(ctx context.Context) error {
 	go s.ScheduleRetries(ctx, s.config.SolanaIndexerRetryInterval)
 
-	statsJob := jobs.NewCoinStatsJob(s.config, s.pool)
-	statsCtx := context.WithoutCancel(ctx)
-	statsJob.ScheduleEvery(statsCtx, 5*time.Minute)
-	go statsJob.Run(statsCtx)
+	// statsJob := jobs.NewCoinStatsJob(s.config, s.pool)
+	// statsCtx := context.WithoutCancel(ctx)
+	// statsJob.ScheduleEvery(statsCtx, 5*time.Minute)
+	// go statsJob.Run(statsCtx)
 
-	dbcJob := jobs.NewCoinDBCJob(s.config, s.pool)
-	dbcCtx := context.WithoutCancel(ctx)
-	dbcJob.ScheduleEvery(dbcCtx, 5*time.Minute)
-	go dbcJob.Run(dbcCtx)
+	// dbcJob := jobs.NewCoinDBCJob(s.config, s.pool)
+	// dbcCtx := context.WithoutCancel(ctx)
+	// dbcJob.ScheduleEvery(dbcCtx, 5*time.Minute)
+	// go dbcJob.Run(dbcCtx)
+
+	go s.dammV2Indexer.Start(ctx)
 
 	err := s.Subscribe(ctx)
 	if err != nil {

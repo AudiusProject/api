@@ -105,7 +105,7 @@ func (s *SolanaIndexer) backfillAddressTransactions(ctx context.Context, address
 		}
 
 		opts.Before = before
-		res, err := withRetries(func() ([]*rpc.TransactionSignature, error) {
+		res, err := withRetriesResult(func() ([]*rpc.TransactionSignature, error) {
 			return s.rpcClient.GetSignaturesForAddressWithOpts(ctx, address, &opts)
 		}, 5, time.Second*1)
 		if err != nil {

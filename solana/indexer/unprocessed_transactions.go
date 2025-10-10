@@ -15,28 +15,24 @@ func (s *SolanaIndexer) ScheduleRetries(ctx context.Context, interval time.Durat
 	ticker := time.NewTicker(interval)
 	defer ticker.Stop()
 
-	go func() {
-		for {
-			select {
-			case <-ctx.Done():
-				s.logger.Info("context cancelled, stopping retry ticker")
-				return
-			case <-ticker.C:
-				err := s.RetryUnprocessedTransactions(ctx)
-				if err != nil {
-					s.logger.Error("failed to retry unprocessed transactions", zap.Error(err))
-				}
+	for {
+		select {
+		case <-ctx.Done():
+			s.logger.Info("context cancelled, stopping retry ticker")
+			return
+		case <-ticker.C:
+			err := s.RetryUnprocessedTransactions(ctx)
+			if err != nil {
+				s.logger.Error("failed to retry unprocessed transactions", zap.Error(err))
 			}
 		}
-	}()
+	}
 }
 
 func (s *SolanaIndexer) RetryUnprocessedTransactions(ctx context.Context) error {
 	limit := 100
 	offset := 0
-	logger := s.logger.With(
-		zap.String("indexerSource", "retryUnprocessedTransactions"),
-	)
+	logger := s.logger.Named("RetryUnprocessedTransactions")
 	count := 0
 	start := time.Now()
 	logger.Debug("starting retry of unprocessed transactions...")

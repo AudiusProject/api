@@ -91,6 +91,7 @@ func init() {
 
 		Cfg.AudiusdChainID = core_config.DevAcdcChainID
 		Cfg.AudiusdEntityManagerAddress = core_config.DevAcdcAddress
+		Cfg.SolanaIndexerRetryInterval = 10 * time.Second
 	case "stage":
 		fallthrough
 	case "staging":

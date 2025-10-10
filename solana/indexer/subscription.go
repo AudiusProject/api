@@ -103,7 +103,7 @@ func (s *SolanaIndexer) Subscribe(ctx context.Context) error {
 			return fmt.Errorf("failed to get last indexed slot: %w", err)
 		}
 
-		latestSlot, err := withRetries(func() (uint64, error) {
+		latestSlot, err := withRetriesResult(func() (uint64, error) {
 			return s.rpcClient.GetSlot(ctx, "confirmed")
 		}, 5, time.Second*2)
 		if err != nil {
@@ -221,7 +221,7 @@ func buildSubscriptionRequest(mintAddresses []string, dbcPoolConfigs []string) (
 
 	for _, config := range dbcPoolConfigs {
 		dbcFilter := pb.SubscribeRequestFilterAccounts{
-			Owner: []string{meteora_dbc.DbcProgramID.String()},
+			Owner: []string{meteora_dbc.ProgramID.String()},
 			Filters: []*pb.SubscribeRequestFilterAccountsFilter{
 				{
 					Filter: &pb.SubscribeRequestFilterAccountsFilter_Memcmp{
@@ -266,7 +266,6 @@ func (s *SolanaIndexer) handleMessage(ctx context.Context, msg *pb.SubscribeUpda
 	if slotUpdate := msg.GetSlot(); slotUpdate != nil && slotUpdate.Slot > 0 {
 		// only update every 10 slots to reduce db load and write latency
 		if slotUpdate.Slot%10 == 0 {
-			s.logger.Debug("slot update", zap.Uint64("slot", slotUpdate.Slot))
 			err := updateCheckpoint(ctx, s.pool, s.checkpointId, slotUpdate.Slot)
 			if err != nil {
 				logger.Error("failed to update slot checkpoint", zap.Error(err))
