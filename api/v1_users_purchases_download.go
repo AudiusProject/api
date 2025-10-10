@@ -7,10 +7,6 @@ import (
 	"github.com/jackc/pgx/v5"
 )
 
-type UsdcPurchasesDownloadResponse struct {
-	Purchases []UsdcPurchaseForDownload `json:"purchases"`
-}
-
 type UsdcPurchaseForDownload struct {
 	Title        string    `db:"title" json:"title" csv:"title"`
 	Link         string    `db:"link" json:"link" csv:"link"`
@@ -28,10 +24,6 @@ type UsdcPurchaseForDownload struct {
 
 func (app *ApiServer) userPurchasesForDownload(c *fiber.Ctx) ([]UsdcPurchaseForDownload, error) {
 	userId := app.getUserId(c)
-	params := GetUsersSalesDownloadQueryParams{}
-	if err := app.ParseAndValidateQueryParams(c, &params); err != nil {
-		return nil, err
-	}
 
 	var sellerHandle string
 	err := app.pool.QueryRow(c.Context(), "SELECT handle FROM users WHERE user_id = @buyerUserId", pgx.NamedArgs{
@@ -126,9 +118,7 @@ func (app *ApiServer) v1UsersPurchasesDownloadJson(c *fiber.Ctx) error {
 	}
 
 	return c.JSON(fiber.Map{
-		"data": UsdcPurchasesDownloadResponse{
-			Purchases: purchases,
-		},
+		"data": purchases,
 	})
 }
 

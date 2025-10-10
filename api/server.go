@@ -382,6 +382,8 @@ func NewApiServer(config config.Config) *ApiServer {
 		g.Get("/users/:userId/authorized-apps", app.v1UsersAuthorizedApps)
 		g.Get("/users/:userId/developer_apps", app.v1UsersDeveloperApps)
 		g.Get("/users/:userId/developer-apps", app.v1UsersDeveloperApps)
+		g.Get("/users/:userId/withdrawals/download", app.requireAuthForUserId, app.v1UsersWithdrawalsDownloadCsv)
+		g.Get("/users/:userId/withdrawals/download/json", app.requireAuthForUserId, app.v1UsersWithdrawalsDownloadJson)
 
 		// Tracks
 		g.Get("/tracks", app.v1Tracks)
