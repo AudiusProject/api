@@ -177,8 +177,11 @@ func NewApiServer(config config.Config) *ApiServer {
 		panic(err)
 	}
 
-	contentNodeMonitor := NewContentNodeMonitor(config, logger)
-	contentNodeMonitor.Start()
+	var contentNodeMonitor *ContentNodeMonitor
+	if config.ContentNodeMonitor {
+		contentNodeMonitor = NewContentNodeMonitor(config, logger)
+		contentNodeMonitor.Start()
+	}
 
 	app := &ApiServer{
 		App: fiber.New(fiber.Config{

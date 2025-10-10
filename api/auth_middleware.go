@@ -139,7 +139,6 @@ func (app *ApiServer) authMiddleware(c *fiber.Ctx) error {
 // Returns a 403 if the authedWallet is not authorized to act on behalf of the userId
 // Should be placed after authMiddleware
 func (app *ApiServer) requireAuthForUserId(c *fiber.Ctx) error {
-	return c.Next()
 	wallet := c.Locals("authedWallet").(string)
 	userId := app.getUserId(c)
 	if !app.isAuthorizedRequest(c.Context(), userId, wallet) {

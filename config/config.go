@@ -41,6 +41,7 @@ type Config struct {
 	AudiusdChainID              uint
 	AudiusdEntityManagerAddress string
 	AudiusAppUrl                string
+	ContentNodeMonitor          bool
 }
 
 var Cfg = Config{
@@ -61,6 +62,7 @@ var Cfg = Config{
 	SolanaIndexerWorkers:       50,
 	SolanaIndexerRetryInterval: 5 * time.Minute,
 	CommsMessagePush:           true,
+	ContentNodeMonitor:         true,
 }
 
 func init() {
