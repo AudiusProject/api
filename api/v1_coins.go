@@ -203,18 +203,17 @@ func (app *ApiServer) v1Coins(c *fiber.Ctx) error {
 			` + tickerFilter + `
 			` + queryFilter + `
 		ORDER BY ` + sortString + `
-		-- Ignore limit/offset until we have fixed FE pagination (PE-7172)
-		-- LIMIT @limit
-		-- OFFSET @offset
+		LIMIT @limit
+		OFFSET @offset
 	`
 
 	rows, err := app.pool.Query(c.Context(), sql, pgx.NamedArgs{
 		"tickers":   queryParams.Tickers,
 		"mints":     queryParams.Mints,
 		"owner_ids": queryParams.OwnerIds,
-		// "limit":     queryParams.Limit,
-		// "offset":    queryParams.Offset,
-		"query": queryParams.Query,
+		"limit":     queryParams.Limit,
+		"offset":    queryParams.Offset,
+		"query":     queryParams.Query,
 	})
 	if err != nil {
 		return err
