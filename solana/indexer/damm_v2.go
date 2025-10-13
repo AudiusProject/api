@@ -22,7 +22,7 @@ type DammV2Indexer struct {
 
 const MAX_DAMM_V2_POOLS_PER_SUBSCRIPTION = 10000
 const DAMM_V2_POOL_SUBSCRIPTION_KEY = "dammV2Pools"
-const DBC__MIGRATION_NOTIFICATION_NAME = "meteora_dbc_migration"
+const DBC_MIGRATION_NOTIFICATION_NAME = "meteora_dbc_migration"
 
 func (d *DammV2Indexer) Start(ctx context.Context) {
 	// To ensure only one subscription task is running at a time, keep track of
@@ -64,7 +64,7 @@ func (d *DammV2Indexer) Start(ctx context.Context) {
 	grpcClients = clients
 
 	// Watch for new pools to be added
-	err = watchPgNotification(ctx, d.pool, DBC__MIGRATION_NOTIFICATION_NAME, handleNotif, d.logger)
+	err = watchPgNotification(ctx, d.pool, DBC_MIGRATION_NOTIFICATION_NAME, handleNotif, d.logger)
 	if err != nil {
 		d.logger.Error("failed to watch for DAMM V2 pool changes", zap.Error(err))
 		return
