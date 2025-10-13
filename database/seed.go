@@ -562,6 +562,13 @@ var (
 			"created_at":          time.Now(),
 			"updated_at":          time.Now(),
 		},
+		"encrypted_emails": {
+			"id":                  nil,
+			"email_owner_user_id": nil,
+			"encrypted_email":     "test",
+			"created_at":          time.Now(),
+			"updated_at":          time.Now(),
+		},
 		"collectibles": {
 			"user_id":     nil,
 			"data":        nil,

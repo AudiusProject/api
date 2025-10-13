@@ -9,6 +9,8 @@ import (
 )
 
 func TestV1UsersSalesAggregate(t *testing.T) {
+	user1Wallet := "0x7d273271690538cf855e5b3002a0dd8c154bb060"
+	user2Wallet := "0xc3d1d41e6872ffbd15c473d14fc3a9250be5b5e0"
 	app := emptyTestApp(t)
 	fixtures := database.FixtureMap{
 		"tracks": []map[string]any{
@@ -33,11 +35,13 @@ func TestV1UsersSalesAggregate(t *testing.T) {
 		"users": []map[string]any{
 			{
 				"user_id":   1,
+				"wallet":    user1Wallet,
 				"handle":    "seller",
 				"handle_lc": "seller",
 			},
 			{
 				"user_id":   2,
+				"wallet":    user2Wallet,
 				"handle":    "buyer1",
 				"handle_lc": "buyer1",
 			},
@@ -126,7 +130,7 @@ func TestV1UsersSalesAggregate(t *testing.T) {
 
 	// Test getting all sales aggregate for user 1 (seller)
 	{
-		status, _ := testGet(t, app, "/v1/users/"+trashid.MustEncodeHashID(1)+"/sales/aggregate", &response)
+		status, _ := testGetWithWallet(t, app, "/v1/users/"+trashid.MustEncodeHashID(1)+"/sales/aggregate", user1Wallet, &response)
 		assert.Equal(t, 200, status)
 		assert.Len(t, response.Data, 3)
 
@@ -149,7 +153,7 @@ func TestV1UsersSalesAggregate(t *testing.T) {
 
 	// Test limit parameter
 	{
-		status, _ := testGet(t, app, "/v1/users/"+trashid.MustEncodeHashID(1)+"/sales/aggregate?limit=2", &response)
+		status, _ := testGetWithWallet(t, app, "/v1/users/"+trashid.MustEncodeHashID(1)+"/sales/aggregate?limit=2", user1Wallet, &response)
 		assert.Equal(t, 200, status)
 		assert.Len(t, response.Data, 2)
 
@@ -162,7 +166,7 @@ func TestV1UsersSalesAggregate(t *testing.T) {
 
 	// Test offset parameter
 	{
-		status, _ := testGet(t, app, "/v1/users/"+trashid.MustEncodeHashID(1)+"/sales/aggregate?offset=1&limit=2", &response)
+		status, _ := testGetWithWallet(t, app, "/v1/users/"+trashid.MustEncodeHashID(1)+"/sales/aggregate?offset=1&limit=2", user1Wallet, &response)
 		assert.Equal(t, 200, status)
 		assert.Len(t, response.Data, 2)
 
@@ -175,8 +179,14 @@ func TestV1UsersSalesAggregate(t *testing.T) {
 
 	// Test user with no sales
 	{
-		status, _ := testGet(t, app, "/v1/users/"+trashid.MustEncodeHashID(2)+"/sales/aggregate", &response)
+		status, _ := testGetWithWallet(t, app, "/v1/users/"+trashid.MustEncodeHashID(2)+"/sales/aggregate", user2Wallet, &response)
 		assert.Equal(t, 200, status)
 		assert.Len(t, response.Data, 0)
+	}
+
+	// should 403 with bad wallet
+	{
+		status, _ := testGet(t, app, "/v1/users/"+trashid.MustEncodeHashID(1)+"/sales/aggregate")
+		assert.Equal(t, 403, status)
 	}
 }
