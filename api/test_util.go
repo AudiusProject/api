@@ -1,6 +1,8 @@
 package api
 
 import (
+	"encoding/csv"
+	"strings"
 	"testing"
 	"time"
 )
@@ -18,4 +20,21 @@ func parseTimeWithLayout(t *testing.T, timeStr string, layout string) time.Time 
 		t.Fatalf("Failed to parse time string %q: %v", timeStr, err)
 	}
 	return parsed
+}
+
+// parseCSVLines parses CSV content and returns the header row and data rows
+func parseCSVLines(csvContent string) ([]string, [][]string, error) {
+	reader := csv.NewReader(strings.NewReader(csvContent))
+	records, err := reader.ReadAll()
+	if err != nil {
+		return nil, nil, err
+	}
+
+	if len(records) == 0 {
+		return nil, nil, nil
+	}
+
+	header := records[0]
+	data := records[1:]
+	return header, data, nil
 }

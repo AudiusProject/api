@@ -23,7 +23,7 @@ type UsdcSaleWithEmail struct {
 	PurchasedBy    string    `db:"purchased_by" json:"purchased_by" csv:"purchased by"`
 	CreatedAt      time.Time `db:"created_at" json:"date" csv:"date"`
 	SalePrice      float64   `db:"sale_price" json:"sale_price" csv:"sale price"`
-	NetworkFee     float64   `db:"-" json:"network_fee" csv:"network_fee"`
+	NetworkFee     float64   `db:"-" json:"network_fee" csv:"network fee"`
 	PayExtra       float64   `db:"pay_extra" json:"pay_extra" csv:"pay extra"`
 	Total          float64   `db:"-" json:"total" csv:"total"`
 	Country        string    `db:"country" json:"country" csv:"country"`
@@ -94,7 +94,7 @@ func (app *ApiServer) userSalesForDownload(c *fiber.Ctx) ([]UsdcSaleWithEmail, e
 			COALESCE(@linkBasePath || purchases_with_content.content_slug, '') AS link,
 			purchases_with_content.created_at,
 			purchases_with_content.amount / 1000000 AS sale_price,
-			purchases_with_content.extra_amount / 1000000 AS pay_extra,
+			purchases_with_content.extra_amount / 1000000.0 AS pay_extra,
 			purchases_with_content.splits,
 			COALESCE(purchases_with_content.country, '') AS country,
 			COALESCE(users.name, '') AS purchased_by,
@@ -169,7 +169,7 @@ func (app *ApiServer) v1UsersSalesDownloadCsv(c *fiber.Ctx) error {
 		"purchased by",
 		"date",
 		"sale price",
-		"network_fee",
+		"network fee",
 		"pay extra",
 		"total",
 		"country",

@@ -15,7 +15,7 @@ type UsdcPurchaseForDownload struct {
 	CreatedAt    time.Time `db:"created_at" json:"date" csv:"date"`
 	SalePrice    float64   `db:"sale_price" json:"sale_price" csv:"-"`
 	PaidToArtist float64   `db:"-" json:"paid_to_artist" csv:"paid to artist"`
-	NetworkFee   float64   `db:"-" json:"network_fee" csv:"network_fee"`
+	NetworkFee   float64   `db:"-" json:"network_fee" csv:"network fee"`
 	PayExtra     float64   `db:"pay_extra" json:"pay_extra" csv:"pay extra"`
 	Total        float64   `db:"-" json:"total" csv:"total"`
 
@@ -72,7 +72,7 @@ func (app *ApiServer) userPurchasesForDownload(c *fiber.Ctx) ([]UsdcPurchaseForD
 			purchases_with_content.created_at,
 			purchases_with_content.seller_name AS seller_name,
 			purchases_with_content.amount / 1000000 AS sale_price,
-			purchases_with_content.extra_amount / 1000000 AS pay_extra,
+			purchases_with_content.extra_amount / 1000000.0 AS pay_extra,
 			purchases_with_content.splits,
 			purchases_with_content.seller_user_id AS seller_user_id
 		FROM purchases_with_content
@@ -137,7 +137,7 @@ func (app *ApiServer) v1UsersPurchasesDownloadCsv(c *fiber.Ctx) error {
 		"artist",
 		"date",
 		"paid to artist",
-		"network_fee",
+		"network fee",
 		"pay extra",
 		"total",
 	}

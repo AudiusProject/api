@@ -40,6 +40,7 @@ func emptyTestApp(t *testing.T) *ApiServer {
 		// Dummy key
 		DelegatePrivateKey: "0633fddb74e32b3cbc64382e405146319c11a1a52dc96598e557c5dbe2f31468",
 		SolanaConfig:       config.SolanaConfig{RpcProviders: []string{""}, StakingBridgeUsdcTokenAccount: solana.MustPublicKeyFromBase58(config.DevStakingBridgeUsdcTokenAccount)},
+		AudiusAppUrl:       "http://localhost:1323",
 		// Disable message push by default. Tests for it can create
 		// an RPC processor directly.
 		CommsMessagePush: false,
