@@ -58,6 +58,7 @@ COMMENT ON TABLE sol_meteora_damm_v2_pools IS 'Tracks DAMM V2 pool state. Join w
 
 CREATE TABLE IF NOT EXISTS sol_meteora_damm_v2_pool_metrics (
     pool TEXT PRIMARY KEY REFERENCES sol_meteora_damm_v2_pools(address) ON DELETE CASCADE,
+    slot BIGINT NOT NULL,
     total_lp_a_fee NUMERIC NOT NULL,
     total_lp_b_fee NUMERIC NOT NULL,
     total_protocol_a_fee NUMERIC NOT NULL,
@@ -72,6 +73,7 @@ COMMENT ON TABLE sol_meteora_damm_v2_pool_metrics IS 'Tracks aggregated metrics 
 
 CREATE TABLE IF NOT EXISTS sol_meteora_damm_v2_pool_fees (
     pool TEXT PRIMARY KEY REFERENCES sol_meteora_damm_v2_pools(address) ON DELETE CASCADE,
+    slot BIGINT NOT NULL,
     protocol_fee_percent SMALLINT NOT NULL,
     partner_fee_percent SMALLINT NOT NULL,
     referral_fee_percent SMALLINT NOT NULL,
@@ -82,6 +84,7 @@ COMMENT ON TABLE sol_meteora_damm_v2_pool_fees IS 'Tracks fee configuration for 
 
 CREATE TABLE IF NOT EXISTS sol_meteora_damm_v2_pool_base_fees (
     pool TEXT PRIMARY KEY REFERENCES sol_meteora_damm_v2_pools(address) ON DELETE CASCADE,
+    slot BIGINT NOT NULL,
     cliff_fee_numerator BIGINT NOT NULL,
     fee_scheduler_mode SMALLINT NOT NULL,
     number_of_period SMALLINT NOT NULL,
@@ -94,6 +97,7 @@ COMMENT ON TABLE sol_meteora_damm_v2_pool_base_fees IS 'Tracks base fee configur
 
 CREATE TABLE IF NOT EXISTS sol_meteora_damm_v2_pool_dynamic_fees (
     pool TEXT PRIMARY KEY REFERENCES sol_meteora_damm_v2_pools(address) ON DELETE CASCADE,
+    slot BIGINT NOT NULL,
     initialized SMALLINT NOT NULL,
     max_volatility_accumulator INTEGER NOT NULL,
     variable_fee_control INTEGER NOT NULL,
@@ -113,6 +117,7 @@ COMMENT ON TABLE sol_meteora_damm_v2_pool_dynamic_fees IS 'Tracks dynamic fee co
 
 CREATE TABLE IF NOT EXISTS sol_meteora_damm_v2_positions (
     address TEXT PRIMARY KEY,
+    slot BIGINT NOT NULL,
     pool TEXT NOT NULL REFERENCES sol_meteora_damm_v2_pools(address) ON DELETE CASCADE,
     nft_mint TEXT NOT NULL,
     fee_a_per_token_checkpoint BIGINT NOT NULL,
@@ -129,6 +134,7 @@ COMMENT ON TABLE sol_meteora_damm_v2_positions IS 'Tracks DAMM V2 positions repr
 
 CREATE TABLE IF NOT EXISTS sol_meteora_damm_v2_position_metrics (
     position TEXT PRIMARY KEY REFERENCES sol_meteora_damm_v2_positions(address) ON DELETE CASCADE,
+    slot BIGINT NOT NULL,
     total_claimed_a_fee BIGINT NOT NULL,
     total_claimed_b_fee BIGINT NOT NULL,
     created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,

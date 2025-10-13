@@ -7,6 +7,8 @@ import (
 
 	"api.audius.co/database"
 	"github.com/jackc/pgx/v5"
+	"github.com/jackc/pgx/v5/pgconn"
+	"go.uber.org/zap"
 )
 
 func withRetries(f func() error, maxRetries int, interval time.Duration) error {
@@ -58,4 +60,53 @@ func getArtistCoins(ctx context.Context, db database.DBTX, forceRefresh bool) ([
 	}
 	mintsCache = mintAddresses
 	return mintAddresses, nil
+}
+
+type notificationCallback func(ctx context.Context, notification *pgconn.Notification)
+
+func watchPgNotification(ctx context.Context, pool database.DbPool, notification string, callback notificationCallback, logger *zap.Logger) error {
+	if logger == nil {
+		logger = zap.NewNop()
+	}
+
+	childLogger := logger.With(zap.String("notification", notification))
+
+	conn, err := pool.Acquire(ctx)
+	if err != nil {
+		return fmt.Errorf("failed to acquire database connection: %w", err)
+	}
+
+	rawConn := conn.Conn()
+	_, err = rawConn.Exec(ctx, fmt.Sprintf(`LISTEN %s`, notification))
+	if err != nil {
+		return fmt.Errorf("failed to listen for %s changes: %w", notification, err)
+	}
+
+	go func() {
+		defer func() {
+			if rawConn != nil && !rawConn.PgConn().IsClosed() && ctx.Err() != nil {
+				_, _ = rawConn.Exec(ctx, fmt.Sprintf(`UNLISTEN %s`, notification))
+			}
+			childLogger.Info("received shutdown signal, stopping notification watcher")
+			conn.Release()
+		}()
+		for {
+			select {
+			case <-ctx.Done():
+				return
+			default:
+			}
+
+			notif, err := rawConn.WaitForNotification(ctx)
+			if err != nil {
+				childLogger.Error("failed waiting for notification", zap.Error(err))
+			}
+			if notif == nil {
+				childLogger.Warn("received nil notification, continuing to wait for notifications")
+				continue
+			}
+			callback(ctx, notif)
+		}
+	}()
+	return nil
 }

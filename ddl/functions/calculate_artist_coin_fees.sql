@@ -11,6 +11,9 @@ RETURNS TABLE (
 ) LANGUAGE sql AS $function$
     WITH
     damm_fees AS (
+        -- fee = totalLiquidity * feePerTokenStore
+        -- precision: (totalLiquidity * feePerTokenStore) >> 128
+        -- See: https://github.com/MeteoraAg/damm-v2-sdk/blob/70d1af59689039a1dc700dee8f741db48024d02d/src/helpers/utils.ts#L190-L191
         SELECT
             pool.token_a_mint AS mint,
             (

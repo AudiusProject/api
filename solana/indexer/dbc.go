@@ -83,7 +83,7 @@ func processDbcInstruction(
 				if err != nil {
 					return fmt.Errorf("failed to get damm v2 pool account data after retries: %w", err)
 				} else {
-					err = upsertDammV2Pool(ctx, db, migrationInst.GetPool().PublicKey, &dammPool)
+					err = upsertDammV2Pool(ctx, db, slot, migrationInst.GetPool().PublicKey, &dammPool)
 					if err != nil {
 						return fmt.Errorf("failed to upsert damm v2 pool: %w", err)
 					}
@@ -96,7 +96,7 @@ func processDbcInstruction(
 				if err != nil {
 					return fmt.Errorf("failed to get first damm v2 position account data: %w", err)
 				} else {
-					err = upsertDammV2Position(ctx, db, migrationInst.GetFirstPosition().PublicKey, &firstPosition)
+					err = upsertDammV2Position(ctx, db, slot, migrationInst.GetFirstPosition().PublicKey, &firstPosition)
 					if err != nil {
 						return fmt.Errorf("failed to upsert first damm v2 position: %w", err)
 					}
@@ -109,7 +109,7 @@ func processDbcInstruction(
 				if err != nil {
 					return fmt.Errorf("failed to get second damm v2 position account data: %w", err)
 				} else {
-					err = upsertDammV2Position(ctx, db, migrationInst.GetSecondPosition().PublicKey, &secondPosition)
+					err = upsertDammV2Position(ctx, db, slot, migrationInst.GetSecondPosition().PublicKey, &secondPosition)
 					if err != nil {
 						return fmt.Errorf("failed to upsert second damm v2 position: %w", err)
 					}
