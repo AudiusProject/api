@@ -22,10 +22,11 @@ type Indexer struct {
 	logger     *zap.Logger
 }
 
-const DAMM_V2_INDEXER_NAME = "damm_v2"
-const MAX_DAMM_V2_POOLS_PER_SUBSCRIPTION = 10000
-const DAMM_V2_POOL_SUBSCRIPTION_KEY = "dammV2Pools"
-const DBC_MIGRATION_NOTIFICATION_NAME = "meteora_dbc_migration"
+const (
+	NAME                       = "damm_v2"
+	MAX_POOLS_PER_SUBSCRIPTION = 10000 // Arbitrary
+	NOTIFICATION_NAME          = "artist_coins_damm_v2_pool_changed"
+)
 
 func New(
 	config common.GrpcConfig,
@@ -69,7 +70,8 @@ func (d *Indexer) Start(ctx context.Context) {
 		}
 
 		// Resubscribe to all DAMM V2 pools
-		clients, err := d.subscribeToDammV2Pools(subCtx)
+		// TODO: Optimize this to only add/remove DAMM V2 pools instead of resubscribing to all
+		clients, err := d.subscribe(subCtx)
 		grpcClients = clients
 		if err != nil {
 			d.logger.Error("failed to resubscribe to DAMM V2 pools", zap.Error(err))
@@ -81,7 +83,7 @@ func (d *Indexer) Start(ctx context.Context) {
 	}
 
 	// Setup initial subscription
-	clients, err := d.subscribeToDammV2Pools(ctx)
+	clients, err := d.subscribe(ctx)
 	if err != nil {
 		d.logger.Error("failed to subscribe to DAMM V2 pools", zap.Error(err))
 		return
@@ -89,7 +91,7 @@ func (d *Indexer) Start(ctx context.Context) {
 	grpcClients = clients
 
 	// Watch for new pools to be added
-	err = common.WatchPgNotification(ctx, d.pool, DBC_MIGRATION_NOTIFICATION_NAME, handleNotif, d.logger)
+	err = common.WatchPgNotification(ctx, d.pool, NOTIFICATION_NAME, handleNotif, d.logger)
 	if err != nil {
 		d.logger.Error("failed to watch for DAMM V2 pool changes", zap.Error(err))
 		return
@@ -126,7 +128,7 @@ func (d *Indexer) HandleUpdate(ctx context.Context, msg *pb.SubscribeUpdate) err
 	// Handle DAMM V2 account updates
 	accUpdate := msg.GetAccount()
 	if accUpdate != nil {
-		if msg.Filters[0] == DAMM_V2_POOL_SUBSCRIPTION_KEY {
+		if msg.Filters[0] == NAME {
 			err := processDammV2PoolUpdate(ctx, d.pool, accUpdate)
 			if err != nil {
 				return fmt.Errorf("failed to process DAMM V2 pool update: %w", err)
@@ -143,34 +145,34 @@ func (d *Indexer) HandleUpdate(ctx context.Context, msg *pb.SubscribeUpdate) err
 	return nil
 }
 
-func (d *Indexer) subscribeToDammV2Pools(ctx context.Context) ([]common.GrpcClient, error) {
+func (d *Indexer) subscribe(ctx context.Context) ([]common.GrpcClient, error) {
 	done := false
 	page := 0
-	pageSize := MAX_DAMM_V2_POOLS_PER_SUBSCRIPTION
+	pageSize := MAX_POOLS_PER_SUBSCRIPTION
 	total := 0
 	grpcClients := make([]common.GrpcClient, 0)
 	for !done {
-		dammV2Pools, err := getWatchedDammV2Pools(ctx, d.pool, pageSize, page*pageSize)
+		pools, err := getSubscribedDammV2Pools(ctx, d.pool, pageSize, page*pageSize)
 		if err != nil {
-			return nil, fmt.Errorf("failed to get watched DAMM V2 pools: %w", err)
+			return nil, fmt.Errorf("failed to get pools: %w", err)
 		}
-		if len(dammV2Pools) == 0 {
-			d.logger.Info("no DAMM V2 pools to subscribe to")
+		if len(pools) == 0 {
+			d.logger.Info("no pools to subscribe to")
 			return grpcClients, nil
 		}
-		total += len(dammV2Pools)
+		total += len(pools)
 
-		d.logger.Debug("subscribing to DAMM V2 pools....", zap.Int("numPools", len(dammV2Pools)))
-		subscription := d.makeDammV2SubscriptionRequest(ctx, dammV2Pools)
+		d.logger.Debug("subscribing to pools....", zap.Int("numPools", len(pools)))
+		subscription := d.makeSubscriptionRequest(ctx, pools)
 
 		// Handle each message from the subscription
 		handleMessage := func(ctx context.Context, msg *pb.SubscribeUpdate) {
 			err := d.HandleUpdate(ctx, msg)
 			if err != nil {
-				d.logger.Error("failed to handle DAMM V2 update", zap.Error(err))
+				d.logger.Error("failed to handle update", zap.Error(err))
 
 				// Add messages that failed to process to the retry queue
-				if err := common.AddToRetryQueue(ctx, d.pool, DAMM_V2_INDEXER_NAME, msg, err.Error()); err != nil {
+				if err := common.AddToRetryQueue(ctx, d.pool, NAME, msg, err.Error()); err != nil {
 					d.logger.Error("failed to add to retry queue", zap.Error(err))
 				}
 			}
@@ -178,23 +180,23 @@ func (d *Indexer) subscribeToDammV2Pools(ctx context.Context) ([]common.GrpcClie
 
 		grpcClient := common.NewGrpcClient(d.grpcConfig)
 		err = grpcClient.Subscribe(ctx, subscription, handleMessage, func(err error) {
-			d.logger.Error("error in DAMM V2 subscription", zap.Error(err))
+			d.logger.Error("error in subscription", zap.Error(err))
 		})
 		if err != nil {
-			return nil, fmt.Errorf("failed to subscribe to DAMM V2 pools: %w", err)
+			return nil, fmt.Errorf("failed to subscribe to pools: %w", err)
 		}
 		grpcClients = append(grpcClients, grpcClient)
 
-		if len(dammV2Pools) < pageSize {
+		if len(pools) < pageSize {
 			done = true
 		}
 		page++
 	}
-	d.logger.Info("subscribed to DAMM V2 pools", zap.Int("numPools", total))
+	d.logger.Info("subscribed to pools", zap.Int("count", total))
 	return grpcClients, nil
 }
 
-func (d *Indexer) makeDammV2SubscriptionRequest(ctx context.Context, dammV2Pools []string) *pb.SubscribeRequest {
+func (d *Indexer) makeSubscriptionRequest(ctx context.Context, dammV2Pools []string) *pb.SubscribeRequest {
 	commitment := pb.CommitmentLevel_CONFIRMED
 	subscription := &pb.SubscribeRequest{
 		Commitment: &commitment,
@@ -206,7 +208,7 @@ func (d *Indexer) makeDammV2SubscriptionRequest(ctx context.Context, dammV2Pools
 		Owner:   []string{meteora_damm_v2.ProgramID.String()},
 		Account: dammV2Pools,
 	}
-	subscription.Accounts[DAMM_V2_POOL_SUBSCRIPTION_KEY] = &accountFilter
+	subscription.Accounts[NAME] = &accountFilter
 
 	// Listen to all positions for each pool
 	for _, pool := range dammV2Pools {
@@ -234,7 +236,7 @@ func (d *Indexer) makeDammV2SubscriptionRequest(ctx context.Context, dammV2Pools
 	}
 
 	// Ensure this subscription has a checkpoint
-	checkpointId, fromSlot, err := common.EnsureCheckpoint(ctx, DAMM_V2_INDEXER_NAME, d.pool, d.rpcClient, subscription, d.logger)
+	checkpointId, fromSlot, err := common.EnsureCheckpoint(ctx, NAME, d.pool, d.rpcClient, subscription, d.logger)
 	if err != nil {
 		d.logger.Error("failed to ensure checkpoint", zap.Error(err))
 	}
@@ -305,10 +307,12 @@ func processDammV2PositionUpdate(
 	return nil
 }
 
-func getWatchedDammV2Pools(ctx context.Context, db database.DBTX, limit int, offset int) ([]string, error) {
+// Gets the canonical DAMM V2 pools from the artist coins table.
+func getSubscribedDammV2Pools(ctx context.Context, db database.DBTX, limit int, offset int) ([]string, error) {
 	sql := `
 		SELECT damm_v2_pool
-		FROM sol_meteora_dbc_migrations
+		FROM artist_coins
+		WHERE damm_v2_pool IS NOT NULL
 		LIMIT @limit OFFSET @offset
 	;`
 	rows, err := db.Query(ctx, sql, pgx.NamedArgs{

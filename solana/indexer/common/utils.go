@@ -2,6 +2,7 @@ package common
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"time"
 
@@ -67,7 +68,7 @@ func WatchPgNotification(ctx context.Context, pool database.DbPool, notification
 			if rawConn != nil && !rawConn.PgConn().IsClosed() && ctx.Err() != nil {
 				_, _ = rawConn.Exec(ctx, fmt.Sprintf(`UNLISTEN %s`, notification))
 			}
-			childLogger.Info("received shutdown signal, stopping notification watcher")
+			childLogger.Debug("received shutdown signal, stopping notification watcher")
 			conn.Release()
 		}()
 		for {
@@ -79,12 +80,17 @@ func WatchPgNotification(ctx context.Context, pool database.DbPool, notification
 
 			notif, err := rawConn.WaitForNotification(ctx)
 			if err != nil {
-				childLogger.Error("failed waiting for notification", zap.Error(err))
+				if !errors.Is(err, context.Canceled) {
+					childLogger.Error("failed waiting for notification", zap.Error(err))
+				}
+				continue
 			}
 			if notif == nil {
 				childLogger.Warn("received nil notification, continuing to wait for notifications")
 				continue
 			}
+
+			childLogger.Debug("received notification", zap.String("payload", notif.Payload))
 			callback(ctx, notif)
 		}
 	}()

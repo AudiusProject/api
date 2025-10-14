@@ -27,7 +27,7 @@ type Indexer struct {
 }
 
 const TOKEN_INDEXER_NAME = "token"
-const ARTIST_COIN_NOTIFICATION_NAME = "artist_coins_changed"
+const ARTIST_COIN_NOTIFICATION_NAME = "artist_coins_mint_changed"
 const MAX_ARTIST_COIN_MINTS_PER_SUBSCRIPTION = 10000
 const WORKER_CHANNEL_SIZE = 3000
 const WORKER_COUNT = 50
@@ -48,7 +48,7 @@ func New(
 	}
 }
 
-func (t *Indexer) Start(ctx context.Context) {
+func (d *Indexer) Start(ctx context.Context) {
 	// To ensure only one subscription task is running at a time, keep track of
 	// the last cancel function and call it on the next notification.
 	var lastCancel context.CancelFunc
@@ -58,13 +58,13 @@ func (t *Indexer) Start(ctx context.Context) {
 	for i := range WORKER_COUNT {
 		go func(workerID int) {
 			for updateMessage := range workerChan {
-				err := t.HandleUpdate(ctx, updateMessage)
+				err := d.HandleUpdate(ctx, updateMessage)
 				if err != nil {
-					t.logger.Error("failed to handle token update", zap.Int("workerID", workerID), zap.Error(err))
+					d.logger.Error("failed to handle token update", zap.Int("workerID", workerID), zap.Error(err))
 
 					// Add messages that failed to process to the retry queue
-					if err := common.AddToRetryQueue(ctx, t.pool, TOKEN_INDEXER_NAME, updateMessage, err.Error()); err != nil {
-						t.logger.Error("failed to add to retry queue", zap.Error(err))
+					if err := common.AddToRetryQueue(ctx, d.pool, TOKEN_INDEXER_NAME, updateMessage, err.Error()); err != nil {
+						d.logger.Error("failed to add to retry queue", zap.Error(err))
 					}
 				}
 			}
@@ -84,7 +84,7 @@ func (t *Indexer) Start(ctx context.Context) {
 	handleUpdate := func(ctx context.Context, message *pb.SubscribeUpdate) {
 		select {
 		case <-ctx.Done():
-			t.logger.Warn("context cancelled, not handling update")
+			d.logger.Warn("context cancelled, not handling update")
 			return
 		case workerChan <- message:
 		}
@@ -105,11 +105,11 @@ func (t *Indexer) Start(ctx context.Context) {
 		}
 
 		// Resubscribe to all artist coins
-		// TODO: Optimize this to only add/remove new coins instead of resubscribing to all
-		clients, err := t.subscribeToArtistCoins(subCtx, handleUpdate)
+		// TODO: Optimize this to only add/remove coins instead of resubscribing to all
+		clients, err := d.subscribeToArtistCoins(subCtx, handleUpdate)
 		grpcClients = clients
 		if err != nil {
-			t.logger.Error("failed to resubscribe to artist coins", zap.Error(err))
+			d.logger.Error("failed to resubscribe to artist coins", zap.Error(err))
 			cancel()
 			return
 		}
@@ -118,17 +118,17 @@ func (t *Indexer) Start(ctx context.Context) {
 	}
 
 	// Initial subscription to all artist coins
-	clients, err := t.subscribeToArtistCoins(ctx, handleUpdate)
+	clients, err := d.subscribeToArtistCoins(ctx, handleUpdate)
 	if err != nil {
-		t.logger.Error("failed to subscribe to artist coins", zap.Error(err))
+		d.logger.Error("failed to subscribe to artist coins", zap.Error(err))
 		return
 	}
 	grpcClients = clients
 
 	// Watch for new coins to be added
-	err = common.WatchPgNotification(ctx, t.pool, ARTIST_COIN_NOTIFICATION_NAME, handleNotif, t.logger)
+	err = common.WatchPgNotification(ctx, d.pool, ARTIST_COIN_NOTIFICATION_NAME, handleNotif, d.logger)
 	if err != nil {
-		t.logger.Error("failed to watch for artist coin changes", zap.Error(err))
+		d.logger.Error("failed to watch for artist coin changes", zap.Error(err))
 		return
 	}
 
@@ -136,7 +136,7 @@ func (t *Indexer) Start(ctx context.Context) {
 	for {
 		select {
 		case <-ctx.Done():
-			t.logger.Info("received shutdown signal, stopping artist coin indexer")
+			d.logger.Info("received shutdown signal, stopping indexer")
 			return
 		default:
 		}
@@ -144,7 +144,7 @@ func (t *Indexer) Start(ctx context.Context) {
 }
 
 // Handles a single update message from the gRPC subscription
-func (t *Indexer) HandleUpdate(ctx context.Context, msg *pb.SubscribeUpdate) error {
+func (d *Indexer) HandleUpdate(ctx context.Context, msg *pb.SubscribeUpdate) error {
 	// Handle slot updates
 	slotUpdate := msg.GetSlot()
 	if slotUpdate != nil {
@@ -153,9 +153,9 @@ func (t *Indexer) HandleUpdate(ctx context.Context, msg *pb.SubscribeUpdate) err
 			// Use the filter as the checkpoint ID
 			checkpointId := msg.Filters[0]
 
-			err := common.UpdateCheckpoint(ctx, t.pool, checkpointId, slotUpdate.Slot)
+			err := common.UpdateCheckpoint(ctx, d.pool, checkpointId, slotUpdate.Slot)
 			if err != nil {
-				t.logger.Error("failed to update slot checkpoint", zap.Error(err))
+				d.logger.Error("failed to update slot checkpoint", zap.Error(err))
 			}
 		}
 	}
@@ -166,7 +166,7 @@ func (t *Indexer) HandleUpdate(ctx context.Context, msg *pb.SubscribeUpdate) err
 		txSig := solana.SignatureFromBytes(accUpdate.Account.TxnSignature)
 
 		// Fetch the transaction details
-		txRes, err := common.FetchTransactionWithCache(ctx, t.transactionCache, t.rpcClient, txSig)
+		txRes, err := common.FetchTransactionWithCache(ctx, d.transactionCache, d.rpcClient, txSig)
 		if err != nil {
 			return fmt.Errorf("failed to fetch transaction: %w", err)
 		}
@@ -178,12 +178,13 @@ func (t *Indexer) HandleUpdate(ctx context.Context, msg *pb.SubscribeUpdate) err
 		}
 
 		// Add the lookup table accounts to the message accounts
-		tx = common.ResolveLookupTables(ctx, t.rpcClient, tx, txRes.Meta)
+		tx = common.ResolveLookupTables(ctx, d.rpcClient, tx, txRes.Meta)
 
 		// Extract the mints we're tracking using the subscription's filters
 		trackedMints := msg.Filters
 
-		err = processBalanceChanges(ctx, t.pool, accUpdate.Slot, txRes.Meta, tx, txRes.BlockTime.Time(), trackedMints, t.logger)
+		// Process balance changes for this subscription's mints
+		err = common.ProcessBalanceChanges(ctx, d.pool, accUpdate.Slot, txRes.Meta, tx, txRes.BlockTime.Time(), trackedMints, d.logger)
 		if err != nil {
 			return fmt.Errorf("failed to process balance changes: %w", err)
 		}
@@ -191,31 +192,31 @@ func (t *Indexer) HandleUpdate(ctx context.Context, msg *pb.SubscribeUpdate) err
 	return nil
 }
 
-func (t *Indexer) subscribeToArtistCoins(ctx context.Context, handleUpdate func(ctx context.Context, message *pb.SubscribeUpdate)) ([]common.GrpcClient, error) {
+func (d *Indexer) subscribeToArtistCoins(ctx context.Context, handleUpdate func(ctx context.Context, message *pb.SubscribeUpdate)) ([]common.GrpcClient, error) {
 	done := false
 	page := 0
 	pageSize := MAX_ARTIST_COIN_MINTS_PER_SUBSCRIPTION
 	grpcClients := make([]common.GrpcClient, 0)
 	total := 0
 	for !done {
-		mints, err := getArtistCoins(ctx, t.pool, pageSize, page*pageSize)
+		mints, err := getArtistCoins(ctx, d.pool, pageSize, page*pageSize)
 		if err != nil {
 			return nil, fmt.Errorf("failed to get artist coins: %w", err)
 		}
 		if len(mints) == 0 {
-			t.logger.Info("no more artist coins to subscribe to, exiting")
+			d.logger.Info("no more artist coins to subscribe to, exiting")
 			return grpcClients, nil
 		}
 		total += len(mints)
-		t.logger.Debug("subscribing to artist coins...", zap.Int("numCoins", len(mints)))
-		subscription, err := t.makeMintSubscriptionRequest(ctx, mints)
+		d.logger.Debug("subscribing to artist coins...", zap.Int("numCoins", len(mints)))
+		subscription, err := d.makeMintSubscriptionRequest(ctx, mints)
 		if err != nil {
 			return nil, fmt.Errorf("failed to make mint subscription request: %w", err)
 		}
 
-		grpcClient := common.NewGrpcClient(t.grpcConfig)
+		grpcClient := common.NewGrpcClient(d.grpcConfig)
 		err = grpcClient.Subscribe(ctx, subscription, handleUpdate, func(err error) {
-			t.logger.Error("error in token subscription", zap.Error(err))
+			d.logger.Error("error in token subscription", zap.Error(err))
 		})
 		if err != nil {
 			return nil, fmt.Errorf("failed to subscribe to artist coins: %w", err)
@@ -227,7 +228,7 @@ func (t *Indexer) subscribeToArtistCoins(ctx context.Context, handleUpdate func(
 		}
 		page++
 	}
-	t.logger.Info("subscribed to artist coins", zap.Int("numCoins", total))
+	d.logger.Info("subscribed to artist coins", zap.Int("count", total))
 	return grpcClients, nil
 }
 

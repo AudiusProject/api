@@ -7,9 +7,11 @@ import (
 
 	"api.audius.co/config"
 	"api.audius.co/database"
+	"api.audius.co/jobs"
 	"api.audius.co/logging"
 	"api.audius.co/solana/indexer/common"
 	"api.audius.co/solana/indexer/damm_v2"
+	"api.audius.co/solana/indexer/dbc"
 	"api.audius.co/solana/indexer/program"
 	"api.audius.co/solana/indexer/token"
 	"github.com/gagliardetto/solana-go"
@@ -30,6 +32,7 @@ type SolanaIndexer struct {
 	dammV2Indexer  *damm_v2.Indexer
 	tokenIndexer   *token.Indexer
 	programIndexer *program.Indexer
+	dbcIndexer     *dbc.Indexer
 
 	checkpointId string
 
@@ -79,7 +82,10 @@ func New(config config.Config) *SolanaIndexer {
 		grpcConfig, rpcClient, pool, &transactionCache, logger,
 	)
 	programIndexer := program.New(
-		grpcConfig, rpcClient, pool, config.SolanaConfig, logger,
+		grpcConfig, rpcClient, pool, config, &transactionCache, logger,
+	)
+	dbcIndexer := dbc.New(
+		grpcConfig, rpcClient, pool, &transactionCache, logger,
 	)
 
 	s := &SolanaIndexer{
@@ -92,6 +98,7 @@ func New(config config.Config) *SolanaIndexer {
 		dammV2Indexer:  dammV2Indexer,
 		tokenIndexer:   tokenIndexer,
 		programIndexer: programIndexer,
+		dbcIndexer:     dbcIndexer,
 	}
 
 	return s
@@ -100,19 +107,20 @@ func New(config config.Config) *SolanaIndexer {
 func (s *SolanaIndexer) Start(ctx context.Context) error {
 	go s.ScheduleProcessRetryQueue(ctx, s.config.SolanaIndexerRetryInterval)
 
-	// statsJob := jobs.NewCoinStatsJob(s.config, s.pool)
-	// statsCtx := context.WithoutCancel(ctx)
-	// statsJob.ScheduleEvery(statsCtx, 5*time.Minute)
-	// go statsJob.Run(statsCtx)
+	statsJob := jobs.NewCoinStatsJob(s.config, s.pool)
+	statsCtx := context.WithoutCancel(ctx)
+	statsJob.ScheduleEvery(statsCtx, 5*time.Minute)
+	go statsJob.Run(statsCtx)
 
-	// dbcJob := jobs.NewCoinDBCJob(s.config, s.pool)
-	// dbcCtx := context.WithoutCancel(ctx)
-	// dbcJob.ScheduleEvery(dbcCtx, 5*time.Minute)
-	// go dbcJob.Run(dbcCtx)
+	dbcJob := jobs.NewCoinDBCJob(s.config, s.pool)
+	dbcCtx := context.WithoutCancel(ctx)
+	dbcJob.ScheduleEvery(dbcCtx, 5*time.Minute)
+	go dbcJob.Run(dbcCtx)
 
-	// go s.tokenIndexer.Start(ctx)
-	// go s.dammV2Indexer.Start(ctx)
+	go s.tokenIndexer.Start(ctx)
+	go s.dammV2Indexer.Start(ctx)
 	go s.programIndexer.Start(ctx)
+	go s.dbcIndexer.Start(ctx)
 
 	for {
 		select {

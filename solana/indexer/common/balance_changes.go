@@ -1,4 +1,4 @@
-package token
+package common
 
 import (
 	"context"
@@ -15,7 +15,7 @@ import (
 	"go.uber.org/zap"
 )
 
-func processBalanceChanges(
+func ProcessBalanceChanges(
 	ctx context.Context,
 	db database.DBTX,
 	slot uint64,
