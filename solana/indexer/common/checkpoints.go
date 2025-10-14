@@ -1,4 +1,4 @@
-package indexer
+package common
 
 import (
 	"context"
@@ -14,7 +14,9 @@ import (
 	"go.uber.org/zap"
 )
 
-func ensureCheckpoint(
+const MAX_SLOT_GAP = 2500
+
+func EnsureCheckpoint(
 	ctx context.Context,
 	name string,
 	db database.DBTX,
@@ -22,12 +24,12 @@ func ensureCheckpoint(
 	subscription *pb.SubscribeRequest,
 	logger *zap.Logger,
 ) (string, uint64, error) {
-	lastIndexedSlot, err := getCheckpointSlot(ctx, db, name, subscription)
+	lastIndexedSlot, err := GetCheckpointSlot(ctx, db, name, subscription)
 	if err != nil {
 		return "", 0, fmt.Errorf("failed to get last indexed slot: %w", err)
 	}
 
-	latestSlot, err := withRetriesResult(func() (uint64, error) {
+	latestSlot, err := WithRetriesResult(func() (uint64, error) {
 		return rpcClient.GetSlot(ctx, "confirmed")
 	}, 5, time.Second*2)
 	if err != nil {
@@ -61,7 +63,7 @@ func ensureCheckpoint(
 	return checkpointId, fromSlot, nil
 }
 
-func insertBackfillCheckpoint(ctx context.Context, db database.DBTX, fromSlot uint64, toSlot uint64, address string) (string, error) {
+func InsertBackfillCheckpoint(ctx context.Context, db database.DBTX, fromSlot uint64, toSlot uint64, address string) (string, error) {
 	obj := map[string]string{
 		"type":    "backfill",
 		"address": address,
@@ -128,7 +130,7 @@ func insertCheckpointStart(
 	return checkpointId, nil
 }
 
-func updateCheckpoint(ctx context.Context, db database.DBTX, id string, slot uint64) error {
+func UpdateCheckpoint(ctx context.Context, db database.DBTX, id string, slot uint64) error {
 	_, err := db.Exec(ctx, `
 			UPDATE sol_slot_checkpoints
 			SET to_slot = @to_slot,
@@ -142,7 +144,7 @@ func updateCheckpoint(ctx context.Context, db database.DBTX, id string, slot uin
 	return err
 }
 
-func getCheckpointSlot(ctx context.Context, db database.DBTX, name string, subscription *pb.SubscribeRequest) (uint64, error) {
+func GetCheckpointSlot(ctx context.Context, db database.DBTX, name string, subscription *pb.SubscribeRequest) (uint64, error) {
 	subscriptionJson, err := json.Marshal(subscription)
 	if err != nil {
 		return 0, fmt.Errorf("failed to marshal subscription request: %w", err)

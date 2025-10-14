@@ -1,10 +1,11 @@
-package indexer
+package damm_v2
 
 import (
 	"context"
 	"fmt"
 
 	"api.audius.co/database"
+	"api.audius.co/solana/indexer/common"
 	"api.audius.co/solana/spl/programs/meteora_damm_v2"
 	bin "github.com/gagliardetto/binary"
 	"github.com/gagliardetto/solana-go"
@@ -14,10 +15,10 @@ import (
 	"go.uber.org/zap"
 )
 
-type DammV2Indexer struct {
+type Indexer struct {
 	pool       database.DbPool
-	grpcConfig GrpcConfig
-	rpcClient  RpcClient
+	grpcConfig common.GrpcConfig
+	rpcClient  common.RpcClient
 	logger     *zap.Logger
 }
 
@@ -26,13 +27,27 @@ const MAX_DAMM_V2_POOLS_PER_SUBSCRIPTION = 10000
 const DAMM_V2_POOL_SUBSCRIPTION_KEY = "dammV2Pools"
 const DBC_MIGRATION_NOTIFICATION_NAME = "meteora_dbc_migration"
 
-func (d *DammV2Indexer) Start(ctx context.Context) {
+func New(
+	config common.GrpcConfig,
+	rpcClient common.RpcClient,
+	pool database.DbPool,
+	logger *zap.Logger,
+) *Indexer {
+	return &Indexer{
+		pool:       pool,
+		grpcConfig: config,
+		rpcClient:  rpcClient,
+		logger:     logger.Named("DammV2Indexer"),
+	}
+}
+
+func (d *Indexer) Start(ctx context.Context) {
 	// To ensure only one subscription task is running at a time, keep track of
 	// the last cancel function and call it on the next notification.
 	var lastCancel context.CancelFunc
 
 	// Ensure all gRPC clients are closed on shutdown
-	var grpcClients []GrpcClient
+	var grpcClients []common.GrpcClient
 	defer (func() {
 		for _, client := range grpcClients {
 			client.Close()
@@ -58,6 +73,7 @@ func (d *DammV2Indexer) Start(ctx context.Context) {
 		grpcClients = clients
 		if err != nil {
 			d.logger.Error("failed to resubscribe to DAMM V2 pools", zap.Error(err))
+			cancel()
 			return
 		}
 
@@ -73,7 +89,7 @@ func (d *DammV2Indexer) Start(ctx context.Context) {
 	grpcClients = clients
 
 	// Watch for new pools to be added
-	err = watchPgNotification(ctx, d.pool, DBC_MIGRATION_NOTIFICATION_NAME, handleNotif, d.logger)
+	err = common.WatchPgNotification(ctx, d.pool, DBC_MIGRATION_NOTIFICATION_NAME, handleNotif, d.logger)
 	if err != nil {
 		d.logger.Error("failed to watch for DAMM V2 pool changes", zap.Error(err))
 		return
@@ -91,7 +107,7 @@ func (d *DammV2Indexer) Start(ctx context.Context) {
 }
 
 // Handles a single update message from the gRPC subscription
-func (d *DammV2Indexer) HandleUpdate(ctx context.Context, msg *pb.SubscribeUpdate) error {
+func (d *Indexer) HandleUpdate(ctx context.Context, msg *pb.SubscribeUpdate) error {
 	// Handle slot updates
 	slotUpdate := msg.GetSlot()
 	if slotUpdate != nil {
@@ -100,7 +116,7 @@ func (d *DammV2Indexer) HandleUpdate(ctx context.Context, msg *pb.SubscribeUpdat
 			// Use the filter as the checkpoint ID
 			checkpointId := msg.Filters[0]
 
-			err := updateCheckpoint(ctx, d.pool, checkpointId, slotUpdate.Slot)
+			err := common.UpdateCheckpoint(ctx, d.pool, checkpointId, slotUpdate.Slot)
 			if err != nil {
 				d.logger.Error("failed to update slot checkpoint", zap.Error(err))
 			}
@@ -127,12 +143,12 @@ func (d *DammV2Indexer) HandleUpdate(ctx context.Context, msg *pb.SubscribeUpdat
 	return nil
 }
 
-func (d *DammV2Indexer) subscribeToDammV2Pools(ctx context.Context) ([]GrpcClient, error) {
+func (d *Indexer) subscribeToDammV2Pools(ctx context.Context) ([]common.GrpcClient, error) {
 	done := false
 	page := 0
 	pageSize := MAX_DAMM_V2_POOLS_PER_SUBSCRIPTION
 	total := 0
-	grpcClients := make([]GrpcClient, 0)
+	grpcClients := make([]common.GrpcClient, 0)
 	for !done {
 		dammV2Pools, err := getWatchedDammV2Pools(ctx, d.pool, pageSize, page*pageSize)
 		if err != nil {
@@ -154,13 +170,13 @@ func (d *DammV2Indexer) subscribeToDammV2Pools(ctx context.Context) ([]GrpcClien
 				d.logger.Error("failed to handle DAMM V2 update", zap.Error(err))
 
 				// Add messages that failed to process to the retry queue
-				if err := addToRetryQueue(ctx, d.pool, DAMM_V2_INDEXER_NAME, msg, err.Error()); err != nil {
+				if err := common.AddToRetryQueue(ctx, d.pool, DAMM_V2_INDEXER_NAME, msg, err.Error()); err != nil {
 					d.logger.Error("failed to add to retry queue", zap.Error(err))
 				}
 			}
 		}
 
-		grpcClient := NewGrpcClient(d.grpcConfig)
+		grpcClient := common.NewGrpcClient(d.grpcConfig)
 		err = grpcClient.Subscribe(ctx, subscription, handleMessage, func(err error) {
 			d.logger.Error("error in DAMM V2 subscription", zap.Error(err))
 		})
@@ -178,7 +194,7 @@ func (d *DammV2Indexer) subscribeToDammV2Pools(ctx context.Context) ([]GrpcClien
 	return grpcClients, nil
 }
 
-func (d *DammV2Indexer) makeDammV2SubscriptionRequest(ctx context.Context, dammV2Pools []string) *pb.SubscribeRequest {
+func (d *Indexer) makeDammV2SubscriptionRequest(ctx context.Context, dammV2Pools []string) *pb.SubscribeRequest {
 	commitment := pb.CommitmentLevel_CONFIRMED
 	subscription := &pb.SubscribeRequest{
 		Commitment: &commitment,
@@ -218,7 +234,7 @@ func (d *DammV2Indexer) makeDammV2SubscriptionRequest(ctx context.Context, dammV
 	}
 
 	// Ensure this subscription has a checkpoint
-	checkpointId, fromSlot, err := ensureCheckpoint(ctx, DAMM_V2_INDEXER_NAME, d.pool, d.rpcClient, subscription, d.logger)
+	checkpointId, fromSlot, err := common.EnsureCheckpoint(ctx, DAMM_V2_INDEXER_NAME, d.pool, d.rpcClient, subscription, d.logger)
 	if err != nil {
 		d.logger.Error("failed to ensure checkpoint", zap.Error(err))
 	}
@@ -544,6 +560,7 @@ func upsertDammV2PoolFees(
 
 	_, err := db.Exec(ctx, sqlFees, pgx.NamedArgs{
 		"pool":                 account.String(),
+		"slot":                 slot,
 		"partner_fee_percent":  fees.PartnerFeePercent,
 		"protocol_fee_percent": fees.ProtocolFeePercent,
 		"referral_fee_percent": fees.ReferralFeePercent,
@@ -666,6 +683,7 @@ func upsertDammV2PoolDynamicFee(
 
 	_, err := db.Exec(ctx, sqlDynamicFee, pgx.NamedArgs{
 		"pool":                       account.String(),
+		"slot":                       slot,
 		"initialized":                dynamicFee.Initialized,
 		"max_volatility_accumulator": dynamicFee.MaxVolatilityAccumulator,
 		"variable_fee_control":       dynamicFee.VariableFeeControl,
@@ -736,6 +754,7 @@ func upsertDammV2Position(
 
 	_, err := db.Exec(ctx, sql, pgx.NamedArgs{
 		"address":                    account.String(),
+		"slot":                       slot,
 		"pool":                       position.Pool.String(),
 		"nft_mint":                   position.NftMint.String(),
 		"fee_a_per_token_checkpoint": position.FeeAPerTokenCheckpoint,
@@ -782,6 +801,7 @@ func upsertDammV2PositionMetrics(
 
 	_, err := db.Exec(ctx, sql, pgx.NamedArgs{
 		"position":            account.String(),
+		"slot":                slot,
 		"total_claimed_a_fee": metrics.TotalClaimedAFee,
 		"total_claimed_b_fee": metrics.TotalClaimedBFee,
 	})

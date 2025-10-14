@@ -1,4 +1,4 @@
-package indexer
+package common
 
 import (
 	"context"
@@ -13,7 +13,7 @@ import (
 	"go.uber.org/zap"
 )
 
-func withRetries(f func() error, maxRetries int, interval time.Duration) error {
+func WithRetries(f func() error, maxRetries int, interval time.Duration) error {
 	err := f()
 	retries := 0
 	for err != nil && retries < maxRetries {
@@ -27,7 +27,7 @@ func withRetries(f func() error, maxRetries int, interval time.Duration) error {
 	return nil
 }
 
-func withRetriesResult[T any](f func() (T, error), maxRetries int, interval time.Duration) (T, error) {
+func WithRetriesResult[T any](f func() (T, error), maxRetries int, interval time.Duration) (T, error) {
 	result, err := f()
 	retries := 0
 	for err != nil && retries < maxRetries {
@@ -44,7 +44,7 @@ func withRetriesResult[T any](f func() (T, error), maxRetries int, interval time
 
 type notificationCallback func(ctx context.Context, notification *pgconn.Notification)
 
-func watchPgNotification(ctx context.Context, pool database.DbPool, notification string, callback notificationCallback, logger *zap.Logger) error {
+func WatchPgNotification(ctx context.Context, pool database.DbPool, notification string, callback notificationCallback, logger *zap.Logger) error {
 	if logger == nil {
 		logger = zap.NewNop()
 	}
@@ -92,7 +92,7 @@ func watchPgNotification(ctx context.Context, pool database.DbPool, notification
 }
 
 // Gets a transaction from a cache or fetches it from the RPC. Handles retries.
-func fetchTransactionWithCache(
+func FetchTransactionWithCache(
 	ctx context.Context,
 	transactionCache *otter.Cache[solana.Signature,
 		*rpc.GetTransactionResult],
@@ -107,7 +107,7 @@ func fetchTransactionWithCache(
 	}
 
 	// If the transaction is not in the cache, fetch it from the RPC
-	res, err := withRetriesResult(func() (*rpc.GetTransactionResult, error) {
+	res, err := WithRetriesResult(func() (*rpc.GetTransactionResult, error) {
 		return rpcClient.GetTransaction(
 			ctx,
 			signature,
@@ -130,7 +130,7 @@ func fetchTransactionWithCache(
 }
 
 // Resolves address lookup tables in the given transaction using the provided metadata.
-func resolveLookupTables(
+func ResolveLookupTables(
 	ctx context.Context,
 	rpcClient RpcClient,
 	tx *solana.Transaction,

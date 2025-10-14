@@ -1,10 +1,11 @@
-package indexer
+package token
 
 import (
 	"context"
 	"fmt"
 
 	"api.audius.co/database"
+	"api.audius.co/solana/indexer/common"
 	"github.com/gagliardetto/solana-go"
 	"github.com/gagliardetto/solana-go/rpc"
 	"github.com/jackc/pgx/v5"
@@ -14,10 +15,10 @@ import (
 	"go.uber.org/zap"
 )
 
-type TokenIndexer struct {
+type Indexer struct {
 	pool       database.DbPool
-	grpcConfig GrpcConfig
-	rpcClient  RpcClient
+	grpcConfig common.GrpcConfig
+	rpcClient  common.RpcClient
 
 	logger *zap.Logger
 
@@ -31,7 +32,23 @@ const MAX_ARTIST_COIN_MINTS_PER_SUBSCRIPTION = 10000
 const WORKER_CHANNEL_SIZE = 3000
 const WORKER_COUNT = 50
 
-func (t *TokenIndexer) Start(ctx context.Context) {
+func New(
+	config common.GrpcConfig,
+	rpcClient common.RpcClient,
+	pool database.DbPool,
+	transactionCache *otter.Cache[solana.Signature, *rpc.GetTransactionResult],
+	logger *zap.Logger,
+) *Indexer {
+	return &Indexer{
+		pool:             pool,
+		grpcConfig:       config,
+		rpcClient:        rpcClient,
+		transactionCache: transactionCache,
+		logger:           logger.Named("TokenIndexer"),
+	}
+}
+
+func (t *Indexer) Start(ctx context.Context) {
 	// To ensure only one subscription task is running at a time, keep track of
 	// the last cancel function and call it on the next notification.
 	var lastCancel context.CancelFunc
@@ -46,7 +63,7 @@ func (t *TokenIndexer) Start(ctx context.Context) {
 					t.logger.Error("failed to handle token update", zap.Int("workerID", workerID), zap.Error(err))
 
 					// Add messages that failed to process to the retry queue
-					if err := addToRetryQueue(ctx, t.pool, TOKEN_INDEXER_NAME, updateMessage, err.Error()); err != nil {
+					if err := common.AddToRetryQueue(ctx, t.pool, TOKEN_INDEXER_NAME, updateMessage, err.Error()); err != nil {
 						t.logger.Error("failed to add to retry queue", zap.Error(err))
 					}
 				}
@@ -55,7 +72,7 @@ func (t *TokenIndexer) Start(ctx context.Context) {
 	}
 
 	// Ensure all gRPC clients are closed on shutdown and that the workers are closed
-	var grpcClients []GrpcClient
+	var grpcClients []common.GrpcClient
 	defer (func() {
 		for _, client := range grpcClients {
 			client.Close()
@@ -93,6 +110,7 @@ func (t *TokenIndexer) Start(ctx context.Context) {
 		grpcClients = clients
 		if err != nil {
 			t.logger.Error("failed to resubscribe to artist coins", zap.Error(err))
+			cancel()
 			return
 		}
 
@@ -108,7 +126,7 @@ func (t *TokenIndexer) Start(ctx context.Context) {
 	grpcClients = clients
 
 	// Watch for new coins to be added
-	err = watchPgNotification(ctx, t.pool, ARTIST_COIN_NOTIFICATION_NAME, handleNotif, t.logger)
+	err = common.WatchPgNotification(ctx, t.pool, ARTIST_COIN_NOTIFICATION_NAME, handleNotif, t.logger)
 	if err != nil {
 		t.logger.Error("failed to watch for artist coin changes", zap.Error(err))
 		return
@@ -126,7 +144,7 @@ func (t *TokenIndexer) Start(ctx context.Context) {
 }
 
 // Handles a single update message from the gRPC subscription
-func (t *TokenIndexer) HandleUpdate(ctx context.Context, msg *pb.SubscribeUpdate) error {
+func (t *Indexer) HandleUpdate(ctx context.Context, msg *pb.SubscribeUpdate) error {
 	// Handle slot updates
 	slotUpdate := msg.GetSlot()
 	if slotUpdate != nil {
@@ -135,7 +153,7 @@ func (t *TokenIndexer) HandleUpdate(ctx context.Context, msg *pb.SubscribeUpdate
 			// Use the filter as the checkpoint ID
 			checkpointId := msg.Filters[0]
 
-			err := updateCheckpoint(ctx, t.pool, checkpointId, slotUpdate.Slot)
+			err := common.UpdateCheckpoint(ctx, t.pool, checkpointId, slotUpdate.Slot)
 			if err != nil {
 				t.logger.Error("failed to update slot checkpoint", zap.Error(err))
 			}
@@ -148,7 +166,7 @@ func (t *TokenIndexer) HandleUpdate(ctx context.Context, msg *pb.SubscribeUpdate
 		txSig := solana.SignatureFromBytes(accUpdate.Account.TxnSignature)
 
 		// Fetch the transaction details
-		txRes, err := fetchTransactionWithCache(ctx, t.transactionCache, t.rpcClient, txSig)
+		txRes, err := common.FetchTransactionWithCache(ctx, t.transactionCache, t.rpcClient, txSig)
 		if err != nil {
 			return fmt.Errorf("failed to fetch transaction: %w", err)
 		}
@@ -160,7 +178,7 @@ func (t *TokenIndexer) HandleUpdate(ctx context.Context, msg *pb.SubscribeUpdate
 		}
 
 		// Add the lookup table accounts to the message accounts
-		tx = resolveLookupTables(ctx, t.rpcClient, tx, txRes.Meta)
+		tx = common.ResolveLookupTables(ctx, t.rpcClient, tx, txRes.Meta)
 
 		// Extract the mints we're tracking using the subscription's filters
 		trackedMints := msg.Filters
@@ -173,11 +191,11 @@ func (t *TokenIndexer) HandleUpdate(ctx context.Context, msg *pb.SubscribeUpdate
 	return nil
 }
 
-func (t *TokenIndexer) subscribeToArtistCoins(ctx context.Context, handleUpdate func(ctx context.Context, message *pb.SubscribeUpdate)) ([]GrpcClient, error) {
+func (t *Indexer) subscribeToArtistCoins(ctx context.Context, handleUpdate func(ctx context.Context, message *pb.SubscribeUpdate)) ([]common.GrpcClient, error) {
 	done := false
 	page := 0
 	pageSize := MAX_ARTIST_COIN_MINTS_PER_SUBSCRIPTION
-	grpcClients := make([]GrpcClient, 0)
+	grpcClients := make([]common.GrpcClient, 0)
 	total := 0
 	for !done {
 		mints, err := getArtistCoins(ctx, t.pool, pageSize, page*pageSize)
@@ -195,7 +213,7 @@ func (t *TokenIndexer) subscribeToArtistCoins(ctx context.Context, handleUpdate 
 			return nil, fmt.Errorf("failed to make mint subscription request: %w", err)
 		}
 
-		grpcClient := NewGrpcClient(t.grpcConfig)
+		grpcClient := common.NewGrpcClient(t.grpcConfig)
 		err = grpcClient.Subscribe(ctx, subscription, handleUpdate, func(err error) {
 			t.logger.Error("error in token subscription", zap.Error(err))
 		})
@@ -213,7 +231,7 @@ func (t *TokenIndexer) subscribeToArtistCoins(ctx context.Context, handleUpdate 
 	return grpcClients, nil
 }
 
-func (t *TokenIndexer) makeMintSubscriptionRequest(ctx context.Context, mintAddresses []string) (*pb.SubscribeRequest, error) {
+func (t *Indexer) makeMintSubscriptionRequest(ctx context.Context, mintAddresses []string) (*pb.SubscribeRequest, error) {
 	commitment := pb.CommitmentLevel_CONFIRMED
 	subscription := &pb.SubscribeRequest{
 		Commitment: &commitment,
@@ -246,7 +264,7 @@ func (t *TokenIndexer) makeMintSubscriptionRequest(ctx context.Context, mintAddr
 	}
 
 	// Ensure this subscription has a checkpoint
-	checkpointId, fromSlot, err := ensureCheckpoint(ctx, TOKEN_INDEXER_NAME, t.pool, t.rpcClient, subscription, t.logger)
+	checkpointId, fromSlot, err := common.EnsureCheckpoint(ctx, TOKEN_INDEXER_NAME, t.pool, t.rpcClient, subscription, t.logger)
 	if err != nil {
 		return nil, fmt.Errorf("failed to set from slot: %w", err)
 	}

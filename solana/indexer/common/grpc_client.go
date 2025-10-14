@@ -1,4 +1,4 @@
-package indexer
+package common
 
 import (
 	"context"
@@ -44,12 +44,6 @@ type DefaultGrpcClient struct {
 	errorCallback      ErrorCallback
 	cancel             context.CancelFunc
 	hasInternalSlotSub bool
-}
-
-type GrpcConfig struct {
-	Server               string
-	ApiToken             string
-	MaxReconnectAttempts int
 }
 
 // Creates a new gRPC client.

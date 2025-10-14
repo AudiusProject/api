@@ -7,6 +7,7 @@ import (
 	"time"
 
 	"api.audius.co/database"
+	"api.audius.co/solana/indexer/common"
 	"api.audius.co/solana/spl/programs/claimable_tokens"
 	"api.audius.co/solana/spl/programs/payment_router"
 	"api.audius.co/solana/spl/programs/reward_manager"
@@ -105,7 +106,7 @@ func (s *SolanaIndexer) backfillAddressTransactions(ctx context.Context, address
 		}
 
 		opts.Before = before
-		res, err := withRetriesResult(func() ([]*rpc.TransactionSignature, error) {
+		res, err := common.WithRetriesResult(func() ([]*rpc.TransactionSignature, error) {
 			return s.rpcClient.GetSignaturesForAddressWithOpts(ctx, address, &opts)
 		}, 5, time.Second*1)
 		if err != nil {
@@ -166,10 +167,10 @@ func (s *SolanaIndexer) backfillAddressTransactions(ctx context.Context, address
 				continue
 			}
 
-			err = s.processor.ProcessSignature(ctx, sig.Slot, sig.Signature, logger)
-			if err != nil {
-				logger.Error("failed to process signature", zap.Error(err))
-			}
+			// err = s.processor.ProcessSignature(ctx, sig.Slot, sig.Signature, logger)
+			// if err != nil {
+			// 	logger.Error("failed to process signature", zap.Error(err))
+			// }
 
 			lastIndexedSig = sig.Signature
 
@@ -182,7 +183,7 @@ func (s *SolanaIndexer) backfillAddressTransactions(ctx context.Context, address
 			zap.Int("count", len(res)),
 		)
 	}
-	checkpoint, err := insertBackfillCheckpoint(ctx, s.pool, fromSlot, toSlot, address.String())
+	checkpoint, err := common.InsertBackfillCheckpoint(ctx, s.pool, fromSlot, toSlot, address.String())
 	if err != nil {
 		logger.Error("failed to insert backfill checkpoint", zap.Error(err))
 	}

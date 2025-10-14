@@ -223,8 +223,8 @@ func TestBackfillContinue(t *testing.T) {
 	s := &SolanaIndexer{
 		rpcClient: rpcFake,
 		pool:      poolMock,
-		processor: processorMock,
-		logger:    zap.NewNop(),
+		// processor: processorMock,
+		logger: zap.NewNop(),
 	}
 
 	err = s.Backfill(context.Background(), 100, 200)
@@ -385,8 +385,8 @@ func TestBackfillFresh(t *testing.T) {
 	s := &SolanaIndexer{
 		rpcClient: rpcFake,
 		pool:      poolMock,
-		processor: processorMock,
-		logger:    zap.NewNop(),
+		// processor: processorMock,
+		logger: zap.NewNop(),
 	}
 
 	err = s.Backfill(context.Background(), 100, 200)

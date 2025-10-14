@@ -4,10 +4,9 @@ import (
 	"context"
 	"fmt"
 	"strings"
-	"time"
 
 	"api.audius.co/database"
-	"api.audius.co/solana/spl/programs/meteora_damm_v2"
+	"api.audius.co/solana/indexer/common"
 	"api.audius.co/solana/spl/programs/meteora_dbc"
 	"github.com/gagliardetto/solana-go"
 	"github.com/jackc/pgx/v5"
@@ -17,7 +16,7 @@ import (
 func processDbcInstruction(
 	ctx context.Context,
 	db database.DBTX,
-	rpcClient RpcClient,
+	rpcClient common.RpcClient,
 	slot uint64,
 	tx *solana.Transaction,
 	instructionIndex int,
@@ -76,44 +75,44 @@ func processDbcInstruction(
 
 				// Also index the pool and positions
 
-				var dammPool meteora_damm_v2.Pool
-				err = withRetries(func() error {
-					return rpcClient.GetAccountDataBorshInto(ctx, migrationInst.GetPool().PublicKey, &dammPool)
-				}, 5, time.Second*1)
-				if err != nil {
-					return fmt.Errorf("failed to get damm v2 pool account data after retries: %w", err)
-				} else {
-					err = upsertDammV2Pool(ctx, db, slot, migrationInst.GetPool().PublicKey, &dammPool)
-					if err != nil {
-						return fmt.Errorf("failed to upsert damm v2 pool: %w", err)
-					}
-				}
+				// var dammPool meteora_damm_v2.Pool
+				// err = common.WithRetries(func() error {
+				// 	return rpcClient.GetAccountDataBorshInto(ctx, migrationInst.GetPool().PublicKey, &dammPool)
+				// }, 5, time.Second*1)
+				// if err != nil {
+				// 	return fmt.Errorf("failed to get damm v2 pool account data after retries: %w", err)
+				// } else {
+				// 	err = upsertDammV2Pool(ctx, db, slot, migrationInst.GetPool().PublicKey, &dammPool)
+				// 	if err != nil {
+				// 		return fmt.Errorf("failed to upsert damm v2 pool: %w", err)
+				// 	}
+				// }
 
-				var firstPosition meteora_damm_v2.PositionState
-				err = withRetries(func() error {
-					return rpcClient.GetAccountDataBorshInto(ctx, migrationInst.GetFirstPosition().PublicKey, &firstPosition)
-				}, 5, time.Second*1)
-				if err != nil {
-					return fmt.Errorf("failed to get first damm v2 position account data: %w", err)
-				} else {
-					err = upsertDammV2Position(ctx, db, slot, migrationInst.GetFirstPosition().PublicKey, &firstPosition)
-					if err != nil {
-						return fmt.Errorf("failed to upsert first damm v2 position: %w", err)
-					}
-				}
+				// var firstPosition meteora_damm_v2.PositionState
+				// err = common.WithRetries(func() error {
+				// 	return rpcClient.GetAccountDataBorshInto(ctx, migrationInst.GetFirstPosition().PublicKey, &firstPosition)
+				// }, 5, time.Second*1)
+				// if err != nil {
+				// 	return fmt.Errorf("failed to get first damm v2 position account data: %w", err)
+				// } else {
+				// 	err = upsertDammV2Position(ctx, db, slot, migrationInst.GetFirstPosition().PublicKey, &firstPosition)
+				// 	if err != nil {
+				// 		return fmt.Errorf("failed to upsert first damm v2 position: %w", err)
+				// 	}
+				// }
 
-				var secondPosition meteora_damm_v2.PositionState
-				err = withRetries(func() error {
-					return rpcClient.GetAccountDataBorshInto(ctx, migrationInst.GetSecondPosition().PublicKey, &secondPosition)
-				}, 5, time.Second*1)
-				if err != nil {
-					return fmt.Errorf("failed to get second damm v2 position account data: %w", err)
-				} else {
-					err = upsertDammV2Position(ctx, db, slot, migrationInst.GetSecondPosition().PublicKey, &secondPosition)
-					if err != nil {
-						return fmt.Errorf("failed to upsert second damm v2 position: %w", err)
-					}
-				}
+				// var secondPosition meteora_damm_v2.PositionState
+				// err = common.WithRetries(func() error {
+				// 	return rpcClient.GetAccountDataBorshInto(ctx, migrationInst.GetSecondPosition().PublicKey, &secondPosition)
+				// }, 5, time.Second*1)
+				// if err != nil {
+				// 	return fmt.Errorf("failed to get second damm v2 position account data: %w", err)
+				// } else {
+				// 	err = upsertDammV2Position(ctx, db, slot, migrationInst.GetSecondPosition().PublicKey, &secondPosition)
+				// 	if err != nil {
+				// 		return fmt.Errorf("failed to upsert second damm v2 position: %w", err)
+				// 	}
+				// }
 			}
 		}
 	}

@@ -1,4 +1,4 @@
-package indexer
+package common
 
 import (
 	"context"
@@ -48,7 +48,7 @@ func (r *retryQueueUpdate) UnmarshalJSON(data []byte) error {
 	return protojson.Unmarshal(data, r.SubscribeUpdate)
 }
 
-func getRetryQueue(ctx context.Context, db database.DBTX, limit, offset int) ([]retryQueueItem, error) {
+func GetRetryQueue(ctx context.Context, db database.DBTX, limit, offset int) ([]retryQueueItem, error) {
 	sql := `SELECT id, indexer, update, error, created_at, updated_at
 			FROM sol_retry_queue
 			ORDER BY created_at ASC
@@ -73,7 +73,7 @@ func getRetryQueue(ctx context.Context, db database.DBTX, limit, offset int) ([]
 	return items, nil
 }
 
-func addToRetryQueue(ctx context.Context, db database.DBTX, indexer string, update *pb.SubscribeUpdate, errorMessage string) error {
+func AddToRetryQueue(ctx context.Context, db database.DBTX, indexer string, update *pb.SubscribeUpdate, errorMessage string) error {
 	sql := `
 		INSERT INTO sol_retry_queue (indexer, update, error)
 		VALUES (@indexer, @update, @error)
@@ -90,7 +90,7 @@ func addToRetryQueue(ctx context.Context, db database.DBTX, indexer string, upda
 	return nil
 }
 
-func deleteFromRetryQueue(ctx context.Context, db database.DBTX, id string) error {
+func DeleteFromRetryQueue(ctx context.Context, db database.DBTX, id string) error {
 	sql := `DELETE FROM sol_retry_queue WHERE id = @id;`
 	_, err := db.Exec(ctx, sql, pgx.NamedArgs{
 		"id": id,

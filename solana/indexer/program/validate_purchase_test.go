@@ -1,4 +1,4 @@
-package indexer
+package program
 
 import (
 	"strconv"
@@ -17,7 +17,7 @@ func TestPurchaseValidation(t *testing.T) {
 
 	ctx := t.Context()
 
-	pool := database.CreateTestDatabase(t, "test_solana_indexer")
+	pool := database.CreateTestDatabase(t, "test_solana_indexer_program")
 
 	sellerUserId := 1
 	priceCents := 100
