@@ -94,14 +94,14 @@ func TestInserts(t *testing.T) {
 	assert.NoError(t, err, "failed to insert reward disbursement")
 
 	req := proto.SubscribeRequest{}
-	id, err := insertCheckpointStart(t.Context(), pool, 100, &req)
+	id, err := insertCheckpointStart(t.Context(), pool, "backfill", 100, &req)
 	assert.NoError(t, err, "failed to insert checkpoint start")
 	assert.NotEmpty(t, id, "checkpoint ID should not be empty")
 
 	err = updateCheckpoint(t.Context(), pool, id, 201)
 	assert.NoError(t, err, "failed to update checkpoint")
 
-	slot, err := getCheckpointSlot(t.Context(), pool, &req)
+	slot, err := getCheckpointSlot(t.Context(), pool, "backfill", &req)
 	assert.NoError(t, err, "failed to get checkpoint slot")
 	assert.Equal(t, uint64(201), slot, "checkpoint slot should match updated value")
 

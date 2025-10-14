@@ -15,3 +15,5 @@ COMMENT ON COLUMN sol_retry_queue.updated_at IS 'The timestamp when the retry en
 
 ALTER TABLE sol_slot_checkpoints ADD COLUMN IF NOT EXISTS name TEXT;
 COMMENT ON COLUMN sol_slot_checkpoints.name IS 'The name of the indexer this checkpoint is for (e.g., token_indexer, damm_v2_indexer).';
+
+DROP TABLE IF EXISTS sol_unprocessed_txs;
