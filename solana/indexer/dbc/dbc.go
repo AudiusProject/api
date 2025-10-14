@@ -6,7 +6,6 @@ import (
 	"strings"
 
 	"api.audius.co/database"
-	"api.audius.co/solana/indexer/common"
 	"api.audius.co/solana/spl/programs/meteora_dbc"
 	"github.com/gagliardetto/solana-go"
 	"github.com/jackc/pgx/v5"
@@ -16,7 +15,6 @@ import (
 func processDbcInstruction(
 	ctx context.Context,
 	db database.DBTX,
-	rpcClient common.RpcClient,
 	slot uint64,
 	tx *solana.Transaction,
 	instructionIndex int,
@@ -45,7 +43,7 @@ func processDbcInstruction(
 	case meteora_dbc.InstructionImplDef.TypeID(meteora_dbc.Instruction_MigrationDammV2):
 		{
 			if migrationInst, ok := inst.Impl.(*meteora_dbc.MigrationDammV2); ok {
-				err := insertDbcMigration(ctx, db, dbcMigrationRow{
+				err := upsertDbcMigration(ctx, db, dbcMigrationRow{
 					signature:                signature,
 					instructionIndex:         instructionIndex,
 					slot:                     slot,
@@ -65,7 +63,7 @@ func processDbcInstruction(
 					quoteMint:                migrationInst.GetQuoteMint().PublicKey.String(),
 				})
 				if err != nil {
-					return fmt.Errorf("failed to insert dbc migration at instruction %d: %w", instructionIndex, err)
+					return fmt.Errorf("failed to upsert dbc migration at instruction %d: %w", instructionIndex, err)
 				}
 				instLogger.Info("dbc migrationDammV2",
 					zap.String("mint", migrationInst.GetBaseMint().PublicKey.String()),
@@ -73,46 +71,14 @@ func processDbcInstruction(
 					zap.String("dammV2Pool", migrationInst.GetPool().PublicKey.String()),
 				)
 
-				// Also index the pool and positions
-
-				// var dammPool meteora_damm_v2.Pool
-				// err = common.WithRetries(func() error {
-				// 	return rpcClient.GetAccountDataBorshInto(ctx, migrationInst.GetPool().PublicKey, &dammPool)
-				// }, 5, time.Second*1)
-				// if err != nil {
-				// 	return fmt.Errorf("failed to get damm v2 pool account data after retries: %w", err)
-				// } else {
-				// 	err = upsertDammV2Pool(ctx, db, slot, migrationInst.GetPool().PublicKey, &dammPool)
-				// 	if err != nil {
-				// 		return fmt.Errorf("failed to upsert damm v2 pool: %w", err)
-				// 	}
-				// }
-
-				// var firstPosition meteora_damm_v2.PositionState
-				// err = common.WithRetries(func() error {
-				// 	return rpcClient.GetAccountDataBorshInto(ctx, migrationInst.GetFirstPosition().PublicKey, &firstPosition)
-				// }, 5, time.Second*1)
-				// if err != nil {
-				// 	return fmt.Errorf("failed to get first damm v2 position account data: %w", err)
-				// } else {
-				// 	err = upsertDammV2Position(ctx, db, slot, migrationInst.GetFirstPosition().PublicKey, &firstPosition)
-				// 	if err != nil {
-				// 		return fmt.Errorf("failed to upsert first damm v2 position: %w", err)
-				// 	}
-				// }
-
-				// var secondPosition meteora_damm_v2.PositionState
-				// err = common.WithRetries(func() error {
-				// 	return rpcClient.GetAccountDataBorshInto(ctx, migrationInst.GetSecondPosition().PublicKey, &secondPosition)
-				// }, 5, time.Second*1)
-				// if err != nil {
-				// 	return fmt.Errorf("failed to get second damm v2 position account data: %w", err)
-				// } else {
-				// 	err = upsertDammV2Position(ctx, db, slot, migrationInst.GetSecondPosition().PublicKey, &secondPosition)
-				// 	if err != nil {
-				// 		return fmt.Errorf("failed to upsert second damm v2 position: %w", err)
-				// 	}
-				// }
+				err = updateArtistCoinDammV2Pool(ctx, db, migrationInst.GetBaseMint().PublicKey.String(), migrationInst.GetPool().PublicKey.String())
+				if err != nil {
+					return fmt.Errorf("failed to update artist coin with damm v2 pool at instruction %d: %w", instructionIndex, err)
+				}
+				instLogger.Info("updated artist coin with damm v2 pool",
+					zap.String("mint", migrationInst.GetBaseMint().PublicKey.String()),
+					zap.String("dammV2Pool", migrationInst.GetPool().PublicKey.String()),
+				)
 			}
 		}
 	}
@@ -139,7 +105,7 @@ type dbcMigrationRow struct {
 	quoteMint                string
 }
 
-func insertDbcMigration(ctx context.Context, db database.DBTX, row dbcMigrationRow) error {
+func upsertDbcMigration(ctx context.Context, db database.DBTX, row dbcMigrationRow) error {
 	sql := `
 	INSERT INTO sol_meteora_dbc_migrations (
 		signature,
@@ -202,6 +168,20 @@ func insertDbcMigration(ctx context.Context, db database.DBTX, row dbcMigrationR
 		"dammPoolAuthority":        row.dammPoolAuthority,
 		"baseMint":                 row.baseMint,
 		"quoteMint":                row.quoteMint,
+	})
+	return err
+}
+
+func updateArtistCoinDammV2Pool(ctx context.Context, db database.DBTX, mint string, dammV2Pool string) error {
+	sql := `
+		UPDATE artist_coins
+		SET damm_v2_pool = @dammV2Pool,
+			updated_at = NOW()
+		WHERE mint = @mint;
+	`
+	_, err := db.Exec(ctx, sql, pgx.NamedArgs{
+		"mint":       mint,
+		"dammV2Pool": dammV2Pool,
 	})
 	return err
 }

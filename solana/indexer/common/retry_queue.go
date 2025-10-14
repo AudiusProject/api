@@ -13,25 +13,25 @@ import (
 	pb "github.com/rpcpool/yellowstone-grpc/examples/golang/proto"
 )
 
-type retryQueueItem struct {
+type RetryQueueItem struct {
 	ID        string
 	Indexer   string
-	Update    retryQueueUpdate
+	Update    RetryQueueUpdate
 	Error     string
 	CreatedAt time.Time
 	UpdatedAt time.Time
 }
 
-type retryQueueUpdate struct {
+type RetryQueueUpdate struct {
 	*pb.SubscribeUpdate
 }
 
 var (
-	_ json.Marshaler   = (*retryQueueUpdate)(nil)
-	_ json.Unmarshaler = (*retryQueueUpdate)(nil)
+	_ json.Marshaler   = (*RetryQueueUpdate)(nil)
+	_ json.Unmarshaler = (*RetryQueueUpdate)(nil)
 )
 
-func (r retryQueueUpdate) MarshalJSON() ([]byte, error) {
+func (r RetryQueueUpdate) MarshalJSON() ([]byte, error) {
 	if r.SubscribeUpdate == nil {
 		return []byte("{}"), nil
 	}
@@ -40,7 +40,7 @@ func (r retryQueueUpdate) MarshalJSON() ([]byte, error) {
 	return res, err
 }
 
-func (r *retryQueueUpdate) UnmarshalJSON(data []byte) error {
+func (r *RetryQueueUpdate) UnmarshalJSON(data []byte) error {
 	fmt.Printf("Unmarshaling JSON: %s\n", data)
 	if r.SubscribeUpdate == nil {
 		r.SubscribeUpdate = &pb.SubscribeUpdate{}
@@ -48,7 +48,7 @@ func (r *retryQueueUpdate) UnmarshalJSON(data []byte) error {
 	return protojson.Unmarshal(data, r.SubscribeUpdate)
 }
 
-func GetRetryQueue(ctx context.Context, db database.DBTX, limit, offset int) ([]retryQueueItem, error) {
+func GetRetryQueue(ctx context.Context, db database.DBTX, limit, offset int) ([]RetryQueueItem, error) {
 	sql := `SELECT id, indexer, update, error, created_at, updated_at
 			FROM sol_retry_queue
 			ORDER BY created_at ASC
@@ -66,7 +66,7 @@ func GetRetryQueue(ctx context.Context, db database.DBTX, limit, offset int) ([]
 		return nil, fmt.Errorf("failed to query retry queue: %w", err)
 	}
 
-	items, err := pgx.CollectRows(rows, pgx.RowToStructByName[retryQueueItem])
+	items, err := pgx.CollectRows(rows, pgx.RowToStructByName[RetryQueueItem])
 	if err != nil {
 		return nil, fmt.Errorf("failed to collect retry queue items: %w", err)
 	}
@@ -81,7 +81,7 @@ func AddToRetryQueue(ctx context.Context, db database.DBTX, indexer string, upda
 	;`
 	_, err := db.Exec(ctx, sql, pgx.NamedArgs{
 		"indexer": indexer,
-		"update":  retryQueueUpdate{update},
+		"update":  RetryQueueUpdate{update},
 		"error":   errorMessage,
 	})
 	if err != nil {

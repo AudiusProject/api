@@ -15,18 +15,18 @@ import (
 	"go.uber.org/zap"
 )
 
+const (
+	NAME                       = "damm_v2"
+	MAX_POOLS_PER_SUBSCRIPTION = 10000 // Arbitrary
+	NOTIFICATION_NAME          = "artist_coins_damm_v2_pool_changed"
+)
+
 type Indexer struct {
 	pool       database.DbPool
 	grpcConfig common.GrpcConfig
 	rpcClient  common.RpcClient
 	logger     *zap.Logger
 }
-
-const (
-	NAME                       = "damm_v2"
-	MAX_POOLS_PER_SUBSCRIPTION = 10000 // Arbitrary
-	NOTIFICATION_NAME          = "artist_coins_damm_v2_pool_changed"
-)
 
 func New(
 	config common.GrpcConfig,

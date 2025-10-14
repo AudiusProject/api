@@ -15,6 +15,14 @@ import (
 	"go.uber.org/zap"
 )
 
+const (
+	NAME                       = "token"
+	NOTIFICATION_NAME          = "artist_coins_mint_changed"
+	MAX_MINTS_PER_SUBSCRIPTION = 10000 // Arbitrary
+	WORKER_CHANNEL_SIZE        = 3000
+	WORKER_COUNT               = 50
+)
+
 type Indexer struct {
 	pool       database.DbPool
 	grpcConfig common.GrpcConfig
@@ -25,12 +33,6 @@ type Indexer struct {
 	// Shared cache for recently fetched transactions
 	transactionCache *otter.Cache[solana.Signature, *rpc.GetTransactionResult]
 }
-
-const TOKEN_INDEXER_NAME = "token"
-const ARTIST_COIN_NOTIFICATION_NAME = "artist_coins_mint_changed"
-const MAX_ARTIST_COIN_MINTS_PER_SUBSCRIPTION = 10000
-const WORKER_CHANNEL_SIZE = 3000
-const WORKER_COUNT = 50
 
 func New(
 	config common.GrpcConfig,
@@ -63,7 +65,7 @@ func (d *Indexer) Start(ctx context.Context) {
 					d.logger.Error("failed to handle token update", zap.Int("workerID", workerID), zap.Error(err))
 
 					// Add messages that failed to process to the retry queue
-					if err := common.AddToRetryQueue(ctx, d.pool, TOKEN_INDEXER_NAME, updateMessage, err.Error()); err != nil {
+					if err := common.AddToRetryQueue(ctx, d.pool, NAME, updateMessage, err.Error()); err != nil {
 						d.logger.Error("failed to add to retry queue", zap.Error(err))
 					}
 				}
@@ -126,7 +128,7 @@ func (d *Indexer) Start(ctx context.Context) {
 	grpcClients = clients
 
 	// Watch for new coins to be added
-	err = common.WatchPgNotification(ctx, d.pool, ARTIST_COIN_NOTIFICATION_NAME, handleNotif, d.logger)
+	err = common.WatchPgNotification(ctx, d.pool, NOTIFICATION_NAME, handleNotif, d.logger)
 	if err != nil {
 		d.logger.Error("failed to watch for artist coin changes", zap.Error(err))
 		return
@@ -195,7 +197,7 @@ func (d *Indexer) HandleUpdate(ctx context.Context, msg *pb.SubscribeUpdate) err
 func (d *Indexer) subscribeToArtistCoins(ctx context.Context, handleUpdate func(ctx context.Context, message *pb.SubscribeUpdate)) ([]common.GrpcClient, error) {
 	done := false
 	page := 0
-	pageSize := MAX_ARTIST_COIN_MINTS_PER_SUBSCRIPTION
+	pageSize := MAX_MINTS_PER_SUBSCRIPTION
 	grpcClients := make([]common.GrpcClient, 0)
 	total := 0
 	for !done {
@@ -265,7 +267,7 @@ func (t *Indexer) makeMintSubscriptionRequest(ctx context.Context, mintAddresses
 	}
 
 	// Ensure this subscription has a checkpoint
-	checkpointId, fromSlot, err := common.EnsureCheckpoint(ctx, TOKEN_INDEXER_NAME, t.pool, t.rpcClient, subscription, t.logger)
+	checkpointId, fromSlot, err := common.EnsureCheckpoint(ctx, NAME, t.pool, t.rpcClient, subscription, t.logger)
 	if err != nil {
 		return nil, fmt.Errorf("failed to set from slot: %w", err)
 	}

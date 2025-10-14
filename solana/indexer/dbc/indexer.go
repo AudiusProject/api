@@ -18,6 +18,12 @@ import (
 	"go.uber.org/zap"
 )
 
+const (
+	NAME                       = "dbc"
+	MAX_POOLS_PER_SUBSCRIPTION = 10000 // Arbitrary
+	NOTIFICATION_NAME          = "artist_coins_dbc_pool_changed"
+)
+
 type Indexer struct {
 	pool             database.DbPool
 	grpcConfig       common.GrpcConfig
@@ -25,12 +31,6 @@ type Indexer struct {
 	transactionCache *otter.Cache[solana.Signature, *rpc.GetTransactionResult]
 	logger           *zap.Logger
 }
-
-const (
-	NAME                       = "dbc"
-	MAX_POOLS_PER_SUBSCRIPTION = 10000 // Arbitrary
-	NOTIFICATION_NAME          = "artist_coins_dbc_pool_changed"
-)
 
 func New(
 	grpcConfig common.GrpcConfig,
@@ -266,7 +266,7 @@ func (i *Indexer) processTransaction(ctx context.Context, slot uint64, tx *solan
 		switch programId {
 		case meteora_dbc.ProgramID:
 			{
-				err := processDbcInstruction(ctx, i.pool, i.rpcClient, slot, tx, instructionIndex, instruction, signature, instLogger)
+				err := processDbcInstruction(ctx, i.pool, slot, tx, instructionIndex, instruction, signature, instLogger)
 				if err != nil {
 					return fmt.Errorf("error processing meteora_dbc instruction %d: %w", instructionIndex, err)
 				}
