@@ -17,9 +17,11 @@ import (
 type DammV2Indexer struct {
 	pool       database.DbPool
 	grpcConfig GrpcConfig
+	rpcClient  RpcClient
 	logger     *zap.Logger
 }
 
+const DAMM_V2_INDEXER_NAME = "damm_v2"
 const MAX_DAMM_V2_POOLS_PER_SUBSCRIPTION = 10000
 const DAMM_V2_POOL_SUBSCRIPTION_KEY = "dammV2Pools"
 const DBC_MIGRATION_NOTIFICATION_NAME = "meteora_dbc_migration"
@@ -37,26 +39,33 @@ func (d *DammV2Indexer) Start(ctx context.Context) {
 		}
 	})()
 
+	// On notification, cancel the previous subscription task (if any) and start a new one
 	handleNotif := func(ctx context.Context, notification *pgconn.Notification) {
-		// Cancel the previous task if it exists
 		subCtx, cancel := context.WithCancel(ctx)
+
+		// Cancel previous subscription task
 		if lastCancel != nil {
 			lastCancel()
 		}
+
+		// Close previous gRPC clients
 		for _, client := range grpcClients {
 			client.Close()
 		}
-		clients, err := subscribeToDammV2Pools(subCtx, d.pool, d.grpcConfig, d.logger)
+
+		// Resubscribe to all DAMM V2 pools
+		clients, err := d.subscribeToDammV2Pools(subCtx)
 		grpcClients = clients
 		if err != nil {
 			d.logger.Error("failed to resubscribe to DAMM V2 pools", zap.Error(err))
 			return
 		}
+
 		lastCancel = cancel
 	}
 
 	// Setup initial subscription
-	clients, err := subscribeToDammV2Pools(ctx, d.pool, d.grpcConfig, d.logger)
+	clients, err := d.subscribeToDammV2Pools(ctx)
 	if err != nil {
 		d.logger.Error("failed to subscribe to DAMM V2 pools", zap.Error(err))
 		return
@@ -70,6 +79,7 @@ func (d *DammV2Indexer) Start(ctx context.Context) {
 		return
 	}
 
+	// Wait for shutdown
 	for {
 		select {
 		case <-ctx.Done():
@@ -80,33 +90,79 @@ func (d *DammV2Indexer) Start(ctx context.Context) {
 	}
 }
 
-func subscribeToDammV2Pools(ctx context.Context, db database.DBTX, grpcConfig GrpcConfig, logger *zap.Logger) ([]GrpcClient, error) {
+// Handles a single update message from the gRPC subscription
+func (d *DammV2Indexer) HandleUpdate(ctx context.Context, msg *pb.SubscribeUpdate) error {
+	// Handle slot updates
+	slotUpdate := msg.GetSlot()
+	if slotUpdate != nil {
+		// only update every 10 slots to reduce db load and write latency
+		if slotUpdate.Slot%10 == 0 {
+			// Use the filter as the checkpoint ID
+			checkpointId := msg.Filters[0]
+
+			err := updateCheckpoint(ctx, d.pool, checkpointId, slotUpdate.Slot)
+			if err != nil {
+				d.logger.Error("failed to update slot checkpoint", zap.Error(err))
+			}
+		}
+	}
+
+	// Handle DAMM V2 account updates
+	accUpdate := msg.GetAccount()
+	if accUpdate != nil {
+		if msg.Filters[0] == DAMM_V2_POOL_SUBSCRIPTION_KEY {
+			err := processDammV2PoolUpdate(ctx, d.pool, accUpdate)
+			if err != nil {
+				return fmt.Errorf("failed to process DAMM V2 pool update: %w", err)
+			}
+			d.logger.Debug("processed DAMM V2 pool update", zap.String("account", solana.PublicKeyFromBytes(accUpdate.Account.Pubkey).String()))
+		} else {
+			err := processDammV2PositionUpdate(ctx, d.pool, accUpdate)
+			if err != nil {
+				return fmt.Errorf("failed to process DAMM V2 position update: %w", err)
+			}
+			d.logger.Debug("processed DAMM V2 position update", zap.String("account", solana.PublicKeyFromBytes(accUpdate.Account.Pubkey).String()))
+		}
+	}
+	return nil
+}
+
+func (d *DammV2Indexer) subscribeToDammV2Pools(ctx context.Context) ([]GrpcClient, error) {
 	done := false
 	page := 0
 	pageSize := MAX_DAMM_V2_POOLS_PER_SUBSCRIPTION
 	total := 0
 	grpcClients := make([]GrpcClient, 0)
 	for !done {
-		dammV2Pools, err := getWatchedDammV2Pools(ctx, db, pageSize, page*pageSize)
+		dammV2Pools, err := getWatchedDammV2Pools(ctx, d.pool, pageSize, page*pageSize)
 		if err != nil {
 			return nil, fmt.Errorf("failed to get watched DAMM V2 pools: %w", err)
 		}
 		if len(dammV2Pools) == 0 {
-			logger.Info("no DAMM V2 pools to subscribe to")
+			d.logger.Info("no DAMM V2 pools to subscribe to")
 			return grpcClients, nil
 		}
 		total += len(dammV2Pools)
 
-		logger.Debug("subscribing to DAMM V2 pools....", zap.Int("numPools", len(dammV2Pools)))
-		subscription := makeDammV2SubscriptionRequest(dammV2Pools)
+		d.logger.Debug("subscribing to DAMM V2 pools....", zap.Int("numPools", len(dammV2Pools)))
+		subscription := d.makeDammV2SubscriptionRequest(ctx, dammV2Pools)
 
+		// Handle each message from the subscription
 		handleMessage := func(ctx context.Context, msg *pb.SubscribeUpdate) {
-			handleDammV2Message(ctx, db, msg, logger)
+			err := d.HandleUpdate(ctx, msg)
+			if err != nil {
+				d.logger.Error("failed to handle DAMM V2 update", zap.Error(err))
+
+				// Add messages that failed to process to the retry queue
+				if err := addToRetryQueue(ctx, d.pool, DAMM_V2_INDEXER_NAME, msg, err.Error()); err != nil {
+					d.logger.Error("failed to add to retry queue", zap.Error(err))
+				}
+			}
 		}
 
-		grpcClient := NewGrpcClient(grpcConfig)
+		grpcClient := NewGrpcClient(d.grpcConfig)
 		err = grpcClient.Subscribe(ctx, subscription, handleMessage, func(err error) {
-			logger.Error("error in DAMM V2 subscription", zap.Error(err))
+			d.logger.Error("error in DAMM V2 subscription", zap.Error(err))
 		})
 		if err != nil {
 			return nil, fmt.Errorf("failed to subscribe to DAMM V2 pools: %w", err)
@@ -118,26 +174,18 @@ func subscribeToDammV2Pools(ctx context.Context, db database.DBTX, grpcConfig Gr
 		}
 		page++
 	}
-	logger.Info("subscribed to DAMM V2 pools", zap.Int("numPools", total))
+	d.logger.Info("subscribed to DAMM V2 pools", zap.Int("numPools", total))
 	return grpcClients, nil
 }
 
-func makeDammV2SubscriptionRequest(dammV2Pools []string) *pb.SubscribeRequest {
+func (d *DammV2Indexer) makeDammV2SubscriptionRequest(ctx context.Context, dammV2Pools []string) *pb.SubscribeRequest {
 	commitment := pb.CommitmentLevel_CONFIRMED
 	subscription := &pb.SubscribeRequest{
 		Commitment: &commitment,
 	}
 
-	// Listen for slot updates for checkpointing
-	subscription.Slots = make(map[string]*pb.SubscribeRequestFilterSlots)
-	subscription.Slots["checkpoints"] = &pb.SubscribeRequestFilterSlots{}
-
-	// fromSlot := uint64(372380625)
-	// subscription.FromSlot = &fromSlot
-
-	subscription.Accounts = make(map[string]*pb.SubscribeRequestFilterAccounts)
-
 	// Listen to all watched pools
+	subscription.Accounts = make(map[string]*pb.SubscribeRequestFilterAccounts)
 	accountFilter := pb.SubscribeRequestFilterAccounts{
 		Owner:   []string{meteora_damm_v2.ProgramID.String()},
 		Account: dammV2Pools,
@@ -169,29 +217,20 @@ func makeDammV2SubscriptionRequest(dammV2Pools []string) *pb.SubscribeRequest {
 		subscription.Accounts[pool] = &accountFilter
 	}
 
-	return subscription
-}
-
-func handleDammV2Message(ctx context.Context, db database.DBTX, msg *pb.SubscribeUpdate, logger *zap.Logger) {
-	accUpdate := msg.GetAccount()
-	if accUpdate != nil {
-		if msg.Filters[0] == DAMM_V2_POOL_SUBSCRIPTION_KEY {
-			err := processDammV2PoolUpdate(ctx, db, accUpdate)
-			if err != nil {
-				logger.Error("failed to process DAMM V2 pool update", zap.Error(err))
-			} else {
-				logger.Debug("processed DAMM V2 pool update", zap.String("account", solana.PublicKeyFromBytes(accUpdate.Account.Pubkey).String()))
-			}
-		} else {
-			err := processDammV2PositionUpdate(ctx, db, accUpdate)
-			if err != nil {
-				logger.Error("failed to process DAMM V2 position update", zap.Error(err))
-			} else {
-				logger.Debug("processed DAMM V2 position update", zap.String("account", solana.PublicKeyFromBytes(accUpdate.Account.Pubkey).String()))
-			}
-		}
-
+	// Ensure this subscription has a checkpoint
+	checkpointId, fromSlot, err := ensureCheckpoint(ctx, DAMM_V2_INDEXER_NAME, d.pool, d.rpcClient, subscription, d.logger)
+	if err != nil {
+		d.logger.Error("failed to ensure checkpoint", zap.Error(err))
 	}
+
+	// Set the from slot for the subscription
+	subscription.FromSlot = &fromSlot
+
+	// Listen for slots for making checkpoints
+	subscription.Slots = make(map[string]*pb.SubscribeRequestFilterSlots)
+	subscription.Slots[checkpointId] = &pb.SubscribeRequestFilterSlots{}
+
+	return subscription
 }
 
 func processDammV2PoolUpdate(

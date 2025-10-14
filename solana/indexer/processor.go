@@ -7,10 +7,6 @@ import (
 
 	"api.audius.co/config"
 	"api.audius.co/database"
-	"api.audius.co/solana/spl/programs/claimable_tokens"
-	"api.audius.co/solana/spl/programs/meteora_dbc"
-	"api.audius.co/solana/spl/programs/payment_router"
-	"api.audius.co/solana/spl/programs/reward_manager"
 	"github.com/gagliardetto/solana-go"
 	"github.com/gagliardetto/solana-go/rpc"
 	"github.com/maypok86/otter"
@@ -117,12 +113,12 @@ func (p *DefaultProcessor) ProcessTransaction(
 	if meta == nil {
 		return fmt.Errorf("missing tx meta")
 	}
-	if logger == nil {
-		logger = zap.NewNop()
-	}
-	txLogger := logger.With(
-		zap.String("signature", tx.Signatures[0].String()),
-	)
+	// if logger == nil {
+	// 	logger = zap.NewNop()
+	// }
+	// txLogger := logger.With(
+	// 	zap.String("signature", tx.Signatures[0].String()),
+	// )
 
 	// Resolve address lookup tables
 	addressTables := make(map[solana.PublicKey]solana.PublicKeySlice)
@@ -142,50 +138,50 @@ func (p *DefaultProcessor) ProcessTransaction(
 	}
 	tx.Message.SetAddressTables(addressTables)
 
-	signature := tx.Signatures[0].String()
+	// signature := tx.Signatures[0].String()
 
-	err := processBalanceChanges(ctx, p.pool, slot, meta, tx, blockTime, txLogger)
-	if err != nil {
-		return fmt.Errorf("failed to process balance changes: %w", err)
-	}
+	// err := processBalanceChanges(ctx, p.pool, slot, meta, tx, blockTime, txLogger)
+	// if err != nil {
+	// 	return fmt.Errorf("failed to process balance changes: %w", err)
+	// }
 
-	for instructionIndex, instruction := range tx.Message.Instructions {
-		programId := tx.Message.AccountKeys[instruction.ProgramIDIndex]
-		instLogger := txLogger.With(
-			zap.String("programId", programId.String()),
-			zap.Int("instructionIndex", instructionIndex),
-		)
-		switch programId {
-		case claimable_tokens.ProgramID:
-			{
-				err := processClaimableTokensInstruction(ctx, p.pool, slot, tx, instructionIndex, instruction, signature, instLogger)
-				if err != nil {
-					return fmt.Errorf("error processing claimable_tokens instruction %d: %w", instructionIndex, err)
-				}
-			}
-		case reward_manager.ProgramID:
-			{
-				err := processRewardManagerInstruction(ctx, p.pool, slot, tx, instructionIndex, instruction, signature, instLogger)
-				if err != nil {
-					return fmt.Errorf("error processing reward_manager instruction %d: %w", instructionIndex, err)
-				}
-			}
-		case payment_router.ProgramID:
-			{
-				err := processPaymentRouterInstruction(ctx, p.pool, slot, tx, instructionIndex, instruction, signature, blockTime, p.config, instLogger)
-				if err != nil {
-					return fmt.Errorf("error processing payment_router instruction %d: %w", instructionIndex, err)
-				}
-			}
-		case meteora_dbc.ProgramID:
-			{
-				err := processDbcInstruction(ctx, p.pool, p.rpcClient, slot, tx, instructionIndex, instruction, signature, instLogger)
-				if err != nil {
-					return fmt.Errorf("error processing meteora_dbc instruction %d: %w", instructionIndex, err)
-				}
-			}
-		}
-	}
+	// for instructionIndex, instruction := range tx.Message.Instructions {
+	// 	programId := tx.Message.AccountKeys[instruction.ProgramIDIndex]
+	// 	instLogger := txLogger.With(
+	// 		zap.String("programId", programId.String()),
+	// 		zap.Int("instructionIndex", instructionIndex),
+	// 	)
+	// 	switch programId {
+	// 	case claimable_tokens.ProgramID:
+	// 		{
+	// 			err := processClaimableTokensInstruction(ctx, p.pool, slot, tx, instructionIndex, instruction, signature, instLogger)
+	// 			if err != nil {
+	// 				return fmt.Errorf("error processing claimable_tokens instruction %d: %w", instructionIndex, err)
+	// 			}
+	// 		}
+	// 	case reward_manager.ProgramID:
+	// 		{
+	// 			err := processRewardManagerInstruction(ctx, p.pool, slot, tx, instructionIndex, instruction, signature, instLogger)
+	// 			if err != nil {
+	// 				return fmt.Errorf("error processing reward_manager instruction %d: %w", instructionIndex, err)
+	// 			}
+	// 		}
+	// 	case payment_router.ProgramID:
+	// 		{
+	// 			err := processPaymentRouterInstruction(ctx, p.pool, slot, tx, instructionIndex, instruction, signature, blockTime, p.config, instLogger)
+	// 			if err != nil {
+	// 				return fmt.Errorf("error processing payment_router instruction %d: %w", instructionIndex, err)
+	// 			}
+	// 		}
+	// 	case meteora_dbc.ProgramID:
+	// 		{
+	// 			err := processDbcInstruction(ctx, p.pool, p.rpcClient, slot, tx, instructionIndex, instruction, signature, instLogger)
+	// 			if err != nil {
+	// 				return fmt.Errorf("error processing meteora_dbc instruction %d: %w", instructionIndex, err)
+	// 			}
+	// 		}
+	// 	}
+	// }
 
 	return nil
 }

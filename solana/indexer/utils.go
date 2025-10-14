@@ -6,8 +6,10 @@ import (
 	"time"
 
 	"api.audius.co/database"
-	"github.com/jackc/pgx/v5"
+	"github.com/gagliardetto/solana-go"
+	"github.com/gagliardetto/solana-go/rpc"
 	"github.com/jackc/pgx/v5/pgconn"
+	"github.com/maypok86/otter"
 	"go.uber.org/zap"
 )
 
@@ -38,28 +40,6 @@ func withRetriesResult[T any](f func() (T, error), maxRetries int, interval time
 		return zero, fmt.Errorf("retry failed: %w", err)
 	}
 	return result, nil
-}
-
-var mintsCache []string
-
-func getArtistCoins(ctx context.Context, db database.DBTX, forceRefresh bool) ([]string, error) {
-	if !forceRefresh && mintsCache != nil {
-		return mintsCache, nil
-	}
-	sqlMints := `SELECT mint FROM artist_coins`
-	rows, err := db.Query(ctx, sqlMints)
-	if err != nil {
-		if err == pgx.ErrNoRows {
-			return nil, nil // No mints found, return empty slice
-		}
-		return nil, fmt.Errorf("failed to query mints: %w", err)
-	}
-	mintAddresses, err := pgx.CollectRows(rows, pgx.RowTo[string])
-	if err != nil {
-		return nil, fmt.Errorf("failed to collect mints: %w", err)
-	}
-	mintsCache = mintAddresses
-	return mintAddresses, nil
 }
 
 type notificationCallback func(ctx context.Context, notification *pgconn.Notification)
@@ -109,4 +89,68 @@ func watchPgNotification(ctx context.Context, pool database.DbPool, notification
 		}
 	}()
 	return nil
+}
+
+// Gets a transaction from a cache or fetches it from the RPC. Handles retries.
+func fetchTransactionWithCache(
+	ctx context.Context,
+	transactionCache *otter.Cache[solana.Signature,
+		*rpc.GetTransactionResult],
+	rpcClient RpcClient,
+	signature solana.Signature,
+) (*rpc.GetTransactionResult, error) {
+	// Check if the transaction is in the cache
+	if transactionCache != nil {
+		if res, ok := transactionCache.Get(signature); ok {
+			return res, nil
+		}
+	}
+
+	// If the transaction is not in the cache, fetch it from the RPC
+	res, err := withRetriesResult(func() (*rpc.GetTransactionResult, error) {
+		return rpcClient.GetTransaction(
+			ctx,
+			signature,
+			&rpc.GetTransactionOpts{
+				Commitment:                     rpc.CommitmentConfirmed,
+				MaxSupportedTransactionVersion: &rpc.MaxSupportedTransactionVersion0,
+			},
+		)
+	}, 5, 1*time.Second)
+	if err != nil {
+		return nil, fmt.Errorf("failed to get transaction: %w", err)
+	}
+
+	// Store the fetched transaction in the cache
+	if transactionCache != nil {
+		transactionCache.Set(signature, res)
+	}
+
+	return res, nil
+}
+
+// Resolves address lookup tables in the given transaction using the provided metadata.
+func resolveLookupTables(
+	ctx context.Context,
+	rpcClient RpcClient,
+	tx *solana.Transaction,
+	meta *rpc.TransactionMeta,
+) *solana.Transaction {
+	addressTables := make(map[solana.PublicKey]solana.PublicKeySlice)
+	writablePos := 0
+	readonlyPos := 0
+	for _, lu := range tx.Message.AddressTableLookups {
+		addresses := make(solana.PublicKeySlice, 256)
+		for _, idx := range lu.WritableIndexes {
+			addresses[idx] = meta.LoadedAddresses.Writable[writablePos]
+			writablePos += 1
+		}
+		for _, idx := range lu.ReadonlyIndexes {
+			addresses[idx] = meta.LoadedAddresses.ReadOnly[readonlyPos]
+			readonlyPos += 1
+		}
+		addressTables[lu.AccountKey] = addresses
+	}
+	tx.Message.SetAddressTables(addressTables)
+	return tx
 }

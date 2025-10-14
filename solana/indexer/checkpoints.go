@@ -6,11 +6,60 @@ import (
 	"encoding/hex"
 	"encoding/json"
 	"fmt"
+	"time"
 
 	"api.audius.co/database"
 	"github.com/jackc/pgx/v5"
 	pb "github.com/rpcpool/yellowstone-grpc/examples/golang/proto"
+	"go.uber.org/zap"
 )
+
+func ensureCheckpoint(
+	ctx context.Context,
+	name string,
+	db database.DBTX,
+	rpcClient RpcClient,
+	subscription *pb.SubscribeRequest,
+	logger *zap.Logger,
+) (string, uint64, error) {
+	lastIndexedSlot, err := getCheckpointSlot(ctx, db, name, subscription)
+	if err != nil {
+		return "", 0, fmt.Errorf("failed to get last indexed slot: %w", err)
+	}
+
+	latestSlot, err := withRetriesResult(func() (uint64, error) {
+		return rpcClient.GetSlot(ctx, "confirmed")
+	}, 5, time.Second*2)
+	if err != nil {
+		return "", 0, fmt.Errorf("failed to get slot: %w", err)
+	}
+
+	var fromSlot uint64
+	minimumSlot := uint64(0)
+	if latestSlot > MAX_SLOT_GAP {
+		minimumSlot = latestSlot - MAX_SLOT_GAP
+	}
+
+	if lastIndexedSlot > minimumSlot {
+		// Existing subscription reconnecting, continue from last indexed slot
+		fromSlot = lastIndexedSlot
+	} else if lastIndexedSlot == 0 {
+		// New subscription, continue from latest slot - 100
+		fromSlot = latestSlot - 100 // start 100 slots back to be safe
+		logger.Warn("no last indexed slot found, starting from most recent slot (less 100 for safety) and skipping backfill", zap.Uint64("fromSlot", fromSlot))
+	} else {
+		// Existing subscription that's too old, continue from as far back as possible
+		fromSlot = minimumSlot
+		logger.Warn("last indexed slot is too old, starting from minimum slot", zap.Uint64("fromSlot", fromSlot), zap.Uint64("toSlot", lastIndexedSlot))
+	}
+
+	checkpointId, err := insertCheckpointStart(ctx, db, name, fromSlot, subscription)
+	if err != nil {
+		return "", 0, fmt.Errorf("failed to start checkpoint: %w", err)
+	}
+
+	return checkpointId, fromSlot, nil
+}
 
 func insertBackfillCheckpoint(ctx context.Context, db database.DBTX, fromSlot uint64, toSlot uint64, address string) (string, error) {
 	obj := map[string]string{
@@ -44,7 +93,13 @@ func insertBackfillCheckpoint(ctx context.Context, db database.DBTX, fromSlot ui
 	return checkpointId, nil
 }
 
-func insertCheckpointStart(ctx context.Context, db database.DBTX, fromSlot uint64, subscription *pb.SubscribeRequest) (string, error) {
+func insertCheckpointStart(
+	ctx context.Context,
+	db database.DBTX,
+	name string,
+	fromSlot uint64,
+	subscription *pb.SubscribeRequest,
+) (string, error) {
 	subscriptionJson, err := json.Marshal(subscription)
 	if err != nil {
 		return "", fmt.Errorf("failed to marshal subscription request: %w", err)
@@ -55,10 +110,11 @@ func insertCheckpointStart(ctx context.Context, db database.DBTX, fromSlot uint6
 
 	var checkpointId string
 	err = db.QueryRow(ctx, `
-		INSERT INTO sol_slot_checkpoints (from_slot, to_slot, subscription, subscription_hash)
-		VALUES (@from_slot, @to_slot, @subscription, @subscription_hash)
+		INSERT INTO sol_slot_checkpoints (name, from_slot, to_slot, subscription, subscription_hash)
+		VALUES (@name, @from_slot, @to_slot, @subscription, @subscription_hash)
 		RETURNING id;
 	`, pgx.NamedArgs{
+		"name":              name,
 		"from_slot":         fromSlot,
 		"to_slot":           fromSlot,
 		"subscription":      string(subscriptionJson),
@@ -86,7 +142,7 @@ func updateCheckpoint(ctx context.Context, db database.DBTX, id string, slot uin
 	return err
 }
 
-func getCheckpointSlot(ctx context.Context, db database.DBTX, subscription *pb.SubscribeRequest) (uint64, error) {
+func getCheckpointSlot(ctx context.Context, db database.DBTX, name string, subscription *pb.SubscribeRequest) (uint64, error) {
 	subscriptionJson, err := json.Marshal(subscription)
 	if err != nil {
 		return 0, fmt.Errorf("failed to marshal subscription request: %w", err)
@@ -98,12 +154,13 @@ func getCheckpointSlot(ctx context.Context, db database.DBTX, subscription *pb.S
 	sql := `
 		SELECT COALESCE(MAX(to_slot), 0)
 		FROM sol_slot_checkpoints
-		WHERE subscription_hash = @subscription_hash
+		WHERE name = @name
+			AND subscription_hash = @subscription_hash
 		LIMIT 1;
 	`
 
 	var lastIndexedSlot uint64
-	err = db.QueryRow(ctx, sql, pgx.NamedArgs{"subscription_hash": subscriptionHash}).Scan(&lastIndexedSlot)
+	err = db.QueryRow(ctx, sql, pgx.NamedArgs{"name": name, "subscription_hash": subscriptionHash}).Scan(&lastIndexedSlot)
 	if err != nil && err != pgx.ErrNoRows {
 		return 0, fmt.Errorf("failed to scan last slot: %w", err)
 	}
