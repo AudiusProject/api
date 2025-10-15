@@ -14,12 +14,31 @@ import (
 	"github.com/gagliardetto/solana-go"
 	"github.com/gagliardetto/solana-go/rpc"
 	"github.com/jackc/pgx/v5"
+	"github.com/maypok86/otter"
 	"go.uber.org/zap"
 )
 
 var TRANSACTION_DELAY_MS = uint(5)
 
-func (s *SolanaIndexer) Backfill(ctx context.Context, fromSlot uint64, toSlot uint64) error {
+type backfillProcessor interface {
+	ProcessTransaction(
+		ctx context.Context,
+		slot uint64,
+		meta *rpc.TransactionMeta,
+		tx *solana.Transaction,
+		blockTime time.Time,
+	) error
+}
+
+type Backfiller struct {
+	rpcClient        common.RpcClient
+	pool             database.DbPool
+	processor        backfillProcessor
+	transactionCache *otter.Cache[solana.Signature, *rpc.GetTransactionResult]
+	logger           *zap.Logger
+}
+
+func (s *Backfiller) Start(ctx context.Context, fromSlot uint64, toSlot uint64) error {
 	txRange, err := getTransactionRange(ctx, s.pool, fromSlot, toSlot)
 	if err != nil {
 		return fmt.Errorf("failed to get transaction range: %w", err)
@@ -73,7 +92,7 @@ func (s *SolanaIndexer) Backfill(ctx context.Context, fromSlot uint64, toSlot ui
 }
 
 // Fetches and processes transactions for a given address within a given signature/slot range.
-func (s *SolanaIndexer) backfillAddressTransactions(ctx context.Context, address solana.PublicKey, txRange transactionRange, fromSlot uint64, toSlot uint64) {
+func (s *Backfiller) backfillAddressTransactions(ctx context.Context, address solana.PublicKey, txRange transactionRange, fromSlot uint64, toSlot uint64) {
 	var lastIndexedSig solana.Signature
 	foundIntersection := false
 	before := txRange.before
@@ -167,10 +186,28 @@ func (s *SolanaIndexer) backfillAddressTransactions(ctx context.Context, address
 				continue
 			}
 
-			// err = s.processor.ProcessSignature(ctx, sig.Slot, sig.Signature, logger)
-			// if err != nil {
-			// 	logger.Error("failed to process signature", zap.Error(err))
-			// }
+			// Fetch the transaction details
+			// Note: Could also convert the subscription transaction to a solana.Transaction,
+			// but that could be error prone and the transaction is probably already in the cache anyway.
+			// Also, we need the blocktime which the subscription doesn't seem to provide.
+			txRes, err := common.FetchTransactionWithCache(ctx, s.transactionCache, s.rpcClient, sig.Signature)
+			if err != nil {
+				logger.Error("failed to fetch transaction", zap.Error(err))
+				continue
+			}
+
+			// Decode the transaction
+			tx, err := txRes.Transaction.GetTransaction()
+			if err != nil {
+				logger.Error("failed to decode transaction", zap.Error(err))
+				continue
+			}
+
+			// Add the lookup table accounts to the message accounts
+			tx = common.ResolveLookupTables(ctx, s.rpcClient, tx, txRes.Meta)
+
+			// Process the transaction
+			s.processor.ProcessTransaction(ctx, txRes.Slot, txRes.Meta, tx, txRes.BlockTime.Time())
 
 			lastIndexedSig = sig.Signature
 

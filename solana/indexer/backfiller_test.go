@@ -22,19 +22,14 @@ type mockProcessor struct {
 	mock.Mock
 }
 
-func (m *mockProcessor) ProcessSignature(ctx context.Context, slot uint64, txSig solana.Signature, logger *zap.Logger) error {
-	args := m.Called(ctx, slot, txSig, logger)
-	return args.Error(0)
-}
 func (m *mockProcessor) ProcessTransaction(
 	ctx context.Context,
 	slot uint64,
 	meta *rpc.TransactionMeta,
 	tx *solana.Transaction,
 	blockTime time.Time,
-	logger *zap.Logger,
 ) error {
-	args := m.Called(ctx, slot, meta, tx, blockTime, logger)
+	args := m.Called(ctx, slot, meta, tx, blockTime)
 	return args.Error(0)
 }
 
@@ -213,22 +208,30 @@ func TestBackfillContinue(t *testing.T) {
 		)
 
 	processorMock := &mockProcessor{}
-	processorMock.On("ProcessSignature", mock.Anything, mock.Anything, mockTransactions[0].Signatures[0], mock.Anything).
+	processorMock.On("ProcessTransaction", mock.Anything, mock.Anything, mock.Anything,
+		mock.MatchedBy(func(tx *solana.Transaction) bool {
+			return tx.Signatures[0] == mockTransactions[0].Signatures[0]
+		}), mock.Anything).
 		Return(nil).Once()
-	processorMock.On("ProcessSignature", mock.Anything, mock.Anything, mockTransactions[1].Signatures[0], mock.Anything).
+	processorMock.On("ProcessTransaction", mock.Anything, mock.Anything, mock.Anything,
+		mock.MatchedBy(func(tx *solana.Transaction) bool {
+			return tx.Signatures[0] == mockTransactions[1].Signatures[0]
+		}), mock.Anything).
 		Return(nil).Once()
-	processorMock.On("ProcessSignature", mock.Anything, mock.Anything, mockTransactions[5].Signatures[0], mock.Anything).
+	processorMock.On("ProcessTransaction", mock.Anything, mock.Anything, mock.Anything,
+		mock.MatchedBy(func(tx *solana.Transaction) bool {
+			return tx.Signatures[0] == mockTransactions[5].Signatures[0]
+		}), mock.Anything).
 		Return(nil).Once()
 
-	s := &SolanaIndexer{
+	s := &Backfiller{
 		rpcClient: rpcFake,
 		pool:      poolMock,
-		// processor: processorMock,
-		logger: zap.NewNop(),
+		processor: processorMock,
+		logger:    zap.NewNop(),
 	}
 
-	err = s.Backfill(context.Background(), 100, 200)
-
+	err = s.Start(context.Background(), 100, 200)
 	assert.NoError(t, err)
 	assert.NoError(t, poolMock.ExpectationsWereMet())
 	processorMock.AssertExpectations(t)
@@ -379,17 +382,17 @@ func TestBackfillFresh(t *testing.T) {
 	processorMock := &mockProcessor{}
 
 	// Should get called once for each program
-	processorMock.On("ProcessSignature", mock.Anything, mock.Anything, mockTransactions[1].Signatures[0], mock.Anything).
+	processorMock.On("ProcessTransaction", mock.Anything, mock.Anything, mock.Anything, mock.Anything, mock.Anything).
 		Return(nil).Times(3)
 
-	s := &SolanaIndexer{
+	s := &Backfiller{
 		rpcClient: rpcFake,
 		pool:      poolMock,
-		// processor: processorMock,
-		logger: zap.NewNop(),
+		processor: processorMock,
+		logger:    zap.NewNop(),
 	}
 
-	err = s.Backfill(context.Background(), 100, 200)
+	err = s.Start(context.Background(), 100, 200)
 
 	assert.NoError(t, err)
 	assert.NoError(t, poolMock.ExpectationsWereMet())

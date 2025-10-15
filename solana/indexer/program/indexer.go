@@ -105,7 +105,7 @@ func (d *Indexer) HandleUpdate(ctx context.Context, msg *pb.SubscribeUpdate) err
 		tx = common.ResolveLookupTables(ctx, d.rpcClient, tx, txRes.Meta)
 
 		// Process the transaction
-		d.processTransaction(ctx, txRes.Slot, txRes.Meta, tx, txRes.BlockTime.Time())
+		d.ProcessTransaction(ctx, txRes.Slot, txRes.Meta, tx, txRes.BlockTime.Time())
 
 		return nil
 	}
@@ -174,7 +174,7 @@ func (d *Indexer) makeSubscriptionRequest(ctx context.Context, programIds []stri
 	return subscription
 }
 
-func (d *Indexer) processTransaction(ctx context.Context, slot uint64, meta *rpc.TransactionMeta, tx *solana.Transaction, blockTime time.Time) error {
+func (d *Indexer) ProcessTransaction(ctx context.Context, slot uint64, meta *rpc.TransactionMeta, tx *solana.Transaction, blockTime time.Time) error {
 	signature := tx.Signatures[0].String()
 	logger := d.logger.With(
 		zap.String("signature", signature),
