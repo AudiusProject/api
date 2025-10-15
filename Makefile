@@ -39,12 +39,8 @@ apidiff::
 
 test-schema::
 	@set -a; \
-	. .env; \
-    if [ -z "$$writeDbUrl" ]; then \
-		echo "writeDbUrl is not set in .env - using test db and running migrations"; \
-		writeDbUrl=postgresql://postgres:example@localhost:21300/postgres; \
-		make migrate; \
-	fi; \
+	writeDbUrl=postgresql://postgres:example@localhost:21300/postgres; \
+	make migrate; \
 	adjustedUrl=$$(echo "$$writeDbUrl" | sed 's/localhost/host.docker.internal/g'); \
 	docker compose exec db bash -c "pg_dump '$$adjustedUrl' --schema-only --no-owner --no-acl > ./sql/01_schema.sql"; \
 	sed '/^\\restrict /d;/^\\unrestrict /d' ./sql/01_schema.sql > ./sql/01_schema.sql.tmp && mv ./sql/01_schema.sql.tmp ./sql/01_schema.sql; \
