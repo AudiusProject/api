@@ -43,7 +43,7 @@ func processDbcInstruction(
 	case meteora_dbc.InstructionImplDef.TypeID(meteora_dbc.Instruction_MigrationDammV2):
 		{
 			if migrationInst, ok := inst.Impl.(*meteora_dbc.MigrationDammV2); ok {
-				err := upsertDbcMigration(ctx, db, dbcMigrationRow{
+				err := insertDbcMigration(ctx, db, dbcMigrationRow{
 					signature:                signature,
 					instructionIndex:         instructionIndex,
 					slot:                     slot,
@@ -105,7 +105,7 @@ type dbcMigrationRow struct {
 	quoteMint                string
 }
 
-func upsertDbcMigration(ctx context.Context, db database.DBTX, row dbcMigrationRow) error {
+func insertDbcMigration(ctx context.Context, db database.DBTX, row dbcMigrationRow) error {
 	sql := `
 	INSERT INTO sol_meteora_dbc_migrations (
 		signature,
@@ -182,6 +182,127 @@ func updateArtistCoinDammV2Pool(ctx context.Context, db database.DBTX, mint stri
 	_, err := db.Exec(ctx, sql, pgx.NamedArgs{
 		"mint":       mint,
 		"dammV2Pool": dammV2Pool,
+	})
+	return err
+}
+
+func upsertDbcPool(
+	ctx context.Context,
+	db database.DBTX,
+	slot uint64,
+	account solana.PublicKey,
+	pool *meteora_dbc.Pool,
+) error {
+	sql := `
+		INSERT INTO sol_meteora_dbc_pools (
+			account,
+			slot,
+			config,
+			creator,
+			base_mint,
+			base_vault,
+			quote_vault,
+			base_reserve,
+			quote_reserve,
+			protocol_base_fee,
+			partner_base_fee,
+			partner_quote_fee,
+			sqrt_price,
+			activation_point,
+			pool_type,
+			is_migrated,
+			is_partner_withdraw_surplus,
+			is_protocol_withdraw_surplus,
+			migration_progress,
+			is_withdraw_leftover,
+			is_creator_withdraw_surplus,
+			migration_fee_withdraw_status,
+			finish_curve_timestamp,
+			creator_base_fee,
+			creator_quote_fee,
+			created_at,
+			updated_at
+		) VALUES (
+			@account,
+			@slot,
+			@config,
+			@creator,
+			@base_mint,
+			@base_vault,
+			@quote_vault,
+			@base_reserve,
+			@quote_reserve,
+			@protocol_base_fee,
+			@partner_base_fee,
+			@partner_quote_fee,
+			@sqrt_price,
+			@activation_point,
+			@pool_type,
+			@is_migrated,
+			@is_partner_withdraw_surplus,
+			@is_protocol_withdraw_surplus,
+			@migration_progress,
+			@is_withdraw_leftover,
+			@is_creator_withdraw_surplus,
+			@migration_fee_withdraw_status,
+			@finish_curve_timestamp,
+			@creator_base_fee,
+			@creator_quote_fee,
+			NOW(),
+			NOW()
+		) ON CONFLICT (account) DO UPDATE SET
+			slot = EXCLUDED.slot,
+			config = EXCLUDED.config,
+			creator = EXCLUDED.creator,
+			base_mint = EXCLUDED.base_mint,
+			base_vault = EXCLUDED.base_vault,
+			quote_vault = EXCLUDED.quote_vault,
+			base_reserve = EXCLUDED.base_reserve,
+			quote_reserve = EXCLUDED.quote_reserve,
+			protocol_base_fee = EXCLUDED.protocol_base_fee,
+			partner_base_fee = EXCLUDED.partner_base_fee,
+			partner_quote_fee = EXCLUDED.partner_quote_fee,
+			sqrt_price = EXCLUDED.sqrt_price,
+			activation_point = EXCLUDED.activation_point,
+			pool_type = EXCLUDED.pool_type,
+			is_migrated = EXCLUDED.is_migrated,
+			is_partner_withdraw_surplus = EXCLUDED.is_partner_withdraw_surplus,
+			is_protocol_withdraw_surplus = EXCLUDED.is_protocol_withdraw_surplus,
+			migration_progress = EXCLUDED.migration_progress,
+			is_withdraw_leftover = EXCLUDED.is_withdraw_leftover,
+			is_creator_withdraw_surplus = EXCLUDED.is_creator_withdraw_surplus,
+			migration_fee_withdraw_status = EXCLUDED.migration_fee_withdraw_status,
+			finish_curve_timestamp = EXCLUDED.finish_curve_timestamp,
+			creator_base_fee = EXCLUDED.creator_base_fee,
+			creator_quote_fee = EXCLUDED.creator_quote_fee,
+			updated_at = NOW()
+	;`
+	_, err := db.Exec(ctx, sql, pgx.NamedArgs{
+		"account":                       account.String(),
+		"slot":                          slot,
+		"config":                        pool.Config.String(),
+		"creator":                       pool.Creator.String(),
+		"base_mint":                     pool.BaseMint.String(),
+		"base_vault":                    pool.BaseVault.String(),
+		"quote_vault":                   pool.QuoteVault.String(),
+		"base_reserve":                  pool.BaseReserve,
+		"quote_reserve":                 pool.QuoteReserve,
+		"protocol_base_fee":             pool.ProtocolBaseFee,
+		"partner_base_fee":              pool.PartnerBaseFee,
+		"partner_quote_fee":             pool.PartnerQuoteFee,
+		"sqrt_price":                    pool.SqrtPrice.BigInt(),
+		"activation_point":              pool.ActivationPoint,
+		"pool_type":                     pool.PoolType,
+		"is_migrated":                   pool.IsMigrated,
+		"is_partner_withdraw_surplus":   pool.IsPartnerWithdrawSurplus,
+		"is_protocol_withdraw_surplus":  pool.IsProtocolWithdrawSurplus,
+		"migration_progress":            pool.MigrationProgress,
+		"is_withdraw_leftover":          pool.IsWithdrawLeftover,
+		"is_creator_withdraw_surplus":   pool.IsCreatorWithdrawSurplus,
+		"migration_fee_withdraw_status": pool.MigrationFeeWithdrawStatus,
+		"finish_curve_timestamp":        pool.FinishCurveTimestamp,
+		"creator_base_fee":              pool.CreatorBaseFee,
+		"creator_quote_fee":             pool.CreatorQuoteFee,
 	})
 	return err
 }

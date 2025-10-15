@@ -7442,6 +7442,41 @@ COMMENT ON TABLE public.sol_meteora_dbc_migrations IS 'Tracks migrations from DB
 
 
 --
+-- Name: sol_meteora_dbc_pools; Type: TABLE; Schema: public; Owner: -
+--
+
+CREATE TABLE public.sol_meteora_dbc_pools (
+    account text NOT NULL,
+    slot bigint NOT NULL,
+    config text NOT NULL,
+    creator text NOT NULL,
+    base_mint text NOT NULL,
+    base_vault text NOT NULL,
+    quote_vault text NOT NULL,
+    base_reserve bigint NOT NULL,
+    quote_reserve bigint NOT NULL,
+    protocol_base_fee bigint NOT NULL,
+    partner_base_fee bigint NOT NULL,
+    partner_quote_fee bigint NOT NULL,
+    sqrt_price numeric NOT NULL,
+    activation_point bigint NOT NULL,
+    pool_type smallint NOT NULL,
+    is_migrated smallint NOT NULL,
+    is_partner_withdraw_surplus smallint NOT NULL,
+    is_protocol_withdraw_surplus smallint NOT NULL,
+    migration_progress smallint NOT NULL,
+    is_withdraw_leftover smallint NOT NULL,
+    is_creator_withdraw_surplus smallint NOT NULL,
+    migration_fee_withdraw_status smallint NOT NULL,
+    finish_curve_timestamp bigint NOT NULL,
+    creator_base_fee bigint NOT NULL,
+    creator_quote_fee bigint NOT NULL,
+    created_at timestamp without time zone DEFAULT CURRENT_TIMESTAMP NOT NULL,
+    updated_at timestamp without time zone DEFAULT CURRENT_TIMESTAMP NOT NULL
+);
+
+
+--
 -- Name: sol_payments; Type: TABLE; Schema: public; Owner: -
 --
 
@@ -9244,6 +9279,14 @@ ALTER TABLE ONLY public.sol_meteora_damm_v2_positions
 
 ALTER TABLE ONLY public.sol_meteora_dbc_migrations
     ADD CONSTRAINT sol_meteora_dbc_migrations_pkey PRIMARY KEY (signature, instruction_index);
+
+
+--
+-- Name: sol_meteora_dbc_pools sol_meteora_dbc_pools_pkey; Type: CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.sol_meteora_dbc_pools
+    ADD CONSTRAINT sol_meteora_dbc_pools_pkey PRIMARY KEY (account);
 
 
 --
