@@ -120,7 +120,7 @@ func (app *ApiServer) v1Coins(c *fiber.Ctx) error {
 	case "price":
 		sortMethod = "price"
 	case "volume":
-		sortMethod = "v_24h_usd"
+		sortMethod = "total_volume_usd"
 	case "created_at":
 		sortMethod = "created_at"
 	case "holder":
