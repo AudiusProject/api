@@ -5259,6 +5259,15 @@ components:
         - v24h
         - v24hUSD
         - vHistory24h
+        - totalVolume
+        - totalVolumeUSD
+        - volumeBuy
+        - volumeBuyUSD
+        - volumeSell
+        - volumeSellUSD
+        - totalTrade
+        - buy
+        - sell
         - dynamicBondingCurve
       properties:
         name:
@@ -5744,6 +5753,15 @@ components:
         - v24h
         - v24hUSD
         - vHistory24h
+        - totalVolume
+        - totalVolumeUSD
+        - volumeBuy
+        - volumeBuyUSD
+        - volumeSell
+        - volumeSellUSD
+        - totalTrade
+        - buy
+        - sell
         - dynamicBondingCurve
       properties:
         address:
