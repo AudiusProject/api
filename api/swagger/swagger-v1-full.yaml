@@ -272,6 +272,27 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/coin_response'
+  /coins/{mint}/members/count:
+    get:
+      tags:
+        - coins
+      operationId: Get Coin Members Count
+      description: 'Gets the total number of Audius users with a non-zero balance of a specific coin'
+      parameters:
+      - name: mint
+        in: path
+        description: The mint address of the coin
+        required: true
+        schema:
+          type: string
+          example: 9LzCMqDgTKYz9Drzqnpgee3SGa89up3a247ypMj2xrqM
+      responses:
+        '200':
+          description: Success
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/coin_members_count_response'
   /cid_data/{metadata_id}:
     get:
       tags:
@@ -6014,6 +6035,15 @@ components:
           type: array
           items:
             $ref: '#/components/schemas/coin'
+    coin_members_count_response:  
+      type: object
+      required:
+        - data
+      properties:
+        data:
+          type: integer
+          description: The total number of users with a non-zero balance of the specific coin
+          example: 42
     create_coin_request:
       type: object
       required:
