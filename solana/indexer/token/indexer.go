@@ -186,7 +186,11 @@ func (d *Indexer) HandleUpdate(ctx context.Context, msg *pb.SubscribeUpdate) err
 		trackedMints := msg.Filters
 
 		// Process balance changes for this subscription's mints
-		err = common.ProcessBalanceChanges(ctx, d.pool, accUpdate.Slot, txRes.Meta, tx, txRes.BlockTime.Time(), trackedMints, d.logger)
+		logger := d.logger.With(
+			zap.String("signature", txSig.String()),
+			zap.Uint64("slot", txRes.Slot),
+		)
+		err = common.ProcessBalanceChanges(ctx, d.pool, txRes.Slot, txRes.Meta, tx, txRes.BlockTime.Time(), trackedMints, logger)
 		if err != nil {
 			return fmt.Errorf("failed to process balance changes: %w", err)
 		}
