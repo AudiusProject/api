@@ -160,8 +160,9 @@ var UserFixtures = []map[string]any{
 	},
 	// data for v1_user_tracks_test.go
 	{
-		"user_id":   500,
-		"handle":    "UserTracksTester",
-		"handle_lc": "usertrackstester",
+		"user_id":              500,
+		"handle":               "UserTracksTester",
+		"handle_lc":            "usertrackstester",
+		"artist_pick_track_id": 701,
 	},
 }

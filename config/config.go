@@ -40,6 +40,8 @@ type Config struct {
 	CommsMessagePush            bool
 	AudiusdChainID              uint
 	AudiusdEntityManagerAddress string
+	AudiusAppUrl                string
+	ContentNodeMonitor          bool
 }
 
 var Cfg = Config{
@@ -60,6 +62,7 @@ var Cfg = Config{
 	SolanaIndexerWorkers:       50,
 	SolanaIndexerRetryInterval: 5 * time.Minute,
 	CommsMessagePush:           true,
+	ContentNodeMonitor:         true,
 }
 
 func init() {
@@ -92,6 +95,7 @@ func init() {
 		Cfg.AudiusdChainID = core_config.DevAcdcChainID
 		Cfg.AudiusdEntityManagerAddress = core_config.DevAcdcAddress
 		Cfg.SolanaIndexerRetryInterval = 10 * time.Second
+		Cfg.AudiusAppUrl = "http://localhost:3000"
 	case "stage":
 		fallthrough
 	case "staging":
@@ -107,6 +111,7 @@ func init() {
 
 		Cfg.AudiusdChainID = core_config.StageAcdcChainID
 		Cfg.AudiusdEntityManagerAddress = core_config.StageAcdcAddress
+		Cfg.AudiusAppUrl = "https://staging.audius.co"
 	case "prod":
 		fallthrough
 	case "production":
@@ -121,9 +126,9 @@ func init() {
 		Cfg.Rewards = core_config.MakeRewards(core_config.ProdClaimAuthorities, core_config.ProdRewardExtensions)
 		Cfg.AudiusdURL = "creatornode.audius.co"
 		Cfg.ChainId = "audius-mainnet-alpha-beta"
-
 		Cfg.AudiusdChainID = core_config.ProdAcdcChainID
 		Cfg.AudiusdEntityManagerAddress = core_config.ProdAcdcAddress
+		Cfg.AudiusAppUrl = "https://audius.co"
 	default:
 		log.Fatalf("Unknown environment: %s", env)
 	}

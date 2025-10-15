@@ -5259,6 +5259,15 @@ components:
         - v24h
         - v24hUSD
         - vHistory24h
+        - totalVolume
+        - totalVolumeUSD
+        - volumeBuy
+        - volumeBuyUSD
+        - volumeSell
+        - volumeSellUSD
+        - totalTrade
+        - buy
+        - sell
         - dynamicBondingCurve
       properties:
         name:
@@ -5505,6 +5514,42 @@ components:
           type: integer
           description: Number of markets the token is traded on
           example: 317
+        totalVolume:
+          type: number
+          description: Total volume of coin traded (all time)
+          example: 158766463.26959822
+        totalVolumeUSD:
+          type: number
+          description: Total volume of coin traded in USD (all time)
+          example: 20188521260.405678
+        volumeBuy:
+          type: number
+          description: Total volume bought (all time)
+          example: 78227859.16098201
+        volumeBuyUSD:
+          type: number
+          description: Total volume bought in USD (all time)
+          example: 20188521260.405678
+        volumeSell:
+          type: number
+          description: Total volume sold (all time)
+          example: 80538604.1086162
+        volumeSellUSD:
+          type: number
+          description: Total volume sold in USD (all time)
+          example: 20188521260.405678
+        totalTrade:
+          type: integer
+          description: Total number of trades (all time)
+          example: 258522892
+        buy:
+          type: integer
+          description: Total number of buys (all time)
+          example: 87829497
+        sell:
+          type: integer
+          description: Total number of sells (all time)
+          example: 170693395
         dynamicBondingCurve:
           type: object
           description: Information about the dynamic bonding curve if one exists for the Coin
@@ -5708,6 +5753,15 @@ components:
         - v24h
         - v24hUSD
         - vHistory24h
+        - totalVolume
+        - totalVolumeUSD
+        - volumeBuy
+        - volumeBuyUSD
+        - volumeSell
+        - volumeSellUSD
+        - totalTrade
+        - buy
+        - sell
         - dynamicBondingCurve
       properties:
         address:
@@ -5906,6 +5960,42 @@ components:
           type: integer
           description: Number of markets the token is traded on
           example: 317
+        totalVolume:
+          type: number
+          description: Total volume of coin traded (all time)
+          example: 158766463.26959822
+        totalVolumeUSD:
+          type: number
+          description: Total volume of coin traded in USD (all time)
+          example: 20188521260.405678
+        volumeBuy:
+          type: number
+          description: Total volume bought (all time)
+          example: 78227859.16098201
+        volumeBuyUSD:
+          type: number
+          description: Total volume bought in USD (all time)
+          example: 20188521260.405678
+        volumeSell:
+          type: number
+          description: Total volume sold (all time)
+          example: 80538604.1086162
+        volumeSellUSD:
+          type: number
+          description: Total volume sold in USD (all time)
+          example: 20188521260.405678
+        totalTrade:
+          type: integer
+          description: Total number of trades (all time)
+          example: 258522892
+        buy:
+          type: integer
+          description: Total number of buys (all time)
+          example: 87829497
+        sell:
+          type: integer
+          description: Total number of sells (all time)
+          example: 170693395
         dynamicBondingCurve:
           type: object
           description: Information about the dynamic bonding curve if one exists for the Coin

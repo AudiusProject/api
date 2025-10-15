@@ -876,6 +876,7 @@ type ArtistCoinPool struct {
 	CreatedAt               time.Time      `json:"created_at"`
 	UpdatedAt               time.Time      `json:"updated_at"`
 	TotalTradingQuoteFee    pgtype.Numeric `json:"total_trading_quote_fee"`
+	CreatorWalletAddress    pgtype.Text    `json:"creator_wallet_address"`
 }
 
 type ArtistCoinStat struct {
@@ -921,6 +922,15 @@ type ArtistCoinStat struct {
 	NumberMarkets                pgtype.Int4   `json:"number_markets"`
 	CreatedAt                    time.Time     `json:"created_at"`
 	UpdatedAt                    time.Time     `json:"updated_at"`
+	TotalVolume                  pgtype.Float8 `json:"total_volume"`
+	TotalVolumeUsd               pgtype.Float8 `json:"total_volume_usd"`
+	VolumeBuy                    pgtype.Float8 `json:"volume_buy"`
+	VolumeBuyUsd                 pgtype.Float8 `json:"volume_buy_usd"`
+	VolumeSell                   pgtype.Float8 `json:"volume_sell"`
+	VolumeSellUsd                pgtype.Float8 `json:"volume_sell_usd"`
+	Buy                          pgtype.Int4   `json:"buy"`
+	Sell                         pgtype.Int4   `json:"sell"`
+	TotalTrade                   pgtype.Int4   `json:"total_trade"`
 }
 
 type AssociatedWallet struct {
@@ -1617,6 +1627,11 @@ type SolClaimableAccountTransfer struct {
 	FromAccount      string `json:"from_account"`
 	ToAccount        string `json:"to_account"`
 	SenderEthAddress string `json:"sender_eth_address"`
+}
+
+type SolKeypair struct {
+	PublicKey  string `json:"public_key"`
+	PrivateKey []byte `json:"private_key"`
 }
 
 // Stores payment router program Route instruction recipients and amounts for tracked mints.

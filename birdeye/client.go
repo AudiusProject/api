@@ -1,6 +1,7 @@
 package birdeye
 
 import (
+	"bytes"
 	"context"
 	"encoding/json"
 	"fmt"
@@ -13,10 +14,11 @@ import (
 )
 
 type Client struct {
-	token              string
-	tokenOverviewCache otter.Cache[string, *TokenOverview]
-	pricesCache        otter.Cache[string, *TokenPriceData]
-	httpClient         *http.Client
+	token                  string
+	tokenOverviewCache     otter.Cache[string, *TokenOverview]
+	tokenAllTimeStatsCache otter.Cache[string, *TokenAllTimeStats]
+	pricesCache            otter.Cache[string, *TokenPriceData]
+	httpClient             *http.Client
 }
 
 func attemptExtractErrorMessage(body io.Reader) string {
@@ -38,6 +40,14 @@ func New(token string) *Client {
 		panic(err)
 	}
 
+	tokenAllTimeStatsCache, err := otter.MustBuilder[string, *TokenAllTimeStats](100).
+		WithTTL(60 * time.Second).
+		CollectStats().
+		Build()
+	if err != nil {
+		panic(err)
+	}
+
 	pricesCache, err := otter.MustBuilder[string, *TokenPriceData](100).
 		WithTTL(60 * time.Second).
 		CollectStats().
@@ -49,10 +59,11 @@ func New(token string) *Client {
 	httpClient := &http.Client{Timeout: 20 * time.Second}
 
 	return &Client{
-		httpClient:         httpClient,
-		token:              token,
-		tokenOverviewCache: tokenOverviewCache,
-		pricesCache:        pricesCache,
+		httpClient:             httpClient,
+		token:                  token,
+		tokenOverviewCache:     tokenOverviewCache,
+		tokenAllTimeStatsCache: tokenAllTimeStatsCache,
+		pricesCache:            pricesCache,
 	}
 }
 
@@ -132,7 +143,8 @@ func (c *Client) GetTokenOverview(ctx context.Context, tokenAddress string, fram
 	defer resp.Body.Close()
 
 	if resp.StatusCode != http.StatusOK {
-		return nil, fmt.Errorf("unexpected status code: %d", resp.StatusCode)
+		errMsg := attemptExtractErrorMessage(resp.Body)
+		return nil, fmt.Errorf("unexpected status code: %d (%s)", resp.StatusCode, errMsg)
 	}
 
 	var result struct {
@@ -145,6 +157,69 @@ func (c *Client) GetTokenOverview(ctx context.Context, tokenAddress string, fram
 	c.tokenOverviewCache.Set(cacheKey, &result.Data)
 
 	return &result.Data, nil
+}
+
+type TokenAllTimeStats struct {
+	Address         string  `json:"address"`
+	TotalVolume     float64 `json:"total_volume"`
+	TotalVolumeUSD  float64 `json:"total_volume_usd"`
+	VolumeBuyUSD    float64 `json:"volume_buy_usd"`
+	VolumeSellUSD   float64 `json:"volume_sell_usd"`
+	VolumeBuy       float64 `json:"volume_buy"`
+	VolumeSell      float64 `json:"volume_sell"`
+	TotalTrade      int     `json:"total_trade"`
+	Buy             int     `json:"buy"`
+	Sell            int     `json:"sell"`
+	IsScaledUiToken bool    `json:"is_scaled_ui_token"`
+}
+
+func (c *Client) GetTokenAllTimeStats(ctx context.Context, tokenAddress string) (*TokenAllTimeStats, error) {
+	cacheKey := tokenAddress
+	if cachedOverview, ok := c.tokenAllTimeStatsCache.Get(cacheKey); ok {
+		return cachedOverview, nil
+	}
+
+	url := fmt.Sprintf("https://public-api.birdeye.so/defi/v3/all-time/trades/single?time_frame=alltime&address=%s", tokenAddress)
+	req, err := http.NewRequestWithContext(ctx, "GET", url, nil)
+	if err != nil {
+		return nil, err
+	}
+	req.Header.Set("x-api-key", c.token)
+	req.Header.Set("x-chain", "solana")
+	req.Header.Set("Content-Type", "application/json")
+
+	resp, err := c.httpClient.Do(req)
+	if err != nil {
+		return nil, err
+	}
+	defer resp.Body.Close()
+
+	if resp.StatusCode != http.StatusOK {
+		errMsg := attemptExtractErrorMessage(resp.Body)
+		return nil, fmt.Errorf("unexpected status code: %d (%s)", resp.StatusCode, errMsg)
+	}
+
+	bodyBytes, err := io.ReadAll(resp.Body)
+	if err != nil {
+		return nil, err
+	}
+	fmt.Println(string(bodyBytes))
+
+	var result struct {
+		Data []TokenAllTimeStats `json:"data"`
+	}
+	if err := json.NewDecoder(bytes.NewReader(bodyBytes)).Decode(&result); err != nil {
+		return nil, err
+	}
+
+	// Single all time stats endpoint returns an array with one item
+	if len(result.Data) == 0 {
+		return nil, fmt.Errorf("no data found for token address: %s", tokenAddress)
+	}
+
+	c.tokenAllTimeStatsCache.Set(cacheKey, &result.Data[0])
+
+	return &result.Data[0], nil
 }
 
 type TokenPriceData struct {

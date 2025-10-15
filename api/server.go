@@ -177,8 +177,11 @@ func NewApiServer(config config.Config) *ApiServer {
 		panic(err)
 	}
 
-	contentNodeMonitor := NewContentNodeMonitor(config, logger)
-	contentNodeMonitor.Start()
+	var contentNodeMonitor *ContentNodeMonitor
+	if config.ContentNodeMonitor {
+		contentNodeMonitor = NewContentNodeMonitor(config, logger)
+		contentNodeMonitor.Start()
+	}
 
 	app := &ApiServer{
 		App: fiber.New(fiber.Config{
@@ -190,6 +193,7 @@ func NewApiServer(config config.Config) *ApiServer {
 		}),
 		commsRpcProcessor:     commsRpcProcessor,
 		env:                   config.Env,
+		audiusAppUrl:          config.AudiusAppUrl,
 		skipAuthCheck:         skipAuthCheck,
 		pool:                  pool,
 		writePool:             writePool,
@@ -358,11 +362,15 @@ func NewApiServer(config config.Config) *ApiServer {
 		g.Get("/users/:userId/transactions/usdc/count", app.v1UsersTransactionsUsdcCount)
 		g.Get("/users/:userId/history/tracks", app.v1UsersHistory)
 		g.Get("/users/:userId/listen_counts_monthly", app.v1UsersListenCountsMonthly)
-		g.Get("/users/:userId/purchases", app.v1UsersPurchases)
-		g.Get("/users/:userId/purchases/count", app.v1UsersPurchasesCount)
-		g.Get("/users/:userId/sales", app.v1UsersSales)
-		g.Get("/users/:userId/sales/count", app.v1UsersSalesCount)
-		g.Get("/users/:userId/sales/aggregate", app.v1UsersSalesAggregate)
+		g.Get("/users/:userId/purchases", app.requireAuthForUserId, app.v1UsersPurchases)
+		g.Get("/users/:userId/purchases/download", app.requireAuthForUserId, app.v1UsersPurchasesDownloadCsv)
+		g.Get("/users/:userId/purchases/download/json", app.requireAuthForUserId, app.v1UsersPurchasesDownloadJson)
+		g.Get("/users/:userId/purchases/count", app.requireAuthForUserId, app.v1UsersPurchasesCount)
+		g.Get("/users/:userId/sales", app.requireAuthForUserId, app.v1UsersSales)
+		g.Get("/users/:userId/sales/download", app.requireAuthForUserId, app.v1UsersSalesDownloadCsv)
+		g.Get("/users/:userId/sales/download/json", app.requireAuthForUserId, app.v1UsersSalesDownloadJson)
+		g.Get("/users/:userId/sales/count", app.requireAuthForUserId, app.v1UsersSalesCount)
+		g.Get("/users/:userId/sales/aggregate", app.requireAuthForUserId, app.v1UsersSalesAggregate)
 		g.Get("/users/:userId/muted", app.v1UsersMuted)
 		g.Get("/users/:userId/subscribers", app.v1UsersSubscribers)
 		g.Get("/users/:userId/remixers", app.v1UsersRemixers)
@@ -377,6 +385,8 @@ func NewApiServer(config config.Config) *ApiServer {
 		g.Get("/users/:userId/authorized-apps", app.v1UsersAuthorizedApps)
 		g.Get("/users/:userId/developer_apps", app.v1UsersDeveloperApps)
 		g.Get("/users/:userId/developer-apps", app.v1UsersDeveloperApps)
+		g.Get("/users/:userId/withdrawals/download", app.requireAuthForUserId, app.v1UsersWithdrawalsDownloadCsv)
+		g.Get("/users/:userId/withdrawals/download/json", app.requireAuthForUserId, app.v1UsersWithdrawalsDownloadJson)
 
 		// Tracks
 		g.Get("/tracks", app.v1Tracks)
@@ -582,6 +592,7 @@ func NewApiServer(config config.Config) *ApiServer {
 
 type BirdeyeClient interface {
 	GetTokenOverview(ctx context.Context, mint string, frames string) (*birdeye.TokenOverview, error)
+	GetTokenAllTimeStats(ctx context.Context, mint string) (*birdeye.TokenAllTimeStats, error)
 	GetPrices(ctx context.Context, mints []string) (birdeye.TokenPriceMap, error)
 }
 
@@ -607,6 +618,7 @@ type ApiServer struct {
 	validators            []config.Node
 	env                   string
 	auds                  *sdk.AudiusdSDK
+	audiusAppUrl          string
 	skipAuthCheck         bool // set to true in a test if you don't care about auth middleware
 	metricsCollector      *MetricsCollector
 	birdeyeClient         BirdeyeClient

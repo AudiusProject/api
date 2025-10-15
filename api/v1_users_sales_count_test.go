@@ -9,11 +9,12 @@ import (
 )
 
 func TestV1UsersSalesCount(t *testing.T) {
+	user1Wallet := "0x7d273271690538cf855e5b3002a0dd8c154bb060"
 	app := emptyTestApp(t)
 
 	fixtures := database.FixtureMap{
 		"users": []map[string]any{
-			{"user_id": 1, "handle": "seller"},
+			{"user_id": 1, "handle": "seller", "wallet": user1Wallet},
 			{"user_id": 2, "handle": "buyer1", "name": "c"},
 			{"user_id": 3, "handle": "buyer2", "name": "a"},
 			{"user_id": 4, "handle": "buyer3", "name": "b"},
@@ -108,36 +109,42 @@ func TestV1UsersSalesCount(t *testing.T) {
 	database.Seed(app.pool.Replicas[0], fixtures)
 
 	{
-		status, body := testGet(t, app, "/v1/users/7eP5n/sales/count")
+		status, body := testGetWithWallet(t, app, "/v1/users/7eP5n/sales/count", user1Wallet)
 		assert.Equal(t, 200, status)
 		jsonAssert(t, body, map[string]any{"data": 6})
 	}
 
 	// with content id filters
 	{
-		status, body := testGet(t, app, "/v1/users/7eP5n/sales/count?content_ids=7eP5n&content_ids=ML51L")
+		status, body := testGetWithWallet(t, app, "/v1/users/7eP5n/sales/count?content_ids=7eP5n&content_ids=ML51L", user1Wallet)
 		assert.Equal(t, 200, status)
 		jsonAssert(t, body, map[string]any{"data": 4})
 	}
 
 	// with content type filter (playlist)
 	{
-		status, body := testGet(t, app, "/v1/users/7eP5n/sales/count?content_type=playlist")
+		status, body := testGetWithWallet(t, app, "/v1/users/7eP5n/sales/count?content_type=playlist", user1Wallet)
 		assert.Equal(t, 200, status)
 		jsonAssert(t, body, map[string]any{"data": 1})
 	}
 
 	// with content type filter (track)
 	{
-		status, body := testGet(t, app, "/v1/users/7eP5n/sales/count?content_type=track")
+		status, body := testGetWithWallet(t, app, "/v1/users/7eP5n/sales/count?content_type=track", user1Wallet)
 		assert.Equal(t, 200, status)
 		jsonAssert(t, body, map[string]any{"data": 4})
 	}
 
 	// with content type filter (album)
 	{
-		status, body := testGet(t, app, "/v1/users/7eP5n/sales/count?content_type=album")
+		status, body := testGetWithWallet(t, app, "/v1/users/7eP5n/sales/count?content_type=album", user1Wallet)
 		assert.Equal(t, 200, status)
 		jsonAssert(t, body, map[string]any{"data": 1})
+	}
+
+	// should 403 with bad wallet
+	{
+		status, _ := testGet(t, app, "/v1/users/7eP5n/sales/count")
+		assert.Equal(t, 403, status)
 	}
 }

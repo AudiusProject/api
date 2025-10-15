@@ -73,6 +73,15 @@ type ArtistCoin struct {
 	VSellHistory24hUSD           float64                      `json:"vSellHistory24hUSD" db:"v_sell_history_24h_usd"`
 	VSell24hChangePercent        float64                      `json:"vSell24hChangePercent" db:"v_sell_24h_change_percent"`
 	NumberMarkets                int                          `json:"numberMarkets" db:"number_markets"`
+	TotalVolume                  float64                      `json:"totalVolume" db:"total_volume"`
+	TotalVolumeUSD               float64                      `json:"totalVolumeUSD" db:"total_volume_usd"`
+	VolumeBuyUSD                 float64                      `json:"volumeBuyUSD" db:"volume_buy_usd"`
+	VolumeSellUSD                float64                      `json:"volumeSellUSD" db:"volume_sell_usd"`
+	VolumeBuy                    float64                      `json:"volumeBuy" db:"volume_buy"`
+	VolumeSell                   float64                      `json:"volumeSell" db:"volume_sell"`
+	TotalTrade                   int                          `json:"totalTrade" db:"total_trade"`
+	Buy                          int                          `json:"buy" db:"buy"`
+	Sell                         int                          `json:"sell" db:"sell"`
 	DynamicBondingCurve          *DynamicBondingCurveInsights `json:"dynamicBondingCurve" db:"dynamic_bonding_curve"`
 	ArtistFees                   *ArtistCoinFees              `json:"artistFees" db:"artist_fees"`
 	UpdatedAt                    time.Time                    `json:"updatedAt" db:"updated_at"`
@@ -121,7 +130,7 @@ func (app *ApiServer) v1Coins(c *fiber.Ctx) error {
 	case "price":
 		sortMethod = "price"
 	case "volume":
-		sortMethod = "v_24h_usd"
+		sortMethod = "total_volume_usd"
 	case "created_at":
 		sortMethod = "created_at"
 	case "holder":
@@ -189,6 +198,15 @@ func (app *ApiServer) v1Coins(c *fiber.Ctx) error {
 			COALESCE(artist_coin_stats.v_sell_history_24h_usd, 0) as v_sell_history_24h_usd,
 			COALESCE(artist_coin_stats.v_sell_24h_change_percent, 0) as v_sell_24h_change_percent,
 			COALESCE(artist_coin_stats.number_markets, 0) as number_markets,
+			COALESCE(artist_coin_stats.total_volume, 0) as total_volume,
+			COALESCE(artist_coin_stats.total_volume_usd, 0) as total_volume_usd,
+			COALESCE(artist_coin_stats.volume_buy_usd, 0) as volume_buy_usd,
+			COALESCE(artist_coin_stats.volume_sell_usd, 0) as volume_sell_usd,
+			COALESCE(artist_coin_stats.volume_buy, 0) as volume_buy,
+			COALESCE(artist_coin_stats.volume_sell, 0) as volume_sell,
+			COALESCE(artist_coin_stats.total_trade, 0) as total_trade,
+			COALESCE(artist_coin_stats.buy, 0) as buy,
+			COALESCE(artist_coin_stats.sell, 0) as sell,
 			JSON_BUILD_OBJECT(
 				'address', COALESCE(artist_coin_pools.address, ''),
 				'price', COALESCE(artist_coin_pools.price, 0),
@@ -214,17 +232,18 @@ func (app *ApiServer) v1Coins(c *fiber.Ctx) error {
 			` + tickerFilter + `
 			` + queryFilter + `
 		ORDER BY ` + sortString + `
-		LIMIT @limit
-		OFFSET @offset
+		-- Ignore limit/offset until we have fixed FE pagination (PE-7172)
+		-- LIMIT @limit
+		-- OFFSET @offset
 	`
 
 	rows, err := app.pool.Query(c.Context(), sql, pgx.NamedArgs{
 		"tickers":   queryParams.Tickers,
 		"mints":     queryParams.Mints,
 		"owner_ids": queryParams.OwnerIds,
-		"limit":     queryParams.Limit,
-		"offset":    queryParams.Offset,
-		"query":     queryParams.Query,
+		// "limit":     queryParams.Limit,
+		// "offset":    queryParams.Offset,
+		"query": queryParams.Query,
 	})
 	if err != nil {
 		return err
