@@ -146,7 +146,7 @@ func (m *grpcClientMock) Close() {
 	m.Called()
 }
 
-func TestStart(t *testing.T) {
+func TestSubscription(t *testing.T) {
 	pool := database.CreateTestDatabase(t, "test_solana_indexer_damm_v2")
 
 	// Fake an update for a Position and a Pool with missing data (should fail)
