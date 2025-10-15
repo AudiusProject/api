@@ -47,7 +47,7 @@ type DefaultGrpcClient struct {
 }
 
 // Creates a new gRPC client.
-func NewGrpcClient(config GrpcConfig) *DefaultGrpcClient {
+func NewGrpcClient(config GrpcConfig) GrpcClient {
 	return &DefaultGrpcClient{
 		config: config,
 	}

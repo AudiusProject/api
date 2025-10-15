@@ -22,10 +22,11 @@ const (
 )
 
 type Indexer struct {
-	pool       database.DbPool
-	grpcConfig common.GrpcConfig
-	rpcClient  common.RpcClient
-	logger     *zap.Logger
+	pool        database.DbPool
+	grpcConfig  common.GrpcConfig
+	grpcFactory func(common.GrpcConfig) common.GrpcClient
+	rpcClient   common.RpcClient
+	logger      *zap.Logger
 }
 
 func New(
@@ -35,10 +36,11 @@ func New(
 	logger *zap.Logger,
 ) *Indexer {
 	return &Indexer{
-		pool:       pool,
-		grpcConfig: config,
-		rpcClient:  rpcClient,
-		logger:     logger.Named("DammV2Indexer"),
+		pool:        pool,
+		grpcConfig:  config,
+		grpcFactory: common.NewGrpcClient,
+		rpcClient:   rpcClient,
+		logger:      logger.Named("DammV2Indexer"),
 	}
 }
 
@@ -178,7 +180,7 @@ func (d *Indexer) subscribe(ctx context.Context) ([]common.GrpcClient, error) {
 			}
 		}
 
-		grpcClient := common.NewGrpcClient(d.grpcConfig)
+		grpcClient := d.grpcFactory(d.grpcConfig)
 		err = grpcClient.Subscribe(ctx, subscription, handleMessage, func(err error) {
 			d.logger.Error("error in subscription", zap.Error(err))
 		})

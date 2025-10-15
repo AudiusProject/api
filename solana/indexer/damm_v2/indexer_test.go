@@ -1,17 +1,22 @@
 package damm_v2
 
 import (
+	"context"
 	"encoding/base64"
 	"testing"
+	"time"
 
 	"api.audius.co/database"
 	"api.audius.co/solana/indexer/common"
 	"api.audius.co/solana/indexer/fake_rpc_client"
 	"github.com/gagliardetto/solana-go"
+	"github.com/jackc/pgx/v5"
 	pb "github.com/rpcpool/yellowstone-grpc/examples/golang/proto"
+	"github.com/stretchr/testify/mock"
 	"github.com/test-go/testify/assert"
 	"github.com/test-go/testify/require"
 	"go.uber.org/zap"
+	"google.golang.org/protobuf/encoding/protojson"
 )
 
 func TestHandleUpdate_SlotCheckpoint(t *testing.T) {
@@ -94,8 +99,8 @@ func TestHandleUpdate_DammV2PositionUpdate(t *testing.T) {
 
 	// From real on-chain account data
 	address := solana.MustPublicKeyFromBase58("5bYLydDXt1K5zroychcbrVbhGRUpheXdq5w41uccazPB")
-	poolBase64 := "qryP5HpA99C0h5iaMb9or5qzYmaPKH7cBpP1GTyw5pa9SMlEQMuk4oeLsnqCTyioPLOFt664lEHr2woSYFq4Z3N6xFLWwGDSAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAADUszHGm5oNAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAACQoMPLmBiA4ADThI4wIAwAAAAAAAAAAABGmGkQpAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA"
-	poolData, err := base64.StdEncoding.DecodeString(poolBase64)
+	positionBase64 := "qryP5HpA99C0h5iaMb9or5qzYmaPKH7cBpP1GTyw5pa9SMlEQMuk4oeLsnqCTyioPLOFt664lEHr2woSYFq4Z3N6xFLWwGDSAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAADUszHGm5oNAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAACQoMPLmBiA4ADThI4wIAwAAAAAAAAAAABGmGkQpAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA"
+	positionData, err := base64.StdEncoding.DecodeString(positionBase64)
 	require.NoError(t, err)
 
 	update := pb.SubscribeUpdate{
@@ -104,7 +109,7 @@ func TestHandleUpdate_DammV2PositionUpdate(t *testing.T) {
 			Account: &pb.SubscribeUpdateAccount{
 				Account: &pb.SubscribeUpdateAccountInfo{
 					Pubkey: address.Bytes(),
-					Data:   poolData,
+					Data:   positionData,
 				},
 			},
 		},
@@ -123,4 +128,151 @@ func TestHandleUpdate_DammV2PositionUpdate(t *testing.T) {
 	`)
 	require.NoError(t, err)
 	defer rows.Close()
+}
+
+type grpcClientMock struct {
+	mock.Mock
+
+	onUpdate common.DataCallback
+}
+
+func (m *grpcClientMock) Subscribe(ctx context.Context, req *pb.SubscribeRequest, onUpdate common.DataCallback, onError common.ErrorCallback) error {
+	args := m.Called(ctx, req, onUpdate, onError)
+	m.onUpdate = onUpdate
+	return args.Error(0)
+}
+
+func (m *grpcClientMock) Close() {
+	m.Called()
+}
+
+func TestStart(t *testing.T) {
+	pool := database.CreateTestDatabase(t, "test_solana_indexer_damm_v2")
+
+	// Fake an update for a Position and a Pool with missing data (should fail)
+	positionAddress := solana.MustPublicKeyFromBase58("5bYLydDXt1K5zroychcbrVbhGRUpheXdq5w41uccazPB")
+	positionUpdate := pb.SubscribeUpdate{
+		Filters: []string{positionAddress.String()},
+		UpdateOneof: &pb.SubscribeUpdate_Account{
+			Account: &pb.SubscribeUpdateAccount{
+				Account: &pb.SubscribeUpdateAccountInfo{
+					Pubkey: positionAddress.Bytes(),
+				},
+			},
+		},
+	}
+	dammPoolAddress := solana.MustPublicKeyFromBase58("D9iJqMbgQJLFt5PAAiTJTMNsMAMueukzoe1EK2r1g3WH")
+	poolUpdate := pb.SubscribeUpdate{
+		Filters: []string{NAME},
+		UpdateOneof: &pb.SubscribeUpdate_Account{
+			Account: &pb.SubscribeUpdateAccount{
+				Account: &pb.SubscribeUpdateAccountInfo{
+					Pubkey: dammPoolAddress.Bytes(),
+				},
+			},
+		},
+	}
+	dammPoolAddress2 := solana.MustPublicKeyFromBase58("8Z8rCYLuUcLfAJYPZxMgn6i9ifg9znQxrckXgZh6kYvN")
+
+	database.Seed(pool, database.FixtureMap{
+		"artist_coins": []map[string]any{
+			{
+				"mint":         "abc",
+				"ticker":       "",
+				"user_id":      0,
+				"decimals":     9,
+				"damm_v2_pool": dammPoolAddress.String(),
+			},
+		},
+	})
+
+	rpcClient := fake_rpc_client.FakeRpcClient{}
+	logger := zap.NewNop()
+
+	grpcMock := grpcClientMock{}
+	grpcMock.On("Subscribe", mock.Anything, mock.Anything, mock.Anything, mock.Anything).Return(nil)
+	grpcMock.On("Close").Return()
+
+	indexer := New(common.GrpcConfig{}, &rpcClient, pool, logger)
+	indexer.grpcFactory = func(config common.GrpcConfig) common.GrpcClient {
+		return &grpcMock
+	}
+
+	ctx, cancel := context.WithTimeout(t.Context(), time.Second*5)
+	defer cancel()
+	go indexer.Start(ctx)
+
+	for {
+		if grpcMock.onUpdate != nil {
+			break
+		}
+		time.Sleep(time.Millisecond * 10)
+	}
+
+	// Assert the original subscription included the actual account
+	grpcMock.AssertCalled(t, "Subscribe", mock.Anything, mock.MatchedBy(func(req *pb.SubscribeRequest) bool {
+		hasDammFilter := len(req.Accounts[NAME].Account) == 1 &&
+			req.Accounts[NAME].Account[0] == dammPoolAddress.String()
+		hasPositionFilter := req.Accounts[dammPoolAddress.String()].
+			Filters[0].
+			Filter.(*pb.SubscribeRequestFilterAccountsFilter_Memcmp).
+			Memcmp.
+			Data.(*pb.SubscribeRequestFilterAccountsFilterMemcmp_Base58).
+			Base58 == dammPoolAddress.String()
+		return hasDammFilter && hasPositionFilter
+	}), mock.Anything, mock.Anything)
+
+	// Send the updates (with missing data)
+	grpcMock.onUpdate(ctx, &positionUpdate)
+	grpcMock.onUpdate(ctx, &poolUpdate)
+	grpcMock.onUpdate = nil
+
+	// Update the DB to trigger a refresh of the subscription
+	sql := `UPDATE artist_coins SET damm_v2_pool = @damm_v2_pool WHERE mint = 'abc'`
+	_, err := pool.Exec(ctx, sql, pgx.NamedArgs{
+		"damm_v2_pool": dammPoolAddress2.String(),
+	})
+	require.NoError(t, err)
+
+	for {
+		if grpcMock.onUpdate != nil {
+			break
+		}
+		time.Sleep(time.Millisecond * 10)
+	}
+
+	cancel()
+
+	// Assert that on refresh, the subscription included the updated account
+	grpcMock.AssertCalled(t, "Subscribe", mock.Anything, mock.MatchedBy(func(req *pb.SubscribeRequest) bool {
+		hasDammFilter := len(req.Accounts[NAME].Account) == 1 &&
+			req.Accounts[NAME].Account[0] == dammPoolAddress2.String()
+		hasPositionFilter := req.Accounts[dammPoolAddress2.String()].
+			Filters[0].
+			Filter.(*pb.SubscribeRequestFilterAccountsFilter_Memcmp).
+			Memcmp.
+			Data.(*pb.SubscribeRequestFilterAccountsFilterMemcmp_Base58).
+			Base58 == dammPoolAddress2.String()
+		return hasDammFilter && hasPositionFilter
+	}), mock.Anything, mock.Anything)
+
+	// Assert that the updates with missing data were added to the retry queue
+	positionUpdateJson, err := protojson.Marshal(common.RetryQueueUpdate{SubscribeUpdate: &positionUpdate})
+	require.NoError(t, err)
+	poolUpdateJson, err := protojson.Marshal(common.RetryQueueUpdate{SubscribeUpdate: &poolUpdate})
+	require.NoError(t, err)
+
+	var exists bool
+	sql = `SELECT EXISTS (SELECT 1 FROM sol_retry_queue WHERE update = @update)`
+	err = pool.QueryRow(t.Context(), sql, pgx.NamedArgs{
+		"update": positionUpdateJson,
+	}).Scan(&exists)
+	require.NoError(t, err)
+	assert.True(t, exists, "failed position update should be added to retry queue")
+
+	err = pool.QueryRow(t.Context(), sql, pgx.NamedArgs{
+		"update": poolUpdateJson,
+	}).Scan(&exists)
+	require.NoError(t, err)
+	assert.True(t, exists, "failed pool update should be added to retry queue")
 }
