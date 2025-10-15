@@ -19,7 +19,7 @@ import (
 )
 
 func TestHandleUpdate_SlotCheckpoint(t *testing.T) {
-	pool := database.CreateTestDatabase(t, "test_solana_indexer_damm_v2")
+	pool := database.CreateTestDatabase(t, "test_solana_indexer_token")
 	rpcClient := fake_rpc_client.FakeRpcClient{}
 	logger := zap.NewNop()
 
@@ -49,16 +49,16 @@ func TestHandleUpdate_BalanceChange(t *testing.T) {
 	pool := database.CreateTestDatabase(t, "test_solana_indexer_token")
 
 	mint := "EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v"
-	sender := "F1vVY6VtF5oLT2QYEqy6276JGGhgaLEDZMamoFsJWSYk"
-	senderTokenAccount := "DUiUiDme6XoqaD86AdmqY2BDSg3PrCidszKpNbZhfkpo"
+	senderOwner := "F1vVY6VtF5oLT2QYEqy6276JGGhgaLEDZMamoFsJWSYk"
+	sender := "DUiUiDme6XoqaD86AdmqY2BDSg3PrCidszKpNbZhfkpo"
 	expectedSenderBalance := uint64(3300)
 
-	sender2 := "2bX4g7yV3aHjv6v1d8Z8n5K5e5f5L5e5f5L5e5f5L5e5"
-	sender2TokenAccount := "8bX4g7yV3aHjv6v1d8Z8n5K5e5f5L5e5f5L5e5f5L5e5"
+	senderOwner2 := "2bX4g7yV3aHjv6v1d8Z8n5K5e5f5L5e5f5L5e5f5L5e5"
+	sender2 := "8bX4g7yV3aHjv6v1d8Z8n5K5e5f5L5e5f5L5e5f5L5e5"
 	expectedSender2Balance := uint64(1000)
 
-	receiver := "FFwKgUzzmvFv1mhqexs2muRAphgMMyR1kMtiigPeoksw"
-	receiverTokenAccount := "AaF7Y7PCk54xrBvbwJEbGY8p5FnZ2zjzzPRnY4VsF17n"
+	receiverOwner := "FFwKgUzzmvFv1mhqexs2muRAphgMMyR1kMtiigPeoksw"
+	receiver := "AaF7Y7PCk54xrBvbwJEbGY8p5FnZ2zjzzPRnY4VsF17n"
 	expectedReceiverBalance := uint64(1430000)
 
 	database.Seed(pool, database.FixtureMap{
@@ -67,14 +67,14 @@ func TestHandleUpdate_BalanceChange(t *testing.T) {
 			{"user_id": 2},
 		},
 		"associated_wallets": []map[string]any{
-			{"id": 1, "user_id": 1, "wallet": sender2, "chain": "sol"},
-			{"id": 2, "user_id": 2, "wallet": receiver, "chain": "sol"},
+			{"id": 1, "user_id": 1, "wallet": senderOwner2, "chain": "sol"},
+			{"id": 2, "user_id": 2, "wallet": receiverOwner, "chain": "sol"},
 		},
 		"sol_claimable_accounts": []map[string]any{
-			{"signature": "abc", "ethereum_address": "0x123", "account": senderTokenAccount, "mint": mint},
+			{"signature": "abc", "ethereum_address": "0x123", "account": sender, "mint": mint},
 		},
 		"sol_token_account_balances": []map[string]any{
-			{"account": sender2TokenAccount, "mint": mint, "owner": sender2, "balance": expectedSender2Balance},
+			{"account": sender2, "mint": mint, "owner": senderOwner2, "balance": expectedSender2Balance},
 		},
 	})
 
@@ -132,8 +132,8 @@ func TestHandleUpdate_BalanceChange(t *testing.T) {
 	err = pool.QueryRow(t.Context(), sql, pgx.NamedArgs{
 		"signature": txSig.String(),
 		"mint":      mint,
-		"owner":     sender,
-		"account":   senderTokenAccount,
+		"owner":     senderOwner,
+		"account":   sender,
 		"change":    int64(-90000),
 		"balance":   expectedSenderBalance,
 		"slot":      slot,
@@ -145,8 +145,8 @@ func TestHandleUpdate_BalanceChange(t *testing.T) {
 	err = pool.QueryRow(t.Context(), sql, pgx.NamedArgs{
 		"signature": txSig.String(),
 		"mint":      mint,
-		"owner":     receiver,
-		"account":   receiverTokenAccount,
+		"owner":     receiverOwner,
+		"account":   receiver,
 		"change":    int64(90000),
 		"balance":   expectedReceiverBalance,
 		"slot":      slot,
@@ -168,9 +168,9 @@ func TestHandleUpdate_BalanceChange(t *testing.T) {
 
 	// Sender balance
 	err = pool.QueryRow(t.Context(), sql, pgx.NamedArgs{
-		"account": senderTokenAccount,
+		"account": sender,
 		"mint":    mint,
-		"owner":   sender,
+		"owner":   senderOwner,
 		"balance": expectedSenderBalance,
 	}).Scan(&exists)
 	require.NoError(t, err, "failed to query for sender balance")
@@ -178,9 +178,9 @@ func TestHandleUpdate_BalanceChange(t *testing.T) {
 
 	// Receiver balance
 	err = pool.QueryRow(t.Context(), sql, pgx.NamedArgs{
-		"account": receiverTokenAccount,
+		"account": receiver,
 		"mint":    mint,
-		"owner":   receiver,
+		"owner":   receiverOwner,
 		"balance": expectedReceiverBalance,
 	}).Scan(&exists)
 	require.NoError(t, err, "failed to query for receiver balance")

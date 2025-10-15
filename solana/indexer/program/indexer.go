@@ -105,7 +105,7 @@ func (d *Indexer) HandleUpdate(ctx context.Context, msg *pb.SubscribeUpdate) err
 		tx = common.ResolveLookupTables(ctx, d.rpcClient, tx, txRes.Meta)
 
 		// Process the transaction
-		d.processTransaction(ctx, txUpdate.Slot, txRes.Meta, tx, txRes.BlockTime.Time())
+		d.processTransaction(ctx, txRes.Slot, txRes.Meta, tx, txRes.BlockTime.Time())
 
 		return nil
 	}
@@ -115,9 +115,9 @@ func (d *Indexer) HandleUpdate(ctx context.Context, msg *pb.SubscribeUpdate) err
 
 func (d *Indexer) subscribe(ctx context.Context) (common.GrpcClient, error) {
 	programIds := []string{
-		d.config.SolanaConfig.RewardManagerProgramID.String(),
-		d.config.SolanaConfig.PaymentRouterProgramID.String(),
-		d.config.SolanaConfig.ClaimableTokensProgramID.String(),
+		reward_manager.ProgramID.String(),
+		payment_router.ProgramID.String(),
+		claimable_tokens.ProgramID.String(),
 	}
 
 	d.logger.Info("subscribing to programs...", zap.Int("count", len(programIds)))

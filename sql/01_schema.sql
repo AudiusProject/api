@@ -7607,7 +7607,8 @@ CREATE TABLE public.sol_reward_disbursements (
     slot bigint NOT NULL,
     user_bank character varying NOT NULL,
     challenge_id character varying NOT NULL,
-    specifier character varying NOT NULL
+    specifier character varying NOT NULL,
+    recipient_eth_address text
 );
 
 
@@ -7616,6 +7617,13 @@ CREATE TABLE public.sol_reward_disbursements (
 --
 
 COMMENT ON TABLE public.sol_reward_disbursements IS 'Stores reward manager program Evaluate instructions for tracked mints.';
+
+
+--
+-- Name: COLUMN sol_reward_disbursements.recipient_eth_address; Type: COMMENT; Schema: public; Owner: -
+--
+
+COMMENT ON COLUMN public.sol_reward_disbursements.recipient_eth_address IS 'The Ethereum address of the recipient of the reward.';
 
 
 --
