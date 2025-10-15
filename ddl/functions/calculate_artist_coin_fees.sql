@@ -52,7 +52,9 @@ RETURNS TABLE (
         FLOOR(COALESCE(damm_fees.total_damm_v2_fees, 0)) AS total_damm_v2_fees,
         FLOOR(COALESCE(dbc_fees.unclaimed_dbc_fees, 0) + COALESCE(damm_fees.unclaimed_damm_v2_fees, 0)) AS unclaimed_fees,
         FLOOR(COALESCE(dbc_fees.total_dbc_fees, 0) + COALESCE(damm_fees.total_damm_v2_fees, 0)) AS total_fees
-    FROM dbc_fees
-    FULL OUTER JOIN damm_fees USING (mint);
+    FROM artist_coins
+    LEFT JOIN dbc_fees USING (mint)
+    FULL OUTER JOIN damm_fees USING (mint)
+    WHERE artist_coins.mint = artist_coin_mint;
 $function$;
 COMMIT;
