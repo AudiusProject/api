@@ -16,9 +16,8 @@ import (
 )
 
 // Birdeye rate limit is 50 RPS
-// We make two calls per token for this job, limiting to 20 per second to leave
-// room for the dbc job.
-const birdeyeDelay = 100 * time.Millisecond
+// We make two calls per token for this job, limiting to 40 per second to be safe.
+const birdeyeDelay = 50 * time.Millisecond
 
 type CoinStatsJob struct {
 	birdeyeClient *birdeye.Client
