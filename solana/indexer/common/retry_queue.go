@@ -36,12 +36,10 @@ func (r RetryQueueUpdate) MarshalJSON() ([]byte, error) {
 		return []byte("{}"), nil
 	}
 	res, err := protojson.Marshal(r.SubscribeUpdate)
-	fmt.Printf("Marshaled JSON: %s, error: %v\n", res, err)
 	return res, err
 }
 
 func (r *RetryQueueUpdate) UnmarshalJSON(data []byte) error {
-	fmt.Printf("Unmarshaling JSON: %s\n", data)
 	if r.SubscribeUpdate == nil {
 		r.SubscribeUpdate = &pb.SubscribeUpdate{}
 	}
