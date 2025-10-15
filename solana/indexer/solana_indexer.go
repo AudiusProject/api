@@ -114,7 +114,7 @@ func (s *SolanaIndexer) Start(ctx context.Context) error {
 
 	dbcJob := jobs.NewCoinDBCJob(s.config, s.pool)
 	dbcCtx := context.WithoutCancel(ctx)
-	dbcJob.ScheduleEvery(dbcCtx, 5*time.Minute)
+	dbcJob.ScheduleEvery(dbcCtx, 1*time.Minute)
 	go dbcJob.Run(dbcCtx)
 
 	go s.tokenIndexer.Start(ctx)
