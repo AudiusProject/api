@@ -34,7 +34,7 @@ RETURNS TABLE (
             ) AS unclaimed_damm_v2_fees
         FROM sol_meteora_damm_v2_pools pool
         JOIN sol_meteora_dbc_migrations migration ON migration.base_mint = pool.token_a_mint
-        JOIN sol_meteora_damm_v2_positions position ON position.address = migration.first_position
+        JOIN sol_meteora_damm_v2_positions position ON position.account = migration.first_position
         WHERE pool.token_a_mint = artist_coin_mint
     ),
     dbc_fees AS (

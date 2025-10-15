@@ -25,7 +25,8 @@ COMMENT ON TABLE sol_meteora_dbc_migrations IS 'Tracks migrations from DBC pools
 COMMENT ON INDEX sol_meteora_dbc_migrations_base_mint_idx IS 'Used for finding artist positions by base_mint.';
 
 CREATE TABLE IF NOT EXISTS sol_meteora_damm_v2_pools (
-    address TEXT PRIMARY KEY,
+    account TEXT PRIMARY KEY,
+    slot BIGINT NOT NULL,
     token_a_mint TEXT NOT NULL,
     token_b_mint TEXT NOT NULL,
     token_a_vault TEXT NOT NULL,
@@ -57,7 +58,7 @@ CREATE TABLE IF NOT EXISTS sol_meteora_damm_v2_pools (
 COMMENT ON TABLE sol_meteora_damm_v2_pools IS 'Tracks DAMM V2 pool state. Join with sol_meteora_damm_v2_pool_metrics, sol_meteora_damm_v2_pool_fees, sol_meteora_damm_v2_pool_base_fees, and sol_meteora_damm_v2_pool_dynamic_fees for full pool state.';
 
 CREATE TABLE IF NOT EXISTS sol_meteora_damm_v2_pool_metrics (
-    pool TEXT PRIMARY KEY REFERENCES sol_meteora_damm_v2_pools(address) ON DELETE CASCADE,
+    pool TEXT PRIMARY KEY REFERENCES sol_meteora_damm_v2_pools(account) ON DELETE CASCADE,
     slot BIGINT NOT NULL,
     total_lp_a_fee NUMERIC NOT NULL,
     total_lp_b_fee NUMERIC NOT NULL,
@@ -72,7 +73,7 @@ CREATE TABLE IF NOT EXISTS sol_meteora_damm_v2_pool_metrics (
 COMMENT ON TABLE sol_meteora_damm_v2_pool_metrics IS 'Tracks aggregated metrics for DAMM V2 pools. A slice of the DAMM V2 pool state.';
 
 CREATE TABLE IF NOT EXISTS sol_meteora_damm_v2_pool_fees (
-    pool TEXT PRIMARY KEY REFERENCES sol_meteora_damm_v2_pools(address) ON DELETE CASCADE,
+    pool TEXT PRIMARY KEY REFERENCES sol_meteora_damm_v2_pools(account) ON DELETE CASCADE,
     slot BIGINT NOT NULL,
     protocol_fee_percent SMALLINT NOT NULL,
     partner_fee_percent SMALLINT NOT NULL,
@@ -83,7 +84,7 @@ CREATE TABLE IF NOT EXISTS sol_meteora_damm_v2_pool_fees (
 COMMENT ON TABLE sol_meteora_damm_v2_pool_fees IS 'Tracks fee configuration for DAMM V2 pools. A slice of the DAMM V2 pool state.';
 
 CREATE TABLE IF NOT EXISTS sol_meteora_damm_v2_pool_base_fees (
-    pool TEXT PRIMARY KEY REFERENCES sol_meteora_damm_v2_pools(address) ON DELETE CASCADE,
+    pool TEXT PRIMARY KEY REFERENCES sol_meteora_damm_v2_pools(account) ON DELETE CASCADE,
     slot BIGINT NOT NULL,
     cliff_fee_numerator BIGINT NOT NULL,
     fee_scheduler_mode SMALLINT NOT NULL,
@@ -96,7 +97,7 @@ CREATE TABLE IF NOT EXISTS sol_meteora_damm_v2_pool_base_fees (
 COMMENT ON TABLE sol_meteora_damm_v2_pool_base_fees IS 'Tracks base fee configuration for DAMM V2 pools. A slice of the DAMM V2 pool state.';
 
 CREATE TABLE IF NOT EXISTS sol_meteora_damm_v2_pool_dynamic_fees (
-    pool TEXT PRIMARY KEY REFERENCES sol_meteora_damm_v2_pools(address) ON DELETE CASCADE,
+    pool TEXT PRIMARY KEY REFERENCES sol_meteora_damm_v2_pools(account) ON DELETE CASCADE,
     slot BIGINT NOT NULL,
     initialized SMALLINT NOT NULL,
     max_volatility_accumulator INTEGER NOT NULL,
@@ -116,9 +117,9 @@ CREATE TABLE IF NOT EXISTS sol_meteora_damm_v2_pool_dynamic_fees (
 COMMENT ON TABLE sol_meteora_damm_v2_pool_dynamic_fees IS 'Tracks dynamic fee configuration for DAMM V2 pools. A slice of the DAMM V2 pool state.';
 
 CREATE TABLE IF NOT EXISTS sol_meteora_damm_v2_positions (
-    address TEXT PRIMARY KEY,
+    account TEXT PRIMARY KEY,
     slot BIGINT NOT NULL,
-    pool TEXT NOT NULL REFERENCES sol_meteora_damm_v2_pools(address) ON DELETE CASCADE,
+    pool TEXT NOT NULL,
     nft_mint TEXT NOT NULL,
     fee_a_per_token_checkpoint BIGINT NOT NULL,
     fee_b_per_token_checkpoint BIGINT NOT NULL,
@@ -133,7 +134,7 @@ CREATE TABLE IF NOT EXISTS sol_meteora_damm_v2_positions (
 COMMENT ON TABLE sol_meteora_damm_v2_positions IS 'Tracks DAMM V2 positions representing a claim to the liquidity and associated fees in a DAMM V2 pool. Join with sol_meteora_damm_v2_position_metrics for full position state.';
 
 CREATE TABLE IF NOT EXISTS sol_meteora_damm_v2_position_metrics (
-    position TEXT PRIMARY KEY REFERENCES sol_meteora_damm_v2_positions(address) ON DELETE CASCADE,
+    position TEXT PRIMARY KEY REFERENCES sol_meteora_damm_v2_positions(account) ON DELETE CASCADE,
     slot BIGINT NOT NULL,
     total_claimed_a_fee BIGINT NOT NULL,
     total_claimed_b_fee BIGINT NOT NULL,

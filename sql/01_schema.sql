@@ -1010,7 +1010,7 @@ CREATE FUNCTION public.calculate_artist_coin_fees(artist_coin_mint text) RETURNS
             ) AS unclaimed_damm_v2_fees
         FROM sol_meteora_damm_v2_pools pool
         JOIN sol_meteora_dbc_migrations migration ON migration.base_mint = pool.token_a_mint
-        JOIN sol_meteora_damm_v2_positions position ON position.address = migration.first_position
+        JOIN sol_meteora_damm_v2_positions position ON position.account = migration.first_position
         WHERE pool.token_a_mint = artist_coin_mint
     ),
     dbc_fees AS (
@@ -2001,7 +2001,27 @@ CREATE FUNCTION public.handle_artist_coins_change() RETURNS trigger
     LANGUAGE plpgsql
     AS $$
 BEGIN
-    PERFORM pg_notify('artist_coins_changed', json_build_object('operation', TG_OP, 'new_mint', NEW.mint, 'old_mint', OLD.mint)::text);
+    IF (OLD.mint IS NULL AND NEW.mint IS NOT NULL) 
+        OR (OLD.mint IS NOT NULL AND NEW.mint IS NULL)
+        OR OLD.mint != NEW.mint
+    THEN
+        PERFORM pg_notify('artist_coins_mint_changed', NEW.mint);
+    END IF;
+
+    IF (OLD.dbc_pool IS NULL AND NEW.dbc_pool IS NOT NULL) 
+        OR (OLD.dbc_pool IS NOT NULL AND NEW.dbc_pool IS NULL)
+        OR OLD.dbc_pool != NEW.dbc_pool
+    THEN
+        PERFORM pg_notify('artist_coins_dbc_pool_changed', NEW.dbc_pool);
+    END IF;
+
+    IF (OLD.damm_v2_pool IS NULL AND NEW.damm_v2_pool IS NOT NULL) 
+        OR (OLD.damm_v2_pool IS NOT NULL AND NEW.damm_v2_pool IS NULL)
+        OR OLD.damm_v2_pool != NEW.damm_v2_pool
+    THEN
+        PERFORM pg_notify('artist_coins_damm_v2_pool_changed', NEW.damm_v2_pool);
+    END IF;
+    
     RETURN NEW;
     EXCEPTION
         WHEN OTHERS THEN
@@ -5803,7 +5823,9 @@ CREATE TABLE public.artist_coins (
     link_1 text,
     link_2 text,
     link_3 text,
-    link_4 text
+    link_4 text,
+    damm_v2_pool text,
+    dbc_pool text
 );
 
 
@@ -5812,6 +5834,20 @@ CREATE TABLE public.artist_coins (
 --
 
 COMMENT ON TABLE public.artist_coins IS 'Stores the token mints for artist coins that the indexer is tracking and their tickers.';
+
+
+--
+-- Name: COLUMN artist_coins.damm_v2_pool; Type: COMMENT; Schema: public; Owner: -
+--
+
+COMMENT ON COLUMN public.artist_coins.damm_v2_pool IS 'The canonical DAMM V2 pool address for this artist coin, if any. Used in solana indexer.';
+
+
+--
+-- Name: COLUMN artist_coins.dbc_pool; Type: COMMENT; Schema: public; Owner: -
+--
+
+COMMENT ON COLUMN public.artist_coins.dbc_pool IS 'The associated DBC pool address for this artist coin, if any. Used in solana indexer.';
 
 
 --
@@ -7181,6 +7217,7 @@ CREATE TABLE public.sol_keypairs (
 
 CREATE TABLE public.sol_meteora_damm_v2_pool_base_fees (
     pool text NOT NULL,
+    slot bigint NOT NULL,
     cliff_fee_numerator bigint NOT NULL,
     fee_scheduler_mode smallint NOT NULL,
     number_of_period smallint NOT NULL,
@@ -7204,6 +7241,7 @@ COMMENT ON TABLE public.sol_meteora_damm_v2_pool_base_fees IS 'Tracks base fee c
 
 CREATE TABLE public.sol_meteora_damm_v2_pool_dynamic_fees (
     pool text NOT NULL,
+    slot bigint NOT NULL,
     initialized smallint NOT NULL,
     max_volatility_accumulator integer NOT NULL,
     variable_fee_control integer NOT NULL,
@@ -7234,6 +7272,7 @@ COMMENT ON TABLE public.sol_meteora_damm_v2_pool_dynamic_fees IS 'Tracks dynamic
 
 CREATE TABLE public.sol_meteora_damm_v2_pool_fees (
     pool text NOT NULL,
+    slot bigint NOT NULL,
     protocol_fee_percent smallint NOT NULL,
     partner_fee_percent smallint NOT NULL,
     referral_fee_percent smallint NOT NULL,
@@ -7255,6 +7294,7 @@ COMMENT ON TABLE public.sol_meteora_damm_v2_pool_fees IS 'Tracks fee configurati
 
 CREATE TABLE public.sol_meteora_damm_v2_pool_metrics (
     pool text NOT NULL,
+    slot bigint NOT NULL,
     total_lp_a_fee numeric NOT NULL,
     total_lp_b_fee numeric NOT NULL,
     total_protocol_a_fee numeric NOT NULL,
@@ -7279,7 +7319,8 @@ COMMENT ON TABLE public.sol_meteora_damm_v2_pool_metrics IS 'Tracks aggregated m
 --
 
 CREATE TABLE public.sol_meteora_damm_v2_pools (
-    address text NOT NULL,
+    account text NOT NULL,
+    slot bigint NOT NULL,
     token_a_mint text NOT NULL,
     token_b_mint text NOT NULL,
     token_a_vault text NOT NULL,
@@ -7323,6 +7364,7 @@ COMMENT ON TABLE public.sol_meteora_damm_v2_pools IS 'Tracks DAMM V2 pool state.
 
 CREATE TABLE public.sol_meteora_damm_v2_position_metrics (
     "position" text NOT NULL,
+    slot bigint NOT NULL,
     total_claimed_a_fee bigint NOT NULL,
     total_claimed_b_fee bigint NOT NULL,
     created_at timestamp without time zone DEFAULT CURRENT_TIMESTAMP NOT NULL,
@@ -7342,7 +7384,8 @@ COMMENT ON TABLE public.sol_meteora_damm_v2_position_metrics IS 'Tracks aggregat
 --
 
 CREATE TABLE public.sol_meteora_damm_v2_positions (
-    address text NOT NULL,
+    account text NOT NULL,
+    slot bigint NOT NULL,
     pool text NOT NULL,
     nft_mint text NOT NULL,
     fee_a_per_token_checkpoint bigint NOT NULL,
@@ -7660,19 +7703,6 @@ CREATE TABLE public.sol_token_transfers (
 --
 
 COMMENT ON TABLE public.sol_token_transfers IS 'Stores SPL token transfers for tracked mints.';
-
-
---
--- Name: sol_unprocessed_txs; Type: TABLE; Schema: public; Owner: -
---
-
-CREATE TABLE public.sol_unprocessed_txs (
-    signature text NOT NULL,
-    error_message text,
-    created_at timestamp without time zone DEFAULT CURRENT_TIMESTAMP NOT NULL,
-    updated_at timestamp without time zone DEFAULT CURRENT_TIMESTAMP NOT NULL,
-    slot bigint DEFAULT 0 NOT NULL
-);
 
 
 --
@@ -9189,7 +9219,7 @@ ALTER TABLE ONLY public.sol_meteora_damm_v2_pool_metrics
 --
 
 ALTER TABLE ONLY public.sol_meteora_damm_v2_pools
-    ADD CONSTRAINT sol_meteora_damm_v2_pools_pkey PRIMARY KEY (address);
+    ADD CONSTRAINT sol_meteora_damm_v2_pools_pkey PRIMARY KEY (account);
 
 
 --
@@ -9205,7 +9235,7 @@ ALTER TABLE ONLY public.sol_meteora_damm_v2_position_metrics
 --
 
 ALTER TABLE ONLY public.sol_meteora_damm_v2_positions
-    ADD CONSTRAINT sol_meteora_damm_v2_positions_pkey PRIMARY KEY (address);
+    ADD CONSTRAINT sol_meteora_damm_v2_positions_pkey PRIMARY KEY (account);
 
 
 --
@@ -9286,14 +9316,6 @@ ALTER TABLE ONLY public.sol_token_account_balances
 
 ALTER TABLE ONLY public.sol_token_transfers
     ADD CONSTRAINT sol_token_transfers_pkey PRIMARY KEY (signature, instruction_index);
-
-
---
--- Name: sol_unprocessed_txs sol_unprocessed_txs_pkey; Type: CONSTRAINT; Schema: public; Owner: -
---
-
-ALTER TABLE ONLY public.sol_unprocessed_txs
-    ADD CONSTRAINT sol_unprocessed_txs_pkey PRIMARY KEY (signature);
 
 
 --
@@ -10832,20 +10854,6 @@ CREATE TRIGGER on_follow AFTER INSERT ON public.follows FOR EACH ROW EXECUTE FUN
 
 
 --
--- Name: sol_meteora_dbc_migrations on_meteora_dbc_migrations; Type: TRIGGER; Schema: public; Owner: -
---
-
-CREATE TRIGGER on_meteora_dbc_migrations AFTER INSERT OR DELETE ON public.sol_meteora_dbc_migrations FOR EACH ROW EXECUTE FUNCTION public.handle_meteora_dbc_migrations();
-
-
---
--- Name: TRIGGER on_meteora_dbc_migrations ON sol_meteora_dbc_migrations; Type: COMMENT; Schema: public; Owner: -
---
-
-COMMENT ON TRIGGER on_meteora_dbc_migrations ON public.sol_meteora_dbc_migrations IS 'Notifies when a DBC pool migrates to a DAMM V2 pool.';
-
-
---
 -- Name: plays on_play; Type: TRIGGER; Schema: public; Owner: -
 --
 
@@ -11274,7 +11282,7 @@ ALTER TABLE ONLY public.saves
 --
 
 ALTER TABLE ONLY public.sol_meteora_damm_v2_pool_base_fees
-    ADD CONSTRAINT sol_meteora_damm_v2_pool_base_fees_pool_fkey FOREIGN KEY (pool) REFERENCES public.sol_meteora_damm_v2_pools(address) ON DELETE CASCADE;
+    ADD CONSTRAINT sol_meteora_damm_v2_pool_base_fees_pool_fkey FOREIGN KEY (pool) REFERENCES public.sol_meteora_damm_v2_pools(account) ON DELETE CASCADE;
 
 
 --
@@ -11282,7 +11290,7 @@ ALTER TABLE ONLY public.sol_meteora_damm_v2_pool_base_fees
 --
 
 ALTER TABLE ONLY public.sol_meteora_damm_v2_pool_dynamic_fees
-    ADD CONSTRAINT sol_meteora_damm_v2_pool_dynamic_fees_pool_fkey FOREIGN KEY (pool) REFERENCES public.sol_meteora_damm_v2_pools(address) ON DELETE CASCADE;
+    ADD CONSTRAINT sol_meteora_damm_v2_pool_dynamic_fees_pool_fkey FOREIGN KEY (pool) REFERENCES public.sol_meteora_damm_v2_pools(account) ON DELETE CASCADE;
 
 
 --
@@ -11290,7 +11298,7 @@ ALTER TABLE ONLY public.sol_meteora_damm_v2_pool_dynamic_fees
 --
 
 ALTER TABLE ONLY public.sol_meteora_damm_v2_pool_fees
-    ADD CONSTRAINT sol_meteora_damm_v2_pool_fees_pool_fkey FOREIGN KEY (pool) REFERENCES public.sol_meteora_damm_v2_pools(address) ON DELETE CASCADE;
+    ADD CONSTRAINT sol_meteora_damm_v2_pool_fees_pool_fkey FOREIGN KEY (pool) REFERENCES public.sol_meteora_damm_v2_pools(account) ON DELETE CASCADE;
 
 
 --
@@ -11298,23 +11306,7 @@ ALTER TABLE ONLY public.sol_meteora_damm_v2_pool_fees
 --
 
 ALTER TABLE ONLY public.sol_meteora_damm_v2_pool_metrics
-    ADD CONSTRAINT sol_meteora_damm_v2_pool_metrics_pool_fkey FOREIGN KEY (pool) REFERENCES public.sol_meteora_damm_v2_pools(address) ON DELETE CASCADE;
-
-
---
--- Name: sol_meteora_damm_v2_position_metrics sol_meteora_damm_v2_position_metrics_position_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
---
-
-ALTER TABLE ONLY public.sol_meteora_damm_v2_position_metrics
-    ADD CONSTRAINT sol_meteora_damm_v2_position_metrics_position_fkey FOREIGN KEY ("position") REFERENCES public.sol_meteora_damm_v2_positions(address) ON DELETE CASCADE;
-
-
---
--- Name: sol_meteora_damm_v2_positions sol_meteora_damm_v2_positions_pool_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
---
-
-ALTER TABLE ONLY public.sol_meteora_damm_v2_positions
-    ADD CONSTRAINT sol_meteora_damm_v2_positions_pool_fkey FOREIGN KEY (pool) REFERENCES public.sol_meteora_damm_v2_pools(address) ON DELETE CASCADE;
+    ADD CONSTRAINT sol_meteora_damm_v2_pool_metrics_pool_fkey FOREIGN KEY (pool) REFERENCES public.sol_meteora_damm_v2_pools(account) ON DELETE CASCADE;
 
 
 --
