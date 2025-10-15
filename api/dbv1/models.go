@@ -876,6 +876,7 @@ type ArtistCoinPool struct {
 	CreatedAt               time.Time      `json:"created_at"`
 	UpdatedAt               time.Time      `json:"updated_at"`
 	TotalTradingQuoteFee    pgtype.Numeric `json:"total_trading_quote_fee"`
+	CreatorWalletAddress    pgtype.Text    `json:"creator_wallet_address"`
 }
 
 type ArtistCoinStat struct {
@@ -1617,6 +1618,11 @@ type SolClaimableAccountTransfer struct {
 	FromAccount      string `json:"from_account"`
 	ToAccount        string `json:"to_account"`
 	SenderEthAddress string `json:"sender_eth_address"`
+}
+
+type SolKeypair struct {
+	PublicKey  string `json:"public_key"`
+	PrivateKey []byte `json:"private_key"`
 }
 
 // Stores payment router program Route instruction recipients and amounts for tracked mints.

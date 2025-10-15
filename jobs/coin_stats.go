@@ -12,6 +12,7 @@ import (
 	"api.audius.co/logging"
 	"github.com/jackc/pgx/v5"
 	"go.uber.org/zap"
+	"golang.org/x/sync/errgroup"
 )
 
 // Birdeye rate limit is 15 requests per second.
@@ -109,18 +110,43 @@ func (j *CoinStatsJob) run(ctx context.Context) error {
 }
 
 func (j *CoinStatsJob) updateStats(ctx context.Context, coin ArtistCoin) error {
-	overview, err := j.birdeyeClient.GetTokenOverview(ctx, coin.Mint, "24h")
-	if err != nil {
-		return fmt.Errorf("error getting token overview: %w", err)
+	var (
+		overview     *birdeye.TokenOverview
+		allTimeStats *birdeye.TokenAllTimeStats
+	)
+
+	g, gctx := errgroup.WithContext(ctx)
+
+	g.Go(func() error {
+		ov, err := j.birdeyeClient.GetTokenOverview(gctx, coin.Mint, "24h")
+		if err != nil {
+			return fmt.Errorf("error getting token overview: %w", err)
+		}
+		overview = ov
+		return nil
+	})
+
+	g.Go(func() error {
+		at, err := j.birdeyeClient.GetTokenAllTimeStats(gctx, coin.Mint)
+		if err != nil {
+			return fmt.Errorf("error getting token all time stats: %w", err)
+		}
+		allTimeStats = at
+		return nil
+	})
+
+	if err := g.Wait(); err != nil {
+		return err
 	}
-	err = j.insertArtistCoinStats(ctx, coin.Mint, overview)
+
+	err := j.insertArtistCoinStats(ctx, coin.Mint, overview, allTimeStats)
 	if err != nil {
 		return fmt.Errorf("error inserting artist coin stats: %w", err)
 	}
 	return nil
 }
 
-func (j *CoinStatsJob) insertArtistCoinStats(ctx context.Context, mint string, overview *birdeye.TokenOverview) error {
+func (j *CoinStatsJob) insertArtistCoinStats(ctx context.Context, mint string, overview *birdeye.TokenOverview, allTimeStats *birdeye.TokenAllTimeStats) error {
 	_, err := j.pool.Exec(ctx, `
         INSERT INTO artist_coin_stats (
             mint, market_cap, fdv, liquidity, last_trade_unix_time, last_trade_human_time, price, history_24h_price,
@@ -130,7 +156,7 @@ func (j *CoinStatsJob) insertArtistCoinStats(ctx context.Context, mint string, o
             v_24h, v_24h_usd, v_history_24h, v_history_24h_usd, v_24h_change_percent,
             v_buy_24h, v_buy_24h_usd, v_buy_history_24h, v_buy_history_24h_usd, v_buy_24h_change_percent,
             v_sell_24h, v_sell_24h_usd, v_sell_history_24h, v_sell_history_24h_usd, v_sell_24h_change_percent,
-            number_markets, created_at, updated_at
+            number_markets, total_volume, total_volume_usd, volume_buy, volume_buy_usd, volume_sell, volume_sell_usd, buy, sell, total_trade, created_at, updated_at
         ) VALUES (
             @mint, @market_cap, @fdv, @liquidity, @last_trade_unix_time, @last_trade_human_time, @price, @history_24h_price,
             @price_change_24h_percent, @unique_wallet_24h, @unique_wallet_history_24h, @unique_wallet_24h_change_percent,
@@ -139,7 +165,7 @@ func (j *CoinStatsJob) insertArtistCoinStats(ctx context.Context, mint string, o
             @v_24h, @v_24h_usd, @v_history_24h, @v_history_24h_usd, @v_24h_change_percent,
             @v_buy_24h, @v_buy_24h_usd, @v_buy_history_24h, @v_buy_history_24h_usd, @v_buy_24h_change_percent,
             @v_sell_24h, @v_sell_24h_usd, @v_sell_history_24h, @v_sell_history_24h_usd, @v_sell_24h_change_percent,
-            @number_markets, NOW(), NOW()
+            @number_markets, @total_volume, @total_volume_usd, @volume_buy, @volume_buy_usd, @volume_sell, @volume_sell_usd, @buy, @sell, @total_trade, NOW(), NOW()
         )
         ON CONFLICT (mint) DO UPDATE SET
             market_cap = EXCLUDED.market_cap,
@@ -181,6 +207,15 @@ func (j *CoinStatsJob) insertArtistCoinStats(ctx context.Context, mint string, o
             v_sell_history_24h_usd = EXCLUDED.v_sell_history_24h_usd,
             v_sell_24h_change_percent = EXCLUDED.v_sell_24h_change_percent,
             number_markets = EXCLUDED.number_markets,
+            total_volume = EXCLUDED.total_volume,
+            total_volume_usd = EXCLUDED.total_volume_usd,
+            volume_buy = EXCLUDED.volume_buy,
+            volume_buy_usd = EXCLUDED.volume_buy_usd,
+            volume_sell = EXCLUDED.volume_sell,
+            volume_sell_usd = EXCLUDED.volume_sell_usd,
+            buy = EXCLUDED.buy,
+            sell = EXCLUDED.sell,
+            total_trade = EXCLUDED.total_trade,
 			updated_at = NOW();
     `, pgx.NamedArgs{
 		"mint":                             mint,
@@ -223,6 +258,15 @@ func (j *CoinStatsJob) insertArtistCoinStats(ctx context.Context, mint string, o
 		"v_sell_history_24h_usd":           overview.VSellHistory24hUSD,
 		"v_sell_24h_change_percent":        overview.VSell24hChangePercent,
 		"number_markets":                   overview.NumberMarkets,
+		"total_volume":                     allTimeStats.TotalVolume,
+		"total_volume_usd":                 allTimeStats.TotalVolumeUSD,
+		"volume_buy":                       allTimeStats.VolumeBuy,
+		"volume_buy_usd":                   allTimeStats.VolumeBuyUSD,
+		"volume_sell":                      allTimeStats.VolumeSell,
+		"volume_sell_usd":                  allTimeStats.VolumeSellUSD,
+		"buy":                              allTimeStats.Buy,
+		"sell":                             allTimeStats.Sell,
+		"total_trade":                      allTimeStats.TotalTrade,
 	})
 	return err
 }
