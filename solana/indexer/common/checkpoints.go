@@ -55,7 +55,7 @@ func EnsureCheckpoint(
 		logger.Warn("last indexed slot is too old, starting from minimum slot", zap.Uint64("fromSlot", fromSlot), zap.Uint64("toSlot", lastIndexedSlot))
 	}
 
-	checkpointId, err := insertCheckpointStart(ctx, db, name, fromSlot, subscription)
+	checkpointId, err := InsertCheckpointStart(ctx, db, name, fromSlot, subscription)
 	if err != nil {
 		return "", 0, fmt.Errorf("failed to start checkpoint: %w", err)
 	}
@@ -95,7 +95,7 @@ func InsertBackfillCheckpoint(ctx context.Context, db database.DBTX, fromSlot ui
 	return checkpointId, nil
 }
 
-func insertCheckpointStart(
+func InsertCheckpointStart(
 	ctx context.Context,
 	db database.DBTX,
 	name string,

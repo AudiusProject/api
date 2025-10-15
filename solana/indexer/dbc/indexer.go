@@ -185,7 +185,7 @@ func (d *Indexer) subscribe(ctx context.Context) ([]common.GrpcClient, error) {
 		}
 		total += len(pools)
 
-		d.logger.Debug("subscribing to pools....", zap.Int("numPools", len(pools)))
+		d.logger.Debug("subscribing to pools....", zap.Int("count", len(pools)))
 		subscription := d.makeSubscriptionRequest(ctx, pools)
 
 		// Handle each message from the subscription

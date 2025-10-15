@@ -19,7 +19,7 @@ func TestCheckpoints(t *testing.T) {
 	defer pool.Close()
 
 	req := proto.SubscribeRequest{}
-	id, err := insertCheckpointStart(t.Context(), pool, "backfill", 100, &req)
+	id, err := InsertCheckpointStart(t.Context(), pool, "backfill", 100, &req)
 	assert.NoError(t, err, "failed to insert checkpoint start")
 	assert.NotEmpty(t, id, "checkpoint ID should not be empty")
 

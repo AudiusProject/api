@@ -210,7 +210,7 @@ func (d *Indexer) subscribeToArtistCoins(ctx context.Context, handleUpdate func(
 			return grpcClients, nil
 		}
 		total += len(mints)
-		d.logger.Debug("subscribing to artist coins...", zap.Int("numCoins", len(mints)))
+		d.logger.Debug("subscribing to artist coins...", zap.Int("count", len(mints)))
 		subscription, err := d.makeMintSubscriptionRequest(ctx, mints)
 		if err != nil {
 			return nil, fmt.Errorf("failed to make mint subscription request: %w", err)
