@@ -3,8 +3,8 @@
 --
 
 
--- Dumped from database version 17.6 (Debian 17.6-2.pgdg13+1)
--- Dumped by pg_dump version 17.6 (Debian 17.6-2.pgdg13+1)
+-- Dumped from database version 17.6 (Debian 17.6-1.pgdg13+1)
+-- Dumped by pg_dump version 17.6 (Debian 17.6-1.pgdg13+1)
 
 SET statement_timeout = 0;
 SET lock_timeout = 0;
@@ -4752,6 +4752,65 @@ $$;
 
 
 --
+-- Name: refresh_all_user_scores(); Type: FUNCTION; Schema: public; Owner: -
+--
+
+CREATE FUNCTION public.refresh_all_user_scores() RETURNS TABLE(acquired boolean, diff_rows bigint, updated_rows bigint)
+    LANGUAGE plpgsql
+    AS $$
+declare
+  v_lock_key bigint := hashtext('refresh_all_user_scores');
+  v_diff bigint := 0;
+  v_upd  bigint := 0;
+  v_got  boolean;
+begin
+  v_got := pg_try_advisory_lock(v_lock_key);
+  if not v_got then
+    acquired     := false;
+    diff_rows    := 0;
+    updated_rows := 0;
+    return next;
+    return;
+  end if;
+
+  begin
+    create temp table _scores_new (
+      user_id int primary key,
+      score   int
+    ) on commit drop;
+
+    insert into _scores_new (user_id, score)
+    select s.user_id, s.score
+    from get_user_scores() as s
+    join aggregate_user au using (user_id)
+    where au.score is distinct from s.score;
+
+    get diagnostics v_diff = row_count;
+    create index on _scores_new (user_id);
+
+    update aggregate_user au
+    set score = sn.score
+    from _scores_new sn
+    where au.user_id = sn.user_id;
+
+    get diagnostics v_upd = row_count;
+
+    acquired     := true;
+    diff_rows    := v_diff;
+    updated_rows := v_upd;
+    return next;
+
+  exception when others then
+    perform pg_advisory_unlock(v_lock_key);
+    raise;
+  end;
+
+  perform pg_advisory_unlock(v_lock_key);
+end
+$$;
+
+
+--
 -- Name: table_exists(text); Type: FUNCTION; Schema: public; Owner: -
 --
 
@@ -5705,7 +5764,16 @@ CREATE TABLE public.artist_coin_stats (
     v_sell_24h_change_percent double precision,
     number_markets integer,
     created_at timestamp without time zone DEFAULT CURRENT_TIMESTAMP NOT NULL,
-    updated_at timestamp without time zone DEFAULT CURRENT_TIMESTAMP NOT NULL
+    updated_at timestamp without time zone DEFAULT CURRENT_TIMESTAMP NOT NULL,
+    total_volume double precision,
+    total_volume_usd double precision,
+    volume_buy double precision,
+    volume_buy_usd double precision,
+    volume_sell double precision,
+    volume_sell_usd double precision,
+    buy integer,
+    sell integer,
+    total_trade integer
 );
 
 
@@ -7090,6 +7158,16 @@ CREATE TABLE public.sol_claimable_accounts (
 --
 
 COMMENT ON TABLE public.sol_claimable_accounts IS 'Stores claimable tokens program Create instructions for tracked mints.';
+
+
+--
+-- Name: sol_keypairs; Type: TABLE; Schema: public; Owner: -
+--
+
+CREATE TABLE public.sol_keypairs (
+    public_key character varying NOT NULL,
+    private_key bytea NOT NULL
+);
 
 
 --
@@ -8772,6 +8850,14 @@ ALTER TABLE ONLY public.sol_claimable_account_transfers
 
 ALTER TABLE ONLY public.sol_claimable_accounts
     ADD CONSTRAINT sol_claimable_accounts_pkey PRIMARY KEY (signature, instruction_index);
+
+
+--
+-- Name: sol_keypairs sol_keypairs_pkey; Type: CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.sol_keypairs
+    ADD CONSTRAINT sol_keypairs_pkey PRIMARY KEY (public_key);
 
 
 --
@@ -10519,6 +10605,13 @@ CREATE TRIGGER trg_aggregate_plays AFTER INSERT OR UPDATE ON public.aggregate_pl
 --
 
 CREATE TRIGGER trg_aggregate_user AFTER INSERT OR UPDATE ON public.aggregate_user FOR EACH ROW EXECUTE FUNCTION public.on_new_row();
+
+
+--
+-- Name: artist_coins trg_artist_coins; Type: TRIGGER; Schema: public; Owner: -
+--
+
+CREATE TRIGGER trg_artist_coins AFTER INSERT OR UPDATE ON public.artist_coins FOR EACH ROW EXECUTE FUNCTION public.on_new_row();
 
 
 --

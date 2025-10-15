@@ -592,6 +592,7 @@ func NewApiServer(config config.Config) *ApiServer {
 
 type BirdeyeClient interface {
 	GetTokenOverview(ctx context.Context, mint string, frames string) (*birdeye.TokenOverview, error)
+	GetTokenAllTimeStats(ctx context.Context, mint string) (*birdeye.TokenAllTimeStats, error)
 	GetPrices(ctx context.Context, mints []string) (birdeye.TokenPriceMap, error)
 }
 

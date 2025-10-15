@@ -1,0 +1,11 @@
+begin;
+    ALTER TABLE artist_coin_stats ADD COLUMN IF NOT EXISTS total_volume DOUBLE PRECISION;
+    ALTER TABLE artist_coin_stats ADD COLUMN IF NOT EXISTS total_volume_usd DOUBLE PRECISION;
+    ALTER TABLE artist_coin_stats ADD COLUMN IF NOT EXISTS volume_buy DOUBLE PRECISION;
+    ALTER TABLE artist_coin_stats ADD COLUMN IF NOT EXISTS volume_buy_usd DOUBLE PRECISION;
+    ALTER TABLE artist_coin_stats ADD COLUMN IF NOT EXISTS volume_sell DOUBLE PRECISION;
+    ALTER TABLE artist_coin_stats ADD COLUMN IF NOT EXISTS volume_sell_usd DOUBLE PRECISION;
+    ALTER TABLE artist_coin_stats ADD COLUMN IF NOT EXISTS buy INTEGER;
+    ALTER TABLE artist_coin_stats ADD COLUMN IF NOT EXISTS sell INTEGER;
+    ALTER TABLE artist_coin_stats ADD COLUMN IF NOT EXISTS total_trade INTEGER;
+commit;
