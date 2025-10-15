@@ -48,6 +48,15 @@ type ArtistCoinStatsRow struct {
 	VSellHistory24hUSD           float64                      `json:"vSellHistory24hUSD" db:"v_sell_history_24h_usd"`
 	VSell24hChangePercent        float64                      `json:"vSell24hChangePercent" db:"v_sell_24h_change_percent"`
 	NumberMarkets                int                          `json:"numberMarkets" db:"number_markets"`
+	TotalVolume                  float64                      `json:"totalVolume" db:"total_volume"`
+	TotalVolumeUSD               float64                      `json:"totalVolumeUSD" db:"total_volume_usd"`
+	VolumeBuyUSD                 float64                      `json:"volumeBuyUSD" db:"volume_buy_usd"`
+	VolumeSellUSD                float64                      `json:"volumeSellUSD" db:"volume_sell_usd"`
+	VolumeBuy                    float64                      `json:"volumeBuy" db:"volume_buy"`
+	VolumeSell                   float64                      `json:"volumeSell" db:"volume_sell"`
+	TotalTrade                   int                          `json:"totalTrade" db:"total_trade"`
+	Buy                          int                          `json:"buy" db:"buy"`
+	Sell                         int                          `json:"sell" db:"sell"`
 	DynamicBondingCurve          *DynamicBondingCurveInsights `json:"dynamicBondingCurve" db:"dynamic_bonding_curve"`
 	CreatedAt                    time.Time                    `json:"createdAt" db:"created_at"`
 	UpdatedAt                    time.Time                    `json:"updatedAt" db:"updated_at"`

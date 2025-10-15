@@ -922,6 +922,15 @@ type ArtistCoinStat struct {
 	NumberMarkets                pgtype.Int4   `json:"number_markets"`
 	CreatedAt                    time.Time     `json:"created_at"`
 	UpdatedAt                    time.Time     `json:"updated_at"`
+	TotalVolume                  pgtype.Float8 `json:"total_volume"`
+	TotalVolumeUsd               pgtype.Float8 `json:"total_volume_usd"`
+	VolumeBuy                    pgtype.Float8 `json:"volume_buy"`
+	VolumeBuyUsd                 pgtype.Float8 `json:"volume_buy_usd"`
+	VolumeSell                   pgtype.Float8 `json:"volume_sell"`
+	VolumeSellUsd                pgtype.Float8 `json:"volume_sell_usd"`
+	Buy                          pgtype.Int4   `json:"buy"`
+	Sell                         pgtype.Int4   `json:"sell"`
+	TotalTrade                   pgtype.Int4   `json:"total_trade"`
 }
 
 type AssociatedWallet struct {

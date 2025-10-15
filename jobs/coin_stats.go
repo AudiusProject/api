@@ -15,8 +15,9 @@ import (
 	"golang.org/x/sync/errgroup"
 )
 
-// Birdeye rate limit is 15 requests per second.
-// To be safe, we use 10 requests per second.
+// Birdeye rate limit is 50 RPS
+// We make two calls per token for this job, limiting to 20 per second to leave
+// room for the dbc job.
 const birdeyeDelay = 100 * time.Millisecond
 
 type CoinStatsJob struct {
