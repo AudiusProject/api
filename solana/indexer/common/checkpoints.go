@@ -14,7 +14,10 @@ import (
 	"go.uber.org/zap"
 )
 
-const MAX_SLOT_GAP = 2500
+const (
+	MAX_SLOT_GAP = 2500
+	SLOT_PADDING = 100
+)
 
 func EnsureCheckpoint(
 	ctx context.Context,
@@ -47,7 +50,7 @@ func EnsureCheckpoint(
 		fromSlot = lastIndexedSlot
 	} else if lastIndexedSlot == 0 {
 		// New subscription, continue from latest slot - 100
-		fromSlot = latestSlot - 100 // start 100 slots back to be safe
+		fromSlot = latestSlot - SLOT_PADDING // start 100 slots back to be safe
 		logger.Warn("no last indexed slot found, starting from most recent slot (less 100 for safety) and skipping backfill", zap.Uint64("fromSlot", fromSlot))
 	} else {
 		// Existing subscription that's too old, continue from as far back as possible
