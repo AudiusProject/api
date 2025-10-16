@@ -7412,8 +7412,9 @@ CREATE TABLE public.sol_meteora_damm_v2_pools (
     token_b_flag smallint NOT NULL,
     collect_fee_mode smallint NOT NULL,
     pool_type smallint NOT NULL,
-    fee_a_per_liquidity bigint NOT NULL,
-    fee_b_per_liquidity bigint NOT NULL,
+    version smallint NOT NULL,
+    fee_a_per_liquidity numeric NOT NULL,
+    fee_b_per_liquidity numeric NOT NULL,
     permanent_lock_liquidity numeric NOT NULL,
     creator text NOT NULL,
     created_at timestamp without time zone DEFAULT CURRENT_TIMESTAMP NOT NULL,
@@ -7526,6 +7527,7 @@ CREATE TABLE public.sol_meteora_dbc_pools (
     base_reserve bigint NOT NULL,
     quote_reserve bigint NOT NULL,
     protocol_base_fee bigint NOT NULL,
+    protocol_quote_fee bigint NOT NULL,
     partner_base_fee bigint NOT NULL,
     partner_quote_fee bigint NOT NULL,
     sqrt_price numeric NOT NULL,
@@ -7617,7 +7619,7 @@ COMMENT ON COLUMN public.sol_purchases.is_valid IS 'A purchase is valid if it me
 CREATE TABLE public.sol_retry_queue (
     id uuid DEFAULT gen_random_uuid() NOT NULL,
     indexer text NOT NULL,
-    update jsonb NOT NULL,
+    update_message jsonb NOT NULL,
     error text NOT NULL,
     created_at timestamp without time zone DEFAULT CURRENT_TIMESTAMP NOT NULL,
     updated_at timestamp without time zone DEFAULT CURRENT_TIMESTAMP NOT NULL
@@ -7639,10 +7641,10 @@ COMMENT ON COLUMN public.sol_retry_queue.indexer IS 'The name of the indexer tha
 
 
 --
--- Name: COLUMN sol_retry_queue.update; Type: COMMENT; Schema: public; Owner: -
+-- Name: COLUMN sol_retry_queue.update_message; Type: COMMENT; Schema: public; Owner: -
 --
 
-COMMENT ON COLUMN public.sol_retry_queue.update IS 'The JSONB update data that failed to process.';
+COMMENT ON COLUMN public.sol_retry_queue.update_message IS 'The JSONB update data that failed to process.';
 
 
 --
@@ -11396,38 +11398,6 @@ ALTER TABLE ONLY public.revert_blocks
 
 ALTER TABLE ONLY public.saves
     ADD CONSTRAINT saves_blocknumber_fkey FOREIGN KEY (blocknumber) REFERENCES public.blocks(number) ON DELETE CASCADE;
-
-
---
--- Name: sol_meteora_damm_v2_pool_base_fees sol_meteora_damm_v2_pool_base_fees_pool_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
---
-
-ALTER TABLE ONLY public.sol_meteora_damm_v2_pool_base_fees
-    ADD CONSTRAINT sol_meteora_damm_v2_pool_base_fees_pool_fkey FOREIGN KEY (pool) REFERENCES public.sol_meteora_damm_v2_pools(account) ON DELETE CASCADE;
-
-
---
--- Name: sol_meteora_damm_v2_pool_dynamic_fees sol_meteora_damm_v2_pool_dynamic_fees_pool_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
---
-
-ALTER TABLE ONLY public.sol_meteora_damm_v2_pool_dynamic_fees
-    ADD CONSTRAINT sol_meteora_damm_v2_pool_dynamic_fees_pool_fkey FOREIGN KEY (pool) REFERENCES public.sol_meteora_damm_v2_pools(account) ON DELETE CASCADE;
-
-
---
--- Name: sol_meteora_damm_v2_pool_fees sol_meteora_damm_v2_pool_fees_pool_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
---
-
-ALTER TABLE ONLY public.sol_meteora_damm_v2_pool_fees
-    ADD CONSTRAINT sol_meteora_damm_v2_pool_fees_pool_fkey FOREIGN KEY (pool) REFERENCES public.sol_meteora_damm_v2_pools(account) ON DELETE CASCADE;
-
-
---
--- Name: sol_meteora_damm_v2_pool_metrics sol_meteora_damm_v2_pool_metrics_pool_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
---
-
-ALTER TABLE ONLY public.sol_meteora_damm_v2_pool_metrics
-    ADD CONSTRAINT sol_meteora_damm_v2_pool_metrics_pool_fkey FOREIGN KEY (pool) REFERENCES public.sol_meteora_damm_v2_pools(account) ON DELETE CASCADE;
 
 
 --
