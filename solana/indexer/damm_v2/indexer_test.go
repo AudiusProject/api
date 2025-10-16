@@ -274,11 +274,7 @@ func TestSubscription(t *testing.T) {
 	defer cancel()
 	go indexer.Start(ctx)
 
-	for {
-		if grpcMock.onUpdate != nil {
-			break
-		}
-		time.Sleep(time.Millisecond * 10)
+	for grpcMock.onUpdate == nil {
 	}
 
 	// Assert the original subscription included the actual account
@@ -306,11 +302,7 @@ func TestSubscription(t *testing.T) {
 	})
 	require.NoError(t, err)
 
-	for {
-		if grpcMock.onUpdate != nil {
-			break
-		}
-		time.Sleep(time.Millisecond * 10)
+	for grpcMock.onUpdate == nil {
 	}
 
 	cancel()
