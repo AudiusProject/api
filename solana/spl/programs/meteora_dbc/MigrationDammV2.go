@@ -18,11 +18,11 @@ func (inst *MigrationDammV2) GetConfig() *solana.AccountMeta {
 	return inst.AccountMetaSlice.Get(2)
 }
 
-func (inst *MigrationDammV2) GetPoolAuthority() *solana.AccountMeta {
+func (inst *MigrationDammV2) GetDbcPoolAuthority() *solana.AccountMeta {
 	return inst.AccountMetaSlice.Get(3)
 }
 
-func (inst *MigrationDammV2) GetPool() *solana.AccountMeta {
+func (inst *MigrationDammV2) GetDammV2Pool() *solana.AccountMeta {
 	return inst.AccountMetaSlice.Get(4)
 }
 
@@ -50,7 +50,7 @@ func (inst *MigrationDammV2) GetSecondPosition() *solana.AccountMeta {
 	return inst.AccountMetaSlice.Get(10)
 }
 
-func (inst *MigrationDammV2) GetDammPoolAuthority() *solana.AccountMeta {
+func (inst *MigrationDammV2) GetDammV2PoolAuthority() *solana.AccountMeta {
 	return inst.AccountMetaSlice.Get(11)
 }
 

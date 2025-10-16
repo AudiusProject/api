@@ -15,6 +15,7 @@ CREATE TABLE IF NOT EXISTS sol_meteora_dbc_pools (
     base_reserve BIGINT NOT NULL,
     quote_reserve BIGINT NOT NULL,
     protocol_base_fee BIGINT NOT NULL,
+    protocol_quote_fee BIGINT NOT NULL,
     partner_base_fee BIGINT NOT NULL,
     partner_quote_fee BIGINT NOT NULL,
     sqrt_price NUMERIC NOT NULL,

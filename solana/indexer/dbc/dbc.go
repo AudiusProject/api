@@ -50,15 +50,15 @@ func processDbcInstruction(
 					dbcPool:                  migrationInst.GetVirtualPool().PublicKey.String(),
 					migrationMetadata:        migrationInst.GetMigrationMetadata().PublicKey.String(),
 					config:                   migrationInst.GetConfig().PublicKey.String(),
-					dbcPoolAuthority:         migrationInst.GetPoolAuthority().PublicKey.String(),
-					dammV2Pool:               migrationInst.GetPool().PublicKey.String(),
+					dbcPoolAuthority:         migrationInst.GetDbcPoolAuthority().PublicKey.String(),
+					dammV2Pool:               migrationInst.GetDammV2Pool().PublicKey.String(),
 					firstPositionNftMint:     migrationInst.GetFirstPositionNftMint().PublicKey.String(),
 					firstPositionNftAccount:  migrationInst.GetFirstPositionNftAccount().PublicKey.String(),
 					firstPosition:            migrationInst.GetFirstPosition().PublicKey.String(),
 					secondPositionNftMint:    migrationInst.GetSecondPositionNftMint().PublicKey.String(),
 					secondPositionNftAccount: migrationInst.GetSecondPositionNftAccount().PublicKey.String(),
 					secondPosition:           migrationInst.GetSecondPosition().PublicKey.String(),
-					dammPoolAuthority:        migrationInst.GetPoolAuthority().PublicKey.String(),
+					dammPoolAuthority:        migrationInst.GetDammV2PoolAuthority().PublicKey.String(),
 					baseMint:                 migrationInst.GetBaseMint().PublicKey.String(),
 					quoteMint:                migrationInst.GetQuoteMint().PublicKey.String(),
 				})
@@ -68,16 +68,16 @@ func processDbcInstruction(
 				instLogger.Info("dbc migrationDammV2",
 					zap.String("mint", migrationInst.GetBaseMint().PublicKey.String()),
 					zap.String("dbcPool", migrationInst.GetVirtualPool().PublicKey.String()),
-					zap.String("dammV2Pool", migrationInst.GetPool().PublicKey.String()),
+					zap.String("dammV2Pool", migrationInst.GetDammV2Pool().PublicKey.String()),
 				)
 
-				err = updateArtistCoinDammV2Pool(ctx, db, migrationInst.GetBaseMint().PublicKey.String(), migrationInst.GetPool().PublicKey.String())
+				err = updateArtistCoinDammV2Pool(ctx, db, migrationInst.GetBaseMint().PublicKey.String(), migrationInst.GetDammV2Pool().PublicKey.String())
 				if err != nil {
 					return fmt.Errorf("failed to update artist coin with damm v2 pool at instruction %d: %w", instructionIndex, err)
 				}
 				instLogger.Info("updated artist coin with damm v2 pool",
 					zap.String("mint", migrationInst.GetBaseMint().PublicKey.String()),
-					zap.String("dammV2Pool", migrationInst.GetPool().PublicKey.String()),
+					zap.String("dammV2Pool", migrationInst.GetDammV2Pool().PublicKey.String()),
 				)
 			}
 		}
@@ -205,6 +205,7 @@ func upsertDbcPool(
 			base_reserve,
 			quote_reserve,
 			protocol_base_fee,
+			protocol_quote_fee,
 			partner_base_fee,
 			partner_quote_fee,
 			sqrt_price,
@@ -233,6 +234,7 @@ func upsertDbcPool(
 			@base_reserve,
 			@quote_reserve,
 			@protocol_base_fee,
+			@protocol_quote_fee,
 			@partner_base_fee,
 			@partner_quote_fee,
 			@sqrt_price,
@@ -260,6 +262,7 @@ func upsertDbcPool(
 			base_reserve = EXCLUDED.base_reserve,
 			quote_reserve = EXCLUDED.quote_reserve,
 			protocol_base_fee = EXCLUDED.protocol_base_fee,
+			protocol_quote_fee = EXCLUDED.protocol_quote_fee,
 			partner_base_fee = EXCLUDED.partner_base_fee,
 			partner_quote_fee = EXCLUDED.partner_quote_fee,
 			sqrt_price = EXCLUDED.sqrt_price,
@@ -288,6 +291,7 @@ func upsertDbcPool(
 		"base_reserve":                  pool.BaseReserve,
 		"quote_reserve":                 pool.QuoteReserve,
 		"protocol_base_fee":             pool.ProtocolBaseFee,
+		"protocol_quote_fee":            pool.ProtocolQuoteFee,
 		"partner_base_fee":              pool.PartnerBaseFee,
 		"partner_quote_fee":             pool.PartnerQuoteFee,
 		"sqrt_price":                    pool.SqrtPrice.BigInt(),
