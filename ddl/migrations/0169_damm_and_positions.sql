@@ -1,3 +1,5 @@
+BEGIN;
+
 CREATE TABLE IF NOT EXISTS sol_meteora_dbc_migrations (
     signature TEXT NOT NULL,
     instruction_index INT NOT NULL,
@@ -143,3 +145,5 @@ CREATE TABLE IF NOT EXISTS sol_meteora_damm_v2_position_metrics (
     updated_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP
 );
 COMMENT ON TABLE sol_meteora_damm_v2_position_metrics IS 'Tracks aggregated metrics for DAMM V2 positions. A slice of the DAMM V2 position state.';
+
+COMMIT;

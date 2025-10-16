@@ -1,3 +1,4 @@
+BEGIN;
 CREATE TABLE IF NOT EXISTS sol_retry_queue (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
     indexer TEXT NOT NULL,
@@ -17,3 +18,4 @@ ALTER TABLE sol_slot_checkpoints ADD COLUMN IF NOT EXISTS name TEXT;
 COMMENT ON COLUMN sol_slot_checkpoints.name IS 'The name of the indexer this checkpoint is for (e.g., token_indexer, damm_v2_indexer).';
 
 DROP TABLE IF EXISTS sol_unprocessed_txs;
+COMMIT;
