@@ -162,7 +162,7 @@ func (d *Indexer) HandleUpdate(ctx context.Context, msg *pb.SubscribeUpdate) err
 			}
 
 			// Process the transaction
-			err = d.processTransaction(ctx, accountUpdate.Slot, tx)
+			err = d.processTransaction(ctx, txRes.Slot, tx)
 		}
 	}
 	return nil

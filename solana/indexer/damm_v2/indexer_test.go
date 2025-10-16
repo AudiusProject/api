@@ -64,6 +64,7 @@ func TestHandleUpdate_DammV2PoolUpdate(t *testing.T) {
 		Filters: []string{NAME},
 		UpdateOneof: &pb.SubscribeUpdate_Account{
 			Account: &pb.SubscribeUpdateAccount{
+				Slot: 123456789,
 				Account: &pb.SubscribeUpdateAccountInfo{
 					Pubkey: address.Bytes(),
 					Data:   poolData,
@@ -74,6 +75,77 @@ func TestHandleUpdate_DammV2PoolUpdate(t *testing.T) {
 
 	err = indexer.HandleUpdate(t.Context(), &update)
 	require.NoError(t, err)
+
+	// Verify the DAMM v2 pool was inserted
+	var exists bool
+	sql := `
+		SELECT EXISTS (
+			SELECT 1
+			FROM sol_meteora_damm_v2_pools
+			WHERE account = @account
+				AND slot = @slot
+				AND token_a_mint = @token_a_mint
+				AND token_b_mint = @token_b_mint
+				AND token_a_vault = @token_a_vault
+				AND token_b_vault = @token_b_vault
+				AND whitelisted_vault = @whitelisted_vault
+				AND partner = @partner
+				AND liquidity = @liquidity
+				AND protocol_a_fee = @protocol_a_fee
+				AND protocol_b_fee = @protocol_b_fee
+				AND partner_a_fee = @partner_a_fee
+				AND partner_b_fee = @partner_b_fee
+				AND sqrt_min_price = @sqrt_min_price
+				AND sqrt_max_price = @sqrt_max_price
+				AND sqrt_price = @sqrt_price
+				AND activation_point = @activation_point
+				AND activation_type = @activation_type
+				AND pool_status = @pool_status
+				AND token_a_flag = @token_a_flag
+				AND token_b_flag = @token_b_flag
+				AND collect_fee_mode = @collect_fee_mode
+				AND pool_type = @pool_type
+				AND version = @version
+				AND fee_a_per_liquidity = @fee_a_per_liquidity
+				AND fee_b_per_liquidity = @fee_b_per_liquidity
+				AND permanent_lock_liquidity = @permanent_lock_liquidity
+				AND creator = @creator
+			LIMIT 1
+		)
+	`
+
+	err = pool.QueryRow(t.Context(), sql, pgx.NamedArgs{
+		"account":                  address.String(),
+		"slot":                     int64(123456789),
+		"token_a_mint":             "bnWKPK7YTUJTe3A3HTGEJrUEoAddRgRjWSwf7MwxMP3",
+		"token_b_mint":             "9LzCMqDgTKYz9Drzqnpgee3SGa89up3a247ypMj2xrqM",
+		"token_a_vault":            "9CG1qU4bhiGX9J5k5Ap1hkWpWftV5fjWJi3h8FMUvaGJ",
+		"token_b_vault":            "7jKehVD6cxYtNmcqLqyFb3W4xtaWjfTf7CWgbWLkQ7ru",
+		"whitelisted_vault":        "11111111111111111111111111111111",
+		"partner":                  "FhVo3mqL8PW5pH5U2CN4XE33DokiyZnUwuGpH2hmHLuM",
+		"liquidity":                "31500505798829827035928817465053256",
+		"protocol_a_fee":           uint64(0),
+		"protocol_b_fee":           uint64(88308818520),
+		"partner_a_fee":            uint64(0),
+		"partner_b_fee":            uint64(0),
+		"sqrt_min_price":           uint64(4295048016),
+		"sqrt_max_price":           "79226673521066979257578248091",
+		"sqrt_price":               "132140449179444258",
+		"activation_point":         int64(1759932808),
+		"activation_type":          uint8(1),
+		"pool_status":              uint8(0),
+		"token_a_flag":             uint8(0),
+		"token_b_flag":             uint8(0),
+		"collect_fee_mode":         uint8(1),
+		"pool_type":                uint8(0),
+		"version":                  uint8(0),
+		"fee_a_per_liquidity":      uint64(0),
+		"fee_b_per_liquidity":      "3838765547535761",
+		"permanent_lock_liquidity": "31500505798829827035928817465053256",
+		"creator":                  "FhVo3mqL8PW5pH5U2CN4XE33DokiyZnUwuGpH2hmHLuM",
+	}).Scan(&exists)
+	require.NoError(t, err, "failed to query for damm v2 pool")
+	assert.True(t, exists, "damm v2 pool should exist after indexing")
 
 	rows, err := pool.Query(t.Context(), `
 		SELECT EXISTS (
