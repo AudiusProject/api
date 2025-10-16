@@ -501,6 +501,7 @@ func NewApiServer(config config.Config) *ApiServer {
 		g.Get("/coins/ticker/:ticker", app.v1CoinByTicker)
 		g.Get("/coins/:mint/insights", app.v1CoinInsights)
 		g.Get("/coins/:mint/members", app.v1CoinsMembers)
+		g.Get("/coins/:mint/members/count", app.v1CoinMembersCount)
 		g.Post("/coins", app.v1CreateCoin)
 		g.Post("/coins/:mint", app.v1UpdateCoin)
 	}
