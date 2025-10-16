@@ -93,7 +93,8 @@ type Pool struct {
 	TokenBFlag             uint8
 	CollectFeeMode         uint8
 	PoolType               uint8
-	Padding0               [2]uint8
+	Version                uint8
+	Padding0               uint8
 	FeeAPerLiquidity       Uint256LE
 	FeeBPerLiquidity       Uint256LE
 	PermanentLockLiquidity bin.Uint128
