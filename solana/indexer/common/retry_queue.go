@@ -46,7 +46,7 @@ func (r *RetryQueueUpdate) UnmarshalJSON(data []byte) error {
 	return protojson.Unmarshal(data, r.SubscribeUpdate)
 }
 
-func GetRetryQueue(ctx context.Context, db database.DBTX, limit, offset int) ([]RetryQueueItem, error) {
+func GetRetryQueue(ctx context.Context, db database.DBTX, limit int, offset int) ([]RetryQueueItem, error) {
 	sql := `SELECT id, indexer, update_message, error, created_at, updated_at
 			FROM sol_retry_queue
 			ORDER BY created_at ASC
