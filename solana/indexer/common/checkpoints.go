@@ -15,7 +15,9 @@ import (
 )
 
 const (
+	// Laserstream has a 3000 slot max for historical data. Using 2500 to be extra safe.
 	MAX_SLOT_GAP = 2500
+	// Start 100 slots back when indexing from a fresh subscription, in case the indexer takes a bit to start up.
 	SLOT_PADDING = 100
 )
 
