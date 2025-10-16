@@ -344,15 +344,6 @@ func getSubscribedDammV2Pools(ctx context.Context, db database.DBTX, limit int, 
 	if err != nil {
 		return nil, err
 	}
-	defer rows.Close()
 
-	var pools []string
-	for rows.Next() {
-		var address string
-		if err := rows.Scan(&address); err != nil {
-			return nil, err
-		}
-		pools = append(pools, address)
-	}
-	return pools, nil
+	return pgx.CollectRows(rows, pgx.RowTo[string])
 }
