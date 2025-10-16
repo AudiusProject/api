@@ -103,19 +103,19 @@ func TestGetCoins(t *testing.T) {
 		})
 	}
 
-	// // limit and offset
-	// {
-	// 	status, body := testGet(t, app, "/v1/coins?limit=1&offset=1")
-	// 	assert.Equal(t, 200, status)
+	// limit and offset
+	{
+		status, body := testGet(t, app, "/v1/coins?limit=1&offset=1")
+		assert.Equal(t, 200, status)
 
-	// 	jsonAssert(t, body, map[string]any{
-	// 		"data.0.ticker":   "USDC",
-	// 		"data.0.mint":     "EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v",
-	// 		"data.0.decimals": 6,
-	// 		"data.0.owner_id": trashid.MustEncodeHashID(2),
-	// 		"data.1":          nil,
-	// 	})
-	// }
+		jsonAssert(t, body, map[string]any{
+			"data.0.ticker":   "USDC",
+			"data.0.mint":     "EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v",
+			"data.0.decimals": 6,
+			"data.0.owner_id": trashid.MustEncodeHashID(2),
+			"data.1":          nil,
+		})
+	}
 
 	// default sort (market_cap desc)
 	{
