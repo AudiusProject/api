@@ -13,7 +13,7 @@ import (
 	pb "github.com/rpcpool/yellowstone-grpc/examples/golang/proto"
 )
 
-type RetryQueueItem struct {
+type RetryQueueRow struct {
 	ID            string
 	Indexer       string
 	UpdateMessage RetryQueueUpdate
@@ -22,10 +22,12 @@ type RetryQueueItem struct {
 	UpdatedAt     time.Time
 }
 
+// Wrapper to handle protobuf JSON marshalling/unmarshalling
 type RetryQueueUpdate struct {
 	*pb.SubscribeUpdate
 }
 
+// Ensures the RetryQueueUpdate struct implements the json.Marshaler and json.Unmarshaler interfaces
 var (
 	_ json.Marshaler   = (*RetryQueueUpdate)(nil)
 	_ json.Unmarshaler = (*RetryQueueUpdate)(nil)
@@ -46,7 +48,7 @@ func (r *RetryQueueUpdate) UnmarshalJSON(data []byte) error {
 	return protojson.Unmarshal(data, r.SubscribeUpdate)
 }
 
-func GetRetryQueue(ctx context.Context, db database.DBTX, limit int, offset int) ([]RetryQueueItem, error) {
+func GetRetryQueue(ctx context.Context, db database.DBTX, limit int, offset int) ([]RetryQueueRow, error) {
 	sql := `SELECT id, indexer, update_message, error, created_at, updated_at
 			FROM sol_retry_queue
 			ORDER BY created_at ASC
@@ -64,7 +66,7 @@ func GetRetryQueue(ctx context.Context, db database.DBTX, limit int, offset int)
 		return nil, fmt.Errorf("failed to query retry queue: %w", err)
 	}
 
-	items, err := pgx.CollectRows(rows, pgx.RowToStructByName[RetryQueueItem])
+	items, err := pgx.CollectRows(rows, pgx.RowToStructByName[RetryQueueRow])
 	if err != nil {
 		return nil, fmt.Errorf("failed to collect retry queue items: %w", err)
 	}
