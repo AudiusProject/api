@@ -220,16 +220,22 @@ func (d *Indexer) makeSubscriptionRequest(ctx context.Context, dammV2Pools []str
 				{
 					Filter: &pb.SubscribeRequestFilterAccountsFilter_Memcmp{
 						Memcmp: &pb.SubscribeRequestFilterAccountsFilterMemcmp{
-							Offset: 8, // Offset of the pool field in the position account (after discriminator)
-							Data: &pb.SubscribeRequestFilterAccountsFilterMemcmp_Base58{
-								Base58: pool,
+							Offset: 0,
+							Data: &pb.SubscribeRequestFilterAccountsFilterMemcmp_Bytes{
+								Bytes: meteora_damm_v2.POSITION_DISCRIMINATOR,
 							},
 						},
 					},
 				},
 				{
-					Filter: &pb.SubscribeRequestFilterAccountsFilter_Datasize{
-						Datasize: 408, // byte size of a Position account
+					Filter: &pb.SubscribeRequestFilterAccountsFilter_Memcmp{
+						Memcmp: &pb.SubscribeRequestFilterAccountsFilterMemcmp{
+							// Pool address is the next field after the discriminator (8 bytes)
+							Offset: uint64(len(meteora_damm_v2.POSITION_DISCRIMINATOR)),
+							Data: &pb.SubscribeRequestFilterAccountsFilterMemcmp_Base58{
+								Base58: pool,
+							},
+						},
 					},
 				},
 			},
