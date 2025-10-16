@@ -168,7 +168,7 @@ func (s *SolanaIndexer) ProcessRetryQueue(ctx context.Context) error {
 		for _, item := range queue {
 			switch item.Indexer {
 			case "token":
-				err := s.tokenIndexer.HandleUpdate(ctx, item.Update.SubscribeUpdate)
+				err := s.tokenIndexer.HandleUpdate(ctx, item.UpdateMessage.SubscribeUpdate)
 				if err != nil {
 					logger.Error("failed to retry token_indexer", zap.Error(err))
 					offset++
@@ -179,7 +179,7 @@ func (s *SolanaIndexer) ProcessRetryQueue(ctx context.Context) error {
 					}
 				}
 			case "dammv2":
-				err := s.dammV2Indexer.HandleUpdate(ctx, item.Update.SubscribeUpdate)
+				err := s.dammV2Indexer.HandleUpdate(ctx, item.UpdateMessage.SubscribeUpdate)
 				if err != nil {
 					logger.Error("failed to retry damm_v2_indexer", zap.Error(err))
 					offset++

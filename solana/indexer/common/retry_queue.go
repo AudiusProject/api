@@ -14,12 +14,12 @@ import (
 )
 
 type RetryQueueItem struct {
-	ID        string
-	Indexer   string
-	Update    RetryQueueUpdate
-	Error     string
-	CreatedAt time.Time
-	UpdatedAt time.Time
+	ID            string
+	Indexer       string
+	UpdateMessage RetryQueueUpdate
+	Error         string
+	CreatedAt     time.Time
+	UpdatedAt     time.Time
 }
 
 type RetryQueueUpdate struct {
@@ -47,7 +47,7 @@ func (r *RetryQueueUpdate) UnmarshalJSON(data []byte) error {
 }
 
 func GetRetryQueue(ctx context.Context, db database.DBTX, limit, offset int) ([]RetryQueueItem, error) {
-	sql := `SELECT id, indexer, update, error, created_at, updated_at
+	sql := `SELECT id, indexer, update_message, error, created_at, updated_at
 			FROM sol_retry_queue
 			ORDER BY created_at ASC
 			LIMIT @limit OFFSET @offset`
@@ -73,14 +73,14 @@ func GetRetryQueue(ctx context.Context, db database.DBTX, limit, offset int) ([]
 
 func AddToRetryQueue(ctx context.Context, db database.DBTX, indexer string, update *pb.SubscribeUpdate, errorMessage string) error {
 	sql := `
-		INSERT INTO sol_retry_queue (indexer, update, error)
-		VALUES (@indexer, @update, @error)
+		INSERT INTO sol_retry_queue (indexer, update_message, error)
+		VALUES (@indexer, @update_message, @error)
 		ON CONFLICT (id) DO UPDATE SET error = @error, updated_at = NOW()
 	;`
 	_, err := db.Exec(ctx, sql, pgx.NamedArgs{
-		"indexer": indexer,
-		"update":  RetryQueueUpdate{update},
-		"error":   errorMessage,
+		"indexer":        indexer,
+		"update_message": RetryQueueUpdate{update},
+		"error":          errorMessage,
 	})
 	if err != nil {
 		return fmt.Errorf("failed to insert into retry queue: %w", err)

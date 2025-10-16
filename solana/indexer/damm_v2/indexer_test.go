@@ -335,15 +335,15 @@ func TestSubscription(t *testing.T) {
 	require.NoError(t, err)
 
 	var exists bool
-	sql = `SELECT EXISTS (SELECT 1 FROM sol_retry_queue WHERE update = @update)`
+	sql = `SELECT EXISTS (SELECT 1 FROM sol_retry_queue WHERE update_message = @update_message)`
 	err = pool.QueryRow(t.Context(), sql, pgx.NamedArgs{
-		"update": positionUpdateJson,
+		"update_message": positionUpdateJson,
 	}).Scan(&exists)
 	require.NoError(t, err)
 	assert.True(t, exists, "failed position update should be added to retry queue")
 
 	err = pool.QueryRow(t.Context(), sql, pgx.NamedArgs{
-		"update": poolUpdateJson,
+		"update_message": poolUpdateJson,
 	}).Scan(&exists)
 	require.NoError(t, err)
 	assert.True(t, exists, "failed pool update should be added to retry queue")

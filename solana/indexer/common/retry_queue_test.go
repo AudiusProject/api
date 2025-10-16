@@ -37,8 +37,8 @@ func TestRetryQueue(t *testing.T) {
 	item := items[0]
 	assert.Equal(t, indexer, item.Indexer)
 	assert.Equal(t, errorMsg, item.Error)
-	assert.NotNil(t, item.Update.SubscribeUpdate)
-	assert.Equal(t, slot, item.Update.SubscribeUpdate.GetSlot().Slot)
+	assert.NotNil(t, item.UpdateMessage.SubscribeUpdate)
+	assert.Equal(t, slot, item.UpdateMessage.SubscribeUpdate.GetSlot().Slot)
 	assert.NotNil(t, item.CreatedAt)
 	assert.NotNil(t, item.UpdatedAt)
 
