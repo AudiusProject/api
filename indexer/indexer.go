@@ -52,6 +52,7 @@ func NewIndexer(config config.Config) *CoreIndexer {
 
 func (ci *CoreIndexer) Start(ctx context.Context) error {
 	sdk := sdk.NewAudiusdSDK(ci.Config.AudiusdURL)
+	go logging.SyncOnTicks(ctx, ci.logger, time.Second*10)
 
 	var height int64
 	err := ci.pool.QueryRow(context.Background(), `select last_checkpoint from indexing_checkpoints where tablename = $1`, CoreIndexerCheckpointName).Scan(&height)
@@ -156,4 +157,8 @@ func (ci *CoreIndexer) handleManageEntity(dbTx dbv1.DBTX, logger *zap.Logger, em
 
 func (ci *CoreIndexer) Close() {
 	ci.pool.Close()
+	err := ci.logger.Sync()
+	if err != nil {
+		ci.logger.Error("failed to sync logger", zap.Error(err))
+	}
 }
