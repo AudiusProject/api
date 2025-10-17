@@ -282,7 +282,7 @@ func TestSubscription(t *testing.T) {
 		hasDammFilter := len(req.Accounts[NAME].Account) == 1 &&
 			req.Accounts[NAME].Account[0] == dammPoolAddress.String()
 		hasPositionFilter := req.Accounts[dammPoolAddress.String()].
-			Filters[0].
+			Filters[1].
 			Filter.(*pb.SubscribeRequestFilterAccountsFilter_Memcmp).
 			Memcmp.
 			Data.(*pb.SubscribeRequestFilterAccountsFilterMemcmp_Base58).
@@ -312,7 +312,7 @@ func TestSubscription(t *testing.T) {
 		hasDammFilter := len(req.Accounts[NAME].Account) == 1 &&
 			req.Accounts[NAME].Account[0] == dammPoolAddress2.String()
 		hasPositionFilter := req.Accounts[dammPoolAddress2.String()].
-			Filters[0].
+			Filters[1].
 			Filter.(*pb.SubscribeRequestFilterAccountsFilter_Memcmp).
 			Memcmp.
 			Data.(*pb.SubscribeRequestFilterAccountsFilterMemcmp_Base58).
