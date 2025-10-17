@@ -266,7 +266,7 @@ func (d *Indexer) makeSubscriptionRequest(ctx context.Context, pools []string) *
 	// Listen to all watched pools
 	subscription.Accounts = make(map[string]*pb.SubscribeRequestFilterAccounts)
 	accountFilter := pb.SubscribeRequestFilterAccounts{
-		Owner:   []string{meteora_damm_v2.ProgramID.String()},
+		Owner:   []string{meteora_dbc.ProgramID.String()},
 		Account: pools,
 	}
 	subscription.Accounts[NAME] = &accountFilter
