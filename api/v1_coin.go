@@ -5,7 +5,7 @@ import (
 	"github.com/jackc/pgx/v5"
 )
 
-const sharedSql = `
+const sharedSelectCoinSql = `
 		SELECT
 			artist_coins.name,
 			artist_coins.mint,
@@ -97,7 +97,7 @@ func (app *ApiServer) v1Coin(c *fiber.Ctx) error {
 	}
 
 	sql := `
-		` + sharedSql + `
+		` + sharedSelectCoinSql + `
 		WHERE artist_coins.mint = @mint
 		LIMIT 1
 	`
@@ -128,7 +128,7 @@ func (app *ApiServer) v1CoinByTicker(c *fiber.Ctx) error {
 	}
 
 	sql := `
-		` + sharedSql + `
+		` + sharedSelectCoinSql + `
 		WHERE artist_coins.ticker = @ticker
 		LIMIT 1
 	`
