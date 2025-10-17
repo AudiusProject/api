@@ -13,13 +13,13 @@ import (
 )
 
 type CreateCoinBody struct {
-	Mint        string `json:"mint" validate:"required,solana_address"`
-	Ticker      string `json:"ticker" validate:"required,min=2,max=10,coin_ticker"`
-	Decimals    int32  `json:"decimals" validate:"required,min=0,max=18"`
-	Name        string `json:"name" validate:"required,min=1,max=32"`
-	LogoUri     string `json:"logo_uri" validate:"omitempty,url"`
-	Description string `json:"description" validate:"max=2500"`
-	DbcPool     string `json:"dbc_pool"`
+	Mint        string  `json:"mint" validate:"required,solana_address"`
+	Ticker      string  `json:"ticker" validate:"required,min=2,max=10,coin_ticker"`
+	Decimals    int32   `json:"decimals" validate:"required,min=0,max=18"`
+	Name        string  `json:"name" validate:"required,min=1,max=32"`
+	LogoUri     string  `json:"logo_uri" validate:"omitempty,url"`
+	Description string  `json:"description" validate:"max=2500"`
+	DbcPool     *string `json:"dbc_pool"`
 }
 
 func (app *ApiServer) v1CreateCoin(c *fiber.Ctx) error {
