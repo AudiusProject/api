@@ -2,17 +2,20 @@ package dbc
 
 import (
 	"context"
+	"encoding/json"
+	"errors"
 	"fmt"
+	"time"
 
 	"api.audius.co/database"
 	"api.audius.co/solana/indexer/common"
-	"api.audius.co/solana/spl/programs/meteora_damm_v2"
 	"api.audius.co/solana/spl/programs/meteora_dbc"
 	bin "github.com/gagliardetto/binary"
 	"github.com/gagliardetto/solana-go"
 	"github.com/gagliardetto/solana-go/rpc"
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgconn"
+	"github.com/jackc/pgxlisten"
 	"github.com/maypok86/otter"
 	pb "github.com/rpcpool/yellowstone-grpc/examples/golang/proto"
 	"go.uber.org/zap"
@@ -62,8 +65,25 @@ func (d *Indexer) Start(ctx context.Context) {
 	})()
 
 	// On notification, cancel the previous subscription task (if any) and start a new one
-	handleNotif := func(ctx context.Context, notification *pgconn.Notification) {
+	handleNotif := func(ctx context.Context, notification *pgconn.Notification, conn *pgx.Conn) error {
 		subCtx, cancel := context.WithCancel(ctx)
+
+		type notificationPayload struct {
+			New string
+			Old string
+		}
+		var n notificationPayload
+		err := json.Unmarshal([]byte(notification.Payload), &n)
+		if err != nil {
+			d.logger.Error("failed to unmarshal notification payload", zap.String("payload", notification.Payload), zap.Error(err))
+			// Proceed with resubscription even if unmarshalling fails
+		} else {
+			d.logger.Info("resubscribing due to dbc_pool change",
+				zap.String("notification", notification.Channel),
+				zap.String("new", n.New),
+				zap.String("old", n.Old),
+			)
+		}
 
 		// Cancel previous subscription task
 		if lastCancel != nil {
@@ -80,38 +100,52 @@ func (d *Indexer) Start(ctx context.Context) {
 		clients, err := d.subscribe(subCtx)
 		grpcClients = clients
 		if err != nil {
-			d.logger.Error("failed to resubscribe to DBC pools", zap.Error(err))
 			cancel()
-			return
+			return fmt.Errorf("failed to resubscribe to DBC pools: %w", err)
 		}
 
 		lastCancel = cancel
+		return nil
 	}
 
 	// Setup initial subscription
 	clients, err := d.subscribe(ctx)
 	if err != nil {
-		d.logger.Error("failed to subscribe to DAMM V2 pools", zap.Error(err))
+		d.logger.Error("failed to subscribe to DBC pools", zap.Error(err))
 		return
 	}
 	grpcClients = clients
 
-	// Watch for new pools to be added
-	err = common.WatchPgNotification(ctx, d.pool, NOTIFICATION_NAME, handleNotif, d.logger)
+	// Acquire the connection to be used by pgxlisten
+	conn, err := d.pool.Acquire(ctx)
 	if err != nil {
-		d.logger.Error("failed to watch for DBC pool changes", zap.Error(err))
+		d.logger.Error("failed to acquire database connection", zap.Error(err))
 		return
 	}
+	defer conn.Release()
 
-	// Wait for shutdown
-	for {
-		select {
-		case <-ctx.Done():
-			d.logger.Info("received shutdown signal, stopping indexer")
-			return
-		default:
-		}
+	// Setup a listener for pg_notify notifications
+	listener := pgxlisten.Listener{
+		Connect: func(ctx context.Context) (*pgx.Conn, error) {
+			return conn.Conn(), nil
+		},
+		LogError: func(ctx context.Context, err error) {
+			if !errors.Is(err, context.Canceled) {
+				d.logger.Error("error occured in pg_notify subscription", zap.Error(err))
+			}
+		},
+		ReconnectDelay: 1 * time.Second,
 	}
+	listener.Handle(NOTIFICATION_NAME, pgxlisten.HandlerFunc(handleNotif))
+
+	// Start listening for notifications
+	// this will block until the context is cancelled
+	err = listener.Listen(ctx)
+	if err != nil && !errors.Is(err, context.Canceled) {
+		d.logger.Error("failed to start pgxlisten listener", zap.Error(err))
+	}
+
+	d.logger.Info("shutting down")
 }
 
 func (d *Indexer) HandleUpdate(ctx context.Context, msg *pb.SubscribeUpdate) error {
@@ -144,6 +178,10 @@ func (d *Indexer) HandleUpdate(ctx context.Context, msg *pb.SubscribeUpdate) err
 		if err != nil {
 			return fmt.Errorf("failed to upsert DBC pool: %w", err)
 		}
+		d.logger.Debug("upserted DBC pool",
+			zap.String("account", account.String()),
+			zap.String("mint", pool.BaseMint.String()),
+		)
 
 		// If the pool is migrated, check for the migration transaction and process it
 		if pool.IsMigrated == uint8(1) {

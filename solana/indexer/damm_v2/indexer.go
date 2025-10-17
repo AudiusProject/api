@@ -2,7 +2,10 @@ package damm_v2
 
 import (
 	"context"
+	"encoding/json"
+	"errors"
 	"fmt"
+	"time"
 
 	"api.audius.co/database"
 	"api.audius.co/solana/indexer/common"
@@ -11,6 +14,7 @@ import (
 	"github.com/gagliardetto/solana-go"
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgconn"
+	"github.com/jackc/pgxlisten"
 	pb "github.com/rpcpool/yellowstone-grpc/examples/golang/proto"
 	"go.uber.org/zap"
 )
@@ -58,8 +62,25 @@ func (d *Indexer) Start(ctx context.Context) {
 	})()
 
 	// On notification, cancel the previous subscription task (if any) and start a new one
-	handleNotif := func(ctx context.Context, notification *pgconn.Notification) {
+	handleNotif := func(ctx context.Context, notification *pgconn.Notification, conn *pgx.Conn) error {
 		subCtx, cancel := context.WithCancel(ctx)
+
+		type notificationPayload struct {
+			New string
+			Old string
+		}
+		var n notificationPayload
+		err := json.Unmarshal([]byte(notification.Payload), &n)
+		if err != nil {
+			d.logger.Error("failed to unmarshal notification payload", zap.String("payload", notification.Payload), zap.Error(err))
+			// Proceed with resubscription even if unmarshalling fails
+		} else {
+			d.logger.Info("resubscribing due to mint change",
+				zap.String("notification", notification.Channel),
+				zap.String("new", n.New),
+				zap.String("old", n.Old),
+			)
+		}
 
 		// Cancel previous subscription task
 		if lastCancel != nil {
@@ -76,12 +97,12 @@ func (d *Indexer) Start(ctx context.Context) {
 		clients, err := d.subscribe(subCtx)
 		grpcClients = clients
 		if err != nil {
-			d.logger.Error("failed to resubscribe to DAMM V2 pools", zap.Error(err))
 			cancel()
-			return
+			return fmt.Errorf("failed to resubscribe to DAMM V2 pools: %w", err)
 		}
 
 		lastCancel = cancel
+		return nil
 	}
 
 	// Setup initial subscription
@@ -92,22 +113,36 @@ func (d *Indexer) Start(ctx context.Context) {
 	}
 	grpcClients = clients
 
-	// Watch for new pools to be added
-	err = common.WatchPgNotification(ctx, d.pool, NOTIFICATION_NAME, handleNotif, d.logger)
+	// Acquire the connection to be used by pgxlisten
+	conn, err := d.pool.Acquire(ctx)
 	if err != nil {
-		d.logger.Error("failed to watch for DAMM V2 pool changes", zap.Error(err))
+		d.logger.Error("failed to acquire database connection", zap.Error(err))
 		return
 	}
+	defer conn.Release()
 
-	// Wait for shutdown
-	for {
-		select {
-		case <-ctx.Done():
-			d.logger.Info("received shutdown signal, stopping DAMM V2 indexer")
-			return
-		default:
-		}
+	// Setup a listener for pg_notify notifications
+	listener := pgxlisten.Listener{
+		Connect: func(ctx context.Context) (*pgx.Conn, error) {
+			return conn.Conn(), nil
+		},
+		LogError: func(ctx context.Context, err error) {
+			if !errors.Is(err, context.Canceled) {
+				d.logger.Error("error occured in pg_notify subscription", zap.Error(err))
+			}
+		},
+		ReconnectDelay: 1 * time.Second,
 	}
+	listener.Handle(NOTIFICATION_NAME, pgxlisten.HandlerFunc(handleNotif))
+
+	// Start listening for notifications
+	// this will block until the context is cancelled
+	err = listener.Listen(ctx)
+	if err != nil && !errors.Is(err, context.Canceled) {
+		d.logger.Error("failed to start pgxlisten listener", zap.Error(err))
+	}
+
+	d.logger.Info("shutting down")
 }
 
 // Handles a single update message from the gRPC subscription

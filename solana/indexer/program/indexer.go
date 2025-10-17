@@ -58,7 +58,7 @@ func (d *Indexer) Start(ctx context.Context) {
 	for {
 		select {
 		case <-ctx.Done():
-			d.logger.Info("received shutdown signal, stopping indexer")
+			d.logger.Info("shutting down")
 			return
 		default:
 		}
