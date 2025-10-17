@@ -23,8 +23,8 @@ import (
 
 const (
 	NAME                       = "DbcIndexer"
-	MAX_POOLS_PER_SUBSCRIPTION = 10000 // Arbitrary
-	NOTIFICATION_NAME          = "artist_coins_dbc_pool_changed"
+	MAX_COINS_PER_SUBSCRIPTION = 10000 // Arbitrary
+	NOTIFICATION_NAME          = "artist_coins_mint_changed"
 )
 
 type Indexer struct {
@@ -209,22 +209,22 @@ func (d *Indexer) HandleUpdate(ctx context.Context, msg *pb.SubscribeUpdate) err
 func (d *Indexer) subscribe(ctx context.Context) ([]common.GrpcClient, error) {
 	done := false
 	page := 0
-	pageSize := MAX_POOLS_PER_SUBSCRIPTION
+	pageSize := MAX_COINS_PER_SUBSCRIPTION
 	total := 0
 	grpcClients := make([]common.GrpcClient, 0)
 	for !done {
-		pools, err := getSubscribedDbcPools(ctx, d.pool, pageSize, page*pageSize)
+		mints, err := common.GetArtistCoinMints(ctx, d.pool, pageSize, page*pageSize)
 		if err != nil {
 			return nil, fmt.Errorf("failed to get pools: %w", err)
 		}
-		if len(pools) == 0 {
-			d.logger.Info("no pools to subscribe to")
+		if len(mints) == 0 {
+			d.logger.Info("no pool to subscribe to")
 			return grpcClients, nil
 		}
-		total += len(pools)
+		total += len(mints)
 
-		d.logger.Debug("subscribing to pools....", zap.Int("count", len(pools)))
-		subscription := d.makeSubscriptionRequest(ctx, pools)
+		d.logger.Debug("subscribing to pools....", zap.Int("count", len(mints)))
+		subscription := d.makeSubscriptionRequest(ctx, mints)
 
 		// Handle each message from the subscription
 		handleMessage := func(ctx context.Context, msg *pb.SubscribeUpdate) {
@@ -248,7 +248,7 @@ func (d *Indexer) subscribe(ctx context.Context) ([]common.GrpcClient, error) {
 		}
 		grpcClients = append(grpcClients, grpcClient)
 
-		if len(pools) < pageSize {
+		if len(mints) < pageSize {
 			done = true
 		}
 		page++
@@ -257,7 +257,7 @@ func (d *Indexer) subscribe(ctx context.Context) ([]common.GrpcClient, error) {
 	return grpcClients, nil
 }
 
-func (d *Indexer) makeSubscriptionRequest(ctx context.Context, pools []string) *pb.SubscribeRequest {
+func (d *Indexer) makeSubscriptionRequest(ctx context.Context, mints []string) *pb.SubscribeRequest {
 	commitment := pb.CommitmentLevel_CONFIRMED
 	subscription := &pb.SubscribeRequest{
 		Commitment: &commitment,
@@ -265,11 +265,35 @@ func (d *Indexer) makeSubscriptionRequest(ctx context.Context, pools []string) *
 
 	// Listen to all watched pools
 	subscription.Accounts = make(map[string]*pb.SubscribeRequestFilterAccounts)
-	accountFilter := pb.SubscribeRequestFilterAccounts{
-		Owner:   []string{meteora_dbc.ProgramID.String()},
-		Account: pools,
+	for _, mint := range mints {
+		accountFilter := pb.SubscribeRequestFilterAccounts{
+			Owner: []string{meteora_dbc.ProgramID.String()},
+			Filters: []*pb.SubscribeRequestFilterAccountsFilter{
+				{
+					Filter: &pb.SubscribeRequestFilterAccountsFilter_Memcmp{
+						Memcmp: &pb.SubscribeRequestFilterAccountsFilterMemcmp{
+							Offset: 0,
+							Data: &pb.SubscribeRequestFilterAccountsFilterMemcmp_Bytes{
+								Bytes: meteora_dbc.POOL_DISCRIMINATOR,
+							},
+						},
+					},
+				},
+				{
+					Filter: &pb.SubscribeRequestFilterAccountsFilter_Memcmp{
+						Memcmp: &pb.SubscribeRequestFilterAccountsFilterMemcmp{
+							// Base mint is after discriminator, VolatilityTracker, config and creator
+							Offset: 8 + (8 + 8 + 16 + 16 + 16) + 32 + 32,
+							Data: &pb.SubscribeRequestFilterAccountsFilterMemcmp_Base58{
+								Base58: mint,
+							},
+						},
+					},
+				},
+			},
+		}
+		subscription.Accounts[mint] = &accountFilter
 	}
-	subscription.Accounts[NAME] = &accountFilter
 
 	// Ensure this subscription has a checkpoint
 	checkpointId, fromSlot, err := common.EnsureCheckpoint(ctx, NAME, d.pool, d.rpcClient, subscription, d.logger)
@@ -312,23 +336,4 @@ func (i *Indexer) processTransaction(ctx context.Context, slot uint64, tx *solan
 		}
 	}
 	return nil
-}
-
-// Gets the canonical DBC pools from the artist coins table.
-func getSubscribedDbcPools(ctx context.Context, db database.DBTX, limit int, offset int) ([]string, error) {
-	sql := `
-		SELECT dbc_pool
-		FROM artist_coins
-		WHERE dbc_pool IS NOT NULL
-		LIMIT @limit OFFSET @offset
-	;`
-	rows, err := db.Query(ctx, sql, pgx.NamedArgs{
-		"limit":  limit,
-		"offset": offset,
-	})
-	if err != nil {
-		return nil, err
-	}
-
-	return pgx.CollectRows(rows, pgx.RowTo[string])
 }
