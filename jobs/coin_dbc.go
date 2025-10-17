@@ -179,11 +179,6 @@ func (j *CoinDBCJob) UpdatePool(ctx context.Context, poolPubkey solana.PublicKey
 		j.logger.Error("error inserting pool", zap.Error(err))
 		return fmt.Errorf("error inserting pool: %w", err)
 	}
-	err = j.UpdateCoinDbcPool(ctx, pool.BaseMint.String(), poolPubkey.String())
-	if err != nil {
-		j.logger.Error("error updating coin dbc_pool", zap.Error(err))
-		return fmt.Errorf("error updating coin dbc_pool: %w", err)
-	}
 	return nil
 }
 
@@ -275,18 +270,6 @@ func (j *CoinDBCJob) UpsertPool(
 		"curve_progress":            progress,
 		"is_migrated":               pool.IsMigrated != 0,
 		"creator_wallet_address":    pool.Creator.String(),
-	})
-	return err
-}
-
-func (j *CoinDBCJob) UpdateCoinDbcPool(ctx context.Context, mint string, dbcPool string) error {
-	_, err := j.pool.Exec(ctx, `
-		UPDATE artist_coins
-		SET dbc_pool = @dbc_pool
-		WHERE mint = @mint
-	`, pgx.NamedArgs{
-		"mint":     mint,
-		"dbc_pool": dbcPool,
 	})
 	return err
 }
