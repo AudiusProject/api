@@ -5664,6 +5664,7 @@ components:
         - ticker
         - decimals
         - name
+        - dbc_pool
       properties:
         mint:
           type: string
@@ -5691,6 +5692,10 @@ components:
           type: string
           description: The description of the coin
           example: "A majestic bear token for wildlife conservation"
+        dbc_pool:
+          type: string
+          description: The address of the dynamic bonding curve pool associated with the coin
+          example: "2AAsAwNPTNBk5N466xyPiwqdgbc5WLbDTdnn9gVuDKaN"
     create_coin_response:
       type: object
       properties:
