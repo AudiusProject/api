@@ -20,7 +20,7 @@ import (
 )
 
 const (
-	NAME                       = "damm_v2"
+	NAME                       = "DammV2Indexer"
 	MAX_POOLS_PER_SUBSCRIPTION = 10000 // Arbitrary
 	NOTIFICATION_NAME          = "artist_coins_damm_v2_pool_changed"
 )
@@ -44,7 +44,7 @@ func New(
 		grpcConfig:  config,
 		grpcFactory: common.NewGrpcClient,
 		rpcClient:   rpcClient,
-		logger:      logger.Named("DammV2Indexer"),
+		logger:      logger.Named(NAME),
 	}
 }
 

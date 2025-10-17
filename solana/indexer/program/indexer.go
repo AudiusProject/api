@@ -18,7 +18,7 @@ import (
 	"go.uber.org/zap"
 )
 
-const NAME = "program"
+const NAME = "ProgramIndexer"
 
 type Indexer struct {
 	pool             database.DbPool
@@ -43,7 +43,7 @@ func New(
 		rpcClient:        rpcClient,
 		config:           config,
 		transactionCache: transactionCache,
-		logger:           logger.Named("ProgramIndexer"),
+		logger:           logger.Named(NAME),
 	}
 }
 

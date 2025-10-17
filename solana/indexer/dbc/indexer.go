@@ -22,7 +22,7 @@ import (
 )
 
 const (
-	NAME                       = "dbc"
+	NAME                       = "DbcIndexer"
 	MAX_POOLS_PER_SUBSCRIPTION = 10000 // Arbitrary
 	NOTIFICATION_NAME          = "artist_coins_dbc_pool_changed"
 )
@@ -47,7 +47,7 @@ func New(
 		grpcConfig:       grpcConfig,
 		rpcClient:        rpcClient,
 		transactionCache: transactionCache,
-		logger:           logger.Named("DBCIndexer"),
+		logger:           logger.Named(NAME),
 	}
 }
 

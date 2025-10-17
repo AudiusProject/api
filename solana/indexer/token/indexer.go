@@ -20,7 +20,7 @@ import (
 )
 
 const (
-	NAME                       = "token"
+	NAME                       = "TokenIndexer"
 	NOTIFICATION_NAME          = "artist_coins_mint_changed"
 	MAX_MINTS_PER_SUBSCRIPTION = 10000 // Arbitrary
 	WORKER_CHANNEL_SIZE        = 3000
@@ -50,7 +50,7 @@ func New(
 		grpcConfig:       config,
 		rpcClient:        rpcClient,
 		transactionCache: transactionCache,
-		logger:           logger.Named("TokenIndexer"),
+		logger:           logger.Named(NAME),
 	}
 }
 
