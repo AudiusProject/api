@@ -203,7 +203,6 @@ func (c *Client) GetTokenAllTimeStats(ctx context.Context, tokenAddress string) 
 	if err != nil {
 		return nil, err
 	}
-	fmt.Println(string(bodyBytes))
 
 	var result struct {
 		Data []TokenAllTimeStats `json:"data"`
