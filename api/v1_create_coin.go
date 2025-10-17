@@ -19,6 +19,7 @@ type CreateCoinBody struct {
 	Name        string `json:"name" validate:"required,min=1,max=32"`
 	LogoUri     string `json:"logo_uri" validate:"omitempty,url"`
 	Description string `json:"description" validate:"max=2500"`
+	DbcPool     string `json:"dbc_pool"`
 }
 
 func (app *ApiServer) v1CreateCoin(c *fiber.Ctx) error {
@@ -62,8 +63,8 @@ func (app *ApiServer) v1CreateCoin(c *fiber.Ctx) error {
 	}
 
 	sql := `
-		INSERT INTO artist_coins (mint, ticker, user_id, decimals, name, logo_uri, description)
-		VALUES (@mint, @ticker, @user_id, @decimals, @name, @logo_uri, @description)
+		INSERT INTO artist_coins (mint, ticker, user_id, decimals, name, logo_uri, description, dbc_pool)
+		VALUES (@mint, @ticker, @user_id, @decimals, @name, @logo_uri, @description, @dbc_pool)
 		RETURNING mint, ticker, user_id, decimals, name, logo_uri, description, created_at
 	`
 
@@ -75,6 +76,7 @@ func (app *ApiServer) v1CreateCoin(c *fiber.Ctx) error {
 		"name":        body.Name,
 		"logo_uri":    body.LogoUri,
 		"description": body.Description,
+		"dbc_pool":    body.DbcPool,
 	})
 
 	var result struct {
