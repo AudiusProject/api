@@ -5594,7 +5594,7 @@ components:
               type: string
               description: Address of the pool creator's wallet
               example: "2AAsAwNPTNBk5N466xyPiwqdgbc5WLbDTdnn9gVuDKaN"
-        artistFees:
+        artist_fees:
           type: object
           description: Information about the fees earned by the artist on the coin's trading.
           properties:

@@ -74,7 +74,7 @@ type ArtistCoin struct {
 	Buy                          int                          `json:"buy" db:"buy"`
 	Sell                         int                          `json:"sell" db:"sell"`
 	DynamicBondingCurve          *DynamicBondingCurveInsights `json:"dynamicBondingCurve" db:"dynamic_bonding_curve"`
-	ArtistFees                   ArtistCoinFees               `json:"artistFees" db:"artist_fees"`
+	ArtistFees                   ArtistCoinFees               `json:"artist_fees" db:"artist_fees"`
 	UpdatedAt                    time.Time                    `json:"updatedAt" db:"updated_at"`
 }
 
