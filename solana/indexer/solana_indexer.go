@@ -133,33 +133,33 @@ func (s *SolanaIndexer) Start(ctx context.Context) error {
 }
 
 func (s *SolanaIndexer) ScheduleProcessRetryQueue(ctx context.Context, interval time.Duration) {
+	s.logger.Debug("starting retry ticker", zap.Duration("interval", interval))
 	ticker := time.NewTicker(interval)
 	defer ticker.Stop()
 
 	for {
 		select {
 		case <-ctx.Done():
-			s.logger.Info("context cancelled, stopping retry ticker")
+			s.logger.Debug("stopping retry ticker")
 			return
 		case <-ticker.C:
-			err := s.ProcessRetryQueue(ctx)
-			if err != nil {
-				s.logger.Error("failed to retry unprocessed transactions", zap.Error(err))
-			}
+			s.ProcessRetryQueue(ctx)
 		}
 	}
 }
 
-func (s *SolanaIndexer) ProcessRetryQueue(ctx context.Context) error {
+func (s *SolanaIndexer) ProcessRetryQueue(ctx context.Context) {
 	limit := 100
 	offset := 0
 	logger := s.logger.Named("RetryQueue")
 	count := 0
 	start := time.Now()
+	logger.Debug("starting to process retry queue...")
 	for {
 		queue, err := common.GetRetryQueue(ctx, s.pool, limit, offset)
 		if err != nil {
-			return fmt.Errorf("failed to fetch retry queue: %w", err)
+			logger.Error("failed to fetch retry queue", zap.Error(err))
+			return
 		}
 		if len(queue) == 0 {
 			break
@@ -167,10 +167,10 @@ func (s *SolanaIndexer) ProcessRetryQueue(ctx context.Context) error {
 
 		for _, item := range queue {
 			switch item.Indexer {
-			case "token":
+			case token.NAME:
 				err := s.tokenIndexer.HandleUpdate(ctx, item.UpdateMessage.SubscribeUpdate)
 				if err != nil {
-					logger.Error("failed to retry token_indexer", zap.Error(err))
+					logger.Error("failed to retry", zap.String("indexer", token.NAME), zap.Error(err))
 					offset++
 				} else {
 					err = common.DeleteFromRetryQueue(ctx, s.pool, item.ID)
@@ -178,10 +178,32 @@ func (s *SolanaIndexer) ProcessRetryQueue(ctx context.Context) error {
 						logger.Error("failed to delete from retry queue", zap.Error(err))
 					}
 				}
-			case "dammv2":
+			case damm_v2.NAME:
 				err := s.dammV2Indexer.HandleUpdate(ctx, item.UpdateMessage.SubscribeUpdate)
 				if err != nil {
-					logger.Error("failed to retry damm_v2_indexer", zap.Error(err))
+					logger.Error("failed to retry", zap.String("indexer", damm_v2.NAME), zap.Error(err))
+					offset++
+				} else {
+					err = common.DeleteFromRetryQueue(ctx, s.pool, item.ID)
+					if err != nil {
+						logger.Error("failed to delete from retry queue", zap.Error(err))
+					}
+				}
+			case dbc.NAME:
+				err := s.dbcIndexer.HandleUpdate(ctx, item.UpdateMessage.SubscribeUpdate)
+				if err != nil {
+					logger.Error("failed to retry", zap.String("indexer", dbc.NAME), zap.Error(err))
+					offset++
+				} else {
+					err = common.DeleteFromRetryQueue(ctx, s.pool, item.ID)
+					if err != nil {
+						logger.Error("failed to delete from retry queue", zap.Error(err))
+					}
+				}
+			case program.NAME:
+				err := s.programIndexer.HandleUpdate(ctx, item.UpdateMessage.SubscribeUpdate)
+				if err != nil {
+					logger.Error("failed to retry", zap.String("indexer", program.NAME), zap.Error(err))
 					offset++
 				} else {
 					err = common.DeleteFromRetryQueue(ctx, s.pool, item.ID)
@@ -198,7 +220,7 @@ func (s *SolanaIndexer) ProcessRetryQueue(ctx context.Context) error {
 
 	if count == 0 {
 		logger.Debug("no unprocessed transactions to retry")
-		return nil
+		return
 	}
 
 	logger.Info("finished processing retry queue",
@@ -206,7 +228,6 @@ func (s *SolanaIndexer) ProcessRetryQueue(ctx context.Context) error {
 		zap.Int("failed", offset),
 		zap.Duration("duration", time.Since(start)),
 	)
-	return nil
 }
 
 func (s *SolanaIndexer) Close() {
