@@ -275,6 +275,11 @@ func TestSubscription(t *testing.T) {
 	go indexer.Start(ctx)
 
 	for grpcMock.onUpdate == nil {
+		select {
+		case <-ctx.Done():
+			t.Fatal("timeout waiting for subscription to be created")
+		default:
+		}
 	}
 
 	// Assert the original subscription included the actual account
@@ -303,6 +308,11 @@ func TestSubscription(t *testing.T) {
 	require.NoError(t, err)
 
 	for grpcMock.onUpdate == nil {
+		select {
+		case <-ctx.Done():
+			t.Fatal("timeout waiting for subscription to be created")
+		default:
+		}
 	}
 
 	cancel()
