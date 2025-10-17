@@ -5594,6 +5594,34 @@ components:
               type: string
               description: Address of the pool creator's wallet
               example: "2AAsAwNPTNBk5N466xyPiwqdgbc5WLbDTdnn9gVuDKaN"
+        artistFees:
+          type: object
+          description: Information about the fees earned by the artist on the coin's trading.
+          properties:
+            unclaimed_dbc_fees:
+              type: number
+              description: Unclaimed fees from the dynamic bonding curve
+              example: 12.3456789
+            total_dbc_fees:
+              type: number
+              description: Total fees earned from the dynamic bonding curve
+              example: 1234.56789
+            unclaimed_damm_v2_fees:
+              type: number
+              description: Unclaimed fees from the DAMM v2 pools
+              example: 9.87654321
+            total_damm_v2_fees:
+              type: number
+              description: Total fees earned from the DAMM v2 pools
+              example: 987.654321
+            unclaimed_fees:
+              type: number
+              description: Total unclaimed fees from all sources
+              example: 22.2222221
+            total_fees:
+              type: number
+              description: Total fees earned from all sources
+              example: 2222.222211
     coin_response:
       type: object
       properties:
