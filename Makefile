@@ -39,13 +39,18 @@ apidiff::
 
 test-schema::
 	@set -a; \
-	. .env; \
-    if [ -z "$$writeDbUrl" ]; then \
-		echo "writeDbUrl is not set in .env - using test db and running migrations"; \
-		writeDbUrl=postgresql://postgres:example@localhost:21300/postgres; \
-		make migrate; \
-	fi; \
+	writeDbUrl=postgresql://postgres:example@localhost:21300/postgres; \
+	echo "\033[0;32mBringing down any existing containers to start fresh...\033[0m"; \
+	docker compose down --volumes; \
+	docker compose up -d --wait; \
+	echo "\n\033[0;32mRunning migrations on fresh instance...\033[0m"; \
+	make migrate; \
+	echo "\033[0;32mDumping schema...\033[0m"; \
 	adjustedUrl=$$(echo "$$writeDbUrl" | sed 's/localhost/host.docker.internal/g'); \
 	docker compose exec db bash -c "pg_dump '$$adjustedUrl' --schema-only --no-owner --no-acl > ./sql/01_schema.sql"; \
 	sed '/^\\restrict /d;/^\\unrestrict /d' ./sql/01_schema.sql > ./sql/01_schema.sql.tmp && mv ./sql/01_schema.sql.tmp ./sql/01_schema.sql; \
-	echo "schema dumped to ./sql/01_schema.sql"
+	echo "Schema dumped to ./sql/01_schema.sql"; \
+	echo "\n\033[0;32mRestarting containers...\033[0m"; \
+	docker compose down --volumes; \
+	docker compose up -d --wait; \
+	echo "\n\033[0;32mDone\033[0m";
