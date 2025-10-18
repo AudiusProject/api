@@ -174,11 +174,12 @@ func (d *Indexer) HandleUpdate(ctx context.Context, msg *pb.SubscribeUpdate) err
 		}
 
 		account := solana.PublicKeyFromBytes(accountUpdate.Account.Pubkey)
-		err = upsertDbcPool(ctx, d.pool, accountUpdate.Slot, account, &pool)
+
+		err = processDbcPoolUpdate(ctx, d.pool, accountUpdate.Slot, account, &pool)
 		if err != nil {
-			return fmt.Errorf("failed to upsert DBC pool: %w", err)
+			return fmt.Errorf("failed to process DBC pool update: %w", err)
 		}
-		d.logger.Debug("upserted DBC pool",
+		d.logger.Debug("processed DBC pool update",
 			zap.String("account", account.String()),
 			zap.String("mint", pool.BaseMint.String()),
 		)
@@ -309,6 +310,38 @@ func (d *Indexer) makeSubscriptionRequest(ctx context.Context, mints []string) *
 	subscription.Slots[checkpointId] = &pb.SubscribeRequestFilterSlots{}
 
 	return subscription
+}
+
+func processDbcPoolUpdate(
+	ctx context.Context,
+	db database.DbPool,
+	slot uint64,
+	account solana.PublicKey,
+	pool *meteora_dbc.Pool,
+) error {
+	sqlTx, err := db.Begin(ctx)
+	if err != nil {
+		return fmt.Errorf("failed to begin transaction: %w", err)
+	}
+	defer sqlTx.Rollback(ctx)
+
+	err = upsertDbcPool(ctx, sqlTx, slot, account, pool)
+	if err != nil {
+		return fmt.Errorf("failed to upsert DBC pool: %w", err)
+	}
+	err = upsertDbcPoolMetrics(ctx, sqlTx, slot, account, &pool.Metrics)
+	if err != nil {
+		return fmt.Errorf("failed to upsert DBC pool metrics: %w", err)
+	}
+	err = upsertDbcPoolVolatilityTracker(ctx, sqlTx, slot, account, &pool.VolatilityTracker)
+	if err != nil {
+		return fmt.Errorf("failed to upsert DBC volatility tracker: %w", err)
+	}
+	err = sqlTx.Commit(ctx)
+	if err != nil {
+		return fmt.Errorf("failed to commit transaction: %w", err)
+	}
+	return nil
 }
 
 func (i *Indexer) processTransaction(ctx context.Context, slot uint64, tx *solana.Transaction) error {
