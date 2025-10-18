@@ -13,13 +13,12 @@ import (
 )
 
 type CreateCoinBody struct {
-	Mint        string  `json:"mint" validate:"required,solana_address"`
-	Ticker      string  `json:"ticker" validate:"required,min=2,max=10,coin_ticker"`
-	Decimals    int32   `json:"decimals" validate:"required,min=0,max=18"`
-	Name        string  `json:"name" validate:"required,min=1,max=32"`
-	LogoUri     string  `json:"logo_uri" validate:"omitempty,url"`
-	Description string  `json:"description" validate:"max=2500"`
-	DbcPool     *string `json:"dbc_pool"`
+	Mint        string `json:"mint" validate:"required,solana_address"`
+	Ticker      string `json:"ticker" validate:"required,min=2,max=10,coin_ticker"`
+	Decimals    int32  `json:"decimals" validate:"required,min=0,max=18"`
+	Name        string `json:"name" validate:"required,min=1,max=32"`
+	LogoUri     string `json:"logo_uri" validate:"omitempty,url"`
+	Description string `json:"description" validate:"max=2500"`
 }
 
 func (app *ApiServer) v1CreateCoin(c *fiber.Ctx) error {
@@ -63,8 +62,8 @@ func (app *ApiServer) v1CreateCoin(c *fiber.Ctx) error {
 	}
 
 	sql := `
-		INSERT INTO artist_coins (mint, ticker, user_id, decimals, name, logo_uri, description, dbc_pool)
-		VALUES (@mint, @ticker, @user_id, @decimals, @name, @logo_uri, @description, @dbc_pool)
+		INSERT INTO artist_coins (mint, ticker, user_id, decimals, name, logo_uri, description)
+		VALUES (@mint, @ticker, @user_id, @decimals, @name, @logo_uri, @description)
 		RETURNING mint, ticker, user_id, decimals, name, logo_uri, description, created_at
 	`
 
@@ -76,7 +75,6 @@ func (app *ApiServer) v1CreateCoin(c *fiber.Ctx) error {
 		"name":        body.Name,
 		"logo_uri":    body.LogoUri,
 		"description": body.Description,
-		"dbc_pool":    body.DbcPool,
 	})
 
 	var result struct {
