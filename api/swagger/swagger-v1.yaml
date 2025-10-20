@@ -2209,6 +2209,43 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/user_coin_response'
+  /wallet/{walletId}/coins:
+    get:
+      tags:
+      - wallet
+      description: 'Gets a list of the coins held by a wallet address and their balances'
+      parameters:
+      - name: walletId
+        in: path
+        description: A Solana wallet address
+        required: true
+        schema:
+          type: string
+          example: "Dez1g5f3h4j5k6l7m8n9o0p1q2r3s4t5u6v7w8x9y0z"
+      - name: offset
+        in: query
+        description: The number of items to skip. Useful for pagination (page number
+          * limit)
+        schema:
+          type: integer
+          default: 0
+          minimum: 0
+      - name: limit
+        in: query
+        description: The number of items to fetch
+        schema:
+          type: integer
+          default: 50
+          minimum: 1
+          maximum: 100
+      operationId: Get Wallet Coins
+      responses:
+        '200':
+          description: Success
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/user_coins_response'
   /users/{id}/collectibles:
     get:
       tags:
