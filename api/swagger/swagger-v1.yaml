@@ -5615,6 +5615,7 @@ components:
               type: string
               description: Address of the pool creator's wallet
               example: "2AAsAwNPTNBk5N466xyPiwqdgbc5WLbDTdnn9gVuDKaN"
+<<<<<<< Updated upstream
         artist_fees:
           type: object
           description: Information about the fees earned by the artist on the coin's trading.
@@ -5643,6 +5644,26 @@ components:
               type: number
               description: Total fees earned from all sources, in $AUDIO.
               example: 4000000000
+=======
+            reservedAmount:
+              type: number
+              description: Total amount of coins reserved for the artist that will unlock over 5 years after graduation
+              example: 5000000000
+            claimedVestedAmount:
+              type: number
+              description: Amount of unlocked coins that have already been claimed by the artist
+              example: 100000000
+            totalUnlockedAmount:
+              type: number
+              description: Total amount that has unlocked since graduation (increases daily over 5 years)
+              example: 150000000
+            graduationDate:
+              type: string
+              format: date-time
+              description: Timestamp when the coin graduated (is_migrated became true)
+              example: "2024-01-15T10:30:00Z"
+              nullable: true
+>>>>>>> Stashed changes
     coin_response:
       type: object
       properties:
@@ -6094,6 +6115,24 @@ components:
               type: string
               description: Address of the pool creator's wallet
               example: "2AAsAwNPTNBk5N466xyPiwqdgbc5WLbDTdnn9gVuDKaN"
+            reservedAmount:
+              type: number
+              description: Total amount of coins reserved for the artist that will unlock over 5 years after graduation
+              example: 5000000000
+            claimedVestedAmount:
+              type: number
+              description: Amount of unlocked coins that have already been claimed by the artist
+              example: 100000000
+            totalUnlockedAmount:
+              type: number
+              description: Total amount that has unlocked since graduation (increases daily over 5 years)
+              example: 150000000
+            graduationDate:
+              type: string
+              format: date-time
+              description: Timestamp when the coin graduated (is_migrated became true)
+              example: "2024-01-15T10:30:00Z"
+              nullable: true
     coin_insights_response:
       type: object
       properties:

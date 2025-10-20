@@ -881,6 +881,10 @@ type ArtistCoinPool struct {
 	UpdatedAt               time.Time      `json:"updated_at"`
 	TotalTradingQuoteFee    pgtype.Numeric `json:"total_trading_quote_fee"`
 	CreatorWalletAddress    pgtype.Text    `json:"creator_wallet_address"`
+	ReservedAmount          pgtype.Numeric `json:"reserved_amount"`
+	ClaimedVestedAmount     pgtype.Numeric `json:"claimed_vested_amount"`
+	TotalUnlockedAmount     pgtype.Numeric `json:"total_unlocked_amount"`
+	GraduationDate          pgtype.Time    `json:"graduation_date"`
 }
 
 type ArtistCoinStat struct {
