@@ -41,7 +41,7 @@ RETURNS TABLE (
         SELECT
             base_mint AS mint,
             total_trading_quote_fee / 2 AS total_dbc_fees,
-            creator_quote_fee / 2 AS unclaimed_dbc_fees
+            creator_quote_fee AS unclaimed_dbc_fees
         FROM artist_coin_pools
         WHERE base_mint = artist_coin_mint
     )

@@ -56,8 +56,8 @@ func TestHandleUpdate_Migration(t *testing.T) {
 
 	// Add artist coin
 	_, err = pool.Exec(t.Context(), `
-		INSERT INTO artist_coins (mint, ticker, name, decimals, user_id, dbc_pool)
-		VALUES ('bearR26zyyB3fNQm5wWv1ZfN8MPQDUMwaAuoG79b1Yj', 'BEAR', 'Bear', 9, 0, 'J5LCsaaCWcYmzes8qwKmg89zzEtnbYkxFxD9YRU5auPY')
+		INSERT INTO artist_coins (mint, ticker, name, decimals, user_id)
+		VALUES ('bearR26zyyB3fNQm5wWv1ZfN8MPQDUMwaAuoG79b1Yj', 'BEAR', 'Bear', 9, 0)
 	`)
 	require.NoError(t, err, "failed to insert artist coin")
 

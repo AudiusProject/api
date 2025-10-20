@@ -279,6 +279,7 @@ func upsertDbcPool(
 			creator_base_fee = EXCLUDED.creator_base_fee,
 			creator_quote_fee = EXCLUDED.creator_quote_fee,
 			updated_at = NOW()
+		WHERE EXCLUDED.slot > sol_meteora_dbc_pools.slot
 	;`
 	_, err := db.Exec(ctx, sql, pgx.NamedArgs{
 		"account":                       account.String(),
@@ -307,6 +308,96 @@ func upsertDbcPool(
 		"finish_curve_timestamp":        pool.FinishCurveTimestamp,
 		"creator_base_fee":              pool.CreatorBaseFee,
 		"creator_quote_fee":             pool.CreatorQuoteFee,
+	})
+	return err
+}
+
+func upsertDbcPoolMetrics(
+	ctx context.Context,
+	db database.DBTX,
+	slot uint64,
+	account solana.PublicKey,
+	metrics *meteora_dbc.PoolMetrics,
+) error {
+	sql := `
+		INSERT INTO sol_meteora_dbc_pool_metrics (
+			pool,
+			slot,
+			total_protocol_base_fee,
+			total_protocol_quote_fee,
+			total_trading_base_fee,
+			total_trading_quote_fee,
+			created_at,
+			updated_at
+		) VALUES (
+			@pool,
+			@slot,
+			@total_protocol_base_fee,
+			@total_protocol_quote_fee,
+			@total_trading_base_fee,
+			@total_trading_quote_fee,
+			NOW(),
+			NOW()
+		) ON CONFLICT (pool) DO UPDATE SET
+			slot = EXCLUDED.slot,
+			total_protocol_base_fee = EXCLUDED.total_protocol_base_fee,
+			total_protocol_quote_fee = EXCLUDED.total_protocol_quote_fee,
+			total_trading_base_fee = EXCLUDED.total_trading_base_fee,
+			total_trading_quote_fee = EXCLUDED.total_trading_quote_fee,
+			updated_at = NOW()
+		WHERE EXCLUDED.slot > sol_meteora_dbc_pool_metrics.slot
+	;`
+
+	_, err := db.Exec(ctx, sql, pgx.NamedArgs{
+		"pool":                     account.String(),
+		"slot":                     slot,
+		"total_protocol_base_fee":  metrics.TotalProtocolBaseFee,
+		"total_protocol_quote_fee": metrics.TotalProtocolQuoteFee,
+		"total_trading_base_fee":   metrics.TotalTradingBaseFee,
+		"total_trading_quote_fee":  metrics.TotalTradingQuoteFee,
+	})
+	return err
+}
+
+func upsertDbcPoolVolatilityTracker(
+	ctx context.Context,
+	db database.DBTX,
+	slot uint64,
+	account solana.PublicKey,
+	volatilityTracker *meteora_dbc.VolatilityTracker,
+) error {
+	sql := `
+		INSERT INTO sol_meteora_dbc_pool_volatility_trackers (
+			pool,
+			slot,
+			last_update_timestamp,
+			volatility_accumulator,
+			volatility_reference,
+			created_at,
+			updated_at
+		) VALUES (
+			@pool,
+			@slot,
+			@last_update_timestamp,
+			@volatility_accumulator,
+			@volatility_reference,
+			NOW(),
+			NOW()
+		) ON CONFLICT (pool) DO UPDATE SET
+			slot = EXCLUDED.slot,
+			last_update_timestamp = EXCLUDED.last_update_timestamp,
+			volatility_accumulator = EXCLUDED.volatility_accumulator,
+			volatility_reference = EXCLUDED.volatility_reference,
+			updated_at = NOW()
+		WHERE EXCLUDED.slot > sol_meteora_dbc_pool_volatility_trackers.slot
+	;`
+
+	_, err := db.Exec(ctx, sql, pgx.NamedArgs{
+		"pool":                   account.String(),
+		"slot":                   slot,
+		"last_update_timestamp":  volatilityTracker.LastUpdateTimestamp,
+		"volatility_accumulator": volatilityTracker.VolatilityAccumulator.String(),
+		"volatility_reference":   volatilityTracker.VolatilityReference.String(),
 	})
 	return err
 }

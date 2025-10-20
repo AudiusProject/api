@@ -1,6 +1,7 @@
 package meteora_dbc
 
 import (
+	"math"
 	"math/big"
 
 	bin "github.com/gagliardetto/binary"
@@ -59,5 +60,5 @@ func (p Pool) GetQuotePrice(tokenBaseDecimals int, tokenQuoteDecimals int) float
 
 	price, _ := quotient.Float64()
 
-	return price
+	return math.Min(price, 1.0)
 }

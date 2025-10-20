@@ -3,8 +3,8 @@
 --
 
 
--- Dumped from database version 17.6 (Debian 17.6-1.pgdg13+1)
--- Dumped by pg_dump version 17.6 (Debian 17.6-1.pgdg13+1)
+-- Dumped from database version 17.6 (Debian 17.6-2.pgdg13+1)
+-- Dumped by pg_dump version 17.6 (Debian 17.6-2.pgdg13+1)
 
 SET statement_timeout = 0;
 SET lock_timeout = 0;
@@ -1017,7 +1017,7 @@ CREATE FUNCTION public.calculate_artist_coin_fees(artist_coin_mint text) RETURNS
         SELECT
             base_mint AS mint,
             total_trading_quote_fee / 2 AS total_dbc_fees,
-            creator_quote_fee / 2 AS unclaimed_dbc_fees
+            creator_quote_fee AS unclaimed_dbc_fees
         FROM artist_coin_pools
         WHERE base_mint = artist_coin_mint
     )
@@ -2007,21 +2007,14 @@ BEGIN
         OR (OLD.mint IS NOT NULL AND NEW.mint IS NULL)
         OR OLD.mint != NEW.mint
     THEN
-        PERFORM pg_notify('artist_coins_mint_changed', NEW.mint);
-    END IF;
-
-    IF (OLD.dbc_pool IS NULL AND NEW.dbc_pool IS NOT NULL) 
-        OR (OLD.dbc_pool IS NOT NULL AND NEW.dbc_pool IS NULL)
-        OR OLD.dbc_pool != NEW.dbc_pool
-    THEN
-        PERFORM pg_notify('artist_coins_dbc_pool_changed', NEW.dbc_pool);
+        PERFORM pg_notify('artist_coins_mint_changed', JSON_BUILD_OBJECT('new', NEW.mint, 'old', OLD.mint)::TEXT);
     END IF;
 
     IF (OLD.damm_v2_pool IS NULL AND NEW.damm_v2_pool IS NOT NULL) 
         OR (OLD.damm_v2_pool IS NOT NULL AND NEW.damm_v2_pool IS NULL)
         OR OLD.damm_v2_pool != NEW.damm_v2_pool
     THEN
-        PERFORM pg_notify('artist_coins_damm_v2_pool_changed', NEW.damm_v2_pool);
+        PERFORM pg_notify('artist_coins_damm_v2_pool_changed', JSON_BUILD_OBJECT('new', NEW.damm_v2_pool, 'old', OLD.damm_v2_pool)::TEXT);
     END IF;
     
     RETURN NEW;
@@ -5894,8 +5887,7 @@ CREATE TABLE public.artist_coins (
     link_2 text,
     link_3 text,
     link_4 text,
-    damm_v2_pool text,
-    dbc_pool text
+    damm_v2_pool text
 );
 
 
@@ -5911,13 +5903,6 @@ COMMENT ON TABLE public.artist_coins IS 'Stores the token mints for artist coins
 --
 
 COMMENT ON COLUMN public.artist_coins.damm_v2_pool IS 'The canonical DAMM V2 pool address for this artist coin, if any. Used in solana indexer.';
-
-
---
--- Name: COLUMN artist_coins.dbc_pool; Type: COMMENT; Schema: public; Owner: -
---
-
-COMMENT ON COLUMN public.artist_coins.dbc_pool IS 'The associated DBC pool address for this artist coin, if any. Used in solana indexer.';
 
 
 --
@@ -7513,6 +7498,37 @@ COMMENT ON TABLE public.sol_meteora_dbc_migrations IS 'Tracks migrations from DB
 
 
 --
+-- Name: sol_meteora_dbc_pool_metrics; Type: TABLE; Schema: public; Owner: -
+--
+
+CREATE TABLE public.sol_meteora_dbc_pool_metrics (
+    pool text NOT NULL,
+    slot bigint NOT NULL,
+    total_protocol_base_fee bigint NOT NULL,
+    total_protocol_quote_fee bigint NOT NULL,
+    total_trading_base_fee bigint NOT NULL,
+    total_trading_quote_fee bigint NOT NULL,
+    created_at timestamp without time zone DEFAULT CURRENT_TIMESTAMP NOT NULL,
+    updated_at timestamp without time zone DEFAULT CURRENT_TIMESTAMP NOT NULL
+);
+
+
+--
+-- Name: sol_meteora_dbc_pool_volatility_trackers; Type: TABLE; Schema: public; Owner: -
+--
+
+CREATE TABLE public.sol_meteora_dbc_pool_volatility_trackers (
+    pool text NOT NULL,
+    slot bigint NOT NULL,
+    last_update_timestamp bigint NOT NULL,
+    volatility_accumulator numeric NOT NULL,
+    volatility_reference numeric NOT NULL,
+    created_at timestamp without time zone DEFAULT CURRENT_TIMESTAMP NOT NULL,
+    updated_at timestamp without time zone DEFAULT CURRENT_TIMESTAMP NOT NULL
+);
+
+
+--
 -- Name: sol_meteora_dbc_pools; Type: TABLE; Schema: public; Owner: -
 --
 
@@ -7818,6 +7834,19 @@ CREATE TABLE public.sol_token_transfers (
 --
 
 COMMENT ON TABLE public.sol_token_transfers IS 'Stores SPL token transfers for tracked mints.';
+
+
+--
+-- Name: sol_unprocessed_txs; Type: TABLE; Schema: public; Owner: -
+--
+
+CREATE TABLE public.sol_unprocessed_txs (
+    signature text NOT NULL,
+    error_message text,
+    created_at timestamp without time zone DEFAULT CURRENT_TIMESTAMP NOT NULL,
+    updated_at timestamp without time zone DEFAULT CURRENT_TIMESTAMP NOT NULL,
+    slot bigint DEFAULT 0 NOT NULL
+);
 
 
 --
@@ -9362,6 +9391,22 @@ ALTER TABLE ONLY public.sol_meteora_dbc_migrations
 
 
 --
+-- Name: sol_meteora_dbc_pool_metrics sol_meteora_dbc_pool_metrics_pkey; Type: CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.sol_meteora_dbc_pool_metrics
+    ADD CONSTRAINT sol_meteora_dbc_pool_metrics_pkey PRIMARY KEY (pool);
+
+
+--
+-- Name: sol_meteora_dbc_pool_volatility_trackers sol_meteora_dbc_pool_volatility_trackers_pkey; Type: CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.sol_meteora_dbc_pool_volatility_trackers
+    ADD CONSTRAINT sol_meteora_dbc_pool_volatility_trackers_pkey PRIMARY KEY (pool);
+
+
+--
 -- Name: sol_meteora_dbc_pools sol_meteora_dbc_pools_pkey; Type: CONSTRAINT; Schema: public; Owner: -
 --
 
@@ -9439,6 +9484,14 @@ ALTER TABLE ONLY public.sol_token_account_balances
 
 ALTER TABLE ONLY public.sol_token_transfers
     ADD CONSTRAINT sol_token_transfers_pkey PRIMARY KEY (signature, instruction_index);
+
+
+--
+-- Name: sol_unprocessed_txs sol_unprocessed_txs_pkey; Type: CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.sol_unprocessed_txs
+    ADD CONSTRAINT sol_unprocessed_txs_pkey PRIMARY KEY (signature);
 
 
 --

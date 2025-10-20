@@ -8,13 +8,6 @@ BEGIN
         PERFORM pg_notify('artist_coins_mint_changed', JSON_BUILD_OBJECT('new', NEW.mint, 'old', OLD.mint)::TEXT);
     END IF;
 
-    IF (OLD.dbc_pool IS NULL AND NEW.dbc_pool IS NOT NULL) 
-        OR (OLD.dbc_pool IS NOT NULL AND NEW.dbc_pool IS NULL)
-        OR OLD.dbc_pool != NEW.dbc_pool
-    THEN
-        PERFORM pg_notify('artist_coins_dbc_pool_changed', JSON_BUILD_OBJECT('new', NEW.dbc_pool, 'old', OLD.dbc_pool)::TEXT);
-    END IF;
-
     IF (OLD.damm_v2_pool IS NULL AND NEW.damm_v2_pool IS NOT NULL) 
         OR (OLD.damm_v2_pool IS NOT NULL AND NEW.damm_v2_pool IS NULL)
         OR OLD.damm_v2_pool != NEW.damm_v2_pool

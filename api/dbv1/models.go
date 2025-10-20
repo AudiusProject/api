@@ -856,8 +856,6 @@ type ArtistCoin struct {
 	Link4       pgtype.Text `json:"link_4"`
 	// The canonical DAMM V2 pool address for this artist coin, if any. Used in solana indexer.
 	DammV2Pool pgtype.Text `json:"damm_v2_pool"`
-	// The associated DBC pool address for this artist coin, if any. Used in solana indexer.
-	DbcPool pgtype.Text `json:"dbc_pool"`
 }
 
 type ArtistCoinPool struct {
@@ -1812,6 +1810,27 @@ type SolMeteoraDbcPool struct {
 	UpdatedAt                  time.Time      `json:"updated_at"`
 }
 
+type SolMeteoraDbcPoolMetric struct {
+	Pool                  string    `json:"pool"`
+	Slot                  int64     `json:"slot"`
+	TotalProtocolBaseFee  int64     `json:"total_protocol_base_fee"`
+	TotalProtocolQuoteFee int64     `json:"total_protocol_quote_fee"`
+	TotalTradingBaseFee   int64     `json:"total_trading_base_fee"`
+	TotalTradingQuoteFee  int64     `json:"total_trading_quote_fee"`
+	CreatedAt             time.Time `json:"created_at"`
+	UpdatedAt             time.Time `json:"updated_at"`
+}
+
+type SolMeteoraDbcPoolVolatilityTracker struct {
+	Pool                  string         `json:"pool"`
+	Slot                  int64          `json:"slot"`
+	LastUpdateTimestamp   int64          `json:"last_update_timestamp"`
+	VolatilityAccumulator pgtype.Numeric `json:"volatility_accumulator"`
+	VolatilityReference   pgtype.Numeric `json:"volatility_reference"`
+	CreatedAt             time.Time      `json:"created_at"`
+	UpdatedAt             time.Time      `json:"updated_at"`
+}
+
 // Stores payment router program Route instruction recipients and amounts for tracked mints.
 type SolPayment struct {
 	Signature        string `json:"signature"`
@@ -1929,6 +1948,14 @@ type SolTokenTransfer struct {
 	Slot             int64  `json:"slot"`
 	FromAccount      string `json:"from_account"`
 	ToAccount        string `json:"to_account"`
+}
+
+type SolUnprocessedTx struct {
+	Signature    string      `json:"signature"`
+	ErrorMessage pgtype.Text `json:"error_message"`
+	CreatedAt    time.Time   `json:"created_at"`
+	UpdatedAt    time.Time   `json:"updated_at"`
+	Slot         int64       `json:"slot"`
 }
 
 // Stores the balances of Solana tokens for users.
