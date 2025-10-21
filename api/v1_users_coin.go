@@ -80,6 +80,7 @@ func (app *ApiServer) v1UsersCoin(c *fiber.Ctx) error {
 			artist_coins.decimals,
 			artist_coins.has_discord,
 			artist_coins.user_id AS owner_id,
+			artist_coins.logo_uri,
 			COALESCE(balances_by_mint.balance, 0) AS balance,
 			COALESCE((balances_by_mint.balance * COALESCE(stats.price, pools.price_usd)) / POWER(10, artist_coins.decimals), 0) AS balance_usd,
 			COALESCE(
@@ -109,6 +110,7 @@ func (app *ApiServer) v1UsersCoin(c *fiber.Ctx) error {
 			artist_coins.mint,
 			artist_coins.decimals,
 			artist_coins.user_id,
+			artist_coins.logo_uri,
 			balances_by_mint.balance,
 			stats.price,
 			pools.price_usd
