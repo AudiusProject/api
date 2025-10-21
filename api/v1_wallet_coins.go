@@ -40,6 +40,7 @@ func (app *ApiServer) v1WalletCoins(c *fiber.Ctx) error {
 			artist_coins.decimals,
 			artist_coins.has_discord,
 			artist_coins.user_id AS owner_id,
+			artist_coins.logo_uri,
 			COALESCE(balances_by_mint.balance, 0) AS balance,
 			(COALESCE(balances_by_mint.balance, 0) * COALESCE(stats.price, pools.price_usd)) / POWER(10, artist_coins.decimals) AS balance_usd
 		FROM artist_coins

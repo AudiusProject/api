@@ -6190,6 +6190,11 @@ components:
           type: string
           description: The ID of the user associated with the coin
           example: "7eP5n"
+        logo_uri:
+          type: string
+          nullable: true
+          description: URL to the coin's logo image
+          example: "https://example.com/logo.png"
         has_discord:
           type: boolean
           description: Whether the coin has a Discord server
@@ -6233,6 +6238,11 @@ components:
           type: integer
           description: The number of decimals for the coin
           example: 8
+        logo_uri:
+          type: string
+          nullable: true
+          description: URL to the coin's logo image
+          example: "https://example.com/logo.png"
         balance:
           type: integer
           description: The total balance of the coin in the user's account (in wei)
