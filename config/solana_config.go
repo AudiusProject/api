@@ -48,7 +48,7 @@ const (
 
 	// Stage
 	StageSolanaRelay                   = "https://discoveryprovider.staging.audius.co/solana/relay"
-	StageMintAudio                     = "BELGiMZQ34SDE6x2FUaML2UHDAgBLS64xvhXjX5tBBZo"
+	StageMintAudio                     = "9LzCMqDgTKYz9Drzqnpgee3SGa89up3a247ypMj2xrqM"
 	StageMintUSDC                      = "EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZy4z6cQ"
 	StageRewardManagerProgramID        = "CDpzvz7DfgbF95jSSCHLX3ERkugyfgn9Fw8ypNZ1hfXp"
 	StageRewardManagerState            = "GaiG9LDYHfZGqeNaoGRzFEnLiwUT7WiC6sA6FDJX9ZPq"
