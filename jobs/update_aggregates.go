@@ -18,7 +18,7 @@ type UpdateAggregatesJobRunner struct {
 }
 
 const (
-	BatchSize = 10000
+	UpdateUserScoresBatchSize = 3000
 )
 
 func (r *UpdateAggregatesJobRunner) Execute(ctx context.Context, logger *zap.Logger) error {
@@ -157,7 +157,7 @@ func (r *UpdateAggregatesJobRunner) Execute(ctx context.Context, logger *zap.Log
 
 		readQueryStart := time.Now()
 		res, err := r.readPool.Query(ctx, query, pgx.NamedArgs{
-			"batchSize":    BatchSize,
+			"batchSize":    UpdateUserScoresBatchSize,
 			"cursorTime":   lastCreatedAt,
 			"cursorUserId": lastUserID,
 		})
@@ -220,7 +220,7 @@ func (r *UpdateAggregatesJobRunner) Execute(ctx context.Context, logger *zap.Log
 			zap.Duration("read_query_duration", readQueryDuration),
 			zap.Duration("write_query_duration", writeQueryDuration))
 
-		if fetchedRows < BatchSize {
+		if fetchedRows < UpdateUserScoresBatchSize {
 			logger.Info("Finished processing all users", zap.Int("total_processed", processedCount), zap.Int64("total_score_changes", scoreUpdatedCount), zap.Duration("duration", time.Since(startTime)))
 			break
 		}
