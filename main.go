@@ -37,6 +37,24 @@ func main() {
 			as := api.NewApiServer(config.Cfg)
 			as.Serve()
 		}
+	case "aggregates-indexer":
+		{
+			fmt.Println("Running aggregates-indexer...")
+
+			aggregatesIndexer := core_indexer.NewAggregatesIndexer(config.Cfg)
+
+			defer aggregatesIndexer.Close()
+
+			// Capture termination signals for graceful shutdown of the indexer
+			ctx, stop := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM, syscall.SIGINT, os.Interrupt)
+			defer stop()
+
+			if err := aggregatesIndexer.Start(ctx); err != nil {
+				if !errors.Is(err, context.Canceled) {
+					panic(err)
+				}
+			}
+		}
 	case "indexer":
 		{
 			fmt.Println("Running indexer...")
