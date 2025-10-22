@@ -226,6 +226,7 @@ func TestGetUserCoinBadges(t *testing.T) {
 		assert.Equal(t, 200, status)
 
 		jsonAssert(t, body, map[string]any{
+			"data.0.preferred_coin_flair_mint":  nil,
 			"data.0.artist_coin_badge.mint":     "test_mint_address_123",
 			"data.0.artist_coin_badge.ticker":   "TESTCOIN",
 			"data.0.artist_coin_badge.logo_uri": "https://example.com/test-logo.png",
@@ -238,7 +239,8 @@ func TestGetUserCoinBadges(t *testing.T) {
 		assert.Equal(t, 200, status)
 
 		jsonAssert(t, body, map[string]any{
-			"data.0.artist_coin_badge": nil,
+			"data.0.preferred_coin_flair_mint": nil,
+			"data.0.artist_coin_badge":         nil,
 		})
 	}
 
@@ -248,6 +250,7 @@ func TestGetUserCoinBadges(t *testing.T) {
 		assert.Equal(t, 200, status)
 
 		jsonAssert(t, body, map[string]any{
+			"data.0.preferred_coin_flair_mint":  nil,
 			"data.0.artist_coin_badge.mint":     "test_mint_address_123",
 			"data.0.artist_coin_badge.ticker":   "TESTCOIN",
 			"data.0.artist_coin_badge.logo_uri": "https://example.com/test-logo.png",
@@ -260,6 +263,7 @@ func TestGetUserCoinBadges(t *testing.T) {
 		assert.Equal(t, 200, status)
 
 		jsonAssert(t, body, map[string]any{
+			"data.0.preferred_coin_flair_mint":  nil,
 			"data.0.artist_coin_badge.mint":     "test_mint_address_124",
 			"data.0.artist_coin_badge.ticker":   "STEVE",
 			"data.0.artist_coin_badge.logo_uri": "https://example.com/steve-logo.png",
@@ -272,18 +276,20 @@ func TestGetUserCoinBadges(t *testing.T) {
 		assert.Equal(t, 200, status)
 
 		jsonAssert(t, body, map[string]any{
+			"data.0.preferred_coin_flair_mint":  "test_mint_address_124",
 			"data.0.artist_coin_badge.mint":     "test_mint_address_124",
 			"data.0.artist_coin_badge.ticker":   "STEVE",
 			"data.0.artist_coin_badge.logo_uri": "https://example.com/steve-logo.png",
 		})
 	}
 
-	// Preferred flair with zero balance falls back to existing logic (highest balance)
+	// Preferred flair with zero balance falls back to 'auto' logic (artist's own coin/highest balance)
 	{
 		status, body := testGet(t, app, "/v1/full/users/"+trashid.MustEncodeHashID(6))
 		assert.Equal(t, 200, status)
 
 		jsonAssert(t, body, map[string]any{
+			"data.0.preferred_coin_flair_mint":  "test_mint_address_123",
 			"data.0.artist_coin_badge.mint":     "test_mint_address_124",
 			"data.0.artist_coin_badge.ticker":   "STEVE",
 			"data.0.artist_coin_badge.logo_uri": "https://example.com/steve-logo.png",
@@ -296,7 +302,8 @@ func TestGetUserCoinBadges(t *testing.T) {
 		assert.Equal(t, 200, status)
 
 		jsonAssert(t, body, map[string]any{
-			"data.0.artist_coin_badge": nil,
+			"data.0.preferred_coin_flair_mint": "",
+			"data.0.artist_coin_badge":         nil,
 		})
 	}
 
