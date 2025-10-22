@@ -46,7 +46,7 @@ func (p Pool) GetMigrationProgress(migrationQuoteThreshold uint64) float64 {
 	quotient := new(big.Rat).SetFrac(quoteReserve, migrationQuoteThresholdBig)
 	progress, _ := quotient.Float64()
 
-	return progress
+	return math.Min(progress, 1.0)
 }
 
 func (p Pool) GetQuotePrice(tokenBaseDecimals int, tokenQuoteDecimals int) float64 {
@@ -60,5 +60,5 @@ func (p Pool) GetQuotePrice(tokenBaseDecimals int, tokenQuoteDecimals int) float
 
 	price, _ := quotient.Float64()
 
-	return math.Min(price, 1.0)
+	return price
 }
