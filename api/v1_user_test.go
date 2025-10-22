@@ -61,6 +61,26 @@ func TestGetUserCoinBadges(t *testing.T) {
 				"user_id": 4,
 				"handle":  "stereosteve",
 			},
+			{
+				"user_id":                   5,
+				"handle":                    "user5",
+				"preferred_coin_flair_mint": "test_mint_address_124", // Prefers STEVE
+			},
+			{
+				"user_id":                   6,
+				"handle":                    "user6",
+				"preferred_coin_flair_mint": "test_mint_address_123", // Prefers TESTCOIN but has zero balance
+			},
+			{
+				"user_id":                   7,
+				"handle":                    "user7",
+				"preferred_coin_flair_mint": "", // Empty string - should show no badge
+			},
+			{
+				"user_id":                   8,
+				"handle":                    "user8",
+				"preferred_coin_flair_mint": "test_mint_address_124", // Prefers STEVE over their own coin
+			},
 		},
 		"artist_coins": {
 			{
@@ -85,6 +105,14 @@ func TestGetUserCoinBadges(t *testing.T) {
 				"user_id":    3,
 				"mint":       "9LzCMqDgTKYz9Drzqnpgee3SGa89up3a247ypMj2xrqM",
 				"logo_uri":   "https://example.com/audio-logo.png",
+				"created_at": "2024-01-01 00:00:00",
+			},
+			{
+				"ticker":     "USER8COIN",
+				"decimals":   8,
+				"user_id":    8,
+				"mint":       "test_mint_address_125",
+				"logo_uri":   "https://example.com/user8-logo.png",
 				"created_at": "2024-01-01 00:00:00",
 			},
 		},
@@ -138,6 +166,55 @@ func TestGetUserCoinBadges(t *testing.T) {
 				"mint":    "test_mint_address_123",
 				"balance": 300,
 			},
+			// User 5 prefers STEVE and has balance in it (should show STEVE even if they have more of other coins)
+			{
+				"user_id": 5,
+				"mint":    "test_mint_address_124",
+				"balance": 50,
+			},
+			{
+				"user_id": 5,
+				"mint":    "test_mint_address_123",
+				"balance": 1000, // Much higher balance but should be ignored due to preference
+			},
+			{
+				"user_id": 5,
+				"mint":    "9LzCMqDgTKYz9Drzqnpgee3SGa89up3a247ypMj2xrqM",
+				"balance": 500,
+			},
+			// User 6 prefers TESTCOIN but has zero balance (should fall back to existing logic)
+			{
+				"user_id": 6,
+				"mint":    "test_mint_address_123",
+				"balance": 0,
+			},
+			{
+				"user_id": 6,
+				"mint":    "test_mint_address_124",
+				"balance": 200,
+			},
+			// User 7 has empty string preference (should show no badge)
+			{
+				"user_id": 7,
+				"mint":    "test_mint_address_123",
+				"balance": 100,
+			},
+			{
+				"user_id": 7,
+				"mint":    "test_mint_address_124",
+				"balance": 200,
+			},
+			// User 8 prefers STEVE over their own coin (should show STEVE despite having their own coin)
+			{
+				"user_id": 8,
+				"mint":    "test_mint_address_124", // STEVE - preferred coin
+				"balance": 100,
+			},
+			{
+				"user_id": 8,
+				"mint":    "test_mint_address_125", // Their own coin
+				"balance": 500,                     // Higher balance but should be ignored due to preference
+			},
 		},
 	}
 
@@ -180,6 +257,52 @@ func TestGetUserCoinBadges(t *testing.T) {
 	// Always show artist's created coin even with zero balance
 	{
 		status, body := testGet(t, app, "/v1/full/users/"+trashid.MustEncodeHashID(4))
+		assert.Equal(t, 200, status)
+
+		jsonAssert(t, body, map[string]any{
+			"data.0.artist_coin_badge.mint":     "test_mint_address_124",
+			"data.0.artist_coin_badge.ticker":   "STEVE",
+			"data.0.artist_coin_badge.logo_uri": "https://example.com/steve-logo.png",
+		})
+	}
+
+	// Preferred flair with non-zero balance takes priority over higher balance coins
+	{
+		status, body := testGet(t, app, "/v1/full/users/"+trashid.MustEncodeHashID(5))
+		assert.Equal(t, 200, status)
+
+		jsonAssert(t, body, map[string]any{
+			"data.0.artist_coin_badge.mint":     "test_mint_address_124",
+			"data.0.artist_coin_badge.ticker":   "STEVE",
+			"data.0.artist_coin_badge.logo_uri": "https://example.com/steve-logo.png",
+		})
+	}
+
+	// Preferred flair with zero balance falls back to existing logic (highest balance)
+	{
+		status, body := testGet(t, app, "/v1/full/users/"+trashid.MustEncodeHashID(6))
+		assert.Equal(t, 200, status)
+
+		jsonAssert(t, body, map[string]any{
+			"data.0.artist_coin_badge.mint":     "test_mint_address_124",
+			"data.0.artist_coin_badge.ticker":   "STEVE",
+			"data.0.artist_coin_badge.logo_uri": "https://example.com/steve-logo.png",
+		})
+	}
+
+	// Empty string preferred flair should return no badge even if user has balances
+	{
+		status, body := testGet(t, app, "/v1/full/users/"+trashid.MustEncodeHashID(7))
+		assert.Equal(t, 200, status)
+
+		jsonAssert(t, body, map[string]any{
+			"data.0.artist_coin_badge": nil,
+		})
+	}
+
+	// Preferred flair takes priority over user's own artist coin
+	{
+		status, body := testGet(t, app, "/v1/full/users/"+trashid.MustEncodeHashID(8))
 		assert.Equal(t, 200, status)
 
 		jsonAssert(t, body, map[string]any{

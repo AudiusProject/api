@@ -137,6 +137,7 @@ SELECT
 
   has_collectibles,
   allow_ai_attribution,
+  preferred_coin_flair_mint,
 
   (
     SELECT JSON_BUILD_OBJECT(
@@ -145,28 +146,45 @@ SELECT
       'ticker', ticker
     )::jsonb
     FROM artist_coins
-    WHERE artist_coins.mint = COALESCE(
-      -- Owned first
-      (
-        SELECT artist_coins.mint
-        FROM artist_coins
-        WHERE artist_coins.user_id = u.user_id
-        LIMIT 1
-      ),
-      -- Then most held
-      (
-        SELECT sol_user_balances.mint
-        FROM sol_user_balances
-        JOIN artist_coins ON artist_coins.mint = sol_user_balances.mint -- ensure mapped in artist_coins
-        WHERE sol_user_balances.user_id = u.user_id
-          AND sol_user_balances.balance > 0
-          AND sol_user_balances.mint != '9LzCMqDgTKYz9Drzqnpgee3SGa89up3a247ypMj2xrqM' -- ignore prod wAUDIO
-          AND sol_user_balances.mint != 'BELGiMZQ34SDE6x2FUaML2UHDAgBLS64xvhXjX5tBBZo' -- ignore stage wAUDIO
-          AND sol_user_balances.mint != 'EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZy4z6cQ' -- ignore USDC
-        ORDER BY sol_user_balances.balance DESC
-        LIMIT 1
+    WHERE artist_coins.mint =
+      -- User explicitly disabled flair
+      CASE WHEN (u.preferred_coin_flair_mint = '') THEN NULL
+      ELSE COALESCE(
+        -- Use preferred flair if valid artist coin and user has a balance
+        CASE WHEN (u.preferred_coin_flair_mint IS NOT NULL) THEN
+          (
+            SELECT sol_user_balances.mint
+            FROM sol_user_balances
+            JOIN artist_coins ON artist_coins.mint = sol_user_balances.mint
+            WHERE sol_user_balances.user_id = u.user_id
+              AND sol_user_balances.balance > 0
+              AND sol_user_balances.mint = u.preferred_coin_flair_mint
+            LIMIT 1
+          )
+        ELSE NULL
+        END,
+        -- Owned first
+        (
+          SELECT artist_coins.mint
+          FROM artist_coins
+          WHERE artist_coins.user_id = u.user_id
+          LIMIT 1
+        ),
+        -- Then most held
+        (
+          SELECT sol_user_balances.mint
+          FROM sol_user_balances
+          JOIN artist_coins ON artist_coins.mint = sol_user_balances.mint -- ensure mapped in artist_coins
+          WHERE sol_user_balances.user_id = u.user_id
+            AND sol_user_balances.balance > 0
+            AND sol_user_balances.mint != '9LzCMqDgTKYz9Drzqnpgee3SGa89up3a247ypMj2xrqM' -- ignore prod wAUDIO
+            AND sol_user_balances.mint != 'BELGiMZQ34SDE6x2FUaML2UHDAgBLS64xvhXjX5tBBZo' -- ignore stage wAUDIO
+            AND sol_user_balances.mint != 'EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZy4z6cQ' -- ignore USDC
+          ORDER BY sol_user_balances.balance DESC
+          LIMIT 1
+        )
       )
-    )
+    END
   ) AS artist_coin_badge
 
 FROM users u

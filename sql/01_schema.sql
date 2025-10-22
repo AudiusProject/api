@@ -3,8 +3,8 @@
 --
 
 
--- Dumped from database version 17.6 (Debian 17.6-2.pgdg13+1)
--- Dumped by pg_dump version 17.6 (Debian 17.6-2.pgdg13+1)
+-- Dumped from database version 17.6 (Debian 17.6-1.pgdg13+1)
+-- Dumped by pg_dump version 17.6 (Debian 17.6-1.pgdg13+1)
 
 SET statement_timeout = 0;
 SET lock_timeout = 0;
@@ -8062,8 +8062,16 @@ CREATE TABLE public.users (
     verified_with_tiktok boolean DEFAULT false,
     website character varying,
     donation character varying,
-    profile_type public.profile_type_enum
+    profile_type public.profile_type_enum,
+    preferred_coin_flair_mint text
 );
+
+
+--
+-- Name: COLUMN users.preferred_coin_flair_mint; Type: COMMENT; Schema: public; Owner: -
+--
+
+COMMENT ON COLUMN public.users.preferred_coin_flair_mint IS 'The mint of the coin which the user has selected as their preferred flair. NULL for auto, empty string for none.';
 
 
 --
