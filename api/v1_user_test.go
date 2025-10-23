@@ -62,24 +62,24 @@ func TestGetUserCoinBadges(t *testing.T) {
 				"handle":  "stereosteve",
 			},
 			{
-				"user_id":                   5,
-				"handle":                    "user5",
-				"preferred_coin_flair_mint": "test_mint_address_124", // Prefers STEVE
+				"user_id":         5,
+				"handle":          "user5",
+				"coin_flair_mint": "test_mint_address_124", // Prefers STEVE
 			},
 			{
-				"user_id":                   6,
-				"handle":                    "user6",
-				"preferred_coin_flair_mint": "test_mint_address_123", // Prefers TESTCOIN but has zero balance
+				"user_id":         6,
+				"handle":          "user6",
+				"coin_flair_mint": "test_mint_address_123", // Prefers TESTCOIN but has zero balance
 			},
 			{
-				"user_id":                   7,
-				"handle":                    "user7",
-				"preferred_coin_flair_mint": "", // Empty string - should show no badge
+				"user_id":         7,
+				"handle":          "user7",
+				"coin_flair_mint": "", // Empty string - should show no badge
 			},
 			{
-				"user_id":                   8,
-				"handle":                    "user8",
-				"preferred_coin_flair_mint": "test_mint_address_124", // Prefers STEVE over their own coin
+				"user_id":         8,
+				"handle":          "user8",
+				"coin_flair_mint": "test_mint_address_124", // Prefers STEVE over their own coin
 			},
 		},
 		"artist_coins": {
@@ -226,7 +226,7 @@ func TestGetUserCoinBadges(t *testing.T) {
 		assert.Equal(t, 200, status)
 
 		jsonAssert(t, body, map[string]any{
-			"data.0.preferred_coin_flair_mint":  nil,
+			"data.0.coin_flair_mint":            nil,
 			"data.0.artist_coin_badge.mint":     "test_mint_address_123",
 			"data.0.artist_coin_badge.ticker":   "TESTCOIN",
 			"data.0.artist_coin_badge.logo_uri": "https://example.com/test-logo.png",
@@ -239,8 +239,8 @@ func TestGetUserCoinBadges(t *testing.T) {
 		assert.Equal(t, 200, status)
 
 		jsonAssert(t, body, map[string]any{
-			"data.0.preferred_coin_flair_mint": nil,
-			"data.0.artist_coin_badge":         nil,
+			"data.0.coin_flair_mint":   nil,
+			"data.0.artist_coin_badge": nil,
 		})
 	}
 
@@ -250,7 +250,7 @@ func TestGetUserCoinBadges(t *testing.T) {
 		assert.Equal(t, 200, status)
 
 		jsonAssert(t, body, map[string]any{
-			"data.0.preferred_coin_flair_mint":  nil,
+			"data.0.coin_flair_mint":            nil,
 			"data.0.artist_coin_badge.mint":     "test_mint_address_123",
 			"data.0.artist_coin_badge.ticker":   "TESTCOIN",
 			"data.0.artist_coin_badge.logo_uri": "https://example.com/test-logo.png",
@@ -263,7 +263,7 @@ func TestGetUserCoinBadges(t *testing.T) {
 		assert.Equal(t, 200, status)
 
 		jsonAssert(t, body, map[string]any{
-			"data.0.preferred_coin_flair_mint":  nil,
+			"data.0.coin_flair_mint":            nil,
 			"data.0.artist_coin_badge.mint":     "test_mint_address_124",
 			"data.0.artist_coin_badge.ticker":   "STEVE",
 			"data.0.artist_coin_badge.logo_uri": "https://example.com/steve-logo.png",
@@ -276,7 +276,7 @@ func TestGetUserCoinBadges(t *testing.T) {
 		assert.Equal(t, 200, status)
 
 		jsonAssert(t, body, map[string]any{
-			"data.0.preferred_coin_flair_mint":  "test_mint_address_124",
+			"data.0.coin_flair_mint":            "test_mint_address_124",
 			"data.0.artist_coin_badge.mint":     "test_mint_address_124",
 			"data.0.artist_coin_badge.ticker":   "STEVE",
 			"data.0.artist_coin_badge.logo_uri": "https://example.com/steve-logo.png",
@@ -289,7 +289,7 @@ func TestGetUserCoinBadges(t *testing.T) {
 		assert.Equal(t, 200, status)
 
 		jsonAssert(t, body, map[string]any{
-			"data.0.preferred_coin_flair_mint":  "test_mint_address_123",
+			"data.0.coin_flair_mint":            "test_mint_address_123",
 			"data.0.artist_coin_badge.mint":     "test_mint_address_124",
 			"data.0.artist_coin_badge.ticker":   "STEVE",
 			"data.0.artist_coin_badge.logo_uri": "https://example.com/steve-logo.png",
@@ -302,8 +302,8 @@ func TestGetUserCoinBadges(t *testing.T) {
 		assert.Equal(t, 200, status)
 
 		jsonAssert(t, body, map[string]any{
-			"data.0.preferred_coin_flair_mint": "",
-			"data.0.artist_coin_badge":         nil,
+			"data.0.coin_flair_mint":   "",
+			"data.0.artist_coin_badge": nil,
 		})
 	}
 

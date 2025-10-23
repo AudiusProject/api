@@ -153,7 +153,7 @@ SELECT
 
   has_collectibles,
   allow_ai_attribution,
-  preferred_coin_flair_mint,
+  coin_flair_mint,
 
   (
     SELECT JSON_BUILD_OBJECT(
@@ -164,17 +164,17 @@ SELECT
     FROM artist_coins
     WHERE artist_coins.mint =
       -- User explicitly disabled flair
-      CASE WHEN (u.preferred_coin_flair_mint = '') THEN NULL
+      CASE WHEN (u.coin_flair_mint = '') THEN NULL
       ELSE COALESCE(
         -- Use preferred flair if valid artist coin and user has a balance
-        CASE WHEN (u.preferred_coin_flair_mint IS NOT NULL) THEN
+        CASE WHEN (u.coin_flair_mint IS NOT NULL) THEN
           (
             SELECT sol_user_balances.mint
             FROM sol_user_balances
             JOIN artist_coins ON artist_coins.mint = sol_user_balances.mint
             WHERE sol_user_balances.user_id = u.user_id
               AND sol_user_balances.balance > 0
-              AND sol_user_balances.mint = u.preferred_coin_flair_mint
+              AND sol_user_balances.mint = u.coin_flair_mint
             LIMIT 1
           )
         ELSE NULL
@@ -279,7 +279,7 @@ type GetUsersRow struct {
 	ProfilePictureLegacy           interface{}     `json:"profile_picture_legacy"`
 	HasCollectibles                bool            `json:"has_collectibles"`
 	AllowAiAttribution             bool            `json:"allow_ai_attribution"`
-	PreferredCoinFlairMint         pgtype.Text     `json:"preferred_coin_flair_mint"`
+	PreferredCoinFlairMint         pgtype.Text     `json:"coin_flair_mint"`
 	ArtistCoinBadge                json.RawMessage `json:"artist_coin_badge"`
 }
 
