@@ -5495,6 +5495,8 @@ components:
             ticker:
               type: string
               description: The coin symbol/ticker
+        preferred_coin_flair_mint:
+          type: string
         bio:
           type: string
         cover_photo:
@@ -6035,7 +6037,7 @@ components:
           type: array
           items:
             $ref: '#/components/schemas/coin'
-    coin_members_count_response:  
+    coin_members_count_response:
       type: object
       required:
         - data
