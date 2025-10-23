@@ -7464,6 +7464,89 @@ COMMENT ON TABLE public.sol_meteora_damm_v2_positions IS 'Tracks DAMM V2 positio
 
 
 --
+-- Name: sol_meteora_dbc_config_fees; Type: TABLE; Schema: public; Owner: -
+--
+
+CREATE TABLE public.sol_meteora_dbc_config_fees (
+    config text NOT NULL,
+    slot bigint NOT NULL,
+    base_fee_cliff_fee_numerator bigint,
+    base_fee_period_frequency bigint,
+    base_fee_reduction_factor bigint,
+    base_fee_number_of_period smallint,
+    base_fee_fee_scheduler_mode smallint,
+    dynamic_fee_initialized smallint,
+    dynamic_fee_max_volatility_accumulator integer,
+    dynamic_fee_variable_fee_control integer,
+    dynamic_fee_bin_step smallint,
+    dynamic_fee_filter_period smallint,
+    dynamic_fee_decay_period smallint,
+    dynamic_fee_reduction_factor smallint,
+    dynamic_fee_bin_step_u128 numeric,
+    protocol_fee_percent smallint,
+    referral_fee_percent smallint
+);
+
+
+--
+-- Name: sol_meteora_dbc_config_vestings; Type: TABLE; Schema: public; Owner: -
+--
+
+CREATE TABLE public.sol_meteora_dbc_config_vestings (
+    config text NOT NULL,
+    slot bigint NOT NULL,
+    amount_per_period bigint,
+    cliff_duration_from_migration_time bigint,
+    frequency bigint,
+    number_of_period bigint,
+    cliff_unlock_amount bigint
+);
+
+
+--
+-- Name: sol_meteora_dbc_configs; Type: TABLE; Schema: public; Owner: -
+--
+
+CREATE TABLE public.sol_meteora_dbc_configs (
+    account text NOT NULL,
+    slot bigint NOT NULL,
+    quote_mint text NOT NULL,
+    fee_claimer text NOT NULL,
+    leftover_receiver text NOT NULL,
+    collect_fee_mode smallint NOT NULL,
+    migration_option smallint NOT NULL,
+    activation_type smallint,
+    token_decimal smallint,
+    version smallint,
+    token_type smallint,
+    quote_token_flag smallint,
+    partner_locked_lp_percentage smallint,
+    partner_lp_percentage smallint,
+    creator_locked_lp_percentage smallint,
+    creator_lp_percentage smallint,
+    migration_fee_option smallint,
+    fixed_token_supply_flag smallint,
+    creator_trading_fee_percentage smallint,
+    token_update_authority smallint,
+    migration_fee_percentage smallint,
+    creator_migration_fee_percentage smallint,
+    swap_base_amount bigint,
+    migration_quote_threshold bigint,
+    migration_base_threshold bigint,
+    migration_sqrt_price numeric,
+    pre_migration_token_supply bigint,
+    post_migration_token_supply bigint,
+    migrated_collect_fee_mode smallint,
+    migrated_dynamic_fee smallint,
+    migrated_pool_fee_bps smallint,
+    sqrt_start_price numeric,
+    curve jsonb,
+    created_at timestamp without time zone DEFAULT now(),
+    updated_at timestamp without time zone DEFAULT now()
+);
+
+
+--
 -- Name: sol_meteora_dbc_migrations; Type: TABLE; Schema: public; Owner: -
 --
 
@@ -9454,6 +9537,30 @@ ALTER TABLE ONLY public.sol_meteora_damm_v2_position_metrics
 
 ALTER TABLE ONLY public.sol_meteora_damm_v2_positions
     ADD CONSTRAINT sol_meteora_damm_v2_positions_pkey PRIMARY KEY (account);
+
+
+--
+-- Name: sol_meteora_dbc_config_fees sol_meteora_dbc_config_fees_pkey; Type: CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.sol_meteora_dbc_config_fees
+    ADD CONSTRAINT sol_meteora_dbc_config_fees_pkey PRIMARY KEY (config);
+
+
+--
+-- Name: sol_meteora_dbc_config_vestings sol_meteora_dbc_config_vestings_pkey; Type: CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.sol_meteora_dbc_config_vestings
+    ADD CONSTRAINT sol_meteora_dbc_config_vestings_pkey PRIMARY KEY (config);
+
+
+--
+-- Name: sol_meteora_dbc_configs sol_meteora_dbc_configs_pkey; Type: CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.sol_meteora_dbc_configs
+    ADD CONSTRAINT sol_meteora_dbc_configs_pkey PRIMARY KEY (account);
 
 
 --
@@ -11547,6 +11654,22 @@ ALTER TABLE ONLY public.revert_blocks
 
 ALTER TABLE ONLY public.saves
     ADD CONSTRAINT saves_blocknumber_fkey FOREIGN KEY (blocknumber) REFERENCES public.blocks(number) ON DELETE CASCADE;
+
+
+--
+-- Name: sol_meteora_dbc_config_fees sol_meteora_dbc_config_fees_config_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.sol_meteora_dbc_config_fees
+    ADD CONSTRAINT sol_meteora_dbc_config_fees_config_fkey FOREIGN KEY (config) REFERENCES public.sol_meteora_dbc_configs(account) ON DELETE CASCADE;
+
+
+--
+-- Name: sol_meteora_dbc_config_vestings sol_meteora_dbc_config_vestings_config_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.sol_meteora_dbc_config_vestings
+    ADD CONSTRAINT sol_meteora_dbc_config_vestings_config_fkey FOREIGN KEY (config) REFERENCES public.sol_meteora_dbc_configs(account) ON DELETE CASCADE;
 
 
 --

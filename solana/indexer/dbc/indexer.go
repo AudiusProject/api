@@ -1,12 +1,14 @@
 package dbc
 
 import (
+	"bytes"
 	"context"
 	"encoding/json"
 	"errors"
 	"fmt"
 	"time"
 
+	"api.audius.co/config"
 	"api.audius.co/database"
 	"api.audius.co/solana/indexer/common"
 	"api.audius.co/solana/spl/programs/meteora_dbc"
@@ -31,6 +33,7 @@ type Indexer struct {
 	pool             database.DbPool
 	grpcConfig       common.GrpcConfig
 	rpcClient        common.RpcClient
+	config           config.Config
 	transactionCache *otter.Cache[solana.Signature, *rpc.GetTransactionResult]
 	logger           *zap.Logger
 }
@@ -39,6 +42,7 @@ func New(
 	grpcConfig common.GrpcConfig,
 	rpcClient common.RpcClient,
 	pool database.DbPool,
+	config config.Config,
 	transactionCache *otter.Cache[solana.Signature, *rpc.GetTransactionResult],
 	logger *zap.Logger,
 ) *Indexer {
@@ -46,6 +50,7 @@ func New(
 		pool:             pool,
 		grpcConfig:       grpcConfig,
 		rpcClient:        rpcClient,
+		config:           config,
 		transactionCache: transactionCache,
 		logger:           logger.Named(NAME),
 	}
@@ -167,41 +172,62 @@ func (d *Indexer) HandleUpdate(ctx context.Context, msg *pb.SubscribeUpdate) err
 	// Handle account updates
 	accountUpdate := msg.GetAccount()
 	if accountUpdate != nil {
-		var pool meteora_dbc.Pool
-		err := bin.NewBorshDecoder(accountUpdate.Account.Data).Decode(&pool)
-		if err != nil {
-			return fmt.Errorf("failed to decode DBC pool account: %w", err)
+		// Handle DBC Config updates
+		if len(accountUpdate.Account.Data) > 8 && bytes.Equal(accountUpdate.Account.Data[:8], meteora_dbc.POOL_CONFIG_DISCRIMINATOR) {
+			var config meteora_dbc.PoolConfig
+			err := bin.NewBorshDecoder(accountUpdate.Account.Data).Decode(&config)
+			if err != nil {
+				return fmt.Errorf("failed to decode DBC config account: %w", err)
+			}
+			account := solana.PublicKeyFromBytes(accountUpdate.Account.Pubkey)
+
+			err = processDbcConfigUpdate(ctx, d.pool, accountUpdate.Slot, account, &config)
+			if err != nil {
+				return fmt.Errorf("failed to process DBC config update: %w", err)
+			}
+			d.logger.Debug("processed DBC config update",
+				zap.String("account", account.String()),
+			)
 		}
 
-		account := solana.PublicKeyFromBytes(accountUpdate.Account.Pubkey)
-
-		err = processDbcPoolUpdate(ctx, d.pool, accountUpdate.Slot, account, &pool)
-		if err != nil {
-			return fmt.Errorf("failed to process DBC pool update: %w", err)
-		}
-		d.logger.Debug("processed DBC pool update",
-			zap.String("account", account.String()),
-			zap.String("mint", pool.BaseMint.String()),
-		)
-
-		// If the pool is migrated, check for the migration transaction and process it
-		if pool.IsMigrated == uint8(1) {
-			txSig := solana.SignatureFromBytes(accountUpdate.Account.TxnSignature)
-
-			// Fetch the transaction details
-			txRes, err := common.FetchTransactionWithCache(ctx, d.transactionCache, d.rpcClient, txSig)
+		// Handle DBC Pool updates
+		if len(accountUpdate.Account.Data) > 8 && bytes.Equal(accountUpdate.Account.Data[:8], meteora_dbc.POOL_DISCRIMINATOR) {
+			var pool meteora_dbc.Pool
+			err := bin.NewBorshDecoder(accountUpdate.Account.Data).Decode(&pool)
 			if err != nil {
-				return fmt.Errorf("failed to fetch transaction: %w", err)
+				return fmt.Errorf("failed to decode DBC pool account: %w", err)
 			}
 
-			// Decode the transaction
-			tx, err := txRes.Transaction.GetTransaction()
-			if err != nil {
-				return fmt.Errorf("failed to decode transaction: %w", err)
-			}
+			account := solana.PublicKeyFromBytes(accountUpdate.Account.Pubkey)
 
-			// Process the transaction
-			err = d.processTransaction(ctx, txRes.Slot, tx)
+			err = processDbcPoolUpdate(ctx, d.pool, accountUpdate.Slot, account, &pool)
+			if err != nil {
+				return fmt.Errorf("failed to process DBC pool update: %w", err)
+			}
+			d.logger.Debug("processed DBC pool update",
+				zap.String("account", account.String()),
+				zap.String("mint", pool.BaseMint.String()),
+			)
+
+			// If the pool is migrated, check for the migration transaction and process it
+			if pool.IsMigrated == uint8(1) {
+				txSig := solana.SignatureFromBytes(accountUpdate.Account.TxnSignature)
+
+				// Fetch the transaction details
+				txRes, err := common.FetchTransactionWithCache(ctx, d.transactionCache, d.rpcClient, txSig)
+				if err != nil {
+					return fmt.Errorf("failed to fetch transaction: %w", err)
+				}
+
+				// Decode the transaction
+				tx, err := txRes.Transaction.GetTransaction()
+				if err != nil {
+					return fmt.Errorf("failed to decode transaction: %w", err)
+				}
+
+				// Process the transaction
+				err = d.processTransaction(ctx, txRes.Slot, tx)
+			}
 		}
 	}
 	return nil
@@ -267,7 +293,7 @@ func (d *Indexer) makeSubscriptionRequest(ctx context.Context, mints []string) *
 	// Listen to all watched pools
 	subscription.Accounts = make(map[string]*pb.SubscribeRequestFilterAccounts)
 	for _, mint := range mints {
-		accountFilter := pb.SubscribeRequestFilterAccounts{
+		poolFilter := pb.SubscribeRequestFilterAccounts{
 			Owner: []string{meteora_dbc.ProgramID.String()},
 			Filters: []*pb.SubscribeRequestFilterAccountsFilter{
 				{
@@ -293,8 +319,36 @@ func (d *Indexer) makeSubscriptionRequest(ctx context.Context, mints []string) *
 				},
 			},
 		}
-		subscription.Accounts[mint] = &accountFilter
+		subscription.Accounts[mint] = &poolFilter
 	}
+
+	configFilter := pb.SubscribeRequestFilterAccounts{
+		Owner: []string{meteora_dbc.ProgramID.String()},
+		Filters: []*pb.SubscribeRequestFilterAccountsFilter{
+			{
+				Filter: &pb.SubscribeRequestFilterAccountsFilter_Memcmp{
+					Memcmp: &pb.SubscribeRequestFilterAccountsFilterMemcmp{
+						Offset: 0,
+						Data: &pb.SubscribeRequestFilterAccountsFilterMemcmp_Bytes{
+							Bytes: meteora_dbc.POOL_CONFIG_DISCRIMINATOR,
+						},
+					},
+				},
+			},
+			{
+				Filter: &pb.SubscribeRequestFilterAccountsFilter_Memcmp{
+					Memcmp: &pb.SubscribeRequestFilterAccountsFilterMemcmp{
+						// Quote mint is after discriminator
+						Offset: 8,
+						Data: &pb.SubscribeRequestFilterAccountsFilterMemcmp_Base58{
+							Base58: d.config.SolanaConfig.MintAudio.String(),
+						},
+					},
+				},
+			},
+		},
+	}
+	subscription.Accounts["dbc_config"] = &configFilter
 
 	// Ensure this subscription has a checkpoint
 	checkpointId, fromSlot, err := common.EnsureCheckpoint(ctx, NAME, d.pool, d.rpcClient, subscription, d.logger)
@@ -336,6 +390,38 @@ func processDbcPoolUpdate(
 	err = upsertDbcPoolVolatilityTracker(ctx, sqlTx, slot, account, &pool.VolatilityTracker)
 	if err != nil {
 		return fmt.Errorf("failed to upsert DBC volatility tracker: %w", err)
+	}
+	err = sqlTx.Commit(ctx)
+	if err != nil {
+		return fmt.Errorf("failed to commit transaction: %w", err)
+	}
+	return nil
+}
+
+func processDbcConfigUpdate(
+	ctx context.Context,
+	db database.DbPool,
+	slot uint64,
+	account solana.PublicKey,
+	config *meteora_dbc.PoolConfig,
+) error {
+	sqlTx, err := db.Begin(ctx)
+	if err != nil {
+		return fmt.Errorf("failed to begin transaction: %w", err)
+	}
+	defer sqlTx.Rollback(ctx)
+
+	err = upsertDbcConfig(ctx, sqlTx, slot, account.String(), config)
+	if err != nil {
+		return fmt.Errorf("failed to upsert DBC pool config: %w", err)
+	}
+	err = upsertDbcConfigFees(ctx, sqlTx, slot, account.String(), &config.PoolFees)
+	if err != nil {
+		return fmt.Errorf("failed to upsert DBC config fees: %w", err)
+	}
+	err = upsertDbcConfigVesting(ctx, sqlTx, slot, account.String(), &config.LockedVestingConfig)
+	if err != nil {
+		return fmt.Errorf("failed to upsert DBC config vestings: %w", err)
 	}
 	err = sqlTx.Commit(ctx)
 	if err != nil {
