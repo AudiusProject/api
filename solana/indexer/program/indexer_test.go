@@ -407,3 +407,77 @@ func TestHandleUpdate_PaymentRouterPurchase(t *testing.T) {
 	require.NoError(t, err)
 	assert.True(t, exists, "network payment should exist")
 }
+
+func TestHandleUpdate_RewardInit(t *testing.T) {
+	// Deps
+	pool := database.CreateTestDatabase(t, "test_solana_indexer_program")
+	rpcClient := fake_rpc_client.FakeRpcClient{}
+	transactionCache, err := otter.MustBuilder[solana.Signature, *rpc.GetTransactionResult](10).Build()
+	require.NoError(t, err, "failed to create cache")
+	logger := zap.NewNop()
+
+	// Expected results
+	txSig := solana.MustSignatureFromBase58("yiuyxK1b46frtiwyXxYjdQiYjWTCseAzdQ9v1QBYauSFVES3Rys2ra1oL5LpEtrNj7iXBEWnnzexNVaLvQtfb5J")
+
+	// Load fixture (taken from real transaction on production)
+	txJson, err := os.ReadFile("./fixtures/reward_manager_init_transaction_test_fixture.json")
+	require.NoError(t, err, "failed to read transaction test fixture")
+
+	var txResult rpc.GetTransactionResult
+	err = json.Unmarshal(txJson, &txResult)
+	require.NoError(t, err, "failed to unmarshal transaction test fixture")
+
+	// Fixture uses production reward manager program ID
+	reward_manager.SetProgramID(solana.MustPublicKeyFromBase58("DDZDcYdQFEMwcu2Mwo75yGFjJ1mUQyyXLWzhZLEVFcei"))
+
+	// Put the transaction in the cache so that the indexer loads it from there
+	transactionCache.Set(txSig, &txResult)
+
+	// Create the update
+	update := pb.SubscribeUpdate{
+		UpdateOneof: &pb.SubscribeUpdate_Transaction{
+			Transaction: &pb.SubscribeUpdateTransaction{
+				Transaction: &pb.SubscribeUpdateTransactionInfo{
+					Signature: txSig[:],
+				},
+			},
+		},
+	}
+
+	// Run the test
+	indexer := New(common.GrpcConfig{}, &rpcClient, pool, config.Cfg, &transactionCache, logger)
+	err = indexer.HandleUpdate(t.Context(), &update)
+	require.NoError(t, err, "failed to handle update")
+
+	// Check the reward manager init was inserted
+	var exists bool
+	sql := `
+		SELECT EXISTS (
+			SELECT 1
+			FROM sol_reward_manager_inits
+			WHERE signature = @signature
+				AND instruction_index = @instruction_index
+				AND slot = @slot
+				AND min_votes = @min_votes
+				AND reward_manager_state = @reward_manager_state
+				AND token_source = @token_source
+				AND mint = @mint
+				AND manager = @manager
+				AND authority = @authority
+			LIMIT 1
+		)
+	`
+	err = pool.QueryRow(t.Context(), sql, pgx.NamedArgs{
+		"signature":            txSig.String(),
+		"instruction_index":    2,
+		"slot":                 uint64(375202112),
+		"min_votes":            uint8(3),
+		"reward_manager_state": "6mrvbuCnBir7VeD3Vr9zdL8McwfLCT4Xh8mTMGukfqUs",
+		"token_source":         "CoS8SobE44wGq8CGi2BekLDih7GhSKgjszhTyitfGMPW",
+		"mint":                 "c57yR7PxEWhHw72BstEZv5w28RkA7E1eUjSLd8vxMP3",
+		"manager":              "GrFKAqUtubUMG4xm7hHqPctBjDxA3MNCBQqNPYNr1Se4",
+		"authority":            "CK468ayRnucvCaB1s9vUN3ue7VhnPqSQRFmceHeqPCRE",
+	}).Scan(&exists)
+	require.NoError(t, err)
+	assert.True(t, exists, "reward manager init should exist")
+}
