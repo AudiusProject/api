@@ -1,6 +1,6 @@
 BEGIN;
 
-CREATE TABLE sol_meteora_dbc_configs (
+CREATE TABLE IF NOT EXISTS sol_meteora_dbc_configs (
     account TEXT PRIMARY KEY,
     slot BIGINT NOT NULL,
     quote_mint TEXT NOT NULL,
@@ -38,7 +38,7 @@ CREATE TABLE sol_meteora_dbc_configs (
     updated_at TIMESTAMP DEFAULT NOW()
 );
 
-CREATE TABLE sol_meteora_dbc_config_fees (
+CREATE TABLE IF NOT EXISTS sol_meteora_dbc_config_fees (
     config TEXT PRIMARY KEY REFERENCES sol_meteora_dbc_configs(account) ON DELETE CASCADE,
     slot BIGINT NOT NULL,
     base_fee_cliff_fee_numerator BIGINT,
@@ -58,7 +58,7 @@ CREATE TABLE sol_meteora_dbc_config_fees (
     referral_fee_percent SMALLINT
 );
 
-CREATE TABLE sol_meteora_dbc_config_vestings (
+CREATE TABLE IF NOT EXISTS sol_meteora_dbc_config_vestings (
     config TEXT PRIMARY KEY REFERENCES sol_meteora_dbc_configs(account) ON DELETE CASCADE,
     slot BIGINT NOT NULL,
     amount_per_period BIGINT,
