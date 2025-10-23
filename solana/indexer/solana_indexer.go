@@ -85,7 +85,7 @@ func New(config config.Config) *SolanaIndexer {
 		grpcConfig, rpcClient, pool, config, &transactionCache, logger,
 	)
 	dbcIndexer := dbc.New(
-		grpcConfig, rpcClient, pool, &transactionCache, logger,
+		grpcConfig, rpcClient, pool, config, &transactionCache, logger,
 	)
 
 	s := &SolanaIndexer{

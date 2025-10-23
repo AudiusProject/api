@@ -6,6 +6,7 @@ import (
 	"os"
 	"testing"
 
+	"api.audius.co/config"
 	"api.audius.co/database"
 	"api.audius.co/solana/indexer/common"
 	"api.audius.co/solana/indexer/fake_rpc_client"
@@ -20,11 +21,11 @@ import (
 )
 
 func TestHandleUpdate_SlotCheckpoint(t *testing.T) {
-	pool := database.CreateTestDatabase(t, "test_solana_indexer_damm_v2")
+	pool := database.CreateTestDatabase(t, "test_solana_indexer_dbc")
 	rpcClient := fake_rpc_client.FakeRpcClient{}
 	logger := zap.NewNop()
 
-	indexer := New(common.GrpcConfig{}, &rpcClient, pool, nil, logger)
+	indexer := New(common.GrpcConfig{}, &rpcClient, pool, config.Cfg, nil, logger)
 
 	expectedSlot := uint64(1500)
 
@@ -48,7 +49,7 @@ func TestHandleUpdate_SlotCheckpoint(t *testing.T) {
 }
 
 func TestHandleUpdate_Migration(t *testing.T) {
-	pool := database.CreateTestDatabase(t, "test_solana_indexer_damm_v2")
+	pool := database.CreateTestDatabase(t, "test_solana_indexer_dbc")
 	rpcClient := fake_rpc_client.FakeRpcClient{}
 	transactionCache, err := otter.MustBuilder[solana.Signature, *rpc.GetTransactionResult](10).Build()
 	require.NoError(t, err, "failed to create cache")
@@ -92,7 +93,7 @@ func TestHandleUpdate_Migration(t *testing.T) {
 		},
 	}
 
-	indexer := New(common.GrpcConfig{}, &rpcClient, pool, &transactionCache, logger)
+	indexer := New(common.GrpcConfig{}, &rpcClient, pool, config.Cfg, &transactionCache, logger)
 	err = indexer.HandleUpdate(t.Context(), &update)
 	require.NoError(t, err)
 
@@ -222,4 +223,183 @@ func TestHandleUpdate_Migration(t *testing.T) {
 	}).Scan(&exists)
 	require.NoError(t, err, "failed to query for artist coin update")
 	assert.True(t, exists, "artist coin should be updated with damm v2 pool")
+}
+
+func TestHandleUpdate_Config(t *testing.T) {
+	pool := database.CreateTestDatabase(t, "test_solana_indexer_dbc")
+	rpcClient := fake_rpc_client.FakeRpcClient{}
+	logger := zap.NewNop()
+
+	indexer := New(common.GrpcConfig{}, &rpcClient, pool, config.Cfg, nil, logger)
+
+	configAddress := solana.MustPublicKeyFromBase58("2seGMFauXC22DX8hbop1gh54W1uW8YREWhsU7JuCptTj")
+	configBase64 := "GmwOe3TmgSt7/DPMLnXBSHbMN5KDkE9JB3ZpESJXuzrf82mLYCJJQHMnYKWN/QLoMpzgYf1T6q8M/4URxhwIezYmnCD6QhNacydgpY39AugynOBh/VPqrwz/hRHGHAh7NiacIPpCE1qAlpgAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAUFAABAAkAAAAyADIAAgEyAQAAAAAAAAAAAOh62umsLXgD1ME27IcPAACh3eoHfK1eAnk6wvUoXI8CAAAAAAAAAAAOHKo3LfkAAAAAAAAAAAAAgFEBAAAAAAAhBwAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAGSns7bgDQAAZKeztuANAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAADwp8ZLN4lBAAAAAAAAAAAAkEzmQeayrwAAAAAAAAAAAAAAAAAAAICr4QvOY5YPAABoJRy5YK3vAAAAAAAAAAAAAAAAAAAAAH6Mcle1/DIAAFBt5g7Q3CEBAAAAAAAAAAAAAAAAAAAAfGBuQkpJYgAAIKdtrhKPTAEAAAAAAAAAAAAAAAAAAACofn8CQuqoAAAQ+DrWiV1yAQAAAAAAAAAAAAAAAAAAABAx/11/gRABACBgVsWqp5QBAAAAAAAAAAAAAAAAAAAAQHx20ah9pQEAAGE/b/VBtAEAAAAAAAAAAAAAAAAAAACASrI6oht4AgAAADpJhbjRAQAAAAAAAAAAAAAAAAAAAECI0ygjfp0DALD/OfaBbe0BAAAAAAAAAAAAAAAAAAAAQCdcxXsBMQUAwNUOldmoBwIAAAAAAAAAAAAAAAAAAADATMcVud5VBwDADP0WIKEgAgAAAAAAAAAAAAAAAAAAAIBj/DonMTkKAGAmY87ogDgCAAAAAAAAAAAAAAAAAAAAAFeChBF0FA4AwAwXpixqTwIAAAAAAAAAAAAAAAAAAAAAbhawupIwEwBAQAL9inhlAgAAAAAAAAAAAAAAAAAAAAC+6pCYqekZAMA5nqnVwnoCAAAAAAAAAAAAAAAAAAAAAKpNVvGdsyIAYI/C9ShcjwIAAAAAAAAAAAAAAAAAAAAA1OUxMbgfLgAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA=="
+	configData, err := base64.StdEncoding.DecodeString(configBase64)
+	require.NoError(t, err)
+
+	update := pb.SubscribeUpdate{
+		UpdateOneof: &pb.SubscribeUpdate_Account{
+			Account: &pb.SubscribeUpdateAccount{
+				Slot: 500000000,
+				Account: &pb.SubscribeUpdateAccountInfo{
+					Pubkey:       configAddress.Bytes(),
+					Data:         configData,
+					TxnSignature: nil,
+				},
+			},
+		},
+	}
+
+	err = indexer.HandleUpdate(t.Context(), &update)
+	require.NoError(t, err)
+
+	// Verify that the dbc config was inserted
+	sql := `
+		SELECT EXISTS (
+			SELECT 1
+			FROM sol_meteora_dbc_configs
+			WHERE account = @account
+				AND slot = @slot
+				AND quote_mint = @quote_mint
+				AND fee_claimer = @fee_claimer
+				AND leftover_receiver = @leftover_receiver
+				AND collect_fee_mode = @collect_fee_mode
+				AND migration_option = @migration_option
+				AND activation_type = @activation_type
+				AND token_decimal = @token_decimal
+				AND version = @version
+				AND token_type = @token_type
+				AND quote_token_flag = @quote_token_flag
+				AND partner_locked_lp_percentage = @partner_locked_lp_percentage
+				AND partner_lp_percentage = @partner_lp_percentage
+				AND creator_locked_lp_percentage = @creator_locked_lp_percentage
+				AND creator_lp_percentage = @creator_lp_percentage
+				AND migration_fee_option = @migration_fee_option
+				AND fixed_token_supply_flag = @fixed_token_supply_flag
+				AND creator_trading_fee_percentage = @creator_trading_fee_percentage
+				AND token_update_authority = @token_update_authority
+				AND migration_fee_percentage = @migration_fee_percentage
+				AND creator_migration_fee_percentage = @creator_migration_fee_percentage
+				AND swap_base_amount = @swap_base_amount
+				AND migration_quote_threshold = @migration_quote_threshold
+				AND migration_base_threshold = @migration_base_threshold
+				AND migration_sqrt_price = @migration_sqrt_price
+				AND pre_migration_token_supply = @pre_migration_token_supply
+				AND post_migration_token_supply = @post_migration_token_supply
+				AND migrated_collect_fee_mode = @migrated_collect_fee_mode
+				AND migrated_dynamic_fee = @migrated_dynamic_fee
+				AND migrated_pool_fee_bps = @migrated_pool_fee_bps
+				AND sqrt_start_price = @sqrt_start_price
+			LIMIT 1	
+		)
+	`
+	var exists bool
+	err = pool.QueryRow(t.Context(), sql, pgx.NamedArgs{
+		"account":                          configAddress.String(),
+		"slot":                             int64(500000000),
+		"quote_mint":                       "9LzCMqDgTKYz9Drzqnpgee3SGa89up3a247ypMj2xrqM",
+		"fee_claimer":                      "8kWiEZFeuaPCanbJkwL4PvWDmx4zsLnRoXjUPBnvrLmX",
+		"leftover_receiver":                "8kWiEZFeuaPCanbJkwL4PvWDmx4zsLnRoXjUPBnvrLmX",
+		"collect_fee_mode":                 uint8(0),
+		"migration_option":                 uint8(1),
+		"activation_type":                  uint8(0),
+		"token_decimal":                    uint8(9),
+		"version":                          uint8(0),
+		"token_type":                       uint8(0),
+		"quote_token_flag":                 uint8(0),
+		"partner_locked_lp_percentage":     uint8(50),
+		"partner_lp_percentage":            uint8(0),
+		"creator_locked_lp_percentage":     uint8(50),
+		"creator_lp_percentage":            uint8(0),
+		"migration_fee_option":             uint8(2),
+		"fixed_token_supply_flag":          uint8(1),
+		"creator_trading_fee_percentage":   uint8(50),
+		"token_update_authority":           uint8(1),
+		"migration_fee_percentage":         uint8(0),
+		"creator_migration_fee_percentage": uint8(0),
+		"swap_base_amount":                 uint64(250000000000097000),
+		"migration_quote_threshold":        uint64(17076458013140),
+		"migration_base_threshold":         uint64(170764584107040161),
+		"migration_sqrt_price":             "184467440737073785",
+		"pre_migration_token_supply":       uint64(1000000000000000000),
+		"post_migration_token_supply":      uint64(1000000000000000000),
+		"migrated_collect_fee_mode":        uint8(0),
+		"migrated_dynamic_fee":             uint8(0),
+		"migrated_pool_fee_bps":            uint16(0),
+		"sqrt_start_price":                 "18446744073709552",
+	}).Scan(&exists)
+	require.NoError(t, err, "failed to query for dbc config")
+	assert.True(t, exists, "dbc config should exist after indexing")
+
+	sql = `
+		SELECT EXISTS (
+			SELECT 1
+			FROM sol_meteora_dbc_config_fees
+			WHERE config = @config
+				AND slot = @slot
+				AND base_fee_cliff_fee_numerator = @base_fee_cliff_fee_numerator
+				AND base_fee_period_frequency = @base_fee_period_frequency
+				AND base_fee_reduction_factor = @base_fee_reduction_factor
+				AND base_fee_number_of_period = @base_fee_number_of_period
+				AND base_fee_fee_scheduler_mode = @base_fee_fee_scheduler_mode
+				AND dynamic_fee_initialized = @dynamic_fee_initialized
+				AND dynamic_fee_max_volatility_accumulator = @dynamic_fee_max_volatility_accumulator
+				AND dynamic_fee_variable_fee_control = @dynamic_fee_variable_fee_control
+				AND dynamic_fee_bin_step = @dynamic_fee_bin_step
+				AND dynamic_fee_filter_period = @dynamic_fee_filter_period
+				AND dynamic_fee_decay_period = @dynamic_fee_decay_period
+				AND dynamic_fee_reduction_factor = @dynamic_fee_reduction_factor
+				AND dynamic_fee_bin_step_u128 = @dynamic_fee_bin_step_u128
+				AND protocol_fee_percent = @protocol_fee_percent
+				AND referral_fee_percent = @referral_fee_percent
+			LIMIT 1	
+		)
+	`
+	err = pool.QueryRow(t.Context(), sql, pgx.NamedArgs{
+		"config":                                 configAddress.String(),
+		"slot":                                   int64(500000000),
+		"base_fee_cliff_fee_numerator":           uint64(10000000),
+		"base_fee_period_frequency":              uint64(0),
+		"base_fee_reduction_factor":              uint64(0),
+		"base_fee_number_of_period":              uint8(0),
+		"base_fee_fee_scheduler_mode":            uint8(0),
+		"dynamic_fee_initialized":                uint8(0),
+		"dynamic_fee_max_volatility_accumulator": uint64(0),
+		"dynamic_fee_variable_fee_control":       uint64(0),
+		"dynamic_fee_bin_step":                   uint8(0),
+		"dynamic_fee_filter_period":              uint8(0),
+		"dynamic_fee_decay_period":               uint8(0),
+		"dynamic_fee_reduction_factor":           uint64(0),
+		"dynamic_fee_bin_step_u128":              uint64(0),
+		"protocol_fee_percent":                   uint8(20),
+		"referral_fee_percent":                   uint8(20),
+	}).Scan(&exists)
+	require.NoError(t, err, "failed to query for dbc config fees")
+	assert.True(t, exists, "dbc config fees should exist after indexing")
+
+	sql = `
+		SELECT EXISTS (
+			SELECT 1
+			FROM sol_meteora_dbc_config_vestings
+			WHERE config = @config
+				AND slot = @slot
+				AND amount_per_period = @amount_per_period
+				AND cliff_duration_from_migration_time = @cliff_duration_from_migration_time
+				AND frequency = @frequency
+				AND number_of_period = @number_of_period
+				AND cliff_unlock_amount = @cliff_unlock_amount
+			LIMIT 1	
+		)
+	`
+	err = pool.QueryRow(t.Context(), sql, pgx.NamedArgs{
+		"config":                             configAddress.String(),
+		"slot":                               int64(500000000),
+		"amount_per_period":                  uint64(273972602739726),
+		"cliff_duration_from_migration_time": uint64(0),
+		"frequency":                          uint64(86400),
+		"number_of_period":                   uint64(1825),
+		"cliff_unlock_amount":                uint64(0),
+	}).Scan(&exists)
+	require.NoError(t, err, "failed to query for dbc config vestings")
+	assert.True(t, exists, "dbc config vestings should exist after indexing")
 }
