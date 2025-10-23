@@ -7715,6 +7715,72 @@ COMMENT ON COLUMN public.sol_reward_disbursements.recipient_eth_address IS 'The 
 
 
 --
+-- Name: sol_reward_manager_inits; Type: TABLE; Schema: public; Owner: -
+--
+
+CREATE TABLE public.sol_reward_manager_inits (
+    signature text NOT NULL,
+    instruction_index integer NOT NULL,
+    slot bigint NOT NULL,
+    min_votes integer NOT NULL,
+    reward_manager_state text NOT NULL,
+    token_source text NOT NULL,
+    mint text NOT NULL,
+    manager text NOT NULL,
+    authority text NOT NULL
+);
+
+
+--
+-- Name: TABLE sol_reward_manager_inits; Type: COMMENT; Schema: public; Owner: -
+--
+
+COMMENT ON TABLE public.sol_reward_manager_inits IS 'Stores Init instructions for the Reward Manager program';
+
+
+--
+-- Name: COLUMN sol_reward_manager_inits.min_votes; Type: COMMENT; Schema: public; Owner: -
+--
+
+COMMENT ON COLUMN public.sol_reward_manager_inits.min_votes IS 'Minimum number of votes required for reward distribution';
+
+
+--
+-- Name: COLUMN sol_reward_manager_inits.reward_manager_state; Type: COMMENT; Schema: public; Owner: -
+--
+
+COMMENT ON COLUMN public.sol_reward_manager_inits.reward_manager_state IS 'Public key of the Reward Manager state account';
+
+
+--
+-- Name: COLUMN sol_reward_manager_inits.token_source; Type: COMMENT; Schema: public; Owner: -
+--
+
+COMMENT ON COLUMN public.sol_reward_manager_inits.token_source IS 'Public key of the token source account (Note: Any token account on the authority account is valid)';
+
+
+--
+-- Name: COLUMN sol_reward_manager_inits.mint; Type: COMMENT; Schema: public; Owner: -
+--
+
+COMMENT ON COLUMN public.sol_reward_manager_inits.mint IS 'Public key of the mint for the token source account';
+
+
+--
+-- Name: COLUMN sol_reward_manager_inits.manager; Type: COMMENT; Schema: public; Owner: -
+--
+
+COMMENT ON COLUMN public.sol_reward_manager_inits.manager IS 'Public key of the manager account that initially has authority to create and remove senders without quorum';
+
+
+--
+-- Name: COLUMN sol_reward_manager_inits.authority; Type: COMMENT; Schema: public; Owner: -
+--
+
+COMMENT ON COLUMN public.sol_reward_manager_inits.authority IS 'Public key of the authority account, which holds the token accounts that reward manager can disburse from';
+
+
+--
 -- Name: sol_slot_checkpoints; Type: TABLE; Schema: public; Owner: -
 --
 
@@ -9447,6 +9513,14 @@ ALTER TABLE ONLY public.sol_reward_disbursements
 
 
 --
+-- Name: sol_reward_manager_inits sol_reward_manager_inits_pkey; Type: CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.sol_reward_manager_inits
+    ADD CONSTRAINT sol_reward_manager_inits_pkey PRIMARY KEY (signature, instruction_index);
+
+
+--
 -- Name: sol_slot_checkpoints sol_slot_checkpoints_pkey; Type: CONSTRAINT; Schema: public; Owner: -
 --
 
@@ -10047,6 +10121,20 @@ CREATE INDEX idx_reward_manager_txs_slot ON public.reward_manager_txs USING btre
 --
 
 CREATE INDEX idx_rpc_relayed_by ON public.rpc_log USING btree (relayed_by, relayed_at);
+
+
+--
+-- Name: idx_sol_reward_manager_inits_mint; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX idx_sol_reward_manager_inits_mint ON public.sol_reward_manager_inits USING btree (mint);
+
+
+--
+-- Name: INDEX idx_sol_reward_manager_inits_mint; Type: COMMENT; Schema: public; Owner: -
+--
+
+COMMENT ON INDEX public.idx_sol_reward_manager_inits_mint IS 'Index to quickly find reward manager init instructions by mint of its token rewards';
 
 
 --

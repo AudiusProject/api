@@ -54,6 +54,31 @@ func processRewardManagerInstruction(
 				zap.String("disbursementId", claimInst.DisbursementId),
 			)
 		}
+	case reward_manager.Instruction_Init:
+		if initInst, ok := inst.Impl.(*reward_manager.Init); ok {
+			err := insertRewardInit(ctx, db, rewardInitRow{
+				signature:          signature,
+				instructionIndex:   instructionIndex,
+				slot:               slot,
+				minVotes:           initInst.MinVotes,
+				rewardManagerState: initInst.RewardManagerState().PublicKey.String(),
+				tokenSource:        initInst.TokenSourceAccount().PublicKey.String(),
+				mint:               initInst.Mint().PublicKey.String(),
+				manager:            initInst.Manager().PublicKey.String(),
+				authority:          initInst.Authority().PublicKey.String(),
+			})
+			if err != nil {
+				return fmt.Errorf("failed to insert reward init at instruction: %w", err)
+			}
+			instLogger.Info("reward_manager init",
+				zap.Uint8("minVotes", initInst.MinVotes),
+				zap.String("rewardManagerState", initInst.RewardManagerState().PublicKey.String()),
+				zap.String("tokenSource", initInst.TokenSourceAccount().PublicKey.String()),
+				zap.String("mint", initInst.Mint().PublicKey.String()),
+				zap.String("manager", initInst.Manager().PublicKey.String()),
+				zap.String("authority", initInst.Authority().PublicKey.String()),
+			)
+		}
 	}
 	return nil
 }
@@ -86,6 +111,40 @@ func insertRewardDisbursement(ctx context.Context, db database.DBTX, row rewardD
 		"challengeId":         row.challengeId,
 		"specifier":           row.specifier,
 		"recipientEthAddress": row.recipientEthAddress,
+	})
+	return err
+}
+
+type rewardInitRow struct {
+	signature          string
+	instructionIndex   int
+	slot               uint64
+	minVotes           uint8
+	rewardManagerState string
+	tokenSource        string
+	mint               string
+	manager            string
+	authority          string
+}
+
+func insertRewardInit(ctx context.Context, db database.DBTX, row rewardInitRow) error {
+	sql := `
+		INSERT INTO sol_reward_manager_inits
+			(signature, instruction_index, slot, min_votes, reward_manager_state, token_source, mint, manager, authority)
+		VALUES
+			(@signature, @instructionIndex, @slot, @minVotes, @rewardManagerState, @tokenSource, @mint, @manager, @authority)
+		ON CONFLICT DO NOTHING
+	;`
+	_, err := db.Exec(ctx, sql, pgx.NamedArgs{
+		"signature":          row.signature,
+		"instructionIndex":   row.instructionIndex,
+		"slot":               row.slot,
+		"minVotes":           row.minVotes,
+		"rewardManagerState": row.rewardManagerState,
+		"tokenSource":        row.tokenSource,
+		"mint":               row.mint,
+		"manager":            row.manager,
+		"authority":          row.authority,
 	})
 	return err
 }
