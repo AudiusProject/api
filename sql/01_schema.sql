@@ -11207,6 +11207,20 @@ COMMENT ON TRIGGER on_sol_claimable_accounts ON public.sol_claimable_accounts IS
 
 
 --
+-- Name: sol_token_account_balance_changes on_sol_token_account_balance_changes; Type: TRIGGER; Schema: public; Owner: -
+--
+
+CREATE TRIGGER on_sol_token_account_balance_changes AFTER INSERT ON public.sol_token_account_balance_changes FOR EACH ROW EXECUTE FUNCTION public.handle_sol_token_balance_change();
+
+
+--
+-- Name: TRIGGER on_sol_token_account_balance_changes ON sol_token_account_balance_changes; Type: COMMENT; Schema: public; Owner: -
+--
+
+COMMENT ON TRIGGER on_sol_token_account_balance_changes ON public.sol_token_account_balance_changes IS 'Updates sol_token_account_balances whenever a sol_token_balance_change is inserted with a higher slot.';
+
+
+--
 -- Name: supporter_rank_ups on_supporter_rank_up; Type: TRIGGER; Schema: public; Owner: -
 --
 
