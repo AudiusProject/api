@@ -5495,7 +5495,7 @@ components:
             ticker:
               type: string
               description: The coin symbol/ticker
-        preferred_coin_flair_mint:
+        coin_flair_mint:
           type: string
         bio:
           type: string
