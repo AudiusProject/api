@@ -1,4 +1,4 @@
-package dbc
+package locker
 
 import (
 	"context"

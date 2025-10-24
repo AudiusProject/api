@@ -12,6 +12,7 @@ import (
 	"api.audius.co/solana/indexer/common"
 	"api.audius.co/solana/indexer/damm_v2"
 	"api.audius.co/solana/indexer/dbc"
+	"api.audius.co/solana/indexer/locker"
 	"api.audius.co/solana/indexer/program"
 	"api.audius.co/solana/indexer/token"
 	"github.com/gagliardetto/solana-go"
@@ -33,6 +34,7 @@ type SolanaIndexer struct {
 	tokenIndexer   *token.Indexer
 	programIndexer *program.Indexer
 	dbcIndexer     *dbc.Indexer
+	lockerIndexer  *locker.Indexer
 
 	checkpointId string
 
@@ -87,6 +89,9 @@ func New(config config.Config) *SolanaIndexer {
 	dbcIndexer := dbc.New(
 		grpcConfig, rpcClient, pool, config, &transactionCache, logger,
 	)
+	lockerIndexer := locker.New(
+		grpcConfig, rpcClient, pool, logger,
+	)
 
 	s := &SolanaIndexer{
 		rpcClient:   rpcClient,
@@ -99,6 +104,7 @@ func New(config config.Config) *SolanaIndexer {
 		tokenIndexer:   tokenIndexer,
 		programIndexer: programIndexer,
 		dbcIndexer:     dbcIndexer,
+		lockerIndexer:  lockerIndexer,
 	}
 
 	return s
@@ -121,6 +127,7 @@ func (s *SolanaIndexer) Start(ctx context.Context) error {
 	go s.dammV2Indexer.Start(ctx)
 	go s.programIndexer.Start(ctx)
 	go s.dbcIndexer.Start(ctx)
+	go s.lockerIndexer.Start(ctx)
 
 	for {
 		select {
@@ -204,6 +211,17 @@ func (s *SolanaIndexer) ProcessRetryQueue(ctx context.Context) {
 				err := s.programIndexer.HandleUpdate(ctx, item.UpdateMessage.SubscribeUpdate)
 				if err != nil {
 					logger.Error("failed to retry", zap.String("indexer", program.NAME), zap.Error(err))
+					offset++
+				} else {
+					err = common.DeleteFromRetryQueue(ctx, s.pool, item.ID)
+					if err != nil {
+						logger.Error("failed to delete from retry queue", zap.Error(err))
+					}
+				}
+			case locker.NAME:
+				err := s.lockerIndexer.HandleUpdate(ctx, item.UpdateMessage.SubscribeUpdate)
+				if err != nil {
+					logger.Error("failed to retry", zap.String("indexer", locker.NAME), zap.Error(err))
 					offset++
 				} else {
 					err = common.DeleteFromRetryQueue(ctx, s.pool, item.ID)

@@ -12,7 +12,6 @@ import (
 	"api.audius.co/database"
 	"api.audius.co/solana/indexer/common"
 	"api.audius.co/solana/spl/programs/meteora_dbc"
-	"api.audius.co/solana/spl/programs/meteora_locker"
 	bin "github.com/gagliardetto/binary"
 	"github.com/gagliardetto/solana-go"
 	"github.com/gagliardetto/solana-go/rpc"
@@ -230,25 +229,6 @@ func (d *Indexer) HandleUpdate(ctx context.Context, msg *pb.SubscribeUpdate) err
 				err = d.processTransaction(ctx, txRes.Slot, tx)
 			}
 		}
-
-		// Handle Vesting Escrow updates
-		if len(accountUpdate.Account.Data) > 8 && bytes.Equal(accountUpdate.Account.Data[:8], meteora_locker.Account_VestingEscrow[:]) {
-			var escrow meteora_locker.VestingEscrow
-			err := bin.NewBorshDecoder(accountUpdate.Account.Data).Decode(&escrow)
-			if err != nil {
-				return fmt.Errorf("failed to decode Vesting Escrow account: %w", err)
-			}
-			account := solana.PublicKeyFromBytes(accountUpdate.Account.Pubkey)
-
-			err = processVestingEscrowUpdate(ctx, d.pool, accountUpdate.Slot, account, &escrow)
-			if err != nil {
-				return fmt.Errorf("failed to process Vesting Escrow update: %w", err)
-			}
-			d.logger.Debug("processed Vesting Escrow update",
-				zap.String("account", account.String()),
-				zap.String("recipient", escrow.Recipient.String()),
-			)
-		}
 	}
 	return nil
 }
@@ -340,34 +320,6 @@ func (d *Indexer) makeSubscriptionRequest(ctx context.Context, mints []string) *
 			},
 		}
 		subscription.Accounts[mint] = &poolFilter
-
-		lockFilter := pb.SubscribeRequestFilterAccounts{
-			Owner: []string{meteora_locker.ProgramID.String()},
-			Filters: []*pb.SubscribeRequestFilterAccountsFilter{
-				{
-					Filter: &pb.SubscribeRequestFilterAccountsFilter_Memcmp{
-						Memcmp: &pb.SubscribeRequestFilterAccountsFilterMemcmp{
-							Offset: 0,
-							Data: &pb.SubscribeRequestFilterAccountsFilterMemcmp_Bytes{
-								Bytes: meteora_locker.Account_VestingEscrow[:],
-							},
-						},
-					},
-				},
-				{
-					Filter: &pb.SubscribeRequestFilterAccountsFilter_Memcmp{
-						Memcmp: &pb.SubscribeRequestFilterAccountsFilterMemcmp{
-							// Pool mint is after discriminator and recipient
-							Offset: 8 + 32,
-							Data: &pb.SubscribeRequestFilterAccountsFilterMemcmp_Base58{
-								Base58: mint,
-							},
-						},
-					},
-				},
-			},
-		}
-		subscription.Accounts["lock_"+mint] = &lockFilter
 	}
 
 	configFilter := pb.SubscribeRequestFilterAccounts{
@@ -470,30 +422,6 @@ func processDbcConfigUpdate(
 	err = upsertDbcConfigVesting(ctx, sqlTx, slot, account.String(), &config.LockedVestingConfig)
 	if err != nil {
 		return fmt.Errorf("failed to upsert DBC config vestings: %w", err)
-	}
-	err = sqlTx.Commit(ctx)
-	if err != nil {
-		return fmt.Errorf("failed to commit transaction: %w", err)
-	}
-	return nil
-}
-
-func processVestingEscrowUpdate(
-	ctx context.Context,
-	db database.DbPool,
-	slot uint64,
-	account solana.PublicKey,
-	escrow *meteora_locker.VestingEscrow,
-) error {
-	sqlTx, err := db.Begin(ctx)
-	if err != nil {
-		return fmt.Errorf("failed to begin transaction: %w", err)
-	}
-	defer sqlTx.Rollback(ctx)
-
-	err = upsertVestingEscrow(ctx, sqlTx, slot, account, escrow)
-	if err != nil {
-		return fmt.Errorf("failed to upsert vesting escrow: %w", err)
 	}
 	err = sqlTx.Commit(ctx)
 	if err != nil {
