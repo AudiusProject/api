@@ -12,15 +12,15 @@ import (
 	"go.uber.org/zap"
 )
 
-type AggregatesIndexer struct {
+type AggregatesCalculator struct {
 	logger              *zap.Logger
 	readPool            *dbv1.DBPools
 	writePool           database.DbPool
 	updateAggregatesJob *jobs.UpdateAggregatesJob
 }
 
-func NewAggregatesIndexer(config config.Config) *AggregatesIndexer {
-	logger := logging.NewZapLogger(config).Named("AggregatesIndexer")
+func NewAggregatesCalculator(config config.Config) *AggregatesCalculator {
+	logger := logging.NewZapLogger(config).Named("AggregatesCalculator")
 	readPool, err := dbv1.NewDBPools([]string{config.ReadDbUrl}, logger, config.Env, config.ZapLevel)
 	if err != nil {
 		panic(err)
@@ -30,7 +30,7 @@ func NewAggregatesIndexer(config config.Config) *AggregatesIndexer {
 		panic(err)
 	}
 
-	return &AggregatesIndexer{
+	return &AggregatesCalculator{
 		logger:    logger,
 		readPool:  readPool,
 		writePool: writePool,
@@ -42,13 +42,13 @@ func NewAggregatesIndexer(config config.Config) *AggregatesIndexer {
 	}
 }
 
-func (a *AggregatesIndexer) Start(ctx context.Context) error {
-	a.logger.Info("Starting aggregates indexer")
+func (a *AggregatesCalculator) Start(ctx context.Context) error {
+	a.logger.Info("Starting aggregates calculator")
 	// This job runs in a continous loop until the context is cancelled.
 	for {
 		select {
 		case <-ctx.Done():
-			a.logger.Info("Shutting down aggregates indexer")
+			a.logger.Info("Shutting down aggregates calculator")
 			return ctx.Err()
 		default:
 			a.updateAggregatesJob.Run(ctx)
@@ -56,7 +56,7 @@ func (a *AggregatesIndexer) Start(ctx context.Context) error {
 	}
 }
 
-func (a *AggregatesIndexer) Close() {
+func (a *AggregatesCalculator) Close() {
 	a.readPool.Close()
 	a.writePool.Close()
 }

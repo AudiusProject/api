@@ -18,11 +18,11 @@ import (
 )
 
 type CoreIndexer struct {
-	aggregatesIndexer *AggregatesIndexer
-	pool              dbv1.DbPool
-	Config            config.Config
-	logger            *zap.Logger
-	closeCh           chan struct{}
+	aggregatesCalculator *AggregatesCalculator
+	pool                 dbv1.DbPool
+	Config               config.Config
+	logger               *zap.Logger
+	closeCh              chan struct{}
 }
 
 const (
@@ -41,12 +41,12 @@ func NewIndexer(config config.Config) *CoreIndexer {
 		panic(fmt.Errorf("error connecting to database: %w", err))
 	}
 
-	aggregatesIndexer := NewAggregatesIndexer(config)
+	aggregatesCalculator := NewAggregatesCalculator(config)
 
 	ci := &CoreIndexer{
-		aggregatesIndexer: aggregatesIndexer,
-		pool:              pool,
-		Config:            config,
+		aggregatesCalculator: aggregatesCalculator,
+		pool:                 pool,
+		Config:               config,
 		logger: logging.NewZapLogger(config).
 			Named("CoreIndexer"),
 	}
@@ -57,7 +57,7 @@ func NewIndexer(config config.Config) *CoreIndexer {
 func (ci *CoreIndexer) Start(ctx context.Context) error {
 	eg := errgroup.Group{}
 	eg.Go(func() error {
-		return ci.aggregatesIndexer.Start(ctx)
+		return ci.aggregatesCalculator.Start(ctx)
 	})
 	eg.Go(func() error {
 		return ci.run(ctx)
@@ -173,7 +173,7 @@ func (ci *CoreIndexer) handleManageEntity(dbTx dbv1.DBTX, logger *zap.Logger, em
 }
 
 func (ci *CoreIndexer) Close() {
-	ci.aggregatesIndexer.Close()
+	ci.aggregatesCalculator.Close()
 	ci.pool.Close()
 	ci.logger.Sync()
 }
