@@ -9,9 +9,6 @@ pretty::
 indexer::
 	wgo run -file .go -debounce 10ms main.go indexer
 
-aggregates-indexer::
-	wgo run -file .go -debounce 10ms main.go aggregates-indexer
-
 solana-indexer::
 	wgo run -file .go -debounce 10ms main.go solana-indexer
 

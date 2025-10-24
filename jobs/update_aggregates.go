@@ -18,7 +18,7 @@ type UpdateAggregatesJob struct {
 }
 
 const (
-	UpdateUserScoresBatchSize = 3000
+	UpdateUserScoresBatchSize = 5000
 )
 
 type UpdateAggregatesJobConfig struct {
@@ -71,94 +71,76 @@ func (j *UpdateAggregatesJob) updateScores(ctx context.Context) error {
 		}
 
 		query := `
-			WITH batch AS MATERIALIZED (
-			SELECT u.user_id, u.created_at
-			FROM users u
-			WHERE ` + strings.Join(filters, " AND ") + `
-			ORDER BY u.created_at DESC, u.user_id DESC
-			LIMIT @batchSize
+			WITH batch AS (
+				SELECT u.user_id, u.created_at
+				FROM users u
+				WHERE ` + strings.Join(filters, " AND ") + `
+				ORDER BY u.created_at DESC, u.user_id DESC
+				LIMIT @batchSize
 			),
-			ids AS MATERIALIZED (
-			SELECT array_agg(user_id) AS ids FROM batch
-			),
-
-			/* plays: split into two small per-user aggregates */
-			hours_agg AS (
-			SELECT h.user_id, COUNT(*)::bigint AS play_hours
-			FROM (
-				SELECT DISTINCT p.user_id, date_trunc('hour', p.created_at) AS hr
-				FROM plays p, ids
-				WHERE p.user_id = ANY(ids.ids)
-			) h
-			GROUP BY h.user_id
-			),
-			tracks_agg AS (
-			SELECT p.user_id, COUNT(DISTINCT p.play_item_id)::bigint AS distinct_tracks
-			FROM plays p, ids
-			WHERE p.user_id = ANY(ids.ids)
-			GROUP BY p.user_id
-			),
-
 			fast_challenge_completion AS (
-			SELECT b.user_id, COUNT(*)::bigint AS challenge_count
-			FROM batch b
-			JOIN user_challenges uc
-				ON uc.user_id = b.user_id
-			AND uc.is_complete
-			AND uc.challenge_id NOT IN ('m','b')
-			AND uc.completed_at <= (b.created_at + interval '3 minutes')
-			GROUP BY b.user_id
+				SELECT b.user_id, COUNT(*)::bigint AS challenge_count
+				FROM batch b
+				JOIN user_challenges uc
+					ON uc.user_id = b.user_id
+				AND uc.is_complete
+				AND uc.challenge_id NOT IN ('m','b')
+				AND uc.completed_at <= (b.created_at + interval '3 minutes')
+				GROUP BY b.user_id
 			),
 			chat_blocks AS (
-			SELECT b.user_id, COUNT(*)::bigint AS block_count
-			FROM batch b
-			JOIN chat_blocked_users c ON c.blockee_user_id = b.user_id
-			GROUP BY b.user_id
+				SELECT b.user_id, COUNT(*)::bigint AS block_count
+				FROM batch b
+				JOIN chat_blocked_users c ON c.blockee_user_id = b.user_id
+				GROUP BY b.user_id
 			),
 			followers_karma AS (
-			SELECT b.user_id,
-					LEAST((SUM(fau.follower_count) / 100)::bigint, 100::bigint) AS karma_sum
-			FROM batch b
-			JOIN follows f
-				ON f.followee_user_id = b.user_id
-			AND f.is_delete = FALSE
-			JOIN aggregate_user fau
-				ON fau.user_id = f.follower_user_id
-			AND fau.following_count < 10000
-			GROUP BY b.user_id
+				SELECT b.user_id,
+						LEAST((SUM(fau.follower_count) / 100)::bigint, 100::bigint) AS karma_sum
+				FROM batch b
+				JOIN follows f
+					ON f.followee_user_id = b.user_id
+				AND f.is_delete = FALSE
+				JOIN aggregate_user fau
+					ON fau.user_id = f.follower_user_id
+				AND fau.following_count < 10000
+				GROUP BY b.user_id
 			),
-
-			/* compute features for scoring */
 			features AS (
-			SELECT
-				u.user_id,
-				b.created_at,
-				COALESCE(h.play_hours,       0)::bigint AS play_count,             -- distinct hours
-				COALESCE(t.distinct_tracks,  0)::bigint AS distinct_tracks_played, -- distinct tracks
-				COALESCE(c.challenge_count,  0)::bigint AS challenge_count,
-				COALESCE(au.following_count, 0)::bigint AS following_count,
-				COALESCE(au.follower_count,  0)::bigint AS follower_count,
-				COALESCE(cb.block_count,     0)::bigint AS chat_block_count,
-				( ((u.handle_lc ILIKE '%audius%') OR (lower(u.name) ILIKE '%audius%'))
-				AND u.is_verified = FALSE )               AS is_audius_impersonator,
-				( u.is_verified = FALSE
-				AND (u.handle_lc ILIKE '%airdrop%' OR lower(u.name) LIKE '%airdrop%') )
-															AS has_badwords,
-				CASE
-				WHEN COALESCE(au.follower_count, 0) > 1000 THEN 100
-				WHEN COALESCE(au.follower_count, 0) = 0     THEN 0
-				ELSE COALESCE(k.karma_sum, 0)
-				END::bigint                                  AS karma
-			FROM batch b
-			JOIN users u               ON u.user_id = b.user_id
-			LEFT JOIN hours_agg   h    ON h.user_id = b.user_id
-			LEFT JOIN tracks_agg  t    ON t.user_id = b.user_id
-			LEFT JOIN fast_challenge_completion c ON c.user_id = b.user_id
-			LEFT JOIN chat_blocks     cb ON cb.user_id = b.user_id
-			LEFT JOIN aggregate_user  au ON au.user_id = b.user_id
-			LEFT JOIN followers_karma k  ON k.user_id  = b.user_id
+				SELECT
+					u.user_id,
+					b.created_at,
+					COALESCE((
+						SELECT udph.hours_with_play
+						FROM user_distinct_play_hours udph
+						WHERE udph.user_id = b.user_id
+					), 0) AS play_count,
+					COALESCE((
+						SELECT t.track_count
+						FROM user_distinct_play_tracks t
+						WHERE t.user_id = b.user_id
+					),0)::bigint AS distinct_tracks_played,
+					COALESCE(usf.challenge_count, 0)::bigint        AS challenge_count,
+					COALESCE(au.following_count, 0)::bigint       AS following_count,
+					COALESCE(au.follower_count,  0)::bigint       AS follower_count,
+					COALESCE(cb.block_count,     0)::bigint       AS chat_block_count,
+					( ((u.handle_lc ILIKE '%audius%') OR (lower(u.name) ILIKE '%audius%'))
+					AND u.is_verified = FALSE )                 AS is_audius_impersonator,
+					( u.is_verified = FALSE
+					AND (u.handle_lc ILIKE '%airdrop%' OR lower(u.name) LIKE '%airdrop%') )
+																AS has_badwords,
+					CASE
+					WHEN COALESCE(au.follower_count, 0) > 1000 THEN 100
+					WHEN COALESCE(au.follower_count, 0) = 0     THEN 0
+					ELSE COALESCE(k.karma_sum, 0)
+					END::bigint                                   AS karma
+				FROM batch b
+				JOIN users u                    ON u.user_id = b.user_id
+				LEFT JOIN user_score_features usf ON usf.user_id = b.user_id
+				LEFT JOIN chat_blocks cb        ON cb.user_id = b.user_id
+				LEFT JOIN aggregate_user au     ON au.user_id = b.user_id
+				LEFT JOIN followers_karma k     ON k.user_id  = b.user_id
 			)
-
 			SELECT
 			f.user_id,
 			f.created_at,
