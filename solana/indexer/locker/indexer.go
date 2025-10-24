@@ -213,10 +213,10 @@ func (d *Indexer) makeSubscriptionRequest(ctx context.Context, pools []string) *
 		Owner:   []string{meteora_locker.ProgramID.String()},
 		Account: make([]string, len(pools)),
 	}
-	for _, pool := range pools {
+	for i, pool := range pools {
 		baseKey := meteora_dbc.DeriveBaseKeyForEscrow(solana.MustPublicKeyFromBase58(pool))
 		escrowKey := meteora_dbc.DeriveEscrow(baseKey)
-		subscription.Accounts["lockers"].Account = append(subscription.Accounts["lockers"].Account, escrowKey.String())
+		subscription.Accounts["lockers"].Account[i] = escrowKey.String()
 	}
 
 	// Ensure this subscription has a checkpoint
