@@ -6,24 +6,46 @@ import (
 	"time"
 
 	dbv1 "api.audius.co/api/dbv1"
-	"api.audius.co/config"
 	"api.audius.co/database"
 	"github.com/jackc/pgx/v5"
 	"go.uber.org/zap"
 )
 
-type UpdateAggregatesJobRunner struct {
+type UpdateAggregatesJob struct {
 	writePool database.DbPool
 	readPool  *dbv1.DBPools
+	logger    *zap.Logger
 }
 
 const (
 	UpdateUserScoresBatchSize = 3000
 )
 
-func (r *UpdateAggregatesJobRunner) Execute(ctx context.Context, logger *zap.Logger) error {
+type UpdateAggregatesJobConfig struct {
+	WritePool database.DbPool
+	ReadPool  *dbv1.DBPools
+	Logger    *zap.Logger
+}
+
+func NewUpdateAggregatesJob(config UpdateAggregatesJobConfig) *UpdateAggregatesJob {
+	return &UpdateAggregatesJob{
+		writePool: config.WritePool,
+		readPool:  config.ReadPool,
+		logger:    config.Logger,
+	}
+}
+
+func (j *UpdateAggregatesJob) Run(ctx context.Context) error {
+	if err := j.updateScores(ctx); err != nil {
+		j.logger.Error("Job run failed", zap.Error(err))
+		return err
+	}
+	return nil
+}
+
+func (j *UpdateAggregatesJob) updateScores(ctx context.Context) error {
 	startTime := time.Now()
-	logger.Info("Starting user score update job")
+	j.logger.Info("Starting user score update job")
 
 	type UserScoreRecord struct {
 		UserID    int32
@@ -43,9 +65,9 @@ func (r *UpdateAggregatesJobRunner) Execute(ctx context.Context, logger *zap.Log
 		}
 		if lastUserID != nil && lastCreatedAt != nil {
 			filters = append(filters, `((u.created_at, u.user_id) < (@cursorTime::timestamptz, @cursorUserId::int))`)
-			logger.Info("Processing batch", zap.String("lastCreatedAt", lastCreatedAt.Format(time.RFC3339)), zap.Int32("lastUserID", *lastUserID))
+			j.logger.Info("Processing batch", zap.String("lastCreatedAt", lastCreatedAt.Format(time.RFC3339)), zap.Int32("lastUserID", *lastUserID))
 		} else {
-			logger.Info("Processing first batch")
+			j.logger.Info("Processing first batch")
 		}
 
 		query := `
@@ -156,13 +178,13 @@ func (r *UpdateAggregatesJobRunner) Execute(ctx context.Context, logger *zap.Log
 		`
 
 		readQueryStart := time.Now()
-		res, err := r.readPool.Query(ctx, query, pgx.NamedArgs{
+		res, err := j.readPool.Query(ctx, query, pgx.NamedArgs{
 			"batchSize":    UpdateUserScoresBatchSize,
 			"cursorTime":   lastCreatedAt,
 			"cursorUserId": lastUserID,
 		})
 		if err != nil {
-			logger.Error("Failed to execute batch read query", zap.Error(err))
+			j.logger.Error("Failed to execute batch read query", zap.Error(err))
 			return err
 		}
 		readQueryDuration := time.Since(readQueryStart)
@@ -191,7 +213,7 @@ func (r *UpdateAggregatesJobRunner) Execute(ctx context.Context, logger *zap.Log
 		lastUserID = &userID
 
 		writeQueryStart := time.Now()
-		tag, err := r.writePool.Exec(ctx, `
+		tag, err := j.writePool.Exec(ctx, `
 		WITH s AS (
 		SELECT * FROM unnest($1::bigint[], $2::double precision[]) AS t(user_id, score)
 		)
@@ -205,13 +227,13 @@ func (r *UpdateAggregatesJobRunner) Execute(ctx context.Context, logger *zap.Log
 		`, userIDs, scores)
 		writeQueryDuration := time.Since(writeQueryStart)
 		if err != nil {
-			logger.Error("Failed to execute update query", zap.Error(err))
+			j.logger.Error("Failed to execute update query", zap.Error(err))
 			return err
 		}
 
 		processedCount += fetchedRows
 		scoreUpdatedCount += tag.RowsAffected()
-		logger.Info("Processed batch",
+		j.logger.Info("Processed batch",
 			zap.Int("batch_size", fetchedRows),
 			zap.Int32("last_user_id", userID),
 			zap.String("last_created_at", lastCreatedAt.Format(time.RFC3339)),
@@ -221,32 +243,13 @@ func (r *UpdateAggregatesJobRunner) Execute(ctx context.Context, logger *zap.Log
 			zap.Duration("write_query_duration", writeQueryDuration))
 
 		if fetchedRows < UpdateUserScoresBatchSize {
-			logger.Info("Finished processing all users", zap.Int("total_processed", processedCount), zap.Int64("total_score_changes", scoreUpdatedCount), zap.Duration("duration", time.Since(startTime)))
+			j.logger.Info("Finished processing all users",
+				zap.Int("total_processed", processedCount),
+				zap.Int64("total_score_changes", scoreUpdatedCount),
+				zap.Duration("duration", time.Since(startTime)))
 			break
 		}
 	}
 
 	return nil
-}
-
-type UpdateAggregatesJob struct {
-	*BaseJob
-}
-
-func NewUpdateAggregatesJob(config config.Config, writePool database.DbPool, readPool *dbv1.DBPools) *UpdateAggregatesJob {
-	runner := &UpdateAggregatesJobRunner{writePool: writePool, readPool: readPool}
-	baseJob := NewBaseJob(BaseJobConfig{
-		config:  config,
-		jobName: "UpdateAggregatesJob",
-		runner:  runner,
-	})
-
-	return &UpdateAggregatesJob{
-		BaseJob: baseJob,
-	}
-}
-
-func (j *UpdateAggregatesJob) ScheduleEvery(ctx context.Context, duration time.Duration) *UpdateAggregatesJob {
-	j.BaseJob.ScheduleEvery(ctx, duration)
-	return j
 }

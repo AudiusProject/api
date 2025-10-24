@@ -2,7 +2,6 @@ package indexer
 
 import (
 	"context"
-	"time"
 
 	dbv1 "api.audius.co/api/dbv1"
 	"api.audius.co/config"
@@ -10,9 +9,11 @@ import (
 	"api.audius.co/jobs"
 	"api.audius.co/logging"
 	"github.com/jackc/pgx/v5/pgxpool"
+	"go.uber.org/zap"
 )
 
 type AggregatesIndexer struct {
+	logger              *zap.Logger
 	readPool            *dbv1.DBPools
 	writePool           database.DbPool
 	updateAggregatesJob *jobs.UpdateAggregatesJob
@@ -30,21 +31,29 @@ func NewAggregatesIndexer(config config.Config) *AggregatesIndexer {
 	}
 
 	return &AggregatesIndexer{
-		readPool:            readPool,
-		writePool:           writePool,
-		updateAggregatesJob: jobs.NewUpdateAggregatesJob(config, writePool, readPool),
+		logger:    logger,
+		readPool:  readPool,
+		writePool: writePool,
+		updateAggregatesJob: jobs.NewUpdateAggregatesJob(jobs.UpdateAggregatesJobConfig{
+			WritePool: writePool,
+			ReadPool:  readPool,
+			Logger:    logger,
+		}),
 	}
 }
 
 func (a *AggregatesIndexer) Start(ctx context.Context) error {
-	// try to run every 5 minutes. Job may take longer than 5 minutes to complete
-	// and result in every 10 minutes.
-	a.updateAggregatesJob.ScheduleEvery(ctx, 5*time.Minute)
-	go a.updateAggregatesJob.Run(ctx)
-
-	// wait on context to be cancelled
-	<-ctx.Done()
-	return ctx.Err()
+	a.logger.Info("Starting aggregates indexer")
+	// This job runs in a continous loop until the context is cancelled.
+	for {
+		select {
+		case <-ctx.Done():
+			a.logger.Info("Shutting down aggregates indexer")
+			return ctx.Err()
+		default:
+			a.updateAggregatesJob.Run(ctx)
+		}
+	}
 }
 
 func (a *AggregatesIndexer) Close() {
