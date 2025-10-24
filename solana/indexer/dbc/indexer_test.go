@@ -31,6 +31,8 @@ func TestHandleUpdate_SlotCheckpoint(t *testing.T) {
 
 	request := pb.SubscribeRequest{}
 	checkpointId, err := common.InsertCheckpointStart(t.Context(), pool, "test", 1000, &request)
+	require.NoError(t, err)
+
 	update := pb.SubscribeUpdate{
 		Filters: []string{checkpointId},
 		UpdateOneof: &pb.SubscribeUpdate_Slot{

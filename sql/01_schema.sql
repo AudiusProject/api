@@ -3,8 +3,8 @@
 --
 
 
--- Dumped from database version 17.6 (Debian 17.6-1.pgdg13+1)
--- Dumped by pg_dump version 17.6 (Debian 17.6-1.pgdg13+1)
+-- Dumped from database version 17.6 (Debian 17.6-2.pgdg13+1)
+-- Dumped by pg_dump version 17.6 (Debian 17.6-2.pgdg13+1)
 
 SET statement_timeout = 0;
 SET lock_timeout = 0;
@@ -7267,6 +7267,34 @@ CREATE TABLE public.sol_keypairs (
 
 
 --
+-- Name: sol_locker_vesting_escrows; Type: TABLE; Schema: public; Owner: -
+--
+
+CREATE TABLE public.sol_locker_vesting_escrows (
+    account text NOT NULL,
+    slot bigint NOT NULL,
+    recipient text NOT NULL,
+    token_mint text NOT NULL,
+    creator text NOT NULL,
+    base text NOT NULL,
+    escrow_bump smallint NOT NULL,
+    update_recipient_mode smallint NOT NULL,
+    cancel_mode smallint NOT NULL,
+    token_program_flag smallint NOT NULL,
+    cliff_time bigint NOT NULL,
+    frequency bigint NOT NULL,
+    cliff_unlock_amount bigint NOT NULL,
+    amount_per_period bigint NOT NULL,
+    number_of_period bigint NOT NULL,
+    total_claimed_amount bigint NOT NULL,
+    vesting_start_time bigint NOT NULL,
+    cancelled_at bigint NOT NULL,
+    created_at timestamp without time zone DEFAULT now(),
+    updated_at timestamp without time zone DEFAULT now()
+);
+
+
+--
 -- Name: sol_meteora_damm_v2_pool_base_fees; Type: TABLE; Schema: public; Owner: -
 --
 
@@ -9481,6 +9509,14 @@ ALTER TABLE ONLY public.sol_claimable_accounts
 
 ALTER TABLE ONLY public.sol_keypairs
     ADD CONSTRAINT sol_keypairs_pkey PRIMARY KEY (public_key);
+
+
+--
+-- Name: sol_locker_vesting_escrows sol_locker_vesting_escrows_pkey; Type: CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.sol_locker_vesting_escrows
+    ADD CONSTRAINT sol_locker_vesting_escrows_pkey PRIMARY KEY (account);
 
 
 --
