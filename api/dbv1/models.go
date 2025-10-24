@@ -2248,7 +2248,7 @@ type User struct {
 	Donation               pgtype.Text     `json:"donation"`
 	ProfileType            *string         `json:"profile_type"`
 	// The mint of the coin which the user has selected as their preferred flair. NULL for auto, empty string for none.
-	PreferredCoinFlairMint pgtype.Text `json:"preferred_coin_flair_mint"`
+	PreferredCoinFlairMint pgtype.Text `json:"coin_flair_mint"`
 }
 
 type UserBalance struct {

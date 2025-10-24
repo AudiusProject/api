@@ -8240,15 +8240,15 @@ CREATE TABLE public.users (
     website character varying,
     donation character varying,
     profile_type public.profile_type_enum,
-    preferred_coin_flair_mint text
+    coin_flair_mint text
 );
 
 
 --
--- Name: COLUMN users.preferred_coin_flair_mint; Type: COMMENT; Schema: public; Owner: -
+-- Name: COLUMN users.coin_flair_mint; Type: COMMENT; Schema: public; Owner: -
 --
 
-COMMENT ON COLUMN public.users.preferred_coin_flair_mint IS 'The mint of the coin which the user has selected as their preferred flair. NULL for auto, empty string for none.';
+COMMENT ON COLUMN public.users.coin_flair_mint IS 'The mint of the coin which the user has selected as their preferred flair. NULL for auto, empty string for none.';
 
 
 --

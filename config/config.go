@@ -94,7 +94,6 @@ func init() {
 
 		Cfg.AudiusdChainID = core_config.DevAcdcChainID
 		Cfg.AudiusdEntityManagerAddress = core_config.DevAcdcAddress
-		Cfg.SolanaIndexerRetryInterval = 10 * time.Second
 		Cfg.AudiusAppUrl = "http://localhost:3000"
 	case "stage":
 		fallthrough
