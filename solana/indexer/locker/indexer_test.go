@@ -52,6 +52,7 @@ func TestHandleUpdate_VestingEscrow(t *testing.T) {
 
 	indexer := New(common.GrpcConfig{}, &rpcClient, pool, logger)
 
+	// Real VestingEscrow account data taken from prod
 	escrowAddress := solana.MustPublicKeyFromBase58("7fXoYtLh1bG7q3Yh3b3Y9T5oX5nU5Y1Z6L8v1K5vU6Lm")
 	escrowBase64 := "9He3BEl0h8Pma7+K8q1+Y5zeZOJijiDxit+NwzCo6fSDuaAK1rtuUHcaLxqg1AjgXzqUrEhTyula0B3153h+c/pj9a/R+ETB2mNoH3KGvMgGcZ4sK1CiAVckO/yWaLEVILxThD7c2wiAwc02YNTKuGhqgHA0AyospRPz5Pq9NNsMGdSqUKuLgf4CAQAAAAAAwZvyaAAAAACAUQEAAAAAAAAAAAAAAAAADhyqNy35AAAhBwAAAAAAAAYAAAAAAAAAwZvyaAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA="
 	escrowData, err := base64.StdEncoding.DecodeString(escrowBase64)
