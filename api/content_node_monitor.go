@@ -114,7 +114,7 @@ func (m *ContentNodeMonitor) getRegisteredNodes(ctx context.Context) ([]config.N
 	var nodes []config.Node
 	var endpointStrings []string
 	for _, endpoint := range endpoints.Msg.Endpoints {
-		if endpoint.ServiceType == "content-node" {
+		if endpoint.ServiceType == "content-node" || endpoint.ServiceType == "validator" {
 			nodes = append(nodes, config.Node{
 				Endpoint:            endpoint.Endpoint,
 				DelegateOwnerWallet: endpoint.DelegateWallet,
