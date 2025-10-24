@@ -1,4 +1,5 @@
 # Audius API Server
+
 The API backend for the Audius mobile apps and [audius.co](https://audius.co)
 
 [![license](https://img.shields.io/github/license/AudiusProject/api)](https://github.com/AudiusProject/api/blob/main/LICENSE) [![releases](https://img.shields.io/github/v/release/AudiusProject/api)](https://github.com/AudiusProject/api/releases/latest)
@@ -45,20 +46,15 @@ The API backend for the Audius mobile apps and [audius.co](https://audius.co)
 ### Tests
 
 #### To run tests against the existing schemas
+
 ```
 docker compose up -d
 make test
 ```
 
 #### To update schema after migration changes and run tests
+
 ```
-docker compose up -d
-
-# update .env to contain
-writeDbUrl=postgresql://postgres:example@localhost:21300/postgres
-runMigrations=true
-
-make migrate
 make test-schema
 make test
 ```

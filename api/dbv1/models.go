@@ -854,6 +854,8 @@ type ArtistCoin struct {
 	Link2       pgtype.Text `json:"link_2"`
 	Link3       pgtype.Text `json:"link_3"`
 	Link4       pgtype.Text `json:"link_4"`
+	// The canonical DAMM V2 pool address for this artist coin, if any. Used in solana indexer.
+	DammV2Pool pgtype.Text `json:"damm_v2_pool"`
 }
 
 type ArtistCoinPool struct {
@@ -1634,6 +1636,201 @@ type SolKeypair struct {
 	PrivateKey []byte `json:"private_key"`
 }
 
+// Tracks DAMM V2 pool state. Join with sol_meteora_damm_v2_pool_metrics, sol_meteora_damm_v2_pool_fees, sol_meteora_damm_v2_pool_base_fees, and sol_meteora_damm_v2_pool_dynamic_fees for full pool state.
+type SolMeteoraDammV2Pool struct {
+	Account                string         `json:"account"`
+	Slot                   int64          `json:"slot"`
+	TokenAMint             string         `json:"token_a_mint"`
+	TokenBMint             string         `json:"token_b_mint"`
+	TokenAVault            string         `json:"token_a_vault"`
+	TokenBVault            string         `json:"token_b_vault"`
+	WhitelistedVault       string         `json:"whitelisted_vault"`
+	Partner                string         `json:"partner"`
+	Liquidity              pgtype.Numeric `json:"liquidity"`
+	ProtocolAFee           int64          `json:"protocol_a_fee"`
+	ProtocolBFee           int64          `json:"protocol_b_fee"`
+	PartnerAFee            int64          `json:"partner_a_fee"`
+	PartnerBFee            int64          `json:"partner_b_fee"`
+	SqrtMinPrice           pgtype.Numeric `json:"sqrt_min_price"`
+	SqrtMaxPrice           pgtype.Numeric `json:"sqrt_max_price"`
+	SqrtPrice              pgtype.Numeric `json:"sqrt_price"`
+	ActivationPoint        int64          `json:"activation_point"`
+	ActivationType         int16          `json:"activation_type"`
+	PoolStatus             int16          `json:"pool_status"`
+	TokenAFlag             int16          `json:"token_a_flag"`
+	TokenBFlag             int16          `json:"token_b_flag"`
+	CollectFeeMode         int16          `json:"collect_fee_mode"`
+	PoolType               int16          `json:"pool_type"`
+	Version                int16          `json:"version"`
+	FeeAPerLiquidity       pgtype.Numeric `json:"fee_a_per_liquidity"`
+	FeeBPerLiquidity       pgtype.Numeric `json:"fee_b_per_liquidity"`
+	PermanentLockLiquidity pgtype.Numeric `json:"permanent_lock_liquidity"`
+	Creator                string         `json:"creator"`
+	CreatedAt              time.Time      `json:"created_at"`
+	UpdatedAt              time.Time      `json:"updated_at"`
+}
+
+// Tracks base fee configuration for DAMM V2 pools. A slice of the DAMM V2 pool state.
+type SolMeteoraDammV2PoolBaseFee struct {
+	Pool              string    `json:"pool"`
+	Slot              int64     `json:"slot"`
+	CliffFeeNumerator int64     `json:"cliff_fee_numerator"`
+	FeeSchedulerMode  int16     `json:"fee_scheduler_mode"`
+	NumberOfPeriod    int16     `json:"number_of_period"`
+	PeriodFrequency   int64     `json:"period_frequency"`
+	ReductionFactor   int64     `json:"reduction_factor"`
+	CreatedAt         time.Time `json:"created_at"`
+	UpdatedAt         time.Time `json:"updated_at"`
+}
+
+// Tracks dynamic fee configuration for DAMM V2 pools. A slice of the DAMM V2 pool state.
+type SolMeteoraDammV2PoolDynamicFee struct {
+	Pool                     string         `json:"pool"`
+	Slot                     int64          `json:"slot"`
+	Initialized              int16          `json:"initialized"`
+	MaxVolatilityAccumulator int32          `json:"max_volatility_accumulator"`
+	VariableFeeControl       int32          `json:"variable_fee_control"`
+	BinStep                  int16          `json:"bin_step"`
+	FilterPeriod             int16          `json:"filter_period"`
+	DecayPeriod              int16          `json:"decay_period"`
+	ReductionFactor          int16          `json:"reduction_factor"`
+	LastUpdateTimestamp      int64          `json:"last_update_timestamp"`
+	BinStepU128              pgtype.Numeric `json:"bin_step_u128"`
+	SqrtPriceReference       pgtype.Numeric `json:"sqrt_price_reference"`
+	VolatilityAccumulator    pgtype.Numeric `json:"volatility_accumulator"`
+	VolatilityReference      pgtype.Numeric `json:"volatility_reference"`
+	CreatedAt                time.Time      `json:"created_at"`
+	UpdatedAt                time.Time      `json:"updated_at"`
+}
+
+// Tracks fee configuration for DAMM V2 pools. A slice of the DAMM V2 pool state.
+type SolMeteoraDammV2PoolFee struct {
+	Pool               string    `json:"pool"`
+	Slot               int64     `json:"slot"`
+	ProtocolFeePercent int16     `json:"protocol_fee_percent"`
+	PartnerFeePercent  int16     `json:"partner_fee_percent"`
+	ReferralFeePercent int16     `json:"referral_fee_percent"`
+	CreatedAt          time.Time `json:"created_at"`
+	UpdatedAt          time.Time `json:"updated_at"`
+}
+
+// Tracks aggregated metrics for DAMM V2 pools. A slice of the DAMM V2 pool state.
+type SolMeteoraDammV2PoolMetric struct {
+	Pool              string         `json:"pool"`
+	Slot              int64          `json:"slot"`
+	TotalLpAFee       pgtype.Numeric `json:"total_lp_a_fee"`
+	TotalLpBFee       pgtype.Numeric `json:"total_lp_b_fee"`
+	TotalProtocolAFee pgtype.Numeric `json:"total_protocol_a_fee"`
+	TotalProtocolBFee pgtype.Numeric `json:"total_protocol_b_fee"`
+	TotalPartnerAFee  pgtype.Numeric `json:"total_partner_a_fee"`
+	TotalPartnerBFee  pgtype.Numeric `json:"total_partner_b_fee"`
+	TotalPosition     int64          `json:"total_position"`
+	CreatedAt         time.Time      `json:"created_at"`
+	UpdatedAt         time.Time      `json:"updated_at"`
+}
+
+// Tracks DAMM V2 positions representing a claim to the liquidity and associated fees in a DAMM V2 pool. Join with sol_meteora_damm_v2_position_metrics for full position state.
+type SolMeteoraDammV2Position struct {
+	Account                  string         `json:"account"`
+	Slot                     int64          `json:"slot"`
+	Pool                     string         `json:"pool"`
+	NftMint                  string         `json:"nft_mint"`
+	FeeAPerTokenCheckpoint   int64          `json:"fee_a_per_token_checkpoint"`
+	FeeBPerTokenCheckpoint   int64          `json:"fee_b_per_token_checkpoint"`
+	FeeAPending              int64          `json:"fee_a_pending"`
+	FeeBPending              int64          `json:"fee_b_pending"`
+	UnlockedLiquidity        pgtype.Numeric `json:"unlocked_liquidity"`
+	VestedLiquidity          pgtype.Numeric `json:"vested_liquidity"`
+	PermanentLockedLiquidity pgtype.Numeric `json:"permanent_locked_liquidity"`
+	CreatedAt                time.Time      `json:"created_at"`
+	UpdatedAt                time.Time      `json:"updated_at"`
+}
+
+// Tracks aggregated metrics for DAMM V2 positions. A slice of the DAMM V2 position state.
+type SolMeteoraDammV2PositionMetric struct {
+	Position         string    `json:"position"`
+	Slot             int64     `json:"slot"`
+	TotalClaimedAFee int64     `json:"total_claimed_a_fee"`
+	TotalClaimedBFee int64     `json:"total_claimed_b_fee"`
+	CreatedAt        time.Time `json:"created_at"`
+	UpdatedAt        time.Time `json:"updated_at"`
+}
+
+// Tracks migrations from DBC pools to DAMM V2 pools.
+type SolMeteoraDbcMigration struct {
+	Signature                string    `json:"signature"`
+	InstructionIndex         int32     `json:"instruction_index"`
+	Slot                     int64     `json:"slot"`
+	DbcPool                  string    `json:"dbc_pool"`
+	MigrationMetadata        string    `json:"migration_metadata"`
+	Config                   string    `json:"config"`
+	DbcPoolAuthority         string    `json:"dbc_pool_authority"`
+	DammV2Pool               string    `json:"damm_v2_pool"`
+	FirstPositionNftMint     string    `json:"first_position_nft_mint"`
+	FirstPositionNftAccount  string    `json:"first_position_nft_account"`
+	FirstPosition            string    `json:"first_position"`
+	SecondPositionNftMint    string    `json:"second_position_nft_mint"`
+	SecondPositionNftAccount string    `json:"second_position_nft_account"`
+	SecondPosition           string    `json:"second_position"`
+	DammPoolAuthority        string    `json:"damm_pool_authority"`
+	BaseMint                 string    `json:"base_mint"`
+	QuoteMint                string    `json:"quote_mint"`
+	CreatedAt                time.Time `json:"created_at"`
+	UpdatedAt                time.Time `json:"updated_at"`
+}
+
+type SolMeteoraDbcPool struct {
+	Account                    string         `json:"account"`
+	Slot                       int64          `json:"slot"`
+	Config                     string         `json:"config"`
+	Creator                    string         `json:"creator"`
+	BaseMint                   string         `json:"base_mint"`
+	BaseVault                  string         `json:"base_vault"`
+	QuoteVault                 string         `json:"quote_vault"`
+	BaseReserve                int64          `json:"base_reserve"`
+	QuoteReserve               int64          `json:"quote_reserve"`
+	ProtocolBaseFee            int64          `json:"protocol_base_fee"`
+	ProtocolQuoteFee           int64          `json:"protocol_quote_fee"`
+	PartnerBaseFee             int64          `json:"partner_base_fee"`
+	PartnerQuoteFee            int64          `json:"partner_quote_fee"`
+	SqrtPrice                  pgtype.Numeric `json:"sqrt_price"`
+	ActivationPoint            int64          `json:"activation_point"`
+	PoolType                   int16          `json:"pool_type"`
+	IsMigrated                 int16          `json:"is_migrated"`
+	IsPartnerWithdrawSurplus   int16          `json:"is_partner_withdraw_surplus"`
+	IsProtocolWithdrawSurplus  int16          `json:"is_protocol_withdraw_surplus"`
+	MigrationProgress          int16          `json:"migration_progress"`
+	IsWithdrawLeftover         int16          `json:"is_withdraw_leftover"`
+	IsCreatorWithdrawSurplus   int16          `json:"is_creator_withdraw_surplus"`
+	MigrationFeeWithdrawStatus int16          `json:"migration_fee_withdraw_status"`
+	FinishCurveTimestamp       int64          `json:"finish_curve_timestamp"`
+	CreatorBaseFee             int64          `json:"creator_base_fee"`
+	CreatorQuoteFee            int64          `json:"creator_quote_fee"`
+	CreatedAt                  time.Time      `json:"created_at"`
+	UpdatedAt                  time.Time      `json:"updated_at"`
+}
+
+type SolMeteoraDbcPoolMetric struct {
+	Pool                  string    `json:"pool"`
+	Slot                  int64     `json:"slot"`
+	TotalProtocolBaseFee  int64     `json:"total_protocol_base_fee"`
+	TotalProtocolQuoteFee int64     `json:"total_protocol_quote_fee"`
+	TotalTradingBaseFee   int64     `json:"total_trading_base_fee"`
+	TotalTradingQuoteFee  int64     `json:"total_trading_quote_fee"`
+	CreatedAt             time.Time `json:"created_at"`
+	UpdatedAt             time.Time `json:"updated_at"`
+}
+
+type SolMeteoraDbcPoolVolatilityTracker struct {
+	Pool                  string         `json:"pool"`
+	Slot                  int64          `json:"slot"`
+	LastUpdateTimestamp   int64          `json:"last_update_timestamp"`
+	VolatilityAccumulator pgtype.Numeric `json:"volatility_accumulator"`
+	VolatilityReference   pgtype.Numeric `json:"volatility_reference"`
+	CreatedAt             time.Time      `json:"created_at"`
+	UpdatedAt             time.Time      `json:"updated_at"`
+}
+
 // Stores payment router program Route instruction recipients and amounts for tracked mints.
 type SolPayment struct {
 	Signature        string `json:"signature"`
@@ -1664,6 +1861,21 @@ type SolPurchase struct {
 	Country pgtype.Text `json:"country"`
 }
 
+// Queue for retrying failed indexer updates.
+type SolRetryQueue struct {
+	ID pgtype.UUID `json:"id"`
+	// The name of the indexer that failed (e.g., token_indexer, damm_v2_indexer).
+	Indexer string `json:"indexer"`
+	// The JSONB update data that failed to process.
+	UpdateMessage json.RawMessage `json:"update_message"`
+	// The error message from the failure.
+	Error string `json:"error"`
+	// The timestamp when the retry entry was created.
+	CreatedAt time.Time `json:"created_at"`
+	// The timestamp when the retry entry was last updated.
+	UpdatedAt time.Time `json:"updated_at"`
+}
+
 // Stores reward manager program Evaluate instructions for tracked mints.
 type SolRewardDisbursement struct {
 	Signature        string `json:"signature"`
@@ -1673,6 +1885,8 @@ type SolRewardDisbursement struct {
 	UserBank         string `json:"user_bank"`
 	ChallengeID      string `json:"challenge_id"`
 	Specifier        string `json:"specifier"`
+	// The Ethereum address of the recipient of the reward.
+	RecipientEthAddress pgtype.Text `json:"recipient_eth_address"`
 }
 
 // Stores checkpoints for Solana slots to track indexing progress.
@@ -1684,6 +1898,8 @@ type SolSlotCheckpoint struct {
 	Subscription     json.RawMessage `json:"subscription"`
 	UpdatedAt        time.Time       `json:"updated_at"`
 	CreatedAt        time.Time       `json:"created_at"`
+	// The name of the indexer this checkpoint is for (e.g., token_indexer, damm_v2_indexer).
+	Name pgtype.Text `json:"name"`
 }
 
 // Stores eg. Jupiter swaps for tracked mints.

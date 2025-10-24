@@ -1,0 +1,5 @@
+BEGIN;
+
+ALTER TABLE artist_coins DROP COLUMN IF EXISTS dbc_pool;
+
+COMMIT;

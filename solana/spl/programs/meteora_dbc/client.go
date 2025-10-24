@@ -7,8 +7,6 @@ import (
 	"go.uber.org/zap"
 )
 
-var DbcProgramID = solana.MustPublicKeyFromBase58("dbcij3LWUppWqq96dh6gJWwBifmcGfLSB5D4DuSMaqN")
-
 type RpcClient interface {
 	GetAccountDataBorshInto(ctx context.Context, account solana.PublicKey, out interface{}) error
 }

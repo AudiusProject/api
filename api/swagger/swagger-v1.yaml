@@ -2209,6 +2209,43 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/user_coin_response'
+  /wallet/{walletId}/coins:
+    get:
+      tags:
+      - wallet
+      description: 'Gets a list of the coins held by a wallet address and their balances'
+      parameters:
+      - name: walletId
+        in: path
+        description: A Solana wallet address
+        required: true
+        schema:
+          type: string
+          example: "Dez1g5f3h4j5k6l7m8n9o0p1q2r3s4t5u6v7w8x9y0z"
+      - name: offset
+        in: query
+        description: The number of items to skip. Useful for pagination (page number
+          * limit)
+        schema:
+          type: integer
+          default: 0
+          minimum: 0
+      - name: limit
+        in: query
+        description: The number of items to fetch
+        schema:
+          type: integer
+          default: 50
+          minimum: 1
+          maximum: 100
+      operationId: Get Wallet Coins
+      responses:
+        '200':
+          description: Success
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/user_coins_response'
   /users/{id}/collectibles:
     get:
       tags:
@@ -5615,6 +5652,34 @@ components:
               type: string
               description: Address of the pool creator's wallet
               example: "2AAsAwNPTNBk5N466xyPiwqdgbc5WLbDTdnn9gVuDKaN"
+        artist_fees:
+          type: object
+          description: Information about the fees earned by the artist on the coin's trading.
+          properties:
+            unclaimed_dbc_fees:
+              type: number
+              description: Unclaimed fees from the dynamic bonding curve, in $AUDIO.
+              example: 1000000000
+            total_dbc_fees:
+              type: number
+              description: Total fees earned from the dynamic bonding curve, in $AUDIO.
+              example: 2000000000
+            unclaimed_damm_v2_fees:
+              type: number
+              description: Unclaimed fees from the DAMM v2 pools, in $AUDIO.
+              example: 1000000000
+            total_damm_v2_fees:
+              type: number
+              description: Total fees earned from the DAMM v2 pools, in $AUDIO.
+              example: 2000000000
+            unclaimed_fees:
+              type: number
+              description: Total unclaimed fees from all sources, in $AUDIO.
+              example: 2000000000
+            total_fees:
+              type: number
+              description: Total fees earned from all sources, in $AUDIO.
+              example: 4000000000
     coin_response:
       type: object
       properties:
@@ -6125,6 +6190,11 @@ components:
           type: string
           description: The ID of the user associated with the coin
           example: "7eP5n"
+        logo_uri:
+          type: string
+          nullable: true
+          description: URL to the coin's logo image
+          example: "https://example.com/logo.png"
         has_discord:
           type: boolean
           description: Whether the coin has a Discord server
@@ -6168,6 +6238,11 @@ components:
           type: integer
           description: The number of decimals for the coin
           example: 8
+        logo_uri:
+          type: string
+          nullable: true
+          description: URL to the coin's logo image
+          example: "https://example.com/logo.png"
         balance:
           type: integer
           description: The total balance of the coin in the user's account (in wei)

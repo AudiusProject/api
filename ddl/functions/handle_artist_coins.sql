@@ -1,7 +1,20 @@
 CREATE OR REPLACE FUNCTION handle_artist_coins_change()
 RETURNS trigger AS $$
 BEGIN
-    PERFORM pg_notify('artist_coins_changed', json_build_object('operation', TG_OP, 'new_mint', NEW.mint, 'old_mint', OLD.mint)::text);
+    IF (OLD.mint IS NULL AND NEW.mint IS NOT NULL) 
+        OR (OLD.mint IS NOT NULL AND NEW.mint IS NULL)
+        OR OLD.mint != NEW.mint
+    THEN
+        PERFORM pg_notify('artist_coins_mint_changed', JSON_BUILD_OBJECT('new', NEW.mint, 'old', OLD.mint)::TEXT);
+    END IF;
+
+    IF (OLD.damm_v2_pool IS NULL AND NEW.damm_v2_pool IS NOT NULL) 
+        OR (OLD.damm_v2_pool IS NOT NULL AND NEW.damm_v2_pool IS NULL)
+        OR OLD.damm_v2_pool != NEW.damm_v2_pool
+    THEN
+        PERFORM pg_notify('artist_coins_damm_v2_pool_changed', JSON_BUILD_OBJECT('new', NEW.damm_v2_pool, 'old', OLD.damm_v2_pool)::TEXT);
+    END IF;
+    
     RETURN NEW;
     EXCEPTION
         WHEN OTHERS THEN

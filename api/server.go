@@ -381,6 +381,7 @@ func NewApiServer(config config.Config) *ApiServer {
 		g.Get("/users/:userId/now-playing", app.v1UsersNowPlaying)
 		g.Get("/users/:userId/coins", app.v1UsersCoins)
 		g.Get("/users/:userId/coins/:mint", app.v1UsersCoin)
+		g.Get("/wallet/:walletId/coins", app.v1WalletCoins)
 		g.Get("/users/:userId/authorized_apps", app.v1UsersAuthorizedApps)
 		g.Get("/users/:userId/authorized-apps", app.v1UsersAuthorizedApps)
 		g.Get("/users/:userId/developer_apps", app.v1UsersDeveloperApps)
