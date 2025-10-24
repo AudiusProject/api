@@ -3,8 +3,8 @@
 --
 
 
--- Dumped from database version 17.6 (Debian 17.6-2.pgdg13+1)
--- Dumped by pg_dump version 17.6 (Debian 17.6-2.pgdg13+1)
+-- Dumped from database version 17.6 (Debian 17.6-1.pgdg13+1)
+-- Dumped by pg_dump version 17.6 (Debian 17.6-1.pgdg13+1)
 
 SET statement_timeout = 0;
 SET lock_timeout = 0;
@@ -10243,6 +10243,13 @@ CREATE INDEX ix_plays_slot ON public.plays USING btree (slot);
 --
 
 CREATE INDEX ix_plays_sol_signature ON public.plays USING btree (signature);
+
+
+--
+-- Name: ix_plays_user_hour; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX ix_plays_user_hour ON public.plays USING btree (user_id, date_trunc('hour'::text, created_at)) WHERE (user_id IS NOT NULL);
 
 
 --
