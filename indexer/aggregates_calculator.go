@@ -2,6 +2,7 @@ package indexer
 
 import (
 	"context"
+	"time"
 
 	dbv1 "api.audius.co/api/dbv1"
 	"api.audius.co/config"
@@ -44,6 +45,7 @@ func NewAggregatesCalculator(config config.Config) *AggregatesCalculator {
 
 func (a *AggregatesCalculator) Start(ctx context.Context) error {
 	a.logger.Info("Starting aggregates calculator")
+	go logging.SyncOnTicks(ctx, a.logger, time.Second*10)
 	// This job runs in a continous loop until the context is cancelled.
 	for {
 		select {
