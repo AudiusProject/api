@@ -27,6 +27,7 @@ func (app *ApiServer) v1PlaylistsTop(c *fiber.Ctx) error {
 	q := searchv1.PlaylistSearchQuery{
 		IsTagSearch: false,
 		Moods:       moods,
+		IsAlbum:     params.Type == "album",
 		SortMethod:  "popular",
 	}
 
