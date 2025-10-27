@@ -1,6 +1,8 @@
 package api
 
 import (
+	"strings"
+
 	"api.audius.co/api/dbv1"
 	"api.audius.co/api/searchv1"
 	"github.com/gofiber/fiber/v2"
@@ -21,7 +23,9 @@ func (app *ApiServer) v1PlaylistsTop(c *fiber.Ctx) error {
 
 	moods := []string{}
 	if params.Mood != "" {
-		moods = []string{params.Mood}
+		// Working around a quirk with mood indexing: track moods begin with a capital letter and must match exactly.
+		capitalizedMood := strings.ToUpper(string(params.Mood[0])) + strings.ToLower(params.Mood[1:])
+		moods = []string{capitalizedMood}
 	}
 
 	q := searchv1.PlaylistSearchQuery{

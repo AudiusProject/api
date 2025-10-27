@@ -53,22 +53,28 @@ func (q *PlaylistSearchQuery) Map() map[string]any {
 	builder.Filter(esquery.Term("is_album", q.IsAlbum))
 
 	if len(q.Genres) > 0 {
-		builder.Filter(esquery.Terms("tracks.genre.keyword", toAnySlice(q.Genres)...))
+		// Normalize to capitalized names since keyword filtering must be exact
+		capitalizedGenres := make([]string, len(q.Genres))
+		for i, value := range q.Genres {
+			capitalizedGenres[i] = strings.ToUpper(string(value[0])) + strings.ToLower(value[1:])
+		}
+		builder.Filter(esquery.Terms("tracks.genre.keyword", toAnySlice(capitalizedGenres)...))
 		// by using a match query... the TF/IDF will apply to tracks.  Which will rank playlists higher if they have a larger proportion of genre
-		for _, value := range q.Genres {
+		for _, value := range capitalizedGenres {
 			builder.Should(esquery.Match("tracks.genre", value)).Boost(10)
 		}
 	}
 
 	if len(q.Moods) > 0 {
-		moods_lc := make([]string, len(q.Moods))
+		// Normalize to capitalized names since keyword filtering must be exact
+		capitalizedMoods := make([]string, len(q.Moods))
 		for i, value := range q.Moods {
-			moods_lc[i] = strings.ToLower(value)
+			capitalizedMoods[i] = strings.ToUpper(string(value[0])) + strings.ToLower(value[1:])
 		}
-		builder.Filter(esquery.Terms("tracks.mood", toAnySlice(moods_lc)...))
+		builder.Filter(esquery.Terms("tracks.mood.keyword", toAnySlice(capitalizedMoods)...))
 		// by using a match query... the TF/IDF will apply to tracks.  Which will rank playlists higher if they have a larger proportion of mood
-		for _, value := range moods_lc {
-			builder.Should(esquery.Match("tracks.mood", value).Analyzer("simple")).Boost(10)
+		for _, value := range capitalizedMoods {
+			builder.Should(esquery.Match("tracks.mood", value)).Boost(10)
 		}
 	}
 
