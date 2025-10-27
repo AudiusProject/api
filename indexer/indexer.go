@@ -110,8 +110,8 @@ func (ci *CoreIndexer) attemptProcessNextBlock(ctx context.Context, height int64
 	defer func() {
 		if r := recover(); r != nil {
 			ci.logger.Error("panic in attemptProcessNextBlock", zap.Any("panic", r))
-			// Sleep for 10 seconds in case it's a transient error
-			time.Sleep(10 * time.Second)
+			// Sleep for 5 seconds in case it's a transient error
+			time.Sleep(5 * time.Second)
 		}
 	}()
 	block, err := ci.auds.Core.GetBlock(ctx, connect.NewRequest(&corev1.GetBlockRequest{
