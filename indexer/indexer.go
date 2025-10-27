@@ -14,13 +14,15 @@ import (
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgxpool"
 	"go.uber.org/zap"
+	"golang.org/x/sync/errgroup"
 )
 
 type CoreIndexer struct {
-	pool    dbv1.DbPool
-	Config  config.Config
-	logger  *zap.Logger
-	closeCh chan struct{}
+	aggregatesCalculator *AggregatesCalculator
+	pool                 dbv1.DbPool
+	Config               config.Config
+	logger               *zap.Logger
+	closeCh              chan struct{}
 }
 
 const (
@@ -39,9 +41,12 @@ func NewIndexer(config config.Config) *CoreIndexer {
 		panic(fmt.Errorf("error connecting to database: %w", err))
 	}
 
+	aggregatesCalculator := NewAggregatesCalculator(config)
+
 	ci := &CoreIndexer{
-		pool:   pool,
-		Config: config,
+		aggregatesCalculator: aggregatesCalculator,
+		pool:                 pool,
+		Config:               config,
 		logger: logging.NewZapLogger(config).
 			Named("CoreIndexer"),
 	}
@@ -50,6 +55,17 @@ func NewIndexer(config config.Config) *CoreIndexer {
 }
 
 func (ci *CoreIndexer) Start(ctx context.Context) error {
+	eg := errgroup.Group{}
+	eg.Go(func() error {
+		return ci.aggregatesCalculator.Start(ctx)
+	})
+	eg.Go(func() error {
+		return ci.run(ctx)
+	})
+	return eg.Wait()
+}
+
+func (ci *CoreIndexer) run(ctx context.Context) error {
 	sdk := sdk.NewAudiusdSDK(ci.Config.AudiusdURL)
 	go logging.SyncOnTicks(ctx, ci.logger, time.Second*10)
 
@@ -157,6 +173,7 @@ func (ci *CoreIndexer) handleManageEntity(dbTx dbv1.DBTX, logger *zap.Logger, em
 }
 
 func (ci *CoreIndexer) Close() {
+	ci.aggregatesCalculator.Close()
 	ci.pool.Close()
 	ci.logger.Sync()
 }

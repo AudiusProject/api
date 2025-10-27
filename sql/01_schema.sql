@@ -3,8 +3,8 @@
 --
 
 
--- Dumped from database version 17.6 (Debian 17.6-2.pgdg13+1)
--- Dumped by pg_dump version 17.6 (Debian 17.6-2.pgdg13+1)
+-- Dumped from database version 17.6 (Debian 17.6-1.pgdg13+1)
+-- Dumped by pg_dump version 17.6 (Debian 17.6-1.pgdg13+1)
 
 SET statement_timeout = 0;
 SET lock_timeout = 0;
@@ -2498,7 +2498,7 @@ begin
                 'challenge_reward',
                 'challenge_reward:' || new.user_id || ':challenge:' || new.challenge_id || ':specifier:' || new.specifier,
                 new.user_id,
-                case 
+                case
                     when new.challenge_id = 'e' then
                         json_build_object(
                             'specifier', new.specifier,
@@ -2516,9 +2516,9 @@ begin
             )
             on conflict do nothing;
         else
-            -- transactional notifications cover this 
+            -- transactional notifications cover this
             if (new.challenge_id != 'b' and new.challenge_id != 's') then
-                select id into existing_notification 
+                select id into existing_notification
                 from notification
                 where
                 type = 'reward_in_cooldown' and
@@ -2543,6 +2543,26 @@ begin
                 end if;
             end if;
         end if;
+
+        -- update user fast challenge count
+        INSERT INTO user_score_features (user_id, challenge_count, updated_at)
+        SELECT
+            NEW.user_id,
+            COUNT(*)::int AS challenge_count,
+            now()
+        FROM user_challenges uc
+        JOIN users u
+        ON u.user_id = uc.user_id
+        WHERE uc.user_id = NEW.user_id
+            AND uc.is_complete
+            AND uc.challenge_id NOT IN ('m','b')
+            AND uc.completed_at <= (u.created_at + interval '3 minutes')
+        ON CONFLICT (user_id) DO UPDATE
+            SET challenge_count = EXCLUDED.challenge_count,
+                updated_at      = EXCLUDED.updated_at
+        WHERE user_score_features.challenge_count IS DISTINCT FROM EXCLUDED.challenge_count;
+
+
     end if;
 
     return new;
@@ -2568,7 +2588,7 @@ begin
     insert into aggregate_plays (play_item_id, count) values (new.play_item_id, 0) on conflict do nothing;
 
     update aggregate_plays
-        set count = count + 1 
+        set count = count + 1
         where play_item_id = new.play_item_id
         returning count into new_listen_count;
 
@@ -2583,8 +2603,8 @@ begin
         and timestamp = date_trunc('month', new.created_at)
         and country = coalesce(new.country, '');
 
-    select new_listen_count 
-        into milestone 
+    select new_listen_count
+        into milestone
         where new_listen_count in (10,25,50,100,250,500,1000,2500,5000,10000,25000,50000,100000,250000,500000,1000000);
 
     if milestone is not null then
@@ -2610,6 +2630,43 @@ begin
             on conflict do nothing;
         end if;
     end if;
+
+    -- update listener's aggregates if applicable
+    if new.user_id is not null then
+        -- Insert or update user_distinct_play_hours
+        -- Only increment if the play's hour is newer than the user's last updated hour
+        insert into user_distinct_play_hours (user_id, hours_with_play, updated_at)
+        values (new.user_id, 1, date_trunc('hour', new.created_at))
+        on conflict (user_id) do update set
+            hours_with_play = case
+                when date_trunc('hour', new.created_at) > date_trunc('hour', user_distinct_play_hours.updated_at)
+                then user_distinct_play_hours.hours_with_play + 1
+                else user_distinct_play_hours.hours_with_play
+            end,
+            updated_at = case
+                when date_trunc('hour', new.created_at) > date_trunc('hour', user_distinct_play_hours.updated_at)
+                then new.created_at
+                else user_distinct_play_hours.updated_at
+            end;
+
+        -- update user_distinct_play_tracks
+        -- Only increment if this is the first time this user has played this track
+        insert into user_distinct_play_tracks (user_id, track_count, updated_at)
+        values (new.user_id, 1, new.created_at)
+        on conflict (user_id) do update set
+            track_count = case
+                when not exists (
+                    select 1 from plays p
+                    where p.user_id = new.user_id
+                    and p.play_item_id = new.play_item_id
+                    and p.id != new.id
+                )
+                then user_distinct_play_tracks.track_count + 1
+                else user_distinct_play_tracks.track_count
+            end,
+            updated_at = new.created_at;
+    end if;
+
     return null;
 
 exception
@@ -8524,6 +8581,42 @@ CREATE TABLE public.user_delist_statuses (
 
 
 --
+-- Name: user_distinct_play_hours; Type: TABLE; Schema: public; Owner: -
+--
+
+CREATE TABLE public.user_distinct_play_hours (
+    user_id integer NOT NULL,
+    hours_with_play integer DEFAULT 0 NOT NULL,
+    updated_at timestamp with time zone DEFAULT now() NOT NULL
+);
+
+
+--
+-- Name: TABLE user_distinct_play_hours; Type: COMMENT; Schema: public; Owner: -
+--
+
+COMMENT ON TABLE public.user_distinct_play_hours IS 'Tracks the number of distinct hours in which a user has listened to a track';
+
+
+--
+-- Name: user_distinct_play_tracks; Type: TABLE; Schema: public; Owner: -
+--
+
+CREATE TABLE public.user_distinct_play_tracks (
+    user_id integer NOT NULL,
+    track_count integer DEFAULT 0 NOT NULL,
+    updated_at timestamp with time zone DEFAULT now() NOT NULL
+);
+
+
+--
+-- Name: TABLE user_distinct_play_tracks; Type: COMMENT; Schema: public; Owner: -
+--
+
+COMMENT ON TABLE public.user_distinct_play_tracks IS 'Tracks the number of distinct tracks a user has listened to';
+
+
+--
 -- Name: user_events; Type: TABLE; Schema: public; Owner: -
 --
 
@@ -8610,6 +8703,31 @@ CREATE TABLE public.user_pubkeys (
     user_id integer NOT NULL,
     pubkey_base64 text NOT NULL
 );
+
+
+--
+-- Name: user_score_features; Type: TABLE; Schema: public; Owner: -
+--
+
+CREATE TABLE public.user_score_features (
+    user_id integer NOT NULL,
+    challenge_count integer DEFAULT 0,
+    updated_at timestamp with time zone DEFAULT now() NOT NULL
+);
+
+
+--
+-- Name: TABLE user_score_features; Type: COMMENT; Schema: public; Owner: -
+--
+
+COMMENT ON TABLE public.user_score_features IS 'Tracks some features used in user score calculation';
+
+
+--
+-- Name: COLUMN user_score_features.challenge_count; Type: COMMENT; Schema: public; Owner: -
+--
+
+COMMENT ON COLUMN public.user_score_features.challenge_count IS 'Tracks the number of fast challenges auser has completed';
 
 
 --
@@ -9912,6 +10030,22 @@ ALTER TABLE ONLY public.user_delist_statuses
 
 
 --
+-- Name: user_distinct_play_hours user_distinct_play_hours_pkey; Type: CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.user_distinct_play_hours
+    ADD CONSTRAINT user_distinct_play_hours_pkey PRIMARY KEY (user_id);
+
+
+--
+-- Name: user_distinct_play_tracks user_distinct_play_tracks_pkey; Type: CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.user_distinct_play_tracks
+    ADD CONSTRAINT user_distinct_play_tracks_pkey PRIMARY KEY (user_id);
+
+
+--
 -- Name: user_events user_events_pkey; Type: CONSTRAINT; Schema: public; Owner: -
 --
 
@@ -9941,6 +10075,14 @@ ALTER TABLE ONLY public.user_payout_wallet_history
 
 ALTER TABLE ONLY public.user_pubkeys
     ADD CONSTRAINT user_pubkeys_pkey PRIMARY KEY (user_id);
+
+
+--
+-- Name: user_score_features user_score_features_pkey; Type: CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.user_score_features
+    ADD CONSTRAINT user_score_features_pkey PRIMARY KEY (user_id);
 
 
 --
@@ -10422,6 +10564,20 @@ CREATE INDEX ix_associated_wallets_wallet ON public.associated_wallets USING btr
 
 
 --
+-- Name: ix_au_user_follows; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX ix_au_user_follows ON public.aggregate_user USING btree (user_id) INCLUDE (follower_count, following_count);
+
+
+--
+-- Name: INDEX ix_au_user_follows; Type: COMMENT; Schema: public; Owner: -
+--
+
+COMMENT ON INDEX public.ix_au_user_follows IS 'Fast lookup for fields use in karma calculation';
+
+
+--
 -- Name: ix_audio_transactions_history_slot; Type: INDEX; Schema: public; Owner: -
 --
 
@@ -10482,6 +10638,20 @@ CREATE INDEX ix_plays_slot ON public.plays USING btree (slot);
 --
 
 CREATE INDEX ix_plays_sol_signature ON public.plays USING btree (signature);
+
+
+--
+-- Name: ix_plays_user_hour; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX ix_plays_user_hour ON public.plays USING btree (user_id, date_trunc('hour'::text, created_at)) WHERE (user_id IS NOT NULL);
+
+
+--
+-- Name: INDEX ix_plays_user_hour; Type: COMMENT; Schema: public; Owner: -
+--
+
+COMMENT ON INDEX public.ix_plays_user_hour IS 'Helps compute distinct hourly plays by user id';
 
 
 --

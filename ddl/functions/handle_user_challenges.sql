@@ -44,7 +44,7 @@ begin
                 'challenge_reward',
                 'challenge_reward:' || new.user_id || ':challenge:' || new.challenge_id || ':specifier:' || new.specifier,
                 new.user_id,
-                case 
+                case
                     when new.challenge_id = 'e' then
                         json_build_object(
                             'specifier', new.specifier,
@@ -62,9 +62,9 @@ begin
             )
             on conflict do nothing;
         else
-            -- transactional notifications cover this 
+            -- transactional notifications cover this
             if (new.challenge_id != 'b' and new.challenge_id != 's') then
-                select id into existing_notification 
+                select id into existing_notification
                 from notification
                 where
                 type = 'reward_in_cooldown' and
@@ -89,6 +89,26 @@ begin
                 end if;
             end if;
         end if;
+
+        -- update user fast challenge count
+        INSERT INTO user_score_features (user_id, challenge_count, updated_at)
+        SELECT
+            NEW.user_id,
+            COUNT(*)::int AS challenge_count,
+            now()
+        FROM user_challenges uc
+        JOIN users u
+        ON u.user_id = uc.user_id
+        WHERE uc.user_id = NEW.user_id
+            AND uc.is_complete
+            AND uc.challenge_id NOT IN ('m','b')
+            AND uc.completed_at <= (u.created_at + interval '3 minutes')
+        ON CONFLICT (user_id) DO UPDATE
+            SET challenge_count = EXCLUDED.challenge_count,
+                updated_at      = EXCLUDED.updated_at
+        WHERE user_score_features.challenge_count IS DISTINCT FROM EXCLUDED.challenge_count;
+
+
     end if;
 
     return new;
