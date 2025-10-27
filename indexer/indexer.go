@@ -60,7 +60,6 @@ func NewIndexer(config config.Config) *CoreIndexer {
 
 func (ci *CoreIndexer) Start(ctx context.Context) error {
 	eg := errgroup.Group{}
-	go logging.SyncOnTicks(ctx, ci.logger, time.Second*10)
 	eg.Go(func() error {
 		return ci.aggregatesCalculator.Start(ctx)
 	})
@@ -71,6 +70,7 @@ func (ci *CoreIndexer) Start(ctx context.Context) error {
 }
 
 func (ci *CoreIndexer) run(ctx context.Context) error {
+	go logging.SyncOnTicks(ctx, ci.logger, time.Second*10)
 	var height int64
 	err := ci.pool.QueryRow(context.Background(), `select last_checkpoint from indexing_checkpoints where tablename = $1`, CoreIndexerCheckpointName).Scan(&height)
 	if err != nil {
@@ -123,7 +123,7 @@ func (ci *CoreIndexer) attemptProcessNextBlock(ctx context.Context, height int64
 	}
 
 	if block.Msg.Block.Height < 0 {
-		ci.logger.Info("No new blocks found, sleeping")
+		ci.logger.Debug("No new blocks found, sleeping")
 		time.Sleep(1 * time.Second)
 		return
 	}
