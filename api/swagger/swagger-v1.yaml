@@ -5656,22 +5656,6 @@ components:
           type: object
           description: Information about the fees earned by the artist on the coin's trading.
           properties:
-            unclaimed_dbc_fees:
-              type: number
-              description: Unclaimed fees from the dynamic bonding curve, in $AUDIO.
-              example: 1000000000
-            total_dbc_fees:
-              type: number
-              description: Total fees earned from the dynamic bonding curve, in $AUDIO.
-              example: 2000000000
-            unclaimed_damm_v2_fees:
-              type: number
-              description: Unclaimed fees from the DAMM v2 pools, in $AUDIO.
-              example: 1000000000
-            total_damm_v2_fees:
-              type: number
-              description: Total fees earned from the DAMM v2 pools, in $AUDIO.
-              example: 2000000000
             unclaimed_fees:
               type: number
               description: Total unclaimed fees from all sources, in $AUDIO.
@@ -5680,6 +5664,38 @@ components:
               type: number
               description: Total fees earned from all sources, in $AUDIO.
               example: 4000000000
+        artist_locker:
+          type: object
+          description: Information about the artist locker associated with the coin.
+          properties:
+            address:
+              type: string
+              description: The address of the artist locker.
+              example: "9bC8rd4qy4EQTHjvCoKFttk5W5km4tUFcVfASCDGro84"
+            locked:
+              type: number
+              description: The amount currently locked in the artist locker.
+              example: 499178082191780800
+            unlocked:
+              type: number
+              description: The amount currently unlocked in the artist locker.
+              example: 821917808219178
+            claimable:
+              type: number
+              description: The amount claimable from the artist locker. Eg. the amount unlocked that hasn't already been claimed.
+              example: 821917808219178
+        reward_pool:
+          type: object
+          description: Information about the reward pool associated with the coin.
+          properties:
+            address:
+              type: string
+              description: The address of the reward pool.
+              example: "6qUSoiMbTEZ4hpN3kuk5bjCRgcTJgUfXftVfTH1CSvZE"
+            balance:
+              type: number
+              description: The current balance of the reward pool.
+              example: 1000000000
     coin_response:
       type: object
       properties:

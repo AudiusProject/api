@@ -25,66 +25,77 @@ type ArtistCoin struct {
 	CreatedAt     time.Time      `json:"created_at"`
 	CoinUpdatedAt time.Time      `json:"coin_updated_at"`
 
-	MarketCap                    float64                      `json:"marketCap" db:"market_cap"`
-	FDV                          float64                      `json:"fdv" db:"fdv"`
-	Liquidity                    float64                      `json:"liquidity" db:"liquidity"`
-	LastTradeUnixTime            int64                        `json:"lastTradeUnixTime" db:"last_trade_unix_time"`
-	LastTradeHumanTime           string                       `json:"lastTradeHumanTime" db:"last_trade_human_time"`
-	Price                        float64                      `json:"price" db:"price"`
-	History24hPrice              float64                      `json:"history24hPrice" db:"history_24h_price"`
-	PriceChange24hPercent        float64                      `json:"priceChange24hPercent" db:"price_change_24h_percent"`
-	UniqueWallet24h              int                          `json:"uniqueWallet24h" db:"unique_wallet_24h"`
-	UniqueWalletHistory24h       int                          `json:"uniqueWalletHistory24h" db:"unique_wallet_history_24h"`
-	UniqueWallet24hChangePercent float64                      `json:"uniqueWallet24hChangePercent" db:"unique_wallet_24h_change_percent"`
-	TotalSupply                  float64                      `json:"totalSupply" db:"total_supply"`
-	CirculatingSupply            float64                      `json:"circulatingSupply" db:"circulating_supply"`
-	Holder                       int                          `json:"holder" db:"holder"`
-	Trade24h                     int                          `json:"trade24h" db:"trade_24h"`
-	TradeHistory24h              int                          `json:"tradeHistory24h" db:"trade_history_24h"`
-	Trade24hChangePercent        float64                      `json:"trade24hChangePercent" db:"trade_24h_change_percent"`
-	Sell24h                      int                          `json:"sell24h" db:"sell_24h"`
-	SellHistory24h               int                          `json:"sellHistory24h" db:"sell_history_24h"`
-	Sell24hChangePercent         float64                      `json:"sell24hChangePercent" db:"sell_24h_change_percent"`
-	Buy24h                       int                          `json:"buy24h" db:"buy_24h"`
-	BuyHistory24h                int                          `json:"buyHistory24h" db:"buy_history_24h"`
-	Buy24hChangePercent          float64                      `json:"buy24hChangePercent" db:"buy_24h_change_percent"`
-	V24h                         float64                      `json:"v24h" db:"v_24h"`
-	V24hUSD                      float64                      `json:"v24hUSD" db:"v_24h_usd"`
-	VHistory24h                  float64                      `json:"vHistory24h" db:"v_history_24h"`
-	VHistory24hUSD               float64                      `json:"vHistory24hUSD" db:"v_history_24h_usd"`
-	V24hChangePercent            float64                      `json:"v24hChangePercent" db:"v_24h_change_percent"`
-	VBuy24h                      float64                      `json:"vBuy24h" db:"v_buy_24h"`
-	VBuy24hUSD                   float64                      `json:"vBuy24hUSD" db:"v_buy_24h_usd"`
-	VBuyHistory24h               float64                      `json:"vBuyHistory24h" db:"v_buy_history_24h"`
-	VBuyHistory24hUSD            float64                      `json:"vBuyHistory24hUSD" db:"v_buy_history_24h_usd"`
-	VBuy24hChangePercent         float64                      `json:"vBuy24hChangePercent" db:"v_buy_24h_change_percent"`
-	VSell24h                     float64                      `json:"vSell24h" db:"v_sell_24h"`
-	VSell24hUSD                  float64                      `json:"vSell24hUSD" db:"v_sell_24h_usd"`
-	VSellHistory24h              float64                      `json:"vSellHistory24h" db:"v_sell_history_24h"`
-	VSellHistory24hUSD           float64                      `json:"vSellHistory24hUSD" db:"v_sell_history_24h_usd"`
-	VSell24hChangePercent        float64                      `json:"vSell24hChangePercent" db:"v_sell_24h_change_percent"`
-	NumberMarkets                int                          `json:"numberMarkets" db:"number_markets"`
-	TotalVolume                  float64                      `json:"totalVolume" db:"total_volume"`
-	TotalVolumeUSD               float64                      `json:"totalVolumeUSD" db:"total_volume_usd"`
-	VolumeBuyUSD                 float64                      `json:"volumeBuyUSD" db:"volume_buy_usd"`
-	VolumeSellUSD                float64                      `json:"volumeSellUSD" db:"volume_sell_usd"`
-	VolumeBuy                    float64                      `json:"volumeBuy" db:"volume_buy"`
-	VolumeSell                   float64                      `json:"volumeSell" db:"volume_sell"`
-	TotalTrade                   int                          `json:"totalTrade" db:"total_trade"`
-	Buy                          int                          `json:"buy" db:"buy"`
-	Sell                         int                          `json:"sell" db:"sell"`
-	DynamicBondingCurve          *DynamicBondingCurveInsights `json:"dynamicBondingCurve" db:"dynamic_bonding_curve"`
-	ArtistFees                   ArtistCoinFees               `json:"artist_fees" db:"artist_fees"`
-	UpdatedAt                    time.Time                    `json:"updatedAt" db:"updated_at"`
+	MarketCap                    float64 `json:"marketCap" db:"market_cap"`
+	FDV                          float64 `json:"fdv" db:"fdv"`
+	Liquidity                    float64 `json:"liquidity" db:"liquidity"`
+	LastTradeUnixTime            int64   `json:"lastTradeUnixTime" db:"last_trade_unix_time"`
+	LastTradeHumanTime           string  `json:"lastTradeHumanTime" db:"last_trade_human_time"`
+	Price                        float64 `json:"price" db:"price"`
+	History24hPrice              float64 `json:"history24hPrice" db:"history_24h_price"`
+	PriceChange24hPercent        float64 `json:"priceChange24hPercent" db:"price_change_24h_percent"`
+	UniqueWallet24h              int     `json:"uniqueWallet24h" db:"unique_wallet_24h"`
+	UniqueWalletHistory24h       int     `json:"uniqueWalletHistory24h" db:"unique_wallet_history_24h"`
+	UniqueWallet24hChangePercent float64 `json:"uniqueWallet24hChangePercent" db:"unique_wallet_24h_change_percent"`
+	TotalSupply                  float64 `json:"totalSupply" db:"total_supply"`
+	CirculatingSupply            float64 `json:"circulatingSupply" db:"circulating_supply"`
+	Holder                       int     `json:"holder" db:"holder"`
+	Trade24h                     int     `json:"trade24h" db:"trade_24h"`
+	TradeHistory24h              int     `json:"tradeHistory24h" db:"trade_history_24h"`
+	Trade24hChangePercent        float64 `json:"trade24hChangePercent" db:"trade_24h_change_percent"`
+	Sell24h                      int     `json:"sell24h" db:"sell_24h"`
+	SellHistory24h               int     `json:"sellHistory24h" db:"sell_history_24h"`
+	Sell24hChangePercent         float64 `json:"sell24hChangePercent" db:"sell_24h_change_percent"`
+	Buy24h                       int     `json:"buy24h" db:"buy_24h"`
+	BuyHistory24h                int     `json:"buyHistory24h" db:"buy_history_24h"`
+	Buy24hChangePercent          float64 `json:"buy24hChangePercent" db:"buy_24h_change_percent"`
+	V24h                         float64 `json:"v24h" db:"v_24h"`
+	V24hUSD                      float64 `json:"v24hUSD" db:"v_24h_usd"`
+	VHistory24h                  float64 `json:"vHistory24h" db:"v_history_24h"`
+	VHistory24hUSD               float64 `json:"vHistory24hUSD" db:"v_history_24h_usd"`
+	V24hChangePercent            float64 `json:"v24hChangePercent" db:"v_24h_change_percent"`
+	VBuy24h                      float64 `json:"vBuy24h" db:"v_buy_24h"`
+	VBuy24hUSD                   float64 `json:"vBuy24hUSD" db:"v_buy_24h_usd"`
+	VBuyHistory24h               float64 `json:"vBuyHistory24h" db:"v_buy_history_24h"`
+	VBuyHistory24hUSD            float64 `json:"vBuyHistory24hUSD" db:"v_buy_history_24h_usd"`
+	VBuy24hChangePercent         float64 `json:"vBuy24hChangePercent" db:"v_buy_24h_change_percent"`
+	VSell24h                     float64 `json:"vSell24h" db:"v_sell_24h"`
+	VSell24hUSD                  float64 `json:"vSell24hUSD" db:"v_sell_24h_usd"`
+	VSellHistory24h              float64 `json:"vSellHistory24h" db:"v_sell_history_24h"`
+	VSellHistory24hUSD           float64 `json:"vSellHistory24hUSD" db:"v_sell_history_24h_usd"`
+	VSell24hChangePercent        float64 `json:"vSell24hChangePercent" db:"v_sell_24h_change_percent"`
+	NumberMarkets                int     `json:"numberMarkets" db:"number_markets"`
+	TotalVolume                  float64 `json:"totalVolume" db:"total_volume"`
+	TotalVolumeUSD               float64 `json:"totalVolumeUSD" db:"total_volume_usd"`
+	VolumeBuyUSD                 float64 `json:"volumeBuyUSD" db:"volume_buy_usd"`
+	VolumeSellUSD                float64 `json:"volumeSellUSD" db:"volume_sell_usd"`
+	VolumeBuy                    float64 `json:"volumeBuy" db:"volume_buy"`
+	VolumeSell                   float64 `json:"volumeSell" db:"volume_sell"`
+	TotalTrade                   int     `json:"totalTrade" db:"total_trade"`
+	Buy                          int     `json:"buy" db:"buy"`
+	Sell                         int     `json:"sell" db:"sell"`
+
+	DynamicBondingCurve *DynamicBondingCurveInsights `json:"dynamicBondingCurve" db:"dynamic_bonding_curve"`
+	ArtistFees          *ArtistCoinFees              `json:"artist_fees" db:"artist_fees"`
+	ArtistLocker        *ArtistLocker                `json:"artist_locker" db:"artist_locker"`
+	RewardPool          *RewardPool                  `json:"reward_pool" db:"reward_pool"`
+
+	UpdatedAt time.Time `json:"updatedAt" db:"updated_at"`
 }
 
 type ArtistCoinFees struct {
-	UnclaimedDbcFees    float64 `json:"unclaimed_dbc_fees" db:"unclaimed_dbc_fees"`
-	TotalDbcFees        float64 `json:"total_dbc_fees" db:"total_dbc_fees"`
-	UnclaimedDammV2Fees float64 `json:"unclaimed_damm_v2_fees" db:"unclaimed_damm_v2_fees"`
-	TotalDammV2Fees     float64 `json:"total_damm_v2_fees" db:"total_damm_v2_fees"`
-	UnclaimedFees       float64 `json:"unclaimed_fees" db:"unclaimed_fees"`
-	TotalFees           float64 `json:"total_fees" db:"total_fees"`
+	UnclaimedFees float64 `json:"unclaimed_fees" db:"unclaimed_fees"`
+	TotalFees     float64 `json:"total_fees" db:"total_fees"`
+}
+type RewardPool struct {
+	Address string  `json:"address" db:"address"`
+	Balance float64 `json:"balance" db:"balance"`
+}
+
+type ArtistLocker struct {
+	Address   string  `json:"address" db:"address"`
+	Locked    float64 `json:"locked" db:"locked"`
+	Unlocked  float64 `json:"unlocked" db:"unlocked"`
+	Claimable float64 `json:"claimable" db:"claimable"`
 }
 
 const sharedSelectCoinSql = `
@@ -161,13 +172,26 @@ const sharedSelectCoinSql = `
 				'totalTradingQuoteFee', COALESCE(artist_coin_pools.total_trading_quote_fee, 0),
 				'creatorWalletAddress', COALESCE(artist_coin_pools.creator_wallet_address, '')
 			) AS dynamic_bonding_curve,
-			ROW_TO_JSON(calculate_artist_coin_fees(artist_coins.mint)) AS artist_fees,
+			ROW_TO_JSON(calculate_artist_coin_fee_earnings(artist_coins.mint)) AS artist_fees,
+			ROW_TO_JSON(calculate_artist_coin_locker(artist_coins.mint)) AS artist_locker,
+			CASE
+				WHEN reward_pool.account IS NULL THEN NULL
+				ELSE JSON_BUILD_OBJECT(
+					'address', reward_pool.account,
+					'balance', reward_pool.balance
+				)
+			END AS reward_pool,
 			COALESCE(artist_coin_stats.updated_at, artist_coins.created_at) AS updated_at
 		FROM artist_coins
 		LEFT JOIN artist_coin_stats
 			ON artist_coin_stats.mint = artist_coins.mint
 		LEFT JOIN artist_coin_pools
 			ON artist_coin_pools.base_mint = artist_coins.mint
+		LEFT JOIN sol_reward_manager_inits
+			ON sol_reward_manager_inits.mint = artist_coins.mint
+		LEFT JOIN sol_token_account_balances AS reward_pool
+			ON reward_pool.owner = sol_reward_manager_inits.authority
+			AND reward_pool.account != sol_reward_manager_inits.token_source
 `
 
 type GetArtistCoinsQueryParams struct {
