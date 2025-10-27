@@ -14,7 +14,7 @@ RETURNS TABLE (
             number_of_period,
             total_claimed_amount,
             cliff_unlock_amount,
-            CASE WHEN to_timestamp(cliff_time) > NOW() THEN 0 ELSE cliff_unlock_amount END AS cliff_unlocked_amount,
+            CASE WHEN to_timestamp(cliff_time) < NOW() THEN 0 ELSE cliff_unlock_amount END AS cliff_unlocked_amount,
             LEAST(
                 FLOOR(
                     (EXTRACT(EPOCH FROM NOW()) - vesting_start_time) / frequency
