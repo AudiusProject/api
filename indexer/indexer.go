@@ -20,6 +20,7 @@ import (
 type CoreIndexer struct {
 	aggregatesCalculator *AggregatesCalculator
 	pool                 dbv1.DbPool
+	auds                 *sdk.AudiusdSDK
 	Config               config.Config
 	logger               *zap.Logger
 	closeCh              chan struct{}
@@ -41,11 +42,14 @@ func NewIndexer(config config.Config) *CoreIndexer {
 		panic(fmt.Errorf("error connecting to database: %w", err))
 	}
 
+	auds := sdk.NewAudiusdSDK(config.AudiusdURL)
+
 	aggregatesCalculator := NewAggregatesCalculator(config)
 
 	ci := &CoreIndexer{
 		aggregatesCalculator: aggregatesCalculator,
 		pool:                 pool,
+		auds:                 auds,
 		Config:               config,
 		logger: logging.NewZapLogger(config).
 			Named("CoreIndexer"),
@@ -56,6 +60,7 @@ func NewIndexer(config config.Config) *CoreIndexer {
 
 func (ci *CoreIndexer) Start(ctx context.Context) error {
 	eg := errgroup.Group{}
+	go logging.SyncOnTicks(ctx, ci.logger, time.Second*10)
 	eg.Go(func() error {
 		return ci.aggregatesCalculator.Start(ctx)
 	})
@@ -66,14 +71,11 @@ func (ci *CoreIndexer) Start(ctx context.Context) error {
 }
 
 func (ci *CoreIndexer) run(ctx context.Context) error {
-	sdk := sdk.NewAudiusdSDK(ci.Config.AudiusdURL)
-	go logging.SyncOnTicks(ctx, ci.logger, time.Second*10)
-
 	var height int64
 	err := ci.pool.QueryRow(context.Background(), `select last_checkpoint from indexing_checkpoints where tablename = $1`, CoreIndexerCheckpointName).Scan(&height)
 	if err != nil {
 		if err == pgx.ErrNoRows {
-			nodeInfo, err := sdk.Core.GetNodeInfo(context.Background(), connect.NewRequest(&corev1.GetNodeInfoRequest{}))
+			nodeInfo, err := ci.auds.Core.GetNodeInfo(context.Background(), connect.NewRequest(&corev1.GetNodeInfoRequest{}))
 			if err != nil {
 				return err
 			}
@@ -95,27 +97,45 @@ func (ci *CoreIndexer) run(ctx context.Context) error {
 			return ctx.Err()
 		default:
 		}
-		block, err := sdk.Core.GetBlock(context.Background(), connect.NewRequest(&corev1.GetBlockRequest{
-			Height: height,
-		}))
-		if err != nil {
-			ci.logger.Error("failed to get block", zap.Error(err))
-			return err
-		}
-
-		if block.Msg.Block.Height < 0 {
-			time.Sleep(1 * time.Second)
-			continue
-		}
-
-		err = ci.handleBlock(block.Msg.Block)
-		if err != nil {
-			ci.logger.Error("failed to handle block", zap.Error(err))
-			return err
-		}
-
-		height++
+		height = ci.attemptProcessNextBlock(ctx, height)
 	}
+}
+
+// Attempts to process the next block, returning height+1 if we found and
+// processed a block, or height in all other cases.
+// Will log errors and will snack on panics (yum).
+func (ci *CoreIndexer) attemptProcessNextBlock(ctx context.Context, height int64) (newHeight int64) {
+	// By default, return the same height in case we panic
+	newHeight = height
+	defer func() {
+		if r := recover(); r != nil {
+			ci.logger.Error("panic in attemptProcessNextBlock", zap.Any("panic", r))
+			// Sleep for 10 seconds in case it's a transient error
+			time.Sleep(10 * time.Second)
+		}
+	}()
+	block, err := ci.auds.Core.GetBlock(ctx, connect.NewRequest(&corev1.GetBlockRequest{
+		Height: height,
+	}))
+	if err != nil {
+		ci.logger.Error("failed to get block", zap.Error(err))
+		return
+	}
+
+	if block.Msg.Block.Height < 0 {
+		ci.logger.Info("No new blocks found, sleeping")
+		time.Sleep(1 * time.Second)
+		return
+	}
+
+	err = ci.handleBlock(block.Msg.Block)
+	if err != nil {
+		ci.logger.Error("failed to handle block", zap.Error(err))
+		return
+	}
+
+	newHeight = height + 1
+	return
 }
 
 func (ci *CoreIndexer) handleBlock(block *corev1.Block) error {
