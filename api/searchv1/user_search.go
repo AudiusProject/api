@@ -50,9 +50,14 @@ func (q *UserSearchQuery) Map() map[string]any {
 
 	if len(q.Genres) > 0 {
 		builder.Must(esquery.Range("track_count").Gt(0))
-		builder.Filter(esquery.Terms("tracks.genre.keyword", toAnySlice(q.Genres)...))
+		// Normalize to capitalized names since keyword filtering must be exact
+		capitalizedGenres := make([]string, len(q.Genres))
+		for i, value := range q.Genres {
+			capitalizedGenres[i] = strings.ToUpper(string(value[0])) + strings.ToLower(value[1:])
+		}
+		builder.Filter(esquery.Terms("tracks.genre.keyword", toAnySlice(capitalizedGenres)...))
 		// by using a match query... the TF/IDF will apply to tracks.  Which will rank profiles higher if they have a larger proportion of genre
-		for _, value := range q.Genres {
+		for _, value := range capitalizedGenres {
 			builder.Should(esquery.Match("tracks.genre", value)).Boost(10)
 		}
 	}

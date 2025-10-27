@@ -70,11 +70,21 @@ func (q *TrackSearchQuery) Map() map[string]any {
 	}
 
 	if len(q.Genres) > 0 {
-		builder.Filter(esquery.Terms("genre.keyword", toAnySlice(q.Genres)...))
+		// Normalize to capitalized names since keyword filtering must be exact
+		capitalizedGenres := make([]string, len(q.Genres))
+		for i, value := range q.Genres {
+			capitalizedGenres[i] = strings.ToUpper(string(value[0])) + strings.ToLower(value[1:])
+		}
+		builder.Filter(esquery.Terms("genre.keyword", toAnySlice(capitalizedGenres)...))
 	}
 
 	if len(q.Moods) > 0 {
-		builder.Filter(esquery.Terms("mood.keyword", toAnySlice(q.Moods)...))
+		// Normalize to capitalized names since keyword filtering must be exact
+		capitalizedMoods := make([]string, len(q.Moods))
+		for i, value := range q.Moods {
+			capitalizedMoods[i] = strings.ToUpper(string(value[0])) + strings.ToLower(value[1:])
+		}
+		builder.Filter(esquery.Terms("mood.keyword", toAnySlice(capitalizedMoods)...))
 	}
 
 	if len(q.MusicalKeys) > 0 {
