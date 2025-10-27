@@ -1,11 +1,7 @@
 BEGIN;
-DROP FUNCTION IF EXISTS calculate_artist_coin_fees(TEXT);
-CREATE OR REPLACE FUNCTION calculate_artist_coin_fees(artist_coin_mint TEXT)
+DROP FUNCTION IF EXISTS calculate_artist_coin_fee_earnings(TEXT);
+CREATE OR REPLACE FUNCTION calculate_artist_coin_fee_earnings(artist_coin_mint TEXT)
 RETURNS TABLE (
-    unclaimed_dbc_fees NUMERIC,
-    total_dbc_fees NUMERIC,
-    unclaimed_damm_v2_fees NUMERIC,
-    total_damm_v2_fees NUMERIC,
     unclaimed_fees NUMERIC,
     total_fees NUMERIC
 ) LANGUAGE sql AS $function$
@@ -46,10 +42,6 @@ RETURNS TABLE (
         WHERE base_mint = artist_coin_mint
     )
     SELECT
-        FLOOR(COALESCE(dbc_fees.unclaimed_dbc_fees, 0)) AS unclaimed_dbc_fees,
-        FLOOR(COALESCE(dbc_fees.total_dbc_fees, 0)) AS total_dbc_fees,
-        FLOOR(COALESCE(damm_fees.unclaimed_damm_v2_fees, 0)) AS unclaimed_damm_v2_fees,
-        FLOOR(COALESCE(damm_fees.total_damm_v2_fees, 0)) AS total_damm_v2_fees,
         FLOOR(COALESCE(dbc_fees.unclaimed_dbc_fees, 0) + COALESCE(damm_fees.unclaimed_damm_v2_fees, 0)) AS unclaimed_fees,
         FLOOR(COALESCE(dbc_fees.total_dbc_fees, 0) + COALESCE(damm_fees.total_damm_v2_fees, 0)) AS total_fees
     FROM artist_coins
