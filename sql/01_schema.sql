@@ -979,6 +979,59 @@ $$;
 
 
 --
+-- Name: calculate_artist_coin_fee_earnings(text); Type: FUNCTION; Schema: public; Owner: -
+--
+
+CREATE FUNCTION public.calculate_artist_coin_fee_earnings(artist_coin_mint text) RETURNS TABLE(unclaimed_fees numeric, total_fees numeric)
+    LANGUAGE sql
+    AS $$
+    WITH
+    damm_fees AS (
+        -- fee = totalLiquidity * feePerTokenStore
+        -- precision: (totalLiquidity * feePerTokenStore) >> 128
+        -- See: https://github.com/MeteoraAg/damm-v2-sdk/blob/70d1af59689039a1dc700dee8f741db48024d02d/src/helpers/utils.ts#L190-L191
+        SELECT
+            pool.token_a_mint AS mint,
+            (
+                pool.fee_b_per_liquidity
+                * (
+                    position.unlocked_liquidity + position.vested_liquidity + position.permanent_locked_liquidity
+                )
+                / POWER (2, 128)
+                + position.fee_b_pending
+            ) AS total_damm_v2_fees,
+            (
+                (pool.fee_b_per_liquidity - position.fee_b_per_token_checkpoint)
+                * (
+                    position.unlocked_liquidity + position.vested_liquidity + position.permanent_locked_liquidity
+                )
+                / POWER (2, 128)
+                + position.fee_b_pending
+            ) AS unclaimed_damm_v2_fees
+        FROM sol_meteora_damm_v2_pools pool
+        JOIN sol_meteora_dbc_migrations migration ON migration.base_mint = pool.token_a_mint
+        JOIN sol_meteora_damm_v2_positions position ON position.account = migration.first_position
+        WHERE pool.token_a_mint = artist_coin_mint
+    ),
+    dbc_fees AS (
+        SELECT
+            base_mint AS mint,
+            total_trading_quote_fee / 2 AS total_dbc_fees,
+            creator_quote_fee AS unclaimed_dbc_fees
+        FROM artist_coin_pools
+        WHERE base_mint = artist_coin_mint
+    )
+    SELECT
+        FLOOR(COALESCE(dbc_fees.unclaimed_dbc_fees, 0) + COALESCE(damm_fees.unclaimed_damm_v2_fees, 0)) AS unclaimed_fees,
+        FLOOR(COALESCE(dbc_fees.total_dbc_fees, 0) + COALESCE(damm_fees.total_damm_v2_fees, 0)) AS total_fees
+    FROM artist_coins
+    LEFT JOIN dbc_fees USING (mint)
+    FULL OUTER JOIN damm_fees USING (mint)
+    WHERE artist_coins.mint = artist_coin_mint;
+$$;
+
+
+--
 -- Name: calculate_artist_coin_fees(text); Type: FUNCTION; Schema: public; Owner: -
 --
 
@@ -1032,6 +1085,39 @@ CREATE FUNCTION public.calculate_artist_coin_fees(artist_coin_mint text) RETURNS
     LEFT JOIN dbc_fees USING (mint)
     FULL OUTER JOIN damm_fees USING (mint)
     WHERE artist_coins.mint = artist_coin_mint;
+$$;
+
+
+--
+-- Name: calculate_artist_coin_locker(text); Type: FUNCTION; Schema: public; Owner: -
+--
+
+CREATE FUNCTION public.calculate_artist_coin_locker(artist_coin_mint text) RETURNS TABLE(address text, unlocked bigint, locked bigint, claimable bigint)
+    LANGUAGE sql
+    AS $$
+    WITH escrow AS (
+        SELECT
+            account,
+            amount_per_period,
+            number_of_period,
+            total_claimed_amount,
+            cliff_unlock_amount,
+            CASE WHEN to_timestamp(cliff_time) < NOW() THEN 0 ELSE cliff_unlock_amount END AS cliff_unlocked_amount,
+            LEAST(
+                FLOOR(
+                    (EXTRACT(EPOCH FROM NOW()) - vesting_start_time) / frequency
+                ),
+                number_of_period
+            ) AS periods_completed
+        FROM sol_locker_vesting_escrows
+        WHERE token_mint = artist_coin_mint
+    )
+    SELECT
+        account AS address,
+        cliff_unlocked_amount + periods_completed * amount_per_period AS unlocked,
+        cliff_unlock_amount - cliff_unlocked_amount + (number_of_period - periods_completed) * amount_per_period AS locked,
+        cliff_unlocked_amount + periods_completed * amount_per_period - total_claimed_amount AS claimable
+    FROM escrow;
 $$;
 
 
@@ -2262,6 +2348,24 @@ exception
     raise;
 
 end;
+$$;
+
+
+--
+-- Name: handle_dbc_pool(); Type: FUNCTION; Schema: public; Owner: -
+--
+
+CREATE FUNCTION public.handle_dbc_pool() RETURNS trigger
+    LANGUAGE plpgsql
+    AS $$
+BEGIN
+    PERFORM pg_notify('dbc_pools_changed', JSON_BUILD_OBJECT('new', NEW.account)::TEXT);
+    RETURN NEW;
+    EXCEPTION
+        WHEN OTHERS THEN
+            RAISE WARNING 'An error occurred in %: %', TG_NAME, SQLERRM;
+            RETURN NULL;
+END;
 $$;
 
 
@@ -11252,6 +11356,20 @@ CREATE TRIGGER on_chat_message_reaction_changed AFTER INSERT OR DELETE OR UPDATE
 --
 
 CREATE TRIGGER on_comment AFTER INSERT ON public.comments FOR EACH ROW EXECUTE FUNCTION public.handle_comment();
+
+
+--
+-- Name: sol_meteora_dbc_pools on_dbc_pool_change; Type: TRIGGER; Schema: public; Owner: -
+--
+
+CREATE TRIGGER on_dbc_pool_change AFTER INSERT ON public.sol_meteora_dbc_pools FOR EACH ROW EXECUTE FUNCTION public.handle_dbc_pool();
+
+
+--
+-- Name: TRIGGER on_dbc_pool_change ON sol_meteora_dbc_pools; Type: COMMENT; Schema: public; Owner: -
+--
+
+COMMENT ON TRIGGER on_dbc_pool_change ON public.sol_meteora_dbc_pools IS 'Notifies when DBC pools are added, removed, or updated.';
 
 
 --
