@@ -2300,6 +2300,20 @@ type UserDelistStatus struct {
 	Reason    DelistUserReason   `json:"reason"`
 }
 
+// Tracks the number of distinct hours in which a user has listened to a track
+type UserDistinctPlayHour struct {
+	UserID        int32              `json:"user_id"`
+	HoursWithPlay int32              `json:"hours_with_play"`
+	UpdatedAt     pgtype.Timestamptz `json:"updated_at"`
+}
+
+// Tracks the number of distinct tracks a user has listened to
+type UserDistinctPlayTrack struct {
+	UserID     int32              `json:"user_id"`
+	TrackCount int32              `json:"track_count"`
+	UpdatedAt  pgtype.Timestamptz `json:"updated_at"`
+}
+
 type UserEvent struct {
 	ID           int32       `json:"id"`
 	Blockhash    pgtype.Text `json:"blockhash"`
@@ -2327,6 +2341,14 @@ type UserPayoutWalletHistory struct {
 type UserPubkey struct {
 	UserID       int32  `json:"user_id"`
 	PubkeyBase64 string `json:"pubkey_base64"`
+}
+
+// Tracks some features used in user score calculation
+type UserScoreFeature struct {
+	UserID int32 `json:"user_id"`
+	// Tracks the number of fast challenges auser has completed
+	ChallengeCount pgtype.Int4        `json:"challenge_count"`
+	UpdatedAt      pgtype.Timestamptz `json:"updated_at"`
 }
 
 type UserTip struct {
