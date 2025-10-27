@@ -36,6 +36,12 @@ func NewUpdateAggregatesJob(config UpdateAggregatesJobConfig) *UpdateAggregatesJ
 }
 
 func (j *UpdateAggregatesJob) Run(ctx context.Context) error {
+	defer func() {
+		if r := recover(); r != nil {
+			j.logger.Error("Job run panicked", zap.Any("panic", r))
+		}
+	}()
+
 	if err := j.updateScores(ctx); err != nil {
 		j.logger.Error("Job run failed", zap.Error(err))
 		return err
@@ -65,9 +71,9 @@ func (j *UpdateAggregatesJob) updateScores(ctx context.Context) error {
 		}
 		if lastUserID != nil && lastCreatedAt != nil {
 			filters = append(filters, `((u.created_at, u.user_id) < (@cursorTime::timestamptz, @cursorUserId::int))`)
-			j.logger.Info("Processing batch", zap.String("lastCreatedAt", lastCreatedAt.Format(time.RFC3339)), zap.Int32("lastUserID", *lastUserID))
+			j.logger.Debug("Processing batch", zap.String("lastCreatedAt", lastCreatedAt.Format(time.RFC3339)), zap.Int32("lastUserID", *lastUserID))
 		} else {
-			j.logger.Info("Processing first batch")
+			j.logger.Debug("Processing first batch")
 		}
 
 		query := `
@@ -215,7 +221,7 @@ func (j *UpdateAggregatesJob) updateScores(ctx context.Context) error {
 
 		processedCount += fetchedRows
 		scoreUpdatedCount += tag.RowsAffected()
-		j.logger.Info("Processed batch",
+		j.logger.Debug("Processed batch",
 			zap.Int("batch_size", fetchedRows),
 			zap.Int32("last_user_id", userID),
 			zap.String("last_created_at", lastCreatedAt.Format(time.RFC3339)),
