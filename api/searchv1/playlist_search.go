@@ -61,10 +61,14 @@ func (q *PlaylistSearchQuery) Map() map[string]any {
 	}
 
 	if len(q.Moods) > 0 {
-		builder.Filter(esquery.Terms("tracks.mood.keyword", toAnySlice(q.Moods)...))
+		moods_lc := make([]string, len(q.Moods))
+		for i, value := range q.Moods {
+			moods_lc[i] = strings.ToLower(value)
+		}
+		builder.Filter(esquery.Terms("tracks.mood", toAnySlice(moods_lc)...))
 		// by using a match query... the TF/IDF will apply to tracks.  Which will rank playlists higher if they have a larger proportion of mood
-		for _, value := range q.Genres {
-			builder.Should(esquery.Match("tracks.mood", value)).Boost(10)
+		for _, value := range moods_lc {
+			builder.Should(esquery.Match("tracks.mood", value).Analyzer("simple")).Boost(10)
 		}
 	}
 
