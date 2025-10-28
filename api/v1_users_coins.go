@@ -78,6 +78,7 @@ func (app *ApiServer) v1UsersCoins(c *fiber.Ctx) error {
 		LEFT JOIN artist_coin_pools pools ON pools.base_mint = artist_coins.mint
 		WHERE artist_coins.user_id = @user_id  -- Show owned coins
 		   OR balance > 0  -- Show coins with positive balance
+		   OR ticker = 'AUDIO' -- Always show AUDIO
 		ORDER BY
 			-- Always show user's owned coins first, regardless of balance
 			(artist_coins.user_id = @user_id) DESC,
