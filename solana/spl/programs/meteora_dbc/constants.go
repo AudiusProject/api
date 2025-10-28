@@ -7,4 +7,6 @@ var (
 	// Discriminator for the Meteora DBC Pool Config account
 	// See: https://github.com/MeteoraAg/dbc-go/blob/377824fc6056f10ee51074080c92362de52b09da/instructions/state.go#L30
 	POOL_CONFIG_DISCRIMINATOR = []byte{26, 108, 14, 123, 116, 230, 129, 43}
+	// Authority for Meteora DBC pools
+	POOL_AUTHORITY_ADDRESS = "FhVo3mqL8PW5pH5U2CN4XE33DokiyZnUwuGpH2hmHLuM"
 )

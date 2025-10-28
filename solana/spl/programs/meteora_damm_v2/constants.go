@@ -7,4 +7,6 @@ var (
 	// Discriminator for Meteora DAMM V2 position accounts
 	// See: https://github.com/MeteoraAg/damm-v2-go/blob/3cc12838bce93a9cd546b22a1caaabaa81ce81f7/instructions/state.go#L128
 	POSITION_DISCRIMINATOR = []byte{170, 188, 143, 228, 122, 64, 247, 208}
+	// Authority for Meteora DAMM V2 pools
+	POOL_AUTHORITY_ADDRESS = "HLnpSz9h2S4hiLQ43rnSD9XkcUThA7B8hQMKmDaiTLcC"
 )

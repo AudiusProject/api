@@ -4,6 +4,8 @@ import (
 	"time"
 
 	"api.audius.co/api/dbv1"
+	"api.audius.co/solana/spl/programs/meteora_damm_v2"
+	"api.audius.co/solana/spl/programs/meteora_dbc"
 	"github.com/gofiber/fiber/v2"
 	"github.com/jackc/pgx/v5"
 )
@@ -69,20 +71,26 @@ func (app *ApiServer) v1CoinsVolumeLeaders(c *fiber.Ctx) error {
 	}
 
 	sql := `
-	with leaders as (SELECT
+	-- Get pool vaults for both DBC and DAMM V2 to match against
+	WITH pool_vaults AS (
+	SELECT quote_vault AS vault_account, 'dbc' AS src FROM sol_meteora_dbc_pools
+	UNION
+	SELECT token_b_vault AS vault_account, 'damm_v2' AS src FROM sol_meteora_damm_v2_pools
+	),
+	leaders as (SELECT
 		user_change.owner,
 		user_change.account,
-		SUM(ABS(user_change.change)) / 100000000 AS volume
+		SUM(ABS(user_change.change)) / 100000000 AS volume  -- dividing by AUDIO decimals
 	FROM sol_token_account_balance_changes user_change
 	JOIN sol_token_account_balance_changes vault_change
 		ON vault_change.signature = user_change.signature
 		AND vault_change.change = 0 - user_change.change
 		AND vault_change.mint = user_change.mint
-	JOIN sol_meteora_dbc_pools dbc_pool
-		ON dbc_pool.quote_vault = vault_change.account
+	JOIN pool_vaults pv
+    	ON pv.vault_account = vault_change.account
 	WHERE
-		user_change.owner != 'FhVo3mqL8PW5pH5U2CN4XE33DokiyZnUwuGpH2hmHLuM'
-		AND user_change.owner != 'HLnpSz9h2S4hiLQ43rnSD9XkcUThA7B8hQMKmDaiTLcC'
+		user_change.owner != '` + meteora_dbc.POOL_AUTHORITY_ADDRESS + `'
+		AND user_change.owner != '` + meteora_damm_v2.POOL_AUTHORITY_ADDRESS + `'
 		AND vault_change.created_at >= @fromDate
 		AND vault_change.created_at < @toDate
 		AND user_change.created_at >= @fromDate
