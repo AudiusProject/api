@@ -3354,6 +3354,22 @@ paths:
           - all
           - public
           - unlisted
+      - name: gate_condition
+        in: query
+        description: Filter tracks by gate condition type. Multiple values can be provided to filter by multiple gate types (OR logic)
+        style: form
+        explode: true
+        schema:
+          type: array
+          items:
+            type: string
+            enum:
+            - ungated
+            - usdc_purchase
+            - follow
+            - tip
+            - nft
+            - token
       - name: Encoded-Data-Message
         in: header
         description: The data that was signed by the user for signature recovery

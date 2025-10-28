@@ -5,6 +5,7 @@ import (
 	"testing"
 
 	"api.audius.co/api/dbv1"
+	"api.audius.co/database"
 	"api.audius.co/trashid"
 	"github.com/stretchr/testify/assert"
 )
@@ -246,4 +247,205 @@ func TestGetUserTracksInvalidParams(t *testing.T) {
 	url = fmt.Sprintf("%s?offset=invalid", baseUrl)
 	status, _ = testGet(t, app, url)
 	assert.Equal(t, 400, status)
+}
+
+func TestGetUserTracksWithGateConditionFilter(t *testing.T) {
+	app := emptyTestApp(t)
+	fixtures := testTrackGateFixtures()
+	database.Seed(app.pool.Replicas[0], fixtures)
+
+	var userTracksResponse struct {
+		Data []dbv1.FullTrack
+	}
+
+	baseUrl := fmt.Sprintf("/v1/full/users/%s/tracks", trashid.MustEncodeHashID(600))
+
+	// Test without filter - should return all tracks
+	status, _ := testGet(t, app, baseUrl, &userTracksResponse)
+	assert.Equal(t, 200, status)
+	assert.Equal(t, 6, len(userTracksResponse.Data))
+
+	// Test filter for ungated tracks only
+	url := fmt.Sprintf("%s?gate_condition=ungated", baseUrl)
+	status, _ = testGet(t, app, url, &userTracksResponse)
+	assert.Equal(t, 200, status)
+	assert.Equal(t, 1, len(userTracksResponse.Data))
+	assert.Equal(t, trashid.MustEncodeHashID(800), userTracksResponse.Data[0].ID)
+
+	// Test filter for usdc_purchase gated tracks
+	url = fmt.Sprintf("%s?gate_condition=usdc_purchase", baseUrl)
+	status, _ = testGet(t, app, url, &userTracksResponse)
+	assert.Equal(t, 200, status)
+	assert.Equal(t, 1, len(userTracksResponse.Data))
+	assert.Equal(t, trashid.MustEncodeHashID(801), userTracksResponse.Data[0].ID)
+
+	// Test filter for follow gated tracks
+	url = fmt.Sprintf("%s?gate_condition=follow", baseUrl)
+	status, _ = testGet(t, app, url, &userTracksResponse)
+	assert.Equal(t, 200, status)
+	assert.Equal(t, 1, len(userTracksResponse.Data))
+	assert.Equal(t, trashid.MustEncodeHashID(802), userTracksResponse.Data[0].ID)
+
+	// Test filter for tip gated tracks
+	url = fmt.Sprintf("%s?gate_condition=tip", baseUrl)
+	status, _ = testGet(t, app, url, &userTracksResponse)
+	assert.Equal(t, 200, status)
+	assert.Equal(t, 1, len(userTracksResponse.Data))
+	assert.Equal(t, trashid.MustEncodeHashID(803), userTracksResponse.Data[0].ID)
+
+	// Test filter for nft gated tracks
+	url = fmt.Sprintf("%s?gate_condition=nft", baseUrl)
+	status, _ = testGet(t, app, url, &userTracksResponse)
+	assert.Equal(t, 200, status)
+	assert.Equal(t, 1, len(userTracksResponse.Data))
+	assert.Equal(t, trashid.MustEncodeHashID(804), userTracksResponse.Data[0].ID)
+
+	// Test filter for token gated tracks
+	url = fmt.Sprintf("%s?gate_condition=token", baseUrl)
+	status, _ = testGet(t, app, url, &userTracksResponse)
+	assert.Equal(t, 200, status)
+	assert.Equal(t, 1, len(userTracksResponse.Data))
+	assert.Equal(t, trashid.MustEncodeHashID(805), userTracksResponse.Data[0].ID)
+
+	// Test multiple gate conditions (usdc_purchase OR tip)
+	url = fmt.Sprintf("%s?gate_condition=usdc_purchase&gate_condition=tip", baseUrl)
+	status, _ = testGet(t, app, url, &userTracksResponse)
+	assert.Equal(t, 200, status)
+	assert.Equal(t, 2, len(userTracksResponse.Data))
+
+	// Test multiple gate conditions (ungated OR follow OR nft)
+	url = fmt.Sprintf("%s?gate_condition=ungated&gate_condition=follow&gate_condition=nft", baseUrl)
+	status, _ = testGet(t, app, url, &userTracksResponse)
+	assert.Equal(t, 200, status)
+	assert.Equal(t, 3, len(userTracksResponse.Data))
+}
+
+func testTrackGateFixtures() map[string][]map[string]any {
+	return map[string][]map[string]any{
+		"users": {
+			{
+				"user_id":   600,
+				"handle":    "gatedtrackstester",
+				"handle_lc": "gatedtrackstester",
+				"wallet":    "0xd4302f79457d5f5fcd54afd9e5a1a399723e7c30",
+			},
+		},
+		"tracks": {
+			{
+				"track_id":        800,
+				"owner_id":        600,
+				"title":           "Ungated Track",
+				"is_stream_gated": false,
+				"created_at":      "2021-01-01 00:00:00",
+			},
+			{
+				"track_id":        801,
+				"owner_id":        600,
+				"title":           "USDC Purchase Gated Track",
+				"is_stream_gated": true,
+				"stream_conditions": map[string]any{
+					"usdc_purchase": map[string]any{
+						"price": 100.0,
+						"splits": []map[string]any{
+							{
+								"user_id":    600,
+								"percentage": 100.0,
+							},
+						},
+					},
+				},
+				"created_at": "2021-01-02 00:00:00",
+			},
+			{
+				"track_id":          802,
+				"owner_id":          600,
+				"title":             "Follow Gated Track",
+				"is_stream_gated":   true,
+				"stream_conditions": map[string]any{"follow_user_id": 600},
+				"created_at":        "2021-01-03 00:00:00",
+			},
+			{
+				"track_id":          803,
+				"owner_id":          600,
+				"title":             "Tip Gated Track",
+				"is_stream_gated":   true,
+				"stream_conditions": map[string]any{"tip_user_id": 600},
+				"created_at":        "2021-01-04 00:00:00",
+			},
+			{
+				"track_id":        804,
+				"owner_id":        600,
+				"title":           "NFT Gated Track",
+				"is_stream_gated": true,
+				"stream_conditions": map[string]any{
+					"nft_collection": map[string]any{
+						"chain":   "eth",
+						"address": "0x1234567890123456789012345678901234567890",
+					},
+				},
+				"created_at": "2021-01-05 00:00:00",
+			},
+			{
+				"track_id":        805,
+				"owner_id":        600,
+				"title":           "Token Gated Track",
+				"is_stream_gated": true,
+				"stream_conditions": map[string]any{
+					"token_gate": map[string]any{
+						"token_mint":   "7i5KKsX2weiTkry7jA4ZwSuXGhs5eJBEjY8vVxR4pfRx",
+						"token_amount": 100,
+					},
+				},
+				"created_at": "2021-01-06 00:00:00",
+			},
+		},
+	}
+}
+
+func TestBuildGateConditionFilter(t *testing.T) {
+	// Test with no conditions
+	result := buildGateConditionFilter([]string{})
+	assert.Equal(t, "", result)
+
+	// Test with single ungated condition
+	result = buildGateConditionFilter([]string{"ungated"})
+	assert.Contains(t, result, "t.is_stream_gated = false")
+
+	// Test with single usdc_purchase condition
+	result = buildGateConditionFilter([]string{"usdc_purchase"})
+	assert.Contains(t, result, "t.is_stream_gated = true")
+	assert.Contains(t, result, "t.stream_conditions->>'usdc_purchase' IS NOT NULL")
+
+	// Test with single follow condition
+	result = buildGateConditionFilter([]string{"follow"})
+	assert.Contains(t, result, "t.stream_conditions->>'follow_user_id' IS NOT NULL")
+
+	// Test with single tip condition
+	result = buildGateConditionFilter([]string{"tip"})
+	assert.Contains(t, result, "t.stream_conditions->>'tip_user_id' IS NOT NULL")
+
+	// Test with single nft condition
+	result = buildGateConditionFilter([]string{"nft"})
+	assert.Contains(t, result, "t.stream_conditions->>'nft_collection' IS NOT NULL")
+
+	// Test with single token condition
+	result = buildGateConditionFilter([]string{"token"})
+	assert.Contains(t, result, "t.stream_conditions->>'token_gate' IS NOT NULL")
+
+	// Test with multiple conditions
+	result = buildGateConditionFilter([]string{"ungated", "usdc_purchase"})
+	assert.Contains(t, result, "t.is_stream_gated = false")
+	assert.Contains(t, result, "t.stream_conditions->>'usdc_purchase' IS NOT NULL")
+	assert.Contains(t, result, " OR ")
+
+	// Test with invalid condition (should be ignored)
+	result = buildGateConditionFilter([]string{"invalid_condition"})
+	assert.Equal(t, "", result)
+
+	// Test with mix of valid and invalid conditions
+	result = buildGateConditionFilter([]string{"follow", "invalid", "tip"})
+	assert.Contains(t, result, "t.stream_conditions->>'follow_user_id' IS NOT NULL")
+	assert.Contains(t, result, "t.stream_conditions->>'tip_user_id' IS NOT NULL")
+	assert.Contains(t, result, " OR ")
+	assert.NotContains(t, result, "invalid")
 }
