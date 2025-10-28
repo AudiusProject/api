@@ -25,7 +25,8 @@ type VolumeLeaderUserMin struct {
 }
 
 type GetCoinsVolumeLeadersQueryParams struct {
-	Limit    int    `query:"limit" default:"10" validate:"min=1,max=100"`
+	Limit int `query:"limit" default:"10" validate:"min=1,max=100"`
+	// Max offset of 500 to prevent expensive queries
 	Offset   int    `query:"offset" default:"0" validate:"min=0,max=500"`
 	FromDate string `query:"from" validate:"omitempty,datetime=2006-01-02T15:04:05Z07:00"`
 	ToDate   string `query:"to" validate:"omitempty,datetime=2006-01-02T15:04:05Z07:00"`
@@ -58,7 +59,14 @@ func (app *ApiServer) v1CoinsVolumeLeaders(c *fiber.Ctx) error {
 		toDate = parsed
 	}
 
-	// TODO: Validate range? (<= 7 days?)
+	if toDate.Before(fromDate) {
+		return fiber.NewError(fiber.StatusBadRequest, "To date must be after from date")
+	}
+
+	// Semi-arbitrary, but meant to prevent huge queries across long time spans
+	if toDate.Sub(fromDate) > 7*24*time.Hour {
+		return fiber.NewError(fiber.StatusBadRequest, "Time range must be <= 7 days")
+	}
 
 	sql := `
 	with leaders as (SELECT
@@ -75,9 +83,9 @@ func (app *ApiServer) v1CoinsVolumeLeaders(c *fiber.Ctx) error {
 	WHERE
 		user_change.owner != 'FhVo3mqL8PW5pH5U2CN4XE33DokiyZnUwuGpH2hmHLuM'
 		AND user_change.owner != 'HLnpSz9h2S4hiLQ43rnSD9XkcUThA7B8hQMKmDaiTLcC'
-		AND vault_change.created_at > @fromDate
+		AND vault_change.created_at >= @fromDate
 		AND vault_change.created_at < @toDate
-		AND user_change.created_at > @fromDate
+		AND user_change.created_at >= @fromDate
 		AND user_change.created_at < @toDate
 	GROUP BY user_change.owner, user_change.account
 	ORDER BY volume DESC
