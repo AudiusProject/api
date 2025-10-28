@@ -293,6 +293,53 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/coin_members_count_response'
+  /coins/volume-leaders:
+    get:
+      tags:
+        - coins
+      operationId: Get Volume Leaders
+      description: 'Gets top coin<>AUDIO trading addresses by volume'
+      parameters:
+      - name: from
+        in: query
+        description: Beginning of time range to query over (RFC3339 format)
+        schema:
+          type: string
+          example: '2006-01-02T15:04:05Z'
+          default: '(most recent midnight UTC)'
+      - name: to
+        in: query
+        description: End of time range to query over (RFC3339 format)
+        schema:
+          type: string
+          example: '2006-01-02T15:04:05Z'
+          default: '(most recent midnight UTC + 24hrs)'
+      - name: offset
+        in: query
+        description: The number of items to skip. Useful for pagination (page number
+          * limit)
+        schema:
+          type: integer
+          default: 0
+          minimum: 0
+          maximum: 500
+      - name: limit
+        in: query
+        description: The number of items to fetch
+        schema:
+          type: integer
+          default: 20
+          minimum: 1
+          maximum: 100
+      responses:
+        '200':
+          description: Success
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/coins_volume_leaders_response'
+        '400':
+          description: Bad Request
   /cid_data/{metadata_id}:
     get:
       tags:
@@ -6046,6 +6093,25 @@ components:
           type: integer
           description: The total number of users with a non-zero balance of the specific coin
           example: 42
+    coins_volume_leaders_response:
+      type: object
+      required:
+        - data
+      properties:
+        data:
+          type: array
+          items:
+            type: object
+            required:
+              - address
+              - volume
+            properties:
+              address:
+                type: string
+              volume:
+                type: number
+              user:
+                $ref: '#/components/schemas/user_full'
     create_coin_request:
       type: object
       required:

@@ -1636,6 +1636,29 @@ type SolKeypair struct {
 	PrivateKey []byte `json:"private_key"`
 }
 
+type SolLockerVestingEscrow struct {
+	Account             string     `json:"account"`
+	Slot                int64      `json:"slot"`
+	Recipient           string     `json:"recipient"`
+	TokenMint           string     `json:"token_mint"`
+	Creator             string     `json:"creator"`
+	Base                string     `json:"base"`
+	EscrowBump          int16      `json:"escrow_bump"`
+	UpdateRecipientMode int16      `json:"update_recipient_mode"`
+	CancelMode          int16      `json:"cancel_mode"`
+	TokenProgramFlag    int16      `json:"token_program_flag"`
+	CliffTime           int64      `json:"cliff_time"`
+	Frequency           int64      `json:"frequency"`
+	CliffUnlockAmount   int64      `json:"cliff_unlock_amount"`
+	AmountPerPeriod     int64      `json:"amount_per_period"`
+	NumberOfPeriod      int64      `json:"number_of_period"`
+	TotalClaimedAmount  int64      `json:"total_claimed_amount"`
+	VestingStartTime    int64      `json:"vesting_start_time"`
+	CancelledAt         int64      `json:"cancelled_at"`
+	CreatedAt           *time.Time `json:"created_at"`
+	UpdatedAt           *time.Time `json:"updated_at"`
+}
+
 // Tracks DAMM V2 pool state. Join with sol_meteora_damm_v2_pool_metrics, sol_meteora_damm_v2_pool_fees, sol_meteora_damm_v2_pool_base_fees, and sol_meteora_damm_v2_pool_dynamic_fees for full pool state.
 type SolMeteoraDammV2Pool struct {
 	Account                string         `json:"account"`
@@ -1754,6 +1777,74 @@ type SolMeteoraDammV2PositionMetric struct {
 	TotalClaimedBFee int64     `json:"total_claimed_b_fee"`
 	CreatedAt        time.Time `json:"created_at"`
 	UpdatedAt        time.Time `json:"updated_at"`
+}
+
+type SolMeteoraDbcConfig struct {
+	Account                       string         `json:"account"`
+	Slot                          int64          `json:"slot"`
+	QuoteMint                     string         `json:"quote_mint"`
+	FeeClaimer                    string         `json:"fee_claimer"`
+	LeftoverReceiver              string         `json:"leftover_receiver"`
+	CollectFeeMode                int16          `json:"collect_fee_mode"`
+	MigrationOption               int16          `json:"migration_option"`
+	ActivationType                pgtype.Int2    `json:"activation_type"`
+	TokenDecimal                  pgtype.Int2    `json:"token_decimal"`
+	Version                       pgtype.Int2    `json:"version"`
+	TokenType                     pgtype.Int2    `json:"token_type"`
+	QuoteTokenFlag                pgtype.Int2    `json:"quote_token_flag"`
+	PartnerLockedLpPercentage     pgtype.Int2    `json:"partner_locked_lp_percentage"`
+	PartnerLpPercentage           pgtype.Int2    `json:"partner_lp_percentage"`
+	CreatorLockedLpPercentage     pgtype.Int2    `json:"creator_locked_lp_percentage"`
+	CreatorLpPercentage           pgtype.Int2    `json:"creator_lp_percentage"`
+	MigrationFeeOption            pgtype.Int2    `json:"migration_fee_option"`
+	FixedTokenSupplyFlag          pgtype.Int2    `json:"fixed_token_supply_flag"`
+	CreatorTradingFeePercentage   pgtype.Int2    `json:"creator_trading_fee_percentage"`
+	TokenUpdateAuthority          pgtype.Int2    `json:"token_update_authority"`
+	MigrationFeePercentage        pgtype.Int2    `json:"migration_fee_percentage"`
+	CreatorMigrationFeePercentage pgtype.Int2    `json:"creator_migration_fee_percentage"`
+	SwapBaseAmount                pgtype.Int8    `json:"swap_base_amount"`
+	MigrationQuoteThreshold       pgtype.Int8    `json:"migration_quote_threshold"`
+	MigrationBaseThreshold        pgtype.Int8    `json:"migration_base_threshold"`
+	MigrationSqrtPrice            pgtype.Numeric `json:"migration_sqrt_price"`
+	PreMigrationTokenSupply       pgtype.Int8    `json:"pre_migration_token_supply"`
+	PostMigrationTokenSupply      pgtype.Int8    `json:"post_migration_token_supply"`
+	MigratedCollectFeeMode        pgtype.Int2    `json:"migrated_collect_fee_mode"`
+	MigratedDynamicFee            pgtype.Int2    `json:"migrated_dynamic_fee"`
+	MigratedPoolFeeBps            pgtype.Int2    `json:"migrated_pool_fee_bps"`
+	SqrtStartPrice                pgtype.Numeric `json:"sqrt_start_price"`
+	Curve                         []byte         `json:"curve"`
+	CreatedAt                     *time.Time     `json:"created_at"`
+	UpdatedAt                     *time.Time     `json:"updated_at"`
+}
+
+type SolMeteoraDbcConfigFee struct {
+	Config                             string         `json:"config"`
+	Slot                               int64          `json:"slot"`
+	BaseFeeCliffFeeNumerator           pgtype.Int8    `json:"base_fee_cliff_fee_numerator"`
+	BaseFeePeriodFrequency             pgtype.Int8    `json:"base_fee_period_frequency"`
+	BaseFeeReductionFactor             pgtype.Int8    `json:"base_fee_reduction_factor"`
+	BaseFeeNumberOfPeriod              pgtype.Int2    `json:"base_fee_number_of_period"`
+	BaseFeeFeeSchedulerMode            pgtype.Int2    `json:"base_fee_fee_scheduler_mode"`
+	DynamicFeeInitialized              pgtype.Int2    `json:"dynamic_fee_initialized"`
+	DynamicFeeMaxVolatilityAccumulator pgtype.Int4    `json:"dynamic_fee_max_volatility_accumulator"`
+	DynamicFeeVariableFeeControl       pgtype.Int4    `json:"dynamic_fee_variable_fee_control"`
+	DynamicFeeBinStep                  pgtype.Int2    `json:"dynamic_fee_bin_step"`
+	DynamicFeeFilterPeriod             pgtype.Int2    `json:"dynamic_fee_filter_period"`
+	DynamicFeeDecayPeriod              pgtype.Int2    `json:"dynamic_fee_decay_period"`
+	DynamicFeeReductionFactor          pgtype.Int2    `json:"dynamic_fee_reduction_factor"`
+	DynamicFeeBinStepU128              pgtype.Numeric `json:"dynamic_fee_bin_step_u128"`
+	ProtocolFeePercent                 pgtype.Int2    `json:"protocol_fee_percent"`
+	ReferralFeePercent                 pgtype.Int2    `json:"referral_fee_percent"`
+}
+
+type SolMeteoraDbcConfigVesting struct {
+	Config                         string      `json:"config"`
+	Slot                           int64       `json:"slot"`
+	AmountPerPeriod                pgtype.Int8 `json:"amount_per_period"`
+	CliffDurationFromMigrationTime pgtype.Int8 `json:"cliff_duration_from_migration_time"`
+	Frequency                      pgtype.Int8 `json:"frequency"`
+	NumberOfPeriod                 pgtype.Int8 `json:"number_of_period"`
+	CliffUnlockAmount              pgtype.Int8 `json:"cliff_unlock_amount"`
 }
 
 // Tracks migrations from DBC pools to DAMM V2 pools.
@@ -1887,6 +1978,25 @@ type SolRewardDisbursement struct {
 	Specifier        string `json:"specifier"`
 	// The Ethereum address of the recipient of the reward.
 	RecipientEthAddress pgtype.Text `json:"recipient_eth_address"`
+}
+
+// Stores Init instructions for the Reward Manager program
+type SolRewardManagerInit struct {
+	Signature        string `json:"signature"`
+	InstructionIndex int32  `json:"instruction_index"`
+	Slot             int64  `json:"slot"`
+	// Minimum number of votes required for reward distribution
+	MinVotes int32 `json:"min_votes"`
+	// Public key of the Reward Manager state account
+	RewardManagerState string `json:"reward_manager_state"`
+	// Public key of the token source account (Note: Any token account on the authority account is valid)
+	TokenSource string `json:"token_source"`
+	// Public key of the mint for the token source account
+	Mint string `json:"mint"`
+	// Public key of the manager account that initially has authority to create and remove senders without quorum
+	Manager string `json:"manager"`
+	// Public key of the authority account, which holds the token accounts that reward manager can disburse from
+	Authority string `json:"authority"`
 }
 
 // Stores checkpoints for Solana slots to track indexing progress.
@@ -2248,7 +2358,7 @@ type User struct {
 	Donation               pgtype.Text     `json:"donation"`
 	ProfileType            *string         `json:"profile_type"`
 	// The mint of the coin which the user has selected as their preferred flair. NULL for auto, empty string for none.
-	PreferredCoinFlairMint pgtype.Text `json:"coin_flair_mint"`
+	CoinFlairMint pgtype.Text `json:"coin_flair_mint"`
 }
 
 type UserBalance struct {
