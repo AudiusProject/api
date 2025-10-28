@@ -2,6 +2,7 @@ package api
 
 import (
 	"fmt"
+	"strings"
 
 	"api.audius.co/api/dbv1"
 	"github.com/gofiber/fiber/v2"
@@ -61,6 +62,10 @@ func (app *ApiServer) v1UserTracks(c *fiber.Ctx) error {
 		trackFilter = "t.is_unlisted = true"
 	}
 
+	// Gate condition filtering
+	gateConditions := queryMulti(c, "gate_condition")
+	gateFilter := buildGateConditionFilter(gateConditions)
+
 	sql := `
 	SELECT track_id
 	FROM tracks t
@@ -72,7 +77,7 @@ func (app *ApiServer) v1UserTracks(c *fiber.Ctx) error {
 	  AND t.is_delete = false
 	  AND t.is_available = true
 	  AND ` + trackFilter + `
-	  AND t.stem_of is null
+	  AND t.stem_of is null` + gateFilter + `
 	ORDER BY (CASE WHEN t.track_id = u.artist_pick_track_id THEN 0 ELSE 1 END), ` + orderClause + `
 	LIMIT @limit
 	OFFSET @offset
@@ -108,4 +113,43 @@ func (app *ApiServer) v1UserTracks(c *fiber.Ctx) error {
 	return c.JSON(fiber.Map{
 		"data": tracks,
 	})
+}
+
+// buildGateConditionFilter builds SQL filter conditions based on gate_condition query parameters.
+// Supports multiple conditions:
+// - ungated: tracks with no gate
+// - usdc_purchase: tracks with USDC purchase gate
+// - follow: tracks with follow gate
+// - tip: tracks with tip gate
+// - nft: tracks with NFT gate
+// - token: tracks with token gate
+func buildGateConditionFilter(gateConditions []string) string {
+	if len(gateConditions) == 0 {
+		return ""
+	}
+
+	var conditions []string
+	for _, condition := range gateConditions {
+		switch condition {
+		case "ungated":
+			conditions = append(conditions, "(t.is_stream_gated = false)")
+		case "usdc_purchase":
+			conditions = append(conditions, "(t.is_stream_gated = true AND t.stream_conditions->>'usdc_purchase' IS NOT NULL)")
+		case "follow":
+			conditions = append(conditions, "(t.is_stream_gated = true AND t.stream_conditions->>'follow_user_id' IS NOT NULL)")
+		case "tip":
+			conditions = append(conditions, "(t.is_stream_gated = true AND t.stream_conditions->>'tip_user_id' IS NOT NULL)")
+		case "nft":
+			conditions = append(conditions, "(t.is_stream_gated = true AND t.stream_conditions->>'nft_collection' IS NOT NULL)")
+		case "token":
+			conditions = append(conditions, "(t.is_stream_gated = true AND t.stream_conditions->>'token_gate' IS NOT NULL)")
+		}
+	}
+
+	if len(conditions) == 0 {
+		return ""
+	}
+
+	// Join multiple conditions with OR and wrap in parentheses
+	return "\n	  AND (" + strings.Join(conditions, " OR ") + ")"
 }
