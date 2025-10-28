@@ -25,7 +25,7 @@ type VolumeLeaderUserMin struct {
 }
 
 type GetCoinsVolumeLeadersQueryParams struct {
-	Limit int `query:"limit" default:"10" validate:"min=1,max=100"`
+	Limit int `query:"limit" default:"20" validate:"min=1,max=100"`
 	// Max offset of 500 to prevent expensive queries
 	Offset   int    `query:"offset" default:"0" validate:"min=0,max=500"`
 	FromDate string `query:"from" validate:"omitempty,datetime=2006-01-02T15:04:05Z07:00"`
