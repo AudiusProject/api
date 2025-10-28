@@ -68,6 +68,13 @@ func TestSearch(t *testing.T) {
 				"stream_conditions": []byte(`{"usdc_purchase": {"price": 135, "splits": [{"user_id": 6, "percentage": 100.0}]}}`),
 			},
 			{
+				"track_id": 1010,
+				"owner_id": 1001,
+				"title":    "Two Instruments",
+				"genre":    "Drum & Bass",
+				"mood":     "Brooding",
+			},
+			{
 				"track_id":  1004,
 				"owner_id":  1001,
 				"title":     "hidden deleted",
@@ -125,11 +132,20 @@ func TestSearch(t *testing.T) {
 				"playlist_owner_id": 1001,
 				"playlist_name":     "Hot and New",
 			},
+			{
+				"playlist_id":       9004,
+				"playlist_owner_id": 1001,
+				"playlist_name":     "Brooding Bangers",
+			},
 		},
 		"playlist_tracks": {
 			{
 				"playlist_id": 9003,
 				"track_id":    1007,
+			},
+			{
+				"playlist_id": 9004,
+				"track_id":    1010,
 			},
 		},
 		"follows": {
@@ -312,7 +328,7 @@ func TestSearch(t *testing.T) {
 		status, body := testGet(t, app, "/v1/search/autocomplete?query=stereosteve")
 		require.Equal(t, 200, status)
 		jsonAssert(t, body, map[string]any{
-			"data.tracks.#":             3,
+			"data.tracks.#":             4,
 			"data.tracks.0.user.handle": "StereoSteve",
 		})
 	}
@@ -442,6 +458,30 @@ func TestSearch(t *testing.T) {
 			"data.users.0.handle": "StereoSteve",
 			"data.tracks.#":       1,
 			"data.tracks.0.title": "mouse trap",
+		})
+	}
+
+	// filter by two word genre
+	{
+		status, body := testGet(t, app, "/v1/search/autocomplete?genre=Drum%20%26%20Bass&sort_method=recent")
+		require.Equal(t, 200, status)
+		jsonAssert(t, body, map[string]any{
+			"data.tracks.#":                  1,
+			"data.tracks.0.title":            "Two Instruments",
+			"data.playlists.#":               1,
+			"data.playlists.0.playlist_name": "Brooding Bangers",
+		})
+	}
+
+	// filter by lowercase mood
+	{
+		status, body := testGet(t, app, "/v1/search/autocomplete?mood=brooding&sort_method=recent")
+		require.Equal(t, 200, status)
+		jsonAssert(t, body, map[string]any{
+			"data.tracks.#":                  1,
+			"data.tracks.0.title":            "Two Instruments",
+			"data.playlists.#":               1,
+			"data.playlists.0.playlist_name": "Brooding Bangers",
 		})
 	}
 }

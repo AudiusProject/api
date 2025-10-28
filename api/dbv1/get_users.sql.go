@@ -279,7 +279,7 @@ type GetUsersRow struct {
 	ProfilePictureLegacy           interface{}     `json:"profile_picture_legacy"`
 	HasCollectibles                bool            `json:"has_collectibles"`
 	AllowAiAttribution             bool            `json:"allow_ai_attribution"`
-	PreferredCoinFlairMint         pgtype.Text     `json:"coin_flair_mint"`
+	CoinFlairMint                  pgtype.Text     `json:"coin_flair_mint"`
 	ArtistCoinBadge                json.RawMessage `json:"artist_coin_badge"`
 }
 
@@ -352,7 +352,7 @@ func (q *Queries) GetUsers(ctx context.Context, arg GetUsersParams) ([]GetUsersR
 			&i.ProfilePictureLegacy,
 			&i.HasCollectibles,
 			&i.AllowAiAttribution,
-			&i.PreferredCoinFlairMint,
+			&i.CoinFlairMint,
 			&i.ArtistCoinBadge,
 		); err != nil {
 			return nil, err

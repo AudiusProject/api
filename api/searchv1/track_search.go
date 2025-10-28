@@ -70,12 +70,7 @@ func (q *TrackSearchQuery) Map() map[string]any {
 	}
 
 	if len(q.Genres) > 0 {
-		// Normalize to capitalized names since keyword filtering must be exact
-		capitalizedGenres := make([]string, len(q.Genres))
-		for i, value := range q.Genres {
-			capitalizedGenres[i] = strings.ToUpper(string(value[0])) + strings.ToLower(value[1:])
-		}
-		builder.Filter(esquery.Terms("genre.keyword", toAnySlice(capitalizedGenres)...))
+		builder.Filter(esquery.Terms("genre.keyword", toAnySlice(q.Genres)...))
 	}
 
 	if len(q.Moods) > 0 {
