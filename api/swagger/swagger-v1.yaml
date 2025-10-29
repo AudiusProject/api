@@ -2113,6 +2113,77 @@ paths:
         "500":
           description: Server error
           content: {}
+  /users/{id}/balance_history:
+    get:
+      tags:
+      - users
+      description: Get the user's historical portfolio balance data
+      operationId: Get User Balance History
+      parameters:
+      - name: id
+        in: path
+        description: A User ID
+        required: true
+        schema:
+          type: string
+      - name: start_time
+        in: query
+        description: Start time for the balance history query (ISO 8601 format). Defaults to 7 days ago.
+        required: false
+        schema:
+          type: string
+          format: date-time
+      - name: end_time
+        in: query
+        description: End time for the balance history query (ISO 8601 format). Defaults to now.
+        required: false
+        schema:
+          type: string
+          format: date-time
+      - name: granularity
+        in: query
+        description: Data granularity. 'hourly' returns hourly data points, 'daily' returns daily aggregated data. Defaults to 'hourly'.
+        required: false
+        schema:
+          type: string
+          enum:
+          - hourly
+          - daily
+          default: hourly
+      - name: user_id
+        in: query
+        description: The user ID of the user making the request
+        schema:
+          type: string
+      - name: Encoded-Data-Message
+        in: header
+        description: The data that was signed by the user for signature recovery
+        schema:
+          type: string
+      - name: Encoded-Data-Signature
+        in: header
+        description: "The signature of data, used for signature recovery"
+        schema:
+          type: string
+      responses:
+        "200":
+          description: Success
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/balance_history_response'
+        "400":
+          description: Bad request
+          content: {}
+        "401":
+          description: Unauthorized
+          content: {}
+        "403":
+          description: Forbidden
+          content: {}
+        "500":
+          description: Server error
+          content: {}
   /users/{id}/challenges:
     get:
       tags:
@@ -6387,6 +6458,31 @@ components:
       properties:
         data:
           $ref: '#/components/schemas/user_coin_with_accounts'
+    balance_history_response:
+      type: object
+      required:
+        - data
+      properties:
+        data:
+          type: array
+          items:
+            $ref: '#/components/schemas/balance_history_data_point'
+    balance_history_data_point:
+      type: object
+      required:
+        - timestamp
+        - balance_usd
+      properties:
+        timestamp:
+          type: integer
+          format: int64
+          description: Unix timestamp in seconds
+          example: 1704067200
+        balance_usd:
+          type: number
+          format: double
+          description: Total portfolio balance in USD at this timestamp
+          example: 1234.56
     claim_rewards_response:
       type: object
       required:
