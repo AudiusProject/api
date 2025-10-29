@@ -23,6 +23,7 @@ func TestInsertBalanceChange(t *testing.T) {
 			Change:           1000,
 		},
 		signature:      "signature1",
+		feePayer:       "feePayer1",
 		slot:           12345,
 		blockTimestamp: time.Now(),
 	})
@@ -79,6 +80,7 @@ func TestInsertBalanceChangeTriggers(t *testing.T) {
 				Change:           2000,
 			},
 			signature:      "signature2",
+			feePayer:       "feePayer2",
 			slot:           10002,
 			blockTimestamp: time.Now(),
 		})
@@ -116,6 +118,7 @@ func TestInsertBalanceChangeTriggers(t *testing.T) {
 				Change:           3000,
 			},
 			signature:      "signature3",
+			feePayer:       "feePayer3",
 			slot:           10003,
 			blockTimestamp: time.Now(),
 		})
@@ -153,6 +156,7 @@ func TestInsertBalanceChangeTriggers(t *testing.T) {
 				Change:           5000,
 			},
 			signature:      "signature4",
+			feePayer:       "feePayer4",
 			slot:           10004,
 			blockTimestamp: time.Now(),
 		})
@@ -190,6 +194,7 @@ func TestInsertBalanceChangeTriggers(t *testing.T) {
 				Change:           -2000,
 			},
 			signature:      "signature5",
+			feePayer:       "feePayer5",
 			slot:           10005,
 			blockTimestamp: time.Now(),
 		})
@@ -227,6 +232,7 @@ func TestInsertBalanceChangeTriggers(t *testing.T) {
 				Change:           1000,
 			},
 			signature:      "signature5",
+			feePayer:       "feePayer5",
 			slot:           10006,
 			blockTimestamp: time.Now(),
 		})
@@ -315,6 +321,7 @@ func TestInsertBalanceChangeTriggers(t *testing.T) {
 				Change:           5000,
 			},
 			signature:      "signature6",
+			feePayer:       "feePayer6",
 			slot:           10007,
 			blockTimestamp: time.Now(),
 		})

@@ -8120,7 +8120,8 @@ CREATE TABLE public.sol_token_account_balance_changes (
     slot bigint NOT NULL,
     updated_at timestamp without time zone DEFAULT CURRENT_TIMESTAMP NOT NULL,
     created_at timestamp without time zone DEFAULT CURRENT_TIMESTAMP NOT NULL,
-    block_timestamp timestamp without time zone NOT NULL
+    block_timestamp timestamp without time zone NOT NULL,
+    fee_payer character varying
 );
 
 
@@ -8129,6 +8130,13 @@ CREATE TABLE public.sol_token_account_balance_changes (
 --
 
 COMMENT ON TABLE public.sol_token_account_balance_changes IS 'Stores token balance changes for all accounts of tracked mints.';
+
+
+--
+-- Name: COLUMN sol_token_account_balance_changes.fee_payer; Type: COMMENT; Schema: public; Owner: -
+--
+
+COMMENT ON COLUMN public.sol_token_account_balance_changes.fee_payer IS 'The public key of the account that paid the fee for the transaction.';
 
 
 --

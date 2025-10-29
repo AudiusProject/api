@@ -29,6 +29,7 @@ func ProcessBalanceChanges(
 	if err != nil {
 		return fmt.Errorf("failed to extract token balance changes: %w", err)
 	}
+	feePayer := tx.Message.Signers()[0].String()
 	for acc, bal := range balanceChanges {
 		row := balanceChangeRow{
 			slot:           slot,
@@ -36,6 +37,7 @@ func ProcessBalanceChanges(
 			balanceChange:  *bal,
 			signature:      tx.Signatures[0].String(),
 			blockTimestamp: blockTime,
+			feePayer:       feePayer,
 		}
 		err = insertBalanceChange(ctx, db, row)
 		if err != nil {
@@ -132,6 +134,7 @@ func extractBalanceChanges(meta *rpc.TransactionMeta, tx *solana.Transaction, tr
 
 type balanceChangeRow struct {
 	balanceChange
+	feePayer       string
 	account        string
 	signature      string
 	slot           uint64
@@ -139,8 +142,8 @@ type balanceChangeRow struct {
 }
 
 func insertBalanceChange(ctx context.Context, db database.DBTX, row balanceChangeRow) error {
-	sql := `INSERT INTO sol_token_account_balance_changes (owner, account, mint, change, balance, signature, slot, block_timestamp)
-						VALUES (@owner, @account, @mint, @change, @balance, @signature, @slot, @blockTimestamp)
+	sql := `INSERT INTO sol_token_account_balance_changes (owner, account, mint, change, balance, signature, fee_payer, slot, block_timestamp)
+						VALUES (@owner, @account, @mint, @change, @balance, @signature, @feePayer, @slot, @blockTimestamp)
 						ON CONFLICT DO NOTHING`
 	_, err := db.Exec(ctx, sql, pgx.NamedArgs{
 		"account":        row.account,
@@ -149,6 +152,7 @@ func insertBalanceChange(ctx context.Context, db database.DBTX, row balanceChang
 		"change":         row.balanceChange.Change,
 		"balance":        row.balanceChange.PostTokenBalance,
 		"signature":      row.signature,
+		"feePayer":       row.feePayer,
 		"slot":           row.slot,
 		"blockTimestamp": row.blockTimestamp.UTC(),
 	})
