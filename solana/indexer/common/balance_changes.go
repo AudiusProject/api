@@ -29,6 +29,7 @@ func ProcessBalanceChanges(
 	if err != nil {
 		return fmt.Errorf("failed to extract token balance changes: %w", err)
 	}
+	// Fee payer is the first signer of the transaction
 	feePayer := tx.Message.Signers()[0].String()
 	for acc, bal := range balanceChanges {
 		row := balanceChangeRow{
