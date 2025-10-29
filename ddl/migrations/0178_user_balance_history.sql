@@ -18,20 +18,28 @@ COMMENT ON COLUMN user_balance_history.balance IS 'The raw token balance (in tok
 COMMENT ON COLUMN user_balance_history.balance_usd IS 'The USD value of this token balance at this timestamp';
 COMMENT ON COLUMN user_balance_history.created_at IS 'When this record was created';
 
--- Index for efficient queries by user and time range (used for GROUP BY timestamp)
 -- Primary key already covers (user_id, timestamp, mint), this index optimizes time-range queries
 -- Uses ASC to match ORDER BY timestamp ASC in queries
 CREATE INDEX IF NOT EXISTS user_balance_history_user_timestamp_idx 
     ON user_balance_history (user_id, timestamp);
 
+COMMENT ON INDEX user_balance_history_user_timestamp_idx IS 
+    'Optimizes time-range queries for a user, ordered by timestamp ASC';
+
 -- Index for finding recent balances
 CREATE INDEX IF NOT EXISTS user_balance_history_timestamp_idx 
     ON user_balance_history (timestamp DESC);
 
--- Note: For future per-mint queries (e.g., "show USDC balance history"), consider adding:
--- CREATE INDEX user_balance_history_user_mint_timestamp_idx 
---     ON user_balance_history (user_id, mint, timestamp);
+COMMENT ON INDEX user_balance_history_timestamp_idx IS 
+    'Optimizes queries finding recent balances across all users';
+
+-- Index for future per-mint queries (e.g., "show USDC balance history")
 -- This would optimize queries filtering by specific mint(s) and time range
+CREATE INDEX IF NOT EXISTS user_balance_history_user_mint_timestamp_idx 
+    ON user_balance_history (user_id, mint, timestamp);
+
+COMMENT ON INDEX user_balance_history_user_mint_timestamp_idx IS 
+    'Optimizes queries filtering by specific mint(s) and time range (e.g., "show USDC balance history")';
 
 COMMIT;
 

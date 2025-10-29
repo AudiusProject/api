@@ -97,23 +97,26 @@ func (app *ApiServer) v1UsersBalanceHistory(c *fiber.Ctx) error {
 	}
 
 	// Build SQL query with granularity parameter
+	// Using a CTE to handle the conditional truncation based on granularity
 	sql := `
+		WITH time_buckets AS (
+			SELECT
+				CASE
+					WHEN @granularity::text = 'daily' THEN date_trunc('day', timestamp)
+					ELSE timestamp
+				END AS bucket_timestamp,
+				balance_usd
+			FROM user_balance_history
+			WHERE user_id = @user_id
+				AND timestamp >= @start_time
+				AND timestamp <= @end_time
+		)
 		SELECT
-			CASE
-				WHEN @granularity = 'daily' THEN date_trunc('day', timestamp)
-				ELSE timestamp
-			END AS timestamp,
+			bucket_timestamp AS timestamp,
 			SUM(balance_usd) AS balance_usd
-		FROM user_balance_history
-		WHERE user_id = @user_id
-			AND timestamp >= @start_time
-			AND timestamp <= @end_time
-		GROUP BY
-			CASE
-				WHEN @granularity = 'daily' THEN date_trunc('day', timestamp)
-				ELSE timestamp
-			END
-		ORDER BY timestamp ASC
+		FROM time_buckets
+		GROUP BY bucket_timestamp
+		ORDER BY bucket_timestamp ASC
 	`
 
 	rows, err := app.pool.Query(c.Context(), sql, pgx.NamedArgs{

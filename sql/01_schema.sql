@@ -11465,10 +11465,6 @@ CREATE INDEX trending_params_track_id_idx ON public.trending_params USING btree 
 
 
 --
--- Name: user_balance_history_mint_idx; Type: INDEX; Schema: public; Owner: -
---
-
---
 -- Name: user_balance_history_timestamp_idx; Type: INDEX; Schema: public; Owner: -
 --
 
@@ -11476,10 +11472,38 @@ CREATE INDEX user_balance_history_timestamp_idx ON public.user_balance_history U
 
 
 --
+-- Name: INDEX user_balance_history_timestamp_idx; Type: COMMENT; Schema: public; Owner: -
+--
+
+COMMENT ON INDEX public.user_balance_history_timestamp_idx IS 'Optimizes queries finding recent balances across all users';
+
+
+--
+-- Name: user_balance_history_user_mint_timestamp_idx; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX user_balance_history_user_mint_timestamp_idx ON public.user_balance_history USING btree (user_id, mint, "timestamp");
+
+
+--
+-- Name: INDEX user_balance_history_user_mint_timestamp_idx; Type: COMMENT; Schema: public; Owner: -
+--
+
+COMMENT ON INDEX public.user_balance_history_user_mint_timestamp_idx IS 'Optimizes queries filtering by specific mint(s) and time range (e.g., "show USDC balance history")';
+
+
+--
 -- Name: user_balance_history_user_timestamp_idx; Type: INDEX; Schema: public; Owner: -
 --
 
 CREATE INDEX user_balance_history_user_timestamp_idx ON public.user_balance_history USING btree (user_id, "timestamp");
+
+
+--
+-- Name: INDEX user_balance_history_user_timestamp_idx; Type: COMMENT; Schema: public; Owner: -
+--
+
+COMMENT ON INDEX public.user_balance_history_user_timestamp_idx IS 'Optimizes time-range queries for a user, ordered by timestamp ASC';
 
 
 --

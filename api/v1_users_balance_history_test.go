@@ -95,7 +95,7 @@ func TestUserBalanceHistoryHourly(t *testing.T) {
 	database.Seed(app.writePool, fixtures)
 
 	// Test default (last 7 days) - should return hourly data with summed balances
-	status, body := testGet(t, app, "/v1/users/"+trashid.MustEncodeHashID(1)+"/balance_history")
+	status, body := testGet(t, app, "/v1/users/"+trashid.MustEncodeHashID(1)+"/balance/history")
 	assert.Equal(t, 200, status)
 
 	jsonAssert(t, body, map[string]any{
@@ -154,7 +154,7 @@ func TestUserBalanceHistoryDaily(t *testing.T) {
 	startTime := now.Add(-15 * 24 * time.Hour).Format(time.RFC3339)
 	endTime := now.Format(time.RFC3339)
 
-	status, body := testGet(t, app, "/v1/users/"+trashid.MustEncodeHashID(1)+"/balance_history?start_time="+startTime+"&end_time="+endTime+"&granularity=daily")
+	status, body := testGet(t, app, "/v1/users/"+trashid.MustEncodeHashID(1)+"/balance/history?start_time="+startTime+"&end_time="+endTime+"&granularity=daily")
 	assert.Equal(t, 200, status)
 
 	// Should return 2 data points (different days)
@@ -209,7 +209,7 @@ func TestUserBalanceHistoryMultipleMintsSummed(t *testing.T) {
 
 	database.Seed(app.writePool, fixtures)
 
-	status, body := testGet(t, app, "/v1/users/"+trashid.MustEncodeHashID(1)+"/balance_history")
+	status, body := testGet(t, app, "/v1/users/"+trashid.MustEncodeHashID(1)+"/balance/history")
 	assert.Equal(t, 200, status)
 
 	// Should return 1 data point with summed balance_usd
@@ -230,7 +230,7 @@ func TestUserBalanceHistoryEmpty(t *testing.T) {
 
 	database.Seed(app.writePool, fixtures)
 
-	status, body := testGet(t, app, "/v1/users/"+trashid.MustEncodeHashID(1)+"/balance_history")
+	status, body := testGet(t, app, "/v1/users/"+trashid.MustEncodeHashID(1)+"/balance/history")
 	assert.Equal(t, 200, status)
 
 	// Should return empty array
@@ -243,7 +243,7 @@ func TestUserBalanceHistoryInvalidUserId(t *testing.T) {
 	app := emptyTestApp(t)
 
 	// Invalid user ID format
-	status, _ := testGet(t, app, "/v1/users/invalid/balance_history")
+	status, _ := testGet(t, app, "/v1/users/invalid/balance/history")
 	assert.Equal(t, 400, status)
 }
 
@@ -262,7 +262,7 @@ func TestUserBalanceHistoryInvalidTimeRange(t *testing.T) {
 	startTime := time.Now().Format(time.RFC3339)
 	endTime := time.Now().Add(-24 * time.Hour).Format(time.RFC3339)
 
-	status, _ := testGet(t, app, "/v1/users/"+trashid.MustEncodeHashID(1)+"/balance_history?start_time="+startTime+"&end_time="+endTime)
+	status, _ := testGet(t, app, "/v1/users/"+trashid.MustEncodeHashID(1)+"/balance/history?start_time="+startTime+"&end_time="+endTime)
 	assert.Equal(t, 400, status)
 }
 
@@ -330,7 +330,7 @@ func TestUserBalanceHistoryTimeRangeFiltering(t *testing.T) {
 	startTime := now.Add(-3 * 24 * time.Hour).Format(time.RFC3339)
 	endTime := now.Format(time.RFC3339)
 
-	status, body := testGet(t, app, "/v1/users/"+trashid.MustEncodeHashID(1)+"/balance_history?start_time="+startTime+"&end_time="+endTime)
+	status, body := testGet(t, app, "/v1/users/"+trashid.MustEncodeHashID(1)+"/balance/history?start_time="+startTime+"&end_time="+endTime)
 	assert.Equal(t, 200, status)
 
 	// Should only return data from last 3 days (2 days ago and 1 hour ago)
@@ -378,7 +378,7 @@ func TestUserBalanceHistoryMultipleUsers(t *testing.T) {
 	database.Seed(app.writePool, fixtures)
 
 	// Query user 1 - should only get user 1's data
-	status, body := testGet(t, app, "/v1/users/"+trashid.MustEncodeHashID(1)+"/balance_history")
+	status, body := testGet(t, app, "/v1/users/"+trashid.MustEncodeHashID(1)+"/balance/history")
 	assert.Equal(t, 200, status)
 
 	jsonAssert(t, body, map[string]any{
@@ -387,7 +387,7 @@ func TestUserBalanceHistoryMultipleUsers(t *testing.T) {
 	})
 
 	// Query user 2 - should only get user 2's data
-	status, body = testGet(t, app, "/v1/users/"+trashid.MustEncodeHashID(2)+"/balance_history")
+	status, body = testGet(t, app, "/v1/users/"+trashid.MustEncodeHashID(2)+"/balance/history")
 	assert.Equal(t, 200, status)
 
 	jsonAssert(t, body, map[string]any{
@@ -441,7 +441,7 @@ func TestUserBalanceHistoryGranularityParameter(t *testing.T) {
 	endTime := now.Format(time.RFC3339)
 
 	// Test 1: hourly granularity (default) - should return all hourly data points
-	status, body := testGet(t, app, "/v1/users/"+trashid.MustEncodeHashID(1)+"/balance_history?start_time="+startTime+"&end_time="+endTime+"&granularity=hourly")
+	status, body := testGet(t, app, "/v1/users/"+trashid.MustEncodeHashID(1)+"/balance/history?start_time="+startTime+"&end_time="+endTime+"&granularity=hourly")
 	assert.Equal(t, 200, status)
 
 	// Should return hourly data points (4 per day × 3 days = 12 points)
@@ -449,7 +449,7 @@ func TestUserBalanceHistoryGranularityParameter(t *testing.T) {
 	assert.True(t, result >= 10 && result <= 14, "Expected ~12 hourly points, got %d", result)
 
 	// Test 2: daily granularity - should return daily aggregated data
-	status, body = testGet(t, app, "/v1/users/"+trashid.MustEncodeHashID(1)+"/balance_history?start_time="+startTime+"&end_time="+endTime+"&granularity=daily")
+	status, body = testGet(t, app, "/v1/users/"+trashid.MustEncodeHashID(1)+"/balance/history?start_time="+startTime+"&end_time="+endTime+"&granularity=daily")
 	assert.Equal(t, 200, status)
 
 	// Should return daily data points (~3 points, one per day)
@@ -457,7 +457,7 @@ func TestUserBalanceHistoryGranularityParameter(t *testing.T) {
 	assert.True(t, result >= 2 && result <= 4, "Expected ~3 daily points, got %d", result)
 
 	// Test 3: default (no granularity param) - should default to hourly
-	status, body = testGet(t, app, "/v1/users/"+trashid.MustEncodeHashID(1)+"/balance_history?start_time="+startTime+"&end_time="+endTime)
+	status, body = testGet(t, app, "/v1/users/"+trashid.MustEncodeHashID(1)+"/balance/history?start_time="+startTime+"&end_time="+endTime)
 	assert.Equal(t, 200, status)
 
 	// Should return hourly data points (default behavior)
@@ -477,7 +477,7 @@ func TestUserBalanceHistoryInvalidGranularity(t *testing.T) {
 	database.Seed(app.writePool, fixtures)
 
 	// Invalid granularity value
-	status, _ := testGet(t, app, "/v1/users/"+trashid.MustEncodeHashID(1)+"/balance_history?granularity=weekly")
+	status, _ := testGet(t, app, "/v1/users/"+trashid.MustEncodeHashID(1)+"/balance/history?granularity=weekly")
 	assert.Equal(t, 400, status)
 }
 
@@ -531,7 +531,7 @@ func TestUserBalanceHistoryDailyGranularityWithMultipleHours(t *testing.T) {
 	endTime := now.Format(time.RFC3339)
 
 	// Test hourly granularity - should return 3 separate data points
-	status, body := testGet(t, app, "/v1/users/"+trashid.MustEncodeHashID(1)+"/balance_history?start_time="+startTime+"&end_time="+endTime+"&granularity=hourly")
+	status, body := testGet(t, app, "/v1/users/"+trashid.MustEncodeHashID(1)+"/balance/history?start_time="+startTime+"&end_time="+endTime+"&granularity=hourly")
 	assert.Equal(t, 200, status)
 
 	jsonAssert(t, body, map[string]any{
@@ -539,7 +539,7 @@ func TestUserBalanceHistoryDailyGranularityWithMultipleHours(t *testing.T) {
 	})
 
 	// Test daily granularity - should return 1 data point with summed balance
-	status, body = testGet(t, app, "/v1/users/"+trashid.MustEncodeHashID(1)+"/balance_history?start_time="+startTime+"&end_time="+endTime+"&granularity=daily")
+	status, body = testGet(t, app, "/v1/users/"+trashid.MustEncodeHashID(1)+"/balance/history?start_time="+startTime+"&end_time="+endTime+"&granularity=daily")
 	assert.Equal(t, 200, status)
 
 	jsonAssert(t, body, map[string]any{
@@ -585,7 +585,7 @@ func TestUserBalanceHistoryOrdering(t *testing.T) {
 
 	database.Seed(app.writePool, fixtures)
 
-	status, body := testGet(t, app, "/v1/users/"+trashid.MustEncodeHashID(1)+"/balance_history")
+	status, body := testGet(t, app, "/v1/users/"+trashid.MustEncodeHashID(1)+"/balance/history")
 	assert.Equal(t, 200, status)
 
 	// Should be ordered ASC by timestamp (oldest first)
@@ -629,7 +629,7 @@ func TestUserBalanceHistoryWithCustomTimeRange(t *testing.T) {
 	startTime := t2.Format(time.RFC3339)
 	endTime := t4.Format(time.RFC3339)
 
-	status, body := testGet(t, app, "/v1/users/"+trashid.MustEncodeHashID(1)+"/balance_history?start_time="+startTime+"&end_time="+endTime)
+	status, body := testGet(t, app, "/v1/users/"+trashid.MustEncodeHashID(1)+"/balance/history?start_time="+startTime+"&end_time="+endTime)
 	assert.Equal(t, 200, status)
 
 	// Should return 3 points: 11:00, 12:00, 13:00
@@ -668,7 +668,7 @@ func TestUserBalanceHistoryResponseFormat(t *testing.T) {
 	database.Seed(app.writePool, fixtures)
 
 	var resp BalanceHistoryResponse
-	status, _ := testGet(t, app, "/v1/users/"+trashid.MustEncodeHashID(1)+"/balance_history", &resp)
+	status, _ := testGet(t, app, "/v1/users/"+trashid.MustEncodeHashID(1)+"/balance/history", &resp)
 	assert.Equal(t, 200, status)
 
 	// Verify structure
