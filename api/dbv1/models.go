@@ -881,7 +881,7 @@ type ArtistCoinPool struct {
 	CreatorWalletAddress    pgtype.Text    `json:"creator_wallet_address"`
 }
 
-// View that provides artist coin prices using DAMM V2 pool if available, DBC pools if not and still applicable, and stats table if nothing else. Makes use of the price of AUDIO from Birdeye if using a DBC pool.
+// View that provides artist coin prices using DAMM V2 pool if available, DBC pools if not and still applicable, and stats table if nothing else. Makes use of the price of the quote token (AUDIO) from Birdeye if using a pool.
 type ArtistCoinPrice struct {
 	Mint        string        `json:"mint"`
 	DammV2Price pgtype.Int4   `json:"damm_v2_price"`
@@ -2056,14 +2056,6 @@ type SolTokenTransfer struct {
 	ToAccount        string `json:"to_account"`
 }
 
-type SolUnprocessedTx struct {
-	Signature    string      `json:"signature"`
-	ErrorMessage pgtype.Text `json:"error_message"`
-	CreatedAt    time.Time   `json:"created_at"`
-	UpdatedAt    time.Time   `json:"updated_at"`
-	Slot         int64       `json:"slot"`
-}
-
 // Stores the balances of Solana tokens for users.
 type SolUserBalance struct {
 	UserID    int32     `json:"user_id"`
@@ -2374,6 +2366,22 @@ type UserBalanceChange struct {
 	PreviousBalance string    `json:"previous_balance"`
 	CreatedAt       time.Time `json:"created_at"`
 	UpdatedAt       time.Time `json:"updated_at"`
+}
+
+// Stores historical snapshots of user token balances per mint, binned hourly by timestamp
+type UserBalanceHistory struct {
+	// The user ID this balance snapshot belongs to
+	UserID int32 `json:"user_id"`
+	// The token mint address
+	Mint string `json:"mint"`
+	// The binned timestamp (hourly) for this balance snapshot
+	Timestamp time.Time `json:"timestamp"`
+	// The raw token balance (in token units, accounting for decimals)
+	Balance int64 `json:"balance"`
+	// The USD value of this token balance at this timestamp
+	BalanceUsd float64 `json:"balance_usd"`
+	// When this record was created
+	CreatedAt time.Time `json:"created_at"`
 }
 
 type UserBankAccount struct {
