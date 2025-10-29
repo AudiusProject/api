@@ -13,6 +13,7 @@ CREATE VIEW artist_coin_prices AS
             ON dbc_config.account = dbc_pool.config
         JOIN artist_coin_stats dbc_quote_token
             ON dbc_quote_token.mint = dbc_config.quote_mint
+        WHERE is_migrated = 0
     ), damm_v2 AS (
         SELECT
             artist_coins.mint,
