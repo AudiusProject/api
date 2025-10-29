@@ -117,14 +117,14 @@ func main() {
 				Arguments: []cli.Argument{
 					&cli.StringArg{
 						Name:      "indexer",
-						UsageText: "The indexer name",
+						UsageText: "INDEXER",
 						Config: cli.StringConfig{
 							TrimSpace: true,
 						},
 					},
 					&cli.StringArg{
 						Name:      "pubkey",
-						UsageText: "The account pubkey to fetch",
+						UsageText: "ADDRESS",
 						Config: cli.StringConfig{
 							TrimSpace: true,
 						},

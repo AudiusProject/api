@@ -119,7 +119,7 @@ const sharedSelectCoinSql = `
 			COALESCE(artist_coin_stats.liquidity, 0) as liquidity,
 			COALESCE(artist_coin_stats.last_trade_unix_time, 0) as last_trade_unix_time,
 			COALESCE(artist_coin_stats.last_trade_human_time, '') as last_trade_human_time,
-			COALESCE(artist_coin_stats.price, 0) as price,
+			COALESCE(artist_coin_prices.price, 0) as price,
 			COALESCE(artist_coin_stats.history_24h_price, 0) as history_24h_price,
 			COALESCE(artist_coin_stats.price_change_24h_percent, 0) as price_change_24h_percent,
 			COALESCE(artist_coin_stats.unique_wallet_24h, 0) as unique_wallet_24h,
@@ -183,6 +183,7 @@ const sharedSelectCoinSql = `
 			END AS reward_pool,
 			COALESCE(artist_coin_stats.updated_at, artist_coins.created_at) AS updated_at
 		FROM artist_coins
+		LEFT JOIN artist_coin_prices ON artist_coin_prices.mint = artist_coins.mint
 		LEFT JOIN artist_coin_stats
 			ON artist_coin_stats.mint = artist_coins.mint
 		LEFT JOIN artist_coin_pools

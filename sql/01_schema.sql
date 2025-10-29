@@ -3,8 +3,8 @@
 --
 
 
--- Dumped from database version 17.6 (Debian 17.6-1.pgdg13+1)
--- Dumped by pg_dump version 17.6 (Debian 17.6-1.pgdg13+1)
+-- Dumped from database version 17.6 (Debian 17.6-2.pgdg13+1)
+-- Dumped by pg_dump version 17.6 (Debian 17.6-2.pgdg13+1)
 
 SET statement_timeout = 0;
 SET lock_timeout = 0;
@@ -4693,6 +4693,19 @@ $$;
 
 
 --
+-- Name: price_from_sqrt_price(numeric, integer, integer); Type: FUNCTION; Schema: public; Owner: -
+--
+
+CREATE FUNCTION public.price_from_sqrt_price(sqrt_price numeric, base_decimals integer, quote_decimals integer DEFAULT 8) RETURNS numeric
+    LANGUAGE sql
+    AS $$
+    SELECT
+        -- See: https://github.com/MeteoraAg/dynamic-bonding-curve-sdk/blob/a5519bf920935a9438fa200e067fffc6c6e40e27/packages/dynamic-bonding-curve/src/helpers/common.ts#L198
+        ((sqrt_price * sqrt_price) * POWER(10, base_decimals - quote_decimals)) / POWER(2, 128) AS price
+$$;
+
+
+--
 -- Name: process_grant_change(); Type: FUNCTION; Schema: public; Owner: -
 --
 
@@ -6064,6 +6077,167 @@ COMMENT ON TABLE public.artist_coins IS 'Stores the token mints for artist coins
 --
 
 COMMENT ON COLUMN public.artist_coins.damm_v2_pool IS 'The canonical DAMM V2 pool address for this artist coin, if any. Used in solana indexer.';
+
+
+--
+-- Name: sol_meteora_damm_v2_pools; Type: TABLE; Schema: public; Owner: -
+--
+
+CREATE TABLE public.sol_meteora_damm_v2_pools (
+    account text NOT NULL,
+    slot bigint NOT NULL,
+    token_a_mint text NOT NULL,
+    token_b_mint text NOT NULL,
+    token_a_vault text NOT NULL,
+    token_b_vault text NOT NULL,
+    whitelisted_vault text NOT NULL,
+    partner text NOT NULL,
+    liquidity numeric NOT NULL,
+    protocol_a_fee bigint NOT NULL,
+    protocol_b_fee bigint NOT NULL,
+    partner_a_fee bigint NOT NULL,
+    partner_b_fee bigint NOT NULL,
+    sqrt_min_price numeric NOT NULL,
+    sqrt_max_price numeric NOT NULL,
+    sqrt_price numeric NOT NULL,
+    activation_point bigint NOT NULL,
+    activation_type smallint NOT NULL,
+    pool_status smallint NOT NULL,
+    token_a_flag smallint NOT NULL,
+    token_b_flag smallint NOT NULL,
+    collect_fee_mode smallint NOT NULL,
+    pool_type smallint NOT NULL,
+    version smallint NOT NULL,
+    fee_a_per_liquidity numeric NOT NULL,
+    fee_b_per_liquidity numeric NOT NULL,
+    permanent_lock_liquidity numeric NOT NULL,
+    creator text NOT NULL,
+    created_at timestamp without time zone DEFAULT CURRENT_TIMESTAMP NOT NULL,
+    updated_at timestamp without time zone DEFAULT CURRENT_TIMESTAMP NOT NULL
+);
+
+
+--
+-- Name: TABLE sol_meteora_damm_v2_pools; Type: COMMENT; Schema: public; Owner: -
+--
+
+COMMENT ON TABLE public.sol_meteora_damm_v2_pools IS 'Tracks DAMM V2 pool state. Join with sol_meteora_damm_v2_pool_metrics, sol_meteora_damm_v2_pool_fees, sol_meteora_damm_v2_pool_base_fees, and sol_meteora_damm_v2_pool_dynamic_fees for full pool state.';
+
+
+--
+-- Name: sol_meteora_dbc_configs; Type: TABLE; Schema: public; Owner: -
+--
+
+CREATE TABLE public.sol_meteora_dbc_configs (
+    account text NOT NULL,
+    slot bigint NOT NULL,
+    quote_mint text NOT NULL,
+    fee_claimer text NOT NULL,
+    leftover_receiver text NOT NULL,
+    collect_fee_mode smallint NOT NULL,
+    migration_option smallint NOT NULL,
+    activation_type smallint,
+    token_decimal smallint,
+    version smallint,
+    token_type smallint,
+    quote_token_flag smallint,
+    partner_locked_lp_percentage smallint,
+    partner_lp_percentage smallint,
+    creator_locked_lp_percentage smallint,
+    creator_lp_percentage smallint,
+    migration_fee_option smallint,
+    fixed_token_supply_flag smallint,
+    creator_trading_fee_percentage smallint,
+    token_update_authority smallint,
+    migration_fee_percentage smallint,
+    creator_migration_fee_percentage smallint,
+    swap_base_amount bigint,
+    migration_quote_threshold bigint,
+    migration_base_threshold bigint,
+    migration_sqrt_price numeric,
+    pre_migration_token_supply bigint,
+    post_migration_token_supply bigint,
+    migrated_collect_fee_mode smallint,
+    migrated_dynamic_fee smallint,
+    migrated_pool_fee_bps smallint,
+    sqrt_start_price numeric,
+    curve jsonb,
+    created_at timestamp without time zone DEFAULT now(),
+    updated_at timestamp without time zone DEFAULT now()
+);
+
+
+--
+-- Name: sol_meteora_dbc_pools; Type: TABLE; Schema: public; Owner: -
+--
+
+CREATE TABLE public.sol_meteora_dbc_pools (
+    account text NOT NULL,
+    slot bigint NOT NULL,
+    config text NOT NULL,
+    creator text NOT NULL,
+    base_mint text NOT NULL,
+    base_vault text NOT NULL,
+    quote_vault text NOT NULL,
+    base_reserve bigint NOT NULL,
+    quote_reserve bigint NOT NULL,
+    protocol_base_fee bigint NOT NULL,
+    protocol_quote_fee bigint NOT NULL,
+    partner_base_fee bigint NOT NULL,
+    partner_quote_fee bigint NOT NULL,
+    sqrt_price numeric NOT NULL,
+    activation_point bigint NOT NULL,
+    pool_type smallint NOT NULL,
+    is_migrated smallint NOT NULL,
+    is_partner_withdraw_surplus smallint NOT NULL,
+    is_protocol_withdraw_surplus smallint NOT NULL,
+    migration_progress smallint NOT NULL,
+    is_withdraw_leftover smallint NOT NULL,
+    is_creator_withdraw_surplus smallint NOT NULL,
+    migration_fee_withdraw_status smallint NOT NULL,
+    finish_curve_timestamp bigint NOT NULL,
+    creator_base_fee bigint NOT NULL,
+    creator_quote_fee bigint NOT NULL,
+    created_at timestamp without time zone DEFAULT CURRENT_TIMESTAMP NOT NULL,
+    updated_at timestamp without time zone DEFAULT CURRENT_TIMESTAMP NOT NULL
+);
+
+
+--
+-- Name: artist_coin_prices; Type: VIEW; Schema: public; Owner: -
+--
+
+CREATE VIEW public.artist_coin_prices AS
+ WITH dbc AS (
+         SELECT artist_coins_1.mint,
+            ((public.price_from_sqrt_price(dbc_pool.sqrt_price, artist_coins_1.decimals))::double precision * dbc_quote_token.price) AS price
+           FROM (((public.artist_coins artist_coins_1
+             JOIN public.sol_meteora_dbc_pools dbc_pool ON (((dbc_pool.base_mint = (artist_coins_1.mint)::text) AND (dbc_pool.is_migrated = 0))))
+             JOIN public.sol_meteora_dbc_configs dbc_config ON ((dbc_config.account = dbc_pool.config)))
+             JOIN public.artist_coin_stats dbc_quote_token ON ((dbc_quote_token.mint = dbc_config.quote_mint)))
+        ), damm_v2 AS (
+         SELECT artist_coins_1.mint,
+            ((public.price_from_sqrt_price(damm_v2_pool.sqrt_price, artist_coins_1.decimals))::double precision * damm_v2_quote_token.price) AS price
+           FROM ((public.artist_coins artist_coins_1
+             JOIN public.sol_meteora_damm_v2_pools damm_v2_pool ON ((damm_v2_pool.token_a_mint = (artist_coins_1.mint)::text)))
+             JOIN public.artist_coin_stats damm_v2_quote_token ON ((damm_v2_quote_token.mint = damm_v2_pool.token_b_mint)))
+        )
+ SELECT artist_coins.mint,
+    damm_v2.price AS damm_v2_price,
+    dbc.price AS dbc_price,
+    stats.price AS stats_price,
+    COALESCE(damm_v2.price, dbc.price, stats.price) AS price
+   FROM (((public.artist_coins
+     LEFT JOIN dbc ON (((artist_coins.mint)::text = (dbc.mint)::text)))
+     LEFT JOIN damm_v2 ON (((artist_coins.mint)::text = (damm_v2.mint)::text)))
+     JOIN public.artist_coin_stats stats ON ((stats.mint = (artist_coins.mint)::text)));
+
+
+--
+-- Name: VIEW artist_coin_prices; Type: COMMENT; Schema: public; Owner: -
+--
+
+COMMENT ON VIEW public.artist_coin_prices IS 'View that provides artist coin prices using DAMM V2 pool if available, DBC pools if not and still applicable, and stats table if nothing else. Makes use of the price of AUDIO from Birdeye if using a DBC pool.';
 
 
 --
@@ -7559,51 +7733,6 @@ COMMENT ON TABLE public.sol_meteora_damm_v2_pool_metrics IS 'Tracks aggregated m
 
 
 --
--- Name: sol_meteora_damm_v2_pools; Type: TABLE; Schema: public; Owner: -
---
-
-CREATE TABLE public.sol_meteora_damm_v2_pools (
-    account text NOT NULL,
-    slot bigint NOT NULL,
-    token_a_mint text NOT NULL,
-    token_b_mint text NOT NULL,
-    token_a_vault text NOT NULL,
-    token_b_vault text NOT NULL,
-    whitelisted_vault text NOT NULL,
-    partner text NOT NULL,
-    liquidity numeric NOT NULL,
-    protocol_a_fee bigint NOT NULL,
-    protocol_b_fee bigint NOT NULL,
-    partner_a_fee bigint NOT NULL,
-    partner_b_fee bigint NOT NULL,
-    sqrt_min_price numeric NOT NULL,
-    sqrt_max_price numeric NOT NULL,
-    sqrt_price numeric NOT NULL,
-    activation_point bigint NOT NULL,
-    activation_type smallint NOT NULL,
-    pool_status smallint NOT NULL,
-    token_a_flag smallint NOT NULL,
-    token_b_flag smallint NOT NULL,
-    collect_fee_mode smallint NOT NULL,
-    pool_type smallint NOT NULL,
-    version smallint NOT NULL,
-    fee_a_per_liquidity numeric NOT NULL,
-    fee_b_per_liquidity numeric NOT NULL,
-    permanent_lock_liquidity numeric NOT NULL,
-    creator text NOT NULL,
-    created_at timestamp without time zone DEFAULT CURRENT_TIMESTAMP NOT NULL,
-    updated_at timestamp without time zone DEFAULT CURRENT_TIMESTAMP NOT NULL
-);
-
-
---
--- Name: TABLE sol_meteora_damm_v2_pools; Type: COMMENT; Schema: public; Owner: -
---
-
-COMMENT ON TABLE public.sol_meteora_damm_v2_pools IS 'Tracks DAMM V2 pool state. Join with sol_meteora_damm_v2_pool_metrics, sol_meteora_damm_v2_pool_fees, sol_meteora_damm_v2_pool_base_fees, and sol_meteora_damm_v2_pool_dynamic_fees for full pool state.';
-
-
---
 -- Name: sol_meteora_damm_v2_position_metrics; Type: TABLE; Schema: public; Owner: -
 --
 
@@ -7693,49 +7822,6 @@ CREATE TABLE public.sol_meteora_dbc_config_vestings (
 
 
 --
--- Name: sol_meteora_dbc_configs; Type: TABLE; Schema: public; Owner: -
---
-
-CREATE TABLE public.sol_meteora_dbc_configs (
-    account text NOT NULL,
-    slot bigint NOT NULL,
-    quote_mint text NOT NULL,
-    fee_claimer text NOT NULL,
-    leftover_receiver text NOT NULL,
-    collect_fee_mode smallint NOT NULL,
-    migration_option smallint NOT NULL,
-    activation_type smallint,
-    token_decimal smallint,
-    version smallint,
-    token_type smallint,
-    quote_token_flag smallint,
-    partner_locked_lp_percentage smallint,
-    partner_lp_percentage smallint,
-    creator_locked_lp_percentage smallint,
-    creator_lp_percentage smallint,
-    migration_fee_option smallint,
-    fixed_token_supply_flag smallint,
-    creator_trading_fee_percentage smallint,
-    token_update_authority smallint,
-    migration_fee_percentage smallint,
-    creator_migration_fee_percentage smallint,
-    swap_base_amount bigint,
-    migration_quote_threshold bigint,
-    migration_base_threshold bigint,
-    migration_sqrt_price numeric,
-    pre_migration_token_supply bigint,
-    post_migration_token_supply bigint,
-    migrated_collect_fee_mode smallint,
-    migrated_dynamic_fee smallint,
-    migrated_pool_fee_bps smallint,
-    sqrt_start_price numeric,
-    curve jsonb,
-    created_at timestamp without time zone DEFAULT now(),
-    updated_at timestamp without time zone DEFAULT now()
-);
-
-
---
 -- Name: sol_meteora_dbc_migrations; Type: TABLE; Schema: public; Owner: -
 --
 
@@ -7795,42 +7881,6 @@ CREATE TABLE public.sol_meteora_dbc_pool_volatility_trackers (
     last_update_timestamp bigint NOT NULL,
     volatility_accumulator numeric NOT NULL,
     volatility_reference numeric NOT NULL,
-    created_at timestamp without time zone DEFAULT CURRENT_TIMESTAMP NOT NULL,
-    updated_at timestamp without time zone DEFAULT CURRENT_TIMESTAMP NOT NULL
-);
-
-
---
--- Name: sol_meteora_dbc_pools; Type: TABLE; Schema: public; Owner: -
---
-
-CREATE TABLE public.sol_meteora_dbc_pools (
-    account text NOT NULL,
-    slot bigint NOT NULL,
-    config text NOT NULL,
-    creator text NOT NULL,
-    base_mint text NOT NULL,
-    base_vault text NOT NULL,
-    quote_vault text NOT NULL,
-    base_reserve bigint NOT NULL,
-    quote_reserve bigint NOT NULL,
-    protocol_base_fee bigint NOT NULL,
-    protocol_quote_fee bigint NOT NULL,
-    partner_base_fee bigint NOT NULL,
-    partner_quote_fee bigint NOT NULL,
-    sqrt_price numeric NOT NULL,
-    activation_point bigint NOT NULL,
-    pool_type smallint NOT NULL,
-    is_migrated smallint NOT NULL,
-    is_partner_withdraw_surplus smallint NOT NULL,
-    is_protocol_withdraw_surplus smallint NOT NULL,
-    migration_progress smallint NOT NULL,
-    is_withdraw_leftover smallint NOT NULL,
-    is_creator_withdraw_surplus smallint NOT NULL,
-    migration_fee_withdraw_status smallint NOT NULL,
-    finish_curve_timestamp bigint NOT NULL,
-    creator_base_fee bigint NOT NULL,
-    creator_quote_fee bigint NOT NULL,
     created_at timestamp without time zone DEFAULT CURRENT_TIMESTAMP NOT NULL,
     updated_at timestamp without time zone DEFAULT CURRENT_TIMESTAMP NOT NULL
 );
@@ -8080,30 +8130,6 @@ COMMENT ON TABLE public.sol_slot_checkpoints IS 'Stores checkpoints for Solana s
 --
 
 COMMENT ON COLUMN public.sol_slot_checkpoints.name IS 'The name of the indexer this checkpoint is for (e.g., token_indexer, damm_v2_indexer).';
-
-
---
--- Name: sol_swaps; Type: TABLE; Schema: public; Owner: -
---
-
-CREATE TABLE public.sol_swaps (
-    signature character varying NOT NULL,
-    instruction_index integer NOT NULL,
-    slot bigint NOT NULL,
-    from_mint character varying NOT NULL,
-    from_account character varying NOT NULL,
-    from_amount bigint NOT NULL,
-    to_mint character varying NOT NULL,
-    to_account character varying NOT NULL,
-    to_amount bigint NOT NULL
-);
-
-
---
--- Name: TABLE sol_swaps; Type: COMMENT; Schema: public; Owner: -
---
-
-COMMENT ON TABLE public.sol_swaps IS 'Stores eg. Jupiter swaps for tracked mints.';
 
 
 --
@@ -9902,14 +9928,6 @@ ALTER TABLE ONLY public.sol_slot_checkpoints
 
 
 --
--- Name: sol_swaps sol_swaps_pkey; Type: CONSTRAINT; Schema: public; Owner: -
---
-
-ALTER TABLE ONLY public.sol_swaps
-    ADD CONSTRAINT sol_swaps_pkey PRIMARY KEY (signature, instruction_index);
-
-
---
 -- Name: sol_token_account_balance_changes sol_token_account_balance_changes_pkey; Type: CONSTRAINT; Schema: public; Owner: -
 --
 
@@ -11211,34 +11229,6 @@ CREATE INDEX sol_slot_checkpoints_from_slot_idx ON public.sol_slot_checkpoints U
 --
 
 CREATE INDEX sol_slot_checkpoints_to_slot_idx ON public.sol_slot_checkpoints USING btree (subscription_hash, to_slot);
-
-
---
--- Name: sol_swaps_from_account_idx; Type: INDEX; Schema: public; Owner: -
---
-
-CREATE INDEX sol_swaps_from_account_idx ON public.sol_swaps USING btree (from_account);
-
-
---
--- Name: sol_swaps_from_mint_idx; Type: INDEX; Schema: public; Owner: -
---
-
-CREATE INDEX sol_swaps_from_mint_idx ON public.sol_swaps USING btree (from_mint);
-
-
---
--- Name: sol_swaps_to_account_idx; Type: INDEX; Schema: public; Owner: -
---
-
-CREATE INDEX sol_swaps_to_account_idx ON public.sol_swaps USING btree (to_account);
-
-
---
--- Name: sol_swaps_to_mint_idx; Type: INDEX; Schema: public; Owner: -
---
-
-CREATE INDEX sol_swaps_to_mint_idx ON public.sol_swaps USING btree (to_mint);
 
 
 --
