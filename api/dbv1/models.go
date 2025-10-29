@@ -2044,6 +2044,8 @@ type SolTokenAccountBalanceChange struct {
 	UpdatedAt      time.Time `json:"updated_at"`
 	CreatedAt      time.Time `json:"created_at"`
 	BlockTimestamp time.Time `json:"block_timestamp"`
+	// The public key of the account that paid the fee for the transaction.
+	FeePayer pgtype.Text `json:"fee_payer"`
 }
 
 // Stores SPL token transfers for tracked mints.

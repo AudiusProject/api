@@ -48,6 +48,7 @@ func TestHandleUpdate_SlotCheckpoint(t *testing.T) {
 func TestHandleUpdate_BalanceChange(t *testing.T) {
 	pool := database.CreateTestDatabase(t, "test_solana_indexer_token")
 
+	feePayer := "HXqdXhJiRe2reQVWmWq13V8gjGtVP7rSh27va5gC3M3P"
 	mint := "EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v"
 	senderOwner := "F1vVY6VtF5oLT2QYEqy6276JGGhgaLEDZMamoFsJWSYk"
 	sender := "DUiUiDme6XoqaD86AdmqY2BDSg3PrCidszKpNbZhfkpo"
@@ -123,6 +124,7 @@ func TestHandleUpdate_BalanceChange(t *testing.T) {
 				AND change = @change
 				AND balance = @balance
 				AND slot = @slot
+				AND fee_payer = @feePayer
 			LIMIT 1
 		)
 	`
@@ -137,6 +139,7 @@ func TestHandleUpdate_BalanceChange(t *testing.T) {
 		"change":    int64(-90000),
 		"balance":   expectedSenderBalance,
 		"slot":      slot,
+		"feePayer":  feePayer,
 	}).Scan(&exists)
 	require.NoError(t, err, "failed to query for balance change")
 	assert.True(t, exists, "balance change should exist")
@@ -150,6 +153,7 @@ func TestHandleUpdate_BalanceChange(t *testing.T) {
 		"change":    int64(90000),
 		"balance":   expectedReceiverBalance,
 		"slot":      slot,
+		"feePayer":  feePayer,
 	}).Scan(&exists)
 	require.NoError(t, err, "failed to query for balance change")
 	assert.True(t, exists, "balance change should exist")
