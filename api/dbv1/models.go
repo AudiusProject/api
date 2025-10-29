@@ -881,6 +881,15 @@ type ArtistCoinPool struct {
 	CreatorWalletAddress    pgtype.Text    `json:"creator_wallet_address"`
 }
 
+// View that provides artist coin prices using DAMM V2 pool if available, DBC pools if not and still applicable, and stats table if nothing else. Makes use of the price of AUDIO from Birdeye if using a DBC pool.
+type ArtistCoinPrice struct {
+	Mint        string        `json:"mint"`
+	DammV2Price pgtype.Int4   `json:"damm_v2_price"`
+	DbcPrice    pgtype.Int4   `json:"dbc_price"`
+	StatsPrice  pgtype.Float8 `json:"stats_price"`
+	Price       int32         `json:"price"`
+}
+
 type ArtistCoinStat struct {
 	Mint                         string        `json:"mint"`
 	MarketCap                    pgtype.Float8 `json:"market_cap"`
@@ -2010,19 +2019,6 @@ type SolSlotCheckpoint struct {
 	CreatedAt        time.Time       `json:"created_at"`
 	// The name of the indexer this checkpoint is for (e.g., token_indexer, damm_v2_indexer).
 	Name pgtype.Text `json:"name"`
-}
-
-// Stores eg. Jupiter swaps for tracked mints.
-type SolSwap struct {
-	Signature        string `json:"signature"`
-	InstructionIndex int32  `json:"instruction_index"`
-	Slot             int64  `json:"slot"`
-	FromMint         string `json:"from_mint"`
-	FromAccount      string `json:"from_account"`
-	FromAmount       int64  `json:"from_amount"`
-	ToMint           string `json:"to_mint"`
-	ToAccount        string `json:"to_account"`
-	ToAmount         int64  `json:"to_amount"`
 }
 
 // Stores current token balances for all accounts of tracked mints.
