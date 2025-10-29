@@ -93,7 +93,7 @@ func (j *BalanceHistoryJob) run(ctx context.Context) error {
 			date_trunc('hour', @timestamp::timestamp) AS timestamp,
 			sub.balance,
 			-- Calculate USD value: (balance / 10^decimals) * price
-			(sub.balance::DOUBLE PRECISION / POWER(10, ac.decimals)) * COALESCE(acp.price, 0) AS balance_usd,
+			(sub.balance::NUMERIC / POWER(10, ac.decimals)) * COALESCE(acp.price, 0) AS balance_usd,
 			NOW() AS created_at
 		FROM sol_user_balances sub
 		JOIN artist_coins ac ON ac.mint = sub.mint
@@ -108,7 +108,7 @@ func (j *BalanceHistoryJob) run(ctx context.Context) error {
 			date_trunc('hour', @timestamp::timestamp) AS timestamp,
 			sub.balance,
 			-- USDC price is $1.00, so balance_usd = balance / 10^6
-			(sub.balance::DOUBLE PRECISION / POWER(10, 6)) AS balance_usd,
+			(sub.balance::NUMERIC / POWER(10, 6)) AS balance_usd,
 			NOW() AS created_at
 		FROM sol_user_balances sub
 		WHERE sub.mint = @usdc_mint
@@ -152,7 +152,7 @@ func RecordUserBalanceHistory(ctx context.Context, db database.DBTX, userId int3
 			date_trunc('hour', @timestamp::timestamp) AS timestamp,
 			sub.balance,
 			-- Calculate USD value: (balance / 10^decimals) * price
-			(sub.balance::DOUBLE PRECISION / POWER(10, ac.decimals)) * COALESCE(acp.price, 0) AS balance_usd,
+			(sub.balance::NUMERIC / POWER(10, ac.decimals)) * COALESCE(acp.price, 0) AS balance_usd,
 			NOW() AS created_at
 		FROM sol_user_balances sub
 		JOIN artist_coins ac ON ac.mint = sub.mint
@@ -168,7 +168,7 @@ func RecordUserBalanceHistory(ctx context.Context, db database.DBTX, userId int3
 			date_trunc('hour', @timestamp::timestamp) AS timestamp,
 			sub.balance,
 			-- USDC price is $1.00, so balance_usd = balance / 10^6
-			(sub.balance::DOUBLE PRECISION / POWER(10, 6)) AS balance_usd,
+			(sub.balance::NUMERIC / POWER(10, 6)) AS balance_usd,
 			NOW() AS created_at
 		FROM sol_user_balances sub
 		WHERE sub.user_id = @user_id
