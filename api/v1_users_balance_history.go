@@ -96,39 +96,31 @@ func (app *ApiServer) v1UsersBalanceHistory(c *fiber.Ctx) error {
 		return err
 	}
 
-	// Build SQL query based on granularity
-	var sql string
-	if params.Granularity == GranularityHourly {
-		sql = `
-			SELECT
-				timestamp,
-				SUM(balance_usd) AS balance_usd
-			FROM user_balance_history
-			WHERE user_id = @user_id
-				AND timestamp >= @start_time
-				AND timestamp <= @end_time
-			GROUP BY timestamp
-			ORDER BY timestamp ASC
-		`
-	} else {
-		// Daily granularity
-		sql = `
-			SELECT
-				date_trunc('day', timestamp) AS timestamp,
-				SUM(balance_usd) AS balance_usd
-			FROM user_balance_history
-			WHERE user_id = @user_id
-				AND timestamp >= @start_time
-				AND timestamp <= @end_time
-			GROUP BY date_trunc('day', timestamp)
-			ORDER BY date_trunc('day', timestamp) ASC
-		`
-	}
+	// Build SQL query with granularity parameter
+	sql := `
+		SELECT
+			CASE
+				WHEN @granularity = 'daily' THEN date_trunc('day', timestamp)
+				ELSE timestamp
+			END AS timestamp,
+			SUM(balance_usd) AS balance_usd
+		FROM user_balance_history
+		WHERE user_id = @user_id
+			AND timestamp >= @start_time
+			AND timestamp <= @end_time
+		GROUP BY
+			CASE
+				WHEN @granularity = 'daily' THEN date_trunc('day', timestamp)
+				ELSE timestamp
+			END
+		ORDER BY timestamp ASC
+	`
 
 	rows, err := app.pool.Query(c.Context(), sql, pgx.NamedArgs{
-		"user_id":    userId,
-		"start_time": startTime,
-		"end_time":   endTime,
+		"user_id":     userId,
+		"start_time":  startTime,
+		"end_time":    endTime,
+		"granularity": string(params.Granularity),
 	})
 	if err != nil {
 		return err

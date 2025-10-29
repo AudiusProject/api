@@ -2113,7 +2113,7 @@ paths:
         "500":
           description: Server error
           content: {}
-  /users/{id}/balance_history:
+  /users/{id}/balance/history:
     get:
       tags:
       - users
