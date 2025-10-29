@@ -53,14 +53,9 @@ func (q *PlaylistSearchQuery) Map() map[string]any {
 	builder.Filter(esquery.Term("is_album", q.IsAlbum))
 
 	if len(q.Genres) > 0 {
-		// Normalize to capitalized names since keyword filtering must be exact
-		capitalizedGenres := make([]string, len(q.Genres))
-		for i, value := range q.Genres {
-			capitalizedGenres[i] = strings.ToUpper(string(value[0])) + strings.ToLower(value[1:])
-		}
-		builder.Filter(esquery.Terms("tracks.genre.keyword", toAnySlice(capitalizedGenres)...))
+		builder.Filter(esquery.Terms("tracks.genre.keyword", toAnySlice(q.Genres)...))
 		// by using a match query... the TF/IDF will apply to tracks.  Which will rank playlists higher if they have a larger proportion of genre
-		for _, value := range capitalizedGenres {
+		for _, value := range q.Genres {
 			builder.Should(esquery.Match("tracks.genre", value)).Boost(10)
 		}
 	}
