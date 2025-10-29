@@ -121,7 +121,9 @@ func (app *ApiServer) v1CoinsVolumeLeaders(c *fiber.Ctx) error {
     LEFT JOIN associated_wallets aw ON aw.wallet = l.address
     LEFT JOIN sol_claimable_accounts sca ON sca.account = l.address
     LEFT JOIN users u ON u.wallet = sca.ethereum_address
-    WHERE l.volume > 0
+    WHERE
+		l.address IS NOT NULL
+		AND l.volume > 0
     LIMIT @limit
     OFFSET @offset;`
 
