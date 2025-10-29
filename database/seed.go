@@ -546,6 +546,14 @@ var (
 			"balance":    0,
 			"created_at": time.Now(),
 		},
+		"user_balance_history": {
+			"user_id":     nil,
+			"mint":        nil,
+			"timestamp":   time.Now(),
+			"balance":     0,
+			"balance_usd": 0.0,
+			"created_at":  time.Now(),
+		},
 		"chat_blocked_users": {
 			"blocker_user_id": nil,
 			"blockee_user_id": nil,

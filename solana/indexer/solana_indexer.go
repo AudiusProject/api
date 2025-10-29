@@ -128,6 +128,11 @@ func (s *SolanaIndexer) Start(ctx context.Context) error {
 	dbcJob.ScheduleEvery(dbcCtx, 1*time.Minute)
 	go dbcJob.Run(dbcCtx)
 
+	balanceHistoryJob := jobs.NewBalanceHistoryJob(s.config, s.pool)
+	balanceHistoryCtx := context.WithoutCancel(ctx)
+	balanceHistoryJob.ScheduleEvery(balanceHistoryCtx, 1*time.Hour)
+	go balanceHistoryJob.Run(balanceHistoryCtx)
+
 	go s.tokenIndexer.Start(ctx)
 	go s.dammV2Indexer.Start(ctx)
 	go s.programIndexer.Start(ctx)

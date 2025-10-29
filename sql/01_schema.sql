@@ -6215,6 +6215,7 @@ CREATE VIEW public.artist_coin_prices AS
              JOIN public.sol_meteora_dbc_pools dbc_pool ON (((dbc_pool.base_mint = (artist_coins_1.mint)::text) AND (dbc_pool.is_migrated = 0))))
              JOIN public.sol_meteora_dbc_configs dbc_config ON ((dbc_config.account = dbc_pool.config)))
              JOIN public.artist_coin_stats dbc_quote_token ON ((dbc_quote_token.mint = dbc_config.quote_mint)))
+          WHERE (dbc_pool.is_migrated = 0)
         ), damm_v2 AS (
          SELECT artist_coins_1.mint,
             ((public.price_from_sqrt_price(damm_v2_pool.sqrt_price, artist_coins_1.decimals))::double precision * damm_v2_quote_token.price) AS price
@@ -6237,7 +6238,7 @@ CREATE VIEW public.artist_coin_prices AS
 -- Name: VIEW artist_coin_prices; Type: COMMENT; Schema: public; Owner: -
 --
 
-COMMENT ON VIEW public.artist_coin_prices IS 'View that provides artist coin prices using DAMM V2 pool if available, DBC pools if not and still applicable, and stats table if nothing else. Makes use of the price of AUDIO from Birdeye if using a DBC pool.';
+COMMENT ON VIEW public.artist_coin_prices IS 'View that provides artist coin prices using DAMM V2 pool if available, DBC pools if not and still applicable, and stats table if nothing else. Makes use of the price of the quote token (AUDIO) from Birdeye if using a pool.';
 
 
 --
@@ -8209,19 +8210,6 @@ COMMENT ON TABLE public.sol_token_transfers IS 'Stores SPL token transfers for t
 
 
 --
--- Name: sol_unprocessed_txs; Type: TABLE; Schema: public; Owner: -
---
-
-CREATE TABLE public.sol_unprocessed_txs (
-    signature text NOT NULL,
-    error_message text,
-    created_at timestamp without time zone DEFAULT CURRENT_TIMESTAMP NOT NULL,
-    updated_at timestamp without time zone DEFAULT CURRENT_TIMESTAMP NOT NULL,
-    slot bigint DEFAULT 0 NOT NULL
-);
-
-
---
 -- Name: sol_user_balances; Type: TABLE; Schema: public; Owner: -
 --
 
@@ -8629,6 +8617,69 @@ CREATE SEQUENCE public.user_balance_changes_user_id_seq
 --
 
 ALTER SEQUENCE public.user_balance_changes_user_id_seq OWNED BY public.user_balance_changes.user_id;
+
+
+--
+-- Name: user_balance_history; Type: TABLE; Schema: public; Owner: -
+--
+
+CREATE TABLE public.user_balance_history (
+    user_id integer NOT NULL,
+    mint text NOT NULL,
+    "timestamp" timestamp without time zone NOT NULL,
+    balance bigint NOT NULL,
+    balance_usd double precision NOT NULL,
+    created_at timestamp without time zone DEFAULT CURRENT_TIMESTAMP NOT NULL
+);
+
+
+--
+-- Name: TABLE user_balance_history; Type: COMMENT; Schema: public; Owner: -
+--
+
+COMMENT ON TABLE public.user_balance_history IS 'Stores historical snapshots of user token balances per mint, binned hourly by timestamp';
+
+
+--
+-- Name: COLUMN user_balance_history.user_id; Type: COMMENT; Schema: public; Owner: -
+--
+
+COMMENT ON COLUMN public.user_balance_history.user_id IS 'The user ID this balance snapshot belongs to';
+
+
+--
+-- Name: COLUMN user_balance_history.mint; Type: COMMENT; Schema: public; Owner: -
+--
+
+COMMENT ON COLUMN public.user_balance_history.mint IS 'The token mint address';
+
+
+--
+-- Name: COLUMN user_balance_history."timestamp"; Type: COMMENT; Schema: public; Owner: -
+--
+
+COMMENT ON COLUMN public.user_balance_history."timestamp" IS 'The binned timestamp (hourly) for this balance snapshot';
+
+
+--
+-- Name: COLUMN user_balance_history.balance; Type: COMMENT; Schema: public; Owner: -
+--
+
+COMMENT ON COLUMN public.user_balance_history.balance IS 'The raw token balance (in token units, accounting for decimals)';
+
+
+--
+-- Name: COLUMN user_balance_history.balance_usd; Type: COMMENT; Schema: public; Owner: -
+--
+
+COMMENT ON COLUMN public.user_balance_history.balance_usd IS 'The USD value of this token balance at this timestamp';
+
+
+--
+-- Name: COLUMN user_balance_history.created_at; Type: COMMENT; Schema: public; Owner: -
+--
+
+COMMENT ON COLUMN public.user_balance_history.created_at IS 'When this record was created';
 
 
 --
@@ -9960,14 +10011,6 @@ ALTER TABLE ONLY public.sol_token_transfers
 
 
 --
--- Name: sol_unprocessed_txs sol_unprocessed_txs_pkey; Type: CONSTRAINT; Schema: public; Owner: -
---
-
-ALTER TABLE ONLY public.sol_unprocessed_txs
-    ADD CONSTRAINT sol_unprocessed_txs_pkey PRIMARY KEY (signature);
-
-
---
 -- Name: sol_user_balances sol_user_balances_pkey; Type: CONSTRAINT; Schema: public; Owner: -
 --
 
@@ -10117,6 +10160,14 @@ ALTER TABLE ONLY public.usdc_user_bank_accounts
 
 ALTER TABLE ONLY public.user_balance_changes
     ADD CONSTRAINT user_balance_changes_pkey PRIMARY KEY (user_id);
+
+
+--
+-- Name: user_balance_history user_balance_history_pkey; Type: CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.user_balance_history
+    ADD CONSTRAINT user_balance_history_pkey PRIMARY KEY (user_id, "timestamp", mint);
 
 
 --
@@ -11419,6 +11470,48 @@ CREATE INDEX tracks_track_cid_idx ON public.tracks USING btree (track_cid, is_de
 --
 
 CREATE INDEX trending_params_track_id_idx ON public.trending_params USING btree (track_id);
+
+
+--
+-- Name: user_balance_history_timestamp_idx; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX user_balance_history_timestamp_idx ON public.user_balance_history USING btree ("timestamp" DESC);
+
+
+--
+-- Name: INDEX user_balance_history_timestamp_idx; Type: COMMENT; Schema: public; Owner: -
+--
+
+COMMENT ON INDEX public.user_balance_history_timestamp_idx IS 'Optimizes queries finding recent balances across all users';
+
+
+--
+-- Name: user_balance_history_user_mint_timestamp_idx; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX user_balance_history_user_mint_timestamp_idx ON public.user_balance_history USING btree (user_id, mint, "timestamp");
+
+
+--
+-- Name: INDEX user_balance_history_user_mint_timestamp_idx; Type: COMMENT; Schema: public; Owner: -
+--
+
+COMMENT ON INDEX public.user_balance_history_user_mint_timestamp_idx IS 'Optimizes queries filtering by specific mint(s) and time range (e.g., "show USDC balance history")';
+
+
+--
+-- Name: user_balance_history_user_timestamp_idx; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX user_balance_history_user_timestamp_idx ON public.user_balance_history USING btree (user_id, "timestamp");
+
+
+--
+-- Name: INDEX user_balance_history_user_timestamp_idx; Type: COMMENT; Schema: public; Owner: -
+--
+
+COMMENT ON INDEX public.user_balance_history_user_timestamp_idx IS 'Optimizes time-range queries for a user, ordered by timestamp ASC';
 
 
 --

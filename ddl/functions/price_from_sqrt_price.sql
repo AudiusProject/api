@@ -1,5 +1,6 @@
 BEGIN;
-DROP FUNCTION IF EXISTS price_from_sqrt_price(NUMERIC, INT, INT);
+-- Note: Don't DROP this function as artist_coin_prices view depends on it
+-- CREATE OR REPLACE handles updates without breaking dependencies
 CREATE OR REPLACE FUNCTION price_from_sqrt_price(sqrt_price NUMERIC, base_decimals INT, quote_decimals INT = 8)
 RETURNS NUMERIC LANGUAGE sql AS $function$
     SELECT
