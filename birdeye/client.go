@@ -283,3 +283,40 @@ func (c *Client) GetPrices(ctx context.Context, mints []string) (TokenPriceMap, 
 
 	return result, nil
 }
+
+func (c *Client) GetPrice(ctx context.Context, mint string) (*TokenPriceData, error) {
+	if cachedPrices, ok := c.pricesCache.Get(mint); ok {
+		return cachedPrices, nil
+	}
+
+	url := fmt.Sprintf("https://public-api.birdeye.so/defi/price?address=%s", mint)
+	req, err := http.NewRequestWithContext(ctx, "GET", url, nil)
+	if err != nil {
+		return nil, err
+	}
+	req.Header.Set("x-api-key", c.token)
+	req.Header.Set("x-chain", "solana")
+	req.Header.Set("Content-Type", "application/json")
+
+	resp, err := c.httpClient.Do(req)
+	if err != nil {
+		return nil, err
+	}
+	defer resp.Body.Close()
+
+	if resp.StatusCode != http.StatusOK {
+		errMsg := attemptExtractErrorMessage(resp.Body)
+		return nil, fmt.Errorf("unexpected status code: %d (%s)", resp.StatusCode, errMsg)
+	}
+
+	var result struct {
+		Data TokenPriceData `json:"data"`
+	}
+	if err := json.NewDecoder(resp.Body).Decode(&result); err != nil {
+		return nil, err
+	}
+
+	c.pricesCache.Set(mint, &result.Data)
+
+	return &result.Data, nil
+}
