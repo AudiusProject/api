@@ -115,8 +115,13 @@ func (s *SolanaIndexer) Start(ctx context.Context) error {
 
 	statsJob := jobs.NewCoinStatsJob(s.config, s.pool)
 	statsCtx := context.WithoutCancel(ctx)
-	statsJob.ScheduleEvery(statsCtx, 5*time.Minute)
+	statsJob.ScheduleEvery(statsCtx, 15*time.Minute)
 	go statsJob.Run(statsCtx)
+
+	audioPriceJob := jobs.NewAudioPriceJob(s.config, s.pool)
+	priceCtx := context.WithoutCancel(ctx)
+	audioPriceJob.ScheduleEvery(priceCtx, 5*time.Minute)
+	go audioPriceJob.Run(priceCtx)
 
 	dbcJob := jobs.NewCoinDBCJob(s.config, s.pool)
 	dbcCtx := context.WithoutCancel(ctx)
