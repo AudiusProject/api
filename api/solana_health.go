@@ -54,7 +54,7 @@ func (app *ApiServer) solanaHealth(c *fiber.Ctx) error {
 		LastIndexerUpdateAt: checkpoint.UpdatedAt,
 	}
 
-	err = app.pool.QueryRow(c.Context(), `SELECT COUNT(*) FROM sol_unprocessed_txs`).Scan(&health.UnprocessedCount)
+	err = app.pool.QueryRow(c.Context(), `SELECT COUNT(*) FROM sol_retry_queue`).Scan(&health.UnprocessedCount)
 	if err != nil {
 		if err == pgx.ErrNoRows {
 			health.UnprocessedCount = 0
