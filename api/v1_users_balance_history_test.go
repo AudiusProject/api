@@ -113,7 +113,7 @@ func TestUserBalanceHistoryDaily(t *testing.T) {
 
 	now := time.Now()
 
-	// Create data for 10 days ago and 5 days ago (>7 day range should trigger daily grouping)
+	// Create data for 10 days ago and 5 days ago
 	tenDaysAgo := now.Add(-10 * 24 * time.Hour)
 	fiveDaysAgo := now.Add(-5 * 24 * time.Hour)
 
@@ -150,11 +150,11 @@ func TestUserBalanceHistoryDaily(t *testing.T) {
 
 	database.Seed(app.writePool, fixtures)
 
-	// Query for 15 days (>7 days, should trigger daily grouping)
+	// Query for 15 days with daily granularity
 	startTime := now.Add(-15 * 24 * time.Hour).Format(time.RFC3339)
 	endTime := now.Format(time.RFC3339)
 
-	status, body := testGet(t, app, "/v1/users/"+trashid.MustEncodeHashID(1)+"/balance_history?start_time="+startTime+"&end_time="+endTime)
+	status, body := testGet(t, app, "/v1/users/"+trashid.MustEncodeHashID(1)+"/balance_history?start_time="+startTime+"&end_time="+endTime+"&granularity=daily")
 	assert.Equal(t, 200, status)
 
 	// Should return 2 data points (different days)
@@ -396,15 +396,15 @@ func TestUserBalanceHistoryMultipleUsers(t *testing.T) {
 	})
 }
 
-func TestUserBalanceHistoryGranularitySwitching(t *testing.T) {
+func TestUserBalanceHistoryGranularityParameter(t *testing.T) {
 	app := emptyTestApp(t)
 
 	now := time.Now()
 
-	// Create hourly data for multiple days
+	// Create hourly data for 3 days
 	var timestamps []time.Time
-	for day := 0; day < 10; day++ {
-		for hour := 0; hour < 24; hour += 6 { // 4 data points per day
+	for day := 0; day < 3; day++ {
+		for hour := 0; hour < 24; hour += 6 { // 4 data points per day (00:00, 06:00, 12:00, 18:00)
 			ts := now.Add(time.Duration(-day*24-hour) * time.Hour)
 			tsHour := time.Date(ts.Year(), ts.Month(), ts.Day(), ts.Hour(), 0, 0, 0, ts.Location())
 			timestamps = append(timestamps, tsHour)
@@ -420,48 +420,77 @@ func TestUserBalanceHistoryGranularitySwitching(t *testing.T) {
 		},
 	}
 
-	// Add balance history entries
+	// Add balance history entries with different values per hour
 	var balanceHistory []map[string]any
-	for i, ts := range timestamps {
+	balanceValue := 10.0
+	for _, ts := range timestamps {
 		balanceHistory = append(balanceHistory, map[string]any{
 			"user_id":     1,
 			"mint":        "mint1",
 			"timestamp":   ts,
 			"balance":     100000000,
-			"balance_usd": float64(100 + i), // Different values to verify grouping
+			"balance_usd": balanceValue,
 		})
+		balanceValue += 1.0 // Increment to differentiate hours
 	}
 	fixtures["user_balance_history"] = balanceHistory
 
 	database.Seed(app.writePool, fixtures)
 
-	// Test 1: 5 days range (≤7 days) - should return hourly
-	startTime := now.Add(-5 * 24 * time.Hour).Format(time.RFC3339)
+	startTime := now.Add(-3 * 24 * time.Hour).Format(time.RFC3339)
 	endTime := now.Format(time.RFC3339)
 
-	status, body := testGet(t, app, "/v1/users/"+trashid.MustEncodeHashID(1)+"/balance_history?start_time="+startTime+"&end_time="+endTime)
+	// Test 1: hourly granularity (default) - should return all hourly data points
+	status, body := testGet(t, app, "/v1/users/"+trashid.MustEncodeHashID(1)+"/balance_history?start_time="+startTime+"&end_time="+endTime+"&granularity=hourly")
 	assert.Equal(t, 200, status)
 
-	// Should return hourly data points (4 per day × 5 days = ~20 points)
+	// Should return hourly data points (4 per day × 3 days = 12 points)
 	result := gjson.GetBytes(body, "data.#").Int()
-	assert.True(t, result >= 15 && result <= 25, "Expected ~20 hourly points for 5 days, got %d", result)
+	assert.True(t, result >= 10 && result <= 14, "Expected ~12 hourly points, got %d", result)
 
-	// Test 2: 10 days range (>7 days) - should return daily
-	startTime = now.Add(-10 * 24 * time.Hour).Format(time.RFC3339)
+	// Test 2: daily granularity - should return daily aggregated data
+	status, body = testGet(t, app, "/v1/users/"+trashid.MustEncodeHashID(1)+"/balance_history?start_time="+startTime+"&end_time="+endTime+"&granularity=daily")
+	assert.Equal(t, 200, status)
 
+	// Should return daily data points (~3 points, one per day)
+	result = gjson.GetBytes(body, "data.#").Int()
+	assert.True(t, result >= 2 && result <= 4, "Expected ~3 daily points, got %d", result)
+
+	// Test 3: default (no granularity param) - should default to hourly
 	status, body = testGet(t, app, "/v1/users/"+trashid.MustEncodeHashID(1)+"/balance_history?start_time="+startTime+"&end_time="+endTime)
 	assert.Equal(t, 200, status)
 
-	// Should return daily data points (~10 points, each day summing its hours)
+	// Should return hourly data points (default behavior)
 	result = gjson.GetBytes(body, "data.#").Int()
-	assert.True(t, result >= 8 && result <= 12, "Expected ~10 daily points for 10 days, got %d", result)
+	assert.True(t, result >= 10 && result <= 14, "Expected ~12 hourly points (default), got %d", result)
 }
 
-func TestUserBalanceHistoryExactlySevenDays(t *testing.T) {
+func TestUserBalanceHistoryInvalidGranularity(t *testing.T) {
+	app := emptyTestApp(t)
+
+	fixtures := database.FixtureMap{
+		"users": {
+			{"user_id": 1, "wallet": "0x1234567890123456789012345678901234567890"},
+		},
+	}
+
+	database.Seed(app.writePool, fixtures)
+
+	// Invalid granularity value
+	status, _ := testGet(t, app, "/v1/users/"+trashid.MustEncodeHashID(1)+"/balance_history?granularity=weekly")
+	assert.Equal(t, 400, status)
+}
+
+func TestUserBalanceHistoryDailyGranularityWithMultipleHours(t *testing.T) {
 	app := emptyTestApp(t)
 
 	now := time.Now()
-	nowHour := time.Date(now.Year(), now.Month(), now.Day(), now.Hour(), 0, 0, 0, now.Location())
+	dayStart := time.Date(now.Year(), now.Month(), now.Day(), 0, 0, 0, 0, now.Location())
+
+	// Create multiple hourly entries on the same day
+	yesterdayHour1 := dayStart.Add(-24 * time.Hour).Add(2 * time.Hour)
+	yesterdayHour2 := dayStart.Add(-24 * time.Hour).Add(10 * time.Hour)
+	yesterdayHour3 := dayStart.Add(-24 * time.Hour).Add(18 * time.Hour)
 
 	fixtures := database.FixtureMap{
 		"users": {
@@ -471,28 +500,51 @@ func TestUserBalanceHistoryExactlySevenDays(t *testing.T) {
 			{"ticker": "COIN1", "decimals": 6, "user_id": 1, "mint": "mint1"},
 		},
 		"user_balance_history": {
+			// Multiple hourly entries on the same day - should be summed when using daily granularity
 			{
 				"user_id":     1,
 				"mint":        "mint1",
-				"timestamp":   nowHour,
+				"timestamp":   yesterdayHour1,
 				"balance":     100000000,
-				"balance_usd": 100.0,
+				"balance_usd": 10.0,
+			},
+			{
+				"user_id":     1,
+				"mint":        "mint1",
+				"timestamp":   yesterdayHour2,
+				"balance":     100000000,
+				"balance_usd": 20.0,
+			},
+			{
+				"user_id":     1,
+				"mint":        "mint1",
+				"timestamp":   yesterdayHour3,
+				"balance":     100000000,
+				"balance_usd": 30.0,
 			},
 		},
 	}
 
 	database.Seed(app.writePool, fixtures)
 
-	// Exactly 7 days (should be hourly per the ≤ logic)
-	startTime := now.Add(-7 * 24 * time.Hour).Format(time.RFC3339)
+	startTime := dayStart.Add(-2 * 24 * time.Hour).Format(time.RFC3339)
 	endTime := now.Format(time.RFC3339)
 
-	status, body := testGet(t, app, "/v1/users/"+trashid.MustEncodeHashID(1)+"/balance_history?start_time="+startTime+"&end_time="+endTime)
+	// Test hourly granularity - should return 3 separate data points
+	status, body := testGet(t, app, "/v1/users/"+trashid.MustEncodeHashID(1)+"/balance_history?start_time="+startTime+"&end_time="+endTime+"&granularity=hourly")
 	assert.Equal(t, 200, status)
 
-	// Should work (hourly granularity for exactly 7 days)
 	jsonAssert(t, body, map[string]any{
-		"data.#": 1, // At least returns data
+		"data.#": 3, // 3 hourly points
+	})
+
+	// Test daily granularity - should return 1 data point with summed balance
+	status, body = testGet(t, app, "/v1/users/"+trashid.MustEncodeHashID(1)+"/balance_history?start_time="+startTime+"&end_time="+endTime+"&granularity=daily")
+	assert.Equal(t, 200, status)
+
+	jsonAssert(t, body, map[string]any{
+		"data.#":             1,    // 1 daily point (all hours on same day grouped)
+		"data.0.balance_usd": 60.0, // Sum: 10 + 20 + 30
 	})
 }
 

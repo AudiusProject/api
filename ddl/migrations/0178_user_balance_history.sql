@@ -1,6 +1,5 @@
 BEGIN;
 
--- Table to store historical user balance snapshots per mint
 CREATE TABLE IF NOT EXISTS user_balance_history (
     user_id INTEGER NOT NULL,
     mint TEXT NOT NULL,
@@ -20,16 +19,19 @@ COMMENT ON COLUMN user_balance_history.balance_usd IS 'The USD value of this tok
 COMMENT ON COLUMN user_balance_history.created_at IS 'When this record was created';
 
 -- Index for efficient queries by user and time range (used for GROUP BY timestamp)
+-- Primary key already covers (user_id, timestamp, mint), this index optimizes time-range queries
+-- Uses ASC to match ORDER BY timestamp ASC in queries
 CREATE INDEX IF NOT EXISTS user_balance_history_user_timestamp_idx 
-    ON user_balance_history (user_id, timestamp DESC);
+    ON user_balance_history (user_id, timestamp);
 
 -- Index for finding recent balances
 CREATE INDEX IF NOT EXISTS user_balance_history_timestamp_idx 
     ON user_balance_history (timestamp DESC);
 
--- Index for queries filtering by mint
-CREATE INDEX IF NOT EXISTS user_balance_history_mint_idx 
-    ON user_balance_history (mint);
+-- Note: For future per-mint queries (e.g., "show USDC balance history"), consider adding:
+-- CREATE INDEX user_balance_history_user_mint_timestamp_idx 
+--     ON user_balance_history (user_id, mint, timestamp);
+-- This would optimize queries filtering by specific mint(s) and time range
 
 COMMIT;
 

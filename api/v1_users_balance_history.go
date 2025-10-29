@@ -7,9 +7,53 @@ import (
 	"github.com/jackc/pgx/v5"
 )
 
+type Granularity string
+
+const (
+	GranularityHourly Granularity = "hourly"
+	GranularityDaily  Granularity = "daily"
+)
+
 type BalanceHistoryQueryParams struct {
-	StartTime *time.Time `query:"start_time"`
-	EndTime   *time.Time `query:"end_time"`
+	StartTime   *time.Time  `query:"start_time"`
+	EndTime     *time.Time  `query:"end_time"`
+	Granularity Granularity `query:"granularity" default:"hourly"`
+}
+
+// SetDefaults sets default time range if not provided (last 7 days from now)
+// and default granularity if not provided
+func (p *BalanceHistoryQueryParams) SetDefaults() {
+	now := time.Now()
+	if p.StartTime == nil {
+		startTime := now.Add(-7 * 24 * time.Hour)
+		p.StartTime = &startTime
+	}
+	if p.EndTime == nil {
+		p.EndTime = &now
+	}
+	if p.Granularity == "" {
+		p.Granularity = GranularityHourly
+	}
+}
+
+// Validate validates the query parameters
+func (p *BalanceHistoryQueryParams) Validate() error {
+	if p.Granularity != GranularityHourly && p.Granularity != GranularityDaily {
+		return fiber.NewError(fiber.StatusBadRequest, "granularity must be 'hourly' or 'daily'")
+	}
+	return nil
+}
+
+// GetTimeRange returns the resolved time range and validates it
+func (p *BalanceHistoryQueryParams) GetTimeRange() (startTime, endTime time.Time, err error) {
+	startTime = *p.StartTime
+	endTime = *p.EndTime
+
+	if endTime.Before(startTime) {
+		return time.Time{}, time.Time{}, fiber.NewError(fiber.StatusBadRequest, "end_time must be after start_time")
+	}
+
+	return startTime, endTime, nil
 }
 
 type BalanceHistoryDataPoint struct {
@@ -17,46 +61,44 @@ type BalanceHistoryDataPoint struct {
 	BalanceUsd float64 `json:"balance_usd"`
 }
 
+type balanceHistoryRow struct {
+	Timestamp  time.Time `json:"timestamp"`
+	BalanceUsd float64   `json:"balance_usd"`
+}
+
 type BalanceHistoryResponse struct {
 	Data []BalanceHistoryDataPoint `json:"data"`
 }
 
 // v1UsersBalanceHistory returns the historical balance data for a user
-// Returns hourly data for ≤7 days, daily data for >7 days
+// Granularity can be 'hourly' or 'daily' (defaults to 'hourly')
 func (app *ApiServer) v1UsersBalanceHistory(c *fiber.Ctx) error {
 	// Get user ID from middleware (set by requireUserIdMiddleware)
 	userId := app.getUserId(c)
 
-	// Parse query params
+	// Parse and validate query params
 	params := BalanceHistoryQueryParams{}
-	if err := c.QueryParser(&params); err != nil {
-		return fiber.NewError(fiber.StatusBadRequest, "invalid query parameters")
+	if err := app.ParseAndValidateQueryParams(c, &params); err != nil {
+		return err
 	}
 
-	// Set default time range if not provided (last 7 days)
-	now := time.Now()
-	endTime := now
-	startTime := now.Add(-7 * 24 * time.Hour)
+	// Set dynamic defaults (cannot use struct tags for time.Now()-based defaults)
+	params.SetDefaults()
 
-	if params.StartTime != nil {
-		startTime = *params.StartTime
-	}
-	if params.EndTime != nil {
-		endTime = *params.EndTime
+	// Validate granularity
+	if err := params.Validate(); err != nil {
+		return err
 	}
 
-	// Validate time range
-	if endTime.Before(startTime) {
-		return fiber.NewError(fiber.StatusBadRequest, "end_time must be after start_time")
+	// Get validated time range (validates that end_time is after start_time)
+	startTime, endTime, err := params.GetTimeRange()
+	if err != nil {
+		return err
 	}
 
-	// Determine granularity based on time range
-	duration := endTime.Sub(startTime)
-	isWeekOrLess := duration <= 7*24*time.Hour
-
+	// Build SQL query based on granularity
 	var sql string
-	if isWeekOrLess {
-		// Hourly granularity for week or less
+	if params.Granularity == GranularityHourly {
 		sql = `
 			SELECT
 				timestamp,
@@ -69,7 +111,7 @@ func (app *ApiServer) v1UsersBalanceHistory(c *fiber.Ctx) error {
 			ORDER BY timestamp ASC
 		`
 	} else {
-		// Daily granularity for more than a week
+		// Daily granularity
 		sql = `
 			SELECT
 				date_trunc('day', timestamp) AS timestamp,
@@ -91,26 +133,20 @@ func (app *ApiServer) v1UsersBalanceHistory(c *fiber.Ctx) error {
 	if err != nil {
 		return err
 	}
-	defer rows.Close()
 
-	// Collect results
-	var data []BalanceHistoryDataPoint
-	for rows.Next() {
-		var timestamp time.Time
-		var balanceUsd float64
-
-		if err := rows.Scan(&timestamp, &balanceUsd); err != nil {
-			return err
-		}
-
-		data = append(data, BalanceHistoryDataPoint{
-			Timestamp:  timestamp.Unix(),
-			BalanceUsd: balanceUsd,
-		})
+	// Collect rows using pgx.CollectRows
+	historyRows, err := pgx.CollectRows(rows, pgx.RowToStructByName[balanceHistoryRow])
+	if err != nil {
+		return err
 	}
 
-	if err := rows.Err(); err != nil {
-		return err
+	// Transform to response format (convert timestamp to Unix)
+	data := make([]BalanceHistoryDataPoint, len(historyRows))
+	for i, row := range historyRows {
+		data[i] = BalanceHistoryDataPoint{
+			Timestamp:  row.Timestamp.Unix(),
+			BalanceUsd: row.BalanceUsd,
+		}
 	}
 
 	return c.JSON(BalanceHistoryResponse{

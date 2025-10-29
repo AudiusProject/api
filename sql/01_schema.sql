@@ -11468,9 +11468,6 @@ CREATE INDEX trending_params_track_id_idx ON public.trending_params USING btree 
 -- Name: user_balance_history_mint_idx; Type: INDEX; Schema: public; Owner: -
 --
 
-CREATE INDEX user_balance_history_mint_idx ON public.user_balance_history USING btree (mint);
-
-
 --
 -- Name: user_balance_history_timestamp_idx; Type: INDEX; Schema: public; Owner: -
 --
@@ -11482,7 +11479,7 @@ CREATE INDEX user_balance_history_timestamp_idx ON public.user_balance_history U
 -- Name: user_balance_history_user_timestamp_idx; Type: INDEX; Schema: public; Owner: -
 --
 
-CREATE INDEX user_balance_history_user_timestamp_idx ON public.user_balance_history USING btree (user_id, "timestamp" DESC);
+CREATE INDEX user_balance_history_user_timestamp_idx ON public.user_balance_history USING btree (user_id, "timestamp");
 
 
 --
