@@ -14,7 +14,7 @@ type GetUsersTracksParams struct {
 	Offset        int    `query:"offset" default:"0" validate:"min=0"`
 	Sort          string `query:"sort" default:"date" validate:"oneof=date plays"`
 	SortMethod    string `query:"sort_method" default:"" validate:"omitempty,oneof=title release_date plays reposts saves"`
-	FilterTracks  string `query:"filter_tracks" default:"all" validate:"oneof=all public unlisted"`
+	FilterTracks  string `query:"filter_tracks" default:"all" validate:"oneof=all public"`
 	SortDirection string `query:"sort_direction" default:"desc" validate:"oneof=asc desc"`
 }
 
@@ -58,8 +58,6 @@ func (app *ApiServer) v1UserTracks(c *fiber.Ctx) error {
 	switch params.FilterTracks {
 	case "public":
 		trackFilter = "t.is_unlisted = false"
-	case "unlisted":
-		trackFilter = "t.is_unlisted = true"
 	}
 
 	// Gate condition filtering

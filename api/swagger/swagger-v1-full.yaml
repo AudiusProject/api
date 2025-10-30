@@ -2871,14 +2871,13 @@ paths:
           - desc
       - name: filter_tracks
         in: query
-        description: Filter by unlisted or public tracks
+        description: Filter by public tracks
         schema:
           type: string
           default: all
           enum:
           - all
           - public
-          - unlisted
       - name: Encoded-Data-Message
         in: header
         description: The data that was signed by the user for signature recovery
@@ -2971,14 +2970,13 @@ paths:
           - desc
       - name: filter_tracks
         in: query
-        description: Filter by unlisted or public tracks
+        description: Filter by public tracks
         schema:
           type: string
           default: all
           enum:
           - all
           - public
-          - unlisted
       - name: Encoded-Data-Message
         in: header
         description: The data that was signed by the user for signature recovery
@@ -4898,14 +4896,13 @@ paths:
           - desc
       - name: filter_tracks
         in: query
-        description: Filter by unlisted or public tracks
+        description: Filter by public tracks
         schema:
           type: string
           default: all
           enum:
           - all
           - public
-          - unlisted
       - name: gate_condition
         in: query
         description: Filter by gate conditions (can be repeated)
@@ -4965,14 +4962,13 @@ paths:
           type: string
       - name: filter_tracks
         in: query
-        description: Filter by unlisted or public tracks
+        description: Filter by public tracks
         schema:
           type: string
           default: all
           enum:
           - all
           - public
-          - unlisted
       - name: gate_condition
         in: query
         description: Filter by gate conditions (can be repeated)

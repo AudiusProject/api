@@ -11,7 +11,7 @@ import (
 //
 // Query parameters:
 //   - gate_condition: Optional, can be repeated. Values: ungated, usdc_purchase, follow, tip, nft, token
-//   - filter_tracks: Optional. Values: all (default), public, unlisted
+//   - filter_tracks: Optional. Values: all (default), public
 //
 // Example: GET /v1/full/users/:userId/tracks/count?gate_condition=token&gate_condition=usdc_purchase
 func (app *ApiServer) v1UserTracksCount(c *fiber.Ctx) error {
@@ -27,8 +27,6 @@ func (app *ApiServer) v1UserTracksCount(c *fiber.Ctx) error {
 	switch params.FilterTracks {
 	case "public":
 		trackFilter = "t.is_unlisted = false"
-	case "unlisted":
-		trackFilter = "t.is_unlisted = true"
 	}
 
 	// Gate condition filtering
