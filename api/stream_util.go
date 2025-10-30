@@ -22,7 +22,11 @@ func tryFindWorkingUrl(mediaLink *dbv1.MediaLink) *url.URL {
 	urls = append(urls, mainURL)
 	for _, mirror := range mediaLink.Mirrors {
 		mirrorURL := *mainURL
-		mirrorURL.Host = mirror
+		mirrorHostURL, err := url.Parse(mirror)
+		if err != nil {
+			continue
+		}
+		mirrorURL.Host = mirrorHostURL.Host
 		urls = append(urls, &mirrorURL)
 	}
 
