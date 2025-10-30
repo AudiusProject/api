@@ -73,41 +73,57 @@ func (app *ApiServer) v1CoinsVolumeLeaders(c *fiber.Ctx) error {
 	sql := `
 	-- Get pool vaults for both DBC and DAMM V2 to match against
 	WITH pool_vaults AS (
-	SELECT quote_vault AS vault_account, 'dbc' AS src FROM sol_meteora_dbc_pools
-	UNION
-	SELECT token_b_vault AS vault_account, 'damm_v2' AS src FROM sol_meteora_damm_v2_pools
+		SELECT quote_vault AS vault_account, 'dbc' AS src FROM sol_meteora_dbc_pools
+		UNION
+		SELECT token_b_vault AS vault_account, 'damm_v2' AS src FROM sol_meteora_damm_v2_pools
 	),
 	leaders as (SELECT
-		user_change.owner,
-		user_change.account,
-		SUM(ABS(user_change.change)) / 100000000 AS volume  -- dividing by AUDIO decimals
-	FROM sol_token_account_balance_changes user_change
-	JOIN sol_token_account_balance_changes vault_change
+		COALESCE(scat_match.account, vault_change.fee_payer) as address,
+		SUM(ABS(vault_change.change)) / 100000000 AS volume  -- dividing by AUDIO decimals
+	FROM sol_token_account_balance_changes vault_change
+    LEFT JOIN sol_token_account_balance_changes user_change
 		ON vault_change.signature = user_change.signature
 		AND vault_change.change = 0 - user_change.change
 		AND vault_change.mint = user_change.mint
 	JOIN pool_vaults pv
     	ON pv.vault_account = vault_change.account
+	-- If the tx involved a claimable tokens transfer, it will get credited to
+	-- the AUDIO user bank address for the user that sent the tx.
+	LEFT JOIN LATERAL (
+		SELECT DISTINCT ON (sca.account)
+				sca.account
+		FROM sol_claimable_account_transfers scat
+		JOIN sol_claimable_accounts sca
+			ON sca.ethereum_address = scat.sender_eth_address
+			-- Return AUDIO claimable token account for sender with each matching tx.
+            -- TODO: Maybe this can just be vault_change.mint
+			AND sca.mint = '9LzCMqDgTKYz9Drzqnpgee3SGa89up3a247ypMj2xrqM'
+		WHERE scat.signature = vault_change.signature
+		ORDER BY sca.account, scat.instruction_index
+    ) scat_match ON TRUE
 	WHERE
+		-- Exclude volume from pool migrations
 		user_change.owner != '` + meteora_dbc.POOL_AUTHORITY_ADDRESS + `'
 		AND user_change.owner != '` + meteora_damm_v2.POOL_AUTHORITY_ADDRESS + `'
+		AND vault_change.change != 0
 		AND vault_change.created_at >= @fromDate
 		AND vault_change.created_at < @toDate
 		AND user_change.created_at >= @fromDate
 		AND user_change.created_at < @toDate
-	GROUP BY user_change.owner, user_change.account
+	GROUP BY address
 	ORDER BY volume DESC
 	)
 	select
 	    COALESCE(u.user_id, aw.user_id) as user_id,
-		-- Use account address if it's a claimable tokens ATA
-    	COALESCE(sca.account, l.owner) as address,
+		l.address,
     	l.volume
     FROM leaders l
-    LEFT JOIN associated_wallets aw ON aw.wallet = l.owner
-    LEFT JOIN sol_claimable_accounts  sca ON sca.account = l.account
+    LEFT JOIN associated_wallets aw ON aw.wallet = l.address
+    LEFT JOIN sol_claimable_accounts sca ON sca.account = l.address
     LEFT JOIN users u ON u.wallet = sca.ethereum_address
-    WHERE l.volume > 0
+    WHERE
+		l.address IS NOT NULL
+		AND l.volume > 0
     LIMIT @limit
     OFFSET @offset;`
 
