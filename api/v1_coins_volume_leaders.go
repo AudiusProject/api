@@ -105,7 +105,7 @@ func (app *ApiServer) v1CoinsVolumeLeaders(c *fiber.Ctx) error {
 		-- Exclude volume from pool migrations
 		user_change.owner != '` + meteora_dbc.POOL_AUTHORITY_ADDRESS + `'
 		AND user_change.owner != '` + meteora_damm_v2.POOL_AUTHORITY_ADDRESS + `'
-		AND vault_change.change > 0
+		AND vault_change.change != 0
 		AND vault_change.created_at >= @fromDate
 		AND vault_change.created_at < @toDate
 		AND user_change.created_at >= @fromDate
