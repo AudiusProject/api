@@ -3,6 +3,7 @@ package api
 import (
 	"net/http"
 	"net/url"
+	"strings"
 	"time"
 
 	"api.audius.co/api/dbv1"
@@ -22,7 +23,7 @@ func tryFindWorkingUrl(mediaLink *dbv1.MediaLink) *url.URL {
 	urls = append(urls, mainURL)
 	for _, mirror := range mediaLink.Mirrors {
 		mirrorURL := *mainURL
-		mirrorURL.Host = mirror
+		mirrorURL.Host = strings.Split(mirror, "://")[1]
 		urls = append(urls, &mirrorURL)
 	}
 
