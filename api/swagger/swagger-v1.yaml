@@ -1875,14 +1875,13 @@ paths:
           - desc
       - name: filter_tracks
         in: query
-        description: Filter by unlisted or public tracks
+        description: Filter by public tracks
         schema:
           type: string
           default: all
           enum:
           - all
           - public
-          - unlisted
       - name: Encoded-Data-Message
         in: header
         description: The data that was signed by the user for signature recovery
@@ -3417,14 +3416,13 @@ paths:
           - desc
       - name: filter_tracks
         in: query
-        description: Filter by unlisted or public tracks
+        description: Filter by public tracks
         schema:
           type: string
           default: all
           enum:
           - all
           - public
-          - unlisted
       - name: gate_condition
         in: query
         description: Filter tracks by gate condition type. Multiple values can be provided to filter by multiple gate types (OR logic)
