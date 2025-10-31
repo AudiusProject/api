@@ -263,6 +263,15 @@ var (
 			"created_at":            time.Now(),
 			"completed_at":          nil,
 		},
+		"challenge_disbursements": {
+			"challenge_id": nil,
+			"user_id":      nil,
+			"specifier":    nil,
+			"signature":    nil,
+			"slot":         101,
+			"amount":       nil,
+			"created_at":   time.Now(),
+		},
 		"challenge_listen_streak": {
 			"user_id":          nil,
 			"listen_streak":    nil,
