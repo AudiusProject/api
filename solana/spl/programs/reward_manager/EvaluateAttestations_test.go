@@ -81,7 +81,7 @@ func TestBuildEvaluateAttestationsInstruction(t *testing.T) {
 	specifier := "37364e80"
 	recipientEthAddress := common.HexToAddress("0x3f6d9fcf0d4466dd5886e3b1def017adfb7916b4")
 	amount := uint64(200000000)
-	antiAbuseOracleEthAddress := common.HexToAddress("0x00b6462e955dA5841b6D9e1E2529B830F00f31Bf")
+	ClaimAuthority := common.HexToAddress("0x00b6462e955dA5841b6D9e1E2529B830F00f31Bf")
 
 	// Expected Accounts
 	// Real tx: 26gT9HVMhzBDzsKcsiKREYmGcXuZhjAJpCVUu9WFNhVMyKje8SdApYc4ev3HrumZB4LEXLUaPnKyriBPLmtzwrWp)
@@ -108,7 +108,7 @@ func TestBuildEvaluateAttestationsInstruction(t *testing.T) {
 			specifier,
 			recipientEthAddress,
 			amount,
-			antiAbuseOracleEthAddress,
+			ClaimAuthority,
 			solana.MustPublicKeyFromBase58(rewardState),
 			solana.MustPublicKeyFromBase58(tokenSource),
 			solana.MustPublicKeyFromBase58(destinationUserBank),
