@@ -27,7 +27,7 @@ func TestDecodeAttestationsAccount(t *testing.T) {
 	require.Equal(t, "b", result.Messages[0].Claim.RewardID)
 	require.Equal(t, "5f25612:2935dacb", result.Messages[0].Claim.Specifier)
 	require.Equal(t, "0x9f1326698b06e932603281720b4022cf1f83ee22", result.Messages[0].Claim.RecipientEthAddress)
-	require.Equal(t, "", result.Messages[0].Claim.AntiAbuseOracleEthAddress)
+	require.Equal(t, "", result.Messages[0].Claim.ClaimAuthority)
 	require.Equal(t, "0x00b6462e955da5841b6d9e1e2529b830f00f31bf", result.Messages[0].OperatorEthAddress)
 
 	// Message 2
@@ -36,7 +36,7 @@ func TestDecodeAttestationsAccount(t *testing.T) {
 	require.Equal(t, "b", result.Messages[1].Claim.RewardID)
 	require.Equal(t, "5f25612:2935dacb", result.Messages[1].Claim.Specifier)
 	require.Equal(t, "0x9f1326698b06e932603281720b4022cf1f83ee22", result.Messages[1].Claim.RecipientEthAddress)
-	require.Equal(t, "0x00b6462e955da5841b6d9e1e2529b830f00f31bf", result.Messages[1].Claim.AntiAbuseOracleEthAddress)
+	require.Equal(t, "0x00b6462e955da5841b6d9e1e2529b830f00f31bf", result.Messages[1].Claim.ClaimAuthority)
 	require.Equal(t, "0xf7c96916bd37ad76d4eedd6536b81c29706c8056", result.Messages[1].OperatorEthAddress)
 
 	// Message 3
@@ -45,7 +45,7 @@ func TestDecodeAttestationsAccount(t *testing.T) {
 	require.Equal(t, "b", result.Messages[2].Claim.RewardID)
 	require.Equal(t, "5f25612:2935dacb", result.Messages[2].Claim.Specifier)
 	require.Equal(t, "0x9f1326698b06e932603281720b4022cf1f83ee22", result.Messages[2].Claim.RecipientEthAddress)
-	require.Equal(t, "0x00b6462e955da5841b6d9e1e2529b830f00f31bf", result.Messages[2].Claim.AntiAbuseOracleEthAddress)
+	require.Equal(t, "0x00b6462e955da5841b6d9e1e2529b830f00f31bf", result.Messages[2].Claim.ClaimAuthority)
 	require.Equal(t, "0x5e98cbeeaa2acedec0833ac3d1634e2a7ae0f3c2", result.Messages[2].OperatorEthAddress)
 
 	// Message 4
@@ -54,7 +54,7 @@ func TestDecodeAttestationsAccount(t *testing.T) {
 	require.Equal(t, "b", result.Messages[3].Claim.RewardID)
 	require.Equal(t, "5f25612:2935dacb", result.Messages[3].Claim.Specifier)
 	require.Equal(t, "0x9f1326698b06e932603281720b4022cf1f83ee22", result.Messages[3].Claim.RecipientEthAddress)
-	require.Equal(t, "0x00b6462e955da5841b6d9e1e2529b830f00f31bf", result.Messages[3].Claim.AntiAbuseOracleEthAddress)
+	require.Equal(t, "0x00b6462e955da5841b6d9e1e2529b830f00f31bf", result.Messages[3].Claim.ClaimAuthority)
 	require.Equal(t, "0x8fcfa10bd3808570987dbb5b1ef4ab74400fbfda", result.Messages[3].OperatorEthAddress)
 
 }
