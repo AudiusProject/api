@@ -71,7 +71,6 @@ func (app *ApiServer) v1ChallengesDisbursements(c *fiber.Ctx) error {
 	}
 
 	sql := `
-	-- Get Challenge Disbursements
 	SELECT
 		cd.challenge_id,
 		cd.user_id,
