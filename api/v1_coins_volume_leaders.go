@@ -77,6 +77,9 @@ func (app *ApiServer) v1CoinsVolumeLeaders(c *fiber.Ctx) error {
 		UNION
 		SELECT token_b_vault AS vault_account, 'damm_v2' AS src FROM sol_meteora_damm_v2_pools
 	),
+	excluded_addresses AS (
+		SELECT address FROM volume_leader_exclusions
+	),
 	leaders as (SELECT
 		COALESCE(scat_match.account, vault_change.fee_payer) as address,
 		SUM(ABS(vault_change.change)) / 100000000 AS volume  -- dividing by AUDIO decimals
@@ -105,6 +108,7 @@ func (app *ApiServer) v1CoinsVolumeLeaders(c *fiber.Ctx) error {
 		-- Exclude volume from pool migrations
 		user_change.owner != '` + meteora_dbc.POOL_AUTHORITY_ADDRESS + `'
 		AND user_change.owner != '` + meteora_damm_v2.POOL_AUTHORITY_ADDRESS + `'
+		AND NOT EXISTS (SELECT 1 FROM excluded_addresses WHERE excluded_addresses.address = user_change.owner)
 		AND vault_change.change != 0
 		AND vault_change.created_at >= @fromDate
 		AND vault_change.created_at < @toDate
