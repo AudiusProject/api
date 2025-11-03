@@ -104,7 +104,7 @@ func (app *ApiServer) v1UsersChallenges(c *fiber.Ctx) error {
 			cooldown_days
 		FROM all_user_challenges
 		WHERE challenge_type = 'aggregate'
-			AND challenge_id NOT IN ('e', 'o')
+			AND challenge_id NOT IN ('e', 'o', 'dvl')
 		GROUP BY challenge_id,
 			user_id,
 			max_steps,
