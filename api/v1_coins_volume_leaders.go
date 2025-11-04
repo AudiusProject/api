@@ -4,8 +4,6 @@ import (
 	"time"
 
 	"api.audius.co/api/dbv1"
-	"api.audius.co/solana/spl/programs/meteora_damm_v2"
-	"api.audius.co/solana/spl/programs/meteora_dbc"
 	"github.com/gofiber/fiber/v2"
 	"github.com/jackc/pgx/v5"
 )
@@ -75,7 +73,6 @@ func (app *ApiServer) v1CoinsVolumeLeaders(c *fiber.Ctx) error {
 	}
 
 	sql := `
-	-- Get pool vaults for both DBC and DAMM V2 to match against
 	WITH pool_vaults AS (
 		SELECT quote_vault AS vault_account, 'dbc' AS src FROM sol_meteora_dbc_pools
 		UNION
@@ -84,16 +81,25 @@ func (app *ApiServer) v1CoinsVolumeLeaders(c *fiber.Ctx) error {
 	excluded_addresses AS (
 		SELECT address FROM volume_leader_exclusions
 	),
+    vault_change AS (
+        SELECT *
+        FROM sol_token_account_balance_changes stabc
+        JOIN pool_vaults pv
+    	ON pv.vault_account = stabc.account
+        WHERE
+			-- Leverage mint/block_timestamp index (we only care about AUDIO vaults)
+            stabc.mint = '9LzCMqDgTKYz9Drzqnpgee3SGa89up3a247ypMj2xrqM'
+            AND stabc.block_timestamp >= @fromDate
+            AND stabc.block_timestamp < @toDate
+    ),
 	leaders as (SELECT
 		COALESCE(scat_match.account, vault_change.fee_payer) as address,
 		SUM(ABS(vault_change.change)) / 100000000 AS volume  -- dividing by AUDIO decimals
-	FROM sol_token_account_balance_changes vault_change
+	FROM vault_change
     LEFT JOIN sol_token_account_balance_changes user_change
 		ON vault_change.signature = user_change.signature
 		AND vault_change.change = 0 - user_change.change
 		AND vault_change.mint = user_change.mint
-	JOIN pool_vaults pv
-    	ON pv.vault_account = vault_change.account
 	-- If the tx involved a claimable tokens transfer, it will get credited to
 	-- the AUDIO user bank address for the user that sent the tx.
 	LEFT JOIN LATERAL (
@@ -103,21 +109,10 @@ func (app *ApiServer) v1CoinsVolumeLeaders(c *fiber.Ctx) error {
 		JOIN sol_claimable_accounts sca
 			ON sca.ethereum_address = scat.sender_eth_address
 			-- Return AUDIO claimable token account for sender with each matching tx.
-            -- TODO: Maybe this can just be vault_change.mint
 			AND sca.mint = '9LzCMqDgTKYz9Drzqnpgee3SGa89up3a247ypMj2xrqM'
 		WHERE scat.signature = vault_change.signature
 		ORDER BY sca.account, scat.instruction_index
     ) scat_match ON TRUE
-	WHERE
-		-- Exclude volume from pool migrations
-		user_change.owner != '` + meteora_dbc.POOL_AUTHORITY_ADDRESS + `'
-		AND user_change.owner != '` + meteora_damm_v2.POOL_AUTHORITY_ADDRESS + `'
-		AND NOT EXISTS (SELECT 1 FROM excluded_addresses WHERE excluded_addresses.address = user_change.owner)
-		AND vault_change.change != 0
-		AND vault_change.created_at >= @fromDate
-		AND vault_change.created_at < @toDate
-		AND user_change.created_at >= @fromDate
-		AND user_change.created_at < @toDate
 	GROUP BY address
 	ORDER BY volume DESC
 	)
@@ -131,6 +126,7 @@ func (app *ApiServer) v1CoinsVolumeLeaders(c *fiber.Ctx) error {
     LEFT JOIN users u ON u.wallet = sca.ethereum_address
     WHERE
 		l.address IS NOT NULL
+        AND NOT EXISTS (SELECT 1 FROM excluded_addresses WHERE excluded_addresses.address = l.address)
 		AND l.volume > 0
     LIMIT @limit
     OFFSET @offset;`
