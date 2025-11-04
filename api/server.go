@@ -510,6 +510,14 @@ func NewApiServer(config config.Config) *ApiServer {
 		g.Post("/coins/:mint", app.v1UpdateCoin)
 	}
 
+	// Relay
+	app.Post("/relay", app.relay)
+	app.Get("/relay", func(c *fiber.Ctx) error {
+		return c.JSON(fiber.Map{
+			"message": "Relay is enabled",
+		})
+	})
+
 	// Comms
 	comms := app.Group("/comms")
 	// Cached/non-cached are the same as there are no other nodes to query anymore
