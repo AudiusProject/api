@@ -39,7 +39,6 @@ require (
 	github.com/tidwall/gjson v1.18.0
 	github.com/tidwall/pretty v1.2.1
 	github.com/tidwall/sjson v1.2.5
-	github.com/ulule/limiter/v3 v3.11.2
 	github.com/urfave/cli/v3 v3.5.0
 	go.uber.org/zap v1.27.0
 	golang.org/x/sync v0.16.0

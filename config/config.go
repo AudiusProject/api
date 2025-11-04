@@ -42,8 +42,6 @@ type Config struct {
 	AudiusdEntityManagerAddress string
 	AudiusAppUrl                string
 	ContentNodeMonitor          bool
-	RelayIPRateLimit            int
-	RelayWalletRateLimit        int
 }
 
 var Cfg = Config{
@@ -65,8 +63,6 @@ var Cfg = Config{
 	SolanaIndexerRetryInterval: 5 * time.Minute,
 	CommsMessagePush:           true,
 	ContentNodeMonitor:         true,
-	RelayIPRateLimit:           120,
-	RelayWalletRateLimit:       120,
 }
 
 func init() {
@@ -79,23 +75,6 @@ func init() {
 
 	Cfg.SolanaConfig = NewSolanaConfig()
 
-	relayIPRateLimit := os.Getenv("relayIPRateLimit")
-	if relayIPRateLimit != "" {
-		parsedRateLimit, err := strconv.Atoi(relayIPRateLimit)
-		if err != nil {
-			panic("Invalid relayIPRateLimit: " + err.Error())
-		}
-		Cfg.RelayIPRateLimit = parsedRateLimit
-	}
-
-	relayWalletRateLimit := os.Getenv("relayWalletRateLimit")
-	if relayWalletRateLimit != "" {
-		parsedRateLimit, err := strconv.Atoi(relayWalletRateLimit)
-		if err != nil {
-			log.Fatalf("Invalid relayWalletRateLimit: %s", err.Error())
-		}
-		Cfg.RelayWalletRateLimit = parsedRateLimit
-	}
 	switch env := os.Getenv("ENV"); env {
 	case "dev":
 		fallthrough
@@ -109,7 +88,7 @@ func init() {
 		Cfg.AntiAbuseOracles = []string{"http://audius-discovery-provider-1"}
 		Cfg.Nodes = DevNodes
 		Cfg.Rewards = core_config.MakeRewards(core_config.DevClaimAuthorities, core_config.DevRewardExtensions)
-		Cfg.AudiusdURL = "http://audius-protocol-creator-node-1"
+		Cfg.AudiusdURL = "http://audius-creator-node-1"
 		Cfg.ChainId = "audius-devnet"
 		Cfg.SolanaIndexerWorkers = 1
 
