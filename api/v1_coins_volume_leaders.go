@@ -70,6 +70,10 @@ func (app *ApiServer) v1CoinsVolumeLeaders(c *fiber.Ctx) error {
 		return fiber.NewError(fiber.StatusBadRequest, "Time range must be <= 7 days")
 	}
 
+	if fromDate.Before(now.Add(-11 * 24 * time.Hour)) {
+		return fiber.NewError(fiber.StatusBadRequest, "Time range too old")
+	}
+
 	sql := `
 	-- Get pool vaults for both DBC and DAMM V2 to match against
 	WITH pool_vaults AS (
