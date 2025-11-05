@@ -68,7 +68,7 @@ func main() {
 			solanaIndexer := solana_indexer.New(config.Cfg)
 			defer solanaIndexer.Close()
 
-			healthServer := solana_indexer.NewServer(config.Cfg)
+			healthServer := solana_indexer.NewServer(solanaIndexer)
 
 			// Capture termination signals for graceful shutdown of the indexer
 			ctx, stop := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM, syscall.SIGINT, os.Interrupt)
