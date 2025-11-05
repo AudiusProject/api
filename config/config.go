@@ -24,6 +24,7 @@ type Config struct {
 	RunMigrations               bool
 	EsUrl                       string
 	Nodes                       []Node
+	StoreAllNodes               []string
 	DeadNodes                   []string
 	DelegatePrivateKey          string
 	AxiomToken                  string
@@ -91,7 +92,8 @@ func init() {
 		Cfg.AudiusdURL = "http://audius-creator-node-1"
 		Cfg.ChainId = "audius-devnet"
 		Cfg.SolanaIndexerWorkers = 1
-
+		Cfg.DeadNodes = []string{}
+		Cfg.StoreAllNodes = []string{}
 		Cfg.AudiusdChainID = core_config.DevAcdcChainID
 		Cfg.AudiusdEntityManagerAddress = core_config.DevAcdcAddress
 		Cfg.AudiusAppUrl = "http://localhost:3000"
@@ -104,6 +106,7 @@ func init() {
 		Cfg.AntiAbuseOracles = []string{"https://discoveryprovider.staging.audius.co"}
 		Cfg.Nodes = StageNodes
 		Cfg.DeadNodes = []string{}
+		Cfg.StoreAllNodes = []string{}
 		Cfg.Rewards = core_config.MakeRewards(core_config.StageClaimAuthorities, core_config.StageRewardExtensions)
 		Cfg.AudiusdURL = "creatornode11.staging.audius.co"
 		Cfg.ChainId = "audius-testnet-alpha"
@@ -121,6 +124,9 @@ func init() {
 		Cfg.Nodes = ProdNodes
 		Cfg.DeadNodes = []string{
 			"https://content.grassfed.network",
+		}
+		Cfg.StoreAllNodes = []string{
+			"https://creatornode2.audius.co",
 		}
 		Cfg.Rewards = core_config.MakeRewards(core_config.ProdClaimAuthorities, core_config.ProdRewardExtensions)
 		Cfg.AudiusdURL = "creatornode.audius.co"
