@@ -715,6 +715,7 @@ func (app *ApiServer) v1ClaimRewards(c *fiber.Ctx) error {
 				UserBank: *bankAccount,
 			}
 
+			validators := app.validators.GetNodes()
 			sigs, err := claimReward(
 				ctx,
 				rewardClaim,
@@ -722,7 +723,7 @@ func (app *ApiServer) v1ClaimRewards(c *fiber.Ctx) error {
 				app.rewardAttester,
 				app.transactionSender,
 				*antiAbuseOracle,
-				app.validators,
+				validators,
 			)
 
 			if err != nil {
