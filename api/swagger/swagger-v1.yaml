@@ -3921,6 +3921,61 @@ paths:
                 $ref: '#/components/schemas/coins_volume_leaders_response'
         '400':
           description: Bad Request
+  /coins/{mint}/redeem:
+    get:
+      tags:
+        - coins
+      operationId: Get Coin Redeem Amount
+      description: 'Gets the availability indicator for reward codes for a specific coin'
+      parameters:
+      - name: mint
+        in: path
+        description: The mint address of the coin
+        required: true
+        schema:
+          type: string
+          example: 9LzCMqDgTKYz9Drzqnpgee3SGa89up3a247ypMj2xrqM
+      responses:
+        '200':
+          description: Success
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/redeem_amount_response'
+  /coins/{mint}/redeem/{code}:
+    get:
+      tags:
+        - coins
+      operationId: Get Reward Code
+      description: 'Gets information about a specific reward code for a coin'
+      parameters:
+      - name: mint
+        in: path
+        description: The mint address of the coin
+        required: true
+        schema:
+          type: string
+          example: 9LzCMqDgTKYz9Drzqnpgee3SGa89up3a247ypMj2xrqM
+      - name: code
+        in: path
+        description: The reward code to retrieve
+        required: true
+        schema:
+          type: string
+          example: XYZ123
+      responses:
+        '200':
+          description: Success
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/reward_code_response'
+        '400':
+          description: Bad request - Code is invalid or already used
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/reward_code_error_response'
   /rewards/claim:
     post:
       tags:
@@ -6533,6 +6588,39 @@ components:
           type: string
           description: The user ID to claim rewards for
           example: "7eP5n"
+    redeem_amount_response:
+      type: object
+      required:
+        - amount
+      properties:
+        amount:
+          type: integer
+          description: Static amount indicator (always 1)
+          example: 1
+    reward_code_response:
+      type: object
+      required:
+        - code
+        - amount
+      properties:
+        code:
+          type: string
+          description: The reward code
+          example: "XYZ123"
+        amount:
+          type: integer
+          description: The amount of coins rewarded by this code
+          example: 100
+    reward_code_error_response:
+      type: object
+      properties:
+        error:
+          type: string
+          description: Error message indicating why the code cannot be redeemed
+          example: "used"
+          enum:
+            - used
+            - invalid
   responses:
     ParseError:
       description: When a mask can't be parsed
