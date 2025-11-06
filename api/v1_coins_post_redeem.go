@@ -10,7 +10,7 @@ import (
 
 	"api.audius.co/config"
 	"api.audius.co/solana/spl/programs/reward_manager"
-	oap_rewards "github.com/AudiusProject/audiusd/pkg/rewards"
+	oap_rewards "github.com/OpenAudio/go-openaudio/pkg/rewards"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/crypto"
 	"github.com/gagliardetto/solana-go"
@@ -34,7 +34,7 @@ func getAttestationSignatureForRewardClaimAuthority(rewardClaim oap_rewards.Rewa
 	return "0x" + hex.EncodeToString(signatureBytes), nil
 }
 
-// TODO: In ac scripts, this uses a "domain" of "claimAuthority"
+// TODO: Implement/replace once core reward generation PR is merged
 func getClaimAuthority(mint solana.PublicKey) (*ecdsa.PrivateKey, error) {
 	return nil, nil
 }
@@ -66,9 +66,10 @@ func (app *ApiServer) v1CoinsPostRedeem(c *fiber.Ctx) error {
 	}
 
 	var userWalletAddress string
-	err := app.pool.QueryRow(c.Context(), `SELECT wallet FROM users WHERE user_id = @user_id`, pgx.NamedArgs{
+	var userHandle string
+	err := app.pool.QueryRow(c.Context(), `SELECT wallet, handle FROM users WHERE user_id = @user_id`, pgx.NamedArgs{
 		"user_id": myId,
-	}).Scan(&userWalletAddress)
+	}).Scan(&userWalletAddress, &userHandle)
 	if err != nil {
 		if errors.Is(err, pgx.ErrNoRows) {
 			return fiber.NewError(fiber.StatusInternalServerError, "Failed to get user wallet")
@@ -183,7 +184,7 @@ func (app *ApiServer) v1CoinsPostRedeem(c *fiber.Ctx) error {
 	rewardClaim := oap_rewards.RewardClaim{
 		RecipientEthAddress: userWalletAddress,
 		Amount:              amount,
-		RewardID:            "a", // TODO: Either fetch with oap or should come from row
+		RewardID:            "code", // TODO: Use shared constant/generator
 		RewardAddress:       rewardAddress,
 		Specifier:           specifier,
 		ClaimAuthority:      claimAuthorityPublicKey.Hex(),
@@ -196,7 +197,7 @@ func (app *ApiServer) v1CoinsPostRedeem(c *fiber.Ctx) error {
 
 	decoratedRewardClaim := RewardClaim{
 		RewardClaim: rewardClaim,
-		Handle:      "", // TODO: Also fetch with wallet
+		Handle:      userHandle,
 		UserBank:    *bankAccount,
 	}
 
@@ -204,7 +205,7 @@ func (app *ApiServer) v1CoinsPostRedeem(c *fiber.Ctx) error {
 	attestations, err := fetchAttestations(
 		c.Context(),
 		decoratedRewardClaim,
-		app.validators,
+		app.validators.GetNodes(),
 		[]string{},
 		config.Node{
 			DelegateOwnerWallet: "",
