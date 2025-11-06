@@ -1,17 +1,19 @@
 package api
 
 import (
+	"fmt"
 	"math/big"
 	"sync"
 
+	"api.audius.co/config"
 	"connectrpc.com/connect"
 	v1 "github.com/OpenAudio/go-openaudio/pkg/api/core/v1"
+	cconfig "github.com/OpenAudio/go-openaudio/pkg/core/config"
 	"github.com/OpenAudio/go-openaudio/pkg/core/server"
 	eth_gen "github.com/OpenAudio/go-openaudio/pkg/eth/contracts/gen"
 	"github.com/ethereum/go-ethereum/accounts/abi"
 	gcommon "github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/common/hexutil"
-	"github.com/ethereum/go-ethereum/core/types"
 	"github.com/gofiber/fiber/v2"
 	"go.uber.org/zap"
 )
@@ -46,85 +48,85 @@ func DecodeManageEntityABI(encodedABI string) (*v1.ManageEntityLegacy, error) {
 		}
 	})
 	if entityManagerErr != nil {
-		return nil, fiber.NewError(fiber.StatusInternalServerError, "internal server error: "+entityManagerErr.Error())
+		return nil, fmt.Errorf("failed to get entity manager ABI: %w", entityManagerErr)
 	}
 	data := gcommon.FromHex(encodedABI)
 	method, err := entityManagerABI.MethodById(data)
 	if err != nil {
-		return nil, fiber.NewError(fiber.StatusBadRequest, "bad request: "+err.Error())
+		return nil, fmt.Errorf("failed to get method by ID: %w", err)
 	}
 
 	if method.Name != manageEntityFunctionName {
-		return nil, fiber.NewError(fiber.StatusBadRequest, "bad request: expected manageEntity function")
+		return nil, fmt.Errorf("expected manageEntity function, got %s", method.Name)
 	}
 
 	params := make(map[string]interface{})
 	err = method.Inputs.UnpackIntoMap(params, data[4:])
 	if err != nil {
-		return nil, fiber.NewError(fiber.StatusBadRequest, "bad request: "+err.Error())
+		return nil, fmt.Errorf("failed to unpack method inputs: %w", err)
 	}
 
 	metadata, ok := params[manageEntityMetadataArgName]
 	if !ok {
-		return nil, fiber.NewError(fiber.StatusBadRequest, "bad request: metadata is required")
+		return nil, fmt.Errorf("metadata is required")
 	}
 	metadataStr, ok := metadata.(string)
 	if !ok {
-		return nil, fiber.NewError(fiber.StatusBadRequest, "bad request: metadata is not a string")
+		return nil, fmt.Errorf("metadata is not a string")
 	}
 
 	action, ok := params[manageEntityActionArgName]
 	if !ok {
-		return nil, fiber.NewError(fiber.StatusBadRequest, "bad request: action is required")
+		return nil, fmt.Errorf("action is required")
 	}
 	actionStr, ok := action.(string)
 	if !ok {
-		return nil, fiber.NewError(fiber.StatusBadRequest, "bad request: action is not a string")
+		return nil, fmt.Errorf("action is not a string")
 	}
 
 	userId, ok := params[manageEntityUserIdArgName]
 	if !ok {
-		return nil, fiber.NewError(fiber.StatusBadRequest, "bad request: userId is required")
+		return nil, fmt.Errorf("userId is required")
 	}
 	userIdStr, ok := userId.(*big.Int)
 	if !ok {
-		return nil, fiber.NewError(fiber.StatusBadRequest, "bad request: userId is not a big.Int")
+		return nil, fmt.Errorf("userId is not a big.Int")
 	}
 
 	entityType, ok := params[manageEntityEntityTypeArgName]
 	if !ok {
-		return nil, fiber.NewError(fiber.StatusBadRequest, "bad request: entityType is required")
+		return nil, fmt.Errorf("entityType is required")
 	}
 	entityTypeStr, ok := entityType.(string)
 	if !ok {
-		return nil, fiber.NewError(fiber.StatusBadRequest, "bad request: entityType is not a string")
+		return nil, fmt.Errorf("entityType is not a string")
 	}
 
 	entityId, ok := params[manageEntityEntityIdArgName]
 	if !ok {
-		return nil, fiber.NewError(fiber.StatusBadRequest, "bad request: entityId is required")
+		return nil, fmt.Errorf("entityId is required")
 	}
 	entityIdStr, ok := entityId.(*big.Int)
 	if !ok {
-		return nil, fiber.NewError(fiber.StatusBadRequest, "bad request: entityId is not a big.Int")
+		return nil, fmt.Errorf("entityId is not a big.Int")
 	}
 
 	nonce, ok := params[manageEntityNonceArgName]
 	if !ok {
-		return nil, fiber.NewError(fiber.StatusBadRequest, "bad request: nonce is required")
+		return nil, fmt.Errorf("nonce is required")
 	}
 	nonceStr, ok := nonce.([32]byte)
 	if !ok {
-		return nil, fiber.NewError(fiber.StatusBadRequest, "bad request: nonce is not a [32]byte")
+		return nil, fmt.Errorf("nonce is not a [32]byte")
 	}
 
 	subjectSig, ok := params[manageEntitySubjectSigArgName]
 	if !ok {
-		return nil, fiber.NewError(fiber.StatusBadRequest, "bad request: subjectSig is required")
+		return nil, fmt.Errorf("subjectSig is required")
 	}
 	subjectSigStr, ok := subjectSig.([]byte)
 	if !ok {
-		return nil, fiber.NewError(fiber.StatusBadRequest, "bad request: subjectSig is not a []byte")
+		return nil, fmt.Errorf("subjectSig is not a []byte")
 	}
 
 	return &v1.ManageEntityLegacy{
@@ -157,7 +159,10 @@ func (app *ApiServer) relay(c *fiber.Ctx) error {
 		return fiber.NewError(fiber.StatusBadRequest, "bad request: "+err.Error())
 	}
 
-	wallet, _, err := server.RecoverPubkeyFromCoreTx(nil, decodedTx)
+	wallet, _, err := server.RecoverPubkeyFromCoreTx(&cconfig.Config{
+		AcdcChainID:              config.Cfg.AudiusdChainID,
+		AcdcEntityManagerAddress: config.Cfg.AudiusdEntityManagerAddress,
+	}, decodedTx)
 	if err != nil {
 		return fiber.NewError(fiber.StatusBadRequest, "bad request: "+err.Error())
 	}
@@ -185,15 +190,21 @@ func (app *ApiServer) relay(c *fiber.Ctx) error {
 
 	msg := res.Msg.Transaction
 
-	receipt := &types.Receipt{
-		TxHash:            gcommon.HexToHash(msg.GetHash()),
-		BlockHash:         gcommon.HexToHash(msg.GetBlockHash()),
-		BlockNumber:       big.NewInt(int64(msg.GetHeight())),
-		TransactionIndex:  0,
-		GasUsed:           10,
-		CumulativeGasUsed: 10,
-		EffectiveGasPrice: big.NewInt(420),
-		Status:            types.ReceiptStatusSuccessful,
+	// receipt map that matches response from ethereum geth
+	receipt := map[string]interface{}{
+		"transactionHash":   msg.GetHash(),
+		"blockHash":         msg.GetBlockHash(),
+		"blockNumber":       msg.GetHeight(),
+		"transactionIndex":  0,
+		"from":              wallet,
+		"to":                wallet,
+		"gasUsed":           10,
+		"cumulativeGasUsed": 10,
+		"effectiveGasPrice": 420,
+		"status":            true,
 	}
-	return c.JSON(receipt)
+
+	return c.JSON(map[string]interface{}{
+		"receipt": receipt,
+	})
 }
