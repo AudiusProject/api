@@ -77,7 +77,7 @@ func (app *ApiServer) updateNodes(ctx context.Context) {
 	app.validators.SetNodes(nodesList)
 }
 
-func (app *ApiServer) getValidators(c *fiber.Ctx) error {
+func (app *ApiServer) v1Validators(c *fiber.Ctx) error {
 	return c.JSON(fiber.Map{
 		"nodes": app.validators.GetNodes(),
 	})

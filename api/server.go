@@ -515,8 +515,8 @@ func NewApiServer(config config.Config) *ApiServer {
 		g.Post("/coins/:mint", app.v1UpdateCoin)
 
 		// Rendezvous and Validators
-		g.Get("/rendezvous/:cid", app.getRendezvous)
-		g.Get("/validators", app.getValidators)
+		g.Get("/rendezvous/:cid", app.v1Rendezvous)
+		g.Get("/validators", app.v1Validators)
 	}
 
 	// Comms

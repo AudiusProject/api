@@ -7,7 +7,7 @@ import (
 
 // intakes a cid and returns a list of nodes that have the cid based on the rendezvous algorithm
 // also accepts a number of nodes to return
-func (app *ApiServer) getRendezvous(c *fiber.Ctx) error {
+func (app *ApiServer) v1Rendezvous(c *fiber.Ctx) error {
 	cid := c.Params("cid")
 	if cid == "" {
 		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
