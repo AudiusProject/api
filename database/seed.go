@@ -618,6 +618,14 @@ var (
 			"user_id":       nil,
 			"pubkey_base64": nil,
 		},
+		"reward_codes": {
+			"code":           nil,
+			"mint":           nil,
+			"reward_address": nil,
+			"amount":         nil,
+			"is_used":        false,
+			"created_at":     time.Now(),
+		},
 	}
 )
 
