@@ -5,9 +5,9 @@ import (
 	"sync"
 
 	"connectrpc.com/connect"
-	v1 "github.com/AudiusProject/audiusd/pkg/api/core/v1"
-	"github.com/AudiusProject/audiusd/pkg/core/server"
-	eth_gen "github.com/AudiusProject/audiusd/pkg/eth/contracts/gen"
+	v1 "github.com/OpenAudio/go-openaudio/pkg/api/core/v1"
+	"github.com/OpenAudio/go-openaudio/pkg/core/server"
+	eth_gen "github.com/OpenAudio/go-openaudio/pkg/eth/contracts/gen"
 	"github.com/ethereum/go-ethereum/accounts/abi"
 	gcommon "github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/common/hexutil"
@@ -141,7 +141,7 @@ func DecodeManageEntityABI(encodedABI string) (*v1.ManageEntityLegacy, error) {
 func (app *ApiServer) relay(c *fiber.Ctx) error {
 	ctx := c.Context()
 	logger := app.logger
-	oapSdk := app.auds
+	oapSdk := app.openAudioSDK
 
 	var request RelayRequest
 	if err := c.BodyParser(&request); err != nil {
