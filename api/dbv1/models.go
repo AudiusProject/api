@@ -1495,6 +1495,19 @@ type RevertBlock struct {
 	PrevRecords json.RawMessage `json:"prev_records"`
 }
 
+// Stores reward codes for distributing coins
+type RewardCode struct {
+	// Unique code for redemption
+	Code string `json:"code"`
+	// Coin mint address
+	Mint string `json:"mint"`
+	// Address of the reward instance onchain
+	RewardAddress string `json:"reward_address"`
+	// Amount of coins to reward
+	Amount    int64     `json:"amount"`
+	CreatedAt time.Time `json:"created_at"`
+}
+
 type RewardManagerTx struct {
 	Signature string    `json:"signature"`
 	Slot      int32     `json:"slot"`
@@ -2477,4 +2490,9 @@ type UserTip struct {
 	Amount         int64     `json:"amount"`
 	CreatedAt      time.Time `json:"created_at"`
 	UpdatedAt      time.Time `json:"updated_at"`
+}
+
+type VolumeLeaderExclusion struct {
+	Address     string      `json:"address"`
+	Description pgtype.Text `json:"description"`
 }
