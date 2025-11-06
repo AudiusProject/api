@@ -5,7 +5,7 @@ import (
 
 	core_indexer "api.audius.co/indexer"
 	"connectrpc.com/connect"
-	corev1 "github.com/AudiusProject/audiusd/pkg/api/core/v1"
+	corev1 "github.com/OpenAudio/go-openaudio/pkg/api/core/v1"
 	"github.com/gofiber/fiber/v2"
 	"go.uber.org/zap"
 )
@@ -31,7 +31,7 @@ type coreIndexerHealth struct {
 }
 
 func (app *ApiServer) getCoreIndexerHealth(ctx context.Context) (*coreIndexerHealth, error) {
-	nodeInfo, err := app.auds.Core.GetNodeInfo(ctx, connect.NewRequest(&corev1.GetNodeInfoRequest{}))
+	nodeInfo, err := app.openAudioSDK.Core.GetNodeInfo(ctx, connect.NewRequest(&corev1.GetNodeInfoRequest{}))
 	if err != nil {
 		return nil, fiber.NewError(fiber.StatusInternalServerError, "Failed to get core node info")
 	}

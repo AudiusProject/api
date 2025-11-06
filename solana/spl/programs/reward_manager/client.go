@@ -4,7 +4,7 @@ import (
 	"context"
 
 	"api.audius.co/solana/spl"
-	"github.com/AudiusProject/audiusd/pkg/rewards"
+	"github.com/OpenAudio/go-openaudio/pkg/rewards"
 	"github.com/gagliardetto/solana-go"
 	"github.com/gagliardetto/solana-go/rpc"
 	"go.uber.org/zap"

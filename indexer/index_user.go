@@ -8,9 +8,9 @@ import (
 	dbv1 "api.audius.co/database"
 	"go.uber.org/zap"
 
-	corev1 "github.com/AudiusProject/audiusd/pkg/api/core/v1"
-	core_config "github.com/AudiusProject/audiusd/pkg/core/config"
-	"github.com/AudiusProject/audiusd/pkg/core/server"
+	corev1 "github.com/OpenAudio/go-openaudio/pkg/api/core/v1"
+	core_config "github.com/OpenAudio/go-openaudio/pkg/core/config"
+	"github.com/OpenAudio/go-openaudio/pkg/core/server"
 	"github.com/ethereum/go-ethereum/crypto"
 )
 

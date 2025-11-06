@@ -7,8 +7,8 @@ import (
 	"strings"
 	"time"
 
-	core_config "github.com/AudiusProject/audiusd/pkg/core/config"
-	"github.com/AudiusProject/audiusd/pkg/rewards"
+	core_config "github.com/OpenAudio/go-openaudio/pkg/core/config"
+	"github.com/OpenAudio/go-openaudio/pkg/rewards"
 	_ "github.com/joho/godotenv/autoload"
 	"go.uber.org/zap/zapcore"
 )

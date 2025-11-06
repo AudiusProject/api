@@ -1,11 +1,11 @@
 module api.audius.co
 
-go 1.24.3
+go 1.25
 
 require (
 	connectrpc.com/connect v1.18.1
-	github.com/AudiusProject/audiusd v0.0.0-20251031160311-f39848ad005c
 	github.com/Doist/unfurlist v0.0.0-20250409100812-515f2735f8e5
+	github.com/OpenAudio/go-openaudio v1.0.3
 	github.com/aquasecurity/esquery v0.2.0
 	github.com/axiomhq/axiom-go v0.23.0
 	github.com/axiomhq/hyperloglog v0.2.5

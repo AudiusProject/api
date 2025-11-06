@@ -7,7 +7,7 @@ import (
 	"testing"
 
 	"api.audius.co/config"
-	"github.com/AudiusProject/audiusd/pkg/rewards"
+	"github.com/OpenAudio/go-openaudio/pkg/rewards"
 	"github.com/gagliardetto/solana-go"
 	"github.com/stretchr/testify/assert"
 )
