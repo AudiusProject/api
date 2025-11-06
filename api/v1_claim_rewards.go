@@ -24,7 +24,7 @@ import (
 	"api.audius.co/solana/spl/programs/reward_manager"
 	"api.audius.co/solana/spl/programs/secp256k1"
 	"api.audius.co/trashid"
-	"github.com/AudiusProject/audiusd/pkg/rewards"
+	"github.com/OpenAudio/go-openaudio/pkg/rewards"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/gagliardetto/solana-go"
 	"github.com/gagliardetto/solana-go/rpc"
