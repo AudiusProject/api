@@ -1506,6 +1506,8 @@ type RewardCode struct {
 	// Amount of coins to reward
 	Amount    int64     `json:"amount"`
 	CreatedAt time.Time `json:"created_at"`
+	// Whether the code has been redeemed
+	IsUsed bool `json:"is_used"`
 }
 
 type RewardManagerTx struct {

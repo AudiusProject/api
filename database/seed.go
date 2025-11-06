@@ -623,6 +623,7 @@ var (
 			"mint":           nil,
 			"reward_address": nil,
 			"amount":         nil,
+			"is_used":        false,
 			"created_at":     time.Now(),
 		},
 	}

@@ -28,6 +28,7 @@ func TestV1CoinsRedeem(t *testing.T) {
 				"mint":           "TestMint123",
 				"reward_address": "RewardAddress123",
 				"amount":         100,
+				"is_used":        false,
 				"created_at":     time.Now(),
 			},
 			{
@@ -35,6 +36,15 @@ func TestV1CoinsRedeem(t *testing.T) {
 				"mint":           "TestMint123",
 				"reward_address": "RewardAddress456",
 				"amount":         250,
+				"is_used":        false,
+				"created_at":     time.Now(),
+			},
+			{
+				"code":           "USEDCODE",
+				"mint":           "TestMint123",
+				"reward_address": "RewardAddress789",
+				"amount":         500,
+				"is_used":        true,
 				"created_at":     time.Now(),
 			},
 		},
@@ -74,7 +84,17 @@ func TestV1CoinsRedeem(t *testing.T) {
 		})
 	})
 
-	// Test with non-existent code (simulating already used code)
+	// Test with used code
+	t.Run("GET /coins/:mint/redeem/:code with used code returns 400 with error", func(t *testing.T) {
+		status, body := testGet(t, app, "/v1/coins/TestMint123/redeem/USEDCODE")
+		assert.Equal(t, 400, status)
+
+		jsonAssert(t, body, map[string]any{
+			"error": "used",
+		})
+	})
+
+	// Test with non-existent code
 	t.Run("GET /coins/:mint/redeem/:code with non-existent code returns 400", func(t *testing.T) {
 		status, body := testGet(t, app, "/v1/coins/TestMint123/redeem/NONEXISTENT")
 		assert.Equal(t, 400, status)

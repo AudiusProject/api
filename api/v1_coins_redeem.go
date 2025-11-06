@@ -8,6 +8,7 @@ import (
 type RewardCodeResponse struct {
 	Code   string `json:"code"`
 	Amount int64  `json:"amount"`
+	IsUsed bool   `json:"-"` // Don't include in JSON response
 }
 
 type RewardAmountResponse struct {
@@ -35,7 +36,7 @@ func (app *ApiServer) v1CoinsRedeemCode(c *fiber.Ctx) error {
 	}
 
 	sql := `
-		SELECT code, amount
+		SELECT code, amount, is_used
 		FROM reward_codes
 		WHERE mint = @mint AND code = @code
 		LIMIT 1
@@ -51,11 +52,18 @@ func (app *ApiServer) v1CoinsRedeemCode(c *fiber.Ctx) error {
 
 	rewardCode, err := pgx.CollectExactlyOneRow(rows, pgx.RowToStructByName[RewardCodeResponse])
 	if err != nil {
-		// If no rows found, return 400 with empty object
 		if err == pgx.ErrNoRows {
-			return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{})
+			return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
+				"error": "invalid",
+			})
 		}
 		return err
+	}
+
+	if rewardCode.IsUsed {
+		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
+			"error": "used",
+		})
 	}
 
 	return c.JSON(rewardCode)
