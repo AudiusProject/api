@@ -5,6 +5,7 @@ import (
 	"crypto/ed25519"
 	"crypto/rand"
 	"encoding/base64"
+	"errors"
 	"math/big"
 
 	"api.audius.co/config"
@@ -32,7 +33,6 @@ type CreateRewardCodeResponse struct {
 	Amount        int64  `json:"amount"`
 }
 
-// generateCode generates a random 6-character alphanumeric code
 func generateCode() (string, error) {
 	result := make([]byte, codeLength)
 	charsLen := big.NewInt(int64(len(codeChars)))
@@ -48,7 +48,6 @@ func generateCode() (string, error) {
 	return string(result), nil
 }
 
-// verifySignature verifies a Solana signature against a single public key
 func verifySignature(signatureBase64 string, authorizedPubKey string) (bool, error) {
 	// Decode the signature from base64
 	signatureBytes, err := base64.StdEncoding.DecodeString(signatureBase64)
@@ -69,9 +68,7 @@ func verifySignature(signatureBase64 string, authorizedPubKey string) (bool, err
 	return valid, nil
 }
 
-// verifySignatureAgainstKeys verifies a signature against multiple authorized keys
-// Returns the matching key, whether it's valid, and any error
-func verifySignatureAgainstKeys(signatureBase64 string, authorizedKeys []string) (string, bool, error) {
+func verifySignatureAgainstKeys(signatureBase64 string, authorizedKeys []string) (string, error) {
 	for _, key := range authorizedKeys {
 		valid, err := verifySignature(signatureBase64, key)
 		if err != nil {
@@ -80,11 +77,11 @@ func verifySignatureAgainstKeys(signatureBase64 string, authorizedKeys []string)
 		}
 		if valid {
 			// Found a matching key
-			return key, true, nil
+			return key, nil
 		}
 	}
 	// No matching key found
-	return "", false, nil
+	return "", errors.New("unauthorized")
 }
 
 func (app *ApiServer) v1CreateRewardCode(c *fiber.Ctx) error {
@@ -94,16 +91,11 @@ func (app *ApiServer) v1CreateRewardCode(c *fiber.Ctx) error {
 	}
 
 	// Verify the signature against authorized keys from config
-	matchedKey, valid, err := verifySignatureAgainstKeys(req.Signature, config.Cfg.RewardCodeAuthorizedKeys)
+	matchedKey, err := verifySignatureAgainstKeys(req.Signature, config.Cfg.RewardCodeAuthorizedKeys)
 	if err != nil {
-		return fiber.NewError(fiber.StatusBadRequest, "Invalid signature format: "+err.Error())
+		return fiber.NewError(fiber.StatusForbidden, "Unauthorized: "+err.Error())
 	}
 
-	if !valid {
-		return fiber.NewError(fiber.StatusForbidden, "Unauthorized: signature verification failed")
-	}
-
-	// Generate a code
 	code, err := generateCode()
 	if err != nil {
 		return fiber.NewError(fiber.StatusInternalServerError, "Failed to generate code: "+err.Error())
