@@ -24,7 +24,7 @@ import (
 	"api.audius.co/solana/spl/programs/reward_manager"
 	"api.audius.co/solana/spl/programs/secp256k1"
 	"api.audius.co/trashid"
-	"github.com/AudiusProject/audiusd/pkg/rewards"
+	"github.com/OpenAudio/go-openaudio/pkg/rewards"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/gagliardetto/solana-go"
 	"github.com/gagliardetto/solana-go/rpc"
@@ -149,7 +149,7 @@ func getValidatorAttestation(args GetValidatorAttestationParams) (*SenderAttesta
 	query.Add("reward_id", args.Claim.RewardID)
 	query.Add("specifier", args.Claim.Specifier)
 	query.Add("eth_recipient_address", args.Claim.RecipientEthAddress)
-	query.Add("oracle_address", args.Claim.AntiAbuseOracleEthAddress)
+	query.Add("oracle_address", args.Claim.ClaimAuthority)
 	query.Add("amount", strconv.FormatUint(args.Claim.Amount, 10))
 	query.Add("signature", args.Signature)
 
@@ -247,7 +247,7 @@ func fetchAttestations(
 	if !hasAntiAbuseOracleAttestation {
 		aaoGroup.Go(func() error {
 			aaoClaim := rewardClaim.RewardClaim
-			aaoClaim.AntiAbuseOracleEthAddress = ""
+			aaoClaim.ClaimAuthority = ""
 			getAntiAbuseAttestationParams := GetAntiAbuseOracleAttestationParams{
 				Claim:                   aaoClaim,
 				Handle:                  rewardClaim.Handle,
@@ -450,7 +450,7 @@ func sendRewardClaimTransactions(
 		rewardClaim.Specifier,
 		common.HexToAddress(rewardClaim.RecipientEthAddress),
 		rewardClaim.Amount*1e8, // Convert to wAUDIO wei
-		common.HexToAddress(rewardClaim.AntiAbuseOracleEthAddress),
+		common.HexToAddress(rewardClaim.ClaimAuthority),
 		rewardManagerClient.GetProgramStateAccount(),
 		state.TokenAccount,
 		rewardClaim.UserBank,
@@ -516,7 +516,7 @@ func claimReward(
 	hasAntiAbuseOracleAttestation := false
 	existingValidatorOwners := make([]string, 0)
 	for _, attestation := range attestationsData.Messages {
-		if attestation.Claim.AntiAbuseOracleEthAddress != "" {
+		if attestation.Claim.ClaimAuthority != "" {
 			existingValidatorOwners = append(existingValidatorOwners, attestation.OperatorEthAddress)
 		} else {
 			hasAntiAbuseOracleAttestation = true
@@ -705,11 +705,11 @@ func (app *ApiServer) v1ClaimRewards(c *fiber.Ctx) error {
 
 			rewardClaim := RewardClaim{
 				RewardClaim: rewards.RewardClaim{
-					RewardID:                  row.ChallengeID,
-					Amount:                    reward.Amount,
-					Specifier:                 row.Specifier,
-					RecipientEthAddress:       row.Wallet.String,
-					AntiAbuseOracleEthAddress: antiAbuseOracle.DelegateOwnerWallet,
+					RewardID:            row.ChallengeID,
+					Amount:              reward.Amount,
+					Specifier:           row.Specifier,
+					RecipientEthAddress: row.Wallet.String,
+					ClaimAuthority:      antiAbuseOracle.DelegateOwnerWallet,
 				},
 				Handle:   row.Handle.String,
 				UserBank: *bankAccount,

@@ -11,7 +11,7 @@ begin
         if (cooldown_days is null or cooldown_days = 0) then
             -- Check if there is an existing notification with the same fields in the last 15 minutes
 
-            if new.challenge_id not in ('tt', 'tp', 'tut') then
+            if new.challenge_id not in ('tt', 'tp', 'tut', 'dvl') then
                 insert into notification
                 (blocknumber, user_ids, timestamp, type, group_id, specifier, data)
                 values

@@ -24,9 +24,9 @@ import (
 	"api.audius.co/solana/spl/programs/reward_manager"
 	"api.audius.co/trashid"
 	apiutils "api.audius.co/utils"
-	"github.com/AudiusProject/audiusd/pkg/rewards"
-	"github.com/AudiusProject/audiusd/pkg/sdk"
 	"github.com/Doist/unfurlist"
+	"github.com/OpenAudio/go-openaudio/pkg/rewards"
+	"github.com/OpenAudio/go-openaudio/pkg/sdk"
 	"github.com/elastic/go-elasticsearch/v8"
 	"github.com/ethereum/go-ethereum/crypto"
 	"github.com/gagliardetto/solana-go/rpc"
@@ -162,7 +162,7 @@ func NewApiServer(config config.Config) *ApiServer {
 		logger.Error("dial es failed", zap.String("url", config.EsUrl), zap.Error(err))
 	}
 
-	auds := sdk.NewAudiusdSDK(config.AudiusdURL)
+	openAudioSDK := sdk.NewOpenAudioSDK(config.AudiusdURL)
 
 	skipAuthCheck, _ := strconv.ParseBool(os.Getenv("skipAuthCheck"))
 
@@ -212,7 +212,7 @@ func NewApiServer(config config.Config) *ApiServer {
 		solanaConfig:          &config.SolanaConfig,
 		antiAbuseOracles:      config.AntiAbuseOracles,
 		validators:            config.Nodes,
-		auds:                  auds,
+		openAudioSDK:          openAudioSDK,
 		metricsCollector:      metricsCollector,
 		birdeyeClient:         birdeye.New(config.BirdeyeToken),
 		solanaRpcClient:       solanaRpc,
@@ -323,6 +323,7 @@ func NewApiServer(config config.Config) *ApiServer {
 		g.Use("/users/handle/:handle", app.requireHandleMiddleware)
 		g.Get("/users/handle/:handle", app.v1User)
 		g.Get("/users/handle/:handle/tracks", app.v1UserTracks)
+		g.Get("/users/handle/:handle/tracks/count", app.v1UserTracksCount)
 		g.Get("/users/handle/:handle/albums", app.v1UserAlbums)
 		g.Get("/users/handle/:handle/playlists", app.v1UserPlaylists)
 		g.Get("/users/handle/:handle/tracks/ai_attributed", app.v1UserTracksAiAttributed)
@@ -352,6 +353,7 @@ func NewApiServer(config config.Config) *ApiServer {
 		g.Get("/users/:userId/supporters/:supporterUserId", app.v1UsersSupporters)
 		g.Get("/users/:userId/tags", app.v1UsersTags)
 		g.Get("/users/:userId/tracks", app.v1UserTracks)
+		g.Get("/users/:userId/tracks/count", app.v1UserTracksCount)
 		g.Get("/users/:userId/tracks/remixed", app.v1UserTracksRemixed)
 		g.Get("/users/:userId/albums", app.v1UserAlbums)
 		g.Get("/users/:userId/playlists", app.v1UserPlaylists)
@@ -479,6 +481,7 @@ func NewApiServer(config config.Config) *ApiServer {
 		// Challenges
 		g.Get("/challenges/undisbursed", app.v1ChallengesUndisbursed)
 		g.Get("/challenges/undisbursed/:userId", app.v1ChallengesUndisbursed)
+		g.Get("/challenges/disbursements", app.v1ChallengesDisbursements)
 		g.Get("/challenges/:challengeId/info", app.v1ChallengesInfo)
 
 		// Metrics
@@ -506,6 +509,8 @@ func NewApiServer(config config.Config) *ApiServer {
 		g.Get("/coins/:mint/insights", app.v1CoinInsights)
 		g.Get("/coins/:mint/members", app.v1CoinsMembers)
 		g.Get("/coins/:mint/members/count", app.v1CoinMembersCount)
+		g.Get("/coins/:mint/redeem", app.v1CoinsRedeem)
+		g.Get("/coins/:mint/redeem/:code", app.v1CoinsRedeemCode)
 		g.Post("/coins", app.v1CreateCoin)
 		g.Post("/coins/:mint", app.v1UpdateCoin)
 	}
@@ -630,7 +635,7 @@ type ApiServer struct {
 	antiAbuseOracles      []string
 	validators            []config.Node
 	env                   string
-	auds                  *sdk.AudiusdSDK
+	openAudioSDK          *sdk.OpenAudioSDK
 	audiusAppUrl          string
 	skipAuthCheck         bool // set to true in a test if you don't care about auth middleware
 	metricsCollector      *MetricsCollector

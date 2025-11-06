@@ -68,9 +68,13 @@ func main() {
 			solanaIndexer := solana_indexer.New(config.Cfg)
 			defer solanaIndexer.Close()
 
+			healthServer := solana_indexer.NewServer(solanaIndexer)
+
 			// Capture termination signals for graceful shutdown of the indexer
 			ctx, stop := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM, syscall.SIGINT, os.Interrupt)
 			defer stop()
+
+			go healthServer.Start(ctx)
 
 			if err := solanaIndexer.Start(ctx); err != nil {
 				if !errors.Is(err, context.Canceled) {

@@ -7,7 +7,7 @@ import (
 	"testing"
 
 	"api.audius.co/config"
-	"github.com/AudiusProject/audiusd/pkg/rewards"
+	"github.com/OpenAudio/go-openaudio/pkg/rewards"
 	"github.com/gagliardetto/solana-go"
 	"github.com/stretchr/testify/assert"
 )
@@ -70,11 +70,11 @@ func TestFetchAttestations(t *testing.T) {
 	// Test data
 	rewardClaim := RewardClaim{
 		RewardClaim: rewards.RewardClaim{
-			RewardID:                  "test-reward",
-			Amount:                    1000,
-			Specifier:                 "test-spec",
-			RecipientEthAddress:       "0x1234567890123456789012345678901234567890",
-			AntiAbuseOracleEthAddress: "",
+			RewardID:            "test-reward",
+			Amount:              1000,
+			Specifier:           "test-spec",
+			RecipientEthAddress: "0x1234567890123456789012345678901234567890",
+			ClaimAuthority:      "",
 		},
 		Handle:   "testuser",
 		UserBank: solana.MustPublicKeyFromBase58("11111111111111111111111111111112"),

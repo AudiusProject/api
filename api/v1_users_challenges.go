@@ -93,7 +93,7 @@ func (app *ApiServer) v1UsersChallenges(c *fiber.Ctx) error {
 		SELECT challenge_id,
 			user_id,
 			'' AS specifier,
-			SUM(user_amount) >= max_steps AS is_complete,
+			COALESCE(SUM(user_amount) >= max_steps, false) AS is_complete,
 			is_active,
 			false AS is_disbursed,
 			SUM(user_amount) AS current_step_count,
@@ -104,7 +104,7 @@ func (app *ApiServer) v1UsersChallenges(c *fiber.Ctx) error {
 			cooldown_days
 		FROM all_user_challenges
 		WHERE challenge_type = 'aggregate'
-			AND challenge_id NOT IN ('e', 'o')
+			AND challenge_id NOT IN ('e', 'o', 'dvl')
 		GROUP BY challenge_id,
 			user_id,
 			max_steps,
@@ -120,7 +120,7 @@ func (app *ApiServer) v1UsersChallenges(c *fiber.Ctx) error {
 			challenge_id,
 			user_id,
 			'' AS specifier,
-			COALESCE(current_listen_streak.listen_streak, 0) > 0 AND all_user_challenges.is_complete AS is_complete,
+			COALESCE(COALESCE(current_listen_streak.listen_streak, 0) > 0 AND all_user_challenges.is_complete, false) AS is_complete,
 			is_active,
 			false AS is_disbursed,
 			COALESCE(
@@ -146,7 +146,7 @@ func (app *ApiServer) v1UsersChallenges(c *fiber.Ctx) error {
 		SELECT challenge_id,
 			user_id,
 			'' AS specifier,
-			SUM(user_amount) > 0 AS is_complete,
+			COALESCE(SUM(user_amount) > 0, false) AS is_complete,
 			is_active,
 			false AS is_disbursed,
 			SUM(user_amount) AS current_step_count,

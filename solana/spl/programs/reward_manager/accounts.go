@@ -6,7 +6,7 @@ import (
 	"errors"
 	"strings"
 
-	"github.com/AudiusProject/audiusd/pkg/rewards"
+	"github.com/OpenAudio/go-openaudio/pkg/rewards"
 	"github.com/ethereum/go-ethereum/common"
 	bin "github.com/gagliardetto/binary"
 	"github.com/gagliardetto/solana-go"
@@ -75,9 +75,9 @@ func (data *Attestation) UnmarshalWithDecoder(decoder *bin.Decoder) error {
 	if err != nil {
 		return err
 	}
-	data.Claim.AntiAbuseOracleEthAddress = "0x" + hex.EncodeToString(oracleBytes)
-	if data.Claim.AntiAbuseOracleEthAddress == "0x0000000000000000000000000000000000000000" {
-		data.Claim.AntiAbuseOracleEthAddress = ""
+	data.Claim.ClaimAuthority = "0x" + hex.EncodeToString(oracleBytes)
+	if data.Claim.ClaimAuthority == "0x0000000000000000000000000000000000000000" {
+		data.Claim.ClaimAuthority = ""
 	}
 
 	// Skip unused bytes

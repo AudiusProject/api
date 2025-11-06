@@ -8,17 +8,17 @@ import (
 	"time"
 
 	"connectrpc.com/connect"
-	ethv1 "github.com/AudiusProject/audiusd/pkg/api/eth/v1"
+	ethv1 "github.com/OpenAudio/go-openaudio/pkg/api/eth/v1"
 
 	"api.audius.co/config"
-	"github.com/AudiusProject/audiusd/pkg/sdk"
+	"github.com/OpenAudio/go-openaudio/pkg/sdk"
 	"go.uber.org/zap"
 )
 
 // ContentNodeMonitor pings storage enabled nodes on a timer and caches a list
 // of the ones that responded.
 type ContentNodeMonitor struct {
-	auds         *sdk.AudiusdSDK
+	openAudioSDK *sdk.OpenAudioSDK
 	config       config.Config
 	healthyNodes []config.Node
 	mu           sync.RWMutex
@@ -30,7 +30,7 @@ type ContentNodeMonitor struct {
 }
 
 func NewContentNodeMonitor(cfg config.Config, logger *zap.Logger) *ContentNodeMonitor {
-	auds := sdk.NewAudiusdSDK(cfg.AudiusdURL)
+	openAudioSDK := sdk.NewOpenAudioSDK(cfg.AudiusdURL)
 	// Filter nodes to only include those with storage enabled
 	var storageEnabledNodes []config.Node
 	for _, node := range cfg.Nodes {
@@ -40,7 +40,7 @@ func NewContentNodeMonitor(cfg config.Config, logger *zap.Logger) *ContentNodeMo
 	}
 
 	return &ContentNodeMonitor{
-		auds:         auds,
+		openAudioSDK: openAudioSDK,
 		config:       cfg,
 		healthyNodes: storageEnabledNodes,
 		httpClient: &http.Client{
@@ -107,7 +107,7 @@ func (m *ContentNodeMonitor) monitorLoop() {
 }
 
 func (m *ContentNodeMonitor) getRegisteredNodes(ctx context.Context) ([]config.Node, error) {
-	endpoints, err := m.auds.Eth.GetRegisteredEndpoints(ctx, connect.NewRequest(&ethv1.GetRegisteredEndpointsRequest{}))
+	endpoints, err := m.openAudioSDK.Eth.GetRegisteredEndpoints(ctx, connect.NewRequest(&ethv1.GetRegisteredEndpointsRequest{}))
 	if err != nil {
 		return []config.Node{}, err
 	}
