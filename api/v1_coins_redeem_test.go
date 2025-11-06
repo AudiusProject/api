@@ -98,15 +98,18 @@ func TestV1CoinsRedeem(t *testing.T) {
 	t.Run("GET /coins/:mint/redeem/:code with non-existent code returns 400", func(t *testing.T) {
 		status, body := testGet(t, app, "/v1/coins/TestMint123/redeem/NONEXISTENT")
 		assert.Equal(t, 400, status)
-		// Should return empty JSON object
-		assert.Equal(t, "{}", string(body))
+		jsonAssert(t, body, map[string]any{
+			"error": "invalid",
+		})
 	})
 
 	// Test with wrong mint for existing code
 	t.Run("GET /coins/:mint/redeem/:code with wrong mint returns 400", func(t *testing.T) {
 		status, body := testGet(t, app, "/v1/coins/WrongMint/redeem/CODE123")
 		assert.Equal(t, 400, status)
-		assert.Equal(t, "{}", string(body))
+		jsonAssert(t, body, map[string]any{
+			"error": "invalid",
+		})
 	})
 
 	// Test redeem endpoint with different mint
