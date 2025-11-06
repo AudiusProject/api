@@ -2569,7 +2569,7 @@ begin
         if (cooldown_days is null or cooldown_days = 0) then
             -- Check if there is an existing notification with the same fields in the last 15 minutes
 
-            if new.challenge_id not in ('tt', 'tp', 'tut') then
+            if new.challenge_id not in ('tt', 'tp', 'tut', 'dvl') then
                 insert into notification
                 (blocknumber, user_ids, timestamp, type, group_id, specifier, data)
                 values
@@ -7307,6 +7307,54 @@ CREATE TABLE public.revert_blocks (
 
 
 --
+-- Name: reward_codes; Type: TABLE; Schema: public; Owner: -
+--
+
+CREATE TABLE public.reward_codes (
+    code text NOT NULL,
+    mint text NOT NULL,
+    reward_address text NOT NULL,
+    amount bigint NOT NULL,
+    created_at timestamp without time zone DEFAULT CURRENT_TIMESTAMP NOT NULL
+);
+
+
+--
+-- Name: TABLE reward_codes; Type: COMMENT; Schema: public; Owner: -
+--
+
+COMMENT ON TABLE public.reward_codes IS 'Stores reward codes for distributing coins';
+
+
+--
+-- Name: COLUMN reward_codes.code; Type: COMMENT; Schema: public; Owner: -
+--
+
+COMMENT ON COLUMN public.reward_codes.code IS 'Unique code for redemption';
+
+
+--
+-- Name: COLUMN reward_codes.mint; Type: COMMENT; Schema: public; Owner: -
+--
+
+COMMENT ON COLUMN public.reward_codes.mint IS 'Coin mint address';
+
+
+--
+-- Name: COLUMN reward_codes.reward_address; Type: COMMENT; Schema: public; Owner: -
+--
+
+COMMENT ON COLUMN public.reward_codes.reward_address IS 'Address of the reward instance onchain';
+
+
+--
+-- Name: COLUMN reward_codes.amount; Type: COMMENT; Schema: public; Owner: -
+--
+
+COMMENT ON COLUMN public.reward_codes.amount IS 'Amount of coins to reward';
+
+
+--
 -- Name: reward_manager_txs; Type: TABLE; Schema: public; Owner: -
 --
 
@@ -8935,6 +8983,16 @@ CREATE TABLE public.user_tips (
 
 
 --
+-- Name: volume_leader_exclusions; Type: TABLE; Schema: public; Owner: -
+--
+
+CREATE TABLE public.volume_leader_exclusions (
+    address text NOT NULL,
+    description text
+);
+
+
+--
 -- Name: aggregate_daily_app_name_metrics id; Type: DEFAULT; Schema: public; Owner: -
 --
 
@@ -9707,6 +9765,14 @@ ALTER TABLE ONLY public.revert_blocks
 
 
 --
+-- Name: reward_codes reward_codes_pkey; Type: CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.reward_codes
+    ADD CONSTRAINT reward_codes_pkey PRIMARY KEY (code);
+
+
+--
 -- Name: reward_manager_txs reward_manager_txs_pkey; Type: CONSTRAINT; Schema: public; Owner: -
 --
 
@@ -10280,6 +10346,14 @@ ALTER TABLE ONLY public.user_tips
 
 ALTER TABLE ONLY public.users
     ADD CONSTRAINT users_pkey PRIMARY KEY (txhash, user_id);
+
+
+--
+-- Name: volume_leader_exclusions volume_leader_exclusions_pkey; Type: CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.volume_leader_exclusions
+    ADD CONSTRAINT volume_leader_exclusions_pkey PRIMARY KEY (address);
 
 
 --
@@ -11015,6 +11089,20 @@ CREATE INDEX reposts_new_created_at_idx ON public.reposts USING btree (created_a
 --
 
 CREATE INDEX reposts_user_idx ON public.reposts USING btree (user_id, repost_type, repost_item_id, created_at, is_delete);
+
+
+--
+-- Name: reward_codes_mint_idx; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX reward_codes_mint_idx ON public.reward_codes USING btree (mint);
+
+
+--
+-- Name: reward_codes_reward_address_idx; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX reward_codes_reward_address_idx ON public.reward_codes USING btree (reward_address);
 
 
 --
