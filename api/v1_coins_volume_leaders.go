@@ -128,6 +128,7 @@ func (app *ApiServer) v1CoinsVolumeLeaders(c *fiber.Ctx) error {
 		l.address IS NOT NULL
         AND NOT EXISTS (SELECT 1 FROM excluded_addresses WHERE excluded_addresses.address = l.address)
 		AND l.volume > 0
+    ORDER BY l.volume DESC
     LIMIT @limit
     OFFSET @offset;`
 
