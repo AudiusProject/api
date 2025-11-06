@@ -111,7 +111,6 @@ func (app *ApiServer) v1CreateRewardCode(c *fiber.Ctx) error {
 	var rewardAddress string
 
 	// Only create reward pool if deterministic secret is configured
-	// In tests, this will be empty and we'll just use the matched key
 	if config.Cfg.LaunchpadDeterministicSecret != "" {
 		mintPubKey, err := solana.PublicKeyFromBase58(req.Mint)
 		if err != nil {
