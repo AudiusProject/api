@@ -115,7 +115,7 @@ func init() {
 		Cfg.AudiusdChainID = core_config.StageAcdcChainID
 		Cfg.AudiusdEntityManagerAddress = core_config.StageAcdcAddress
 		Cfg.AudiusAppUrl = "https://staging.audius.co"
-		Cfg.RewardCodeAuthorizedKeys = []string{"9XeZbswbSSUU4AHVArQbTQjAEjAPhVweGU5cogBVkvh4"}
+		Cfg.RewardCodeAuthorizedKeys = []string{"9XeZbswbSSUU4AHVArQbTQjAEjAPhVweGU5cogBVkvh4", "GrWNH9qfwrvoCEoTm65hmnSh4z3CD96SfhtfQY6ZKUfY"}
 	case "prod":
 		fallthrough
 	case "production":
