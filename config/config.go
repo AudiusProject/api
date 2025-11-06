@@ -14,57 +14,59 @@ import (
 )
 
 type Config struct {
-	Env                         string
-	Git                         string
-	LogLevel                    string
-	ZapLevel                    zapcore.Level
-	ReadDbUrl                   string
-	ReadDbReplicas              []string
-	WriteDbUrl                  string
-	RunMigrations               bool
-	EsUrl                       string
-	Nodes                       []Node
-	StoreAllNodes               []string
-	DeadNodes                   []string
-	DelegatePrivateKey          string
-	AxiomToken                  string
-	AxiomDataset                string
-	NetworkTakeRate             float64
-	SolanaConfig                SolanaConfig
-	AntiAbuseOracles            []string
-	Rewards                     []rewards.Reward
-	AudiusdURL                  string
-	ChainId                     string
-	BirdeyeToken                string
-	SolanaIndexerWorkers        int
-	SolanaIndexerRetryInterval  time.Duration
-	CommsMessagePush            bool
-	AudiusdChainID              uint
-	AudiusdEntityManagerAddress string
-	AudiusAppUrl                string
-	ContentNodeMonitor          bool
-	RewardCodeAuthorizedKeys    []string
+	Env                          string
+	Git                          string
+	LogLevel                     string
+	ZapLevel                     zapcore.Level
+	ReadDbUrl                    string
+	ReadDbReplicas               []string
+	WriteDbUrl                   string
+	RunMigrations                bool
+	EsUrl                        string
+	Nodes                        []Node
+	StoreAllNodes                []string
+	DeadNodes                    []string
+	DelegatePrivateKey           string
+	AxiomToken                   string
+	AxiomDataset                 string
+	NetworkTakeRate              float64
+	SolanaConfig                 SolanaConfig
+	AntiAbuseOracles             []string
+	Rewards                      []rewards.Reward
+	AudiusdURL                   string
+	ChainId                      string
+	BirdeyeToken                 string
+	SolanaIndexerWorkers         int
+	SolanaIndexerRetryInterval   time.Duration
+	CommsMessagePush             bool
+	AudiusdChainID               uint
+	AudiusdEntityManagerAddress  string
+	AudiusAppUrl                 string
+	ContentNodeMonitor           bool
+	RewardCodeAuthorizedKeys     []string
+	LaunchpadDeterministicSecret string
 }
 
 var Cfg = Config{
-	Git:                        os.Getenv("GIT_SHA"),
-	Env:                        os.Getenv("ENV"),
-	LogLevel:                   os.Getenv("logLevel"),
-	ReadDbUrl:                  os.Getenv("readDbUrl"),
-	ReadDbReplicas:             strings.Split(os.Getenv("readDbReplicas"), ","),
-	WriteDbUrl:                 os.Getenv("writeDbUrl"),
-	RunMigrations:              os.Getenv("runMigrations") == "true",
-	EsUrl:                      os.Getenv("elasticsearchUrl"),
-	DelegatePrivateKey:         os.Getenv("delegatePrivateKey"),
-	AxiomToken:                 os.Getenv("axiomToken"),
-	AxiomDataset:               os.Getenv("axiomDataset"),
-	NetworkTakeRate:            10,
-	AudiusdURL:                 os.Getenv("audiusdUrl"),
-	BirdeyeToken:               os.Getenv("birdeyeToken"),
-	SolanaIndexerWorkers:       50,
-	SolanaIndexerRetryInterval: 5 * time.Minute,
-	CommsMessagePush:           true,
-	ContentNodeMonitor:         true,
+	Git:                          os.Getenv("GIT_SHA"),
+	Env:                          os.Getenv("ENV"),
+	LogLevel:                     os.Getenv("logLevel"),
+	ReadDbUrl:                    os.Getenv("readDbUrl"),
+	ReadDbReplicas:               strings.Split(os.Getenv("readDbReplicas"), ","),
+	WriteDbUrl:                   os.Getenv("writeDbUrl"),
+	RunMigrations:                os.Getenv("runMigrations") == "true",
+	EsUrl:                        os.Getenv("elasticsearchUrl"),
+	DelegatePrivateKey:           os.Getenv("delegatePrivateKey"),
+	AxiomToken:                   os.Getenv("axiomToken"),
+	AxiomDataset:                 os.Getenv("axiomDataset"),
+	NetworkTakeRate:              10,
+	AudiusdURL:                   os.Getenv("audiusdUrl"),
+	BirdeyeToken:                 os.Getenv("birdeyeToken"),
+	SolanaIndexerWorkers:         50,
+	SolanaIndexerRetryInterval:   5 * time.Minute,
+	CommsMessagePush:             true,
+	ContentNodeMonitor:           true,
+	LaunchpadDeterministicSecret: os.Getenv("launchpadDeterministicSecret"),
 }
 
 func init() {
