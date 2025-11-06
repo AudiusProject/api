@@ -17,26 +17,26 @@ import (
 	"api.audius.co/solana/indexer/token"
 	"github.com/gagliardetto/solana-go"
 	"github.com/gagliardetto/solana-go/rpc"
+	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgxpool"
 	"github.com/maypok86/otter"
+	pb "github.com/rpcpool/yellowstone-grpc/examples/golang/proto"
 	"go.uber.org/zap"
 )
 
+type Indexer interface {
+	Start(ctx context.Context)
+	HandleUpdate(ctx context.Context, updateMessage *pb.SubscribeUpdate) error
+}
+
 type SolanaIndexer struct {
-	rpcClient  common.RpcClient
-	grpcClient common.GrpcClient
+	rpcClient common.RpcClient
 
 	config      config.Config
 	pool        database.DbPool
 	workerCount int32
 
-	dammV2Indexer  *damm_v2.Indexer
-	tokenIndexer   *token.Indexer
-	programIndexer *program.Indexer
-	dbcIndexer     *dbc.Indexer
-	lockerIndexer  *locker.Indexer
-
-	checkpointId string
+	indexers map[string]Indexer
 
 	logger *zap.Logger
 }
@@ -93,18 +93,20 @@ func New(config config.Config) *SolanaIndexer {
 		grpcConfig, rpcClient, pool, logger,
 	)
 
+	indexers := make(map[string]Indexer)
+	indexers[damm_v2.NAME] = dammV2Indexer
+	indexers[token.NAME] = tokenIndexer
+	indexers[program.NAME] = programIndexer
+	indexers[dbc.NAME] = dbcIndexer
+	indexers[locker.NAME] = lockerIndexer
+
 	s := &SolanaIndexer{
 		rpcClient:   rpcClient,
 		logger:      logger,
 		config:      config,
 		pool:        pool,
 		workerCount: workerCount,
-
-		dammV2Indexer:  dammV2Indexer,
-		tokenIndexer:   tokenIndexer,
-		programIndexer: programIndexer,
-		dbcIndexer:     dbcIndexer,
-		lockerIndexer:  lockerIndexer,
+		indexers:    indexers,
 	}
 
 	return s
@@ -133,11 +135,9 @@ func (s *SolanaIndexer) Start(ctx context.Context) error {
 	balanceHistoryJob.ScheduleEvery(balanceHistoryCtx, 1*time.Hour)
 	go balanceHistoryJob.Run(balanceHistoryCtx)
 
-	go s.tokenIndexer.Start(ctx)
-	go s.dammV2Indexer.Start(ctx)
-	go s.programIndexer.Start(ctx)
-	go s.dbcIndexer.Start(ctx)
-	go s.lockerIndexer.Start(ctx)
+	for _, indexer := range s.indexers {
+		go indexer.Start(ctx)
+	}
 
 	for {
 		select {
@@ -183,64 +183,21 @@ func (s *SolanaIndexer) ProcessRetryQueue(ctx context.Context) {
 		}
 
 		for _, item := range queue {
-			switch item.Indexer {
-			case token.NAME:
-				err := s.tokenIndexer.HandleUpdate(ctx, item.UpdateMessage.SubscribeUpdate)
-				if err != nil {
-					logger.Error("failed to retry", zap.String("indexer", token.NAME), zap.Error(err))
-					offset++
-				} else {
-					err = common.DeleteFromRetryQueue(ctx, s.pool, item.ID)
-					if err != nil {
-						logger.Error("failed to delete from retry queue", zap.Error(err))
-					}
-				}
-			case damm_v2.NAME:
-				err := s.dammV2Indexer.HandleUpdate(ctx, item.UpdateMessage.SubscribeUpdate)
-				if err != nil {
-					logger.Error("failed to retry", zap.String("indexer", damm_v2.NAME), zap.Error(err))
-					offset++
-				} else {
-					err = common.DeleteFromRetryQueue(ctx, s.pool, item.ID)
-					if err != nil {
-						logger.Error("failed to delete from retry queue", zap.Error(err))
-					}
-				}
-			case dbc.NAME:
-				err := s.dbcIndexer.HandleUpdate(ctx, item.UpdateMessage.SubscribeUpdate)
-				if err != nil {
-					logger.Error("failed to retry", zap.String("indexer", dbc.NAME), zap.Error(err))
-					offset++
-				} else {
-					err = common.DeleteFromRetryQueue(ctx, s.pool, item.ID)
-					if err != nil {
-						logger.Error("failed to delete from retry queue", zap.Error(err))
-					}
-				}
-			case program.NAME:
-				err := s.programIndexer.HandleUpdate(ctx, item.UpdateMessage.SubscribeUpdate)
-				if err != nil {
-					logger.Error("failed to retry", zap.String("indexer", program.NAME), zap.Error(err))
-					offset++
-				} else {
-					err = common.DeleteFromRetryQueue(ctx, s.pool, item.ID)
-					if err != nil {
-						logger.Error("failed to delete from retry queue", zap.Error(err))
-					}
-				}
-			case locker.NAME:
-				err := s.lockerIndexer.HandleUpdate(ctx, item.UpdateMessage.SubscribeUpdate)
-				if err != nil {
-					logger.Error("failed to retry", zap.String("indexer", locker.NAME), zap.Error(err))
-					offset++
-				} else {
-					err = common.DeleteFromRetryQueue(ctx, s.pool, item.ID)
-					if err != nil {
-						logger.Error("failed to delete from retry queue", zap.Error(err))
-					}
-				}
-			default:
+			indexer := s.indexers[item.Indexer]
+			if indexer == nil {
 				logger.Warn("unknown indexer in retry queue", zap.String("indexer", item.Indexer))
+				offset++
+				continue
+			}
+			err := indexer.HandleUpdate(ctx, item.UpdateMessage.SubscribeUpdate)
+			if err != nil {
+				logger.Error("failed to retry", zap.String("indexer", locker.NAME), zap.Error(err))
+				offset++
+			} else {
+				err = common.DeleteFromRetryQueue(ctx, s.pool, item.ID)
+				if err != nil {
+					logger.Error("failed to delete from retry queue", zap.Error(err))
+				}
 			}
 			count++
 		}
@@ -256,6 +213,81 @@ func (s *SolanaIndexer) ProcessRetryQueue(ctx context.Context) {
 		zap.Int("failed", offset),
 		zap.Duration("duration", time.Since(start)),
 	)
+}
+
+type solanaHealth struct {
+	ChainSlot uint64             `json:"chain_slot"`
+	Errors    []string           `json:"errors,omitempty"`
+	Indexers  []indexerHealthRow `json:"indexers"`
+}
+
+type indexerHealthRow struct {
+	Name            string     `json:"name"`
+	SlotDiff        uint64     `json:"slot_diff"`
+	IndexedSlot     uint64     `json:"indexed_slot"`
+	RetryQueueCount int        `json:"retry_queue_count"`
+	UpdatedAt       *time.Time `json:"updated_at"`
+}
+
+func (s *SolanaIndexer) GetHealth(ctx context.Context, maxSlotDiff uint64, maxRetryQueue int) (*solanaHealth, error) {
+	chainSlot, err := s.rpcClient.GetSlot(ctx, rpc.CommitmentConfirmed)
+	if err != nil {
+		return nil, fmt.Errorf("failed to get chain slot: %w", err)
+	}
+
+	names := make([]string, 0, len(s.indexers))
+	for name := range s.indexers {
+		names = append(names, name)
+	}
+
+	sql := `
+		WITH retry_queue_by_indexer AS (
+			SELECT
+				indexer,
+				COUNT(*) AS retry_queue_count
+			FROM sol_retry_queue
+			GROUP BY indexer
+		) SELECT DISTINCT ON (indexers.name) 
+			indexers.name,
+			to_slot AS indexed_slot,
+			GREATEST(@chain_slot - to_slot, 0) AS slot_diff,
+			COALESCE(retry_queue_count, 0) AS retry_queue_count,
+			updated_at
+		FROM UNNEST(@indexers::TEXT[]) AS indexers(name)
+		LEFT JOIN sol_slot_checkpoints ON sol_slot_checkpoints.name = indexers.name
+		LEFT JOIN retry_queue_by_indexer ON indexer = indexers.name
+		ORDER BY indexers.name, from_slot DESC NULLS LAST
+	;`
+
+	rows, err := s.pool.Query(ctx, sql, pgx.NamedArgs{
+		"chain_slot": chainSlot,
+		"indexers":   names,
+	})
+	if err != nil {
+		return nil, fmt.Errorf("failed to query indexer health: %w", err)
+	}
+
+	healths, err := pgx.CollectRows(rows, pgx.RowToStructByName[indexerHealthRow])
+	if err != nil {
+		return nil, fmt.Errorf("failed to collect indexer health rows: %w", err)
+	}
+
+	errors := make([]string, 0)
+	for _, h := range healths {
+		if h.RetryQueueCount > maxRetryQueue {
+			errors = append(errors, fmt.Sprintf("indexer %s has high retry queue count: %d", h.Name, h.RetryQueueCount))
+		}
+
+		if h.SlotDiff > maxSlotDiff {
+			errors = append(errors, fmt.Sprintf("indexer %s has high slot diff: %d", h.Name, h.SlotDiff))
+		}
+	}
+
+	return &solanaHealth{
+		ChainSlot: chainSlot,
+		Errors:    errors,
+		Indexers:  healths,
+	}, nil
 }
 
 func (s *SolanaIndexer) Close() {
