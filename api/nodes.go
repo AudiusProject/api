@@ -7,7 +7,7 @@ import (
 
 	"api.audius.co/config"
 	"connectrpc.com/connect"
-	ethv1 "github.com/AudiusProject/audiusd/pkg/api/eth/v1"
+	ethv1 "github.com/OpenAudio/go-openaudio/pkg/api/eth/v1"
 	"github.com/gofiber/fiber/v2"
 	"go.uber.org/zap"
 )
@@ -57,7 +57,7 @@ func (app *ApiServer) nodesPoller(ctx context.Context) {
 }
 
 func (app *ApiServer) updateNodes(ctx context.Context) {
-	nodes, err := app.auds.Eth.GetRegisteredEndpoints(ctx, connect.NewRequest(&ethv1.GetRegisteredEndpointsRequest{}))
+	nodes, err := app.openAudioSDK.Eth.GetRegisteredEndpoints(ctx, connect.NewRequest(&ethv1.GetRegisteredEndpointsRequest{}))
 	if err != nil {
 		app.logger.Error("Failed to get registered nodes", zap.Error(err))
 	}
