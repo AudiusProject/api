@@ -43,6 +43,7 @@ type Config struct {
 	AudiusdEntityManagerAddress string
 	AudiusAppUrl                string
 	ContentNodeMonitor          bool
+	RewardCodeAuthorizedKeys    []string
 }
 
 var Cfg = Config{
@@ -114,6 +115,7 @@ func init() {
 		Cfg.AudiusdChainID = core_config.StageAcdcChainID
 		Cfg.AudiusdEntityManagerAddress = core_config.StageAcdcAddress
 		Cfg.AudiusAppUrl = "https://staging.audius.co"
+		Cfg.RewardCodeAuthorizedKeys = []string{"9XeZbswbSSUU4AHVArQbTQjAEjAPhVweGU5cogBVkvh4", "GrWNH9qfwrvoCEoTm65hmnSh4z3CD96SfhtfQY6ZKUfY"}
 	case "prod":
 		fallthrough
 	case "production":
@@ -134,6 +136,7 @@ func init() {
 		Cfg.AudiusdChainID = core_config.ProdAcdcChainID
 		Cfg.AudiusdEntityManagerAddress = core_config.ProdAcdcAddress
 		Cfg.AudiusAppUrl = "https://audius.co"
+		Cfg.RewardCodeAuthorizedKeys = []string{"DDT15s6MMNxE4jkyGN46wNYqrgLWofT6WAvWtjYYrCUq"}
 	default:
 		log.Fatalf("Unknown environment: %s", env)
 	}
