@@ -1,6 +1,6 @@
 module api.audius.co
 
-go 1.25
+go 1.25.3
 
 require (
 	connectrpc.com/connect v1.18.1
