@@ -4,7 +4,6 @@ import (
 	"context"
 	"crypto/ed25519"
 	"crypto/rand"
-	"encoding/base64"
 	"encoding/json"
 	"testing"
 	"time"
@@ -12,13 +11,14 @@ import (
 	"api.audius.co/config"
 	"api.audius.co/database"
 	"github.com/gagliardetto/solana-go"
+	"github.com/mr-tron/base58"
 	"github.com/stretchr/testify/assert"
 )
 
 // Helper function to create a valid signature for testing
 func createValidSignature(privateKey ed25519.PrivateKey, message string) string {
 	signature := ed25519.Sign(privateKey, []byte(message))
-	return base64.StdEncoding.EncodeToString(signature)
+	return base58.Encode(signature)
 }
 
 func TestV1CreateRewardCode(t *testing.T) {
@@ -199,10 +199,10 @@ func TestVerifySignature(t *testing.T) {
 		assert.False(t, valid, "Should return false for signature from wrong key")
 	})
 
-	t.Run("Returns error for invalid base64", func(t *testing.T) {
+	t.Run("Returns error for invalid base58", func(t *testing.T) {
 		mockKey := "DDT15s6MMNxE4jkyGN46wNYqrgLWofT6WAvWtjYYrCUq"
-		_, err := verifySignature("not-valid-base64!@#", mockKey)
-		assert.Error(t, err, "Should return error for invalid base64")
+		_, err := verifySignature("not-valid-base58!@#", mockKey)
+		assert.Error(t, err, "Should return error for invalid base58")
 	})
 
 	t.Run("Returns false for wrong message", func(t *testing.T) {
