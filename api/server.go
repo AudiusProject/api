@@ -211,7 +211,7 @@ func NewApiServer(config config.Config) *ApiServer {
 		claimableTokensClient: claimableTokensClient,
 		solanaConfig:          &config.SolanaConfig,
 		antiAbuseOracles:      config.AntiAbuseOracles,
-		validators:            config.Nodes,
+		validators:            NewNodes(),
 		openAudioSDK:          openAudioSDK,
 		metricsCollector:      metricsCollector,
 		birdeyeClient:         birdeye.New(config.BirdeyeToken),
@@ -459,6 +459,7 @@ func NewApiServer(config config.Config) *ApiServer {
 
 		// Rewards
 		g.Post("/rewards/claim", app.v1ClaimRewards)
+		g.Post("/rewards/code", app.v1CreateRewardCode)
 
 		// Resolve
 		g.Get("/resolve", app.v1Resolve)
@@ -513,6 +514,10 @@ func NewApiServer(config config.Config) *ApiServer {
 		g.Get("/coins/:mint/redeem/:code", app.v1CoinsRedeemCode)
 		g.Post("/coins", app.v1CreateCoin)
 		g.Post("/coins/:mint", app.v1UpdateCoin)
+
+		// Rendezvous and Validators
+		g.Get("/rendezvous/:cid", app.v1Rendezvous)
+		g.Get("/validators", app.v1Validators)
 	}
 
 	// Relay
@@ -633,7 +638,6 @@ type ApiServer struct {
 	transactionSender     *spl.TransactionSender
 	solanaConfig          *config.SolanaConfig
 	antiAbuseOracles      []string
-	validators            []config.Node
 	env                   string
 	openAudioSDK          *sdk.OpenAudioSDK
 	audiusAppUrl          string
@@ -643,6 +647,7 @@ type ApiServer struct {
 	solanaRpcClient       *rpc.Client
 	meteoraDbcClient      *meteora_dbc.Client
 	contentNodeMonitor    *ContentNodeMonitor
+	validators            *Nodes
 }
 
 func (app *ApiServer) home(c *fiber.Ctx) error {
@@ -708,6 +713,9 @@ func (app *ApiServer) paramTimeRange(c *fiber.Ctx, param string, defaultValue st
 }
 
 func (as *ApiServer) Serve() {
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+
 	flushTicker := time.NewTicker(time.Second * 15)
 	go func() {
 		for range flushTicker.C {
@@ -742,6 +750,11 @@ func (as *ApiServer) Serve() {
 			as.writePool.Close()
 		}
 		as.logger.Sync()
+	}()
+
+	go func() {
+		as.nodesPoller(ctx)
+		as.logger.Info("Started validators poller")
 	}()
 
 	// Bind to both ipv4 and ipv6
