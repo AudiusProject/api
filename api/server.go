@@ -24,9 +24,9 @@ import (
 	"api.audius.co/solana/spl/programs/reward_manager"
 	"api.audius.co/trashid"
 	apiutils "api.audius.co/utils"
-	"github.com/AudiusProject/audiusd/pkg/rewards"
-	"github.com/AudiusProject/audiusd/pkg/sdk"
 	"github.com/Doist/unfurlist"
+	"github.com/OpenAudio/go-openaudio/pkg/rewards"
+	"github.com/OpenAudio/go-openaudio/pkg/sdk"
 	"github.com/elastic/go-elasticsearch/v8"
 	"github.com/ethereum/go-ethereum/crypto"
 	"github.com/gagliardetto/solana-go/rpc"
@@ -162,7 +162,7 @@ func NewApiServer(config config.Config) *ApiServer {
 		logger.Error("dial es failed", zap.String("url", config.EsUrl), zap.Error(err))
 	}
 
-	auds := sdk.NewAudiusdSDK(config.AudiusdURL)
+	openAudioSDK := sdk.NewOpenAudioSDK(config.AudiusdURL)
 
 	skipAuthCheck, _ := strconv.ParseBool(os.Getenv("skipAuthCheck"))
 
@@ -212,7 +212,7 @@ func NewApiServer(config config.Config) *ApiServer {
 		solanaConfig:          &config.SolanaConfig,
 		antiAbuseOracles:      config.AntiAbuseOracles,
 		validators:            NewNodes(),
-		auds:                  auds,
+		openAudioSDK:          openAudioSDK,
 		metricsCollector:      metricsCollector,
 		birdeyeClient:         birdeye.New(config.BirdeyeToken),
 		solanaRpcClient:       solanaRpc,
@@ -509,6 +509,8 @@ func NewApiServer(config config.Config) *ApiServer {
 		g.Get("/coins/:mint/insights", app.v1CoinInsights)
 		g.Get("/coins/:mint/members", app.v1CoinsMembers)
 		g.Get("/coins/:mint/members/count", app.v1CoinMembersCount)
+		g.Get("/coins/:mint/redeem", app.v1CoinsRedeem)
+		g.Get("/coins/:mint/redeem/:code", app.v1CoinsRedeemCode)
 		g.Post("/coins", app.v1CreateCoin)
 		g.Post("/coins/:mint", app.v1UpdateCoin)
 
@@ -628,7 +630,7 @@ type ApiServer struct {
 	solanaConfig          *config.SolanaConfig
 	antiAbuseOracles      []string
 	env                   string
-	auds                  *sdk.AudiusdSDK
+	openAudioSDK          *sdk.OpenAudioSDK
 	audiusAppUrl          string
 	skipAuthCheck         bool // set to true in a test if you don't care about auth middleware
 	metricsCollector      *MetricsCollector

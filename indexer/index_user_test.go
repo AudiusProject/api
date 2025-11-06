@@ -6,9 +6,9 @@ import (
 	"api.audius.co/api/testdata"
 	"api.audius.co/config"
 	"api.audius.co/database"
-	corev1 "github.com/AudiusProject/audiusd/pkg/api/core/v1"
-	core_config "github.com/AudiusProject/audiusd/pkg/core/config"
-	core_server "github.com/AudiusProject/audiusd/pkg/core/server"
+	corev1 "github.com/OpenAudio/go-openaudio/pkg/api/core/v1"
+	core_config "github.com/OpenAudio/go-openaudio/pkg/core/config"
+	core_server "github.com/OpenAudio/go-openaudio/pkg/core/server"
 	"github.com/stretchr/testify/assert"
 	"go.uber.org/zap"
 )

@@ -9,8 +9,8 @@ import (
 	dbv1 "api.audius.co/database"
 	"api.audius.co/logging"
 	"connectrpc.com/connect"
-	corev1 "github.com/AudiusProject/audiusd/pkg/api/core/v1"
-	"github.com/AudiusProject/audiusd/pkg/sdk"
+	corev1 "github.com/OpenAudio/go-openaudio/pkg/api/core/v1"
+	"github.com/OpenAudio/go-openaudio/pkg/sdk"
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgxpool"
 	"go.uber.org/zap"
@@ -20,7 +20,7 @@ import (
 type CoreIndexer struct {
 	aggregatesCalculator *AggregatesCalculator
 	pool                 dbv1.DbPool
-	auds                 *sdk.AudiusdSDK
+	openAudioSDK         *sdk.OpenAudioSDK
 	Config               config.Config
 	logger               *zap.Logger
 	closeCh              chan struct{}
@@ -42,14 +42,14 @@ func NewIndexer(config config.Config) *CoreIndexer {
 		panic(fmt.Errorf("error connecting to database: %w", err))
 	}
 
-	auds := sdk.NewAudiusdSDK(config.AudiusdURL)
+	openAudioSDK := sdk.NewOpenAudioSDK(config.AudiusdURL)
 
 	aggregatesCalculator := NewAggregatesCalculator(config)
 
 	ci := &CoreIndexer{
 		aggregatesCalculator: aggregatesCalculator,
 		pool:                 pool,
-		auds:                 auds,
+		openAudioSDK:         openAudioSDK,
 		Config:               config,
 		logger: logging.NewZapLogger(config).
 			Named("CoreIndexer"),
@@ -75,7 +75,7 @@ func (ci *CoreIndexer) run(ctx context.Context) error {
 	err := ci.pool.QueryRow(context.Background(), `select last_checkpoint from indexing_checkpoints where tablename = $1`, CoreIndexerCheckpointName).Scan(&height)
 	if err != nil {
 		if err == pgx.ErrNoRows {
-			nodeInfo, err := ci.auds.Core.GetNodeInfo(context.Background(), connect.NewRequest(&corev1.GetNodeInfoRequest{}))
+			nodeInfo, err := ci.openAudioSDK.Core.GetNodeInfo(context.Background(), connect.NewRequest(&corev1.GetNodeInfoRequest{}))
 			if err != nil {
 				return err
 			}
@@ -114,7 +114,7 @@ func (ci *CoreIndexer) attemptProcessNextBlock(ctx context.Context, height int64
 			time.Sleep(5 * time.Second)
 		}
 	}()
-	block, err := ci.auds.Core.GetBlock(ctx, connect.NewRequest(&corev1.GetBlockRequest{
+	block, err := ci.openAudioSDK.Core.GetBlock(ctx, connect.NewRequest(&corev1.GetBlockRequest{
 		Height: height,
 	}))
 	if err != nil {
