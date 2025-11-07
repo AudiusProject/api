@@ -301,7 +301,7 @@ func fetchAttestations(
 				getValidatorAttestationParams := GetValidatorAttestationParams{
 					Validator:      node.Endpoint,
 					Claim:          rewardClaim.RewardClaim,
-					UserEthAddress: rewardClaim.RecipientEthAddress,
+					UserEthAddress: rewardClaim.RewardClaim.RecipientEthAddress,
 					Signature:      signature,
 				}
 
@@ -378,8 +378,8 @@ func sendRewardClaimTransactions(
 			instructionIndex,
 		).Build()
 		submitAttestationInstruction, err := reward_manager.NewSubmitAttestationInstruction(
-			rewardClaim.RewardID,
-			rewardClaim.Specifier,
+			rewardClaim.RewardClaim.RewardID,
+			rewardClaim.RewardClaim.Specifier,
 			attestation.EthAddress,
 			rewardManagerClient.GetProgramStateAccount(),
 			feePayer.PublicKey(),
@@ -446,11 +446,11 @@ func sendRewardClaimTransactions(
 		return nil, err
 	}
 	evaluateAttestationInstruction, err := reward_manager.NewEvaluateAttestationInstruction(
-		rewardClaim.RewardID,
-		rewardClaim.Specifier,
-		common.HexToAddress(rewardClaim.RecipientEthAddress),
-		rewardClaim.Amount*1e8, // Convert to wAUDIO wei
-		common.HexToAddress(rewardClaim.ClaimAuthority),
+		rewardClaim.RewardClaim.RewardID,
+		rewardClaim.RewardClaim.Specifier,
+		common.HexToAddress(rewardClaim.RewardClaim.RecipientEthAddress),
+		rewardClaim.RewardClaim.Amount*1e8, // Convert to wAUDIO wei
+		common.HexToAddress(rewardClaim.RewardClaim.ClaimAuthority),
 		rewardManagerClient.GetProgramStateAccount(),
 		state.TokenAccount,
 		rewardClaim.UserBank,
