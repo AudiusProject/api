@@ -22,7 +22,7 @@ import (
 
 const (
 	signedAuthMessage = "code"
-	codeLength        = 6
+	codeLength        = 10
 	codeChars         = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789"
 )
 
