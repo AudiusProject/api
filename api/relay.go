@@ -1,8 +1,10 @@
 package api
 
 import (
+	"context"
 	"fmt"
 	"math/big"
+	"strings"
 	"sync"
 
 	"api.audius.co/config"
@@ -15,10 +17,12 @@ import (
 	gcommon "github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/common/hexutil"
 	"github.com/gofiber/fiber/v2"
+	"github.com/jackc/pgx/v5"
 	"go.uber.org/zap"
 )
 
 const (
+	// ABI Function Arguments
 	manageEntityFunctionName      = "manageEntity"
 	manageEntityMetadataArgName   = "_metadata"
 	manageEntityActionArgName     = "_action"
@@ -27,12 +31,47 @@ const (
 	manageEntityEntityIdArgName   = "_entityId"
 	manageEntityNonceArgName      = "_nonce"
 	manageEntitySubjectSigArgName = "_subjectSig"
+
+	// Actions
+	ActionCreate   = "Create"
+	ActionUpdate   = "Update"
+	ActionDelete   = "Delete"
+	ActionGrant    = "Grant"
+	ActionRevoke   = "Revoke"
+	ActionTransfer = "Transfer"
+	ActionApprove  = "Approve"
+	ActionReject   = "Reject"
+	ActionCancel   = "Cancel"
+
+	// Entity Types
+	EntityTypeUser       = "User"
+	EntityTypeApp        = "App"
+	EntityTypeTrack      = "Track"
+	EntityTypePlaylist   = "Playlist"
+	EntityTypeAlbum      = "Album"
+	EntityTypeCollection = "Collection"
+
+	OperationCreateUser   = ActionCreate + EntityTypeUser
+	OperationUpdateUser   = ActionUpdate + EntityTypeUser
+	OperationDeleteUser   = ActionDelete + EntityTypeUser
+	OperationGrantUser    = ActionGrant + EntityTypeUser
+	OperationRevokeUser   = ActionRevoke + EntityTypeUser
+	OperationTransferUser = ActionTransfer + EntityTypeUser
+	OperationApproveUser  = ActionApprove + EntityTypeUser
+	OperationRejectUser   = ActionReject + EntityTypeUser
+	OperationCancelUser   = ActionCancel + EntityTypeUser
 )
 
 var (
+	// entityManagerABI global singleton
 	entityManagerABI  *abi.ABI
 	entityManagerOnce sync.Once
 	entityManagerErr  error
+
+	// anonymouslyAllowedActions map that matches operation to struct{}
+	anonymouslyAllowedActions = map[string]struct{}{
+		OperationCreateUser: {},
+	}
 )
 
 type RelayRequest struct {
@@ -143,7 +182,6 @@ func DecodeManageEntityABI(encodedABI string) (*v1.ManageEntityLegacy, error) {
 func (app *ApiServer) relay(c *fiber.Ctx) error {
 	ctx := c.Context()
 	logger := app.logger
-	oapSdk := app.openAudioSDK
 
 	var request RelayRequest
 	if err := c.BodyParser(&request); err != nil {
@@ -167,17 +205,85 @@ func (app *ApiServer) relay(c *fiber.Ctx) error {
 		return fiber.NewError(fiber.StatusBadRequest, "bad request: "+err.Error())
 	}
 
+	sender := decodedTx.GetSigner()
+	if !strings.EqualFold(sender, wallet) {
+		return fiber.NewError(fiber.StatusForbidden, "forbidden: signer does not match sender")
+	}
+
+	operation := decodedTx.Action + decodedTx.EntityType
+	_, anonymouslyAllowed := anonymouslyAllowedActions[operation]
+	if anonymouslyAllowed {
+		msg, err := app.handleRelay(ctx, decodedTx)
+		if err != nil {
+			return fiber.NewError(fiber.StatusInternalServerError, "failed to handle relay: "+err.Error())
+		}
+		receipt := transactionToReceipt(msg, wallet)
+		return c.JSON(map[string]interface{}{
+			"receipt": receipt,
+		})
+	}
+
+	exists := false
+
+	// query users table by wallet
+	userSQL := `
+		SELECT user_id
+		FROM users
+		WHERE is_current = true
+			AND is_deactivated = false
+			AND wallet = LOWER(@wallet)
+		LIMIT 1
+	`
+	var userId int
+	err = app.pool.QueryRow(ctx, userSQL, pgx.NamedArgs{
+		"wallet": wallet,
+	}).Scan(&userId)
+	if err == nil {
+		exists = true
+	} else if err != pgx.ErrNoRows {
+		logger.Error("error querying users table", zap.Error(err))
+	}
+
+	// query apps table by address
+	if !exists {
+		appSQL := `
+			SELECT address
+			FROM developer_apps
+			WHERE is_current = true
+				AND is_delete = false
+				AND address = @address
+			LIMIT 1
+		`
+		var address string
+		err = app.pool.QueryRow(ctx, appSQL, pgx.NamedArgs{
+			"address": wallet,
+		}).Scan(&address)
+		if err == nil {
+			exists = true
+		} else if err != pgx.ErrNoRows {
+			logger.Error("error querying developer_apps table", zap.Error(err))
+		}
+	}
+
+	if !exists {
+		return fiber.NewError(fiber.StatusForbidden, "forbidden: wallet is not a user or app: "+wallet)
+	}
 	// TODO: submit pubkey to backfill pubkey queue
 
 	logger.Info("relaying transaction", zap.String("wallet", wallet), zap.Any("decodedTx", decodedTx))
+	msg, err := app.handleRelay(ctx, decodedTx)
+	if err != nil {
+		return fiber.NewError(fiber.StatusInternalServerError, "failed to handle relay: "+err.Error())
+	}
+	receipt := transactionToReceipt(msg, wallet)
+	return c.JSON(map[string]interface{}{
+		"receipt": receipt,
+	})
+}
 
-	// TODO: check if user or app is authorized to act on behalf of userId
-
-	// if user matches userId, they are authorized
-	// if app has a grant to the user, they are authorized
-
+func (app *ApiServer) handleRelay(ctx context.Context, decodedTx *v1.ManageEntityLegacy) (*v1.Transaction, error) {
 	// submit tx to core
-	res, err := oapSdk.Core.SendTransaction(ctx, connect.NewRequest(&v1.SendTransactionRequest{
+	res, err := app.openAudioSDK.Core.SendTransaction(ctx, connect.NewRequest(&v1.SendTransactionRequest{
 		Transaction: &v1.SignedTransaction{
 			Transaction: &v1.SignedTransaction_ManageEntity{
 				ManageEntity: decodedTx,
@@ -185,16 +291,18 @@ func (app *ApiServer) relay(c *fiber.Ctx) error {
 		},
 	}))
 	if err != nil {
-		return fiber.NewError(fiber.StatusInternalServerError, "failed to send transaction: "+err.Error())
+		return nil, err
 	}
 
 	msg := res.Msg.Transaction
+	return msg, nil
+}
 
-	// receipt map that matches response from ethereum geth
-	receipt := map[string]interface{}{
-		"transactionHash":   msg.GetHash(),
-		"blockHash":         msg.GetBlockHash(),
-		"blockNumber":       msg.GetHeight(),
+func transactionToReceipt(tx *v1.Transaction, wallet string) map[string]interface{} {
+	return map[string]interface{}{
+		"transactionHash":   tx.GetHash(),
+		"blockHash":         tx.GetBlockHash(),
+		"blockNumber":       tx.GetHeight(),
 		"transactionIndex":  0,
 		"from":              wallet,
 		"to":                wallet,
@@ -203,8 +311,4 @@ func (app *ApiServer) relay(c *fiber.Ctx) error {
 		"effectiveGasPrice": 420,
 		"status":            true,
 	}
-
-	return c.JSON(map[string]interface{}{
-		"receipt": receipt,
-	})
 }
