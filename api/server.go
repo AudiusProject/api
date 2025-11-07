@@ -520,6 +520,10 @@ func NewApiServer(config config.Config) *ApiServer {
 		g.Get("/validators", app.v1Validators)
 	}
 
+	// Relay
+	app.Post("/relay", app.relay)
+	app.Get("/relay/decode/:encodedABI", app.decodeABI)
+
 	// Comms
 	comms := app.Group("/comms")
 	// Cached/non-cached are the same as there are no other nodes to query anymore
