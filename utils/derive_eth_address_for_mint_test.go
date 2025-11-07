@@ -24,9 +24,8 @@ func TestDeriveEthAddressForMint(t *testing.T) {
 		assert.True(t, strings.HasPrefix(address, "0x"))
 		assert.Len(t, address, 42)
 
-		// Verify private key format (0x + 64 hex chars)
-		assert.True(t, strings.HasPrefix(privateKey, "0x"))
-		assert.Len(t, privateKey, 66)
+		// Verify private key format (64 hex chars)
+		assert.Len(t, privateKey, 64)
 
 		// Verify address is valid hex
 		_, err = hex.DecodeString(strings.TrimPrefix(address, "0x"))
