@@ -1506,8 +1506,6 @@ type RewardCode struct {
 	// Amount of coins to reward
 	Amount    int64     `json:"amount"`
 	CreatedAt time.Time `json:"created_at"`
-	// Whether the code has been redeemed
-	IsUsed pgtype.Bool `json:"is_used"`
 	// Number of times the code can still be redeemed
 	RemainingUses int32 `json:"remaining_uses"`
 }
