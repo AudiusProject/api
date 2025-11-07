@@ -4,12 +4,12 @@ import (
 	"context"
 	"crypto/ed25519"
 	"crypto/rand"
-	"encoding/base64"
 	"errors"
 	"fmt"
 	"math/big"
 
 	"api.audius.co/config"
+	"api.audius.co/utils"
 	"connectrpc.com/connect"
 	v1 "github.com/OpenAudio/go-openaudio/pkg/api/core/v1"
 	"github.com/OpenAudio/go-openaudio/pkg/common"
@@ -17,8 +17,7 @@ import (
 	"github.com/gagliardetto/solana-go"
 	"github.com/gofiber/fiber/v2"
 	"github.com/jackc/pgx/v5"
-
-	"api.audius.co/utils"
+	"github.com/mr-tron/base58"
 )
 
 const (
@@ -55,9 +54,9 @@ func generateCode() (string, error) {
 	return string(result), nil
 }
 
-func verifySignature(signatureBase64 string, authorizedPubKey string) (bool, error) {
-	// Decode the signature from base64
-	signatureBytes, err := base64.StdEncoding.DecodeString(signatureBase64)
+func verifySignature(signatureBase58 string, authorizedPubKey string) (bool, error) {
+	// Decode the signature from base58
+	signatureBytes, err := base58.Decode(signatureBase58)
 	if err != nil {
 		return false, err
 	}
@@ -71,13 +70,12 @@ func verifySignature(signatureBase64 string, authorizedPubKey string) (bool, err
 	// Verify the signature
 	message := []byte(signedAuthMessage)
 	valid := ed25519.Verify(expectedPubKey[:], message, signatureBytes)
-
 	return valid, nil
 }
 
-func verifySignatureAgainstKeys(signatureBase64 string, authorizedKeys []string) (string, error) {
+func verifySignatureAgainstKeys(signatureBase58 string, authorizedKeys []string) (string, error) {
 	for _, key := range authorizedKeys {
-		valid, err := verifySignature(signatureBase64, key)
+		valid, err := verifySignature(signatureBase58, key)
 		if err != nil {
 			// If there's an error parsing the key or signature, continue to next key
 			continue
