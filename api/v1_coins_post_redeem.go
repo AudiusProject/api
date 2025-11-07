@@ -9,13 +9,16 @@ import (
 	"strconv"
 
 	"api.audius.co/config"
+	"api.audius.co/solana/spl"
 	"api.audius.co/solana/spl/programs/reward_manager"
+	oap_common "github.com/OpenAudio/go-openaudio/pkg/common"
 	oap_rewards "github.com/OpenAudio/go-openaudio/pkg/rewards"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/crypto"
 	"github.com/gagliardetto/solana-go"
 	"github.com/gofiber/fiber/v2"
 	"github.com/jackc/pgx/v5"
+	"go.uber.org/zap"
 )
 
 func getAttestationSignatureForRewardClaimAuthority(rewardClaim oap_rewards.RewardClaim, claimAuthorityKey *ecdsa.PrivateKey) (string, error) {
@@ -34,11 +37,6 @@ func getAttestationSignatureForRewardClaimAuthority(rewardClaim oap_rewards.Rewa
 	return "0x" + hex.EncodeToString(signatureBytes), nil
 }
 
-// TODO: Implement/replace once core reward generation PR is merged
-func getClaimAuthority(mint solana.PublicKey) (*ecdsa.PrivateKey, error) {
-	return nil, nil
-}
-
 type CoinRewardParams struct {
 	Mint   string
 	Amount uint64
@@ -52,9 +50,15 @@ type RewardCodeRow struct {
 }
 
 func (app *ApiServer) v1CoinsPostRedeem(c *fiber.Ctx) error {
+	if config.Cfg.LaunchpadDeterministicSecret == "" {
+		return fiber.NewError(fiber.StatusInternalServerError, "Claim authority base is not configured")
+	}
+
 	mintString := c.Params("mint")
 	if mintString == "" {
-		return fiber.NewError(fiber.StatusBadRequest, "Mint parameter is required")
+		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
+			"error": "mint is required",
+		})
 	}
 
 	// Read optional code from route params
@@ -62,7 +66,9 @@ func (app *ApiServer) v1CoinsPostRedeem(c *fiber.Ctx) error {
 
 	myId := app.getMyId(c)
 	if myId == 0 {
-		return fiber.NewError(fiber.StatusBadRequest, "Missing user ID")
+		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
+			"error": "user_id is required",
+		})
 	}
 
 	var userWalletAddress string
@@ -118,6 +124,7 @@ func (app *ApiServer) v1CoinsPostRedeem(c *fiber.Ctx) error {
 
 	amount := uint64(0)
 	rewardAddress := ""
+	specifier := ""
 	if redeemCode != "" {
 		// Read and burn code in one go
 		// Use CTE to capture old is_used value before updating
@@ -152,34 +159,52 @@ func (app *ApiServer) v1CoinsPostRedeem(c *fiber.Ctx) error {
 		rewardCode, err := pgx.CollectOneRow(rows, pgx.RowToStructByName[RewardCodeBurnResultRow])
 		if err != nil {
 			if errors.Is(err, pgx.ErrNoRows) {
-				return fiber.NewError(fiber.StatusNotFound, "Reward code not found")
+				return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
+					"error": "invalid",
+				})
 			}
 			return err
 		}
 
 		if rewardCode.WasAlreadyUsed {
-			return fiber.NewError(fiber.StatusBadRequest, "Reward code already used")
+			return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
+				"error": "used",
+			})
 		}
 
 		amount = rewardCode.Amount
 		rewardAddress = rewardCode.RewardAddress
+		specifier = redeemCode
 	} else {
 		// TODO: Handle 1 token case where code isn't provided
 		// Probably want to check challenge disbursements and bail early if user has already claimed
+		amount = 1
+		rewardAddress = ""
+		// Specifier defaults to user ID if no code is provided
+		// TODO: Make sure this logic is correct for the various use cases
+		specifier = strconv.Itoa(int(myId))
 	}
 
-	// Specifier defaults to user ID if no code is provided
-	// TODO: Make sure this logic is correct for the various use cases
-	specifier := strconv.Itoa(int(myId))
-	if redeemCode != "" {
-		specifier = redeemCode
+	// Derive claim authority key for mint
+	claimAuthorityPublicKey, claimAuthorityPrivKeyString, err := utils.DeriveEthAddressForMint(
+		[]byte("claimAuthority"),
+		config.Cfg.LaunchpadDeterministicSecret,
+		mint,
+	)
+	if err != nil {
+		return fiber.NewError(fiber.StatusInternalServerError, "Failed to derive Ethereum key: "+err.Error())
 	}
 
-	claimAuthorityKey, err := getClaimAuthority(mint)
+	// // Convert the private key to the format expected by the SDK
+	claimAuthorityKey, err := oap_common.EthToEthKey(claimAuthorityPrivKeyString)
+	if err != nil {
+		return fiber.NewError(fiber.StatusInternalServerError, "Failed to convert private key: "+err.Error())
+	}
+
 	if err != nil {
 		return fmt.Errorf("failed to get claim authority: %w", err)
 	}
-	claimAuthorityPublicKey := crypto.PubkeyToAddress(claimAuthorityKey.PublicKey)
+	// claimAuthorityPublicKey := crypto.PubkeyToAddress(claimAuthorityKey.PublicKey)
 
 	rewardClaim := oap_rewards.RewardClaim{
 		RecipientEthAddress: userWalletAddress,
@@ -187,12 +212,25 @@ func (app *ApiServer) v1CoinsPostRedeem(c *fiber.Ctx) error {
 		RewardID:            "code", // TODO: Use shared constant/generator
 		RewardAddress:       rewardAddress,
 		Specifier:           specifier,
-		ClaimAuthority:      claimAuthorityPublicKey.Hex(),
+		ClaimAuthority:      claimAuthorityPublicKey,
 	}
 
-	attestationSignature, err := getAttestationSignatureForRewardClaimAuthority(rewardClaim, claimAuthorityKey)
+	attestationSignature, err := oap_rewards.SignClaim(rewardClaim, claimAuthorityKey)
 	if err != nil {
-		return fmt.Errorf("failed to get claim authority attestation signature: %w", err)
+		return fmt.Errorf("failed to sign for claimAuthority: %w", err)
+	}
+
+	// attestationSignature, err := getAttestationSignatureForRewardClaimAuthority(rewardClaim, claimAuthorityKey)
+	// if err != nil {
+	// 	return fmt.Errorf("failed to get claim authority attestation signature: %w", err)
+	// }
+
+	result := ClaimResult{
+		ChallengeID: "code",
+		Specifier:   specifier,
+		Amount:      amount,
+		Signatures:  []solana.Signature{},
+		Error:       "",
 	}
 
 	decoratedRewardClaim := RewardClaim{
@@ -228,7 +266,31 @@ func (app *ApiServer) v1CoinsPostRedeem(c *fiber.Ctx) error {
 		attestations,
 	)
 
+	if err != nil {
+		var instrErr *spl.InstructionError
+		if errors.As(err, &instrErr) {
+			app.logger.Error("failed to claim challenge reward. transaction failed to send.",
+				zap.String("handle", userHandle),
+				zap.String("rewardId", "code"),
+				zap.String("specifier", specifier),
+				zap.String("transaction", instrErr.EncodedTransaction),
+				zap.String("customError", reward_manager.RewardManagerError(instrErr.Code).String()),
+				zap.Error(err),
+			)
+		} else {
+			app.logger.Error("failed to claim challenge reward.",
+				zap.String("handle", userHandle),
+				zap.String("rewardId", "code"),
+				zap.String("specifier", specifier),
+				zap.Error(err),
+			)
+		}
+		result.Error = err.Error()
+	}
+
+	result.Signatures = signatures
+
 	return c.Status(http.StatusOK).JSON(fiber.Map{
-		"data": signatures,
+		"data": []ClaimResult{result},
 	})
 }
