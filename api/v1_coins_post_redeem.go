@@ -1,17 +1,21 @@
 package api
 
 import (
+	"encoding/hex"
 	"errors"
 	"fmt"
 	"net/http"
 	"strconv"
+	"strings"
 
 	"api.audius.co/config"
 	"api.audius.co/solana/spl"
 	"api.audius.co/solana/spl/programs/reward_manager"
 	"api.audius.co/utils"
+	v1 "github.com/OpenAudio/go-openaudio/pkg/api/core/v1"
 	oap_common "github.com/OpenAudio/go-openaudio/pkg/common"
 	oap_rewards "github.com/OpenAudio/go-openaudio/pkg/rewards"
+	"github.com/OpenAudio/go-openaudio/pkg/sdk"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/gagliardetto/solana-go"
 	"github.com/gofiber/fiber/v2"
@@ -109,6 +113,8 @@ func (app *ApiServer) v1CoinsPostRedeem(c *fiber.Ctx) error {
 		return fmt.Errorf("failed to get init pubkey for reward manager state address: %w", err)
 	}
 
+	println(fmt.Sprintf("rewardManagerPubkey: %s", rewardManagerPubkey))
+
 	rewardManagerClient, err := reward_manager.NewRewardManagerClient(
 		app.solanaRpcClient,
 		app.solanaConfig.RewardManagerProgramID,
@@ -152,7 +158,6 @@ func (app *ApiServer) v1CoinsPostRedeem(c *fiber.Ctx) error {
 		RETURNING
 			reward_codes.reward_address,
 			reward_codes.amount,
-			reward_codes.is_used,
 			old_row.is_used AS was_already_used`
 		rows, err := app.writePool.Query(c.Context(), sql, pgx.NamedArgs{
 			"code": redeemCode,
@@ -177,11 +182,12 @@ func (app *ApiServer) v1CoinsPostRedeem(c *fiber.Ctx) error {
 			return err
 		}
 
-		if rewardCode.WasAlreadyUsed {
-			return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
-				"error": "used",
-			})
-		}
+		// TODO: remove
+		// if rewardCode.WasAlreadyUsed {
+		// 	return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
+		// 		"error": "used",
+		// 	})
+		// }
 
 		amount = rewardCode.Amount
 		rewardAddress = rewardCode.RewardAddress
@@ -194,6 +200,7 @@ func (app *ApiServer) v1CoinsPostRedeem(c *fiber.Ctx) error {
 		rewardAddress = ""
 		// Specifier defaults to user ID if no code is provided
 		// TODO: Make sure this logic is correct for the various use cases
+		// PLAN: Ticker is the code here. Move this if/else up further, we will use the same burn logic for both.
 		specifier = strconv.Itoa(int(myId))
 	}
 
@@ -202,16 +209,16 @@ func (app *ApiServer) v1CoinsPostRedeem(c *fiber.Ctx) error {
 	rewardClaim := oap_rewards.RewardClaim{
 		RecipientEthAddress: userWalletAddress,
 		Amount:              amount,
-		RewardID:            "code", // TODO: Use shared constant/generator
+		RewardID:            redeemCode,
 		RewardAddress:       rewardAddress,
 		Specifier:           specifier,
 		ClaimAuthority:      claimAuthorityPublicKey,
 	}
 
-	attestationSignature, err := oap_rewards.SignClaim(rewardClaim, claimAuthorityKey)
-	if err != nil {
-		return fmt.Errorf("failed to sign for claimAuthority: %w", err)
-	}
+	// attestationSignature, err := oap_rewards.SignClaim(rewardClaim, claimAuthorityKey)
+	// if err != nil {
+	// 	return fmt.Errorf("failed to sign for claimAuthority: %w", err)
+	// }
 
 	result := ClaimResult{
 		ChallengeID: "code",
@@ -222,27 +229,79 @@ func (app *ApiServer) v1CoinsPostRedeem(c *fiber.Ctx) error {
 	}
 
 	decoratedRewardClaim := RewardClaim{
-		RewardClaim: rewardClaim,
-		Handle:      userHandle,
-		UserBank:    *bankAccount,
+		RewardClaim:   rewardClaim,
+		Handle:        userHandle,
+		UserBank:      *bankAccount,
+		TokenDecimals: 1e9, // TODO: get from DB
 	}
 
-	// Reusing generic claim flow but we don't care about AAO attestation
-	attestations, err := fetchAttestations(
-		c.Context(),
-		decoratedRewardClaim,
-		app.validators.GetNodes(),
-		[]string{},
-		config.Node{
-			DelegateOwnerWallet: "",
-			Endpoint:            "",
+	claimMessage, err := rewardClaim.Compile()
+
+	attestations := make([]SenderAttestation, 0)
+	for _, validator := range app.validators.GetNodes() {
+		if len(attestations) >= minVotes {
+			break
+		}
+		oap := sdk.NewOpenAudioSDK(validator.Endpoint)
+		oap.SetPrivKey(claimAuthorityKey)
+
+		response, err := oap.Rewards.GetRewardAttestation(c.Context(), &v1.GetRewardAttestationRequest{
+			EthRecipientAddress: userWalletAddress,
+			Amount:              1000,
+			RewardAddress:       rewardAddress,
+			RewardId:            redeemCode,
+			Specifier:           specifier,
+			ClaimAuthority:      oap.Address(),
+		})
+
+		// TODO: better
+		if err != nil {
+			println(fmt.Sprintf("failed to get reward attestation: %v", err))
+			continue
+		}
+
+		// Pad the start if there's a missing leading zero
+		signature := response.Attestation
+		if len(signature)%2 == 1 {
+			signature = "0" + signature
+		}
+		signatureBytes, err := hex.DecodeString(strings.TrimPrefix(signature, "0x"))
+		if err != nil {
+			println(fmt.Sprintf("failed to decode signature: %v", err))
+			continue
+		}
+
+		attestation := SenderAttestation{
+			EthAddress: common.HexToAddress(response.Owner),
+			Message:    claimMessage,
+			Signature:  signatureBytes,
+		}
+		attestations = append(attestations, attestation)
+	}
+
+	// TODO: Probably needs to move into rewardManagerClient
+	// (deriveATA function accepting mint?)
+	seeds := make([][]byte, 1)
+	seeds[0] = rewardManagerClient.GetProgramStateAccount().Bytes()[0:32]
+	ataAuthority, _, err := solana.FindProgramAddress(seeds, config.Cfg.SolanaConfig.RewardManagerProgramID)
+	if err != nil {
+		return fmt.Errorf("failed to derive ATA authority: %w", err)
+	}
+
+	// Derive Associated Token Account address
+	// Seeds: [owner, token_program_id, mint]
+	// TODO: Remove hardcoded associated token program ID
+	associatedTokenProgramID := solana.MustPublicKeyFromBase58("ATokenGPvbdGVxr1b2hvZbsiqW5xWH25efTNsLJA8knL")
+	ata, _, err := solana.FindProgramAddress(
+		[][]byte{
+			ataAuthority.Bytes(),
+			solana.TokenProgramID.Bytes(),
+			mint.Bytes(),
 		},
-		attestationSignature,
-		true,
-		minVotes,
+		associatedTokenProgramID,
 	)
 	if err != nil {
-		return fmt.Errorf("failed to fetch attestations: %w", err)
+		return fmt.Errorf("failed to derive ATA: %w", err)
 	}
 
 	// #endregion Build Claim
@@ -254,6 +313,7 @@ func (app *ApiServer) v1CoinsPostRedeem(c *fiber.Ctx) error {
 		app.transactionSender,
 		decoratedRewardClaim,
 		attestations,
+		&ata,
 	)
 
 	if err != nil {
