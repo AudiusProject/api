@@ -62,7 +62,7 @@ func DeriveEthAddressForMint(domain []byte, secretHex string, mint solana.Public
 
 		// Convert to EIP-55 checksum address
 		address = addr.Hex() // This already returns checksummed address
-		privateKey = "0x" + hex.EncodeToString(priv)
+		privateKey = hex.EncodeToString(priv)
 
 		return address, privateKey, nil
 	}
