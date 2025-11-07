@@ -118,7 +118,7 @@ func (app *ApiServer) v1CreateRewardCode(c *fiber.Ctx) error {
 		}
 
 		claimAuthority, claimAuthorityPrivateKey, err := utils.DeriveEthAddressForMint(
-			[]byte("launchpad_reward_code"),
+			[]byte("claimAuthority"),
 			config.Cfg.LaunchpadDeterministicSecret,
 			mintPubKey,
 		)
