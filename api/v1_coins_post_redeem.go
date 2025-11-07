@@ -1,8 +1,6 @@
 package api
 
 import (
-	"crypto/ecdsa"
-	"encoding/hex"
 	"errors"
 	"fmt"
 	"net/http"
@@ -11,31 +9,15 @@ import (
 	"api.audius.co/config"
 	"api.audius.co/solana/spl"
 	"api.audius.co/solana/spl/programs/reward_manager"
+	"api.audius.co/utils"
 	oap_common "github.com/OpenAudio/go-openaudio/pkg/common"
 	oap_rewards "github.com/OpenAudio/go-openaudio/pkg/rewards"
 	"github.com/ethereum/go-ethereum/common"
-	"github.com/ethereum/go-ethereum/crypto"
 	"github.com/gagliardetto/solana-go"
 	"github.com/gofiber/fiber/v2"
 	"github.com/jackc/pgx/v5"
 	"go.uber.org/zap"
 )
-
-func getAttestationSignatureForRewardClaimAuthority(rewardClaim oap_rewards.RewardClaim, claimAuthorityKey *ecdsa.PrivateKey) (string, error) {
-	claimData, err := rewardClaim.Compile()
-	if err != nil {
-		return "", fmt.Errorf("failed to get attestation bytes: %w", err)
-	}
-
-	hash := crypto.Keccak256(claimData)
-
-	signatureBytes, err := crypto.Sign(hash, claimAuthorityKey)
-	if err != nil {
-		return "", fmt.Errorf("failed to sign hash: %w", err)
-	}
-
-	return "0x" + hex.EncodeToString(signatureBytes), nil
-}
 
 type CoinRewardParams struct {
 	Mint   string
@@ -50,6 +32,7 @@ type RewardCodeRow struct {
 }
 
 func (app *ApiServer) v1CoinsPostRedeem(c *fiber.Ctx) error {
+	// #region Validate Params
 	if config.Cfg.LaunchpadDeterministicSecret == "" {
 		return fiber.NewError(fiber.StatusInternalServerError, "Claim authority base is not configured")
 	}
@@ -70,10 +53,38 @@ func (app *ApiServer) v1CoinsPostRedeem(c *fiber.Ctx) error {
 			"error": "user_id is required",
 		})
 	}
+	// #endregion Validate Params
+	// #region Init State
 
+	mint, err := solana.PublicKeyFromBase58(mintString)
+	if err != nil {
+		return fmt.Errorf("Mint is invalid: %s", mintString)
+	}
+
+	// Derive claim authority key for mint
+	claimAuthorityPublicKey, claimAuthorityPrivKeyString, err := utils.DeriveEthAddressForMint(
+		[]byte("claimAuthority"),
+		config.Cfg.LaunchpadDeterministicSecret,
+		mint,
+	)
+	if err != nil {
+		return fiber.NewError(fiber.StatusInternalServerError, "Failed to derive Ethereum key: "+err.Error())
+	}
+
+	// Convert the private key to the format expected by the SDK
+	claimAuthorityKey, err := oap_common.EthToEthKey(claimAuthorityPrivKeyString)
+	if err != nil {
+		return fiber.NewError(fiber.StatusInternalServerError, "Failed to convert private key: "+err.Error())
+	}
+
+	if err != nil {
+		return fmt.Errorf("failed to get claim authority: %w", err)
+	}
+
+	// Lookup user
 	var userWalletAddress string
 	var userHandle string
-	err := app.pool.QueryRow(c.Context(), `SELECT wallet, handle FROM users WHERE user_id = @user_id`, pgx.NamedArgs{
+	err = app.pool.QueryRow(c.Context(), `SELECT wallet, handle FROM users WHERE user_id = @user_id`, pgx.NamedArgs{
 		"user_id": myId,
 	}).Scan(&userWalletAddress, &userHandle)
 	if err != nil {
@@ -83,11 +94,8 @@ func (app *ApiServer) v1CoinsPostRedeem(c *fiber.Ctx) error {
 		return err
 	}
 
-	mint, err := solana.PublicKeyFromBase58(mintString)
-	if err != nil {
-		return fmt.Errorf("Mint is invalid: %s", mintString)
-	}
-
+	// Get reward manager state for the given mint
+	// and init a new client for it
 	var rewardStateAddress string
 	var minVotes int
 	err = app.pool.QueryRow(c.Context(), `SELECT reward_manager_state, min_votes FROM sol_reward_manager_inits WHERE mint = @mint`, pgx.NamedArgs{
@@ -113,6 +121,7 @@ func (app *ApiServer) v1CoinsPostRedeem(c *fiber.Ctx) error {
 		return fmt.Errorf("failed to create reward manager client: %w", err)
 	}
 
+	// Ensure user bank exists
 	bankAccount, err := app.claimableTokensClient.GetOrCreateUserBank(
 		c.Context(),
 		common.HexToAddress(userWalletAddress),
@@ -122,6 +131,8 @@ func (app *ApiServer) v1CoinsPostRedeem(c *fiber.Ctx) error {
 		return fmt.Errorf("failed to get or create user bank: %w", err)
 	}
 
+	// #endregion Init State/Userbank
+	// #region Burn Code
 	amount := uint64(0)
 	rewardAddress := ""
 	specifier := ""
@@ -176,6 +187,7 @@ func (app *ApiServer) v1CoinsPostRedeem(c *fiber.Ctx) error {
 		rewardAddress = rewardCode.RewardAddress
 		specifier = redeemCode
 	} else {
+		// No code provided, attempt to redeem the generic amount for the mint
 		// TODO: Handle 1 token case where code isn't provided
 		// Probably want to check challenge disbursements and bail early if user has already claimed
 		amount = 1
@@ -185,27 +197,8 @@ func (app *ApiServer) v1CoinsPostRedeem(c *fiber.Ctx) error {
 		specifier = strconv.Itoa(int(myId))
 	}
 
-	// Derive claim authority key for mint
-	claimAuthorityPublicKey, claimAuthorityPrivKeyString, err := utils.DeriveEthAddressForMint(
-		[]byte("claimAuthority"),
-		config.Cfg.LaunchpadDeterministicSecret,
-		mint,
-	)
-	if err != nil {
-		return fiber.NewError(fiber.StatusInternalServerError, "Failed to derive Ethereum key: "+err.Error())
-	}
-
-	// // Convert the private key to the format expected by the SDK
-	claimAuthorityKey, err := oap_common.EthToEthKey(claimAuthorityPrivKeyString)
-	if err != nil {
-		return fiber.NewError(fiber.StatusInternalServerError, "Failed to convert private key: "+err.Error())
-	}
-
-	if err != nil {
-		return fmt.Errorf("failed to get claim authority: %w", err)
-	}
-	// claimAuthorityPublicKey := crypto.PubkeyToAddress(claimAuthorityKey.PublicKey)
-
+	// #endregion Burn Code
+	// #region Build Claim
 	rewardClaim := oap_rewards.RewardClaim{
 		RecipientEthAddress: userWalletAddress,
 		Amount:              amount,
@@ -219,11 +212,6 @@ func (app *ApiServer) v1CoinsPostRedeem(c *fiber.Ctx) error {
 	if err != nil {
 		return fmt.Errorf("failed to sign for claimAuthority: %w", err)
 	}
-
-	// attestationSignature, err := getAttestationSignatureForRewardClaimAuthority(rewardClaim, claimAuthorityKey)
-	// if err != nil {
-	// 	return fmt.Errorf("failed to get claim authority attestation signature: %w", err)
-	// }
 
 	result := ClaimResult{
 		ChallengeID: "code",
@@ -257,6 +245,8 @@ func (app *ApiServer) v1CoinsPostRedeem(c *fiber.Ctx) error {
 		return fmt.Errorf("failed to fetch attestations: %w", err)
 	}
 
+	// #endregion Build Claim
+	// #region Send Tx
 	// Build and send solana transactions
 	signatures, err := sendRewardClaimTransactions(
 		c.Context(),
