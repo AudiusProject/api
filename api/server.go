@@ -522,11 +522,7 @@ func NewApiServer(config config.Config) *ApiServer {
 
 	// Relay
 	app.Post("/relay", app.relay)
-	app.Get("/relay", func(c *fiber.Ctx) error {
-		return c.JSON(fiber.Map{
-			"message": "Relay is enabled",
-		})
-	})
+	app.Get("/relay/decode/:encodedABI", app.decodeABI)
 
 	// Comms
 	comms := app.Group("/comms")

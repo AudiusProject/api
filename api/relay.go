@@ -32,35 +32,6 @@ const (
 	manageEntityEntityIdArgName   = "_entityId"
 	manageEntityNonceArgName      = "_nonce"
 	manageEntitySubjectSigArgName = "_subjectSig"
-
-	// Actions
-	ActionCreate   = "Create"
-	ActionUpdate   = "Update"
-	ActionDelete   = "Delete"
-	ActionGrant    = "Grant"
-	ActionRevoke   = "Revoke"
-	ActionTransfer = "Transfer"
-	ActionApprove  = "Approve"
-	ActionReject   = "Reject"
-	ActionCancel   = "Cancel"
-
-	// Entity Types
-	EntityTypeUser       = "User"
-	EntityTypeApp        = "App"
-	EntityTypeTrack      = "Track"
-	EntityTypePlaylist   = "Playlist"
-	EntityTypeAlbum      = "Album"
-	EntityTypeCollection = "Collection"
-
-	OperationCreateUser   = ActionCreate + EntityTypeUser
-	OperationUpdateUser   = ActionUpdate + EntityTypeUser
-	OperationDeleteUser   = ActionDelete + EntityTypeUser
-	OperationGrantUser    = ActionGrant + EntityTypeUser
-	OperationRevokeUser   = ActionRevoke + EntityTypeUser
-	OperationTransferUser = ActionTransfer + EntityTypeUser
-	OperationApproveUser  = ActionApprove + EntityTypeUser
-	OperationRejectUser   = ActionReject + EntityTypeUser
-	OperationCancelUser   = ActionCancel + EntityTypeUser
 )
 
 var (
@@ -71,7 +42,9 @@ var (
 
 	// anonymouslyAllowedActions map that matches operation to struct{}
 	anonymouslyAllowedActions = map[string]struct{}{
-		OperationCreateUser: {},
+		"CreateUser":       {},
+		"DownloadTrack":    {},
+		"ViewNotification": {},
 	}
 )
 
@@ -315,4 +288,19 @@ func transactionToReceipt(tx *v1.Transaction, wallet string) map[string]interfac
 		"effectiveGasPrice": 420,
 		"status":            true,
 	}
+}
+
+func (app *ApiServer) decodeABI(c *fiber.Ctx) error {
+	encodedABI := c.Params("encodedABI")
+	if encodedABI == "" {
+		return fiber.NewError(fiber.StatusBadRequest, "bad request: encodedABI is required")
+	}
+
+	decodedTx, err := DecodeManageEntityABI(encodedABI)
+	if err != nil {
+		return fiber.NewError(fiber.StatusBadRequest, "bad request: "+err.Error())
+	}
+	return c.JSON(map[string]interface{}{
+		"decodedTx": decodedTx,
+	})
 }
