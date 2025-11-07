@@ -7,7 +7,9 @@ import (
 	"strings"
 	"sync"
 
+	"api.audius.co/api/dbv1"
 	"api.audius.co/config"
+	"api.audius.co/trashid"
 	"connectrpc.com/connect"
 	v1 "github.com/OpenAudio/go-openaudio/pkg/api/core/v1"
 	cconfig "github.com/OpenAudio/go-openaudio/pkg/core/config"
@@ -17,7 +19,6 @@ import (
 	gcommon "github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/common/hexutil"
 	"github.com/gofiber/fiber/v2"
-	"github.com/jackc/pgx/v5"
 	"go.uber.org/zap"
 )
 
@@ -196,6 +197,11 @@ func (app *ApiServer) relay(c *fiber.Ctx) error {
 	if err != nil {
 		return fiber.NewError(fiber.StatusBadRequest, "bad request: "+err.Error())
 	}
+	logger.Info("decoded transaction", zap.Any("decodedTx", decodedTx))
+
+	operation := decodedTx.Action + decodedTx.EntityType
+	logger = logger.With(zap.String("operation", operation), zap.String("sender", decodedTx.GetSigner()))
+	logger.Info("decoded transaction", zap.Any("encodedABI", request.EncodedABI))
 
 	wallet, _, err := server.RecoverPubkeyFromCoreTx(&cconfig.Config{
 		AcdcChainID:              config.Cfg.AudiusdChainID,
@@ -205,15 +211,20 @@ func (app *ApiServer) relay(c *fiber.Ctx) error {
 		return fiber.NewError(fiber.StatusBadRequest, "bad request: "+err.Error())
 	}
 
+	logger = logger.With(zap.String("signer", wallet))
+	logger.Info("recovered signer", zap.String("signer", wallet))
+
 	sender := decodedTx.GetSigner()
-	if !strings.EqualFold(sender, wallet) {
+	if sender != "" && !strings.EqualFold(sender, wallet) {
+		// signer and sender already included in logger
+		logger.Error("signer does not match sender")
 		return fiber.NewError(fiber.StatusForbidden, "forbidden: signer does not match sender")
 	}
 
-	operation := decodedTx.Action + decodedTx.EntityType
 	_, anonymouslyAllowed := anonymouslyAllowedActions[operation]
 	if anonymouslyAllowed {
-		msg, err := app.handleRelay(ctx, decodedTx)
+		logger.Info("operation is anonymously allowed")
+		msg, err := app.handleRelay(ctx, logger, decodedTx)
 		if err != nil {
 			return fiber.NewError(fiber.StatusInternalServerError, "failed to handle relay: "+err.Error())
 		}
@@ -223,55 +234,47 @@ func (app *ApiServer) relay(c *fiber.Ctx) error {
 		})
 	}
 
-	exists := false
+	isUser := false
+	isApp := false
 
-	// query users table by wallet
-	userSQL := `
-		SELECT user_id
-		FROM users
-		WHERE is_current = true
-			AND is_deactivated = false
-			AND wallet = LOWER(@wallet)
-		LIMIT 1
-	`
-	var userId int
-	err = app.pool.QueryRow(ctx, userSQL, pgx.NamedArgs{
-		"wallet": wallet,
-	}).Scan(&userId)
-	if err == nil {
-		exists = true
-	} else if err != pgx.ErrNoRows {
+	// check if wallet belongs to a user
+	isUser, err = app.queries.UserExists(ctx, wallet)
+	if err != nil {
 		logger.Error("error querying users table", zap.Error(err))
+		return fiber.NewError(fiber.StatusInternalServerError, "failed to query users table: "+err.Error())
 	}
 
-	// query apps table by address
-	if !exists {
-		appSQL := `
-			SELECT address
-			FROM developer_apps
-			WHERE is_current = true
-				AND is_delete = false
-				AND address = @address
-			LIMIT 1
-		`
-		var address string
-		err = app.pool.QueryRow(ctx, appSQL, pgx.NamedArgs{
-			"address": wallet,
-		}).Scan(&address)
-		if err == nil {
-			exists = true
-		} else if err != pgx.ErrNoRows {
-			logger.Error("error querying developer_apps table", zap.Error(err))
-		}
+	// check if wallet belongs to a developer app
+	isApp, err = app.queries.DeveloperAppExists(ctx, wallet)
+	if err != nil {
+		logger.Error("error querying developer_apps table", zap.Error(err))
+		return fiber.NewError(fiber.StatusInternalServerError, "failed to query developer_apps table: "+err.Error())
 	}
 
+	exists := isUser || isApp
 	if !exists {
 		return fiber.NewError(fiber.StatusForbidden, "forbidden: wallet is not a user or app: "+wallet)
 	}
+
+	if isApp {
+		// check grants
+		hasGrant, err := app.queries.GrantExists(ctx, dbv1.GrantExistsParams{
+			UserID:         trashid.HashId(decodedTx.UserId),
+			GranteeAddress: wallet,
+		})
+		if err != nil {
+			logger.Error("error querying grants table", zap.Error(err))
+			return fiber.NewError(fiber.StatusInternalServerError, "failed to query grants table: "+err.Error())
+		}
+		if !hasGrant {
+			return fiber.NewError(fiber.StatusForbidden, "forbidden: wallet does not have a grant: "+wallet)
+		}
+	}
+
 	// TODO: submit pubkey to backfill pubkey queue
 
 	logger.Info("relaying transaction", zap.String("wallet", wallet), zap.Any("decodedTx", decodedTx))
-	msg, err := app.handleRelay(ctx, decodedTx)
+	msg, err := app.handleRelay(ctx, logger, decodedTx)
 	if err != nil {
 		return fiber.NewError(fiber.StatusInternalServerError, "failed to handle relay: "+err.Error())
 	}
@@ -281,7 +284,7 @@ func (app *ApiServer) relay(c *fiber.Ctx) error {
 	})
 }
 
-func (app *ApiServer) handleRelay(ctx context.Context, decodedTx *v1.ManageEntityLegacy) (*v1.Transaction, error) {
+func (app *ApiServer) handleRelay(ctx context.Context, logger *zap.Logger, decodedTx *v1.ManageEntityLegacy) (*v1.Transaction, error) {
 	// submit tx to core
 	res, err := app.openAudioSDK.Core.SendTransaction(ctx, connect.NewRequest(&v1.SendTransactionRequest{
 		Transaction: &v1.SignedTransaction{
@@ -291,10 +294,12 @@ func (app *ApiServer) handleRelay(ctx context.Context, decodedTx *v1.ManageEntit
 		},
 	}))
 	if err != nil {
+		logger.Error("error sending transaction", zap.Error(err))
 		return nil, err
 	}
 
 	msg := res.Msg.Transaction
+	logger.Info("transaction confirmed", zap.String("hash", msg.GetHash()))
 	return msg, nil
 }
 
