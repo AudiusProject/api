@@ -197,7 +197,6 @@ func (app *ApiServer) relay(c *fiber.Ctx) error {
 	if err != nil {
 		return fiber.NewError(fiber.StatusBadRequest, "bad request: "+err.Error())
 	}
-	logger.Info("decoded transaction", zap.Any("decodedTx", decodedTx))
 
 	operation := decodedTx.Action + decodedTx.EntityType
 	logger = logger.With(zap.String("operation", operation), zap.String("sender", decodedTx.GetSigner()))
