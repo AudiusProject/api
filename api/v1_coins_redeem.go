@@ -8,7 +8,6 @@ import (
 type RewardCodeResponse struct {
 	Code          string `json:"code"`
 	Amount        int64  `json:"amount"`
-	IsUsed        bool   `json:"-"` // Don't include in JSON response
 	RemainingUses int    `json:"-"` // Don't include in JSON response
 }
 
@@ -37,7 +36,7 @@ func (app *ApiServer) v1CoinsRedeemCode(c *fiber.Ctx) error {
 	}
 
 	sql := `
-		SELECT code, amount, is_used, remaining_uses
+		SELECT code, amount, remaining_uses
 		FROM reward_codes
 		WHERE mint = @mint AND code = @code
 		LIMIT 1
@@ -61,7 +60,7 @@ func (app *ApiServer) v1CoinsRedeemCode(c *fiber.Ctx) error {
 		return err
 	}
 
-	if rewardCode.IsUsed || rewardCode.RemainingUses <= 0 {
+	if rewardCode.RemainingUses <= 0 {
 		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
 			"error": "used",
 		})

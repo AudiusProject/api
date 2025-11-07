@@ -28,7 +28,7 @@ func TestV1CoinsRedeem(t *testing.T) {
 				"mint":           "TestMint123",
 				"reward_address": "RewardAddress123",
 				"amount":         100,
-				"is_used":        false,
+				"remaining_uses": 1,
 				"created_at":     time.Now(),
 			},
 			{
@@ -36,7 +36,7 @@ func TestV1CoinsRedeem(t *testing.T) {
 				"mint":           "TestMint123",
 				"reward_address": "RewardAddress456",
 				"amount":         250,
-				"is_used":        false,
+				"remaining_uses": 1,
 				"created_at":     time.Now(),
 			},
 			{
@@ -44,7 +44,7 @@ func TestV1CoinsRedeem(t *testing.T) {
 				"mint":           "TestMint123",
 				"reward_address": "RewardAddress789",
 				"amount":         500,
-				"is_used":        true,
+				"remaining_uses": 0,
 				"created_at":     time.Now(),
 			},
 		},

@@ -135,19 +135,19 @@ func TestV1CreateRewardCode(t *testing.T) {
 		assert.Len(t, resp.Code, codeLength)
 		assert.Regexp(t, "^[a-zA-Z0-9]{6}$", resp.Code)
 
-		// Verify the code exists in the database and is_used is false
+		// Verify the code exists in the database and remaining_uses is 1
 		var dbCode string
 		var dbMint string
 		var dbAmount int64
-		var dbIsUsed bool
+		var dbRemainingUses int
 		err = app.pool.QueryRow(context.Background(),
-			"SELECT code, mint, amount, is_used FROM reward_codes WHERE code = $1", resp.Code).
-			Scan(&dbCode, &dbMint, &dbAmount, &dbIsUsed)
+			"SELECT code, mint, amount, remaining_uses FROM reward_codes WHERE code = $1", resp.Code).
+			Scan(&dbCode, &dbMint, &dbAmount, &dbRemainingUses)
 		assert.NoError(t, err)
 		assert.Equal(t, resp.Code, dbCode)
 		assert.Equal(t, resp.Mint, dbMint)
 		assert.Equal(t, resp.Amount, dbAmount)
-		assert.False(t, dbIsUsed)
+		assert.Equal(t, 1, dbRemainingUses)
 	})
 
 	t.Run("Successfully creates a reward code with second signer", func(t *testing.T) {
@@ -184,19 +184,19 @@ func TestV1CreateRewardCode(t *testing.T) {
 		assert.Len(t, resp.Code, codeLength)
 		assert.Regexp(t, "^[a-zA-Z0-9]{6}$", resp.Code)
 
-		// Verify the code exists in the database and is_used is false
+		// Verify the code exists in the database and remaining_uses is 1
 		var dbCode string
 		var dbMint string
 		var dbAmount int64
-		var dbIsUsed bool
+		var dbRemainingUses int
 		err = app.pool.QueryRow(context.Background(),
-			"SELECT code, mint, amount, is_used FROM reward_codes WHERE code = $1", resp.Code).
-			Scan(&dbCode, &dbMint, &dbAmount, &dbIsUsed)
+			"SELECT code, mint, amount, remaining_uses FROM reward_codes WHERE code = $1", resp.Code).
+			Scan(&dbCode, &dbMint, &dbAmount, &dbRemainingUses)
 		assert.NoError(t, err)
 		assert.Equal(t, resp.Code, dbCode)
 		assert.Equal(t, resp.Mint, dbMint)
 		assert.Equal(t, resp.Amount, dbAmount)
-		assert.False(t, dbIsUsed)
+		assert.Equal(t, 1, dbRemainingUses)
 	})
 }
 

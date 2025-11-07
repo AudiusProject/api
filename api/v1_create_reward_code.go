@@ -164,8 +164,8 @@ func (app *ApiServer) v1CreateRewardCode(c *fiber.Ctx) error {
 
 	// Insert the reward code into the database
 	sql := `
-		INSERT INTO reward_codes (code, mint, reward_address, amount, is_used)
-		VALUES (@code, @mint, @reward_address, @amount, false)
+		INSERT INTO reward_codes (code, mint, reward_address, amount, remaining_uses)
+		VALUES (@code, @mint, @reward_address, @amount, 1)
 		RETURNING code, mint, reward_address, amount
 	`
 
