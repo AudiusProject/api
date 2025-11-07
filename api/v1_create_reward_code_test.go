@@ -114,7 +114,7 @@ func TestV1CreateRewardCode(t *testing.T) {
 		config.Cfg.RewardCodeAuthorizedKeys = []string{testPubKeyBase58}
 
 		// Create a valid signature
-		signature := createValidSignature(testPrivateKey, signedMessage)
+		signature := createValidSignature(testPrivateKey, signedAuthMessage)
 
 		requestBody := CreateRewardCodeRequest{
 			Signature: signature,
@@ -132,9 +132,57 @@ func TestV1CreateRewardCode(t *testing.T) {
 		assert.Equal(t, 201, status, "Response body: %s", string(respBody))
 		assert.Equal(t, "TestMint123", resp.Mint)
 		assert.Equal(t, int64(500), resp.Amount)
-		assert.Equal(t, testPubKeyBase58, resp.RewardAddress)
-		assert.Len(t, resp.Code, codeLength)            // Check code length
-		assert.Regexp(t, "^[a-zA-Z0-9]{6}$", resp.Code) // Check code format
+		assert.Len(t, resp.Code, codeLength)
+		assert.Regexp(t, "^[a-zA-Z0-9]{6}$", resp.Code)
+
+		// Verify the code exists in the database and is_used is false
+		var dbCode string
+		var dbMint string
+		var dbAmount int64
+		var dbIsUsed bool
+		err = app.pool.QueryRow(context.Background(),
+			"SELECT code, mint, amount, is_used FROM reward_codes WHERE code = $1", resp.Code).
+			Scan(&dbCode, &dbMint, &dbAmount, &dbIsUsed)
+		assert.NoError(t, err)
+		assert.Equal(t, resp.Code, dbCode)
+		assert.Equal(t, resp.Mint, dbMint)
+		assert.Equal(t, resp.Amount, dbAmount)
+		assert.False(t, dbIsUsed)
+	})
+
+	t.Run("Successfully creates a reward code with second signer", func(t *testing.T) {
+		// Generate a test keypair
+		testPublicKey, _, err := ed25519.GenerateKey(rand.Reader)
+		testPublicKey2, testPrivateKey2, err := ed25519.GenerateKey(rand.Reader)
+		assert.NoError(t, err)
+
+		// Convert to Solana format and inject into config
+		solanaPubKey := solana.PublicKeyFromBytes(testPublicKey)
+		solanaPubKey2 := solana.PublicKeyFromBytes(testPublicKey2)
+		testPubKeyBase58 := solanaPubKey.String()
+		testPubKeyBase582 := solanaPubKey2.String()
+		config.Cfg.RewardCodeAuthorizedKeys = []string{testPubKeyBase58, testPubKeyBase582}
+
+		// Create a valid signature
+		signature2 := createValidSignature(testPrivateKey2, signedAuthMessage)
+		requestBody := CreateRewardCodeRequest{
+			Signature: signature2,
+			Mint:      "TestMint123",
+			Amount:    500,
+		}
+
+		body, err := json.Marshal(requestBody)
+		assert.NoError(t, err)
+
+		var resp CreateRewardCodeResponse
+		status, respBody := testPost(t, app, "/v1/rewards/code", body, map[string]string{
+			"Content-Type": "application/json",
+		}, &resp)
+		assert.Equal(t, 201, status, "Response body: %s", string(respBody))
+		assert.Equal(t, "TestMint123", resp.Mint)
+		assert.Equal(t, int64(500), resp.Amount)
+		assert.Len(t, resp.Code, codeLength)
+		assert.Regexp(t, "^[a-zA-Z0-9]{6}$", resp.Code)
 
 		// Verify the code exists in the database and is_used is false
 		var dbCode string
@@ -179,8 +227,7 @@ func TestGenerateCode(t *testing.T) {
 		}
 
 		// With 62^6 possible combinations, we should get mostly unique codes
-		// Allow for some duplicates but expect high uniqueness
-		assert.Greater(t, len(codes), iterations*9/10, "Should generate mostly unique codes")
+		assert.Greater(t, len(codes), iterations*9/10, "Should unique codes")
 	})
 }
 

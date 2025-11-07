@@ -5,9 +5,15 @@ import (
 	"crypto/ed25519"
 	"crypto/rand"
 	"errors"
+	"fmt"
 	"math/big"
 
 	"api.audius.co/config"
+	"api.audius.co/utils"
+	"connectrpc.com/connect"
+	v1 "github.com/OpenAudio/go-openaudio/pkg/api/core/v1"
+	"github.com/OpenAudio/go-openaudio/pkg/common"
+	"github.com/OpenAudio/go-openaudio/pkg/sdk"
 	"github.com/gagliardetto/solana-go"
 	"github.com/gofiber/fiber/v2"
 	"github.com/jackc/pgx/v5"
@@ -15,9 +21,9 @@ import (
 )
 
 const (
-	signedMessage = "code"
-	codeLength    = 6
-	codeChars     = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789"
+	signedAuthMessage = "code"
+	codeLength        = 6
+	codeChars         = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789"
 )
 
 type CreateRewardCodeRequest struct {
@@ -62,7 +68,7 @@ func verifySignature(signatureBase58 string, authorizedPubKey string) (bool, err
 	}
 
 	// Verify the signature
-	message := []byte(signedMessage)
+	message := []byte(signedAuthMessage)
 	valid := ed25519.Verify(expectedPubKey[:], message, signatureBytes)
 	return valid, nil
 }
@@ -89,17 +95,74 @@ func (app *ApiServer) v1CreateRewardCode(c *fiber.Ctx) error {
 		return err
 	}
 
-	// Verify the signature against authorized keys from config
-	matchedKey, err := verifySignatureAgainstKeys(req.Signature, config.Cfg.RewardCodeAuthorizedKeys)
+	_, err := verifySignatureAgainstKeys(req.Signature, config.Cfg.RewardCodeAuthorizedKeys)
 	if err != nil {
 		return fiber.NewError(fiber.StatusForbidden, "Unauthorized: "+err.Error())
 	}
 
+	// Generate a code
 	code, err := generateCode()
 	if err != nil {
 		return fiber.NewError(fiber.StatusInternalServerError, "Failed to generate code: "+err.Error())
 	}
 
+	var rewardAddress string
+
+	// Only create reward pool if deterministic secret is configured
+	if config.Cfg.LaunchpadDeterministicSecret != "" {
+		mintPubKey, err := solana.PublicKeyFromBase58(req.Mint)
+		if err != nil {
+			return fiber.NewError(fiber.StatusBadRequest, "Invalid mint address: "+err.Error())
+		}
+
+		claimAuthority, claimAuthorityPrivateKey, err := utils.DeriveEthAddressForMint(
+			[]byte("claimAuthority"),
+			config.Cfg.LaunchpadDeterministicSecret,
+			mintPubKey,
+		)
+		if err != nil {
+			return fiber.NewError(fiber.StatusInternalServerError, "Failed to derive Ethereum key: "+err.Error())
+		}
+
+		// Convert the private key to the format expected by the SDK
+		privateKey, err := common.EthToEthKey(claimAuthorityPrivateKey)
+		if err != nil {
+			return fiber.NewError(fiber.StatusInternalServerError, "Failed to convert private key: "+err.Error())
+		}
+
+		// Create OpenAudio SDK instance and set the private key
+		oap := sdk.NewOpenAudioSDK(config.Cfg.AudiusdURL)
+		oap.SetPrivKey(privateKey)
+
+		// Get current chain status to calculate deadline
+		statusResp, err := oap.Core.GetStatus(context.Background(), connect.NewRequest(&v1.GetStatusRequest{}))
+		if err != nil {
+			return fiber.NewError(fiber.StatusInternalServerError, "Failed to get chain status: "+err.Error())
+		}
+
+		currentHeight := statusResp.Msg.ChainInfo.CurrentHeight
+		deadline := currentHeight + 100
+		rewardID := fmt.Sprintf("%s", code)
+
+		reward, err := oap.Rewards.CreateReward(context.Background(), &v1.CreateReward{
+			RewardId: rewardID,
+			Name:     fmt.Sprintf("Launchpad Reward %s", code),
+			Amount:   uint64(req.Amount),
+			ClaimAuthorities: []*v1.ClaimAuthority{
+				{Address: claimAuthority, Name: "Launchpad"},
+			},
+			DeadlineBlockHeight: deadline,
+		})
+		if err != nil {
+			return fiber.NewError(fiber.StatusInternalServerError, "Failed to create reward pool: "+err.Error())
+		}
+
+		rewardAddress = reward.Address
+	} else {
+		rewardAddress = ""
+	}
+
+	// Insert the reward code into the database
 	sql := `
 		INSERT INTO reward_codes (code, mint, reward_address, amount, is_used)
 		VALUES (@code, @mint, @reward_address, @amount, false)
@@ -109,7 +172,7 @@ func (app *ApiServer) v1CreateRewardCode(c *fiber.Ctx) error {
 	rows, err := app.writePool.Query(context.Background(), sql, pgx.NamedArgs{
 		"code":           code,
 		"mint":           req.Mint,
-		"reward_address": matchedKey,
+		"reward_address": rewardAddress,
 		"amount":         req.Amount,
 	})
 	if err != nil {
