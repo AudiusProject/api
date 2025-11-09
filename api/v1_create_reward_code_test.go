@@ -201,10 +201,10 @@ func TestV1CreateRewardCode(t *testing.T) {
 }
 
 func TestGenerateCode(t *testing.T) {
-	t.Run("Generates 6 character code", func(t *testing.T) {
+	t.Run("Generates 10 character code", func(t *testing.T) {
 		code, err := generateCode()
 		assert.NoError(t, err)
-		assert.Len(t, code, 6)
+		assert.Len(t, code, 10)
 	})
 
 	t.Run("Generates alphanumeric characters only", func(t *testing.T) {
