@@ -133,7 +133,7 @@ func TestV1CreateRewardCode(t *testing.T) {
 		assert.Equal(t, "TestMint123", resp.Mint)
 		assert.Equal(t, int64(500), resp.Amount)
 		assert.Len(t, resp.Code, codeLength)
-		assert.Regexp(t, "^[a-zA-Z0-9]{6}$", resp.Code)
+		assert.Regexp(t, "^[a-zA-Z0-9]{10}$", resp.Code)
 
 		// Verify the code exists in the database and remaining_uses is 1
 		var dbCode string
