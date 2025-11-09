@@ -115,22 +115,34 @@ func (app *ApiServer) v1CoinsVolumeLeaders(c *fiber.Ctx) error {
     ) scat_match ON TRUE
 	GROUP BY address
 	ORDER BY volume DESC
+	),
+	leaders_with_users AS (
+		SELECT
+			COALESCE(u.user_id, aw.user_id) as user_id,
+			l.address,
+			l.volume,
+			ROW_NUMBER() OVER (
+				PARTITION BY COALESCE(u.user_id, aw.user_id)
+				ORDER BY l.volume DESC
+			) as wallet_rank
+		FROM leaders l
+		LEFT JOIN associated_wallets aw ON aw.wallet = l.address
+		LEFT JOIN sol_claimable_accounts sca ON sca.account = l.address
+		LEFT JOIN users u ON u.wallet = sca.ethereum_address
+		WHERE
+			l.address IS NOT NULL
+			AND NOT EXISTS (SELECT 1 FROM excluded_addresses WHERE excluded_addresses.address = l.address)
+			AND l.volume > 0
 	)
-	select
-	    COALESCE(u.user_id, aw.user_id) as user_id,
-		l.address,
-    	l.volume
-    FROM leaders l
-    LEFT JOIN associated_wallets aw ON aw.wallet = l.address
-    LEFT JOIN sol_claimable_accounts sca ON sca.account = l.address
-    LEFT JOIN users u ON u.wallet = sca.ethereum_address
-    WHERE
-		l.address IS NOT NULL
-        AND NOT EXISTS (SELECT 1 FROM excluded_addresses WHERE excluded_addresses.address = l.address)
-		AND l.volume > 0
-    ORDER BY l.volume DESC
-    LIMIT @limit
-    OFFSET @offset;`
+	SELECT
+		user_id,
+		address,
+		volume
+	FROM leaders_with_users
+	WHERE wallet_rank = 1
+	ORDER BY volume DESC
+	LIMIT @limit
+	OFFSET @offset;`
 
 	rows, err := app.pool.Query(c.Context(), sql, pgx.NamedArgs{
 		"fromDate": fromDate,
