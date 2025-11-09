@@ -7316,7 +7316,7 @@ CREATE TABLE public.reward_codes (
     reward_address text NOT NULL,
     amount bigint NOT NULL,
     created_at timestamp without time zone DEFAULT CURRENT_TIMESTAMP NOT NULL,
-    is_used boolean DEFAULT false NOT NULL
+    remaining_uses integer DEFAULT 1 NOT NULL
 );
 
 
@@ -7356,10 +7356,10 @@ COMMENT ON COLUMN public.reward_codes.amount IS 'Amount of coins to reward';
 
 
 --
--- Name: COLUMN reward_codes.is_used; Type: COMMENT; Schema: public; Owner: -
+-- Name: COLUMN reward_codes.remaining_uses; Type: COMMENT; Schema: public; Owner: -
 --
 
-COMMENT ON COLUMN public.reward_codes.is_used IS 'Whether the code has been redeemed';
+COMMENT ON COLUMN public.reward_codes.remaining_uses IS 'Number of times the code can still be redeemed';
 
 
 --
