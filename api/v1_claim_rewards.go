@@ -348,7 +348,8 @@ func fetchAttestations(
 	return attestations, nil
 }
 
-// Builds a Solana transaction to claim a reward from the attestations and sends it with retries.
+// Builds submit/evaluate transactions and sends them in batches of at most 2
+// to ensure we stay under the transaction size limit.
 func sendRewardClaimTransactionsBatched(
 	ctx context.Context,
 	rewardManagerClient *reward_manager.RewardManagerClient,
@@ -421,23 +422,22 @@ func sendRewardClaimTransactionsBatched(
 
 	secondTx.AddInstruction(evaluateAttestationInstruction.Build())
 
-	// TODO: Return tx sigs regardless
 	firstTx.WithOpt(solana.TransactionAddressTables(addressLookupTables))
 	err = transactionSender.AddPriorityFees(ctx, firstTx, spl.AddPriorityFeesParams{Percentile: 99, Multiplier: 1})
 	if err != nil {
-		return nil, err
+		return txSignatures, err
 	}
 
 	secondTx.WithOpt(solana.TransactionAddressTables(addressLookupTables))
 	err = transactionSender.AddPriorityFees(ctx, secondTx, spl.AddPriorityFeesParams{Percentile: 99, Multiplier: 1})
 	if err != nil {
-		return nil, err
+		return txSignatures, err
 	}
 
 	if len(attestations) != 0 {
 		sig, err := transactionSender.SendTransactionWithRetries(ctx, firstTx, rpc.CommitmentConfirmed, rpc.TransactionOpts{})
 		if err != nil {
-			return nil, err
+			return txSignatures, err
 		}
 		txSignatures = append(txSignatures, *sig)
 	}
@@ -446,7 +446,7 @@ func sendRewardClaimTransactionsBatched(
 		SkipPreflight: true,
 	})
 	if err != nil {
-		return nil, err
+		return txSignatures, err
 	}
 
 	txSignatures = append(txSignatures, *sig2)

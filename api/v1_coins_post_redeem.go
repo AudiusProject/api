@@ -219,12 +219,11 @@ func (app *ApiServer) v1CoinsPostRedeem(c *fiber.Ctx) error {
 		return err
 	}
 
-	// TODO: re-enable
-	// if rewardCode.WasAlreadyUsed {
-	// 	return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
-	// 		"error": "used",
-	// 	})
-	// }
+	if rewardCode.WasAlreadyUsed {
+		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
+			"error": "used",
+		})
+	}
 
 	amount = rewardCode.Amount
 	rewardAddress = rewardCode.RewardAddress
@@ -309,7 +308,6 @@ func (app *ApiServer) v1CoinsPostRedeem(c *fiber.Ctx) error {
 
 	neededAttestations := (minVotes + 1) - len(attestationsData.Messages)
 
-	// TODO: Add retries to this loop, maybe the whole thing, but def each attestation attempt
 	for _, validator := range config.Cfg.ArtistCoinRewardsStaticSenders {
 		if len(attestations) >= neededAttestations {
 			break
