@@ -8,6 +8,7 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"math"
 	"math/rand/v2"
 	"net/http"
 	"net/url"
@@ -217,7 +218,6 @@ func fetchAttestations(
 	hasAntiAbuseOracleAttestation bool,
 	minVotes int,
 ) ([]SenderAttestation, error) {
-
 	// Shuffle the validators
 	shuffled := slices.Clone(allValidators)
 	rand.Shuffle(len(shuffled), func(i, j int) {
@@ -346,6 +346,111 @@ func fetchAttestations(
 	}
 
 	return attestations, nil
+}
+
+// Builds a Solana transaction to claim a reward from the attestations and sends it with retries.
+func sendRewardClaimTransactionsBatched(
+	ctx context.Context,
+	rewardManagerClient *reward_manager.RewardManagerClient,
+	transactionSender *spl.TransactionSender,
+	rewardClaim RewardClaim,
+	attestations []SenderAttestation,
+	sourceTokenAccount solana.PublicKey,
+	tokenDecimals int,
+) ([]solana.Signature, error) {
+	firstTx := solana.NewTransactionBuilder()
+	secondTx := solana.NewTransactionBuilder()
+
+	feePayer, err := transactionSender.GetFeePayer()
+	if err != nil {
+		return nil, err
+	}
+	firstTx.SetFeePayer(feePayer.PublicKey())
+	secondTx.SetFeePayer(feePayer.PublicKey())
+
+	for i, attestation := range attestations {
+		instructionIndex := uint8((i % 2) * 2)
+		submitAttestationSecpInstruction := secp256k1.NewSecp256k1Instruction(
+			attestation.EthAddress,
+			attestation.Message,
+			attestation.Signature,
+			instructionIndex,
+		).Build()
+		submitAttestationInstruction, err := reward_manager.NewSubmitAttestationInstruction(
+			rewardClaim.RewardID,
+			rewardClaim.Specifier,
+			attestation.EthAddress,
+			rewardManagerClient.GetProgramStateAccount(),
+			feePayer.PublicKey(),
+		)
+		if err != nil {
+			return nil, fmt.Errorf("failed to build submitAttestation instruction: %w", err)
+		}
+		if i > 1 {
+			secondTx.AddInstruction(submitAttestationSecpInstruction)
+			secondTx.AddInstruction(submitAttestationInstruction.Build())
+		} else {
+			firstTx.AddInstruction(submitAttestationSecpInstruction)
+			firstTx.AddInstruction(submitAttestationInstruction.Build())
+		}
+	}
+
+	lookupTable, err := rewardManagerClient.GetLookupTable(ctx)
+	if err != nil {
+		return nil, err
+	}
+	addressLookupTables := map[solana.PublicKey]solana.PublicKeySlice{
+		rewardManagerClient.GetLookupTableAccount(): lookupTable.Addresses,
+	}
+
+	txSignatures := make([]solana.Signature, 0)
+	evaluateAttestationInstruction, err := reward_manager.NewEvaluateAttestationInstruction(
+		rewardClaim.RewardID,
+		rewardClaim.Specifier,
+		common.HexToAddress(rewardClaim.RecipientEthAddress),
+		rewardClaim.Amount*uint64(math.Pow10(tokenDecimals)), // Convert to token wei
+		common.HexToAddress(rewardClaim.ClaimAuthority),
+		rewardManagerClient.GetProgramStateAccount(),
+		sourceTokenAccount,
+		rewardClaim.UserBank,
+		feePayer.PublicKey(),
+	)
+	if err != nil {
+		return nil, fmt.Errorf("failed to build evaluateAttestation instruction: %w", err)
+	}
+
+	secondTx.AddInstruction(evaluateAttestationInstruction.Build())
+
+	// TODO: Return tx sigs regardless
+	firstTx.WithOpt(solana.TransactionAddressTables(addressLookupTables))
+	err = transactionSender.AddPriorityFees(ctx, firstTx, spl.AddPriorityFeesParams{Percentile: 99, Multiplier: 1})
+	if err != nil {
+		return nil, err
+	}
+
+	secondTx.WithOpt(solana.TransactionAddressTables(addressLookupTables))
+	err = transactionSender.AddPriorityFees(ctx, secondTx, spl.AddPriorityFeesParams{Percentile: 99, Multiplier: 1})
+	if err != nil {
+		return nil, err
+	}
+
+	if len(attestations) != 0 {
+		sig, err := transactionSender.SendTransactionWithRetries(ctx, firstTx, rpc.CommitmentConfirmed, rpc.TransactionOpts{})
+		if err != nil {
+			return nil, err
+		}
+		txSignatures = append(txSignatures, *sig)
+	}
+
+	sig2, err := transactionSender.SendTransactionWithRetries(ctx, secondTx, rpc.CommitmentConfirmed, rpc.TransactionOpts{
+		SkipPreflight: true,
+	})
+	if err != nil {
+		return nil, err
+	}
+
+	txSignatures = append(txSignatures, *sig2)
+	return txSignatures, nil
 }
 
 // Builds a Solana transaction to claim a reward from the attestations and sends it with retries.
