@@ -4,6 +4,7 @@ import (
 	"encoding/hex"
 	"errors"
 	"fmt"
+	"math"
 	"net/http"
 	"strconv"
 	"strings"
@@ -26,13 +27,6 @@ import (
 type CoinRewardParams struct {
 	Mint   string
 	Amount uint64
-}
-
-type RewardCodeRow struct {
-	Mint          string `db:"mint"`
-	RewardAddress string `db:"reward_address"`
-	Amount        uint64 `db:"amount"`
-	IsUsed        bool   `db:"is_used"`
 }
 
 func (app *ApiServer) v1CoinsPostRedeem(c *fiber.Ctx) error {
@@ -97,14 +91,24 @@ func (app *ApiServer) v1CoinsPostRedeem(c *fiber.Ctx) error {
 		}
 		return err
 	}
+	var coinTicker string
+	var coinDecimals uint32
+	// Lookup coin info for given mint
+	err = app.pool.QueryRow(c.Context(), `SELECT ticker, decimals FROM artist_coins WHERE mint = @mint`, pgx.NamedArgs{
+		"mint": mintString,
+	}).Scan(&coinTicker, &coinDecimals)
+	if err != nil {
+		return fmt.Errorf("failed to get coin info: %w", err)
+	}
 
 	// Get reward manager state for the given mint
 	// and init a new client for it
 	var rewardStateAddress string
 	var minVotes int
-	err = app.pool.QueryRow(c.Context(), `SELECT reward_manager_state, min_votes FROM sol_reward_manager_inits WHERE mint = @mint`, pgx.NamedArgs{
+	var tokenSourceAddress string
+	err = app.pool.QueryRow(c.Context(), `SELECT reward_manager_state, token_source, min_votes FROM sol_reward_manager_inits WHERE mint = @mint`, pgx.NamedArgs{
 		"mint": mintString,
-	}).Scan(&rewardStateAddress, &minVotes)
+	}).Scan(&rewardStateAddress, &tokenSourceAddress, &minVotes)
 	if err != nil {
 		return fmt.Errorf("failed to get reward manager state: %w", err)
 	}
@@ -112,8 +116,15 @@ func (app *ApiServer) v1CoinsPostRedeem(c *fiber.Ctx) error {
 	if err != nil {
 		return fmt.Errorf("failed to get init pubkey for reward manager state address: %w", err)
 	}
+	tokenSourcePubkey, err := solana.PublicKeyFromBase58(tokenSourceAddress)
+	if err != nil {
+		return fmt.Errorf("failed to init pubkey for token source address: %w", err)
+	}
 
 	println(fmt.Sprintf("rewardManagerPubkey: %s", rewardManagerPubkey))
+
+	// Ensure ProgramID is set correctly for PDA derivation
+	reward_manager.SetProgramID(app.solanaConfig.RewardManagerProgramID)
 
 	rewardManagerClient, err := reward_manager.NewRewardManagerClient(
 		app.solanaRpcClient,
@@ -133,6 +144,7 @@ func (app *ApiServer) v1CoinsPostRedeem(c *fiber.Ctx) error {
 		common.HexToAddress(userWalletAddress),
 		mint,
 	)
+	println(fmt.Sprintf("bankAccount: %s", bankAccount.String()))
 	if err != nil {
 		return fmt.Errorf("failed to get or create user bank: %w", err)
 	}
@@ -141,68 +153,77 @@ func (app *ApiServer) v1CoinsPostRedeem(c *fiber.Ctx) error {
 	// #region Burn Code
 	amount := uint64(0)
 	rewardAddress := ""
-	specifier := ""
-	if redeemCode != "" {
-		// Read and burn code in one go
-		// Use CTE to capture old is_used value before updating
-		sql := `WITH old_row AS (
-			SELECT is_used, reward_address, amount
+	// Use can claim code once
+	specifier := strconv.Itoa(int(myId))
+
+	// If no code, default to coin ticker for generic redemption
+	if redeemCode == "" {
+		redeemCode = coinTicker
+		// Check for challenge disbursement for the given code/userId
+		var count int
+		err := app.writePool.QueryRow(c.Context(), `SELECT count(*) FROM challenge_disbursements WHERE challenge_id = @code AND specifier = @specifier LIMIT 1;`, pgx.NamedArgs{
+			"code":      redeemCode,
+			"specifier": specifier,
+		}).Scan(&count)
+		if err != nil {
+			return err
+		}
+		if count > 0 {
+			return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
+				"error": "used",
+			})
+		}
+	}
+
+	// Read and burn code in one go
+	// Use CTE to capture old remaining_uses value before updating
+	sql := `WITH old_row AS (
+			SELECT remaining_uses, reward_address, amount
 			FROM reward_codes
 			WHERE code = @code
 			AND mint = @mint
 		)
 		UPDATE reward_codes
-		SET is_used = true
+		SET remaining_uses = GREATEST(reward_codes.remaining_uses - 1, 0)
 		FROM old_row
 		WHERE reward_codes.code = @code
+		AND reward_codes.mint = @mint
 		RETURNING
 			reward_codes.reward_address,
 			reward_codes.amount,
-			old_row.is_used AS was_already_used`
-		rows, err := app.writePool.Query(c.Context(), sql, pgx.NamedArgs{
-			"code": redeemCode,
-			"mint": mintString,
-		})
-		if err != nil {
-			return err
-		}
+			(old_row.remaining_uses <= 0) AS was_already_used`
 
-		type RewardCodeBurnResultRow struct {
-			RewardAddress  string `db:"reward_address"`
-			Amount         uint64 `db:"amount"`
-			WasAlreadyUsed bool   `db:"was_already_used"`
-		}
-		rewardCode, err := pgx.CollectOneRow(rows, pgx.RowToStructByName[RewardCodeBurnResultRow])
-		if err != nil {
-			if errors.Is(err, pgx.ErrNoRows) {
-				return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
-					"error": "invalid",
-				})
-			}
-			return err
-		}
-
-		// TODO: remove
-		// if rewardCode.WasAlreadyUsed {
-		// 	return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
-		// 		"error": "used",
-		// 	})
-		// }
-
-		amount = rewardCode.Amount
-		rewardAddress = rewardCode.RewardAddress
-		specifier = redeemCode
-	} else {
-		// No code provided, attempt to redeem the generic amount for the mint
-		// TODO: Handle 1 token case where code isn't provided
-		// Probably want to check challenge disbursements and bail early if user has already claimed
-		amount = 1
-		rewardAddress = ""
-		// Specifier defaults to user ID if no code is provided
-		// TODO: Make sure this logic is correct for the various use cases
-		// PLAN: Ticker is the code here. Move this if/else up further, we will use the same burn logic for both.
-		specifier = strconv.Itoa(int(myId))
+	rows, err := app.writePool.Query(c.Context(), sql, pgx.NamedArgs{
+		"code": redeemCode,
+		"mint": mintString,
+	})
+	if err != nil {
+		return err
 	}
+
+	type RewardCodeBurnResultRow struct {
+		RewardAddress  string `db:"reward_address"`
+		Amount         uint64 `db:"amount"`
+		WasAlreadyUsed bool   `db:"was_already_used"`
+	}
+	rewardCode, err := pgx.CollectOneRow(rows, pgx.RowToStructByName[RewardCodeBurnResultRow])
+	if err != nil {
+		if errors.Is(err, pgx.ErrNoRows) {
+			return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
+				"error": "invalid",
+			})
+		}
+		return err
+	}
+
+	if rewardCode.WasAlreadyUsed {
+		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
+			"error": "used",
+		})
+	}
+
+	amount = rewardCode.Amount
+	rewardAddress = rewardCode.RewardAddress
 
 	// #endregion Burn Code
 	// #region Build Claim
@@ -214,11 +235,6 @@ func (app *ApiServer) v1CoinsPostRedeem(c *fiber.Ctx) error {
 		Specifier:           specifier,
 		ClaimAuthority:      claimAuthorityPublicKey,
 	}
-
-	// attestationSignature, err := oap_rewards.SignClaim(rewardClaim, claimAuthorityKey)
-	// if err != nil {
-	// 	return fmt.Errorf("failed to sign for claimAuthority: %w", err)
-	// }
 
 	result := ClaimResult{
 		ChallengeID: "code",
@@ -232,12 +248,13 @@ func (app *ApiServer) v1CoinsPostRedeem(c *fiber.Ctx) error {
 		RewardClaim:   rewardClaim,
 		Handle:        userHandle,
 		UserBank:      *bankAccount,
-		TokenDecimals: 1e9, // TODO: get from DB
+		TokenDecimals: uint64(coinDecimals),
 	}
 
 	claimMessage, err := rewardClaim.Compile()
 
 	attestations := make([]SenderAttestation, 0)
+	// TODO: Add retries to this loop, maybe the whole thing, but def each attestation attempt
 	for _, validator := range app.validators.GetNodes() {
 		if len(attestations) >= minVotes {
 			break
@@ -247,16 +264,15 @@ func (app *ApiServer) v1CoinsPostRedeem(c *fiber.Ctx) error {
 
 		response, err := oap.Rewards.GetRewardAttestation(c.Context(), &v1.GetRewardAttestationRequest{
 			EthRecipientAddress: userWalletAddress,
-			Amount:              1000,
+			Amount:              uint64(amount) / uint64(math.Pow10(int(coinDecimals))), // Convert from token decimals
 			RewardAddress:       rewardAddress,
 			RewardId:            redeemCode,
 			Specifier:           specifier,
+			AmountDecimals:      coinDecimals,
 			ClaimAuthority:      oap.Address(),
 		})
 
-		// TODO: better
 		if err != nil {
-			println(fmt.Sprintf("failed to get reward attestation: %v", err))
 			continue
 		}
 
@@ -279,29 +295,10 @@ func (app *ApiServer) v1CoinsPostRedeem(c *fiber.Ctx) error {
 		attestations = append(attestations, attestation)
 	}
 
-	// TODO: Probably needs to move into rewardManagerClient
-	// (deriveATA function accepting mint?)
-	seeds := make([][]byte, 1)
-	seeds[0] = rewardManagerClient.GetProgramStateAccount().Bytes()[0:32]
-	ataAuthority, _, err := solana.FindProgramAddress(seeds, config.Cfg.SolanaConfig.RewardManagerProgramID)
-	if err != nil {
-		return fmt.Errorf("failed to derive ATA authority: %w", err)
-	}
-
-	// Derive Associated Token Account address
-	// Seeds: [owner, token_program_id, mint]
-	// TODO: Remove hardcoded associated token program ID
-	associatedTokenProgramID := solana.MustPublicKeyFromBase58("ATokenGPvbdGVxr1b2hvZbsiqW5xWH25efTNsLJA8knL")
-	ata, _, err := solana.FindProgramAddress(
-		[][]byte{
-			ataAuthority.Bytes(),
-			solana.TokenProgramID.Bytes(),
-			mint.Bytes(),
-		},
-		associatedTokenProgramID,
-	)
-	if err != nil {
-		return fmt.Errorf("failed to derive ATA: %w", err)
+	if len(attestations) < minVotes {
+		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{
+			"error": "failed to get enough attestations",
+		})
 	}
 
 	// #endregion Build Claim
@@ -313,7 +310,7 @@ func (app *ApiServer) v1CoinsPostRedeem(c *fiber.Ctx) error {
 		app.transactionSender,
 		decoratedRewardClaim,
 		attestations,
-		&ata,
+		&tokenSourcePubkey,
 	)
 
 	if err != nil {
