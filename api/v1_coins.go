@@ -166,8 +166,14 @@ const sharedSelectCoinSql = `
 				'address', COALESCE(artist_coin_pools.address, ''),
 				'price', COALESCE(artist_coin_pools.price, 0),
 				'priceUSD', COALESCE(artist_coin_pools.price_usd, 0),
-				'curveProgress', COALESCE(artist_coin_pools.curve_progress, 0),
-				'isMigrated', COALESCE(artist_coin_pools.is_migrated, false),
+				'curveProgress', CASE
+					WHEN artist_coins.damm_v2_pool IS NOT NULL THEN 1
+					ELSE COALESCE(artist_coin_pools.curve_progress, 0)
+				END,
+				'isMigrated', CASE
+					WHEN artist_coins.damm_v2_pool IS NOT NULL THEN true
+					ELSE COALESCE(artist_coin_pools.is_migrated, false)
+				END,
 				'creatorQuoteFee', COALESCE(artist_coin_pools.creator_quote_fee, 0),
 				'totalTradingQuoteFee', COALESCE(artist_coin_pools.total_trading_quote_fee, 0),
 				'creatorWalletAddress', COALESCE(artist_coin_pools.creator_wallet_address, '')
