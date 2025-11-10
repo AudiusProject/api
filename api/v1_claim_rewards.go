@@ -217,7 +217,6 @@ func fetchAttestations(
 	hasAntiAbuseOracleAttestation bool,
 	minVotes int,
 ) ([]SenderAttestation, error) {
-
 	// Shuffle the validators
 	shuffled := slices.Clone(allValidators)
 	rand.Shuffle(len(shuffled), func(i, j int) {
@@ -355,6 +354,7 @@ func sendRewardClaimTransactions(
 	transactionSender *spl.TransactionSender,
 	rewardClaim RewardClaim,
 	attestations []SenderAttestation,
+	sourceTokenAccount *solana.PublicKey,
 ) ([]solana.Signature, error) {
 	// Transaction to send attestations in a separate transaction
 	partialTx := solana.NewTransactionBuilder()
@@ -445,14 +445,17 @@ func sendRewardClaimTransactions(
 	if err != nil {
 		return nil, err
 	}
+	if sourceTokenAccount == nil {
+		sourceTokenAccount = &state.TokenAccount
+	}
 	evaluateAttestationInstruction, err := reward_manager.NewEvaluateAttestationInstruction(
 		rewardClaim.RewardID,
 		rewardClaim.Specifier,
 		common.HexToAddress(rewardClaim.RecipientEthAddress),
-		rewardClaim.Amount*1e8, // Convert to wAUDIO wei
+		rewardClaim.Amount*rewardClaim.TokenDecimals, // Convert to token wei
 		common.HexToAddress(rewardClaim.ClaimAuthority),
 		rewardManagerClient.GetProgramStateAccount(),
-		state.TokenAccount,
+		*sourceTokenAccount,
 		rewardClaim.UserBank,
 		feePayer.PublicKey(),
 	)
@@ -552,6 +555,7 @@ func claimReward(
 		transactionSender,
 		rewardClaim,
 		attestations,
+		nil, // No ATA needed for AUDIO rewards
 	)
 	if err != nil {
 		return nil, err
@@ -613,8 +617,9 @@ func getReward(rewardId string, rewardsList []rewards.Reward) (rewards.Reward, e
 
 type RewardClaim struct {
 	rewards.RewardClaim
-	Handle   string
-	UserBank solana.PublicKey
+	Handle        string
+	UserBank      solana.PublicKey
+	TokenDecimals uint64
 }
 
 type ClaimResult struct {
@@ -711,8 +716,9 @@ func (app *ApiServer) v1ClaimRewards(c *fiber.Ctx) error {
 					RecipientEthAddress: row.Wallet.String,
 					ClaimAuthority:      antiAbuseOracle.DelegateOwnerWallet,
 				},
-				Handle:   row.Handle.String,
-				UserBank: *bankAccount,
+				Handle:        row.Handle.String,
+				UserBank:      *bankAccount,
+				TokenDecimals: 8, // wAUDIO wei
 			}
 
 			validators := app.validators.GetNodes()

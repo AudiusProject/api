@@ -361,6 +361,41 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/redeem_amount_response'
+    post:
+      tags:
+        - coins
+      operationId: Claim Coin Reward
+      description: 'Claims a coin reward for a given mint'
+      parameters:
+      - name: mint
+        in: path
+        description: The mint address of the coin
+        required: true
+        schema:
+          type: string
+          example: 9LzCMqDgTKYz9Drzqnpgee3SGa89up3a247ypMj2xrqM
+      - name: user_id
+        in: query
+        description: The user ID of the user making the request
+        required: true
+        schema:
+          type: string
+      responses:
+        '200':
+          description: Success
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/claim_rewards_response'
+        '400':
+          description: Bad request - No coin reward available or already claimed
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/reward_code_error_response'
+        '500':
+          description: Server error
+          content: {}
   /coins/{mint}/redeem/{code}:
     get:
       tags:
@@ -395,6 +430,48 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/reward_code_error_response'
+    post:
+      tags:
+        - coins
+      operationId: Claim Coin Reward Code
+      description: 'Claims a coin reward using a given code'
+      parameters:
+      - name: mint
+        in: path
+        description: The mint address of the coin
+        required: true
+        schema:
+          type: string
+          example: 9LzCMqDgTKYz9Drzqnpgee3SGa89up3a247ypMj2xrqM
+      - name: code
+        in: path
+        description: The reward code to claim
+        required: true
+        schema:
+          type: string
+          example: XYZ123
+      - name: user_id
+        in: query
+        description: The user ID of the user making the request
+        required: true
+        schema:
+          type: string
+      responses:
+        '200':
+          description: Success
+          content:
+            application/json:
+              schema:
+               $ref: '#/components/schemas/claim_rewards_response'
+        '400':
+          description: Bad request - Code is invalid or already used
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/reward_code_error_response'
+        '500':
+          description: Server error
+          content: {}
   /rewards/code:
     post:
       tags:
@@ -11216,6 +11293,41 @@ components:
           type: array
           items:
             $ref: '#/components/schemas/comment'
+    claim_rewards_response:
+      type: object
+      required:
+        - data
+      properties:
+        data:
+          type: array
+          items:
+            type: object
+            required:
+              - challengeId
+              - specifier
+            properties:
+              challengeId:
+                type: string
+                description: The challenge ID
+                example: "u"
+              specifier:
+                type: string
+                description: The challenge specifier
+                example: "7eP5n"
+              amount:
+                type: string
+                description: The reward amount
+                example: "1000000000"
+              signatures:
+                type: array
+                items:
+                  type: string
+                description: Transaction signatures
+                example: ["5j7s1QjmRKFuDbCWMRVRNibSV2VAAEcNKP6HWU7GwPdXkBZvhz8n4vQl7bBq8tN4Rz9x1Kj3mP5wQ8rT2Y6zA"]
+              error:
+                type: string
+                description: Error message if claim failed
+                example: "Insufficient balance"
     comment_replies_response:
       required:
       - latest_chain_block
