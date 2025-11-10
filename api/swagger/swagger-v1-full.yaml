@@ -10617,6 +10617,7 @@ components:
       - push_body
       - short_description
       - title
+      - route
       type: object
       properties:
         title:
@@ -10626,6 +10627,8 @@ components:
         short_description:
           type: string
         long_description:
+          type: string
+        route:
           type: string
     comment_notification:
       required:
