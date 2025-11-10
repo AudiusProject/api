@@ -2,8 +2,9 @@
 -- PostgreSQL database dump
 --
 
--- Dumped from database version 17.5 (Debian 17.5-1.pgdg120+1)
--- Dumped by pg_dump version 17.5 (Debian 17.5-1.pgdg120+1)
+
+-- Dumped from database version 17.6 (Debian 17.6-1.pgdg13+1)
+-- Dumped by pg_dump version 17.6 (Debian 17.6-1.pgdg13+1)
 
 SET statement_timeout = 0;
 SET lock_timeout = 0;
@@ -6060,8 +6061,7 @@ CREATE TABLE public.artist_coins (
     link_2 text,
     link_3 text,
     link_4 text,
-    damm_v2_pool text,
-    direct_listing boolean DEFAULT false NOT NULL
+    damm_v2_pool text
 );
 
 
@@ -6077,13 +6077,6 @@ COMMENT ON TABLE public.artist_coins IS 'Stores the token mints for artist coins
 --
 
 COMMENT ON COLUMN public.artist_coins.damm_v2_pool IS 'The canonical DAMM V2 pool address for this artist coin, if any. Used in solana indexer.';
-
-
---
--- Name: COLUMN artist_coins.direct_listing; Type: COMMENT; Schema: public; Owner: -
---
-
-COMMENT ON COLUMN public.artist_coins.direct_listing IS 'Whether this coin was directly listed (bypassing the bonding curve). When true, curveProgress should be 1 and isMigrated should be true.';
 
 
 --
@@ -12257,4 +12250,5 @@ ALTER TABLE ONLY public.users
 --
 -- PostgreSQL database dump complete
 --
+
 
