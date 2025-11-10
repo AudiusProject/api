@@ -26,6 +26,7 @@ type Config struct {
 	Nodes                        []Node
 	StoreAllNodes                []string
 	DeadNodes                    []string
+	VerifierAddress              string
 	DelegatePrivateKey           string
 	AxiomToken                   string
 	AxiomDataset                 string
@@ -118,6 +119,7 @@ func init() {
 		Cfg.AudiusdEntityManagerAddress = core_config.StageAcdcAddress
 		Cfg.AudiusAppUrl = "https://staging.audius.co"
 		Cfg.RewardCodeAuthorizedKeys = []string{"9XeZbswbSSUU4AHVArQbTQjAEjAPhVweGU5cogBVkvh4", "GrWNH9qfwrvoCEoTm65hmnSh4z3CD96SfhtfQY6ZKUfY"}
+		Cfg.VerifierAddress = "0xbbbb93A6B3A1D6fDd27909729b95CCB0cc9002C0"
 	case "prod":
 		fallthrough
 	case "production":
@@ -139,6 +141,7 @@ func init() {
 		Cfg.AudiusdEntityManagerAddress = core_config.ProdAcdcAddress
 		Cfg.AudiusAppUrl = "https://audius.co"
 		Cfg.RewardCodeAuthorizedKeys = []string{"DDT15s6MMNxE4jkyGN46wNYqrgLWofT6WAvWtjYYrCUq"}
+		Cfg.VerifierAddress = "0xbeef8E42e8B5964fDD2b7ca8efA0d9aef38AA996"
 	default:
 		log.Fatalf("Unknown environment: %s", env)
 	}

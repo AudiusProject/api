@@ -193,8 +193,12 @@ func (app *ApiServer) relay(c *fiber.Ctx) error {
 		return fiber.NewError(fiber.StatusForbidden, "forbidden: signer does not match sender")
 	}
 
+	isVerifier := strings.EqualFold(wallet, config.Cfg.VerifierAddress)
 	_, anonymouslyAllowed := anonymouslyAllowedActions[operation]
-	if anonymouslyAllowed {
+
+	// skip auth check if verifier or operation is anonymously allowed
+	skipAuthCheck := isVerifier || anonymouslyAllowed
+	if skipAuthCheck {
 		logger.Info("operation is anonymously allowed")
 		msg, err := app.handleRelay(ctx, logger, decodedTx)
 		if err != nil {
