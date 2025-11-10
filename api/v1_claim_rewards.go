@@ -718,7 +718,7 @@ func (app *ApiServer) v1ClaimRewards(c *fiber.Ctx) error {
 				},
 				Handle:        row.Handle.String,
 				UserBank:      *bankAccount,
-				TokenDecimals: 1e8, // wAUDIO wei
+				TokenDecimals: 8, // wAUDIO wei
 			}
 
 			validators := app.validators.GetNodes()
