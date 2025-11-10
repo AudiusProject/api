@@ -217,8 +217,6 @@ func fetchAttestations(
 	hasAntiAbuseOracleAttestation bool,
 	minVotes int,
 ) ([]SenderAttestation, error) {
-
-	println(fmt.Sprintf("allValidators: %v", allValidators))
 	// Shuffle the validators
 	shuffled := slices.Clone(allValidators)
 	rand.Shuffle(len(shuffled), func(i, j int) {
@@ -311,9 +309,6 @@ func fetchAttestations(
 					node:        node,
 					attestation: attestation,
 					err:         err,
-				}
-				if err != nil {
-					println(fmt.Sprintf("failed to get validator attestation: %v", err))
 				}
 				return nil // Don't fail the group on individual validator errors
 			})
