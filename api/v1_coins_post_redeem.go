@@ -115,7 +115,6 @@ func (app *ApiServer) v1CoinsPostRedeem(c *fiber.Ctx) error {
 	if err != nil {
 		return fmt.Errorf("failed to get init pubkey for reward manager state address: %w", err)
 	}
-	tokenSourcePubkey, err := solana.PublicKeyFromBase58(tokenSourceAddress)
 	if err != nil {
 		return fmt.Errorf("failed to init pubkey for token source address: %w", err)
 	}
@@ -241,10 +240,9 @@ func (app *ApiServer) v1CoinsPostRedeem(c *fiber.Ctx) error {
 	}
 
 	decoratedRewardClaim := RewardClaim{
-		RewardClaim:   rewardClaim,
-		Handle:        userHandle,
-		UserBank:      *bankAccount,
-		TokenDecimals: uint64(coinDecimals),
+		RewardClaim: rewardClaim,
+		Handle:      userHandle,
+		UserBank:    *bankAccount,
 	}
 
 	claimMessage, err := rewardClaim.Compile()
@@ -305,7 +303,6 @@ func (app *ApiServer) v1CoinsPostRedeem(c *fiber.Ctx) error {
 		app.transactionSender,
 		decoratedRewardClaim,
 		attestations,
-		&tokenSourcePubkey,
 	)
 
 	if err != nil {
