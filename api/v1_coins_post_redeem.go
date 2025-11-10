@@ -4,7 +4,6 @@ import (
 	"encoding/hex"
 	"errors"
 	"fmt"
-	"math"
 	"net/http"
 	"strconv"
 	"strings"
@@ -261,7 +260,7 @@ func (app *ApiServer) v1CoinsPostRedeem(c *fiber.Ctx) error {
 
 		response, err := oap.Rewards.GetRewardAttestation(c.Context(), &v1.GetRewardAttestationRequest{
 			EthRecipientAddress: userWalletAddress,
-			Amount:              uint64(amount) / uint64(math.Pow10(int(coinDecimals))), // Convert from token decimals
+			Amount:              amount,
 			RewardAddress:       rewardAddress,
 			RewardId:            redeemCode,
 			Specifier:           specifier,
