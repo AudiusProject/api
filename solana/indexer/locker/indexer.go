@@ -9,7 +9,6 @@ import (
 
 	"api.audius.co/database"
 	"api.audius.co/solana/indexer/common"
-	"api.audius.co/solana/spl/programs/meteora_dbc"
 	"api.audius.co/solana/spl/programs/meteora_locker"
 	bin "github.com/gagliardetto/binary"
 	"github.com/gagliardetto/solana-go"
@@ -22,8 +21,8 @@ import (
 
 const (
 	NAME                       = "LockerIndexer"
-	MAX_POOLS_PER_SUBSCRIPTION = 10000 // Arbitrary
-	NOTIFICATION_NAME          = "dbc_pools_changed"
+	MAX_MINTS_PER_SUBSCRIPTION = 10000 // Arbitrary
+	NOTIFICATION_NAME          = "artist_coins_changed"
 )
 
 type Indexer struct {
@@ -145,32 +144,27 @@ func (d *Indexer) Start(ctx context.Context) {
 }
 
 func (d *Indexer) subscribe(ctx context.Context) ([]common.GrpcClient, error) {
-	// Fetch all DBC pools
-	pools, err := getAllDbcPools(ctx, d.pool)
-	if err != nil {
-		return nil, fmt.Errorf("failed to fetch DBC pools: %w", err)
-	}
-
-	d.logger.Info("subscribing to dbc pools", zap.Int("numPools", len(pools)))
-
-	// Create gRPC clients for each subscription batch
-	var grpcClients []common.GrpcClient
-
-	// Subscribe in batches to avoid exceeding limits
-	for i := 0; i < len(pools); i += MAX_POOLS_PER_SUBSCRIPTION {
-		end := i + MAX_POOLS_PER_SUBSCRIPTION
-		if end > len(pools) {
-			end = len(pools)
+	done := false
+	page := 0
+	pageSize := MAX_MINTS_PER_SUBSCRIPTION
+	grpcClients := make([]common.GrpcClient, 0)
+	total := 0
+	for !done {
+		mints, err := common.GetArtistCoinMints(ctx, d.pool, pageSize, page*pageSize)
+		if err != nil {
+			return nil, fmt.Errorf("failed to get artist coins: %w", err)
 		}
-		batch := pools[i:end]
+		if len(mints) == 0 {
+			d.logger.Info("no more artist coins to subscribe to, exiting")
+			return grpcClients, nil
+		}
+		total += len(mints)
+		d.logger.Debug("subscribing to artist coins...", zap.Int("count", len(mints)))
+		subscription, err := d.makeSubscriptionRequest(ctx, mints)
+		if err != nil {
+			return nil, fmt.Errorf("failed to make mint subscription request: %w", err)
+		}
 
-		d.logger.Info("creating locker subscription batch",
-			zap.Int("startIndex", i),
-			zap.Int("endIndex", end),
-			zap.Int("batchSize", len(batch)),
-		)
-
-		subscription := d.makeSubscriptionRequest(ctx, batch)
 		handleMessage := func(ctx context.Context, update *pb.SubscribeUpdate) {
 			err := d.HandleUpdate(ctx, update)
 			if err != nil {
@@ -182,26 +176,26 @@ func (d *Indexer) subscribe(ctx context.Context) ([]common.GrpcClient, error) {
 			}
 		}
 
-		client := common.NewGrpcClient(d.grpcConfig)
-		err := client.Subscribe(ctx, subscription, handleMessage, func(err error) {
-			d.logger.Error("subscription error", zap.Error(err))
+		grpcClient := common.NewGrpcClient(d.grpcConfig)
+		err = grpcClient.Subscribe(ctx, subscription, handleMessage, func(err error) {
+			d.logger.Error("error in token subscription", zap.Error(err))
 		})
 		if err != nil {
-			return nil, fmt.Errorf("failed to start subscription: %w", err)
+			return nil, fmt.Errorf("failed to subscribe to artist coins: %w", err)
 		}
+		grpcClients = append(grpcClients, grpcClient)
 
-		d.logger.Info("subscribed to locker programs",
-			zap.Int("numPools", len(batch)),
-		)
-
-		grpcClients = append(grpcClients, client)
+		if len(mints) < pageSize {
+			done = true
+		}
+		page++
 	}
-
+	d.logger.Info("subscribed to artist coins", zap.Int("count", total))
 	return grpcClients, nil
 }
 
 // Makes a subscription to the relevant locker accounts and adds slot checkpointing
-func (d *Indexer) makeSubscriptionRequest(ctx context.Context, pools []string) *pb.SubscribeRequest {
+func (d *Indexer) makeSubscriptionRequest(ctx context.Context, mints []string) (*pb.SubscribeRequest, error) {
 	commitment := pb.CommitmentLevel_CONFIRMED
 	subscription := &pb.SubscribeRequest{
 		Commitment: &commitment,
@@ -209,20 +203,29 @@ func (d *Indexer) makeSubscriptionRequest(ctx context.Context, pools []string) *
 
 	// Listen to all lockers
 	subscription.Accounts = make(map[string]*pb.SubscribeRequestFilterAccounts)
-	subscription.Accounts["lockers"] = &pb.SubscribeRequestFilterAccounts{
-		Owner:   []string{meteora_locker.ProgramID.String()},
-		Account: make([]string, len(pools)),
-	}
-	for i, pool := range pools {
-		baseKey := meteora_dbc.DeriveBaseKeyForEscrow(solana.MustPublicKeyFromBase58(pool))
-		escrowKey := meteora_dbc.DeriveEscrow(baseKey)
-		subscription.Accounts["lockers"].Account[i] = escrowKey.String()
+	for _, mint := range mints {
+		accountFilter := pb.SubscribeRequestFilterAccounts{
+			Owner: []string{meteora_locker.ProgramID.String()},
+			Filters: []*pb.SubscribeRequestFilterAccountsFilter{
+				{
+					Filter: &pb.SubscribeRequestFilterAccountsFilter_Memcmp{
+						Memcmp: &pb.SubscribeRequestFilterAccountsFilterMemcmp{
+							Offset: 8 + 32, // Discriminator + recipient pubkey
+							Data: &pb.SubscribeRequestFilterAccountsFilterMemcmp_Base58{
+								Base58: mint,
+							},
+						},
+					},
+				},
+			},
+		}
+		subscription.Accounts[mint] = &accountFilter
 	}
 
 	// Ensure this subscription has a checkpoint
 	checkpointId, fromSlot, err := common.EnsureCheckpoint(ctx, NAME, d.pool, d.rpcClient, subscription, d.logger)
 	if err != nil {
-		d.logger.Error("failed to ensure checkpoint", zap.Error(err))
+		return nil, fmt.Errorf("failed to set from slot: %w", err)
 	}
 
 	// Set the from slot for the subscription
@@ -232,7 +235,7 @@ func (d *Indexer) makeSubscriptionRequest(ctx context.Context, pools []string) *
 	subscription.Slots = make(map[string]*pb.SubscribeRequestFilterSlots)
 	subscription.Slots[checkpointId] = &pb.SubscribeRequestFilterSlots{}
 
-	return subscription
+	return subscription, nil
 }
 
 func (d *Indexer) HandleUpdate(ctx context.Context, update *pb.SubscribeUpdate) error {
@@ -286,20 +289,4 @@ func processLockerAccountUpdate(
 	)
 
 	return nil
-}
-
-func getAllDbcPools(ctx context.Context, db database.DBTX) ([]string, error) {
-	sql := `
-		SELECT account
-		FROM sol_meteora_dbc_pools
-	`
-	rows, err := db.Query(ctx, sql)
-	if err != nil {
-		return nil, fmt.Errorf("failed to query dbc pools: %w", err)
-	}
-	pools, err := pgx.CollectRows(rows, pgx.RowTo[string])
-	if err != nil {
-		return nil, fmt.Errorf("failed to collect dbc pools: %w", err)
-	}
-	return pools, nil
 }
