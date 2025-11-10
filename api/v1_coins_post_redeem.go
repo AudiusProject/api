@@ -121,8 +121,6 @@ func (app *ApiServer) v1CoinsPostRedeem(c *fiber.Ctx) error {
 		return fmt.Errorf("failed to init pubkey for token source address: %w", err)
 	}
 
-	println(fmt.Sprintf("rewardManagerPubkey: %s", rewardManagerPubkey))
-
 	// Ensure ProgramID is set correctly for PDA derivation
 	reward_manager.SetProgramID(app.solanaConfig.RewardManagerProgramID)
 
@@ -144,7 +142,6 @@ func (app *ApiServer) v1CoinsPostRedeem(c *fiber.Ctx) error {
 		common.HexToAddress(userWalletAddress),
 		mint,
 	)
-	println(fmt.Sprintf("bankAccount: %s", bankAccount.String()))
 	if err != nil {
 		return fmt.Errorf("failed to get or create user bank: %w", err)
 	}
@@ -283,7 +280,6 @@ func (app *ApiServer) v1CoinsPostRedeem(c *fiber.Ctx) error {
 		}
 		signatureBytes, err := hex.DecodeString(strings.TrimPrefix(signature, "0x"))
 		if err != nil {
-			println(fmt.Sprintf("failed to decode signature: %v", err))
 			continue
 		}
 
