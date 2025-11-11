@@ -11,7 +11,7 @@ begin
 		-- check if reward_codes table has an entry where code equals new.challenge_id
 		select exists(select 1 from reward_codes where code = new.challenge_id) into reward_code_exists;
 
-		if reward_code_exists then
+		if not reward_code_exists then
 			select id into existing_notification
 			from notification
 			where
