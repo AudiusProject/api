@@ -163,6 +163,12 @@ func NewApiServer(config config.Config) *ApiServer {
 	}
 
 	openAudioSDK := sdk.NewOpenAudioSDK(config.AudiusdURL)
+	// Build OpenAudio pool URLs; fall back to single URL if none provided
+	openAudioURLs := config.OpenAudioURLs
+	if len(openAudioURLs) == 0 {
+		openAudioURLs = []string{config.AudiusdURL}
+	}
+	openAudioPool := NewOpenAudioPool(openAudioURLs, logger)
 
 	skipAuthCheck, _ := strconv.ParseBool(os.Getenv("skipAuthCheck"))
 
@@ -213,6 +219,7 @@ func NewApiServer(config config.Config) *ApiServer {
 		antiAbuseOracles:      config.AntiAbuseOracles,
 		validators:            NewNodes(),
 		openAudioSDK:          openAudioSDK,
+		openAudioPool:         openAudioPool,
 		metricsCollector:      metricsCollector,
 		birdeyeClient:         birdeye.New(config.BirdeyeToken),
 		solanaRpcClient:       solanaRpc,
@@ -646,6 +653,7 @@ type ApiServer struct {
 	meteoraDbcClient      *meteora_dbc.Client
 	contentNodeMonitor    *ContentNodeMonitor
 	validators            *Nodes
+	openAudioPool         *OpenAudioPool
 }
 
 func (app *ApiServer) home(c *fiber.Ctx) error {
