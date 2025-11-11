@@ -114,7 +114,11 @@ const sharedSelectCoinSql = `
 			artist_coins.has_discord,
 			artist_coins.created_at,
 			artist_coins.updated_at as coin_updated_at,
-			COALESCE(artist_coin_stats.market_cap, 0) as market_cap,
+			CASE
+				WHEN COALESCE(artist_coin_stats.market_cap, 0) = 0 
+				THEN COALESCE(artist_coin_stats.circulating_supply, 0) * COALESCE(artist_coin_prices.price, 0)
+				ELSE artist_coin_stats.market_cap
+			END as market_cap,
 			COALESCE(artist_coin_stats.fdv, 0) as fdv,
 			COALESCE(artist_coin_stats.liquidity, 0) as liquidity,
 			COALESCE(artist_coin_stats.last_trade_unix_time, 0) as last_trade_unix_time,
