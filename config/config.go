@@ -189,6 +189,11 @@ func init() {
 				OwnerWallet:         "0xe4882D9A38A2A1fc652996719AF0fb15CB968d0a",
 			},
 			{
+				DelegateOwnerWallet: "0x627d23D17a3eAaDB1D3823e73Ab80D474023Acab",
+				Endpoint:            "https://audius.bragi.cc",
+				OwnerWallet:         "0xC88C8F9a15453c7D8Ea83120Af54cc4C40EC094a",
+			},
+			{
 				DelegateOwnerWallet: "0x422541273087beC833c57D3c15B9e17F919bFB1F",
 				Endpoint:            "https://dn2.monophonic.digital",
 				OwnerWallet:         "0x6470Daf3bd32f5014512bCdF0D02232f5640a5BD",
