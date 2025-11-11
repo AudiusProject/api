@@ -3,8 +3,8 @@
 --
 
 
--- Dumped from database version 17.6 (Debian 17.6-1.pgdg13+1)
--- Dumped by pg_dump version 17.6 (Debian 17.6-1.pgdg13+1)
+-- Dumped from database version 17.6 (Debian 17.6-2.pgdg13+1)
+-- Dumped by pg_dump version 17.6 (Debian 17.6-2.pgdg13+1)
 
 SET statement_timeout = 0;
 SET lock_timeout = 0;
@@ -986,7 +986,24 @@ CREATE FUNCTION public.calculate_artist_coin_fee_earnings(artist_coin_mint text)
     LANGUAGE sql
     AS $$
     WITH
-    damm_fees AS (
+    artist_positions AS (
+        SELECT
+            first_position AS position,
+            damm_v2_pool AS pool,
+            base_mint AS mint
+        FROM sol_meteora_dbc_migrations
+        WHERE base_mint = artist_coin_mint
+
+        UNION ALL
+
+        SELECT
+            position,
+            pool,
+            token_a_mint AS mint
+        FROM sol_meteora_damm_v2_initialize_custom_pool_instructions
+        WHERE token_a_mint = artist_coin_mint
+    ),
+    damm_v2_fees AS (
         -- fee = totalLiquidity * feePerTokenStore
         -- precision: (totalLiquidity * feePerTokenStore) >> 128
         -- See: https://github.com/MeteoraAg/damm-v2-sdk/blob/70d1af59689039a1dc700dee8f741db48024d02d/src/helpers/utils.ts#L190-L191
@@ -999,7 +1016,7 @@ CREATE FUNCTION public.calculate_artist_coin_fee_earnings(artist_coin_mint text)
                 )
                 / POWER (2, 128)
                 + position.fee_b_pending
-            ) AS total_damm_v2_fees,
+            ) AS total,
             (
                 (pool.fee_b_per_liquidity - position.fee_b_per_token_checkpoint)
                 * (
@@ -1007,26 +1024,30 @@ CREATE FUNCTION public.calculate_artist_coin_fee_earnings(artist_coin_mint text)
                 )
                 / POWER (2, 128)
                 + position.fee_b_pending
-            ) AS unclaimed_damm_v2_fees
+            ) AS unclaimed
         FROM sol_meteora_damm_v2_pools pool
-        JOIN sol_meteora_dbc_migrations migration ON migration.base_mint = pool.token_a_mint
-        JOIN sol_meteora_damm_v2_positions position ON position.account = migration.first_position
+        JOIN artist_positions p ON pool.account = p.pool
+        JOIN sol_meteora_damm_v2_positions position ON p.position = position.account
         WHERE pool.token_a_mint = artist_coin_mint
     ),
     dbc_fees AS (
         SELECT
             base_mint AS mint,
-            total_trading_quote_fee / 2 AS total_dbc_fees,
-            creator_quote_fee AS unclaimed_dbc_fees
+            total_trading_quote_fee / 2 AS total,
+            creator_quote_fee AS unclaimed
         FROM artist_coin_pools
         WHERE base_mint = artist_coin_mint
+    ),
+    all_fees AS (
+        SELECT * FROM damm_v2_fees
+        UNION ALL
+        SELECT * FROM dbc_fees
     )
     SELECT
-        FLOOR(COALESCE(dbc_fees.unclaimed_dbc_fees, 0) + COALESCE(damm_fees.unclaimed_damm_v2_fees, 0)) AS unclaimed_fees,
-        FLOOR(COALESCE(dbc_fees.total_dbc_fees, 0) + COALESCE(damm_fees.total_damm_v2_fees, 0)) AS total_fees
+        COALESCE(FLOOR(SUM(unclaimed)), 0) AS unclaimed_fees,
+        COALESCE(FLOOR(SUM(total)), 0) AS total_fees
     FROM artist_coins
-    LEFT JOIN dbc_fees USING (mint)
-    FULL OUTER JOIN damm_fees USING (mint)
+    LEFT JOIN all_fees USING (mint)
     WHERE artist_coins.mint = artist_coin_mint;
 $$;
 
@@ -2168,34 +2189,40 @@ CREATE FUNCTION public.handle_challenge_disbursement() RETURNS trigger
 declare
   reward_manager_tx reward_manager_txs%ROWTYPE;
 	existing_notification integer;
+	reward_code_exists boolean;
 begin
 
   select * into reward_manager_tx from reward_manager_txs where reward_manager_txs.signature = new.signature limit 1;
 
   if reward_manager_tx is not null then
-		select id into existing_notification 
-		from notification
-		where
-		type = 'challenge_reward' and
-		new.user_id = any(user_ids) and
-		timestamp >= (new.created_at - interval '1 hour')
-		limit 1;
-		
-		if existing_notification is null then
-			-- create a notification for the challenge disbursement
-			insert into notification
-			(slot, user_ids, timestamp, type, group_id, specifier, data)
-			values
-			(
-				new.slot,
-				ARRAY [new.user_id],
-				new.created_at,
-				'challenge_reward',
-				'challenge_reward:' || new.user_id || ':challenge:' || new.challenge_id || ':specifier:' || new.specifier,
-				new.user_id,
-				json_build_object('specifier', new.specifier, 'challenge_id', new.challenge_id, 'amount', new.amount)
-			)
-			on conflict do nothing;
+		-- check if reward_codes table has an entry where code equals new.challenge_id
+		select exists(select 1 from reward_codes where code = new.challenge_id) into reward_code_exists;
+
+		if not reward_code_exists then
+			select id into existing_notification
+			from notification
+			where
+			type = 'challenge_reward' and
+			new.user_id = any(user_ids) and
+			timestamp >= (new.created_at - interval '1 hour')
+			limit 1;
+
+			if existing_notification is null then
+				-- create a notification for the challenge disbursement
+				insert into notification
+				(slot, user_ids, timestamp, type, group_id, specifier, data)
+				values
+				(
+					new.slot,
+					ARRAY [new.user_id],
+					new.created_at,
+					'challenge_reward',
+					'challenge_reward:' || new.user_id || ':challenge:' || new.challenge_id || ':specifier:' || new.specifier,
+					new.user_id,
+					json_build_object('specifier', new.specifier, 'challenge_id', new.challenge_id, 'amount', new.amount)
+				)
+				on conflict do nothing;
+			end if;
 		end if;
   end if;
   return null;
@@ -7687,6 +7714,59 @@ CREATE TABLE public.sol_locker_vesting_escrows (
 
 
 --
+-- Name: sol_meteora_damm_v2_initialize_custom_pool_instructions; Type: TABLE; Schema: public; Owner: -
+--
+
+CREATE TABLE public.sol_meteora_damm_v2_initialize_custom_pool_instructions (
+    signature text NOT NULL,
+    instruction_index integer NOT NULL,
+    slot bigint NOT NULL,
+    creator text,
+    position_nft_mint text,
+    position_nft_account text,
+    payer text,
+    pool_authority text,
+    pool text,
+    "position" text,
+    token_a_mint text,
+    token_b_mint text,
+    token_a_vault text,
+    token_b_vault text,
+    payer_token_a text,
+    payer_token_b text,
+    token_a_program text,
+    token_b_program text,
+    token_2022_program text,
+    system_program text,
+    event_authority text,
+    program text,
+    remaining_accounts jsonb DEFAULT '[]'::jsonb,
+    base_fee_cliff_fee_numerator bigint,
+    base_fee_first_factor integer,
+    base_fee_second_factor_max_limiter_duration integer,
+    base_fee_second_factor_max_fee_bps integer,
+    base_fee_third_factor bigint,
+    base_fee_mode smallint,
+    dynamic_fee_bin_step smallint,
+    dynamic_fee_bin_step_u128 numeric,
+    dynamic_fee_filter_period smallint,
+    dynamic_fee_decay_period smallint,
+    dynamic_fee_reduction_factor smallint,
+    dynamic_fee_max_volatility_accumulator integer,
+    dynamic_fee_variable_fee_control integer,
+    created_at timestamp with time zone DEFAULT now(),
+    updated_at timestamp with time zone DEFAULT now()
+);
+
+
+--
+-- Name: TABLE sol_meteora_damm_v2_initialize_custom_pool_instructions; Type: COMMENT; Schema: public; Owner: -
+--
+
+COMMENT ON TABLE public.sol_meteora_damm_v2_initialize_custom_pool_instructions IS 'Tracks InitializeCustomPool instructions for DAMM V2 pools.';
+
+
+--
 -- Name: sol_meteora_damm_v2_pool_base_fees; Type: TABLE; Schema: public; Owner: -
 --
 
@@ -9901,6 +9981,14 @@ ALTER TABLE ONLY public.sol_locker_vesting_escrows
 
 
 --
+-- Name: sol_meteora_damm_v2_initialize_custom_pool_instructions sol_meteora_damm_v2_initialize_custom_pool_instructions_pkey; Type: CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.sol_meteora_damm_v2_initialize_custom_pool_instructions
+    ADD CONSTRAINT sol_meteora_damm_v2_initialize_custom_pool_instructions_pkey PRIMARY KEY (signature, instruction_index);
+
+
+--
 -- Name: sol_meteora_damm_v2_pool_base_fees sol_meteora_damm_v2_pool_base_fees_pkey; Type: CONSTRAINT; Schema: public; Owner: -
 --
 
@@ -11258,6 +11346,20 @@ CREATE INDEX sol_claimable_accounts_ethereum_address_idx ON public.sol_claimable
 --
 
 COMMENT ON INDEX public.sol_claimable_accounts_ethereum_address_idx IS 'Used for getting account by user wallet and mint.';
+
+
+--
+-- Name: sol_meteora_damm_v2_initialize_custom_pool_instructions_token_a; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX sol_meteora_damm_v2_initialize_custom_pool_instructions_token_a ON public.sol_meteora_damm_v2_initialize_custom_pool_instructions USING btree (token_a_mint);
+
+
+--
+-- Name: INDEX sol_meteora_damm_v2_initialize_custom_pool_instructions_token_a; Type: COMMENT; Schema: public; Owner: -
+--
+
+COMMENT ON INDEX public.sol_meteora_damm_v2_initialize_custom_pool_instructions_token_a IS 'Used for finding artist positions by token_a_mint.';
 
 
 --

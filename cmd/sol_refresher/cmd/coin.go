@@ -125,6 +125,18 @@ var coinCmd = &cobra.Command{
 			}
 		}
 
+		dammV2Inits := make(map[string]string)
+		for _, position := range dammV2Positions {
+			migrationOrInit, err := findMigrationOrInitForPosition(ctx, rpcClient, solana.MustPublicKeyFromBase58(position))
+			if err != nil {
+				return fmt.Errorf("failed to find migration or init for position %s: %w", position, err)
+			}
+			if migrationOrInit != nil {
+				fmt.Printf("Found migration or init tx %s for position %s\n", *migrationOrInit, position)
+				dammV2Inits[position] = *migrationOrInit
+			}
+		}
+
 		lockers := make([]string, 0)
 		lock, err := cmd.Flags().GetString("locker")
 		if err != nil {
@@ -197,6 +209,16 @@ var coinCmd = &cobra.Command{
 			sql, err := refreshAccount(ctx, rpcClient, damm_v2.NAME, position, memo, position)
 			if err != nil {
 				return fmt.Errorf("failed to refresh Damm V2 position: %w", err)
+			}
+			updates = append(updates, sql)
+		}
+
+		for position, txSig := range dammV2Inits {
+			fmt.Println("Refreshing Damm V2 init tx:\t", txSig)
+			memo := fmt.Sprintf("Coin %s refresh Damm V2 init/migration %s", mint, txSig)
+			sql, err := refreshAccount(ctx, rpcClient, damm_v2.NAME, position, memo, txSig)
+			if err != nil {
+				return fmt.Errorf("failed to refresh Damm V2 init/migration tx: %w", err)
 			}
 			updates = append(updates, sql)
 		}
@@ -417,29 +439,130 @@ func findLockersForMintAndDbcPools(ctx context.Context, rpcClient *rpc.Client, m
 	return temp, nil
 }
 
-func refreshAccount(ctx context.Context, rpcClient *rpc.Client, indexer string, address string, memo string, filterName string) (string, error) {
-	pubKey := solana.MustPublicKeyFromBase58(address)
-
-	if filterName == "" {
-		filterName = address
+func findMigrationOrInitForPosition(ctx context.Context, rpcClient *rpc.Client, position solana.PublicKey) (*string, error) {
+	fmt.Printf("\nSearching for DBC migrations or inits for position %s...\n", position)
+	signatures, err := rpcClient.GetSignaturesForAddress(ctx, position)
+	if err != nil {
+		return nil, fmt.Errorf("failed to get signatures for address %s: %w", position, err)
 	}
+	if len(signatures) == 0 {
+		fmt.Println("No DBC migrations or inits found")
+		return nil, nil
+	}
+
+	fmt.Printf("Checking %d transactions for DBC migrations or inits...\n", len(signatures))
+
+	version := uint64(0)
+	for _, sig := range signatures {
+		signature := sig.Signature.String()
+		txRes, err := rpcClient.GetTransaction(ctx, sig.Signature, &rpc.GetTransactionOpts{
+			MaxSupportedTransactionVersion: &version,
+		})
+		if err != nil {
+			return nil, fmt.Errorf("failed to get transaction %s: %w", sig.Signature, err)
+		}
+		if txRes == nil || txRes.Transaction == nil {
+			fmt.Println("Transaction result or transaction is nil for signature:", sig.Signature)
+			continue
+		}
+
+		// Decode the transaction
+		tx, err := txRes.Transaction.GetTransaction()
+		if err != nil {
+			return nil, fmt.Errorf("failed to decode transaction: %w", err)
+		}
+
+		// Check if the transaction contains a DBC migration or init instruction
+		for instructionIndex, instruction := range tx.Message.Instructions {
+			if int(instruction.ProgramIDIndex) >= len(tx.Message.AccountKeys) {
+				continue
+			}
+			programID := tx.Message.AccountKeys[instruction.ProgramIDIndex]
+			switch programID {
+			case meteora_dbc.ProgramID:
+				{
+					accounts, err := instruction.ResolveInstructionAccounts(&tx.Message)
+					if err != nil {
+						return nil, fmt.Errorf("error resolving instruction accounts: %w", err)
+					}
+
+					inst, err := meteora_dbc.DecodeInstruction(accounts, instruction.Data)
+					if err != nil {
+						// Ignore unknown instruction types.
+						// Not all DBC instruction types are implemented yet.
+						// See: solana/spl/programs/meteora_dbc/instruction.go
+						// See: https://github.com/gagliardetto/binary/blob/v0.8.0/variant.go#L315
+						if strings.Contains(err.Error(), "no known type for type") {
+							continue // ignore unknown instruction types
+						}
+						return nil, fmt.Errorf("error decoding meteora_dbc instruction %d: %w", instructionIndex, err)
+					}
+
+					switch inst.TypeID {
+					case meteora_dbc.InstructionImplDef.TypeID(meteora_dbc.Instruction_MigrationDammV2):
+						{
+							return &signature, nil
+						}
+					}
+				}
+			case meteora_damm_v2.ProgramID:
+				{
+					accounts, err := instruction.ResolveInstructionAccounts(&tx.Message)
+					if err != nil {
+						return nil, fmt.Errorf("error resolving instruction accounts: %w", err)
+					}
+
+					inst, err := meteora_damm_v2.DecodeInstruction(accounts, instruction.Data)
+					if err != nil {
+						// Ignore unknown instruction types.
+						// Not all DammV2 instruction types are implemented yet.
+						// See: solana/spl/programs/meteora_damm_v2/instruction.go
+						// See: https://github.com/gagliardetto/binary/blob/v0.8.0/variant.go#L315
+						if strings.Contains(err.Error(), "no known type for type") {
+							continue // ignore unknown instruction types
+						}
+						return nil, fmt.Errorf("error decoding meteora_damm_v2 instruction %d: %w", instructionIndex, err)
+					}
+
+					switch inst.TypeID {
+					case meteora_damm_v2.InstructionImplDef.TypeID(meteora_damm_v2.Instruction_InitializeCustomPool):
+						{
+							return &signature, nil
+						}
+					}
+				}
+			}
+		}
+	}
+	fmt.Println("No DBC migrations or inits found")
+	return nil, nil
+}
+
+func refreshAccount(ctx context.Context, rpcClient *rpc.Client, indexer string, address string, memo string, filterName string) (string, error) {
+	return refreshAccountWithTx(ctx, rpcClient, indexer, address, memo, filterName, solana.Signature{})
+}
+
+func refreshAccountWithTx(ctx context.Context, rpcClient *rpc.Client, indexer string, address string, memo string, filterName string, txSig solana.Signature) (string, error) {
+	pubKey := solana.MustPublicKeyFromBase58(address)
 
 	accRes, err := rpcClient.GetAccountInfo(ctx, pubKey)
 	if err != nil {
 		return "", fmt.Errorf("failed to get account info for address %s: %w", address, err)
 	}
 
-	limit := 1
-	txRes, err := rpcClient.GetSignaturesForAddressWithOpts(ctx, pubKey, &rpc.GetSignaturesForAddressOpts{
-		Limit: &limit,
-	})
-	if err != nil {
-		return "", fmt.Errorf("failed to get signatures for address %s: %w", address, err)
+	if txSig.IsZero() {
+		limit := 1
+		txRes, err := rpcClient.GetSignaturesForAddressWithOpts(ctx, pubKey, &rpc.GetSignaturesForAddressOpts{
+			Limit: &limit,
+		})
+		if err != nil {
+			return "", fmt.Errorf("failed to get signatures for address %s: %w", address, err)
+		}
+		if len(txRes) == 0 {
+			return "", fmt.Errorf("no transactions found for address %s", address)
+		}
+		txSig = txRes[0].Signature
 	}
-	if len(txRes) == 0 {
-		return "", fmt.Errorf("no transactions found for address %s", address)
-	}
-	txSig := txRes[0].Signature
 
 	slot := accRes.Context.Slot
 

@@ -130,3 +130,27 @@ type PositionState struct {
 	RewardInfos              [2]UserRewardInfo
 	Padding                  [6]bin.Uint128
 }
+
+type PoolFeesParameters struct {
+	BaseFee    BaseFeeParameters
+	Padding    [4]uint8
+	DynamicFee DynamicFeeParameters
+}
+
+type BaseFeeParameters struct {
+	CliffFeeNumerator uint64
+	FirstFactor       uint16
+	SecondFactor      [8]uint8
+	ThirdFactor       uint64
+	BaseFeeMode       uint8
+}
+
+type DynamicFeeParameters struct {
+	BinStep                  uint16
+	BinStepU128              bin.Uint128
+	FilterPeriod             uint16
+	DecayPeriod              uint16
+	ReductionFactor          uint16
+	MaxVolatilityAccumulator uint32
+	VariableFeeControl       uint32
+}
