@@ -158,7 +158,7 @@ func insertDammV2InitializeCustomPool(
     ON CONFLICT DO NOTHING
     `
 
-	RateLimiterParams, err := meteora_damm_v2.ParseRateLimiterSecondFactor(inst.PoolFees.BaseFee.SecondFactor[:])
+	rateLimiterParams, err := meteora_damm_v2.ParseRateLimiterSecondFactor(inst.PoolFees.BaseFee.SecondFactor[:])
 	if err != nil {
 		return fmt.Errorf("failed to parse rate limiter params: %w", err)
 	}
@@ -190,8 +190,8 @@ func insertDammV2InitializeCustomPool(
 
 		"base_fee_cliff_fee_numerator":                inst.PoolFees.BaseFee.CliffFeeNumerator,
 		"base_fee_first_factor":                       inst.PoolFees.BaseFee.FirstFactor,
-		"base_fee_second_factor_max_limiter_duration": RateLimiterParams.MaxLimiterDuration,
-		"base_fee_second_factor_max_fee_bps":          RateLimiterParams.MaxFeeBps,
+		"base_fee_second_factor_max_limiter_duration": rateLimiterParams.MaxLimiterDuration,
+		"base_fee_second_factor_max_fee_bps":          rateLimiterParams.MaxFeeBps,
 		"base_fee_third_factor":                       inst.PoolFees.BaseFee.ThirdFactor,
 		"base_fee_mode":                               inst.PoolFees.BaseFee.BaseFeeMode,
 		"dynamic_fee_bin_step":                        inst.PoolFees.DynamicFee.BinStep,

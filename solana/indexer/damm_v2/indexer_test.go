@@ -70,6 +70,8 @@ func TestHandleUpdate_DammV2PoolUpdate(t *testing.T) {
 	require.NoError(t, err)
 
 	// Fetched using RPC call and copy/pasted the result
+	// Note: Different pool than above - this is for the initialize custom pool instruction
+	customPoolAddress := solana.MustPublicKeyFromBase58("E8TpFM2ozexsghsymEn7YMTyb2t3rqndZSepZpgw7kzG")
 	respJsonBytes, err := os.ReadFile("./initialize_custom_pool_test_fixture.json")
 	require.NoError(t, err)
 	respJson := string(respJsonBytes)
@@ -193,7 +195,7 @@ func TestHandleUpdate_DammV2PoolUpdate(t *testing.T) {
 		)
 	`
 	err = pool.QueryRow(t.Context(), sql, pgx.NamedArgs{
-		"pool": address.String(),
+		"pool": customPoolAddress.String(),
 	}).Scan(&exists)
 	require.NoError(t, err, "failed to query for damm v2 initialize custom pool instruction")
 	assert.True(t, exists, "damm v2 initialize custom pool instruction should exist after indexing")
