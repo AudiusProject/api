@@ -214,13 +214,26 @@ func TestHandleUpdate_DammV2PositionUpdate(t *testing.T) {
 	positionData, err := base64.StdEncoding.DecodeString(positionBase64)
 	require.NoError(t, err)
 
+	// Fetched using RPC call and copy/pasted the result
+	respJsonBytes, err := os.ReadFile("./initialize_custom_pool_test_fixture.json")
+	require.NoError(t, err)
+	respJson := string(respJsonBytes)
+
+	var resp rpc.GetTransactionResult
+	err = json.Unmarshal([]byte(respJson), &resp)
+	require.NoError(t, err)
+
+	txSig := solana.MustSignatureFromBase58("15MXZTj3xSnHNK9zP6irPz8vb27gaXeP9DnXWztN32xvgoXaTcHvWwdyBJkf6PET4NxLZHvRKTwTsbVcDi7WZRH")
+	transactionCache.Set(txSig, &resp)
+
 	update := pb.SubscribeUpdate{
 		Filters: []string{address.String()},
 		UpdateOneof: &pb.SubscribeUpdate_Account{
 			Account: &pb.SubscribeUpdateAccount{
 				Account: &pb.SubscribeUpdateAccountInfo{
-					Pubkey: address.Bytes(),
-					Data:   positionData,
+					Pubkey:       address.Bytes(),
+					Data:         positionData,
+					TxnSignature: txSig[:],
 				},
 			},
 		},

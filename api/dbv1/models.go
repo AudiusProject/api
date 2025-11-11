@@ -1683,6 +1683,48 @@ type SolLockerVestingEscrow struct {
 	UpdatedAt           *time.Time `json:"updated_at"`
 }
 
+// Tracks InitializeCustomPool instructions for DAMM V2 pools.
+type SolMeteoraDammV2InitializeCustomPoolInstruction struct {
+	Signature                             string             `json:"signature"`
+	InstructionIndex                      int32              `json:"instruction_index"`
+	Slot                                  int64              `json:"slot"`
+	Creator                               pgtype.Text        `json:"creator"`
+	PositionNftMint                       pgtype.Text        `json:"position_nft_mint"`
+	PositionNftAccount                    pgtype.Text        `json:"position_nft_account"`
+	Payer                                 pgtype.Text        `json:"payer"`
+	PoolAuthority                         pgtype.Text        `json:"pool_authority"`
+	Pool                                  pgtype.Text        `json:"pool"`
+	Position                              pgtype.Text        `json:"position"`
+	TokenAMint                            pgtype.Text        `json:"token_a_mint"`
+	TokenBMint                            pgtype.Text        `json:"token_b_mint"`
+	TokenAVault                           pgtype.Text        `json:"token_a_vault"`
+	TokenBVault                           pgtype.Text        `json:"token_b_vault"`
+	PayerTokenA                           pgtype.Text        `json:"payer_token_a"`
+	PayerTokenB                           pgtype.Text        `json:"payer_token_b"`
+	TokenAProgram                         pgtype.Text        `json:"token_a_program"`
+	TokenBProgram                         pgtype.Text        `json:"token_b_program"`
+	Token2022Program                      pgtype.Text        `json:"token_2022_program"`
+	SystemProgram                         pgtype.Text        `json:"system_program"`
+	EventAuthority                        pgtype.Text        `json:"event_authority"`
+	Program                               pgtype.Text        `json:"program"`
+	RemainingAccounts                     []byte             `json:"remaining_accounts"`
+	BaseFeeCliffFeeNumerator              pgtype.Int8        `json:"base_fee_cliff_fee_numerator"`
+	BaseFeeFirstFactor                    pgtype.Int4        `json:"base_fee_first_factor"`
+	BaseFeeSecondFactorMaxLimiterDuration pgtype.Int4        `json:"base_fee_second_factor_max_limiter_duration"`
+	BaseFeeSecondFactorMaxFeeBps          pgtype.Int4        `json:"base_fee_second_factor_max_fee_bps"`
+	BaseFeeThirdFactor                    pgtype.Int8        `json:"base_fee_third_factor"`
+	BaseFeeMode                           pgtype.Int2        `json:"base_fee_mode"`
+	DynamicFeeBinStep                     pgtype.Int2        `json:"dynamic_fee_bin_step"`
+	DynamicFeeBinStepU128                 pgtype.Numeric     `json:"dynamic_fee_bin_step_u128"`
+	DynamicFeeFilterPeriod                pgtype.Int2        `json:"dynamic_fee_filter_period"`
+	DynamicFeeDecayPeriod                 pgtype.Int2        `json:"dynamic_fee_decay_period"`
+	DynamicFeeReductionFactor             pgtype.Int2        `json:"dynamic_fee_reduction_factor"`
+	DynamicFeeMaxVolatilityAccumulator    pgtype.Int4        `json:"dynamic_fee_max_volatility_accumulator"`
+	DynamicFeeVariableFeeControl          pgtype.Int4        `json:"dynamic_fee_variable_fee_control"`
+	CreatedAt                             pgtype.Timestamptz `json:"created_at"`
+	UpdatedAt                             pgtype.Timestamptz `json:"updated_at"`
+}
+
 // Tracks DAMM V2 pool state. Join with sol_meteora_damm_v2_pool_metrics, sol_meteora_damm_v2_pool_fees, sol_meteora_damm_v2_pool_base_fees, and sol_meteora_damm_v2_pool_dynamic_fees for full pool state.
 type SolMeteoraDammV2Pool struct {
 	Account                string         `json:"account"`
