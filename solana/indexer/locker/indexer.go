@@ -9,6 +9,7 @@ import (
 
 	"api.audius.co/database"
 	"api.audius.co/solana/indexer/common"
+	"api.audius.co/solana/spl/programs/meteora_dbc"
 	"api.audius.co/solana/spl/programs/meteora_locker"
 	bin "github.com/gagliardetto/binary"
 	"github.com/gagliardetto/solana-go"
@@ -22,7 +23,8 @@ import (
 const (
 	NAME                       = "LockerIndexer"
 	MAX_MINTS_PER_SUBSCRIPTION = 10000 // Arbitrary
-	NOTIFICATION_NAME          = "artist_coins_changed"
+	MINT_NOTIFICATION_NAME     = "mint_changed"
+	DBC_NOTIFICATION_NAME      = "dbc_pool_changed"
 )
 
 type Indexer struct {
@@ -131,7 +133,8 @@ func (d *Indexer) Start(ctx context.Context) {
 		},
 		ReconnectDelay: 1 * time.Second,
 	}
-	listener.Handle(NOTIFICATION_NAME, pgxlisten.HandlerFunc(handleNotif))
+	listener.Handle(MINT_NOTIFICATION_NAME, pgxlisten.HandlerFunc(handleNotif))
+	listener.Handle(DBC_NOTIFICATION_NAME, pgxlisten.HandlerFunc(handleNotif))
 
 	// Start listening for notifications
 	// this will block until the context is cancelled
@@ -154,13 +157,17 @@ func (d *Indexer) subscribe(ctx context.Context) ([]common.GrpcClient, error) {
 		if err != nil {
 			return nil, fmt.Errorf("failed to get artist coins: %w", err)
 		}
-		if len(mints) == 0 {
-			d.logger.Info("no more artist coins to subscribe to, exiting")
+		pools, err := getDbcPools(ctx, d.pool, pageSize, page*pageSize)
+		if err != nil {
+			return nil, fmt.Errorf("failed to get dbc pools: %w", err)
+		}
+		if len(mints) == 0 && len(pools) == 0 {
+			d.logger.Info("no more artist coins or pools to subscribe to, exiting")
 			return grpcClients, nil
 		}
 		total += len(mints)
-		d.logger.Debug("subscribing to artist coins...", zap.Int("count", len(mints)))
-		subscription, err := d.makeSubscriptionRequest(ctx, mints)
+		d.logger.Debug("subscribing to artist coins...", zap.Int("mints", len(mints)), zap.Int("pools", len(pools)))
+		subscription, err := d.makeSubscriptionRequest(ctx, mints, pools)
 		if err != nil {
 			return nil, fmt.Errorf("failed to make mint subscription request: %w", err)
 		}
@@ -195,32 +202,41 @@ func (d *Indexer) subscribe(ctx context.Context) ([]common.GrpcClient, error) {
 }
 
 // Makes a subscription to the relevant locker accounts and adds slot checkpointing
-func (d *Indexer) makeSubscriptionRequest(ctx context.Context, mints []string) (*pb.SubscribeRequest, error) {
+func (d *Indexer) makeSubscriptionRequest(ctx context.Context, mints []string, pools []string) (*pb.SubscribeRequest, error) {
 	commitment := pb.CommitmentLevel_CONFIRMED
 	subscription := &pb.SubscribeRequest{
 		Commitment: &commitment,
 	}
 
-	// Listen to all lockers
+	// Listen to all the locker accounts for the mints we care about
 	subscription.Accounts = make(map[string]*pb.SubscribeRequestFilterAccounts)
-	for _, mint := range mints {
-		accountFilter := pb.SubscribeRequestFilterAccounts{
-			Owner: []string{meteora_locker.ProgramID.String()},
-			Filters: []*pb.SubscribeRequestFilterAccountsFilter{
-				{
-					Filter: &pb.SubscribeRequestFilterAccountsFilter_Memcmp{
-						Memcmp: &pb.SubscribeRequestFilterAccountsFilterMemcmp{
-							Offset: 8 + 32, // Discriminator + recipient pubkey
-							Data: &pb.SubscribeRequestFilterAccountsFilterMemcmp_Base58{
-								Base58: mint,
-							},
+
+	accountFilter := pb.SubscribeRequestFilterAccounts{
+		Owner:   []string{meteora_locker.ProgramID.String()},
+		Account: make([]string, len(mints)+len(pools)),
+		Filters: []*pb.SubscribeRequestFilterAccountsFilter{
+			{
+				Filter: &pb.SubscribeRequestFilterAccountsFilter_Memcmp{
+					Memcmp: &pb.SubscribeRequestFilterAccountsFilterMemcmp{
+						Offset: 0,
+						Data: &pb.SubscribeRequestFilterAccountsFilterMemcmp_Bytes{
+							Bytes: meteora_locker.Account_VestingEscrow[:],
 						},
 					},
 				},
 			},
-		}
-		subscription.Accounts[mint] = &accountFilter
+		},
 	}
+	for i, mint := range mints {
+		escrow := meteora_dbc.DeriveEscrow(solana.MustPublicKeyFromBase58(mint))
+		accountFilter.Account[i] = escrow.String()
+	}
+	for i, pool := range pools {
+		baseKey := meteora_dbc.DeriveBaseKeyForEscrow(solana.MustPublicKeyFromBase58(pool))
+		escrow := meteora_dbc.DeriveEscrow(baseKey)
+		accountFilter.Account[len(mints)+i] = escrow.String()
+	}
+	subscription.Accounts["lockers"] = &accountFilter
 
 	// Ensure this subscription has a checkpoint
 	checkpointId, fromSlot, err := common.EnsureCheckpoint(ctx, NAME, d.pool, d.rpcClient, subscription, d.logger)
@@ -289,4 +305,21 @@ func processLockerAccountUpdate(
 	)
 
 	return nil
+}
+
+func getDbcPools(ctx context.Context, db database.DBTX, limit int, offset int) ([]string, error) {
+	sql := `
+		SELECT account
+		FROM sol_meteora_dbc_pools
+		LIMIT $1 OFFSET $2
+	`
+	rows, err := db.Query(ctx, sql, limit, offset)
+	if err != nil {
+		return nil, fmt.Errorf("failed to query dbc pools: %w", err)
+	}
+	pools, err := pgx.CollectRows(rows, pgx.RowTo[string])
+	if err != nil {
+		return nil, fmt.Errorf("failed to collect dbc pools: %w", err)
+	}
+	return pools, nil
 }
