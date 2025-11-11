@@ -1,6 +1,7 @@
 package searchv1
 
 import (
+	"encoding/json"
 	"fmt"
 	"strings"
 
@@ -73,7 +74,7 @@ func (q *UserSearchQuery) Map() map[string]any {
 	if q.IsVerified {
 		builder.Must(esquery.Term("is_verified", true))
 	} else {
-		builder.Should(esquery.Term("is_verified", true).Boost(10000))
+		builder.Should(esquery.Term("is_verified", true))
 	}
 
 	return builder.Map()
@@ -85,8 +86,68 @@ func (q *UserSearchQuery) DSL() string {
 	case "recent":
 		return sortWithField(q.Map(), "created_at", "desc")
 	case "popular":
-		return BuildFunctionScoreDSL("follower_count", 200, inner)
+		return buildUserFunctionScoreDSL(200, q.Query, inner)
 	default:
-		return BuildFunctionScoreDSL("follower_count", 20, inner)
+		return buildUserFunctionScoreDSL(20, q.Query, inner)
 	}
+}
+
+func buildUserFunctionScoreDSL(followerWeight float64, queryString string, innerQuery map[string]any) string {
+	innerJson, err := json.Marshal(innerQuery)
+	if err != nil {
+		panic(err)
+	}
+
+	// Create normalized query for exact matching
+	queryNoSpaces, _ := json.Marshal(strings.ToLower(strings.ReplaceAll(queryString, " ", "")))
+
+	dsl := fmt.Sprintf(`
+	{
+		"query": {
+			"function_score": {
+				"query": %s,
+				"functions": [
+					{
+						"field_value_factor": {
+							"field": "follower_count",
+							"missing": 0
+						},
+						"weight": %g
+					},
+					{
+						"filter": {
+							"term": {
+								"is_verified": true
+							}
+						},
+						"weight": 10000000
+					},
+					{
+						"filter": {
+							"bool": {
+								"should": [
+									{
+										"term": {
+											"handle.keyword": %s
+										}
+									},
+									{
+										"match_phrase": {
+											"name": %s
+										}
+									}
+								],
+								"minimum_should_match": 1
+							}
+						},
+						"weight": 10000000
+				}
+				],
+				"boost_mode": "multiply",
+				"score_mode": "multiply"
+			}
+		}
+	}`, innerJson, followerWeight, queryNoSpaces, queryNoSpaces)
+
+	return dsl
 }
