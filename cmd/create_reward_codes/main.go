@@ -129,10 +129,10 @@ func main() {
 		}
 
 		// Print progress
-		if result.Success {
-			fmt.Printf("✓ %s: Created successfully\n", code)
-		} else if result.Skipped {
+		if result.Skipped {
 			fmt.Printf("- %s: Skipped (%s)\n", code, result.SkippedReason)
+		} else if result.Success {
+			fmt.Printf("✓ %s: Created successfully\n", code)
 		} else {
 			fmt.Printf("✗ %s: Failed - %s\n", code, result.Error)
 		}
