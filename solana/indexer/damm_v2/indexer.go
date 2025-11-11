@@ -1,6 +1,7 @@
 package damm_v2
 
 import (
+	"bytes"
 	"context"
 	"encoding/json"
 	"errors"
@@ -165,13 +166,15 @@ func (d *Indexer) HandleUpdate(ctx context.Context, msg *pb.SubscribeUpdate) err
 	// Handle DAMM V2 account updates
 	accUpdate := msg.GetAccount()
 	if accUpdate != nil {
-		if msg.Filters[0] == NAME {
+		if len(accUpdate.Account.Data) > 8 && bytes.Equal(accUpdate.Account.Data[:8], meteora_damm_v2.POOL_DISCRIMINATOR) {
 			err := processDammV2PoolUpdate(ctx, d.pool, accUpdate)
 			if err != nil {
 				return fmt.Errorf("failed to process DAMM V2 pool update: %w", err)
 			}
 			d.logger.Debug("processed DAMM V2 pool update", zap.String("account", solana.PublicKeyFromBytes(accUpdate.Account.Pubkey).String()))
-		} else {
+		}
+
+		if len(accUpdate.Account.Data) > 8 && bytes.Equal(accUpdate.Account.Data[:8], meteora_damm_v2.POSITION_DISCRIMINATOR) {
 			err := processDammV2PositionUpdate(ctx, d.pool, accUpdate)
 			if err != nil {
 				return fmt.Errorf("failed to process DAMM V2 position update: %w", err)
