@@ -3,7 +3,6 @@ package api
 import (
 	"math/rand"
 	"sync"
-	"time"
 
 	"github.com/OpenAudio/go-openaudio/pkg/sdk"
 	"go.uber.org/zap"
@@ -16,8 +15,7 @@ type OpenAudioPool struct {
 	clients   []*sdk.OpenAudioSDK
 	logger    *zap.Logger
 
-	mu     sync.Mutex
-	randSrc *rand.Rand
+	mu sync.Mutex
 }
 
 func NewOpenAudioPool(urls []string, logger *zap.Logger) *OpenAudioPool {
@@ -28,12 +26,10 @@ func NewOpenAudioPool(urls []string, logger *zap.Logger) *OpenAudioPool {
 		}
 		clients = append(clients, sdk.NewOpenAudioSDK(u))
 	}
-	r := rand.New(rand.NewSource(time.Now().UnixNano()))
 	return &OpenAudioPool{
 		endpoints: urls,
 		clients:   clients,
 		logger:    logger,
-		randSrc:   r,
 	}
 }
 
@@ -47,9 +43,7 @@ func (p *OpenAudioPool) Get() (*sdk.OpenAudioSDK, string) {
 		return p.clients[0], p.endpoints[0]
 	}
 	p.mu.Lock()
-	idx := p.randSrc.Intn(len(p.clients))
+	idx := rand.Intn(len(p.clients))
 	p.mu.Unlock()
 	return p.clients[idx], p.endpoints[idx]
 }
-
-
