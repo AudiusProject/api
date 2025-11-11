@@ -73,7 +73,7 @@ func (q *UserSearchQuery) Map() map[string]any {
 	if q.IsVerified {
 		builder.Must(esquery.Term("is_verified", true))
 	} else {
-		builder.Should(esquery.Term("is_verified", true))
+		builder.Should(esquery.Term("is_verified", true).Boost(10000))
 	}
 
 	return builder.Map()
