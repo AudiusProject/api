@@ -1,6 +1,3 @@
-/*
-Copyright © 2025 NAME HERE <EMAIL ADDRESS>
-*/
 package cmd
 
 import (
@@ -242,7 +239,6 @@ var coinCmd = &cobra.Command{
 		}
 
 		if confirm {
-
 			config, err := pgxpool.ParseConfig(databaseURL)
 			if err != nil {
 				return fmt.Errorf("failed to parse database URL: %w", err)
