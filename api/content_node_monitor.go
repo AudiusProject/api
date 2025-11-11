@@ -4,7 +4,6 @@ import (
 	"context"
 	"fmt"
 	"net/http"
-	"slices"
 	"sync"
 	"time"
 
@@ -84,12 +83,8 @@ func (m *ContentNodeMonitor) GetContentNodes() []config.Node {
 	defer m.mu.RUnlock()
 
 	// Return a copy to prevent external modification
-	result := make([]config.Node, 0, len(m.healthyNodes))
-	for _, node := range m.healthyNodes {
-		if slices.Contains(m.config.UploadNodes, node.Endpoint) {
-			result = append(result, node)
-		}
-	}
+	result := make([]config.Node, len(m.healthyNodes))
+	copy(result, m.healthyNodes)
 	return result
 }
 
