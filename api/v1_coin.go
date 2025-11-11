@@ -46,7 +46,7 @@ func (app *ApiServer) v1CoinByTicker(c *fiber.Ctx) error {
 
 	sql := `
 		` + sharedSelectCoinSql + `
-		WHERE artist_coins.ticker = @ticker
+		WHERE LOWER(artist_coins.ticker) = LOWER(@ticker)
 		LIMIT 1
 	`
 
