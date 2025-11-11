@@ -9,6 +9,7 @@ import (
 	"api.audius.co/database"
 	"api.audius.co/solana/indexer/common"
 	"api.audius.co/solana/indexer/fake_rpc_client"
+	"api.audius.co/solana/spl/programs/meteora_damm_v2"
 	"github.com/gagliardetto/solana-go"
 	"github.com/jackc/pgx/v5"
 	pb "github.com/rpcpool/yellowstone-grpc/examples/golang/proto"
@@ -229,6 +230,7 @@ func TestSubscription(t *testing.T) {
 			Account: &pb.SubscribeUpdateAccount{
 				Account: &pb.SubscribeUpdateAccountInfo{
 					Pubkey: positionAddress.Bytes(),
+					Data:   append(meteora_damm_v2.POSITION_DISCRIMINATOR[:], 0), // incomplete data to trigger failure
 				},
 			},
 		},
@@ -240,6 +242,7 @@ func TestSubscription(t *testing.T) {
 			Account: &pb.SubscribeUpdateAccount{
 				Account: &pb.SubscribeUpdateAccountInfo{
 					Pubkey: dammPoolAddress.Bytes(),
+					Data:   append(meteora_damm_v2.POOL_DISCRIMINATOR[:], 0), // incomplete data to trigger failure
 				},
 			},
 		},
