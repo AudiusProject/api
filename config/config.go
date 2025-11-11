@@ -36,6 +36,7 @@ type Config struct {
 	AntiAbuseOracles               []string
 	Rewards                        []rewards.Reward
 	AudiusdURL                     string
+	OpenAudioURLs                  []string
 	ChainId                        string
 	BirdeyeToken                   string
 	SolanaIndexerWorkers           int
@@ -63,6 +64,7 @@ var Cfg = Config{
 	AxiomDataset:                 os.Getenv("axiomDataset"),
 	NetworkTakeRate:              10,
 	AudiusdURL:                   os.Getenv("audiusdUrl"),
+	OpenAudioURLs:                []string{},
 	BirdeyeToken:                 os.Getenv("birdeyeToken"),
 	SolanaIndexerWorkers:         50,
 	SolanaIndexerRetryInterval:   5 * time.Minute,
@@ -87,6 +89,11 @@ func init() {
 	case "development":
 		fallthrough
 	case "":
+		Cfg.OpenAudioURLs = []string{
+			"http://audius-creator-node-1",
+			"http://audius-creator-node-2",
+			"http://audius-creator-node-3",
+		}
 		if Cfg.DelegatePrivateKey == "" {
 			// Dummy key
 			Cfg.DelegatePrivateKey = "13422b9affd75ff80f94f1ea394e6a6097830cb58cda2d3542f37464ecaee7df"
@@ -105,6 +112,11 @@ func init() {
 	case "stage":
 		fallthrough
 	case "staging":
+		Cfg.OpenAudioURLs = []string{
+			"creatornode11.staging.audius.co",
+			"creatornode5.staging.audius.co",
+			"creatornode12.staging.audius.co",
+		}
 		if Cfg.DelegatePrivateKey == "" {
 			log.Fatalf("Missing required %s env var: delegatePrivateKey", env)
 		}
@@ -141,6 +153,11 @@ func init() {
 	case "prod":
 		fallthrough
 	case "production":
+		Cfg.OpenAudioURLs = []string{
+			"creatornode.audius.co",
+			"creatornode2.audius.co",
+			"creatornode3.audius.co",
+		}
 		if Cfg.DelegatePrivateKey == "" {
 			log.Fatalf("Missing required %s env var: delegatePrivateKey", env)
 		}

@@ -261,8 +261,14 @@ func (app *ApiServer) relay(c *fiber.Ctx) error {
 }
 
 func (app *ApiServer) handleRelay(ctx context.Context, logger *zap.Logger, decodedTx *v1.ManageEntityLegacy) (*v1.Transaction, error) {
-	// submit tx to core
-	res, err := app.openAudioSDK.Core.SendTransaction(ctx, connect.NewRequest(&v1.SendTransactionRequest{
+	// submit tx to core via randomly selected OpenAudio endpoint
+	client, endpoint := app.openAudioPool.Get()
+	if client == nil {
+		logger.Error("no OpenAudio clients configured")
+		return nil, fmt.Errorf("no OpenAudio clients configured")
+	}
+	logger = logger.With(zap.String("openaudio_endpoint", endpoint))
+	res, err := client.Core.SendTransaction(ctx, connect.NewRequest(&v1.SendTransactionRequest{
 		Transaction: &v1.SignedTransaction{
 			Transaction: &v1.SignedTransaction_ManageEntity{
 				ManageEntity: decodedTx,
