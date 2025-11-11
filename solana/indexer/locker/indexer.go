@@ -214,6 +214,18 @@ func (d *Indexer) makeSubscriptionRequest(ctx context.Context, mints []string, p
 	accountFilter := pb.SubscribeRequestFilterAccounts{
 		Owner:   []string{meteora_locker.ProgramID.String()},
 		Account: make([]string, len(mints)+len(pools)),
+		Filters: []*pb.SubscribeRequestFilterAccountsFilter{
+			{
+				Filter: &pb.SubscribeRequestFilterAccountsFilter_Memcmp{
+					Memcmp: &pb.SubscribeRequestFilterAccountsFilterMemcmp{
+						Offset: 0,
+						Data: &pb.SubscribeRequestFilterAccountsFilterMemcmp_Bytes{
+							Bytes: meteora_locker.Account_VestingEscrow[:],
+						},
+					},
+				},
+			},
+		},
 	}
 	for i, mint := range mints {
 		escrow := meteora_dbc.DeriveEscrow(solana.MustPublicKeyFromBase58(mint))
