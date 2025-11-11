@@ -27,6 +27,7 @@ type Config struct {
 	ArtistCoinRewardsStaticSenders []Node
 	StoreAllNodes                  []string
 	DeadNodes                      []string
+	UploadNodes                    []string
 	VerifierAddress                string
 	DelegatePrivateKey             string
 	AxiomToken                     string
@@ -99,6 +100,7 @@ func init() {
 		Cfg.SolanaIndexerWorkers = 1
 		Cfg.DeadNodes = []string{}
 		Cfg.StoreAllNodes = []string{}
+		Cfg.UploadNodes = DevUploadNodes
 		Cfg.AudiusdChainID = core_config.DevAcdcChainID
 		Cfg.AudiusdEntityManagerAddress = core_config.DevAcdcAddress
 		Cfg.AudiusAppUrl = "http://localhost:3000"
@@ -112,6 +114,7 @@ func init() {
 		Cfg.Nodes = StageNodes
 		Cfg.DeadNodes = []string{}
 		Cfg.StoreAllNodes = []string{}
+		Cfg.UploadNodes = StageUploadNodes
 		Cfg.Rewards = core_config.MakeRewards(core_config.StageClaimAuthorities, core_config.StageRewardExtensions)
 		Cfg.AudiusdURL = "creatornode11.staging.audius.co"
 		Cfg.ChainId = "audius-testnet-alpha"
@@ -152,6 +155,7 @@ func init() {
 		Cfg.StoreAllNodes = []string{
 			"https://creatornode2.audius.co",
 		}
+		Cfg.UploadNodes = ProdUploadNodes
 		Cfg.Rewards = core_config.MakeRewards(core_config.ProdClaimAuthorities, core_config.ProdRewardExtensions)
 		Cfg.AudiusdURL = "creatornode.audius.co"
 		Cfg.ChainId = "audius-mainnet-alpha-beta"

@@ -184,4 +184,16 @@ var (
 			OwnerWallet:         "0xCBB025e7933FADfc7C830AE520Fb2FD6D28c1065",
 		},
 	}
+
+	ProdUploadNodes = []string{
+		"https://creatornode.audius.co",
+		"https://creatornode2.audius.co",
+		"https://creatornode3.audius.co",
+	}
+	StageUploadNodes = []string{
+		"https://creatornode6.staging.audius.co",
+	}
+	DevUploadNodes = []string{
+		"http://audius-creator-node-1",
+	}
 )
