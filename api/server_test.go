@@ -108,6 +108,8 @@ func testAppWithFixtures(t *testing.T) *ApiServer {
 	database.SeedTable(app.pool.Replicas[0], "users", testdata.UserFixtures)
 	database.SeedTable(app.pool.Replicas[0], "user_listening_history", testdata.UserListeningHistoryFixtures)
 	database.SeedTable(app.pool.Replicas[0], "artist_coins", testdata.ArtistCoinsFixtures)
+	database.SeedTable(app.pool.Replicas[0], "sol_user_balances", testdata.SolUserBalancesFixtures)
+	database.SeedTable(app.pool.Replicas[0], "artist_coin_stats", testdata.ArtistCoinStatsFixtures)
 
 	return app
 
