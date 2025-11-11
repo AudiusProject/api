@@ -14,38 +14,39 @@ import (
 )
 
 type Config struct {
-	Env                          string
-	Git                          string
-	LogLevel                     string
-	ZapLevel                     zapcore.Level
-	ReadDbUrl                    string
-	ReadDbReplicas               []string
-	WriteDbUrl                   string
-	RunMigrations                bool
-	EsUrl                        string
-	Nodes                        []Node
-	StoreAllNodes                []string
-	DeadNodes                    []string
-	VerifierAddress              string
-	DelegatePrivateKey           string
-	AxiomToken                   string
-	AxiomDataset                 string
-	NetworkTakeRate              float64
-	SolanaConfig                 SolanaConfig
-	AntiAbuseOracles             []string
-	Rewards                      []rewards.Reward
-	AudiusdURL                   string
-	ChainId                      string
-	BirdeyeToken                 string
-	SolanaIndexerWorkers         int
-	SolanaIndexerRetryInterval   time.Duration
-	CommsMessagePush             bool
-	AudiusdChainID               uint
-	AudiusdEntityManagerAddress  string
-	AudiusAppUrl                 string
-	ContentNodeMonitor           bool
-	RewardCodeAuthorizedKeys     []string
-	LaunchpadDeterministicSecret string
+	Env                            string
+	Git                            string
+	LogLevel                       string
+	ZapLevel                       zapcore.Level
+	ReadDbUrl                      string
+	ReadDbReplicas                 []string
+	WriteDbUrl                     string
+	RunMigrations                  bool
+	EsUrl                          string
+	Nodes                          []Node
+	ArtistCoinRewardsStaticSenders []Node
+	StoreAllNodes                  []string
+	DeadNodes                      []string
+	VerifierAddress                string
+	DelegatePrivateKey             string
+	AxiomToken                     string
+	AxiomDataset                   string
+	NetworkTakeRate                float64
+	SolanaConfig                   SolanaConfig
+	AntiAbuseOracles               []string
+	Rewards                        []rewards.Reward
+	AudiusdURL                     string
+	ChainId                        string
+	BirdeyeToken                   string
+	SolanaIndexerWorkers           int
+	SolanaIndexerRetryInterval     time.Duration
+	CommsMessagePush               bool
+	AudiusdChainID                 uint
+	AudiusdEntityManagerAddress    string
+	AudiusAppUrl                   string
+	ContentNodeMonitor             bool
+	RewardCodeAuthorizedKeys       []string
+	LaunchpadDeterministicSecret   string
 }
 
 var Cfg = Config{
@@ -120,6 +121,23 @@ func init() {
 		Cfg.AudiusAppUrl = "https://staging.audius.co"
 		Cfg.RewardCodeAuthorizedKeys = []string{"9XeZbswbSSUU4AHVArQbTQjAEjAPhVweGU5cogBVkvh4", "GrWNH9qfwrvoCEoTm65hmnSh4z3CD96SfhtfQY6ZKUfY"}
 		Cfg.VerifierAddress = "0xbbbb93A6B3A1D6fDd27909729b95CCB0cc9002C0"
+		Cfg.ArtistCoinRewardsStaticSenders = []Node{
+			{
+				DelegateOwnerWallet: "0x140eD283b33be2145ed7d9d15f1fE7bF1E0B2Ac3",
+				Endpoint:            "https://creatornode9.staging.audius.co",
+				OwnerWallet:         "0x140eD283b33be2145ed7d9d15f1fE7bF1E0B2Ac3",
+			},
+			{
+				DelegateOwnerWallet: "0x4c88d2c0f4c4586b41621aD6e98882ae904B98f6",
+				Endpoint:            "https://creatornode11.staging.audius.co",
+				OwnerWallet:         "0x4c88d2c0f4c4586b41621aD6e98882ae904B98f6",
+			},
+			{
+				DelegateOwnerWallet: "0x6b52969934076318863243fb92E9C4b3A08267b5",
+				Endpoint:            "https://creatornode12.staging.audius.co",
+				OwnerWallet:         "0x6b52969934076318863243fb92E9C4b3A08267b5",
+			},
+		}
 	case "prod":
 		fallthrough
 	case "production":
@@ -142,6 +160,23 @@ func init() {
 		Cfg.AudiusAppUrl = "https://audius.co"
 		Cfg.RewardCodeAuthorizedKeys = []string{"DDT15s6MMNxE4jkyGN46wNYqrgLWofT6WAvWtjYYrCUq"}
 		Cfg.VerifierAddress = "0xbeef8E42e8B5964fDD2b7ca8efA0d9aef38AA996"
+		Cfg.ArtistCoinRewardsStaticSenders = []Node{
+			{
+				DelegateOwnerWallet: "0xc8d0C29B6d540295e8fc8ac72456F2f4D41088c8",
+				Endpoint:            "https://creatornode.audius.co",
+				OwnerWallet:         "0xe5b256d302ea2f4e04B8F3bfD8695aDe147aB68d",
+			},
+			{
+				DelegateOwnerWallet: "0x159200F84c2cF000b3A014cD4D8244500CCc36ca",
+				Endpoint:            "https://audius-cn1.tikilabs.com",
+				OwnerWallet:         "0xe4882D9A38A2A1fc652996719AF0fb15CB968d0a",
+			},
+			{
+				DelegateOwnerWallet: "0x422541273087beC833c57D3c15B9e17F919bFB1F",
+				Endpoint:            "https://dn2.monophonic.digital",
+				OwnerWallet:         "0x6470Daf3bd32f5014512bCdF0D02232f5640a5BD",
+			},
+		}
 	default:
 		log.Fatalf("Unknown environment: %s", env)
 	}

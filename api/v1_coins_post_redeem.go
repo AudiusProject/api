@@ -5,6 +5,7 @@ import (
 	"errors"
 	"fmt"
 	"net/http"
+	"slices"
 	"strconv"
 	"strings"
 
@@ -103,11 +104,11 @@ func (app *ApiServer) v1CoinsPostRedeem(c *fiber.Ctx) error {
 	// Get reward manager state for the given mint
 	// and init a new client for it
 	var rewardStateAddress string
+	var authorityAddress string
 	var minVotes int
-	var tokenSourceAddress string
-	err = app.pool.QueryRow(c.Context(), `SELECT reward_manager_state, token_source, min_votes FROM sol_reward_manager_inits WHERE mint = @mint`, pgx.NamedArgs{
+	err = app.pool.QueryRow(c.Context(), `SELECT reward_manager_state, authority, min_votes FROM sol_reward_manager_inits WHERE mint = @mint`, pgx.NamedArgs{
 		"mint": mintString,
-	}).Scan(&rewardStateAddress, &tokenSourceAddress, &minVotes)
+	}).Scan(&rewardStateAddress, &authorityAddress, &minVotes)
 	if err != nil {
 		return fmt.Errorf("failed to get reward manager state: %w", err)
 	}
@@ -115,8 +116,15 @@ func (app *ApiServer) v1CoinsPostRedeem(c *fiber.Ctx) error {
 	if err != nil {
 		return fmt.Errorf("failed to get init pubkey for reward manager state address: %w", err)
 	}
+
+	authorityPubkey, err := solana.PublicKeyFromBase58(authorityAddress)
 	if err != nil {
-		return fmt.Errorf("failed to init pubkey for token source address: %w", err)
+		return fmt.Errorf("failed to get authority pubkey: %w", err)
+	}
+
+	tokenSourcePubkey, _, err := solana.FindAssociatedTokenAddress(authorityPubkey, mint)
+	if err != nil {
+		return fmt.Errorf("failed to get token source pubkey: %w", err)
 	}
 
 	// Ensure ProgramID is set correctly for PDA derivation
@@ -225,8 +233,8 @@ func (app *ApiServer) v1CoinsPostRedeem(c *fiber.Ctx) error {
 	rewardClaim := oap_rewards.RewardClaim{
 		RecipientEthAddress: userWalletAddress,
 		Amount:              amount,
+		Decimals:            coinDecimals,
 		RewardID:            redeemCode,
-		RewardAddress:       rewardAddress,
 		Specifier:           specifier,
 		ClaimAuthority:      claimAuthorityPublicKey,
 	}
@@ -248,10 +256,66 @@ func (app *ApiServer) v1CoinsPostRedeem(c *fiber.Ctx) error {
 	claimMessage, err := rewardClaim.Compile()
 
 	attestations := make([]SenderAttestation, 0)
-	// TODO: Add retries to this loop, maybe the whole thing, but def each attestation attempt
-	for _, validator := range app.validators.GetNodes() {
-		if len(attestations) >= minVotes {
+
+	attestationsData, err := rewardManagerClient.GetSubmittedAttestations(c.Context(), rewardClaim)
+	if err != nil {
+		// If not found, then it's empty. Use default values for the purpose
+		// of getting an empty list of messages
+		if err.Error() != "not found" {
+			return fmt.Errorf("failed to get submitted attestations: %w", err)
+		}
+		attestationsData = &reward_manager.AttestationsAccountData{}
+	}
+
+	hasClaimAuthorityAttestation := false
+	existingValidatorOwners := make([]string, 0)
+	for _, attestation := range attestationsData.Messages {
+		if attestation.Claim.ClaimAuthority != "" {
+			existingValidatorOwners = append(existingValidatorOwners, attestation.OperatorEthAddress)
+		} else {
+			hasClaimAuthorityAttestation = true
+		}
+	}
+
+	if !hasClaimAuthorityAttestation {
+		claimAuthorityRewardClaim := oap_rewards.RewardClaim{
+			RecipientEthAddress: userWalletAddress,
+			Amount:              amount,
+			Decimals:            coinDecimals,
+			RewardID:            redeemCode,
+			Specifier:           specifier,
+		}
+		message, err := claimAuthorityRewardClaim.Compile()
+		if err != nil {
+			return fmt.Errorf("failed to compile claim authority reward claim: %w", err)
+		}
+
+		claimAuthoritySignature, err := oap_rewards.SignClaim(claimAuthorityRewardClaim, claimAuthorityKey)
+		signatureBytes, err := hex.DecodeString(strings.TrimPrefix(claimAuthoritySignature, "0x"))
+
+		if err != nil {
+			return fmt.Errorf("failed to sign claim with claim authority: %w", err)
+		}
+
+		attestation := SenderAttestation{
+			EthAddress: common.HexToAddress(claimAuthorityPublicKey),
+			Message:    message,
+			Signature:  signatureBytes,
+		}
+
+		attestations = append(attestations, attestation)
+	}
+
+	neededAttestations := (minVotes + 1) - len(attestationsData.Messages)
+
+	for _, validator := range config.Cfg.ArtistCoinRewardsStaticSenders {
+		if len(attestations) >= neededAttestations {
 			break
+		}
+		if slices.ContainsFunc(existingValidatorOwners, func(s string) bool {
+			return strings.EqualFold(s, validator.OwnerWallet)
+		}) {
+			continue
 		}
 		oap := sdk.NewOpenAudioSDK(validator.Endpoint)
 		oap.SetPrivKey(claimAuthorityKey)
@@ -288,7 +352,7 @@ func (app *ApiServer) v1CoinsPostRedeem(c *fiber.Ctx) error {
 		attestations = append(attestations, attestation)
 	}
 
-	if len(attestations) < minVotes {
+	if len(attestations) < neededAttestations {
 		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{
 			"error": "failed to get enough attestations",
 		})
@@ -297,12 +361,14 @@ func (app *ApiServer) v1CoinsPostRedeem(c *fiber.Ctx) error {
 	// #endregion Build Claim
 	// #region Send Tx
 	// Build and send solana transactions
-	signatures, err := sendRewardClaimTransactions(
+	signatures, err := sendRewardClaimTransactionsBatched(
 		c.Context(),
 		rewardManagerClient,
 		app.transactionSender,
 		decoratedRewardClaim,
 		attestations,
+		tokenSourcePubkey,
+		int(coinDecimals),
 	)
 
 	if err != nil {
