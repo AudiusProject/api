@@ -51,26 +51,20 @@ type Config struct {
 }
 
 var Cfg = Config{
-	Git:                os.Getenv("GIT_SHA"),
-	Env:                os.Getenv("ENV"),
-	LogLevel:           os.Getenv("logLevel"),
-	ReadDbUrl:          os.Getenv("readDbUrl"),
-	ReadDbReplicas:     strings.Split(os.Getenv("readDbReplicas"), ","),
-	WriteDbUrl:         os.Getenv("writeDbUrl"),
-	RunMigrations:      os.Getenv("runMigrations") == "true",
-	EsUrl:              os.Getenv("elasticsearchUrl"),
-	DelegatePrivateKey: os.Getenv("delegatePrivateKey"),
-	AxiomToken:         os.Getenv("axiomToken"),
-	AxiomDataset:       os.Getenv("axiomDataset"),
-	NetworkTakeRate:    10,
-	AudiusdURL:         os.Getenv("audiusdUrl"),
-	OpenAudioURLs: func() []string {
-		v := os.Getenv("openAudioUrls")
-		if v == "" {
-			return []string{}
-		}
-		return strings.Split(v, ",")
-	}(),
+	Git:                          os.Getenv("GIT_SHA"),
+	Env:                          os.Getenv("ENV"),
+	LogLevel:                     os.Getenv("logLevel"),
+	ReadDbUrl:                    os.Getenv("readDbUrl"),
+	ReadDbReplicas:               strings.Split(os.Getenv("readDbReplicas"), ","),
+	WriteDbUrl:                   os.Getenv("writeDbUrl"),
+	RunMigrations:                os.Getenv("runMigrations") == "true",
+	EsUrl:                        os.Getenv("elasticsearchUrl"),
+	DelegatePrivateKey:           os.Getenv("delegatePrivateKey"),
+	AxiomToken:                   os.Getenv("axiomToken"),
+	AxiomDataset:                 os.Getenv("axiomDataset"),
+	NetworkTakeRate:              10,
+	AudiusdURL:                   os.Getenv("audiusdUrl"),
+	OpenAudioURLs:                []string{},
 	BirdeyeToken:                 os.Getenv("birdeyeToken"),
 	SolanaIndexerWorkers:         50,
 	SolanaIndexerRetryInterval:   5 * time.Minute,
@@ -95,12 +89,10 @@ func init() {
 	case "development":
 		fallthrough
 	case "":
-		if len(Cfg.OpenAudioURLs) == 0 {
-			Cfg.OpenAudioURLs = []string{
-				"http://audius-creator-node-1",
-				"http://audius-creator-node-2",
-				"http://audius-creator-node-3",
-			}
+		Cfg.OpenAudioURLs = []string{
+			"http://audius-creator-node-1",
+			"http://audius-creator-node-2",
+			"http://audius-creator-node-3",
 		}
 		if Cfg.DelegatePrivateKey == "" {
 			// Dummy key
@@ -120,12 +112,10 @@ func init() {
 	case "stage":
 		fallthrough
 	case "staging":
-		if len(Cfg.OpenAudioURLs) == 0 {
-			Cfg.OpenAudioURLs = []string{
-				"creatornode11.staging.audius.co",
-				"creatornode5.staging.audius.co",
-				"creatornode12.staging.audius.co",
-			}
+		Cfg.OpenAudioURLs = []string{
+			"creatornode11.staging.audius.co",
+			"creatornode5.staging.audius.co",
+			"creatornode12.staging.audius.co",
 		}
 		if Cfg.DelegatePrivateKey == "" {
 			log.Fatalf("Missing required %s env var: delegatePrivateKey", env)
@@ -163,12 +153,10 @@ func init() {
 	case "prod":
 		fallthrough
 	case "production":
-		if len(Cfg.OpenAudioURLs) == 0 {
-			Cfg.OpenAudioURLs = []string{
-				"creatornode.audius.co",
-				"creatornode2.audius.co",
-				"creatornode3.audius.co",
-			}
+		Cfg.OpenAudioURLs = []string{
+			"creatornode.audius.co",
+			"creatornode2.audius.co",
+			"creatornode3.audius.co",
 		}
 		if Cfg.DelegatePrivateKey == "" {
 			log.Fatalf("Missing required %s env var: delegatePrivateKey", env)

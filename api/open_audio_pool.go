@@ -2,23 +2,16 @@ package api
 
 import (
 	"math/rand"
-	"sync"
 
 	"github.com/OpenAudio/go-openaudio/pkg/sdk"
-	"go.uber.org/zap"
 )
 
-// OpenAudioPool holds a set of OpenAudio SDK clients and returns a random one per Get().
-// Thread-safe for concurrent callers.
 type OpenAudioPool struct {
 	endpoints []string
 	clients   []*sdk.OpenAudioSDK
-	logger    *zap.Logger
-
-	mu sync.Mutex
 }
 
-func NewOpenAudioPool(urls []string, logger *zap.Logger) *OpenAudioPool {
+func NewOpenAudioPool(urls []string) *OpenAudioPool {
 	clients := make([]*sdk.OpenAudioSDK, 0, len(urls))
 	for _, u := range urls {
 		if u == "" {
@@ -29,21 +22,13 @@ func NewOpenAudioPool(urls []string, logger *zap.Logger) *OpenAudioPool {
 	return &OpenAudioPool{
 		endpoints: urls,
 		clients:   clients,
-		logger:    logger,
 	}
 }
 
-// Get returns a random client and its endpoint.
-// If no clients are configured, it returns nil, "".
 func (p *OpenAudioPool) Get() (*sdk.OpenAudioSDK, string) {
 	if len(p.clients) == 0 {
 		return nil, ""
 	}
-	if len(p.clients) == 1 {
-		return p.clients[0], p.endpoints[0]
-	}
-	p.mu.Lock()
-	idx := rand.Intn(len(p.clients))
-	p.mu.Unlock()
-	return p.clients[idx], p.endpoints[idx]
+	i := rand.Intn(len(p.clients))
+	return p.clients[i], p.endpoints[i]
 }

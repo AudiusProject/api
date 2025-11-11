@@ -168,7 +168,7 @@ func NewApiServer(config config.Config) *ApiServer {
 	if len(openAudioURLs) == 0 {
 		openAudioURLs = []string{config.AudiusdURL}
 	}
-	openAudioPool := NewOpenAudioPool(openAudioURLs, logger)
+	openAudioPool := NewOpenAudioPool(openAudioURLs)
 
 	skipAuthCheck, _ := strconv.ParseBool(os.Getenv("skipAuthCheck"))
 
