@@ -117,7 +117,7 @@ func TestGetUserCoinBadges(t *testing.T) {
 			},
 		},
 		"sol_user_balances": {
-			// User 1 has more AUDIO than TESTCOIN, but more TESTCOIN than $TEVE
+			// User 1: TESTCOIN has higher value (100 * $2 = $200) than STEVE (50 * $1 = $50)
 			{
 				"user_id": 1,
 				"mint":    "test_mint_address_123",
@@ -144,7 +144,7 @@ func TestGetUserCoinBadges(t *testing.T) {
 				"mint":    "9LzCMqDgTKYz9Drzqnpgee3SGa89up3a247ypMj2xrqM",
 				"balance": 100,
 			},
-			// User 3 has more $TEVE then their own coin
+			// User 3: owns TESTCOIN (takes priority regardless of value)
 			{
 				"user_id": 3,
 				"mint":    "test_mint_address_123",
@@ -166,7 +166,7 @@ func TestGetUserCoinBadges(t *testing.T) {
 				"mint":    "test_mint_address_123",
 				"balance": 300,
 			},
-			// User 5 prefers STEVE and has balance in it (should show STEVE even if they have more of other coins)
+			// User 5 prefers STEVE and has balance in it (should show STEVE even if they have higher value of other coins)
 			{
 				"user_id": 5,
 				"mint":    "test_mint_address_124",
@@ -175,14 +175,14 @@ func TestGetUserCoinBadges(t *testing.T) {
 			{
 				"user_id": 5,
 				"mint":    "test_mint_address_123",
-				"balance": 1000, // Much higher balance but should be ignored due to preference
+				"balance": 1000, // Much higher value but should be ignored due to preference
 			},
 			{
 				"user_id": 5,
 				"mint":    "9LzCMqDgTKYz9Drzqnpgee3SGa89up3a247ypMj2xrqM",
 				"balance": 500,
 			},
-			// User 6 prefers TESTCOIN but has zero balance (should fall back to existing logic)
+			// User 6 prefers TESTCOIN but has zero balance (should fall back to highest value coin)
 			{
 				"user_id": 6,
 				"mint":    "test_mint_address_123",
@@ -216,11 +216,27 @@ func TestGetUserCoinBadges(t *testing.T) {
 				"balance": 500,                     // Higher balance but should be ignored due to preference
 			},
 		},
+		"artist_coin_stats": {
+			// TESTCOIN has higher price per token, making user 1's 100 TESTCOIN more valuable than 50 STEVE
+			{
+				"mint":  "test_mint_address_123", // TESTCOIN
+				"price": 2.0,                     // $2 per token (decimals=8)
+			},
+			{
+				"mint":  "test_mint_address_124", // STEVE
+				"price": 1.0,                     // $1 per token (decimals=8)
+			},
+			{
+				"mint":  "test_mint_address_125", // USER8COIN
+				"price": 0.5,                     // $0.5 per token (decimals=8)
+			},
+		},
 	}
 
 	database.Seed(app.writePool, fixtures)
 
-	// Default badge should ignore AUDIO and return highest balance
+	// Default badge should ignore AUDIO and return highest value (balance * price)
+	// User 1: 100 TESTCOIN @ $2 = 200 value, 50 STEVE @ $1 = 50 value
 	{
 		status, body := testGet(t, app, "/v1/full/users/"+trashid.MustEncodeHashID(1))
 		assert.Equal(t, 200, status)
@@ -244,7 +260,7 @@ func TestGetUserCoinBadges(t *testing.T) {
 		})
 	}
 
-	// Return own artist coin first even if not highest balance
+	// Return own artist coin first even if not highest value
 	{
 		status, body := testGet(t, app, "/v1/full/users/"+trashid.MustEncodeHashID(3))
 		assert.Equal(t, 200, status)
@@ -270,7 +286,7 @@ func TestGetUserCoinBadges(t *testing.T) {
 		})
 	}
 
-	// Preferred flair with non-zero balance takes priority over higher balance coins
+	// Preferred flair with non-zero balance takes priority over higher value coins
 	{
 		status, body := testGet(t, app, "/v1/full/users/"+trashid.MustEncodeHashID(5))
 		assert.Equal(t, 200, status)
@@ -283,7 +299,7 @@ func TestGetUserCoinBadges(t *testing.T) {
 		})
 	}
 
-	// Preferred flair with zero balance falls back to 'auto' logic (artist's own coin/highest balance)
+	// Preferred flair with zero balance falls back to 'auto' logic (artist's own coin/highest value)
 	{
 		status, body := testGet(t, app, "/v1/full/users/"+trashid.MustEncodeHashID(6))
 		assert.Equal(t, 200, status)
