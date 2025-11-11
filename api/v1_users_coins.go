@@ -84,8 +84,8 @@ func (app *ApiServer) v1UsersCoins(c *fiber.Ctx) error {
 			(artist_coins.user_id = @user_id) DESC,
 			-- Then prioritize AUDIO
 			artist_coins.ticker = 'AUDIO' DESC,
-			-- Then by number of coins (balance)
-			balance DESC,
+			-- Then by USD value (balance_usd)
+			balance_usd DESC,
 			-- Finally by mint for consistent ordering
 			artist_coins.mint ASC
 		LIMIT @limit
