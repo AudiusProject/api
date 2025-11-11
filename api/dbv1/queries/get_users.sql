@@ -170,11 +170,13 @@ SELECT
           WHERE artist_coins.user_id = u.user_id
           LIMIT 1
         ),
-        -- Then most held
+        -- Then highest USD value held
         (
           SELECT sol_user_balances.mint
           FROM sol_user_balances
           JOIN artist_coins ON artist_coins.mint = sol_user_balances.mint -- ensure mapped in artist_coins
+          LEFT JOIN artist_coin_stats ON artist_coin_stats.mint = sol_user_balances.mint
+          LEFT JOIN artist_coin_pools ON artist_coin_pools.base_mint = sol_user_balances.mint
           WHERE sol_user_balances.user_id = u.user_id
             AND sol_user_balances.balance > 0
             AND sol_user_balances.mint NOT IN (
@@ -182,7 +184,7 @@ SELECT
               'BELGiMZQ34SDE6x2FUaML2UHDAgBLS64xvhXjX5tBBZo', -- ignore stage wAUDIO
               'EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZy4z6cQ' -- ignore USDC
             )
-          ORDER BY sol_user_balances.balance DESC
+          ORDER BY (sol_user_balances.balance * COALESCE(artist_coin_stats.price, artist_coin_pools.price_usd, 0)) / POWER(10, artist_coins.decimals) DESC
           LIMIT 1
         )
       )
