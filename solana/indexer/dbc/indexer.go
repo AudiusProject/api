@@ -225,6 +225,9 @@ func (d *Indexer) HandleUpdate(ctx context.Context, msg *pb.SubscribeUpdate) err
 					return fmt.Errorf("failed to decode transaction: %w", err)
 				}
 
+				// Add the lookup table accounts to the message accounts
+				tx = common.ResolveLookupTables(ctx, d.rpcClient, tx, txRes.Meta)
+
 				// Process the transaction
 				err = d.processTransaction(ctx, txRes.Slot, tx)
 			}
