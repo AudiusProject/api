@@ -13,9 +13,11 @@ import (
 	"api.audius.co/solana/spl/programs/meteora_damm_v2"
 	bin "github.com/gagliardetto/binary"
 	"github.com/gagliardetto/solana-go"
+	"github.com/gagliardetto/solana-go/rpc"
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgconn"
 	"github.com/jackc/pgxlisten"
+	"github.com/maypok86/otter"
 	pb "github.com/rpcpool/yellowstone-grpc/examples/golang/proto"
 	"go.uber.org/zap"
 )
@@ -27,25 +29,28 @@ const (
 )
 
 type Indexer struct {
-	pool        database.DbPool
-	grpcConfig  common.GrpcConfig
-	grpcFactory func(common.GrpcConfig) common.GrpcClient
-	rpcClient   common.RpcClient
-	logger      *zap.Logger
+	pool             database.DbPool
+	grpcConfig       common.GrpcConfig
+	grpcFactory      func(common.GrpcConfig) common.GrpcClient
+	rpcClient        common.RpcClient
+	transactionCache *otter.Cache[solana.Signature, *rpc.GetTransactionResult]
+	logger           *zap.Logger
 }
 
 func New(
 	config common.GrpcConfig,
 	rpcClient common.RpcClient,
 	pool database.DbPool,
+	transactionCache *otter.Cache[solana.Signature, *rpc.GetTransactionResult],
 	logger *zap.Logger,
 ) *Indexer {
 	return &Indexer{
-		pool:        pool,
-		grpcConfig:  config,
-		grpcFactory: common.NewGrpcClient,
-		rpcClient:   rpcClient,
-		logger:      logger.Named(NAME),
+		pool:             pool,
+		grpcConfig:       config,
+		grpcFactory:      common.NewGrpcClient,
+		rpcClient:        rpcClient,
+		transactionCache: transactionCache,
+		logger:           logger.Named(NAME),
 	}
 }
 
@@ -180,6 +185,26 @@ func (d *Indexer) HandleUpdate(ctx context.Context, msg *pb.SubscribeUpdate) err
 				return fmt.Errorf("failed to process DAMM V2 position update: %w", err)
 			}
 			d.logger.Debug("processed DAMM V2 position update", zap.String("account", solana.PublicKeyFromBytes(accUpdate.Account.Pubkey).String()))
+		}
+
+		txSig := solana.SignatureFromBytes(accUpdate.Account.TxnSignature)
+
+		// Fetch the transaction details
+		txRes, err := common.FetchTransactionWithCache(ctx, d.transactionCache, d.rpcClient, txSig)
+		if err != nil {
+			return fmt.Errorf("failed to fetch transaction: %w", err)
+		}
+
+		// Decode the transaction
+		tx, err := txRes.Transaction.GetTransaction()
+		if err != nil {
+			return fmt.Errorf("failed to decode transaction: %w", err)
+		}
+
+		// Process the transaction
+		err = d.processTransaction(ctx, txRes.Slot, tx)
+		if err != nil {
+			return fmt.Errorf("failed to process transaction: %w", err)
 		}
 	}
 	return nil
@@ -369,6 +394,33 @@ func processDammV2PositionUpdate(
 	err = tx.Commit(ctx)
 	if err != nil {
 		return err
+	}
+	return nil
+}
+
+func (i *Indexer) processTransaction(ctx context.Context, slot uint64, tx *solana.Transaction) error {
+	signature := tx.Signatures[0].String()
+	logger := i.logger.With(
+		zap.String("signature", signature),
+		zap.Uint64("slot", slot),
+	)
+
+	// Process individual instructions
+	for instructionIndex, instruction := range tx.Message.Instructions {
+		programId := tx.Message.AccountKeys[instruction.ProgramIDIndex]
+		instLogger := logger.With(
+			zap.String("programId", programId.String()),
+			zap.Int("instructionIndex", instructionIndex),
+		)
+		switch programId {
+		case meteora_damm_v2.ProgramID:
+			{
+				err := processDammV2Instruction(ctx, i.pool, slot, tx, instructionIndex, instruction, signature, instLogger)
+				if err != nil {
+					return fmt.Errorf("error processing meteora_damm_v2 instruction %d: %w", instructionIndex, err)
+				}
+			}
+		}
 	}
 	return nil
 }

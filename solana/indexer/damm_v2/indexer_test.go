@@ -3,6 +3,8 @@ package damm_v2
 import (
 	"context"
 	"encoding/base64"
+	"encoding/json"
+	"os"
 	"testing"
 	"time"
 
@@ -11,7 +13,9 @@ import (
 	"api.audius.co/solana/indexer/fake_rpc_client"
 	"api.audius.co/solana/spl/programs/meteora_damm_v2"
 	"github.com/gagliardetto/solana-go"
+	"github.com/gagliardetto/solana-go/rpc"
 	"github.com/jackc/pgx/v5"
+	"github.com/maypok86/otter"
 	pb "github.com/rpcpool/yellowstone-grpc/examples/golang/proto"
 	"github.com/stretchr/testify/mock"
 	"github.com/test-go/testify/assert"
@@ -23,14 +27,17 @@ import (
 func TestHandleUpdate_SlotCheckpoint(t *testing.T) {
 	pool := database.CreateTestDatabase(t, "test_solana_indexer_damm_v2")
 	rpcClient := fake_rpc_client.FakeRpcClient{}
+	transactionCache, err := otter.MustBuilder[solana.Signature, *rpc.GetTransactionResult](10).Build()
+	require.NoError(t, err)
 	logger := zap.NewNop()
 
-	indexer := New(common.GrpcConfig{}, &rpcClient, pool, logger)
+	indexer := New(common.GrpcConfig{}, &rpcClient, pool, &transactionCache, logger)
 
 	expectedSlot := uint64(1500)
 
 	request := pb.SubscribeRequest{}
 	checkpointId, err := common.InsertCheckpointStart(t.Context(), pool, "test", 1000, &request)
+	require.NoError(t, err)
 	update := pb.SubscribeUpdate{
 		Filters: []string{checkpointId},
 		UpdateOneof: &pb.SubscribeUpdate_Slot{
@@ -51,9 +58,11 @@ func TestHandleUpdate_SlotCheckpoint(t *testing.T) {
 func TestHandleUpdate_DammV2PoolUpdate(t *testing.T) {
 	pool := database.CreateTestDatabase(t, "test_solana_indexer_damm_v2")
 	rpcClient := fake_rpc_client.FakeRpcClient{}
+	transactionCache, err := otter.MustBuilder[solana.Signature, *rpc.GetTransactionResult](10).Build()
+	require.NoError(t, err)
 	logger := zap.NewNop()
 
-	indexer := New(common.GrpcConfig{}, &rpcClient, pool, logger)
+	indexer := New(common.GrpcConfig{}, &rpcClient, pool, &transactionCache, logger)
 
 	// From real on-chain account data
 	address := solana.MustPublicKeyFromBase58("D9iJqMbgQJLFt5PAAiTJTMNsMAMueukzoe1EK2r1g3WH")
@@ -61,14 +70,29 @@ func TestHandleUpdate_DammV2PoolUpdate(t *testing.T) {
 	poolData, err := base64.StdEncoding.DecodeString(poolBase64)
 	require.NoError(t, err)
 
+	// Fetched using RPC call and copy/pasted the result
+	// Note: Different pool than above - this is for the initialize custom pool instruction
+	customPoolAddress := solana.MustPublicKeyFromBase58("E8TpFM2ozexsghsymEn7YMTyb2t3rqndZSepZpgw7kzG")
+	respJsonBytes, err := os.ReadFile("./initialize_custom_pool_test_fixture.json")
+	require.NoError(t, err)
+	respJson := string(respJsonBytes)
+
+	var resp rpc.GetTransactionResult
+	err = json.Unmarshal([]byte(respJson), &resp)
+	require.NoError(t, err)
+
+	txSig := solana.MustSignatureFromBase58("15MXZTj3xSnHNK9zP6irPz8vb27gaXeP9DnXWztN32xvgoXaTcHvWwdyBJkf6PET4NxLZHvRKTwTsbVcDi7WZRH")
+	transactionCache.Set(txSig, &resp)
+
 	update := pb.SubscribeUpdate{
 		Filters: []string{NAME},
 		UpdateOneof: &pb.SubscribeUpdate_Account{
 			Account: &pb.SubscribeUpdateAccount{
 				Slot: 123456789,
 				Account: &pb.SubscribeUpdateAccountInfo{
-					Pubkey: address.Bytes(),
-					Data:   poolData,
+					Pubkey:       address.Bytes(),
+					Data:         poolData,
+					TxnSignature: txSig[:],
 				},
 			},
 		},
@@ -161,14 +185,31 @@ func TestHandleUpdate_DammV2PoolUpdate(t *testing.T) {
 	`)
 	require.NoError(t, err)
 	defer rows.Close()
+
+	// Verify the initialize custom pool instruction was inserted
+	sql = `
+		SELECT EXISTS (
+			SELECT 1
+			FROM sol_meteora_damm_v2_initialize_custom_pool_instructions
+			WHERE pool = @pool
+			LIMIT 1
+		)
+	`
+	err = pool.QueryRow(t.Context(), sql, pgx.NamedArgs{
+		"pool": customPoolAddress.String(),
+	}).Scan(&exists)
+	require.NoError(t, err, "failed to query for damm v2 initialize custom pool instruction")
+	assert.True(t, exists, "damm v2 initialize custom pool instruction should exist after indexing")
 }
 
 func TestHandleUpdate_DammV2PositionUpdate(t *testing.T) {
 	pool := database.CreateTestDatabase(t, "test_solana_indexer_damm_v2")
 	rpcClient := fake_rpc_client.FakeRpcClient{}
+	transactionCache, err := otter.MustBuilder[solana.Signature, *rpc.GetTransactionResult](10).Build()
+	require.NoError(t, err)
 	logger := zap.NewNop()
 
-	indexer := New(common.GrpcConfig{}, &rpcClient, pool, logger)
+	indexer := New(common.GrpcConfig{}, &rpcClient, pool, &transactionCache, logger)
 
 	// From real on-chain account data
 	address := solana.MustPublicKeyFromBase58("5bYLydDXt1K5zroychcbrVbhGRUpheXdq5w41uccazPB")
@@ -176,13 +217,26 @@ func TestHandleUpdate_DammV2PositionUpdate(t *testing.T) {
 	positionData, err := base64.StdEncoding.DecodeString(positionBase64)
 	require.NoError(t, err)
 
+	// Fetched using RPC call and copy/pasted the result
+	respJsonBytes, err := os.ReadFile("./initialize_custom_pool_test_fixture.json")
+	require.NoError(t, err)
+	respJson := string(respJsonBytes)
+
+	var resp rpc.GetTransactionResult
+	err = json.Unmarshal([]byte(respJson), &resp)
+	require.NoError(t, err)
+
+	txSig := solana.MustSignatureFromBase58("15MXZTj3xSnHNK9zP6irPz8vb27gaXeP9DnXWztN32xvgoXaTcHvWwdyBJkf6PET4NxLZHvRKTwTsbVcDi7WZRH")
+	transactionCache.Set(txSig, &resp)
+
 	update := pb.SubscribeUpdate{
 		Filters: []string{address.String()},
 		UpdateOneof: &pb.SubscribeUpdate_Account{
 			Account: &pb.SubscribeUpdateAccount{
 				Account: &pb.SubscribeUpdateAccountInfo{
-					Pubkey: address.Bytes(),
-					Data:   positionData,
+					Pubkey:       address.Bytes(),
+					Data:         positionData,
+					TxnSignature: txSig[:],
 				},
 			},
 		},
@@ -221,7 +275,8 @@ func (m *grpcClientMock) Close() {
 
 func TestSubscription(t *testing.T) {
 	pool := database.CreateTestDatabase(t, "test_solana_indexer_damm_v2")
-
+	transactionCache, err := otter.MustBuilder[solana.Signature, *rpc.GetTransactionResult](10).Build()
+	require.NoError(t, err)
 	// Fake an update for a Position and a Pool with missing data (should fail)
 	positionAddress := solana.MustPublicKeyFromBase58("5bYLydDXt1K5zroychcbrVbhGRUpheXdq5w41uccazPB")
 	positionUpdate := pb.SubscribeUpdate{
@@ -268,7 +323,7 @@ func TestSubscription(t *testing.T) {
 	grpcMock.On("Subscribe", mock.Anything, mock.Anything, mock.Anything, mock.Anything).Return(nil)
 	grpcMock.On("Close").Return()
 
-	indexer := New(common.GrpcConfig{}, &rpcClient, pool, logger)
+	indexer := New(common.GrpcConfig{}, &rpcClient, pool, &transactionCache, logger)
 	indexer.grpcFactory = func(config common.GrpcConfig) common.GrpcClient {
 		return &grpcMock
 	}
@@ -305,7 +360,7 @@ func TestSubscription(t *testing.T) {
 
 	// Update the DB to trigger a refresh of the subscription
 	sql := `UPDATE artist_coins SET damm_v2_pool = @damm_v2_pool WHERE mint = 'abc'`
-	_, err := pool.Exec(ctx, sql, pgx.NamedArgs{
+	_, err = pool.Exec(ctx, sql, pgx.NamedArgs{
 		"damm_v2_pool": dammPoolAddress2.String(),
 	})
 	require.NoError(t, err)

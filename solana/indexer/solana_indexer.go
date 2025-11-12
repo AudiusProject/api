@@ -79,7 +79,9 @@ func New(config config.Config) *SolanaIndexer {
 		panic(fmt.Errorf("failed to create transaction cache: %w", err))
 	}
 
-	dammV2Indexer := damm_v2.New(grpcConfig, rpcClient, pool, logger)
+	dammV2Indexer := damm_v2.New(
+		grpcConfig, rpcClient, pool, &transactionCache, logger,
+	)
 	tokenIndexer := token.New(
 		grpcConfig, rpcClient, pool, &transactionCache, logger,
 	)
