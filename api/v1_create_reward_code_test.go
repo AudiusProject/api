@@ -241,14 +241,14 @@ func TestVerifySignature(t *testing.T) {
 
 		// Verify against a different key (should fail)
 		mockKey := "DDT15s6MMNxE4jkyGN46wNYqrgLWofT6WAvWtjYYrCUq"
-		valid, err := verifySignature(signature, mockKey)
+		valid, err := verifySignature(signature, signedAuthMessage, mockKey)
 		assert.NoError(t, err)
 		assert.False(t, valid, "Should return false for signature from wrong key")
 	})
 
 	t.Run("Returns error for invalid base58", func(t *testing.T) {
 		mockKey := "DDT15s6MMNxE4jkyGN46wNYqrgLWofT6WAvWtjYYrCUq"
-		_, err := verifySignature("not-valid-base58!@#", mockKey)
+		_, err := verifySignature("not-valid-base58!@#", signedAuthMessage, mockKey)
 		assert.Error(t, err, "Should return error for invalid base58")
 	})
 
@@ -262,7 +262,7 @@ func TestVerifySignature(t *testing.T) {
 
 		// Sign a different message
 		signature := createValidSignature(testPrivateKey, "wrong-message")
-		valid, err := verifySignature(signature, testPubKeyBase58)
+		valid, err := verifySignature(signature, signedAuthMessage, testPubKeyBase58)
 		assert.NoError(t, err)
 		assert.False(t, valid, "Should return false for signature of wrong message")
 	})
