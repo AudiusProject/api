@@ -44,11 +44,12 @@ func (app *ApiServer) v1MetricsApps(c *fiber.Ctx) error {
 
 	sql := fmt.Sprintf(`
 		SELECT 
-			COALESCE(NULLIF(api_key, ''), app_name) AS name,
+			COALESCE(developer_apps.name, app_name) AS name,
 			SUM(request_count) AS count
 		FROM api_metrics_apps
+		LEFT JOIN developer_apps ON developer_apps.address = api_metrics_apps.api_key
 		WHERE %s
-		GROUP BY COALESCE(NULLIF(api_key, ''), app_name)
+		GROUP BY COALESCE(developer_apps.name, app_name)
 		ORDER BY count DESC
 		LIMIT @limit
 	`, dateRangeClause)

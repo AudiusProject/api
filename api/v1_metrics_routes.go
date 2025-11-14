@@ -18,14 +18,22 @@ type TimestampedRouteMetric struct {
 	Timestamp string `json:"timestamp"`
 }
 
+type GetMetricsRoutesRouteParams struct {
+	TimeRange string `params:"time_range" default:"all_time" validate:"oneof=week month year all_time"`
+}
+
 type GetMetricsRoutesQueryParams struct {
-	TimeRange  string `query:"time_range" default:"month"`
 	BucketSize string `query:"bucket_size" default:"day"`
 }
 
 func (app *ApiServer) v1MetricsRoutes(c *fiber.Ctx) error {
-	params := GetMetricsRoutesQueryParams{}
-	if err := c.QueryParser(&params); err != nil {
+	routeParams := GetMetricsRoutesRouteParams{}
+	if err := c.ParamsParser(&routeParams); err != nil {
+		return err
+	}
+
+	queryParams := GetMetricsRoutesQueryParams{}
+	if err := c.QueryParser(&queryParams); err != nil {
 		return err
 	}
 
@@ -33,24 +41,28 @@ func (app *ApiServer) v1MetricsRoutes(c *fiber.Ctx) error {
 	var bucketClause string
 	var orderBy string
 
-	switch params.TimeRange {
+	switch routeParams.TimeRange {
 	case "week":
 		dateRangeClause = "date >= CURRENT_DATE - INTERVAL '7 days' AND date < CURRENT_DATE"
+	case "month":
+		dateRangeClause = "date >= CURRENT_DATE - INTERVAL '30 days' AND date < CURRENT_DATE"
 	case "year":
 		dateRangeClause = "date >= CURRENT_DATE - INTERVAL '365 days' AND date < CURRENT_DATE"
-	case "all_time":
+	default: // all_time
 		dateRangeClause = "date < CURRENT_DATE"
-	default: // month
-		dateRangeClause = "date >= CURRENT_DATE - INTERVAL '30 days' AND date < CURRENT_DATE"
 	}
 
-	switch params.BucketSize {
+	switch queryParams.BucketSize {
 	case "week":
 		bucketClause = "date_trunc('week', date)::date::text AS bucket"
 		orderBy = "bucket ASC"
+		// Exclude current incomplete week
+		dateRangeClause = dateRangeClause + " AND date_trunc('week', date) < date_trunc('week', CURRENT_DATE)"
 	case "month":
 		bucketClause = "date_trunc('month', date)::date::text AS bucket"
 		orderBy = "bucket ASC"
+		// Exclude current incomplete month
+		dateRangeClause = dateRangeClause + " AND date_trunc('month', date) < date_trunc('month', CURRENT_DATE)"
 	default: // day
 		bucketClause = "date::text AS bucket"
 		orderBy = "bucket ASC"
@@ -73,14 +85,9 @@ func (app *ApiServer) v1MetricsRoutes(c *fiber.Ctx) error {
 	}
 	defer rows.Close()
 
-	// Group rows by bucket and merge sketches within each bucket
-	result := []TimestampedRouteMetric{}
-	var currentBucket string
-	var bucketRows []struct {
-		sketchData  []byte
-		uniqueCount int64
-		totalCount  int64
-	}
+	// Group rows by bucket
+	bucketMap := make(map[string][]hll.SketchRow)
+	bucketOrder := []string{}
 
 	for rows.Next() {
 		var bucket string
@@ -92,41 +99,32 @@ func (app *ApiServer) v1MetricsRoutes(c *fiber.Ctx) error {
 			return fmt.Errorf("failed to scan row: %w", err)
 		}
 
-		// If we've moved to a new bucket, process the previous bucket
-		if currentBucket != "" && bucket != currentBucket {
-			if len(bucketRows) > 0 {
-				merged, err := mergeBucketRows(bucketRows)
-				if err != nil {
-					return fmt.Errorf("failed to merge bucket rows: %w", err)
-				}
-				result = append(result, TimestampedRouteMetric{
-					Timestamp: currentBucket,
-					RouteMetric: RouteMetric{
-						UniqueCount:       int(merged.UniqueCount),
-						SummedUniqueCount: int(merged.SummedUniqueCount),
-						TotalCount:        int(merged.TotalCount),
-					},
-				})
-			}
-			bucketRows = nil
+		if _, exists := bucketMap[bucket]; !exists {
+			bucketOrder = append(bucketOrder, bucket)
 		}
 
-		currentBucket = bucket
-		bucketRows = append(bucketRows, struct {
-			sketchData  []byte
-			uniqueCount int64
-			totalCount  int64
-		}{sketchData, uniqueCount, totalCount})
+		// Include all rows, even those with null sketches
+		bucketMap[bucket] = append(bucketMap[bucket], hll.SketchRow{
+			SketchData:  sketchData, // may be nil
+			UniqueCount: uniqueCount,
+			TotalCount:  totalCount,
+		})
 	}
 
-	// Process the last bucket
-	if len(bucketRows) > 0 {
-		merged, err := mergeBucketRows(bucketRows)
+	if err := rows.Err(); err != nil {
+		return fmt.Errorf("error iterating rows: %w", err)
+	}
+
+	// Merge sketches for each bucket
+	result := make([]TimestampedRouteMetric, 0, len(bucketOrder))
+	for _, bucket := range bucketOrder {
+		merged, err := hll.MergeSketches(bucketMap[bucket], 12)
 		if err != nil {
-			return fmt.Errorf("failed to merge bucket rows: %w", err)
+			return fmt.Errorf("failed to merge sketches for bucket %s: %w", bucket, err)
 		}
+
 		result = append(result, TimestampedRouteMetric{
-			Timestamp: currentBucket,
+			Timestamp: bucket,
 			RouteMetric: RouteMetric{
 				UniqueCount:       int(merged.UniqueCount),
 				SummedUniqueCount: int(merged.SummedUniqueCount),
@@ -135,33 +133,9 @@ func (app *ApiServer) v1MetricsRoutes(c *fiber.Ctx) error {
 		})
 	}
 
-	if err := rows.Err(); err != nil {
-		return fmt.Errorf("error iterating rows: %w", err)
-	}
-
 	return c.JSON(fiber.Map{
 		"data": result,
 	})
-}
-
-// mergeBucketRows merges HLL sketches from multiple rows within the same bucket
-func mergeBucketRows(rows []struct {
-	sketchData  []byte
-	uniqueCount int64
-	totalCount  int64
-}) (*hll.MergedMetrics, error) {
-	// Convert to SketchRow format
-	sketchRows := make([]hll.SketchRow, len(rows))
-	for i, row := range rows {
-		sketchRows[i] = hll.SketchRow{
-			SketchData:  row.sketchData,
-			UniqueCount: row.uniqueCount,
-			TotalCount:  row.totalCount,
-		}
-	}
-
-	// Merge all sketches using the helper
-	return hll.MergeSketches(sketchRows, 12)
 }
 
 type GetMetricsRoutesTrailingRouteParams struct {

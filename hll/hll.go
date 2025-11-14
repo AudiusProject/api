@@ -222,17 +222,21 @@ func MergeSketches(rows []SketchRow, precision uint8) (*MergedMetrics, error) {
 	var summedUniqueCount int64
 
 	for _, row := range rows {
-		sketch, err := UnmarshalSketch(row.SketchData, precision)
-		if err != nil {
-			return nil, err
-		}
-
-		if err := mergedSketch.Merge(sketch); err != nil {
-			return nil, err
-		}
-
+		// Always accumulate counts
 		totalCount += row.TotalCount
 		summedUniqueCount += row.UniqueCount
+
+		// Only merge sketch if data is present
+		if row.SketchData != nil {
+			sketch, err := UnmarshalSketch(row.SketchData, precision)
+			if err != nil {
+				return nil, err
+			}
+
+			if err := mergedSketch.Merge(sketch); err != nil {
+				return nil, err
+			}
+		}
 	}
 
 	return &MergedMetrics{
@@ -269,17 +273,21 @@ func MergeSketchesFromRows(rows pgx.Rows, precision uint8) (*MergedMetrics, erro
 			return nil, err
 		}
 
-		dailySketch, err := UnmarshalSketch(sketchData, precision)
-		if err != nil {
-			return nil, err
-		}
-
-		if err := mergedSketch.Merge(dailySketch); err != nil {
-			return nil, err
-		}
-
+		// Always accumulate counts
 		totalCount += rowTotalCount
 		summedUniqueCount += uniqueCount
+
+		// Only merge sketch if data is present
+		if sketchData != nil {
+			dailySketch, err := UnmarshalSketch(sketchData, precision)
+			if err != nil {
+				return nil, err
+			}
+
+			if err := mergedSketch.Merge(dailySketch); err != nil {
+				return nil, err
+			}
+		}
 	}
 
 	if err := rows.Err(); err != nil {
