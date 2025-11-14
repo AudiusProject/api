@@ -6394,6 +6394,26 @@ components:
           type: string
           description: The description of the coin
           example: "A majestic bear token for wildlife conservation"
+        link_1:
+          type: string
+          description: Generic link URL for the coin
+          example: "https://x.com/bear_token"
+          format: uri
+        link_2:
+          type: string
+          description: Generic link URL for the coin
+          example: "https://instagram.com/bear_token"
+          format: uri
+        link_3:
+          type: string
+          description: Generic link URL for the coin
+          example: "https://tiktok.com/@bear_token"
+          format: uri
+        link_4:
+          type: string
+          description: Generic link URL for the coin
+          example: "https://bear-token.com"
+          format: uri
     create_coin_response:
       type: object
       properties:
@@ -6431,6 +6451,26 @@ components:
               type: string
               description: The URI for the coin's logo image
               example: "https://example.com/logo.png"
+            description:
+              type: string
+              description: The description of the coin
+              example: "A majestic bear token for wildlife conservation"
+            link_1:
+              type: string
+              description: Generic link URL for the coin
+              example: "https://x.com/bear_token"
+            link_2:
+              type: string
+              description: Generic link URL for the coin
+              example: "https://instagram.com/bear_token"
+            link_3:
+              type: string
+              description: Generic link URL for the coin
+              example: "https://tiktok.com/@bear_token"
+            link_4:
+              type: string
+              description: Generic link URL for the coin
+              example: "https://bear-token.com"
             created_at:
               type: string
               format: date-time
