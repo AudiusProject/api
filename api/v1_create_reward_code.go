@@ -7,6 +7,7 @@ import (
 	"errors"
 	"fmt"
 	"math/big"
+	"time"
 
 	"api.audius.co/config"
 	"api.audius.co/utils"
@@ -18,6 +19,7 @@ import (
 	"github.com/gofiber/fiber/v2"
 	"github.com/jackc/pgx/v5"
 	"github.com/mr-tron/base58"
+	"go.uber.org/zap"
 )
 
 const (
@@ -27,6 +29,7 @@ const (
 )
 
 type CreateRewardCodeRequest struct {
+	Timestamp int64  `json:"timestamp" validate:"omitempty,min=1"`
 	Signature string `json:"signature" validate:"required"`
 	Mint      string `json:"mint" validate:"required"`
 	Amount    int64  `json:"amount" validate:"required,min=1"`
@@ -54,7 +57,7 @@ func generateCode() (string, error) {
 	return string(result), nil
 }
 
-func verifySignature(signatureBase58 string, authorizedPubKey string) (bool, error) {
+func verifySignature(signatureBase58 string, message string, authorizedPubKey string) (bool, error) {
 	// Decode the signature from base58
 	signatureBytes, err := base58.Decode(signatureBase58)
 	if err != nil {
@@ -68,14 +71,14 @@ func verifySignature(signatureBase58 string, authorizedPubKey string) (bool, err
 	}
 
 	// Verify the signature
-	message := []byte(signedAuthMessage)
-	valid := ed25519.Verify(expectedPubKey[:], message, signatureBytes)
+	messageBytes := []byte(message)
+	valid := ed25519.Verify(expectedPubKey[:], messageBytes, signatureBytes)
 	return valid, nil
 }
 
-func verifySignatureAgainstKeys(signatureBase58 string, authorizedKeys []string) (string, error) {
+func verifySignatureAgainstKeys(signatureBase58 string, message string, authorizedKeys []string) (string, error) {
 	for _, key := range authorizedKeys {
-		valid, err := verifySignature(signatureBase58, key)
+		valid, err := verifySignature(signatureBase58, message, key)
 		if err != nil {
 			// If there's an error parsing the key or signature, continue to next key
 			continue
@@ -94,8 +97,29 @@ func (app *ApiServer) v1CreateRewardCode(c *fiber.Ctx) error {
 	if err := app.ParseAndValidateBody(c, &req); err != nil {
 		return err
 	}
+	var message = signedAuthMessage
+	signatureIsSingleUse := req.Timestamp > 0
+	if signatureIsSingleUse {
+		message = fmt.Sprintf("%d", req.Timestamp)
+		var signatureUsed bool
+		// Check if signature already used
+		if err := app.writePool.QueryRow(context.Background(), `
+		SELECT EXISTS(SELECT 1 FROM reward_codes WHERE signature = $1)
+	`, req.Signature).Scan(&signatureUsed); err != nil {
+			app.logger.Error("Failed to query for existing verified signature", zap.Error(err))
+			return fiber.NewError(fiber.StatusInternalServerError)
+		} else if signatureUsed {
+			return fiber.NewError(fiber.StatusBadRequest, "Duplicate signature")
+		}
 
-	_, err := verifySignatureAgainstKeys(req.Signature, config.Cfg.RewardCodeAuthorizedKeys)
+		timestamp := time.UnixMilli(req.Timestamp)
+		// Allow drift of timestamp
+		if time.Since(timestamp).Abs() > (12 * time.Hour) {
+			return fiber.NewError(fiber.StatusBadRequest, "Timestamp out of range")
+		}
+	}
+
+	_, err := verifySignatureAgainstKeys(req.Signature, message, config.Cfg.RewardCodeAuthorizedKeys)
 	if err != nil {
 		return fiber.NewError(fiber.StatusForbidden, "Unauthorized: "+err.Error())
 	}
@@ -162,10 +186,17 @@ func (app *ApiServer) v1CreateRewardCode(c *fiber.Ctx) error {
 		rewardAddress = ""
 	}
 
+	var codeSignature string
+	if signatureIsSingleUse {
+		codeSignature = req.Signature
+	} else {
+		codeSignature = ""
+	}
+
 	// Insert the reward code into the database
 	sql := `
-		INSERT INTO reward_codes (code, mint, reward_address, amount, remaining_uses)
-		VALUES (@code, @mint, @reward_address, @amount, 1)
+		INSERT INTO reward_codes (code, mint, reward_address, amount, remaining_uses, signature)
+		VALUES (@code, @mint, @reward_address, @amount, 1, @signature)
 		RETURNING code, mint, reward_address, amount
 	`
 
@@ -174,6 +205,7 @@ func (app *ApiServer) v1CreateRewardCode(c *fiber.Ctx) error {
 		"mint":           req.Mint,
 		"reward_address": rewardAddress,
 		"amount":         req.Amount,
+		"signature":      codeSignature,
 	})
 	if err != nil {
 		return fiber.NewError(fiber.StatusInternalServerError, "Database error: "+err.Error())

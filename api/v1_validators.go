@@ -61,6 +61,10 @@ func (app *ApiServer) updateNodes(ctx context.Context) {
 	if err != nil {
 		app.logger.Error("Failed to get registered nodes", zap.Error(err))
 	}
+	if nodes == nil || nodes.Msg == nil {
+		app.logger.Error("GetRegisteredEndpoints returned nil response")
+		return
+	}
 
 	var nodesList []config.Node
 	for _, node := range nodes.Msg.Endpoints {

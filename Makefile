@@ -6,6 +6,9 @@ dev::
 pretty::
 	go run cmd/pretty/main.go
 
+build-reward-codes::
+	go build -o bin/create-reward-codes cmd/create_reward_codes/main.go
+
 indexer::
 	wgo run -file .go -debounce 10ms main.go indexer
 
