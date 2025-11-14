@@ -60,19 +60,10 @@ func (app *ApiServer) v1MetricsApps(c *fiber.Ctx) error {
 	if err != nil {
 		return fmt.Errorf("failed to query app metrics: %w", err)
 	}
-	defer rows.Close()
 
-	result := []AppMetric{}
-	for rows.Next() {
-		var metric AppMetric
-		if err := rows.Scan(&metric.Name, &metric.Count); err != nil {
-			return fmt.Errorf("failed to scan row: %w", err)
-		}
-		result = append(result, metric)
-	}
-
-	if err := rows.Err(); err != nil {
-		return fmt.Errorf("error iterating rows: %w", err)
+	result, err := pgx.CollectRows(rows, pgx.RowToStructByName[AppMetric])
+	if err != nil {
+		return fmt.Errorf("failed to collect app metrics: %w", err)
 	}
 
 	return c.JSON(fiber.Map{

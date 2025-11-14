@@ -5,6 +5,7 @@ import (
 
 	"api.audius.co/hll"
 	"github.com/gofiber/fiber/v2"
+	"github.com/jackc/pgx/v5"
 )
 
 type RouteMetric struct {
@@ -83,36 +84,34 @@ func (app *ApiServer) v1MetricsRoutes(c *fiber.Ctx) error {
 	if err != nil {
 		return fmt.Errorf("failed to query metrics: %w", err)
 	}
-	defer rows.Close()
+
+	type metricRow struct {
+		Bucket      string `db:"bucket"`
+		HllSketch   []byte `db:"hll_sketch"`
+		UniqueCount int64  `db:"unique_count"`
+		TotalCount  int64  `db:"total_count"`
+	}
+
+	metricRows, err := pgx.CollectRows(rows, pgx.RowToStructByName[metricRow])
+	if err != nil {
+		return fmt.Errorf("failed to collect metrics: %w", err)
+	}
 
 	// Group rows by bucket
 	bucketMap := make(map[string][]hll.SketchRow)
 	bucketOrder := []string{}
 
-	for rows.Next() {
-		var bucket string
-		var sketchData []byte
-		var uniqueCount int64
-		var totalCount int64
-
-		if err := rows.Scan(&bucket, &sketchData, &uniqueCount, &totalCount); err != nil {
-			return fmt.Errorf("failed to scan row: %w", err)
-		}
-
-		if _, exists := bucketMap[bucket]; !exists {
-			bucketOrder = append(bucketOrder, bucket)
+	for _, row := range metricRows {
+		if _, exists := bucketMap[row.Bucket]; !exists {
+			bucketOrder = append(bucketOrder, row.Bucket)
 		}
 
 		// Include all rows, even those with null sketches
-		bucketMap[bucket] = append(bucketMap[bucket], hll.SketchRow{
-			SketchData:  sketchData, // may be nil
-			UniqueCount: uniqueCount,
-			TotalCount:  totalCount,
+		bucketMap[row.Bucket] = append(bucketMap[row.Bucket], hll.SketchRow{
+			SketchData:  row.HllSketch, // may be nil
+			UniqueCount: row.UniqueCount,
+			TotalCount:  row.TotalCount,
 		})
-	}
-
-	if err := rows.Err(); err != nil {
-		return fmt.Errorf("error iterating rows: %w", err)
 	}
 
 	// Merge sketches for each bucket
