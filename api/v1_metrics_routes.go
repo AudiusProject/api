@@ -23,7 +23,7 @@ type GetMetricsRoutesRouteParams struct {
 }
 
 type GetMetricsRoutesQueryParams struct {
-	BucketSize string `query:"bucket_size" default:"day"`
+	BucketSize string `query:"bucket_size" default:"day" validate:"oneof=day week month year"`
 }
 
 func (app *ApiServer) v1MetricsRoutes(c *fiber.Ctx) error {
