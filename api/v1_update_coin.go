@@ -64,7 +64,6 @@ func (app *ApiServer) v1UpdateCoin(c *fiber.Ctx) error {
 	setParts := []string{"updated_at = NOW()"}
 	args := pgx.NamedArgs{"mint": mint}
 	hasUpdates := false
-
 	if body.Description != "" {
 		setParts = append(setParts, "description = @description")
 		args["description"] = body.Description

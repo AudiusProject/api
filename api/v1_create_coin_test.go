@@ -1,6 +1,8 @@
 package api
 
 import (
+	"context"
+	"database/sql"
 	"encoding/json"
 	"testing"
 	"time"
@@ -56,6 +58,60 @@ func TestV1CreateCoin(t *testing.T) {
 		"data.name":   "BEAR",
 	})
 
+}
+
+func TestV1CreateCoin_StoresLinks(t *testing.T) {
+	app := emptyTestApp(t)
+	database.Seed(app.pool.Replicas[0], database.FixtureMap{
+		"users": {
+			{
+				"user_id":     2,
+				"wallet":      "0xc3d1d41e6872ffbd15c473d14fc3a9250be5b5e0",
+				"is_verified": true,
+			},
+		},
+	})
+
+	link1Val := "https://example.com/alpha"
+	link2Val := "https://example.com/beta"
+	link3Val := ""
+
+	requestBody := CreateCoinBody{
+		Mint:        "lionR26zyyB3fNQm5wWv1ZfN8MPQDUMwaAuoG79b1Yj",
+		Ticker:      "LION",
+		Decimals:    9,
+		Name:        "LION",
+		LogoUri:     "https://example.com/lion-logo.png",
+		Description: "Roaring with automatic social links",
+		Link1:       &link1Val,
+		Link2:       &link2Val,
+		Link3:       &link3Val,
+	}
+	requestBodyBytes, err := json.Marshal(requestBody)
+	assert.NoError(t, err)
+
+	status, _ := testPostWithWallet(t, app, "/v1/coins?user_id="+trashid.MustEncodeHashID(2), "0xc3d1d41e6872ffbd15c473d14fc3a9250be5b5e0", requestBodyBytes, map[string]string{
+		"Content-Type": "application/json",
+	})
+
+	assert.Equal(t, 201, status)
+
+	var dbLink1, dbLink2, dbLink3, dbLink4 sql.NullString
+	err = app.pool.QueryRow(context.Background(), `
+		SELECT link_1, link_2, link_3, link_4
+		FROM artist_coins
+		WHERE mint = $1
+	`, requestBody.Mint).Scan(&dbLink1, &dbLink2, &dbLink3, &dbLink4)
+	assert.NoError(t, err)
+
+	assert.True(t, dbLink1.Valid)
+	assert.Equal(t, "https://example.com/alpha", dbLink1.String)
+
+	assert.True(t, dbLink2.Valid)
+	assert.Equal(t, "https://example.com/beta", dbLink2.String)
+
+	assert.False(t, dbLink3.Valid)
+	assert.False(t, dbLink4.Valid)
 }
 
 func TestV1CreateCoin_DuplicateMint(t *testing.T) {
