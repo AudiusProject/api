@@ -1,8 +1,10 @@
 package api
 
 import (
-	"api.audius.co/api/dbv1"
+	"fmt"
+
 	"github.com/gofiber/fiber/v2"
+	"github.com/jackc/pgx/v5"
 )
 
 type GetAggregateAppMetricsRouteParams struct {
@@ -28,20 +30,40 @@ func (app *ApiServer) v1MetricsApps(c *fiber.Ctx) error {
 		return err
 	}
 
-	metrics, err := app.queries.GetAggregateAppMetrics(c.Context(), dbv1.GetAggregateAppMetricsParams{
-		TimeRange: routeParams.TimeRange,
-		LimitVal:  int32(queryParams.Limit),
-	})
-	if err != nil {
-		return err
+	var dateRangeClause string
+	switch routeParams.TimeRange {
+	case "week":
+		dateRangeClause = "date >= CURRENT_DATE - INTERVAL '7 days' AND date < CURRENT_DATE"
+	case "month":
+		dateRangeClause = "date >= CURRENT_DATE - INTERVAL '30 days' AND date < CURRENT_DATE"
+	case "year":
+		dateRangeClause = "date >= CURRENT_DATE - INTERVAL '365 days' AND date < CURRENT_DATE"
+	default: // all_time
+		dateRangeClause = "date < CURRENT_DATE"
 	}
 
-	result := make([]AppMetric, len(metrics))
-	for i, metric := range metrics {
-		result[i] = AppMetric{
-			Name:  metric.Name,
-			Count: metric.Count,
-		}
+	sql := fmt.Sprintf(`
+		SELECT 
+			COALESCE(developer_apps.name, app_name) AS name,
+			SUM(request_count) AS count
+		FROM api_metrics_apps
+		LEFT JOIN developer_apps ON developer_apps.address = api_metrics_apps.api_key
+		WHERE %s
+		GROUP BY COALESCE(developer_apps.name, app_name)
+		ORDER BY count DESC
+		LIMIT @limit
+	`, dateRangeClause)
+
+	rows, err := app.pool.Query(c.Context(), sql, pgx.NamedArgs{
+		"limit": queryParams.Limit,
+	})
+	if err != nil {
+		return fmt.Errorf("failed to query app metrics: %w", err)
+	}
+
+	result, err := pgx.CollectRows(rows, pgx.RowToStructByName[AppMetric])
+	if err != nil {
+		return fmt.Errorf("failed to collect app metrics: %w", err)
 	}
 
 	return c.JSON(fiber.Map{

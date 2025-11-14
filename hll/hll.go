@@ -187,3 +187,116 @@ func (h *HLL) GetStats() map[string]interface{} {
 		"hll_total_count":  h.totalRequests,
 	}
 }
+
+// MergedMetrics represents the result of merging multiple HLL sketches
+type MergedMetrics struct {
+	UniqueCount       uint64
+	SummedUniqueCount int64
+	TotalCount        int64
+}
+
+func UnmarshalSketch(sketchData []byte, precision uint8) (*hyperloglog.Sketch, error) {
+	sketch, err := hyperloglog.NewSketch(precision, true)
+	if err != nil {
+		return nil, err
+	}
+	if err := sketch.UnmarshalBinary(sketchData); err != nil {
+		return nil, err
+	}
+	return sketch, nil
+}
+
+type SketchRow struct {
+	SketchData  []byte
+	UniqueCount int64
+	TotalCount  int64
+}
+
+func MergeSketches(rows []SketchRow, precision uint8) (*MergedMetrics, error) {
+	mergedSketch, err := hyperloglog.NewSketch(precision, true)
+	if err != nil {
+		return nil, err
+	}
+
+	var totalCount int64
+	var summedUniqueCount int64
+
+	for _, row := range rows {
+		// Always accumulate counts
+		totalCount += row.TotalCount
+		summedUniqueCount += row.UniqueCount
+
+		// Only merge sketch if data is present
+		if row.SketchData != nil {
+			sketch, err := UnmarshalSketch(row.SketchData, precision)
+			if err != nil {
+				return nil, err
+			}
+
+			if err := mergedSketch.Merge(sketch); err != nil {
+				return nil, err
+			}
+		}
+	}
+
+	return &MergedMetrics{
+		UniqueCount:       mergedSketch.Estimate(),
+		SummedUniqueCount: summedUniqueCount,
+		TotalCount:        totalCount,
+	}, nil
+}
+
+// MergeSketchesFromRows merges HLL sketches from database rows and returns aggregated metrics.
+// This function expects rows with columns: hll_sketch (BYTEA), unique_count (BIGINT), total_count (BIGINT)
+//
+// Parameters:
+//   - rows: pgx.Rows containing hll_sketch, unique_count, and total_count columns
+//   - precision: the precision parameter for the HLL sketch (should match the precision used when creating the sketches)
+//
+// Returns:
+//   - MergedMetrics containing the accurate unique count from merged sketches, summed unique count, and total count
+func MergeSketchesFromRows(rows pgx.Rows, precision uint8) (*MergedMetrics, error) {
+	mergedSketch, err := hyperloglog.NewSketch(precision, true)
+	if err != nil {
+		return nil, err
+	}
+
+	var totalCount int64
+	var summedUniqueCount int64
+
+	for rows.Next() {
+		var sketchData []byte
+		var uniqueCount int64
+		var rowTotalCount int64
+
+		if err := rows.Scan(&sketchData, &uniqueCount, &rowTotalCount); err != nil {
+			return nil, err
+		}
+
+		// Always accumulate counts
+		totalCount += rowTotalCount
+		summedUniqueCount += uniqueCount
+
+		// Only merge sketch if data is present
+		if sketchData != nil {
+			dailySketch, err := UnmarshalSketch(sketchData, precision)
+			if err != nil {
+				return nil, err
+			}
+
+			if err := mergedSketch.Merge(dailySketch); err != nil {
+				return nil, err
+			}
+		}
+	}
+
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+
+	return &MergedMetrics{
+		UniqueCount:       mergedSketch.Estimate(),
+		SummedUniqueCount: summedUniqueCount,
+		TotalCount:        totalCount,
+	}, nil
+}

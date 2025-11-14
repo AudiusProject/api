@@ -5890,7 +5890,7 @@ CREATE TABLE public.api_metrics_apps (
 
 CREATE TABLE public.api_metrics_counts (
     date date NOT NULL,
-    hll_sketch bytea NOT NULL,
+    hll_sketch bytea,
     total_count bigint DEFAULT 0 NOT NULL,
     unique_count bigint DEFAULT 0 NOT NULL,
     created_at timestamp without time zone DEFAULT now(),
@@ -12360,5 +12360,4 @@ ALTER TABLE ONLY public.users
 --
 -- PostgreSQL database dump complete
 --
-
 

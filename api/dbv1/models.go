@@ -1508,6 +1508,8 @@ type RewardCode struct {
 	CreatedAt time.Time `json:"created_at"`
 	// Number of times the code can still be redeemed
 	RemainingUses int32 `json:"remaining_uses"`
+	// Signature used to generate the reward code
+	Signature pgtype.Text `json:"signature"`
 }
 
 type RewardManagerTx struct {
