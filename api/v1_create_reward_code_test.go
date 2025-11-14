@@ -5,6 +5,7 @@ import (
 	"crypto/ed25519"
 	"crypto/rand"
 	"encoding/json"
+	"fmt"
 	"testing"
 	"time"
 
@@ -113,10 +114,12 @@ func TestV1CreateRewardCode(t *testing.T) {
 		testPubKeyBase58 := solanaPubKey.String()
 		config.Cfg.RewardCodeAuthorizedKeys = []string{testPubKeyBase58}
 
-		// Create a valid signature
-		signature := createValidSignature(testPrivateKey, signedAuthMessage)
+		timestamp := time.Now().UnixMilli()
+		timestampStr := fmt.Sprintf("%d", timestamp)
+		signature := createValidSignature(testPrivateKey, timestampStr)
 
 		requestBody := CreateRewardCodeRequest{
+			Timestamp: timestamp,
 			Signature: signature,
 			Mint:      "TestMint123",
 			Amount:    500,
@@ -163,9 +166,11 @@ func TestV1CreateRewardCode(t *testing.T) {
 		testPubKeyBase582 := solanaPubKey2.String()
 		config.Cfg.RewardCodeAuthorizedKeys = []string{testPubKeyBase58, testPubKeyBase582}
 
-		// Create a valid signature
-		signature2 := createValidSignature(testPrivateKey2, signedAuthMessage)
+		timestamp := time.Now().UnixMilli()
+		timestampStr := fmt.Sprintf("%d", timestamp)
+		signature2 := createValidSignature(testPrivateKey2, timestampStr)
 		requestBody := CreateRewardCodeRequest{
+			Timestamp: timestamp,
 			Signature: signature2,
 			Mint:      "TestMint123",
 			Amount:    500,
@@ -197,6 +202,54 @@ func TestV1CreateRewardCode(t *testing.T) {
 		assert.Equal(t, resp.Mint, dbMint)
 		assert.Equal(t, resp.Amount, dbAmount)
 		assert.Equal(t, 1, dbRemainingUses)
+	})
+
+	t.Run("Replay prevention: same signature/timestamp with different parameters returns 400", func(t *testing.T) {
+		// Generate a test keypair
+		testPublicKey, testPrivateKey, err := ed25519.GenerateKey(rand.Reader)
+		assert.NoError(t, err)
+
+		// Convert to Solana format and inject into config
+		solanaPubKey := solana.PublicKeyFromBytes(testPublicKey)
+		testPubKeyBase58 := solanaPubKey.String()
+		config.Cfg.RewardCodeAuthorizedKeys = []string{testPubKeyBase58}
+
+		timestamp := time.Now().UnixMilli()
+		timestampStr := fmt.Sprintf("%d", timestamp)
+		signature := createValidSignature(testPrivateKey, timestampStr)
+
+		// First request - should succeed
+		requestBody1 := CreateRewardCodeRequest{
+			Timestamp: timestamp,
+			Signature: signature,
+			Mint:      "TestMint123",
+			Amount:    500,
+		}
+
+		body1, err := json.Marshal(requestBody1)
+		assert.NoError(t, err)
+
+		var resp1 CreateRewardCodeResponse
+		status1, respBody1 := testPost(t, app, "/v1/rewards/code", body1, map[string]string{
+			"Content-Type": "application/json",
+		}, &resp1)
+		assert.Equal(t, 201, status1, "First request should succeed. Response body: %s", string(respBody1))
+
+		// Second request with same signature/timestamp but different parameters - should fail with 400
+		requestBody2 := CreateRewardCodeRequest{
+			Timestamp: timestamp,
+			Signature: signature,
+			Mint:      "TestMint123",
+			Amount:    1000, // Different amount
+		}
+
+		body2, err := json.Marshal(requestBody2)
+		assert.NoError(t, err)
+
+		status2, respBody2 := testPost(t, app, "/v1/rewards/code", body2, map[string]string{
+			"Content-Type": "application/json",
+		})
+		assert.Equal(t, 400, status2, "Second request with same signature should return 400. Response body: %s", string(respBody2))
 	})
 }
 
@@ -236,19 +289,22 @@ func TestVerifySignature(t *testing.T) {
 		_, testPrivateKey, err := ed25519.GenerateKey(rand.Reader)
 		assert.NoError(t, err)
 
-		// Create a signature with test key
-		signature := createValidSignature(testPrivateKey, "code")
+		timestamp := time.Now().UnixMilli()
+		timestampStr := fmt.Sprintf("%d", timestamp)
+		signature := createValidSignature(testPrivateKey, timestampStr)
 
 		// Verify against a different key (should fail)
 		mockKey := "DDT15s6MMNxE4jkyGN46wNYqrgLWofT6WAvWtjYYrCUq"
-		valid, err := verifySignature(signature, mockKey)
+		valid, err := verifySignature(signature, timestampStr, mockKey)
 		assert.NoError(t, err)
 		assert.False(t, valid, "Should return false for signature from wrong key")
 	})
 
 	t.Run("Returns error for invalid base58", func(t *testing.T) {
+		timestamp := time.Now().UnixMilli()
+		timestampStr := fmt.Sprintf("%d", timestamp)
 		mockKey := "DDT15s6MMNxE4jkyGN46wNYqrgLWofT6WAvWtjYYrCUq"
-		_, err := verifySignature("not-valid-base58!@#", mockKey)
+		_, err := verifySignature("not-valid-base58!@#", timestampStr, mockKey)
 		assert.Error(t, err, "Should return error for invalid base58")
 	})
 
@@ -260,9 +316,14 @@ func TestVerifySignature(t *testing.T) {
 		solanaPubKey := solana.PublicKeyFromBytes(testPubKey)
 		testPubKeyBase58 := solanaPubKey.String()
 
-		// Sign a different message
-		signature := createValidSignature(testPrivateKey, "wrong-message")
-		valid, err := verifySignature(signature, testPubKeyBase58)
+		timestamp1 := time.Now().UnixMilli()
+		timestamp2 := timestamp1 + 1000
+		timestamp1Str := fmt.Sprintf("%d", timestamp1)
+		timestamp2Str := fmt.Sprintf("%d", timestamp2)
+
+		// Sign one timestamp but verify against a different timestamp (should fail)
+		signature := createValidSignature(testPrivateKey, timestamp1Str)
+		valid, err := verifySignature(signature, timestamp2Str, testPubKeyBase58)
 		assert.NoError(t, err)
 		assert.False(t, valid, "Should return false for signature of wrong message")
 	})

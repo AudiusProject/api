@@ -3,8 +3,8 @@
 --
 
 
--- Dumped from database version 17.6 (Debian 17.6-2.pgdg13+1)
--- Dumped by pg_dump version 17.6 (Debian 17.6-2.pgdg13+1)
+-- Dumped from database version 17.6 (Debian 17.6-1.pgdg13+1)
+-- Dumped by pg_dump version 17.6 (Debian 17.6-1.pgdg13+1)
 
 SET statement_timeout = 0;
 SET lock_timeout = 0;
@@ -7343,7 +7343,8 @@ CREATE TABLE public.reward_codes (
     reward_address text NOT NULL,
     amount bigint NOT NULL,
     created_at timestamp without time zone DEFAULT CURRENT_TIMESTAMP NOT NULL,
-    remaining_uses integer DEFAULT 1 NOT NULL
+    remaining_uses integer DEFAULT 1 NOT NULL,
+    signature text
 );
 
 
@@ -7387,6 +7388,13 @@ COMMENT ON COLUMN public.reward_codes.amount IS 'Amount of coins to reward';
 --
 
 COMMENT ON COLUMN public.reward_codes.remaining_uses IS 'Number of times the code can still be redeemed';
+
+
+--
+-- Name: COLUMN reward_codes.signature; Type: COMMENT; Schema: public; Owner: -
+--
+
+COMMENT ON COLUMN public.reward_codes.signature IS 'Signature used to generate the reward code';
 
 
 --
