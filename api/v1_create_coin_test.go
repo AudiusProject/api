@@ -77,7 +77,7 @@ func TestV1CreateCoin_StoresLinks(t *testing.T) {
 	link3Val := ""
 
 	requestBody := CreateCoinBody{
-		Mint:        "lionR26zyyB3fNQm5wWv1ZfN8MPQDUMwaAuoG79b1Yj",
+		Mint:        "DDT15s6MMNxE4jkyGN46wNYqrgLWofT6WAvWtjYYrCUq",
 		Ticker:      "LION",
 		Decimals:    9,
 		Name:        "LION",
@@ -90,14 +90,17 @@ func TestV1CreateCoin_StoresLinks(t *testing.T) {
 	requestBodyBytes, err := json.Marshal(requestBody)
 	assert.NoError(t, err)
 
-	status, _ := testPostWithWallet(t, app, "/v1/coins?user_id="+trashid.MustEncodeHashID(2), "0xc3d1d41e6872ffbd15c473d14fc3a9250be5b5e0", requestBodyBytes, map[string]string{
+	status, body := testPostWithWallet(t, app, "/v1/coins?user_id="+trashid.MustEncodeHashID(2), "0xc3d1d41e6872ffbd15c473d14fc3a9250be5b5e0", requestBodyBytes, map[string]string{
 		"Content-Type": "application/json",
 	})
 
+	if status != 201 {
+		t.Logf("Request failed with status %d, body: %s", status, string(body))
+	}
 	assert.Equal(t, 201, status)
 
 	var dbLink1, dbLink2, dbLink3, dbLink4 sql.NullString
-	err = app.pool.QueryRow(context.Background(), `
+	err = app.writePool.QueryRow(context.Background(), `
 		SELECT link_1, link_2, link_3, link_4
 		FROM artist_coins
 		WHERE mint = $1
