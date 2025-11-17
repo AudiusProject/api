@@ -14,16 +14,17 @@ import (
 )
 
 type CreateCoinBody struct {
-	Mint        string  `json:"mint" validate:"required,solana_address"`
-	Ticker      string  `json:"ticker" validate:"required,min=2,max=10,coin_ticker"`
-	Decimals    int32   `json:"decimals" validate:"required,min=0,max=18"`
-	Name        string  `json:"name" validate:"required,min=1,max=32"`
-	LogoUri     string  `json:"logo_uri" validate:"omitempty,url"`
-	Description string  `json:"description" validate:"max=2500"`
-	Link1       *string `json:"link_1,omitempty"`
-	Link2       *string `json:"link_2,omitempty"`
-	Link3       *string `json:"link_3,omitempty"`
-	Link4       *string `json:"link_4,omitempty"`
+	Mint           string  `json:"mint" validate:"required,solana_address"`
+	Ticker         string  `json:"ticker" validate:"required,min=2,max=10,coin_ticker"`
+	Decimals       int32   `json:"decimals" validate:"required,min=0,max=18"`
+	Name           string  `json:"name" validate:"required,min=1,max=32"`
+	LogoUri        string  `json:"logo_uri" validate:"omitempty,url"`
+	BannerImageUrl string  `json:"banner_image_url" validate:"omitempty,url"`
+	Description    string  `json:"description" validate:"max=2500"`
+	Link1          *string `json:"link_1,omitempty"`
+	Link2          *string `json:"link_2,omitempty"`
+	Link3          *string `json:"link_3,omitempty"`
+	Link4          *string `json:"link_4,omitempty"`
 }
 
 func (app *ApiServer) v1CreateCoin(c *fiber.Ctx) error {
@@ -98,43 +99,45 @@ func (app *ApiServer) v1CreateCoin(c *fiber.Ctx) error {
 	}
 
 	sql := `
-		INSERT INTO artist_coins (mint, ticker, user_id, decimals, name, logo_uri, description, link_1, link_2, link_3, link_4)
-		VALUES (@mint, @ticker, @user_id, @decimals, @name, @logo_uri, @description, @link_1, @link_2, @link_3, @link_4)
-		RETURNING mint, ticker, user_id, decimals, name, logo_uri, description, link_1, link_2, link_3, link_4, created_at
+		INSERT INTO artist_coins (mint, ticker, user_id, decimals, name, logo_uri, banner_image_url, description, link_1, link_2, link_3, link_4)
+		VALUES (@mint, @ticker, @user_id, @decimals, @name, @logo_uri, @banner_image_url, @description, @link_1, @link_2, @link_3, @link_4)
+		RETURNING mint, ticker, user_id, decimals, name, logo_uri, banner_image_url, description, link_1, link_2, link_3, link_4, created_at
 	`
 
 	args := pgx.NamedArgs{
-		"mint":        body.Mint,
-		"ticker":      body.Ticker,
-		"user_id":     userID,
-		"decimals":    body.Decimals,
-		"name":        body.Name,
-		"logo_uri":    body.LogoUri,
-		"description": body.Description,
-		"link_1":      linkValues["link_1"],
-		"link_2":      linkValues["link_2"],
-		"link_3":      linkValues["link_3"],
-		"link_4":      linkValues["link_4"],
+		"mint":             body.Mint,
+		"ticker":           body.Ticker,
+		"user_id":          userID,
+		"decimals":         body.Decimals,
+		"name":             body.Name,
+		"logo_uri":         body.LogoUri,
+		"banner_image_url": body.BannerImageUrl,
+		"description":      body.Description,
+		"link_1":           linkValues["link_1"],
+		"link_2":           linkValues["link_2"],
+		"link_3":           linkValues["link_3"],
+		"link_4":           linkValues["link_4"],
 	}
 
 	row := app.writePool.QueryRow(c.Context(), sql, args)
 
 	var result struct {
-		Mint        string    `json:"mint"`
-		Ticker      string    `json:"ticker"`
-		UserID      int32     `json:"user_id"`
-		Decimals    int32     `json:"decimals"`
-		Name        string    `json:"name"`
-		LogoUri     string    `json:"logo_uri"`
-		Description string    `json:"description"`
-		Link1       *string   `json:"link_1,omitempty"`
-		Link2       *string   `json:"link_2,omitempty"`
-		Link3       *string   `json:"link_3,omitempty"`
-		Link4       *string   `json:"link_4,omitempty"`
-		CreatedAt   time.Time `json:"created_at"`
+		Mint           string    `json:"mint"`
+		Ticker         string    `json:"ticker"`
+		UserID         int32     `json:"user_id"`
+		Decimals       int32     `json:"decimals"`
+		Name           string    `json:"name"`
+		LogoUri        string    `json:"logo_uri"`
+		BannerImageUrl *string   `json:"banner_image_url,omitempty"`
+		Description    string    `json:"description"`
+		Link1          *string   `json:"link_1,omitempty"`
+		Link2          *string   `json:"link_2,omitempty"`
+		Link3          *string   `json:"link_3,omitempty"`
+		Link4          *string   `json:"link_4,omitempty"`
+		CreatedAt      time.Time `json:"created_at"`
 	}
 
-	if err := row.Scan(&result.Mint, &result.Ticker, &result.UserID, &result.Decimals, &result.Name, &result.LogoUri, &result.Description, &result.Link1, &result.Link2, &result.Link3, &result.Link4, &result.CreatedAt); err != nil {
+	if err := row.Scan(&result.Mint, &result.Ticker, &result.UserID, &result.Decimals, &result.Name, &result.LogoUri, &result.BannerImageUrl, &result.Description, &result.Link1, &result.Link2, &result.Link3, &result.Link4, &result.CreatedAt); err != nil {
 		var pgErr *pgconn.PgError
 		if errors.As(err, &pgErr) && pgErr.Code == pgerrcode.UniqueViolation {
 			if pgErr.ConstraintName == "artist_coins_pkey" {

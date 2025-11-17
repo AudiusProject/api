@@ -23,12 +23,13 @@ func TestV1CreateCoin(t *testing.T) {
 	})
 
 	requestBody := CreateCoinBody{
-		Mint:        "bearR26zyyB3fNQm5wWv1ZfN8MPQDUMwaAuoG79b1Yj",
-		Ticker:      "BEAR",
-		Decimals:    9,
-		Name:        "BEAR",
-		LogoUri:     "https://example.com/bear-logo.png",
-		Description: "A majestic bear token for wildlife conservation",
+		Mint:           "bearR26zyyB3fNQm5wWv1ZfN8MPQDUMwaAuoG79b1Yj",
+		Ticker:         "BEAR",
+		Decimals:       9,
+		Name:           "BEAR",
+		LogoUri:        "https://example.com/bear-logo.png",
+		BannerImageUrl: "https://example.com/bear-banner.png",
+		Description:    "A majestic bear token for wildlife conservation",
 	}
 	requestBodyBytes, err := json.Marshal(requestBody)
 	assert.NoError(t, err)
@@ -38,13 +39,14 @@ func TestV1CreateCoin(t *testing.T) {
 
 	assert.Equal(t, 201, status)
 	jsonAssert(t, body, map[string]any{
-		"data.mint":        "bearR26zyyB3fNQm5wWv1ZfN8MPQDUMwaAuoG79b1Yj",
-		"data.ticker":      "BEAR",
-		"data.user_id":     1,
-		"data.decimals":    9,
-		"data.name":        "BEAR",
-		"data.logo_uri":    "https://example.com/bear-logo.png",
-		"data.description": "A majestic bear token for wildlife conservation",
+		"data.mint":             "bearR26zyyB3fNQm5wWv1ZfN8MPQDUMwaAuoG79b1Yj",
+		"data.ticker":           "BEAR",
+		"data.user_id":          1,
+		"data.decimals":         9,
+		"data.name":             "BEAR",
+		"data.logo_uri":         "https://example.com/bear-logo.png",
+		"data.banner_image_url": "https://example.com/bear-banner.png",
+		"data.description":      "A majestic bear token for wildlife conservation",
 	})
 
 	// Verify the coin was actually created by fetching it via API

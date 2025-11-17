@@ -11,11 +11,12 @@ import (
 )
 
 type UpdateCoinBody struct {
-	Description string  `json:"description" validate:"max=2500"`
-	Link1       *string `json:"link_1,omitempty"`
-	Link2       *string `json:"link_2,omitempty"`
-	Link3       *string `json:"link_3,omitempty"`
-	Link4       *string `json:"link_4,omitempty"`
+	Description    string  `json:"description" validate:"max=2500"`
+	Link1          *string `json:"link_1,omitempty"`
+	Link2          *string `json:"link_2,omitempty"`
+	Link3          *string `json:"link_3,omitempty"`
+	Link4          *string `json:"link_4,omitempty"`
+	BannerImageUrl *string `json:"banner_image_url,omitempty"`
 }
 
 func validateURL(s string) error {
@@ -126,6 +127,20 @@ func (app *ApiServer) v1UpdateCoin(c *fiber.Ctx) error {
 			args["link_4"] = nil
 		} else {
 			args["link_4"] = *body.Link4
+		}
+		hasUpdates = true
+	}
+	if body.BannerImageUrl != nil {
+		if *body.BannerImageUrl != "" {
+			if err := validateURL(*body.BannerImageUrl); err != nil {
+				return fiber.NewError(fiber.StatusBadRequest, "Invalid banner_image_url format")
+			}
+		}
+		setParts = append(setParts, "banner_image_url = @banner_image_url")
+		if *body.BannerImageUrl == "" {
+			args["banner_image_url"] = nil
+		} else {
+			args["banner_image_url"] = *body.BannerImageUrl
 		}
 		hasUpdates = true
 	}
