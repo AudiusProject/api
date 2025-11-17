@@ -1,8 +1,6 @@
 package api
 
 import (
-	"context"
-	"database/sql"
 	"encoding/json"
 	"testing"
 	"time"
@@ -77,7 +75,7 @@ func TestV1CreateCoin_StoresLinks(t *testing.T) {
 	link3Val := ""
 
 	requestBody := CreateCoinBody{
-		Mint:        "DDT15s6MMNxE4jkyGN46wNYqrgLWofT6WAvWtjYYrCUq",
+		Mint:        "9LzCMqDgTKYz9Drzqnpgee3SGa89up3a247ypMj2xrqM",
 		Ticker:      "LION",
 		Decimals:    9,
 		Name:        "LION",
@@ -99,22 +97,18 @@ func TestV1CreateCoin_StoresLinks(t *testing.T) {
 	}
 	assert.Equal(t, 201, status)
 
-	var dbLink1, dbLink2, dbLink3, dbLink4 sql.NullString
-	err = app.writePool.QueryRow(context.Background(), `
-		SELECT link_1, link_2, link_3, link_4
-		FROM artist_coins
-		WHERE mint = $1
-	`, requestBody.Mint).Scan(&dbLink1, &dbLink2, &dbLink3, &dbLink4)
-	assert.NoError(t, err)
-
-	assert.True(t, dbLink1.Valid)
-	assert.Equal(t, "https://example.com/alpha", dbLink1.String)
-
-	assert.True(t, dbLink2.Valid)
-	assert.Equal(t, "https://example.com/beta", dbLink2.String)
-
-	assert.False(t, dbLink3.Valid)
-	assert.False(t, dbLink4.Valid)
+	// Verify the coin was created and links are stored by fetching it via API
+	status, body = testGet(t, app, "/v1/coins/"+requestBody.Mint)
+	assert.Equal(t, 200, status)
+	jsonAssert(t, body, map[string]any{
+		"data.mint":   requestBody.Mint,
+		"data.ticker": "LION",
+		"data.name":   "LION",
+		"data.link_1": "https://example.com/alpha",
+		"data.link_2": "https://example.com/beta",
+		"data.link_3": nil,
+		"data.link_4": nil,
+	})
 }
 
 func TestV1CreateCoin_DuplicateMint(t *testing.T) {
