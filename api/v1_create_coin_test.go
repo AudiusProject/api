@@ -1,8 +1,6 @@
 package api
 
 import (
-	"context"
-	"database/sql"
 	"encoding/json"
 	"testing"
 	"time"
@@ -77,7 +75,7 @@ func TestV1CreateCoin_StoresLinks(t *testing.T) {
 	link3Val := ""
 
 	requestBody := CreateCoinBody{
-		Mint:        "lionR26zyyB3fNQm5wWv1ZfN8MPQDUMwaAuoG79b1Yj",
+		Mint:        "9LzCMqDgTKYz9Drzqnpgee3SGa89up3a247ypMj2xrqM",
 		Ticker:      "LION",
 		Decimals:    9,
 		Name:        "LION",
@@ -90,28 +88,27 @@ func TestV1CreateCoin_StoresLinks(t *testing.T) {
 	requestBodyBytes, err := json.Marshal(requestBody)
 	assert.NoError(t, err)
 
-	status, _ := testPostWithWallet(t, app, "/v1/coins?user_id="+trashid.MustEncodeHashID(2), "0xc3d1d41e6872ffbd15c473d14fc3a9250be5b5e0", requestBodyBytes, map[string]string{
+	status, body := testPostWithWallet(t, app, "/v1/coins?user_id="+trashid.MustEncodeHashID(2), "0xc3d1d41e6872ffbd15c473d14fc3a9250be5b5e0", requestBodyBytes, map[string]string{
 		"Content-Type": "application/json",
 	})
 
+	if status != 201 {
+		t.Logf("Request failed with status %d, body: %s", status, string(body))
+	}
 	assert.Equal(t, 201, status)
 
-	var dbLink1, dbLink2, dbLink3, dbLink4 sql.NullString
-	err = app.pool.QueryRow(context.Background(), `
-		SELECT link_1, link_2, link_3, link_4
-		FROM artist_coins
-		WHERE mint = $1
-	`, requestBody.Mint).Scan(&dbLink1, &dbLink2, &dbLink3, &dbLink4)
-	assert.NoError(t, err)
-
-	assert.True(t, dbLink1.Valid)
-	assert.Equal(t, "https://example.com/alpha", dbLink1.String)
-
-	assert.True(t, dbLink2.Valid)
-	assert.Equal(t, "https://example.com/beta", dbLink2.String)
-
-	assert.False(t, dbLink3.Valid)
-	assert.False(t, dbLink4.Valid)
+	// Verify the coin was created and links are stored by fetching it via API
+	status, body = testGet(t, app, "/v1/coins/"+requestBody.Mint)
+	assert.Equal(t, 200, status)
+	jsonAssert(t, body, map[string]any{
+		"data.mint":   requestBody.Mint,
+		"data.ticker": "LION",
+		"data.name":   "LION",
+		"data.link_1": "https://example.com/alpha",
+		"data.link_2": "https://example.com/beta",
+		"data.link_3": nil,
+		"data.link_4": nil,
+	})
 }
 
 func TestV1CreateCoin_DuplicateMint(t *testing.T) {
