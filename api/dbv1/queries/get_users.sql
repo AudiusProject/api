@@ -143,6 +143,7 @@ SELECT
     SELECT JSON_BUILD_OBJECT(
       'mint', mint,
       'logo_uri', logo_uri,
+      'banner_image_url', banner_image_url,
       'ticker', ticker
     )::jsonb
     FROM artist_coins

@@ -6077,6 +6077,7 @@ CREATE TABLE public.artist_coins (
     decimals integer NOT NULL,
     created_at timestamp without time zone DEFAULT CURRENT_TIMESTAMP NOT NULL,
     logo_uri text,
+    banner_image_url text,
     description text,
     name text DEFAULT ''::text NOT NULL,
     has_discord boolean DEFAULT false NOT NULL,

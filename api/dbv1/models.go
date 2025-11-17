@@ -837,23 +837,24 @@ type AppNameMetricsTrailingWeek struct {
 
 // Stores the token mints for artist coins that the indexer is tracking and their tickers.
 type ArtistCoin struct {
-	Mint        string      `json:"mint"`
-	Ticker      string      `json:"ticker"`
-	UserID      int32       `json:"user_id"`
-	Decimals    int32       `json:"decimals"`
-	CreatedAt   time.Time   `json:"created_at"`
-	LogoUri     pgtype.Text `json:"logo_uri"`
-	Description pgtype.Text `json:"description"`
-	Name        string      `json:"name"`
-	HasDiscord  bool        `json:"has_discord"`
-	UpdatedAt   *time.Time  `json:"updated_at"`
-	Twitter     pgtype.Text `json:"twitter"`
-	Instagram   pgtype.Text `json:"instagram"`
-	Tiktok      pgtype.Text `json:"tiktok"`
-	Link1       pgtype.Text `json:"link_1"`
-	Link2       pgtype.Text `json:"link_2"`
-	Link3       pgtype.Text `json:"link_3"`
-	Link4       pgtype.Text `json:"link_4"`
+	Mint           string      `json:"mint"`
+	Ticker         string      `json:"ticker"`
+	UserID         int32       `json:"user_id"`
+	Decimals       int32       `json:"decimals"`
+	CreatedAt      time.Time   `json:"created_at"`
+	LogoUri        pgtype.Text `json:"logo_uri"`
+	BannerImageUrl pgtype.Text `json:"banner_image_url"`
+	Description    pgtype.Text `json:"description"`
+	Name           string      `json:"name"`
+	HasDiscord     bool        `json:"has_discord"`
+	UpdatedAt      *time.Time  `json:"updated_at"`
+	Twitter        pgtype.Text `json:"twitter"`
+	Instagram      pgtype.Text `json:"instagram"`
+	Tiktok         pgtype.Text `json:"tiktok"`
+	Link1          pgtype.Text `json:"link_1"`
+	Link2          pgtype.Text `json:"link_2"`
+	Link3          pgtype.Text `json:"link_3"`
+	Link4          pgtype.Text `json:"link_4"`
 	// The canonical DAMM V2 pool address for this artist coin, if any. Used in solana indexer.
 	DammV2Pool pgtype.Text `json:"damm_v2_pool"`
 }

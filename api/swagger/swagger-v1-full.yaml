@@ -5778,6 +5778,8 @@ components:
               type: string
             logo_uri:
               type: string
+            banner_image_url:
+              type: string
             ticker:
               type: string
               description: The coin symbol/ticker
@@ -6255,6 +6257,10 @@ components:
           type: string
           description: The URI for the coin's logo image
           example: "https://example.com/logo.png"
+        banner_image_url:
+          type: string
+          description: The URI for the coin's banner image
+          example: "https://example.com/banner.png"
         description:
           type: string
           description: The description of the coin
@@ -6390,6 +6396,11 @@ components:
           type: string
           description: The URI for the coin's logo image
           example: "https://example.com/logo.png"
+        banner_image_url:
+          type: string
+          description: The URI for the coin's banner image
+          example: "https://example.com/banner.png"
+          format: uri
         description:
           type: string
           description: The description of the coin
@@ -6451,6 +6462,10 @@ components:
               type: string
               description: The URI for the coin's logo image
               example: "https://example.com/logo.png"
+            banner_image_url:
+              type: string
+              description: The URI for the coin's banner image
+              example: "https://example.com/banner.png"
             description:
               type: string
               description: The description of the coin
@@ -6485,6 +6500,11 @@ components:
           description: The description of the coin (max 2500 characters)
           example: "Updated description for the bear token"
           maxLength: 2500
+        banner_image_url:
+          type: string
+          description: URL for the coin's banner image
+          example: "https://example.com/banner.png"
+          format: uri
         link_1:
           type: string
           description: Generic link URL for the coin

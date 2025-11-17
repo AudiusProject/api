@@ -5644,6 +5644,10 @@ components:
           type: string
           description: URL to the coin's logo image
           example: "https://arweave.net/hQiPZOsRZXGXBJd_82PhVdlM_hACsT_q6wqwf5cSY7I"
+        banner_image_url:
+          type: string
+          description: URL to the coin's banner image
+          example: "https://example.com/banner.png"
         description:
           type: string
           description: A longform description about the coin
@@ -6032,6 +6036,11 @@ components:
           type: string
           description: The URI for the coin's logo image
           example: "https://example.com/logo.png"
+        banner_image_url:
+          type: string
+          description: The URI for the coin's banner image
+          example: "https://example.com/banner.png"
+          format: uri
         description:
           type: string
           description: The description of the coin
@@ -6093,6 +6102,10 @@ components:
               type: string
               description: The URI for the coin's logo image
               example: "https://example.com/logo.png"
+            banner_image_url:
+              type: string
+              description: The URI for the coin's banner image
+              example: "https://example.com/banner.png"
             description:
               type: string
               description: The description of the coin
@@ -6127,6 +6140,11 @@ components:
           description: The description of the coin (max 2500 characters)
           example: "Updated description for the bear token"
           maxLength: 2500
+        banner_image_url:
+          type: string
+          description: URL for the coin's banner image
+          example: "https://example.com/banner.png"
+          format: uri
         link_1:
           type: string
           description: Generic link URL for the coin
@@ -6562,6 +6580,11 @@ components:
           nullable: true
           description: URL to the coin's logo image
           example: "https://example.com/logo.png"
+        banner_image_url:
+          type: string
+          nullable: true
+          description: URL to the coin's banner image
+          example: "https://example.com/banner.png"
         has_discord:
           type: boolean
           description: Whether the coin has a Discord server

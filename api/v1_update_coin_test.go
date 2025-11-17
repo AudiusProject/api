@@ -22,13 +22,14 @@ func TestV1UpdateCoin(t *testing.T) {
 		},
 		"artist_coins": {
 			{
-				"mint":        "bearR26zyyB3fNQm5wWv1ZfN8MPQDUMwaAuoG79b1Yj",
-				"ticker":      "BEAR",
-				"user_id":     1,
-				"decimals":    9,
-				"name":        "BEAR",
-				"logo_uri":    "https://example.com/bear-logo.png",
-				"description": "Original description",
+				"mint":             "bearR26zyyB3fNQm5wWv1ZfN8MPQDUMwaAuoG79b1Yj",
+				"ticker":           "BEAR",
+				"user_id":          1,
+				"decimals":         9,
+				"name":             "BEAR",
+				"logo_uri":         "https://example.com/bear-logo.png",
+				"banner_image_url": "https://example.com/old-banner.png",
+				"description":      "Original description",
 			},
 		},
 	})
@@ -38,12 +39,14 @@ func TestV1UpdateCoin(t *testing.T) {
 	link3 := "https://tiktok.com/@bear_token"
 	link4 := "https://bear-token.com"
 
+	newBanner := "https://example.com/new-banner.png"
 	requestBody := UpdateCoinBody{
-		Description: "Updated description for the bear token",
-		Link1:       &link1,
-		Link2:       &link2,
-		Link3:       &link3,
-		Link4:       &link4,
+		Description:    "Updated description for the bear token",
+		Link1:          &link1,
+		Link2:          &link2,
+		Link3:          &link3,
+		Link4:          &link4,
+		BannerImageUrl: &newBanner,
 	}
 	requestBodyBytes, err := json.Marshal(requestBody)
 	assert.NoError(t, err)
@@ -59,14 +62,15 @@ func TestV1UpdateCoin(t *testing.T) {
 	status, body = testGet(t, app, "/v1/coins/bearR26zyyB3fNQm5wWv1ZfN8MPQDUMwaAuoG79b1Yj")
 	assert.Equal(t, 200, status)
 	jsonAssert(t, body, map[string]any{
-		"data.mint":        "bearR26zyyB3fNQm5wWv1ZfN8MPQDUMwaAuoG79b1Yj",
-		"data.ticker":      "BEAR",
-		"data.name":        "BEAR",
-		"data.description": "Updated description for the bear token",
-		"data.link_1":      "https://x.com/bear_token",
-		"data.link_2":      "https://instagram.com/bear_token",
-		"data.link_3":      "https://tiktok.com/@bear_token",
-		"data.link_4":      "https://bear-token.com",
+		"data.mint":             "bearR26zyyB3fNQm5wWv1ZfN8MPQDUMwaAuoG79b1Yj",
+		"data.ticker":           "BEAR",
+		"data.name":             "BEAR",
+		"data.description":      "Updated description for the bear token",
+		"data.banner_image_url": "https://example.com/new-banner.png",
+		"data.link_1":           "https://x.com/bear_token",
+		"data.link_2":           "https://instagram.com/bear_token",
+		"data.link_3":           "https://tiktok.com/@bear_token",
+		"data.link_4":           "https://bear-token.com",
 	})
 }
 
@@ -262,6 +266,21 @@ func TestV1UpdateCoin_IndividualFields(t *testing.T) {
 	jsonAssert(t, body, map[string]any{
 		"success": true,
 	})
+
+	// Test updating only banner image url
+	bannerOnly := "https://images.example.com/banner.png"
+	requestBody = UpdateCoinBody{
+		BannerImageUrl: &bannerOnly,
+	}
+	requestBodyBytes, err = json.Marshal(requestBody)
+	assert.NoError(t, err)
+
+	status, body = testPostWithWallet(t, app, "/v1/coins/bearR26zyyB3fNQm5wWv1ZfN8MPQDUMwaAuoG79b1Yj?user_id="+trashid.MustEncodeHashID(1), "0x7d273271690538cf855e5b3002a0dd8c154bb060", requestBodyBytes, nil)
+
+	assert.Equal(t, 200, status)
+	jsonAssert(t, body, map[string]any{
+		"success": true,
+	})
 }
 
 func TestV1UpdateCoin_NoFields(t *testing.T) {
@@ -333,17 +352,30 @@ func TestV1UpdateCoin_URLValidation(t *testing.T) {
 
 	assert.Equal(t, 400, status)
 
+	// Test invalid banner image url
+	invalidBanner := "not-a-banner-url"
+	requestBody = UpdateCoinBody{
+		BannerImageUrl: &invalidBanner,
+	}
+	requestBodyBytes, err = json.Marshal(requestBody)
+	assert.NoError(t, err)
+
+	status, _ = testPostWithWallet(t, app, "/v1/coins/bearR26zyyB3fNQm5wWv1ZfN8MPQDUMwaAuoG79b1Yj?user_id="+trashid.MustEncodeHashID(1), "0x7d273271690538cf855e5b3002a0dd8c154bb060", requestBodyBytes, nil)
+	assert.Equal(t, 400, status)
+
 	// Test valid URLs work
 	validLink1 := "https://example1.com"
 	validLink2 := "https://example2.com"
 	validLink3 := "https://example3.com"
 	validLink4 := "https://example4.com"
+	validBanner := "https://example.com/banner.png"
 
 	requestBody = UpdateCoinBody{
-		Link1: &validLink1,
-		Link2: &validLink2,
-		Link3: &validLink3,
-		Link4: &validLink4,
+		Link1:          &validLink1,
+		Link2:          &validLink2,
+		Link3:          &validLink3,
+		Link4:          &validLink4,
+		BannerImageUrl: &validBanner,
 	}
 	requestBodyBytes, err = json.Marshal(requestBody)
 	assert.NoError(t, err)
@@ -355,13 +387,14 @@ func TestV1UpdateCoin_URLValidation(t *testing.T) {
 		"success": true,
 	})
 
-	// Test deleting links by passing empty strings
+	// Test deleting links and banner by passing empty strings
 	emptyString := ""
 	requestBody = UpdateCoinBody{
-		Link1: &emptyString,
-		Link2: &emptyString,
-		Link3: &emptyString,
-		Link4: &emptyString,
+		Link1:          &emptyString,
+		Link2:          &emptyString,
+		Link3:          &emptyString,
+		Link4:          &emptyString,
+		BannerImageUrl: &emptyString,
 	}
 	requestBodyBytes, err = json.Marshal(requestBody)
 	assert.NoError(t, err)
@@ -370,10 +403,11 @@ func TestV1UpdateCoin_URLValidation(t *testing.T) {
 
 	assert.Equal(t, 200, status)
 	jsonAssert(t, body, map[string]any{
-		"data.link_1": nil,
-		"data.link_2": nil,
-		"data.link_3": nil,
-		"data.link_4": nil,
+		"data.link_1":           nil,
+		"data.link_2":           nil,
+		"data.link_3":           nil,
+		"data.link_4":           nil,
+		"data.banner_image_url": nil,
 	})
 }
 
