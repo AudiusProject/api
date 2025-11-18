@@ -16,9 +16,9 @@ create or replace function compute_user_score(
         chat_block_count bigint,
         following_count bigint,
         is_audius_impersonator boolean,
-        has_badwords boolean,
         distinct_tracks_played bigint,
-        karma bigint
+        karma bigint,
+        has_profile_picture boolean
     ) returns bigint as $$
 select (play_count / 2) + follower_count - challenge_count - (chat_block_count * 100) + karma + case
         when following_count < 5 then -1
@@ -27,9 +27,9 @@ select (play_count / 2) + follower_count - challenge_count - (chat_block_count *
         when is_audius_impersonator then -1000
         else 0
     end + case
-        when has_badwords then -1000
+        when distinct_tracks_played <= 3 then -10
         else 0
     end + case
-        when distinct_tracks_played <= 3 then -10
+        when not has_profile_picture then -100
         else 0
     end $$ language sql immutable;
