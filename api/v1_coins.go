@@ -202,9 +202,13 @@ const sharedSelectCoinSql = `
 			ON artist_coin_pools.base_mint = artist_coins.mint
 		LEFT JOIN sol_reward_manager_inits
 			ON sol_reward_manager_inits.mint = artist_coins.mint
-		LEFT JOIN sol_token_account_balances AS reward_pool
-			ON reward_pool.owner = sol_reward_manager_inits.authority
-			AND reward_pool.account != sol_reward_manager_inits.token_source
+		LEFT JOIN LATERAL (
+			SELECT * FROM sol_token_account_balances
+			WHERE owner = sol_reward_manager_inits.authority
+			AND account != sol_reward_manager_inits.token_source
+			ORDER BY created_at ASC
+			LIMIT 1
+		) AS reward_pool ON true
 `
 
 type GetArtistCoinsQueryParams struct {
