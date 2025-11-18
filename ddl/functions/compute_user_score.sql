@@ -16,9 +16,9 @@ create or replace function compute_user_score(
         chat_block_count bigint,
         following_count bigint,
         is_audius_impersonator boolean,
+        has_profile_picture boolean,
         distinct_tracks_played bigint,
-        karma bigint,
-        has_profile_picture boolean
+        karma bigint
     ) returns bigint as $$
 select (play_count / 2) + follower_count - challenge_count - (chat_block_count * 100) + karma + case
         when following_count < 5 then -1

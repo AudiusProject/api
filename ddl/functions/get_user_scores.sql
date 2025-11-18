@@ -1,7 +1,6 @@
 -- identical to get_user_score but for a user batch
 -- used for updating score in aggregate_user
 -- this score is used in shadowbanning
-drop function if exists get_user_scores(integer []);
 create or replace function get_user_scores(
         target_user_ids integer [] default null::integer []
     ) returns table(
@@ -14,6 +13,7 @@ create or replace function get_user_scores(
         challenge_count bigint,
         chat_block_count bigint,
         is_audius_impersonator boolean,
+        has_profile_picture boolean,
         karma bigint,
         score bigint
     ) language sql as $function$ with play_activity as (
@@ -63,7 +63,6 @@ create or replace function get_user_scores(
             coalesce(aggregate_user.follower_count, 0) as follower_count,
             coalesce(fast_challenge_completion.challenge_count, 0) as challenge_count,
             coalesce(chat_blocks.block_count, 0) as chat_block_count,
-            (users.profile_picture_sizes is not null) as has_profile_picture,
             case
                 when (
                     users.handle_lc ilike '%audius%'
@@ -72,6 +71,7 @@ create or replace function get_user_scores(
                 and users.is_verified = false then true
                 else false
             end as is_audius_impersonator,
+            (users.profile_picture_sizes is not null) as has_profile_picture,
             case
                 when (
                     -- give max karma to users with more than 1000 followers
@@ -112,9 +112,9 @@ select a.*,
         a.chat_block_count,
         a.following_count,
         a.is_audius_impersonator,
+        a.has_profile_picture,
         a.distinct_tracks_played,
-        a.karma,
-        a.has_profile_picture
+        a.karma
     ) as score
 from aggregate_scores a;
 $function$;

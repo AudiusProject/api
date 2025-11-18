@@ -1,6 +1,5 @@
 -- identical to get_user_scores but for a single user
 -- used to generate a user score for attestations and in UI tool
-drop function if exists get_user_score(integer);
 create or replace function get_user_score(target_user_id integer) returns table(
         -- order matters
         user_id integer,
@@ -12,6 +11,7 @@ create or replace function get_user_score(target_user_id integer) returns table(
         follower_count bigint,
         chat_block_count bigint,
         is_audius_impersonator boolean,
+        has_profile_picture boolean,
         karma bigint,
         score bigint
     ) language sql as $function$ with play_activity as (
@@ -54,7 +54,6 @@ create or replace function get_user_score(target_user_id integer) returns table(
             coalesce(au.following_count, 0) as following_count,
             coalesce(au.follower_count, 0) as follower_count,
             coalesce(cb.block_count, 0) as chat_block_count,
-            (u.profile_picture_sizes is not null) as has_profile_picture,
             case
                 when (
                     u.handle_lc ilike '%audius%'
@@ -63,6 +62,7 @@ create or replace function get_user_score(target_user_id integer) returns table(
                 and u.is_verified = false then true
                 else false
             end as is_audius_impersonator,
+            (u.profile_picture_sizes is not null) as has_profile_picture,
             case
                 when (
                     -- give max karma to users with more than 1000 followers
@@ -100,9 +100,9 @@ select a.*,
         a.chat_block_count,
         a.following_count,
         a.is_audius_impersonator,
+        a.has_profile_picture,
         a.distinct_tracks_played,
-        a.karma,
-        a.has_profile_picture
+        a.karma
     ) as score
 from aggregate_scores a;
 $function$;
