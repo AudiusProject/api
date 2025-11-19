@@ -107,7 +107,7 @@ const sharedSelectCoinSql = `
 			artist_coins.ticker,
 			artist_coins.decimals,
 			artist_coins.user_id,
-			sol_locker_vesting_escrows.recipient as escrow_recipient,
+			earliest_escrow.recipient as escrow_recipient,
 			artist_coins.logo_uri,
 			artist_coins.banner_image_url,
 			artist_coins.description,
@@ -211,8 +211,12 @@ const sharedSelectCoinSql = `
 			ORDER BY created_at ASC
 			LIMIT 1
 		) AS reward_pool ON true
-		LEFT JOIN sol_locker_vesting_escrows
-			ON sol_locker_vesting_escrows.token_mint = artist_coins.mint
+		LEFT JOIN (
+			SELECT DISTINCT ON (token_mint) token_mint, recipient
+			FROM sol_locker_vesting_escrows
+			ORDER BY token_mint, created_at ASC
+		) AS earliest_escrow
+			ON earliest_escrow.token_mint = artist_coins.mint
 `
 
 type GetArtistCoinsQueryParams struct {
