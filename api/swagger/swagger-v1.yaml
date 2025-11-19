@@ -5640,6 +5640,10 @@ components:
           type: string
           description: The ID of the user associated with the coin
           example: "7eP5n"
+        escrow_recipient:
+          type: string
+          description: The escrow recipient address for custom-created coins without DBCs
+          example: "DezXAZ8z7PnrnRJjz3wXBoRgixCa6xjnB7YaB1pPB263"
         logo_uri:
           type: string
           description: URL to the coin's logo image

@@ -6315,6 +6315,10 @@ components:
           type: string
           description: The user ID of the coin owner
           example: "7eP5n"
+        escrow_recipient:
+          type: string
+          description: The escrow recipient address for custom-created coins without DBCs
+          example: "DezXAZ8z7PnrnRJjz3wXBoRgixCa6xjnB7YaB1pPB263"
     coin_response:
       type: object
       properties:
