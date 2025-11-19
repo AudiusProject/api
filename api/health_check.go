@@ -2,6 +2,7 @@ package api
 
 import (
 	"context"
+	"slices"
 
 	core_indexer "api.audius.co/indexer"
 	"connectrpc.com/connect"
@@ -64,11 +65,14 @@ func (app *ApiServer) healthCheck(c *fiber.Ctx) error {
 
 	healthyNodes := app.contentNodeMonitor.GetContentNodes()
 	// Convert config.Node to contentNode
-	contentNodes := make([]contentNode, len(healthyNodes))
-	for i, node := range healthyNodes {
-		contentNodes[i] = contentNode{
-			DelegateOwnerWallet: node.DelegateOwnerWallet,
-			Endpoint:            node.Endpoint,
+	contentNodes := make([]contentNode, 0, len(healthyNodes))
+	for _, node := range healthyNodes {
+		// icky reaching into config to check upload nodes
+		if slices.Contains(app.contentNodeMonitor.config.UploadNodes, node.Endpoint) {
+			contentNodes = append(contentNodes, contentNode{
+				DelegateOwnerWallet: node.DelegateOwnerWallet,
+				Endpoint:            node.Endpoint,
+			})
 		}
 	}
 
