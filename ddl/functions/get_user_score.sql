@@ -1,7 +1,5 @@
 -- identical to get_user_scores but for a single user
 -- used to generate a user score for attestations and in UI tool
-begin;
-drop function if exists get_user_score(integer);
 create or replace function get_user_score(target_user_id integer) returns table(
         -- order matters
         user_id integer,
@@ -13,7 +11,7 @@ create or replace function get_user_score(target_user_id integer) returns table(
         follower_count bigint,
         chat_block_count bigint,
         is_audius_impersonator boolean,
-        has_badwords boolean,
+        has_profile_picture boolean,
         karma bigint,
         score bigint
     ) language sql as $function$ with play_activity as (
@@ -64,18 +62,7 @@ create or replace function get_user_score(target_user_id integer) returns table(
                 and u.is_verified = false then true
                 else false
             end as is_audius_impersonator,
-            case
-                when (
-                    exists (
-                        select 1
-                        from unnest(array['airdrop']) as badword
-                        where u.handle_lc ilike '%' || badword || '%'
-                           or lower(u.name) like '%' || badword || '%'
-                    )
-                )
-                and u.is_verified = false then true
-                else false
-            end as has_badwords,
+            (u.profile_picture_sizes is not null) as has_profile_picture,
             case
                 when (
                     -- give max karma to users with more than 1000 followers
@@ -113,10 +100,9 @@ select a.*,
         a.chat_block_count,
         a.following_count,
         a.is_audius_impersonator,
-        a.has_badwords,
+        a.has_profile_picture,
         a.distinct_tracks_played,
         a.karma
     ) as score
 from aggregate_scores a;
 $function$;
-commit;
