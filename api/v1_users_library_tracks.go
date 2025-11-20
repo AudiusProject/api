@@ -13,7 +13,7 @@ type GetUsersLibraryTracksParams struct {
 	Limit         int    `query:"limit" default:"50" validate:"min=1,max=100"`
 	Offset        int    `query:"offset" default:"0" validate:"min=0"`
 	ActionType    string `query:"type" default:"all" validate:"oneof=all favorite repost purchase"`
-	SortMethod    string `query:"sort_method" default:"added_date" validate:"oneof=added_date plays reposts saves title artist_name"`
+	SortMethod    string `query:"sort_method" default:"added_date" validate:"oneof=added_date release_date plays reposts saves title artist_name"`
 	SortDirection string `query:"sort_direction" default:"desc" validate:"oneof=asc desc"`
 	Query         string `query:"query" default:"" validate:"max=250"`
 }
@@ -42,6 +42,8 @@ func (app *ApiServer) v1UsersLibraryTracks(c *fiber.Ctx) error {
 		sortField = "aggregate_track.save_count"
 	case "title":
 		sortField = "tracks.title"
+	case "release_date":
+		sortField = "coalesce(tracks.release_date, tracks.created_at)"
 	case "artist_name":
 		sortField = "users.name"
 
