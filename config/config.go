@@ -199,7 +199,7 @@ func init() {
 			},
 			{
 				DelegateOwnerWallet: "0x422541273087beC833c57D3c15B9e17F919bFB1F",
-				Endpoint:            "https://dn2.monophonic.digital",
+				Endpoint:            "https://v.monophonic.digital",
 				OwnerWallet:         "0x6470Daf3bd32f5014512bCdF0D02232f5640a5BD",
 			},
 		}
