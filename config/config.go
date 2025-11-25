@@ -157,9 +157,10 @@ func init() {
 		fallthrough
 	case "production":
 		Cfg.OpenAudioURLs = []string{
-			"creatornode.audius.co",
-			"creatornode2.audius.co",
-			"creatornode3.audius.co",
+			"cn1.shakespearetech.com",
+			"audius-content-1.figment.io",
+			"cn1.stuffisup.com",
+			"audius-content-1.cultur3stake.com",
 		}
 		if Cfg.DelegatePrivateKey == "" {
 			log.Fatalf("Missing required %s env var: delegatePrivateKey", env)
