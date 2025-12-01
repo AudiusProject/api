@@ -33,6 +33,7 @@ func init() {
 	reclaimRentCmd.Flags().StringP("database", "c", "postgres://postgres:postgres@localhost:5432/discovery_provider_1?sslmode=disable", "Database connection string")
 	reclaimRentCmd.Flags().StringP("keypair", "k", "~/.config/solana/id.json", "The wallet to use as fee payer for transactions")
 	reclaimRentCmd.Flags().StringP("destination", "d", "", "The recipient of reclaimed rent (defaults to fee payer)")
+	reclaimRentCmd.Flags().StringP("program", "p", claimable_tokens.ProgramID.String(), "The claimable tokens program ID")
 }
 
 func reclaimRent(cmd *cobra.Command, args []string) error {
@@ -78,6 +79,12 @@ func reclaimRent(cmd *cobra.Command, args []string) error {
 	} else {
 		destination = solana.MustPublicKeyFromBase58(destinationFlag)
 	}
+
+	programIDFlag, err := cmd.Flags().GetString("program")
+	if err != nil {
+		return fmt.Errorf("failed to get program flag: %w", err)
+	}
+	claimable_tokens.SetProgramID(solana.MustPublicKeyFromBase58(programIDFlag))
 
 	mint := solana.MustPublicKeyFromBase58(args[0])
 
