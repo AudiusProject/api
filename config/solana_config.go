@@ -49,7 +49,7 @@ const (
 	// Stage
 	StageSolanaRelay                   = "https://discoveryprovider.staging.audius.co/solana/relay"
 	StageMintAudio                     = "9LzCMqDgTKYz9Drzqnpgee3SGa89up3a247ypMj2xrqM"
-	StageMintUSDC                      = "EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZy4z6cQ"
+	StageMintUSDC                      = "EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v"
 	StageRewardManagerProgramID        = "CDpzvz7DfgbF95jSSCHLX3ERkugyfgn9Fw8ypNZ1hfXp"
 	StageRewardManagerState            = "GaiG9LDYHfZGqeNaoGRzFEnLiwUT7WiC6sA6FDJX9ZPq"
 	StageRewardManagerLookupTable      = "ChFCWjeFxM6SRySTfT46zXn2K7m89TJsft4HWzEtkB4J"
@@ -60,7 +60,7 @@ const (
 	// Prod
 	ProdSolanaRelay                   = "https://discoveryprovider.audius.co/solana/relay"
 	ProdMintAudio                     = "9LzCMqDgTKYz9Drzqnpgee3SGa89up3a247ypMj2xrqM"
-	ProdMintUSDC                      = "EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZy4z6cQ"
+	ProdMintUSDC                      = "EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v"
 	ProdRewardManagerProgramID        = "DDZDcYdQFEMwcu2Mwo75yGFjJ1mUQyyXLWzhZLEVFcei"
 	ProdRewardManagerState            = "71hWFVYokLaN1PNYzTAWi13EfJ7Xt9VbSWUKsXUT8mxE"
 	ProdRewardManagerLookupTable      = "4UQwpGupH66RgQrWRqmPM9Two6VJEE68VZ7GeqZ3mvVv"

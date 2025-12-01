@@ -95,18 +95,21 @@ func reclaimRent(cmd *cobra.Command, args []string) error {
 		return fmt.Errorf("failed to derive authority: %w", err)
 	}
 
+	var pageKey *string
+
 	for {
-		res, err := getEmptyTokenAccounts(ctx, rpcClient, mint, authority)
+		res, err := getEmptyTokenAccounts(ctx, rpcClient, mint, authority, pageKey)
 		if err != nil {
 			return fmt.Errorf("failed to get token accounts: %w", err)
 		}
 
-		if res.PaginationKey == nil {
-			fmt.Println("No more empty token accounts to process.")
-			break
+		pageKey = res.PaginationKey
+		safePageKey := "<nil>"
+		if pageKey != nil {
+			safePageKey = *pageKey
 		}
 
-		fmt.Printf("Found %d empty token accounts for mint %s owned by authority %s\n", len(res.Accounts), mint.String(), authority.String())
+		fmt.Printf("Found %d empty token accounts for mint %s owned by authority %s on page %s\n", len(res.Accounts), mint.String(), authority.String(), safePageKey)
 
 		i := 0
 		batchSize := 15
@@ -133,6 +136,10 @@ func reclaimRent(cmd *cobra.Command, args []string) error {
 			// TODO: do more than one batch
 			fmt.Println("Processed one batch, exiting for now.")
 			return nil
+		}
+
+		if pageKey == nil {
+			break
 		}
 	}
 	return nil
@@ -193,7 +200,7 @@ func processBatch(ctx context.Context, pool *pgxpool.Pool, rpcClient *rpc.Client
 	return &txSig, nil
 }
 
-func getEmptyTokenAccounts(ctx context.Context, client *rpc.Client, mint solana.PublicKey, owner solana.PublicKey) (rpc.GetProgramAccountsV2Result, error) {
+func getEmptyTokenAccounts(ctx context.Context, client *rpc.Client, mint solana.PublicKey, owner solana.PublicKey, pageKey *string) (rpc.GetProgramAccountsV2Result, error) {
 	mintOffset := uint64(0)
 	ownerOffset := uint64(32)
 	balanceOffset := uint64(64)
@@ -201,7 +208,7 @@ func getEmptyTokenAccounts(ctx context.Context, client *rpc.Client, mint solana.
 
 	dataSliceOffset := uint64(0)
 	dataSliceLength := uint64(0)
-	limit := uint64(1000)
+	limit := uint64(10000)
 
 	return client.GetProgramAccountsV2WithOpts(ctx, solana.TokenProgramID, &rpc.GetProgramAccountsV2Opts{
 		GetProgramAccountsOpts: rpc.GetProgramAccountsOpts{
@@ -233,7 +240,8 @@ func getEmptyTokenAccounts(ctx context.Context, client *rpc.Client, mint solana.
 				},
 			},
 		},
-		Limit: &limit,
+		PaginationKey: pageKey,
+		Limit:         &limit,
 	})
 }
 
