@@ -57,7 +57,7 @@ func (inst *Close) Destination() *solana.AccountMeta {
 }
 
 func (inst *Close) SetDestination(destination solana.PublicKey) *Close {
-	inst.AccountMetaSlice[2] = solana.NewAccountMeta(destination, false, true)
+	inst.AccountMetaSlice[2] = solana.NewAccountMeta(destination, true, false)
 	return inst
 }
 
