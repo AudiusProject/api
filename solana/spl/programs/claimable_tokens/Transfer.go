@@ -169,7 +169,7 @@ func NewTransferInstruction(
 	if err != nil {
 		return nil, err
 	}
-	authority, _, err := deriveAuthority(mint)
+	authority, _, err := DeriveAuthority(mint)
 	if err != nil {
 		return nil, err
 	}

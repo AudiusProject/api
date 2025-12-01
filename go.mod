@@ -4,6 +4,7 @@ go 1.25.3
 
 require (
 	connectrpc.com/connect v1.18.1
+	github.com/AlecAivazis/survey/v2 v2.3.7
 	github.com/Doist/unfurlist v0.0.0-20250409100812-515f2735f8e5
 	github.com/OpenAudio/go-openaudio v1.0.9
 	github.com/aquasecurity/esquery v0.2.0
@@ -34,6 +35,7 @@ require (
 	github.com/rpcpool/yellowstone-grpc/examples/golang v0.0.0-20250605231917-29d62ca5d4ae
 	github.com/segmentio/encoding v0.4.1
 	github.com/speps/go-hashids/v2 v2.0.1
+	github.com/spf13/cobra v1.10.1
 	github.com/stretchr/testify v1.11.1
 	github.com/test-go/testify v1.1.4
 	github.com/tidwall/gjson v1.18.0
@@ -49,7 +51,6 @@ require (
 
 require (
 	filippo.io/edwards25519 v1.0.0-rc.1 // indirect
-	github.com/AlecAivazis/survey/v2 v2.3.7 // indirect
 	github.com/DataDog/zstd v1.5.2 // indirect
 	github.com/Microsoft/go-winio v0.6.2 // indirect
 	github.com/StackExchange/wmi v1.2.1 // indirect
@@ -203,7 +204,6 @@ require (
 	github.com/shirou/gopsutil/v4 v4.25.1 // indirect
 	github.com/shopspring/decimal v1.4.0 // indirect
 	github.com/spaolacci/murmur3 v1.1.0 // indirect
-	github.com/spf13/cobra v1.10.1 // indirect
 	github.com/spf13/pflag v1.0.10 // indirect
 	github.com/streamingfast/logging v0.0.0-20230608130331-f22c91403091 // indirect
 	github.com/stretchr/objx v0.5.2 // indirect
@@ -242,4 +242,4 @@ require (
 	rsc.io/tmplfunc v0.0.3 // indirect
 )
 
-replace github.com/gagliardetto/solana-go => github.com/rickyrombo/solana-go v1.12.1-0.20250714063439-a36a9577196d
+replace github.com/gagliardetto/solana-go => github.com/rickyrombo/solana-go v0.0.0-20251201205735-fb79b7daf0e2

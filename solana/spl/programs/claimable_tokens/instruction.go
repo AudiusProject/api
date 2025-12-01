@@ -19,6 +19,8 @@ const (
 const (
 	Instruction_CreateTokenAccount uint8 = iota
 	Instruction_Transfer
+	Instruction_SetAuthority
+	Instruction_Close
 )
 
 // Represents a ClaimableTokens program instruction
