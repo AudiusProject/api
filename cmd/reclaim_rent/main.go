@@ -9,8 +9,11 @@ import (
 	"github.com/spf13/cobra"
 
 	"api.audius.co/solana/spl/programs/claimable_tokens"
+	bin "github.com/gagliardetto/binary"
 	"github.com/gagliardetto/solana-go"
+	"github.com/gagliardetto/solana-go/programs/token"
 	"github.com/gagliardetto/solana-go/rpc"
+	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgxpool"
 )
 
@@ -95,34 +98,39 @@ func reclaimRent(cmd *cobra.Command, args []string) error {
 		return fmt.Errorf("failed to derive authority: %w", err)
 	}
 
-	var pageKey *string
+	offset := 0
 
 	for {
-		res, err := getEmptyTokenAccounts(ctx, rpcClient, mint, authority, pageKey)
+		accounts, err := getTokenAccountsFromDatabase(ctx, pool, mint, 1000, offset)
 		if err != nil {
-			return fmt.Errorf("failed to get token accounts: %w", err)
+			return fmt.Errorf("failed to get token accounts from database: %w", err)
 		}
 
-		pageKey = res.PaginationKey
-		safePageKey := "<nil>"
-		if pageKey != nil {
-			safePageKey = *pageKey
+		if len(accounts) == 0 {
+			fmt.Println("No more accounts to process.")
+			break
+		}
+		fmt.Printf("Gathered %d accounts from db\n", len(accounts))
+
+		offset += len(accounts)
+
+		filtered, err := filterAccounts(ctx, rpcClient, accounts)
+		if err != nil {
+			return fmt.Errorf("failed to filter accounts: %w", err)
 		}
 
-		fmt.Printf("Found %d empty token accounts for mint %s owned by authority %s on page %s\n", len(res.Accounts), mint.String(), authority.String(), safePageKey)
-
-		i := 0
 		batchSize := 15
+		i := 0
 
 		for {
-			batch := make([]solana.PublicKey, 0, batchSize)
-			for j := i; j < i+batchSize && j < len(res.Accounts); j++ {
-				batch = append(batch, res.Accounts[j].Pubkey)
+			batch := make([]DatabaseAccount, 0, batchSize)
+			for j := i; j < i+batchSize && j < len(filtered); j++ {
+				batch = append(batch, filtered[j])
 			}
 			if len(batch) == 0 {
 				break
 			}
-			txSig, err := processBatch(ctx, pool, rpcClient, batch, authority, destination, keypair)
+			txSig, err := processBatch(ctx, rpcClient, batch, authority, destination, keypair)
 			if err != nil {
 				return fmt.Errorf("failed to process batch: %w", err)
 			}
@@ -131,39 +139,57 @@ func reclaimRent(cmd *cobra.Command, args []string) error {
 			}
 			time.Sleep(time.Second / 500 * 2) // Max 500 req/s (2 req per batch) to avoid rate limiting
 
+			fmt.Printf("Processed %d/%d accounts\n", i+len(batch), len(filtered))
 			i += batchSize
-
-			// TODO: do more than one batch
-			fmt.Println("Processed one batch, exiting for now.")
-			return nil
-		}
-
-		if pageKey == nil {
-			break
 		}
 	}
 	return nil
 }
 
-func processBatch(ctx context.Context, pool *pgxpool.Pool, rpcClient *rpc.Client, batch []solana.PublicKey, authority solana.PublicKey, destination solana.PublicKey, keypair solana.PrivateKey) (*solana.Signature, error) {
-	ethAddresses, err := getEthAddressesFromAccounts(ctx, pool, batch)
-	if err != nil {
-		return nil, fmt.Errorf("failed to get ETH addresses: %w", err)
+func filterAccounts(ctx context.Context, rpcClient *rpc.Client, batch []DatabaseAccount) ([]DatabaseAccount, error) {
+	accounts := make([]solana.PublicKey, 0, len(batch))
+	for _, acct := range batch {
+		accounts = append(accounts, solana.MustPublicKeyFromBase58(acct.Account))
 	}
 
-	instructions := make([]solana.Instruction, 0, len(batch))
-	for _, acct := range batch {
-		if _, ok := ethAddresses[acct]; !ok {
-			fmt.Printf("Skipping account %s: no associated eth address found\n", acct.String())
+	res, err := rpcClient.GetMultipleAccountsWithOpts(ctx, accounts, &rpc.GetMultipleAccountsOpts{
+		Encoding: solana.EncodingBase64,
+	})
+	if err != nil {
+		return nil, fmt.Errorf("failed to get accounts: %w", err)
+	}
+
+	filtered := make([]DatabaseAccount, 0, len(batch))
+
+	for i, acct := range res.Value {
+		if acct == nil {
+			fmt.Printf("Skipping account %s: account does not exist\n", batch[i].Account)
 			continue
 		}
+		var tokenAccount token.Account
+		err := bin.NewBorshDecoder(acct.Data.GetBinary()).Decode(&tokenAccount)
+		if err != nil {
+			fmt.Printf("Skipping account %s: failed to decode account data (%v)\n", batch[i].Account, err)
+			continue
+		}
+		if tokenAccount.Amount != 0 {
+			fmt.Printf("Skipping account %s: account balance is not zero\n", batch[i].Account)
+			continue
+		}
+		filtered = append(filtered, batch[i])
+	}
+	return filtered, nil
+}
+
+func processBatch(ctx context.Context, rpcClient *rpc.Client, batch []DatabaseAccount, authority solana.PublicKey, destination solana.PublicKey, keypair solana.PrivateKey) (*solana.Signature, error) {
+	instructions := make([]solana.Instruction, 0, len(batch))
+	for _, acct := range batch {
 		closeInstruction := claimable_tokens.NewCloseInstructionBuilder().
-			SetUserBank(acct).
+			SetUserBank(solana.MustPublicKeyFromBase58(acct.Account)).
 			SetAuthority(authority).
 			SetDestination(destination).
-			SetEthAddress(ethAddresses[acct])
+			SetEthAddress(common.HexToAddress(acct.EthereumAddress))
 		instructions = append(instructions, closeInstruction.Build())
-
 	}
 
 	if len(instructions) == 0 {
@@ -193,9 +219,12 @@ func processBatch(ctx context.Context, pool *pgxpool.Pool, rpcClient *rpc.Client
 		return nil
 	})
 
-	txSig, err := rpcClient.SendTransaction(ctx, tx)
+	txSig := tx.Signatures[0]
+	_, err = rpcClient.SendTransactionWithOpts(ctx, tx, rpc.TransactionOpts{
+		SkipPreflight: true,
+	})
 	if err != nil {
-		return nil, fmt.Errorf("error sending transaction: %v", err)
+		return nil, fmt.Errorf("error sending transaction %s: %v", txSig.String(), err)
 	}
 	return &txSig, nil
 }
@@ -245,26 +274,26 @@ func getEmptyTokenAccounts(ctx context.Context, client *rpc.Client, mint solana.
 	})
 }
 
-func getEthAddressesFromAccounts(ctx context.Context, pool *pgxpool.Pool, accounts []solana.PublicKey) (map[solana.PublicKey]common.Address, error) {
-	sql := `
-		SELECT account, ethereum_address
-		FROM sol_claimable_accounts
-		WHERE account = ANY($1)
-	`
-	rows, err := pool.Query(ctx, sql, accounts)
-	if err != nil {
-		return nil, fmt.Errorf("failed to query eth addresses: %w", err)
-	}
-	defer rows.Close()
+type DatabaseAccount struct {
+	Account         string
+	EthereumAddress string
+}
 
-	result := make(map[solana.PublicKey]common.Address)
-	for rows.Next() {
-		var account string
-		var ethAddress string
-		if err := rows.Scan(&account, &ethAddress); err != nil {
-			return nil, fmt.Errorf("failed to scan row: %w", err)
-		}
-		result[solana.MustPublicKeyFromBase58(account)] = common.HexToAddress(ethAddress)
+func getTokenAccountsFromDatabase(ctx context.Context, pool *pgxpool.Pool, mint solana.PublicKey, limit, offset int) ([]DatabaseAccount, error) {
+	sql := `
+		SELECT bank_account AS account, ethereum_address
+		FROM user_bank_accounts
+		LIMIT $1 OFFSET $2
+	`
+	rows, err := pool.Query(ctx, sql, limit, offset)
+	if err != nil {
+		return nil, fmt.Errorf("failed to query token accounts: %w", err)
 	}
-	return result, nil
+
+	accounts, err := pgx.CollectRows(rows, pgx.RowToStructByName[DatabaseAccount])
+	if err != nil {
+		return nil, fmt.Errorf("failed to collect token accounts: %w", err)
+	}
+
+	return accounts, nil
 }
