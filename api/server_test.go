@@ -44,6 +44,7 @@ func emptyTestApp(t *testing.T) *ApiServer {
 		// Disable message push by default. Tests for it can create
 		// an RPC processor directly.
 		CommsMessagePush: false,
+		ChainId:          "audius-devnet",
 	})
 
 	t.Cleanup(func() {
