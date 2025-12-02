@@ -100,8 +100,15 @@ func reclaimRent(cmd *cobra.Command, args []string) error {
 
 	offset := 0
 
+	totalCount, err := getTokenAccountsCountFromDatabase(ctx, pool, mint)
+	if err != nil {
+		return fmt.Errorf("failed to get token accounts count from database: %w", err)
+	}
+
+	limit := 1000
+
 	for {
-		accounts, err := getTokenAccountsFromDatabase(ctx, pool, mint, 1000, offset)
+		accounts, err := getTokenAccountsFromDatabase(ctx, pool, mint, limit, offset)
 		if err != nil {
 			return fmt.Errorf("failed to get token accounts from database: %w", err)
 		}
@@ -139,7 +146,7 @@ func reclaimRent(cmd *cobra.Command, args []string) error {
 			}
 			time.Sleep(time.Second / 500 * 2) // Max 500 req/s (2 req per batch) to avoid rate limiting
 
-			fmt.Printf("Processed %d/%d accounts\n", i+len(batch), len(filtered))
+			fmt.Printf("Processed %d/%d accounts (%d/%d)\n", i+len(batch), len(filtered), offset/limit+1, (totalCount+999)/limit)
 			i += batchSize
 		}
 	}
@@ -296,4 +303,17 @@ func getTokenAccountsFromDatabase(ctx context.Context, pool *pgxpool.Pool, mint 
 	}
 
 	return accounts, nil
+}
+
+func getTokenAccountsCountFromDatabase(ctx context.Context, pool *pgxpool.Pool, mint solana.PublicKey) (int, error) {
+	sql := `
+		SELECT COUNT(*)
+		FROM user_bank_accounts
+	`
+	var count int
+	err := pool.QueryRow(ctx, sql).Scan(&count)
+	if err != nil {
+		return 0, fmt.Errorf("failed to query token accounts count: %w", err)
+	}
+	return count, nil
 }
