@@ -183,7 +183,7 @@ SELECT
             AND sol_user_balances.mint NOT IN (
               '9LzCMqDgTKYz9Drzqnpgee3SGa89up3a247ypMj2xrqM', -- ignore prod wAUDIO
               'BELGiMZQ34SDE6x2FUaML2UHDAgBLS64xvhXjX5tBBZo', -- ignore stage wAUDIO
-              'EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZy4z6cQ' -- ignore USDC
+              'EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v' -- ignore USDC
             )
           ORDER BY (sol_user_balances.balance * COALESCE(artist_coin_stats.price, artist_coin_pools.price_usd, 0)) / POWER(10, artist_coins.decimals) DESC
           LIMIT 1
