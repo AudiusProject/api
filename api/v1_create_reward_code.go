@@ -9,7 +9,6 @@ import (
 	"math/big"
 	"time"
 
-	"api.audius.co/config"
 	"api.audius.co/utils"
 	"connectrpc.com/connect"
 	v1 "github.com/OpenAudio/go-openaudio/pkg/api/core/v1"
@@ -119,7 +118,7 @@ func (app *ApiServer) v1CreateRewardCode(c *fiber.Ctx) error {
 		}
 	}
 
-	_, err := verifySignatureAgainstKeys(req.Signature, message, config.Cfg.RewardCodeAuthorizedKeys)
+	_, err := verifySignatureAgainstKeys(req.Signature, message, app.config.RewardCodeAuthorizedKeys)
 	if err != nil {
 		return fiber.NewError(fiber.StatusForbidden, "Unauthorized: "+err.Error())
 	}
@@ -133,7 +132,7 @@ func (app *ApiServer) v1CreateRewardCode(c *fiber.Ctx) error {
 	var rewardAddress string
 
 	// Only create reward pool if deterministic secret is configured
-	if config.Cfg.LaunchpadDeterministicSecret != "" {
+	if app.config.LaunchpadDeterministicSecret != "" {
 		mintPubKey, err := solana.PublicKeyFromBase58(req.Mint)
 		if err != nil {
 			return fiber.NewError(fiber.StatusBadRequest, "Invalid mint address: "+err.Error())
@@ -141,7 +140,7 @@ func (app *ApiServer) v1CreateRewardCode(c *fiber.Ctx) error {
 
 		claimAuthority, claimAuthorityPrivateKey, err := utils.DeriveEthAddressForMint(
 			[]byte("claimAuthority"),
-			config.Cfg.LaunchpadDeterministicSecret,
+			app.config.LaunchpadDeterministicSecret,
 			mintPubKey,
 		)
 		if err != nil {
@@ -155,7 +154,7 @@ func (app *ApiServer) v1CreateRewardCode(c *fiber.Ctx) error {
 		}
 
 		// Create OpenAudio SDK instance and set the private key
-		oap := sdk.NewOpenAudioSDK(config.Cfg.AudiusdURL)
+		oap := sdk.NewOpenAudioSDK(app.config.AudiusdURL)
 		oap.SetPrivKey(privateKey)
 
 		// Get current chain status to calculate deadline

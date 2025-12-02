@@ -9,7 +9,6 @@ import (
 	"strconv"
 	"strings"
 
-	"api.audius.co/config"
 	"api.audius.co/solana/spl"
 	"api.audius.co/solana/spl/programs/reward_manager"
 	"api.audius.co/utils"
@@ -31,7 +30,7 @@ type CoinRewardParams struct {
 
 func (app *ApiServer) v1CoinsPostRedeem(c *fiber.Ctx) error {
 	// #region Validate Params
-	if config.Cfg.LaunchpadDeterministicSecret == "" {
+	if app.config.LaunchpadDeterministicSecret == "" {
 		return fiber.NewError(fiber.StatusInternalServerError, "Claim authority base is not configured")
 	}
 
@@ -62,7 +61,7 @@ func (app *ApiServer) v1CoinsPostRedeem(c *fiber.Ctx) error {
 	// Derive claim authority key for mint
 	claimAuthorityPublicKey, claimAuthorityPrivKeyString, err := utils.DeriveEthAddressForMint(
 		[]byte("claimAuthority"),
-		config.Cfg.LaunchpadDeterministicSecret,
+		app.config.LaunchpadDeterministicSecret,
 		mint,
 	)
 	if err != nil {
@@ -308,7 +307,7 @@ func (app *ApiServer) v1CoinsPostRedeem(c *fiber.Ctx) error {
 
 	neededAttestations := (minVotes + 1) - len(attestationsData.Messages)
 
-	for _, validator := range config.Cfg.ArtistCoinRewardsStaticSenders {
+	for _, validator := range app.config.ArtistCoinRewardsStaticSenders {
 		if len(attestations) >= neededAttestations {
 			break
 		}

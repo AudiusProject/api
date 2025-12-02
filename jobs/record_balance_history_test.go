@@ -19,7 +19,7 @@ func newTestConfig() config.Config {
 }
 
 func TestRecordBalanceHistory(t *testing.T) {
-	pool := database.CreateTestDatabase(t, "test_api")
+	pool := database.CreateTestDatabase(t, "test_jobs")
 	defer pool.Close()
 
 	ctx := context.Background()
@@ -153,7 +153,7 @@ func TestRecordBalanceHistory(t *testing.T) {
 }
 
 func TestRecordBalanceHistoryTimestampTruncation(t *testing.T) {
-	pool := database.CreateTestDatabase(t, "test_api")
+	pool := database.CreateTestDatabase(t, "test_jobs")
 	defer pool.Close()
 
 	ctx := context.Background()
@@ -193,7 +193,7 @@ func TestRecordBalanceHistoryTimestampTruncation(t *testing.T) {
 }
 
 func TestRecordBalanceHistoryConflictHandling(t *testing.T) {
-	pool := database.CreateTestDatabase(t, "test_api")
+	pool := database.CreateTestDatabase(t, "test_jobs")
 	defer pool.Close()
 
 	ctx := context.Background()
@@ -248,7 +248,7 @@ func TestRecordBalanceHistoryConflictHandling(t *testing.T) {
 }
 
 func TestRecordBalanceHistoryZeroBalance(t *testing.T) {
-	pool := database.CreateTestDatabase(t, "test_api")
+	pool := database.CreateTestDatabase(t, "test_jobs")
 	defer pool.Close()
 
 	ctx := context.Background()
@@ -284,7 +284,7 @@ func TestRecordBalanceHistoryZeroBalance(t *testing.T) {
 }
 
 func TestRecordBalanceHistoryNullPrice(t *testing.T) {
-	pool := database.CreateTestDatabase(t, "test_api")
+	pool := database.CreateTestDatabase(t, "test_jobs")
 	defer pool.Close()
 
 	ctx := context.Background()
@@ -320,7 +320,7 @@ func TestRecordBalanceHistoryNullPrice(t *testing.T) {
 }
 
 func TestRecordUserBalanceHistory(t *testing.T) {
-	pool := database.CreateTestDatabase(t, "test_api")
+	pool := database.CreateTestDatabase(t, "test_jobs")
 	defer pool.Close()
 
 	ctx := context.Background()
@@ -368,7 +368,7 @@ func TestRecordUserBalanceHistory(t *testing.T) {
 }
 
 func TestRecordBalanceHistoryMultipleMints(t *testing.T) {
-	pool := database.CreateTestDatabase(t, "test_api")
+	pool := database.CreateTestDatabase(t, "test_jobs")
 	defer pool.Close()
 
 	ctx := context.Background()
@@ -415,7 +415,7 @@ func TestRecordBalanceHistoryMultipleMints(t *testing.T) {
 }
 
 func TestRecordBalanceHistoryConcurrentRuns(t *testing.T) {
-	pool := database.CreateTestDatabase(t, "test_api")
+	pool := database.CreateTestDatabase(t, "test_jobs")
 	defer pool.Close()
 
 	ctx := context.Background()
@@ -460,7 +460,7 @@ func TestRecordBalanceHistoryConcurrentRuns(t *testing.T) {
 }
 
 func TestRecordBalanceHistoryNoUsers(t *testing.T) {
-	pool := database.CreateTestDatabase(t, "test_api")
+	pool := database.CreateTestDatabase(t, "test_jobs")
 	defer pool.Close()
 
 	ctx := context.Background()
@@ -487,7 +487,7 @@ func TestRecordBalanceHistoryNoUsers(t *testing.T) {
 }
 
 func TestRecordBalanceHistoryDecimalPrecision(t *testing.T) {
-	pool := database.CreateTestDatabase(t, "test_api")
+	pool := database.CreateTestDatabase(t, "test_jobs")
 	defer pool.Close()
 
 	ctx := context.Background()
@@ -553,7 +553,7 @@ func TestRecordBalanceHistoryDecimalPrecision(t *testing.T) {
 }
 
 func TestRecordBalanceHistoryOnlyTrackedCoins(t *testing.T) {
-	pool := database.CreateTestDatabase(t, "test_api")
+	pool := database.CreateTestDatabase(t, "test_jobs")
 	defer pool.Close()
 
 	ctx := context.Background()

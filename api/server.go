@@ -197,6 +197,7 @@ func NewApiServer(config config.Config) *ApiServer {
 			ReadBufferSize: 32_768,
 			UnescapePath:   true,
 		}),
+		config:                &config,
 		commsRpcProcessor:     commsRpcProcessor,
 		env:                   config.Env,
 		audiusAppUrl:          config.AudiusAppUrl,
@@ -626,6 +627,7 @@ type BirdeyeClient interface {
 
 type ApiServer struct {
 	*fiber.App
+	config                *config.Config
 	commsRpcProcessor     *comms.RPCProcessor
 	pool                  *dbv1.DBPools
 	writePool             *pgxpool.Pool
@@ -658,8 +660,8 @@ type ApiServer struct {
 
 func (app *ApiServer) home(c *fiber.Ctx) error {
 	return c.JSON(fiber.Map{
-		"env":     config.Cfg.Env,
-		"git":     config.Cfg.Git,
+		"env":     app.config.Env,
+		"git":     app.config.Git,
 		"started": app.started,
 		"uptime":  time.Since(app.started).Truncate(time.Second).String(),
 	})

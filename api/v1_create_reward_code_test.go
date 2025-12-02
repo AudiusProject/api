@@ -9,7 +9,6 @@ import (
 	"testing"
 	"time"
 
-	"api.audius.co/config"
 	"api.audius.co/database"
 	"github.com/gagliardetto/solana-go"
 	"github.com/mr-tron/base58"
@@ -41,9 +40,9 @@ func TestV1CreateRewardCode(t *testing.T) {
 	database.Seed(app.pool.Replicas[0], fixtures)
 
 	// Save original config and restore after tests
-	originalKeys := config.Cfg.RewardCodeAuthorizedKeys
+	originalKeys := app.config.RewardCodeAuthorizedKeys
 	defer func() {
-		config.Cfg.RewardCodeAuthorizedKeys = originalKeys
+		app.config.RewardCodeAuthorizedKeys = originalKeys
 	}()
 
 	t.Run("Unauthorized with invalid signature", func(t *testing.T) {
@@ -112,7 +111,7 @@ func TestV1CreateRewardCode(t *testing.T) {
 		// Convert to Solana format and inject into config
 		solanaPubKey := solana.PublicKeyFromBytes(testPublicKey)
 		testPubKeyBase58 := solanaPubKey.String()
-		config.Cfg.RewardCodeAuthorizedKeys = []string{testPubKeyBase58}
+		app.config.RewardCodeAuthorizedKeys = []string{testPubKeyBase58}
 
 		timestamp := time.Now().UnixMilli()
 		timestampStr := fmt.Sprintf("%d", timestamp)
@@ -164,7 +163,7 @@ func TestV1CreateRewardCode(t *testing.T) {
 		solanaPubKey2 := solana.PublicKeyFromBytes(testPublicKey2)
 		testPubKeyBase58 := solanaPubKey.String()
 		testPubKeyBase582 := solanaPubKey2.String()
-		config.Cfg.RewardCodeAuthorizedKeys = []string{testPubKeyBase58, testPubKeyBase582}
+		app.config.RewardCodeAuthorizedKeys = []string{testPubKeyBase58, testPubKeyBase582}
 
 		timestamp := time.Now().UnixMilli()
 		timestampStr := fmt.Sprintf("%d", timestamp)
@@ -212,7 +211,7 @@ func TestV1CreateRewardCode(t *testing.T) {
 		// Convert to Solana format and inject into config
 		solanaPubKey := solana.PublicKeyFromBytes(testPublicKey)
 		testPubKeyBase58 := solanaPubKey.String()
-		config.Cfg.RewardCodeAuthorizedKeys = []string{testPubKeyBase58}
+		app.config.RewardCodeAuthorizedKeys = []string{testPubKeyBase58}
 
 		timestamp := time.Now().UnixMilli()
 		timestampStr := fmt.Sprintf("%d", timestamp)

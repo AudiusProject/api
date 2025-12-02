@@ -5,7 +5,6 @@ import (
 	"fmt"
 	"time"
 
-	"api.audius.co/config"
 	"api.audius.co/jobs"
 	"github.com/gofiber/fiber/v2"
 	"github.com/jackc/pgerrcode"
@@ -157,7 +156,7 @@ func (app *ApiServer) v1CreateCoin(c *fiber.Ctx) error {
 	}
 
 	// Update the pool for the new coin
-	coinJob := jobs.NewCoinDBCJob(config.Cfg, app.writePool)
+	coinJob := jobs.NewCoinDBCJob(*app.config, app.writePool)
 	coinJob.UpdatePoolForBaseMint(c.Context(), result.Mint, true)
 
 	return c.Status(fiber.StatusCreated).JSON(fiber.Map{

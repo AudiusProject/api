@@ -820,7 +820,7 @@ func (app *ApiServer) v1ClaimRewards(c *fiber.Ctx) error {
 				UserBank: *bankAccount,
 			}
 
-			validators := app.validators.GetNodes()
+			validators := app.config.ArtistCoinRewardsStaticSenders
 			sigs, err := claimReward(
 				ctx,
 				rewardClaim,
