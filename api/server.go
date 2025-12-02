@@ -197,6 +197,7 @@ func NewApiServer(config config.Config) *ApiServer {
 			ReadBufferSize: 32_768,
 			UnescapePath:   true,
 		}),
+		config:                &config,
 		commsRpcProcessor:     commsRpcProcessor,
 		env:                   config.Env,
 		audiusAppUrl:          config.AudiusAppUrl,
