@@ -8,7 +8,6 @@ import (
 	"sync"
 
 	"api.audius.co/api/dbv1"
-	"api.audius.co/config"
 	"api.audius.co/trashid"
 	"connectrpc.com/connect"
 	v1 "github.com/OpenAudio/go-openaudio/pkg/api/core/v1"
@@ -176,8 +175,8 @@ func (app *ApiServer) relay(c *fiber.Ctx) error {
 	logger.Info("decoded transaction", zap.Any("encodedABI", request.EncodedABI))
 
 	wallet, _, err := server.RecoverPubkeyFromCoreTx(&cconfig.Config{
-		AcdcChainID:              config.Cfg.AudiusdChainID,
-		AcdcEntityManagerAddress: config.Cfg.AudiusdEntityManagerAddress,
+		AcdcChainID:              app.config.AudiusdChainID,
+		AcdcEntityManagerAddress: app.config.AudiusdEntityManagerAddress,
 	}, decodedTx)
 	if err != nil {
 		return fiber.NewError(fiber.StatusBadRequest, "bad request: "+err.Error())
@@ -193,7 +192,7 @@ func (app *ApiServer) relay(c *fiber.Ctx) error {
 		return fiber.NewError(fiber.StatusForbidden, "forbidden: signer does not match sender")
 	}
 
-	isVerifier := strings.EqualFold(wallet, config.Cfg.VerifierAddress)
+	isVerifier := strings.EqualFold(wallet, app.config.VerifierAddress)
 	_, anonymouslyAllowed := anonymouslyAllowedActions[operation]
 
 	// skip auth check if verifier or operation is anonymously allowed

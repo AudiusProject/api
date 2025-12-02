@@ -68,7 +68,7 @@ func (app *ApiServer) healthCheck(c *fiber.Ctx) error {
 	contentNodes := make([]contentNode, 0, len(healthyNodes))
 	for _, node := range healthyNodes {
 		// icky reaching into config to check upload nodes
-		if slices.Contains(app.contentNodeMonitor.config.UploadNodes, node.Endpoint) {
+		if slices.Contains(app.config.UploadNodes, node.Endpoint) {
 			contentNodes = append(contentNodes, contentNode{
 				DelegateOwnerWallet: node.DelegateOwnerWallet,
 				Endpoint:            node.Endpoint,
