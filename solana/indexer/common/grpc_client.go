@@ -53,6 +53,20 @@ func NewGrpcClient(config GrpcConfig) GrpcClient {
 	}
 }
 
+type tokenAuth struct {
+	token string
+}
+
+func (t tokenAuth) GetRequestMetadata(ctx context.Context, in ...string) (map[string]string, error) {
+	return map[string]string{
+		"x-token": t.token,
+	}, nil
+}
+
+func (t tokenAuth) RequireTransportSecurity() bool {
+	return true
+}
+
 // Connect to a gRPC server
 // Assumes the caller holds the client mutex (c.mu).
 func (c *DefaultGrpcClient) connect() error {
@@ -75,8 +89,18 @@ func (c *DefaultGrpcClient) connect() error {
 	var opts []grpc.DialOption
 	opts = append(opts, grpc.WithKeepaliveParams(kacp))
 	opts = append(opts, grpc.WithTransportCredentials(creds))
+	opts = append(opts, grpc.WithPerRPCCredentials(tokenAuth{token: c.config.ApiToken}))
 
-	server := u.Hostname() + ":443" // Hardcoding this for simplicity, assuming HTTPS
+	port := u.Port()
+	if port == "" {
+		if u.Scheme == "https" {
+			port = "443"
+		} else {
+			port = "80"
+		}
+	}
+
+	server := u.Hostname() + ":" + port
 
 	conn, err := grpc.NewClient(server, opts...)
 	if err != nil {
@@ -130,10 +154,18 @@ func (c *DefaultGrpcClient) Subscribe(
 		}
 	}
 
-	geyserClient := pb.NewGeyserClient(c.conn)
-
 	md := metadata.New(map[string]string{"x-token": c.config.ApiToken})
 	ctx = metadata.NewOutgoingContext(ctx, md)
+
+	geyserClient := pb.NewGeyserClient(c.conn)
+
+	// Try to ping
+	resp, err := geyserClient.Ping(ctx, &pb.PingRequest{Count: 1})
+	if err != nil {
+		return fmt.Errorf("ping failed: %w", err)
+	}
+
+	fmt.Printf("Ping successful: %+v\n", resp)
 
 	stream, err := geyserClient.Subscribe(ctx)
 	if err != nil {

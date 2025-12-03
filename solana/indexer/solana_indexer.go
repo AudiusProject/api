@@ -7,14 +7,10 @@ import (
 
 	"api.audius.co/config"
 	"api.audius.co/database"
-	"api.audius.co/jobs"
 	"api.audius.co/logging"
 	"api.audius.co/solana/indexer/common"
-	"api.audius.co/solana/indexer/damm_v2"
-	"api.audius.co/solana/indexer/dbc"
 	"api.audius.co/solana/indexer/locker"
 	"api.audius.co/solana/indexer/program"
-	"api.audius.co/solana/indexer/token"
 	"github.com/gagliardetto/solana-go"
 	"github.com/gagliardetto/solana-go/rpc"
 	"github.com/jackc/pgx/v5"
@@ -79,28 +75,28 @@ func New(config config.Config) *SolanaIndexer {
 		panic(fmt.Errorf("failed to create transaction cache: %w", err))
 	}
 
-	dammV2Indexer := damm_v2.New(
-		grpcConfig, rpcClient, pool, &transactionCache, logger,
-	)
-	tokenIndexer := token.New(
-		grpcConfig, rpcClient, pool, &transactionCache, logger,
-	)
+	// dammV2Indexer := damm_v2.New(
+	// 	grpcConfig, rpcClient, pool, &transactionCache, logger,
+	// )
+	// tokenIndexer := token.New(
+	// 	grpcConfig, rpcClient, pool, &transactionCache, logger,
+	// )
 	programIndexer := program.New(
 		grpcConfig, rpcClient, pool, config, &transactionCache, logger,
 	)
-	dbcIndexer := dbc.New(
-		grpcConfig, rpcClient, pool, config, &transactionCache, logger,
-	)
-	lockerIndexer := locker.New(
-		grpcConfig, rpcClient, pool, logger,
-	)
+	// dbcIndexer := dbc.New(
+	// 	grpcConfig, rpcClient, pool, config, &transactionCache, logger,
+	// )
+	// lockerIndexer := locker.New(
+	// 	grpcConfig, rpcClient, pool, logger,
+	// )
 
 	indexers := make(map[string]Indexer)
-	indexers[damm_v2.NAME] = dammV2Indexer
-	indexers[token.NAME] = tokenIndexer
+	// indexers[damm_v2.NAME] = dammV2Indexer
+	// indexers[token.NAME] = tokenIndexer
 	indexers[program.NAME] = programIndexer
-	indexers[dbc.NAME] = dbcIndexer
-	indexers[locker.NAME] = lockerIndexer
+	// indexers[dbc.NAME] = dbcIndexer
+	// indexers[locker.NAME] = lockerIndexer
 
 	s := &SolanaIndexer{
 		rpcClient:   rpcClient,
@@ -117,25 +113,25 @@ func New(config config.Config) *SolanaIndexer {
 func (s *SolanaIndexer) Start(ctx context.Context) error {
 	go s.ScheduleProcessRetryQueue(ctx, s.config.SolanaIndexerRetryInterval)
 
-	statsJob := jobs.NewCoinStatsJob(s.config, s.pool)
-	statsCtx := context.WithoutCancel(ctx)
-	statsJob.ScheduleEvery(statsCtx, 15*time.Minute)
-	go statsJob.Run(statsCtx)
+	// statsJob := jobs.NewCoinStatsJob(s.config, s.pool)
+	// statsCtx := context.WithoutCancel(ctx)
+	// statsJob.ScheduleEvery(statsCtx, 15*time.Minute)
+	// go statsJob.Run(statsCtx)
 
-	audioPriceJob := jobs.NewAudioPriceJob(s.config, s.pool)
-	priceCtx := context.WithoutCancel(ctx)
-	audioPriceJob.ScheduleEvery(priceCtx, 5*time.Minute)
-	go audioPriceJob.Run(priceCtx)
+	// audioPriceJob := jobs.NewAudioPriceJob(s.config, s.pool)
+	// priceCtx := context.WithoutCancel(ctx)
+	// audioPriceJob.ScheduleEvery(priceCtx, 5*time.Minute)
+	// go audioPriceJob.Run(priceCtx)
 
-	dbcJob := jobs.NewCoinDBCJob(s.config, s.pool)
-	dbcCtx := context.WithoutCancel(ctx)
-	dbcJob.ScheduleEvery(dbcCtx, 1*time.Minute)
-	go dbcJob.Run(dbcCtx)
+	// dbcJob := jobs.NewCoinDBCJob(s.config, s.pool)
+	// dbcCtx := context.WithoutCancel(ctx)
+	// dbcJob.ScheduleEvery(dbcCtx, 1*time.Minute)
+	// go dbcJob.Run(dbcCtx)
 
-	balanceHistoryJob := jobs.NewBalanceHistoryJob(s.config, s.pool)
-	balanceHistoryCtx := context.WithoutCancel(ctx)
-	balanceHistoryJob.ScheduleEvery(balanceHistoryCtx, 1*time.Hour)
-	go balanceHistoryJob.Run(balanceHistoryCtx)
+	// balanceHistoryJob := jobs.NewBalanceHistoryJob(s.config, s.pool)
+	// balanceHistoryCtx := context.WithoutCancel(ctx)
+	// balanceHistoryJob.ScheduleEvery(balanceHistoryCtx, 1*time.Hour)
+	// go balanceHistoryJob.Run(balanceHistoryCtx)
 
 	for _, indexer := range s.indexers {
 		go indexer.Start(ctx)
