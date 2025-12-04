@@ -35,7 +35,8 @@ type SolanaIndexer struct {
 	pool        database.DbPool
 	workerCount int32
 
-	indexers map[string]Indexer
+	indexers              map[string]Indexer
+	sharedFumaroleAdapter *common.FumaroleAdapter
 
 	logger *zap.Logger
 }
@@ -68,7 +69,21 @@ func New(config config.Config) *SolanaIndexer {
 		ApiToken:             config.SolanaConfig.GrpcToken,
 		MaxReconnectAttempts: 5,
 		UseFumarole:          config.SolanaConfig.UseFumarole,
+		DebugLogging:         true,
 	}
+
+	// Create shared Fumarole adapter if using Fumarole
+	var sharedFumaroleAdapter *common.FumaroleAdapter
+	if config.SolanaConfig.UseFumarole {
+		adapter, err := common.NewFumaroleAdapter(grpcConfig, logger)
+		if err != nil {
+			panic(fmt.Errorf("failed to create Fumarole adapter: %w", err))
+		}
+		sharedFumaroleAdapter = adapter
+	}
+
+	// Create provider for getting gRPC clients
+	grpcClientProvider := common.NewGrpcClientProvider(grpcConfig, sharedFumaroleAdapter)
 
 	transactionCache, err := otter.MustBuilder[solana.Signature, *rpc.GetTransactionResult](50).
 		WithTTL(30 * time.Second).
@@ -80,19 +95,19 @@ func New(config config.Config) *SolanaIndexer {
 	}
 
 	dammV2Indexer := damm_v2.New(
-		grpcConfig, rpcClient, pool, &transactionCache, logger,
+		grpcClientProvider, rpcClient, pool, &transactionCache, logger,
 	)
 	tokenIndexer := token.New(
-		grpcConfig, rpcClient, pool, &transactionCache, logger,
+		grpcClientProvider, rpcClient, pool, &transactionCache, logger,
 	)
 	programIndexer := program.New(
-		grpcConfig, rpcClient, pool, config, &transactionCache, logger,
+		grpcClientProvider, rpcClient, pool, config, &transactionCache, logger,
 	)
 	dbcIndexer := dbc.New(
-		grpcConfig, rpcClient, pool, config, &transactionCache, logger,
+		grpcClientProvider, rpcClient, pool, config, &transactionCache, logger,
 	)
 	lockerIndexer := locker.New(
-		grpcConfig, rpcClient, pool, logger,
+		grpcClientProvider, rpcClient, pool, logger,
 	)
 
 	indexers := make(map[string]Indexer)
@@ -103,12 +118,13 @@ func New(config config.Config) *SolanaIndexer {
 	indexers[locker.NAME] = lockerIndexer
 
 	s := &SolanaIndexer{
-		rpcClient:   rpcClient,
-		logger:      logger,
-		config:      config,
-		pool:        pool,
-		workerCount: workerCount,
-		indexers:    indexers,
+		rpcClient:             rpcClient,
+		logger:                logger,
+		config:                config,
+		pool:                  pool,
+		workerCount:           workerCount,
+		indexers:              indexers,
+		sharedFumaroleAdapter: sharedFumaroleAdapter,
 	}
 
 	return s
@@ -293,5 +309,8 @@ func (s *SolanaIndexer) GetHealth(ctx context.Context, maxSlotDiff uint64, maxRe
 }
 
 func (s *SolanaIndexer) Close() {
+	if s.sharedFumaroleAdapter != nil {
+		s.sharedFumaroleAdapter.Close()
+	}
 	s.pool.Close()
 }

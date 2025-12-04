@@ -32,4 +32,5 @@ type GrpcConfig struct {
 	MaxReconnectAttempts  int
 	UseFumarole           bool
 	FumaroleConsumerGroup string
+	DebugLogging          bool
 }

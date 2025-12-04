@@ -29,26 +29,26 @@ const (
 )
 
 type Indexer struct {
-	pool             database.DbPool
-	grpcConfig       common.GrpcConfig
-	rpcClient        common.RpcClient
-	transactionCache *otter.Cache[solana.Signature, *rpc.GetTransactionResult]
-	logger           *zap.Logger
+	pool               database.DbPool
+	grpcClientProvider *common.GrpcClientProvider
+	rpcClient          common.RpcClient
+	transactionCache   *otter.Cache[solana.Signature, *rpc.GetTransactionResult]
+	logger             *zap.Logger
 }
 
 func New(
-	config common.GrpcConfig,
+	grpcClientProvider *common.GrpcClientProvider,
 	rpcClient common.RpcClient,
 	pool database.DbPool,
 	transactionCache *otter.Cache[solana.Signature, *rpc.GetTransactionResult],
 	logger *zap.Logger,
 ) *Indexer {
 	return &Indexer{
-		pool:             pool,
-		grpcConfig:       config,
-		rpcClient:        rpcClient,
-		transactionCache: transactionCache,
-		logger:           logger.Named(NAME),
+		pool:               pool,
+		grpcClientProvider: grpcClientProvider,
+		rpcClient:          rpcClient,
+		transactionCache:   transactionCache,
+		logger:             logger.Named(NAME),
 	}
 }
 
@@ -245,14 +245,8 @@ func (d *Indexer) subscribe(ctx context.Context) ([]common.GrpcClient, error) {
 		}
 
 		var grpcClient common.GrpcClient
-		if d.grpcConfig.UseFumarole {
-			grpcClient = common.NewFumaroleAdapter(
-				d.grpcConfig,
-				fmt.Sprintf("audius-indexer-damm-v2-page-%d", page),
-			)
-		} else {
-			grpcClient = common.NewGrpcClient(d.grpcConfig)
-		}
+		grpcClient = d.grpcClientProvider.GetClient(fmt.Sprintf("audius-indexer-damm-v2-page-%d", page))
+
 		err = grpcClient.Subscribe(ctx, subscription, handleMessage, func(err error) {
 			d.logger.Error("error in subscription", zap.Error(err))
 		})

@@ -21,16 +21,16 @@ import (
 const NAME = "ProgramIndexer"
 
 type Indexer struct {
-	pool             database.DbPool
-	grpcConfig       common.GrpcConfig
-	rpcClient        common.RpcClient
-	config           config.Config
-	transactionCache *otter.Cache[solana.Signature, *rpc.GetTransactionResult]
-	logger           *zap.Logger
+	pool               database.DbPool
+	grpcClientProvider *common.GrpcClientProvider
+	rpcClient          common.RpcClient
+	config             config.Config
+	transactionCache   *otter.Cache[solana.Signature, *rpc.GetTransactionResult]
+	logger             *zap.Logger
 }
 
 func New(
-	grpcConfig common.GrpcConfig,
+	grpcClientProvider *common.GrpcClientProvider,
 	rpcClient common.RpcClient,
 	pool database.DbPool,
 	config config.Config,
@@ -38,12 +38,12 @@ func New(
 	logger *zap.Logger,
 ) *Indexer {
 	return &Indexer{
-		pool:             pool,
-		grpcConfig:       grpcConfig,
-		rpcClient:        rpcClient,
-		config:           config,
-		transactionCache: transactionCache,
-		logger:           logger.Named(NAME),
+		pool:               pool,
+		grpcClientProvider: grpcClientProvider,
+		rpcClient:          rpcClient,
+		config:             config,
+		transactionCache:   transactionCache,
+		logger:             logger.Named(NAME),
 	}
 }
 
@@ -134,11 +134,8 @@ func (d *Indexer) subscribe(ctx context.Context) (common.GrpcClient, error) {
 	}
 
 	var client common.GrpcClient
-	if d.grpcConfig.UseFumarole {
-		client = common.NewFumaroleAdapter(d.grpcConfig, "audius-indexer-program")
-	} else {
-		client = common.NewGrpcClient(d.grpcConfig)
-	}
+	client = d.grpcClientProvider.GetClient("audius-indexer-program")
+
 	err := client.Subscribe(ctx, subscription, handleMessage, func(err error) {
 		d.logger.Error("subscription error", zap.Error(err))
 	})

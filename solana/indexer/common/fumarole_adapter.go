@@ -11,6 +11,7 @@ import (
 
 	"api.audius.co/proto/fumarole"
 	pb "github.com/rpcpool/yellowstone-grpc/examples/golang/proto"
+	"go.uber.org/zap"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/credentials"
@@ -19,28 +20,35 @@ import (
 	"google.golang.org/protobuf/proto"
 )
 
-// FumaroleAdapter implements GrpcClient using the Fumarole architecture:
-// - Control plane (Subscribe RPC) for blockchain history polling
-// - Data plane (DownloadBlock RPC) for fetching block data
-type FumaroleAdapter struct {
-	config              GrpcConfig
-	conn                *grpc.ClientConn
-	client              fumarole.FumaroleClient
-	mu                  sync.Mutex
+// FumaroleSubscription represents a single subscription on a consumer group
+type FumaroleSubscription struct {
+	consumerGroupName   string
 	controlStream       grpc.BidiStreamingClient[fumarole.ControlCommand, fumarole.ControlResponse]
-	running             bool
-	subRequest          *pb.SubscribeRequest
-	lastSlot            uint64
+	blockFilters        *fumarole.BlockFilters
 	dataCallback        DataCallback
 	errorCallback       ErrorCallback
-	cancel              context.CancelFunc
-	consumerGroupName   string
-	blockchainID        []byte
-	hasInternalSlotSub  bool
-	blockFilters        *fumarole.BlockFilters
 	lastCommittedOffset int64
 	lastPollOffset      *int64
-	downloadSemaphore   chan struct{}
+	blockchainID        []byte
+	hasInternalSlotSub  bool
+	cancel              context.CancelFunc
+	running             bool
+}
+
+// FumaroleAdapter implements GrpcClient using the Fumarole architecture:
+// - Shared gRPC connection
+// - Multiple subscriptions on different consumer groups
+// - Data plane (DownloadBlock RPC) for fetching block data
+type FumaroleAdapter struct {
+	config            GrpcConfig
+	conn              *grpc.ClientConn
+	client            fumarole.FumaroleClient
+	mu                sync.Mutex
+	subscriptions     map[string]*FumaroleSubscription
+	downloadSemaphore chan struct{}
+	lastSlot          uint64
+	logger            *zap.Logger
+	debugLogging      bool
 }
 
 var fumaroleKacp = keepalive.ClientParameters{
@@ -63,17 +71,21 @@ func (t fumaroleTokenAuth) RequireTransportSecurity() bool {
 	return true
 }
 
-// NewFumaroleAdapter creates a new Fumarole adapter
-func NewFumaroleAdapter(config GrpcConfig, consumerGroupName string) GrpcClient {
-	if consumerGroupName == "" {
-		consumerGroupName = "audius-indexer-" + time.Now().Format("20060102-150405")
-	}
-	return &FumaroleAdapter{
+// NewFumaroleAdapter creates a new shared Fumarole adapter
+func NewFumaroleAdapter(config GrpcConfig, logger *zap.Logger) (*FumaroleAdapter, error) {
+	adapter := &FumaroleAdapter{
 		config:            config,
-		consumerGroupName: consumerGroupName,
-		blockchainID:      []byte{0},               // Solana mainnet
+		subscriptions:     make(map[string]*FumaroleSubscription),
 		downloadSemaphore: make(chan struct{}, 10), // Limit to 10 concurrent downloads
+		logger:            logger.Named("FumaroleAdapter"),
+		debugLogging:      config.DebugLogging,
 	}
+
+	if err := adapter.connect(); err != nil {
+		return nil, fmt.Errorf("failed to connect: %w", err)
+	}
+
+	return adapter, nil
 }
 
 func (c *FumaroleAdapter) connect() error {
@@ -145,9 +157,9 @@ func (c *FumaroleAdapter) connect() error {
 }
 
 // ensureConsumerGroup creates the consumer group if it doesn't exist
-func (c *FumaroleAdapter) ensureConsumerGroup(ctx context.Context) error {
+func (c *FumaroleAdapter) ensureConsumerGroup(ctx context.Context, consumerGroupName string) error {
 	_, err := c.client.GetConsumerGroupInfo(ctx, &fumarole.GetConsumerGroupInfoRequest{
-		ConsumerGroupName: c.consumerGroupName,
+		ConsumerGroupName: consumerGroupName,
 	})
 
 	if err == nil {
@@ -160,7 +172,7 @@ func (c *FumaroleAdapter) ensureConsumerGroup(ctx context.Context) error {
 	}
 
 	_, err = c.client.CreateConsumerGroup(ctx, &fumarole.CreateConsumerGroupRequest{
-		ConsumerGroupName:   c.consumerGroupName,
+		ConsumerGroupName:   consumerGroupName,
 		InitialOffsetPolicy: fumarole.InitialOffsetPolicy_LATEST,
 	})
 
@@ -171,9 +183,20 @@ func (c *FumaroleAdapter) ensureConsumerGroup(ctx context.Context) error {
 	return nil
 }
 
-// Subscribe implements dragonsMouth-like subscription using Fumarole
+// Subscribe creates a new subscription on the given consumer group
 func (c *FumaroleAdapter) Subscribe(
 	ctx context.Context,
+	subRequest *pb.SubscribeRequest,
+	dataCallback DataCallback,
+	errorCallback ErrorCallback,
+) error {
+	return c.SubscribeWithConsumerGroup(ctx, "", subRequest, dataCallback, errorCallback)
+}
+
+// SubscribeWithConsumerGroup creates a new subscription on a specific consumer group
+func (c *FumaroleAdapter) SubscribeWithConsumerGroup(
+	ctx context.Context,
+	consumerGroupName string,
 	subRequest *pb.SubscribeRequest,
 	dataCallback DataCallback,
 	errorCallback ErrorCallback,
@@ -181,60 +204,45 @@ func (c *FumaroleAdapter) Subscribe(
 	c.mu.Lock()
 	defer c.mu.Unlock()
 
-	if c.running {
-		return fmt.Errorf("client is already subscribed")
+	if consumerGroupName == "" {
+		consumerGroupName = "audius-indexer-" + time.Now().Format("20060102-150405")
+	}
+
+	// Check if this consumer group already has a subscription
+	if _, exists := c.subscriptions[consumerGroupName]; exists {
+		return fmt.Errorf("consumer group %s already has an active subscription", consumerGroupName)
+	}
+
+	if c.debugLogging {
+		c.logger.Debug("received subscription request",
+			zap.String("consumer_group", consumerGroupName),
+			zap.Int("account_filters_in_request", len(subRequest.Accounts)),
+			zap.Int("tx_filters_in_request", len(subRequest.Transactions)))
 	}
 
 	initialReq := proto.Clone(subRequest).(*pb.SubscribeRequest)
 
 	// Add internal slot subscription if not present
+	hasInternalSlotSub := false
 	if len(initialReq.Slots) == 0 {
-		c.hasInternalSlotSub = true
+		hasInternalSlotSub = true
 		if initialReq.Slots == nil {
 			initialReq.Slots = make(map[string]*pb.SubscribeRequestFilterSlots)
 		}
 		initialReq.Slots["__internal_slot__"] = &pb.SubscribeRequestFilterSlots{}
-	} else {
-		c.hasInternalSlotSub = false
 	}
 
-	c.subRequest = initialReq
-	c.dataCallback = dataCallback
-	c.errorCallback = errorCallback
-
-	ctx, cancel := context.WithCancel(ctx)
-	c.cancel = cancel
-
-	if c.conn == nil {
-		if err := c.connect(); err != nil {
-			cancel()
-			return fmt.Errorf("failed to connect: %w", err)
-		}
-	}
-
-	if err := c.ensureConsumerGroup(ctx); err != nil {
-		cancel()
-		if c.conn != nil {
-			c.conn.Close()
-			c.conn = nil
-		}
+	if err := c.ensureConsumerGroup(ctx, consumerGroupName); err != nil {
 		return fmt.Errorf("failed to ensure consumer group: %w", err)
 	}
 
 	// Create control plane stream
 	controlStream, err := c.client.Subscribe(ctx)
 	if err != nil {
-		cancel()
-		if c.conn != nil {
-			c.conn.Close()
-			c.conn = nil
-		}
 		return fmt.Errorf("failed to create control stream: %w", err)
 	}
-	c.controlStream = controlStream
 
 	// Send initial join command
-	consumerGroupName := c.consumerGroupName
 	joinCmd := &fumarole.ControlCommand{
 		Command: &fumarole.ControlCommand_InitialJoin{
 			InitialJoin: &fumarole.JoinControlPlane{
@@ -244,82 +252,115 @@ func (c *FumaroleAdapter) Subscribe(
 	}
 
 	if err := controlStream.Send(joinCmd); err != nil {
-		cancel()
-		c.controlStream = nil
-		if c.conn != nil {
-			c.conn.Close()
-			c.conn = nil
-		}
 		return fmt.Errorf("failed to send join command: %w", err)
 	}
 
 	// Wait for initial state
 	initResp, err := controlStream.Recv()
 	if err != nil {
-		cancel()
-		c.controlStream = nil
-		if c.conn != nil {
-			c.conn.Close()
-			c.conn = nil
-		}
 		return fmt.Errorf("failed to receive initial state: %w", err)
 	}
 
+	blockchainID := []byte{0} // Solana mainnet
+	var lastCommittedOffset int64
+	var lastPollOffset *int64
+
 	if init := initResp.GetInit(); init != nil {
-		c.blockchainID = init.BlockchainId
+		blockchainID = init.BlockchainId
 		if offset, ok := init.LastCommittedOffsets[0]; ok {
-			c.lastCommittedOffset = offset
-			c.lastPollOffset = &offset
+			lastCommittedOffset = offset
+			lastPollOffset = &offset
 		}
 	} else {
 		return fmt.Errorf("no init response received")
 	}
 
-	// Convert filters for DownloadBlock
-	c.blockFilters = &fumarole.BlockFilters{
-		Accounts:     initialReq.Accounts,
-		Transactions: initialReq.Transactions,
-		Entries:      initialReq.Entry,
-		BlocksMeta:   initialReq.BlocksMeta,
+	// Convert filters for DownloadBlock - deep copy to avoid sharing maps between subscriptions
+	blockFilters := &fumarole.BlockFilters{
+		Accounts:     make(map[string]*pb.SubscribeRequestFilterAccounts),
+		Transactions: make(map[string]*pb.SubscribeRequestFilterTransactions),
+		Entries:      make(map[string]*pb.SubscribeRequestFilterEntry),
+		BlocksMeta:   make(map[string]*pb.SubscribeRequestFilterBlocksMeta),
 	}
 
-	c.running = true
+	// Deep copy account filters
+	for k, v := range initialReq.Accounts {
+		blockFilters.Accounts[k] = v
+	}
 
-	// Start runtime loop
-	go c.fumaroleRuntime(ctx)
+	// Deep copy transaction filters
+	for k, v := range initialReq.Transactions {
+		blockFilters.Transactions[k] = v
+	}
+
+	// Deep copy entry filters
+	for k, v := range initialReq.Entry {
+		blockFilters.Entries[k] = v
+	}
+
+	// Deep copy blocks meta filters
+	for k, v := range initialReq.BlocksMeta {
+		blockFilters.BlocksMeta[k] = v
+	}
+
+	if c.debugLogging {
+		accountKeys := make([]string, 0, len(blockFilters.GetAccounts()))
+		for key := range blockFilters.GetAccounts() {
+			accountKeys = append(accountKeys, key)
+		}
+		c.logger.Debug("created subscription filters",
+			zap.String("consumer_group", consumerGroupName),
+			zap.Int("account_filter_count", len(blockFilters.GetAccounts())),
+			zap.Strings("account_filter_keys", accountKeys),
+			zap.Int("tx_filters", len(blockFilters.GetTransactions())))
+	}
+
+	subCtx, cancel := context.WithCancel(ctx)
+
+	// Create subscription
+	sub := &FumaroleSubscription{
+		consumerGroupName:   consumerGroupName,
+		controlStream:       controlStream,
+		blockFilters:        blockFilters,
+		dataCallback:        dataCallback,
+		errorCallback:       errorCallback,
+		lastCommittedOffset: lastCommittedOffset,
+		lastPollOffset:      lastPollOffset,
+		blockchainID:        blockchainID,
+		hasInternalSlotSub:  hasInternalSlotSub,
+		cancel:              cancel,
+		running:             true,
+	}
+
+	c.subscriptions[consumerGroupName] = sub
+
+	// Start runtime loop for this subscription
+	go c.subscriptionRuntime(subCtx, sub)
 
 	return nil
 }
 
-// fumaroleRuntime is the main event loop matching TokioFumeDragonsmouthRuntime::run()
-func (c *FumaroleAdapter) fumaroleRuntime(ctx context.Context) {
+// subscriptionRuntime is the event loop for a single subscription
+func (c *FumaroleAdapter) subscriptionRuntime(ctx context.Context, sub *FumaroleSubscription) {
 	defer func() {
+		sub.running = false
+		if sub.controlStream != nil {
+			sub.controlStream.CloseSend()
+		}
 		c.mu.Lock()
-		c.running = false
-		if c.conn != nil {
-			c.conn.Close()
-			c.conn = nil
-		}
-		if c.controlStream != nil {
-			c.controlStream.CloseSend()
-			c.controlStream = nil
-		}
+		delete(c.subscriptions, sub.consumerGroupName)
 		c.mu.Unlock()
 	}()
 
 	pingTicker := time.NewTicker(10 * time.Second)
 	defer pingTicker.Stop()
 
-	// Channel for control responses
 	controlChan := make(chan *fumarole.ControlResponse, 10)
 
 	// Start goroutine to receive control messages
 	go func() {
 		for {
-			c.mu.Lock()
-			stream := c.controlStream
-			c.mu.Unlock()
-
+			stream := sub.controlStream
 			if stream == nil {
 				return
 			}
@@ -329,11 +370,9 @@ func (c *FumaroleAdapter) fumaroleRuntime(ctx context.Context) {
 				if err == io.EOF || status.Code(err) == codes.Canceled {
 					return
 				}
-				c.mu.Lock()
-				if c.errorCallback != nil {
-					c.errorCallback(fmt.Errorf("control plane error: %w", err))
+				if sub.errorCallback != nil {
+					sub.errorCallback(fmt.Errorf("control plane error: %w", err))
 				}
-				c.mu.Unlock()
 				return
 			}
 
@@ -346,7 +385,7 @@ func (c *FumaroleAdapter) fumaroleRuntime(ctx context.Context) {
 	}()
 
 	// Initial history poll
-	c.pollHistory()
+	c.pollHistory(sub)
 
 	pingID := uint32(0)
 
@@ -357,10 +396,7 @@ func (c *FumaroleAdapter) fumaroleRuntime(ctx context.Context) {
 
 		case <-pingTicker.C:
 			// Send ping
-			c.mu.Lock()
-			stream := c.controlStream
-			c.mu.Unlock()
-
+			stream := sub.controlStream
 			if stream == nil {
 				return
 			}
@@ -371,21 +407,19 @@ func (c *FumaroleAdapter) fumaroleRuntime(ctx context.Context) {
 					Ping: &fumarole.Ping{PingId: pingID},
 				},
 			}); err != nil {
-				c.mu.Lock()
-				if c.errorCallback != nil {
-					c.errorCallback(fmt.Errorf("ping failed: %w", err))
+				if sub.errorCallback != nil {
+					sub.errorCallback(fmt.Errorf("ping failed: %w", err))
 				}
-				c.mu.Unlock()
 			}
 
 		case resp := <-controlChan:
-			c.handleControlResponse(ctx, resp)
+			c.handleControlResponse(ctx, sub, resp)
 		}
 	}
 }
 
-// handleControlResponse processes control plane responses
-func (c *FumaroleAdapter) handleControlResponse(ctx context.Context, resp *fumarole.ControlResponse) {
+// handleControlResponse processes control plane responses for a subscription
+func (c *FumaroleAdapter) handleControlResponse(ctx context.Context, sub *FumaroleSubscription, resp *fumarole.ControlResponse) {
 	if history := resp.GetPollHist(); history != nil {
 		// Process blockchain events and download blocks asynchronously
 		var lastOffset int64
@@ -400,30 +434,26 @@ func (c *FumaroleAdapter) handleControlResponse(ctx context.Context, resp *fumar
 			lastShardId = event.BlockchainShardId
 
 			// Update offset
-			c.mu.Lock()
-			c.lastPollOffset = &event.Offset
-			c.mu.Unlock()
+			sub.lastPollOffset = &event.Offset
 
 			// Download block asynchronously
-			go c.downloadBlock(ctx, event)
+			go c.downloadBlock(ctx, sub, event)
 		}
 
 		// Commit the last processed offset
 		if len(history.Events) > 0 {
-			c.commitOffset(lastShardId, lastOffset)
+			c.commitOffset(sub, lastShardId, lastOffset)
 		}
 
 		// Poll for next batch
-		c.pollHistory()
+		c.pollHistory(sub)
 	} else if commit := resp.GetCommitOffset(); commit != nil {
-		c.mu.Lock()
-		c.lastCommittedOffset = commit.Offset
-		c.mu.Unlock()
+		sub.lastCommittedOffset = commit.Offset
 	}
 }
 
 // downloadBlock downloads a single block using DownloadBlock RPC
-func (c *FumaroleAdapter) downloadBlock(ctx context.Context, event *fumarole.BlockchainEvent) {
+func (c *FumaroleAdapter) downloadBlock(ctx context.Context, sub *FumaroleSubscription, event *fumarole.BlockchainEvent) {
 	// Acquire semaphore slot
 	select {
 	case c.downloadSemaphore <- struct{}{}:
@@ -432,11 +462,9 @@ func (c *FumaroleAdapter) downloadBlock(ctx context.Context, event *fumarole.Blo
 		return
 	}
 
-	c.mu.Lock()
 	client := c.client
-	filters := c.blockFilters
-	callback := c.dataCallback
-	c.mu.Unlock()
+	filters := sub.blockFilters
+	callback := sub.dataCallback
 
 	downloadStream, err := client.DownloadBlock(ctx, &fumarole.DownloadBlockShard{
 		BlockchainId: event.BlockchainId,
@@ -446,33 +474,45 @@ func (c *FumaroleAdapter) downloadBlock(ctx context.Context, event *fumarole.Blo
 	})
 
 	if err != nil {
-		c.mu.Lock()
-		if c.errorCallback != nil {
-			c.errorCallback(fmt.Errorf("download block failed slot %d: %w", event.Slot, err))
+		if sub.errorCallback != nil {
+			sub.errorCallback(fmt.Errorf("download block failed slot %d: %w", event.Slot, err))
 		}
-		c.mu.Unlock()
+		c.logger.Error("DownloadBlock RPC failed",
+			zap.Uint64("slot", event.Slot),
+			zap.Error(err))
 		return
 	}
+
+	updateCount := 0
 
 	for {
 		dataResp, err := downloadStream.Recv()
 		if err == io.EOF {
+			if c.debugLogging {
+				c.logger.Debug("finished downloading slot",
+					zap.Uint64("slot", event.Slot),
+					zap.Int("updates", updateCount))
+			}
 			break
 		}
 		if err != nil {
-			c.mu.Lock()
-			if c.errorCallback != nil {
-				c.errorCallback(fmt.Errorf("download stream error slot %d: %w", event.Slot, err))
+			if sub.errorCallback != nil {
+				sub.errorCallback(fmt.Errorf("download stream error slot %d: %w", event.Slot, err))
 			}
-			c.mu.Unlock()
+			c.logger.Error("download stream error",
+				zap.Uint64("slot", event.Slot),
+				zap.Int("updates", updateCount),
+				zap.Error(err))
 			break
 		}
 
 		if dataResp.GetBlockShardDownloadFinish() != nil {
+
 			break
 		}
 
 		if update := dataResp.GetUpdate(); update != nil {
+			updateCount++
 			suppressCallback := false
 
 			if slotUpdate, ok := update.UpdateOneof.(*pb.SubscribeUpdate_Slot); ok {
@@ -481,7 +521,7 @@ func (c *FumaroleAdapter) downloadBlock(ctx context.Context, event *fumarole.Blo
 					c.lastSlot = slotUpdate.Slot.Slot
 					c.mu.Unlock()
 				}
-				if c.hasInternalSlotSub {
+				if sub.hasInternalSlotSub {
 					suppressCallback = true
 				}
 			}
@@ -494,11 +534,8 @@ func (c *FumaroleAdapter) downloadBlock(ctx context.Context, event *fumarole.Blo
 }
 
 // commitOffset sends a commit offset command to acknowledge processed blocks
-func (c *FumaroleAdapter) commitOffset(shardId int32, offset int64) {
-	c.mu.Lock()
-	stream := c.controlStream
-	c.mu.Unlock()
-
+func (c *FumaroleAdapter) commitOffset(sub *FumaroleSubscription, shardId int32, offset int64) {
+	stream := sub.controlStream
 	if stream == nil {
 		return
 	}
@@ -511,20 +548,16 @@ func (c *FumaroleAdapter) commitOffset(shardId int32, offset int64) {
 			},
 		},
 	}); err != nil {
-		c.mu.Lock()
-		if c.errorCallback != nil {
-			c.errorCallback(fmt.Errorf("commit offset failed: %w", err))
+		if sub.errorCallback != nil {
+			sub.errorCallback(fmt.Errorf("commit offset failed: %w", err))
 		}
-		c.mu.Unlock()
 	}
 }
 
 // pollHistory sends a poll history command
-func (c *FumaroleAdapter) pollHistory() {
-	c.mu.Lock()
-	stream := c.controlStream
-	from := c.lastPollOffset
-	c.mu.Unlock()
+func (c *FumaroleAdapter) pollHistory(sub *FumaroleSubscription) {
+	stream := sub.controlStream
+	from := sub.lastPollOffset
 
 	if stream == nil {
 		return
@@ -539,11 +572,9 @@ func (c *FumaroleAdapter) pollHistory() {
 			},
 		},
 	}); err != nil {
-		c.mu.Lock()
-		if c.errorCallback != nil {
-			c.errorCallback(fmt.Errorf("poll history failed: %w", err))
+		if sub.errorCallback != nil {
+			sub.errorCallback(fmt.Errorf("poll history failed: %w", err))
 		}
-		c.mu.Unlock()
 	}
 }
 
@@ -551,17 +582,19 @@ func (c *FumaroleAdapter) Close() {
 	c.mu.Lock()
 	defer c.mu.Unlock()
 
-	if c.cancel != nil {
-		c.cancel()
-		c.cancel = nil
+	// Close all subscriptions
+	for _, sub := range c.subscriptions {
+		if sub.cancel != nil {
+			sub.cancel()
+		}
+		if sub.controlStream != nil {
+			sub.controlStream.CloseSend()
+		}
 	}
-	if c.controlStream != nil {
-		c.controlStream.CloseSend()
-		c.controlStream = nil
-	}
+	c.subscriptions = make(map[string]*FumaroleSubscription)
+
 	if c.conn != nil {
 		c.conn.Close()
 		c.conn = nil
 	}
-	c.running = false
 }
