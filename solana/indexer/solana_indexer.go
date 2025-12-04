@@ -9,7 +9,10 @@ import (
 	"api.audius.co/database"
 	"api.audius.co/logging"
 	"api.audius.co/solana/indexer/common"
+	"api.audius.co/solana/indexer/damm_v2"
+	"api.audius.co/solana/indexer/dbc"
 	"api.audius.co/solana/indexer/locker"
+	"api.audius.co/solana/indexer/program"
 	"api.audius.co/solana/indexer/token"
 	"github.com/gagliardetto/solana-go"
 	"github.com/gagliardetto/solana-go/rpc"
@@ -76,28 +79,28 @@ func New(config config.Config) *SolanaIndexer {
 		panic(fmt.Errorf("failed to create transaction cache: %w", err))
 	}
 
-	// dammV2Indexer := damm_v2.New(
-	// 	grpcConfig, rpcClient, pool, &transactionCache, logger,
-	// )
+	dammV2Indexer := damm_v2.New(
+		grpcConfig, rpcClient, pool, &transactionCache, logger,
+	)
 	tokenIndexer := token.New(
 		grpcConfig, rpcClient, pool, &transactionCache, logger,
 	)
-	// programIndexer := program.New(
-	// 	grpcConfig, rpcClient, pool, config, &transactionCache, logger,
-	// )
-	// dbcIndexer := dbc.New(
-	// 	grpcConfig, rpcClient, pool, config, &transactionCache, logger,
-	// )
-	// lockerIndexer := locker.New(
-	// 	grpcConfig, rpcClient, pool, logger,
-	// )
+	programIndexer := program.New(
+		grpcConfig, rpcClient, pool, config, &transactionCache, logger,
+	)
+	dbcIndexer := dbc.New(
+		grpcConfig, rpcClient, pool, config, &transactionCache, logger,
+	)
+	lockerIndexer := locker.New(
+		grpcConfig, rpcClient, pool, logger,
+	)
 
 	indexers := make(map[string]Indexer)
-	// indexers[damm_v2.NAME] = dammV2Indexer
+	indexers[damm_v2.NAME] = dammV2Indexer
 	indexers[token.NAME] = tokenIndexer
-	// indexers[program.NAME] = programIndexer
-	// indexers[dbc.NAME] = dbcIndexer
-	// indexers[locker.NAME] = lockerIndexer
+	indexers[program.NAME] = programIndexer
+	indexers[dbc.NAME] = dbcIndexer
+	indexers[locker.NAME] = lockerIndexer
 
 	s := &SolanaIndexer{
 		rpcClient:   rpcClient,
