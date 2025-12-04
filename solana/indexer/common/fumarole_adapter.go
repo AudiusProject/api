@@ -269,6 +269,8 @@ func (c *FumaroleAdapter) Subscribe(
 			c.lastCommittedOffset = offset
 			c.lastPollOffset = &offset
 		}
+	} else {
+		return fmt.Errorf("no init response received")
 	}
 
 	// Convert filters for DownloadBlock
@@ -306,6 +308,41 @@ func (c *FumaroleAdapter) fumaroleRuntime(ctx context.Context) {
 	pingTicker := time.NewTicker(10 * time.Second)
 	defer pingTicker.Stop()
 
+	// Channel for control responses
+	controlChan := make(chan *fumarole.ControlResponse, 10)
+
+	// Start goroutine to receive control messages
+	go func() {
+		for {
+			c.mu.Lock()
+			stream := c.controlStream
+			c.mu.Unlock()
+
+			if stream == nil {
+				return
+			}
+
+			resp, err := stream.Recv()
+			if err != nil {
+				if err == io.EOF || status.Code(err) == codes.Canceled {
+					return
+				}
+				c.mu.Lock()
+				if c.errorCallback != nil {
+					c.errorCallback(fmt.Errorf("control plane error: %w", err))
+				}
+				c.mu.Unlock()
+				return
+			}
+
+			select {
+			case controlChan <- resp:
+			case <-ctx.Done():
+				return
+			}
+		}
+	}()
+
 	// Initial history poll
 	c.pollHistory()
 
@@ -339,29 +376,7 @@ func (c *FumaroleAdapter) fumaroleRuntime(ctx context.Context) {
 				c.mu.Unlock()
 			}
 
-		default:
-			// Receive from control plane
-			c.mu.Lock()
-			stream := c.controlStream
-			c.mu.Unlock()
-
-			if stream == nil {
-				return
-			}
-
-			resp, err := stream.Recv()
-			if err != nil {
-				if err == io.EOF || status.Code(err) == codes.Canceled {
-					return
-				}
-				c.mu.Lock()
-				if c.errorCallback != nil {
-					c.errorCallback(fmt.Errorf("control plane error: %w", err))
-				}
-				c.mu.Unlock()
-				continue
-			}
-
+		case resp := <-controlChan:
 			c.handleControlResponse(ctx, resp)
 		}
 	}
