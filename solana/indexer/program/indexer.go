@@ -133,7 +133,16 @@ func (d *Indexer) subscribe(ctx context.Context) (common.GrpcClient, error) {
 		}
 	}
 
-	client := common.NewGrpcClient(d.grpcConfig)
+	var client common.GrpcClient
+	if d.grpcConfig.UseFumarole {
+		consumerGroup := d.grpcConfig.FumaroleConsumerGroup
+		if consumerGroup == "" {
+			consumerGroup = "audius-program-indexer"
+		}
+		client = common.NewFumaroleAdapter(d.grpcConfig, consumerGroup)
+	} else {
+		client = common.NewGrpcClient(d.grpcConfig)
+	}
 	err := client.Subscribe(ctx, subscription, handleMessage, func(err error) {
 		d.logger.Error("subscription error", zap.Error(err))
 	})

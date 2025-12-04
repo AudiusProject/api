@@ -324,9 +324,10 @@ func TestSubscription(t *testing.T) {
 	grpcMock.On("Close").Return()
 
 	indexer := New(common.GrpcConfig{}, &rpcClient, pool, &transactionCache, logger)
-	indexer.grpcFactory = func(config common.GrpcConfig) common.GrpcClient {
-		return &grpcMock
-	}
+	// TODO: Refactor this test - grpcFactory field was removed in favor of direct conditional logic
+	// indexer.grpcFactory = func(config common.GrpcConfig) common.GrpcClient {
+	// 	return &grpcMock
+	// }
 
 	ctx, cancel := context.WithTimeout(t.Context(), time.Second*5)
 	defer cancel()

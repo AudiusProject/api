@@ -27,7 +27,9 @@ type GrpcClient interface {
 }
 
 type GrpcConfig struct {
-	Server               string
-	ApiToken             string
-	MaxReconnectAttempts int
+	Server                string
+	ApiToken              string
+	MaxReconnectAttempts  int
+	UseFumarole           bool
+	FumaroleConsumerGroup string
 }

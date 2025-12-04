@@ -194,6 +194,7 @@ require (
 	github.com/rcrowley/go-metrics v0.0.0-20201227073835-cf1acfcdf475 // indirect
 	github.com/rivo/uniseg v0.4.7 // indirect
 	github.com/rogpeppe/go-internal v1.14.1 // indirect
+	github.com/rpcpool/yellowstone-fumarole v0.1.1-0.20251117145514-97fd21193313 // indirect
 	github.com/rs/cors v1.11.1 // indirect
 	github.com/rubenv/sql-migrate v1.7.0 // indirect
 	github.com/sasha-s/go-deadlock v0.3.5 // indirect

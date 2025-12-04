@@ -31,7 +31,6 @@ const (
 type Indexer struct {
 	pool             database.DbPool
 	grpcConfig       common.GrpcConfig
-	grpcFactory      func(common.GrpcConfig) common.GrpcClient
 	rpcClient        common.RpcClient
 	transactionCache *otter.Cache[solana.Signature, *rpc.GetTransactionResult]
 	logger           *zap.Logger
@@ -47,7 +46,6 @@ func New(
 	return &Indexer{
 		pool:             pool,
 		grpcConfig:       config,
-		grpcFactory:      common.NewGrpcClient,
 		rpcClient:        rpcClient,
 		transactionCache: transactionCache,
 		logger:           logger.Named(NAME),
@@ -246,7 +244,15 @@ func (d *Indexer) subscribe(ctx context.Context) ([]common.GrpcClient, error) {
 			}
 		}
 
-		grpcClient := d.grpcFactory(d.grpcConfig)
+		var grpcClient common.GrpcClient
+		if d.grpcConfig.UseFumarole {
+			grpcClient = common.NewFumaroleAdapter(
+				d.grpcConfig,
+				fmt.Sprintf("%s-page-%d", d.grpcConfig.FumaroleConsumerGroup, page),
+			)
+		} else {
+			grpcClient = common.NewGrpcClient(d.grpcConfig)
+		}
 		err = grpcClient.Subscribe(ctx, subscription, handleMessage, func(err error) {
 			d.logger.Error("error in subscription", zap.Error(err))
 		})

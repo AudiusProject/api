@@ -17,6 +17,8 @@ type SolanaConfig struct {
 	SolanaRelay  string
 	GrpcProvider string
 	GrpcToken    string
+	UseFumarole  bool
+	FumaroleConsumerGroup string
 
 	MintAudio solana.PublicKey
 	MintUSDC  solana.PublicKey
@@ -74,6 +76,8 @@ func NewSolanaConfig() SolanaConfig {
 		RpcProviders: strings.Split(os.Getenv("solanaRpcProviders"), ","),
 		GrpcProvider: os.Getenv("solanaGrpcProvider"),
 		GrpcToken:    os.Getenv("solanaGrpcToken"),
+		UseFumarole:  os.Getenv("solanaUseFumarole") == "true",
+		FumaroleConsumerGroup: os.Getenv("solanaFumaroleConsumerGroup"),
 	}
 	keyString := os.Getenv("solanaFeePayerKeys")
 	if keyString != "" {

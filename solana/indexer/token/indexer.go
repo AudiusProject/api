@@ -255,7 +255,15 @@ func (d *Indexer) subscribeToArtistCoins(ctx context.Context, handleUpdate func(
 			return nil, fmt.Errorf("failed to make mint subscription request: %w", err)
 		}
 
-		grpcClient := common.NewGrpcClient(d.grpcConfig)
+		var grpcClient common.GrpcClient
+		if d.grpcConfig.UseFumarole {
+			grpcClient = common.NewFumaroleAdapter(
+				d.grpcConfig,
+				fmt.Sprintf("%s-page-%d", d.grpcConfig.FumaroleConsumerGroup, page),
+			)
+		} else {
+			grpcClient = common.NewGrpcClient(d.grpcConfig)
+		}
 		err = grpcClient.Subscribe(ctx, subscription, handleUpdate, func(err error) {
 			d.logger.Error("error in token subscription", zap.Error(err))
 		})

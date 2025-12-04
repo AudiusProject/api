@@ -61,9 +61,11 @@ func New(config config.Config) *SolanaIndexer {
 	}
 
 	grpcConfig := common.GrpcConfig{
-		Server:               config.SolanaConfig.GrpcProvider,
-		ApiToken:             config.SolanaConfig.GrpcToken,
-		MaxReconnectAttempts: 5,
+		Server:                config.SolanaConfig.GrpcProvider,
+		ApiToken:              config.SolanaConfig.GrpcToken,
+		MaxReconnectAttempts:  5,
+		UseFumarole:           config.SolanaConfig.UseFumarole,
+		FumaroleConsumerGroup: config.SolanaConfig.FumaroleConsumerGroup,
 	}
 
 	transactionCache, err := otter.MustBuilder[solana.Signature, *rpc.GetTransactionResult](50).
