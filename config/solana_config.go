@@ -12,12 +12,12 @@ import (
 )
 
 type SolanaConfig struct {
-	RpcProviders []string
-	FeePayers    []solana.Wallet
-	SolanaRelay  string
-	GrpcProvider string
-	GrpcToken    string
-	UseFumarole  bool
+	RpcProviders          []string
+	FeePayers             []solana.Wallet
+	SolanaRelay           string
+	GrpcProvider          string
+	GrpcToken             string
+	UseFumarole           bool
 	FumaroleConsumerGroup string
 
 	MintAudio solana.PublicKey
@@ -73,10 +73,10 @@ const (
 
 func NewSolanaConfig() SolanaConfig {
 	cfg := SolanaConfig{
-		RpcProviders: strings.Split(os.Getenv("solanaRpcProviders"), ","),
-		GrpcProvider: os.Getenv("solanaGrpcProvider"),
-		GrpcToken:    os.Getenv("solanaGrpcToken"),
-		UseFumarole:  os.Getenv("solanaUseFumarole") == "true",
+		RpcProviders:          strings.Split(os.Getenv("solanaRpcProviders"), ","),
+		GrpcProvider:          os.Getenv("solanaGrpcProvider"),
+		GrpcToken:             os.Getenv("solanaGrpcToken"),
+		UseFumarole:           os.Getenv("solanaUseFumarole") == "true",
 		FumaroleConsumerGroup: os.Getenv("solanaFumaroleConsumerGroup"),
 	}
 	keyString := os.Getenv("solanaFeePayerKeys")

@@ -19,24 +19,27 @@ import (
 	"google.golang.org/protobuf/proto"
 )
 
-// FumaroleAdapter adapts the Fumarole Subscribe API to work like dragonsMouth
-// It translates Geyser SubscribeRequest to Fumarole's control plane + data plane pattern
+// FumaroleAdapter implements GrpcClient using the Fumarole architecture:
+// - Control plane (Subscribe RPC) for blockchain history polling
+// - Data plane (DownloadBlock RPC) for fetching block data
 type FumaroleAdapter struct {
-	config             GrpcConfig
-	conn               *grpc.ClientConn
-	mu                 sync.Mutex
-	controlStream      grpc.ClientStream
-	dataStream         grpc.ClientStream
-	running            bool
-	subRequest         *pb.SubscribeRequest
-	lastSlot           uint64
-	dataCallback       DataCallback
-	errorCallback      ErrorCallback
-	cancel             context.CancelFunc
-	consumerGroupName  string
-	blockchainID       []byte
-	shardOffsets       map[int32]int64
-	hasInternalSlotSub bool
+	config              GrpcConfig
+	conn                *grpc.ClientConn
+	client              fumarole.FumaroleClient
+	mu                  sync.Mutex
+	controlStream       grpc.BidiStreamingClient[fumarole.ControlCommand, fumarole.ControlResponse]
+	running             bool
+	subRequest          *pb.SubscribeRequest
+	lastSlot            uint64
+	dataCallback        DataCallback
+	errorCallback       ErrorCallback
+	cancel              context.CancelFunc
+	consumerGroupName   string
+	blockchainID        []byte
+	hasInternalSlotSub  bool
+	blockFilters        *fumarole.BlockFilters
+	lastCommittedOffset int64
+	lastPollOffset      *int64
 }
 
 var fumaroleKacp = keepalive.ClientParameters{
@@ -59,7 +62,7 @@ func (t fumaroleTokenAuth) RequireTransportSecurity() bool {
 	return true
 }
 
-// NewFumaroleAdapter creates a new Fumarole adapter that mimics dragonsMouth behavior
+// NewFumaroleAdapter creates a new Fumarole adapter
 func NewFumaroleAdapter(config GrpcConfig, consumerGroupName string) GrpcClient {
 	if consumerGroupName == "" {
 		consumerGroupName = "audius-indexer-" + time.Now().Format("20060102-150405")
@@ -67,8 +70,7 @@ func NewFumaroleAdapter(config GrpcConfig, consumerGroupName string) GrpcClient 
 	return &FumaroleAdapter{
 		config:            config,
 		consumerGroupName: consumerGroupName,
-		shardOffsets:      make(map[int32]int64),
-		blockchainID:      []byte{0}, // Solana mainnet blockchain ID
+		blockchainID:      []byte{0}, // Solana mainnet
 	}
 }
 
@@ -105,6 +107,19 @@ func (c *FumaroleAdapter) connect() error {
 			grpc.MaxCallSendMsgSize(100*1024*1024),
 		),
 	)
+	opts = append(opts, grpc.WithDefaultServiceConfig(`{
+		"methodConfig": [{
+			"name": [{"service": "fumarole.Fumarole"}],
+			"waitForReady": true,
+			"retryPolicy": {
+				"MaxAttempts": 4,
+				"InitialBackoff": ".1s",
+				"MaxBackoff": "1s",
+				"BackoffMultiplier": 2.0,
+				"RetryableStatusCodes": [ "UNAVAILABLE" ]
+			}
+		}]
+	}`))
 
 	port := u.Port()
 	if port == "" {
@@ -123,10 +138,38 @@ func (c *FumaroleAdapter) connect() error {
 	}
 
 	c.conn = conn
+	c.client = fumarole.NewFumaroleClient(conn)
 	return nil
 }
 
-// Subscribe implements dragonsMouth-like subscription using Fumarole's Subscribe (control plane)
+// ensureConsumerGroup creates the consumer group if it doesn't exist
+func (c *FumaroleAdapter) ensureConsumerGroup(ctx context.Context) error {
+	_, err := c.client.GetConsumerGroupInfo(ctx, &fumarole.GetConsumerGroupInfoRequest{
+		ConsumerGroupName: c.consumerGroupName,
+	})
+
+	if err == nil {
+		return nil
+	}
+
+	st, ok := status.FromError(err)
+	if !ok || st.Code() != codes.NotFound {
+		return fmt.Errorf("failed to check consumer group: %w", err)
+	}
+
+	_, err = c.client.CreateConsumerGroup(ctx, &fumarole.CreateConsumerGroupRequest{
+		ConsumerGroupName:   c.consumerGroupName,
+		InitialOffsetPolicy: fumarole.InitialOffsetPolicy_LATEST,
+	})
+
+	if err != nil {
+		return fmt.Errorf("failed to create consumer group: %w", err)
+	}
+
+	return nil
+}
+
+// Subscribe implements dragonsMouth-like subscription using Fumarole
 func (c *FumaroleAdapter) Subscribe(
 	ctx context.Context,
 	subRequest *pb.SubscribeRequest,
@@ -142,7 +185,7 @@ func (c *FumaroleAdapter) Subscribe(
 
 	initialReq := proto.Clone(subRequest).(*pb.SubscribeRequest)
 
-	// Add internal slot subscription if not present (for tracking)
+	// Add internal slot subscription if not present
 	if len(initialReq.Slots) == 0 {
 		c.hasInternalSlotSub = true
 		if initialReq.Slots == nil {
@@ -167,14 +210,17 @@ func (c *FumaroleAdapter) Subscribe(
 		}
 	}
 
-	// Create control plane stream (Subscribe RPC)
-	controlStream, err := c.conn.NewStream(ctx, &grpc.StreamDesc{
-		StreamName:    "Subscribe",
-		Handler:       nil,
-		ServerStreams: true,
-		ClientStreams: true,
-	}, "/fumarole.Fumarole/Subscribe")
+	if err := c.ensureConsumerGroup(ctx); err != nil {
+		cancel()
+		if c.conn != nil {
+			c.conn.Close()
+			c.conn = nil
+		}
+		return fmt.Errorf("failed to ensure consumer group: %w", err)
+	}
 
+	// Create control plane stream
+	controlStream, err := c.client.Subscribe(ctx)
 	if err != nil {
 		cancel()
 		if c.conn != nil {
@@ -195,7 +241,7 @@ func (c *FumaroleAdapter) Subscribe(
 		},
 	}
 
-	if err := controlStream.SendMsg(joinCmd); err != nil {
+	if err := controlStream.Send(joinCmd); err != nil {
 		cancel()
 		c.controlStream = nil
 		if c.conn != nil {
@@ -206,8 +252,8 @@ func (c *FumaroleAdapter) Subscribe(
 	}
 
 	// Wait for initial state
-	var initResp fumarole.ControlResponse
-	if err := controlStream.RecvMsg(&initResp); err != nil {
+	initResp, err := controlStream.Recv()
+	if err != nil {
 		cancel()
 		c.controlStream = nil
 		if c.conn != nil {
@@ -219,72 +265,49 @@ func (c *FumaroleAdapter) Subscribe(
 
 	if init := initResp.GetInit(); init != nil {
 		c.blockchainID = init.BlockchainId
-		c.shardOffsets = init.LastCommittedOffsets
-	}
-
-	// Create data plane stream (SubscribeData RPC)
-	dataStream, err := c.conn.NewStream(ctx, &grpc.StreamDesc{
-		StreamName:    "SubscribeData",
-		Handler:       nil,
-		ServerStreams: true,
-		ClientStreams: true,
-	}, "/fumarole.Fumarole/SubscribeData")
-
-	if err != nil {
-		cancel()
-		c.controlStream.CloseSend()
-		c.controlStream = nil
-		if c.conn != nil {
-			c.conn.Close()
-			c.conn = nil
+		if offset, ok := init.LastCommittedOffsets[0]; ok {
+			c.lastCommittedOffset = offset
+			c.lastPollOffset = &offset
 		}
-		return fmt.Errorf("failed to create data stream: %w", err)
-	}
-	c.dataStream = dataStream
-
-	// Convert Geyser filters to Fumarole BlockFilters and send
-	blockFilters := c.convertToBlockFilters(initialReq)
-	dataCmd := &fumarole.DataCommand{
-		Command: &fumarole.DataCommand_FilterUpdate{
-			FilterUpdate: blockFilters,
-		},
 	}
 
-	if err := dataStream.SendMsg(dataCmd); err != nil {
-		cancel()
-		c.dataStream = nil
-		c.controlStream.CloseSend()
-		c.controlStream = nil
-		if c.conn != nil {
-			c.conn.Close()
-			c.conn = nil
-		}
-		return fmt.Errorf("failed to send filter update: %w", err)
+	// Convert filters for DownloadBlock
+	c.blockFilters = &fumarole.BlockFilters{
+		Accounts:     initialReq.Accounts,
+		Transactions: initialReq.Transactions,
+		Entries:      initialReq.Entry,
+		BlocksMeta:   initialReq.BlocksMeta,
 	}
 
 	c.running = true
 
-	// Start loops for both streams
-	go c.controlLoop(ctx)
-	go c.dataLoop(ctx)
+	// Start runtime loop
+	go c.fumaroleRuntime(ctx)
 
 	return nil
 }
 
-// convertToBlockFilters converts Geyser SubscribeRequest to Fumarole BlockFilters
-func (c *FumaroleAdapter) convertToBlockFilters(req *pb.SubscribeRequest) *fumarole.BlockFilters {
-	return &fumarole.BlockFilters{
-		Accounts:     req.Accounts,
-		Transactions: req.Transactions,
-		Entries:      req.Entry,
-		BlocksMeta:   req.BlocksMeta,
-	}
-}
+// fumaroleRuntime is the main event loop matching TokioFumeDragonsmouthRuntime::run()
+func (c *FumaroleAdapter) fumaroleRuntime(ctx context.Context) {
+	defer func() {
+		c.mu.Lock()
+		c.running = false
+		if c.conn != nil {
+			c.conn.Close()
+			c.conn = nil
+		}
+		if c.controlStream != nil {
+			c.controlStream.CloseSend()
+			c.controlStream = nil
+		}
+		c.mu.Unlock()
+	}()
 
-// controlLoop handles the control plane stream (for heartbeat, offset commits, etc.)
-func (c *FumaroleAdapter) controlLoop(ctx context.Context) {
-	ticker := time.NewTicker(10 * time.Second)
-	defer ticker.Stop()
+	pingTicker := time.NewTicker(10 * time.Second)
+	defer pingTicker.Stop()
+
+	// Initial history poll
+	c.pollHistory()
 
 	pingID := uint32(0)
 
@@ -292,8 +315,9 @@ func (c *FumaroleAdapter) controlLoop(ctx context.Context) {
 		select {
 		case <-ctx.Done():
 			return
-		case <-ticker.C:
-			// Send periodic ping
+
+		case <-pingTicker.C:
+			// Send ping
 			c.mu.Lock()
 			stream := c.controlStream
 			c.mu.Unlock()
@@ -303,110 +327,115 @@ func (c *FumaroleAdapter) controlLoop(ctx context.Context) {
 			}
 
 			pingID++
-			pingCmd := &fumarole.ControlCommand{
+			if err := stream.Send(&fumarole.ControlCommand{
 				Command: &fumarole.ControlCommand_Ping{
 					Ping: &fumarole.Ping{PingId: pingID},
 				},
-			}
-
-			if err := stream.SendMsg(pingCmd); err != nil {
+			}); err != nil {
 				c.mu.Lock()
 				if c.errorCallback != nil {
-					c.errorCallback(fmt.Errorf("control plane ping failed: %w", err))
+					c.errorCallback(fmt.Errorf("ping failed: %w", err))
 				}
 				c.mu.Unlock()
 			}
+
+		default:
+			// Receive from control plane
+			c.mu.Lock()
+			stream := c.controlStream
+			c.mu.Unlock()
+
+			if stream == nil {
+				return
+			}
+
+			resp, err := stream.Recv()
+			if err != nil {
+				if err == io.EOF || status.Code(err) == codes.Canceled {
+					return
+				}
+				c.mu.Lock()
+				if c.errorCallback != nil {
+					c.errorCallback(fmt.Errorf("control plane error: %w", err))
+				}
+				c.mu.Unlock()
+				continue
+			}
+
+			c.handleControlResponse(ctx, resp)
 		}
 	}
 }
 
-// dataLoop handles the data plane stream (receiving SubscribeUpdate messages)
-func (c *FumaroleAdapter) dataLoop(ctx context.Context) {
-	defer func() {
-		c.mu.Lock()
-		c.running = false
-		if c.conn != nil {
-			c.conn.Close()
-			c.conn = nil
-		}
-		if c.dataStream != nil {
-			c.dataStream.CloseSend()
-			c.dataStream = nil
-		}
-		if c.controlStream != nil {
-			c.controlStream.CloseSend()
-			c.controlStream = nil
-		}
-		c.mu.Unlock()
-	}()
-
-	for {
-		select {
-		case <-ctx.Done():
-			return
-		default:
-		}
-
-		c.mu.Lock()
-		stream := c.dataStream
-		c.mu.Unlock()
-
-		if stream == nil {
-			if !c.attemptReconnect(ctx) {
-				return
-			}
-			continue
-		}
-
-		var resp fumarole.DataResponse
-		err := stream.RecvMsg(&resp)
-
-		if err != nil {
-			select {
-			case <-ctx.Done():
-				return
-			default:
-			}
-
-			c.mu.Lock()
-			if c.errorCallback != nil {
-				c.errorCallback(err)
-			}
-			c.dataStream = nil
-			c.mu.Unlock()
-
-			st, ok := status.FromError(err)
-
-			// Handle rate limiting (429)
-			if ok && st.Code() == codes.Unavailable {
-				msg := st.Message()
-				if containsSubstring(msg, "429") || containsSubstring(msg, "Too Many Requests") {
-					select {
-					case <-time.After(60 * time.Second):
-						if !c.attemptReconnect(ctx) {
-							return
-						}
-					case <-ctx.Done():
-						return
-					}
-					continue
-				}
-			}
-
-			if (ok && (st.Code() == codes.Unavailable || st.Code() == codes.DeadlineExceeded)) || err == io.EOF {
-				if !c.attemptReconnect(ctx) {
-					return
-				}
-			} else {
-				return
-			}
-		} else {
-			// Extract SubscribeUpdate from DataResponse
-			update := resp.GetUpdate()
-			if update == nil {
+// handleControlResponse processes control plane responses
+func (c *FumaroleAdapter) handleControlResponse(ctx context.Context, resp *fumarole.ControlResponse) {
+	if history := resp.GetPollHist(); history != nil {
+		// Process blockchain events and download blocks
+		for _, event := range history.Events {
+			if event.DeadError != nil {
 				continue
 			}
 
+			c.downloadBlock(ctx, event)
+
+			// Update offset
+			c.mu.Lock()
+			c.lastPollOffset = &event.Offset
+			c.mu.Unlock()
+		}
+
+		// Poll for next batch
+		c.pollHistory()
+	} else if commit := resp.GetCommitOffset(); commit != nil {
+		c.mu.Lock()
+		c.lastCommittedOffset = commit.Offset
+		c.mu.Unlock()
+	}
+}
+
+// downloadBlock downloads a single block using DownloadBlock RPC
+func (c *FumaroleAdapter) downloadBlock(ctx context.Context, event *fumarole.BlockchainEvent) {
+	c.mu.Lock()
+	client := c.client
+	filters := c.blockFilters
+	callback := c.dataCallback
+	c.mu.Unlock()
+
+	downloadStream, err := client.DownloadBlock(ctx, &fumarole.DownloadBlockShard{
+		BlockchainId: event.BlockchainId,
+		BlockUid:     event.BlockUid,
+		ShardIdx:     event.BlockchainShardId,
+		BlockFilters: filters,
+	})
+
+	if err != nil {
+		c.mu.Lock()
+		if c.errorCallback != nil {
+			c.errorCallback(fmt.Errorf("download block failed slot %d: %w", event.Slot, err))
+		}
+		c.mu.Unlock()
+		return
+	}
+
+	for {
+		dataResp, err := downloadStream.Recv()
+		if err == io.EOF {
+			break
+		}
+		if err != nil {
+			c.mu.Lock()
+			if c.errorCallback != nil {
+				c.errorCallback(fmt.Errorf("download stream error slot %d: %w", event.Slot, err))
+			}
+			c.mu.Unlock()
+			break
+		}
+
+		if dataResp.GetBlockShardDownloadFinish() != nil {
+			break
+		}
+
+		if update := dataResp.GetUpdate(); update != nil {
 			suppressCallback := false
 
 			if slotUpdate, ok := update.UpdateOneof.(*pb.SubscribeUpdate_Slot); ok {
@@ -420,14 +449,38 @@ func (c *FumaroleAdapter) dataLoop(ctx context.Context) {
 				}
 			}
 
-			c.mu.Lock()
-			callback := c.dataCallback
-			c.mu.Unlock()
-
 			if callback != nil && !suppressCallback {
 				callback(ctx, update)
 			}
 		}
+	}
+}
+
+// pollHistory sends a poll history command
+func (c *FumaroleAdapter) pollHistory() {
+	c.mu.Lock()
+	stream := c.controlStream
+	from := c.lastPollOffset
+	c.mu.Unlock()
+
+	if stream == nil {
+		return
+	}
+
+	if err := stream.Send(&fumarole.ControlCommand{
+		Command: &fumarole.ControlCommand_PollHist{
+			PollHist: &fumarole.PollBlockchainHistory{
+				ShardId: 0,
+				From:    from,
+				Limit:   proto.Int64(100),
+			},
+		},
+	}); err != nil {
+		c.mu.Lock()
+		if c.errorCallback != nil {
+			c.errorCallback(fmt.Errorf("poll history failed: %w", err))
+		}
+		c.mu.Unlock()
 	}
 }
 
@@ -439,10 +492,6 @@ func (c *FumaroleAdapter) Close() {
 		c.cancel()
 		c.cancel = nil
 	}
-	if c.dataStream != nil {
-		c.dataStream.CloseSend()
-		c.dataStream = nil
-	}
 	if c.controlStream != nil {
 		c.controlStream.CloseSend()
 		c.controlStream = nil
@@ -452,177 +501,4 @@ func (c *FumaroleAdapter) Close() {
 		c.conn = nil
 	}
 	c.running = false
-}
-
-func (c *FumaroleAdapter) attemptReconnect(ctx context.Context) bool {
-	const reconnectInterval = 30 * time.Second
-	const maxReconnectWindow = 20 * time.Minute
-	maxPossibleAttempts := int(maxReconnectWindow / reconnectInterval)
-
-	c.mu.Lock()
-	userRequestedAttempts := c.config.MaxReconnectAttempts
-	c.mu.Unlock()
-
-	attemptsToMake := userRequestedAttempts
-	if attemptsToMake <= 0 {
-		attemptsToMake = maxPossibleAttempts
-	} else if attemptsToMake > maxPossibleAttempts {
-		attemptsToMake = maxPossibleAttempts
-	}
-
-	for currentAttempt := 1; currentAttempt <= attemptsToMake; currentAttempt++ {
-		select {
-		case <-ctx.Done():
-			return false
-		case <-time.After(reconnectInterval):
-			c.mu.Lock()
-			if ctx.Err() != nil {
-				c.mu.Unlock()
-				return false
-			}
-			subReq := c.subRequest
-			errorCb := c.errorCallback
-			c.mu.Unlock()
-
-			if err := c.connect(); err != nil {
-				if errorCb != nil {
-					errorCb(fmt.Errorf("reconnect failed on attempt %d/%d: %w", currentAttempt, attemptsToMake, err))
-				}
-				continue
-			}
-
-			// Recreate control stream
-			c.mu.Lock()
-			controlStream, err := c.conn.NewStream(ctx, &grpc.StreamDesc{
-				StreamName:    "Subscribe",
-				Handler:       nil,
-				ServerStreams: true,
-				ClientStreams: true,
-			}, "/fumarole.Fumarole/Subscribe")
-
-			if err != nil {
-				if c.conn != nil {
-					c.conn.Close()
-					c.conn = nil
-				}
-				c.mu.Unlock()
-				if errorCb != nil {
-					errorCb(fmt.Errorf("failed to re-create control stream on attempt %d/%d: %w", currentAttempt, attemptsToMake, err))
-				}
-				continue
-			}
-			c.controlStream = controlStream
-
-			// Rejoin control plane
-			consumerGroupName := c.consumerGroupName
-			joinCmd := &fumarole.ControlCommand{
-				Command: &fumarole.ControlCommand_InitialJoin{
-					InitialJoin: &fumarole.JoinControlPlane{
-						ConsumerGroupName: &consumerGroupName,
-					},
-				},
-			}
-
-			if err := controlStream.SendMsg(joinCmd); err != nil {
-				controlStream.CloseSend()
-				c.controlStream = nil
-				if c.conn != nil {
-					c.conn.Close()
-					c.conn = nil
-				}
-				c.mu.Unlock()
-				if errorCb != nil {
-					errorCb(fmt.Errorf("failed to rejoin control plane on attempt %d/%d: %w", currentAttempt, attemptsToMake, err))
-				}
-				continue
-			}
-
-			// Wait for initial state
-			var initResp fumarole.ControlResponse
-			if err := controlStream.RecvMsg(&initResp); err != nil {
-				controlStream.CloseSend()
-				c.controlStream = nil
-				if c.conn != nil {
-					c.conn.Close()
-					c.conn = nil
-				}
-				c.mu.Unlock()
-				if errorCb != nil {
-					errorCb(fmt.Errorf("failed to receive initial state on reconnect attempt %d/%d: %w", currentAttempt, attemptsToMake, err))
-				}
-				continue
-			}
-
-			// Recreate data stream
-			dataStream, err := c.conn.NewStream(ctx, &grpc.StreamDesc{
-				StreamName:    "SubscribeData",
-				Handler:       nil,
-				ServerStreams: true,
-				ClientStreams: true,
-			}, "/fumarole.Fumarole/SubscribeData")
-
-			if err != nil {
-				controlStream.CloseSend()
-				c.controlStream = nil
-				if c.conn != nil {
-					c.conn.Close()
-					c.conn = nil
-				}
-				c.mu.Unlock()
-				if errorCb != nil {
-					errorCb(fmt.Errorf("failed to re-create data stream on attempt %d/%d: %w", currentAttempt, attemptsToMake, err))
-				}
-				continue
-			}
-			c.dataStream = dataStream
-
-			// Resend filters
-			blockFilters := c.convertToBlockFilters(subReq)
-			dataCmd := &fumarole.DataCommand{
-				Command: &fumarole.DataCommand_FilterUpdate{
-					FilterUpdate: blockFilters,
-				},
-			}
-
-			if err := dataStream.SendMsg(dataCmd); err != nil {
-				dataStream.CloseSend()
-				c.dataStream = nil
-				controlStream.CloseSend()
-				c.controlStream = nil
-				if c.conn != nil {
-					c.conn.Close()
-					c.conn = nil
-				}
-				c.mu.Unlock()
-				if errorCb != nil {
-					errorCb(fmt.Errorf("failed to resend filters on attempt %d/%d: %w", currentAttempt, attemptsToMake, err))
-				}
-				continue
-			}
-
-			c.mu.Unlock()
-			return true
-		}
-	}
-
-	c.mu.Lock()
-	errorCb := c.errorCallback
-	c.mu.Unlock()
-
-	if errorCb != nil {
-		errorCb(fmt.Errorf("failed to reconnect after %d attempts", attemptsToMake))
-	}
-	return false
-}
-
-func containsSubstring(s, substr string) bool {
-	if len(substr) > len(s) {
-		return false
-	}
-	for i := 0; i <= len(s)-len(substr); i++ {
-		if s[i:i+len(substr)] == substr {
-			return true
-		}
-	}
-	return false
 }

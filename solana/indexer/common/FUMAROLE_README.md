@@ -9,6 +9,7 @@ The Fumarole adapter is **fully functional** using hand-crafted protobuf message
 ### Proto Files
 
 The Fumarole protobuf definitions are stored in `proto/fumarole/`:
+
 - `fumarole.proto` - Main Fumarole service definition
 - `geyser.proto` - Geyser message types (imported from yellowstone-grpc)
 - `solana-storage.proto` - Solana storage types
