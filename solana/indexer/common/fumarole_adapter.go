@@ -33,6 +33,9 @@ type FumaroleSubscription struct {
 	hasInternalSlotSub  bool
 	cancel              context.CancelFunc
 	running             bool
+	lastSlot            uint64
+	mu                  sync.Mutex
+	slotFilterKeys      []string // The keys from the Slots subscription map (checkpoint IDs)
 }
 
 // FumaroleAdapter implements GrpcClient using the Fumarole architecture:
@@ -46,7 +49,6 @@ type FumaroleAdapter struct {
 	mu                sync.Mutex
 	subscriptions     map[string]*FumaroleSubscription
 	downloadSemaphore chan struct{}
-	lastSlot          uint64
 	logger            *zap.Logger
 	debugLogging      bool
 }
@@ -222,6 +224,12 @@ func (c *FumaroleAdapter) SubscribeWithConsumerGroup(
 
 	initialReq := proto.Clone(subRequest).(*pb.SubscribeRequest)
 
+	// Extract slot filter keys (checkpoint IDs) before potentially adding internal slot
+	slotFilterKeys := make([]string, 0, len(initialReq.Slots))
+	for key := range initialReq.Slots {
+		slotFilterKeys = append(slotFilterKeys, key)
+	}
+
 	// Add internal slot subscription if not present
 	hasInternalSlotSub := false
 	if len(initialReq.Slots) == 0 {
@@ -330,6 +338,7 @@ func (c *FumaroleAdapter) SubscribeWithConsumerGroup(
 		hasInternalSlotSub:  hasInternalSlotSub,
 		cancel:              cancel,
 		running:             true,
+		slotFilterKeys:      slotFilterKeys,
 	}
 
 	c.subscriptions[consumerGroupName] = sub
@@ -436,6 +445,13 @@ func (c *FumaroleAdapter) handleControlResponse(ctx context.Context, sub *Fumaro
 			// Update offset
 			sub.lastPollOffset = &event.Offset
 
+			// Track slot from the event
+			if event.Slot > 0 {
+				sub.mu.Lock()
+				sub.lastSlot = event.Slot
+				sub.mu.Unlock()
+			}
+
 			// Download block asynchronously
 			go c.downloadBlock(ctx, sub, event)
 		}
@@ -513,23 +529,26 @@ func (c *FumaroleAdapter) downloadBlock(ctx context.Context, sub *FumaroleSubscr
 
 		if update := dataResp.GetUpdate(); update != nil {
 			updateCount++
-			suppressCallback := false
 
-			if slotUpdate, ok := update.UpdateOneof.(*pb.SubscribeUpdate_Slot); ok {
-				if slotUpdate.Slot != nil && slotUpdate.Slot.Slot > 0 {
-					c.mu.Lock()
-					c.lastSlot = slotUpdate.Slot.Slot
-					c.mu.Unlock()
-				}
-				if sub.hasInternalSlotSub {
-					suppressCallback = true
-				}
-			}
-
-			if callback != nil && !suppressCallback {
+			if callback != nil {
 				callback(ctx, update)
 			}
 		}
+	}
+
+	// Emit slot update after block is fully downloaded (unless suppressed)
+	if callback != nil && !sub.hasInternalSlotSub && event.Slot > 0 {
+		slotUpdate := &pb.SubscribeUpdate{
+			Filters: sub.slotFilterKeys,
+			UpdateOneof: &pb.SubscribeUpdate_Slot{
+				Slot: &pb.SubscribeUpdateSlot{
+					Slot:   event.Slot,
+					Parent: proto.Uint64(0), // Parent not available from Fumarole
+					Status: pb.SlotStatus_SLOT_CONFIRMED,
+				},
+			},
+		}
+		callback(ctx, slotUpdate)
 	}
 }
 
