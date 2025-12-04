@@ -40,6 +40,7 @@ type FumaroleAdapter struct {
 	blockFilters        *fumarole.BlockFilters
 	lastCommittedOffset int64
 	lastPollOffset      *int64
+	downloadSemaphore   chan struct{}
 }
 
 var fumaroleKacp = keepalive.ClientParameters{
@@ -70,7 +71,8 @@ func NewFumaroleAdapter(config GrpcConfig, consumerGroupName string) GrpcClient 
 	return &FumaroleAdapter{
 		config:            config,
 		consumerGroupName: consumerGroupName,
-		blockchainID:      []byte{0}, // Solana mainnet
+		blockchainID:      []byte{0},               // Solana mainnet
+		downloadSemaphore: make(chan struct{}, 10), // Limit to 10 concurrent downloads
 	}
 }
 
@@ -385,18 +387,30 @@ func (c *FumaroleAdapter) fumaroleRuntime(ctx context.Context) {
 // handleControlResponse processes control plane responses
 func (c *FumaroleAdapter) handleControlResponse(ctx context.Context, resp *fumarole.ControlResponse) {
 	if history := resp.GetPollHist(); history != nil {
-		// Process blockchain events and download blocks
+		// Process blockchain events and download blocks asynchronously
+		var lastOffset int64
+		var lastShardId int32
 		for _, event := range history.Events {
 			if event.DeadError != nil {
 				continue
 			}
 
-			c.downloadBlock(ctx, event)
+			// Track the last offset
+			lastOffset = event.Offset
+			lastShardId = event.BlockchainShardId
 
 			// Update offset
 			c.mu.Lock()
 			c.lastPollOffset = &event.Offset
 			c.mu.Unlock()
+
+			// Download block asynchronously
+			go c.downloadBlock(ctx, event)
+		}
+
+		// Commit the last processed offset
+		if len(history.Events) > 0 {
+			c.commitOffset(lastShardId, lastOffset)
 		}
 
 		// Poll for next batch
@@ -410,6 +424,14 @@ func (c *FumaroleAdapter) handleControlResponse(ctx context.Context, resp *fumar
 
 // downloadBlock downloads a single block using DownloadBlock RPC
 func (c *FumaroleAdapter) downloadBlock(ctx context.Context, event *fumarole.BlockchainEvent) {
+	// Acquire semaphore slot
+	select {
+	case c.downloadSemaphore <- struct{}{}:
+		defer func() { <-c.downloadSemaphore }()
+	case <-ctx.Done():
+		return
+	}
+
 	c.mu.Lock()
 	client := c.client
 	filters := c.blockFilters
@@ -468,6 +490,32 @@ func (c *FumaroleAdapter) downloadBlock(ctx context.Context, event *fumarole.Blo
 				callback(ctx, update)
 			}
 		}
+	}
+}
+
+// commitOffset sends a commit offset command to acknowledge processed blocks
+func (c *FumaroleAdapter) commitOffset(shardId int32, offset int64) {
+	c.mu.Lock()
+	stream := c.controlStream
+	c.mu.Unlock()
+
+	if stream == nil {
+		return
+	}
+
+	if err := stream.Send(&fumarole.ControlCommand{
+		Command: &fumarole.ControlCommand_CommitOffset{
+			CommitOffset: &fumarole.CommitOffset{
+				ShardId: shardId,
+				Offset:  offset,
+			},
+		},
+	}); err != nil {
+		c.mu.Lock()
+		if c.errorCallback != nil {
+			c.errorCallback(fmt.Errorf("commit offset failed: %w", err))
+		}
+		c.mu.Unlock()
 	}
 }
 

@@ -135,11 +135,7 @@ func (d *Indexer) subscribe(ctx context.Context) (common.GrpcClient, error) {
 
 	var client common.GrpcClient
 	if d.grpcConfig.UseFumarole {
-		consumerGroup := d.grpcConfig.FumaroleConsumerGroup
-		if consumerGroup == "" {
-			consumerGroup = "audius-program-indexer"
-		}
-		client = common.NewFumaroleAdapter(d.grpcConfig, consumerGroup)
+		client = common.NewFumaroleAdapter(d.grpcConfig, "audius-indexer-program")
 	} else {
 		client = common.NewGrpcClient(d.grpcConfig)
 	}

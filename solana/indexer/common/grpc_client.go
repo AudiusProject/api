@@ -159,14 +159,6 @@ func (c *DefaultGrpcClient) Subscribe(
 
 	geyserClient := pb.NewGeyserClient(c.conn)
 
-	// Try to ping
-	resp, err := geyserClient.Ping(ctx, &pb.PingRequest{Count: 1})
-	if err != nil {
-		return fmt.Errorf("ping failed: %w", err)
-	}
-
-	fmt.Printf("Ping successful: %+v\n", resp)
-
 	stream, err := geyserClient.Subscribe(ctx)
 	if err != nil {
 		cancel()

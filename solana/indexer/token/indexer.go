@@ -200,6 +200,11 @@ func (d *Indexer) HandleUpdate(ctx context.Context, msg *pb.SubscribeUpdate) err
 	// Handle balance changes
 	accUpdate := msg.GetAccount()
 	if accUpdate != nil {
+		// Skip account updates without transaction signatures (initial state, etc.)
+		if accUpdate.Account.TxnSignature == nil {
+			return nil
+		}
+
 		txSig := solana.SignatureFromBytes(accUpdate.Account.TxnSignature)
 
 		// Fetch the transaction details
@@ -259,7 +264,7 @@ func (d *Indexer) subscribeToArtistCoins(ctx context.Context, handleUpdate func(
 		if d.grpcConfig.UseFumarole {
 			grpcClient = common.NewFumaroleAdapter(
 				d.grpcConfig,
-				fmt.Sprintf("%s-page-%d", d.grpcConfig.FumaroleConsumerGroup, page),
+				fmt.Sprintf("audius-indexer-token-page-%d", page),
 			)
 		} else {
 			grpcClient = common.NewGrpcClient(d.grpcConfig)

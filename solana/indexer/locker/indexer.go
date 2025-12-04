@@ -187,7 +187,7 @@ func (d *Indexer) subscribe(ctx context.Context) ([]common.GrpcClient, error) {
 		if d.grpcConfig.UseFumarole {
 			grpcClient = common.NewFumaroleAdapter(
 				d.grpcConfig,
-				fmt.Sprintf("%s-page-%d", d.grpcConfig.FumaroleConsumerGroup, page),
+				fmt.Sprintf("audius-indexer-locker-page-%d", page),
 			)
 		} else {
 			grpcClient = common.NewGrpcClient(d.grpcConfig)

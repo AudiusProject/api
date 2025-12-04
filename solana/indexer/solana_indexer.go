@@ -10,7 +10,7 @@ import (
 	"api.audius.co/logging"
 	"api.audius.co/solana/indexer/common"
 	"api.audius.co/solana/indexer/locker"
-	"api.audius.co/solana/indexer/program"
+	"api.audius.co/solana/indexer/token"
 	"github.com/gagliardetto/solana-go"
 	"github.com/gagliardetto/solana-go/rpc"
 	"github.com/jackc/pgx/v5"
@@ -61,11 +61,10 @@ func New(config config.Config) *SolanaIndexer {
 	}
 
 	grpcConfig := common.GrpcConfig{
-		Server:                config.SolanaConfig.GrpcProvider,
-		ApiToken:              config.SolanaConfig.GrpcToken,
-		MaxReconnectAttempts:  5,
-		UseFumarole:           config.SolanaConfig.UseFumarole,
-		FumaroleConsumerGroup: config.SolanaConfig.FumaroleConsumerGroup,
+		Server:               config.SolanaConfig.GrpcProvider,
+		ApiToken:             config.SolanaConfig.GrpcToken,
+		MaxReconnectAttempts: 5,
+		UseFumarole:          config.SolanaConfig.UseFumarole,
 	}
 
 	transactionCache, err := otter.MustBuilder[solana.Signature, *rpc.GetTransactionResult](50).
@@ -80,12 +79,12 @@ func New(config config.Config) *SolanaIndexer {
 	// dammV2Indexer := damm_v2.New(
 	// 	grpcConfig, rpcClient, pool, &transactionCache, logger,
 	// )
-	// tokenIndexer := token.New(
-	// 	grpcConfig, rpcClient, pool, &transactionCache, logger,
-	// )
-	programIndexer := program.New(
-		grpcConfig, rpcClient, pool, config, &transactionCache, logger,
+	tokenIndexer := token.New(
+		grpcConfig, rpcClient, pool, &transactionCache, logger,
 	)
+	// programIndexer := program.New(
+	// 	grpcConfig, rpcClient, pool, config, &transactionCache, logger,
+	// )
 	// dbcIndexer := dbc.New(
 	// 	grpcConfig, rpcClient, pool, config, &transactionCache, logger,
 	// )
@@ -95,8 +94,8 @@ func New(config config.Config) *SolanaIndexer {
 
 	indexers := make(map[string]Indexer)
 	// indexers[damm_v2.NAME] = dammV2Indexer
-	// indexers[token.NAME] = tokenIndexer
-	indexers[program.NAME] = programIndexer
+	indexers[token.NAME] = tokenIndexer
+	// indexers[program.NAME] = programIndexer
 	// indexers[dbc.NAME] = dbcIndexer
 	// indexers[locker.NAME] = lockerIndexer
 
@@ -113,7 +112,7 @@ func New(config config.Config) *SolanaIndexer {
 }
 
 func (s *SolanaIndexer) Start(ctx context.Context) error {
-	go s.ScheduleProcessRetryQueue(ctx, s.config.SolanaIndexerRetryInterval)
+	// go s.ScheduleProcessRetryQueue(ctx, s.config.SolanaIndexerRetryInterval)
 
 	// statsJob := jobs.NewCoinStatsJob(s.config, s.pool)
 	// statsCtx := context.WithoutCancel(ctx)
