@@ -469,6 +469,9 @@ func NewApiServer(config config.Config) *ApiServer {
 		g.Post("/rewards/claim", app.v1ClaimRewards)
 		g.Post("/rewards/code", app.v1CreateRewardCode)
 
+		// Wheel Spin
+		g.Post("/wheel/spin", app.v1WheelSpin)
+
 		// Resolve
 		g.Get("/resolve", app.v1Resolve)
 

@@ -2543,3 +2543,14 @@ type VolumeLeaderExclusion struct {
 	Address     string      `json:"address"`
 	Description pgtype.Text `json:"description"`
 }
+
+// Stores wheel spin results where users pay 250 YAK to spin and win prizes.
+type WheelSpinResult struct {
+	ID        int32     `json:"id"`
+	Wallet    string    `json:"wallet"`
+	Signature string    `json:"signature"`
+	PrizeID   string    `json:"prize_id"`
+	PrizeName string    `json:"prize_name"`
+	CreatedAt time.Time `json:"created_at"`
+	UpdatedAt time.Time `json:"updated_at"`
+}
