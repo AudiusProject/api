@@ -43,7 +43,7 @@ func (app *ApiServer) v1PrizesClaim(c *fiber.Ctx) error {
 
 	// Check if this signature has already been used
 	var alreadyUsed bool
-	err := app.writePool.QueryRow(ctx, `
+	err := app.pool.QueryRow(ctx, `
 		SELECT EXISTS(SELECT 1 FROM claimed_prizes WHERE signature = $1)
 	`, req.Signature).Scan(&alreadyUsed)
 	if err != nil {
@@ -94,8 +94,7 @@ func (app *ApiServer) v1PrizesClaim(c *fiber.Ctx) error {
 	}
 
 	// Get all active prizes
-	// Use writePool to ensure we see the latest data (important in tests, and safe in production)
-	prizeRows, err := app.writePool.Query(ctx, `
+	prizeRows, err := app.pool.Query(ctx, `
 		SELECT prize_id, name, COALESCE(description, ''), weight
 		FROM prizes
 		WHERE is_active = true
@@ -145,7 +144,7 @@ func (app *ApiServer) v1PrizesClaim(c *fiber.Ctx) error {
 		RETURNING prize_id, prize_name, wallet
 	`
 
-	rows, err := app.writePool.Query(ctx, sql, pgx.NamedArgs{
+	rows, err := app.pool.Query(ctx, sql, pgx.NamedArgs{
 		"wallet":     req.Wallet,
 		"signature":  req.Signature,
 		"mint":       yakMintAddress,
