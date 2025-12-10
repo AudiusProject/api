@@ -16,8 +16,8 @@ import (
 
 const (
 	yakMintAddress       = "ZDaUDL4XFdEct7UgeztrFQAptsvh4ZdhyZDZ1RpxYAK"
-	yakSpinAmount        = 2000000000 // 2 YAK with 9 decimals
-	yakAirdropAmount     = 1000000000 // 1 YAK with 9 decimals
+	yakClaimAmount       = 2000000000 // 2 YAK with 9 decimals - amount required to claim a prize
+	yakAirdropAmount     = 1000000000 // 1 YAK with 9 decimals - amount awarded in coin airdrop prizes
 	prizeReceiverAddress = "EHd892m3xNWGBuAXnafavqcFjXXUZp9bGecdSDNP2SLR"
 )
 
@@ -139,7 +139,7 @@ func (app *ApiServer) v1PrizesClaim(c *fiber.Ctx) error {
 			AND owner = $3
 			AND change = $4
 		LIMIT 1
-	`, req.Signature, yakMintAddress, req.Wallet, -yakSpinAmount).Scan(
+	`, req.Signature, yakMintAddress, req.Wallet, -yakClaimAmount).Scan(
 		&userBalanceChange.Owner,
 		&userBalanceChange.Change,
 		&userBalanceChange.Account,
@@ -172,7 +172,7 @@ func (app *ApiServer) v1PrizesClaim(c *fiber.Ctx) error {
 			AND owner = $3
 			AND change = $4
 		LIMIT 1
-	`, req.Signature, yakMintAddress, prizeReceiverAddress, yakSpinAmount).Scan(
+	`, req.Signature, yakMintAddress, prizeReceiverAddress, yakClaimAmount).Scan(
 		&receiverBalanceChange.Owner,
 		&receiverBalanceChange.Change,
 	)
@@ -282,7 +282,7 @@ func (app *ApiServer) v1PrizesClaim(c *fiber.Ctx) error {
 		"wallet":      req.Wallet,
 		"signature":   req.Signature,
 		"mint":        yakMintAddress,
-		"amount":      yakSpinAmount,
+		"amount":      yakClaimAmount,
 		"prize_id":    selectedPrize.ID,
 		"prize_name":  selectedPrize.Name,
 		"prize_type":  prizeType,

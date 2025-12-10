@@ -81,8 +81,8 @@ func TestV1PrizesClaim(t *testing.T) {
 
 	const (
 		yakMintAddress       = "ZDaUDL4XFdEct7UgeztrFQAptsvh4ZdhyZDZ1RpxYAK"
-		yakSpinAmount        = 2000000000 // 2 YAK with 9 decimals
-		yakAirdropAmount     = 1000000000 // 1 YAK with 9 decimals
+		yakClaimAmount       = 2000000000 // 2 YAK with 9 decimals - amount required to claim a prize
+		yakAirdropAmount     = 1000000000 // 1 YAK with 9 decimals - amount awarded in coin airdrop prizes
 		prizeReceiverAddress = "EHd892m3xNWGBuAXnafavqcFjXXUZp9bGecdSDNP2SLR"
 		validWallet          = "HLnpSz9h2S4hiLQ43rnSD9XkcUThA7B8hQMKmDaiTLcC"
 		validSignature       = "valid_signature_123"
@@ -134,7 +134,7 @@ func TestV1PrizesClaim(t *testing.T) {
 			(signature, mint, owner, account, change, balance, slot, block_timestamp)
 			VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
 			ON CONFLICT DO NOTHING
-		`, validSignature, yakMintAddress, validWallet, "account1", -yakSpinAmount, 1000000000000, 12345, time.Now())
+		`, validSignature, yakMintAddress, validWallet, "account1", -yakClaimAmount, 1000000000000, 12345, time.Now())
 		require.NoError(t, err)
 
 		// Insert corresponding positive balance change for prize receiver
@@ -143,7 +143,7 @@ func TestV1PrizesClaim(t *testing.T) {
 			(signature, mint, owner, account, change, balance, slot, block_timestamp)
 			VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
 			ON CONFLICT DO NOTHING
-		`, validSignature, yakMintAddress, prizeReceiverAddress, "receiver_account1", yakSpinAmount, 1000000000000, 12345, time.Now())
+		`, validSignature, yakMintAddress, prizeReceiverAddress, "receiver_account1", yakClaimAmount, 1000000000000, 12345, time.Now())
 		require.NoError(t, err)
 		require.NoError(t, err)
 
@@ -218,7 +218,7 @@ func TestV1PrizesClaim(t *testing.T) {
 			INSERT INTO claimed_prizes (wallet, signature, mint, amount, prize_id, prize_name, prize_type, action_data)
 			VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
 			ON CONFLICT (signature) DO NOTHING
-		`, validWallet, "used_signature", yakMintAddress, yakSpinAmount, "prize_1", "100 YAK Bonus", nil, nil)
+		`, validWallet, "used_signature", yakMintAddress, yakClaimAmount, "prize_1", "100 YAK Bonus", nil, nil)
 		require.NoError(t, err)
 
 		// Insert balance change (user spending)
@@ -227,7 +227,7 @@ func TestV1PrizesClaim(t *testing.T) {
 			(signature, mint, owner, account, change, balance, slot, block_timestamp)
 			VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
 			ON CONFLICT DO NOTHING
-		`, "used_signature", yakMintAddress, validWallet, "account2", -yakSpinAmount, 1000000000000, 12346, time.Now())
+		`, "used_signature", yakMintAddress, validWallet, "account2", -yakClaimAmount, 1000000000000, 12346, time.Now())
 		require.NoError(t, err)
 
 		// Insert receiver balance change
@@ -236,7 +236,7 @@ func TestV1PrizesClaim(t *testing.T) {
 			(signature, mint, owner, account, change, balance, slot, block_timestamp)
 			VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
 			ON CONFLICT DO NOTHING
-		`, "used_signature", yakMintAddress, prizeReceiverAddress, "receiver_account2", yakSpinAmount, 1000000000000, 12346, time.Now())
+		`, "used_signature", yakMintAddress, prizeReceiverAddress, "receiver_account2", yakClaimAmount, 1000000000000, 12346, time.Now())
 		require.NoError(t, err)
 
 		requestBody := PrizeClaimRequest{
@@ -278,7 +278,7 @@ func TestV1PrizesClaim(t *testing.T) {
 			(signature, mint, owner, account, change, balance, slot, block_timestamp)
 			VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
 			ON CONFLICT DO NOTHING
-		`, "wrong_mint_sig", otherMint, validWallet, "account3", -yakSpinAmount, 1000000000000, 12347, time.Now())
+		`, "wrong_mint_sig", otherMint, validWallet, "account3", -yakClaimAmount, 1000000000000, 12347, time.Now())
 		require.NoError(t, err)
 
 		requestBody := PrizeClaimRequest{
@@ -329,7 +329,7 @@ func TestV1PrizesClaim(t *testing.T) {
 			(signature, mint, owner, account, change, balance, slot, block_timestamp)
 			VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
 			ON CONFLICT DO NOTHING
-		`, "wrong_wallet_sig", yakMintAddress, otherWallet, "account4", -yakSpinAmount, 1000000000000, 12348, time.Now())
+		`, "wrong_wallet_sig", yakMintAddress, otherWallet, "account4", -yakClaimAmount, 1000000000000, 12348, time.Now())
 		require.NoError(t, err)
 
 		requestBody := PrizeClaimRequest{
@@ -354,7 +354,7 @@ func TestV1PrizesClaim(t *testing.T) {
 			(signature, mint, owner, account, change, balance, slot, block_timestamp)
 			VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
 			ON CONFLICT DO NOTHING
-		`, "positive_change_sig", yakMintAddress, validWallet, "account7", yakSpinAmount, 1000000000000, 12351, time.Now())
+		`, "positive_change_sig", yakMintAddress, validWallet, "account7", yakClaimAmount, 1000000000000, 12351, time.Now())
 		require.NoError(t, err)
 
 		requestBody := PrizeClaimRequest{
@@ -405,7 +405,7 @@ func TestV1PrizesClaim(t *testing.T) {
 			(signature, mint, owner, account, change, balance, slot, block_timestamp)
 			VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
 			ON CONFLICT DO NOTHING
-		`, sig1, yakMintAddress, validWallet, "account9", -yakSpinAmount, 1000000000000, 12353, time.Now())
+		`, sig1, yakMintAddress, validWallet, "account9", -yakClaimAmount, 1000000000000, 12353, time.Now())
 		require.NoError(t, err)
 
 		// Insert receiver balance change for sig1
@@ -414,7 +414,7 @@ func TestV1PrizesClaim(t *testing.T) {
 			(signature, mint, owner, account, change, balance, slot, block_timestamp)
 			VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
 			ON CONFLICT DO NOTHING
-		`, sig1, yakMintAddress, prizeReceiverAddress, "receiver_account9", yakSpinAmount, 1000000000000, 12353, time.Now())
+		`, sig1, yakMintAddress, prizeReceiverAddress, "receiver_account9", yakClaimAmount, 1000000000000, 12353, time.Now())
 		require.NoError(t, err)
 
 		requestBody1 := PrizeClaimRequest{
@@ -440,7 +440,7 @@ func TestV1PrizesClaim(t *testing.T) {
 			(signature, mint, owner, account, change, balance, slot, block_timestamp)
 			VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
 			ON CONFLICT DO NOTHING
-		`, sig2, yakMintAddress, validWallet, "account10", -yakSpinAmount, 1000000000000, 12354, time.Now())
+		`, sig2, yakMintAddress, validWallet, "account10", -yakClaimAmount, 1000000000000, 12354, time.Now())
 		require.NoError(t, err)
 
 		// Insert receiver balance change for sig2
@@ -449,7 +449,7 @@ func TestV1PrizesClaim(t *testing.T) {
 			(signature, mint, owner, account, change, balance, slot, block_timestamp)
 			VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
 			ON CONFLICT DO NOTHING
-		`, sig2, yakMintAddress, prizeReceiverAddress, "receiver_account10", yakSpinAmount, 1000000000000, 12354, time.Now())
+		`, sig2, yakMintAddress, prizeReceiverAddress, "receiver_account10", yakClaimAmount, 1000000000000, 12354, time.Now())
 		require.NoError(t, err)
 
 		requestBody2 := PrizeClaimRequest{
@@ -486,14 +486,14 @@ func TestV1PrizesClaim(t *testing.T) {
 		`, sig1).Scan(&dbMint1, &dbAmount1)
 		assert.NoError(t, err)
 		assert.Equal(t, yakMintAddress, dbMint1)
-		assert.Equal(t, int64(yakSpinAmount), dbAmount1)
+		assert.Equal(t, int64(yakClaimAmount), dbAmount1)
 
 		err = app.writePool.QueryRow(ctx, `
 			SELECT mint, amount FROM claimed_prizes WHERE signature = $1
 		`, sig2).Scan(&dbMint2, &dbAmount2)
 		assert.NoError(t, err)
 		assert.Equal(t, yakMintAddress, dbMint2)
-		assert.Equal(t, int64(yakSpinAmount), dbAmount2)
+		assert.Equal(t, int64(yakClaimAmount), dbAmount2)
 	})
 
 	t.Run("Invalid JSON body", func(t *testing.T) {
@@ -548,7 +548,7 @@ func TestV1PrizesClaim(t *testing.T) {
 			(signature, mint, owner, account, change, balance, slot, block_timestamp)
 			VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
 			ON CONFLICT DO NOTHING
-		`, airdropSignature, yakMintAddress, validWallet, "account_airdrop", -yakSpinAmount, 1000000000000, 12360, time.Now())
+		`, airdropSignature, yakMintAddress, validWallet, "account_airdrop", -yakClaimAmount, 1000000000000, 12360, time.Now())
 		require.NoError(t, err)
 
 		// Insert receiver balance change
@@ -557,7 +557,7 @@ func TestV1PrizesClaim(t *testing.T) {
 			(signature, mint, owner, account, change, balance, slot, block_timestamp)
 			VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
 			ON CONFLICT DO NOTHING
-		`, airdropSignature, yakMintAddress, prizeReceiverAddress, "receiver_account_airdrop", yakSpinAmount, 1000000000000, 12360, time.Now())
+		`, airdropSignature, yakMintAddress, prizeReceiverAddress, "receiver_account_airdrop", yakClaimAmount, 1000000000000, 12360, time.Now())
 		require.NoError(t, err)
 
 		requestBody := PrizeClaimRequest{
@@ -652,7 +652,7 @@ func TestV1PrizesClaim(t *testing.T) {
 			(signature, mint, owner, account, change, balance, slot, block_timestamp)
 			VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
 			ON CONFLICT DO NOTHING
-		`, downloadSignature, yakMintAddress, validWallet, "account_download", -yakSpinAmount, 1000000000000, 12370, time.Now())
+		`, downloadSignature, yakMintAddress, validWallet, "account_download", -yakClaimAmount, 1000000000000, 12370, time.Now())
 		require.NoError(t, err)
 
 		// Insert receiver balance change
@@ -661,7 +661,7 @@ func TestV1PrizesClaim(t *testing.T) {
 			(signature, mint, owner, account, change, balance, slot, block_timestamp)
 			VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
 			ON CONFLICT DO NOTHING
-		`, downloadSignature, yakMintAddress, prizeReceiverAddress, "receiver_account_download", yakSpinAmount, 1000000000000, 12370, time.Now())
+		`, downloadSignature, yakMintAddress, prizeReceiverAddress, "receiver_account_download", yakClaimAmount, 1000000000000, 12370, time.Now())
 		require.NoError(t, err)
 
 		requestBody := PrizeClaimRequest{
@@ -912,14 +912,14 @@ func TestV1PrizesClaim(t *testing.T) {
 			VALUES 
 				($1, $2, $3, $4, 'prize_wallet_test_1', 'Test Prize 1', 'download', '{"download_url": "https://example.com/file1.zip"}'::jsonb),
 				($1, $5, $3, $4, 'prize_wallet_test_2', 'Test Prize 2', 'coin_airdrop', '{"code": "ABC123", "url": "https://example.com/redeem"}'::jsonb)
-		`, wallet, signature1, yakMintAddress, yakSpinAmount, signature2)
+		`, wallet, signature1, yakMintAddress, yakClaimAmount, signature2)
 		require.NoError(t, err)
 
 		// Insert a claimed prize for a different wallet (should not appear)
 		_, err = app.writePool.Exec(ctx, `
 			INSERT INTO claimed_prizes (wallet, signature, mint, amount, prize_id, prize_name)
 			VALUES ($1, $2, $3, $4, 'prize_wallet_test_1', 'Test Prize 1')
-		`, otherWallet, otherSignature, yakMintAddress, yakSpinAmount)
+		`, otherWallet, otherSignature, yakMintAddress, yakClaimAmount)
 		require.NoError(t, err)
 
 		// Test public request (no authentication required)

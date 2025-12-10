@@ -13,7 +13,7 @@ CREATE TABLE IF NOT EXISTS prizes (
     updated_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP
 );
 
-COMMENT ON TABLE prizes IS 'Defines prizes available for wheel spins. Prizes are selected randomly based on weight.';
+COMMENT ON TABLE prizes IS 'Defines prizes available for claiming. Prizes are selected randomly based on weight.';
 CREATE INDEX IF NOT EXISTS prizes_active_idx ON prizes (is_active);
 COMMENT ON INDEX prizes_active_idx IS 'Used for filtering active prizes.';
 
@@ -32,7 +32,7 @@ CREATE TABLE IF NOT EXISTS claimed_prizes (
     updated_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP
 );
 
-COMMENT ON TABLE claimed_prizes IS 'Stores claimed prizes where users pay tokens to spin and win prizes.';
+COMMENT ON TABLE claimed_prizes IS 'Stores claimed prizes where users pay tokens to claim and win prizes.';
 CREATE INDEX IF NOT EXISTS claimed_prizes_wallet_idx ON claimed_prizes (wallet);
 COMMENT ON INDEX claimed_prizes_wallet_idx IS 'Used for getting claimed prizes by wallet.';
 CREATE INDEX IF NOT EXISTS claimed_prizes_signature_idx ON claimed_prizes (signature);
