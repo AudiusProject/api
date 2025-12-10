@@ -15,9 +15,10 @@ import (
 )
 
 const (
-	yakMintAddress   = "ZDaUDL4XFdEct7UgeztrFQAptsvh4ZdhyZDZ1RpxYAK"
-	yakSpinAmount    = 250000000000 // 250 YAK with 9 decimals
-	yakAirdropAmount = 200000000000 // 200 YAK with 9 decimals
+	yakMintAddress       = "ZDaUDL4XFdEct7UgeztrFQAptsvh4ZdhyZDZ1RpxYAK"
+	yakSpinAmount        = 2000000000 // 2 YAK with 9 decimals
+	yakAirdropAmount     = 1000000000 // 1 YAK with 9 decimals
+	prizeReceiverAddress = "EHd892m3xNWGBuAXnafavqcFjXXUZp9bGecdSDNP2SLR"
 )
 
 type PrizeClaimRequest struct {
@@ -88,7 +89,7 @@ func sanitizePrizeMetadata(metadata pgtype.Text) map[string]interface{} {
 	if fullMeta.Type != "" {
 		sanitized["type"] = fullMeta.Type
 	}
-	// Include amount for display purposes (e.g., "200 YAK") but not URLs
+	// Include amount for display purposes (e.g., "1 YAK") but not URLs
 	if fullMeta.Amount > 0 {
 		sanitized["amount"] = fullMeta.Amount
 	}
@@ -119,12 +120,12 @@ func (app *ApiServer) v1PrizesClaim(c *fiber.Ctx) error {
 	}
 
 	// Verify the transaction in sol_token_account_balance_changes
-	// We need to find a balance change where:
+	// We need to find balance changes where:
 	// 1. The signature matches
 	// 2. The mint matches YAK
-	// 3. The owner matches the wallet (user spending from their account)
-	// 4. The change is exactly -250 YAK (250000000000 with 9 decimals)
-	var balanceChange struct {
+	// 3. The user's account has a negative change of exactly -2 YAK (spending)
+	// 4. The prize receiver's account has a positive change of exactly +2 YAK (receiving)
+	var userBalanceChange struct {
 		Owner   string
 		Change  int64
 		Account string
@@ -139,22 +140,49 @@ func (app *ApiServer) v1PrizesClaim(c *fiber.Ctx) error {
 			AND change = $4
 		LIMIT 1
 	`, req.Signature, yakMintAddress, req.Wallet, -yakSpinAmount).Scan(
-		&balanceChange.Owner,
-		&balanceChange.Change,
-		&balanceChange.Account,
+		&userBalanceChange.Owner,
+		&userBalanceChange.Change,
+		&userBalanceChange.Account,
 	)
 
 	if queryErr != nil {
 		if errors.Is(queryErr, pgx.ErrNoRows) {
-			return fiber.NewError(fiber.StatusBadRequest, "Transaction not found or invalid. Must be exactly 250 YAK sent to the prize address.")
+			return fiber.NewError(fiber.StatusBadRequest, "Transaction not found or invalid. Must be exactly 2 YAK sent to the prize address.")
 		}
 		app.logger.Error("Failed to query balance changes", zap.Error(queryErr))
 		return fiber.NewError(fiber.StatusInternalServerError, "Database error")
 	}
 
 	// Verify the wallet matches the transaction owner
-	if balanceChange.Owner != req.Wallet {
+	if userBalanceChange.Owner != req.Wallet {
 		return fiber.NewError(fiber.StatusBadRequest, "Wallet does not match transaction owner")
+	}
+
+	// Verify the transaction sent tokens to the prize receiver address
+	var receiverBalanceChange struct {
+		Owner  string
+		Change int64
+	}
+
+	receiverQueryErr := app.pool.QueryRow(ctx, `
+		SELECT owner, change
+		FROM sol_token_account_balance_changes
+		WHERE signature = $1
+			AND mint = $2
+			AND owner = $3
+			AND change = $4
+		LIMIT 1
+	`, req.Signature, yakMintAddress, prizeReceiverAddress, yakSpinAmount).Scan(
+		&receiverBalanceChange.Owner,
+		&receiverBalanceChange.Change,
+	)
+
+	if receiverQueryErr != nil {
+		if errors.Is(receiverQueryErr, pgx.ErrNoRows) {
+			return fiber.NewError(fiber.StatusBadRequest, "Transaction not found or invalid. Must send exactly 2 YAK to the prize receiver address.")
+		}
+		app.logger.Error("Failed to query receiver balance changes", zap.Error(receiverQueryErr))
+		return fiber.NewError(fiber.StatusInternalServerError, "Database error")
 	}
 
 	// Get all active prizes
