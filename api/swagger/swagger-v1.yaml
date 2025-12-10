@@ -30,6 +30,8 @@ tags:
   description: Explore related operations
 - name: rewards
   description: Rewards related operations
+- name: prizes
+  description: Prize claiming related operations
 paths:
   /challenges/undisbursed:
     get:
@@ -4102,6 +4104,74 @@ paths:
           content: {}
         "403":
           description: Forbidden - Signature verification failed
+          content: {}
+        "500":
+          description: Server error
+          content: {}
+  /prizes:
+    get:
+      tags:
+        - prizes
+      operationId: Get Prizes
+      description: 'Gets a list of active prizes available for claiming. Excludes sensitive information like download URLs.'
+      responses:
+        "200":
+          description: Success
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/prizes_response'
+        "500":
+          description: Server error
+          content: {}
+  /prizes/claim:
+    post:
+      tags:
+        - prizes
+      operationId: Claim Prize
+      description: 'Claims a prize by verifying a Solana transaction. User must send exactly 2 YAK to the prize receiver address. Returns the prize won and any redeem codes/URLs.'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/prize_claim_request'
+      responses:
+        "200":
+          description: Success - Prize claimed
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/prize_claim_response'
+        "400":
+          description: Bad request - Transaction not found, invalid, or signature already used
+          content: {}
+        "500":
+          description: Server error
+          content: {}
+  /wallet/{wallet}/prizes:
+    get:
+      tags:
+        - prizes
+      operationId: Get Wallet Prizes
+      description: 'Gets all claimed prizes for a wallet. Public endpoint - no authentication required. Excludes sensitive action_data for security.'
+      parameters:
+        - name: wallet
+          in: path
+          description: The wallet address to get prizes for
+          required: true
+          schema:
+            type: string
+            example: "HLnpSz9h2S4hiLQ43rnSD9XkcUThA7B8hQMKmDaiTLcC"
+      responses:
+        "200":
+          description: Success
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/claimed_prizes_response'
+        "400":
+          description: Bad request - Missing wallet parameter
           content: {}
         "500":
           description: Server error
