@@ -179,6 +179,7 @@ func (app *ApiServer) v1CoinsPostRedeem(c *fiber.Ctx) error {
 
 	// Read and burn code in one go
 	// Use CTE to capture old remaining_uses value before updating
+	// Only update if remaining_uses > 0 to prevent race conditions
 	sql := `WITH old_row AS (
 			SELECT remaining_uses, reward_address, amount
 			FROM reward_codes
@@ -186,10 +187,11 @@ func (app *ApiServer) v1CoinsPostRedeem(c *fiber.Ctx) error {
 			AND mint = @mint
 		)
 		UPDATE reward_codes
-		SET remaining_uses = GREATEST(reward_codes.remaining_uses - 1, 0)
+		SET remaining_uses = reward_codes.remaining_uses - 1
 		FROM old_row
 		WHERE reward_codes.code = @code
 		AND reward_codes.mint = @mint
+		AND reward_codes.remaining_uses > 0
 		RETURNING
 			reward_codes.reward_address,
 			reward_codes.amount,
