@@ -26,6 +26,8 @@ CREATE TABLE IF NOT EXISTS claimed_prizes (
     amount BIGINT NOT NULL,
     prize_id VARCHAR NOT NULL,
     prize_name VARCHAR NOT NULL,
+    prize_type VARCHAR,
+    action_data JSONB,
     created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
     updated_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP
 );

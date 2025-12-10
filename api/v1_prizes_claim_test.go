@@ -3,6 +3,9 @@ package api
 import (
 	"context"
 	"encoding/json"
+	"fmt"
+	"io"
+	"net/http/httptest"
 	"testing"
 	"time"
 
@@ -28,6 +31,8 @@ func TestV1PrizesClaim(t *testing.T) {
 			amount BIGINT NOT NULL,
 			prize_id VARCHAR NOT NULL,
 			prize_name VARCHAR NOT NULL,
+			prize_type VARCHAR,
+			action_data JSONB,
 			created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
 			updated_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP
 		);
@@ -198,10 +203,10 @@ func TestV1PrizesClaim(t *testing.T) {
 	t.Run("Signature already used", func(t *testing.T) {
 		// Insert a result for this signature
 		_, err := app.writePool.Exec(ctx, `
-			INSERT INTO claimed_prizes (wallet, signature, mint, amount, prize_id, prize_name)
-			VALUES ($1, $2, $3, $4, $5, $6)
+			INSERT INTO claimed_prizes (wallet, signature, mint, amount, prize_id, prize_name, prize_type, action_data)
+			VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
 			ON CONFLICT (signature) DO NOTHING
-		`, validWallet, "used_signature", yakMintAddress, yakSpinAmount, "prize_1", "100 YAK Bonus")
+		`, validWallet, "used_signature", yakMintAddress, yakSpinAmount, "prize_1", "100 YAK Bonus", nil, nil)
 		require.NoError(t, err)
 
 		// Insert balance change
@@ -466,5 +471,457 @@ func TestV1PrizesClaim(t *testing.T) {
 		})
 
 		assert.Equal(t, 400, status, "Should return 400 for empty body")
+	})
+
+	t.Run("Success - 200 YAK coin airdrop prize with redeem code", func(t *testing.T) {
+		// Create reward_codes table if it doesn't exist
+		_, err := app.writePool.Exec(ctx, `
+			CREATE TABLE IF NOT EXISTS reward_codes (
+				code VARCHAR NOT NULL PRIMARY KEY,
+				mint VARCHAR NOT NULL,
+				reward_address VARCHAR,
+				amount BIGINT NOT NULL,
+				remaining_uses INT NOT NULL DEFAULT 1,
+				signature VARCHAR,
+				created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP
+			)
+		`)
+		require.NoError(t, err)
+
+		// Deactivate other prizes and insert only the airdrop prize to ensure it's selected
+		_, err = app.writePool.Exec(ctx, `UPDATE prizes SET is_active = false`)
+		require.NoError(t, err)
+
+		// Insert a prize with coin_airdrop metadata
+		airdropPrizeID := "prize_200_yak"
+		airdropMetadata := `{"type": "coin_airdrop", "amount": 200000000000}`
+		_, err = app.writePool.Exec(ctx, `
+			INSERT INTO prizes (prize_id, name, weight, is_active, metadata)
+			VALUES ($1, '200 YAK Airdrop', 1, true, $2::jsonb)
+			ON CONFLICT (prize_id) DO UPDATE SET metadata = $2::jsonb, is_active = true
+		`, airdropPrizeID, airdropMetadata)
+		require.NoError(t, err)
+
+		// Insert a valid balance change
+		airdropSignature := "airdrop_sig_200_yak"
+		_, err = app.writePool.Exec(ctx, `
+			INSERT INTO sol_token_account_balance_changes 
+			(signature, mint, owner, account, change, balance, slot, block_timestamp)
+			VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
+			ON CONFLICT DO NOTHING
+		`, airdropSignature, yakMintAddress, validWallet, "account_airdrop", -yakSpinAmount, 1000000000000, 12360, time.Now())
+		require.NoError(t, err)
+
+		requestBody := PrizeClaimRequest{
+			Signature: airdropSignature,
+			Wallet:    validWallet,
+		}
+
+		body, err := json.Marshal(requestBody)
+		require.NoError(t, err)
+
+		var resp PrizeClaimResponse
+		status, respBody := testPost(t, app, "/v1/prizes/claim", body, map[string]string{
+			"Content-Type": "application/json",
+		}, &resp)
+
+		assert.Equal(t, 200, status, "Response body: %s", string(respBody))
+		assert.Equal(t, airdropPrizeID, resp.PrizeID)
+		assert.Equal(t, "200 YAK Airdrop", resp.PrizeName)
+		assert.Equal(t, validWallet, resp.Wallet)
+		assert.NotNil(t, resp.PrizeType, "Prize type should be set")
+		assert.Equal(t, "coin_airdrop", *resp.PrizeType)
+		assert.NotNil(t, resp.ActionData, "Action data should be set")
+
+		// Parse action_data to verify it contains code and url
+		var actionData map[string]string
+		err = json.Unmarshal(resp.ActionData, &actionData)
+		assert.NoError(t, err, "Action data should be valid JSON")
+		assert.Contains(t, actionData, "code", "Action data should contain code")
+		assert.Contains(t, actionData, "url", "Action data should contain url")
+		assert.NotEmpty(t, actionData["code"], "Code should not be empty")
+		assert.NotEmpty(t, actionData["url"], "URL should not be empty")
+		assert.Contains(t, actionData["url"], "/coins/YAK/redeem/", "URL should contain redeem path")
+		assert.Contains(t, actionData["url"], actionData["code"], "URL should contain the code")
+
+		// Verify it was saved to database with correct prize_type and action_data
+		var dbPrizeID, dbPrizeName, dbWallet, dbPrizeType string
+		var dbActionData json.RawMessage
+		err = app.writePool.QueryRow(ctx, `
+			SELECT prize_id, prize_name, wallet, prize_type, action_data
+			FROM claimed_prizes 
+			WHERE signature = $1
+		`, airdropSignature).Scan(&dbPrizeID, &dbPrizeName, &dbWallet, &dbPrizeType, &dbActionData)
+		assert.NoError(t, err)
+		assert.Equal(t, airdropPrizeID, dbPrizeID)
+		assert.Equal(t, "200 YAK Airdrop", dbPrizeName)
+		assert.Equal(t, validWallet, dbWallet)
+		assert.Equal(t, "coin_airdrop", dbPrizeType)
+
+		// Verify action_data in database matches response
+		var dbActionDataMap map[string]string
+		err = json.Unmarshal(dbActionData, &dbActionDataMap)
+		assert.NoError(t, err)
+		assert.Equal(t, actionData["code"], dbActionDataMap["code"])
+		assert.Equal(t, actionData["url"], dbActionDataMap["url"])
+
+		// Verify reward code was created in reward_codes table
+		var dbCode, dbMint string
+		var dbAmount int64
+		var dbRemainingUses int
+		err = app.writePool.QueryRow(ctx, `
+			SELECT code, mint, amount, remaining_uses
+			FROM reward_codes
+			WHERE code = $1
+		`, actionData["code"]).Scan(&dbCode, &dbMint, &dbAmount, &dbRemainingUses)
+		assert.NoError(t, err, "Reward code should exist in database")
+		assert.Equal(t, actionData["code"], dbCode)
+		assert.Equal(t, yakMintAddress, dbMint)
+		assert.Equal(t, int64(200000000000), dbAmount) // 200 YAK
+		assert.Equal(t, 1, dbRemainingUses, "Remaining uses should be 1")
+	})
+
+	t.Run("Success - direct download prize", func(t *testing.T) {
+		// Insert a prize with download metadata
+		downloadPrizeID := "prize_download"
+		downloadURL := "https://example.com/downloads/exclusive-track.mp3"
+		downloadMetadata := fmt.Sprintf(`{"type": "download", "download_url": "%s"}`, downloadURL)
+		_, err := app.writePool.Exec(ctx, `
+			INSERT INTO prizes (prize_id, name, weight, is_active, metadata)
+			VALUES ($1, 'Exclusive Track Download', 1, true, $2::jsonb)
+			ON CONFLICT (prize_id) DO UPDATE SET metadata = $2::jsonb, is_active = true
+		`, downloadPrizeID, downloadMetadata)
+		require.NoError(t, err)
+
+		// Deactivate other prizes to ensure this one is selected
+		_, err = app.writePool.Exec(ctx, `UPDATE prizes SET is_active = false WHERE prize_id != $1`, downloadPrizeID)
+		require.NoError(t, err)
+
+		// Insert a valid balance change
+		downloadSignature := "download_sig_123"
+		_, err = app.writePool.Exec(ctx, `
+			INSERT INTO sol_token_account_balance_changes 
+			(signature, mint, owner, account, change, balance, slot, block_timestamp)
+			VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
+			ON CONFLICT DO NOTHING
+		`, downloadSignature, yakMintAddress, validWallet, "account_download", -yakSpinAmount, 1000000000000, 12370, time.Now())
+		require.NoError(t, err)
+
+		requestBody := PrizeClaimRequest{
+			Signature: downloadSignature,
+			Wallet:    validWallet,
+		}
+
+		body, err := json.Marshal(requestBody)
+		require.NoError(t, err)
+
+		var resp PrizeClaimResponse
+		status, respBody := testPost(t, app, "/v1/prizes/claim", body, map[string]string{
+			"Content-Type": "application/json",
+		}, &resp)
+
+		assert.Equal(t, 200, status, "Response body: %s", string(respBody))
+		assert.Equal(t, downloadPrizeID, resp.PrizeID)
+		assert.Equal(t, "Exclusive Track Download", resp.PrizeName)
+		assert.Equal(t, validWallet, resp.Wallet)
+		assert.NotNil(t, resp.PrizeType, "Prize type should be set")
+		assert.Equal(t, "download", *resp.PrizeType)
+		assert.NotNil(t, resp.ActionData, "Action data should be set")
+
+		// Parse action_data to verify it contains download_url
+		var actionData map[string]string
+		err = json.Unmarshal(resp.ActionData, &actionData)
+		assert.NoError(t, err, "Action data should be valid JSON")
+		assert.Contains(t, actionData, "download_url", "Action data should contain download_url")
+		assert.Equal(t, downloadURL, actionData["download_url"], "Download URL should match")
+
+		// Verify it was saved to database with correct prize_type and action_data
+		var dbPrizeID, dbPrizeName, dbWallet, dbPrizeType string
+		var dbActionData json.RawMessage
+		err = app.writePool.QueryRow(ctx, `
+			SELECT prize_id, prize_name, wallet, prize_type, action_data
+			FROM claimed_prizes 
+			WHERE signature = $1
+		`, downloadSignature).Scan(&dbPrizeID, &dbPrizeName, &dbWallet, &dbPrizeType, &dbActionData)
+		assert.NoError(t, err)
+		assert.Equal(t, downloadPrizeID, dbPrizeID)
+		assert.Equal(t, "Exclusive Track Download", dbPrizeName)
+		assert.Equal(t, validWallet, dbWallet)
+		assert.Equal(t, "download", dbPrizeType)
+
+		// Verify action_data in database matches response
+		var dbActionDataMap map[string]string
+		err = json.Unmarshal(dbActionData, &dbActionDataMap)
+		assert.NoError(t, err)
+		assert.Equal(t, downloadURL, dbActionDataMap["download_url"])
+	})
+
+	t.Run("GET /v1/prizes - URLs not leaked in public endpoint", func(t *testing.T) {
+		// Insert prizes with sensitive URLs
+		downloadURL := "https://example.com/downloads/exclusive-track.mp3"
+		typeformURL := "https://typeform.com/to/abc123"
+		downloadMetadata := fmt.Sprintf(`{"type": "download", "download_url": "%s"}`, downloadURL)
+		typeformMetadata := fmt.Sprintf(`{"type": "typeform", "url": "%s"}`, typeformURL)
+		coinMetadata := `{"type": "coin_airdrop", "amount": 200000000000}`
+
+		_, err := app.writePool.Exec(ctx, `
+			INSERT INTO prizes (prize_id, name, weight, is_active, metadata)
+			VALUES 
+				('prize_download_test', 'Exclusive Download', 1, true, $1::jsonb),
+				('prize_typeform_test', 'Typeform Survey', 1, true, $2::jsonb),
+				('prize_coin_test', '200 YAK', 1, true, $3::jsonb)
+			ON CONFLICT (prize_id) DO UPDATE SET metadata = EXCLUDED.metadata, is_active = true
+		`, downloadMetadata, typeformMetadata, coinMetadata)
+		require.NoError(t, err)
+
+		// Test the public GET endpoint
+		var response struct {
+			Data []PrizePublicResponse `json:"data"`
+		}
+		status, body := testGet(t, app, "/v1/prizes", &response)
+
+		assert.Equal(t, 200, status, "Response body: %s", string(body))
+		assert.GreaterOrEqual(t, len(response.Data), 3, "Should return at least 3 prizes")
+
+		// Find the download prize
+		var downloadPrize *PrizePublicResponse
+		for i := range response.Data {
+			if response.Data[i].PrizeID == "prize_download_test" {
+				downloadPrize = &response.Data[i]
+				break
+			}
+		}
+		require.NotNil(t, downloadPrize, "Download prize should be in response")
+		assert.Equal(t, "Exclusive Download", downloadPrize.Name)
+		assert.Equal(t, "download", downloadPrize.PublicMeta["type"])
+		// Verify download_url is NOT in the response
+		assert.NotContains(t, string(body), downloadURL, "Download URL should not be leaked")
+		if downloadPrize.PublicMeta != nil {
+			_, hasDownloadURL := downloadPrize.PublicMeta["download_url"]
+			assert.False(t, hasDownloadURL, "download_url should not be in public metadata")
+		}
+
+		// Find the typeform prize
+		var typeformPrize *PrizePublicResponse
+		for i := range response.Data {
+			if response.Data[i].PrizeID == "prize_typeform_test" {
+				typeformPrize = &response.Data[i]
+				break
+			}
+		}
+		require.NotNil(t, typeformPrize, "Typeform prize should be in response")
+		assert.Equal(t, "Typeform Survey", typeformPrize.Name)
+		assert.Equal(t, "typeform", typeformPrize.PublicMeta["type"])
+		// Verify typeform URL is NOT in the response
+		assert.NotContains(t, string(body), typeformURL, "Typeform URL should not be leaked")
+		if typeformPrize.PublicMeta != nil {
+			_, hasURL := typeformPrize.PublicMeta["url"]
+			assert.False(t, hasURL, "url should not be in public metadata")
+		}
+
+		// Find the coin prize
+		var coinPrize *PrizePublicResponse
+		for i := range response.Data {
+			if response.Data[i].PrizeID == "prize_coin_test" {
+				coinPrize = &response.Data[i]
+				break
+			}
+		}
+		require.NotNil(t, coinPrize, "Coin prize should be in response")
+		assert.Equal(t, "200 YAK", coinPrize.Name)
+		assert.Equal(t, "coin_airdrop", coinPrize.PublicMeta["type"])
+		// Amount can be shown (it's just a number), but no redeem code/URL
+		if coinPrize.PublicMeta != nil {
+			assert.Equal(t, float64(200000000000), coinPrize.PublicMeta["amount"])
+			_, hasCode := coinPrize.PublicMeta["code"]
+			assert.False(t, hasCode, "code should not be in public metadata")
+			_, hasURL := coinPrize.PublicMeta["url"]
+			assert.False(t, hasURL, "url should not be in public metadata")
+		}
+	})
+
+	t.Run("GET /v1/prizes - URLs not leaked in public endpoint", func(t *testing.T) {
+		// Insert prizes with sensitive URLs
+		downloadURL := "https://example.com/downloads/exclusive-track.mp3"
+		typeformURL := "https://typeform.com/to/abc123"
+		downloadMetadata := fmt.Sprintf(`{"type": "download", "download_url": "%s"}`, downloadURL)
+		typeformMetadata := fmt.Sprintf(`{"type": "typeform", "url": "%s"}`, typeformURL)
+		coinMetadata := `{"type": "coin_airdrop", "amount": 200000000000}`
+
+		_, err := app.writePool.Exec(ctx, `
+			INSERT INTO prizes (prize_id, name, weight, is_active, metadata)
+			VALUES 
+				('prize_download_test', 'Exclusive Download', 1, true, $1::jsonb),
+				('prize_typeform_test', 'Typeform Survey', 1, true, $2::jsonb),
+				('prize_coin_test', '200 YAK', 1, true, $3::jsonb)
+			ON CONFLICT (prize_id) DO UPDATE SET metadata = EXCLUDED.metadata, is_active = true
+		`, downloadMetadata, typeformMetadata, coinMetadata)
+		require.NoError(t, err)
+
+		// Test the public GET endpoint
+		req := httptest.NewRequest("GET", "/v1/prizes", nil)
+		res, err := app.Test(req, -1)
+		require.NoError(t, err)
+		body, _ := io.ReadAll(res.Body)
+
+		assert.Equal(t, 200, res.StatusCode, "Response body: %s", string(body))
+
+		var response struct {
+			Data []PrizePublicResponse `json:"data"`
+		}
+		err = json.Unmarshal(body, &response)
+		require.NoError(t, err)
+		assert.GreaterOrEqual(t, len(response.Data), 3, "Should return at least 3 prizes")
+
+		// Verify URLs are NOT in the response body
+		assert.NotContains(t, string(body), downloadURL, "Download URL should not be leaked")
+		assert.NotContains(t, string(body), typeformURL, "Typeform URL should not be leaked")
+
+		// Find the download prize
+		var downloadPrize *PrizePublicResponse
+		for i := range response.Data {
+			if response.Data[i].PrizeID == "prize_download_test" {
+				downloadPrize = &response.Data[i]
+				break
+			}
+		}
+		require.NotNil(t, downloadPrize, "Download prize should be in response")
+		assert.Equal(t, "Exclusive Download", downloadPrize.Name)
+		if downloadPrize.PublicMeta != nil {
+			assert.Equal(t, "download", downloadPrize.PublicMeta["type"])
+			// Verify download_url is NOT in the public metadata
+			_, hasDownloadURL := downloadPrize.PublicMeta["download_url"]
+			assert.False(t, hasDownloadURL, "download_url should not be in public metadata")
+		}
+
+		// Find the typeform prize
+		var typeformPrize *PrizePublicResponse
+		for i := range response.Data {
+			if response.Data[i].PrizeID == "prize_typeform_test" {
+				typeformPrize = &response.Data[i]
+				break
+			}
+		}
+		require.NotNil(t, typeformPrize, "Typeform prize should be in response")
+		assert.Equal(t, "Typeform Survey", typeformPrize.Name)
+		if typeformPrize.PublicMeta != nil {
+			assert.Equal(t, "typeform", typeformPrize.PublicMeta["type"])
+			// Verify url is NOT in the public metadata
+			_, hasURL := typeformPrize.PublicMeta["url"]
+			assert.False(t, hasURL, "url should not be in public metadata")
+		}
+
+		// Find the coin prize
+		var coinPrize *PrizePublicResponse
+		for i := range response.Data {
+			if response.Data[i].PrizeID == "prize_coin_test" {
+				coinPrize = &response.Data[i]
+				break
+			}
+		}
+		require.NotNil(t, coinPrize, "Coin prize should be in response")
+		assert.Equal(t, "200 YAK", coinPrize.Name)
+		if coinPrize.PublicMeta != nil {
+			assert.Equal(t, "coin_airdrop", coinPrize.PublicMeta["type"])
+			// Amount can be shown (it's just a number), but no redeem code/URL
+			assert.Equal(t, float64(200000000000), coinPrize.PublicMeta["amount"])
+			_, hasCode := coinPrize.PublicMeta["code"]
+			assert.False(t, hasCode, "code should not be in public metadata")
+			_, hasURL := coinPrize.PublicMeta["url"]
+			assert.False(t, hasURL, "url should not be in public metadata")
+		}
+	})
+
+	t.Run("GET /v1/wallet/:wallet/prizes - Success - returns claimed prizes (public, no auth required)", func(t *testing.T) {
+		wallet := "0x7d273271690538cf855e5b3002a0dd8c154bb060"
+		signature1 := "test_signature_wallet_prizes_1"
+		signature2 := "test_signature_wallet_prizes_2"
+		otherWallet := "0xc3d1d41e6872ffbd15c473d14fc3a9250be5b5e0"
+		otherSignature := "test_signature_other_wallet"
+
+		// Insert prizes
+		_, err := app.writePool.Exec(ctx, `
+			INSERT INTO prizes (prize_id, name, weight, is_active)
+			VALUES 
+				('prize_wallet_test_1', 'Test Prize 1', 1, true),
+				('prize_wallet_test_2', 'Test Prize 2', 1, true)
+			ON CONFLICT (prize_id) DO UPDATE SET is_active = true
+		`)
+		require.NoError(t, err)
+
+		// Insert claimed prizes for the test wallet with sensitive action_data
+		_, err = app.writePool.Exec(ctx, `
+			INSERT INTO claimed_prizes (wallet, signature, mint, amount, prize_id, prize_name, prize_type, action_data)
+			VALUES 
+				($1, $2, $3, $4, 'prize_wallet_test_1', 'Test Prize 1', 'download', '{"download_url": "https://example.com/file1.zip"}'::jsonb),
+				($1, $5, $3, $4, 'prize_wallet_test_2', 'Test Prize 2', 'coin_airdrop', '{"code": "ABC123", "url": "https://example.com/redeem"}'::jsonb)
+		`, wallet, signature1, yakMintAddress, yakSpinAmount, signature2)
+		require.NoError(t, err)
+
+		// Insert a claimed prize for a different wallet (should not appear)
+		_, err = app.writePool.Exec(ctx, `
+			INSERT INTO claimed_prizes (wallet, signature, mint, amount, prize_id, prize_name)
+			VALUES ($1, $2, $3, $4, 'prize_wallet_test_1', 'Test Prize 1')
+		`, otherWallet, otherSignature, yakMintAddress, yakSpinAmount)
+		require.NoError(t, err)
+
+		// Test public request (no authentication required)
+		var response struct {
+			Data []ClaimedPrizeResponse `json:"data"`
+		}
+		status, body := testGet(t, app, fmt.Sprintf("/v1/wallet/%s/prizes", wallet), &response)
+
+		assert.Equal(t, 200, status, "Response body: %s", string(body))
+		assert.Equal(t, 2, len(response.Data), "Should return 2 claimed prizes for the wallet")
+
+		// Verify both prizes are returned but WITHOUT sensitive action_data
+		prize1Found := false
+		prize2Found := false
+		for _, prize := range response.Data {
+			assert.Equal(t, wallet, prize.Wallet, "All prizes should belong to the requested wallet")
+			// Verify action_data is NOT included (security - sensitive URLs/codes excluded)
+			assert.Nil(t, prize.ActionData, "action_data should not be returned in public endpoint")
+
+			if prize.Signature == signature1 {
+				prize1Found = true
+				assert.Equal(t, "prize_wallet_test_1", prize.PrizeID)
+				assert.Equal(t, "Test Prize 1", prize.PrizeName)
+				assert.NotNil(t, prize.PrizeType)
+				assert.Equal(t, "download", *prize.PrizeType)
+			}
+			if prize.Signature == signature2 {
+				prize2Found = true
+				assert.Equal(t, "prize_wallet_test_2", prize.PrizeID)
+				assert.Equal(t, "Test Prize 2", prize.PrizeName)
+				assert.NotNil(t, prize.PrizeType)
+				assert.Equal(t, "coin_airdrop", *prize.PrizeType)
+			}
+			// Verify other wallet's prize is not included
+			assert.NotEqual(t, otherSignature, prize.Signature)
+		}
+		assert.True(t, prize1Found, "Prize 1 should be in response")
+		assert.True(t, prize2Found, "Prize 2 should be in response")
+
+		// Verify sensitive data is not in response body
+		assert.NotContains(t, string(body), "file1.zip", "Download URL should not be leaked")
+		assert.NotContains(t, string(body), "ABC123", "Redeem code should not be leaked")
+		assert.NotContains(t, string(body), "https://example.com", "URLs should not be leaked")
+	})
+
+	t.Run("GET /v1/wallet/:wallet/prizes - Empty result for wallet with no prizes", func(t *testing.T) {
+		wallet := "0x7d273271690538cf855e5b3002a0dd8c154bb060"
+
+		// Ensure no prizes exist for this wallet (clean up if any)
+		_, err := app.writePool.Exec(ctx, `DELETE FROM claimed_prizes WHERE wallet = $1`, wallet)
+		require.NoError(t, err)
+
+		var response struct {
+			Data []ClaimedPrizeResponse `json:"data"`
+		}
+		// Public endpoint - no authentication required
+		status, body := testGet(t, app, fmt.Sprintf("/v1/wallet/%s/prizes", wallet), &response)
+
+		assert.Equal(t, 200, status, "Response body: %s", string(body))
+		assert.Equal(t, 0, len(response.Data), "Should return empty array for wallet with no prizes")
 	})
 }
