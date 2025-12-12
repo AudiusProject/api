@@ -136,45 +136,99 @@ func (app *ApiServer) v1CreateRewardCode(c *fiber.Ctx) error {
 		codeSignature = ""
 	}
 
-	// Use shared function to create reward code
-	rewardAddress, err := app.createRewardCode(context.Background(), code, req.Mint, req.Amount, "Launchpad")
+	// Use shared function to create reward code and insert into database
+	rewardAddress, err := app.createAndInsertRewardCode(context.Background(), code, req.Mint, req.Amount, "Launchpad", codeSignature)
 	if err != nil {
 		return fiber.NewError(fiber.StatusInternalServerError, "Failed to create reward code: "+err.Error())
 	}
 
-	// Insert the reward code into the database
-	sql := `
-		INSERT INTO reward_codes (code, mint, reward_address, amount, remaining_uses, signature)
-		VALUES (@code, @mint, @reward_address, @amount, 1, @signature)
-		RETURNING code, mint, reward_address, amount
-	`
-
-	rows, err := app.writePool.Query(context.Background(), sql, pgx.NamedArgs{
-		"code":           code,
-		"mint":           req.Mint,
-		"reward_address": rewardAddress,
-		"amount":         req.Amount,
-		"signature":      codeSignature,
-	})
-	if err != nil {
-		return fiber.NewError(fiber.StatusInternalServerError, "Database error: "+err.Error())
-	}
-
-	response, err := pgx.CollectExactlyOneRow(rows, pgx.RowToStructByName[CreateRewardCodeResponse])
-	if err != nil {
-		return fiber.NewError(fiber.StatusInternalServerError, "Failed to read response: "+err.Error())
+	response := CreateRewardCodeResponse{
+		Code:          code,
+		Mint:          req.Mint,
+		RewardAddress: rewardAddress,
+		Amount:        req.Amount,
 	}
 
 	return c.Status(fiber.StatusCreated).JSON(response)
 }
 
+// createAndInsertRewardCode creates or reuses a reward pool, inserts the reward code into the database,
+// and returns the reward address. This is shared business logic used by both v1CreateRewardCode and prize claim flow.
+func (app *ApiServer) createAndInsertRewardCode(ctx context.Context, code, mint string, amount int64, rewardName, signature string) (string, error) {
+	app.logger.Info("createAndInsertRewardCode: Starting",
+		zap.String("code", code),
+		zap.String("mint", mint),
+		zap.Int64("amount", amount),
+		zap.String("reward_name", rewardName),
+		zap.Bool("has_signature", signature != ""))
+
+	// First create the reward code
+	app.logger.Info("createAndInsertRewardCode: Creating reward code",
+		zap.String("code", code),
+		zap.String("mint", mint))
+	rewardAddress, err := app.createRewardCode(ctx, code, mint, amount, rewardName)
+	if err != nil {
+		app.logger.Error("createAndInsertRewardCode: Failed to create reward code",
+			zap.String("code", code),
+			zap.String("mint", mint),
+			zap.String("reward_name", rewardName),
+			zap.Error(err))
+		return "", err
+	}
+	app.logger.Info("createAndInsertRewardCode: Reward code created",
+		zap.String("code", code),
+		zap.String("reward_address", rewardAddress),
+		zap.Bool("has_reward_address", rewardAddress != ""))
+
+	// Insert the reward code into the database
+	app.logger.Info("createAndInsertRewardCode: Inserting into database",
+		zap.String("code", code),
+		zap.String("mint", mint),
+		zap.String("reward_address", rewardAddress))
+	sql := `
+		INSERT INTO reward_codes (code, mint, reward_address, amount, remaining_uses, signature)
+		VALUES (@code, @mint, @reward_address, @amount, 1, @signature)
+		ON CONFLICT (code) DO NOTHING
+	`
+
+	_, err = app.writePool.Exec(ctx, sql, pgx.NamedArgs{
+		"code":           code,
+		"mint":           mint,
+		"reward_address": rewardAddress,
+		"amount":         amount,
+		"signature":      signature,
+	})
+	if err != nil {
+		app.logger.Error("createAndInsertRewardCode: Database insert failed",
+			zap.String("code", code),
+			zap.String("mint", mint),
+			zap.Error(err))
+		return "", fmt.Errorf("database error: %w", err)
+	}
+
+	app.logger.Info("createAndInsertRewardCode: Successfully completed",
+		zap.String("code", code),
+		zap.String("reward_address", rewardAddress))
+	return rewardAddress, nil
+}
+
 // createRewardCode creates or reuses a reward pool and returns the reward address.
 // This is shared business logic used by both v1CreateRewardCode and prize claim flow.
 func (app *ApiServer) createRewardCode(ctx context.Context, code, mint string, amount int64, rewardName string) (string, error) {
+	app.logger.Info("createRewardCode: Starting",
+		zap.String("code", code),
+		zap.String("mint", mint),
+		zap.Int64("amount", amount),
+		zap.String("reward_name", rewardName),
+		zap.Bool("has_deterministic_secret", app.config.LaunchpadDeterministicSecret != ""),
+		zap.String("audiusd_url", app.config.AudiusdURL))
+
 	var rewardAddress string
 
 	// Only create reward pool if deterministic secret is configured
 	if app.config.LaunchpadDeterministicSecret != "" {
+		app.logger.Info("createRewardCode: Deterministic secret configured, checking for existing reward pool",
+			zap.String("mint", mint))
 		// Check for existing reward address for this mint (reuse pattern)
 		var existingRewardAddress string
 		err := app.pool.QueryRow(ctx, `
@@ -185,42 +239,83 @@ func (app *ApiServer) createRewardCode(ctx context.Context, code, mint string, a
 
 		if err == nil && existingRewardAddress != "" {
 			// Reuse existing reward pool
+			app.logger.Info("createRewardCode: Reusing existing reward pool",
+				zap.String("mint", mint),
+				zap.String("reward_address", existingRewardAddress))
 			rewardAddress = existingRewardAddress
 		} else {
+			if err != nil && err != pgx.ErrNoRows {
+				app.logger.Warn("createRewardCode: Error checking for existing reward pool, will create new",
+					zap.String("mint", mint),
+					zap.Error(err))
+			} else {
+				app.logger.Info("createRewardCode: No existing reward pool found, creating new",
+					zap.String("mint", mint))
+			}
+
 			// Create new reward pool
+			app.logger.Info("createRewardCode: Parsing mint public key",
+				zap.String("mint", mint))
 			mintPubKey, err := solana.PublicKeyFromBase58(mint)
 			if err != nil {
+				app.logger.Error("createRewardCode: Invalid mint address",
+					zap.String("mint", mint),
+					zap.Error(err))
 				return "", fmt.Errorf("invalid mint address: %w", err)
 			}
 
+			app.logger.Info("createRewardCode: Deriving Ethereum address for mint",
+				zap.String("mint", mint))
 			claimAuthority, claimAuthorityPrivateKey, err := utils.DeriveEthAddressForMint(
 				[]byte("claimAuthority"),
 				app.config.LaunchpadDeterministicSecret,
 				mintPubKey,
 			)
 			if err != nil {
+				app.logger.Error("createRewardCode: Failed to derive Ethereum key",
+					zap.String("mint", mint),
+					zap.Error(err))
 				return "", fmt.Errorf("failed to derive Ethereum key: %w", err)
 			}
+			app.logger.Info("createRewardCode: Ethereum address derived",
+				zap.String("claim_authority", claimAuthority),
+				zap.String("mint", mint))
 
 			// Convert the private key to the format expected by the SDK
+			app.logger.Info("createRewardCode: Converting private key format")
 			privateKey, err := common.EthToEthKey(claimAuthorityPrivateKey)
 			if err != nil {
+				app.logger.Error("createRewardCode: Failed to convert private key",
+					zap.Error(err))
 				return "", fmt.Errorf("failed to convert private key: %w", err)
 			}
 
 			// Create OpenAudio SDK instance and set the private key
+			app.logger.Info("createRewardCode: Creating OpenAudio SDK instance",
+				zap.String("audiusd_url", app.config.AudiusdURL))
 			oap := sdk.NewOpenAudioSDK(app.config.AudiusdURL)
 			oap.SetPrivKey(privateKey)
 
 			// Get current chain status to calculate deadline
+			app.logger.Info("createRewardCode: Getting chain status")
 			statusResp, err := oap.Core.GetStatus(ctx, connect.NewRequest(&v1.GetStatusRequest{}))
 			if err != nil {
+				app.logger.Error("createRewardCode: Failed to get chain status",
+					zap.String("audiusd_url", app.config.AudiusdURL),
+					zap.Error(err))
 				return "", fmt.Errorf("failed to get chain status: %w", err)
 			}
 
 			currentHeight := statusResp.Msg.ChainInfo.CurrentHeight
 			deadline := currentHeight + 100
 			rewardID := code
+
+			app.logger.Info("createRewardCode: Creating reward pool",
+				zap.String("reward_id", rewardID),
+				zap.String("name", fmt.Sprintf("%s Reward %s", rewardName, code)),
+				zap.Uint64("amount", uint64(amount)),
+				zap.String("claim_authority", claimAuthority),
+				zap.Int64("deadline", deadline))
 
 			reward, err := oap.Rewards.CreateReward(ctx, &v1.CreateReward{
 				RewardId: rewardID,
@@ -232,14 +327,27 @@ func (app *ApiServer) createRewardCode(ctx context.Context, code, mint string, a
 				DeadlineBlockHeight: deadline,
 			})
 			if err != nil {
+				app.logger.Error("createRewardCode: Failed to create reward pool via OpenAudio SDK",
+					zap.String("reward_id", rewardID),
+					zap.String("audiusd_url", app.config.AudiusdURL),
+					zap.Error(err))
 				return "", fmt.Errorf("failed to create reward pool: %w", err)
 			}
 
 			rewardAddress = reward.Address
+			app.logger.Info("createRewardCode: Reward pool created successfully",
+				zap.String("reward_address", rewardAddress),
+				zap.String("reward_id", rewardID))
 		}
 	} else {
+		app.logger.Info("createRewardCode: No deterministic secret configured, skipping reward pool creation",
+			zap.String("mint", mint))
 		rewardAddress = ""
 	}
 
+	app.logger.Info("createRewardCode: Completed",
+		zap.String("code", code),
+		zap.String("reward_address", rewardAddress),
+		zap.Bool("has_reward_address", rewardAddress != ""))
 	return rewardAddress, nil
 }
