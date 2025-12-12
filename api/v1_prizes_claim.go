@@ -303,48 +303,88 @@ func (app *ApiServer) v1PrizesClaim(c *fiber.Ctx) error {
 }
 
 func (app *ApiServer) generateRedeemCodeForPrize(ctx context.Context, mint string, amount int64) (string, string, error) {
+	app.logger.Info("Generating redeem code for prize",
+		zap.String("mint", mint),
+		zap.Int64("amount", amount))
+
 	// Generate a code (reuse the same generateCode function from v1_create_reward_code)
 	code, err := generateCode()
 	if err != nil {
+		app.logger.Error("Failed to generate code",
+			zap.String("mint", mint),
+			zap.Error(err))
 		return "", "", fmt.Errorf("failed to generate code: %w", err)
 	}
+	app.logger.Info("Code generated successfully",
+		zap.String("code", code),
+		zap.String("mint", mint))
 
-	// Use shared function to create reward code
-	rewardAddress, err := app.createRewardCode(ctx, code, mint, amount, "Prize")
+	// Use shared function to create reward code and insert into database
+	// For prizes, we allow reward pool creation to fail gracefully - the code will still be valid
+	app.logger.Info("Creating reward code and inserting into database",
+		zap.String("code", code),
+		zap.String("mint", mint),
+		zap.Int64("amount", amount),
+		zap.Bool("has_deterministic_secret", app.config.LaunchpadDeterministicSecret != ""))
+
+	rewardAddress, err := app.createAndInsertRewardCode(ctx, code, mint, amount, "Prize", "")
 	if err != nil {
-		return "", "", fmt.Errorf("failed to create reward code: %w", err)
-	}
-
-	// Insert the reward code into the database
-	sql := `
-		INSERT INTO reward_codes (code, mint, reward_address, amount, remaining_uses, signature)
-		VALUES (@code, @mint, @reward_address, @amount, 1, @signature)
-		ON CONFLICT (code) DO NOTHING
-	`
-
-	_, err = app.pool.Exec(ctx, sql, pgx.NamedArgs{
-		"code":           code,
-		"mint":           mint,
-		"reward_address": rewardAddress,
-		"amount":         amount,
-		"signature":      "",
-	})
-	if err != nil {
-		return "", "", fmt.Errorf("database error: %w", err)
+		app.logger.Warn("Failed to create reward pool for prize, but code will still be valid",
+			zap.String("code", code),
+			zap.String("mint", mint),
+			zap.Int64("amount", amount),
+			zap.Error(err))
+		// Continue anyway - the code can still be used even without a reward pool
+		// Insert the code into database without reward_address
+		app.logger.Info("Inserting reward code without reward_address",
+			zap.String("code", code),
+			zap.String("mint", mint))
+		_, insertErr := app.writePool.Exec(ctx, `
+			INSERT INTO reward_codes (code, mint, reward_address, amount, remaining_uses, signature)
+			VALUES ($1, $2, $3, $4, 1, $5)
+			ON CONFLICT (code) DO NOTHING
+		`, code, mint, "", amount, "")
+		if insertErr != nil {
+			app.logger.Error("Failed to insert reward code into database",
+				zap.String("code", code),
+				zap.String("mint", mint),
+				zap.Error(insertErr))
+			return "", "", fmt.Errorf("failed to insert reward code: %w", insertErr)
+		}
+		app.logger.Info("Reward code inserted successfully (without reward_address)",
+			zap.String("code", code))
+	} else {
+		app.logger.Info("Reward code created and inserted successfully",
+			zap.String("code", code),
+			zap.String("reward_address", rewardAddress),
+			zap.String("mint", mint))
 	}
 
 	// Get ticker for constructing redeem URL
+	app.logger.Info("Fetching ticker for redeem URL",
+		zap.String("mint", mint))
 	var ticker string
 	err = app.pool.QueryRow(ctx, `
 		SELECT ticker FROM artist_coins WHERE mint = $1 LIMIT 1
 	`, mint).Scan(&ticker)
 	if err != nil {
+		app.logger.Warn("Ticker not found for mint, using mint as fallback",
+			zap.String("mint", mint),
+			zap.Error(err))
 		// If ticker not found, use mint as fallback
 		ticker = mint
+	} else {
+		app.logger.Info("Ticker found",
+			zap.String("mint", mint),
+			zap.String("ticker", ticker))
 	}
 
 	// Construct redeem URL: /coins/{ticker}/redeem/{code}
 	redeemURL := fmt.Sprintf("/coins/%s/redeem/%s", ticker, code)
+	app.logger.Info("Redeem code generation completed successfully",
+		zap.String("code", code),
+		zap.String("redeem_url", redeemURL),
+		zap.String("mint", mint))
 
 	return code, redeemURL, nil
 }
