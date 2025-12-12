@@ -315,7 +315,7 @@ func (app *ApiServer) createRewardCode(ctx context.Context, code, mint string, a
 				zap.String("name", fmt.Sprintf("%s Reward %s", rewardName, code)),
 				zap.Uint64("amount", uint64(amount)),
 				zap.String("claim_authority", claimAuthority),
-				zap.Uint64("deadline", deadline))
+				zap.Int64("deadline", deadline))
 
 			reward, err := oap.Rewards.CreateReward(ctx, &v1.CreateReward{
 				RewardId: rewardID,
