@@ -287,7 +287,7 @@ func (app *ApiServer) v1PrizesClaim(c *fiber.Ctx) error {
 		zap.Any("prize_type", prizeType),
 		zap.Bool("has_action_data", len(actionData) > 0))
 
-	rows, err := app.pool.Query(ctx, sql, pgx.NamedArgs{
+	rows, err := app.writePool.Query(ctx, sql, pgx.NamedArgs{
 		"wallet":      req.Wallet,
 		"signature":   req.Signature,
 		"mint":        yakMintAddress,
