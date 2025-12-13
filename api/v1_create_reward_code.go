@@ -310,17 +310,21 @@ func (app *ApiServer) createRewardCode(ctx context.Context, code, mint string, a
 			deadline := currentHeight + 100
 			rewardID := code
 
+			// Convert from whole YAK (as stored in database) to smallest units for OpenAudio SDK
+			// reward_codes.amount stores whole YAK, but OpenAudio SDK expects smallest units (9 decimals)
+			amountInSmallestUnits := amount * 1000000000
 			app.logger.Info("createRewardCode: Creating reward pool",
 				zap.String("reward_id", rewardID),
 				zap.String("name", fmt.Sprintf("%s Reward %s", rewardName, code)),
-				zap.Uint64("amount", uint64(amount)),
+				zap.Int64("amount_whole_yak", amount),
+				zap.Uint64("amount_smallest_units", uint64(amountInSmallestUnits)),
 				zap.String("claim_authority", claimAuthority),
 				zap.Int64("deadline", deadline))
 
 			reward, err := oap.Rewards.CreateReward(ctx, &v1.CreateReward{
 				RewardId: rewardID,
 				Name:     fmt.Sprintf("%s Reward %s", rewardName, code),
-				Amount:   uint64(amount),
+				Amount:   uint64(amountInSmallestUnits),
 				ClaimAuthorities: []*v1.ClaimAuthority{
 					{Address: claimAuthority, Name: rewardName},
 				},

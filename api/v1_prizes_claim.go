@@ -16,8 +16,8 @@ import (
 
 const (
 	yakMintAddress       = "ZDaUDL4XFdEct7UgeztrFQAptsvh4ZdhyZDZ1RpxYAK"
-	yakClaimAmount       = 2000000000 // 2 YAK with 9 decimals - amount required to claim a prize
-	yakAirdropAmount     = 1000000000 // 1 YAK with 9 decimals - amount awarded in coin airdrop prizes
+	yakClaimAmount       = 2000000000 // 2 YAK with 9 decimals - amount required to claim a prize (for Solana transaction)
+	yakAirdropAmount     = 1          // 1 YAK (whole YAK, no decimals) - amount awarded in coin airdrop prizes
 	prizeReceiverAddress = "EHd892m3xNWGBuAXnafavqcFjXXUZp9bGecdSDNP2SLR"
 )
 
@@ -236,7 +236,8 @@ func (app *ApiServer) v1PrizesClaim(c *fiber.Ctx) error {
 		var metadata PrizeMetadata
 		if err := json.Unmarshal([]byte(selectedPrize.Metadata.String), &metadata); err == nil {
 			if metadata.Type == "coin_airdrop" && metadata.Amount == yakAirdropAmount {
-				code, url, err := app.generateRedeemCodeForPrize(ctx, yakMintAddress, yakAirdropAmount)
+				// yakAirdropAmount is already in whole YAK (no decimals)
+				code, url, err := app.generateRedeemCodeForPrize(ctx, yakMintAddress, int64(yakAirdropAmount))
 				if err != nil {
 					app.logger.Error("Failed to generate redeem code", zap.Error(err))
 					return fiber.NewError(fiber.StatusInternalServerError, "Failed to generate redeem code")
@@ -278,6 +279,14 @@ func (app *ApiServer) v1PrizesClaim(c *fiber.Ctx) error {
 		RETURNING prize_id, prize_name, wallet, prize_type, action_data
 	`
 
+	app.logger.Info("Inserting claimed prize into database",
+		zap.String("wallet", req.Wallet),
+		zap.String("signature", req.Signature),
+		zap.String("prize_id", selectedPrize.ID),
+		zap.String("prize_name", selectedPrize.Name),
+		zap.Any("prize_type", prizeType),
+		zap.Bool("has_action_data", len(actionData) > 0))
+
 	rows, err := app.pool.Query(ctx, sql, pgx.NamedArgs{
 		"wallet":      req.Wallet,
 		"signature":   req.Signature,
@@ -289,15 +298,34 @@ func (app *ApiServer) v1PrizesClaim(c *fiber.Ctx) error {
 		"action_data": actionData,
 	})
 	if err != nil {
-		app.logger.Error("Failed to insert claimed prize", zap.Error(err))
+		app.logger.Error("Failed to insert claimed prize",
+			zap.String("wallet", req.Wallet),
+			zap.String("signature", req.Signature),
+			zap.Error(err))
 		return fiber.NewError(fiber.StatusInternalServerError, "Failed to save result")
 	}
+	app.logger.Info("Successfully inserted claimed prize, reading response")
 
 	response, err := pgx.CollectExactlyOneRow(rows, pgx.RowToStructByName[PrizeClaimResponse])
 	if err != nil {
-		app.logger.Error("Failed to read response", zap.Error(err))
+		app.logger.Error("Failed to read response from database",
+			zap.String("wallet", req.Wallet),
+			zap.String("signature", req.Signature),
+			zap.String("prize_id", selectedPrize.ID),
+			zap.Error(err))
+		// Try to get more details about the error
+		if err == pgx.ErrNoRows {
+			app.logger.Error("No rows returned from INSERT...RETURNING query")
+		}
 		return fiber.NewError(fiber.StatusInternalServerError, "Failed to read response")
 	}
+
+	app.logger.Info("Successfully read response",
+		zap.String("prize_id", response.PrizeID),
+		zap.String("prize_name", response.PrizeName),
+		zap.String("wallet", response.Wallet),
+		zap.Any("prize_type", response.PrizeType),
+		zap.Bool("has_action_data", len(response.ActionData) > 0))
 
 	return c.JSON(response)
 }
