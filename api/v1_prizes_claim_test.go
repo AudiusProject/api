@@ -82,7 +82,7 @@ func TestV1PrizesClaim(t *testing.T) {
 	const (
 		yakMintAddress       = "ZDaUDL4XFdEct7UgeztrFQAptsvh4ZdhyZDZ1RpxYAK"
 		yakClaimAmount       = 2000000000 // 2 YAK with 9 decimals - amount required to claim a prize
-		yakAirdropAmount     = 1000000000 // 1 YAK with 9 decimals - amount awarded in coin airdrop prizes
+		yakAirdropAmount     = 1          // 1 YAK (whole YAK, no decimals) - amount awarded in coin airdrop prizes
 		prizeReceiverAddress = "EHd892m3xNWGBuAXnafavqcFjXXUZp9bGecdSDNP2SLR"
 		validWallet          = "HLnpSz9h2S4hiLQ43rnSD9XkcUThA7B8hQMKmDaiTLcC"
 		validSignature       = "valid_signature_123"
