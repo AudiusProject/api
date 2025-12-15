@@ -17,7 +17,6 @@ import (
 const (
 	yakMintAddress       = "ZDaUDL4XFdEct7UgeztrFQAptsvh4ZdhyZDZ1RpxYAK"
 	yakClaimAmount       = 2000000000 // 2 YAK with 9 decimals - amount required to claim a prize (for Solana transaction)
-	yakAirdropAmount     = 1          // 1 YAK (whole YAK, no decimals) - amount awarded in coin airdrop prizes
 	prizeReceiverAddress = "EHd892m3xNWGBuAXnafavqcFjXXUZp9bGecdSDNP2SLR"
 )
 
@@ -235,9 +234,9 @@ func (app *ApiServer) v1PrizesClaim(c *fiber.Ctx) error {
 	if selectedPrize.Metadata.Valid {
 		var metadata PrizeMetadata
 		if err := json.Unmarshal([]byte(selectedPrize.Metadata.String), &metadata); err == nil {
-			if metadata.Type == "coin_airdrop" && metadata.Amount == yakAirdropAmount {
-				// yakAirdropAmount is already in whole YAK (no decimals)
-				code, url, err := app.generateRedeemCodeForPrize(ctx, yakMintAddress, int64(yakAirdropAmount))
+			if metadata.Type == "coin_airdrop" && metadata.Amount > 0 {
+				// Use the amount from metadata (already in whole YAK, no decimals)
+				code, url, err := app.generateRedeemCodeForPrize(ctx, yakMintAddress, metadata.Amount)
 				if err != nil {
 					app.logger.Error("Failed to generate redeem code", zap.Error(err))
 					return fiber.NewError(fiber.StatusInternalServerError, "Failed to generate redeem code")

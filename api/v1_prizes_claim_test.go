@@ -82,7 +82,6 @@ func TestV1PrizesClaim(t *testing.T) {
 	const (
 		yakMintAddress       = "ZDaUDL4XFdEct7UgeztrFQAptsvh4ZdhyZDZ1RpxYAK"
 		yakClaimAmount       = 2000000000 // 2 YAK with 9 decimals - amount required to claim a prize
-		yakAirdropAmount     = 1          // 1 YAK (whole YAK, no decimals) - amount awarded in coin airdrop prizes
 		prizeReceiverAddress = "EHd892m3xNWGBuAXnafavqcFjXXUZp9bGecdSDNP2SLR"
 		validWallet          = "HLnpSz9h2S4hiLQ43rnSD9XkcUThA7B8hQMKmDaiTLcC"
 		validSignature       = "valid_signature_123"
@@ -512,7 +511,8 @@ func TestV1PrizesClaim(t *testing.T) {
 		assert.Equal(t, 400, status, "Should return 400 for empty body")
 	})
 
-	t.Run("Success - 1 YAK coin airdrop prize with redeem code", func(t *testing.T) {
+	// Helper function to test coin airdrop prizes with different amounts
+	testCoinAirdropPrize := func(t *testing.T, amount int64, prizeID, prizeName, signature string) {
 		// Create reward_codes table if it doesn't exist
 		_, err := app.writePool.Exec(ctx, `
 			CREATE TABLE IF NOT EXISTS reward_codes (
@@ -531,24 +531,22 @@ func TestV1PrizesClaim(t *testing.T) {
 		_, err = app.writePool.Exec(ctx, `UPDATE prizes SET is_active = false`)
 		require.NoError(t, err)
 
-		// Insert a prize with coin_airdrop metadata (1 YAK)
-		airdropPrizeID := "prize_1_yak"
-		airdropMetadata := fmt.Sprintf(`{"type": "coin_airdrop", "amount": %d}`, yakAirdropAmount)
+		// Insert a prize with coin_airdrop metadata
+		airdropMetadata := fmt.Sprintf(`{"type": "coin_airdrop", "amount": %d}`, amount)
 		_, err = app.writePool.Exec(ctx, `
 			INSERT INTO prizes (prize_id, name, weight, is_active, metadata)
-			VALUES ($1, '1 YAK Airdrop', 1, true, $2::jsonb)
-			ON CONFLICT (prize_id) DO UPDATE SET metadata = $2::jsonb, is_active = true
-		`, airdropPrizeID, airdropMetadata)
+			VALUES ($1, $2, 1, true, $3::jsonb)
+			ON CONFLICT (prize_id) DO UPDATE SET metadata = $3::jsonb, is_active = true
+		`, prizeID, prizeName, airdropMetadata)
 		require.NoError(t, err)
 
 		// Insert a valid balance change (user spending)
-		airdropSignature := "airdrop_sig_1_yak"
 		_, err = app.writePool.Exec(ctx, `
 			INSERT INTO sol_token_account_balance_changes 
 			(signature, mint, owner, account, change, balance, slot, block_timestamp)
 			VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
 			ON CONFLICT DO NOTHING
-		`, airdropSignature, yakMintAddress, validWallet, "account_airdrop", -yakClaimAmount, 1000000000000, 12360, time.Now())
+		`, signature, yakMintAddress, validWallet, fmt.Sprintf("account_airdrop_%s", signature), -yakClaimAmount, 1000000000000, 12360, time.Now())
 		require.NoError(t, err)
 
 		// Insert receiver balance change
@@ -557,11 +555,11 @@ func TestV1PrizesClaim(t *testing.T) {
 			(signature, mint, owner, account, change, balance, slot, block_timestamp)
 			VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
 			ON CONFLICT DO NOTHING
-		`, airdropSignature, yakMintAddress, prizeReceiverAddress, "receiver_account_airdrop", yakClaimAmount, 1000000000000, 12360, time.Now())
+		`, signature, yakMintAddress, prizeReceiverAddress, fmt.Sprintf("receiver_account_airdrop_%s", signature), yakClaimAmount, 1000000000000, 12360, time.Now())
 		require.NoError(t, err)
 
 		requestBody := PrizeClaimRequest{
-			Signature: airdropSignature,
+			Signature: signature,
 			Wallet:    validWallet,
 		}
 
@@ -574,8 +572,8 @@ func TestV1PrizesClaim(t *testing.T) {
 		}, &resp)
 
 		assert.Equal(t, 200, status, "Response body: %s", string(respBody))
-		assert.Equal(t, airdropPrizeID, resp.PrizeID)
-		assert.Equal(t, "1 YAK Airdrop", resp.PrizeName)
+		assert.Equal(t, prizeID, resp.PrizeID)
+		assert.Equal(t, prizeName, resp.PrizeName)
 		assert.Equal(t, validWallet, resp.Wallet)
 		assert.NotNil(t, resp.PrizeType, "Prize type should be set")
 		assert.Equal(t, "coin_airdrop", *resp.PrizeType)
@@ -599,10 +597,10 @@ func TestV1PrizesClaim(t *testing.T) {
 			SELECT prize_id, prize_name, wallet, prize_type, action_data
 			FROM claimed_prizes 
 			WHERE signature = $1
-		`, airdropSignature).Scan(&dbPrizeID, &dbPrizeName, &dbWallet, &dbPrizeType, &dbActionData)
+		`, signature).Scan(&dbPrizeID, &dbPrizeName, &dbWallet, &dbPrizeType, &dbActionData)
 		assert.NoError(t, err)
-		assert.Equal(t, airdropPrizeID, dbPrizeID)
-		assert.Equal(t, "1 YAK Airdrop", dbPrizeName)
+		assert.Equal(t, prizeID, dbPrizeID)
+		assert.Equal(t, prizeName, dbPrizeName)
 		assert.Equal(t, validWallet, dbWallet)
 		assert.Equal(t, "coin_airdrop", dbPrizeType)
 
@@ -613,7 +611,7 @@ func TestV1PrizesClaim(t *testing.T) {
 		assert.Equal(t, actionData["code"], dbActionDataMap["code"])
 		assert.Equal(t, actionData["url"], dbActionDataMap["url"])
 
-		// Verify reward code was created in reward_codes table
+		// Verify reward code was created in reward_codes table with correct amount
 		var dbCode, dbMint string
 		var dbAmount int64
 		var dbRemainingUses int
@@ -625,8 +623,20 @@ func TestV1PrizesClaim(t *testing.T) {
 		assert.NoError(t, err, "Reward code should exist in database")
 		assert.Equal(t, actionData["code"], dbCode)
 		assert.Equal(t, yakMintAddress, dbMint)
-		assert.Equal(t, int64(yakAirdropAmount), dbAmount) // 1 YAK
+		assert.Equal(t, amount, dbAmount, "Reward code amount should match prize amount")
 		assert.Equal(t, 1, dbRemainingUses, "Remaining uses should be 1")
+	}
+
+	t.Run("Success - 1 YAK coin airdrop prize with redeem code", func(t *testing.T) {
+		testCoinAirdropPrize(t, 1, "prize_1_yak", "1 YAK Airdrop", "airdrop_sig_1_yak")
+	})
+
+	t.Run("Success - 2 YAK coin airdrop prize with redeem code", func(t *testing.T) {
+		testCoinAirdropPrize(t, 2, "prize_2_yak", "2 YAK Airdrop", "airdrop_sig_2_yak")
+	})
+
+	t.Run("Success - 3 YAK coin airdrop prize with redeem code", func(t *testing.T) {
+		testCoinAirdropPrize(t, 3, "prize_3_yak", "3 YAK Airdrop", "airdrop_sig_3_yak")
 	})
 
 	t.Run("Success - direct download prize", func(t *testing.T) {
@@ -719,7 +729,7 @@ func TestV1PrizesClaim(t *testing.T) {
 		typeformURL := "https://typeform.com/to/abc123"
 		downloadMetadata := fmt.Sprintf(`{"type": "download", "download_url": "%s"}`, downloadURL)
 		typeformMetadata := fmt.Sprintf(`{"type": "typeform", "url": "%s"}`, typeformURL)
-		coinMetadata := fmt.Sprintf(`{"type": "coin_airdrop", "amount": %d}`, yakAirdropAmount)
+		coinMetadata := fmt.Sprintf(`{"type": "coin_airdrop", "amount": %d}`, 1)
 
 		_, err := app.writePool.Exec(ctx, `
 			INSERT INTO prizes (prize_id, name, weight, is_active, metadata)
@@ -789,7 +799,7 @@ func TestV1PrizesClaim(t *testing.T) {
 		assert.Equal(t, "coin_airdrop", coinPrize.PublicMeta["type"])
 		// Amount can be shown (it's just a number), but no redeem code/URL
 		if coinPrize.PublicMeta != nil {
-			assert.Equal(t, float64(yakAirdropAmount), coinPrize.PublicMeta["amount"])
+			assert.Equal(t, float64(1), coinPrize.PublicMeta["amount"])
 			_, hasCode := coinPrize.PublicMeta["code"]
 			assert.False(t, hasCode, "code should not be in public metadata")
 			_, hasURL := coinPrize.PublicMeta["url"]
@@ -803,7 +813,7 @@ func TestV1PrizesClaim(t *testing.T) {
 		typeformURL := "https://typeform.com/to/abc123"
 		downloadMetadata := fmt.Sprintf(`{"type": "download", "download_url": "%s"}`, downloadURL)
 		typeformMetadata := fmt.Sprintf(`{"type": "typeform", "url": "%s"}`, typeformURL)
-		coinMetadata := fmt.Sprintf(`{"type": "coin_airdrop", "amount": %d}`, yakAirdropAmount)
+		coinMetadata := fmt.Sprintf(`{"type": "coin_airdrop", "amount": %d}`, 1)
 
 		_, err := app.writePool.Exec(ctx, `
 			INSERT INTO prizes (prize_id, name, weight, is_active, metadata)
@@ -881,7 +891,7 @@ func TestV1PrizesClaim(t *testing.T) {
 		if coinPrize.PublicMeta != nil {
 			assert.Equal(t, "coin_airdrop", coinPrize.PublicMeta["type"])
 			// Amount can be shown (it's just a number), but no redeem code/URL
-			assert.Equal(t, float64(yakAirdropAmount), coinPrize.PublicMeta["amount"])
+			assert.Equal(t, float64(1), coinPrize.PublicMeta["amount"])
 			_, hasCode := coinPrize.PublicMeta["code"]
 			assert.False(t, hasCode, "code should not be in public metadata")
 			_, hasURL := coinPrize.PublicMeta["url"]
