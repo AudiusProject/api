@@ -30,15 +30,19 @@ CREATE VIEW artist_coin_prices AS
         damm_v2.price AS damm_v2_price,
         dbc.price AS dbc_price,
         stats.price AS stats_price,
+        pools.price_usd AS pools_price_usd,
         COALESCE(
             damm_v2.price,
             dbc.price,
-            stats.price
+            stats.price,
+            pools.price_usd
         ) AS price
     FROM artist_coins
     LEFT JOIN dbc ON artist_coins.mint = dbc.mint
     LEFT JOIN damm_v2 ON artist_coins.mint = damm_v2.mint
-    JOIN artist_coin_stats AS stats 
-        ON stats.mint = artist_coins.mint;
+    LEFT JOIN artist_coin_stats AS stats 
+        ON stats.mint = artist_coins.mint
+    LEFT JOIN artist_coin_pools AS pools
+        ON pools.base_mint = artist_coins.mint;
 
-COMMENT ON VIEW artist_coin_prices IS 'View that provides artist coin prices using DAMM V2 pool if available, DBC pools if not and still applicable, and stats table if nothing else. Makes use of the price of the quote token (AUDIO) from Birdeye if using a pool.';
+COMMENT ON VIEW artist_coin_prices IS 'View that provides artist coin prices using DAMM V2 pool if available, DBC pools if not and still applicable, stats table if available, and artist_coin_pools.price_usd as final fallback. Makes use of the price of the quote token (AUDIO) from Birdeye if using a pool.';
