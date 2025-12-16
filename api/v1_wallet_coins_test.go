@@ -390,6 +390,59 @@ func TestWalletCoinsWithPoolPricing(t *testing.T) {
 	}
 }
 
+// TestWalletCoinsAudioPricingFromStats verifies that AUDIO gets its price from artist_coin_stats
+// when there are no pools (DAMM V2, DBC, or artist_coin_pools). This is the expected behavior
+// for AUDIO since it's the quote token and doesn't have its own pools.
+func TestWalletCoinsAudioPricingFromStats(t *testing.T) {
+	app := emptyTestApp(t)
+
+	audioMint := "9LzCMqDgTKYz9Drzqnpgee3SGa89up3a247ypMj2xrqM" // AUDIO mint
+
+	fixtures := database.FixtureMap{
+		"artist_coins": {
+			{
+				"ticker":     "AUDIO",
+				"decimals":   8,
+				"user_id":    1,
+				"mint":       audioMint,
+				"created_at": time.Now(),
+			},
+		},
+		"artist_coin_stats": {
+			// AUDIO price from Birdeye (updated by AudioPriceJob)
+			{
+				"mint":       audioMint,
+				"price":      0.25, // $0.25 per AUDIO
+				"updated_at": time.Now(),
+			},
+		},
+		// Explicitly NO pools - AUDIO should fall back to artist_coin_stats
+		"sol_token_account_balances": {
+			{
+				"mint":    audioMint,
+				"account": "account1",
+				"owner":   "test_wallet",
+				"balance": 77479000000, // 774.79 AUDIO (matching the UI screenshot)
+			},
+		},
+	}
+
+	database.Seed(app.writePool, fixtures)
+
+	{
+		status, body := testGet(t, app, "/v1/wallet/test_wallet/coins")
+		assert.Equal(t, 200, status)
+
+		jsonAssert(t, body, map[string]any{
+			"data.#":             1,
+			"data.0.ticker":      "AUDIO",
+			"data.0.mint":        audioMint,
+			"data.0.balance":     77479000000, // 774.79 AUDIO
+			"data.0.balance_usd": 193.6975,    // 774.79 * $0.25 = $193.6975
+		})
+	}
+}
+
 func TestWalletCoinsMultipleAccounts(t *testing.T) {
 	app := emptyTestApp(t)
 
