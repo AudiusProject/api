@@ -23,7 +23,6 @@ type Config struct {
 	WriteDbUrl                     string
 	RunMigrations                  bool
 	EsUrl                          string
-	Nodes                          []Node
 	ArtistCoinRewardsStaticSenders []Node
 	StoreAllNodes                  []string
 	DeadNodes                      []string
@@ -46,9 +45,9 @@ type Config struct {
 	AudiusdChainID                 uint
 	AudiusdEntityManagerAddress    string
 	AudiusAppUrl                   string
-	ContentNodeMonitor             bool
 	RewardCodeAuthorizedKeys       []string
 	LaunchpadDeterministicSecret   string
+	UnsplashKeys                   []string
 }
 
 var Cfg = Config{
@@ -70,8 +69,8 @@ var Cfg = Config{
 	SolanaIndexerWorkers:         50,
 	SolanaIndexerRetryInterval:   5 * time.Minute,
 	CommsMessagePush:             true,
-	ContentNodeMonitor:           true,
 	LaunchpadDeterministicSecret: os.Getenv("launchpadDeterministicSecret"),
+	UnsplashKeys:                 strings.Split(os.Getenv("unsplashKeys"), ","),
 }
 
 func init() {
@@ -100,7 +99,6 @@ func init() {
 			Cfg.DelegatePrivateKey = "13422b9affd75ff80f94f1ea394e6a6097830cb58cda2d3542f37464ecaee7df"
 		}
 		Cfg.AntiAbuseOracles = []string{"http://audius-discovery-provider-1"}
-		Cfg.Nodes = DevNodes
 		Cfg.Rewards = core_config.MakeRewards(core_config.DevClaimAuthorities, core_config.DevRewardExtensions)
 		Cfg.AudiusdURL = "http://audius-creator-node-1"
 		Cfg.ChainId = "audius-devnet"
@@ -123,7 +121,6 @@ func init() {
 			log.Fatalf("Missing required %s env var: delegatePrivateKey", env)
 		}
 		Cfg.AntiAbuseOracles = []string{"https://discoveryprovider.staging.audius.co"}
-		Cfg.Nodes = StageNodes
 		Cfg.DeadNodes = []string{}
 		Cfg.StoreAllNodes = []string{}
 		Cfg.UploadNodes = StageUploadNodes
@@ -138,19 +135,19 @@ func init() {
 		Cfg.VerifierAddress = "0xbbbb93A6B3A1D6fDd27909729b95CCB0cc9002C0"
 		Cfg.ArtistCoinRewardsStaticSenders = []Node{
 			{
-				DelegateOwnerWallet: "0x140eD283b33be2145ed7d9d15f1fE7bF1E0B2Ac3",
-				Endpoint:            "https://creatornode9.staging.audius.co",
-				OwnerWallet:         "0x140eD283b33be2145ed7d9d15f1fE7bF1E0B2Ac3",
+				DelegateWallet: "0x140eD283b33be2145ed7d9d15f1fE7bF1E0B2Ac3",
+				Endpoint:       "https://creatornode9.staging.audius.co",
+				Owner:          "0x140eD283b33be2145ed7d9d15f1fE7bF1E0B2Ac3",
 			},
 			{
-				DelegateOwnerWallet: "0x4c88d2c0f4c4586b41621aD6e98882ae904B98f6",
-				Endpoint:            "https://creatornode11.staging.audius.co",
-				OwnerWallet:         "0x4c88d2c0f4c4586b41621aD6e98882ae904B98f6",
+				DelegateWallet: "0x4c88d2c0f4c4586b41621aD6e98882ae904B98f6",
+				Endpoint:       "https://creatornode11.staging.audius.co",
+				Owner:          "0x4c88d2c0f4c4586b41621aD6e98882ae904B98f6",
 			},
 			{
-				DelegateOwnerWallet: "0x6b52969934076318863243fb92E9C4b3A08267b5",
-				Endpoint:            "https://creatornode12.staging.audius.co",
-				OwnerWallet:         "0x6b52969934076318863243fb92E9C4b3A08267b5",
+				DelegateWallet: "0x6b52969934076318863243fb92E9C4b3A08267b5",
+				Endpoint:       "https://creatornode12.staging.audius.co",
+				Owner:          "0x6b52969934076318863243fb92E9C4b3A08267b5",
 			},
 		}
 	case "prod":
@@ -165,7 +162,6 @@ func init() {
 			log.Fatalf("Missing required %s env var: delegatePrivateKey", env)
 		}
 		Cfg.AntiAbuseOracles = []string{"https://discoveryprovider.audius.co"}
-		Cfg.Nodes = ProdNodes
 		Cfg.DeadNodes = []string{
 			"https://content.grassfed.network",
 		}
@@ -183,24 +179,24 @@ func init() {
 		Cfg.VerifierAddress = "0xbeef8E42e8B5964fDD2b7ca8efA0d9aef38AA996"
 		Cfg.ArtistCoinRewardsStaticSenders = []Node{
 			{
-				DelegateOwnerWallet: "0xc8d0C29B6d540295e8fc8ac72456F2f4D41088c8",
-				Endpoint:            "https://creatornode.audius.co",
-				OwnerWallet:         "0xe5b256d302ea2f4e04B8F3bfD8695aDe147aB68d",
+				DelegateWallet: "0xc8d0C29B6d540295e8fc8ac72456F2f4D41088c8",
+				Endpoint:       "https://creatornode.audius.co",
+				Owner:          "0xe5b256d302ea2f4e04B8F3bfD8695aDe147aB68d",
 			},
 			{
-				DelegateOwnerWallet: "0x159200F84c2cF000b3A014cD4D8244500CCc36ca",
-				Endpoint:            "https://audius-cn1.tikilabs.com",
-				OwnerWallet:         "0xe4882D9A38A2A1fc652996719AF0fb15CB968d0a",
+				DelegateWallet: "0x159200F84c2cF000b3A014cD4D8244500CCc36ca",
+				Endpoint:       "https://audius-cn1.tikilabs.com",
+				Owner:          "0xe4882D9A38A2A1fc652996719AF0fb15CB968d0a",
 			},
 			{
-				DelegateOwnerWallet: "0x627d23D17a3eAaDB1D3823e73Ab80D474023Acab",
-				Endpoint:            "https://audius.bragi.cc",
-				OwnerWallet:         "0xC88C8F9a15453c7D8Ea83120Af54cc4C40EC094a",
+				DelegateWallet: "0x627d23D17a3eAaDB1D3823e73Ab80D474023Acab",
+				Endpoint:       "https://audius.bragi.cc",
+				Owner:          "0xC88C8F9a15453c7D8Ea83120Af54cc4C40EC094a",
 			},
 			{
-				DelegateOwnerWallet: "0x422541273087beC833c57D3c15B9e17F919bFB1F",
-				Endpoint:            "https://v.monophonic.digital",
-				OwnerWallet:         "0x6470Daf3bd32f5014512bCdF0D02232f5640a5BD",
+				DelegateWallet: "0x422541273087beC833c57D3c15B9e17F919bFB1F",
+				Endpoint:       "https://v.monophonic.digital",
+				Owner:          "0x6470Daf3bd32f5014512bCdF0D02232f5640a5BD",
 			},
 		}
 	default:

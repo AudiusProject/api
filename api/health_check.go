@@ -2,8 +2,8 @@ package api
 
 import (
 	"context"
-	"slices"
 
+	"api.audius.co/config"
 	core_indexer "api.audius.co/indexer"
 	"connectrpc.com/connect"
 	corev1 "github.com/OpenAudio/go-openaudio/pkg/api/core/v1"
@@ -18,6 +18,7 @@ type contentNode struct {
 }
 
 type networkInfo struct {
+	Validators   []config.Node `json:"validators"`
 	ContentNodes []contentNode `json:"content_nodes"`
 }
 
@@ -63,19 +64,6 @@ func (app *ApiServer) healthCheck(c *fiber.Ctx) error {
 		return err
 	}
 
-	healthyNodes := app.contentNodeMonitor.GetContentNodes()
-	// Convert config.Node to contentNode
-	contentNodes := make([]contentNode, 0, len(healthyNodes))
-	for _, node := range healthyNodes {
-		// icky reaching into config to check upload nodes
-		if slices.Contains(app.config.UploadNodes, node.Endpoint) {
-			contentNodes = append(contentNodes, contentNode{
-				DelegateOwnerWallet: node.DelegateOwnerWallet,
-				Endpoint:            node.Endpoint,
-			})
-		}
-	}
-
 	coreIndexerHealth, err := app.getCoreIndexerHealth(c.Context())
 	if err != nil {
 		app.logger.Error("Failed to get core indexer health", zap.Error(err))
@@ -89,9 +77,24 @@ func (app *ApiServer) healthCheck(c *fiber.Ctx) error {
 		}
 	}
 
+	nodes := app.validators.GetNodes()
+	contentNodes := make([]contentNode, 0)
+	for _, node := range nodes {
+		for _, uploadNode := range app.config.UploadNodes {
+			if node.Endpoint == uploadNode {
+				contentNodes = append(contentNodes, contentNode{
+					DelegateOwnerWallet: node.DelegateWallet,
+					Endpoint:            node.Endpoint,
+				})
+				break
+			}
+		}
+	}
+
 	health := healthCheckResponse{
 		CoreIndexer: coreIndexerHealth,
 		Network: networkInfo{
+			Validators:   nodes,
 			ContentNodes: contentNodes,
 		},
 	}
