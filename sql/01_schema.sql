@@ -3,8 +3,8 @@
 --
 
 
--- Dumped from database version 17.6 (Debian 17.6-1.pgdg13+1)
--- Dumped by pg_dump version 17.6 (Debian 17.6-1.pgdg13+1)
+-- Dumped from database version 17.7 (Debian 17.7-3.pgdg13+1)
+-- Dumped by pg_dump version 17.7 (Debian 17.7-3.pgdg13+1)
 
 SET statement_timeout = 0;
 SET lock_timeout = 0;
@@ -1415,7 +1415,7 @@ $$;
 -- Name: compute_user_score(bigint, bigint, bigint, bigint, bigint, boolean, boolean, bigint, bigint); Type: FUNCTION; Schema: public; Owner: -
 --
 
-CREATE FUNCTION public.compute_user_score(play_count bigint, follower_count bigint, challenge_count bigint, chat_block_count bigint, following_count bigint, is_audius_impersonator boolean, has_badwords boolean, distinct_tracks_played bigint, karma bigint) RETURNS bigint
+CREATE FUNCTION public.compute_user_score(play_count bigint, follower_count bigint, challenge_count bigint, chat_block_count bigint, following_count bigint, is_audius_impersonator boolean, has_profile_picture boolean, distinct_tracks_played bigint, karma bigint) RETURNS bigint
     LANGUAGE sql IMMUTABLE
     AS $$
 select (play_count / 2) + follower_count - challenge_count - (chat_block_count * 100) + karma + case
@@ -1425,10 +1425,10 @@ select (play_count / 2) + follower_count - challenge_count - (chat_block_count *
         when is_audius_impersonator then -1000
         else 0
     end + case
-        when has_badwords then -1000
+        when distinct_tracks_played <= 3 then -10
         else 0
     end + case
-        when distinct_tracks_played <= 3 then -10
+        when not has_profile_picture then -100
         else 0
     end $$;
 
@@ -1874,7 +1874,7 @@ $$;
 -- Name: get_user_score(integer); Type: FUNCTION; Schema: public; Owner: -
 --
 
-CREATE FUNCTION public.get_user_score(target_user_id integer) RETURNS TABLE(user_id integer, handle_lc text, play_count bigint, distinct_tracks_played bigint, challenge_count bigint, following_count bigint, follower_count bigint, chat_block_count bigint, is_audius_impersonator boolean, has_badwords boolean, karma bigint, score bigint)
+CREATE FUNCTION public.get_user_score(target_user_id integer) RETURNS TABLE(user_id integer, handle_lc text, play_count bigint, distinct_tracks_played bigint, challenge_count bigint, following_count bigint, follower_count bigint, chat_block_count bigint, is_audius_impersonator boolean, has_profile_picture boolean, karma bigint, score bigint)
     LANGUAGE sql
     AS $$ with play_activity as (
         select p.user_id,
@@ -1924,18 +1924,7 @@ CREATE FUNCTION public.get_user_score(target_user_id integer) RETURNS TABLE(user
                 and u.is_verified = false then true
                 else false
             end as is_audius_impersonator,
-            case
-                when (
-                    exists (
-                        select 1
-                        from unnest(array['airdrop']) as badword
-                        where u.handle_lc ilike '%' || badword || '%'
-                           or lower(u.name) like '%' || badword || '%'
-                    )
-                )
-                and u.is_verified = false then true
-                else false
-            end as has_badwords,
+            (u.profile_picture_sizes is not null) as has_profile_picture,
             case
                 when (
                     -- give max karma to users with more than 1000 followers
@@ -1973,7 +1962,7 @@ select a.*,
         a.chat_block_count,
         a.following_count,
         a.is_audius_impersonator,
-        a.has_badwords,
+        a.has_profile_picture,
         a.distinct_tracks_played,
         a.karma
     ) as score
@@ -1985,7 +1974,7 @@ $$;
 -- Name: get_user_scores(integer[]); Type: FUNCTION; Schema: public; Owner: -
 --
 
-CREATE FUNCTION public.get_user_scores(target_user_ids integer[] DEFAULT NULL::integer[]) RETURNS TABLE(user_id integer, handle_lc text, play_count bigint, distinct_tracks_played bigint, follower_count bigint, following_count bigint, challenge_count bigint, chat_block_count bigint, is_audius_impersonator boolean, has_badwords boolean, karma bigint, score bigint)
+CREATE FUNCTION public.get_user_scores(target_user_ids integer[] DEFAULT NULL::integer[]) RETURNS TABLE(user_id integer, handle_lc text, play_count bigint, distinct_tracks_played bigint, follower_count bigint, following_count bigint, challenge_count bigint, chat_block_count bigint, is_audius_impersonator boolean, has_profile_picture boolean, karma bigint, score bigint)
     LANGUAGE sql
     AS $$ with play_activity as (
         select plays.user_id,
@@ -2042,18 +2031,7 @@ CREATE FUNCTION public.get_user_scores(target_user_ids integer[] DEFAULT NULL::i
                 and users.is_verified = false then true
                 else false
             end as is_audius_impersonator,
-            case
-                when (
-                    exists (
-                        select 1
-                        from unnest(array['airdrop']) as badword
-                        where users.handle_lc ilike '%' || badword || '%'
-                           or lower(users.name) like '%' || badword || '%'
-                    )
-                )
-                and users.is_verified = false then true
-                else false
-            end as has_badwords,
+            (users.profile_picture_sizes is not null) as has_profile_picture,
             case
                 when (
                     -- give max karma to users with more than 1000 followers
@@ -2094,7 +2072,7 @@ select a.*,
         a.chat_block_count,
         a.following_count,
         a.is_audius_impersonator,
-        a.has_badwords,
+        a.has_profile_picture,
         a.distinct_tracks_played,
         a.karma
     ) as score
@@ -6562,6 +6540,52 @@ CREATE TABLE public.cid_data (
 
 
 --
+-- Name: claimed_prizes; Type: TABLE; Schema: public; Owner: -
+--
+
+CREATE TABLE public.claimed_prizes (
+    id integer NOT NULL,
+    wallet character varying NOT NULL,
+    signature character varying NOT NULL,
+    mint character varying NOT NULL,
+    amount bigint NOT NULL,
+    prize_id character varying NOT NULL,
+    prize_name character varying NOT NULL,
+    prize_type character varying,
+    action_data jsonb,
+    created_at timestamp without time zone DEFAULT CURRENT_TIMESTAMP NOT NULL,
+    updated_at timestamp without time zone DEFAULT CURRENT_TIMESTAMP NOT NULL
+);
+
+
+--
+-- Name: TABLE claimed_prizes; Type: COMMENT; Schema: public; Owner: -
+--
+
+COMMENT ON TABLE public.claimed_prizes IS 'Stores claimed prizes where users pay tokens to claim and win prizes.';
+
+
+--
+-- Name: claimed_prizes_id_seq; Type: SEQUENCE; Schema: public; Owner: -
+--
+
+CREATE SEQUENCE public.claimed_prizes_id_seq
+    AS integer
+    START WITH 1
+    INCREMENT BY 1
+    NO MINVALUE
+    NO MAXVALUE
+    CACHE 1;
+
+
+--
+-- Name: claimed_prizes_id_seq; Type: SEQUENCE OWNED BY; Schema: public; Owner: -
+--
+
+ALTER SEQUENCE public.claimed_prizes_id_seq OWNED BY public.claimed_prizes.id;
+
+
+--
 -- Name: collectibles; Type: TABLE; Schema: public; Owner: -
 --
 
@@ -7221,6 +7245,50 @@ CREATE SEQUENCE public.plays_id_seq
 --
 
 ALTER SEQUENCE public.plays_id_seq OWNED BY public.plays.id;
+
+
+--
+-- Name: prizes; Type: TABLE; Schema: public; Owner: -
+--
+
+CREATE TABLE public.prizes (
+    id integer NOT NULL,
+    prize_id character varying NOT NULL,
+    name character varying NOT NULL,
+    description text,
+    weight integer DEFAULT 1 NOT NULL,
+    is_active boolean DEFAULT true NOT NULL,
+    metadata jsonb,
+    created_at timestamp without time zone DEFAULT CURRENT_TIMESTAMP NOT NULL,
+    updated_at timestamp without time zone DEFAULT CURRENT_TIMESTAMP NOT NULL
+);
+
+
+--
+-- Name: TABLE prizes; Type: COMMENT; Schema: public; Owner: -
+--
+
+COMMENT ON TABLE public.prizes IS 'Defines prizes available for claiming. Prizes are selected randomly based on weight.';
+
+
+--
+-- Name: prizes_id_seq; Type: SEQUENCE; Schema: public; Owner: -
+--
+
+CREATE SEQUENCE public.prizes_id_seq
+    AS integer
+    START WITH 1
+    INCREMENT BY 1
+    NO MINVALUE
+    NO MAXVALUE
+    CACHE 1;
+
+
+--
+-- Name: prizes_id_seq; Type: SEQUENCE OWNED BY; Schema: public; Owner: -
+--
+
+ALTER SEQUENCE public.prizes_id_seq OWNED BY public.prizes.id;
 
 
 --
@@ -9153,6 +9221,13 @@ ALTER TABLE ONLY public.challenge_profile_completion ALTER COLUMN user_id SET DE
 
 
 --
+-- Name: claimed_prizes id; Type: DEFAULT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.claimed_prizes ALTER COLUMN id SET DEFAULT nextval('public.claimed_prizes_id_seq'::regclass);
+
+
+--
 -- Name: email_access id; Type: DEFAULT; Schema: public; Owner: -
 --
 
@@ -9185,6 +9260,13 @@ ALTER TABLE ONLY public.notification ALTER COLUMN id SET DEFAULT nextval('public
 --
 
 ALTER TABLE ONLY public.plays ALTER COLUMN id SET DEFAULT nextval('public.plays_id_seq'::regclass);
+
+
+--
+-- Name: prizes id; Type: DEFAULT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.prizes ALTER COLUMN id SET DEFAULT nextval('public.prizes_id_seq'::regclass);
 
 
 --
@@ -9542,6 +9624,22 @@ ALTER TABLE ONLY public.cid_data
 
 
 --
+-- Name: claimed_prizes claimed_prizes_pkey; Type: CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.claimed_prizes
+    ADD CONSTRAINT claimed_prizes_pkey PRIMARY KEY (id);
+
+
+--
+-- Name: claimed_prizes claimed_prizes_signature_key; Type: CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.claimed_prizes
+    ADD CONSTRAINT claimed_prizes_signature_key UNIQUE (signature);
+
+
+--
 -- Name: comment_mentions comment_mentions_pkey; Type: CONSTRAINT; Schema: public; Owner: -
 --
 
@@ -9803,6 +9901,22 @@ ALTER TABLE ONLY public.playlists
 
 ALTER TABLE ONLY public.plays
     ADD CONSTRAINT plays_pkey PRIMARY KEY (id);
+
+
+--
+-- Name: prizes prizes_pkey; Type: CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.prizes
+    ADD CONSTRAINT prizes_pkey PRIMARY KEY (id);
+
+
+--
+-- Name: prizes prizes_prize_id_key; Type: CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.prizes
+    ADD CONSTRAINT prizes_prize_id_key UNIQUE (prize_id);
 
 
 --
@@ -10525,6 +10639,48 @@ CREATE INDEX chat_member_user_idx ON public.chat_member USING btree (user_id);
 
 
 --
+-- Name: claimed_prizes_mint_idx; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX claimed_prizes_mint_idx ON public.claimed_prizes USING btree (mint);
+
+
+--
+-- Name: INDEX claimed_prizes_mint_idx; Type: COMMENT; Schema: public; Owner: -
+--
+
+COMMENT ON INDEX public.claimed_prizes_mint_idx IS 'Used for getting claimed prizes by coin mint.';
+
+
+--
+-- Name: claimed_prizes_signature_idx; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX claimed_prizes_signature_idx ON public.claimed_prizes USING btree (signature);
+
+
+--
+-- Name: INDEX claimed_prizes_signature_idx; Type: COMMENT; Schema: public; Owner: -
+--
+
+COMMENT ON INDEX public.claimed_prizes_signature_idx IS 'Used for checking if a signature has already been used.';
+
+
+--
+-- Name: claimed_prizes_wallet_idx; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX claimed_prizes_wallet_idx ON public.claimed_prizes USING btree (wallet);
+
+
+--
+-- Name: INDEX claimed_prizes_wallet_idx; Type: COMMENT; Schema: public; Owner: -
+--
+
+COMMENT ON INDEX public.claimed_prizes_wallet_idx IS 'Used for getting claimed prizes by wallet.';
+
+
+--
 -- Name: fix_tracks_top_genre_users_idx; Type: INDEX; Schema: public; Owner: -
 --
 
@@ -11152,6 +11308,20 @@ CREATE INDEX playlist_routes_playlist_id_idx ON public.playlist_routes USING btr
 --
 
 CREATE INDEX playlists_blocknumber_idx ON public.playlists USING btree (blocknumber);
+
+
+--
+-- Name: prizes_active_idx; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX prizes_active_idx ON public.prizes USING btree (is_active);
+
+
+--
+-- Name: INDEX prizes_active_idx; Type: COMMENT; Schema: public; Owner: -
+--
+
+COMMENT ON INDEX public.prizes_active_idx IS 'Used for filtering active prizes.';
 
 
 --
@@ -12361,4 +12531,5 @@ ALTER TABLE ONLY public.users
 --
 -- PostgreSQL database dump complete
 --
+
 
