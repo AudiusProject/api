@@ -83,21 +83,21 @@ func (app *ApiServer) v1UsersCoin(c *fiber.Ctx) error {
 			artist_coins.logo_uri,
 			artist_coins.banner_image_url,
 			COALESCE(balances_by_mint.balance, 0) AS balance,
-			COALESCE((balances_by_mint.balance * COALESCE(acp.price, 0)) / POWER(10, artist_coins.decimals), 0) AS balance_usd,
+			COALESCE((balances_by_mint.balance * COALESCE(coin_prices.price, 0)) / POWER(10, artist_coins.decimals), 0) AS balance_usd,
 			COALESCE(
 				JSON_AGG(
 					JSON_BUILD_OBJECT(
 						'account', balances.account,
 						'owner', balances.owner,
 						'balance', balances.balance,
-						'balance_usd', (balances.balance * COALESCE(acp.price, 0)) / POWER(10, artist_coins.decimals),
+						'balance_usd', (balances.balance * COALESCE(coin_prices.price, 0)) / POWER(10, artist_coins.decimals),
 						'is_in_app_wallet', balances.is_in_app_wallet
 					)
 				) FILTER (WHERE balances.account IS NOT NULL),
 				'[]'::json
 			) AS accounts
 		FROM artist_coins
-		LEFT JOIN artist_coin_prices acp ON acp.mint = artist_coins.mint
+		LEFT JOIN artist_coin_prices coin_prices ON coin_prices.mint = artist_coins.mint
 		LEFT JOIN balances_by_mint ON artist_coins.mint = balances_by_mint.mint
 		LEFT JOIN (
 			SELECT *
@@ -113,7 +113,7 @@ func (app *ApiServer) v1UsersCoin(c *fiber.Ctx) error {
 			artist_coins.logo_uri,
 			artist_coins.banner_image_url,
 			balances_by_mint.balance,
-			acp.price
+			coin_prices.price
 	;`
 
 	rows, err := app.pool.Query(c.Context(), sql, pgx.NamedArgs{
