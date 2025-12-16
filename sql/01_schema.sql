@@ -6233,18 +6233,20 @@ CREATE VIEW public.artist_coin_prices AS
     damm_v2.price AS damm_v2_price,
     dbc.price AS dbc_price,
     stats.price AS stats_price,
-    COALESCE(damm_v2.price, dbc.price, stats.price) AS price
-   FROM (((public.artist_coins
+    pools.price_usd AS pools_price_usd,
+    COALESCE(damm_v2.price, dbc.price, stats.price, pools.price_usd) AS price
+   FROM ((((public.artist_coins
      LEFT JOIN dbc ON (((artist_coins.mint)::text = (dbc.mint)::text)))
      LEFT JOIN damm_v2 ON (((artist_coins.mint)::text = (damm_v2.mint)::text)))
-     JOIN public.artist_coin_stats stats ON ((stats.mint = (artist_coins.mint)::text)));
+     LEFT JOIN public.artist_coin_stats stats ON ((stats.mint = (artist_coins.mint)::text)))
+     LEFT JOIN public.artist_coin_pools pools ON ((pools.base_mint = (artist_coins.mint)::text)));
 
 
 --
 -- Name: VIEW artist_coin_prices; Type: COMMENT; Schema: public; Owner: -
 --
 
-COMMENT ON VIEW public.artist_coin_prices IS 'View that provides artist coin prices using DAMM V2 pool if available, DBC pools if not and still applicable, and stats table if nothing else. Makes use of the price of the quote token (AUDIO) from Birdeye if using a pool.';
+COMMENT ON VIEW public.artist_coin_prices IS 'View that provides artist coin prices using DAMM V2 pool if available, DBC pools if not and still applicable, stats table if available, and artist_coin_pools.price_usd as final fallback. Makes use of the price of the quote token (AUDIO) from Birdeye if using a pool.';
 
 
 --

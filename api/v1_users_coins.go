@@ -73,10 +73,10 @@ func (app *ApiServer) v1UsersCoins(c *fiber.Ctx) error {
 			artist_coins.logo_uri,
 			artist_coins.banner_image_url,
 			COALESCE(balances_by_mint.balance, 0) AS balance,
-			(COALESCE(balances_by_mint.balance, 0) * COALESCE(acp.price, 0)) / POWER(10, artist_coins.decimals) AS balance_usd
+			(COALESCE(balances_by_mint.balance, 0) * COALESCE(coin_prices.price, 0)) / POWER(10, artist_coins.decimals) AS balance_usd
 		FROM artist_coins
 		LEFT JOIN balances_by_mint ON balances_by_mint.mint = artist_coins.mint
-		LEFT JOIN artist_coin_prices acp ON acp.mint = artist_coins.mint
+		LEFT JOIN artist_coin_prices coin_prices ON coin_prices.mint = artist_coins.mint
 		WHERE artist_coins.user_id = @user_id  -- Show owned coins
 		   OR balance > 0  -- Show coins with positive balance
 		   OR ticker = 'AUDIO' -- Always show AUDIO

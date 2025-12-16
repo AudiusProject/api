@@ -882,13 +882,14 @@ type ArtistCoinPool struct {
 	CreatorWalletAddress    pgtype.Text    `json:"creator_wallet_address"`
 }
 
-// View that provides artist coin prices using DAMM V2 pool if available, DBC pools if not and still applicable, and stats table if nothing else. Makes use of the price of the quote token (AUDIO) from Birdeye if using a pool.
+// View that provides artist coin prices using DAMM V2 pool if available, DBC pools if not and still applicable, stats table if available, and artist_coin_pools.price_usd as final fallback. Makes use of the price of the quote token (AUDIO) from Birdeye if using a pool.
 type ArtistCoinPrice struct {
-	Mint        string        `json:"mint"`
-	DammV2Price pgtype.Int4   `json:"damm_v2_price"`
-	DbcPrice    pgtype.Int4   `json:"dbc_price"`
-	StatsPrice  pgtype.Float8 `json:"stats_price"`
-	Price       int32         `json:"price"`
+	Mint          string        `json:"mint"`
+	DammV2Price   pgtype.Int4   `json:"damm_v2_price"`
+	DbcPrice      pgtype.Int4   `json:"dbc_price"`
+	StatsPrice    pgtype.Float8 `json:"stats_price"`
+	PoolsPriceUsd pgtype.Float8 `json:"pools_price_usd"`
+	Price         int32         `json:"price"`
 }
 
 type ArtistCoinStat struct {
@@ -1090,6 +1091,21 @@ type CidDatum struct {
 	Cid  string      `json:"cid"`
 	Type pgtype.Text `json:"type"`
 	Data []byte      `json:"data"`
+}
+
+// Stores claimed prizes where users pay tokens to claim and win prizes.
+type ClaimedPrize struct {
+	ID         int32       `json:"id"`
+	Wallet     string      `json:"wallet"`
+	Signature  string      `json:"signature"`
+	Mint       string      `json:"mint"`
+	Amount     int64       `json:"amount"`
+	PrizeID    string      `json:"prize_id"`
+	PrizeName  string      `json:"prize_name"`
+	PrizeType  pgtype.Text `json:"prize_type"`
+	ActionData []byte      `json:"action_data"`
+	CreatedAt  time.Time   `json:"created_at"`
+	UpdatedAt  time.Time   `json:"updated_at"`
 }
 
 // Stores collectibles data for users
@@ -1438,6 +1454,19 @@ type PlaylistTrendingScore struct {
 	TimeRange  string    `json:"time_range"`
 	Score      float64   `json:"score"`
 	CreatedAt  time.Time `json:"created_at"`
+}
+
+// Defines prizes available for claiming. Prizes are selected randomly based on weight.
+type Prize struct {
+	ID          int32       `json:"id"`
+	PrizeID     string      `json:"prize_id"`
+	Name        string      `json:"name"`
+	Description pgtype.Text `json:"description"`
+	Weight      int32       `json:"weight"`
+	IsActive    bool        `json:"is_active"`
+	Metadata    []byte      `json:"metadata"`
+	CreatedAt   time.Time   `json:"created_at"`
+	UpdatedAt   time.Time   `json:"updated_at"`
 }
 
 type Pubkey struct {
