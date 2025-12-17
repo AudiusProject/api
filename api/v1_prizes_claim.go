@@ -106,7 +106,8 @@ func (app *ApiServer) v1PrizesClaim(c *fiber.Ctx) error {
 		return err
 	}
 
-	ctx := c.Context()
+	ctx, cancel := context.WithTimeout(c.Context(), 10*time.Second)
+	defer cancel()
 
 	// Check if this signature has already been used
 	var alreadyUsed bool
@@ -119,6 +120,31 @@ func (app *ApiServer) v1PrizesClaim(c *fiber.Ctx) error {
 	}
 	if alreadyUsed {
 		return fiber.NewError(fiber.StatusBadRequest, "Transaction signature already used")
+	}
+
+	// Wait for the transaction to appear in sol_token_account_balance_changes to ensure no race conditions
+	for {
+		select {
+		case <-ctx.Done():
+			app.logger.Error("Context deadline exceeded while processing prize claim",
+				zap.String("wallet", req.Wallet),
+				zap.String("signature", req.Signature))
+			return fiber.NewError(fiber.StatusRequestTimeout, "Request timed out")
+		default:
+		}
+
+		var exists bool
+		err := app.pool.QueryRow(ctx, `
+			SELECT EXISTS(SELECT 1 FROM sol_token_account_balance_changes WHERE signature = $1)
+		`, req.Signature).Scan(&exists)
+		if err != nil {
+			app.logger.Error("Failed to query transaction existence", zap.Error(err))
+			return fiber.NewError(fiber.StatusInternalServerError, "Database error")
+		}
+		if exists {
+			break
+		}
+		time.Sleep(200 * time.Millisecond) // Wait before retrying
 	}
 
 	// Verify the transaction in sol_token_account_balance_changes

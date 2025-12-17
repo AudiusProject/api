@@ -266,7 +266,7 @@ func TestV1PrizesClaim(t *testing.T) {
 			"Content-Type": "application/json",
 		})
 
-		assert.Equal(t, 400, status, "Should return 400 for non-existent transaction. Response: %s", string(respBody))
+		assert.Equal(t, 408, status, "Should return 408 for non-existent transaction. Response: %s", string(respBody))
 	})
 
 	t.Run("Wrong mint - transaction uses different mint", func(t *testing.T) {
