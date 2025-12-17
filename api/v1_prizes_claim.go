@@ -120,6 +120,31 @@ func (app *ApiServer) v1PrizesClaim(c *fiber.Ctx) error {
 		return fiber.NewError(fiber.StatusBadRequest, "Transaction signature already used")
 	}
 
+	// Wait for the transaction to appear in sol_token_account_balance_changes to ensure no race conditions
+	for {
+		select {
+		case <-ctx.Done():
+			app.logger.Error("Context deadline exceeded while processing prize claim",
+				zap.String("wallet", req.Wallet),
+				zap.String("signature", req.Signature))
+			return fiber.NewError(fiber.StatusRequestTimeout, "Request timed out")
+		default:
+		}
+
+		var exists bool
+		err := app.pool.QueryRow(ctx, `
+			SELECT EXISTS(SELECT 1 FROM sol_token_account_balance_changes WHERE signature = $1)
+		`, req.Signature).Scan(&exists)
+		if err != nil {
+			app.logger.Error("Failed to query transaction existence", zap.Error(err))
+			return fiber.NewError(fiber.StatusInternalServerError, "Database error")
+		}
+		if exists {
+			break
+		}
+		time.Sleep(200 * time.Millisecond) // Wait before retrying
+	}
+
 	// Verify the transaction in sol_token_account_balance_changes
 	// We need to find balance changes where:
 	// 1. The signature matches
@@ -132,15 +157,7 @@ func (app *ApiServer) v1PrizesClaim(c *fiber.Ctx) error {
 		Account string
 	}
 
-	// Poll every 200ms until we find the balance change (to compensate for indexing delay)
-	for {
-		select {
-		case <-ctx.Done():
-			return fiber.NewError(fiber.StatusRequestTimeout, "Request timed out while verifying transaction")
-		default:
-		}
-
-		queryErr := app.pool.QueryRow(ctx, `
+	queryErr := app.pool.QueryRow(ctx, `
 		SELECT owner, change, account
 		FROM sol_token_account_balance_changes
 		WHERE signature = $1
@@ -150,26 +167,22 @@ func (app *ApiServer) v1PrizesClaim(c *fiber.Ctx) error {
 			AND change = $4
 		LIMIT 1
 	`, req.Signature, yakMintAddress, req.Wallet, -yakClaimAmount).Scan(
-			&userBalanceChange.Owner,
-			&userBalanceChange.Change,
-			&userBalanceChange.Account,
-		)
+		&userBalanceChange.Owner,
+		&userBalanceChange.Change,
+		&userBalanceChange.Account,
+	)
 
-		if queryErr != nil {
-			if errors.Is(queryErr, pgx.ErrNoRows) {
-				time.Sleep(200 * time.Millisecond)
-				continue
-			}
-			app.logger.Error("Failed to query balance changes", zap.Error(queryErr))
-			return fiber.NewError(fiber.StatusInternalServerError, "Database error")
+	if queryErr != nil {
+		if errors.Is(queryErr, pgx.ErrNoRows) {
+			return fiber.NewError(fiber.StatusBadRequest, "Transaction not found or invalid. Must be exactly 2 YAK sent to the prize address.")
 		}
+		app.logger.Error("Failed to query balance changes", zap.Error(queryErr))
+		return fiber.NewError(fiber.StatusInternalServerError, "Database error")
+	}
 
-		// Verify the wallet matches the transaction owner
-		if userBalanceChange.Owner != req.Wallet && userBalanceChange.Account != req.Wallet {
-			return fiber.NewError(fiber.StatusBadRequest, "Wallet does not match transaction owner")
-		}
-
-		break
+	// Verify the wallet matches the transaction owner
+	if userBalanceChange.Owner != req.Wallet && userBalanceChange.Account != req.Wallet {
+		return fiber.NewError(fiber.StatusBadRequest, "Wallet does not match transaction owner")
 	}
 
 	// Verify the transaction sent tokens to the prize receiver address
