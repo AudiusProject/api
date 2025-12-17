@@ -155,7 +155,7 @@ func (app *ApiServer) v1PrizesClaim(c *fiber.Ctx) error {
 	}
 
 	// Verify the wallet matches the transaction owner
-	if userBalanceChange.Owner != req.Wallet {
+	if userBalanceChange.Owner != req.Wallet && userBalanceChange.Account != req.Wallet {
 		return fiber.NewError(fiber.StatusBadRequest, "Wallet does not match transaction owner")
 	}
 
