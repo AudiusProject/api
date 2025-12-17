@@ -346,6 +346,55 @@ func TestV1PrizesClaim(t *testing.T) {
 		assert.Equal(t, 400, status, "Should return 400 for wrong wallet. Response: %s", string(respBody))
 	})
 
+	t.Run("Success - account matches wallet in addition to owner", func(t *testing.T) {
+		accountMatchingSignature := "account_match_sig"
+		_, err := app.writePool.Exec(ctx, `
+			INSERT INTO sol_token_account_balance_changes 
+			(signature, mint, owner, account, change, balance, slot, block_timestamp)
+			VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
+			ON CONFLICT DO NOTHING
+		`, accountMatchingSignature, yakMintAddress, validWallet, validWallet, -yakClaimAmount, 1000000000000, 12349, time.Now())
+		require.NoError(t, err)
+
+		// Insert corresponding positive balance change for prize receiver
+		_, err = app.writePool.Exec(ctx, `
+			INSERT INTO sol_token_account_balance_changes 
+			(signature, mint, owner, account, change, balance, slot, block_timestamp)
+			VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
+			ON CONFLICT DO NOTHING
+		`, accountMatchingSignature, yakMintAddress, prizeReceiverAddress, "receiver_account_match", yakClaimAmount, 1000000000000, 12349, time.Now())
+		require.NoError(t, err)
+
+		requestBody := PrizeClaimRequest{
+			Signature: accountMatchingSignature,
+			Wallet:    validWallet,
+		}
+
+		body, err := json.Marshal(requestBody)
+		require.NoError(t, err)
+
+		var resp PrizeClaimResponse
+		status, respBody := testPost(t, app, "/v1/prizes/claim", body, map[string]string{
+			"Content-Type": "application/json",
+		}, &resp)
+
+		assert.Equal(t, 200, status, "Should succeed when account matches wallet. Response: %s", string(respBody))
+		assert.Contains(t, []string{"prize_1", "prize_2"}, resp.PrizeID)
+		assert.Equal(t, validWallet, resp.Wallet)
+
+		// Verify it was saved to database
+		var dbPrizeID, dbPrizeName, dbWallet string
+		err = app.writePool.QueryRow(ctx, `
+			SELECT prize_id, prize_name, wallet
+			FROM claimed_prizes 
+			WHERE signature = $1
+		`, accountMatchingSignature).Scan(&dbPrizeID, &dbPrizeName, &dbWallet)
+		assert.NoError(t, err)
+		assert.Equal(t, resp.PrizeID, dbPrizeID)
+		assert.Equal(t, resp.PrizeName, dbPrizeName)
+		assert.Equal(t, validWallet, dbWallet)
+	})
+
 	t.Run("Wrong amount - positive change (receiving instead of spending)", func(t *testing.T) {
 		// Insert balance change with positive change (receiving, not spending)
 		_, err := app.writePool.Exec(ctx, `
