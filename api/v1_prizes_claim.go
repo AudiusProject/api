@@ -172,6 +172,7 @@ func (app *ApiServer) v1PrizesClaim(c *fiber.Ctx) error {
 		break
 	}
 
+	// Verify the transaction sent tokens to the prize receiver address
 	var receiverBalanceChange struct {
 		Owner  string
 		Change int64
@@ -183,9 +184,11 @@ func (app *ApiServer) v1PrizesClaim(c *fiber.Ctx) error {
 		WHERE signature = $1
 			AND mint = $2
 			AND owner = $3
+			AND change = $4
 		LIMIT 1
 	`, req.Signature, yakMintAddress, prizeReceiverAddress, yakClaimAmount).Scan(
 		&receiverBalanceChange.Owner,
+		&receiverBalanceChange.Change,
 	)
 
 	if receiverQueryErr != nil {
