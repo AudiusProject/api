@@ -584,9 +584,13 @@ func NewApiServer(config config.Config) *ApiServer {
 	// Nodes
 	app.Get("/validators", app.v1Validators)
 	app.Get("/discovery", app.discoveryNodes)
+	app.Get("/discovery-nodes", app.discoveryNodes)
 	app.Get("/discovery/verbose", app.discoveryNodes)
+	app.Get("/discovery-nodes/verbose", app.discoveryNodes)
 	app.Get("/content", app.contentNodes)
+	app.Get("/content-nodes", app.contentNodes)
 	app.Get("/content/verbose", app.contentNodes)
+	app.Get("/content-nodes/verbose", app.contentNodes)
 
 	// Unsplash proxy
 	app.All("/unsplash/*", app.unsplash)

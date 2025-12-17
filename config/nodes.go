@@ -13,6 +13,8 @@ type Node struct {
 	ServiceType string
 	// Date of registration
 	RegisteredAt string
+	// Block number of registration
+	BlockNumber int64
 }
 
 var (

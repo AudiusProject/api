@@ -77,6 +77,7 @@ func (app *ApiServer) updateNodes(ctx context.Context) {
 			Owner:          node.Owner,
 			ServiceType:    node.ServiceType,
 			RegisteredAt:   node.RegisteredAt.AsTime().Format(time.RFC3339),
+			BlockNumber:    node.BlockNumber,
 		})
 	}
 	app.validators.SetNodes(nodesList)
