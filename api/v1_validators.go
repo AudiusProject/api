@@ -2,10 +2,12 @@ package api
 
 import (
 	"context"
+	"strconv"
 	"sync"
 	"time"
 
 	"api.audius.co/config"
+	"api.audius.co/rendezvous"
 	"connectrpc.com/connect"
 	ethv1 "github.com/OpenAudio/go-openaudio/pkg/api/eth/v1"
 	"github.com/gofiber/fiber/v2"
@@ -68,17 +70,18 @@ func (app *ApiServer) updateNodes(ctx context.Context) {
 
 	var nodesList []config.Node
 	for _, node := range nodes.Msg.Endpoints {
-		if node.ServiceType == "content-node" || node.ServiceType == "validator" {
-			nodesList = append(nodesList, config.Node{
-				Endpoint:            node.Endpoint,
-				DelegateOwnerWallet: node.DelegateWallet,
-				OwnerWallet:         node.Owner,
-				IsStorageDisabled:   false,
-			})
-		}
+		nodesList = append(nodesList, config.Node{
+			Id:             strconv.FormatInt(node.Id, 10),
+			Endpoint:       node.Endpoint,
+			DelegateWallet: node.DelegateWallet,
+			Owner:          node.Owner,
+			ServiceType:    node.ServiceType,
+			RegisteredAt:   node.RegisteredAt.AsTime().Format(time.RFC3339),
+			BlockNumber:    node.BlockNumber,
+		})
 	}
-
 	app.validators.SetNodes(nodesList)
+	rendezvous.Refresh(nodesList)
 }
 
 func (app *ApiServer) v1Validators(c *fiber.Ctx) error {

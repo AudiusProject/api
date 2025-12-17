@@ -31,12 +31,11 @@ func emptyTestApp(t *testing.T) *ApiServer {
 	pool := database.CreateTestDatabase(t, "test_api")
 
 	app := NewApiServer(config.Config{
-		Env:                "test",
-		ReadDbUrl:          pool.Config().ConnString(),
-		WriteDbUrl:         pool.Config().ConnString(),
-		RunMigrations:      false,
-		ContentNodeMonitor: false,
-		EsUrl:              "http://localhost:21401",
+		Env:           "test",
+		ReadDbUrl:     pool.Config().ConnString(),
+		WriteDbUrl:    pool.Config().ConnString(),
+		RunMigrations: false,
+		EsUrl:         "http://localhost:21401",
 		// Dummy key
 		DelegatePrivateKey: "0633fddb74e32b3cbc64382e405146319c11a1a52dc96598e557c5dbe2f31468",
 		SolanaConfig:       config.SolanaConfig{RpcProviders: []string{""}, StakingBridgeUsdcTokenAccount: solana.MustPublicKeyFromBase58(config.DevStakingBridgeUsdcTokenAccount)},

@@ -183,12 +183,6 @@ func NewApiServer(config config.Config) *ApiServer {
 		panic(err)
 	}
 
-	var contentNodeMonitor *ContentNodeMonitor
-	if config.ContentNodeMonitor {
-		contentNodeMonitor = NewContentNodeMonitor(config, logger)
-		contentNodeMonitor.Start()
-	}
-
 	app := &ApiServer{
 		App: fiber.New(fiber.Config{
 			JSONEncoder:    json.Marshal,
@@ -225,7 +219,6 @@ func NewApiServer(config config.Config) *ApiServer {
 		birdeyeClient:         birdeye.New(config.BirdeyeToken),
 		solanaRpcClient:       solanaRpc,
 		meteoraDbcClient:      meteoraDbcClient,
-		contentNodeMonitor:    contentNodeMonitor,
 	}
 
 	// Set up a custom decoder for HashIds so they can be parsed in lists
@@ -588,6 +581,20 @@ func NewApiServer(config config.Config) *ApiServer {
 	// Solana health
 	app.Get("/solana/health", app.solanaHealth)
 
+	// Nodes
+	app.Get("/validators", app.v1Validators)
+	app.Get("/discovery", app.discoveryNodes)
+	app.Get("/discovery-nodes", app.discoveryNodes)
+	app.Get("/discovery/verbose", app.discoveryNodes)
+	app.Get("/discovery-nodes/verbose", app.discoveryNodes)
+	app.Get("/content", app.contentNodes)
+	app.Get("/content-nodes", app.contentNodes)
+	app.Get("/content/verbose", app.contentNodes)
+	app.Get("/content-nodes/verbose", app.contentNodes)
+
+	// Unsplash proxy
+	app.All("/unsplash/*", app.unsplash)
+
 	app.Static("/", "./static")
 
 	// Disable swagger in test environments, because it will slow things down a lot
@@ -658,7 +665,6 @@ type ApiServer struct {
 	birdeyeClient         BirdeyeClient
 	solanaRpcClient       *rpc.Client
 	meteoraDbcClient      *meteora_dbc.Client
-	contentNodeMonitor    *ContentNodeMonitor
 	validators            *Nodes
 	openAudioPool         *OpenAudioPool
 }
@@ -669,6 +675,9 @@ func (app *ApiServer) home(c *fiber.Ctx) error {
 		"git":     app.config.Git,
 		"started": app.started,
 		"uptime":  time.Since(app.started).Truncate(time.Second).String(),
+		"data": []string{
+			"https://api.audius.co",
+		},
 	})
 }
 
@@ -747,11 +756,6 @@ func (as *ApiServer) Serve() {
 		// Shutdown metrics collector if it exists
 		if as.metricsCollector != nil {
 			as.metricsCollector.Shutdown()
-		}
-
-		// Shutdown content node monitor if it exists
-		if as.contentNodeMonitor != nil {
-			as.contentNodeMonitor.Stop()
 		}
 
 		// Shutdown HLL aggregator if it exists

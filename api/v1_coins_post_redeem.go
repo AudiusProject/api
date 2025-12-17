@@ -314,7 +314,7 @@ func (app *ApiServer) v1CoinsPostRedeem(c *fiber.Ctx) error {
 			break
 		}
 		if slices.ContainsFunc(existingValidatorOwners, func(s string) bool {
-			return strings.EqualFold(s, validator.OwnerWallet)
+			return strings.EqualFold(s, validator.Owner)
 		}) {
 			continue
 		}

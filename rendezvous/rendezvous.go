@@ -18,13 +18,7 @@ import (
 var GlobalHasher *RendezvousHasher
 
 func init() {
-	hosts := make([]string, len(config.Cfg.Nodes))
-	for i, node := range config.Cfg.Nodes {
-		if !node.IsStorageDisabled {
-			hosts[i] = node.Endpoint
-		}
-	}
-	GlobalHasher = NewRendezvousHasher(hosts)
+	GlobalHasher = NewRendezvousHasher([]string{})
 }
 
 type HostTuple struct {
@@ -42,6 +36,14 @@ func (s HostTuples) Less(i, j int) bool {
 		return s[i].host < s[j].host
 	}
 	return c == -1
+}
+
+func Refresh(nodes []config.Node) {
+	hosts := make([]string, len(nodes))
+	for i, node := range nodes {
+		hosts[i] = node.Endpoint
+	}
+	GlobalHasher = NewRendezvousHasher(hosts)
 }
 
 func NewRendezvousHasher(hosts []string) *RendezvousHasher {

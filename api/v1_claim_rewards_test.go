@@ -81,16 +81,16 @@ func TestFetchAttestations(t *testing.T) {
 	}
 
 	allValidators := []config.Node{
-		{Endpoint: validator1.URL, OwnerWallet: "0x1111111111111111111111111111111111111111"},
-		{Endpoint: validator2.URL, OwnerWallet: "0x1111111111111111111111111111111111111111"},
-		{Endpoint: validator3.URL, OwnerWallet: "0x3333333333333333333333333333333333333333"},
-		{Endpoint: validator4.URL, OwnerWallet: "0x4444444444444444444444444444444444444444"},
-		{Endpoint: validator5.URL, OwnerWallet: "0x5555555555555555555555555555555555555555"},
+		{Endpoint: validator1.URL, Owner: "0x1111111111111111111111111111111111111111"},
+		{Endpoint: validator2.URL, Owner: "0x1111111111111111111111111111111111111111"},
+		{Endpoint: validator3.URL, Owner: "0x3333333333333333333333333333333333333333"},
+		{Endpoint: validator4.URL, Owner: "0x4444444444444444444444444444444444444444"},
+		{Endpoint: validator5.URL, Owner: "0x5555555555555555555555555555555555555555"},
 	}
 
 	antiAbuseOracle := config.Node{
-		Endpoint:            aaoServer.URL,
-		DelegateOwnerWallet: "0xAAA0000000000000000000000000000000000000",
+		Endpoint:       aaoServer.URL,
+		DelegateWallet: "0xAAA0000000000000000000000000000000000000",
 	}
 
 	// Set up the AAO map for the test

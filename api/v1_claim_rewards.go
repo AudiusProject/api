@@ -272,15 +272,15 @@ func fetchAttestations(
 			currentIndex++
 
 			// Skip if we've already used this owner globally or this specific validator is marked bad
-			if usedOwners[node.OwnerWallet] || badValidators[node.Endpoint] {
+			if usedOwners[node.Owner] || badValidators[node.Endpoint] {
 				continue
 			}
 			// Skip if we've already picked this owner in this round
-			if candidateOwners[node.OwnerWallet] {
+			if candidateOwners[node.Owner] {
 				continue
 			}
 			candidateNodes = append(candidateNodes, node)
-			candidateOwners[node.OwnerWallet] = true
+			candidateOwners[node.Owner] = true
 		}
 
 		if len(candidateNodes) == 0 {
@@ -323,7 +323,7 @@ func fetchAttestations(
 				continue
 			}
 			attestations = append(attestations, *result.attestation)
-			usedOwners[result.node.OwnerWallet] = true
+			usedOwners[result.node.Owner] = true
 			successfulValidators++
 
 			// Stop if we have enough validators
@@ -676,8 +676,8 @@ func getAntiAbuseOracle(antiAbuseOracleEndpoints []string) (node *config.Node, e
 
 	if value, exists := antiAbuseOracleMap[oracleEndpoint]; exists {
 		return &config.Node{
-			DelegateOwnerWallet: value,
-			Endpoint:            oracleEndpoint,
+			DelegateWallet: value,
+			Endpoint:       oracleEndpoint,
 		}, nil
 	}
 
@@ -702,8 +702,8 @@ func getAntiAbuseOracle(antiAbuseOracleEndpoints []string) (node *config.Node, e
 
 	antiAbuseOracleMap[oracleEndpoint] = health.AntiAbuseWalletPubkey
 	return &config.Node{
-		DelegateOwnerWallet: health.AntiAbuseWalletPubkey,
-		Endpoint:            oracleEndpoint,
+		DelegateWallet: health.AntiAbuseWalletPubkey,
+		Endpoint:       oracleEndpoint,
 	}, nil
 }
 
@@ -814,7 +814,7 @@ func (app *ApiServer) v1ClaimRewards(c *fiber.Ctx) error {
 					Amount:              reward.Amount,
 					Specifier:           row.Specifier,
 					RecipientEthAddress: row.Wallet.String,
-					ClaimAuthority:      antiAbuseOracle.DelegateOwnerWallet,
+					ClaimAuthority:      antiAbuseOracle.DelegateWallet,
 				},
 				Handle:   row.Handle.String,
 				UserBank: *bankAccount,
