@@ -107,6 +107,19 @@ func (app *ApiServer) v1PrizesClaim(c *fiber.Ctx) error {
 	ctx, cancel := context.WithTimeout(c.Context(), 10*time.Second)
 	defer cancel()
 
+	// Check if this signature has already been used
+	var alreadyUsed bool
+	err := app.pool.QueryRow(ctx, `
+		SELECT EXISTS(SELECT 1 FROM claimed_prizes WHERE signature = $1)
+	`, req.Signature).Scan(&alreadyUsed)
+	if err != nil {
+		app.logger.Error("Failed to check if signature already used", zap.Error(err))
+		return fiber.NewError(fiber.StatusInternalServerError, "Database error")
+	}
+	if alreadyUsed {
+		return fiber.NewError(fiber.StatusBadRequest, "Transaction signature already used")
+	}
+
 	// Verify the transaction in sol_token_account_balance_changes
 	// We need to find balance changes where:
 	// 1. The signature matches
@@ -128,14 +141,15 @@ func (app *ApiServer) v1PrizesClaim(c *fiber.Ctx) error {
 		}
 
 		queryErr := app.pool.QueryRow(ctx, `
-			SELECT owner, change, account
-			FROM sol_token_account_balance_changes
-			WHERE signature = $1
-				AND mint = $2
-				AND owner = $3
-				AND change = $4
-			LIMIT 1
-		`, req.Signature, yakMintAddress, req.Wallet, -yakClaimAmount).Scan(
+		SELECT owner, change, account
+		FROM sol_token_account_balance_changes
+		WHERE signature = $1
+			AND mint = $2
+			-- Owner in the case of a wallet, account in the case of a user bank
+			AND (owner = $3 OR account = $3)
+			AND change = $4
+		LIMIT 1
+	`, req.Signature, yakMintAddress, req.Wallet, -yakClaimAmount).Scan(
 			&userBalanceChange.Owner,
 			&userBalanceChange.Change,
 			&userBalanceChange.Account,
@@ -151,26 +165,13 @@ func (app *ApiServer) v1PrizesClaim(c *fiber.Ctx) error {
 		}
 
 		// Verify the wallet matches the transaction owner
-		if userBalanceChange.Owner != req.Wallet {
+		if userBalanceChange.Owner != req.Wallet && userBalanceChange.Account != req.Wallet {
 			return fiber.NewError(fiber.StatusBadRequest, "Wallet does not match transaction owner")
 		}
+
 		break
 	}
 
-	// Check if this signature has already been used
-	var alreadyUsed bool
-	err := app.pool.QueryRow(ctx, `
-		SELECT EXISTS(SELECT 1 FROM claimed_prizes WHERE signature = $1)
-	`, req.Signature).Scan(&alreadyUsed)
-	if err != nil {
-		app.logger.Error("Failed to check if signature already used", zap.Error(err))
-		return fiber.NewError(fiber.StatusInternalServerError, "Database error")
-	}
-	if alreadyUsed {
-		return fiber.NewError(fiber.StatusBadRequest, "Transaction signature already used")
-	}
-
-	// Verify the transaction sent tokens to the prize receiver address
 	var receiverBalanceChange struct {
 		Owner  string
 		Change int64
@@ -182,11 +183,9 @@ func (app *ApiServer) v1PrizesClaim(c *fiber.Ctx) error {
 		WHERE signature = $1
 			AND mint = $2
 			AND owner = $3
-			AND change = $4
 		LIMIT 1
 	`, req.Signature, yakMintAddress, prizeReceiverAddress, yakClaimAmount).Scan(
 		&receiverBalanceChange.Owner,
-		&receiverBalanceChange.Change,
 	)
 
 	if receiverQueryErr != nil {
