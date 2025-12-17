@@ -772,6 +772,270 @@ func TestV1PrizesClaim(t *testing.T) {
 		assert.Equal(t, downloadURL, dbActionDataMap["download_url"])
 	})
 
+	t.Run("Success - download prize with code", func(t *testing.T) {
+		// Insert a prize with download metadata that includes download_url and coupon_code as flat fields
+		downloadWithCodePrizeID := "prize_download_with_code"
+		downloadURL := "https://example.com/products/item"
+		couponCode := "TESTCODE2025"
+		downloadMetadata := fmt.Sprintf(`{"type": "download", "download_url": "%s", "coupon_code": "%s"}`, downloadURL, couponCode)
+		_, err := app.writePool.Exec(ctx, `
+			INSERT INTO prizes (prize_id, name, weight, is_active, metadata)
+			VALUES ($1, 'Download with Code', 1, true, $2::jsonb)
+			ON CONFLICT (prize_id) DO UPDATE SET metadata = $2::jsonb, is_active = true
+		`, downloadWithCodePrizeID, downloadMetadata)
+		require.NoError(t, err)
+
+		// Deactivate other prizes to ensure this one is selected
+		_, err = app.writePool.Exec(ctx, `UPDATE prizes SET is_active = false WHERE prize_id != $1`, downloadWithCodePrizeID)
+		require.NoError(t, err)
+
+		// Insert a valid balance change (user spending)
+		downloadCodeSignature := "download_code_sig_123"
+		_, err = app.writePool.Exec(ctx, `
+			INSERT INTO sol_token_account_balance_changes 
+			(signature, mint, owner, account, change, balance, slot, block_timestamp)
+			VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
+			ON CONFLICT DO NOTHING
+		`, downloadCodeSignature, yakMintAddress, validWallet, "account_download_code", -yakClaimAmount, 1000000000000, 12372, time.Now())
+		require.NoError(t, err)
+
+		// Insert receiver balance change
+		_, err = app.writePool.Exec(ctx, `
+			INSERT INTO sol_token_account_balance_changes 
+			(signature, mint, owner, account, change, balance, slot, block_timestamp)
+			VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
+			ON CONFLICT DO NOTHING
+		`, downloadCodeSignature, yakMintAddress, prizeReceiverAddress, "receiver_account_download_code", yakClaimAmount, 1000000000000, 12372, time.Now())
+		require.NoError(t, err)
+
+		requestBody := PrizeClaimRequest{
+			Signature: downloadCodeSignature,
+			Wallet:    validWallet,
+		}
+
+		body, err := json.Marshal(requestBody)
+		require.NoError(t, err)
+
+		var resp PrizeClaimResponse
+		status, respBody := testPost(t, app, "/v1/prizes/claim", body, map[string]string{
+			"Content-Type": "application/json",
+		}, &resp)
+
+		assert.Equal(t, 200, status, "Response body: %s", string(respBody))
+		assert.Equal(t, downloadWithCodePrizeID, resp.PrizeID)
+		assert.Equal(t, "Download with Code", resp.PrizeName)
+		assert.Equal(t, validWallet, resp.Wallet)
+		assert.NotNil(t, resp.PrizeType, "Prize type should be set")
+		assert.Equal(t, "download", *resp.PrizeType)
+		assert.NotNil(t, resp.ActionData, "Action data should be set")
+
+		// Parse action_data to verify it contains both download_url and coupon_code
+		var actionData map[string]string
+		err = json.Unmarshal(resp.ActionData, &actionData)
+		assert.NoError(t, err, "Action data should be valid JSON")
+		assert.Contains(t, actionData, "download_url", "Action data should contain download_url")
+		assert.Contains(t, actionData, "coupon_code", "Action data should contain coupon_code")
+		assert.Equal(t, downloadURL, actionData["download_url"], "Download URL should match")
+		assert.Equal(t, couponCode, actionData["coupon_code"], "Coupon code should match")
+
+		// Verify it was saved to database with correct prize_type and action_data
+		var dbPrizeID, dbPrizeName, dbWallet, dbPrizeType string
+		var dbActionData json.RawMessage
+		err = app.writePool.QueryRow(ctx, `
+			SELECT prize_id, prize_name, wallet, prize_type, action_data
+			FROM claimed_prizes 
+			WHERE signature = $1
+		`, downloadCodeSignature).Scan(&dbPrizeID, &dbPrizeName, &dbWallet, &dbPrizeType, &dbActionData)
+		assert.NoError(t, err)
+		assert.Equal(t, downloadWithCodePrizeID, dbPrizeID)
+		assert.Equal(t, "Download with Code", dbPrizeName)
+		assert.Equal(t, validWallet, dbWallet)
+		assert.Equal(t, "download", dbPrizeType)
+
+		// Verify action_data in database matches response (should include both fields)
+		var dbActionDataMap map[string]string
+		err = json.Unmarshal(dbActionData, &dbActionDataMap)
+		assert.NoError(t, err)
+		assert.Equal(t, downloadURL, dbActionDataMap["download_url"])
+		assert.Equal(t, couponCode, dbActionDataMap["coupon_code"])
+	})
+
+	t.Run("Success - link type prize", func(t *testing.T) {
+		// Insert a prize with link metadata
+		linkPrizeID := "prize_link"
+		linkURL := "https://example.com/exclusive-access"
+		linkMetadata := fmt.Sprintf(`{"type": "link", "url": "%s"}`, linkURL)
+		_, err := app.writePool.Exec(ctx, `
+			INSERT INTO prizes (prize_id, name, weight, is_active, metadata)
+			VALUES ($1, 'Exclusive Link Access', 1, true, $2::jsonb)
+			ON CONFLICT (prize_id) DO UPDATE SET metadata = $2::jsonb, is_active = true
+		`, linkPrizeID, linkMetadata)
+		require.NoError(t, err)
+
+		// Deactivate other prizes to ensure this one is selected
+		_, err = app.writePool.Exec(ctx, `UPDATE prizes SET is_active = false WHERE prize_id != $1`, linkPrizeID)
+		require.NoError(t, err)
+
+		// Insert a valid balance change (user spending)
+		linkSignature := "link_sig_123"
+		_, err = app.writePool.Exec(ctx, `
+			INSERT INTO sol_token_account_balance_changes 
+			(signature, mint, owner, account, change, balance, slot, block_timestamp)
+			VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
+			ON CONFLICT DO NOTHING
+		`, linkSignature, yakMintAddress, validWallet, "account_link", -yakClaimAmount, 1000000000000, 12371, time.Now())
+		require.NoError(t, err)
+
+		// Insert receiver balance change
+		_, err = app.writePool.Exec(ctx, `
+			INSERT INTO sol_token_account_balance_changes 
+			(signature, mint, owner, account, change, balance, slot, block_timestamp)
+			VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
+			ON CONFLICT DO NOTHING
+		`, linkSignature, yakMintAddress, prizeReceiverAddress, "receiver_account_link", yakClaimAmount, 1000000000000, 12371, time.Now())
+		require.NoError(t, err)
+
+		requestBody := PrizeClaimRequest{
+			Signature: linkSignature,
+			Wallet:    validWallet,
+		}
+
+		body, err := json.Marshal(requestBody)
+		require.NoError(t, err)
+
+		var resp PrizeClaimResponse
+		status, respBody := testPost(t, app, "/v1/prizes/claim", body, map[string]string{
+			"Content-Type": "application/json",
+		}, &resp)
+
+		assert.Equal(t, 200, status, "Response body: %s", string(respBody))
+		assert.Equal(t, linkPrizeID, resp.PrizeID)
+		assert.Equal(t, "Exclusive Link Access", resp.PrizeName)
+		assert.Equal(t, validWallet, resp.Wallet)
+		assert.NotNil(t, resp.PrizeType, "Prize type should be set")
+		assert.Equal(t, "link", *resp.PrizeType)
+		assert.NotNil(t, resp.ActionData, "Action data should be set")
+
+		// Parse action_data to verify it contains url
+		var actionData map[string]string
+		err = json.Unmarshal(resp.ActionData, &actionData)
+		assert.NoError(t, err, "Action data should be valid JSON")
+		assert.Contains(t, actionData, "url", "Action data should contain url")
+		assert.Equal(t, linkURL, actionData["url"], "URL should match")
+
+		// Verify it was saved to database with correct prize_type and action_data
+		var dbPrizeID, dbPrizeName, dbWallet, dbPrizeType string
+		var dbActionData json.RawMessage
+		err = app.writePool.QueryRow(ctx, `
+			SELECT prize_id, prize_name, wallet, prize_type, action_data
+			FROM claimed_prizes 
+			WHERE signature = $1
+		`, linkSignature).Scan(&dbPrizeID, &dbPrizeName, &dbWallet, &dbPrizeType, &dbActionData)
+		assert.NoError(t, err)
+		assert.Equal(t, linkPrizeID, dbPrizeID)
+		assert.Equal(t, "Exclusive Link Access", dbPrizeName)
+		assert.Equal(t, validWallet, dbWallet)
+		assert.Equal(t, "link", dbPrizeType)
+
+		// Verify action_data in database matches response
+		var dbActionDataMap map[string]string
+		err = json.Unmarshal(dbActionData, &dbActionDataMap)
+		assert.NoError(t, err)
+		assert.Equal(t, linkURL, dbActionDataMap["url"])
+	})
+
+	t.Run("Success - form type prize", func(t *testing.T) {
+		// Insert a prize with form metadata
+		formPrizeID := "prize_form"
+		formURL := "https://docs.google.com/forms/u/1/d/e/1FAIpQLSdvb-tIRm-NjO3qUPV9LCyRsFIr0bzch3LKfwDOCGKTAalQ0Q/formResponse"
+		entry := "entry.1496700855"
+		name := "Handle"
+		formMetadata := fmt.Sprintf(`{"type": "form", "url": "%s", "entry": "%s", "name": "%s"}`, formURL, entry, name)
+		_, err := app.writePool.Exec(ctx, `
+			INSERT INTO prizes (prize_id, name, weight, is_active, metadata)
+			VALUES ($1, 'Form Prize', 1, true, $2::jsonb)
+			ON CONFLICT (prize_id) DO UPDATE SET metadata = $2::jsonb, is_active = true
+		`, formPrizeID, formMetadata)
+		require.NoError(t, err)
+
+		// Deactivate other prizes to ensure this one is selected
+		_, err = app.writePool.Exec(ctx, `UPDATE prizes SET is_active = false WHERE prize_id != $1`, formPrizeID)
+		require.NoError(t, err)
+
+		// Insert a valid balance change (user spending)
+		formSignature := "form_sig_123"
+		_, err = app.writePool.Exec(ctx, `
+			INSERT INTO sol_token_account_balance_changes 
+			(signature, mint, owner, account, change, balance, slot, block_timestamp)
+			VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
+			ON CONFLICT DO NOTHING
+		`, formSignature, yakMintAddress, validWallet, "account_form", -yakClaimAmount, 1000000000000, 12373, time.Now())
+		require.NoError(t, err)
+
+		// Insert receiver balance change
+		_, err = app.writePool.Exec(ctx, `
+			INSERT INTO sol_token_account_balance_changes 
+			(signature, mint, owner, account, change, balance, slot, block_timestamp)
+			VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
+			ON CONFLICT DO NOTHING
+		`, formSignature, yakMintAddress, prizeReceiverAddress, "receiver_account_form", yakClaimAmount, 1000000000000, 12373, time.Now())
+		require.NoError(t, err)
+
+		requestBody := PrizeClaimRequest{
+			Signature: formSignature,
+			Wallet:    validWallet,
+		}
+
+		body, err := json.Marshal(requestBody)
+		require.NoError(t, err)
+
+		var resp PrizeClaimResponse
+		status, respBody := testPost(t, app, "/v1/prizes/claim", body, map[string]string{
+			"Content-Type": "application/json",
+		}, &resp)
+
+		assert.Equal(t, 200, status, "Response body: %s", string(respBody))
+		assert.Equal(t, formPrizeID, resp.PrizeID)
+		assert.Equal(t, "Form Prize", resp.PrizeName)
+		assert.Equal(t, validWallet, resp.Wallet)
+		assert.NotNil(t, resp.PrizeType, "Prize type should be set")
+		assert.Equal(t, "form", *resp.PrizeType)
+		assert.NotNil(t, resp.ActionData, "Action data should be set")
+
+		// Parse action_data to verify it contains url, entry, and name
+		var actionData map[string]string
+		err = json.Unmarshal(resp.ActionData, &actionData)
+		assert.NoError(t, err, "Action data should be valid JSON")
+		assert.Contains(t, actionData, "url", "Action data should contain url")
+		assert.Contains(t, actionData, "entry", "Action data should contain entry")
+		assert.Contains(t, actionData, "name", "Action data should contain name")
+		assert.Equal(t, formURL, actionData["url"], "URL should match")
+		assert.Equal(t, entry, actionData["entry"], "Entry should match")
+		assert.Equal(t, name, actionData["name"], "Name should match")
+
+		// Verify it was saved to database with correct prize_type and action_data
+		var dbPrizeID, dbPrizeName, dbWallet, dbPrizeType string
+		var dbActionData json.RawMessage
+		err = app.writePool.QueryRow(ctx, `
+			SELECT prize_id, prize_name, wallet, prize_type, action_data
+			FROM claimed_prizes 
+			WHERE signature = $1
+		`, formSignature).Scan(&dbPrizeID, &dbPrizeName, &dbWallet, &dbPrizeType, &dbActionData)
+		assert.NoError(t, err)
+		assert.Equal(t, formPrizeID, dbPrizeID)
+		assert.Equal(t, "Form Prize", dbPrizeName)
+		assert.Equal(t, validWallet, dbWallet)
+		assert.Equal(t, "form", dbPrizeType)
+
+		// Verify action_data in database matches response
+		var dbActionDataMap map[string]string
+		err = json.Unmarshal(dbActionData, &dbActionDataMap)
+		assert.NoError(t, err)
+		assert.Equal(t, formURL, dbActionDataMap["url"])
+		assert.Equal(t, entry, dbActionDataMap["entry"])
+		assert.Equal(t, name, dbActionDataMap["name"])
+	})
+
 	t.Run("GET /v1/prizes - URLs not leaked in public endpoint", func(t *testing.T) {
 		// Insert prizes with sensitive URLs
 		downloadURL := "https://example.com/downloads/exclusive-track.mp3"

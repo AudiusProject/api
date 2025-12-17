@@ -60,6 +60,8 @@ type PrizeMetadata struct {
 	URL         string          `json:"url,omitempty"`
 	DownloadURL string          `json:"download_url,omitempty"`
 	CouponCode  string          `json:"coupon_code,omitempty"`
+	Entry       string          `json:"entry,omitempty"`
+	Name        string          `json:"name,omitempty"`
 	ActionData  json.RawMessage `json:"action_data,omitempty"`
 }
 
@@ -267,6 +269,12 @@ func (app *ApiServer) v1PrizesClaim(c *fiber.Ctx) error {
 					}
 					if metadata.CouponCode != "" {
 						actionDataMap["coupon_code"] = metadata.CouponCode
+					}
+					if metadata.Entry != "" {
+						actionDataMap["entry"] = metadata.Entry
+					}
+					if metadata.Name != "" {
+						actionDataMap["name"] = metadata.Name
 					}
 					if len(actionDataMap) > 0 {
 						actionData, _ = json.Marshal(actionDataMap)
