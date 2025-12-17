@@ -136,7 +136,8 @@ func (app *ApiServer) v1PrizesClaim(c *fiber.Ctx) error {
 		FROM sol_token_account_balance_changes
 		WHERE signature = $1
 			AND mint = $2
-			AND owner = $3
+			-- Owner in the case of a wallet, account in the case of a user bank
+			AND (owner = $3 OR account = $3)
 			AND change = $4
 		LIMIT 1
 	`, req.Signature, yakMintAddress, req.Wallet, -yakClaimAmount).Scan(
