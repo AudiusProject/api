@@ -9,7 +9,7 @@ type Node struct {
 	DelegateWallet string
 	// The wallet address for the node owner/operator
 	Owner string
-	// Discovery Nodes have storage disabled
+	// Service type (discovery-node, content-node, validator)
 	ServiceType string
 	// Date of registration
 	RegisteredAt string

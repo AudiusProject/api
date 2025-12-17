@@ -676,7 +676,7 @@ func (app *ApiServer) home(c *fiber.Ctx) error {
 		"started": app.started,
 		"uptime":  time.Since(app.started).Truncate(time.Second).String(),
 		"data": []string{
-			"https://discoveryprovider.audius.co",
+			"https://api.audius.co",
 		},
 	})
 }
