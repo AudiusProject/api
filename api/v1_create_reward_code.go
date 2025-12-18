@@ -227,125 +227,55 @@ func (app *ApiServer) createRewardCode(ctx context.Context, code, mint string, a
 
 	// Only create reward pool if deterministic secret is configured
 	if app.config.LaunchpadDeterministicSecret != "" {
-		app.logger.Info("createRewardCode: Deterministic secret configured, checking for existing reward pool",
-			zap.String("mint", mint))
-		// Check for existing reward address for this mint (reuse pattern)
-		var existingRewardAddress string
-		err := app.pool.QueryRow(ctx, `
-			SELECT reward_address FROM reward_codes 
-			WHERE mint = $1 AND reward_address IS NOT NULL AND reward_address != ''
-			LIMIT 1
-		`, mint).Scan(&existingRewardAddress)
-
-		if err == nil && existingRewardAddress != "" {
-			// Reuse existing reward pool
-			app.logger.Info("createRewardCode: Reusing existing reward pool",
-				zap.String("mint", mint),
-				zap.String("reward_address", existingRewardAddress))
-			rewardAddress = existingRewardAddress
-		} else {
-			if err != nil && err != pgx.ErrNoRows {
-				app.logger.Warn("createRewardCode: Error checking for existing reward pool, will create new",
-					zap.String("mint", mint),
-					zap.Error(err))
-			} else {
-				app.logger.Info("createRewardCode: No existing reward pool found, creating new",
-					zap.String("mint", mint))
-			}
-
-			// Create new reward pool
-			app.logger.Info("createRewardCode: Parsing mint public key",
-				zap.String("mint", mint))
-			mintPubKey, err := solana.PublicKeyFromBase58(mint)
-			if err != nil {
-				app.logger.Error("createRewardCode: Invalid mint address",
-					zap.String("mint", mint),
-					zap.Error(err))
-				return "", fmt.Errorf("invalid mint address: %w", err)
-			}
-
-			app.logger.Info("createRewardCode: Deriving Ethereum address for mint",
-				zap.String("mint", mint))
-			claimAuthority, claimAuthorityPrivateKey, err := utils.DeriveEthAddressForMint(
-				[]byte("claimAuthority"),
-				app.config.LaunchpadDeterministicSecret,
-				mintPubKey,
-			)
-			if err != nil {
-				app.logger.Error("createRewardCode: Failed to derive Ethereum key",
-					zap.String("mint", mint),
-					zap.Error(err))
-				return "", fmt.Errorf("failed to derive Ethereum key: %w", err)
-			}
-			app.logger.Info("createRewardCode: Ethereum address derived",
-				zap.String("claim_authority", claimAuthority),
-				zap.String("mint", mint))
-
-			// Convert the private key to the format expected by the SDK
-			app.logger.Info("createRewardCode: Converting private key format")
-			privateKey, err := common.EthToEthKey(claimAuthorityPrivateKey)
-			if err != nil {
-				app.logger.Error("createRewardCode: Failed to convert private key",
-					zap.Error(err))
-				return "", fmt.Errorf("failed to convert private key: %w", err)
-			}
-
-			// Create OpenAudio SDK instance and set the private key
-			app.logger.Info("createRewardCode: Creating OpenAudio SDK instance",
-				zap.String("audiusd_url", app.config.AudiusdURL))
-			oap := sdk.NewOpenAudioSDK(app.config.AudiusdURL)
-			oap.SetPrivKey(privateKey)
-
-			// Get current chain status to calculate deadline
-			app.logger.Info("createRewardCode: Getting chain status")
-			statusResp, err := oap.Core.GetStatus(ctx, connect.NewRequest(&v1.GetStatusRequest{}))
-			if err != nil {
-				app.logger.Error("createRewardCode: Failed to get chain status",
-					zap.String("audiusd_url", app.config.AudiusdURL),
-					zap.Error(err))
-				return "", fmt.Errorf("failed to get chain status: %w", err)
-			}
-
-			currentHeight := statusResp.Msg.ChainInfo.CurrentHeight
-			deadline := currentHeight + 100
-			rewardID := code
-
-			// Convert from whole YAK (as stored in database) to smallest units for OpenAudio SDK
-			// reward_codes.amount stores whole YAK, but OpenAudio SDK expects smallest units (9 decimals)
-			amountInSmallestUnits := amount * 1000000000
-			app.logger.Info("createRewardCode: Creating reward pool",
-				zap.String("reward_id", rewardID),
-				zap.String("name", fmt.Sprintf("%s Reward %s", rewardName, code)),
-				zap.Int64("amount_whole_yak", amount),
-				zap.Uint64("amount_smallest_units", uint64(amountInSmallestUnits)),
-				zap.String("claim_authority", claimAuthority),
-				zap.Int64("deadline", deadline))
-
-			reward, err := oap.Rewards.CreateReward(ctx, &v1.CreateReward{
-				RewardId: rewardID,
-				Name:     fmt.Sprintf("%s Reward %s", rewardName, code),
-				Amount:   uint64(amountInSmallestUnits),
-				ClaimAuthorities: []*v1.ClaimAuthority{
-					{Address: claimAuthority, Name: rewardName},
-				},
-				DeadlineBlockHeight: deadline,
-			})
-			if err != nil {
-				app.logger.Error("createRewardCode: Failed to create reward pool via OpenAudio SDK",
-					zap.String("reward_id", rewardID),
-					zap.String("audiusd_url", app.config.AudiusdURL),
-					zap.Error(err))
-				return "", fmt.Errorf("failed to create reward pool: %w", err)
-			}
-
-			rewardAddress = reward.Address
-			app.logger.Info("createRewardCode: Reward pool created successfully",
-				zap.String("reward_address", rewardAddress),
-				zap.String("reward_id", rewardID))
+		mintPubKey, err := solana.PublicKeyFromBase58(mint)
+		if err != nil {
+			return "", fmt.Errorf("invalid mint address: %w", err)
 		}
+
+		claimAuthority, claimAuthorityPrivateKey, err := utils.DeriveEthAddressForMint(
+			[]byte("claimAuthority"),
+			app.config.LaunchpadDeterministicSecret,
+			mintPubKey,
+		)
+		if err != nil {
+			return "", fmt.Errorf("failed to derive Ethereum key: %w", err)
+		}
+
+		// Convert the private key to the format expected by the SDK
+		privateKey, err := common.EthToEthKey(claimAuthorityPrivateKey)
+		if err != nil {
+			return "", fmt.Errorf("failed to convert private key: %w", err)
+		}
+
+		// Create OpenAudio SDK instance and set the private key
+		oap := sdk.NewOpenAudioSDK(app.config.AudiusdURL)
+		oap.SetPrivKey(privateKey)
+
+		// Get current chain status to calculate deadline
+		statusResp, err := oap.Core.GetStatus(context.Background(), connect.NewRequest(&v1.GetStatusRequest{}))
+		if err != nil {
+			return "", fmt.Errorf("failed to get chain status: %w", err)
+		}
+
+		currentHeight := statusResp.Msg.ChainInfo.CurrentHeight
+		deadline := currentHeight + 100
+		rewardID := fmt.Sprintf("%s", code)
+
+		reward, err := oap.Rewards.CreateReward(context.Background(), &v1.CreateReward{
+			RewardId: rewardID,
+			Name:     fmt.Sprintf("Launchpad Reward %s", code),
+			Amount:   uint64(amount),
+			ClaimAuthorities: []*v1.ClaimAuthority{
+				{Address: claimAuthority, Name: "Launchpad"},
+			},
+			DeadlineBlockHeight: deadline,
+		})
+		if err != nil {
+			return "", fmt.Errorf("failed to create reward pool: %w", err)
+		}
+
+		rewardAddress = reward.Address
 	} else {
-		app.logger.Info("createRewardCode: No deterministic secret configured, skipping reward pool creation",
-			zap.String("mint", mint))
 		rewardAddress = ""
 	}
 
