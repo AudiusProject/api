@@ -17,7 +17,7 @@ import (
 const (
 	yakMintAddress       = "ZDaUDL4XFdEct7UgeztrFQAptsvh4ZdhyZDZ1RpxYAK"
 	yakClaimAmount       = 2000000000 // 2 YAK with 9 decimals - amount required to claim a prize (for Solana transaction)
-	prizeReceiverAddress = "EHd892m3xNWGBuAXnafavqcFjXXUZp9bGecdSDNP2SLR"
+	prizeReceiverAddress = "14FwoYck4DNGKQ1UnPJgrxTPGrdpGaueDVgkvpssQeiB"
 )
 
 type PrizeClaimRequest struct {
