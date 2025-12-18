@@ -123,8 +123,6 @@ func (app *ApiServer) v1PrizesClaim(c *fiber.Ctx) error {
 	}
 
 	// Wait for the transaction to appear in sol_token_account_balance_changes to ensure no race conditions
-	startTime := time.Now()
-	maxWaitForNonExistent := 2 * time.Second // Fail faster if transaction doesn't exist at all
 	for {
 		select {
 		case <-ctx.Done():
@@ -146,13 +144,6 @@ func (app *ApiServer) v1PrizesClaim(c *fiber.Ctx) error {
 		}
 		if count >= 2 {
 			break
-		}
-		// If we've waited a reasonable time and count is still 0, the transaction likely doesn't exist
-		if count == 0 && time.Since(startTime) > maxWaitForNonExistent {
-			app.logger.Error("Transaction not found after waiting",
-				zap.String("wallet", req.Wallet),
-				zap.String("signature", req.Signature))
-			return fiber.NewError(fiber.StatusRequestTimeout, "Request timed out")
 		}
 		time.Sleep(200 * time.Millisecond) // Wait before retrying
 	}
