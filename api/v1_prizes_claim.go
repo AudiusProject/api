@@ -133,15 +133,16 @@ func (app *ApiServer) v1PrizesClaim(c *fiber.Ctx) error {
 		default:
 		}
 
-		var exists bool
+		var count int
+		// Wait for 2 balance changes to appear in the database (send & receive)
 		err := app.pool.QueryRow(ctx, `
-			SELECT EXISTS(SELECT 1 FROM sol_token_account_balance_changes WHERE signature = $1)
-		`, req.Signature).Scan(&exists)
+			SELECT COUNT(*) FROM sol_token_account_balance_changes WHERE signature = $1
+		`, req.Signature).Scan(&count)
 		if err != nil {
 			app.logger.Error("Failed to query transaction existence", zap.Error(err))
 			return fiber.NewError(fiber.StatusInternalServerError, "Database error")
 		}
-		if exists {
+		if count >= 2 {
 			break
 		}
 		time.Sleep(200 * time.Millisecond) // Wait before retrying
