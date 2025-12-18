@@ -16,7 +16,7 @@ import (
 
 const (
 	yakMintAddress       = "ZDaUDL4XFdEct7UgeztrFQAptsvh4ZdhyZDZ1RpxYAK"
-	yakClaimAmount       = 2000000000 // 2 YAK with 9 decimals - amount required to claim a prize (for Solana transaction)
+	yakClaimAmount       = 200000000000 // 200 YAK with 9 decimals - amount required to claim a prize (for Solana transaction)
 	prizeReceiverAddress = "14FwoYck4DNGKQ1UnPJgrxTPGrdpGaueDVgkvpssQeiB"
 )
 
@@ -152,8 +152,8 @@ func (app *ApiServer) v1PrizesClaim(c *fiber.Ctx) error {
 	// We need to find balance changes where:
 	// 1. The signature matches
 	// 2. The mint matches YAK
-	// 3. The user's account has a negative change of exactly -2 YAK (spending)
-	// 4. The prize receiver's account has a positive change of exactly +2 YAK (receiving)
+	// 3. The user's account has a negative change of exactly -200 YAK (spending)
+	// 4. The prize receiver's account has a positive change of exactly +200 YAK (receiving)
 	var userBalanceChange struct {
 		Owner   string
 		Change  int64
@@ -177,7 +177,7 @@ func (app *ApiServer) v1PrizesClaim(c *fiber.Ctx) error {
 
 	if queryErr != nil {
 		if errors.Is(queryErr, pgx.ErrNoRows) {
-			return fiber.NewError(fiber.StatusBadRequest, "Transaction not found or invalid. Must be exactly 2 YAK sent to the prize address.")
+			return fiber.NewError(fiber.StatusBadRequest, "Transaction not found or invalid. Must be exactly 200 YAK sent to the prize address.")
 		}
 		app.logger.Error("Failed to query balance changes", zap.Error(queryErr))
 		return fiber.NewError(fiber.StatusInternalServerError, "Database error")
@@ -209,7 +209,7 @@ func (app *ApiServer) v1PrizesClaim(c *fiber.Ctx) error {
 
 	if receiverQueryErr != nil {
 		if errors.Is(receiverQueryErr, pgx.ErrNoRows) {
-			return fiber.NewError(fiber.StatusBadRequest, "Transaction not found or invalid. Must send exactly 2 YAK to the prize receiver address.")
+			return fiber.NewError(fiber.StatusBadRequest, "Transaction not found or invalid. Must send exactly 200 YAK to the prize receiver address.")
 		}
 		app.logger.Error("Failed to query receiver balance changes", zap.Error(receiverQueryErr))
 		return fiber.NewError(fiber.StatusInternalServerError, "Database error")
