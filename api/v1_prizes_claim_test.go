@@ -280,6 +280,15 @@ func TestV1PrizesClaim(t *testing.T) {
 		`, "wrong_mint_sig", otherMint, validWallet, "account3", -yakClaimAmount, 1000000000000, 12347, time.Now())
 		require.NoError(t, err)
 
+		// Insert second balance change to pass the wait loop (but with wrong mint, so validation will fail)
+		_, err = app.writePool.Exec(ctx, `
+			INSERT INTO sol_token_account_balance_changes 
+			(signature, mint, owner, account, change, balance, slot, block_timestamp)
+			VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
+			ON CONFLICT DO NOTHING
+		`, "wrong_mint_sig", otherMint, prizeReceiverAddress, "receiver_account3", yakClaimAmount, 1000000000000, 12347, time.Now())
+		require.NoError(t, err)
+
 		requestBody := PrizeClaimRequest{
 			Signature: "wrong_mint_sig",
 			Wallet:    validWallet,
@@ -306,6 +315,15 @@ func TestV1PrizesClaim(t *testing.T) {
 		`, "wrong_amount_sig", yakMintAddress, validWallet, "account_wrong_amount", -wrongAmount, 1000000000000, 12350, time.Now())
 		require.NoError(t, err)
 
+		// Insert second balance change to pass the wait loop (but with wrong amount, so validation will fail)
+		_, err = app.writePool.Exec(ctx, `
+			INSERT INTO sol_token_account_balance_changes 
+			(signature, mint, owner, account, change, balance, slot, block_timestamp)
+			VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
+			ON CONFLICT DO NOTHING
+		`, "wrong_amount_sig", yakMintAddress, prizeReceiverAddress, "receiver_account_wrong_amount", wrongAmount, 1000000000000, 12350, time.Now())
+		require.NoError(t, err)
+
 		requestBody := PrizeClaimRequest{
 			Signature: "wrong_amount_sig",
 			Wallet:    validWallet,
@@ -329,6 +347,15 @@ func TestV1PrizesClaim(t *testing.T) {
 			VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
 			ON CONFLICT DO NOTHING
 		`, "wrong_wallet_sig", yakMintAddress, otherWallet, "account4", -yakClaimAmount, 1000000000000, 12348, time.Now())
+		require.NoError(t, err)
+
+		// Insert second balance change to pass the wait loop (but with wrong wallet, so validation will fail)
+		_, err = app.writePool.Exec(ctx, `
+			INSERT INTO sol_token_account_balance_changes 
+			(signature, mint, owner, account, change, balance, slot, block_timestamp)
+			VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
+			ON CONFLICT DO NOTHING
+		`, "wrong_wallet_sig", yakMintAddress, prizeReceiverAddress, "receiver_account4", yakClaimAmount, 1000000000000, 12348, time.Now())
 		require.NoError(t, err)
 
 		requestBody := PrizeClaimRequest{
@@ -405,6 +432,15 @@ func TestV1PrizesClaim(t *testing.T) {
 		`, "positive_change_sig", yakMintAddress, validWallet, "account7", yakClaimAmount, 1000000000000, 12351, time.Now())
 		require.NoError(t, err)
 
+		// Insert second balance change to pass the wait loop (but user has positive change, so validation will fail)
+		_, err = app.writePool.Exec(ctx, `
+			INSERT INTO sol_token_account_balance_changes 
+			(signature, mint, owner, account, change, balance, slot, block_timestamp)
+			VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
+			ON CONFLICT DO NOTHING
+		`, "positive_change_sig", yakMintAddress, prizeReceiverAddress, "receiver_account7", -yakClaimAmount, 1000000000000, 12351, time.Now())
+		require.NoError(t, err)
+
 		requestBody := PrizeClaimRequest{
 			Signature: "positive_change_sig",
 			Wallet:    validWallet,
@@ -428,6 +464,15 @@ func TestV1PrizesClaim(t *testing.T) {
 			VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
 			ON CONFLICT DO NOTHING
 		`, "zero_change_sig", yakMintAddress, validWallet, "account8", 0, 1000000000000, 12352, time.Now())
+		require.NoError(t, err)
+
+		// Insert second balance change to pass the wait loop (but user has zero change, so validation will fail)
+		_, err = app.writePool.Exec(ctx, `
+			INSERT INTO sol_token_account_balance_changes 
+			(signature, mint, owner, account, change, balance, slot, block_timestamp)
+			VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
+			ON CONFLICT DO NOTHING
+		`, "zero_change_sig", yakMintAddress, prizeReceiverAddress, "receiver_account8", yakClaimAmount, 1000000000000, 12352, time.Now())
 		require.NoError(t, err)
 
 		requestBody := PrizeClaimRequest{
