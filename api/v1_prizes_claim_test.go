@@ -82,7 +82,7 @@ func TestV1PrizesClaim(t *testing.T) {
 	const (
 		yakMintAddress       = "ZDaUDL4XFdEct7UgeztrFQAptsvh4ZdhyZDZ1RpxYAK"
 		yakClaimAmount       = 2000000000 // 2 YAK with 9 decimals - amount required to claim a prize
-		prizeReceiverAddress = "EHd892m3xNWGBuAXnafavqcFjXXUZp9bGecdSDNP2SLR"
+		prizeReceiverAddress = "14FwoYck4DNGKQ1UnPJgrxTPGrdpGaueDVgkvpssQeiB"
 		validWallet          = "HLnpSz9h2S4hiLQ43rnSD9XkcUThA7B8hQMKmDaiTLcC"
 		validSignature       = "valid_signature_123"
 		otherWallet          = "DDT15s6MMNxE4jkyGN46wNYqrgLWofT6WAvWtjYYrCUq"
