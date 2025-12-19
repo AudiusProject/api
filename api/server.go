@@ -4,8 +4,11 @@ import (
 	"context"
 	_ "embed"
 	"fmt"
+	"math/rand"
 	"net"
 	"net/http"
+	"net/http/httputil"
+	"net/url"
 	"os"
 	"os/signal"
 	"reflect"
@@ -594,6 +597,25 @@ func NewApiServer(config config.Config) *ApiServer {
 
 	// Unsplash proxy
 	app.All("/unsplash/*", app.unsplash)
+
+	// Archiver proxy
+	if len(config.ArchiverNodes) > 0 {
+		app.All("/archive/*", func(c *fiber.Ctx) error {
+			randIdx := rand.Intn(len(config.ArchiverNodes))
+			upstreamUrl := config.ArchiverNodes[randIdx]
+			upstream, err := url.Parse(upstreamUrl)
+			if err != nil {
+				return fiber.NewError(fiber.StatusBadGateway, "Invalid Archiver upstream url")
+			}
+			proxy := httputil.NewSingleHostReverseProxy(upstream)
+			origDirector := proxy.Director
+			proxy.Director = func(req *http.Request) {
+				origDirector(req)
+				req.Host = upstream.Host
+			}
+			return adaptor.HTTPHandler(proxy)(c)
+		})
+	}
 
 	app.Static("/", "./static")
 

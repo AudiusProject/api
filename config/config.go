@@ -34,6 +34,7 @@ type Config struct {
 	NetworkTakeRate                float64
 	SolanaConfig                   SolanaConfig
 	AntiAbuseOracles               []string
+	ArchiverNodes                  []string
 	Rewards                        []rewards.Reward
 	AudiusdURL                     string
 	OpenAudioURLs                  []string
@@ -99,6 +100,7 @@ func init() {
 			Cfg.DelegatePrivateKey = "13422b9affd75ff80f94f1ea394e6a6097830cb58cda2d3542f37464ecaee7df"
 		}
 		Cfg.AntiAbuseOracles = []string{"http://audius-discovery-provider-1"}
+		Cfg.ArchiverNodes = []string{"http://audius-discovery-provider-1"}
 		Cfg.Rewards = core_config.MakeRewards(core_config.DevClaimAuthorities, core_config.DevRewardExtensions)
 		Cfg.AudiusdURL = "http://audius-creator-node-1"
 		Cfg.ChainId = "audius-devnet"
@@ -121,6 +123,7 @@ func init() {
 			log.Fatalf("Missing required %s env var: delegatePrivateKey", env)
 		}
 		Cfg.AntiAbuseOracles = []string{"https://discoveryprovider.staging.audius.co"}
+		Cfg.ArchiverNodes = []string{"https://discoveryprovider.staging.audius.co"}
 		Cfg.DeadNodes = []string{}
 		Cfg.StoreAllNodes = []string{}
 		Cfg.UploadNodes = StageUploadNodes
@@ -162,6 +165,7 @@ func init() {
 			log.Fatalf("Missing required %s env var: delegatePrivateKey", env)
 		}
 		Cfg.AntiAbuseOracles = []string{"https://discoveryprovider.audius.co"}
+		Cfg.ArchiverNodes = []string{"https://discoveryprovider.audius.co"}
 		Cfg.DeadNodes = []string{
 			"https://content.grassfed.network",
 		}
