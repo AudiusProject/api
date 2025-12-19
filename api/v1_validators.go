@@ -3,6 +3,7 @@ package api
 import (
 	"context"
 	"strconv"
+	"strings"
 	"sync"
 	"time"
 
@@ -81,7 +82,13 @@ func (app *ApiServer) updateNodes(ctx context.Context) {
 		})
 	}
 	app.validators.SetNodes(nodesList)
-	rendezvous.Refresh(nodesList)
+	rendezvousNodes := make([]config.Node, 0, len(nodesList))
+	for _, n := range nodesList {
+		if strings.EqualFold(n.ServiceType, "validator") || strings.EqualFold(n.ServiceType, "content-node") {
+			rendezvousNodes = append(rendezvousNodes, n)
+		}
+	}
+	rendezvous.Refresh(rendezvousNodes)
 }
 
 func (app *ApiServer) v1Validators(c *fiber.Ctx) error {
