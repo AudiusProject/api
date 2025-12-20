@@ -165,7 +165,7 @@ func NewSubmitAttestationInstruction(
 	if err != nil {
 		return nil, err
 	}
-	sender, _, err := deriveSenderAccount(ProgramID, authority, senderEthAddress)
+	sender, _, err := DeriveSenderAccount(ProgramID, authority, senderEthAddress)
 	if err != nil {
 		return nil, err
 	}

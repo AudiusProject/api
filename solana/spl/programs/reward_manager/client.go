@@ -84,6 +84,11 @@ func (rc *RewardManagerClient) GetLookupTableAccount() solana.PublicKey {
 	return rc.lookupTableAccount
 }
 
+// GetAuthority returns the authority account for this reward manager instance
+func (rc *RewardManagerClient) GetAuthority() solana.PublicKey {
+	return rc.authority
+}
+
 // Gets the claims already submitted for a rewards claim from the account data.
 func (rc *RewardManagerClient) GetSubmittedAttestations(
 	ctx context.Context,
