@@ -55,7 +55,7 @@ func (app *ApiServer) v1UsersLibraryTracks(c *fiber.Ctx) error {
 	}
 
 	trackFilters := []string{
-		"(is_unlisted = false OR is_purchase = true)",
+		"is_unlisted = false",
 	}
 
 	if params.Query != "" {
@@ -104,7 +104,7 @@ func (app *ApiServer) v1UsersLibraryTracks(c *fiber.Ctx) error {
 			bool_or(is_purchase) as is_purchase
 		FROM library_items
 		JOIN tracks ON track_id = item_id
-		WHERE is_unlisted = false OR is_purchase = true
+		WHERE is_unlisted = false
 		GROUP BY item_id
 	)
 	SELECT
