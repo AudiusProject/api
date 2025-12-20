@@ -125,25 +125,32 @@ func TestUsersLibraryTracksUnlistedFiltered(t *testing.T) {
 	var response struct {
 		Data []struct {
 			ItemID int32 `json:"item_id"`
+			Item   any   `json:"item"`
 		} `json:"data"`
 	}
 
-	// Test that unlisted tracks are filtered out from favorites
+	// Test that unlisted tracks saved (not purchased) are filtered out from favorites
 	status, _ := testGet(t, app, "/v1/full/users/"+user1Id+"/library/tracks?type=favorite", &response)
 	assert.Equal(t, 200, status)
 	assert.Equal(t, 1, len(response.Data), "Should only have public track")
 	assert.Equal(t, int32(100), response.Data[0].ItemID, "Should only return public track")
+	assert.NotNil(t, response.Data[0].Item, "Track metadata should not be null")
 
-	// Test that unlisted purchased tracks are filtered out
+	// Test that unlisted purchased tracks ARE included and have metadata
 	status, _ = testGet(t, app, "/v1/full/users/"+user1Id+"/library/tracks?type=purchase", &response)
 	assert.Equal(t, 200, status)
-	assert.Equal(t, 0, len(response.Data), "Should not return unlisted purchased tracks")
+	assert.Equal(t, 1, len(response.Data), "Should return unlisted purchased track")
+	assert.Equal(t, int32(201), response.Data[0].ItemID, "Should return unlisted purchased track")
+	assert.NotNil(t, response.Data[0].Item, "Unlisted purchased track metadata should not be null")
 
-	// Test that unlisted tracks are filtered out from all
+	// Test that unlisted purchased tracks are included in all
 	status, _ = testGet(t, app, "/v1/full/users/"+user1Id+"/library/tracks?type=all", &response)
 	assert.Equal(t, 200, status)
-	assert.Equal(t, 1, len(response.Data), "Should only have public track")
-	assert.Equal(t, int32(100), response.Data[0].ItemID, "Should only return public track")
+	assert.Equal(t, 2, len(response.Data), "Should have both public and unlisted purchased tracks")
+	// Verify both tracks have metadata
+	for _, item := range response.Data {
+		assert.NotNil(t, item.Item, "Track metadata should not be null for item_id %d", item.ItemID)
+	}
 }
 
 func TestUsersLibraryTracksSorting(t *testing.T) {
