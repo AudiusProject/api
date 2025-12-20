@@ -199,3 +199,25 @@ func TestUsersLibraryTracksQuery(t *testing.T) {
 		assert.Contains(t, item.Item.Title, "T1", "All results should match query")
 	}
 }
+
+func TestUsersLibraryTracksMetadataNotNull(t *testing.T) {
+	app := testAppWithFixtures(t)
+	user1Id := trashid.MustEncodeHashID(1)
+
+	var response struct {
+		Data []struct {
+			ItemID int32 `json:"item_id"`
+			Item   any   `json:"item"`
+		} `json:"data"`
+	}
+
+	// Test that all returned tracks have non-null metadata
+	status, _ := testGet(t, app, "/v1/full/users/"+user1Id+"/library/tracks?type=all", &response)
+	assert.Equal(t, 200, status)
+	assert.GreaterOrEqual(t, len(response.Data), 1, "Should have at least one track")
+
+	// Verify all items have non-null metadata
+	for _, item := range response.Data {
+		assert.NotNil(t, item.Item, "Track metadata should not be null for item_id %d", item.ItemID)
+	}
+}

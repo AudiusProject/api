@@ -156,11 +156,12 @@ func (app *ApiServer) v1UsersLibraryTracks(c *fiber.Ctx) error {
 		trackIds = append(trackIds, i.ItemID)
 	}
 
-	// get tracks
+	// get tracks - include unlisted tracks since they may be in the library (e.g., purchases)
 	tracks, err := app.queries.FullTracksKeyed(c.Context(), dbv1.FullTracksParams{
 		GetTracksParams: dbv1.GetTracksParams{
-			Ids:  trackIds,
-			MyID: myId,
+			Ids:             trackIds,
+			MyID:            myId,
+			IncludeUnlisted: true,
 		},
 	})
 	if err != nil {
