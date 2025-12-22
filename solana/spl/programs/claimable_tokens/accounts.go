@@ -15,14 +15,14 @@ func deriveNonce(ethAddress common.Address, authority solana.PublicKey) (solana.
 	return solana.FindProgramAddress([][]byte{authority.Bytes()[:32], seed}, ProgramID)
 }
 
-func deriveAuthority(mint solana.PublicKey) (solana.PublicKey, uint8, error) {
+func DeriveAuthority(mint solana.PublicKey) (solana.PublicKey, uint8, error) {
 	return solana.FindProgramAddress([][]byte{mint.Bytes()[:32]}, ProgramID)
 }
 
 func deriveUserBankAccount(mint solana.PublicKey, ethAddress common.Address) (solana.PublicKey, error) {
 	ethAddressBytes := ethAddress.Bytes()
 	seed := base58.Encode(ethAddressBytes)
-	authority, _, err := deriveAuthority(mint)
+	authority, _, err := DeriveAuthority(mint)
 	if err != nil {
 		return solana.PublicKey{}, err
 	}
