@@ -126,13 +126,20 @@ func (data *AttestationsAccountData) UnmarshalWithDecoder(decoder *bin.Decoder) 
 	return nil
 }
 
+type SenderAccountData struct {
+	Version            uint8
+	RewardManagerState solana.PublicKey
+	SenderEthAddress   common.Address
+	OwnerEthAddress    common.Address
+}
+
 func deriveAuthorityAccount(programId solana.PublicKey, state solana.PublicKey) (solana.PublicKey, uint8, error) {
 	seeds := make([][]byte, 1)
 	seeds[0] = state.Bytes()[0:32]
 	return solana.FindProgramAddress(seeds, programId)
 }
 
-func deriveSenderAccount(programId solana.PublicKey, authority solana.PublicKey, ethAddress common.Address) (solana.PublicKey, uint8, error) {
+func DeriveSenderAccount(programId solana.PublicKey, authority solana.PublicKey, ethAddress common.Address) (solana.PublicKey, uint8, error) {
 	senderSeedPrefix := []byte(SenderSeedPrefix)
 	decodedEthAddress := ethAddress.Bytes()
 	// Pad the eth address if necessary w/ leading 0

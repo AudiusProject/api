@@ -236,7 +236,7 @@ func NewEvaluateAttestationInstruction(
 	if err != nil {
 		return nil, err
 	}
-	antiAbuseOracle, _, err := deriveSenderAccount(ProgramID, authority, antiAbuseOracleAddress)
+	antiAbuseOracle, _, err := DeriveSenderAccount(ProgramID, authority, antiAbuseOracleAddress)
 	if err != nil {
 		return nil, err
 	}
