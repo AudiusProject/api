@@ -13,7 +13,7 @@ SELECT EXISTS(
   SELECT 1
   FROM developer_apps
   WHERE 
-    address = @address
+    address = lower(@address)
     AND is_current = true
     AND is_delete = false
 );

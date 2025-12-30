@@ -16,7 +16,7 @@ SELECT EXISTS(
   SELECT 1
   FROM developer_apps
   WHERE 
-    address = $1
+    address = lower($1)
     AND is_current = true
     AND is_delete = false
 )
