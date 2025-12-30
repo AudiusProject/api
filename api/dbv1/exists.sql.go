@@ -35,7 +35,7 @@ SELECT EXISTS(
   FROM grants
   WHERE 
     user_id = $1
-    AND grantee_address = $2
+    AND grantee_address = lower($2)
     AND is_current = true
     AND is_revoked = false
 )

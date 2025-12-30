@@ -24,7 +24,7 @@ SELECT EXISTS(
   FROM grants
   WHERE 
     user_id = @user_id
-    AND grantee_address = @grantee_address
+    AND grantee_address = lower(@grantee_address)
     AND is_current = true
     AND is_revoked = false
 );
