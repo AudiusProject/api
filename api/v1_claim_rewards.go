@@ -115,15 +115,17 @@ func getAntiAbuseOracleAttestation(args GetAntiAbuseOracleAttestationParams) (*S
 		return nil, err
 	}
 
-	// Pad the start if there's a missing leading zero
-	signature := respBody.Result
-	if len(signature)%2 == 1 {
-		signature = "0" + signature
+	// Ensure signature is exactly 130 hex characters (65 bytes for secp256k1 signature)
+	signature := strings.TrimPrefix(respBody.Result, "0x")
+	if len(signature) < 130 {
+		signature = strings.Repeat("0", 130-len(signature)) + signature
 	}
-	signatureBytes, err := hex.DecodeString(strings.TrimPrefix(signature, "0x"))
+
+	signatureBytes, err := hex.DecodeString(signature)
 	if err != nil {
 		return nil, err
 	}
+
 	attestation := SenderAttestation{
 		EthAddress: common.HexToAddress(address),
 		Message:    message,
