@@ -32,3 +32,26 @@ func (p *OpenAudioPool) Get() (*sdk.OpenAudioSDK, string) {
 	i := rand.Intn(len(p.clients))
 	return p.clients[i], p.endpoints[i]
 }
+
+func (p *OpenAudioPool) GetAll() []struct {
+	Client   *sdk.OpenAudioSDK
+	Endpoint string
+} {
+	result := make([]struct {
+		Client   *sdk.OpenAudioSDK
+		Endpoint string
+	}, 0, len(p.clients))
+	for i, client := range p.clients {
+		result = append(result, struct {
+			Client   *sdk.OpenAudioSDK
+			Endpoint string
+		}{
+			Client:   client,
+			Endpoint: p.endpoints[i],
+		})
+	}
+	rand.Shuffle(len(result), func(i, j int) {
+		result[i], result[j] = result[j], result[i]
+	})
+	return result
+}

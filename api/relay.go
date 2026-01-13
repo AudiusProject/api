@@ -260,28 +260,36 @@ func (app *ApiServer) relay(c *fiber.Ctx) error {
 }
 
 func (app *ApiServer) handleRelay(ctx context.Context, logger *zap.Logger, decodedTx *v1.ManageEntityLegacy) (*v1.Transaction, error) {
-	// submit tx to core via randomly selected OpenAudio endpoint
-	client, endpoint := app.openAudioPool.Get()
-	if client == nil {
+	allClients := app.openAudioPool.GetAll()
+	if len(allClients) == 0 {
 		logger.Error("no OpenAudio clients configured")
 		return nil, fmt.Errorf("no OpenAudio clients configured")
 	}
-	logger = logger.With(zap.String("openaudio_endpoint", endpoint))
-	res, err := client.Core.SendTransaction(ctx, connect.NewRequest(&v1.SendTransactionRequest{
-		Transaction: &v1.SignedTransaction{
-			Transaction: &v1.SignedTransaction_ManageEntity{
-				ManageEntity: decodedTx,
+
+	var lastErr error
+	for i, clientInfo := range allClients {
+		endpointLogger := logger.With(zap.String("openaudio_endpoint", clientInfo.Endpoint), zap.Int("attempt", i+1))
+		res, err := clientInfo.Client.Core.SendTransaction(ctx, connect.NewRequest(&v1.SendTransactionRequest{
+			Transaction: &v1.SignedTransaction{
+				Transaction: &v1.SignedTransaction_ManageEntity{
+					ManageEntity: decodedTx,
+				},
 			},
-		},
-	}))
-	if err != nil {
-		logger.Error("error sending transaction", zap.Error(err))
-		return nil, err
+		}))
+
+		if err != nil {
+			lastErr = err
+			endpointLogger.Warn("transaction failed, trying next", zap.Error(err))
+			continue
+		}
+
+		msg := res.Msg.Transaction
+		endpointLogger.Info("transaction confirmed", zap.String("hash", msg.GetHash()))
+		return msg, nil
 	}
 
-	msg := res.Msg.Transaction
-	logger.Info("transaction confirmed", zap.String("hash", msg.GetHash()))
-	return msg, nil
+	logger.Error("all OpenAudio endpoints failed", zap.Error(lastErr))
+	return nil, fmt.Errorf("all endpoints failed, last error: %w", lastErr)
 }
 
 func transactionToReceipt(tx *v1.Transaction, wallet string) map[string]interface{} {
