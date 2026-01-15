@@ -21,7 +21,6 @@ var (
 	ProdUploadNodes = []string{
 		"https://creatornode.audius.co",
 		"https://creatornode2.audius.co",
-		"https://creatornode3.audius.co",
 	}
 	StageUploadNodes = []string{
 		"https://creatornode6.staging.audius.co",
