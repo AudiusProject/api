@@ -159,7 +159,6 @@ func init() {
 		Cfg.OpenAudioURLs = []string{
 			"creatornode.audius.co",
 			"creatornode2.audius.co",
-			"creatornode3.audius.co",
 		}
 		if Cfg.DelegatePrivateKey == "" {
 			log.Fatalf("Missing required %s env var: delegatePrivateKey", env)
