@@ -91,9 +91,10 @@ func init() {
 		fallthrough
 	case "":
 		Cfg.OpenAudioURLs = []string{
-			"http://audius-creator-node-1",
-			"http://audius-creator-node-2",
-			"http://audius-creator-node-3",
+			"https://node1.oap.devnet",
+			"https://node2.oap.devnet",
+			"https://node3.oap.devnet",
+			"https://node4.oap.devnet",
 		}
 		if Cfg.DelegatePrivateKey == "" {
 			// Dummy key
@@ -102,8 +103,8 @@ func init() {
 		Cfg.AntiAbuseOracles = []string{"http://audius-discovery-provider-1"}
 		Cfg.ArchiverNodes = []string{"http://audius-discovery-provider-1"}
 		Cfg.Rewards = core_config.MakeRewards(core_config.DevClaimAuthorities, core_config.DevRewardExtensions)
-		Cfg.AudiusdURL = "http://audius-creator-node-1"
-		Cfg.ChainId = "audius-devnet"
+		Cfg.AudiusdURL = "https://node1.oap.devnet"
+		Cfg.ChainId = "openaudio-devnet"
 		Cfg.SolanaIndexerWorkers = 1
 		Cfg.DeadNodes = []string{}
 		Cfg.StoreAllNodes = []string{}

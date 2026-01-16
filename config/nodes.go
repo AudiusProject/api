@@ -26,6 +26,9 @@ var (
 		"https://creatornode6.staging.audius.co",
 	}
 	DevUploadNodes = []string{
-		"http://audius-creator-node-1",
+		"https://node1.oap.devnet",
+		"https://node2.oap.devnet",
+		"https://node3.oap.devnet",
+		"https://node4.oap.devnet",
 	}
 )
