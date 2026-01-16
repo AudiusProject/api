@@ -49,6 +49,8 @@ require (
 	google.golang.org/protobuf v1.36.6
 )
 
+require github.com/bdragon300/tusgo v0.1.2 // indirect
+
 require (
 	filippo.io/edwards25519 v1.0.0-rc.1 // indirect
 	github.com/DataDog/zstd v1.5.2 // indirect
@@ -150,7 +152,6 @@ require (
 	github.com/jmhodges/levigo v1.0.0 // indirect
 	github.com/josharian/intern v1.0.0 // indirect
 	github.com/json-iterator/go v1.1.12 // indirect
-	github.com/jsternberg/zap-logfmt v1.3.0
 	github.com/kamstrup/intmap v0.5.1 // indirect
 	github.com/kballard/go-shellquote v0.0.0-20180428030007-95032a82bc51 // indirect
 	github.com/klauspost/compress v1.18.0 // indirect
