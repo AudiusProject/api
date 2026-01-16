@@ -2,6 +2,7 @@ package api
 
 import (
 	"math/rand"
+	"net/http"
 
 	"github.com/OpenAudio/go-openaudio/pkg/sdk"
 )
@@ -11,13 +12,13 @@ type OpenAudioPool struct {
 	clients   []*sdk.OpenAudioSDK
 }
 
-func NewOpenAudioPool(urls []string) *OpenAudioPool {
+func NewOpenAudioPool(urls []string, httpClient *http.Client) *OpenAudioPool {
 	clients := make([]*sdk.OpenAudioSDK, 0, len(urls))
 	for _, u := range urls {
 		if u == "" {
 			continue
 		}
-		clients = append(clients, sdk.NewOpenAudioSDK(u))
+		clients = append(clients, sdk.NewOpenAudioSDKWithClient(u, httpClient))
 	}
 	return &OpenAudioPool{
 		endpoints: urls,

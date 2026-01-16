@@ -2,6 +2,7 @@ package api
 
 import (
 	"context"
+	"crypto/tls"
 	_ "embed"
 	"fmt"
 	"net"
@@ -162,13 +163,32 @@ func NewApiServer(config config.Config) *ApiServer {
 		logger.Error("dial es failed", zap.String("url", config.EsUrl), zap.Error(err))
 	}
 
-	openAudioSDK := sdk.NewOpenAudioSDK(config.AudiusdURL)
+	httpClient := http.DefaultClient
+	if config.Env == "development" || config.Env == "dev" {
+		httpClient = &http.Client{
+			Transport: &http.Transport{
+				DialContext: (&net.Dialer{
+					Timeout:   30 * time.Second,
+					KeepAlive: 30 * time.Second,
+				}).DialContext,
+				ForceAttemptHTTP2:     true,
+				MaxIdleConns:          100,
+				IdleConnTimeout:       90 * time.Second,
+				TLSHandshakeTimeout:   10 * time.Second,
+				ExpectContinueTimeout: 1 * time.Second,
+				// Skip TLS verification in dev mode
+				TLSClientConfig: &tls.Config{InsecureSkipVerify: true},
+			},
+		}
+	}
+
+	openAudioSDK := sdk.NewOpenAudioSDKWithClient(config.AudiusdURL, httpClient)
 	// Build OpenAudio pool URLs; fall back to single URL if none provided
 	openAudioURLs := config.OpenAudioURLs
 	if len(openAudioURLs) == 0 {
 		openAudioURLs = []string{config.AudiusdURL}
 	}
-	openAudioPool := NewOpenAudioPool(openAudioURLs)
+	openAudioPool := NewOpenAudioPool(openAudioURLs, httpClient)
 
 	skipAuthCheck, _ := strconv.ParseBool(os.Getenv("skipAuthCheck"))
 
