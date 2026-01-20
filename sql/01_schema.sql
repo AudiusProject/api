@@ -2,9 +2,8 @@
 -- PostgreSQL database dump
 --
 
-
--- Dumped from database version 17.7 (Debian 17.7-3.pgdg13+1)
--- Dumped by pg_dump version 17.7 (Debian 17.7-3.pgdg13+1)
+-- Dumped from database version 17.5 (Debian 17.5-1.pgdg120+1)
+-- Dumped by pg_dump version 17.5 (Debian 17.5-1.pgdg120+1)
 
 SET statement_timeout = 0;
 SET lock_timeout = 0;
@@ -5863,6 +5862,28 @@ CREATE TABLE public.api_metrics_apps (
 
 
 --
+-- Name: api_metrics_apps_unique; Type: TABLE; Schema: public; Owner: -
+--
+
+CREATE TABLE public.api_metrics_apps_unique (
+    date date NOT NULL,
+    app_name character varying(255) NOT NULL,
+    hll_sketch bytea,
+    total_count bigint DEFAULT 0 NOT NULL,
+    unique_count bigint DEFAULT 0 NOT NULL,
+    created_at timestamp without time zone DEFAULT now() NOT NULL,
+    updated_at timestamp without time zone DEFAULT now() NOT NULL
+);
+
+
+--
+-- Name: TABLE api_metrics_apps_unique; Type: COMMENT; Schema: public; Owner: -
+--
+
+COMMENT ON TABLE public.api_metrics_apps_unique IS 'Stores HLL sketches for tracking unique users per application. app_name stores the identifier (api_key if present, otherwise app_name from request).';
+
+
+--
 -- Name: api_metrics_counts; Type: TABLE; Schema: public; Owner: -
 --
 
@@ -6232,21 +6253,21 @@ CREATE VIEW public.artist_coin_prices AS
  SELECT artist_coins.mint,
     damm_v2.price AS damm_v2_price,
     dbc.price AS dbc_price,
-    stats.price AS stats_price,
     pools.price_usd AS pools_price_usd,
-    COALESCE(damm_v2.price, dbc.price, stats.price, pools.price_usd) AS price
+    stats.price AS stats_price,
+    COALESCE(damm_v2.price, dbc.price, pools.price_usd, stats.price) AS price
    FROM ((((public.artist_coins
      LEFT JOIN dbc ON (((artist_coins.mint)::text = (dbc.mint)::text)))
      LEFT JOIN damm_v2 ON (((artist_coins.mint)::text = (damm_v2.mint)::text)))
-     LEFT JOIN public.artist_coin_stats stats ON ((stats.mint = (artist_coins.mint)::text)))
-     LEFT JOIN public.artist_coin_pools pools ON ((pools.base_mint = (artist_coins.mint)::text)));
+     LEFT JOIN public.artist_coin_pools pools ON ((pools.base_mint = (artist_coins.mint)::text)))
+     LEFT JOIN public.artist_coin_stats stats ON ((stats.mint = (artist_coins.mint)::text)));
 
 
 --
 -- Name: VIEW artist_coin_prices; Type: COMMENT; Schema: public; Owner: -
 --
 
-COMMENT ON VIEW public.artist_coin_prices IS 'View that provides artist coin prices using DAMM V2 pool if available, DBC pools if not and still applicable, stats table if available, and artist_coin_pools.price_usd as final fallback. Makes use of the price of the quote token (AUDIO) from Birdeye if using a pool.';
+COMMENT ON VIEW public.artist_coin_prices IS 'View that provides artist coin prices using DAMM V2 pool if available, DBC pools if not and still applicable, artist_coin_pools.price_usd as fallback, and artist_coin_stats.price as final fallback (primarily for AUDIO and other tokens without pools). Makes use of the price of the quote token (AUDIO) from Birdeye if using a pool.';
 
 
 --
@@ -9426,6 +9447,14 @@ ALTER TABLE ONLY public.api_metrics_apps
 
 
 --
+-- Name: api_metrics_apps_unique api_metrics_apps_unique_pkey; Type: CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.api_metrics_apps_unique
+    ADD CONSTRAINT api_metrics_apps_unique_pkey PRIMARY KEY (date, app_name);
+
+
+--
 -- Name: api_metrics_counts api_metrics_counts_pkey; Type: CONSTRAINT; Schema: public; Owner: -
 --
 
@@ -10729,6 +10758,20 @@ CREATE INDEX idx_api_metrics_apps_app_name ON public.api_metrics_apps USING btre
 --
 
 CREATE INDEX idx_api_metrics_apps_date ON public.api_metrics_apps USING btree (date);
+
+
+--
+-- Name: idx_api_metrics_apps_unique_app_name; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX idx_api_metrics_apps_unique_app_name ON public.api_metrics_apps_unique USING btree (app_name);
+
+
+--
+-- Name: idx_api_metrics_apps_unique_date; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX idx_api_metrics_apps_unique_date ON public.api_metrics_apps_unique USING btree (date);
 
 
 --
@@ -12533,5 +12576,4 @@ ALTER TABLE ONLY public.users
 --
 -- PostgreSQL database dump complete
 --
-
 

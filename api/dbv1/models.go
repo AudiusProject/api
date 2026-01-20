@@ -792,6 +792,17 @@ type ApiMetricsApp struct {
 	UpdatedAt    time.Time   `json:"updated_at"`
 }
 
+// Stores HLL sketches for tracking unique users per application. app_name stores the identifier (api_key if present, otherwise app_name from request).
+type ApiMetricsAppsUnique struct {
+	Date        pgtype.Date `json:"date"`
+	AppName     string      `json:"app_name"`
+	HllSketch   []byte      `json:"hll_sketch"`
+	TotalCount  int64       `json:"total_count"`
+	UniqueCount int64       `json:"unique_count"`
+	CreatedAt   time.Time   `json:"created_at"`
+	UpdatedAt   time.Time   `json:"updated_at"`
+}
+
 type ApiMetricsCount struct {
 	Date        pgtype.Date `json:"date"`
 	HllSketch   []byte      `json:"hll_sketch"`
@@ -882,13 +893,13 @@ type ArtistCoinPool struct {
 	CreatorWalletAddress    pgtype.Text    `json:"creator_wallet_address"`
 }
 
-// View that provides artist coin prices using DAMM V2 pool if available, DBC pools if not and still applicable, stats table if available, and artist_coin_pools.price_usd as final fallback. Makes use of the price of the quote token (AUDIO) from Birdeye if using a pool.
+// View that provides artist coin prices using DAMM V2 pool if available, DBC pools if not and still applicable, artist_coin_pools.price_usd as fallback, and artist_coin_stats.price as final fallback (primarily for AUDIO and other tokens without pools). Makes use of the price of the quote token (AUDIO) from Birdeye if using a pool.
 type ArtistCoinPrice struct {
 	Mint          string        `json:"mint"`
 	DammV2Price   pgtype.Int4   `json:"damm_v2_price"`
 	DbcPrice      pgtype.Int4   `json:"dbc_price"`
-	StatsPrice    pgtype.Float8 `json:"stats_price"`
 	PoolsPriceUsd pgtype.Float8 `json:"pools_price_usd"`
+	StatsPrice    pgtype.Float8 `json:"stats_price"`
 	Price         int32         `json:"price"`
 }
 
