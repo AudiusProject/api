@@ -12,7 +12,7 @@ type GetAggregateAppMetricsRouteParams struct {
 }
 
 type GetMetricsAppsQueryParams struct {
-	Limit int `query:"limit" default:"100" validate:"min=1,max=1000"`
+	Limit int `query:"limit" default:"500" validate:"min=1,max=1000"`
 }
 
 type AppMetric struct {
