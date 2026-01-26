@@ -100,7 +100,7 @@ func squareImageStruct(maybeCids ...pgtype.Text) *SquareImage {
 
 	// rendezvous for cid
 	first, rest := rendezvous.GlobalHasher.ReplicaSet3(cid)
-	rest = append(rest, config.Cfg.StoreAllNodes...)
+	rest = append(config.Cfg.StoreAllNodes, rest...)
 
 	return &SquareImage{
 		X150x150:   fmt.Sprintf("%s/content/%s/150x150.jpg", first, cid),
