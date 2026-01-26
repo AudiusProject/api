@@ -142,29 +142,101 @@ func (app *ApiServer) v1MetricsAppsUnique(c *fiber.Ctx) error {
 
 	// Merge sketches for each (bucket, app) combination
 	result := make([]TimestampedAppUniqueMetric, 0)
-	for _, bucket := range bucketOrder {
-		for key, sketchRows := range bucketAppMap {
-			if key.Bucket != bucket {
-				continue
-			}
-			merged, err := hll.MergeSketches(sketchRows, 12)
-			if err != nil {
-				return fmt.Errorf("failed to merge sketches for bucket %s, identifier %s: %w", bucket, key.Identifier, err)
+
+	// When no app_name is provided, we need to ensure all buckets are included
+	// by limiting apps per bucket rather than applying a global limit
+	if queryParams.AppName == "" {
+		// Collect all apps for each bucket, sorted by unique count
+		type bucketAppResult struct {
+			Timestamp string
+			AppUniqueMetric
+		}
+		bucketResults := make(map[string][]bucketAppResult)
+
+		for _, bucket := range bucketOrder {
+			bucketApps := make([]bucketAppResult, 0)
+			for key, sketchRows := range bucketAppMap {
+				if key.Bucket != bucket {
+					continue
+				}
+				merged, err := hll.MergeSketches(sketchRows, 12)
+				if err != nil {
+					return fmt.Errorf("failed to merge sketches for bucket %s, identifier %s: %w", bucket, key.Identifier, err)
+				}
+
+				// Use the display name from the join, or fall back to identifier
+				displayName := nameMap[key.Identifier]
+				if displayName == "" {
+					displayName = key.Identifier
+				}
+
+				bucketApps = append(bucketApps, bucketAppResult{
+					Timestamp: bucket,
+					AppUniqueMetric: AppUniqueMetric{
+						Name:        displayName,
+						UniqueCount: int64(merged.UniqueCount),
+					},
+				})
 			}
 
-			// Use the display name from the join, or fall back to identifier
-			displayName := nameMap[key.Identifier]
-			if displayName == "" {
-				displayName = key.Identifier
-			}
-
-			result = append(result, TimestampedAppUniqueMetric{
-				Timestamp: bucket,
-				AppUniqueMetric: AppUniqueMetric{
-					Name:        displayName,
-					UniqueCount: int64(merged.UniqueCount),
-				},
+			// Sort apps within bucket by unique count descending
+			sort.Slice(bucketApps, func(i, j int) bool {
+				return bucketApps[i].UniqueCount > bucketApps[j].UniqueCount
 			})
+
+			// Calculate apps per bucket to ensure all buckets are included
+			// Distribute limit across all buckets, with minimum 1 app per bucket
+			// This ensures we get data for all dates, not just the first few dates
+			appsPerBucket := queryParams.Limit / len(bucketOrder)
+			if appsPerBucket < 1 {
+				// If we have more buckets than the limit, we'll still include 1 app per bucket
+				// and let the final limit trim if needed (but at least all buckets are represented)
+				appsPerBucket = 1
+			}
+			if len(bucketApps) > appsPerBucket {
+				bucketApps = bucketApps[:appsPerBucket]
+			}
+
+			bucketResults[bucket] = bucketApps
+		}
+
+		// Flatten results maintaining bucket order
+		for _, bucket := range bucketOrder {
+			if apps, ok := bucketResults[bucket]; ok {
+				for _, app := range apps {
+					result = append(result, TimestampedAppUniqueMetric{
+						Timestamp:       app.Timestamp,
+						AppUniqueMetric: app.AppUniqueMetric,
+					})
+				}
+			}
+		}
+	} else {
+		// When app_name is provided, process all buckets for that app
+		for _, bucket := range bucketOrder {
+			for key, sketchRows := range bucketAppMap {
+				if key.Bucket != bucket {
+					continue
+				}
+				merged, err := hll.MergeSketches(sketchRows, 12)
+				if err != nil {
+					return fmt.Errorf("failed to merge sketches for bucket %s, identifier %s: %w", bucket, key.Identifier, err)
+				}
+
+				// Use the display name from the join, or fall back to identifier
+				displayName := nameMap[key.Identifier]
+				if displayName == "" {
+					displayName = key.Identifier
+				}
+
+				result = append(result, TimestampedAppUniqueMetric{
+					Timestamp: bucket,
+					AppUniqueMetric: AppUniqueMetric{
+						Name:        displayName,
+						UniqueCount: int64(merged.UniqueCount),
+					},
+				})
+			}
 		}
 	}
 
@@ -176,7 +248,7 @@ func (app *ApiServer) v1MetricsAppsUnique(c *fiber.Ctx) error {
 		return result[i].UniqueCount > result[j].UniqueCount
 	})
 
-	// Apply limit
+	// Apply limit (for app_name case, or as final safeguard)
 	if len(result) > queryParams.Limit {
 		result = result[:queryParams.Limit]
 	}
