@@ -146,7 +146,6 @@ func (app *ApiServer) v1MetricsAppsUnique(c *fiber.Ctx) error {
 	// When no app_name is provided, we need to ensure all buckets are included
 	// by limiting apps per bucket rather than applying a global limit
 	if queryParams.AppName == "" {
-		// Collect all apps for each bucket, sorted by unique count
 		type bucketAppResult struct {
 			Timestamp string
 			AppUniqueMetric
@@ -248,7 +247,7 @@ func (app *ApiServer) v1MetricsAppsUnique(c *fiber.Ctx) error {
 		return result[i].UniqueCount > result[j].UniqueCount
 	})
 
-	// Apply limit (for app_name case, or as final safeguard)
+	// Apply limit
 	if len(result) > queryParams.Limit {
 		result = result[:queryParams.Limit]
 	}
