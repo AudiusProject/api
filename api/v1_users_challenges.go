@@ -31,7 +31,6 @@ func (app *ApiServer) v1UsersChallenges(c *fiber.Ctx) error {
 
 	-- Start with the list of all active challenges, and then
 	-- apply the user's user challenges and disbursements.
-	-- Filter out incomplete trending challenges,
 	-- verified-only challenges if not verified
 	-- and non-verified only challenges if verified.
 	all_user_challenges AS (
@@ -56,7 +55,6 @@ func (app *ApiServer) v1UsersChallenges(c *fiber.Ctx) error {
 			ON user_challenges_filtered.challenge_id = challenge_disbursements_filtered.challenge_id
 			AND user_challenges_filtered.specifier = challenge_disbursements_filtered.specifier
 		WHERE challenges.active
-			AND (challenges.type != 'trending' OR user_challenges_filtered.is_complete)
 			AND NOT (challenges.id IN ('rv', 's') AND NOT user_row.is_verified)
 			AND NOT (challenges.id IN ('r') AND user_row.is_verified)
 	),
