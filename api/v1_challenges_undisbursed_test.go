@@ -1,6 +1,7 @@
 package api
 
 import (
+	"context"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
@@ -8,6 +9,11 @@ import (
 
 func TestGetUndisbursedChallenges(t *testing.T) {
 	app := testAppWithFixtures(t)
+
+	// Set all users as verified so they can see all challenges
+	ctx := context.Background()
+	_, err := app.pool.Exec(ctx, `UPDATE users SET is_verified = true WHERE is_current = true`)
+	assert.NoError(t, err)
 
 	// Test basic functionality with no parameters
 	status, body := testGet(t, app, "/v1/challenges/undisbursed")
