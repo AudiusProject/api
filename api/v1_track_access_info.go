@@ -54,7 +54,7 @@ func (app *ApiServer) v1TrackAccessInfo(c *fiber.Ctx) error {
 	trackId := c.Locals("trackId").(int)
 
 	// Get the track with extended information
-	tracks, err := app.queries.FullTracks(c.Context(), dbv1.FullTracksParams{
+	tracks, err := app.queries.Tracks(c.Context(), dbv1.TracksParams{
 		GetTracksParams: dbv1.GetTracksParams{
 			MyID:            myId,
 			Ids:             []int32{int32(trackId)},

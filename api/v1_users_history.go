@@ -131,7 +131,7 @@ func (app *ApiServer) v1UsersHistory(c *fiber.Ctx) error {
 	}
 
 	// get tracks
-	tracks, err := app.queries.FullTracksKeyed(c.Context(), dbv1.FullTracksParams{
+	tracks, err := app.queries.TracksKeyed(c.Context(), dbv1.TracksParams{
 		GetTracksParams: dbv1.GetTracksParams{
 			Ids:             trackIds,
 			MyID:            myId,
@@ -146,11 +146,7 @@ func (app *ApiServer) v1UsersHistory(c *fiber.Ctx) error {
 	filteredItems := []Activity{}
 	for _, item := range items {
 		if t, ok := tracks[item.ItemID]; ok {
-			if app.getIsFull(c) {
-				item.Item = t
-			} else {
-				item.Item = dbv1.ToMinTrack(t)
-			}
+			item.Item = t
 			filteredItems = append(filteredItems, item)
 		}
 	}

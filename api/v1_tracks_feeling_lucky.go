@@ -61,7 +61,7 @@ func (app *ApiServer) v1TracksFeelingLucky(c *fiber.Ctx) error {
 		return err
 	}
 
-	tracks, err := app.queries.FullTracks(c.Context(), dbv1.FullTracksParams{
+	tracks, err := app.queries.Tracks(c.Context(), dbv1.TracksParams{
 		GetTracksParams: dbv1.GetTracksParams{
 			Ids:  trackIds,
 			MyID: app.getMyId(c),

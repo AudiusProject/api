@@ -77,7 +77,7 @@ func TestV1TracksFeelingLucky(t *testing.T) {
 
 	{
 		var resp struct {
-			Data []dbv1.FullTrack
+			Data []dbv1.Track
 		}
 
 		status, body := testGet(t, app, "/v1/tracks/feeling-lucky", &resp)

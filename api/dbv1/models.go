@@ -2203,7 +2203,50 @@ type TagTrackUser struct {
 	OwnerID int32       `json:"owner_id"`
 }
 
-type Track struct {
+type TrackDelistStatus struct {
+	CreatedAt pgtype.Timestamptz `json:"created_at"`
+	TrackID   int32              `json:"track_id"`
+	OwnerID   int32              `json:"owner_id"`
+	TrackCid  string             `json:"track_cid"`
+	Delisted  bool               `json:"delisted"`
+	Reason    DelistTrackReason  `json:"reason"`
+}
+
+type TrackDownload struct {
+	Txhash        string      `json:"txhash"`
+	Blocknumber   int32       `json:"blocknumber"`
+	ParentTrackID int32       `json:"parent_track_id"`
+	TrackID       int32       `json:"track_id"`
+	UserID        pgtype.Int4 `json:"user_id"`
+	CreatedAt     time.Time   `json:"created_at"`
+	City          pgtype.Text `json:"city"`
+	Region        pgtype.Text `json:"region"`
+	Country       pgtype.Text `json:"country"`
+}
+
+type TrackPriceHistory struct {
+	TrackID         int32                  `json:"track_id"`
+	Splits          json.RawMessage        `json:"splits"`
+	TotalPriceCents int64                  `json:"total_price_cents"`
+	Blocknumber     int32                  `json:"blocknumber"`
+	BlockTimestamp  time.Time              `json:"block_timestamp"`
+	CreatedAt       time.Time              `json:"created_at"`
+	Access          UsdcPurchaseAccessType `json:"access"`
+}
+
+type TrackRoute struct {
+	Slug        string `json:"slug"`
+	TitleSlug   string `json:"title_slug"`
+	CollisionID int32  `json:"collision_id"`
+	OwnerID     int32  `json:"owner_id"`
+	TrackID     int32  `json:"track_id"`
+	IsCurrent   bool   `json:"is_current"`
+	Blockhash   string `json:"blockhash"`
+	Blocknumber int32  `json:"blocknumber"`
+	Txhash      string `json:"txhash"`
+}
+
+type TrackRow struct {
 	Blockhash                          pgtype.Text     `json:"blockhash"`
 	TrackID                            int32           `json:"track_id"`
 	IsCurrent                          bool            `json:"is_current"`
@@ -2281,49 +2324,6 @@ type Track struct {
 	NoAiUse         pgtype.Bool             `json:"no_ai_use"`
 	ParentalWarning NullParentalWarningType `json:"parental_warning"`
 	TerritoryCodes  []string                `json:"territory_codes"`
-}
-
-type TrackDelistStatus struct {
-	CreatedAt pgtype.Timestamptz `json:"created_at"`
-	TrackID   int32              `json:"track_id"`
-	OwnerID   int32              `json:"owner_id"`
-	TrackCid  string             `json:"track_cid"`
-	Delisted  bool               `json:"delisted"`
-	Reason    DelistTrackReason  `json:"reason"`
-}
-
-type TrackDownload struct {
-	Txhash        string      `json:"txhash"`
-	Blocknumber   int32       `json:"blocknumber"`
-	ParentTrackID int32       `json:"parent_track_id"`
-	TrackID       int32       `json:"track_id"`
-	UserID        pgtype.Int4 `json:"user_id"`
-	CreatedAt     time.Time   `json:"created_at"`
-	City          pgtype.Text `json:"city"`
-	Region        pgtype.Text `json:"region"`
-	Country       pgtype.Text `json:"country"`
-}
-
-type TrackPriceHistory struct {
-	TrackID         int32                  `json:"track_id"`
-	Splits          json.RawMessage        `json:"splits"`
-	TotalPriceCents int64                  `json:"total_price_cents"`
-	Blocknumber     int32                  `json:"blocknumber"`
-	BlockTimestamp  time.Time              `json:"block_timestamp"`
-	CreatedAt       time.Time              `json:"created_at"`
-	Access          UsdcPurchaseAccessType `json:"access"`
-}
-
-type TrackRoute struct {
-	Slug        string `json:"slug"`
-	TitleSlug   string `json:"title_slug"`
-	CollisionID int32  `json:"collision_id"`
-	OwnerID     int32  `json:"owner_id"`
-	TrackID     int32  `json:"track_id"`
-	IsCurrent   bool   `json:"is_current"`
-	Blockhash   string `json:"blockhash"`
-	Blocknumber int32  `json:"blocknumber"`
-	Txhash      string `json:"txhash"`
 }
 
 type TrackTrendingScore struct {

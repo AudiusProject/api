@@ -12,6 +12,7 @@ sql:
         sql_package: "pgx/v5"
         rename:
           user: UserRow
+          track: TrackRow
         overrides:
           - db_type: "pg_catalog.timestamp"
             engine: "postgresql"

@@ -5,7 +5,7 @@ import (
 	"github.com/gofiber/fiber/v2"
 )
 
-func createFilename(track *dbv1.FullTrack) string {
+func createFilename(track *dbv1.Track) string {
 	filename := track.OrigFilename.String
 	if filename == "" && track.OrigFileCid.String == "" {
 		filename = track.Title.String + ".mp3"
@@ -25,7 +25,7 @@ func (app *ApiServer) v1TrackDownload(c *fiber.Ctx) error {
 		return err
 	}
 
-	tracks, err := app.queries.FullTracks(c.Context(), dbv1.FullTracksParams{
+	tracks, err := app.queries.Tracks(c.Context(), dbv1.TracksParams{
 		GetTracksParams: dbv1.GetTracksParams{
 			MyID: myId,
 			Ids:  []int32{int32(trackId)},

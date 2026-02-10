@@ -11,7 +11,7 @@ import (
 func TestGetUsdcPurchase(t *testing.T) {
 	app := testAppWithFixtures(t)
 	var resp struct {
-		Data []dbv1.FullTrack
+		Data []dbv1.Track
 	}
 	status, body := testGet(t, app, "/v1/tracks/usdc-purchase", &resp)
 

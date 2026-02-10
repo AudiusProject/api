@@ -14,7 +14,7 @@ func TestGetUserTracks(t *testing.T) {
 	app := testAppWithFixtures(t)
 
 	var userTracksResponse struct {
-		Data []dbv1.FullTrack
+		Data []dbv1.Track
 	}
 
 	// Test support for handle
@@ -255,7 +255,7 @@ func TestGetUserTracksWithGateConditionFilter(t *testing.T) {
 	database.Seed(app.pool.Replicas[0], fixtures)
 
 	var userTracksResponse struct {
-		Data []dbv1.FullTrack
+		Data []dbv1.Track
 	}
 
 	baseUrl := fmt.Sprintf("/v1/full/users/%s/tracks", trashid.MustEncodeHashID(600))

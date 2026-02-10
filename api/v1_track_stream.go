@@ -9,7 +9,7 @@ func (app *ApiServer) v1TrackStream(c *fiber.Ctx) error {
 	myId := app.getMyId(c)
 	trackId := c.Locals("trackId").(int)
 
-	tracks, err := app.queries.FullTracks(c.Context(), dbv1.FullTracksParams{
+	tracks, err := app.queries.Tracks(c.Context(), dbv1.TracksParams{
 		GetTracksParams: dbv1.GetTracksParams{
 			MyID: myId,
 			Ids:  []int32{int32(trackId)},

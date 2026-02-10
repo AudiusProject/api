@@ -4486,6 +4486,120 @@ components:
           type: integer
         album_backlink:
           $ref: '#/components/schemas/album_backlink'
+        access:
+          $ref: '#/components/schemas/track_access_info'
+        ai_attribution_user_id:
+          type: integer
+        allowed_api_keys:
+          type: array
+          items:
+            type: string
+        artists:
+          type: object
+        audio_analysis_error_count:
+          type: integer
+        audio_upload_id:
+          type: string
+        blocknumber:
+          type: integer
+        bpm:
+          type: number
+        comments_disabled:
+          type: boolean
+        copyright_line:
+          type: object
+        cover_art:
+          type: string
+        cover_art_sizes:
+          type: string
+        cover_original_artist:
+          type: string
+        cover_original_song_title:
+          type: string
+        create_date:
+          type: string
+        created_at:
+          type: string
+          format: date-time
+        credits_splits:
+          type: string
+        ddex_release_ids:
+          type: object
+        download:
+          $ref: '#/components/schemas/media_link'
+        download_conditions:
+          $ref: '#/components/schemas/access_gate'
+        field_visibility:
+          type: object
+        followee_favorites:
+          type: array
+          items:
+            type: object
+        followee_reposts:
+          type: array
+          items:
+            type: object
+        has_current_user_reposted:
+          type: boolean
+        has_current_user_saved:
+          type: boolean
+        indirect_resource_contributors:
+          type: object
+        is_available:
+          type: boolean
+        is_custom_bpm:
+          type: boolean
+        is_custom_musical_key:
+          type: boolean
+        is_delete:
+          type: boolean
+        is_download_gated:
+          type: boolean
+        is_owned_by_user:
+          type: boolean
+        is_scheduled_release:
+          type: boolean
+        is_stream_gated:
+          type: boolean
+        is_unlisted:
+          type: boolean
+        iswc:
+          type: string
+        license:
+          type: string
+        musical_key:
+          type: string
+        parental_warning_type:
+          type: string
+        playlists_previously_containing_track:
+          type: object
+        preview:
+          $ref: '#/components/schemas/media_link'
+        preview_start_seconds:
+          type: number
+        producer_copyright_line:
+          type: object
+        resource_contributors:
+          type: object
+        rights_controller:
+          type: object
+        slug:
+          type: string
+        stem_of:
+          type: array
+          items:
+            type: object
+        stream:
+          $ref: '#/components/schemas/media_link'
+        stream_conditions:
+          $ref: '#/components/schemas/access_gate'
+        track_id:
+          type: integer
+        track_segments:
+          type: object
+        updated_at:
+          type: string
+          format: date-time
     track_artwork:
       type: object
       properties:
@@ -5410,6 +5524,28 @@ components:
           description: Must hold an NFT of the given collection to unlock
           allOf:
           - $ref: '#/components/schemas/nft_collection'
+    media_link:
+      type: object
+      properties:
+        url:
+          type: string
+        mirrors:
+          type: array
+          items:
+            type: string
+    access_gate:
+      type: object
+      properties:
+        usdc_purchase:
+          $ref: '#/components/schemas/extended_purchase_gate'
+        follow_user_id:
+          type: integer
+        tip_user_id:
+          type: integer
+        nft_collection:
+          type: object
+        token_gate:
+          $ref: '#/components/schemas/extended_token_gate'
     nft_collection:
       required:
       - address
