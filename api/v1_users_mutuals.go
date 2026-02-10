@@ -24,7 +24,7 @@ func (app *ApiServer) v1UsersMutuals(c *fiber.Ctx) error {
 	OFFSET @offset
 	`
 
-	return app.queryFullUsers(c, sql, pgx.NamedArgs{
+	return app.queryUsers(c, sql, pgx.NamedArgs{
 		"myId":   myId,
 		"userId": userId,
 	})

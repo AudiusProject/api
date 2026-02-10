@@ -87,7 +87,7 @@ func TestTrackTopListeners(t *testing.T) {
 	database.Seed(app.pool.Replicas[0], fixtures)
 
 	var resp struct {
-		Data []FullUserWithPlayCount
+		Data []UserWithPlayCount
 	}
 
 	status, body := testGet(t, app, "/v1/full/tracks/"+trashid.MustEncodeHashID(1)+"/top_listeners", &resp)

@@ -16,12 +16,12 @@ type VolumeLeaderRow struct {
 
 type VolumeLeaderUserFull struct {
 	VolumeLeaderRow
-	User *dbv1.FullUser `json:"user"`
+	User *dbv1.User `json:"user"`
 }
 
 type VolumeLeaderUserMin struct {
 	VolumeLeaderRow
-	User *dbv1.MinUser `json:"user"`
+	User *dbv1.User `json:"user"`
 }
 
 type GetCoinsVolumeLeadersQueryParams struct {
@@ -166,7 +166,7 @@ func (app *ApiServer) v1CoinsVolumeLeaders(c *fiber.Ctx) error {
 		}
 	}
 
-	users, err := app.queries.FullUsersKeyed(c.Context(), dbv1.GetUsersParams{
+	users, err := app.queries.UsersKeyed(c.Context(), dbv1.GetUsersParams{
 		Ids: userIds,
 	})
 	if err != nil {
@@ -197,7 +197,7 @@ func (app *ApiServer) v1CoinsVolumeLeaders(c *fiber.Ctx) error {
 			}
 			if leader.UserID != nil {
 				if user, ok := users[*leader.UserID]; ok {
-					minUser := dbv1.ToMinUser(user)
+					minUser := user
 					results[i].User = &minUser
 				}
 			}

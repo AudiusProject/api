@@ -23,7 +23,7 @@ type FullTrack struct {
 	Download     *MediaLink     `json:"download"`
 	Preview      *MediaLink     `json:"preview"`
 	UserID       trashid.HashId `json:"user_id"`
-	User         FullUser       `json:"user"`
+	User         User       `json:"user"`
 	Access       Access         `json:"access"`
 
 	FolloweeReposts    []*FolloweeRepost   `json:"followee_reposts"`
@@ -62,7 +62,7 @@ func (q *Queries) FullTracksKeyed(ctx context.Context, arg FullTracksParams) (ma
 		collectSplitUserIds(track.DownloadConditions)
 	}
 
-	userMap, err := q.FullUsersKeyed(ctx, GetUsersParams{
+	userMap, err := q.UsersKeyed(ctx, GetUsersParams{
 		MyID: arg.MyID.(int32),
 		Ids:  userIds,
 	})
@@ -77,7 +77,7 @@ func (q *Queries) FullTracksKeyed(ctx context.Context, arg FullTracksParams) (ma
 	}
 
 	// Convert userMap to pointers
-	userPtrMap := make(map[int32]*FullUser)
+	userPtrMap := make(map[int32]*User)
 	for id, user := range userMap {
 		userCopy := user // Create a copy to avoid modifying the original
 		userPtrMap[id] = &userCopy
@@ -204,7 +204,7 @@ func (q *Queries) FullTracks(ctx context.Context, arg FullTracksParams) ([]FullT
 type MinTrack struct {
 	ID                       string       `json:"id"`
 	Title                    pgtype.Text  `json:"title"`
-	User                     MinUser      `json:"user"`
+	User                     User        `json:"user"`
 	Artwork                  *SquareImage `json:"artwork"`
 	Duration                 pgtype.Int4  `json:"duration"`
 	Description              pgtype.Text  `json:"description"`
@@ -241,7 +241,7 @@ func ToMinTrack(fullTrack FullTrack) MinTrack {
 	return MinTrack{
 		ID:                       fullTrack.ID,
 		Title:                    fullTrack.Title,
-		User:                     ToMinUser(fullTrack.User),
+		User:                     fullTrack.User,
 		Artwork:                  fullTrack.Artwork,
 		Duration:                 fullTrack.Duration,
 		Description:              fullTrack.Description,

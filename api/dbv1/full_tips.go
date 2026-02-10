@@ -42,8 +42,8 @@ type fullTipRow struct {
 
 type FullTip struct {
 	Amount             string      `json:"amount"`
-	Sender             FullUser    `json:"sender"`
-	Receiver           FullUser    `json:"receiver"`
+	Sender             User    `json:"sender"`
+	Receiver           User    `json:"receiver"`
 	CreatedAt          time.Time   `json:"created_at"`
 	Slot               int64       `json:"slot"`
 	FolloweeSupporters []Supporter `json:"followee_supporters"`
@@ -52,16 +52,16 @@ type FullTip struct {
 
 type MinTip struct {
 	Amount    string    `json:"amount"`
-	Sender    MinUser   `json:"sender"`
-	Receiver  MinUser   `json:"receiver"`
+	Sender    User      `json:"sender"`
+	Receiver  User      `json:"receiver"`
 	CreatedAt time.Time `json:"created_at"`
 }
 
 func ToMinTip(fullTip FullTip) MinTip {
 	return MinTip{
 		Amount:    fullTip.Amount,
-		Sender:    ToMinUser(fullTip.Sender),
-		Receiver:  ToMinUser(fullTip.Receiver),
+		Sender:    fullTip.Sender,
+		Receiver:  fullTip.Receiver,
 		CreatedAt: fullTip.CreatedAt,
 	}
 }
@@ -255,7 +255,7 @@ func (q *Queries) FullTips(ctx context.Context, arg GetTipsParams) ([]FullTip, e
 	for id := range userIdSet {
 		userIds = append(userIds, int32(id))
 	}
-	userMap, err := q.FullUsersKeyed(ctx, GetUsersParams{
+	userMap, err := q.UsersKeyed(ctx, GetUsersParams{
 		MyID: arg.MyId,
 		Ids:  userIds,
 	})

@@ -15,12 +15,12 @@ type FullManagedUserGrant struct {
 }
 
 type FullManager struct {
-	Manager FullUser         `json:"manager"`
+	Manager User         `json:"manager"`
 	Grant   FullManagerGrant `json:"grant"`
 }
 
 type FullManagedUser struct {
-	User  FullUser             `json:"user"`
+	User  User             `json:"user"`
 	Grant FullManagedUserGrant `json:"grant"`
 }
 
@@ -36,7 +36,7 @@ func (q *Queries) FullManagers(ctx context.Context, params GetGrantsForUserIdPar
 		user_ids[i] = int32(grant.GranteeUserID)
 	}
 
-	users, err := q.FullUsersKeyed(ctx, GetUsersParams{
+	users, err := q.UsersKeyed(ctx, GetUsersParams{
 		Ids:  user_ids,
 		MyID: params.UserID,
 	})
@@ -71,7 +71,7 @@ func (q *Queries) FullManagedUsers(ctx context.Context, params GetGrantsForGrant
 		user_ids[i] = int32(grant.UserID)
 	}
 
-	users, err := q.FullUsersKeyed(ctx, GetUsersParams{
+	users, err := q.UsersKeyed(ctx, GetUsersParams{
 		Ids:  user_ids,
 		MyID: params.UserID,
 	})

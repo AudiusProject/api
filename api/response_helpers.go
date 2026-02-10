@@ -5,25 +5,25 @@ import (
 	"github.com/gofiber/fiber/v2"
 )
 
-func v1UserResponse(c *fiber.Ctx, user dbv1.FullUser) error {
+func v1UserResponse(c *fiber.Ctx, user dbv1.User) error {
 	if c.Locals("isFull").(bool) {
 		return c.JSON(fiber.Map{
 			"data": user,
 		})
 	}
 	return c.JSON(fiber.Map{
-		"data": dbv1.ToMinUser(user),
+		"data": user,
 	})
 }
 
-func v1UsersResponse(c *fiber.Ctx, users []dbv1.FullUser) error {
+func v1UsersResponse(c *fiber.Ctx, users []dbv1.User) error {
 	if c.Locals("isFull").(bool) {
 		return c.JSON(fiber.Map{
 			"data": users,
 		})
 	}
 	return c.JSON(fiber.Map{
-		"data": dbv1.ToMinUsers(users),
+		"data": users,
 	})
 }
 

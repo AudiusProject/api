@@ -28,7 +28,7 @@ func (app *ApiServer) v1UsersGenreTop(c *fiber.Ctx) error {
 		OFFSET @offset
 	;`
 
-	return app.queryFullUsers(c, sql, pgx.NamedArgs{
+	return app.queryUsers(c, sql, pgx.NamedArgs{
 		"genres": query.Genres,
 	})
 }

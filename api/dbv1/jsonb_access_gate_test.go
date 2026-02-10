@@ -9,9 +9,9 @@ import (
 )
 
 func TestPurchaseGateMath(t *testing.T) {
-	userMap := map[int32]FullUser{}
+	userMap := map[int32]User{}
 	for i := 1; i < 10; i++ {
-		userMap[int32(i)] = FullUser{
+		userMap[int32(i)] = User{
 			GetUsersRow: GetUsersRow{
 				PayoutWallet: fmt.Sprintf("wallet%d", i),
 			},

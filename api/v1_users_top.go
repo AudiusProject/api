@@ -18,5 +18,5 @@ func (app *ApiServer) v1UsersTop(c *fiber.Ctx) error {
 		OFFSET @offset
 	;`
 
-	return app.queryFullUsers(c, sql, pgx.NamedArgs{})
+	return app.queryUsers(c, sql, pgx.NamedArgs{})
 }

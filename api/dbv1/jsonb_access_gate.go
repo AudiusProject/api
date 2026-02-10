@@ -34,7 +34,7 @@ type PurchaseGate struct {
 	Splits []PurchaseSplit `json:"splits"`
 }
 
-func (gate PurchaseGate) ToFullPurchaseGate(cfg config.Config, userMap map[int32]FullUser) *FullPurchaseGate {
+func (gate PurchaseGate) ToFullPurchaseGate(cfg config.Config, userMap map[int32]User) *FullPurchaseGate {
 	priceInUsdc := gate.Price * 10000
 	networkCut := priceInUsdc * (cfg.NetworkTakeRate / 100)
 	price := priceInUsdc - networkCut

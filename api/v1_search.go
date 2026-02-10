@@ -14,7 +14,7 @@ func (app *ApiServer) v1SearchFull(c *fiber.Ctx) error {
 	kind := c.Query("kind", "all")
 
 	g := errgroup.Group{}
-	var users = []dbv1.FullUser{}
+	var users = []dbv1.User{}
 	var tracks = []dbv1.FullTrack{}
 	var playlists = []dbv1.FullPlaylist{}
 	var albums = []dbv1.FullPlaylist{}
@@ -80,7 +80,7 @@ func (app *ApiServer) v1SearchFull(c *fiber.Ctx) error {
 	})
 }
 
-func (app *ApiServer) searchUsers(c *fiber.Ctx) ([]dbv1.FullUser, error) {
+func (app *ApiServer) searchUsers(c *fiber.Ctx) ([]dbv1.User, error) {
 	isTagSearch := strings.Contains(c.Route().Path, "search/tags")
 	isFullSearch := strings.Contains(c.Route().Path, "search/full")
 	limit := c.QueryInt("limit", 10)
@@ -110,7 +110,7 @@ func (app *ApiServer) searchUsers(c *fiber.Ctx) ([]dbv1.FullUser, error) {
 		myId = 0
 	}
 
-	users, err := app.queries.FullUsers(c.Context(), dbv1.GetUsersParams{
+	users, err := app.queries.Users(c.Context(), dbv1.GetUsersParams{
 		Ids:  userIds,
 		MyID: myId,
 	})

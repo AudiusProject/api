@@ -18,7 +18,7 @@ func (q *Queries) GetPlaylistAccess(
 	myId int32,
 	conditions *AccessGate,
 	playlist *GetPlaylistsRow,
-	user *FullUser,
+	user *User,
 ) bool {
 	// No playlist? no access.
 	if playlist == nil || user == nil {
@@ -85,7 +85,7 @@ func (q *Queries) GetBulkTrackAccess(
 	ctx context.Context,
 	myId int32,
 	tracks []*GetTracksRow,
-	users map[int32]*FullUser,
+	users map[int32]*User,
 ) (map[int32]Access, error) {
 	// Initialize result map
 	result := make(map[int32]Access)

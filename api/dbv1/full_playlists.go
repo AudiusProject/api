@@ -20,7 +20,7 @@ type FullPlaylist struct {
 	ID         string         `json:"id"`
 	Artwork    *SquareImage   `json:"artwork"`
 	UserID     trashid.HashId `json:"user_id"`
-	User       FullUser       `json:"user"`
+	User       User       `json:"user"`
 	Tracks     []FullTrack    `json:"tracks"`
 	TrackCount int32          `json:"track_count"`
 	Access     Access         `json:"access"`
@@ -179,7 +179,7 @@ type MinPlaylist struct {
 	IsAlbum              bool         `json:"is_album"`
 	FavoriteCount        int32        `json:"favorite_count"`
 	RepostCount          int32        `json:"repost_count"`
-	User                 MinUser      `json:"user"`
+	User                 User        `json:"user"`
 	Permalink            string       `json:"permalink"`
 }
 
@@ -210,7 +210,7 @@ func ToMinPlaylist(fullPlaylist FullPlaylist) MinPlaylist {
 		}(),
 		FavoriteCount: int32(fullPlaylist.FavoriteCount.Int32),
 		RepostCount:   int32(fullPlaylist.RepostCount.Int32),
-		User:          ToMinUser(fullPlaylist.User),
+		User:          fullPlaylist.User,
 		Permalink:     fullPlaylist.Permalink,
 	}
 }

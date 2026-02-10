@@ -22,12 +22,12 @@ type SupporterUser struct {
 	SenderUserID   int32         `json:"-" db:"sender_user_id"`
 	ReceiverUserID int32         `json:"-" db:"receiver_user_id"`
 	Amount         string        `json:"amount" db:"amount"`
-	Sender         dbv1.FullUser `json:"sender" db:"-"`
+	Sender         dbv1.User `json:"sender" db:"-"`
 }
 
 type MinSupporterUser struct {
 	SupporterUser
-	Sender dbv1.MinUser `json:"sender"`
+	Sender dbv1.User `json:"sender"`
 }
 
 func (app *ApiServer) v1UsersSupporters(c *fiber.Ctx) error {
@@ -94,7 +94,7 @@ func (app *ApiServer) v1UsersSupporters(c *fiber.Ctx) error {
 	for _, s := range supporters {
 		userIds = append(userIds, s.SenderUserID)
 	}
-	userMap, err := app.queries.FullUsersKeyed(c.Context(), dbv1.GetUsersParams{
+	userMap, err := app.queries.UsersKeyed(c.Context(), dbv1.GetUsersParams{
 		MyID: myId,
 		Ids:  userIds,
 	})
@@ -113,7 +113,7 @@ func (app *ApiServer) v1UsersSupporters(c *fiber.Ctx) error {
 		for i, user := range supporters {
 			minSupporters[i] = MinSupporterUser{
 				SupporterUser: user,
-				Sender:        dbv1.ToMinUser(user.Sender),
+				Sender:        user.Sender,
 			}
 		}
 

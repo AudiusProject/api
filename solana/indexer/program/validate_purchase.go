@@ -57,9 +57,9 @@ type payoutWalletRow struct {
 }
 
 // Gets the payout wallets for a purchase gate.
-// Returns a map of FullUser to satisfy the ToFullPurchaseGate call
+// Returns a map of User to satisfy the ToFullPurchaseGate call
 // that will almost certainly follow this call.
-func getPayoutWallets(ctx context.Context, db database.DBTX, price dbv1.PurchaseGate, timestamp time.Time) (map[int32]dbv1.FullUser, error) {
+func getPayoutWallets(ctx context.Context, db database.DBTX, price dbv1.PurchaseGate, timestamp time.Time) (map[int32]dbv1.User, error) {
 	sql := `
 		WITH max_block_timestamps AS (
 			SELECT
@@ -105,9 +105,9 @@ func getPayoutWallets(ctx context.Context, db database.DBTX, price dbv1.Purchase
 		return nil, err
 	}
 
-	res := make(map[int32]dbv1.FullUser)
+	res := make(map[int32]dbv1.User)
 	for _, row := range payoutWalletRows {
-		user := dbv1.FullUser{
+		user := dbv1.User{
 			GetUsersRow: dbv1.GetUsersRow{
 				PayoutWallet: row.PayoutWallet,
 			},

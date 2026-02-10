@@ -170,7 +170,7 @@ func (app *ApiServer) v1UsersRelated(c *fiber.Ctx) error {
 		limit = params.Limit
 	}
 
-	return app.queryFullUsers(c, sql, pgx.NamedArgs{
+	return app.queryUsers(c, sql, pgx.NamedArgs{
 		"myId":           app.getMyId(c),
 		"userId":         app.getUserId(c),
 		"filterFollowed": params.FilterFollowed,

@@ -15,7 +15,7 @@ func (app *ApiServer) v1Users(c *fiber.Ctx) error {
 		return fiber.NewError(fiber.StatusBadRequest, "no user ids provided")
 	}
 
-	users, err := app.queries.FullUsers(c.Context(), dbv1.GetUsersParams{
+	users, err := app.queries.Users(c.Context(), dbv1.GetUsersParams{
 		MyID: myId,
 		Ids:  ids,
 	})
@@ -33,7 +33,7 @@ type GetUsersParams struct {
 
 // a generic responder for all the simple user lists:
 // followers, followees, reposters, savers, etc.
-func (app *ApiServer) queryFullUsers(c *fiber.Ctx, sql string, args pgx.NamedArgs) error {
+func (app *ApiServer) queryUsers(c *fiber.Ctx, sql string, args pgx.NamedArgs) error {
 	myId := app.getMyId(c)
 
 	params := GetUsersParams{}
@@ -58,7 +58,7 @@ func (app *ApiServer) queryFullUsers(c *fiber.Ctx, sql string, args pgx.NamedArg
 		return err
 	}
 
-	users, err := app.queries.FullUsers(c.Context(), dbv1.GetUsersParams{
+	users, err := app.queries.Users(c.Context(), dbv1.GetUsersParams{
 		MyID: myId,
 		Ids:  userIds,
 	})
@@ -66,7 +66,7 @@ func (app *ApiServer) queryFullUsers(c *fiber.Ctx, sql string, args pgx.NamedArg
 		return err
 	}
 
-	userMap := map[int32]dbv1.FullUser{}
+	userMap := map[int32]dbv1.User{}
 	for _, user := range users {
 		userMap[user.UserID] = user
 	}

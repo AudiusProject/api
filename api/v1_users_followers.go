@@ -21,7 +21,7 @@ func (app *ApiServer) v1UsersFollowers(c *fiber.Ctx) error {
 	`
 
 	userId := app.getUserId(c)
-	res := app.queryFullUsers(c, sql, pgx.NamedArgs{
+	res := app.queryUsers(c, sql, pgx.NamedArgs{
 		"userId": userId,
 	})
 	return res

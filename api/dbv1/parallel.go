@@ -14,7 +14,7 @@ type ParallelParams struct {
 }
 
 type ParallelResult struct {
-	UserMap     map[int32]FullUser
+	UserMap     map[int32]User
 	TrackMap    map[int32]FullTrack
 	PlaylistMap map[int32]FullPlaylist
 }
@@ -22,14 +22,14 @@ type ParallelResult struct {
 func (q *Queries) Parallel(ctx context.Context, arg ParallelParams) (*ParallelResult, error) {
 	g, ctx := errgroup.WithContext(ctx)
 
-	var userMap map[int32]FullUser
+	var userMap map[int32]User
 	var trackMap map[int32]FullTrack
 	var playlistMap map[int32]FullPlaylist
 
 	if len(arg.UserIds) > 0 {
 		g.Go(func() error {
 			var err error
-			userMap, err = q.FullUsersKeyed(ctx, GetUsersParams{
+			userMap, err = q.UsersKeyed(ctx, GetUsersParams{
 				Ids:  arg.UserIds,
 				MyID: arg.MyID,
 			})
@@ -77,8 +77,8 @@ func (q *Queries) Parallel(ctx context.Context, arg ParallelParams) (*ParallelRe
 	return result, nil
 }
 
-func (r *ParallelResult) UserList() []FullUser {
-	userList := make([]FullUser, 0, len(r.UserMap))
+func (r *ParallelResult) UserList() []User {
+	userList := make([]User, 0, len(r.UserMap))
 	for _, u := range r.UserMap {
 		userList = append(userList, u)
 	}

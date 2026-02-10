@@ -25,7 +25,7 @@ type TrackAccessInfoResponse struct {
 	DownloadConditions *ExtendedAccessGate `json:"download_conditions"`
 }
 
-func getExtendedPurchaseGate(gate *dbv1.AccessGate, userMap map[int32]dbv1.FullUser) (*ExtendedAccessGate, error) {
+func getExtendedPurchaseGate(gate *dbv1.AccessGate, userMap map[int32]dbv1.User) (*ExtendedAccessGate, error) {
 	if gate == nil {
 		return nil, nil
 	}
@@ -88,9 +88,9 @@ func (app *ApiServer) v1TrackAccessInfo(c *fiber.Ctx) error {
 	}
 
 	// Fetch full users
-	userMap := make(map[int32]dbv1.FullUser)
+	userMap := make(map[int32]dbv1.User)
 	if len(userIDSlice) > 0 {
-		users, err := app.queries.FullUsers(c.Context(), dbv1.GetUsersParams{
+		users, err := app.queries.Users(c.Context(), dbv1.GetUsersParams{
 			MyID: myId,
 			Ids:  userIDSlice,
 		})
