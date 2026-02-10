@@ -13,7 +13,7 @@ func TestUserQuery(t *testing.T) {
 	app := testAppWithFixtures(t)
 	// as anon
 	{
-		users, err := app.queries.FullUsers(t.Context(), dbv1.GetUsersParams{
+		users, err := app.queries.Users(t.Context(), dbv1.GetUsersParams{
 			Ids: []int32{1},
 		})
 		assert.NoError(t, err)
@@ -38,7 +38,7 @@ func TestUserQuery(t *testing.T) {
 
 	// as stereosteve
 	{
-		users, err := app.queries.FullUsers(t.Context(), dbv1.GetUsersParams{
+		users, err := app.queries.Users(t.Context(), dbv1.GetUsersParams{
 			MyID: 2,
 			Ids:  []int32{1},
 		})
@@ -51,7 +51,7 @@ func TestUserQuery(t *testing.T) {
 
 	// stereosteve views stereosteve
 	{
-		users, err := app.queries.FullUsers(t.Context(), dbv1.GetUsersParams{
+		users, err := app.queries.Users(t.Context(), dbv1.GetUsersParams{
 			MyID: 2,
 			Ids:  []int32{2},
 		})
@@ -65,7 +65,7 @@ func TestUserQuery(t *testing.T) {
 
 	// multiple users
 	{
-		users, err := app.queries.FullUsers(t.Context(), dbv1.GetUsersParams{
+		users, err := app.queries.Users(t.Context(), dbv1.GetUsersParams{
 			MyID: 2,
 			Ids:  []int32{1, 2, -1},
 		})
@@ -77,7 +77,7 @@ func TestUserQuery(t *testing.T) {
 
 	// user 1 follows user 3... user 2 also follows user 3... so user 2 should be counted in CurrentUserFolloweeFollowCount
 	{
-		users, err := app.queries.FullUsers(t.Context(), dbv1.GetUsersParams{
+		users, err := app.queries.Users(t.Context(), dbv1.GetUsersParams{
 			MyID: 1,
 			Ids:  []int32{3},
 		})
@@ -90,7 +90,7 @@ func TestUserQuery(t *testing.T) {
 func TestGetUsers(t *testing.T) {
 	app := testAppWithFixtures(t)
 	var userResponse struct {
-		Data []dbv1.FullUser
+		Data []dbv1.User
 	}
 
 	status, body := testGet(t, app, "/v1/full/users?id=1", &userResponse)
@@ -118,7 +118,7 @@ func TestGetUsers(t *testing.T) {
 func TestFollowerEndpoint(t *testing.T) {
 	app := testAppWithFixtures(t)
 	var userResponse struct {
-		Data []dbv1.FullUser
+		Data []dbv1.User
 	}
 
 	status, body := testGet(t, app, "/v1/full/users/7eP5n/followers", &userResponse)

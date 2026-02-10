@@ -46,7 +46,7 @@ func (app *ApiServer) v1UsersRemixers(c *fiber.Ctx) error {
 		LIMIT @limit
 	;`
 
-	return app.queryFullUsers(c, sql, pgx.NamedArgs{
+	return app.queryUsers(c, sql, pgx.NamedArgs{
 		"userId":  app.getUserId(c),
 		"trackId": params.TrackID,
 		"offset":  params.Offset,

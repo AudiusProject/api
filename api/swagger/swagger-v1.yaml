@@ -4277,6 +4277,64 @@ components:
         wallet:
           type: string
           description: The user's Ethereum wallet address for their account
+        balance:
+          type: string
+        associated_wallets_balance:
+          type: string
+        total_balance:
+          type: string
+        payout_wallet:
+          type: string
+        waudio_balance:
+          type: string
+        associated_sol_wallets_balance:
+          type: string
+        blocknumber:
+          type: integer
+        created_at:
+          type: string
+          format: date-time
+        updated_at:
+          type: string
+          format: date-time
+        is_storage_v2:
+          type: boolean
+        creator_node_endpoint:
+          type: string
+        current_user_followee_follow_count:
+          type: integer
+        does_current_user_follow:
+          type: boolean
+        does_current_user_subscribe:
+          type: boolean
+        does_follow_current_user:
+          type: boolean
+        handle_lc:
+          type: string
+        profile_type:
+          type: string
+        user_id:
+          type: integer
+        has_collectibles:
+          type: boolean
+        allow_ai_attribution:
+          type: boolean
+        coin_flair_mint:
+          type: string
+        artist_coin_badge:
+          type: object
+        cover_photo_sizes:
+          type: string
+        cover_photo_cids:
+          type: object
+        cover_photo_legacy:
+          type: object
+        profile_picture_sizes:
+          type: string
+        profile_picture_cids:
+          type: object
+        profile_picture_legacy:
+          type: object
     cover_photo:
       type: object
       properties:

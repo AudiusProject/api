@@ -26,7 +26,7 @@ func (app *ApiServer) v1PlaylistFavorites(c *fiber.Ctx) error {
 		return err
 	}
 
-	return app.queryFullUsers(c, sql, pgx.NamedArgs{
+	return app.queryUsers(c, sql, pgx.NamedArgs{
 		"playlistId": playlistId,
 	})
 }

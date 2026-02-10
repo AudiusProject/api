@@ -45,7 +45,7 @@ func (app *ApiServer) v1UserPurchasers(c *fiber.Ctx) error {
 		LIMIT @limit
 	;`
 
-	return app.queryFullUsers(c, sql, pgx.NamedArgs{
+	return app.queryUsers(c, sql, pgx.NamedArgs{
 		"userId":      app.getUserId(c),
 		"contentType": params.ContentType,
 		"contentId":   params.ContentID,

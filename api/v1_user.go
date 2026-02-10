@@ -9,7 +9,7 @@ func (app *ApiServer) v1User(c *fiber.Ctx) error {
 	myId := app.getMyId(c)
 	userId := app.getUserId(c)
 
-	users, err := app.queries.FullUsers(c.Context(), dbv1.GetUsersParams{
+	users, err := app.queries.Users(c.Context(), dbv1.GetUsersParams{
 		MyID: myId,
 		Ids:  []int32{int32(userId)},
 	})

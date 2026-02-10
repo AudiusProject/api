@@ -168,16 +168,23 @@ func (app *ApiServer) v1UsersFeed(c *fiber.Ctx) error {
 		return err
 	}
 
-	for idx, stub := range stubs {
+	// attach entities and filter out items where entity was not found
+	filteredStubs := []FeedItem{}
+	for _, stub := range stubs {
 		if stub.EntityType == "track" {
-			stub.Item = loaded.TrackMap[stub.EntityId]
+			if track, ok := loaded.TrackMap[stub.EntityId]; ok {
+				stub.Item = track
+				filteredStubs = append(filteredStubs, stub)
+			}
 		} else {
-			stub.Item = loaded.PlaylistMap[stub.EntityId]
+			if playlist, ok := loaded.PlaylistMap[stub.EntityId]; ok {
+				stub.Item = playlist
+				filteredStubs = append(filteredStubs, stub)
+			}
 		}
-		stubs[idx] = stub
 	}
 
 	return c.JSON(fiber.Map{
-		"data": stubs,
+		"data": filteredStubs,
 	})
 }

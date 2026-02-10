@@ -12,7 +12,7 @@ import (
 func TestGetUser(t *testing.T) {
 	app := testAppWithFixtures(t)
 	var userResponse struct {
-		Data []dbv1.FullUser
+		Data []dbv1.User
 	}
 
 	status, body := testGet(t, app, "/v1/full/users/7eP5n", &userResponse)

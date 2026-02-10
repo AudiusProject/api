@@ -170,14 +170,16 @@ func (app *ApiServer) v1UsersLibraryPlaylists(c *fiber.Ctx) error {
 		return err
 	}
 
-	for idx, item := range items {
+	// attach playlists and filter out items where playlist was not found
+	filteredItems := []Activity{}
+	for _, item := range items {
 		if p, ok := playlists[item.ItemID]; ok {
 			item.Item = p
-			items[idx] = item
+			filteredItems = append(filteredItems, item)
 		}
 	}
 
 	return c.JSON(fiber.Map{
-		"data": items,
+		"data": filteredItems,
 	})
 }

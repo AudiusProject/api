@@ -9,7 +9,7 @@ import (
 )
 
 type FullAccount struct {
-	User            FullUser              `json:"user"`
+	User            User              `json:"user"`
 	Playlists       []FullAccountPlaylist `json:"playlists"`
 	PlaylistLibrary PlaylistLibrary       `json:"playlist_library"`
 	TrackSaveCount  int64                 `json:"track_save_count"`
@@ -23,7 +23,7 @@ func (q *Queries) FullAccount(ctx context.Context, wallet string) (*FullAccount,
 		return nil, err
 	}
 
-	users, err := q.FullUsers(ctx, GetUsersParams{
+	users, err := q.Users(ctx, GetUsersParams{
 		Ids:  []int32{int32(userId)},
 		MyID: int32(userId),
 	})

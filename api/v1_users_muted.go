@@ -16,7 +16,7 @@ func (app *ApiServer) v1UsersMuted(c *fiber.Ctx) error {
 			AND is_delete = FALSE
 	;`
 
-	return app.queryFullUsers(c, sql, pgx.NamedArgs{
+	return app.queryUsers(c, sql, pgx.NamedArgs{
 		"userId": app.getUserId(c),
 	})
 }

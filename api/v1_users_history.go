@@ -142,19 +142,20 @@ func (app *ApiServer) v1UsersHistory(c *fiber.Ctx) error {
 		return err
 	}
 
-	// attach
-	for idx, item := range items {
+	// attach tracks and filter out items where track was not found
+	filteredItems := []Activity{}
+	for _, item := range items {
 		if t, ok := tracks[item.ItemID]; ok {
 			if app.getIsFull(c) {
 				item.Item = t
 			} else {
 				item.Item = dbv1.ToMinTrack(t)
 			}
-			items[idx] = item
+			filteredItems = append(filteredItems, item)
 		}
 	}
 
 	return c.JSON(fiber.Map{
-		"data": items,
+		"data": filteredItems,
 	})
 }

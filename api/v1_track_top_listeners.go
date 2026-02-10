@@ -11,14 +11,14 @@ type GetTrackTopListenersParams struct {
 	Offset int `query:"offset" default:"0" validate:"min=0"`
 }
 
-type FullUserWithPlayCount struct {
-	User  dbv1.FullUser `json:"user"`
+type UserWithPlayCount struct {
+	User  dbv1.User `json:"user"`
 	Count int64         `json:"count"`
 }
 
 type MinUserWithPlayCount struct {
-	User  dbv1.MinUser `json:"user"`
-	Count int64        `json:"count"`
+	User  dbv1.User `json:"user"`
+	Count int64     `json:"count"`
 }
 
 func (app *ApiServer) v1TrackTopListeners(c *fiber.Ctx) error {
@@ -56,12 +56,12 @@ func (app *ApiServer) v1TrackTopListeners(c *fiber.Ctx) error {
 		return err
 	}
 
-	type UserWithPlayCount struct {
+	type UserPlayCountRow struct {
 		UserID int32 `db:"user_id"`
 		Count  int64 `db:"play_count"`
 	}
 
-	results, err := pgx.CollectRows(rows, pgx.RowToStructByPos[UserWithPlayCount])
+	results, err := pgx.CollectRows(rows, pgx.RowToStructByPos[UserPlayCountRow])
 	if err != nil {
 		return err
 	}
@@ -71,7 +71,7 @@ func (app *ApiServer) v1TrackTopListeners(c *fiber.Ctx) error {
 		userIds[i] = result.UserID
 	}
 
-	users, err := app.queries.FullUsers(c.Context(), dbv1.GetUsersParams{
+	users, err := app.queries.Users(c.Context(), dbv1.GetUsersParams{
 		Ids:  userIds,
 		MyID: app.getMyId(c),
 	})
@@ -80,9 +80,9 @@ func (app *ApiServer) v1TrackTopListeners(c *fiber.Ctx) error {
 	}
 
 	if app.getIsFull(c) {
-		data := make([]FullUserWithPlayCount, len(users))
+		data := make([]UserWithPlayCount, len(users))
 		for i, user := range users {
-			data[i] = FullUserWithPlayCount{
+			data[i] = UserWithPlayCount{
 				User:  user,
 				Count: results[i].Count,
 			}
@@ -94,7 +94,7 @@ func (app *ApiServer) v1TrackTopListeners(c *fiber.Ctx) error {
 		data := make([]MinUserWithPlayCount, len(users))
 		for i, user := range users {
 			data[i] = MinUserWithPlayCount{
-				User:  dbv1.ToMinUser(user),
+				User:  user,
 				Count: results[i].Count,
 			}
 		}

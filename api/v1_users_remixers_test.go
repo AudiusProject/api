@@ -82,7 +82,7 @@ func TestV1UsersRemixers(t *testing.T) {
 	database.Seed(app.pool.Replicas[0], fixtures)
 
 	var userResponse struct {
-		Data []dbv1.FullUser
+		Data []dbv1.User
 	}
 
 	// Test getting all remixers for user 1

@@ -10,6 +10,8 @@ sql:
         package: "dbv1"
         out: "api/dbv1"
         sql_package: "pgx/v5"
+        rename:
+          user: UserRow
         overrides:
           - db_type: "pg_catalog.timestamp"
             engine: "postgresql"
