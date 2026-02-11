@@ -42,7 +42,9 @@ type FullUser = {
   profilePicture?: ProfilePictureData;
 };
 
-const API_BASE = "http://localhost:1323";
+const API_BASE = "https://api.audius.co";
+
+const OAUTH_USER_KEY = "audius-api-plans-oauth-user";
 
 const messages = {
   navAudius: "audius.co",
@@ -439,7 +441,18 @@ function AppAvatar({ app }: { app: DeveloperApp }) {
 export default function App() {
   const { sdk } = useSdk();
 
-  const [oauthUser, setOauthUser] = useState<OAuthUser | null>(null);
+  const [oauthUser, setOauthUser] = useState<OAuthUser | null>(() => {
+    try {
+      const stored = sessionStorage.getItem(OAUTH_USER_KEY);
+      if (stored) {
+        const parsed = JSON.parse(stored) as OAuthUser;
+        if (parsed?.userId && parsed?.handle) return parsed;
+      }
+    } catch {
+      // ignore invalid stored data
+    }
+    return null;
+  });
   const [fullUser, setFullUser] = useState<FullUser | null>(null);
   const [developerApps, setDeveloperApps] = useState<DeveloperApp[]>([]);
 
@@ -448,6 +461,7 @@ export default function App() {
   };
 
   const handleLogout = () => {
+    sessionStorage.removeItem(OAUTH_USER_KEY);
     setOauthUser(null);
     setFullUser(null);
     setDeveloperApps([]);
@@ -463,10 +477,12 @@ export default function App() {
         sub?: string | number;
         handle?: string;
       }) => {
-        setOauthUser({
+        const user: OAuthUser = {
           userId: String(profile.userId ?? profile.sub ?? ""),
           handle: profile.handle ?? "",
-        });
+        };
+        sessionStorage.setItem(OAUTH_USER_KEY, JSON.stringify(user));
+        setOauthUser(user);
       },
       errorCallback: (error: string) => console.log("Got error", error),
     });
