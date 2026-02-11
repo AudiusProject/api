@@ -42,7 +42,7 @@ func (app *ApiServer) v1PlaylistsTop(c *fiber.Ctx) error {
 		myId = app.getMyId(c)
 	}
 
-	playlists, err := app.queries.FullPlaylists(c.Context(), dbv1.FullPlaylistsParams{
+	playlists, err := app.queries.Playlists(c.Context(), dbv1.PlaylistsParams{
 		GetPlaylistsParams: dbv1.GetPlaylistsParams{
 			Ids:  playlistsIds,
 			MyID: myId,

@@ -16,7 +16,7 @@ type ParallelParams struct {
 type ParallelResult struct {
 	UserMap     map[int32]User
 	TrackMap    map[int32]Track
-	PlaylistMap map[int32]FullPlaylist
+	PlaylistMap map[int32]Playlist
 }
 
 func (q *Queries) Parallel(ctx context.Context, arg ParallelParams) (*ParallelResult, error) {
@@ -24,7 +24,7 @@ func (q *Queries) Parallel(ctx context.Context, arg ParallelParams) (*ParallelRe
 
 	var userMap map[int32]User
 	var trackMap map[int32]Track
-	var playlistMap map[int32]FullPlaylist
+	var playlistMap map[int32]Playlist
 
 	if len(arg.UserIds) > 0 {
 		g.Go(func() error {
@@ -53,7 +53,7 @@ func (q *Queries) Parallel(ctx context.Context, arg ParallelParams) (*ParallelRe
 	if len(arg.PlaylistIds) > 0 {
 		g.Go(func() error {
 			var err error
-			playlistMap, err = q.FullPlaylistsKeyed(ctx, FullPlaylistsParams{
+			playlistMap, err = q.PlaylistsKeyed(ctx, PlaylistsParams{
 				GetPlaylistsParams: GetPlaylistsParams{
 					Ids:  arg.PlaylistIds,
 					MyID: arg.MyID,
@@ -93,8 +93,8 @@ func (r *ParallelResult) TrackList() []Track {
 	return trackList
 }
 
-func (r *ParallelResult) PlaylistList() []FullPlaylist {
-	playlistList := make([]FullPlaylist, 0, len(r.PlaylistMap))
+func (r *ParallelResult) PlaylistList() []Playlist {
+	playlistList := make([]Playlist, 0, len(r.PlaylistMap))
 	for _, p := range r.PlaylistMap {
 		playlistList = append(playlistList, p)
 	}

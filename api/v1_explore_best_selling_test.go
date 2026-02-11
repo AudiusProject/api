@@ -285,7 +285,7 @@ func TestExploreBestSelling(t *testing.T) {
 			Data    []BestSellingItem
 			Related struct {
 				Tracks    []dbv1.Track
-				Playlists []dbv1.FullPlaylist
+				Playlists []dbv1.Playlist
 			}
 		}
 

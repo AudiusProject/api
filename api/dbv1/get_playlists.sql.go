@@ -59,6 +59,12 @@ SELECT
   release_date,
 
   (
+    SELECT COALESCE(SUM(ap.count), 0)::bigint
+    FROM jsonb_array_elements(COALESCE(p.playlist_contents->'track_ids', '[]'::jsonb)) AS e(item)
+    LEFT JOIN aggregate_plays ap ON ap.play_item_id = (e.item->>'track')::int
+  ) AS total_play_count,
+
+  (
     SELECT count(*) > 0
     FROM reposts
     WHERE $1 > 0
@@ -159,6 +165,7 @@ type GetPlaylistsRow struct {
 	CreatedAt              time.Time        `json:"created_at"`
 	UpdatedAt              time.Time        `json:"updated_at"`
 	ReleaseDate            *time.Time       `json:"release_date"`
+	TotalPlayCount         int64            `json:"total_play_count"`
 	HasCurrentUserReposted bool             `json:"has_current_user_reposted"`
 	HasCurrentUserSaved    bool             `json:"has_current_user_saved"`
 	FolloweeReposts        json.RawMessage  `json:"followee_reposts"`
@@ -200,6 +207,7 @@ func (q *Queries) GetPlaylists(ctx context.Context, arg GetPlaylistsParams) ([]G
 			&i.CreatedAt,
 			&i.UpdatedAt,
 			&i.ReleaseDate,
+			&i.TotalPlayCount,
 			&i.HasCurrentUserReposted,
 			&i.HasCurrentUserSaved,
 			&i.FolloweeReposts,

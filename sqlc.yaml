@@ -13,6 +13,7 @@ sql:
         rename:
           user: UserRow
           track: TrackRow
+          playlist: PlaylistRow
         overrides:
           - db_type: "pg_catalog.timestamp"
             engine: "postgresql"
