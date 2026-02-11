@@ -77,3 +77,41 @@ func (app *ApiServer) postV1TrackRepost(c *fiber.Ctx) error {
 		"transaction_hash": response.Msg.GetTransaction().GetHash(),
 	})
 }
+
+func (app *ApiServer) deleteV1TrackRepost(c *fiber.Ctx) error {
+	userID := app.getUserId(c)
+	trackID, err := trashid.DecodeHashId(c.Params("trackId"))
+	if err != nil {
+		return err
+	}
+
+	signer, err := app.getApiSigner(c)
+	if err != nil {
+		return err
+	}
+
+	nonce := time.Now().UnixNano()
+
+	manageEntityTx := &corev1.ManageEntityLegacy{
+		Signer:     common.HexToAddress(signer.Address).String(),
+		UserId:     int64(userID),
+		EntityId:   int64(trackID),
+		Action:     indexer.Action_Unrepost,
+		EntityType: indexer.Entity_Track,
+		Nonce:      strconv.FormatInt(nonce, 10),
+		Metadata:   "",
+	}
+
+	response, err := app.sendTransactionWithSigner(manageEntityTx, signer.PrivateKey)
+	if err != nil {
+		app.logger.Error("Failed to send track unrepost transaction", zap.Error(err))
+		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{
+			"error": "Failed to unrepost track",
+		})
+	}
+
+	return c.JSON(fiber.Map{
+		"success":          true,
+		"transaction_hash": response.Msg.GetTransaction().GetHash(),
+	})
+}

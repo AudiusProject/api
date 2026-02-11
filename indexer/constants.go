@@ -25,6 +25,7 @@ const (
 	Action_Unmute       = "Unmute"
 	Action_React        = "React"
 	Action_Unreact      = "Unreact"
+	Action_Report       = "Report"
 )
 
 const (
@@ -35,4 +36,5 @@ const (
 	Entity_Notification     = "Notification"
 	Entity_AssociatedWallet = "AssociatedWallet"
 	Entity_Grant            = "Grant"
+	Entity_DeveloperApp     = "DeveloperApp"
 )
