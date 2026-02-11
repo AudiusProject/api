@@ -923,6 +923,11 @@ paths:
           type: array
           items:
             type: string
+      - name: user_id
+        in: query
+        description: The user ID of the user making the request
+        schema:
+          type: string
       responses:
         "200":
           description: Success
@@ -1266,6 +1271,11 @@ paths:
           - month
           - year
           - allTime
+      - name: user_id
+        in: query
+        description: The user ID of the user making the request
+        schema:
+          type: string
       responses:
         "200":
           description: Success
@@ -1297,6 +1307,11 @@ paths:
         description: The number of items to fetch
         schema:
           type: integer
+      - name: user_id
+        in: query
+        description: The user ID of the user making the request
+        schema:
+          type: string
       responses:
         "200":
           description: Success
@@ -1315,6 +1330,11 @@ paths:
         in: path
         description: A Track ID
         required: true
+        schema:
+          type: string
+      - name: user_id
+        in: query
+        description: The user ID of the user making the request
         schema:
           type: string
       responses:
