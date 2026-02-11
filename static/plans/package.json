@@ -10,7 +10,7 @@
     "preview": "vite preview"
   },
   "dependencies": {
-    "@audius/harmony": "^0.5.0",
+    "@audius/harmony": "^0.5.2",
     "@audius/sdk": "^12.0.1",
     "react": "^19.0.0",
     "react-dom": "^19.0.0"
