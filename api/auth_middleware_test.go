@@ -1,6 +1,7 @@
 package api
 
 import (
+	"encoding/base64"
 	"fmt"
 	"io"
 	"net/http/httptest"
@@ -177,4 +178,92 @@ func TestWalletCache(t *testing.T) {
 			return
 		}
 	}
+}
+
+func TestGetApiSignerBasicAuth(t *testing.T) {
+	app := emptyTestApp(t)
+
+	// Use the ganache test private key from comms_mutate_test
+	testPrivateKey := "ac0974bec39a17e36ba4a6b4d238ff944bacb478cbed5efcae784d7bf4f2ff80"
+
+	// Create a dummy endpoint to test getApiSigner
+	testApp := fiber.New()
+	testApp.Post("/test", func(c *fiber.Ctx) error {
+		signer, err := app.getApiSigner(c)
+		if err != nil {
+			return fiber.NewError(fiber.StatusInternalServerError, err.Error())
+		}
+		return c.JSON(fiber.Map{
+			"address": signer.Address,
+		})
+	})
+
+	t.Run("missing authorization header", func(t *testing.T) {
+		req := httptest.NewRequest("POST", "/test", nil)
+		res, err := testApp.Test(req, -1)
+		assert.NoError(t, err)
+		assert.Equal(t, fiber.StatusInternalServerError, res.StatusCode)
+		body, _ := io.ReadAll(res.Body)
+		assert.Contains(t, string(body), "missing Authorization header")
+	})
+
+	t.Run("invalid basic auth format - not basic", func(t *testing.T) {
+		req := httptest.NewRequest("POST", "/test", nil)
+		req.Header.Set("Authorization", "Bearer invalidtoken")
+		res, err := testApp.Test(req, -1)
+		assert.NoError(t, err)
+		assert.Equal(t, fiber.StatusInternalServerError, res.StatusCode)
+		body, _ := io.ReadAll(res.Body)
+		assert.Contains(t, string(body), "Authorization header is not Basic Auth")
+	})
+
+	t.Run("invalid private key", func(t *testing.T) {
+		req := httptest.NewRequest("POST", "/test", nil)
+		req.Header.Set("Authorization", "Basic "+encodeBasicAuth("user", "invalid_key"))
+		res, err := testApp.Test(req, -1)
+		assert.NoError(t, err)
+		assert.Equal(t, fiber.StatusInternalServerError, res.StatusCode)
+		body, _ := io.ReadAll(res.Body)
+		assert.Contains(t, string(body), "failed to parse private key")
+	})
+
+	t.Run("valid basic auth with private key", func(t *testing.T) {
+		req := httptest.NewRequest("POST", "/test", nil)
+		req.Header.Set("Authorization", "Basic "+encodeBasicAuth("user", testPrivateKey))
+		res, err := testApp.Test(req, -1)
+		assert.NoError(t, err)
+		assert.Equal(t, fiber.StatusOK, res.StatusCode)
+		body, _ := io.ReadAll(res.Body)
+
+		// Expected address derived from the private key
+		expectedAddress := "0xf39Fd6e51aad88F6F4ce6aB8827279cffFb92266"
+		assert.Contains(t, string(body), expectedAddress)
+	})
+
+	t.Run("valid request with 0x prefix on private key", func(t *testing.T) {
+		req := httptest.NewRequest("POST", "/test", nil)
+		req.Header.Set("Authorization", "Basic "+encodeBasicAuth("user", "0x"+testPrivateKey))
+		res, err := testApp.Test(req, -1)
+		assert.NoError(t, err)
+		assert.Equal(t, fiber.StatusOK, res.StatusCode)
+		body, _ := io.ReadAll(res.Body)
+
+		// Should get the same result as without the 0x prefix
+		expectedAddress := "0xf39Fd6e51aad88F6F4ce6aB8827279cffFb92266"
+		assert.Contains(t, string(body), expectedAddress)
+	})
+}
+
+// Helper function to encode basic auth credentials
+func encodeBasicAuth(username, password string) string {
+	auth := username + ":" + password
+	return base64Encode(auth)
+}
+
+func base64Encode(s string) string {
+	return base64EncodeBytes([]byte(s))
+}
+
+func base64EncodeBytes(b []byte) string {
+	return base64.StdEncoding.EncodeToString(b)
 }
