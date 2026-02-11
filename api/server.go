@@ -620,6 +620,10 @@ func NewApiServer(config config.Config) *ApiServer {
 	app.Get("/content/verbose", app.contentNodes)
 	app.Get("/content-nodes/verbose", app.contentNodes)
 
+	// Plans React app - serve static assets first, then SPA routing
+	app.Static("/plans/assets", "./static/plans/dist/assets")
+	app.Get("/plans/*", app.servePlans)
+
 	app.Static("/", "./static")
 
 	// Disable swagger in test environments, because it will slow things down a lot
@@ -704,6 +708,11 @@ func (app *ApiServer) home(c *fiber.Ctx) error {
 			"https://api.audius.co",
 		},
 	})
+}
+
+func (app *ApiServer) servePlans(c *fiber.Ctx) error {
+	// Serve index.html for SPA routing (all /plans/* routes that aren't assets)
+	return c.SendFile("./static/plans/dist/index.html")
 }
 
 func decodeIdList(c *fiber.Ctx) []int32 {
