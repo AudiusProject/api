@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import {
   ThemeProvider as HarmonyThemeProvider,
   Text,
@@ -8,11 +8,20 @@ import {
   Button,
   TextLink,
   IconValidationCheck,
+  IconPlus,
+  Tag,
+  Tooltip,
 } from "@audius/harmony";
 import { css } from "@emotion/react";
 import { useSdk } from "./hooks/useSdk";
+import { CreateKeyModal } from "./components/CreateKeyModal";
 
 type OAuthUser = { userId: string; handle: string };
+
+type ApiAccessKey = {
+  api_access_key: string;
+  is_active: boolean;
+};
 
 type DeveloperApp = {
   address: string;
@@ -22,6 +31,8 @@ type DeveloperApp = {
   image_url: string | null;
   request_count?: number;
   request_count_all_time?: number;
+  is_legacy?: boolean;
+  api_access_keys?: ApiAccessKey[];
 };
 
 // API returns 150x150, 480x480; SDK uses _150x150, _480x480
@@ -42,9 +53,10 @@ type FullUser = {
   profilePicture?: ProfilePictureData;
 };
 
-const API_BASE = "https://api.audius.co";
+const API_BASE = import.meta.env.VITE_API_BASE ?? "https://api.audius.co";
 
 const OAUTH_USER_KEY = "audius-api-plans-oauth-user";
+const OAUTH_TOKEN_KEY = "@audius/sdk/token";
 
 const messages = {
   navAudius: "audius.co",
@@ -93,6 +105,10 @@ const messages = {
   freeMonthlyLimit: "500,000",
   unlimitedRateLimit: "Unlimited",
   unlimitedMonthlyLimit: "Unlimited",
+  legacyPill: "LEGACY app",
+  legacyTooltip:
+    "Sign API requests using your API Secret in the Authorization Header",
+  createNewKey: "Create New Key",
 };
 
 const planGraphicSize = 64;
@@ -250,6 +266,21 @@ function ProfileAvatar({
       setCurrentSrc(undefined);
     }
   };
+
+  const sizePx = size === "small" ? 24 : size === "medium" ? 32 : 48;
+  if (currentSrc == null) {
+    return (
+      <Flex
+        w={sizePx}
+        h={sizePx}
+        css={css`
+          border-radius: 50%;
+          background: var(--harmony-primary-primary, #7d2fe0);
+          flex-shrink: 0;
+        `}
+      />
+    );
+  }
 
   return <Avatar size={size} src={currentSrc} onError={handleError} />;
 }
@@ -455,13 +486,15 @@ export default function App() {
   });
   const [fullUser, setFullUser] = useState<FullUser | null>(null);
   const [developerApps, setDeveloperApps] = useState<DeveloperApp[]>([]);
+  const [createKeyModalOpen, setCreateKeyModalOpen] = useState(false);
 
   const handleLogin = () => {
-    sdk.oauth?.login({ scope: "read" });
+    sdk.oauth?.login({ scope: "write" });
   };
 
   const handleLogout = () => {
     sessionStorage.removeItem(OAUTH_USER_KEY);
+    sessionStorage.removeItem(OAUTH_TOKEN_KEY);
     setOauthUser(null);
     setFullUser(null);
     setDeveloperApps([]);
@@ -472,21 +505,75 @@ export default function App() {
    */
   useEffect(() => {
     sdk.oauth?.init({
-      successCallback: (profile: {
-        userId?: string | number;
-        sub?: string | number;
-        handle?: string;
-      }) => {
+      successCallback: (
+        profile: {
+          userId?: string | number;
+          sub?: string | number;
+          handle?: string;
+        },
+        token?: string,
+      ) => {
         const user: OAuthUser = {
           userId: String(profile.userId ?? profile.sub ?? ""),
           handle: profile.handle ?? "",
         };
         sessionStorage.setItem(OAUTH_USER_KEY, JSON.stringify(user));
+        if (token) {
+          sessionStorage.setItem(OAUTH_TOKEN_KEY, token);
+        }
         setOauthUser(user);
       },
       errorCallback: (error: string) => console.log("Got error", error),
     });
   }, [sdk.oauth]);
+
+  const loadDeveloperApps = useCallback(async () => {
+    if (!oauthUser?.userId) return;
+    try {
+      const appsRes = await fetch(
+        `${API_BASE}/v1/users/${encodeURIComponent(oauthUser.userId)}/developer-apps?include=metrics`,
+      );
+      if (appsRes.ok) {
+        const { data } = (await appsRes.json()) as { data: DeveloperApp[] };
+        setDeveloperApps(data ?? []);
+      }
+    } catch {
+      // ignore
+    }
+  }, [oauthUser?.userId]);
+
+  const handleCreateKey = useCallback(
+    async (name: string) => {
+      if (!oauthUser?.userId) throw new Error("Not logged in");
+      const token = sessionStorage.getItem(OAUTH_TOKEN_KEY);
+      const res = await fetch(
+        `${API_BASE}/v1/users/${encodeURIComponent(oauthUser.userId)}/developer-apps`,
+        {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            ...(token ? { Authorization: `Bearer ${token}` } : {}),
+          },
+          body: JSON.stringify({ name }),
+        },
+      );
+      if (!res.ok) {
+        const err = await res.json().catch(() => ({}));
+        throw new Error((err as { error?: string })?.error ?? "Failed to create key");
+      }
+      const result = (await res.json()) as {
+        api_key?: string;
+        api_secret?: string;
+      };
+      if (result.api_key && result.api_secret) {
+        navigator.clipboard.writeText(
+          `API Key: ${result.api_key}\nAPI Secret: ${result.api_secret}`,
+        );
+      }
+      await loadDeveloperApps();
+    },
+    [oauthUser?.userId, loadDeveloperApps],
+  );
 
   /**
    * Fetch full user profile and developer apps when logged in.
@@ -550,6 +637,11 @@ export default function App() {
 
   return (
     <HarmonyThemeProvider theme="day">
+      <CreateKeyModal
+        isOpen={createKeyModalOpen}
+        onClose={() => setCreateKeyModalOpen(false)}
+        onSubmit={handleCreateKey}
+      />
       <Flex
         direction="column"
         gap="3xl"
@@ -817,9 +909,24 @@ export default function App() {
         {oauthUser ? (
           /* Your API Keys Section */
           <Flex direction="column" gap="s">
-            <Text size="s" color="heading" strength="strong" variant="display">
-              {messages.apiKeysSection}
-            </Text>
+            <Flex
+              justifyContent="space-between"
+              alignItems="center"
+              wrap="wrap"
+              gap="s"
+            >
+              <Text size="s" color="heading" strength="strong" variant="display">
+                {messages.apiKeysSection}
+              </Text>
+              <Button
+                variant="primary"
+                size="small"
+                onClick={() => setCreateKeyModalOpen(true)}
+                iconLeft={IconPlus}
+              >
+                {messages.createNewKey}
+              </Button>
+            </Flex>
             <Paper
               p="xl"
               css={css`
@@ -889,7 +996,32 @@ export default function App() {
                                 gap="xs"
                                 style={{ minWidth: 0, flex: 1 }}
                               >
-                                <Text strength="strong">{app.name}</Text>
+                                <Flex gap="s" alignItems="center">
+                                  <Text strength="strong">{app.name}</Text>
+                                  {app.is_legacy ? (
+                                    <Tooltip
+                                      text={messages.legacyTooltip}
+                                      placement="top"
+                                    >
+                                      <span
+                                        css={css`
+                                          user-select: none;
+                                          cursor: default;
+                                          flex-shrink: 0;
+                                          white-space: nowrap;
+                                          &,
+                                          &:hover,
+                                          & *,
+                                          & *:hover {
+                                            cursor: default !important;
+                                          }
+                                        `}
+                                      >
+                                        <Tag>{messages.legacyPill}</Tag>
+                                      </span>
+                                    </Tooltip>
+                                  ) : null}
+                                </Flex>
                                 {app.description ? (
                                   <Text color="subdued" variant="body">
                                     {app.description}
@@ -923,6 +1055,7 @@ export default function App() {
                             </Flex>
                           </Flex>
                           <Flex
+                            direction="column"
                             gap="m"
                             css={css`
                               margin-top: 0.25rem;
@@ -931,18 +1064,26 @@ export default function App() {
                                 var(--harmony-neutral-neutral-3, #e8e8e8);
                             `}
                           >
-                            <CopyableField
-                              label={messages.apiKeyLabel}
-                              value={app.address}
-                              id={`apikey-${app.address}`}
-                              compact
-                            />
-                            <CopyableField
-                              label={messages.apiSecretLabel}
-                              value="••••••"
-                              id={`apisecret-${app.address}`}
-                              compact
-                            />
+                            <Flex gap="m" wrap="wrap">
+                              <CopyableField
+                                label={messages.apiKeyLabel}
+                                value={app.address}
+                                id={`apikey-${app.address}`}
+                                compact
+                              />
+                            </Flex>
+                            {!app.is_legacy &&
+                            (app.api_access_keys?.length ?? 0) > 0
+                              ? app.api_access_keys?.map((aak, idx) => (
+                                  <CopyableField
+                                    key={`${app.address}-${idx}`}
+                                    label={messages.apiSecretLabel}
+                                    value={aak.api_access_key}
+                                    id={`apisecret-${app.address}-${idx}`}
+                                    compact
+                                  />
+                                ))
+                              : null}
                           </Flex>
                         </Flex>
                       </Paper>

@@ -1,9 +1,25 @@
 package api
 
 import (
+	"context"
+	"crypto/ecdsa"
+	"crypto/rand"
+	"encoding/base64"
+	"encoding/hex"
+	"encoding/json"
+	"fmt"
+	"strconv"
+	"strings"
+	"time"
+
+	"api.audius.co/indexer"
 	"api.audius.co/trashid"
+	corev1 "github.com/OpenAudio/go-openaudio/pkg/api/core/v1"
+	"github.com/ethereum/go-ethereum/common"
+	"github.com/ethereum/go-ethereum/crypto"
 	"github.com/gofiber/fiber/v2"
 	"github.com/jackc/pgx/v5"
+	"go.uber.org/zap"
 )
 
 type DeveloperApp struct {
@@ -15,13 +31,15 @@ type DeveloperApp struct {
 }
 
 type DeveloperAppWithMetrics struct {
-	Address           string         `json:"address" db:"address"`
-	UserId            trashid.HashId `json:"user_id" db:"user_id"`
-	Name              string         `json:"name" db:"name"`
-	Description       *string        `json:"description" db:"description"`
-	ImageUrl          *string        `json:"image_url" db:"image_url"`
-	RequestCount      int64          `json:"request_count" db:"request_count"`
-	RequestCountAllTime int64         `json:"request_count_all_time" db:"request_count_all_time"`
+	Address             string          `json:"address" db:"address"`
+	UserId              trashid.HashId  `json:"user_id" db:"user_id"`
+	Name                string          `json:"name" db:"name"`
+	Description         *string         `json:"description" db:"description"`
+	ImageUrl            *string         `json:"image_url" db:"image_url"`
+	RequestCount        int64           `json:"request_count" db:"request_count"`
+	RequestCountAllTime int64           `json:"request_count_all_time" db:"request_count_all_time"`
+	IsLegacy            bool            `json:"is_legacy" db:"is_legacy"`
+	APIAccessKeys       json.RawMessage `json:"api_access_keys" db:"api_access_keys"`
 }
 
 func (app *ApiServer) v1UsersDeveloperApps(c *fiber.Ctx) error {
@@ -59,14 +77,24 @@ func (app *ApiServer) v1UsersDeveloperApps(c *fiber.Ctx) error {
 
 func (app *ApiServer) v1UsersDeveloperAppsWithMetrics(c *fiber.Ctx, userId int32) error {
 	sql := `
-		SELECT 
+		SELECT
 			da.address,
 			da.user_id,
 			da.name,
 			da.description,
 			da.image_url,
 			COALESCE(SUM(ama.request_count) FILTER (WHERE ama.date >= DATE_TRUNC('month', CURRENT_DATE)::date AND ama.date <= CURRENT_DATE), 0)::bigint AS request_count,
-			COALESCE(SUM(ama.request_count), 0)::bigint AS request_count_all_time
+			COALESCE(SUM(ama.request_count), 0)::bigint AS request_count_all_time,
+			NOT EXISTS (
+				SELECT 1 FROM api_access_keys aak
+				WHERE aak.api_key = da.address AND aak.is_active = true
+			) AS is_legacy,
+			COALESCE(
+				(SELECT json_agg(json_build_object('api_access_key', aak.api_access_key, 'is_active', aak.is_active))
+				 FROM api_access_keys aak
+				 WHERE aak.api_key = da.address AND aak.is_active = true),
+				'[]'::json
+			) AS api_access_keys
 		FROM developer_apps da
 		LEFT JOIN api_metrics_apps ama ON ama.api_key = da.address
 		WHERE da.user_id = @userId
@@ -89,5 +117,268 @@ func (app *ApiServer) v1UsersDeveloperAppsWithMetrics(c *fiber.Ctx, userId int32
 
 	return c.JSON(fiber.Map{
 		"data": apps,
+	})
+}
+
+// requirePlansAppAuth validates Bearer token and checks that the plans app has a grant from the user.
+// Must run after requireUserIdMiddleware.
+func (app *ApiServer) requirePlansAppAuth(c *fiber.Ctx) error {
+	secret := app.config.PlansAppApiSecret
+	if secret == "" {
+		app.logger.Error("PLANS_APP_API_SECRET not configured")
+		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{
+			"error": "Plans app not configured",
+		})
+	}
+
+	authHeader := c.Get("Authorization")
+	if authHeader == "" || !strings.HasPrefix(authHeader, "Bearer ") {
+		return c.Status(fiber.StatusUnauthorized).JSON(fiber.Map{
+			"error": "Missing or invalid Authorization header. Use Bearer <oauth_token>",
+		})
+	}
+	token := strings.TrimPrefix(authHeader, "Bearer ")
+
+	pathUserId := app.getUserId(c)
+	if pathUserId == 0 {
+		return fiber.NewError(fiber.StatusBadRequest, "invalid userId")
+	}
+
+	jwtUserId, err := app.validateOAuthJWTTokenToUserId(c.Context(), token)
+	if err != nil {
+		return err
+	}
+
+	if int32(jwtUserId) != pathUserId {
+		return c.Status(fiber.StatusForbidden).JSON(fiber.Map{
+			"error": "Token userId does not match path userId",
+		})
+	}
+
+	// Derive plans app address from private key
+	privateKey, err := crypto.HexToECDSA(strings.TrimPrefix(secret, "0x"))
+	if err != nil {
+		app.logger.Error("Invalid PLANS_APP_API_SECRET", zap.Error(err))
+		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{
+			"error": "Plans app misconfigured",
+		})
+	}
+	plansAppAddress := strings.ToLower(crypto.PubkeyToAddress(privateKey.PublicKey).Hex())
+
+	if !app.isAuthorizedRequest(c.Context(), pathUserId, plansAppAddress) {
+		return c.Status(fiber.StatusForbidden).JSON(fiber.Map{
+			"error": "User has not granted the plans app write access. Log in with OAuth scope 'write'.",
+		})
+	}
+
+	return c.Next()
+}
+
+// validateOAuthJWTTokenToUserId validates the OAuth JWT and returns the userId from the payload.
+func (app *ApiServer) validateOAuthJWTTokenToUserId(ctx context.Context, token string) (trashid.HashId, error) {
+	tokenParts := strings.Split(token, ".")
+	if len(tokenParts) != 3 {
+		return 0, fiber.NewError(fiber.StatusBadRequest, "Invalid JWT token format")
+	}
+
+	base64Header := tokenParts[0]
+	base64Payload := tokenParts[1]
+	base64Signature := tokenParts[2]
+
+	paddedSignature := base64Signature
+	if len(paddedSignature)%4 != 0 {
+		paddedSignature += strings.Repeat("=", 4-len(paddedSignature)%4)
+	}
+	signatureDecoded, err := base64.URLEncoding.DecodeString(paddedSignature)
+	if err != nil {
+		return 0, fiber.NewError(fiber.StatusBadRequest, "The JWT signature could not be decoded")
+	}
+	signatureHex := string(signatureDecoded)
+	signatureBytes := common.FromHex(signatureHex)
+
+	message := fmt.Sprintf("%s.%s", base64Header, base64Payload)
+	encodedToRecover := []byte(message)
+	prefixedMessage := []byte(fmt.Sprintf("\x19Ethereum Signed Message:\n%d%s", len(encodedToRecover), encodedToRecover))
+	finalHash := crypto.Keccak256Hash(prefixedMessage)
+
+	if len(signatureBytes) != 65 {
+		return 0, fiber.NewError(fiber.StatusBadRequest, "The JWT signature was incorrectly signed")
+	}
+	if signatureBytes[64] >= 27 {
+		signatureBytes[64] -= 27
+	}
+	publicKey, err := crypto.SigToPub(finalHash.Bytes(), signatureBytes)
+	if err != nil {
+		return 0, fiber.NewError(fiber.StatusUnauthorized, "The JWT signature is invalid")
+	}
+	recoveredAddr := crypto.PubkeyToAddress(*publicKey)
+	walletLower := strings.ToLower(recoveredAddr.Hex())
+
+	paddedPayload := base64Payload
+	if len(paddedPayload)%4 != 0 {
+		paddedPayload += strings.Repeat("=", 4-len(paddedPayload)%4)
+	}
+	stringifiedPayload, err := base64.URLEncoding.DecodeString(paddedPayload)
+	if err != nil {
+		return 0, fiber.NewError(fiber.StatusBadRequest, "JWT payload could not be decoded")
+	}
+	var payload map[string]interface{}
+	if err := json.Unmarshal(stringifiedPayload, &payload); err != nil {
+		return 0, fiber.NewError(fiber.StatusBadRequest, "JWT payload could not be unmarshalled")
+	}
+
+	userIdInterface, exists := payload["userId"]
+	if !exists {
+		return 0, fiber.NewError(fiber.StatusBadRequest, "JWT payload missing userId field")
+	}
+	userIdStr, ok := userIdInterface.(string)
+	if !ok {
+		return 0, fiber.NewError(fiber.StatusBadRequest, "JWT payload userId must be a string")
+	}
+	jwtUserId, err := trashid.DecodeHashId(userIdStr)
+	if err != nil {
+		return 0, fiber.NewError(fiber.StatusBadRequest, "Invalid JWT payload userId")
+	}
+
+	walletUserId, err := app.queries.GetUserForWallet(ctx, walletLower)
+	if err != nil {
+		if err == pgx.ErrNoRows {
+			return 0, fiber.NewError(fiber.StatusUnauthorized, "The JWT signature is invalid - invalid wallet")
+		}
+		return 0, err
+	}
+
+	if int32(walletUserId) != int32(jwtUserId) {
+		isManager, err := app.isActiveManager(ctx, int32(jwtUserId), int32(walletUserId))
+		if err != nil {
+			return 0, err
+		}
+		if !isManager {
+			return 0, fiber.NewError(fiber.StatusForbidden, "The JWT signature is invalid - the wallet does not match the user")
+		}
+	}
+
+	return trashid.HashId(jwtUserId), nil
+}
+
+type createDeveloperAppBody struct {
+	Name string `json:"name"`
+}
+
+func (app *ApiServer) postV1UsersDeveloperAppCreate(c *fiber.Ctx) error {
+	userID := app.getUserId(c)
+
+	var body createDeveloperAppBody
+	if err := c.BodyParser(&body); err != nil {
+		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
+			"error": "Invalid request body",
+		})
+	}
+	name := strings.TrimSpace(body.Name)
+	if name == "" {
+		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
+			"error": "name is required",
+		})
+	}
+
+	if app.writePool == nil {
+		app.logger.Error("Write pool not configured")
+		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{
+			"error": "Database write not available",
+		})
+	}
+
+	// Generate ECDSA keypair for the new app
+	privateKey, err := ecdsa.GenerateKey(crypto.S256(), rand.Reader)
+	if err != nil {
+		app.logger.Error("Failed to generate keypair", zap.Error(err))
+		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{
+			"error": "Failed to create developer app",
+		})
+	}
+	address := crypto.PubkeyToAddress(privateKey.PublicKey).Hex()
+	apiSecretHex := hex.EncodeToString(privateKey.D.Bytes())
+
+	// Insert into api_keys
+	_, err = app.writePool.Exec(c.Context(), `
+		INSERT INTO api_keys (api_key, api_secret, rps, rpm)
+		VALUES ($1, $2, 10, 500000)
+		ON CONFLICT (api_key) DO UPDATE SET api_secret = EXCLUDED.api_secret
+	`, address, apiSecretHex)
+	if err != nil {
+		app.logger.Error("Failed to insert api_keys", zap.Error(err))
+		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{
+			"error": "Failed to create developer app",
+		})
+	}
+
+	// Build app_signature for ManageEntity
+	unixTs := strconv.FormatInt(time.Now().Unix(), 10)
+	message := "Creating Audius developer app at " + unixTs
+	hash := crypto.Keccak256Hash([]byte(message))
+	signature, err := crypto.Sign(hash.Bytes(), privateKey)
+	if err != nil {
+		app.logger.Error("Failed to sign app message", zap.Error(err))
+		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{
+			"error": "Failed to create developer app",
+		})
+	}
+	signatureHex := hex.EncodeToString(signature)
+
+	metadataObj := map[string]interface{}{
+		"name":        name,
+		"description": "",
+		"image_url":   "",
+		"app_signature": map[string]interface{}{
+			"message":   message,
+			"signature": signatureHex,
+		},
+	}
+	metadataBytes, _ := json.Marshal(metadataObj)
+
+	nonce := time.Now().UnixNano()
+	manageEntityTx := &corev1.ManageEntityLegacy{
+		Signer:     common.HexToAddress(address).String(),
+		UserId:     int64(userID),
+		EntityId:   0,
+		Action:     indexer.Action_Create,
+		EntityType: indexer.Entity_DeveloperApp,
+		Nonce:      strconv.FormatInt(nonce, 10),
+		Metadata:   string(metadataBytes),
+	}
+
+	response, err := app.sendTransactionWithSigner(manageEntityTx, privateKey)
+	if err != nil {
+		app.logger.Error("Failed to send developer app create transaction", zap.Error(err))
+		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{
+			"error": "Failed to create developer app",
+		})
+	}
+
+	// Generate api_access_key (random base64 for Basic Auth)
+	apiAccessKeyBytes := make([]byte, 32)
+	if _, err := rand.Read(apiAccessKeyBytes); err != nil {
+		app.logger.Error("Failed to generate api_access_key", zap.Error(err))
+		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{
+			"error": "Failed to create developer app",
+		})
+	}
+	apiAccessKey := base64.URLEncoding.EncodeToString(apiAccessKeyBytes)
+
+	_, err = app.writePool.Exec(c.Context(), `
+		INSERT INTO api_access_keys (api_key, api_access_key, is_active)
+		VALUES ($1, $2, true)
+	`, address, apiAccessKey)
+	if err != nil {
+		app.logger.Error("Failed to insert api_access_keys", zap.Error(err))
+		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{
+			"error": "Failed to create developer app",
+		})
+	}
+
+	return c.JSON(fiber.Map{
+		"api_key":          address,
+		"api_secret":       apiAccessKey,
+		"transaction_hash": response.Msg.GetTransaction().GetHash(),
 	})
 }
