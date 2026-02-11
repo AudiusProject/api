@@ -108,7 +108,7 @@ func (app *ApiServer) authMiddleware(c *fiber.Ctx) error {
 	if wallet == "" {
 		signer, _ := app.getApiSigner(c)
 		if signer != nil {
-			wallet = signer.Address
+			wallet = strings.ToLower(signer.Address)
 		}
 	}
 
