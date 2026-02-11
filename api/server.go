@@ -443,6 +443,7 @@ func NewApiServer(config config.Config) *ApiServer {
 		g.Get("/tracks/:trackId/access-info", app.v1TrackAccessInfo)
 		g.Get("/tracks/:trackId/remixes", app.v1TrackRemixes)
 		g.Get("/tracks/:trackId/reposts", app.v1TrackReposts)
+		g.Post("/tracks/:trackId/reposts", app.requireAuthMiddleware, app.postV1TrackRepost)
 		g.Get("/tracks/:trackId/stems", app.v1TrackStems)
 		g.Get("/tracks/:trackId/favorites", app.v1TrackFavorites)
 		g.Get("/tracks/:trackId/comments", app.v1TrackComments)
