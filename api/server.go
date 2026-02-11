@@ -339,6 +339,7 @@ func NewApiServer(config config.Config) *ApiServer {
 	for _, g := range []fiber.Router{v1, v1Full} {
 		// Users
 		g.Get("/users", app.v1Users)
+		g.Post("/users", app.requireAuthMiddleware, app.postV1Users)
 		g.Get("/users/address", app.v1UserIdsByAddresses)
 		g.Get("/users/search", app.v1UsersSearch)
 		g.Get("/users/unclaimed_id", app.v1UsersUnclaimedId)
@@ -424,9 +425,11 @@ func NewApiServer(config config.Config) *ApiServer {
 		g.Delete("/users/:userId/subscribe", app.requireAuthMiddleware, app.deleteV1UserSubscribe)
 		g.Post("/users/:userId/mute", app.requireAuthMiddleware, app.postV1UserMute)
 		g.Delete("/users/:userId/mute", app.requireAuthMiddleware, app.deleteV1UserMute)
+		g.Put("/users/:userId", app.requireAuthMiddleware, app.putV1User)
 
 		// Tracks
 		g.Get("/tracks", app.v1Tracks)
+		g.Post("/tracks", app.requireAuthMiddleware, app.postV1Tracks)
 		g.Get("/tracks/search", app.v1TracksSearch)
 		g.Get("/tracks/unclaimed_id", app.v1TracksUnclaimedId)
 
@@ -457,6 +460,7 @@ func NewApiServer(config config.Config) *ApiServer {
 		g.Delete("/tracks/:trackId/favorites", app.requireAuthMiddleware, app.deleteV1TrackFavorite)
 		g.Post("/tracks/:trackId/shares", app.requireAuthMiddleware, app.postV1TrackShare)
 		g.Post("/tracks/:trackId/downloads", app.requireAuthMiddleware, app.postV1TrackDownload)
+		g.Put("/tracks/:trackId", app.requireAuthMiddleware, app.putV1Track)
 		g.Delete("/tracks/:trackId", app.requireAuthMiddleware, app.deleteV1Track)
 		g.Get("/tracks/:trackId/comments", app.v1TrackComments)
 		g.Get("/tracks/:trackId/comment_count", app.v1TrackCommentCount)
@@ -470,6 +474,7 @@ func NewApiServer(config config.Config) *ApiServer {
 
 		// Playlists
 		g.Get("/playlists", app.v1Playlists)
+		g.Post("/playlists", app.requireAuthMiddleware, app.postV1Playlists)
 		g.Get("/playlists/search", app.v1PlaylistsSearch)
 		g.Get("/playlists/unclaimed_id", app.v1PlaylistsUnclaimedId)
 		g.Get("/playlists/unclaimed-id", app.v1PlaylistsUnclaimedId)
@@ -488,6 +493,8 @@ func NewApiServer(config config.Config) *ApiServer {
 		g.Post("/playlists/:playlistId/favorites", app.requireAuthMiddleware, app.postV1PlaylistFavorite)
 		g.Delete("/playlists/:playlistId/favorites", app.requireAuthMiddleware, app.deleteV1PlaylistFavorite)
 		g.Post("/playlists/:playlistId/shares", app.requireAuthMiddleware, app.postV1PlaylistShare)
+		g.Put("/playlists/:playlistId", app.requireAuthMiddleware, app.putV1Playlist)
+		g.Delete("/playlists/:playlistId", app.requireAuthMiddleware, app.deleteV1Playlist)
 		g.Get("/playlists/:playlistId/tracks", app.v1PlaylistTracks)
 
 		// Explore
