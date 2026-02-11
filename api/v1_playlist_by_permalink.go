@@ -28,7 +28,7 @@ func (app *ApiServer) v1PlaylistByPermalink(c *fiber.Ctx) error {
 		return err
 	}
 
-	playlists, err := app.queries.FullPlaylists(c.Context(), dbv1.FullPlaylistsParams{
+	playlists, err := app.queries.Playlists(c.Context(), dbv1.PlaylistsParams{
 		GetPlaylistsParams: dbv1.GetPlaylistsParams{
 			MyID: myId,
 			Ids:  ids,

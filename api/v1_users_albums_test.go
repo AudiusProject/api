@@ -45,7 +45,7 @@ func TestGetUserAlbums(t *testing.T) {
 	database.Seed(app.pool.Replicas[0], fixtures)
 
 	var userAlbumsResponse struct {
-		Data []dbv1.FullPlaylist
+		Data []dbv1.Playlist
 	}
 
 	{
@@ -101,7 +101,7 @@ func TestGetUserAlbums_SortRecentDesc(t *testing.T) {
 	database.Seed(app.pool.Replicas[0], fixtures)
 
 	var userAlbumsResponse struct {
-		Data []dbv1.FullPlaylist
+		Data []dbv1.Playlist
 	}
 
 	status, body := testGet(t, app, "/v1/full/users/handle/one/albums?sort_method=recent&sort_direction=desc", &userAlbumsResponse)
@@ -147,7 +147,7 @@ func TestGetUserAlbums_SortPopularAsc(t *testing.T) {
 	database.Seed(app.pool.Replicas[0], fixtures)
 
 	var userAlbumsResponse struct {
-		Data []dbv1.FullPlaylist
+		Data []dbv1.Playlist
 	}
 
 	status, body := testGet(t, app, "/v1/full/users/handle/one/albums?sort_method=popular&sort_direction=asc", &userAlbumsResponse)
@@ -196,7 +196,7 @@ func TestGetUserAlbums_FilterAlbumsPublic(t *testing.T) {
 	database.Seed(app.pool.Replicas[0], fixtures)
 
 	var userAlbumsResponse struct {
-		Data []dbv1.FullPlaylist
+		Data []dbv1.Playlist
 	}
 
 	status, body := testGet(t, app, "/v1/full/users/handle/one/albums?filter_albums=public", &userAlbumsResponse)
@@ -245,7 +245,7 @@ func TestGetUserAlbums_FilterAlbumsPrivate(t *testing.T) {
 	database.Seed(app.pool.Replicas[0], fixtures)
 
 	var userAlbumsResponse struct {
-		Data []dbv1.FullPlaylist
+		Data []dbv1.Playlist
 	}
 
 	status, body := testGet(t, app, "/v1/full/users/handle/one/albums?filter_albums=private", &userAlbumsResponse)

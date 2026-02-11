@@ -44,6 +44,12 @@ SELECT
   release_date,
 
   (
+    SELECT COALESCE(SUM(ap.count), 0)::bigint
+    FROM jsonb_array_elements(COALESCE(p.playlist_contents->'track_ids', '[]'::jsonb)) AS e(item)
+    LEFT JOIN aggregate_plays ap ON ap.play_item_id = (e.item->>'track')::int
+  ) AS total_play_count,
+
+  (
     SELECT count(*) > 0
     FROM reposts
     WHERE @my_id > 0

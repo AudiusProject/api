@@ -159,7 +159,7 @@ func (app *ApiServer) v1UsersLibraryPlaylists(c *fiber.Ctx) error {
 	}
 
 	// get playlists
-	playlists, err := app.queries.FullPlaylistsKeyed(c.Context(), dbv1.FullPlaylistsParams{
+	playlists, err := app.queries.PlaylistsKeyed(c.Context(), dbv1.PlaylistsParams{
 		GetPlaylistsParams: dbv1.GetPlaylistsParams{
 			Ids:  ids,
 			MyID: myId,
