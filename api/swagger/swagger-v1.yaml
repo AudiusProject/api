@@ -923,6 +923,11 @@ paths:
           type: array
           items:
             type: string
+      - name: user_id
+        in: query
+        description: The user ID of the user making the request
+        schema:
+          type: string
       responses:
         "200":
           description: Success
@@ -1003,6 +1008,108 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/tracks_response'
+  /tracks/recommended:
+    get:
+      tags:
+      - tracks
+      description: Get recommended tracks
+      operationId: Get Recommended Tracks
+      parameters:
+      - name: limit
+        in: query
+        description: The number of items to fetch
+        schema:
+          type: integer
+      - name: genre
+        in: query
+        description: Filter trending to a specified genre
+        schema:
+          type: string
+      - name: time
+        in: query
+        description: Calculate trending over a specified time range
+        schema:
+          type: string
+          enum:
+          - week
+          - month
+          - year
+          - allTime
+      - name: exclusion_list
+        in: query
+        description: List of track ids to exclude
+        style: form
+        explode: true
+        schema:
+          type: array
+          items:
+            type: integer
+      - name: user_id
+        in: query
+        description: The user ID of the user making the request
+        schema:
+          type: string
+      responses:
+        "200":
+          description: Success
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/tracks_response'
+  /tracks/recommended/{version}:
+    get:
+      tags:
+      - tracks
+      description: Get recommended tracks using the given trending strategy version
+      operationId: Get Recommended Tracks With Version
+      parameters:
+      - name: version
+        in: path
+        description: The strategy version of trending to use
+        required: true
+        schema:
+          type: string
+      - name: limit
+        in: query
+        description: The number of items to fetch
+        schema:
+          type: integer
+      - name: genre
+        in: query
+        description: Filter trending to a specified genre
+        schema:
+          type: string
+      - name: time
+        in: query
+        description: Calculate trending over a specified time range
+        schema:
+          type: string
+          enum:
+          - week
+          - month
+          - year
+          - allTime
+      - name: exclusion_list
+        in: query
+        description: List of track ids to exclude
+        style: form
+        explode: true
+        schema:
+          type: array
+          items:
+            type: integer
+      - name: user_id
+        in: query
+        description: The user ID of the user making the request
+        schema:
+          type: string
+      responses:
+        "200":
+          description: Success
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/tracks_response'
   /tracks/feeling-lucky:
     get:
       tags:
@@ -1023,6 +1130,13 @@ paths:
           default: 10
           minimum: 1
           maximum: 100
+      - name: with_users
+        deprecated: true
+        in: query
+        description: Boolean to include user info with tracks
+        schema:
+          type: boolean
+          default: false
       - name: min_followers
         in: query
         description: Fetch tracks from users with at least this number of followers
@@ -1129,6 +1243,107 @@ paths:
         "500":
           description: Server error
           content: {}
+  /tracks/usdc-purchase:
+    get:
+      tags:
+      - tracks
+      description: Gets the top trending (most popular) USDC purchase tracks on Audius
+      operationId: Get Trending USDC Purchase Tracks
+      parameters:
+      - name: offset
+        in: query
+        description: The number of items to skip. Useful for pagination (page number
+          * limit)
+        schema:
+          type: integer
+      - name: limit
+        in: query
+        description: The number of items to fetch
+        schema:
+          type: integer
+      - name: user_id
+        in: query
+        description: The user ID of the user making the request
+        schema:
+          type: string
+      - name: genre
+        in: query
+        description: Filter trending to a specified genre
+        schema:
+          type: string
+      - name: time
+        in: query
+        description: Calculate trending over a specified time range
+        schema:
+          type: string
+          enum:
+          - week
+          - month
+          - year
+          - allTime
+      responses:
+        "200":
+          description: Success
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/tracks_response'
+        "400":
+          description: Bad request
+          content: {}
+        "500":
+          description: Server error
+          content: {}
+  /tracks/usdc-purchase/{version}:
+    get:
+      tags:
+      - tracks
+      description: Gets the top trending (most popular) USDC purchase tracks on Audius using a given trending strategy version
+      operationId: Get Trending USDC Purchase Tracks With Version
+      parameters:
+      - name: version
+        in: path
+        description: The strategy version of trending to use
+        required: true
+        schema:
+          type: string
+      - name: offset
+        in: query
+        description: The number of items to skip. Useful for pagination (page number * limit)
+        schema:
+          type: integer
+      - name: limit
+        in: query
+        description: The number of items to fetch
+        schema:
+          type: integer
+      - name: user_id
+        in: query
+        description: The user ID of the user making the request
+        schema:
+          type: string
+      - name: genre
+        in: query
+        description: Filter trending to a specified genre
+        schema:
+          type: string
+      - name: time
+        in: query
+        description: Calculate trending over a specified time range
+        schema:
+          type: string
+          enum:
+          - week
+          - month
+          - year
+          - allTime
+      responses:
+        "200":
+          description: Success
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/tracks_response'
   /tracks/search:
     get:
       tags:
@@ -1266,6 +1481,11 @@ paths:
           - month
           - year
           - allTime
+      - name: user_id
+        in: query
+        description: The user ID of the user making the request
+        schema:
+          type: string
       responses:
         "200":
           description: Success
@@ -1273,6 +1493,133 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/tracks_response'
+        "400":
+          description: Bad request
+          content: {}
+        "500":
+          description: Server error
+          content: {}
+  /tracks/trending/{version}:
+    get:
+      tags:
+      - tracks
+      description: Gets the top 100 trending (most popular) tracks on Audius using a given trending strategy version
+      operationId: Get Trending Tracks With Version
+      parameters:
+      - name: version
+        in: path
+        description: The strategy version of trending to use
+        required: true
+        schema:
+          type: string
+      - name: offset
+        in: query
+        description: The number of items to skip. Useful for pagination (page number * limit)
+        schema:
+          type: integer
+      - name: limit
+        in: query
+        description: The number of items to fetch
+        schema:
+          type: integer
+      - name: user_id
+        in: query
+        description: The user ID of the user making the request
+        schema:
+          type: string
+      - name: genre
+        in: query
+        description: Filter trending to a specified genre
+        schema:
+          type: string
+      - name: time
+        in: query
+        description: Calculate trending over a specified time range
+        schema:
+          type: string
+          enum:
+          - week
+          - month
+          - year
+          - allTime
+      responses:
+        "200":
+          description: Success
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/tracks_response'
+  /tracks/trending/ids:
+    get:
+      tags:
+      - tracks
+      description: Gets the track IDs of the top trending tracks on Audius
+      operationId: Get Trending Track IDs
+      parameters:
+      - name: offset
+        in: query
+        description: The number of items to skip. Useful for pagination (page number
+          * limit)
+        schema:
+          type: integer
+      - name: limit
+        in: query
+        description: The number of items to fetch
+        schema:
+          type: integer
+      - name: genre
+        in: query
+        description: Filter trending to a specified genre
+        schema:
+          type: string
+      responses:
+        "200":
+          description: Success
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/trending_ids_response'
+        "400":
+          description: Bad request
+          content: {}
+        "500":
+          description: Server error
+          content: {}
+  /tracks/trending/ids/{version}:
+    get:
+      tags:
+      - tracks
+      description: Gets the track IDs of the top trending tracks on Audius based on the given trending strategy version
+      operationId: Get Trending Tracks IDs With Version
+      parameters:
+      - name: version
+        in: path
+        description: The strategy version of trending to use
+        required: true
+        schema:
+          type: string
+      - name: offset
+        in: query
+        description: The number of items to skip. Useful for pagination (page number * limit)
+        schema:
+          type: integer
+      - name: limit
+        in: query
+        description: The number of items to fetch
+        schema:
+          type: integer
+      - name: genre
+        in: query
+        description: Filter trending to a specified genre
+        schema:
+          type: string
+      responses:
+        "200":
+          description: Success
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/trending_ids_response'
         "400":
           description: Bad request
           content: {}
@@ -1297,6 +1644,46 @@ paths:
         description: The number of items to fetch
         schema:
           type: integer
+      - name: user_id
+        in: query
+        description: The user ID of the user making the request
+        schema:
+          type: string
+      responses:
+        "200":
+          description: Success
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/tracks_response'
+  /tracks/trending/underground/{version}:
+    get:
+      tags:
+      - tracks
+      description: Gets the top 100 trending underground tracks on Audius using a given trending strategy version
+      operationId: Get Underground Trending Tracks With Version
+      parameters:
+      - name: version
+        in: path
+        description: The strategy version of trending to use
+        required: true
+        schema:
+          type: string
+      - name: offset
+        in: query
+        description: The number of items to skip. Useful for pagination (page number * limit)
+        schema:
+          type: integer
+      - name: limit
+        in: query
+        description: The number of items to fetch
+        schema:
+          type: integer
+      - name: user_id
+        in: query
+        description: The user ID of the user making the request
+        schema:
+          type: string
       responses:
         "200":
           description: Success
@@ -1315,6 +1702,11 @@ paths:
         in: path
         description: A Track ID
         required: true
+        schema:
+          type: string
+      - name: user_id
+        in: query
+        description: The user ID of the user making the request
         schema:
           type: string
       responses:
@@ -1464,6 +1856,182 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/track_comments_response'
+        "400":
+          description: Bad request
+          content: {}
+        "500":
+          description: Server error
+          content: {}
+  /tracks/{track_id}/favorites:
+    get:
+      tags:
+      - tracks
+      description: Get users that favorited a track
+      operationId: Get Users From Favorites
+      parameters:
+      - name: track_id
+        in: path
+        description: A Track ID
+        required: true
+        schema:
+          type: string
+      - name: offset
+        in: query
+        description: The number of items to skip. Useful for pagination (page number
+          * limit)
+        schema:
+          type: integer
+      - name: limit
+        in: query
+        description: The number of items to fetch
+        schema:
+          type: integer
+      - name: user_id
+        in: query
+        description: The user ID of the user making the request
+        schema:
+          type: string
+      responses:
+        "200":
+          description: Success
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/track_favorites_response'
+        "400":
+          description: Bad request
+          content: {}
+        "500":
+          description: Server error
+          content: {}
+  /tracks/{track_id}/remixes:
+    get:
+      tags:
+      - tracks
+      description: Get all tracks that remix the given track
+      operationId: Get Track Remixes
+      parameters:
+      - name: track_id
+        in: path
+        description: A Track ID
+        required: true
+        schema:
+          type: string
+      - name: offset
+        in: query
+        description: The number of items to skip. Useful for pagination (page number
+          * limit)
+        schema:
+          type: integer
+      - name: limit
+        in: query
+        description: The number of items to fetch
+        schema:
+          type: integer
+      - name: user_id
+        in: query
+        description: The user ID of the user making the request
+        schema:
+          type: string
+      - name: sort_method
+        in: query
+        description: The sort method to use
+        schema:
+          type: string
+          default: recent
+          enum:
+          - likes
+          - plays
+          - recent
+      - name: only_cosigns
+        in: query
+        description: Only remixes cosigned by the original artist
+        schema:
+          type: boolean
+      - name: only_contest_entries
+        in: query
+        description: Only entries to a remix contest
+        schema:
+          type: boolean
+      responses:
+        "200":
+          description: Success
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/remixes_response'
+  /tracks/{track_id}/remixing:
+    get:
+      tags:
+      - tracks
+      description: Gets all the tracks that the given track remixes
+      operationId: Get Track Remix Parents
+      parameters:
+      - name: track_id
+        in: path
+        description: A Track ID
+        required: true
+        schema:
+          type: string
+      - name: offset
+        in: query
+        description: The number of items to skip. Useful for pagination (page number
+          * limit)
+        schema:
+          type: integer
+      - name: limit
+        in: query
+        description: The number of items to fetch
+        schema:
+          type: integer
+      - name: user_id
+        in: query
+        description: The user ID of the user making the request
+        schema:
+          type: string
+      responses:
+        "200":
+          description: Success
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/remixing_response'
+  /tracks/{track_id}/reposts:
+    get:
+      tags:
+      - tracks
+      description: Get the users that reposted a track
+      operationId: Get Users From Reposts
+      parameters:
+      - name: track_id
+        in: path
+        description: A Track ID
+        required: true
+        schema:
+          type: string
+      - name: offset
+        in: query
+        description: The number of items to skip. Useful for pagination (page number
+          * limit)
+        schema:
+          type: integer
+      - name: limit
+        in: query
+        description: The number of items to fetch
+        schema:
+          type: integer
+      - name: user_id
+        in: query
+        description: The user ID of the user making the request
+        schema:
+          type: string
+      responses:
+        "200":
+          description: Success
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/track_reposts_response'
         "400":
           description: Bad request
           content: {}
@@ -1802,6 +2370,104 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/user_response'
+        "400":
+          description: Bad request
+          content: {}
+        "500":
+          description: Server error
+          content: {}
+  /users/handle/{handle}/tracks:
+    get:
+      tags:
+      - users
+      description: Gets the tracks created by a user using the user's handle
+      operationId: Get Tracks by User Handle
+      parameters:
+      - name: handle
+        in: path
+        description: A User handle
+        required: true
+        schema:
+          type: string
+      - name: offset
+        in: query
+        description: The number of items to skip. Useful for pagination (page number
+          * limit)
+        schema:
+          type: integer
+      - name: limit
+        in: query
+        description: The number of items to fetch
+        schema:
+          type: integer
+      - name: user_id
+        in: query
+        description: The user ID of the user making the request
+        schema:
+          type: string
+      - name: sort
+        in: query
+        description: "[Deprecated] Field to sort by"
+        schema:
+          type: string
+          default: date
+          enum:
+          - date
+          - plays
+      - name: query
+        in: query
+        description: The filter query
+        schema:
+          type: string
+      - name: sort_method
+        in: query
+        description: The sort method
+        schema:
+          type: string
+          enum:
+          - title
+          - artist_name
+          - release_date
+          - last_listen_date
+          - added_date
+          - plays
+          - reposts
+          - saves
+          - most_listens_by_user
+      - name: sort_direction
+        in: query
+        description: The sort direction
+        schema:
+          type: string
+          enum:
+          - asc
+          - desc
+      - name: filter_tracks
+        in: query
+        description: Filter by public tracks
+        schema:
+          type: string
+          default: all
+          enum:
+          - all
+          - public
+      - name: Encoded-Data-Message
+        in: header
+        description: The data that was signed by the user for signature recovery
+        schema:
+          type: string
+      - name: Encoded-Data-Signature
+        in: header
+        description: "The signature of data, used for signature recovery"
+        schema:
+          type: string
+      responses:
+        "200":
+          description: Success
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/tracks_response'
         "400":
           description: Bad request
           content: {}
@@ -3479,6 +4145,72 @@ paths:
         "500":
           description: Server error
           content: {}
+  /users/{id}/tracks/count:
+    get:
+      tags:
+      - users
+      description: Gets the count of tracks created by a user
+      operationId: Get Tracks Count by User
+      parameters:
+      - name: id
+        in: path
+        description: A User ID
+        required: true
+        schema:
+          type: string
+      - name: user_id
+        in: query
+        description: The user ID of the user making the request
+        schema:
+          type: string
+      - name: filter_tracks
+        in: query
+        description: Filter by public tracks
+        schema:
+          type: string
+          default: all
+          enum:
+          - all
+          - public
+      - name: gate_condition
+        in: query
+        description: Filter by gate conditions (can be repeated)
+        style: form
+        explode: true
+        schema:
+          type: array
+          items:
+            type: string
+            enum:
+            - ungated
+            - usdc_purchase
+            - follow
+            - tip
+            - nft
+            - token
+      - name: Encoded-Data-Message
+        in: header
+        description: The data that was signed by the user for signature recovery
+        schema:
+          type: string
+      - name: Encoded-Data-Signature
+        in: header
+        description: "The signature of data, used for signature recovery"
+        schema:
+          type: string
+      responses:
+        "200":
+          description: Success
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/tracks_count_response'
+        "400":
+          description: Bad request
+          content: {}
+        "500":
+          description: Server error
+          content: {}
   /users/{id}/tracks/remixed:
     get:
       tags:
@@ -4486,6 +5218,120 @@ components:
           type: integer
         album_backlink:
           $ref: '#/components/schemas/album_backlink'
+        access:
+          $ref: '#/components/schemas/track_access_info'
+        ai_attribution_user_id:
+          type: integer
+        allowed_api_keys:
+          type: array
+          items:
+            type: string
+        artists:
+          type: object
+        audio_analysis_error_count:
+          type: integer
+        audio_upload_id:
+          type: string
+        blocknumber:
+          type: integer
+        bpm:
+          type: number
+        comments_disabled:
+          type: boolean
+        copyright_line:
+          type: object
+        cover_art:
+          type: string
+        cover_art_sizes:
+          type: string
+        cover_original_artist:
+          type: string
+        cover_original_song_title:
+          type: string
+        create_date:
+          type: string
+        created_at:
+          type: string
+          format: date-time
+        credits_splits:
+          type: string
+        ddex_release_ids:
+          type: object
+        download:
+          $ref: '#/components/schemas/media_link'
+        download_conditions:
+          $ref: '#/components/schemas/access_gate'
+        field_visibility:
+          type: object
+        followee_favorites:
+          type: array
+          items:
+            type: object
+        followee_reposts:
+          type: array
+          items:
+            type: object
+        has_current_user_reposted:
+          type: boolean
+        has_current_user_saved:
+          type: boolean
+        indirect_resource_contributors:
+          type: object
+        is_available:
+          type: boolean
+        is_custom_bpm:
+          type: boolean
+        is_custom_musical_key:
+          type: boolean
+        is_delete:
+          type: boolean
+        is_download_gated:
+          type: boolean
+        is_owned_by_user:
+          type: boolean
+        is_scheduled_release:
+          type: boolean
+        is_stream_gated:
+          type: boolean
+        is_unlisted:
+          type: boolean
+        iswc:
+          type: string
+        license:
+          type: string
+        musical_key:
+          type: string
+        parental_warning_type:
+          type: string
+        playlists_previously_containing_track:
+          type: object
+        preview:
+          $ref: '#/components/schemas/media_link'
+        preview_start_seconds:
+          type: number
+        producer_copyright_line:
+          type: object
+        resource_contributors:
+          type: object
+        rights_controller:
+          type: object
+        slug:
+          type: string
+        stem_of:
+          type: array
+          items:
+            type: object
+        stream:
+          $ref: '#/components/schemas/media_link'
+        stream_conditions:
+          $ref: '#/components/schemas/access_gate'
+        track_id:
+          type: integer
+        track_segments:
+          type: object
+        updated_at:
+          type: string
+          format: date-time
     track_artwork:
       type: object
       properties:
@@ -5410,6 +6256,28 @@ components:
           description: Must hold an NFT of the given collection to unlock
           allOf:
           - $ref: '#/components/schemas/nft_collection'
+    media_link:
+      type: object
+      properties:
+        url:
+          type: string
+        mirrors:
+          type: array
+          items:
+            type: string
+    access_gate:
+      type: object
+      properties:
+        usdc_purchase:
+          $ref: '#/components/schemas/extended_purchase_gate'
+        follow_user_id:
+          type: integer
+        tip_user_id:
+          type: integer
+        nft_collection:
+          type: object
+        token_gate:
+          $ref: '#/components/schemas/extended_token_gate'
     nft_collection:
       required:
       - address
@@ -5471,6 +6339,70 @@ components:
           type: array
           items:
             $ref: '#/components/schemas/comment'
+    trending_ids_response:
+      type: object
+      properties:
+        data:
+          $ref: '#/components/schemas/trending_times_ids'
+    trending_times_ids:
+      type: object
+      properties:
+        week:
+          type: array
+          items:
+            $ref: '#/components/schemas/track_id'
+        month:
+          type: array
+          items:
+            $ref: '#/components/schemas/track_id'
+        year:
+          type: array
+          items:
+            $ref: '#/components/schemas/track_id'
+    track_id:
+      required:
+      - id
+      type: object
+      properties:
+        id:
+          type: string
+    track_favorites_response:
+      type: object
+      properties:
+        data:
+          type: array
+          items:
+            $ref: '#/components/schemas/user'
+    track_reposts_response:
+      type: object
+      properties:
+        data:
+          type: array
+          items:
+            $ref: '#/components/schemas/user'
+    remixes_response:
+      required:
+      - count
+      type: object
+      properties:
+        count:
+          type: integer
+        tracks:
+          type: array
+          items:
+            $ref: '#/components/schemas/Track'
+    remixing_response:
+      type: object
+      properties:
+        data:
+          type: array
+          items:
+            $ref: '#/components/schemas/Track'
+    tracks_count_response:
+      type: object
+      properties:
+        data:
+          type: integer
     track_comment_count_response:
       type: object
       properties:

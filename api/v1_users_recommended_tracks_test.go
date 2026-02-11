@@ -64,7 +64,7 @@ func TestV1UsersRecommendedTracks(t *testing.T) {
 	})
 
 	var response struct {
-		Data []dbv1.FullTrack
+		Data []dbv1.Track
 	}
 
 	status, body := testGet(t, app, "/v1/full/users/"+trashid.MustEncodeHashID(1)+"/recommended-tracks", &response)

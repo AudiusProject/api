@@ -118,7 +118,7 @@ func TestGetUserTracksAiAttributed(t *testing.T) {
 	database.Seed(app.pool.Replicas[0], fixtures)
 
 	var userTracksResponse struct {
-		Data []dbv1.FullTrack
+		Data []dbv1.Track
 	}
 
 	baseUrl := "/v1/full/users/handle/testuser1/tracks/ai_attributed"
