@@ -418,6 +418,12 @@ func NewApiServer(config config.Config) *ApiServer {
 		g.Get("/users/:userId/developer-apps", app.v1UsersDeveloperApps)
 		g.Get("/users/:userId/withdrawals/download", app.requireAuthForUserId, app.v1UsersWithdrawalsDownloadCsv)
 		g.Get("/users/:userId/withdrawals/download/json", app.requireAuthForUserId, app.v1UsersWithdrawalsDownloadJson)
+		g.Post("/users/:userId/follow", app.requireAuthMiddleware, app.postV1UserFollow)
+		g.Delete("/users/:userId/follow", app.requireAuthMiddleware, app.deleteV1UserFollow)
+		g.Post("/users/:userId/subscribe", app.requireAuthMiddleware, app.postV1UserSubscribe)
+		g.Delete("/users/:userId/subscribe", app.requireAuthMiddleware, app.deleteV1UserSubscribe)
+		g.Post("/users/:userId/mute", app.requireAuthMiddleware, app.postV1UserMute)
+		g.Delete("/users/:userId/mute", app.requireAuthMiddleware, app.deleteV1UserMute)
 
 		// Tracks
 		g.Get("/tracks", app.v1Tracks)
@@ -444,8 +450,14 @@ func NewApiServer(config config.Config) *ApiServer {
 		g.Get("/tracks/:trackId/remixes", app.v1TrackRemixes)
 		g.Get("/tracks/:trackId/reposts", app.v1TrackReposts)
 		g.Post("/tracks/:trackId/reposts", app.requireAuthMiddleware, app.postV1TrackRepost)
+		g.Delete("/tracks/:trackId/reposts", app.requireAuthMiddleware, app.deleteV1TrackRepost)
 		g.Get("/tracks/:trackId/stems", app.v1TrackStems)
 		g.Get("/tracks/:trackId/favorites", app.v1TrackFavorites)
+		g.Post("/tracks/:trackId/favorites", app.requireAuthMiddleware, app.postV1TrackFavorite)
+		g.Delete("/tracks/:trackId/favorites", app.requireAuthMiddleware, app.deleteV1TrackFavorite)
+		g.Post("/tracks/:trackId/shares", app.requireAuthMiddleware, app.postV1TrackShare)
+		g.Post("/tracks/:trackId/downloads", app.requireAuthMiddleware, app.postV1TrackDownload)
+		g.Delete("/tracks/:trackId", app.requireAuthMiddleware, app.deleteV1Track)
 		g.Get("/tracks/:trackId/comments", app.v1TrackComments)
 		g.Get("/tracks/:trackId/comment_count", app.v1TrackCommentCount)
 		g.Get("/tracks/:trackId/comment-count", app.v1TrackCommentCount)
@@ -470,7 +482,12 @@ func NewApiServer(config config.Config) *ApiServer {
 		g.Get("/playlists/:playlistId", app.v1Playlist)
 		g.Get("/playlists/:playlistId/stream", app.v1PlaylistStream)
 		g.Get("/playlists/:playlistId/reposts", app.v1PlaylistReposts)
+		g.Post("/playlists/:playlistId/reposts", app.requireAuthMiddleware, app.postV1PlaylistRepost)
+		g.Delete("/playlists/:playlistId/reposts", app.requireAuthMiddleware, app.deleteV1PlaylistRepost)
 		g.Get("/playlists/:playlistId/favorites", app.v1PlaylistFavorites)
+		g.Post("/playlists/:playlistId/favorites", app.requireAuthMiddleware, app.postV1PlaylistFavorite)
+		g.Delete("/playlists/:playlistId/favorites", app.requireAuthMiddleware, app.deleteV1PlaylistFavorite)
+		g.Post("/playlists/:playlistId/shares", app.requireAuthMiddleware, app.postV1PlaylistShare)
 		g.Get("/playlists/:playlistId/tracks", app.v1PlaylistTracks)
 
 		// Explore
@@ -484,6 +501,9 @@ func NewApiServer(config config.Config) *ApiServer {
 		// Developer Apps
 		g.Get("/developer_apps/:address", app.v1DeveloperApps)
 		g.Get("/developer-apps/:address", app.v1DeveloperApps)
+		g.Post("/developer-apps", app.requireAuthMiddleware, app.postV1DeveloperApp)
+		g.Put("/developer-apps/:address", app.requireAuthMiddleware, app.putV1DeveloperApp)
+		g.Delete("/developer-apps/:address", app.requireAuthMiddleware, app.deleteV1DeveloperApp)
 
 		// Rewards
 		g.Post("/rewards/claim", app.v1ClaimRewards)
@@ -500,7 +520,15 @@ func NewApiServer(config config.Config) *ApiServer {
 		// Comments
 		g.Get("/comments/unclaimed_id", app.v1CommentsUnclaimedId)
 		g.Get("/comments/unclaimed-id", app.v1CommentsUnclaimedId)
+		g.Post("/comments", app.requireAuthMiddleware, app.postV1Comment)
 		g.Get("/comments/:commentId", app.v1Comment)
+		g.Put("/comments/:commentId", app.requireAuthMiddleware, app.putV1Comment)
+		g.Delete("/comments/:commentId", app.requireAuthMiddleware, app.deleteV1Comment)
+		g.Post("/comments/:commentId/react", app.requireAuthMiddleware, app.postV1CommentReact)
+		g.Delete("/comments/:commentId/react", app.requireAuthMiddleware, app.deleteV1CommentReact)
+		g.Post("/comments/:commentId/pin", app.requireAuthMiddleware, app.postV1CommentPin)
+		g.Delete("/comments/:commentId/pin", app.requireAuthMiddleware, app.deleteV1CommentPin)
+		g.Post("/comments/:commentId/report", app.requireAuthMiddleware, app.postV1CommentReport)
 
 		// Tips
 		g.Get("/tips", app.v1Tips)

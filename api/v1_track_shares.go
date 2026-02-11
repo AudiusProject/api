@@ -4,7 +4,6 @@ import (
 	"strconv"
 	"time"
 
-	"api.audius.co/api/dbv1"
 	"api.audius.co/indexer"
 	"api.audius.co/trashid"
 	corev1 "github.com/OpenAudio/go-openaudio/pkg/api/core/v1"
@@ -13,30 +12,7 @@ import (
 	"go.uber.org/zap"
 )
 
-func (app *ApiServer) v1Track(c *fiber.Ctx) error {
-	myId := app.getMyId(c)
-	trackId := c.Locals("trackId").(int)
-
-	tracks, err := app.queries.FullTracks(c.Context(), dbv1.FullTracksParams{
-		GetTracksParams: dbv1.GetTracksParams{
-			MyID: myId,
-			Ids:  []int32{int32(trackId)},
-		},
-	})
-	if err != nil {
-		return err
-	}
-
-	if len(tracks) == 0 {
-		return fiber.NewError(fiber.StatusNotFound, "track not found")
-	}
-
-	track := tracks[0]
-
-	return v1TrackResponse(c, track)
-}
-
-func (app *ApiServer) deleteV1Track(c *fiber.Ctx) error {
+func (app *ApiServer) postV1TrackShare(c *fiber.Ctx) error {
 	userID := app.getUserId(c)
 	trackID, err := trashid.DecodeHashId(c.Params("trackId"))
 	if err != nil {
@@ -54,7 +30,7 @@ func (app *ApiServer) deleteV1Track(c *fiber.Ctx) error {
 		Signer:     common.HexToAddress(signer.Address).String(),
 		UserId:     int64(userID),
 		EntityId:   int64(trackID),
-		Action:     indexer.Action_Delete,
+		Action:     indexer.Action_Share,
 		EntityType: indexer.Entity_Track,
 		Nonce:      strconv.FormatInt(nonce, 10),
 		Metadata:   "",
@@ -62,9 +38,9 @@ func (app *ApiServer) deleteV1Track(c *fiber.Ctx) error {
 
 	response, err := app.sendTransactionWithSigner(manageEntityTx, signer.PrivateKey)
 	if err != nil {
-		app.logger.Error("Failed to send track delete transaction", zap.Error(err))
+		app.logger.Error("Failed to send track share transaction", zap.Error(err))
 		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{
-			"error": "Failed to delete track",
+			"error": "Failed to share track",
 		})
 	}
 
