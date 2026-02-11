@@ -49,7 +49,7 @@ func (app *ApiServer) v1Playlists(c *fiber.Ctx) error {
 		ids = append(ids, newIds...)
 	}
 
-	playlists, err := app.queries.FullPlaylists(c.Context(), dbv1.FullPlaylistsParams{
+	playlists, err := app.queries.Playlists(c.Context(), dbv1.PlaylistsParams{
 		GetPlaylistsParams: dbv1.GetPlaylistsParams{
 			MyID: myId,
 			Ids:  ids,

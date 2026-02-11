@@ -1394,7 +1394,19 @@ type Play struct {
 	Country    pgtype.Text `json:"country"`
 }
 
-type Playlist struct {
+type PlaylistRoute struct {
+	Slug        string `json:"slug"`
+	TitleSlug   string `json:"title_slug"`
+	CollisionID int32  `json:"collision_id"`
+	OwnerID     int32  `json:"owner_id"`
+	PlaylistID  int32  `json:"playlist_id"`
+	IsCurrent   bool   `json:"is_current"`
+	Blockhash   string `json:"blockhash"`
+	Blocknumber int32  `json:"blocknumber"`
+	Txhash      string `json:"txhash"`
+}
+
+type PlaylistRow struct {
 	Blockhash                   pgtype.Text      `json:"blockhash"`
 	Blocknumber                 pgtype.Int4      `json:"blocknumber"`
 	PlaylistID                  int32            `json:"playlist_id"`
@@ -1426,18 +1438,6 @@ type Playlist struct {
 	ParentalWarningType         pgtype.Text      `json:"parental_warning_type"`
 	IsScheduledRelease          bool             `json:"is_scheduled_release"`
 	ReleaseDate                 *time.Time       `json:"release_date"`
-}
-
-type PlaylistRoute struct {
-	Slug        string `json:"slug"`
-	TitleSlug   string `json:"title_slug"`
-	CollisionID int32  `json:"collision_id"`
-	OwnerID     int32  `json:"owner_id"`
-	PlaylistID  int32  `json:"playlist_id"`
-	IsCurrent   bool   `json:"is_current"`
-	Blockhash   string `json:"blockhash"`
-	Blocknumber int32  `json:"blocknumber"`
-	Txhash      string `json:"txhash"`
 }
 
 type PlaylistSeen struct {

@@ -11,7 +11,7 @@ import (
 func TestGetPlaylist(t *testing.T) {
 	app := testAppWithFixtures(t)
 	var playlistResponse struct {
-		Data []dbv1.FullPlaylist
+		Data []dbv1.Playlist
 	}
 
 	status, body := testGet(t, app, "/v1/full/playlists/7eP5n", &playlistResponse)
@@ -27,7 +27,7 @@ func TestGetPlaylist(t *testing.T) {
 func TestGetPlaylistFollowDownloadAccess(t *testing.T) {
 	app := testAppWithFixtures(t)
 	var playlistResponse struct {
-		Data []dbv1.FullPlaylist
+		Data []dbv1.Playlist
 	}
 	// No access
 	_, body1 := testGet(t, app, "/v1/full/playlists/ML51L", &playlistResponse)
@@ -52,7 +52,7 @@ func TestGetPlaylistFollowDownloadAccess(t *testing.T) {
 func TestGetPlaylistUsdcPurchaseStreamAccess(t *testing.T) {
 	app := testAppWithFixtures(t)
 	var playlistResponse struct {
-		Data []dbv1.FullPlaylist
+		Data []dbv1.Playlist
 	}
 	// No access
 	_, body1 := testGet(t, app, "/v1/full/playlists/ELKzn", &playlistResponse)
@@ -77,7 +77,7 @@ func TestGetPlaylistUsdcPurchaseStreamAccess(t *testing.T) {
 func TestGetPlaylistUsdcPurchaseSelfAccess(t *testing.T) {
 	app := testAppWithFixtures(t)
 	var playlistResponse struct {
-		Data []dbv1.FullPlaylist
+		Data []dbv1.Playlist
 	}
 	// No access. User 3 is the owner, but has not signed authorization
 	status, _ := testGet(

@@ -82,7 +82,7 @@ func (app *ApiServer) v1UserAlbums(c *fiber.Ctx) error {
 		return err
 	}
 
-	albums, err := app.queries.FullPlaylists(c.Context(), dbv1.FullPlaylistsParams{
+	albums, err := app.queries.Playlists(c.Context(), dbv1.PlaylistsParams{
 		GetPlaylistsParams: dbv1.GetPlaylistsParams{
 			Ids:  ids,
 			MyID: myId,

@@ -9,7 +9,7 @@ func (app *ApiServer) v1Playlist(c *fiber.Ctx) error {
 	myId := app.getMyId(c)
 	playlistId := c.Locals("playlistId").(int)
 
-	playlists, err := app.queries.FullPlaylists(c.Context(), dbv1.FullPlaylistsParams{
+	playlists, err := app.queries.Playlists(c.Context(), dbv1.PlaylistsParams{
 		GetPlaylistsParams: dbv1.GetPlaylistsParams{
 			MyID: myId,
 			Ids:  []int32{int32(playlistId)},

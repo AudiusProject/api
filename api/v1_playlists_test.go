@@ -34,7 +34,7 @@ func TestPlaylistsEndpointWithTracks(t *testing.T) {
 func TestPlaylistsEndpointWithPlaylistPermalink(t *testing.T) {
 	app := testAppWithFixtures(t)
 	var resp struct {
-		Data []dbv1.FullPlaylist
+		Data []dbv1.Playlist
 	}
 
 	status, body := testGet(t, app, "/v1/full/playlists?permalink=/PlaylistsByPermalink/playlist/playlist-by-permalink", &resp)
@@ -49,7 +49,7 @@ func TestPlaylistsEndpointWithPlaylistPermalink(t *testing.T) {
 func TestPlaylistsEndpointWithAlbumPermalink(t *testing.T) {
 	app := testAppWithFixtures(t)
 	var resp struct {
-		Data []dbv1.FullPlaylist
+		Data []dbv1.Playlist
 	}
 
 	status, body := testGet(t, app, "/v1/full/playlists?permalink=/AlbumsByPermalink/album/album-by-permalink", &resp)
