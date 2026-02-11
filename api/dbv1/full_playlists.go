@@ -21,7 +21,7 @@ type FullPlaylist struct {
 	Artwork    *SquareImage   `json:"artwork"`
 	UserID     trashid.HashId `json:"user_id"`
 	User       User       `json:"user"`
-	Tracks     []FullTrack    `json:"tracks"`
+	Tracks     []Track    `json:"tracks"`
 	TrackCount int32          `json:"track_count"`
 	Access     Access         `json:"access"`
 	Permalink  string         `json:"permalink"`
@@ -89,7 +89,7 @@ func (q *Queries) FullPlaylistsKeyed(ctx context.Context, arg FullPlaylistsParam
 			continue
 		}
 
-		var tracks = make([]FullTrack, 0, len(playlist.PlaylistContents.TrackIDs))
+		var tracks = make([]Track, 0, len(playlist.PlaylistContents.TrackIDs))
 		for _, t := range playlist.PlaylistContents.TrackIDs {
 			if track, ok := loaded.TrackMap[int32(t.Track)]; ok {
 				tracks = append(tracks, track)
@@ -184,9 +184,9 @@ type MinPlaylist struct {
 }
 
 func ToMinPlaylist(fullPlaylist FullPlaylist) MinPlaylist {
-	minTracks := make([]MinTrack, len(fullPlaylist.Tracks))
-	for i, track := range fullPlaylist.Tracks {
-		minTracks[i] = ToMinTrack(track)
+		minTracks := make([]Track, len(fullPlaylist.Tracks))
+		for i, track := range fullPlaylist.Tracks {
+			minTracks[i] = track
 	}
 
 	return MinPlaylist{

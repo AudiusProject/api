@@ -21,7 +21,7 @@ type inspectResponse struct {
 	ContentType string `json:"content_type"`
 }
 
-func inspectTrack(track dbv1.FullTrack, original bool) (*inspectResponse, error) {
+func inspectTrack(track dbv1.Track, original bool) (*inspectResponse, error) {
 	var cid string
 	if original {
 		cid = track.OrigFileCid.String
@@ -73,7 +73,7 @@ func (app *ApiServer) v1TrackInspect(c *fiber.Ctx) error {
 	trackId := c.Locals("trackId").(int)
 	original := c.Query("original") == "true"
 
-	tracks, err := app.queries.FullTracks(c.Context(), dbv1.FullTracksParams{
+	tracks, err := app.queries.Tracks(c.Context(), dbv1.TracksParams{
 		GetTracksParams: dbv1.GetTracksParams{
 			MyID: myId,
 			Ids:  []int32{int32(trackId)},
@@ -103,7 +103,7 @@ func (app *ApiServer) v1TracksInspect(c *fiber.Ctx) error {
 	ids := decodeIdList(c)
 	original := c.Query("original") == "true"
 
-	tracks, err := app.queries.FullTracks(c.Context(), dbv1.FullTracksParams{
+	tracks, err := app.queries.Tracks(c.Context(), dbv1.TracksParams{
 		GetTracksParams: dbv1.GetTracksParams{
 			MyID: myId,
 			Ids:  ids,

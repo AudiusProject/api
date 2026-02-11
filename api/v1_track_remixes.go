@@ -116,7 +116,7 @@ func (app *ApiServer) v1TrackRemixes(c *fiber.Ctx) error {
 		ids[i] = result.TrackID
 	}
 
-	tracks, err := app.queries.FullTracks(c.Context(), dbv1.FullTracksParams{
+	tracks, err := app.queries.Tracks(c.Context(), dbv1.TracksParams{
 		GetTracksParams: dbv1.GetTracksParams{
 			Ids:  ids,
 			MyID: myId,

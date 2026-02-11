@@ -11,7 +11,7 @@ import (
 func TestGetTrending(t *testing.T) {
 	app := testAppWithFixtures(t)
 	var resp struct {
-		Data []dbv1.FullTrack
+		Data []dbv1.Track
 	}
 	status, _ := testGet(t, app, "/v1/tracks/trending", &resp)
 	assert.Equal(t, 200, status)
@@ -29,7 +29,7 @@ func TestGetTrending(t *testing.T) {
 func TestGetTrendingElectronic(t *testing.T) {
 	app := testAppWithFixtures(t)
 	var resp struct {
-		Data []dbv1.FullTrack
+		Data []dbv1.Track
 	}
 	status, _ := testGet(t, app, "/v1/tracks/trending?genre=Electronic", &resp)
 	assert.Equal(t, 200, status)
@@ -44,7 +44,7 @@ func TestGetTrendingElectronic(t *testing.T) {
 func TestGetTrendingAllTime(t *testing.T) {
 	app := testAppWithFixtures(t)
 	var resp struct {
-		Data []dbv1.FullTrack
+		Data []dbv1.Track
 	}
 	status, _ := testGet(t, app, "/v1/tracks/trending?time=allTime", &resp)
 	assert.Equal(t, 200, status)

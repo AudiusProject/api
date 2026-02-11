@@ -11,7 +11,7 @@ import (
 func TestGetTrack(t *testing.T) {
 	app := testAppWithFixtures(t)
 	var trackResponse struct {
-		Data dbv1.FullTrack
+		Data dbv1.Track
 	}
 
 	status, body := testGet(t, app, "/v1/full/tracks/eYJyn", &trackResponse)
@@ -27,7 +27,7 @@ func TestGetTrack(t *testing.T) {
 func TestGetTrackFollowDownloadAcess(t *testing.T) {
 	app := testAppWithFixtures(t)
 	var trackResponse struct {
-		Data dbv1.FullTrack
+		Data dbv1.Track
 	}
 	// No access
 	_, body1 := testGet(t, app, "/v1/full/tracks/eYRWn", &trackResponse)
@@ -54,7 +54,7 @@ func TestGetTrackFollowDownloadAcess(t *testing.T) {
 func TestGetTrackTipStreamAccess(t *testing.T) {
 	app := testAppWithFixtures(t)
 	var trackResponse struct {
-		Data dbv1.FullTrack
+		Data dbv1.Track
 	}
 	// No access
 	_, body1 := testGet(t, app, "/v1/full/tracks/L5x7n", &trackResponse)
@@ -81,7 +81,7 @@ func TestGetTrackTipStreamAccess(t *testing.T) {
 func TestGetTrackUsdcPurchaseStreamAccess(t *testing.T) {
 	app := testAppWithFixtures(t)
 	var trackResponse struct {
-		Data dbv1.FullTrack
+		Data dbv1.Track
 	}
 	// No access
 	_, body1 := testGet(t, app, "/v1/full/tracks/ebdJL", &trackResponse)
@@ -108,7 +108,7 @@ func TestGetTrackUsdcPurchaseStreamAccess(t *testing.T) {
 func TestGetTrackUsdcPurchaseSelfAccess(t *testing.T) {
 	app := testAppWithFixtures(t)
 	var trackResponse struct {
-		Data dbv1.FullTrack
+		Data dbv1.Track
 	}
 	// No access. User 3 is the owner, but has not signed authorization
 	status, _ := testGet(

@@ -51,25 +51,25 @@ func v1PlaylistsResponse(c *fiber.Ctx, playlists []dbv1.FullPlaylist) error {
 	})
 }
 
-func v1TrackResponse(c *fiber.Ctx, track dbv1.FullTrack) error {
+func v1TrackResponse(c *fiber.Ctx, track dbv1.Track) error {
 	if c.Locals("isFull").(bool) {
 		return c.JSON(fiber.Map{
 			"data": track,
 		})
 	}
 	return c.JSON(fiber.Map{
-		"data": dbv1.ToMinTrack(track),
+		"data": track,
 	})
 }
 
-func v1TracksResponse(c *fiber.Ctx, tracks []dbv1.FullTrack) error {
+func v1TracksResponse(c *fiber.Ctx, tracks []dbv1.Track) error {
 	if c.Locals("isFull").(bool) {
 		return c.JSON(fiber.Map{
 			"data": tracks,
 		})
 	}
 	return c.JSON(fiber.Map{
-		"data": dbv1.ToMinTracks(tracks),
+		"data": tracks,
 	})
 }
 
