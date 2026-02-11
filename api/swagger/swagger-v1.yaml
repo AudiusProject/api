@@ -146,6 +146,41 @@ paths:
         "500":
           description: Server error
           content: {}
+  /comments:
+    post:
+      tags:
+      - comments
+      description: Creates a new comment
+      operationId: Create Comment
+      security:
+      - BearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/create_comment_request'
+      responses:
+        "201":
+          description: Comment created successfully
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                  transaction_hash:
+                    type: string
+        "400":
+          description: Bad request
+          content: {}
+        "401":
+          description: Unauthorized
+          content: {}
+        "500":
+          description: Server error
+          content: {}
   /comments/{comment_id}:
     get:
       tags:
@@ -166,6 +201,265 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/comment_response'
+        "500":
+          description: Server error
+          content: {}
+    put:
+      tags:
+      - comments
+      description: Updates a comment
+      operationId: Update Comment
+      security:
+        - BearerAuth: []
+      parameters:
+      - name: comment_id
+        in: path
+        description: A Comment ID
+        required: true
+        schema:
+          type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - body
+              properties:
+                body:
+                  type: string
+      responses:
+        "200":
+          description: Comment updated successfully
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                  transaction_hash:
+                    type: string
+        "401":
+          description: Unauthorized
+          content: {}
+        "404":
+          description: Comment not found
+          content: {}
+        "500":
+          description: Server error
+          content: {}
+    delete:
+      tags:
+      - comments
+      description: Deletes a comment
+      operationId: Delete Comment
+      security:
+        - BearerAuth: []
+      parameters:
+      - name: comment_id
+        in: path
+        description: A Comment ID
+        required: true
+        schema:
+          type: string
+      responses:
+        "200":
+          description: Comment deleted successfully
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                  transaction_hash:
+                    type: string
+        "401":
+          description: Unauthorized
+          content: {}
+        "404":
+          description: Comment not found
+          content: {}
+        "500":
+          description: Server error
+          content: {}
+  /comments/{comment_id}/react:
+    post:
+      tags:
+      - comments
+      description: React to a comment
+      operationId: React to Comment
+      security:
+        - BearerAuth: []
+      parameters:
+      - name: comment_id
+        in: path
+        description: A Comment ID
+        required: true
+        schema:
+          type: string
+      responses:
+        "200":
+          description: Comment reacted successfully
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                  transaction_hash:
+                    type: string
+        "401":
+          description: Unauthorized
+          content: {}
+        "404":
+          description: Comment not found
+          content: {}
+        "500":
+          description: Server error
+          content: {}
+    delete:
+      tags:
+      - comments
+      description: Unreact to a comment
+      operationId: Unreact to Comment
+      security:
+        - BearerAuth: []
+      parameters:
+      - name: comment_id
+        in: path
+        description: A Comment ID
+        required: true
+        schema:
+          type: string
+      responses:
+        "200":
+          description: Comment unreacted successfully
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                  transaction_hash:
+                    type: string
+        "401":
+          description: Unauthorized
+          content: {}
+        "404":
+          description: Comment not found
+          content: {}
+        "500":
+          description: Server error
+          content: {}
+  /comments/{comment_id}/pin:
+    post:
+      tags:
+      - comments
+      description: Pin a comment
+      operationId: Pin Comment
+      security:
+        - BearerAuth: []
+      parameters:
+      - name: comment_id
+        in: path
+        description: A Comment ID
+        required: true
+        schema:
+          type: string
+      responses:
+        "200":
+          description: Comment pinned successfully
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                  transaction_hash:
+                    type: string
+        "401":
+          description: Unauthorized
+          content: {}
+        "404":
+          description: Comment not found
+          content: {}
+        "500":
+          description: Server error
+          content: {}
+    delete:
+      tags:
+      - comments
+      description: Unpin a comment
+      operationId: Unpin Comment
+      security:
+        - BearerAuth: []
+      parameters:
+      - name: comment_id
+        in: path
+        description: A Comment ID
+        required: true
+        schema:
+          type: string
+      responses:
+        "200":
+          description: Comment unpinned successfully
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                  transaction_hash:
+                    type: string
+        "401":
+          description: Unauthorized
+          content: {}
+        "404":
+          description: Comment not found
+          content: {}
+        "500":
+          description: Server error
+          content: {}
+  /comments/{comment_id}/report:
+    post:
+      tags:
+      - comments
+      description: Report a comment
+      operationId: Report Comment
+      security:
+        - BearerAuth: []
+      parameters:
+      - name: comment_id
+        in: path
+        description: A Comment ID
+        required: true
+        schema:
+          type: string
+      responses:
+        "200":
+          description: Comment reported successfully
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                  transaction_hash:
+                    type: string
+        "401":
+          description: Unauthorized
+          content: {}
+        "404":
+          description: Comment not found
+          content: {}
         "500":
           description: Server error
           content: {}
@@ -207,6 +501,146 @@ paths:
                 $ref: '#/components/schemas/comment_replies_response'
         "400":
           description: Bad request
+          content: {}
+        "500":
+          description: Server error
+          content: {}
+  /developer-apps:
+    post:
+      tags:
+      - developer_apps
+      description: Creates a new developer app
+      operationId: Create Developer App
+      security:
+      - BearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/create_developer_app_request'
+      responses:
+        "201":
+          description: Developer app created successfully
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                  transaction_hash:
+                    type: string
+        "400":
+          description: Bad request
+          content: {}
+        "401":
+          description: Unauthorized
+          content: {}
+        "500":
+          description: Server error
+          content: {}
+  /developer-apps/{address}:
+    get:
+      tags:
+      - developer_apps
+      description: Gets a developer app by address
+      operationId: Get Developer App
+      parameters:
+      - name: address
+        in: path
+        description: Developer app address
+        required: true
+        schema:
+          type: string
+      responses:
+        "200":
+          description: Success
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/developer_app'
+        "404":
+          description: Not found
+          content: {}
+        "500":
+          description: Server error
+          content: {}
+    put:
+      tags:
+      - developer_apps
+      description: Updates an existing developer app
+      operationId: Update Developer App
+      security:
+      - BearerAuth: []
+      parameters:
+      - name: address
+        in: path
+        description: Developer app address
+        required: true
+        schema:
+          type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/update_developer_app_request'
+      responses:
+        "200":
+          description: Developer app updated successfully
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                  transaction_hash:
+                    type: string
+        "400":
+          description: Bad request
+          content: {}
+        "401":
+          description: Unauthorized
+          content: {}
+        "404":
+          description: Not found
+          content: {}
+        "500":
+          description: Server error
+          content: {}
+    delete:
+      tags:
+      - developer_apps
+      description: Deletes a developer app
+      operationId: Delete Developer App
+      security:
+      - BearerAuth: []
+      parameters:
+      - name: address
+        in: path
+        description: Developer app address
+        required: true
+        schema:
+          type: string
+      responses:
+        "200":
+          description: Developer app deleted successfully
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                  transaction_hash:
+                    type: string
+        "401":
+          description: Unauthorized
+          content: {}
+        "404":
+          description: Not found
           content: {}
         "500":
           description: Server error
@@ -539,6 +973,42 @@ paths:
         "500":
           description: Server error
           content: {}
+    post:
+      tags:
+      - playlists
+      description: Creates a new playlist or album
+      operationId: Create Playlist
+      security:
+        - BearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/create_playlist_request'
+      responses:
+        "201":
+          description: Playlist created successfully
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                  transaction_hash:
+                    type: string
+                  playlist_id:
+                    type: string
+        "400":
+          description: Bad request
+          content: {}
+        "401":
+          description: Unauthorized
+          content: {}
+        "500":
+          description: Server error
+          content: {}
   /playlists/by_permalink/{handle}/{slug}:
     get:
       tags:
@@ -730,6 +1200,85 @@ paths:
         "500":
           description: Server error
           content: {}
+    put:
+      tags:
+      - playlists
+      description: Updates an existing playlist or album
+      operationId: Update Playlist
+      security:
+        - BearerAuth: []
+      parameters:
+      - name: playlist_id
+        in: path
+        description: A Playlist ID
+        required: true
+        schema:
+          type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/update_playlist_request'
+      responses:
+        "200":
+          description: Playlist updated successfully
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                  transaction_hash:
+                    type: string
+        "400":
+          description: Bad request
+          content: {}
+        "401":
+          description: Unauthorized
+          content: {}
+        "404":
+          description: Playlist not found
+          content: {}
+        "500":
+          description: Server error
+          content: {}
+    delete:
+      tags:
+      - playlists
+      description: Deletes a playlist or album
+      operationId: Delete Playlist
+      security:
+        - BearerAuth: []
+      parameters:
+      - name: playlist_id
+        in: path
+        description: A Playlist ID
+        required: true
+        schema:
+          type: string
+      responses:
+        "200":
+          description: Playlist deleted successfully
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                  transaction_hash:
+                    type: string
+        "401":
+          description: Unauthorized
+          content: {}
+        "404":
+          description: Playlist not found
+          content: {}
+        "500":
+          description: Server error
+          content: {}
   /playlists/{playlist_id}/access-info:
     get:
       tags:
@@ -778,6 +1327,184 @@ paths:
                 $ref: '#/components/schemas/playlist_tracks_response'
         "400":
           description: Bad request
+          content: {}
+        "500":
+          description: Server error
+          content: {}
+  /playlists/{playlist_id}/favorites:
+    post:
+      tags:
+      - playlists
+      description: Favorite a playlist
+      operationId: Favorite Playlist
+      security:
+        - BearerAuth: []
+      parameters:
+      - name: playlist_id
+        in: path
+        description: A Playlist ID
+        required: true
+        schema:
+          type: string
+      responses:
+        "200":
+          description: Playlist favorited successfully
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                  transaction_hash:
+                    type: string
+        "401":
+          description: Unauthorized
+          content: {}
+        "404":
+          description: Playlist not found
+          content: {}
+        "500":
+          description: Server error
+          content: {}
+    delete:
+      tags:
+      - playlists
+      description: Unfavorite a playlist
+      operationId: Unfavorite Playlist
+      security:
+        - BearerAuth: []
+      parameters:
+      - name: playlist_id
+        in: path
+        description: A Playlist ID
+        required: true
+        schema:
+          type: string
+      responses:
+        "200":
+          description: Playlist unfavorited successfully
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                  transaction_hash:
+                    type: string
+        "401":
+          description: Unauthorized
+          content: {}
+        "404":
+          description: Playlist not found
+          content: {}
+        "500":
+          description: Server error
+          content: {}
+  /playlists/{playlist_id}/reposts:
+    post:
+      tags:
+      - playlists
+      description: Repost a playlist
+      operationId: Repost Playlist
+      security:
+        - BearerAuth: []
+      parameters:
+      - name: playlist_id
+        in: path
+        description: A Playlist ID
+        required: true
+        schema:
+          type: string
+      responses:
+        "200":
+          description: Playlist reposted successfully
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                  transaction_hash:
+                    type: string
+        "401":
+          description: Unauthorized
+          content: {}
+        "404":
+          description: Playlist not found
+          content: {}
+        "500":
+          description: Server error
+          content: {}
+    delete:
+      tags:
+      - playlists
+      description: Unrepost a playlist
+      operationId: Unrepost Playlist
+      security:
+        - BearerAuth: []
+      parameters:
+      - name: playlist_id
+        in: path
+        description: A Playlist ID
+        required: true
+        schema:
+          type: string
+      responses:
+        "200":
+          description: Playlist unreposted successfully
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                  transaction_hash:
+                    type: string
+        "401":
+          description: Unauthorized
+          content: {}
+        "404":
+          description: Playlist not found
+          content: {}
+        "500":
+          description: Server error
+          content: {}
+  /playlists/{playlist_id}/shares:
+    post:
+      tags:
+      - playlists
+      description: Record a playlist share event
+      operationId: Share Playlist
+      security:
+        - BearerAuth: []
+      parameters:
+      - name: playlist_id
+        in: path
+        description: A Playlist ID
+        required: true
+        schema:
+          type: string
+      responses:
+        "200":
+          description: Playlist share recorded successfully
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                  transaction_hash:
+                    type: string
+        "401":
+          description: Unauthorized
+          content: {}
+        "404":
+          description: Playlist not found
           content: {}
         "500":
           description: Server error
@@ -937,6 +1664,42 @@ paths:
                 $ref: '#/components/schemas/tracks_response'
         "400":
           description: Bad request
+          content: {}
+        "500":
+          description: Server error
+          content: {}
+    post:
+      tags:
+      - tracks
+      description: Creates a new track
+      operationId: Create Track
+      security:
+        - BearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/create_track_request'
+      responses:
+        "201":
+          description: Track created successfully
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                  transaction_hash:
+                    type: string
+                  track_id:
+                    type: string
+        "400":
+          description: Bad request
+          content: {}
+        "401":
+          description: Unauthorized
           content: {}
         "500":
           description: Server error
@@ -1722,6 +2485,85 @@ paths:
         "500":
           description: Server error
           content: {}
+    put:
+      tags:
+      - tracks
+      description: Updates an existing track
+      operationId: Update Track
+      security:
+        - BearerAuth: []
+      parameters:
+      - name: track_id
+        in: path
+        description: A Track ID
+        required: true
+        schema:
+          type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/update_track_request'
+      responses:
+        "200":
+          description: Track updated successfully
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                  transaction_hash:
+                    type: string
+        "400":
+          description: Bad request
+          content: {}
+        "401":
+          description: Unauthorized
+          content: {}
+        "404":
+          description: Track not found
+          content: {}
+        "500":
+          description: Server error
+          content: {}
+    delete:
+      tags:
+      - tracks
+      description: Deletes a track
+      operationId: Delete Track
+      security:
+        - BearerAuth: []
+      parameters:
+      - name: track_id
+        in: path
+        description: A Track ID
+        required: true
+        schema:
+          type: string
+      responses:
+        "200":
+          description: Track deleted successfully
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                  transaction_hash:
+                    type: string
+        "401":
+          description: Unauthorized
+          content: {}
+        "404":
+          description: Track not found
+          content: {}
+        "500":
+          description: Server error
+          content: {}
   /tracks/{track_id}/access-info:
     get:
       tags:
@@ -1904,6 +2746,76 @@ paths:
         "500":
           description: Server error
           content: {}
+    post:
+      tags:
+      - tracks
+      description: Favorite a track
+      operationId: Favorite Track
+      security:
+        - BearerAuth: []
+      parameters:
+      - name: track_id
+        in: path
+        description: A Track ID
+        required: true
+        schema:
+          type: string
+      responses:
+        "200":
+          description: Track favorited successfully
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                  transaction_hash:
+                    type: string
+        "401":
+          description: Unauthorized
+          content: {}
+        "404":
+          description: Track not found
+          content: {}
+        "500":
+          description: Server error
+          content: {}
+    delete:
+      tags:
+      - tracks
+      description: Unfavorite a track
+      operationId: Unfavorite Track
+      security:
+        - BearerAuth: []
+      parameters:
+      - name: track_id
+        in: path
+        description: A Track ID
+        required: true
+        schema:
+          type: string
+      responses:
+        "200":
+          description: Track unfavorited successfully
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                  transaction_hash:
+                    type: string
+        "401":
+          description: Unauthorized
+          content: {}
+        "404":
+          description: Track not found
+          content: {}
+        "500":
+          description: Server error
+          content: {}
   /tracks/{track_id}/remixes:
     get:
       tags:
@@ -2038,6 +2950,76 @@ paths:
         "500":
           description: Server error
           content: {}
+    post:
+      tags:
+      - tracks
+      description: Repost a track
+      operationId: Repost Track
+      security:
+        - BearerAuth: []
+      parameters:
+      - name: track_id
+        in: path
+        description: A Track ID
+        required: true
+        schema:
+          type: string
+      responses:
+        "200":
+          description: Track reposted successfully
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                  transaction_hash:
+                    type: string
+        "401":
+          description: Unauthorized
+          content: {}
+        "404":
+          description: Track not found
+          content: {}
+        "500":
+          description: Server error
+          content: {}
+    delete:
+      tags:
+      - tracks
+      description: Unrepost a track
+      operationId: Unrepost Track
+      security:
+        - BearerAuth: []
+      parameters:
+      - name: track_id
+        in: path
+        description: A Track ID
+        required: true
+        schema:
+          type: string
+      responses:
+        "200":
+          description: Track unreposted successfully
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                  transaction_hash:
+                    type: string
+        "401":
+          description: Unauthorized
+          content: {}
+        "404":
+          description: Track not found
+          content: {}
+        "500":
+          description: Server error
+          content: {}
   /tracks/{track_id}/download:
     get:
       tags:
@@ -2152,6 +3134,90 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/stems_response'
+  /tracks/{track_id}/shares:
+    post:
+      tags:
+      - tracks
+      description: Record a track share event
+      operationId: Share Track
+      security:
+        - BearerAuth: []
+      parameters:
+      - name: track_id
+        in: path
+        description: A Track ID
+        required: true
+        schema:
+          type: string
+      responses:
+        "200":
+          description: Track share recorded successfully
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                  transaction_hash:
+                    type: string
+        "401":
+          description: Unauthorized
+          content: {}
+        "404":
+          description: Track not found
+          content: {}
+        "500":
+          description: Server error
+          content: {}
+  /tracks/{track_id}/downloads:
+    post:
+      tags:
+      - tracks
+      description: Record a track download event
+      operationId: Record Track Download
+      security:
+        - BearerAuth: []
+      parameters:
+      - name: track_id
+        in: path
+        description: A Track ID
+        required: true
+        schema:
+          type: string
+      requestBody:
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                city:
+                  type: string
+                region:
+                  type: string
+                country:
+                  type: string
+      responses:
+        "200":
+          description: Track download recorded successfully
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                  transaction_hash:
+                    type: string
+        "401":
+          description: Unauthorized
+          content: {}
+        "404":
+          description: Track not found
+          content: {}
+        "500":
+          description: Server error
+          content: {}
   /tracks/{track_id}/stream:
     get:
       tags:
@@ -2314,6 +3380,42 @@ paths:
                 $ref: '#/components/schemas/users_response'
         "400":
           description: Bad request
+          content: {}
+        "500":
+          description: Server error
+          content: {}
+    post:
+      tags:
+      - users
+      description: Creates a new user
+      operationId: Create User
+      security:
+        - BearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/create_user_request'
+      responses:
+        "201":
+          description: User created successfully
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                  transaction_hash:
+                    type: string
+                  user_id:
+                    type: string
+        "400":
+          description: Bad request
+          content: {}
+        "401":
+          description: Unauthorized
           content: {}
         "500":
           description: Server error
@@ -2759,6 +3861,50 @@ paths:
         "500":
           description: Server error
           content: {}
+    put:
+      tags:
+      - users
+      description: Updates an existing user profile
+      operationId: Update User
+      security:
+        - BearerAuth: []
+      parameters:
+      - name: id
+        in: path
+        description: A User ID
+        required: true
+        schema:
+          type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/update_user_request'
+      responses:
+        "200":
+          description: User updated successfully
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                  transaction_hash:
+                    type: string
+        "400":
+          description: Bad request
+          content: {}
+        "401":
+          description: Unauthorized
+          content: {}
+        "404":
+          description: User not found
+          content: {}
+        "500":
+          description: Server error
+          content: {}
   /users/{id}/authorized_apps:
     get:
       tags:
@@ -3177,6 +4323,77 @@ paths:
         "500":
           description: Server error
           content: {}
+  /users/{id}/follow:
+    post:
+      tags:
+      - users
+      description: Follow a user
+      operationId: Follow User
+      security:
+        - BearerAuth: []
+      parameters:
+      - name: id
+        in: path
+        description: A User ID
+        required: true
+        schema:
+          type: string
+      responses:
+        "200":
+          description: User followed successfully
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                  transaction_hash:
+                    type: string
+        "401":
+          description: Unauthorized
+          content: {}
+        "404":
+          description: User not found
+          content: {}
+        "500":
+          description: Server error
+          content: {}
+    delete:
+      tags:
+      - users
+      description: Unfollow a user
+      operationId: Unfollow User
+      security:
+        - BearerAuth: []
+      parameters:
+      - name: id
+        in: path
+        description: A User ID
+        required: true
+        schema:
+          type: string
+      responses:
+        "200":
+          description: User unfollowed successfully
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                  transaction_hash:
+                    type: string
+        "401":
+          description: Unauthorized
+          content: {}
+        "404":
+          description: User not found
+          content: {}
+        "500":
+          description: Server error
+          content: {}
   /users/{id}/following:
     get:
       tags:
@@ -3376,6 +4593,76 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/users_response'
+    post:
+      tags:
+      - users
+      description: Mute a user
+      operationId: Mute User
+      security:
+        - BearerAuth: []
+      parameters:
+      - name: id
+        in: path
+        description: A User ID
+        required: true
+        schema:
+          type: string
+      responses:
+        "200":
+          description: User muted successfully
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                  transaction_hash:
+                    type: string
+        "401":
+          description: Unauthorized
+          content: {}
+        "404":
+          description: User not found
+          content: {}
+        "500":
+          description: Server error
+          content: {}
+    delete:
+      tags:
+      - users
+      description: Unmute a user
+      operationId: Unmute User
+      security:
+        - BearerAuth: []
+      parameters:
+      - name: id
+        in: path
+        description: A User ID
+        required: true
+        schema:
+          type: string
+      responses:
+        "200":
+          description: User unmuted successfully
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                  transaction_hash:
+                    type: string
+        "401":
+          description: Unauthorized
+          content: {}
+        "404":
+          description: User not found
+          content: {}
+        "500":
+          description: Server error
+          content: {}
   /users/{id}/mutuals:
     get:
       tags:
@@ -3918,6 +5205,76 @@ paths:
                 $ref: '#/components/schemas/subscribers_response'
         "400":
           description: Bad request
+          content: {}
+        "500":
+          description: Server error
+          content: {}
+    post:
+      tags:
+      - users
+      description: Subscribe to a user
+      operationId: Subscribe to User
+      security:
+        - BearerAuth: []
+      parameters:
+      - name: id
+        in: path
+        description: A User ID
+        required: true
+        schema:
+          type: string
+      responses:
+        "200":
+          description: Subscribed successfully
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                  transaction_hash:
+                    type: string
+        "401":
+          description: Unauthorized
+          content: {}
+        "404":
+          description: User not found
+          content: {}
+        "500":
+          description: Server error
+          content: {}
+    delete:
+      tags:
+      - users
+      description: Unsubscribe from a user
+      operationId: Unsubscribe from User
+      security:
+        - BearerAuth: []
+      parameters:
+      - name: id
+        in: path
+        description: A User ID
+        required: true
+        schema:
+          type: string
+      responses:
+        "200":
+          description: Unsubscribed successfully
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                  transaction_hash:
+                    type: string
+        "401":
+          description: Unauthorized
+          content: {}
+        "404":
+          description: User not found
           content: {}
         "500":
           description: Server error
@@ -8055,6 +9412,411 @@ components:
           items:
             $ref: '#/components/schemas/claimed_prize'
           description: List of claimed prizes for the wallet (action_data excluded for security)
+    create_track_request:
+      type: object
+      required:
+        - title
+        - genre
+        - track_cid
+      properties:
+        track_id:
+          type: string
+          description: Optional track ID (will be generated if not provided)
+        title:
+          type: string
+          description: Track title
+          example: "My New Track"
+        genre:
+          type: string
+          description: Track genre
+          example: "Electronic"
+        description:
+          type: string
+          description: Track description
+          maxLength: 1000
+        mood:
+          type: string
+          description: Track mood
+        tags:
+          type: string
+          description: Comma-separated tags
+        license:
+          type: string
+          description: License type
+        isrc:
+          type: string
+          description: International Standard Recording Code
+        iswc:
+          type: string
+          description: International Standard Musical Work Code
+        release_date:
+          type: string
+          description: Release date
+        track_cid:
+          type: string
+          description: IPFS CID for the track audio file (required)
+        cover_art_cid:
+          type: string
+          description: IPFS CID for cover art
+        preview_cid:
+          type: string
+          description: IPFS CID for the track preview
+        preview_start_seconds:
+          type: number
+          format: float
+          description: Preview start time in seconds
+          minimum: 0
+        duration:
+          type: number
+          format: float
+          description: Track duration in seconds
+          minimum: 0
+        downloadable:
+          type: boolean
+          description: Whether the track is downloadable
+        is_unlisted:
+          type: boolean
+          description: Whether the track is unlisted
+        ddex_app:
+          type: string
+          description: DDEX application identifier
+        parental_warning_type:
+          type: string
+          description: Parental warning type
+    update_track_request:
+      type: object
+      description: Request body for updating track information. All fields are optional.
+      properties:
+        title:
+          type: string
+          description: Track title
+        description:
+          type: string
+          description: Track description
+          maxLength: 5000
+        genre:
+          type: string
+          description: Track genre
+        mood:
+          type: string
+          description: Track mood
+        tags:
+          type: string
+          description: Comma-separated tags
+        release_date:
+          type: string
+          format: date-time
+          description: Track release date
+        isrc:
+          type: string
+          description: International Standard Recording Code
+        is_downloadable:
+          type: boolean
+          description: Whether the track is downloadable
+        is_original_available:
+          type: boolean
+          description: Whether the original file is available
+        artwork_url:
+          type: string
+          description: URL for track artwork
+          format: uri
+    create_playlist_request:
+      type: object
+      required:
+        - playlist_name
+      properties:
+        playlist_id:
+          type: string
+          description: Optional playlist ID (will be generated if not provided)
+        playlist_name:
+          type: string
+          description: Playlist or album name
+          example: "My New Playlist"
+        description:
+          type: string
+          description: Playlist description
+          maxLength: 1000
+        is_private:
+          type: boolean
+          description: Whether the playlist is private
+        is_album:
+          type: boolean
+          description: Whether this is an album
+        genre:
+          type: string
+          description: Playlist genre
+        mood:
+          type: string
+          description: Playlist mood
+        tags:
+          type: string
+          description: Comma-separated tags
+        license:
+          type: string
+          description: License type
+        upc:
+          type: string
+          description: Universal Product Code (for albums)
+        release_date:
+          type: string
+          description: Release date
+        cover_art_cid:
+          type: string
+          description: IPFS CID for cover art
+        playlist_contents:
+          type: array
+          description: Array of tracks in the playlist
+          items:
+            type: object
+            required:
+              - track_id
+              - timestamp
+            properties:
+              track_id:
+                type: string
+                description: Track ID
+              timestamp:
+                type: integer
+                format: int64
+                description: Unix timestamp when track was added
+                minimum: 0
+              metadata_timestamp:
+                type: integer
+                format: int64
+                description: Metadata timestamp
+                minimum: 0
+        ddex_app:
+          type: string
+          description: DDEX application identifier
+        parental_warning_type:
+          type: string
+          description: Parental warning type
+        is_image_autogenerated:
+          type: boolean
+          description: Whether the image is autogenerated
+    update_playlist_request:
+      type: object
+      description: Request body for updating playlist information. All fields are optional.
+      properties:
+        playlist_name:
+          type: string
+          description: Playlist or album name
+        description:
+          type: string
+          description: Playlist description
+          maxLength: 5000
+        is_private:
+          type: boolean
+          description: Whether the playlist is private
+        playlist_contents:
+          type: array
+          description: Array of track IDs to include in the playlist
+          items:
+            type: object
+            properties:
+              track_id:
+                type: string
+                description: Track ID to add
+              timestamp:
+                type: integer
+                description: Unix timestamp when track was added
+        artwork_url:
+          type: string
+          description: URL for playlist artwork
+          format: uri
+        upc:
+          type: string
+          description: Universal Product Code (for albums)
+    create_user_request:
+      type: object
+      required:
+        - handle
+        - wallet
+      properties:
+        user_id:
+          type: string
+          description: Optional user ID (will be generated if not provided)
+        handle:
+          type: string
+          description: User handle (unique username)
+          example: "newartist"
+        wallet:
+          type: string
+          description: Wallet address (required)
+          example: "0x1234..."
+        name:
+          type: string
+          description: Display name
+          example: "New Artist"
+        bio:
+          type: string
+          description: User bio
+          maxLength: 256
+        location:
+          type: string
+          description: User location
+        website:
+          type: string
+          description: Website URL
+          format: uri
+        donation:
+          type: string
+          description: Donation link
+        twitter_handle:
+          type: string
+          description: Twitter handle (without @)
+        instagram_handle:
+          type: string
+          description: Instagram handle (without @)
+        tiktok_handle:
+          type: string
+          description: TikTok handle (without @)
+        profile_picture:
+          type: string
+          description: Profile picture CID or URL
+        profile_picture_sizes:
+          type: string
+          description: Profile picture sizes metadata
+        cover_photo:
+          type: string
+          description: Cover photo CID or URL
+        cover_photo_sizes:
+          type: string
+          description: Cover photo sizes metadata
+        allow_ai_attribution:
+          type: boolean
+          description: Whether to allow AI attribution
+        spl_usdc_payout_wallet:
+          type: string
+          description: Solana USDC payout wallet address
+    update_user_request:
+      type: object
+      description: Request body for updating user profile. All fields are optional.
+      properties:
+        name:
+          type: string
+          description: Display name
+        bio:
+          type: string
+          description: User bio
+          maxLength: 256
+        location:
+          type: string
+          description: User location
+        website:
+          type: string
+          description: Website URL
+          format: uri
+        donation:
+          type: string
+          description: Donation link
+        twitter_handle:
+          type: string
+          description: Twitter handle (without @)
+        instagram_handle:
+          type: string
+          description: Instagram handle (without @)
+        tiktok_handle:
+          type: string
+          description: TikTok handle (without @)
+        profile_picture:
+          type: string
+          description: Profile picture CID or URL
+        profile_picture_sizes:
+          type: string
+          description: Profile picture sizes metadata
+        cover_photo:
+          type: string
+          description: Cover photo CID or URL
+        cover_photo_sizes:
+          type: string
+          description: Cover photo sizes metadata
+        is_deactivated:
+          type: boolean
+          description: Whether the user is deactivated
+        artist_pick_track_id:
+          type: string
+          description: Track ID to feature as artist pick
+        allow_ai_attribution:
+          type: boolean
+          description: Whether to allow AI attribution
+        spl_usdc_payout_wallet:
+          type: string
+          description: Solana USDC payout wallet address
+        coin_flair_mint:
+          type: string
+          description: Coin flair mint address
+    create_comment_request:
+      type: object
+      required:
+        - entityType
+        - entityId
+        - body
+      properties:
+        entityType:
+          type: string
+          description: Type of entity being commented on
+          example: "Track"
+        entityId:
+          type: string
+          description: ID of the entity being commented on
+          example: "abc123"
+        body:
+          type: string
+          description: Comment text
+          example: "Great track!"
+        commentId:
+          type: integer
+          description: Optional comment ID
+        parentId:
+          type: integer
+          description: Parent comment ID if this is a reply
+    create_developer_app_request:
+      type: object
+      required:
+        - name
+        - description
+        - imageUrl
+        - appSignature
+      properties:
+        name:
+          type: string
+          description: Developer app name
+          example: "My Music App"
+        description:
+          type: string
+          description: App description
+        imageUrl:
+          type: string
+          description: App logo/image URL (camelCase)
+        appSignature:
+          type: object
+          required:
+            - message
+            - signature
+          properties:
+            message:
+              type: string
+              description: Signed message
+            signature:
+              type: string
+              description: Signature
+    update_developer_app_request:
+      type: object
+      required:
+        - name
+        - description
+        - imageUrl
+      properties:
+        name:
+          type: string
+          description: Developer app name
+        description:
+          type: string
+          description: App description
+        imageUrl:
+          type: string
+          description: App logo/image URL (camelCase)
   responses:
     ParseError:
       description: When a mask can't be parsed
