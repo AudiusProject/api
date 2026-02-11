@@ -758,14 +758,14 @@ func (app *ApiServer) paramTimeRange(c *fiber.Ctx, param string, defaultValue st
 	return timeRange, nil
 }
 
-func (as *ApiServer) Serve() {
+func (app *ApiServer) Serve() {
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
 
 	flushTicker := time.NewTicker(time.Second * 15)
 	go func() {
 		for range flushTicker.C {
-			as.logger.Sync()
+			app.logger.Sync()
 		}
 	}()
 
@@ -774,54 +774,54 @@ func (as *ApiServer) Serve() {
 	signal.Notify(c, os.Interrupt)
 	go func() {
 		<-c
-		as.commsRpcProcessor.Shutdown()
+		app.commsRpcProcessor.Shutdown()
 		flushTicker.Stop()
 
 		// Shutdown metrics collector if it exists
-		if as.metricsCollector != nil {
-			as.metricsCollector.Shutdown()
+		if app.metricsCollector != nil {
+			app.metricsCollector.Shutdown()
 		}
 
 		// Shutdown HLL aggregator if it exists
 		// Removed hllAggregator
 
-		as.Shutdown()
-		as.pool.Close()
-		if as.writePool != nil {
-			as.writePool.Close()
+		app.Shutdown()
+		app.pool.Close()
+		if app.writePool != nil {
+			app.writePool.Close()
 		}
-		as.logger.Sync()
+		app.logger.Sync()
 	}()
 
 	go func() {
-		as.nodesPoller(ctx)
-		as.logger.Info("Started validators poller")
+		app.nodesPoller(ctx)
+		app.logger.Info("Started validators poller")
 	}()
 
 	// Bind to both ipv4 and ipv6
 	listener, err := net.Listen("tcp", "[::]:1323")
 	if err != nil {
-		as.logger.Fatal("Failed to create listener", zap.Error(err))
+		app.logger.Fatal("Failed to create listener", zap.Error(err))
 	}
 
-	if err := as.Listener(listener); err != nil && err != http.ErrServerClosed {
-		as.logger.Fatal("Failed to start server", zap.Error(err))
+	if err := app.Listener(listener); err != nil && err != http.ErrServerClosed {
+		app.logger.Fatal("Failed to start server", zap.Error(err))
 	}
 }
 
 // Move this to a new module if we add custom validation
-func (as *ApiServer) ParseAndValidateQueryParams(c *fiber.Ctx, v any) error {
+func (app *ApiServer) ParseAndValidateQueryParams(c *fiber.Ctx, v any) error {
 	if err := c.QueryParser(v); err != nil {
 		return fiber.NewError(fiber.StatusBadRequest, err.Error())
 	}
 	defaults.SetDefaults(v)
-	return as.requestValidator.Validate(v)
+	return app.requestValidator.Validate(v)
 }
 
-func (as *ApiServer) ParseAndValidateBody(c *fiber.Ctx, v any) error {
+func (app *ApiServer) ParseAndValidateBody(c *fiber.Ctx, v any) error {
 	if err := c.BodyParser(v); err != nil {
 		return fiber.NewError(fiber.StatusBadRequest, err.Error())
 	}
 	defaults.SetDefaults(v)
-	return as.requestValidator.Validate(v)
+	return app.requestValidator.Validate(v)
 }
