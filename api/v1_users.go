@@ -42,6 +42,7 @@ type CreateUserRequest struct {
 	ProfilePictureSizes *string `json:"profile_picture_sizes,omitempty"`
 	CoverPhoto          *string `json:"cover_photo,omitempty"`
 	CoverPhotoSizes     *string `json:"cover_photo_sizes,omitempty"`
+	ProfileType         *string `json:"profile_type,omitempty" validate:"omitempty,oneof=label"`
 	AllowAiAttribution  *bool   `json:"allow_ai_attribution,omitempty"`
 	SplUsdcPayoutWallet *string `json:"spl_usdc_payout_wallet,omitempty"`
 }
@@ -59,6 +60,7 @@ type UpdateUserRequest struct {
 	ProfilePictureSizes *string          `json:"profile_picture_sizes,omitempty"`
 	CoverPhoto          *string          `json:"cover_photo,omitempty"`
 	CoverPhotoSizes     *string          `json:"cover_photo_sizes,omitempty"`
+	ProfileType         *string          `json:"profile_type,omitempty" validate:"omitempty,oneof=label"`
 	IsDeactivated       *bool            `json:"is_deactivated,omitempty"`
 	ArtistPickTrackId   *string          `json:"artist_pick_track_id,omitempty"`
 	AllowAiAttribution  *bool            `json:"allow_ai_attribution,omitempty"`
