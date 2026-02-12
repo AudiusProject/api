@@ -291,12 +291,7 @@ paths:
           content:
             application/json:
               schema:
-                type: object
-                properties:
-                  success:
-                    type: boolean
-                  transaction_hash:
-                    type: string
+                $ref: '#/components/schemas/write_response'
         "401":
           description: Unauthorized
           content: {}
@@ -357,12 +352,7 @@ paths:
           content:
             application/json:
               schema:
-                type: object
-                properties:
-                  success:
-                    type: boolean
-                  transaction_hash:
-                    type: string
+                $ref: '#/components/schemas/write_response'
         "401":
           description: Unauthorized
           content: {}
@@ -423,12 +413,7 @@ paths:
           content:
             application/json:
               schema:
-                type: object
-                properties:
-                  success:
-                    type: boolean
-                  transaction_hash:
-                    type: string
+                $ref: '#/components/schemas/write_response'
         "401":
           description: Unauthorized
           content: {}
@@ -5021,12 +5006,7 @@ paths:
           content:
             application/json:
               schema:
-                type: object
-                properties:
-                  success:
-                    type: boolean
-                  transaction_hash:
-                    type: string
+                $ref: '#/components/schemas/write_response'
         "401":
           description: Unauthorized
           content: {}
@@ -5056,12 +5036,7 @@ paths:
           content:
             application/json:
               schema:
-                type: object
-                properties:
-                  success:
-                    type: boolean
-                  transaction_hash:
-                    type: string
+                $ref: '#/components/schemas/write_response'
         "401":
           description: Unauthorized
           content: {}
