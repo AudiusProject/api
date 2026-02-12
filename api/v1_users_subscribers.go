@@ -35,7 +35,7 @@ func (app *ApiServer) v1UsersSubscribers(c *fiber.Ctx) error {
 }
 
 func (app *ApiServer) postV1UserSubscribe(c *fiber.Ctx) error {
-	userID := app.getUserId(c)
+	userID := app.getMyId(c)
 	subscribeeUserID, err := trashid.DecodeHashId(c.Params("userId"))
 	if err != nil {
 		return err
@@ -73,7 +73,7 @@ func (app *ApiServer) postV1UserSubscribe(c *fiber.Ctx) error {
 }
 
 func (app *ApiServer) deleteV1UserSubscribe(c *fiber.Ctx) error {
-	userID := app.getUserId(c)
+	userID := app.getMyId(c)
 	subscribeeUserID, err := trashid.DecodeHashId(c.Params("userId"))
 	if err != nil {
 		return err

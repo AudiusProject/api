@@ -36,7 +36,7 @@ func (app *ApiServer) v1UsersFollowers(c *fiber.Ctx) error {
 }
 
 func (app *ApiServer) postV1UserFollow(c *fiber.Ctx) error {
-	userID := app.getUserId(c)
+	userID := app.getMyId(c)
 	followeeUserID, err := trashid.DecodeHashId(c.Params("userId"))
 	if err != nil {
 		return err
@@ -74,7 +74,7 @@ func (app *ApiServer) postV1UserFollow(c *fiber.Ctx) error {
 }
 
 func (app *ApiServer) deleteV1UserFollow(c *fiber.Ctx) error {
-	userID := app.getUserId(c)
+	userID := app.getMyId(c)
 	followeeUserID, err := trashid.DecodeHashId(c.Params("userId"))
 	if err != nil {
 		return err

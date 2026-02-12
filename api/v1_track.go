@@ -216,7 +216,7 @@ func (app *ApiServer) v1Track(c *fiber.Ctx) error {
 }
 
 func (app *ApiServer) postV1Tracks(c *fiber.Ctx) error {
-	userID := app.getUserId(c)
+	userID := app.getMyId(c)
 
 	// Parse and validate request body
 	var req CreateTrackRequest
@@ -309,7 +309,7 @@ func (app *ApiServer) postV1Tracks(c *fiber.Ctx) error {
 }
 
 func (app *ApiServer) putV1Track(c *fiber.Ctx) error {
-	userID := app.getUserId(c)
+	userID := app.getMyId(c)
 	trackID, err := trashid.DecodeHashId(c.Params("trackId"))
 	if err != nil {
 		return err
@@ -396,7 +396,7 @@ func (app *ApiServer) putV1Track(c *fiber.Ctx) error {
 }
 
 func (app *ApiServer) deleteV1Track(c *fiber.Ctx) error {
-	userID := app.getUserId(c)
+	userID := app.getMyId(c)
 	trackID, err := trashid.DecodeHashId(c.Params("trackId"))
 	if err != nil {
 		return err

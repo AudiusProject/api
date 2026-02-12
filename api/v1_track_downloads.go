@@ -25,7 +25,7 @@ type DownloadMetadata struct {
 }
 
 func (app *ApiServer) postV1TrackDownload(c *fiber.Ctx) error {
-	userID := app.getUserId(c)
+	userID := app.getMyId(c)
 	trackID, err := trashid.DecodeHashId(c.Params("trackId"))
 	if err != nil {
 		return err

@@ -39,7 +39,7 @@ func (app *ApiServer) v1TrackReposts(c *fiber.Ctx) error {
 }
 
 func (app *ApiServer) postV1TrackRepost(c *fiber.Ctx) error {
-	userID := app.getUserId(c)
+	userID := app.getMyId(c)
 	trackID, err := trashid.DecodeHashId(c.Params("trackId"))
 	if err != nil {
 		return err
@@ -79,7 +79,7 @@ func (app *ApiServer) postV1TrackRepost(c *fiber.Ctx) error {
 }
 
 func (app *ApiServer) deleteV1TrackRepost(c *fiber.Ctx) error {
-	userID := app.getUserId(c)
+	userID := app.getMyId(c)
 	trackID, err := trashid.DecodeHashId(c.Params("trackId"))
 	if err != nil {
 		return err

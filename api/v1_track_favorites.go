@@ -39,7 +39,7 @@ func (app *ApiServer) v1TrackFavorites(c *fiber.Ctx) error {
 }
 
 func (app *ApiServer) postV1TrackFavorite(c *fiber.Ctx) error {
-	userID := app.getUserId(c)
+	userID := app.getMyId(c)
 	trackID, err := trashid.DecodeHashId(c.Params("trackId"))
 	if err != nil {
 		return err
@@ -77,7 +77,7 @@ func (app *ApiServer) postV1TrackFavorite(c *fiber.Ctx) error {
 }
 
 func (app *ApiServer) deleteV1TrackFavorite(c *fiber.Ctx) error {
-	userID := app.getUserId(c)
+	userID := app.getMyId(c)
 	trackID, err := trashid.DecodeHashId(c.Params("trackId"))
 	if err != nil {
 		return err

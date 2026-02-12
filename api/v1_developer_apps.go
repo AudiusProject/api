@@ -59,7 +59,7 @@ func (app *ApiServer) v1DeveloperApps(c *fiber.Ctx) error {
 }
 
 func (app *ApiServer) postV1DeveloperApp(c *fiber.Ctx) error {
-	userID := app.getUserId(c)
+	userID := app.getMyId(c)
 
 	var req CreateDeveloperAppRequest
 	if err := c.BodyParser(&req); err != nil {
@@ -111,7 +111,7 @@ func (app *ApiServer) postV1DeveloperApp(c *fiber.Ctx) error {
 }
 
 func (app *ApiServer) putV1DeveloperApp(c *fiber.Ctx) error {
-	userID := app.getUserId(c)
+	userID := app.getMyId(c)
 	address := c.Params("address")
 
 	var req UpdateDeveloperAppRequest
@@ -161,7 +161,7 @@ func (app *ApiServer) putV1DeveloperApp(c *fiber.Ctx) error {
 }
 
 func (app *ApiServer) deleteV1DeveloperApp(c *fiber.Ctx) error {
-	userID := app.getUserId(c)
+	userID := app.getMyId(c)
 	address := c.Params("address")
 
 	signer, err := app.getApiSigner(c)

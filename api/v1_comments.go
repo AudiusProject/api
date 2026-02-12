@@ -122,7 +122,7 @@ func (app *ApiServer) queryFullComments(
 }
 
 func (app *ApiServer) postV1Comment(c *fiber.Ctx) error {
-	userID := app.getUserId(c)
+	userID := app.getMyId(c)
 
 	var req CreateCommentRequest
 	if err := c.BodyParser(&req); err != nil {
@@ -188,7 +188,7 @@ func (app *ApiServer) postV1Comment(c *fiber.Ctx) error {
 }
 
 func (app *ApiServer) putV1Comment(c *fiber.Ctx) error {
-	userID := app.getUserId(c)
+	userID := app.getMyId(c)
 	commentID, err := trashid.DecodeHashId(c.Params("commentId"))
 	if err != nil {
 		return err
@@ -242,7 +242,7 @@ func (app *ApiServer) putV1Comment(c *fiber.Ctx) error {
 }
 
 func (app *ApiServer) deleteV1Comment(c *fiber.Ctx) error {
-	userID := app.getUserId(c)
+	userID := app.getMyId(c)
 	commentID, err := trashid.DecodeHashId(c.Params("commentId"))
 	if err != nil {
 		return err
@@ -280,7 +280,7 @@ func (app *ApiServer) deleteV1Comment(c *fiber.Ctx) error {
 }
 
 func (app *ApiServer) postV1CommentReact(c *fiber.Ctx) error {
-	userID := app.getUserId(c)
+	userID := app.getMyId(c)
 	commentID, err := trashid.DecodeHashId(c.Params("commentId"))
 	if err != nil {
 		return err
@@ -339,7 +339,7 @@ func (app *ApiServer) postV1CommentReact(c *fiber.Ctx) error {
 }
 
 func (app *ApiServer) deleteV1CommentReact(c *fiber.Ctx) error {
-	userID := app.getUserId(c)
+	userID := app.getMyId(c)
 	commentID, err := trashid.DecodeHashId(c.Params("commentId"))
 	if err != nil {
 		return err
@@ -393,7 +393,7 @@ func (app *ApiServer) deleteV1CommentReact(c *fiber.Ctx) error {
 }
 
 func (app *ApiServer) postV1CommentPin(c *fiber.Ctx) error {
-	userID := app.getUserId(c)
+	userID := app.getMyId(c)
 	commentID, err := trashid.DecodeHashId(c.Params("commentId"))
 	if err != nil {
 		return err
@@ -451,7 +451,7 @@ func (app *ApiServer) postV1CommentPin(c *fiber.Ctx) error {
 }
 
 func (app *ApiServer) deleteV1CommentPin(c *fiber.Ctx) error {
-	userID := app.getUserId(c)
+	userID := app.getMyId(c)
 	commentID, err := trashid.DecodeHashId(c.Params("commentId"))
 	if err != nil {
 		return err
@@ -504,7 +504,7 @@ func (app *ApiServer) deleteV1CommentPin(c *fiber.Ctx) error {
 }
 
 func (app *ApiServer) postV1CommentReport(c *fiber.Ctx) error {
-	userID := app.getUserId(c)
+	userID := app.getMyId(c)
 	commentID, err := trashid.DecodeHashId(c.Params("commentId"))
 	if err != nil {
 		return err
