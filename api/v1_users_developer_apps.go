@@ -312,10 +312,11 @@ func (app *ApiServer) postV1UsersDeveloperAppCreate(c *fiber.Ctx) error {
 		})
 	}
 
-	// Build app_signature for ManageEntity
+	// Build app_signature for ManageEntity (Ethereum personal sign format so indexer can recover address)
 	unixTs := strconv.FormatInt(time.Now().Unix(), 10)
 	message := "Creating Audius developer app at " + unixTs
-	hash := crypto.Keccak256Hash([]byte(message))
+	prefixedMessage := []byte(fmt.Sprintf("\x19Ethereum Signed Message:\n%d%s", len(message), message))
+	hash := crypto.Keccak256Hash(prefixedMessage)
 	signature, err := crypto.Sign(hash.Bytes(), privateKey)
 	if err != nil {
 		app.logger.Error("Failed to sign app message", zap.Error(err))
@@ -326,6 +327,7 @@ func (app *ApiServer) postV1UsersDeveloperAppCreate(c *fiber.Ctx) error {
 	signatureHex := hex.EncodeToString(signature)
 
 	metadataObj := map[string]interface{}{
+		"address":     strings.ToLower(address),
 		"name":        name,
 		"description": "",
 		"image_url":   "",

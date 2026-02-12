@@ -124,6 +124,14 @@ func NewApiServer(config config.Config) *ApiServer {
 		panic(err)
 	}
 
+	apiAccessKeySignerCache, err := otter.MustBuilder[string, apiAccessKeySignerEntry](10_000).
+		WithTTL(5 * time.Minute).
+		CollectStats().
+		Build()
+	if err != nil {
+		panic(err)
+	}
+
 	privateKey, err := crypto.HexToECDSA(config.DelegatePrivateKey)
 	if err != nil {
 		panic(err)
@@ -194,8 +202,10 @@ func NewApiServer(config config.Config) *ApiServer {
 
 	// Initialize metrics collector if writePool is available
 	var metricsCollector *MetricsCollector
+	var rateLimitMiddleware *RateLimitMiddleware
 	if writePool != nil && config.Env != "test" {
 		metricsCollector = NewMetricsCollector(logger, writePool)
+		rateLimitMiddleware = NewRateLimitMiddleware(logger, writePool)
 	}
 
 	commsRpcProcessor, err := comms.NewProcessor(pool, writePool, &config, logger)
@@ -225,6 +235,7 @@ func NewApiServer(config config.Config) *ApiServer {
 		resolveHandleCache:    &resolveHandleCache,
 		resolveGrantCache:     &resolveGrantCache,
 		resolveWalletCache:    &resolveWalletCache,
+		apiAccessKeySignerCache: &apiAccessKeySignerCache,
 		requestValidator:      requestValidator,
 		rewardAttester:        rewardAttester,
 		transactionSender:     transactionSender,
@@ -236,6 +247,7 @@ func NewApiServer(config config.Config) *ApiServer {
 		openAudioSDK:          openAudioSDK,
 		openAudioPool:         openAudioPool,
 		metricsCollector:      metricsCollector,
+		rateLimitMiddleware:   rateLimitMiddleware,
 		birdeyeClient:         birdeye.New(config.BirdeyeToken),
 		solanaRpcClient:       solanaRpc,
 		meteoraDbcClient:      meteoraDbcClient,
@@ -276,7 +288,11 @@ func NewApiServer(config config.Config) *ApiServer {
 
 	// Add request metrics middleware if available
 	if app.metricsCollector != nil {
-		app.Use(app.metricsCollector.Middleware())
+		app.Use(app.metricsCollector.Middleware(app))
+	}
+	// Add rate limit middleware after metrics, before auth
+	if app.rateLimitMiddleware != nil {
+		app.Use(app.rateLimitMiddleware.Middleware(app))
 	}
 	app.Use(fiberzap.New(fiberzap.Config{
 		Logger: logger,
@@ -713,10 +729,11 @@ type ApiServer struct {
 	esClient              *elasticsearch.Client
 	logger                *zap.Logger
 	started               time.Time
-	resolveHandleCache    *otter.Cache[string, int32]
-	resolveGrantCache     *otter.Cache[string, bool]
-	resolveWalletCache    *otter.Cache[string, int]
-	requestValidator      *RequestValidator
+	resolveHandleCache       *otter.Cache[string, int32]
+	resolveGrantCache        *otter.Cache[string, bool]
+	resolveWalletCache       *otter.Cache[string, int]
+	apiAccessKeySignerCache  *otter.Cache[string, apiAccessKeySignerEntry]
+	requestValidator         *RequestValidator
 	rewardManagerClient   *reward_manager.RewardManagerClient
 	claimableTokensClient *claimable_tokens.ClaimableTokensClient
 	rewardAttester        *rewards.RewardAttester
@@ -728,6 +745,7 @@ type ApiServer struct {
 	audiusAppUrl          string
 	skipAuthCheck         bool // set to true in a test if you don't care about auth middleware
 	metricsCollector      *MetricsCollector
+	rateLimitMiddleware   *RateLimitMiddleware
 	birdeyeClient         BirdeyeClient
 	solanaRpcClient       *rpc.Client
 	meteoraDbcClient      *meteora_dbc.Client

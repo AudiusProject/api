@@ -783,6 +783,21 @@ type AlbumPriceHistory struct {
 	CreatedAt       time.Time       `json:"created_at"`
 }
 
+type ApiAccessKey struct {
+	ApiKey       string    `json:"api_key"`
+	ApiAccessKey string    `json:"api_access_key"`
+	CreatedAt    time.Time `json:"created_at"`
+	IsActive     bool      `json:"is_active"`
+}
+
+type ApiKey struct {
+	ApiKey    string      `json:"api_key"`
+	ApiSecret pgtype.Text `json:"api_secret"`
+	Rps       int32       `json:"rps"`
+	Rpm       int32       `json:"rpm"`
+	CreatedAt time.Time   `json:"created_at"`
+}
+
 type ApiMetricsApp struct {
 	Date         pgtype.Date `json:"date"`
 	ApiKey       string      `json:"api_key"`
