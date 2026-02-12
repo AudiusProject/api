@@ -167,7 +167,7 @@ paths:
         content:
           application/json:
             schema:
-              $ref: '#/components/schemas/create_comment_request'
+              $ref: '#/components/schemas/create_comment_request_body'
       responses:
         "201":
           description: Comment created successfully
@@ -233,7 +233,7 @@ paths:
         content:
           application/json:
             schema:
-              $ref: '#/components/schemas/update_comment_request'
+              $ref: '#/components/schemas/update_comment_request_body'
       responses:
         "200":
           description: Comment updated successfully
@@ -538,7 +538,7 @@ paths:
         content:
           application/json:
             schema:
-              $ref: '#/components/schemas/create_developer_app_request'
+              $ref: '#/components/schemas/create_developer_app_request_body'
       responses:
         "201":
           description: Developer app created successfully
@@ -610,7 +610,7 @@ paths:
         content:
           application/json:
             schema:
-              $ref: '#/components/schemas/update_developer_app_request'
+              $ref: '#/components/schemas/update_developer_app_request_body'
       responses:
         "200":
           description: Developer app updated successfully
@@ -986,7 +986,7 @@ paths:
         content:
           application/json:
             schema:
-              $ref: '#/components/schemas/create_playlist_request'
+              $ref: '#/components/schemas/create_playlist_request_body'
       responses:
         "201":
           description: Playlist created successfully
@@ -1225,7 +1225,7 @@ paths:
         content:
           application/json:
             schema:
-              $ref: '#/components/schemas/update_playlist_request'
+              $ref: '#/components/schemas/update_playlist_request_body'
       responses:
         "200":
           description: Playlist updated successfully
@@ -1689,7 +1689,7 @@ paths:
         content:
           application/json:
             schema:
-              $ref: '#/components/schemas/create_track_request'
+              $ref: '#/components/schemas/create_track_request_body'
       responses:
         "201":
           description: Track created successfully
@@ -2513,7 +2513,7 @@ paths:
         content:
           application/json:
             schema:
-              $ref: '#/components/schemas/update_track_request'
+              $ref: '#/components/schemas/update_track_request_body'
       responses:
         "200":
           description: Track updated successfully
@@ -3200,7 +3200,7 @@ paths:
         content:
           application/json:
             schema:
-              $ref: '#/components/schemas/track_download_request'
+              $ref: '#/components/schemas/track_download_request_body'
       responses:
         "200":
           description: Track download recorded successfully
@@ -3403,7 +3403,7 @@ paths:
         content:
           application/json:
             schema:
-              $ref: '#/components/schemas/create_user_request'
+              $ref: '#/components/schemas/create_user_request_body'
       responses:
         "201":
           description: User created successfully
@@ -3820,7 +3820,7 @@ paths:
         content:
           application/json:
             schema:
-              $ref: '#/components/schemas/update_user_request'
+              $ref: '#/components/schemas/update_user_request_body'
       responses:
         "200":
           description: User updated successfully
@@ -3987,7 +3987,7 @@ paths:
         content:
           application/json:
             schema:
-              $ref: '#/components/schemas/create_user_developer_app_request'
+              $ref: '#/components/schemas/create_user_developer_app_request_body'
       responses:
         "200":
           description: Developer app created successfully
@@ -4071,7 +4071,7 @@ paths:
         content:
           application/json:
             schema:
-              $ref: '#/components/schemas/deactivate_access_key_request'
+              $ref: '#/components/schemas/deactivate_access_key_request_body'
       responses:
         "200":
           description: Access key deactivated successfully
@@ -5967,7 +5967,7 @@ paths:
         content:
           application/json:
             schema:
-              $ref: '#/components/schemas/create_coin_request'
+              $ref: '#/components/schemas/create_coin_request_body'
       responses:
         '201':
           description: Success - Coin created
@@ -6030,7 +6030,7 @@ paths:
         content:
           application/json:
             schema:
-              $ref: '#/components/schemas/update_coin_request'
+              $ref: '#/components/schemas/update_coin_request_body'
       responses:
         '200':
           description: Success - Coin updated
@@ -6355,7 +6355,7 @@ paths:
         content:
           application/json:
             schema:
-              $ref: '#/components/schemas/claim_rewards_request'
+              $ref: '#/components/schemas/claim_rewards_request_body'
       responses:
         "200":
           description: Success
@@ -6380,7 +6380,7 @@ paths:
         content:
           application/json:
             schema:
-              $ref: '#/components/schemas/create_reward_code_request'
+              $ref: '#/components/schemas/create_reward_code_request_body'
       responses:
         "201":
           description: Created - Reward code successfully created
@@ -6424,7 +6424,7 @@ paths:
         content:
           application/json:
             schema:
-              $ref: '#/components/schemas/prize_claim_request'
+              $ref: '#/components/schemas/prize_claim_request_body'
       responses:
         "200":
           description: Success - Prize claimed
@@ -8718,7 +8718,7 @@ components:
           type: array
           items:
             $ref: '#/components/schemas/coin'
-    create_coin_request:
+    create_coin_request_body:
       type: object
       required:
         - mint
@@ -8843,7 +8843,7 @@ components:
               format: date-time
               description: The date and time when the coin was created
               example: "2024-01-15T10:30:00Z"
-    update_coin_request:
+    update_coin_request_body:
       type: object
       description: Request body for updating coin information
       properties:
@@ -9451,7 +9451,7 @@ components:
                 type: string
                 description: Error message if claim failed
                 example: "Insufficient balance"
-    claim_rewards_request:
+    claim_rewards_request_body:
       type: object
       required:
         - userId
@@ -9501,7 +9501,7 @@ components:
           enum:
             - used
             - invalid
-    create_reward_code_request:
+    create_reward_code_request_body:
       type: object
       required:
         - signature
@@ -9545,7 +9545,7 @@ components:
           type: integer
           description: The reward amount
           example: 100
-    prize_claim_request:
+    prize_claim_request_body:
       type: object
       required:
         - signature
@@ -9745,7 +9745,7 @@ components:
         comment_id:
           type: string
           description: The ID of the created comment
-    create_track_request:
+    create_track_request_body:
       type: object
       required:
         - title
@@ -9813,7 +9813,7 @@ components:
         parental_warning_type:
           type: string
           description: Parental warning type
-    update_track_request:
+    update_track_request_body:
       type: object
       description: Request body for updating track information. All fields are optional.
       properties:
@@ -9848,7 +9848,7 @@ components:
           type: string
           description: URL for track artwork
           format: uri
-    create_playlist_request:
+    create_playlist_request_body:
       type: object
       required:
         - playlist_name
@@ -9905,7 +9905,7 @@ components:
         is_image_autogenerated:
           type: boolean
           description: Whether the image is autogenerated
-    update_playlist_request:
+    update_playlist_request_body:
       type: object
       description: Request body for updating playlist information. All fields are optional.
       properties:
@@ -9938,7 +9938,7 @@ components:
         upc:
           type: string
           description: Universal Product Code (for albums)
-    create_user_request:
+    create_user_request_body:
       type: object
       required:
         - handle
@@ -10005,7 +10005,7 @@ components:
         spl_usdc_payout_wallet:
           type: string
           description: Solana USDC payout wallet address
-    update_user_request:
+    update_user_request_body:
       type: object
       description: Request body for updating user profile. All fields are optional.
       properties:
@@ -10067,7 +10067,7 @@ components:
         coin_flair_mint:
           type: string
           description: Coin flair mint address
-    update_comment_request:
+    update_comment_request_body:
       type: object
       required:
         - body
@@ -10075,7 +10075,7 @@ components:
         body:
           type: string
           description: The updated comment text
-    create_comment_request:
+    create_comment_request_body:
       type: object
       required:
         - entityType
@@ -10100,7 +10100,7 @@ components:
         parentId:
           type: integer
           description: Parent comment ID if this is a reply
-    create_developer_app_request:
+    create_developer_app_request_body:
       type: object
       required:
         - name
@@ -10130,7 +10130,7 @@ components:
             signature:
               type: string
               description: Signature
-    update_developer_app_request:
+    update_developer_app_request_body:
       type: object
       required:
         - name
@@ -10146,7 +10146,7 @@ components:
         imageUrl:
           type: string
           description: App logo/image URL (camelCase)
-    create_user_developer_app_request:
+    create_user_developer_app_request_body:
       type: object
       required:
         - name
@@ -10155,7 +10155,7 @@ components:
           type: string
           description: Developer app name (Plans API create)
           example: "My API Key"
-    deactivate_access_key_request:
+    deactivate_access_key_request_body:
       type: object
       required:
         - api_access_key
@@ -10171,7 +10171,7 @@ components:
         api_access_key:
           type: string
           description: The newly created bearer token (API access key)
-    track_download_request:
+    track_download_request_body:
       type: object
       properties:
         city:
