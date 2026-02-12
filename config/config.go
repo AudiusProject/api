@@ -49,6 +49,8 @@ type Config struct {
 	RewardCodeAuthorizedKeys       []string
 	LaunchpadDeterministicSecret   string
 	UnsplashKeys                   []string
+	// Optional API secret to be used for api.audius.co frontends
+	AudiusApiSecret string
 }
 
 var Cfg = Config{
@@ -72,6 +74,7 @@ var Cfg = Config{
 	CommsMessagePush:             true,
 	LaunchpadDeterministicSecret: os.Getenv("launchpadDeterministicSecret"),
 	UnsplashKeys:                 strings.Split(os.Getenv("unsplashKeys"), ","),
+	AudiusApiSecret:              os.Getenv("audiusApiSecret"),
 }
 
 func init() {

@@ -154,6 +154,7 @@ paths:
       operationId: Create Comment
       security:
       - BasicAuth: []
+      - BearerAuth: []
       requestBody:
         required: true
         content:
@@ -206,6 +207,7 @@ paths:
       operationId: Update Comment
       security:
         - BasicAuth: []
+        - BearerAuth: []
       parameters:
       - name: comment_id
         in: path
@@ -247,6 +249,7 @@ paths:
       operationId: Delete Comment
       security:
         - BasicAuth: []
+        - BearerAuth: []
       parameters:
       - name: comment_id
         in: path
@@ -278,6 +281,7 @@ paths:
       operationId: React to Comment
       security:
         - BasicAuth: []
+        - BearerAuth: []
       parameters:
       - name: comment_id
         in: path
@@ -308,6 +312,7 @@ paths:
       operationId: Unreact to Comment
       security:
         - BasicAuth: []
+        - BearerAuth: []
       parameters:
       - name: comment_id
         in: path
@@ -339,6 +344,7 @@ paths:
       operationId: Pin Comment
       security:
         - BasicAuth: []
+        - BearerAuth: []
       parameters:
       - name: comment_id
         in: path
@@ -369,6 +375,7 @@ paths:
       operationId: Unpin Comment
       security:
         - BasicAuth: []
+        - BearerAuth: []
       parameters:
       - name: comment_id
         in: path
@@ -400,6 +407,7 @@ paths:
       operationId: Report Comment
       security:
         - BasicAuth: []
+        - BearerAuth: []
       parameters:
       - name: comment_id
         in: path
@@ -473,6 +481,7 @@ paths:
       operationId: Create Developer App
       security:
       - BasicAuth: []
+      - BearerAuth: []
       requestBody:
         required: true
         content:
@@ -531,6 +540,7 @@ paths:
       operationId: Update Developer App
       security:
       - BasicAuth: []
+      - BearerAuth: []
       parameters:
       - name: address
         in: path
@@ -570,6 +580,7 @@ paths:
       operationId: Delete Developer App
       security:
       - BasicAuth: []
+      - BearerAuth: []
       parameters:
       - name: address
         in: path
@@ -899,6 +910,7 @@ paths:
       operationId: Create Playlist
       security:
         - BasicAuth: []
+        - BearerAuth: []
       requestBody:
         required: true
         content:
@@ -1124,6 +1136,7 @@ paths:
       operationId: Update Playlist
       security:
         - BasicAuth: []
+        - BearerAuth: []
       parameters:
       - name: playlist_id
         in: path
@@ -1163,6 +1176,7 @@ paths:
       operationId: Delete Playlist
       security:
         - BasicAuth: []
+        - BearerAuth: []
       parameters:
       - name: playlist_id
         in: path
@@ -1246,6 +1260,7 @@ paths:
       operationId: Favorite Playlist
       security:
         - BasicAuth: []
+        - BearerAuth: []
       parameters:
       - name: playlist_id
         in: path
@@ -1276,6 +1291,7 @@ paths:
       operationId: Unfavorite Playlist
       security:
         - BasicAuth: []
+        - BearerAuth: []
       parameters:
       - name: playlist_id
         in: path
@@ -1307,6 +1323,7 @@ paths:
       operationId: Repost Playlist
       security:
         - BasicAuth: []
+        - BearerAuth: []
       parameters:
       - name: playlist_id
         in: path
@@ -1337,6 +1354,7 @@ paths:
       operationId: Unrepost Playlist
       security:
         - BasicAuth: []
+        - BearerAuth: []
       parameters:
       - name: playlist_id
         in: path
@@ -1368,6 +1386,7 @@ paths:
       operationId: Share Playlist
       security:
         - BasicAuth: []
+        - BearerAuth: []
       parameters:
       - name: playlist_id
         in: path
@@ -1557,6 +1576,7 @@ paths:
       operationId: Create Track
       security:
         - BasicAuth: []
+        - BearerAuth: []
       requestBody:
         required: true
         content:
@@ -2367,6 +2387,7 @@ paths:
       operationId: Update Track
       security:
         - BasicAuth: []
+        - BearerAuth: []
       parameters:
       - name: track_id
         in: path
@@ -2406,6 +2427,7 @@ paths:
       operationId: Delete Track
       security:
         - BasicAuth: []
+        - BearerAuth: []
       parameters:
       - name: track_id
         in: path
@@ -2618,6 +2640,7 @@ paths:
       operationId: Favorite Track
       security:
         - BasicAuth: []
+        - BearerAuth: []
       parameters:
       - name: track_id
         in: path
@@ -2648,6 +2671,7 @@ paths:
       operationId: Unfavorite Track
       security:
         - BasicAuth: []
+        - BearerAuth: []
       parameters:
       - name: track_id
         in: path
@@ -2812,6 +2836,7 @@ paths:
       operationId: Repost Track
       security:
         - BasicAuth: []
+        - BearerAuth: []
       parameters:
       - name: track_id
         in: path
@@ -2842,6 +2867,7 @@ paths:
       operationId: Unrepost Track
       security:
         - BasicAuth: []
+        - BearerAuth: []
       parameters:
       - name: track_id
         in: path
@@ -2987,6 +3013,7 @@ paths:
       operationId: Share Track
       security:
         - BasicAuth: []
+        - BearerAuth: []
       parameters:
       - name: track_id
         in: path
@@ -3018,6 +3045,7 @@ paths:
       operationId: Record Track Download
       security:
         - BasicAuth: []
+        - BearerAuth: []
       parameters:
       - name: track_id
         in: path
@@ -3226,6 +3254,7 @@ paths:
       operationId: Create User
       security:
         - BasicAuth: []
+        - BearerAuth: []
       requestBody:
         required: true
         content:
@@ -3735,6 +3764,7 @@ paths:
       operationId: Update User
       security:
         - BasicAuth: []
+        - BearerAuth: []
       parameters:
       - name: id
         in: path
@@ -3789,6 +3819,224 @@ paths:
                 $ref: '#/components/schemas/authorized_apps'
         "400":
           description: Bad request
+          content: {}
+        "500":
+          description: Server error
+          content: {}
+  /users/{id}/developer-apps:
+    get:
+      tags:
+      - users
+      - developer_apps
+      description: Get developer apps for the user (Plans API). Requires OAuth.
+      operationId: Get User Developer Apps
+      parameters:
+      - name: id
+        in: path
+        description: User ID
+        required: true
+        schema:
+          type: string
+      - name: include
+        in: query
+        description: Include metrics when set to "metrics"
+        schema:
+          type: string
+          enum:
+          - metrics
+      responses:
+        "200":
+          description: Success
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  data:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/developer_app'
+        "400":
+          description: Bad request
+          content: {}
+        "500":
+          description: Server error
+          content: {}
+    post:
+      tags:
+      - users
+      - developer_apps
+      description: Create a new developer app (Plans API). Requires OAuth Bearer token with plans app grant.
+      operationId: Create User Developer App
+      security:
+      - BasicAuth: []
+      - BearerAuth: []
+      parameters:
+      - name: id
+        in: path
+        description: User ID
+        required: true
+        schema:
+          type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/create_user_developer_app_request'
+      responses:
+        "200":
+          description: Developer app created successfully
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  api_key:
+                    type: string
+                  api_secret:
+                    type: string
+                  transaction_hash:
+                    type: string
+        "400":
+          description: Bad request
+          content: {}
+        "401":
+          description: Unauthorized
+          content: {}
+        "500":
+          description: Server error
+          content: {}
+  /users/{id}/developer-apps/{address}:
+    delete:
+      tags:
+      - users
+      - developer_apps
+      description: Delete a developer app (Plans API). Requires OAuth Bearer token with plans app grant.
+      operationId: Delete User Developer App
+      security:
+      - BasicAuth: []
+      - BearerAuth: []
+      parameters:
+      - name: id
+        in: path
+        description: User ID
+        required: true
+        schema:
+          type: string
+      - name: address
+        in: path
+        description: Developer app address (API Key)
+        required: true
+        schema:
+          type: string
+      responses:
+        "200":
+          description: Developer app deleted successfully
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                  transaction_hash:
+                    type: string
+        "401":
+          description: Unauthorized
+          content: {}
+        "404":
+          description: Developer app not found
+          content: {}
+        "500":
+          description: Server error
+          content: {}
+  /users/{id}/developer-apps/{address}/access-keys/deactivate:
+    post:
+      tags:
+      - users
+      - developer_apps
+      description: Deactivate a bearer token (API access key) for a developer app (Plans API). Requires OAuth Bearer token with plans app grant. The deactivated token will no longer authenticate requests.
+      operationId: Deactivate User Developer App Access Key
+      security:
+      - BasicAuth: []
+      - BearerAuth: []
+      parameters:
+      - name: id
+        in: path
+        description: User ID
+        required: true
+        schema:
+          type: string
+      - name: address
+        in: path
+        description: Developer app address (API Key)
+        required: true
+        schema:
+          type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/deactivate_access_key_request'
+      responses:
+        "200":
+          description: Access key deactivated successfully
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+        "400":
+          description: Bad request (api_access_key required)
+          content: {}
+        "401":
+          description: Unauthorized
+          content: {}
+        "404":
+          description: Developer app or access key not found
+          content: {}
+        "500":
+          description: Server error
+          content: {}
+  /users/{id}/developer-apps/{address}/access-keys:
+    post:
+      tags:
+      - users
+      - developer_apps
+      description: Create a new bearer token (API access key) for a developer app (Plans API). Requires OAuth Bearer token with plans app grant.
+      operationId: Create User Developer App Access Key
+      security:
+      - BasicAuth: []
+      - BearerAuth: []
+      parameters:
+      - name: id
+        in: path
+        description: User ID
+        required: true
+        schema:
+          type: string
+      - name: address
+        in: path
+        description: Developer app address (API Key)
+        required: true
+        schema:
+          type: string
+      responses:
+        "200":
+          description: Access key created successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/create_access_key_response'
+        "401":
+          description: Unauthorized
+          content: {}
+        "404":
+          description: Developer app not found
           content: {}
         "500":
           description: Server error
@@ -4167,6 +4415,7 @@ paths:
       operationId: Follow User
       security:
         - BasicAuth: []
+        - BearerAuth: []
       parameters:
       - name: id
         in: path
@@ -4197,6 +4446,7 @@ paths:
       operationId: Unfollow User
       security:
         - BasicAuth: []
+        - BearerAuth: []
       parameters:
       - name: id
         in: path
@@ -4426,6 +4676,7 @@ paths:
       operationId: Mute User
       security:
         - BasicAuth: []
+        - BearerAuth: []
       parameters:
       - name: id
         in: path
@@ -4456,6 +4707,7 @@ paths:
       operationId: Unmute User
       security:
         - BasicAuth: []
+        - BearerAuth: []
       parameters:
       - name: id
         in: path
@@ -5032,6 +5284,7 @@ paths:
       operationId: Subscribe to User
       security:
         - BasicAuth: []
+        - BearerAuth: []
       parameters:
       - name: id
         in: path
@@ -5062,6 +5315,7 @@ paths:
       operationId: Unsubscribe from User
       security:
         - BasicAuth: []
+        - BearerAuth: []
       parameters:
       - name: id
         in: path
@@ -9775,6 +10029,31 @@ components:
         imageUrl:
           type: string
           description: App logo/image URL (camelCase)
+    create_user_developer_app_request:
+      type: object
+      required:
+        - name
+      properties:
+        name:
+          type: string
+          description: Developer app name (Plans API create)
+          example: "My API Key"
+    deactivate_access_key_request:
+      type: object
+      required:
+        - api_access_key
+      properties:
+        api_access_key:
+          type: string
+          description: The bearer token (API access key) to deactivate
+    create_access_key_response:
+      type: object
+      required:
+        - api_access_key
+      properties:
+        api_access_key:
+          type: string
+          description: The newly created bearer token (API access key)
   responses:
     ParseError:
       description: When a mask can't be parsed
@@ -9814,4 +10093,11 @@ components:
         The derived wallet address must be either:
         - The wallet of the user being acted upon (direct ownership)
         - A wallet with an approved, non-revoked grant for the user (manager mode)
+    BearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+      description: |
+        OAuth JWT Bearer token for Plans API. Used for user developer app create/delete.
+        Obtain via OAuth flow with write scope. The plans app must have a grant from the user.
 x-original-swagger-version: "2.0"

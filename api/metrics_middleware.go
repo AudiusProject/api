@@ -3,6 +3,7 @@ package api
 import (
 	"context"
 	"runtime"
+	"strings"
 	"sync"
 	"time"
 
@@ -96,13 +97,22 @@ func NewMetricsCollector(logger *zap.Logger, writePool *pgxpool.Pool) *MetricsCo
 	return collector
 }
 
-// Fiber middleware that collects metrics
-func (rmc *MetricsCollector) Middleware() fiber.Handler {
+// Fiber middleware that collects metrics. Pass apiServer to resolve identifier from Bearer or Basic Auth signer first; if nil or no signer, falls back to api_key/app_name query params.
+func (rmc *MetricsCollector) Middleware(apiServer *ApiServer) fiber.Handler {
 	return func(c *fiber.Ctx) error {
 		err := c.Next()
 
-		apiKey := c.Query("api_key")
-		appName := c.Query("app_name")
+		var apiKey, appName string
+		if apiServer != nil {
+			signer, signerErr := apiServer.getApiSigner(c)
+			if signerErr == nil && signer != nil {
+				apiKey = fiberutils.CopyString(strings.ToLower(signer.Address))
+			}
+		}
+		if apiKey == "" && appName == "" {
+			apiKey = c.Query("api_key")
+			appName = c.Query("app_name")
+		}
 		ipAddress := utils.GetIP(c)
 
 		// Only record if we have some identifier

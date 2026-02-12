@@ -1,10 +1,12 @@
 package api
 
 import (
+	"context"
 	"encoding/base64"
 	"fmt"
 	"io"
 	"net/http/httptest"
+	"strings"
 	"testing"
 
 	"api.audius.co/database"
@@ -207,14 +209,24 @@ func TestGetApiSignerBasicAuth(t *testing.T) {
 		assert.Contains(t, string(body), "missing Authorization header")
 	})
 
-	t.Run("invalid basic auth format - not basic", func(t *testing.T) {
+	t.Run("invalid Bearer token", func(t *testing.T) {
 		req := httptest.NewRequest("POST", "/test", nil)
 		req.Header.Set("Authorization", "Bearer invalidtoken")
 		res, err := testApp.Test(req, -1)
 		assert.NoError(t, err)
 		assert.Equal(t, fiber.StatusInternalServerError, res.StatusCode)
 		body, _ := io.ReadAll(res.Body)
-		assert.Contains(t, string(body), "Authorization header is not Basic Auth")
+		assert.Contains(t, string(body), "invalid Bearer token")
+	})
+
+	t.Run("invalid Basic auth format - not Bearer or Basic", func(t *testing.T) {
+		req := httptest.NewRequest("POST", "/test", nil)
+		req.Header.Set("Authorization", "Digest some-credentials")
+		res, err := testApp.Test(req, -1)
+		assert.NoError(t, err)
+		assert.Equal(t, fiber.StatusInternalServerError, res.StatusCode)
+		body, _ := io.ReadAll(res.Body)
+		assert.Contains(t, string(body), "Authorization must be Bearer or Basic")
 	})
 
 	t.Run("invalid private key", func(t *testing.T) {
@@ -252,6 +264,77 @@ func TestGetApiSignerBasicAuth(t *testing.T) {
 		expectedAddress := "0xf39Fd6e51aad88F6F4ce6aB8827279cffFb92266"
 		assert.Contains(t, string(body), expectedAddress)
 	})
+}
+
+func TestGetApiSignerWithApiAccessKey(t *testing.T) {
+	app := emptyTestApp(t)
+	if app.writePool == nil {
+		t.Skip("writePool required for api_access_key lookup")
+	}
+
+	ctx := context.Background()
+	ensureApiKeysTables(t, app, ctx)
+
+	// Same private key as TestGetApiSignerBasicAuth - derives to 0xf39Fd6e51aad88F6F4ce6aB8827279cffFb92266
+	testPrivateKey := "ac0974bec39a17e36ba4a6b4d238ff944bacb478cbed5efcae784d7bf4f2ff80"
+	parentApiKey := "0xf39Fd6e51aad88F6F4ce6aB8827279cffFb92266"
+	apiAccessKey := "test-access-key-123"
+
+	_, err := app.writePool.Exec(ctx, `
+		INSERT INTO api_keys (api_key, api_secret, rps, rpm)
+		VALUES ($1, $2, 10, 500000)
+		ON CONFLICT (api_key) DO UPDATE SET api_secret = EXCLUDED.api_secret
+	`, parentApiKey, testPrivateKey)
+	assert.NoError(t, err)
+
+	_, err = app.writePool.Exec(ctx, `
+		INSERT INTO api_access_keys (api_key, api_access_key, is_active)
+		VALUES ($1, $2, true)
+		ON CONFLICT (api_key, api_access_key) DO UPDATE SET is_active = true
+	`, parentApiKey, apiAccessKey)
+	assert.NoError(t, err)
+
+	testApp := fiber.New()
+	testApp.Post("/test", func(c *fiber.Ctx) error {
+		signer, err := app.getApiSigner(c)
+		if err != nil {
+			return fiber.NewError(fiber.StatusInternalServerError, err.Error())
+		}
+		return c.JSON(fiber.Map{
+			"address": signer.Address,
+		})
+	})
+
+	req := httptest.NewRequest("POST", "/test", nil)
+	req.Header.Set("Authorization", "Basic "+encodeBasicAuth("", apiAccessKey))
+	res, err := testApp.Test(req, -1)
+	assert.NoError(t, err)
+	assert.Equal(t, fiber.StatusOK, res.StatusCode)
+	body, _ := io.ReadAll(res.Body)
+	assert.True(t, strings.Contains(strings.ToLower(string(body)), strings.ToLower(parentApiKey)),
+		"body %s should contain address %s", string(body), parentApiKey)
+}
+
+// ensureApiKeysTables creates api_keys and api_access_keys if they do not exist.
+func ensureApiKeysTables(t *testing.T, app *ApiServer, ctx context.Context) {
+	t.Helper()
+	_, err := app.writePool.Exec(ctx, `
+		CREATE TABLE IF NOT EXISTS api_keys (
+			api_key VARCHAR(255) NOT NULL PRIMARY KEY,
+			api_secret VARCHAR(255),
+			rps INTEGER NOT NULL DEFAULT 10,
+			rpm INTEGER NOT NULL DEFAULT 500000,
+			created_at TIMESTAMP NOT NULL DEFAULT NOW()
+		);
+		CREATE TABLE IF NOT EXISTS api_access_keys (
+			api_key VARCHAR(255) NOT NULL,
+			api_access_key VARCHAR(255) NOT NULL,
+			created_at TIMESTAMP NOT NULL DEFAULT NOW(),
+			is_active BOOLEAN NOT NULL DEFAULT true,
+			PRIMARY KEY (api_key, api_access_key)
+		);
+	`)
+	assert.NoError(t, err)
 }
 
 // Helper function to encode basic auth credentials

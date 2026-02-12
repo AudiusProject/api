@@ -15,6 +15,7 @@ export default defineConfig({
   plugins: [
     react(),
     nodePolyfills({
+      include: ["timers"],
       globals: {
         process: true,
       },

@@ -2,8 +2,9 @@
 -- PostgreSQL database dump
 --
 
--- Dumped from database version 17.5 (Debian 17.5-1.pgdg120+1)
--- Dumped by pg_dump version 17.5 (Debian 17.5-1.pgdg120+1)
+
+-- Dumped from database version 17.7 (Debian 17.7-3.pgdg13+1)
+-- Dumped by pg_dump version 17.7 (Debian 17.7-3.pgdg13+1)
 
 SET statement_timeout = 0;
 SET lock_timeout = 0;
@@ -5848,6 +5849,31 @@ CREATE TABLE public.album_price_history (
 
 
 --
+-- Name: api_access_keys; Type: TABLE; Schema: public; Owner: -
+--
+
+CREATE TABLE public.api_access_keys (
+    api_key character varying(255) NOT NULL,
+    api_access_key character varying(255) NOT NULL,
+    created_at timestamp without time zone DEFAULT now() NOT NULL,
+    is_active boolean DEFAULT true NOT NULL
+);
+
+
+--
+-- Name: api_keys; Type: TABLE; Schema: public; Owner: -
+--
+
+CREATE TABLE public.api_keys (
+    api_key character varying(255) NOT NULL,
+    api_secret character varying(255),
+    rps integer DEFAULT 10 NOT NULL,
+    rpm integer DEFAULT 500000 NOT NULL,
+    created_at timestamp without time zone DEFAULT now() NOT NULL
+);
+
+
+--
 -- Name: api_metrics_apps; Type: TABLE; Schema: public; Owner: -
 --
 
@@ -9439,6 +9465,22 @@ ALTER TABLE ONLY public.album_price_history
 
 
 --
+-- Name: api_access_keys api_access_keys_pkey; Type: CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.api_access_keys
+    ADD CONSTRAINT api_access_keys_pkey PRIMARY KEY (api_key, api_access_key);
+
+
+--
+-- Name: api_keys api_keys_pkey; Type: CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.api_keys
+    ADD CONSTRAINT api_keys_pkey PRIMARY KEY (api_key);
+
+
+--
 -- Name: api_metrics_apps api_metrics_apps_pkey; Type: CONSTRAINT; Schema: public; Owner: -
 --
 
@@ -10737,6 +10779,20 @@ CREATE INDEX follows_inbound_idx ON public.follows USING btree (followee_user_id
 --
 
 CREATE INDEX idx_aggregate_user_follower_count ON public.aggregate_user USING btree (user_id, follower_count);
+
+
+--
+-- Name: idx_api_access_keys_api_access_key; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX idx_api_access_keys_api_access_key ON public.api_access_keys USING btree (api_access_key);
+
+
+--
+-- Name: idx_api_access_keys_is_active; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX idx_api_access_keys_is_active ON public.api_access_keys USING btree (api_key, is_active) WHERE (is_active = true);
 
 
 --
@@ -12576,4 +12632,5 @@ ALTER TABLE ONLY public.users
 --
 -- PostgreSQL database dump complete
 --
+
 
