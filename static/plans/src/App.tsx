@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import {
   ThemeProvider as HarmonyThemeProvider,
   Text,
@@ -116,6 +116,87 @@ const messages = {
 };
 
 const planGraphicSize = 64;
+
+/** Black circle overlay with inverted content - used when hovering "Open Audio Protocol" */
+const GrayscaleOverlay = ({
+  x,
+  y,
+  isExiting,
+  onComplete,
+}: {
+  x: number;
+  y: number;
+  isExiting: boolean;
+  onComplete: () => void;
+}) => {
+  const [radius, setRadius] = useState(0);
+  const radiusRef = useRef(0);
+
+  useEffect(() => {
+    const durationMs = 1800;
+    const start = performance.now();
+    const animate = (now: number) => {
+      const elapsed = now - start;
+      const t = Math.min(elapsed / durationMs, 1);
+      const eased = 1 - (1 - t) * (1 - t);
+      const r = eased * 150;
+      radiusRef.current = r;
+      setRadius(r);
+      if (t < 1) requestAnimationFrame(animate);
+    };
+    requestAnimationFrame(animate);
+  }, []);
+
+  useEffect(() => {
+    if (!isExiting) return;
+    const durationMs = 1800;
+    const startRadius = radiusRef.current;
+    const start = performance.now();
+    const animate = (now: number) => {
+      const elapsed = now - start;
+      const t = Math.min(elapsed / durationMs, 1);
+      const eased = 1 - t * t;
+      const r = startRadius * eased;
+      radiusRef.current = r;
+      setRadius(r);
+      if (t < 1) {
+        requestAnimationFrame(animate);
+      } else {
+        onComplete();
+      }
+    };
+    requestAnimationFrame(animate);
+  // eslint-disable-next-line react-hooks/exhaustive-deps -- only run when isExiting becomes true
+  }, [isExiting]);
+  return (
+    <div
+      aria-hidden
+      css={css`
+        position: fixed;
+        inset: 0;
+        pointer-events: none;
+        z-index: 9999;
+        /* Black circle with white text (invert + grayscale + push to pure white) */
+        background: rgba(0, 0, 0, 0.35);
+        -webkit-backdrop-filter: invert(1) saturate(0) brightness(2.5) contrast(1.2);
+        backdrop-filter: invert(1) saturate(0) brightness(2.5) contrast(1.2);
+        mask-image: radial-gradient(
+          circle at ${x}px ${y}px,
+          black 0,
+          black ${radius}vmax,
+          transparent ${radius}vmax
+        );
+        -webkit-mask-image: radial-gradient(
+          circle at ${x}px ${y}px,
+          black 0,
+          black ${radius}vmax,
+          transparent ${radius}vmax
+        );
+        mask-size: 100% 100%;
+      `}
+    />
+  );
+};
 
 const FreePlanGraphic = () => (
   <svg
@@ -493,6 +574,26 @@ export default function App() {
   const [createKeyModalOpen, setCreateKeyModalOpen] = useState(false);
   const [deleteAppModalApp, setDeleteAppModalApp] = useState<DeveloperApp | null>(null);
 
+  // Grayscale "spotlight" effect when hovering Open Audio Protocol link
+  const [grayscaleHover, setGrayscaleHover] = useState(false);
+  const [grayscaleExiting, setGrayscaleExiting] = useState(false);
+  const grayscaleOrigin = useRef({ x: 0, y: 0 });
+  const openAudioLinkRef = useRef<HTMLElement | null>(null);
+
+  useEffect(() => {
+    if (!grayscaleHover || grayscaleExiting) return;
+    const checkLeave = (e: MouseEvent) => {
+      const wrapper = openAudioLinkRef.current;
+      if (!wrapper) return;
+      const el = document.elementFromPoint(e.clientX, e.clientY);
+      if (!el || !wrapper.contains(el)) {
+        setGrayscaleExiting(true);
+      }
+    };
+    document.addEventListener("mousemove", checkLeave, { passive: true });
+    return () => document.removeEventListener("mousemove", checkLeave);
+  }, [grayscaleHover, grayscaleExiting]);
+
   const handleLogin = () => {
     sdk.oauth?.login({ scope: "write" });
   };
@@ -714,6 +815,18 @@ export default function App() {
         app={deleteAppModalApp}
         onConfirm={handleDeleteApp}
       />
+      {/* Grayscale spotlight overlay - B&W expands from cursor when hovering Open Audio Protocol */}
+      {grayscaleHover ? (
+        <GrayscaleOverlay
+          x={grayscaleOrigin.current.x}
+          y={grayscaleOrigin.current.y}
+          isExiting={grayscaleExiting}
+          onComplete={() => {
+            setGrayscaleHover(false);
+            setGrayscaleExiting(false);
+          }}
+        />
+      ) : null}
       <Flex
         direction="column"
         gap="3xl"
@@ -838,14 +951,22 @@ export default function App() {
           >
             Bring music to all your apps. Vibe-code ready and performant access
             to the world's largest open music catalog, the&nbsp;
+            <span ref={openAudioLinkRef}>
             <Text
               tag="a"
               href="https://openaudio.org"
               target="_blank"
               rel="noopener noreferrer"
+              onMouseEnter={(e) => {
+                grayscaleOrigin.current = { x: e.clientX, y: e.clientY };
+                setGrayscaleExiting(false);
+                setGrayscaleHover(true);
+              }}
+              onMouseLeave={() => setGrayscaleExiting(true)}
               css={css`
                 color: inherit;
                 text-decoration: underline;
+                cursor: pointer;
                 &:hover {
                   text-decoration: none;
                 }
@@ -853,6 +974,7 @@ export default function App() {
             >
               Open Audio Protocol
             </Text>
+            </span>
           </Text>
         </Flex>
 
