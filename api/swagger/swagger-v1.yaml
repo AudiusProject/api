@@ -153,7 +153,7 @@ paths:
       description: Creates a new comment
       operationId: Create Comment
       security:
-      - BearerAuth: []
+      - BasicAuth: []
       requestBody:
         required: true
         content:
@@ -166,12 +166,7 @@ paths:
           content:
             application/json:
               schema:
-                type: object
-                properties:
-                  success:
-                    type: boolean
-                  transaction_hash:
-                    type: string
+                $ref: '#/components/schemas/create_comment_response'
         "400":
           description: Bad request
           content: {}
@@ -210,7 +205,7 @@ paths:
       description: Updates a comment
       operationId: Update Comment
       security:
-        - BearerAuth: []
+        - BasicAuth: []
       parameters:
       - name: comment_id
         in: path
@@ -235,12 +230,7 @@ paths:
           content:
             application/json:
               schema:
-                type: object
-                properties:
-                  success:
-                    type: boolean
-                  transaction_hash:
-                    type: string
+                $ref: '#/components/schemas/write_response'
         "401":
           description: Unauthorized
           content: {}
@@ -256,7 +246,7 @@ paths:
       description: Deletes a comment
       operationId: Delete Comment
       security:
-        - BearerAuth: []
+        - BasicAuth: []
       parameters:
       - name: comment_id
         in: path
@@ -270,12 +260,7 @@ paths:
           content:
             application/json:
               schema:
-                type: object
-                properties:
-                  success:
-                    type: boolean
-                  transaction_hash:
-                    type: string
+                $ref: '#/components/schemas/write_response'
         "401":
           description: Unauthorized
           content: {}
@@ -292,7 +277,7 @@ paths:
       description: React to a comment
       operationId: React to Comment
       security:
-        - BearerAuth: []
+        - BasicAuth: []
       parameters:
       - name: comment_id
         in: path
@@ -306,12 +291,7 @@ paths:
           content:
             application/json:
               schema:
-                type: object
-                properties:
-                  success:
-                    type: boolean
-                  transaction_hash:
-                    type: string
+                $ref: '#/components/schemas/write_response'
         "401":
           description: Unauthorized
           content: {}
@@ -327,7 +307,7 @@ paths:
       description: Unreact to a comment
       operationId: Unreact to Comment
       security:
-        - BearerAuth: []
+        - BasicAuth: []
       parameters:
       - name: comment_id
         in: path
@@ -341,12 +321,7 @@ paths:
           content:
             application/json:
               schema:
-                type: object
-                properties:
-                  success:
-                    type: boolean
-                  transaction_hash:
-                    type: string
+                $ref: '#/components/schemas/write_response'
         "401":
           description: Unauthorized
           content: {}
@@ -363,7 +338,7 @@ paths:
       description: Pin a comment
       operationId: Pin Comment
       security:
-        - BearerAuth: []
+        - BasicAuth: []
       parameters:
       - name: comment_id
         in: path
@@ -377,12 +352,7 @@ paths:
           content:
             application/json:
               schema:
-                type: object
-                properties:
-                  success:
-                    type: boolean
-                  transaction_hash:
-                    type: string
+                $ref: '#/components/schemas/write_response'
         "401":
           description: Unauthorized
           content: {}
@@ -398,7 +368,7 @@ paths:
       description: Unpin a comment
       operationId: Unpin Comment
       security:
-        - BearerAuth: []
+        - BasicAuth: []
       parameters:
       - name: comment_id
         in: path
@@ -412,12 +382,7 @@ paths:
           content:
             application/json:
               schema:
-                type: object
-                properties:
-                  success:
-                    type: boolean
-                  transaction_hash:
-                    type: string
+                $ref: '#/components/schemas/write_response'
         "401":
           description: Unauthorized
           content: {}
@@ -434,7 +399,7 @@ paths:
       description: Report a comment
       operationId: Report Comment
       security:
-        - BearerAuth: []
+        - BasicAuth: []
       parameters:
       - name: comment_id
         in: path
@@ -448,12 +413,7 @@ paths:
           content:
             application/json:
               schema:
-                type: object
-                properties:
-                  success:
-                    type: boolean
-                  transaction_hash:
-                    type: string
+                $ref: '#/components/schemas/write_response'
         "401":
           description: Unauthorized
           content: {}
@@ -512,7 +472,7 @@ paths:
       description: Creates a new developer app
       operationId: Create Developer App
       security:
-      - BearerAuth: []
+      - BasicAuth: []
       requestBody:
         required: true
         content:
@@ -525,12 +485,7 @@ paths:
           content:
             application/json:
               schema:
-                type: object
-                properties:
-                  success:
-                    type: boolean
-                  transaction_hash:
-                    type: string
+                $ref: '#/components/schemas/write_response'
         "400":
           description: Bad request
           content: {}
@@ -544,12 +499,12 @@ paths:
     get:
       tags:
       - developer_apps
-      description: Gets a developer app by address
-      operationId: Get Developer App
+      description: Gets developer app matching given address (API key)
+      operationId: Get Developer App By API Key
       parameters:
       - name: address
         in: path
-        description: Developer app address
+        description: A developer app address (API Key)
         required: true
         schema:
           type: string
@@ -559,7 +514,10 @@ paths:
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/developer_app'
+                $ref: '#/components/schemas/developer_app_response'
+        "400":
+          description: Bad request
+          content: {}
         "404":
           description: Not found
           content: {}
@@ -572,7 +530,7 @@ paths:
       description: Updates an existing developer app
       operationId: Update Developer App
       security:
-      - BearerAuth: []
+      - BasicAuth: []
       parameters:
       - name: address
         in: path
@@ -592,12 +550,7 @@ paths:
           content:
             application/json:
               schema:
-                type: object
-                properties:
-                  success:
-                    type: boolean
-                  transaction_hash:
-                    type: string
+                $ref: '#/components/schemas/write_response'
         "400":
           description: Bad request
           content: {}
@@ -616,7 +569,7 @@ paths:
       description: Deletes a developer app
       operationId: Delete Developer App
       security:
-      - BearerAuth: []
+      - BasicAuth: []
       parameters:
       - name: address
         in: path
@@ -630,12 +583,7 @@ paths:
           content:
             application/json:
               schema:
-                type: object
-                properties:
-                  success:
-                    type: boolean
-                  transaction_hash:
-                    type: string
+                $ref: '#/components/schemas/write_response'
         "401":
           description: Unauthorized
           content: {}
@@ -674,35 +622,6 @@ paths:
           content: {}
         "404":
           description: No such dashboard wallets
-          content: {}
-        "500":
-          description: Server error
-          content: {}
-  /developer_apps/{address}:
-    get:
-      tags:
-      - developer_apps
-      description: Gets developer app matching given address (API key)
-      operationId: Get Developer App
-      parameters:
-      - name: address
-        in: path
-        description: A developer app address (API Key)
-        required: true
-        schema:
-          type: string
-      responses:
-        "200":
-          description: Success
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/developer_app_response'
-        "400":
-          description: Bad request
-          content: {}
-        "404":
-          description: Not found
           content: {}
         "500":
           description: Server error
@@ -979,7 +898,7 @@ paths:
       description: Creates a new playlist or album
       operationId: Create Playlist
       security:
-        - BearerAuth: []
+        - BasicAuth: []
       requestBody:
         required: true
         content:
@@ -992,14 +911,7 @@ paths:
           content:
             application/json:
               schema:
-                type: object
-                properties:
-                  success:
-                    type: boolean
-                  transaction_hash:
-                    type: string
-                  playlist_id:
-                    type: string
+                $ref: '#/components/schemas/create_playlist_response'
         "400":
           description: Bad request
           content: {}
@@ -1211,7 +1123,7 @@ paths:
       description: Updates an existing playlist or album
       operationId: Update Playlist
       security:
-        - BearerAuth: []
+        - BasicAuth: []
       parameters:
       - name: playlist_id
         in: path
@@ -1231,12 +1143,7 @@ paths:
           content:
             application/json:
               schema:
-                type: object
-                properties:
-                  success:
-                    type: boolean
-                  transaction_hash:
-                    type: string
+                $ref: '#/components/schemas/write_response'
         "400":
           description: Bad request
           content: {}
@@ -1255,7 +1162,7 @@ paths:
       description: Deletes a playlist or album
       operationId: Delete Playlist
       security:
-        - BearerAuth: []
+        - BasicAuth: []
       parameters:
       - name: playlist_id
         in: path
@@ -1269,12 +1176,7 @@ paths:
           content:
             application/json:
               schema:
-                type: object
-                properties:
-                  success:
-                    type: boolean
-                  transaction_hash:
-                    type: string
+                $ref: '#/components/schemas/write_response'
         "401":
           description: Unauthorized
           content: {}
@@ -1343,7 +1245,7 @@ paths:
       description: Favorite a playlist
       operationId: Favorite Playlist
       security:
-        - BearerAuth: []
+        - BasicAuth: []
       parameters:
       - name: playlist_id
         in: path
@@ -1357,12 +1259,7 @@ paths:
           content:
             application/json:
               schema:
-                type: object
-                properties:
-                  success:
-                    type: boolean
-                  transaction_hash:
-                    type: string
+                $ref: '#/components/schemas/write_response'
         "401":
           description: Unauthorized
           content: {}
@@ -1378,7 +1275,7 @@ paths:
       description: Unfavorite a playlist
       operationId: Unfavorite Playlist
       security:
-        - BearerAuth: []
+        - BasicAuth: []
       parameters:
       - name: playlist_id
         in: path
@@ -1392,12 +1289,7 @@ paths:
           content:
             application/json:
               schema:
-                type: object
-                properties:
-                  success:
-                    type: boolean
-                  transaction_hash:
-                    type: string
+                $ref: '#/components/schemas/write_response'
         "401":
           description: Unauthorized
           content: {}
@@ -1414,7 +1306,7 @@ paths:
       description: Repost a playlist
       operationId: Repost Playlist
       security:
-        - BearerAuth: []
+        - BasicAuth: []
       parameters:
       - name: playlist_id
         in: path
@@ -1428,12 +1320,7 @@ paths:
           content:
             application/json:
               schema:
-                type: object
-                properties:
-                  success:
-                    type: boolean
-                  transaction_hash:
-                    type: string
+                $ref: '#/components/schemas/write_response'
         "401":
           description: Unauthorized
           content: {}
@@ -1449,7 +1336,7 @@ paths:
       description: Unrepost a playlist
       operationId: Unrepost Playlist
       security:
-        - BearerAuth: []
+        - BasicAuth: []
       parameters:
       - name: playlist_id
         in: path
@@ -1463,12 +1350,7 @@ paths:
           content:
             application/json:
               schema:
-                type: object
-                properties:
-                  success:
-                    type: boolean
-                  transaction_hash:
-                    type: string
+                $ref: '#/components/schemas/write_response'
         "401":
           description: Unauthorized
           content: {}
@@ -1485,7 +1367,7 @@ paths:
       description: Record a playlist share event
       operationId: Share Playlist
       security:
-        - BearerAuth: []
+        - BasicAuth: []
       parameters:
       - name: playlist_id
         in: path
@@ -1499,12 +1381,7 @@ paths:
           content:
             application/json:
               schema:
-                type: object
-                properties:
-                  success:
-                    type: boolean
-                  transaction_hash:
-                    type: string
+                $ref: '#/components/schemas/write_response'
         "401":
           description: Unauthorized
           content: {}
@@ -1679,7 +1556,7 @@ paths:
       description: Creates a new track
       operationId: Create Track
       security:
-        - BearerAuth: []
+        - BasicAuth: []
       requestBody:
         required: true
         content:
@@ -1692,14 +1569,7 @@ paths:
           content:
             application/json:
               schema:
-                type: object
-                properties:
-                  success:
-                    type: boolean
-                  transaction_hash:
-                    type: string
-                  track_id:
-                    type: string
+                $ref: '#/components/schemas/create_track_response'
         "400":
           description: Bad request
           content: {}
@@ -2496,7 +2366,7 @@ paths:
       description: Updates an existing track
       operationId: Update Track
       security:
-        - BearerAuth: []
+        - BasicAuth: []
       parameters:
       - name: track_id
         in: path
@@ -2516,12 +2386,7 @@ paths:
           content:
             application/json:
               schema:
-                type: object
-                properties:
-                  success:
-                    type: boolean
-                  transaction_hash:
-                    type: string
+                $ref: '#/components/schemas/write_response'
         "400":
           description: Bad request
           content: {}
@@ -2540,7 +2405,7 @@ paths:
       description: Deletes a track
       operationId: Delete Track
       security:
-        - BearerAuth: []
+        - BasicAuth: []
       parameters:
       - name: track_id
         in: path
@@ -2554,12 +2419,7 @@ paths:
           content:
             application/json:
               schema:
-                type: object
-                properties:
-                  success:
-                    type: boolean
-                  transaction_hash:
-                    type: string
+                $ref: '#/components/schemas/write_response'
         "401":
           description: Unauthorized
           content: {}
@@ -2757,7 +2617,7 @@ paths:
       description: Favorite a track
       operationId: Favorite Track
       security:
-        - BearerAuth: []
+        - BasicAuth: []
       parameters:
       - name: track_id
         in: path
@@ -2771,12 +2631,7 @@ paths:
           content:
             application/json:
               schema:
-                type: object
-                properties:
-                  success:
-                    type: boolean
-                  transaction_hash:
-                    type: string
+                $ref: '#/components/schemas/write_response'
         "401":
           description: Unauthorized
           content: {}
@@ -2792,7 +2647,7 @@ paths:
       description: Unfavorite a track
       operationId: Unfavorite Track
       security:
-        - BearerAuth: []
+        - BasicAuth: []
       parameters:
       - name: track_id
         in: path
@@ -2806,12 +2661,7 @@ paths:
           content:
             application/json:
               schema:
-                type: object
-                properties:
-                  success:
-                    type: boolean
-                  transaction_hash:
-                    type: string
+                $ref: '#/components/schemas/write_response'
         "401":
           description: Unauthorized
           content: {}
@@ -2961,7 +2811,7 @@ paths:
       description: Repost a track
       operationId: Repost Track
       security:
-        - BearerAuth: []
+        - BasicAuth: []
       parameters:
       - name: track_id
         in: path
@@ -2975,12 +2825,7 @@ paths:
           content:
             application/json:
               schema:
-                type: object
-                properties:
-                  success:
-                    type: boolean
-                  transaction_hash:
-                    type: string
+                $ref: '#/components/schemas/write_response'
         "401":
           description: Unauthorized
           content: {}
@@ -2996,7 +2841,7 @@ paths:
       description: Unrepost a track
       operationId: Unrepost Track
       security:
-        - BearerAuth: []
+        - BasicAuth: []
       parameters:
       - name: track_id
         in: path
@@ -3010,12 +2855,7 @@ paths:
           content:
             application/json:
               schema:
-                type: object
-                properties:
-                  success:
-                    type: boolean
-                  transaction_hash:
-                    type: string
+                $ref: '#/components/schemas/write_response'
         "401":
           description: Unauthorized
           content: {}
@@ -3146,7 +2986,7 @@ paths:
       description: Record a track share event
       operationId: Share Track
       security:
-        - BearerAuth: []
+        - BasicAuth: []
       parameters:
       - name: track_id
         in: path
@@ -3160,12 +3000,7 @@ paths:
           content:
             application/json:
               schema:
-                type: object
-                properties:
-                  success:
-                    type: boolean
-                  transaction_hash:
-                    type: string
+                $ref: '#/components/schemas/write_response'
         "401":
           description: Unauthorized
           content: {}
@@ -3182,7 +3017,7 @@ paths:
       description: Record a track download event
       operationId: Record Track Download
       security:
-        - BearerAuth: []
+        - BasicAuth: []
       parameters:
       - name: track_id
         in: path
@@ -3208,12 +3043,7 @@ paths:
           content:
             application/json:
               schema:
-                type: object
-                properties:
-                  success:
-                    type: boolean
-                  transaction_hash:
-                    type: string
+                $ref: '#/components/schemas/write_response'
         "401":
           description: Unauthorized
           content: {}
@@ -3395,7 +3225,7 @@ paths:
       description: Creates a new user
       operationId: Create User
       security:
-        - BearerAuth: []
+        - BasicAuth: []
       requestBody:
         required: true
         content:
@@ -3408,14 +3238,7 @@ paths:
           content:
             application/json:
               schema:
-                type: object
-                properties:
-                  success:
-                    type: boolean
-                  transaction_hash:
-                    type: string
-                  user_id:
-                    type: string
+                $ref: '#/components/schemas/create_user_response'
         "400":
           description: Bad request
           content: {}
@@ -3872,7 +3695,7 @@ paths:
       description: Updates an existing user profile
       operationId: Update User
       security:
-        - BearerAuth: []
+        - BasicAuth: []
       parameters:
       - name: id
         in: path
@@ -3892,12 +3715,7 @@ paths:
           content:
             application/json:
               schema:
-                type: object
-                properties:
-                  success:
-                    type: boolean
-                  transaction_hash:
-                    type: string
+                $ref: '#/components/schemas/write_response'
         "400":
           description: Bad request
           content: {}
@@ -4234,32 +4052,6 @@ paths:
         "500":
           description: Server error
           content: {}
-  /users/{id}/developer_apps:
-    get:
-      tags:
-      - users
-      description: Gets the developer apps that the user owns
-      operationId: Get Developer Apps
-      parameters:
-      - name: id
-        in: path
-        description: A User ID
-        required: true
-        schema:
-          type: string
-      responses:
-        "200":
-          description: Success
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/developer_apps'
-        "400":
-          description: Bad request
-          content: {}
-        "500":
-          description: Server error
-          content: {}
   /users/{id}/favorites:
     get:
       tags:
@@ -4335,7 +4127,7 @@ paths:
       description: Follow a user
       operationId: Follow User
       security:
-        - BearerAuth: []
+        - BasicAuth: []
       parameters:
       - name: id
         in: path
@@ -4349,12 +4141,7 @@ paths:
           content:
             application/json:
               schema:
-                type: object
-                properties:
-                  success:
-                    type: boolean
-                  transaction_hash:
-                    type: string
+                $ref: '#/components/schemas/write_response'
         "401":
           description: Unauthorized
           content: {}
@@ -4370,7 +4157,7 @@ paths:
       description: Unfollow a user
       operationId: Unfollow User
       security:
-        - BearerAuth: []
+        - BasicAuth: []
       parameters:
       - name: id
         in: path
@@ -4384,12 +4171,7 @@ paths:
           content:
             application/json:
               schema:
-                type: object
-                properties:
-                  success:
-                    type: boolean
-                  transaction_hash:
-                    type: string
+                $ref: '#/components/schemas/write_response'
         "401":
           description: Unauthorized
           content: {}
@@ -4604,7 +4386,7 @@ paths:
       description: Mute a user
       operationId: Mute User
       security:
-        - BearerAuth: []
+        - BasicAuth: []
       parameters:
       - name: id
         in: path
@@ -4618,12 +4400,7 @@ paths:
           content:
             application/json:
               schema:
-                type: object
-                properties:
-                  success:
-                    type: boolean
-                  transaction_hash:
-                    type: string
+                $ref: '#/components/schemas/write_response'
         "401":
           description: Unauthorized
           content: {}
@@ -4639,7 +4416,7 @@ paths:
       description: Unmute a user
       operationId: Unmute User
       security:
-        - BearerAuth: []
+        - BasicAuth: []
       parameters:
       - name: id
         in: path
@@ -4653,12 +4430,7 @@ paths:
           content:
             application/json:
               schema:
-                type: object
-                properties:
-                  success:
-                    type: boolean
-                  transaction_hash:
-                    type: string
+                $ref: '#/components/schemas/write_response'
         "401":
           description: Unauthorized
           content: {}
@@ -5220,7 +4992,7 @@ paths:
       description: Subscribe to a user
       operationId: Subscribe to User
       security:
-        - BearerAuth: []
+        - BasicAuth: []
       parameters:
       - name: id
         in: path
@@ -5234,12 +5006,7 @@ paths:
           content:
             application/json:
               schema:
-                type: object
-                properties:
-                  success:
-                    type: boolean
-                  transaction_hash:
-                    type: string
+                $ref: '#/components/schemas/write_response'
         "401":
           description: Unauthorized
           content: {}
@@ -5255,7 +5022,7 @@ paths:
       description: Unsubscribe from a user
       operationId: Unsubscribe from User
       security:
-        - BearerAuth: []
+        - BasicAuth: []
       parameters:
       - name: id
         in: path
@@ -5269,12 +5036,7 @@ paths:
           content:
             application/json:
               schema:
-                type: object
-                properties:
-                  success:
-                    type: boolean
-                  transaction_hash:
-                    type: string
+                $ref: '#/components/schemas/write_response'
         "401":
           description: Unauthorized
           content: {}
@@ -7238,13 +7000,6 @@ components:
           type: string
         "1000x1000":
           type: string
-    developer_apps:
-      type: object
-      properties:
-        data:
-          type: array
-          items:
-            $ref: '#/components/schemas/developer_app'
     developer_app:
       required:
       - address
@@ -9509,6 +9264,63 @@ components:
           items:
             $ref: '#/components/schemas/claimed_prize'
           description: List of claimed prizes for the wallet (action_data excluded for security)
+    write_response:
+      type: object
+      properties:
+        success:
+          type: boolean
+          description: Whether the operation was successful
+        transaction_hash:
+          type: string
+          description: The blockchain transaction hash
+    create_track_response:
+      type: object
+      properties:
+        success:
+          type: boolean
+          description: Whether the track was created successfully
+        transaction_hash:
+          type: string
+          description: The blockchain transaction hash
+        track_id:
+          type: string
+          description: The ID of the created track
+    create_playlist_response:
+      type: object
+      properties:
+        success:
+          type: boolean
+          description: Whether the playlist was created successfully
+        transaction_hash:
+          type: string
+          description: The blockchain transaction hash
+        playlist_id:
+          type: string
+          description: The ID of the created playlist
+    create_user_response:
+      type: object
+      properties:
+        success:
+          type: boolean
+          description: Whether the user was created successfully
+        transaction_hash:
+          type: string
+          description: The blockchain transaction hash
+        user_id:
+          type: string
+          description: The ID of the created user
+    create_comment_response:
+      type: object
+      properties:
+        success:
+          type: boolean
+          description: Whether the comment was created successfully
+        transaction_hash:
+          type: string
+          description: The blockchain transaction hash
+        comment_id:
+          type: string
+          description: The ID of the created comment
     create_track_request:
       type: object
       required:
@@ -9921,4 +9733,36 @@ components:
     MaskError:
       description: When any error occurs on mask
       content: {}
+  securitySchemes:
+    BasicAuth:
+      type: http
+      scheme: basic
+      description: |
+        HTTP Basic Authentication with Ethereum private key for write operations.
+        
+        **Authentication**
+        
+        Use HTTP Basic Authentication where the password field contains your Ethereum private key:
+        ```
+        Authorization: Basic <base64(username:privatekey)>
+        ```
+        
+        The username can be any value. The password must be your Ethereum private key in hex format (with or without 0x prefix).
+        
+        Example:
+        ```
+        Authorization: Basic dXNlcm5hbWU6MHgxMjM0NTY3ODkwYWJjZGVmLi4u
+        ```
+        
+        **How it works:**
+        1. The API decodes the Basic Auth credentials
+        2. Extracts the private key from the password field
+        3. Derives the Ethereum address from the private key
+        4. Uses this address for authorization checks
+        
+        **Authorization**
+        
+        The derived wallet address must be either:
+        - The wallet of the user being acted upon (direct ownership)
+        - A wallet with an approved, non-revoked grant for the user (manager mode)
 x-original-swagger-version: "2.0"
