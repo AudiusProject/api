@@ -40,16 +40,6 @@ npm run build
 
 This will create a `dist/` directory with the built files that will be served by the Go API server.
 
-## Create Key (local dev)
-
-To create developer apps locally, the **API server** (not this app) must have `audiusApiSecret` set. Add to the API root `.env`:
-
-```
-audiusApiSecret=<ethereum_private_key_hex>
-```
-
-This is the private key for the OAuth app. It must match the address of the app identified by `VITE_AUDIUS_API_KEY`. For local dev you can generate a key with `openssl rand -hex 32` and register a new OAuth app, or use the key from your staging/production plans app config.
-
 ## Deployment
 
 After building, the Go server will serve the built files from `./static/plans/dist/` at the `/plans` route.
