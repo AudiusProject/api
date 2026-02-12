@@ -221,36 +221,36 @@ func NewApiServer(config config.Config) *ApiServer {
 			ReadBufferSize: 32_768,
 			UnescapePath:   true,
 		}),
-		config:                &config,
-		commsRpcProcessor:     commsRpcProcessor,
-		env:                   config.Env,
-		audiusAppUrl:          config.AudiusAppUrl,
-		skipAuthCheck:         skipAuthCheck,
-		pool:                  pool,
-		writePool:             writePool,
-		queries:               dbv1.New(pool),
-		logger:                logger,
-		esClient:              esClient,
-		started:               time.Now(),
-		resolveHandleCache:    &resolveHandleCache,
-		resolveGrantCache:     &resolveGrantCache,
-		resolveWalletCache:    &resolveWalletCache,
+		config:                  &config,
+		commsRpcProcessor:       commsRpcProcessor,
+		env:                     config.Env,
+		audiusAppUrl:            config.AudiusAppUrl,
+		skipAuthCheck:           skipAuthCheck,
+		pool:                    pool,
+		writePool:               writePool,
+		queries:                 dbv1.New(pool),
+		logger:                  logger,
+		esClient:                esClient,
+		started:                 time.Now(),
+		resolveHandleCache:      &resolveHandleCache,
+		resolveGrantCache:       &resolveGrantCache,
+		resolveWalletCache:      &resolveWalletCache,
 		apiAccessKeySignerCache: &apiAccessKeySignerCache,
-		requestValidator:      requestValidator,
-		rewardAttester:        rewardAttester,
-		transactionSender:     transactionSender,
-		rewardManagerClient:   rewardManagerClient,
-		claimableTokensClient: claimableTokensClient,
-		solanaConfig:          &config.SolanaConfig,
-		antiAbuseOracles:      config.AntiAbuseOracles,
-		validators:            NewNodes(),
-		openAudioSDK:          openAudioSDK,
-		openAudioPool:         openAudioPool,
-		metricsCollector:      metricsCollector,
-		rateLimitMiddleware:   rateLimitMiddleware,
-		birdeyeClient:         birdeye.New(config.BirdeyeToken),
-		solanaRpcClient:       solanaRpc,
-		meteoraDbcClient:      meteoraDbcClient,
+		requestValidator:        requestValidator,
+		rewardAttester:          rewardAttester,
+		transactionSender:       transactionSender,
+		rewardManagerClient:     rewardManagerClient,
+		claimableTokensClient:   claimableTokensClient,
+		solanaConfig:            &config.SolanaConfig,
+		antiAbuseOracles:        config.AntiAbuseOracles,
+		validators:              NewNodes(),
+		openAudioSDK:            openAudioSDK,
+		openAudioPool:           openAudioPool,
+		metricsCollector:        metricsCollector,
+		rateLimitMiddleware:     rateLimitMiddleware,
+		birdeyeClient:           birdeye.New(config.BirdeyeToken),
+		solanaRpcClient:         solanaRpc,
+		meteoraDbcClient:        meteoraDbcClient,
 	}
 
 	// Set up a custom decoder for HashIds so they can be parsed in lists
@@ -678,7 +678,9 @@ func NewApiServer(config config.Config) *ApiServer {
 
 	// Plans React app - serve static assets first, then SPA routing
 	app.Static("/plans/assets", "./static/plans/dist/assets")
-	app.StaticFile("/plans/favicon.ico", "./static/plans/dist/favicon.ico")
+	app.Get("/plans/favicon.ico", func(c *fiber.Ctx) error {
+		return c.SendFile("./static/plans/dist/favicon.ico")
+	})
 	app.Get("/plans/*", app.servePlans)
 
 	app.Static("/", "./static")
@@ -725,36 +727,36 @@ type BirdeyeClient interface {
 
 type ApiServer struct {
 	*fiber.App
-	config                *config.Config
-	commsRpcProcessor     *comms.RPCProcessor
-	pool                  *dbv1.DBPools
-	writePool             *pgxpool.Pool
-	queries               *dbv1.Queries
-	esClient              *elasticsearch.Client
-	logger                *zap.Logger
-	started               time.Time
-	resolveHandleCache       *otter.Cache[string, int32]
-	resolveGrantCache        *otter.Cache[string, bool]
-	resolveWalletCache       *otter.Cache[string, int]
-	apiAccessKeySignerCache  *otter.Cache[string, apiAccessKeySignerEntry]
-	requestValidator         *RequestValidator
-	rewardManagerClient   *reward_manager.RewardManagerClient
-	claimableTokensClient *claimable_tokens.ClaimableTokensClient
-	rewardAttester        *rewards.RewardAttester
-	transactionSender     *spl.TransactionSender
-	solanaConfig          *config.SolanaConfig
-	antiAbuseOracles      []string
-	env                   string
-	openAudioSDK          *sdk.OpenAudioSDK
-	audiusAppUrl          string
-	skipAuthCheck         bool // set to true in a test if you don't care about auth middleware
-	metricsCollector      *MetricsCollector
-	rateLimitMiddleware   *RateLimitMiddleware
-	birdeyeClient         BirdeyeClient
-	solanaRpcClient       *rpc.Client
-	meteoraDbcClient      *meteora_dbc.Client
-	validators            *Nodes
-	openAudioPool         *OpenAudioPool
+	config                  *config.Config
+	commsRpcProcessor       *comms.RPCProcessor
+	pool                    *dbv1.DBPools
+	writePool               *pgxpool.Pool
+	queries                 *dbv1.Queries
+	esClient                *elasticsearch.Client
+	logger                  *zap.Logger
+	started                 time.Time
+	resolveHandleCache      *otter.Cache[string, int32]
+	resolveGrantCache       *otter.Cache[string, bool]
+	resolveWalletCache      *otter.Cache[string, int]
+	apiAccessKeySignerCache *otter.Cache[string, apiAccessKeySignerEntry]
+	requestValidator        *RequestValidator
+	rewardManagerClient     *reward_manager.RewardManagerClient
+	claimableTokensClient   *claimable_tokens.ClaimableTokensClient
+	rewardAttester          *rewards.RewardAttester
+	transactionSender       *spl.TransactionSender
+	solanaConfig            *config.SolanaConfig
+	antiAbuseOracles        []string
+	env                     string
+	openAudioSDK            *sdk.OpenAudioSDK
+	audiusAppUrl            string
+	skipAuthCheck           bool // set to true in a test if you don't care about auth middleware
+	metricsCollector        *MetricsCollector
+	rateLimitMiddleware     *RateLimitMiddleware
+	birdeyeClient           BirdeyeClient
+	solanaRpcClient         *rpc.Client
+	meteoraDbcClient        *meteora_dbc.Client
+	validators              *Nodes
+	openAudioPool           *OpenAudioPool
 }
 
 func (app *ApiServer) home(c *fiber.Ctx) error {
