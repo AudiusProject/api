@@ -147,14 +147,16 @@ func (rlm *RateLimitMiddleware) Middleware(apiServer *ApiServer) fiber.Handler {
 					zap.String("identifier", identifier),
 					zap.Int("rpm", rpm))
 				c.Set("X-RateLimit-Remaining-Month", "0")
+				c.Set("X-RateLimit-Limit-Month", strconv.Itoa(rpm))
 				return c.Status(fiber.StatusTooManyRequests).JSON(fiber.Map{
 					"error": "Rate limit exceeded. Try again later.",
 				})
 			}
 		}
 
-		if remainingMonth >= 0 {
+		if !useDefault && remainingMonth >= 0 {
 			c.Set("X-RateLimit-Remaining-Month", strconv.FormatInt(remainingMonth, 10))
+			c.Set("X-RateLimit-Limit-Month", strconv.FormatInt(int64(rpm), 10))
 		}
 		return c.Next()
 	}
@@ -173,7 +175,7 @@ func (rlm *RateLimitMiddleware) checkRpm(ctx context.Context, identifier string,
 		err := rlm.writePool.QueryRow(ctx, `
 			SELECT COALESCE(SUM(request_count), 0)
 			FROM api_metrics_apps
-			WHERE (api_key = $1 OR app_name = $1)
+			WHERE (LOWER(api_key) = LOWER($1) OR LOWER(app_name) = LOWER($1))
 			  AND date >= CURRENT_DATE - INTERVAL '30 days'
 		`, identifier).Scan(&dbCount)
 		if err != nil {
@@ -215,7 +217,7 @@ func (rlm *RateLimitMiddleware) getLimits(ctx context.Context, identifier string
 	err := rlm.writePool.QueryRow(ctx, `
 		SELECT COALESCE(rps, 10), COALESCE(rpm, 500000)
 		FROM api_keys
-		WHERE api_key = $1
+		WHERE LOWER(api_key) = LOWER($1)
 	`, identifier).Scan(&rpsVal, &rpmVal)
 	if err == pgx.ErrNoRows || err != nil {
 		return 0, 0, true

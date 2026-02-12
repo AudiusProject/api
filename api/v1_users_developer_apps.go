@@ -87,16 +87,16 @@ func (app *ApiServer) v1UsersDeveloperAppsWithMetrics(c *fiber.Ctx, userId int32
 			COALESCE(SUM(ama.request_count), 0)::bigint AS request_count_all_time,
 			NOT EXISTS (
 				SELECT 1 FROM api_access_keys aak
-				WHERE aak.api_key = da.address AND aak.is_active = true
+				WHERE LOWER(aak.api_key) = LOWER(da.address) AND aak.is_active = true
 			) AS is_legacy,
 			COALESCE(
 				(SELECT json_agg(json_build_object('api_access_key', aak.api_access_key, 'is_active', aak.is_active))
 				 FROM api_access_keys aak
-				 WHERE aak.api_key = da.address AND aak.is_active = true),
+				 WHERE LOWER(aak.api_key) = LOWER(da.address) AND aak.is_active = true),
 				'[]'::json
 			) AS api_access_keys
 		FROM developer_apps da
-		LEFT JOIN api_metrics_apps ama ON ama.api_key = da.address
+		LEFT JOIN api_metrics_apps ama ON LOWER(ama.api_key) = LOWER(da.address)
 		WHERE da.user_id = @userId
 			AND da.is_current = true
 			AND da.is_delete = false
@@ -123,9 +123,9 @@ func (app *ApiServer) v1UsersDeveloperAppsWithMetrics(c *fiber.Ctx, userId int32
 // requirePlansAppAuth validates Bearer token and checks that the plans app has a grant from the user.
 // Must run after requireUserIdMiddleware.
 func (app *ApiServer) requirePlansAppAuth(c *fiber.Ctx) error {
-	secret := app.config.PlansAppApiSecret
+	secret := app.config.AudiusApiSecret
 	if secret == "" {
-		app.logger.Error("PLANS_APP_API_SECRET not configured")
+		app.logger.Error("audiusApiSecret not configured")
 		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{
 			"error": "Plans app not configured",
 		})
@@ -158,7 +158,7 @@ func (app *ApiServer) requirePlansAppAuth(c *fiber.Ctx) error {
 	// Derive plans app address from private key
 	privateKey, err := crypto.HexToECDSA(strings.TrimPrefix(secret, "0x"))
 	if err != nil {
-		app.logger.Error("Invalid PLANS_APP_API_SECRET", zap.Error(err))
+		app.logger.Error("Invalid audiusApiSecret", zap.Error(err))
 		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{
 			"error": "Plans app misconfigured",
 		})
@@ -338,9 +338,28 @@ func (app *ApiServer) postV1UsersDeveloperAppCreate(c *fiber.Ctx) error {
 	}
 	metadataBytes, _ := json.Marshal(metadataObj)
 
+	// Sign the ManageEntity tx with the plans app (which has a grant from the user).
+	// The indexer's validate_signer requires the signer to be the user or an authorized grantee.
+	// The app_signature in metadata proves the new app controls its address.
+	plansSecret := app.config.AudiusApiSecret
+	if plansSecret == "" {
+		app.logger.Error("audiusApiSecret required for developer app create")
+		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{
+			"error": "Plans app not configured",
+		})
+	}
+	plansKey, err := crypto.HexToECDSA(strings.TrimPrefix(plansSecret, "0x"))
+	if err != nil {
+		app.logger.Error("Invalid audiusApiSecret", zap.Error(err))
+		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{
+			"error": "Plans app misconfigured",
+		})
+	}
+	plansAddress := strings.ToLower(crypto.PubkeyToAddress(plansKey.PublicKey).Hex())
+
 	nonce := time.Now().UnixNano()
 	manageEntityTx := &corev1.ManageEntityLegacy{
-		Signer:     common.HexToAddress(address).String(),
+		Signer:     common.HexToAddress(plansAddress).String(),
 		UserId:     int64(userID),
 		EntityId:   0,
 		Action:     indexer.Action_Create,
@@ -349,7 +368,7 @@ func (app *ApiServer) postV1UsersDeveloperAppCreate(c *fiber.Ctx) error {
 		Metadata:   string(metadataBytes),
 	}
 
-	response, err := app.sendTransactionWithSigner(manageEntityTx, privateKey)
+	response, err := app.sendTransactionWithSigner(manageEntityTx, plansKey)
 	if err != nil {
 		app.logger.Error("Failed to send developer app create transaction", zap.Error(err))
 		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{

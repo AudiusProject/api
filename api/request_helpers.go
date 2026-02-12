@@ -59,8 +59,12 @@ func (app *ApiServer) getApiSigner(c *fiber.Ctx) (*Signer, error) {
 
 	creds := string(decodedBytes)
 	parts := strings.SplitN(creds, ":", 2)
-	if len(parts) != 2 {
-		return nil, fmt.Errorf("invalid Basic Auth format")
+	var password string
+	if len(parts) == 2 {
+		password = strings.TrimSpace(parts[1])
+	} else {
+		// Allow password-only format: some clients send base64(api_access_key) for Basic auth
+		password = strings.TrimSpace(creds)
 	}
 
 	userId, err := strconv.Atoi(parts[0])
@@ -76,6 +80,9 @@ func (app *ApiServer) getApiSigner(c *fiber.Ctx) (*Signer, error) {
 		if signer := app.getSignerFromApiAccessKey(c.Context(), privateKeyHex); signer != nil {
 			return signer, nil
 		}
+	}
+	if password == "" {
+		return nil, fmt.Errorf("invalid Basic Auth format")
 	}
 
 	// Branch B: Treat password as direct private key hex

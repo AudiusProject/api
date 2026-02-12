@@ -49,7 +49,7 @@ type Config struct {
 	RewardCodeAuthorizedKeys       []string
 	LaunchpadDeterministicSecret   string
 	UnsplashKeys                   []string
-	PlansAppApiSecret              string
+	AudiusApiSecret                string
 }
 
 var Cfg = Config{
@@ -73,7 +73,7 @@ var Cfg = Config{
 	CommsMessagePush:             true,
 	LaunchpadDeterministicSecret: os.Getenv("launchpadDeterministicSecret"),
 	UnsplashKeys:                 strings.Split(os.Getenv("unsplashKeys"), ","),
-	PlansAppApiSecret:             os.Getenv("PLANS_APP_API_SECRET"),
+	AudiusApiSecret:              os.Getenv("audiusApiSecret"),
 }
 
 func init() {
