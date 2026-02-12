@@ -6915,17 +6915,23 @@ components:
           type: string
     playlist_added_timestamp:
       required:
-      - metadata_timestamp
-      - timestamp
       - track_id
+      - timestamp
       type: object
       properties:
-        metadata_timestamp:
-          type: integer
-        timestamp:
-          type: integer
         track_id:
           type: string
+          description: Track ID
+        timestamp:
+          type: integer
+          format: int64
+          description: Unix timestamp when track was added
+          minimum: 0
+        metadata_timestamp:
+          type: integer
+          format: int64
+          description: Metadata timestamp
+          minimum: 0
     access:
       required:
       - download
@@ -9697,24 +9703,7 @@ components:
           type: array
           description: Array of tracks in the playlist
           items:
-            type: object
-            required:
-              - track_id
-              - timestamp
-            properties:
-              track_id:
-                type: string
-                description: Track ID
-              timestamp:
-                type: integer
-                format: int64
-                description: Unix timestamp when track was added
-                minimum: 0
-              metadata_timestamp:
-                type: integer
-                format: int64
-                description: Metadata timestamp
-                minimum: 0
+            $ref: '#/components/schemas/playlist_added_timestamp'
         ddex_app:
           type: string
           description: DDEX application identifier
