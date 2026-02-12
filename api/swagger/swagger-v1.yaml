@@ -9760,16 +9760,13 @@ components:
           description: Track title
           example: "My New Track"
         genre:
-          type: string
-          description: Track genre
-          example: "Electronic"
+          $ref: '#/components/schemas/genre'
         description:
           type: string
           description: Track description
           maxLength: 1000
         mood:
-          type: string
-          description: Track mood
+          $ref: '#/components/schemas/mood'
         tags:
           type: string
           description: Comma-separated tags
@@ -9828,11 +9825,9 @@ components:
           description: Track description
           maxLength: 5000
         genre:
-          type: string
-          description: Track genre
+          $ref: '#/components/schemas/genre'
         mood:
-          type: string
-          description: Track mood
+          $ref: '#/components/schemas/mood'
         tags:
           type: string
           description: Comma-separated tags
@@ -10213,6 +10208,88 @@ components:
         success:
           type: boolean
           description: Whether the deactivation was successful
+    genre:
+      type: string
+      description: Music genre
+      enum:
+        - Electronic
+        - Rock
+        - Metal
+        - Alternative
+        - Hip-Hop/Rap
+        - Experimental
+        - Punk
+        - Folk
+        - Pop
+        - Ambient
+        - Soundtrack
+        - World
+        - Jazz
+        - Acoustic
+        - Funk
+        - R&B/Soul
+        - Devotional
+        - Classical
+        - Reggae
+        - Podcasts
+        - Country
+        - Spoken Word
+        - Comedy
+        - Blues
+        - Kids
+        - Audiobooks
+        - Latin
+        - Lo-Fi
+        - Hyperpop
+        - Dancehall
+        - Techno
+        - Trap
+        - House
+        - Tech House
+        - Deep House
+        - Disco
+        - Electro
+        - Jungle
+        - Progressive House
+        - Hardstyle
+        - Glitch Hop
+        - Trance
+        - Future Bass
+        - Future House
+        - Tropical House
+        - Downtempo
+        - Drum & Bass
+        - Dubstep
+        - Jersey Club
+        - Vaporwave
+        - Moombahton
+    mood:
+      type: string
+      description: Music mood
+      enum:
+        - Peaceful
+        - Romantic
+        - Sentimental
+        - Tender
+        - Easygoing
+        - Yearning
+        - Sophisticated
+        - Sensual
+        - Cool
+        - Gritty
+        - Melancholy
+        - Serious
+        - Brooding
+        - Fiery
+        - Defiant
+        - Aggressive
+        - Rowdy
+        - Excited
+        - Energizing
+        - Empowering
+        - Stirring
+        - Upbeat
+        - Other
   responses:
     ParseError:
       description: When a mask can't be parsed
