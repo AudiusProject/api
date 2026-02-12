@@ -49,7 +49,7 @@ type Config struct {
 	RewardCodeAuthorizedKeys       []string
 	LaunchpadDeterministicSecret   string
 	UnsplashKeys                   []string
-	// Api secret for api.audius.co so that users are allowed to authenticate against it
+	// Optional API secret to be used for api.audius.co frontends
 	AudiusApiSecret string
 }
 
