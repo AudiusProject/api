@@ -9,12 +9,15 @@ import {
   TextLink,
   IconValidationCheck,
   IconPlus,
+  IconTrash,
+  IconButton,
   Tag,
   Tooltip,
 } from "@audius/harmony";
 import { css } from "@emotion/react";
 import { useSdk } from "./hooks/useSdk";
 import { CreateKeyModal } from "./components/CreateKeyModal";
+import { DeleteAppModal } from "./components/DeleteAppModal";
 
 type OAuthUser = { userId: string; handle: string };
 
@@ -91,7 +94,7 @@ const messages = {
   logout: "Log Out",
   contactUs: "Contact Us",
   apiKeyLabel: "API Key",
-  apiSecretLabel: "API Secret",
+  apiSecretLabel: "API Bearer Token",
   copy: "Copy",
   copied: "Copied!",
   usageDetails: "USAGE DETAILS",
@@ -107,8 +110,9 @@ const messages = {
   unlimitedMonthlyLimit: "Unlimited",
   legacyPill: "LEGACY app",
   legacyTooltip:
-    "Sign API requests using your API Secret in the Authorization Header",
+    "Sign API requests using your API Bearer Token in the Authorization Header",
   createNewKey: "Create New Key",
+  deleteApp: "Delete API Key",
 };
 
 const planGraphicSize = 64;
@@ -487,6 +491,7 @@ export default function App() {
   const [fullUser, setFullUser] = useState<FullUser | null>(null);
   const [developerApps, setDeveloperApps] = useState<DeveloperApp[]>([]);
   const [createKeyModalOpen, setCreateKeyModalOpen] = useState(false);
+  const [deleteAppModalApp, setDeleteAppModalApp] = useState<DeveloperApp | null>(null);
 
   const handleLogin = () => {
     sdk.oauth?.login({ scope: "write" });
@@ -583,7 +588,7 @@ export default function App() {
       };
       if (result.api_key != null && result.api_secret != null) {
         navigator.clipboard.writeText(
-          `API Key: ${result.api_key}\nAPI Secret: ${result.api_secret}`,
+          `API Key: ${result.api_key}\nAPI Bearer Token: ${result.api_secret}`,
         );
       }
       // Optimistically add new app and reload; merge ensures it stays visible if indexer hasn't processed yet
@@ -604,6 +609,34 @@ export default function App() {
       await loadDeveloperApps(optimisticApp);
       // Retry after delay to pick up real data once indexer processes the new app
       setTimeout(() => loadDeveloperApps(optimisticApp), 5000);
+    },
+    [oauthUser?.userId, loadDeveloperApps],
+  );
+
+  const handleDeleteApp = useCallback(
+    async (app: { address: string; name: string }) => {
+      if (oauthUser?.userId == null) throw new Error("Not logged in");
+      const token = sessionStorage.getItem(OAUTH_TOKEN_KEY);
+      const res = await fetch(
+        `${API_BASE}/v1/users/${encodeURIComponent(oauthUser.userId)}/developer-apps/${encodeURIComponent(app.address)}`,
+        {
+          method: "DELETE",
+          headers: {
+            ...(token != null ? { Authorization: `Bearer ${token}` } : {}),
+          },
+        },
+      );
+      if (!res.ok) {
+        const err = await res.json().catch(() => ({}));
+        throw new Error(
+          (err as { error?: string })?.error ?? "Failed to delete API key",
+        );
+      }
+      setDeleteAppModalApp(null);
+      setDeveloperApps((prev) =>
+        prev.filter((a) => a.address !== app.address),
+      );
+      loadDeveloperApps();
     },
     [oauthUser?.userId, loadDeveloperApps],
   );
@@ -674,6 +707,12 @@ export default function App() {
         isOpen={createKeyModalOpen}
         onClose={() => setCreateKeyModalOpen(false)}
         onSubmit={handleCreateKey}
+      />
+      <DeleteAppModal
+        isOpen={deleteAppModalApp != null}
+        onClose={() => setDeleteAppModalApp(null)}
+        app={deleteAppModalApp}
+        onConfirm={handleDeleteApp}
       />
       <Flex
         direction="column"
@@ -1059,6 +1098,16 @@ export default function App() {
                                       </span>
                                     </Tooltip>
                                   ) : null}
+                                  <Tooltip text={messages.deleteApp} placement="top">
+                                    <IconButton
+                                      icon={IconTrash}
+                                      aria-label={messages.deleteApp}
+                                      onClick={(e) => {
+                                        e.stopPropagation();
+                                        setDeleteAppModalApp(app);
+                                      }}
+                                    />
+                                  </Tooltip>
                                 </Flex>
                                 {app.description ? (
                                   <Text color="subdued" variant="body">
@@ -1253,7 +1302,7 @@ export default function App() {
                 </Flex>
                 <CopyableCodeBlock
                   code={`curl -X GET "https://api.audius.co/v1/tracks/trending"
-  -H "Authorization: Basic <YOUR-API-SECRET>"`}
+  -H "Authorization: Bearer <YOUR-API-BEARER-TOKEN>"`}
                 />
               </Flex>
 
@@ -1297,7 +1346,9 @@ export default function App() {
                     </Text>
                   </Flex>
                 </Flex>
-                <CopyableCodeBlock code="grpcurl grpc.audius.co:443 list" />
+                <CopyableCodeBlock
+                  code={`grpcurl -H "authorization: Bearer <YOUR-API-BEARER-TOKEN>" grpc.audius.co:443 list`}
+                />
               </Flex>
             </Flex>
           </Paper>

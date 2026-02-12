@@ -97,7 +97,7 @@ func NewMetricsCollector(logger *zap.Logger, writePool *pgxpool.Pool) *MetricsCo
 	return collector
 }
 
-// Fiber middleware that collects metrics. Pass apiServer to resolve identifier from Basic Auth signer first; if nil or no signer, falls back to api_key/app_name query params.
+// Fiber middleware that collects metrics. Pass apiServer to resolve identifier from Bearer or Basic Auth signer first; if nil or no signer, falls back to api_key/app_name query params.
 func (rmc *MetricsCollector) Middleware(apiServer *ApiServer) fiber.Handler {
 	return func(c *fiber.Ctx) error {
 		err := c.Next()

@@ -38,17 +38,32 @@ func getOptionalBool(c *fiber.Ctx, key string) (pgtype.Bool, error) {
 	return pgtype.Bool{}, nil
 }
 
-// getApiSigner extracts a signer from the Basic Auth header.
-// If the password is an api_access_key, looks up api_keys for the api_secret (private key hex).
-// Otherwise treats the password as a raw private key hex.
+// getApiSigner extracts a signer from the Authorization header.
+// Supports Bearer token and Basic auth. In both cases, the credential is checked
+// as an api_access_key first; for Basic auth, a raw private key hex is also accepted.
 func (app *ApiServer) getApiSigner(c *fiber.Ctx) (*Signer, error) {
 	authHeader := c.Get("Authorization")
 	if authHeader == "" {
 		return nil, fmt.Errorf("missing Authorization header")
 	}
 
+	// Bearer: extract token and look up as api_access_key
+	if strings.HasPrefix(authHeader, "Bearer ") {
+		token := strings.TrimSpace(strings.TrimPrefix(authHeader, "Bearer "))
+		if token == "" {
+			return nil, fmt.Errorf("Bearer token is empty")
+		}
+		if app.writePool != nil {
+			if signer := app.getSignerFromApiAccessKey(c.Context(), token); signer != nil {
+				return signer, nil
+			}
+		}
+		return nil, fmt.Errorf("invalid Bearer token")
+	}
+
+	// Basic: decode credentials and use password as api_access_key or private key
 	if !strings.HasPrefix(authHeader, "Basic ") {
-		return nil, fmt.Errorf("Authorization header is not Basic Auth")
+		return nil, fmt.Errorf("Authorization must be Bearer or Basic")
 	}
 
 	encodedCreds := strings.TrimPrefix(authHeader, "Basic ")
@@ -63,36 +78,32 @@ func (app *ApiServer) getApiSigner(c *fiber.Ctx) (*Signer, error) {
 	if len(parts) == 2 {
 		password = strings.TrimSpace(parts[1])
 	} else {
-		// Allow password-only format: some clients send base64(api_access_key) for Basic auth
 		password = strings.TrimSpace(creds)
 	}
+	password = strings.TrimPrefix(password, "0x")
 
-	userId, err := strconv.Atoi(parts[0])
-	if err != nil {
-		return nil, fmt.Errorf("invalid userId: %w", err)
-	}
-
-	// The private key is in the password field (parts[1])
-	privateKeyHex := strings.TrimPrefix(parts[1], "0x")
-
-	// Branch A: Try api_access_key lookup (password)
-	if app.writePool != nil && privateKeyHex != "" {
-		if signer := app.getSignerFromApiAccessKey(c.Context(), privateKeyHex); signer != nil {
-			return signer, nil
+	// Try api_access_key lookup (also try raw encoded value for clients that send it un-encoded)
+	if app.writePool != nil {
+		for _, candidate := range []string{password, encodedCreds} {
+			if candidate == "" {
+				continue
+			}
+			if signer := app.getSignerFromApiAccessKey(c.Context(), candidate); signer != nil {
+				return signer, nil
+			}
 		}
 	}
 	if password == "" {
 		return nil, fmt.Errorf("invalid Basic Auth format")
 	}
 
-	// Branch B: Treat password as direct private key hex
-	privateKey, err := crypto.HexToECDSA(privateKeyHex)
+	// Fallback: treat password as raw private key hex
+	privateKey, err := crypto.HexToECDSA(password)
 	if err != nil {
 		return nil, fmt.Errorf("failed to parse private key: %w", err)
 	}
 	address := crypto.PubkeyToAddress(privateKey.PublicKey)
 	return &Signer{
-		UserId:     userId,
 		Address:    address.Hex(),
 		PrivateKey: privateKey,
 	}, nil

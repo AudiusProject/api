@@ -95,7 +95,7 @@ type RateLimitMiddleware struct {
 	rpsState        *rpsState
 }
 
-// Middleware returns the Fiber handler. Pass apiServer to resolve identifier from Basic Auth signer first; if nil or no signer, falls back to api_key/app_name query params.
+// Middleware returns the Fiber handler. Pass apiServer to resolve identifier from Bearer or Basic Auth signer first; if nil or no signer, falls back to api_key/app_name query params.
 func (rlm *RateLimitMiddleware) Middleware(apiServer *ApiServer) fiber.Handler {
 	return func(c *fiber.Ctx) error {
 		var identifier string

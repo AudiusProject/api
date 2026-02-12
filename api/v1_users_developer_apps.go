@@ -403,3 +403,77 @@ func (app *ApiServer) postV1UsersDeveloperAppCreate(c *fiber.Ctx) error {
 		"transaction_hash": response.Msg.GetTransaction().GetHash(),
 	})
 }
+
+func (app *ApiServer) deleteV1UsersDeveloperApp(c *fiber.Ctx) error {
+	userID := app.getUserId(c)
+	address := c.Params("address")
+	if address == "" {
+		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
+			"error": "address is required",
+		})
+	}
+	if !strings.HasPrefix(address, "0x") {
+		address = "0x" + address
+	}
+
+	// Verify the app belongs to this user
+	var ownerUserID int32
+	err := app.pool.QueryRow(c.Context(), `
+		SELECT user_id FROM developer_apps
+		WHERE LOWER(address) = LOWER($1)
+		  AND is_current = true
+		  AND is_delete = false
+		ORDER BY created_at DESC
+		LIMIT 1
+	`, address).Scan(&ownerUserID)
+	if err != nil || ownerUserID != userID {
+		return c.Status(fiber.StatusNotFound).JSON(fiber.Map{
+			"error": "Developer app not found",
+		})
+	}
+
+	plansSecret := app.config.AudiusApiSecret
+	if plansSecret == "" {
+		app.logger.Error("audiusApiSecret required for developer app delete")
+		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{
+			"error": "Plans app not configured",
+		})
+	}
+	plansKey, err := crypto.HexToECDSA(strings.TrimPrefix(plansSecret, "0x"))
+	if err != nil {
+		app.logger.Error("Invalid audiusApiSecret", zap.Error(err))
+		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{
+			"error": "Plans app misconfigured",
+		})
+	}
+	plansAddress := strings.ToLower(crypto.PubkeyToAddress(plansKey.PublicKey).Hex())
+
+	metadataObj := map[string]interface{}{
+		"address": strings.ToLower(address),
+	}
+	metadataBytes, _ := json.Marshal(metadataObj)
+
+	nonce := time.Now().UnixNano()
+	manageEntityTx := &corev1.ManageEntityLegacy{
+		Signer:     common.HexToAddress(plansAddress).String(),
+		UserId:     int64(userID),
+		EntityId:   0,
+		Action:     indexer.Action_Delete,
+		EntityType: indexer.Entity_DeveloperApp,
+		Nonce:      strconv.FormatInt(nonce, 10),
+		Metadata:   string(metadataBytes),
+	}
+
+	response, err := app.sendTransactionWithSigner(manageEntityTx, plansKey)
+	if err != nil {
+		app.logger.Error("Failed to send developer app delete transaction", zap.Error(err))
+		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{
+			"error": "Failed to delete developer app",
+		})
+	}
+
+	return c.JSON(fiber.Map{
+		"success":          true,
+		"transaction_hash": response.Msg.GetTransaction().GetHash(),
+	})
+}
