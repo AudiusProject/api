@@ -448,6 +448,26 @@ func (app *ApiServer) deleteV1UsersDeveloperApp(c *fiber.Ctx) error {
 	}
 	plansAddress := strings.ToLower(crypto.PubkeyToAddress(plansKey.PublicKey).Hex())
 
+	// 1. Delete api_access_keys (revoke all access keys for this app)
+	// 2. Delete api_keys row
+	// 3. Send ManageEntity transaction to delete the developer app on-chain
+	if app.writePool != nil {
+		_, err = app.writePool.Exec(c.Context(), `DELETE FROM api_access_keys WHERE LOWER(api_key) = LOWER($1)`, address)
+		if err != nil {
+			app.logger.Error("Failed to delete api_access_keys", zap.Error(err))
+			return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{
+				"error": "Failed to delete developer app",
+			})
+		}
+		_, err = app.writePool.Exec(c.Context(), `DELETE FROM api_keys WHERE LOWER(api_key) = LOWER($1)`, address)
+		if err != nil {
+			app.logger.Error("Failed to delete api_keys", zap.Error(err))
+			return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{
+				"error": "Failed to delete developer app",
+			})
+		}
+	}
+
 	metadataObj := map[string]interface{}{
 		"address": strings.ToLower(address),
 	}

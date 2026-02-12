@@ -1098,16 +1098,31 @@ export default function App() {
                                       </span>
                                     </Tooltip>
                                   ) : null}
-                                  <Tooltip text={messages.deleteApp} placement="top">
-                                    <IconButton
-                                      icon={IconTrash}
-                                      aria-label={messages.deleteApp}
-                                      onClick={(e) => {
-                                        e.stopPropagation();
+                                  <span
+                                    role="button"
+                                    tabIndex={0}
+                                    onClick={(e) => {
+                                      e.stopPropagation();
+                                      setDeleteAppModalApp(app);
+                                    }}
+                                    onKeyDown={(e) => {
+                                      if (e.key === "Enter" || e.key === " ") {
+                                        e.preventDefault();
                                         setDeleteAppModalApp(app);
-                                      }}
-                                    />
-                                  </Tooltip>
+                                      }
+                                    }}
+                                    css={css`
+                                      display: inline-flex;
+                                      cursor: pointer;
+                                    `}
+                                  >
+                                    <Tooltip text={messages.deleteApp} placement="top">
+                                      <IconButton
+                                        icon={IconTrash}
+                                        aria-label={messages.deleteApp}
+                                      />
+                                    </Tooltip>
+                                  </span>
                                 </Flex>
                                 {app.description ? (
                                   <Text color="subdued" variant="body">
