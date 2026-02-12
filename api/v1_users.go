@@ -225,7 +225,7 @@ func (app *ApiServer) queryUsers(c *fiber.Ctx, sql string, args pgx.NamedArgs) e
 }
 
 func (app *ApiServer) putV1User(c *fiber.Ctx) error {
-	userID := app.getUserId(c)
+	userID := app.getMyId(c)
 	targetUserID, err := trashid.DecodeHashId(c.Params("userId"))
 	if err != nil {
 		return err

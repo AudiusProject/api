@@ -39,7 +39,7 @@ func (app *ApiServer) v1PlaylistReposts(c *fiber.Ctx) error {
 }
 
 func (app *ApiServer) postV1PlaylistRepost(c *fiber.Ctx) error {
-	userID := app.getUserId(c)
+	userID := app.getMyId(c)
 	playlistID, err := trashid.DecodeHashId(c.Params("playlistId"))
 	if err != nil {
 		return err
@@ -77,7 +77,7 @@ func (app *ApiServer) postV1PlaylistRepost(c *fiber.Ctx) error {
 }
 
 func (app *ApiServer) deleteV1PlaylistRepost(c *fiber.Ctx) error {
-	userID := app.getUserId(c)
+	userID := app.getMyId(c)
 	playlistID, err := trashid.DecodeHashId(c.Params("playlistId"))
 	if err != nil {
 		return err

@@ -30,7 +30,7 @@ func (app *ApiServer) v1UsersMuted(c *fiber.Ctx) error {
 }
 
 func (app *ApiServer) postV1UserMute(c *fiber.Ctx) error {
-	userID := app.getUserId(c)
+	userID := app.getMyId(c)
 	mutedUserID, err := trashid.DecodeHashId(c.Params("userId"))
 	if err != nil {
 		return err
@@ -68,7 +68,7 @@ func (app *ApiServer) postV1UserMute(c *fiber.Ctx) error {
 }
 
 func (app *ApiServer) deleteV1UserMute(c *fiber.Ctx) error {
-	userID := app.getUserId(c)
+	userID := app.getMyId(c)
 	mutedUserID, err := trashid.DecodeHashId(c.Params("userId"))
 	if err != nil {
 		return err

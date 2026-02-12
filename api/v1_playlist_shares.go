@@ -13,7 +13,7 @@ import (
 )
 
 func (app *ApiServer) postV1PlaylistShare(c *fiber.Ctx) error {
-	userID := app.getUserId(c)
+	userID := app.getMyId(c)
 	playlistID, err := trashid.DecodeHashId(c.Params("playlistId"))
 	if err != nil {
 		return err

@@ -39,7 +39,7 @@ func (app *ApiServer) v1PlaylistFavorites(c *fiber.Ctx) error {
 }
 
 func (app *ApiServer) postV1PlaylistFavorite(c *fiber.Ctx) error {
-	userID := app.getUserId(c)
+	userID := app.getMyId(c)
 	playlistID, err := trashid.DecodeHashId(c.Params("playlistId"))
 	if err != nil {
 		return err
@@ -77,7 +77,7 @@ func (app *ApiServer) postV1PlaylistFavorite(c *fiber.Ctx) error {
 }
 
 func (app *ApiServer) deleteV1PlaylistFavorite(c *fiber.Ctx) error {
-	userID := app.getUserId(c)
+	userID := app.getMyId(c)
 	playlistID, err := trashid.DecodeHashId(c.Params("playlistId"))
 	if err != nil {
 		return err

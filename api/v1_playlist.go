@@ -89,7 +89,7 @@ func (app *ApiServer) v1Playlist(c *fiber.Ctx) error {
 }
 
 func (app *ApiServer) postV1Playlists(c *fiber.Ctx) error {
-	userID := app.getUserId(c)
+	userID := app.getMyId(c)
 
 	// Parse and validate request body
 	var req CreatePlaylistRequest
@@ -182,7 +182,7 @@ func (app *ApiServer) postV1Playlists(c *fiber.Ctx) error {
 }
 
 func (app *ApiServer) putV1Playlist(c *fiber.Ctx) error {
-	userID := app.getUserId(c)
+	userID := app.getMyId(c)
 	playlistID, err := trashid.DecodeHashId(c.Params("playlistId"))
 	if err != nil {
 		return err
@@ -269,7 +269,7 @@ func (app *ApiServer) putV1Playlist(c *fiber.Ctx) error {
 }
 
 func (app *ApiServer) deleteV1Playlist(c *fiber.Ctx) error {
-	userID := app.getUserId(c)
+	userID := app.getMyId(c)
 	playlistID, err := trashid.DecodeHashId(c.Params("playlistId"))
 	if err != nil {
 		return err
