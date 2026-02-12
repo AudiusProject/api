@@ -208,14 +208,24 @@ func TestGetApiSignerBasicAuth(t *testing.T) {
 		assert.Contains(t, string(body), "missing Authorization header")
 	})
 
-	t.Run("invalid basic auth format - not basic", func(t *testing.T) {
+	t.Run("invalid Bearer token", func(t *testing.T) {
 		req := httptest.NewRequest("POST", "/test", nil)
 		req.Header.Set("Authorization", "Bearer invalidtoken")
 		res, err := testApp.Test(req, -1)
 		assert.NoError(t, err)
 		assert.Equal(t, fiber.StatusInternalServerError, res.StatusCode)
 		body, _ := io.ReadAll(res.Body)
-		assert.Contains(t, string(body), "Authorization header is not Basic Auth")
+		assert.Contains(t, string(body), "invalid Bearer token")
+	})
+
+	t.Run("invalid Basic auth format - not Bearer or Basic", func(t *testing.T) {
+		req := httptest.NewRequest("POST", "/test", nil)
+		req.Header.Set("Authorization", "Digest some-credentials")
+		res, err := testApp.Test(req, -1)
+		assert.NoError(t, err)
+		assert.Equal(t, fiber.StatusInternalServerError, res.StatusCode)
+		body, _ := io.ReadAll(res.Body)
+		assert.Contains(t, string(body), "Authorization must be Bearer or Basic")
 	})
 
 	t.Run("invalid private key", func(t *testing.T) {

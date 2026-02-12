@@ -678,6 +678,7 @@ func NewApiServer(config config.Config) *ApiServer {
 
 	// Plans React app - serve static assets first, then SPA routing
 	app.Static("/plans/assets", "./static/plans/dist/assets")
+	app.StaticFile("/plans/favicon.ico", "./static/plans/dist/favicon.ico")
 	app.Get("/plans/*", app.servePlans)
 
 	app.Static("/", "./static")

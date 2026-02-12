@@ -112,7 +112,7 @@ const messages = {
   unlimitedMonthlyLimit: "Unlimited",
   legacyPill: "LEGACY app",
   legacyTooltip:
-    "Sign API requests using your API Bearer Token in the Authorization Header",
+    "Sign API requests using your API Secret Key in the Authorization Header",
   createNewKey: "Create New Key",
   deleteApp: "Delete API Key",
   newBearerToken: "New Bearer Token",
