@@ -153,7 +153,7 @@ paths:
       description: Creates a new comment
       operationId: Create Comment
       security:
-      - BearerAuth: []
+      - BasicAuth: []
       requestBody:
         required: true
         content:
@@ -205,7 +205,7 @@ paths:
       description: Updates a comment
       operationId: Update Comment
       security:
-        - BearerAuth: []
+        - BasicAuth: []
       parameters:
       - name: comment_id
         in: path
@@ -246,7 +246,7 @@ paths:
       description: Deletes a comment
       operationId: Delete Comment
       security:
-        - BearerAuth: []
+        - BasicAuth: []
       parameters:
       - name: comment_id
         in: path
@@ -277,7 +277,7 @@ paths:
       description: React to a comment
       operationId: React to Comment
       security:
-        - BearerAuth: []
+        - BasicAuth: []
       parameters:
       - name: comment_id
         in: path
@@ -307,7 +307,7 @@ paths:
       description: Unreact to a comment
       operationId: Unreact to Comment
       security:
-        - BearerAuth: []
+        - BasicAuth: []
       parameters:
       - name: comment_id
         in: path
@@ -338,7 +338,7 @@ paths:
       description: Pin a comment
       operationId: Pin Comment
       security:
-        - BearerAuth: []
+        - BasicAuth: []
       parameters:
       - name: comment_id
         in: path
@@ -368,7 +368,7 @@ paths:
       description: Unpin a comment
       operationId: Unpin Comment
       security:
-        - BearerAuth: []
+        - BasicAuth: []
       parameters:
       - name: comment_id
         in: path
@@ -399,7 +399,7 @@ paths:
       description: Report a comment
       operationId: Report Comment
       security:
-        - BearerAuth: []
+        - BasicAuth: []
       parameters:
       - name: comment_id
         in: path
@@ -472,7 +472,7 @@ paths:
       description: Creates a new developer app
       operationId: Create Developer App
       security:
-      - BearerAuth: []
+      - BasicAuth: []
       requestBody:
         required: true
         content:
@@ -530,7 +530,7 @@ paths:
       description: Updates an existing developer app
       operationId: Update Developer App
       security:
-      - BearerAuth: []
+      - BasicAuth: []
       parameters:
       - name: address
         in: path
@@ -569,7 +569,7 @@ paths:
       description: Deletes a developer app
       operationId: Delete Developer App
       security:
-      - BearerAuth: []
+      - BasicAuth: []
       parameters:
       - name: address
         in: path
@@ -898,7 +898,7 @@ paths:
       description: Creates a new playlist or album
       operationId: Create Playlist
       security:
-        - BearerAuth: []
+        - BasicAuth: []
       requestBody:
         required: true
         content:
@@ -1123,7 +1123,7 @@ paths:
       description: Updates an existing playlist or album
       operationId: Update Playlist
       security:
-        - BearerAuth: []
+        - BasicAuth: []
       parameters:
       - name: playlist_id
         in: path
@@ -1162,7 +1162,7 @@ paths:
       description: Deletes a playlist or album
       operationId: Delete Playlist
       security:
-        - BearerAuth: []
+        - BasicAuth: []
       parameters:
       - name: playlist_id
         in: path
@@ -1245,7 +1245,7 @@ paths:
       description: Favorite a playlist
       operationId: Favorite Playlist
       security:
-        - BearerAuth: []
+        - BasicAuth: []
       parameters:
       - name: playlist_id
         in: path
@@ -1275,7 +1275,7 @@ paths:
       description: Unfavorite a playlist
       operationId: Unfavorite Playlist
       security:
-        - BearerAuth: []
+        - BasicAuth: []
       parameters:
       - name: playlist_id
         in: path
@@ -1306,7 +1306,7 @@ paths:
       description: Repost a playlist
       operationId: Repost Playlist
       security:
-        - BearerAuth: []
+        - BasicAuth: []
       parameters:
       - name: playlist_id
         in: path
@@ -1336,7 +1336,7 @@ paths:
       description: Unrepost a playlist
       operationId: Unrepost Playlist
       security:
-        - BearerAuth: []
+        - BasicAuth: []
       parameters:
       - name: playlist_id
         in: path
@@ -1367,7 +1367,7 @@ paths:
       description: Record a playlist share event
       operationId: Share Playlist
       security:
-        - BearerAuth: []
+        - BasicAuth: []
       parameters:
       - name: playlist_id
         in: path
@@ -1556,7 +1556,7 @@ paths:
       description: Creates a new track
       operationId: Create Track
       security:
-        - BearerAuth: []
+        - BasicAuth: []
       requestBody:
         required: true
         content:
@@ -2366,7 +2366,7 @@ paths:
       description: Updates an existing track
       operationId: Update Track
       security:
-        - BearerAuth: []
+        - BasicAuth: []
       parameters:
       - name: track_id
         in: path
@@ -2405,7 +2405,7 @@ paths:
       description: Deletes a track
       operationId: Delete Track
       security:
-        - BearerAuth: []
+        - BasicAuth: []
       parameters:
       - name: track_id
         in: path
@@ -2617,7 +2617,7 @@ paths:
       description: Favorite a track
       operationId: Favorite Track
       security:
-        - BearerAuth: []
+        - BasicAuth: []
       parameters:
       - name: track_id
         in: path
@@ -2647,7 +2647,7 @@ paths:
       description: Unfavorite a track
       operationId: Unfavorite Track
       security:
-        - BearerAuth: []
+        - BasicAuth: []
       parameters:
       - name: track_id
         in: path
@@ -2811,7 +2811,7 @@ paths:
       description: Repost a track
       operationId: Repost Track
       security:
-        - BearerAuth: []
+        - BasicAuth: []
       parameters:
       - name: track_id
         in: path
@@ -2841,7 +2841,7 @@ paths:
       description: Unrepost a track
       operationId: Unrepost Track
       security:
-        - BearerAuth: []
+        - BasicAuth: []
       parameters:
       - name: track_id
         in: path
@@ -2986,7 +2986,7 @@ paths:
       description: Record a track share event
       operationId: Share Track
       security:
-        - BearerAuth: []
+        - BasicAuth: []
       parameters:
       - name: track_id
         in: path
@@ -3017,7 +3017,7 @@ paths:
       description: Record a track download event
       operationId: Record Track Download
       security:
-        - BearerAuth: []
+        - BasicAuth: []
       parameters:
       - name: track_id
         in: path
@@ -3225,7 +3225,7 @@ paths:
       description: Creates a new user
       operationId: Create User
       security:
-        - BearerAuth: []
+        - BasicAuth: []
       requestBody:
         required: true
         content:
@@ -3695,7 +3695,7 @@ paths:
       description: Updates an existing user profile
       operationId: Update User
       security:
-        - BearerAuth: []
+        - BasicAuth: []
       parameters:
       - name: id
         in: path
@@ -4127,7 +4127,7 @@ paths:
       description: Follow a user
       operationId: Follow User
       security:
-        - BearerAuth: []
+        - BasicAuth: []
       parameters:
       - name: id
         in: path
@@ -4157,7 +4157,7 @@ paths:
       description: Unfollow a user
       operationId: Unfollow User
       security:
-        - BearerAuth: []
+        - BasicAuth: []
       parameters:
       - name: id
         in: path
@@ -4386,7 +4386,7 @@ paths:
       description: Mute a user
       operationId: Mute User
       security:
-        - BearerAuth: []
+        - BasicAuth: []
       parameters:
       - name: id
         in: path
@@ -4416,7 +4416,7 @@ paths:
       description: Unmute a user
       operationId: Unmute User
       security:
-        - BearerAuth: []
+        - BasicAuth: []
       parameters:
       - name: id
         in: path
@@ -4992,7 +4992,7 @@ paths:
       description: Subscribe to a user
       operationId: Subscribe to User
       security:
-        - BearerAuth: []
+        - BasicAuth: []
       parameters:
       - name: id
         in: path
@@ -5022,7 +5022,7 @@ paths:
       description: Unsubscribe from a user
       operationId: Unsubscribe from User
       security:
-        - BearerAuth: []
+        - BasicAuth: []
       parameters:
       - name: id
         in: path
@@ -9733,4 +9733,36 @@ components:
     MaskError:
       description: When any error occurs on mask
       content: {}
+  securitySchemes:
+    BasicAuth:
+      type: http
+      scheme: basic
+      description: |
+        HTTP Basic Authentication with Ethereum private key for write operations.
+        
+        **Authentication**
+        
+        Use HTTP Basic Authentication where the password field contains your Ethereum private key:
+        ```
+        Authorization: Basic <base64(username:privatekey)>
+        ```
+        
+        The username can be any value. The password must be your Ethereum private key in hex format (with or without 0x prefix).
+        
+        Example:
+        ```
+        Authorization: Basic dXNlcm5hbWU6MHgxMjM0NTY3ODkwYWJjZGVmLi4u
+        ```
+        
+        **How it works:**
+        1. The API decodes the Basic Auth credentials
+        2. Extracts the private key from the password field
+        3. Derives the Ethereum address from the private key
+        4. Uses this address for authorization checks
+        
+        **Authorization**
+        
+        The derived wallet address must be either:
+        - The wallet of the user being acted upon (direct ownership)
+        - A wallet with an approved, non-revoked grant for the user (manager mode)
 x-original-swagger-version: "2.0"
