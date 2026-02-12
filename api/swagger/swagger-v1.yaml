@@ -3757,46 +3757,6 @@ paths:
         "500":
           description: Server error
           content: {}
-    put:
-      tags:
-      - users
-      description: Updates an existing user profile
-      operationId: Update User
-      security:
-        - BasicAuth: []
-        - BearerAuth: []
-      parameters:
-      - name: id
-        in: path
-        description: A User ID
-        required: true
-        schema:
-          type: string
-      requestBody:
-        required: true
-        content:
-          application/json:
-            schema:
-              $ref: '#/components/schemas/update_user_request'
-      responses:
-        "200":
-          description: User updated successfully
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/write_response'
-        "400":
-          description: Bad request
-          content: {}
-        "401":
-          description: Unauthorized
-          content: {}
-        "404":
-          description: User not found
-          content: {}
-        "500":
-          description: Server error
-          content: {}
   /users/{id}/authorized_apps:
     get:
       tags:
