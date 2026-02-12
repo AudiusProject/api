@@ -3623,6 +3623,45 @@ paths:
         "500":
           description: Server error
           content: {}
+    put:
+      tags:
+      - users
+      description: Updates an existing user profile
+      operationId: Update User
+      security:
+        - BasicAuth: []
+      parameters:
+      - name: id
+        in: path
+        description: A User ID
+        required: true
+        schema:
+          type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/update_user_request'
+      responses:
+        "200":
+          description: User updated successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/write_response'
+        "400":
+          description: Bad request
+          content: {}
+        "401":
+          description: Unauthorized
+          content: {}
+        "404":
+          description: User not found
+          content: {}
+        "500":
+          description: Server error
+          content: {}
   /users/{id}/albums:
     get:
       tags:
@@ -9592,6 +9631,11 @@ components:
         cover_photo_sizes:
           type: string
           description: Cover photo sizes metadata
+        profile_type:
+          type: string
+          nullable: true
+          enum: [label]
+          description: Type of profile (e.g., 'label' for record labels)
         allow_ai_attribution:
           type: boolean
           description: Whether to allow AI attribution
@@ -9640,6 +9684,11 @@ components:
         cover_photo_sizes:
           type: string
           description: Cover photo sizes metadata
+        profile_type:
+          type: string
+          nullable: true
+          enum: [label]
+          description: Type of profile (e.g., 'label' for record labels)
         is_deactivated:
           type: boolean
           description: Whether the user is deactivated
