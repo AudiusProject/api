@@ -220,12 +220,7 @@ paths:
         content:
           application/json:
             schema:
-              type: object
-              required:
-                - body
-              properties:
-                body:
-                  type: string
+              $ref: '#/components/schemas/update_comment_request'
       responses:
         "200":
           description: Comment updated successfully
@@ -3057,14 +3052,7 @@ paths:
         content:
           application/json:
             schema:
-              type: object
-              properties:
-                city:
-                  type: string
-                region:
-                  type: string
-                country:
-                  type: string
+              $ref: '#/components/schemas/track_download_request'
       responses:
         "200":
           description: Track download recorded successfully
@@ -3810,12 +3798,7 @@ paths:
           content:
             application/json:
               schema:
-                type: object
-                properties:
-                  data:
-                    type: array
-                    items:
-                      $ref: '#/components/schemas/developer_app'
+                $ref: '#/components/schemas/developer_apps_response'
         "400":
           description: Bad request
           content: {}
@@ -3850,14 +3833,7 @@ paths:
           content:
             application/json:
               schema:
-                type: object
-                properties:
-                  api_key:
-                    type: string
-                  api_secret:
-                    type: string
-                  transaction_hash:
-                    type: string
+                $ref: '#/components/schemas/create_user_developer_app_response'
         "400":
           description: Bad request
           content: {}
@@ -3896,12 +3872,7 @@ paths:
           content:
             application/json:
               schema:
-                type: object
-                properties:
-                  success:
-                    type: boolean
-                  transaction_hash:
-                    type: string
+                $ref: '#/components/schemas/write_response'
         "401":
           description: Unauthorized
           content: {}
@@ -3946,10 +3917,7 @@ paths:
           content:
             application/json:
               schema:
-                type: object
-                properties:
-                  success:
-                    type: boolean
+                $ref: '#/components/schemas/deactivate_access_key_response'
         "400":
           description: Bad request (api_access_key required)
           content: {}
@@ -9918,6 +9886,14 @@ components:
         coin_flair_mint:
           type: string
           description: Coin flair mint address
+    update_comment_request:
+      type: object
+      required:
+        - body
+      properties:
+        body:
+          type: string
+          description: The updated comment text
     create_comment_request:
       type: object
       required:
@@ -10014,6 +9990,43 @@ components:
         api_access_key:
           type: string
           description: The newly created bearer token (API access key)
+    track_download_request:
+      type: object
+      properties:
+        city:
+          type: string
+          description: City where the download occurred
+        region:
+          type: string
+          description: Region where the download occurred
+        country:
+          type: string
+          description: Country where the download occurred
+    developer_apps_response:
+      type: object
+      properties:
+        data:
+          type: array
+          items:
+            $ref: '#/components/schemas/developer_app'
+    create_user_developer_app_response:
+      type: object
+      properties:
+        api_key:
+          type: string
+          description: The API key (address) for the developer app
+        api_secret:
+          type: string
+          description: The API secret (access key) for the developer app
+        transaction_hash:
+          type: string
+          description: Transaction hash of the creation
+    deactivate_access_key_response:
+      type: object
+      properties:
+        success:
+          type: boolean
+          description: Whether the deactivation was successful
   responses:
     ParseError:
       description: When a mask can't be parsed
