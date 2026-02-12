@@ -103,19 +103,22 @@ func (app *ApiServer) getAuthedWallet(c *fiber.Ctx) string {
 // - the user is not authorized to act on behalf of "myId"
 // - the user is not authorized to act on behalf of "myWallet"
 func (app *ApiServer) authMiddleware(c *fiber.Ctx) error {
-	wallet := app.recoverAuthorityFromSignatureHeaders(c)
+	var wallet string
+	var myId int32
 
-	if wallet == "" {
-		signer, _ := app.getApiSigner(c)
-		if signer != nil {
-			wallet = strings.ToLower(signer.Address)
-		}
+	signer, _ := app.getApiSigner(c)
+	if signer != nil {
+		wallet = strings.ToLower(signer.Address)
+		c.Locals("myId", signer.UserId)
+		myId = int32(signer.UserId)
+	} else {
+		wallet = app.recoverAuthorityFromSignatureHeaders(c)
+		myId = app.getMyId(c)
 	}
 
 	c.Locals("authedWallet", wallet)
 
 	// Not authorized to act on behalf of myId
-	myId := app.getMyId(c)
 	if myId != 0 && !app.isAuthorizedRequest(c.Context(), myId, wallet) {
 		return fiber.NewError(
 			fiber.StatusForbidden,

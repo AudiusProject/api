@@ -14,6 +14,7 @@ import (
 
 // Signer holds the address, public key, and private key for signing transactions
 type Signer struct {
+	UserId     int
 	Address    string
 	PrivateKey *ecdsa.PrivateKey
 }
@@ -56,6 +57,11 @@ func (app *ApiServer) getApiSigner(c *fiber.Ctx) (*Signer, error) {
 		return nil, fmt.Errorf("invalid Basic Auth format")
 	}
 
+	userId, err := strconv.Atoi(parts[0])
+	if err != nil {
+		return nil, fmt.Errorf("invalid userId: %w", err)
+	}
+
 	// The private key is in the password field (parts[1])
 	privateKeyHex := strings.TrimPrefix(parts[1], "0x")
 
@@ -69,6 +75,7 @@ func (app *ApiServer) getApiSigner(c *fiber.Ctx) (*Signer, error) {
 	address := crypto.PubkeyToAddress(privateKey.PublicKey)
 
 	return &Signer{
+		UserId:     userId,
 		Address:    address.Hex(),
 		PrivateKey: privateKey,
 	}, nil
