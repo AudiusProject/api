@@ -13,6 +13,7 @@ import {
   IconButton,
   Tag,
   Tooltip,
+  IconClose,
 } from "@audius/harmony";
 import { css } from "@emotion/react";
 import { useSdk } from "./hooks/useSdk";
@@ -113,6 +114,8 @@ const messages = {
     "Sign API requests using your API Bearer Token in the Authorization Header",
   createNewKey: "Create New Key",
   deleteApp: "Delete API Key",
+  newBearerToken: "New Bearer Token",
+  revokeToken: "Revoke Bearer Token",
 };
 
 const planGraphicSize = 64;
@@ -166,7 +169,7 @@ const GrayscaleOverlay = ({
       }
     };
     requestAnimationFrame(animate);
-  // eslint-disable-next-line react-hooks/exhaustive-deps -- only run when isExiting becomes true
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- only run when isExiting becomes true
   }, [isExiting]);
   return (
     <div
@@ -178,7 +181,8 @@ const GrayscaleOverlay = ({
         z-index: 9999;
         /* Black circle with white text (invert + grayscale + push to pure white) */
         background: rgba(0, 0, 0, 0.35);
-        -webkit-backdrop-filter: invert(1) saturate(0) brightness(2.5) contrast(1.2);
+        -webkit-backdrop-filter: invert(1) saturate(0) brightness(2.5)
+          contrast(1.2);
         backdrop-filter: invert(1) saturate(0) brightness(2.5) contrast(1.2);
         mask-image: radial-gradient(
           circle at ${x}px ${y}px,
@@ -533,6 +537,148 @@ function CopyableField({
   );
 }
 
+function BearerTokenField({
+  value,
+  id,
+  onRevoke,
+  onAdd,
+}: {
+  value: string;
+  id: string;
+  onRevoke: () => void | Promise<void>;
+  onAdd: () => void | Promise<void>;
+}) {
+  const [copied, setCopied] = useState(false);
+  const [pending, setPending] = useState(false);
+
+  const handleCopy = () => {
+    navigator.clipboard.writeText(value);
+    setCopied(true);
+    setTimeout(() => setCopied(false), 1500);
+  };
+
+  const handleRevoke = async () => {
+    if (pending) return;
+    setPending(true);
+    try {
+      await onRevoke();
+    } catch (err) {
+      console.error(err);
+    } finally {
+      setPending(false);
+    }
+  };
+
+  const handleAdd = async () => {
+    if (pending) return;
+    setPending(true);
+    try {
+      await onAdd();
+    } catch (err) {
+      console.error(err);
+    } finally {
+      setPending(false);
+    }
+  };
+
+  return (
+    <Flex
+      direction="column"
+      gap="xs"
+      css={css`
+        flex: 1;
+        min-width: 0;
+      `}
+    >
+      <Text tag="label" variant="body" strength="strong" htmlFor={id}>
+        {messages.apiSecretLabel}
+      </Text>
+      <Flex gap="s" alignItems="center">
+        <input
+          id={id}
+          type="text"
+          readOnly
+          value={value}
+          css={css`
+            flex: 1;
+            padding: 0.5rem 0.75rem;
+            font-family: "Monaco", "Menlo", "Ubuntu Mono", monospace;
+            font-size: 0.875rem;
+            border: 1px solid var(--harmony-neutral-neutral-3, #e0e0e0);
+            border-radius: 4px;
+            background: var(--harmony-background, #f5f5f5);
+            min-width: 0;
+          `}
+        />
+        <Button
+          variant="secondary"
+          size="small"
+          onClick={handleCopy}
+          disabled={copied}
+        >
+          {copied ? messages.copied : messages.copy}
+        </Button>
+        <span
+          role="button"
+          tabIndex={0}
+          onClick={(e) => {
+            e.stopPropagation();
+            void handleRevoke();
+          }}
+          onKeyDown={(e) => {
+            if (e.key === "Enter" || e.key === " ") {
+              e.preventDefault();
+              void handleRevoke();
+            }
+          }}
+          css={css`
+            display: inline-flex;
+            cursor: pointer;
+          `}
+        >
+          <Tooltip text={messages.revokeToken} placement="top">
+            <IconButton
+              icon={IconClose}
+              size="s"
+              color="danger"
+              aria-label={messages.revokeToken}
+              disabled={pending}
+            />
+          </Tooltip>
+        </span>
+        <span
+          role="button"
+          tabIndex={0}
+          onClick={(e) => {
+            e.stopPropagation();
+            void handleAdd();
+          }}
+          onKeyDown={(e) => {
+            if (e.key === "Enter" || e.key === " ") {
+              e.preventDefault();
+              void handleAdd();
+            }
+          }}
+          css={css`
+            display: inline-flex;
+            cursor: pointer;
+          `}
+        >
+          <Tooltip text={messages.newBearerToken} placement="top">
+            <IconButton
+              icon={IconPlus}
+              size="s"
+              color="success"
+              aria-label={messages.newBearerToken}
+              disabled={pending}
+            />
+          </Tooltip>
+        </span>
+      </Flex>
+    </Flex>
+  );
+}
+
 function AppAvatar({ app }: { app: DeveloperApp }) {
   const size = 24;
   if (app.image_url) {
@@ -572,7 +718,8 @@ export default function App() {
   const [fullUser, setFullUser] = useState<FullUser | null>(null);
   const [developerApps, setDeveloperApps] = useState<DeveloperApp[]>([]);
   const [createKeyModalOpen, setCreateKeyModalOpen] = useState(false);
-  const [deleteAppModalApp, setDeleteAppModalApp] = useState<DeveloperApp | null>(null);
+  const [deleteAppModalApp, setDeleteAppModalApp] =
+    useState<DeveloperApp | null>(null);
 
   // Grayscale "spotlight" effect when hovering Open Audio Protocol link
   const [grayscaleHover, setGrayscaleHover] = useState(false);
@@ -714,6 +861,81 @@ export default function App() {
     [oauthUser?.userId, loadDeveloperApps],
   );
 
+  const handleDeactivateAccessKey = useCallback(
+    async (app: DeveloperApp, apiAccessKey: string) => {
+      if (oauthUser?.userId == null) throw new Error("Not logged in");
+      const token = sessionStorage.getItem(OAUTH_TOKEN_KEY);
+      const res = await fetch(
+        `${API_BASE}/v1/users/${encodeURIComponent(oauthUser.userId)}/developer-apps/${encodeURIComponent(app.address)}/access-keys/deactivate`,
+        {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            ...(token != null ? { Authorization: `Bearer ${token}` } : {}),
+          },
+          body: JSON.stringify({ api_access_key: apiAccessKey }),
+        },
+      );
+      if (!res.ok) {
+        const err = await res.json().catch(() => ({}));
+        throw new Error(
+          (err as { error?: string })?.error ?? "Failed to revoke bearer token",
+        );
+      }
+      setDeveloperApps((prev) =>
+        prev.map((a) => {
+          if (a.address?.toLowerCase() !== app.address?.toLowerCase()) return a;
+          const keys =
+            a.api_access_keys?.filter(
+              (k) => k.api_access_key !== apiAccessKey,
+            ) ?? [];
+          return { ...a, api_access_keys: keys };
+        }),
+      );
+    },
+    [oauthUser?.userId],
+  );
+
+  const handleAddAccessKey = useCallback(
+    async (app: DeveloperApp) => {
+      if (oauthUser?.userId == null) throw new Error("Not logged in");
+      const token = sessionStorage.getItem(OAUTH_TOKEN_KEY);
+      const res = await fetch(
+        `${API_BASE}/v1/users/${encodeURIComponent(oauthUser.userId)}/developer-apps/${encodeURIComponent(app.address)}/access-keys`,
+        {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            ...(token != null ? { Authorization: `Bearer ${token}` } : {}),
+          },
+        },
+      );
+      if (!res.ok) {
+        const err = await res.json().catch(() => ({}));
+        throw new Error(
+          (err as { error?: string })?.error ?? "Failed to create bearer token",
+        );
+      }
+      const result = (await res.json()) as { api_access_key: string };
+      if (result.api_access_key != null) {
+        setDeveloperApps((prev) =>
+          prev.map((a) => {
+            if (a.address?.toLowerCase() !== app.address?.toLowerCase())
+              return a;
+            const keys = [...(a.api_access_keys ?? [])];
+            keys.push({
+              api_access_key: result.api_access_key,
+              is_active: true,
+            });
+            return { ...a, api_access_keys: keys };
+          }),
+        );
+        navigator.clipboard.writeText(result.api_access_key);
+      }
+    },
+    [oauthUser?.userId],
+  );
+
   const handleDeleteApp = useCallback(
     async (app: { address: string; name: string }) => {
       if (oauthUser?.userId == null) throw new Error("Not logged in");
@@ -734,9 +956,7 @@ export default function App() {
         );
       }
       setDeleteAppModalApp(null);
-      setDeveloperApps((prev) =>
-        prev.filter((a) => a.address !== app.address),
-      );
+      setDeveloperApps((prev) => prev.filter((a) => a.address !== app.address));
       loadDeveloperApps();
     },
     [oauthUser?.userId, loadDeveloperApps],
@@ -952,28 +1172,28 @@ export default function App() {
             Bring music to all your apps. Vibe-code ready and performant access
             to the world's largest open music catalog, the&nbsp;
             <span ref={openAudioLinkRef}>
-            <Text
-              tag="a"
-              href="https://openaudio.org"
-              target="_blank"
-              rel="noopener noreferrer"
-              onMouseEnter={(e) => {
-                grayscaleOrigin.current = { x: e.clientX, y: e.clientY };
-                setGrayscaleExiting(false);
-                setGrayscaleHover(true);
-              }}
-              onMouseLeave={() => setGrayscaleExiting(true)}
-              css={css`
-                color: inherit;
-                text-decoration: underline;
-                cursor: pointer;
-                &:hover {
-                  text-decoration: none;
-                }
-              `}
-            >
-              Open Audio Protocol
-            </Text>
+              <Text
+                tag="a"
+                href="https://openaudio.org"
+                target="_blank"
+                rel="noopener noreferrer"
+                onMouseEnter={(e) => {
+                  grayscaleOrigin.current = { x: e.clientX, y: e.clientY };
+                  setGrayscaleExiting(false);
+                  setGrayscaleHover(true);
+                }}
+                onMouseLeave={() => setGrayscaleExiting(true)}
+                css={css`
+                  color: inherit;
+                  text-decoration: underline;
+                  cursor: pointer;
+                  &:hover {
+                    text-decoration: none;
+                  }
+                `}
+              >
+                Open Audio Protocol
+              </Text>
             </span>
           </Text>
         </Flex>
@@ -1238,9 +1458,14 @@ export default function App() {
                                       cursor: pointer;
                                     `}
                                   >
-                                    <Tooltip text={messages.deleteApp} placement="top">
+                                    <Tooltip
+                                      text={messages.deleteApp}
+                                      placement="top"
+                                    >
                                       <IconButton
                                         icon={IconTrash}
+                                        size="s"
+                                        color="danger"
                                         aria-label={messages.deleteApp}
                                       />
                                     </Tooltip>
@@ -1298,15 +1523,22 @@ export default function App() {
                             </Flex>
                             {!app.is_legacy &&
                             (app.api_access_keys?.length ?? 0) > 0
-                              ? app.api_access_keys?.map((aak, idx) => (
-                                  <CopyableField
-                                    key={`${app.address}-${idx}`}
-                                    label={messages.apiSecretLabel}
-                                    value={aak.api_access_key}
-                                    id={`apisecret-${app.address}-${idx}`}
-                                    compact
-                                  />
-                                ))
+                              ? (app.api_access_keys
+                                  ?.filter((aak) => aak.is_active !== false)
+                                  ?.map((aak, idx) => (
+                                    <BearerTokenField
+                                      key={`${app.address}-${aak.api_access_key}`}
+                                      value={aak.api_access_key}
+                                      id={`apisecret-${app.address}-${idx}`}
+                                      onRevoke={() =>
+                                        handleDeactivateAccessKey(
+                                          app,
+                                          aak.api_access_key,
+                                        )
+                                      }
+                                      onAdd={() => handleAddAccessKey(app)}
+                                    />
+                                  )) ?? null)
                               : null}
                           </Flex>
                         </Flex>

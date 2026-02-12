@@ -296,7 +296,7 @@ func (app *ApiServer) postV1UsersDeveloperAppCreate(c *fiber.Ctx) error {
 			"error": "Failed to create developer app",
 		})
 	}
-	address := crypto.PubkeyToAddress(privateKey.PublicKey).Hex()
+	address := strings.ToLower(crypto.PubkeyToAddress(privateKey.PublicKey).Hex())
 	apiSecretHex := hex.EncodeToString(privateKey.D.Bytes())
 
 	// Insert into api_keys
@@ -496,4 +496,131 @@ func (app *ApiServer) deleteV1UsersDeveloperApp(c *fiber.Ctx) error {
 		"success":          true,
 		"transaction_hash": response.Msg.GetTransaction().GetHash(),
 	})
+}
+
+type deactivateAccessKeyBody struct {
+	ApiAccessKey string `json:"api_access_key"`
+}
+
+func (app *ApiServer) postV1UsersDeveloperAppAccessKeyDeactivate(c *fiber.Ctx) error {
+	userID := app.getUserId(c)
+	address := c.Params("address")
+	if address == "" {
+		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
+			"error": "address is required",
+		})
+	}
+	if !strings.HasPrefix(address, "0x") {
+		address = "0x" + address
+	}
+
+	var body deactivateAccessKeyBody
+	if err := c.BodyParser(&body); err != nil || strings.TrimSpace(body.ApiAccessKey) == "" {
+		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
+			"error": "api_access_key is required",
+		})
+	}
+	apiAccessKey := strings.TrimSpace(body.ApiAccessKey)
+
+	// Verify the app belongs to this user
+	var ownerUserID int32
+	err := app.pool.QueryRow(c.Context(), `
+		SELECT user_id FROM developer_apps
+		WHERE LOWER(address) = LOWER($1)
+		  AND is_current = true
+		  AND is_delete = false
+		ORDER BY created_at DESC
+		LIMIT 1
+	`, address).Scan(&ownerUserID)
+	if err != nil || ownerUserID != userID {
+		return c.Status(fiber.StatusNotFound).JSON(fiber.Map{
+			"error": "Developer app not found",
+		})
+	}
+
+	if app.writePool == nil {
+		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{
+			"error": "Database write not available",
+		})
+	}
+
+	result, err := app.writePool.Exec(c.Context(), `
+		UPDATE api_access_keys
+		SET is_active = false
+		WHERE LOWER(api_key) = LOWER($1) AND api_access_key = $2
+	`, address, apiAccessKey)
+	if err != nil {
+		app.logger.Error("Failed to deactivate api_access_key", zap.Error(err))
+		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{
+			"error": "Failed to deactivate access key",
+		})
+	}
+	if result.RowsAffected() == 0 {
+		return c.Status(fiber.StatusNotFound).JSON(fiber.Map{
+			"error": "Access key not found",
+		})
+	}
+
+	// Invalidate signer cache so deactivated key is no longer accepted
+	app.apiAccessKeySignerCache.Delete(apiAccessKey)
+
+	return c.JSON(fiber.Map{"success": true})
+}
+
+func (app *ApiServer) postV1UsersDeveloperAppAccessKeyCreate(c *fiber.Ctx) error {
+	userID := app.getUserId(c)
+	address := c.Params("address")
+	if address == "" {
+		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
+			"error": "address is required",
+		})
+	}
+	if !strings.HasPrefix(address, "0x") {
+		address = "0x" + address
+	}
+	address = strings.ToLower(address)
+
+	// Verify the app belongs to this user
+	var ownerUserID int32
+	err := app.pool.QueryRow(c.Context(), `
+		SELECT user_id FROM developer_apps
+		WHERE LOWER(address) = LOWER($1)
+		  AND is_current = true
+		  AND is_delete = false
+		ORDER BY created_at DESC
+		LIMIT 1
+	`, address).Scan(&ownerUserID)
+	if err != nil || ownerUserID != userID {
+		return c.Status(fiber.StatusNotFound).JSON(fiber.Map{
+			"error": "Developer app not found",
+		})
+	}
+
+	if app.writePool == nil {
+		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{
+			"error": "Database write not available",
+		})
+	}
+
+	apiAccessKeyBytes := make([]byte, 32)
+	if _, err := rand.Read(apiAccessKeyBytes); err != nil {
+		app.logger.Error("Failed to generate api_access_key", zap.Error(err))
+		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{
+			"error": "Failed to create access key",
+		})
+	}
+	apiAccessKey := base64.URLEncoding.EncodeToString(apiAccessKeyBytes)
+
+	_, err = app.writePool.Exec(c.Context(), `
+		INSERT INTO api_access_keys (api_key, api_access_key, is_active)
+		VALUES ($1, $2, true)
+	`, address, apiAccessKey)
+	if err != nil {
+		app.logger.Error("Failed to insert api_access_keys", zap.Error(err))
+		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{
+			"error": "Failed to create access key",
+		})
+	}
+
+	return c.JSON(fiber.Map{"api_access_key": apiAccessKey})
 }

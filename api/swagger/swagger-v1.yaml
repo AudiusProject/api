@@ -3912,6 +3912,96 @@ paths:
         "500":
           description: Server error
           content: {}
+  /users/{id}/developer-apps/{address}/access-keys/deactivate:
+    post:
+      tags:
+      - users
+      - developer_apps
+      description: Deactivate a bearer token (API access key) for a developer app (Plans API). Requires OAuth Bearer token with plans app grant. The deactivated token will no longer authenticate requests.
+      operationId: Deactivate User Developer App Access Key
+      security:
+      - BasicAuth: []
+      - BearerAuth: []
+      parameters:
+      - name: id
+        in: path
+        description: User ID
+        required: true
+        schema:
+          type: string
+      - name: address
+        in: path
+        description: Developer app address (API Key)
+        required: true
+        schema:
+          type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/deactivate_access_key_request'
+      responses:
+        "200":
+          description: Access key deactivated successfully
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+        "400":
+          description: Bad request (api_access_key required)
+          content: {}
+        "401":
+          description: Unauthorized
+          content: {}
+        "404":
+          description: Developer app or access key not found
+          content: {}
+        "500":
+          description: Server error
+          content: {}
+  /users/{id}/developer-apps/{address}/access-keys:
+    post:
+      tags:
+      - users
+      - developer_apps
+      description: Create a new bearer token (API access key) for a developer app (Plans API). Requires OAuth Bearer token with plans app grant.
+      operationId: Create User Developer App Access Key
+      security:
+      - BasicAuth: []
+      - BearerAuth: []
+      parameters:
+      - name: id
+        in: path
+        description: User ID
+        required: true
+        schema:
+          type: string
+      - name: address
+        in: path
+        description: Developer app address (API Key)
+        required: true
+        schema:
+          type: string
+      responses:
+        "200":
+          description: Access key created successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/create_access_key_response'
+        "401":
+          description: Unauthorized
+          content: {}
+        "404":
+          description: Developer app not found
+          content: {}
+        "500":
+          description: Server error
+          content: {}
   /users/{id}/balance/history:
     get:
       tags:
@@ -9899,6 +9989,22 @@ components:
           type: string
           description: Developer app name (Plans API create)
           example: "My API Key"
+    deactivate_access_key_request:
+      type: object
+      required:
+        - api_access_key
+      properties:
+        api_access_key:
+          type: string
+          description: The bearer token (API access key) to deactivate
+    create_access_key_response:
+      type: object
+      required:
+        - api_access_key
+      properties:
+        api_access_key:
+          type: string
+          description: The newly created bearer token (API access key)
   responses:
     ParseError:
       description: When a mask can't be parsed

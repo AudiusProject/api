@@ -117,7 +117,7 @@ func (app *ApiServer) getSignerFromApiAccessKey(ctx context.Context, apiAccessKe
 			return nil
 		}
 		return &Signer{
-			Address:    hit.ApiKey,
+			Address:    strings.ToLower(hit.ApiKey),
 			PrivateKey: privateKey,
 		}
 	}
@@ -126,15 +126,16 @@ func (app *ApiServer) getSignerFromApiAccessKey(ctx context.Context, apiAccessKe
 	err := app.writePool.QueryRow(ctx, `
 		SELECT aak.api_key, ak.api_secret
 		FROM api_access_keys aak
-		JOIN api_keys ak ON ak.api_key = aak.api_key
+		JOIN api_keys ak ON LOWER(ak.api_key) = LOWER(aak.api_key)
 		WHERE aak.api_access_key = $1 AND aak.is_active = true
 	`, apiAccessKey).Scan(&parentApiKey, &apiSecret)
 	if err == pgx.ErrNoRows || err != nil || apiSecret == "" {
 		return nil
 	}
 
+	parentApiKeyLower := strings.ToLower(parentApiKey)
 	app.apiAccessKeySignerCache.Set(apiAccessKey, apiAccessKeySignerEntry{
-		ApiKey:    parentApiKey,
+		ApiKey:    parentApiKeyLower,
 		ApiSecret: apiSecret,
 	})
 
@@ -143,7 +144,7 @@ func (app *ApiServer) getSignerFromApiAccessKey(ctx context.Context, apiAccessKe
 		return nil
 	}
 	return &Signer{
-		Address:    parentApiKey,
+		Address:    parentApiKeyLower,
 		PrivateKey: privateKey,
 	}
 }

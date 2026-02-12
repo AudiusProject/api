@@ -436,6 +436,8 @@ func NewApiServer(config config.Config) *ApiServer {
 		g.Post("/users/:userId/developer_apps", app.requirePlansAppAuth, app.postV1UsersDeveloperAppCreate)
 		g.Post("/users/:userId/developer-apps", app.requirePlansAppAuth, app.postV1UsersDeveloperAppCreate)
 		g.Delete("/users/:userId/developer-apps/:address", app.requirePlansAppAuth, app.deleteV1UsersDeveloperApp)
+		g.Post("/users/:userId/developer-apps/:address/access-keys/deactivate", app.requirePlansAppAuth, app.postV1UsersDeveloperAppAccessKeyDeactivate)
+		g.Post("/users/:userId/developer-apps/:address/access-keys", app.requirePlansAppAuth, app.postV1UsersDeveloperAppAccessKeyCreate)
 		g.Get("/users/:userId/withdrawals/download", app.requireAuthForUserId, app.v1UsersWithdrawalsDownloadCsv)
 		g.Get("/users/:userId/withdrawals/download/json", app.requireAuthForUserId, app.v1UsersWithdrawalsDownloadJson)
 		g.Post("/users/:userId/follow", app.requireAuthMiddleware, app.postV1UserFollow)
