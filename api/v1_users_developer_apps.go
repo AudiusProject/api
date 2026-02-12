@@ -42,6 +42,21 @@ type DeveloperAppWithMetrics struct {
 	APIAccessKeys       json.RawMessage `json:"api_access_keys" db:"api_access_keys"`
 }
 
+// registerDeveloperAppRoutes adds developer app routes to the given router.
+// The secret and appName identify the frontend app that must have OAuth write grant from the user
+// to access the mutating endpoints (create, delete, manage access keys).
+func (app *ApiServer) registerDeveloperAppRoutes(g fiber.Router, secret string, appName string) {
+	auth := app.requireFrontendAppAuth(secret, appName)
+
+	g.Get("/users/:userId/developer_apps", app.v1UsersDeveloperApps)
+	g.Get("/users/:userId/developer-apps", app.v1UsersDeveloperApps)
+	g.Post("/users/:userId/developer_apps", auth, app.postV1UsersDeveloperAppCreate)
+	g.Post("/users/:userId/developer-apps", auth, app.postV1UsersDeveloperAppCreate)
+	g.Delete("/users/:userId/developer-apps/:address", auth, app.deleteV1UsersDeveloperApp)
+	g.Post("/users/:userId/developer-apps/:address/access-keys/deactivate", auth, app.postV1UsersDeveloperAppAccessKeyDeactivate)
+	g.Post("/users/:userId/developer-apps/:address/access-keys", auth, app.postV1UsersDeveloperAppAccessKeyCreate)
+}
+
 func (app *ApiServer) v1UsersDeveloperApps(c *fiber.Ctx) error {
 	userId := app.getUserId(c)
 	includeMetrics := c.Query("include") == "metrics"
@@ -118,60 +133,6 @@ func (app *ApiServer) v1UsersDeveloperAppsWithMetrics(c *fiber.Ctx, userId int32
 	return c.JSON(fiber.Map{
 		"data": apps,
 	})
-}
-
-// requirePlansAppAuth validates Bearer token and checks that the plans app has a grant from the user.
-// Must run after requireUserIdMiddleware.
-func (app *ApiServer) requirePlansAppAuth(c *fiber.Ctx) error {
-	secret := app.config.AudiusApiSecret
-	if secret == "" {
-		app.logger.Error("audiusApiSecret not configured")
-		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{
-			"error": "Plans app not configured",
-		})
-	}
-
-	authHeader := c.Get("Authorization")
-	if authHeader == "" || !strings.HasPrefix(authHeader, "Bearer ") {
-		return c.Status(fiber.StatusUnauthorized).JSON(fiber.Map{
-			"error": "Missing or invalid Authorization header. Use Bearer <oauth_token>",
-		})
-	}
-	token := strings.TrimPrefix(authHeader, "Bearer ")
-
-	pathUserId := app.getUserId(c)
-	if pathUserId == 0 {
-		return fiber.NewError(fiber.StatusBadRequest, "invalid userId")
-	}
-
-	jwtUserId, err := app.validateOAuthJWTTokenToUserId(c.Context(), token)
-	if err != nil {
-		return err
-	}
-
-	if int32(jwtUserId) != pathUserId {
-		return c.Status(fiber.StatusForbidden).JSON(fiber.Map{
-			"error": "Token userId does not match path userId",
-		})
-	}
-
-	// Derive plans app address from private key
-	privateKey, err := crypto.HexToECDSA(strings.TrimPrefix(secret, "0x"))
-	if err != nil {
-		app.logger.Error("Invalid audiusApiSecret", zap.Error(err))
-		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{
-			"error": "Plans app misconfigured",
-		})
-	}
-	plansAppAddress := strings.ToLower(crypto.PubkeyToAddress(privateKey.PublicKey).Hex())
-
-	if !app.isAuthorizedRequest(c.Context(), pathUserId, plansAppAddress) {
-		return c.Status(fiber.StatusForbidden).JSON(fiber.Map{
-			"error": "User has not granted the plans app write access. Log in with OAuth scope 'write'.",
-		})
-	}
-
-	return c.Next()
 }
 
 // validateOAuthJWTTokenToUserId validates the OAuth JWT and returns the userId from the payload.

@@ -1635,7 +1635,6 @@ export default function App() {
                                       <IconButton
                                         icon={IconTrash}
                                         size="s"
-                                        color="danger"
                                         aria-label={messages.deleteApp}
                                       />
                                     </Tooltip>

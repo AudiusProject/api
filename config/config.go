@@ -49,7 +49,8 @@ type Config struct {
 	RewardCodeAuthorizedKeys       []string
 	LaunchpadDeterministicSecret   string
 	UnsplashKeys                   []string
-	AudiusApiSecret                string
+	// Api secret for api.audius.co so that users are allowed to authenticate against it
+	AudiusApiSecret string
 }
 
 var Cfg = Config{
