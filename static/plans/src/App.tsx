@@ -11,6 +11,7 @@ import {
   IconPlus,
   IconTrash,
   IconButton,
+  IconKebabHorizontal,
   Tag,
   Tooltip,
   IconClose,
@@ -720,6 +721,20 @@ export default function App() {
   const [createKeyModalOpen, setCreateKeyModalOpen] = useState(false);
   const [deleteAppModalApp, setDeleteAppModalApp] =
     useState<DeveloperApp | null>(null);
+  const [navMenuOpen, setNavMenuOpen] = useState(false);
+  const navMenuRef = useRef<HTMLSpanElement | null>(null);
+
+  useEffect(() => {
+    if (!navMenuOpen) return;
+    const handleClickOutside = (e: MouseEvent) => {
+      const target = e.target as Node;
+      if (navMenuRef.current != null && !navMenuRef.current.contains(target)) {
+        setNavMenuOpen(false);
+      }
+    };
+    document.addEventListener("mousedown", handleClickOutside);
+    return () => document.removeEventListener("mousedown", handleClickOutside);
+  }, [navMenuOpen]);
 
   // Grayscale "spotlight" effect when hovering Open Audio Protocol link
   const [grayscaleHover, setGrayscaleHover] = useState(false);
@@ -1065,9 +1080,18 @@ export default function App() {
           css={css`
             padding-bottom: 1rem;
             border-bottom: 1px solid var(--harmony-neutral-neutral-3, #e8e8e8);
+            position: relative;
           `}
         >
-          <Flex gap="l" alignItems="center">
+          <Flex
+            gap="l"
+            alignItems="center"
+            css={css`
+              @media (max-width: 600px) {
+                display: none;
+              }
+            `}
+          >
             <Text
               tag="a"
               href={messages.audiusUrl}
@@ -1137,6 +1161,138 @@ export default function App() {
               {messages.navDiscord}
             </Text>
           </Flex>
+          {/* Mobile menu button + dropdown */}
+          <Flex
+            alignItems="center"
+            css={css`
+              display: none;
+              @media (max-width: 600px) {
+                display: flex;
+              }
+            `}
+          >
+            <span
+              ref={navMenuRef}
+              css={css`
+                position: relative;
+              `}
+            >
+              <IconButton
+                icon={IconKebabHorizontal}
+                aria-label="Menu"
+                onClick={() => setNavMenuOpen((o) => !o)}
+              />
+              {navMenuOpen ? (
+                <Paper
+                  p="s"
+                  css={css`
+                    position: absolute;
+                    top: 100%;
+                    left: 0;
+                    margin-top: 0.25rem;
+                    min-width: 10rem;
+                    z-index: 100;
+                    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+                  `}
+                >
+                  <Flex direction="column" gap="xs">
+                    <Text
+                      tag="a"
+                      href={messages.audiusUrl}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      variant="body"
+                      strength="strong"
+                      onClick={() => setNavMenuOpen(false)}
+                      css={css`
+                        display: block;
+                        padding: 0.5rem;
+                        color: inherit;
+                        text-decoration: none;
+                        &:hover {
+                          text-decoration: underline;
+                          background: var(--harmony-neutral-neutral-2, #f0f0f0);
+                          margin: 0 -0.5rem;
+                          padding: 0.5rem;
+                        }
+                      `}
+                    >
+                      {messages.navAudius}
+                    </Text>
+                    <Text
+                      tag="a"
+                      href={`https://${messages.apiDocsUrl}`}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      variant="body"
+                      strength="strong"
+                      onClick={() => setNavMenuOpen(false)}
+                      css={css`
+                        display: block;
+                        padding: 0.5rem;
+                        color: inherit;
+                        text-decoration: none;
+                        &:hover {
+                          text-decoration: underline;
+                          background: var(--harmony-neutral-neutral-2, #f0f0f0);
+                          margin: 0 -0.5rem;
+                          padding: 0.5rem;
+                        }
+                      `}
+                    >
+                      {messages.navApiDocs}
+                    </Text>
+                    <Text
+                      tag="a"
+                      href={messages.githubUrl}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      variant="body"
+                      strength="strong"
+                      onClick={() => setNavMenuOpen(false)}
+                      css={css`
+                        display: block;
+                        padding: 0.5rem;
+                        color: inherit;
+                        text-decoration: none;
+                        &:hover {
+                          text-decoration: underline;
+                          background: var(--harmony-neutral-neutral-2, #f0f0f0);
+                          margin: 0 -0.5rem;
+                          padding: 0.5rem;
+                        }
+                      `}
+                    >
+                      {messages.navGithub}
+                    </Text>
+                    <Text
+                      tag="a"
+                      href={messages.discordUrl}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      variant="body"
+                      strength="strong"
+                      onClick={() => setNavMenuOpen(false)}
+                      css={css`
+                        display: block;
+                        padding: 0.5rem;
+                        color: inherit;
+                        text-decoration: none;
+                        &:hover {
+                          text-decoration: underline;
+                          background: var(--harmony-neutral-neutral-2, #f0f0f0);
+                          margin: 0 -0.5rem;
+                          padding: 0.5rem;
+                        }
+                      `}
+                    >
+                      {messages.navDiscord}
+                    </Text>
+                  </Flex>
+                </Paper>
+              ) : null}
+            </span>
+          </Flex>
           {oauthUser ? (
             <Button variant="secondary" size="small" onClick={handleLogout}>
               {messages.logout}
@@ -1157,7 +1313,18 @@ export default function App() {
             text-align: center;
           `}
         >
-          <Text size="l" color="heading" strength="strong" variant="display">
+          <Text
+            size="l"
+            color="heading"
+            strength="strong"
+            variant="display"
+            css={css`
+              @media (max-width: 600px) {
+                font-size: 3rem !important;
+                line-height: 3rem !important;
+              }
+            `}
+          >
             {messages.title}
           </Text>
           <Text
@@ -1167,6 +1334,9 @@ export default function App() {
             css={css`
               max-width: 40rem;
               margin: 0 auto;
+              @media (max-width: 600px) {
+                font-size: 0.875rem !important;
+              }
             `}
           >
             Bring music to all your apps. Vibe-code ready and performant access
