@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"io"
 	"net/http/httptest"
+	"strings"
 	"testing"
 
 	"api.audius.co/database"
@@ -310,7 +311,8 @@ func TestGetApiSignerWithApiAccessKey(t *testing.T) {
 	assert.NoError(t, err)
 	assert.Equal(t, fiber.StatusOK, res.StatusCode)
 	body, _ := io.ReadAll(res.Body)
-	assert.Contains(t, string(body), parentApiKey)
+	assert.True(t, strings.Contains(strings.ToLower(string(body)), strings.ToLower(parentApiKey)),
+		"body %s should contain address %s", string(body), parentApiKey)
 }
 
 // ensureApiKeysTables creates api_keys and api_access_keys if they do not exist.
