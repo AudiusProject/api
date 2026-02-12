@@ -155,6 +155,13 @@ paths:
       security:
       - BasicAuth: []
       - BearerAuth: []
+      parameters:
+      - name: user_id
+        in: query
+        description: The user ID of the user making the request
+        required: true
+        schema:
+          type: string
       requestBody:
         required: true
         content:
@@ -215,6 +222,12 @@ paths:
         required: true
         schema:
           type: string
+      - name: user_id
+        in: query
+        description: The user ID of the user making the request
+        required: true
+        schema:
+          type: string
       requestBody:
         required: true
         content:
@@ -252,6 +265,12 @@ paths:
         required: true
         schema:
           type: string
+      - name: user_id
+        in: query
+        description: The user ID of the user making the request
+        required: true
+        schema:
+          type: string
       responses:
         "200":
           description: Comment deleted successfully
@@ -284,6 +303,12 @@ paths:
         required: true
         schema:
           type: string
+      - name: user_id
+        in: query
+        description: The user ID of the user making the request
+        required: true
+        schema:
+          type: string
       responses:
         "200":
           description: Comment reacted successfully
@@ -312,6 +337,12 @@ paths:
       - name: comment_id
         in: path
         description: A Comment ID
+        required: true
+        schema:
+          type: string
+      - name: user_id
+        in: query
+        description: The user ID of the user making the request
         required: true
         schema:
           type: string
@@ -347,6 +378,12 @@ paths:
         required: true
         schema:
           type: string
+      - name: user_id
+        in: query
+        description: The user ID of the user making the request
+        required: true
+        schema:
+          type: string
       responses:
         "200":
           description: Comment pinned successfully
@@ -375,6 +412,12 @@ paths:
       - name: comment_id
         in: path
         description: A Comment ID
+        required: true
+        schema:
+          type: string
+      - name: user_id
+        in: query
+        description: The user ID of the user making the request
         required: true
         schema:
           type: string
@@ -407,6 +450,12 @@ paths:
       - name: comment_id
         in: path
         description: A Comment ID
+        required: true
+        schema:
+          type: string
+      - name: user_id
+        in: query
+        description: The user ID of the user making the request
         required: true
         schema:
           type: string
@@ -477,6 +526,13 @@ paths:
       security:
       - BasicAuth: []
       - BearerAuth: []
+      parameters:
+      - name: user_id
+        in: query
+        description: The user ID of the user making the request
+        required: true
+        schema:
+          type: string
       requestBody:
         required: true
         content:
@@ -543,6 +599,12 @@ paths:
         required: true
         schema:
           type: string
+      - name: user_id
+        in: query
+        description: The user ID of the user making the request
+        required: true
+        schema:
+          type: string
       requestBody:
         required: true
         content:
@@ -580,6 +642,12 @@ paths:
       - name: address
         in: path
         description: Developer app address
+        required: true
+        schema:
+          type: string
+      - name: user_id
+        in: query
+        description: The user ID of the user making the request
         required: true
         schema:
           type: string
@@ -906,6 +974,13 @@ paths:
       security:
         - BasicAuth: []
         - BearerAuth: []
+      parameters:
+      - name: user_id
+        in: query
+        description: The user ID of the user making the request
+        required: true
+        schema:
+          type: string
       requestBody:
         required: true
         content:
@@ -1139,6 +1214,12 @@ paths:
         required: true
         schema:
           type: string
+      - name: user_id
+        in: query
+        description: The user ID of the user making the request
+        required: true
+        schema:
+          type: string
       requestBody:
         required: true
         content:
@@ -1263,6 +1344,12 @@ paths:
         required: true
         schema:
           type: string
+      - name: user_id
+        in: query
+        description: The user ID of the user making the request
+        required: true
+        schema:
+          type: string
       responses:
         "200":
           description: Playlist favorited successfully
@@ -1291,6 +1378,12 @@ paths:
       - name: playlist_id
         in: path
         description: A Playlist ID
+        required: true
+        schema:
+          type: string
+      - name: user_id
+        in: query
+        description: The user ID of the user making the request
         required: true
         schema:
           type: string
@@ -1326,6 +1419,12 @@ paths:
         required: true
         schema:
           type: string
+      - name: user_id
+        in: query
+        description: The user ID of the user making the request
+        required: true
+        schema:
+          type: string
       responses:
         "200":
           description: Playlist reposted successfully
@@ -1354,6 +1453,12 @@ paths:
       - name: playlist_id
         in: path
         description: A Playlist ID
+        required: true
+        schema:
+          type: string
+      - name: user_id
+        in: query
+        description: The user ID of the user making the request
         required: true
         schema:
           type: string
@@ -1572,6 +1677,13 @@ paths:
       security:
         - BasicAuth: []
         - BearerAuth: []
+      parameters:
+      - name: user_id
+        in: query
+        description: The user ID of the user making the request
+        required: true
+        schema:
+          type: string
       requestBody:
         required: true
         content:
@@ -2390,6 +2502,12 @@ paths:
         required: true
         schema:
           type: string
+      - name: user_id
+        in: query
+        description: The user ID of the user making the request
+        required: true
+        schema:
+          type: string
       requestBody:
         required: true
         content:
@@ -2427,6 +2545,12 @@ paths:
       - name: track_id
         in: path
         description: A Track ID
+        required: true
+        schema:
+          type: string
+      - name: user_id
+        in: query
+        description: The user ID of the user making the request
         required: true
         schema:
           type: string
@@ -2643,6 +2767,12 @@ paths:
         required: true
         schema:
           type: string
+      - name: user_id
+        in: query
+        description: The user ID of the user making the request
+        required: true
+        schema:
+          type: string
       responses:
         "200":
           description: Track favorited successfully
@@ -2671,6 +2801,12 @@ paths:
       - name: track_id
         in: path
         description: A Track ID
+        required: true
+        schema:
+          type: string
+      - name: user_id
+        in: query
+        description: The user ID of the user making the request
         required: true
         schema:
           type: string
@@ -2839,6 +2975,12 @@ paths:
         required: true
         schema:
           type: string
+      - name: user_id
+        in: query
+        description: The user ID of the user making the request
+        required: true
+        schema:
+          type: string
       responses:
         "200":
           description: Track reposted successfully
@@ -2867,6 +3009,12 @@ paths:
       - name: track_id
         in: path
         description: A Track ID
+        required: true
+        schema:
+          type: string
+      - name: user_id
+        in: query
+        description: The user ID of the user making the request
         required: true
         schema:
           type: string
@@ -3243,6 +3391,13 @@ paths:
       security:
         - BasicAuth: []
         - BearerAuth: []
+      parameters:
+      - name: user_id
+        in: query
+        description: The user ID of the user making the request
+        required: true
+        schema:
+          type: string
       requestBody:
         required: true
         content:
@@ -3651,6 +3806,12 @@ paths:
       - name: id
         in: path
         description: A User ID
+        required: true
+        schema:
+          type: string
+      - name: user_id
+        in: query
+        description: The user ID of the user making the request
         required: true
         schema:
           type: string
@@ -4351,6 +4512,12 @@ paths:
         required: true
         schema:
           type: string
+      - name: user_id
+        in: query
+        description: The user ID of the user making the request
+        required: true
+        schema:
+          type: string
       responses:
         "200":
           description: User followed successfully
@@ -4379,6 +4546,12 @@ paths:
       - name: id
         in: path
         description: A User ID
+        required: true
+        schema:
+          type: string
+      - name: user_id
+        in: query
+        description: The user ID of the user making the request
         required: true
         schema:
           type: string
@@ -4612,6 +4785,12 @@ paths:
         required: true
         schema:
           type: string
+      - name: user_id
+        in: query
+        description: The user ID of the user making the request
+        required: true
+        schema:
+          type: string
       responses:
         "200":
           description: User muted successfully
@@ -4640,6 +4819,12 @@ paths:
       - name: id
         in: path
         description: A User ID
+        required: true
+        schema:
+          type: string
+      - name: user_id
+        in: query
+        description: The user ID of the user making the request
         required: true
         schema:
           type: string
@@ -5220,6 +5405,12 @@ paths:
         required: true
         schema:
           type: string
+      - name: user_id
+        in: query
+        description: The user ID of the user making the request
+        required: true
+        schema:
+          type: string
       responses:
         "200":
           description: Subscribed successfully
@@ -5248,6 +5439,12 @@ paths:
       - name: id
         in: path
         description: A User ID
+        required: true
+        schema:
+          type: string
+      - name: user_id
+        in: query
+        description: The user ID of the user making the request
         required: true
         schema:
           type: string
