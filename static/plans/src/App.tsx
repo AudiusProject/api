@@ -527,20 +527,34 @@ export default function App() {
     });
   }, [sdk.oauth]);
 
-  const loadDeveloperApps = useCallback(async () => {
-    if (!oauthUser?.userId) return;
-    try {
-      const appsRes = await fetch(
-        `${API_BASE}/v1/users/${encodeURIComponent(oauthUser.userId)}/developer-apps?include=metrics`,
-      );
-      if (appsRes.ok) {
-        const { data } = (await appsRes.json()) as { data: DeveloperApp[] };
-        setDeveloperApps(data ?? []);
+  const loadDeveloperApps = useCallback(
+    async (mergeApp?: DeveloperApp) => {
+      if (!oauthUser?.userId) return;
+      try {
+        const appsRes = await fetch(
+          `${API_BASE}/v1/users/${encodeURIComponent(oauthUser.userId)}/developer-apps?include=metrics`,
+        );
+        if (appsRes.ok) {
+          const { data } = (await appsRes.json()) as { data: DeveloperApp[] };
+          let apps = data ?? [];
+          // If we have an optimistic app and the API doesn't include it yet (indexer lag), prepend it
+          if (
+            mergeApp?.address &&
+            !apps.some(
+              (a) =>
+                a.address?.toLowerCase() === mergeApp.address?.toLowerCase(),
+            )
+          ) {
+            apps = [mergeApp, ...apps];
+          }
+          setDeveloperApps(apps);
+        }
+      } catch {
+        // ignore
       }
-    } catch {
-      // ignore
-    }
-  }, [oauthUser?.userId]);
+    },
+    [oauthUser?.userId],
+  );
 
   const handleCreateKey = useCallback(
     async (name: string) => {
@@ -559,18 +573,37 @@ export default function App() {
       );
       if (!res.ok) {
         const err = await res.json().catch(() => ({}));
-        throw new Error((err as { error?: string })?.error ?? "Failed to create key");
+        throw new Error(
+          (err as { error?: string })?.error ?? "Failed to create key",
+        );
       }
       const result = (await res.json()) as {
         api_key?: string;
         api_secret?: string;
       };
-      if (result.api_key && result.api_secret) {
+      if (result.api_key != null && result.api_secret != null) {
         navigator.clipboard.writeText(
           `API Key: ${result.api_key}\nAPI Secret: ${result.api_secret}`,
         );
       }
-      await loadDeveloperApps();
+      // Optimistically add new app and reload; merge ensures it stays visible if indexer hasn't processed yet
+      const optimisticApp: DeveloperApp = {
+        address: result.api_key ?? "",
+        user_id: oauthUser.userId,
+        name,
+        description: null,
+        image_url: null,
+        request_count: 0,
+        request_count_all_time: 0,
+        is_legacy: false,
+        api_access_keys:
+          result.api_secret != null
+            ? [{ api_access_key: result.api_secret, is_active: true }]
+            : [],
+      };
+      await loadDeveloperApps(optimisticApp);
+      // Retry after delay to pick up real data once indexer processes the new app
+      setTimeout(() => loadDeveloperApps(optimisticApp), 5000);
     },
     [oauthUser?.userId, loadDeveloperApps],
   );
@@ -915,7 +948,12 @@ export default function App() {
               wrap="wrap"
               gap="s"
             >
-              <Text size="s" color="heading" strength="strong" variant="display">
+              <Text
+                size="s"
+                color="heading"
+                strength="strong"
+                variant="display"
+              >
                 {messages.apiKeysSection}
               </Text>
               <Button
