@@ -2,6 +2,7 @@ package api
 
 import (
 	"encoding/json"
+	"math"
 	"strconv"
 	"time"
 
@@ -113,7 +114,7 @@ type DDEXRightsController struct {
 }
 
 type CreateTrackRequest struct {
-	TrackId                      *string                    `json:"track_id,omitempty"`
+	TrackId                      *int                       `json:"track_id,omitempty" validate:"omitempty,min=1"`
 	Title                        string                     `json:"title" validate:"required,min=1"`
 	Genre                        string                     `json:"genre" validate:"required,oneof='Electronic' 'Rock' 'Metal' 'Alternative' 'Hip-Hop/Rap' 'Experimental' 'Punk' 'Folk' 'Pop' 'Ambient' 'Soundtrack' 'World' 'Jazz' 'Acoustic' 'Funk' 'R&B/Soul' 'Devotional' 'Classical' 'Reggae' 'Podcasts' 'Country' 'Spoken Word' 'Comedy' 'Blues' 'Kids' 'Audiobooks' 'Latin' 'Lo-Fi' 'Hyperpop' 'Dancehall' 'Techno' 'Trap' 'House' 'Tech House' 'Deep House' 'Disco' 'Electro' 'Jungle' 'Progressive House' 'Hardstyle' 'Glitch Hop' 'Trance' 'Future Bass' 'Future House' 'Tropical House' 'Downtempo' 'Drum & Bass' 'Dubstep' 'Jersey Club' 'Vaporwave' 'Moombahton'"`
 	Description                  *string                    `json:"description,omitempty" validate:"omitempty,max=1000"`
@@ -234,16 +235,16 @@ func (app *ApiServer) postV1Tracks(c *fiber.Ctx) error {
 	// Determine track ID
 	var trackID int
 	if req.TrackId != nil {
-		decodedID, err := trashid.DecodeHashId(*req.TrackId)
+		trackID = *req.TrackId
+	} else {
+		// Generate unclaimed track ID if not provided
+		generatedID, err := app.generateUnclaimedId(c.Context(), "tracks", "track_id", 2_000_000, math.MaxInt32)
 		if err != nil {
-			return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
-				"error": "Invalid track_id: " + err.Error(),
+			return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{
+				"error": "Failed to generate track ID: " + err.Error(),
 			})
 		}
-		trackID = decodedID
-	} else {
-		// Generate track ID from timestamp if not provided
-		trackID = int(time.Now().UnixNano() % 1000000000)
+		trackID = generatedID
 	}
 
 	// Convert struct to map for metadata

@@ -2,6 +2,7 @@ package api
 
 import (
 	"encoding/json"
+	"math"
 	"strconv"
 	"time"
 
@@ -21,7 +22,7 @@ type PlaylistTrackInfo struct {
 }
 
 type CreatePlaylistRequest struct {
-	PlaylistId            *string                    `json:"playlist_id,omitempty"`
+	PlaylistId            *int                       `json:"playlist_id,omitempty" validate:"omitempty,min=1"`
 	PlaylistName          string                     `json:"playlist_name" validate:"required,min=1"`
 	Description           *string                    `json:"description,omitempty" validate:"omitempty,max=1000"`
 	IsPrivate             *bool                      `json:"is_private,omitempty"`
@@ -107,16 +108,16 @@ func (app *ApiServer) postV1Playlists(c *fiber.Ctx) error {
 	// Determine playlist ID
 	var playlistID int
 	if req.PlaylistId != nil {
-		decodedID, err := trashid.DecodeHashId(*req.PlaylistId)
+		playlistID = *req.PlaylistId
+	} else {
+		// Generate unclaimed playlist ID if not provided
+		generatedID, err := app.generateUnclaimedId(c.Context(), "tracks", "track_id", 400_000, math.MaxInt32)
 		if err != nil {
-			return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
-				"error": "Invalid playlist_id: " + err.Error(),
+			return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{
+				"error": "Failed to generate playlist ID: " + err.Error(),
 			})
 		}
-		playlistID = decodedID
-	} else {
-		// Generate playlist ID from timestamp if not provided
-		playlistID = int(time.Now().UnixNano() % 1000000000)
+		playlistID = generatedID
 	}
 
 	// Convert struct to map for metadata

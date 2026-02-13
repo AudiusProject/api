@@ -9747,8 +9747,9 @@ components:
         - track_cid
       properties:
         track_id:
-          type: string
+          type: integer
           description: Optional track ID (will be generated if not provided)
+          minimum: 1
         title:
           type: string
           description: Track title
@@ -9935,8 +9936,9 @@ components:
         - playlist_name
       properties:
         playlist_id:
-          type: string
+          type: integer
           description: Optional playlist ID (will be generated if not provided)
+          minimum: 1
         playlist_name:
           type: string
           description: Playlist or album name
@@ -10017,8 +10019,9 @@ components:
         - wallet
       properties:
         user_id:
-          type: string
+          type: integer
           description: Optional user ID (will be generated if not provided)
+          minimum: 1
         handle:
           type: string
           description: User handle (unique username)

@@ -1,6 +1,7 @@
 package api
 
 import (
+	"context"
 	"fmt"
 	"math"
 	"math/rand"
@@ -10,23 +11,26 @@ import (
 	"github.com/jackc/pgx/v5"
 )
 
-func (app *ApiServer) v1UnclaimedId(c *fiber.Ctx, tableName, idField string, lowerBound, upperBound int) error {
-
+// generateUnclaimedId finds an unclaimed integer ID in the given range for the specified table
+func (app *ApiServer) generateUnclaimedId(ctx context.Context, tableName, idField string, lowerBound, upperBound int) (int, error) {
 	sql := fmt.Sprintf(`select true from %s where %s = $1`, tableName, idField)
 
-	freeId := 0
 	for i := 0; i < 50; i++ {
 		randomId := lowerBound + rand.Intn(upperBound-lowerBound)
 		isTaken := false
-		err := app.pool.QueryRow(c.Context(), sql, randomId).Scan(&isTaken)
+		err := app.pool.QueryRow(ctx, sql, randomId).Scan(&isTaken)
 		if err == pgx.ErrNoRows {
-			freeId = randomId
-			break
+			return randomId, nil
 		}
 	}
 
-	if freeId == 0 {
-		return fiber.NewError(500, "unable to find unclaimed id")
+	return 0, fmt.Errorf("unable to find unclaimed id after 50 attempts")
+}
+
+func (app *ApiServer) v1UnclaimedId(c *fiber.Ctx, tableName, idField string, lowerBound, upperBound int) error {
+	freeId, err := app.generateUnclaimedId(c.Context(), tableName, idField, lowerBound, upperBound)
+	if err != nil {
+		return fiber.NewError(500, err.Error())
 	}
 
 	id, _ := trashid.EncodeHashId(freeId)
