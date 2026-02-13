@@ -10030,6 +10030,20 @@ components:
         is_private:
           type: boolean
           description: Whether the playlist is private
+        genre:
+          $ref: '#/components/schemas/genre'
+        mood:
+          $ref: '#/components/schemas/mood'
+        tags:
+          type: string
+          description: Comma-separated tags
+        license:
+          type: string
+          description: License type
+        release_date:
+          type: string
+          format: date
+          description: Release date
         playlist_contents:
           type: array
           description: Array of track IDs to include in the playlist
