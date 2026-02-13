@@ -9930,10 +9930,9 @@ components:
           description: Array of track IDs to include in the playlist
           items:
             $ref: '#/components/schemas/playlist_added_timestamp'
-        artwork_url:
+        cover_art_cid:
           type: string
-          description: URL for playlist artwork
-          format: uri
+          description: IPFS CID for cover art
         upc:
           type: string
           description: Universal Product Code (for albums)
