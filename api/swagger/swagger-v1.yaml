@@ -982,6 +982,7 @@ paths:
         schema:
           type: string
       requestBody:
+        x-codegen-request-body-name: metadata
         required: true
         content:
           application/json:
@@ -1221,6 +1222,7 @@ paths:
         schema:
           type: string
       requestBody:
+        x-codegen-request-body-name: metadata
         required: true
         content:
           application/json:
@@ -1697,6 +1699,7 @@ paths:
         schema:
           type: string
       requestBody:
+        x-codegen-request-body-name: metadata
         required: true
         content:
           application/json:
@@ -2521,6 +2524,7 @@ paths:
         schema:
           type: string
       requestBody:
+        x-codegen-request-body-name: metadata
         required: true
         content:
           application/json:
@@ -3417,6 +3421,7 @@ paths:
         schema:
           type: string
       requestBody:
+        x-codegen-request-body-name: metadata
         required: true
         content:
           application/json:
@@ -3834,6 +3839,7 @@ paths:
         schema:
           type: string
       requestBody:
+        x-codegen-request-body-name: metadata
         required: true
         content:
           application/json:
