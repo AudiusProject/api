@@ -115,9 +115,9 @@ type DDEXRightsController struct {
 type CreateTrackRequest struct {
 	TrackId                      *string                    `json:"track_id,omitempty"`
 	Title                        string                     `json:"title" validate:"required,min=1"`
-	Genre                        string                     `json:"genre" validate:"required,min=1"`
+	Genre                        string                     `json:"genre" validate:"required,oneof='Electronic' 'Rock' 'Metal' 'Alternative' 'Hip-Hop/Rap' 'Experimental' 'Punk' 'Folk' 'Pop' 'Ambient' 'Soundtrack' 'World' 'Jazz' 'Acoustic' 'Funk' 'R&B/Soul' 'Devotional' 'Classical' 'Reggae' 'Podcasts' 'Country' 'Spoken Word' 'Comedy' 'Blues' 'Kids' 'Audiobooks' 'Latin' 'Lo-Fi' 'Hyperpop' 'Dancehall' 'Techno' 'Trap' 'House' 'Tech House' 'Deep House' 'Disco' 'Electro' 'Jungle' 'Progressive House' 'Hardstyle' 'Glitch Hop' 'Trance' 'Future Bass' 'Future House' 'Tropical House' 'Downtempo' 'Drum & Bass' 'Dubstep' 'Jersey Club' 'Vaporwave' 'Moombahton'"`
 	Description                  *string                    `json:"description,omitempty" validate:"omitempty,max=1000"`
-	Mood                         *string                    `json:"mood,omitempty"`
+	Mood                         *string                    `json:"mood,omitempty" validate:"omitempty,oneof='Peaceful' 'Romantic' 'Sentimental' 'Tender' 'Easygoing' 'Yearning' 'Sophisticated' 'Sensual' 'Cool' 'Gritty' 'Melancholy' 'Serious' 'Brooding' 'Fiery' 'Defiant' 'Aggressive' 'Rowdy' 'Excited' 'Energizing' 'Empowering' 'Stirring' 'Upbeat' 'Other'"`
 	Tags                         *string                    `json:"tags,omitempty"`
 	License                      *string                    `json:"license,omitempty"`
 	Isrc                         *string                    `json:"isrc,omitempty"`
@@ -157,8 +157,8 @@ type CreateTrackRequest struct {
 type UpdateTrackRequest struct {
 	Title                        *string                    `json:"title,omitempty" validate:"omitempty,min=1"`
 	Description                  *string                    `json:"description,omitempty" validate:"omitempty,max=1000"`
-	Genre                        *string                    `json:"genre,omitempty" validate:"omitempty,min=1"`
-	Mood                         *string                    `json:"mood,omitempty"`
+	Genre                        *string                    `json:"genre,omitempty" validate:"omitempty,oneof='Electronic' 'Rock' 'Metal' 'Alternative' 'Hip-Hop/Rap' 'Experimental' 'Punk' 'Folk' 'Pop' 'Ambient' 'Soundtrack' 'World' 'Jazz' 'Acoustic' 'Funk' 'R&B/Soul' 'Devotional' 'Classical' 'Reggae' 'Podcasts' 'Country' 'Spoken Word' 'Comedy' 'Blues' 'Kids' 'Audiobooks' 'Latin' 'Lo-Fi' 'Hyperpop' 'Dancehall' 'Techno' 'Trap' 'House' 'Tech House' 'Deep House' 'Disco' 'Electro' 'Jungle' 'Progressive House' 'Hardstyle' 'Glitch Hop' 'Trance' 'Future Bass' 'Future House' 'Tropical House' 'Downtempo' 'Drum & Bass' 'Dubstep' 'Jersey Club' 'Vaporwave' 'Moombahton'"`
+	Mood                         *string                    `json:"mood,omitempty" validate:"omitempty,oneof='Peaceful' 'Romantic' 'Sentimental' 'Tender' 'Easygoing' 'Yearning' 'Sophisticated' 'Sensual' 'Cool' 'Gritty' 'Melancholy' 'Serious' 'Brooding' 'Fiery' 'Defiant' 'Aggressive' 'Rowdy' 'Excited' 'Energizing' 'Empowering' 'Stirring' 'Upbeat' 'Other'"`
 	Tags                         *string                    `json:"tags,omitempty"`
 	License                      *string                    `json:"license,omitempty"`
 	Isrc                         *string                    `json:"isrc,omitempty"`

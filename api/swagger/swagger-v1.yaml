@@ -155,12 +155,19 @@ paths:
       security:
       - BasicAuth: []
       - BearerAuth: []
+      parameters:
+      - name: user_id
+        in: query
+        description: The user ID of the user making the request
+        required: true
+        schema:
+          type: string
       requestBody:
         required: true
         content:
           application/json:
             schema:
-              $ref: '#/components/schemas/create_comment_request'
+              $ref: '#/components/schemas/create_comment_request_body'
       responses:
         "201":
           description: Comment created successfully
@@ -215,12 +222,18 @@ paths:
         required: true
         schema:
           type: string
+      - name: user_id
+        in: query
+        description: The user ID of the user making the request
+        required: true
+        schema:
+          type: string
       requestBody:
         required: true
         content:
           application/json:
             schema:
-              $ref: '#/components/schemas/update_comment_request'
+              $ref: '#/components/schemas/update_comment_request_body'
       responses:
         "200":
           description: Comment updated successfully
@@ -249,6 +262,12 @@ paths:
       - name: comment_id
         in: path
         description: A Comment ID
+        required: true
+        schema:
+          type: string
+      - name: user_id
+        in: query
+        description: The user ID of the user making the request
         required: true
         schema:
           type: string
@@ -284,6 +303,12 @@ paths:
         required: true
         schema:
           type: string
+      - name: user_id
+        in: query
+        description: The user ID of the user making the request
+        required: true
+        schema:
+          type: string
       responses:
         "200":
           description: Comment reacted successfully
@@ -312,6 +337,12 @@ paths:
       - name: comment_id
         in: path
         description: A Comment ID
+        required: true
+        schema:
+          type: string
+      - name: user_id
+        in: query
+        description: The user ID of the user making the request
         required: true
         schema:
           type: string
@@ -347,6 +378,12 @@ paths:
         required: true
         schema:
           type: string
+      - name: user_id
+        in: query
+        description: The user ID of the user making the request
+        required: true
+        schema:
+          type: string
       responses:
         "200":
           description: Comment pinned successfully
@@ -375,6 +412,12 @@ paths:
       - name: comment_id
         in: path
         description: A Comment ID
+        required: true
+        schema:
+          type: string
+      - name: user_id
+        in: query
+        description: The user ID of the user making the request
         required: true
         schema:
           type: string
@@ -407,6 +450,12 @@ paths:
       - name: comment_id
         in: path
         description: A Comment ID
+        required: true
+        schema:
+          type: string
+      - name: user_id
+        in: query
+        description: The user ID of the user making the request
         required: true
         schema:
           type: string
@@ -477,12 +526,19 @@ paths:
       security:
       - BasicAuth: []
       - BearerAuth: []
+      parameters:
+      - name: user_id
+        in: query
+        description: The user ID of the user making the request
+        required: true
+        schema:
+          type: string
       requestBody:
         required: true
         content:
           application/json:
             schema:
-              $ref: '#/components/schemas/create_developer_app_request'
+              $ref: '#/components/schemas/create_developer_app_request_body'
       responses:
         "201":
           description: Developer app created successfully
@@ -504,7 +560,7 @@ paths:
       tags:
       - developer_apps
       description: Gets developer app matching given address (API key)
-      operationId: Get Developer App By API Key
+      operationId: Get Developer App
       parameters:
       - name: address
         in: path
@@ -543,12 +599,18 @@ paths:
         required: true
         schema:
           type: string
+      - name: user_id
+        in: query
+        description: The user ID of the user making the request
+        required: true
+        schema:
+          type: string
       requestBody:
         required: true
         content:
           application/json:
             schema:
-              $ref: '#/components/schemas/update_developer_app_request'
+              $ref: '#/components/schemas/update_developer_app_request_body'
       responses:
         "200":
           description: Developer app updated successfully
@@ -580,6 +642,12 @@ paths:
       - name: address
         in: path
         description: Developer app address
+        required: true
+        schema:
+          type: string
+      - name: user_id
+        in: query
+        description: The user ID of the user making the request
         required: true
         schema:
           type: string
@@ -906,12 +974,19 @@ paths:
       security:
         - BasicAuth: []
         - BearerAuth: []
+      parameters:
+      - name: user_id
+        in: query
+        description: The user ID of the user making the request
+        required: true
+        schema:
+          type: string
       requestBody:
         required: true
         content:
           application/json:
             schema:
-              $ref: '#/components/schemas/create_playlist_request'
+              $ref: '#/components/schemas/create_playlist_request_body'
       responses:
         "201":
           description: Playlist created successfully
@@ -1139,12 +1214,18 @@ paths:
         required: true
         schema:
           type: string
+      - name: user_id
+        in: query
+        description: The user ID of the user making the request
+        required: true
+        schema:
+          type: string
       requestBody:
         required: true
         content:
           application/json:
             schema:
-              $ref: '#/components/schemas/update_playlist_request'
+              $ref: '#/components/schemas/update_playlist_request_body'
       responses:
         "200":
           description: Playlist updated successfully
@@ -1176,6 +1257,12 @@ paths:
       - name: playlist_id
         in: path
         description: A Playlist ID
+        required: true
+        schema:
+          type: string
+      - name: user_id
+        in: query
+        description: The user ID of the user making the request
         required: true
         schema:
           type: string
@@ -1263,6 +1350,12 @@ paths:
         required: true
         schema:
           type: string
+      - name: user_id
+        in: query
+        description: The user ID of the user making the request
+        required: true
+        schema:
+          type: string
       responses:
         "200":
           description: Playlist favorited successfully
@@ -1291,6 +1384,12 @@ paths:
       - name: playlist_id
         in: path
         description: A Playlist ID
+        required: true
+        schema:
+          type: string
+      - name: user_id
+        in: query
+        description: The user ID of the user making the request
         required: true
         schema:
           type: string
@@ -1326,6 +1425,12 @@ paths:
         required: true
         schema:
           type: string
+      - name: user_id
+        in: query
+        description: The user ID of the user making the request
+        required: true
+        schema:
+          type: string
       responses:
         "200":
           description: Playlist reposted successfully
@@ -1354,6 +1459,12 @@ paths:
       - name: playlist_id
         in: path
         description: A Playlist ID
+        required: true
+        schema:
+          type: string
+      - name: user_id
+        in: query
+        description: The user ID of the user making the request
         required: true
         schema:
           type: string
@@ -1386,6 +1497,12 @@ paths:
       - name: playlist_id
         in: path
         description: A Playlist ID
+        required: true
+        schema:
+          type: string
+      - name: user_id
+        in: query
+        description: The user ID of the user making the request
         required: true
         schema:
           type: string
@@ -1572,12 +1689,19 @@ paths:
       security:
         - BasicAuth: []
         - BearerAuth: []
+      parameters:
+      - name: user_id
+        in: query
+        description: The user ID of the user making the request
+        required: true
+        schema:
+          type: string
       requestBody:
         required: true
         content:
           application/json:
             schema:
-              $ref: '#/components/schemas/create_track_request'
+              $ref: '#/components/schemas/create_track_request_body'
       responses:
         "201":
           description: Track created successfully
@@ -2390,12 +2514,18 @@ paths:
         required: true
         schema:
           type: string
+      - name: user_id
+        in: query
+        description: The user ID of the user making the request
+        required: true
+        schema:
+          type: string
       requestBody:
         required: true
         content:
           application/json:
             schema:
-              $ref: '#/components/schemas/update_track_request'
+              $ref: '#/components/schemas/update_track_request_body'
       responses:
         "200":
           description: Track updated successfully
@@ -2427,6 +2557,12 @@ paths:
       - name: track_id
         in: path
         description: A Track ID
+        required: true
+        schema:
+          type: string
+      - name: user_id
+        in: query
+        description: The user ID of the user making the request
         required: true
         schema:
           type: string
@@ -2643,6 +2779,12 @@ paths:
         required: true
         schema:
           type: string
+      - name: user_id
+        in: query
+        description: The user ID of the user making the request
+        required: true
+        schema:
+          type: string
       responses:
         "200":
           description: Track favorited successfully
@@ -2671,6 +2813,12 @@ paths:
       - name: track_id
         in: path
         description: A Track ID
+        required: true
+        schema:
+          type: string
+      - name: user_id
+        in: query
+        description: The user ID of the user making the request
         required: true
         schema:
           type: string
@@ -2839,6 +2987,12 @@ paths:
         required: true
         schema:
           type: string
+      - name: user_id
+        in: query
+        description: The user ID of the user making the request
+        required: true
+        schema:
+          type: string
       responses:
         "200":
           description: Track reposted successfully
@@ -2867,6 +3021,12 @@ paths:
       - name: track_id
         in: path
         description: A Track ID
+        required: true
+        schema:
+          type: string
+      - name: user_id
+        in: query
+        description: The user ID of the user making the request
         required: true
         schema:
           type: string
@@ -3052,7 +3212,7 @@ paths:
         content:
           application/json:
             schema:
-              $ref: '#/components/schemas/track_download_request'
+              $ref: '#/components/schemas/track_download_request_body'
       responses:
         "200":
           description: Track download recorded successfully
@@ -3243,12 +3403,19 @@ paths:
       security:
         - BasicAuth: []
         - BearerAuth: []
+      parameters:
+      - name: user_id
+        in: query
+        description: The user ID of the user making the request
+        required: true
+        schema:
+          type: string
       requestBody:
         required: true
         content:
           application/json:
             schema:
-              $ref: '#/components/schemas/create_user_request'
+              $ref: '#/components/schemas/create_user_request_body'
       responses:
         "201":
           description: User created successfully
@@ -3654,12 +3821,18 @@ paths:
         required: true
         schema:
           type: string
+      - name: user_id
+        in: query
+        description: The user ID of the user making the request
+        required: true
+        schema:
+          type: string
       requestBody:
         required: true
         content:
           application/json:
             schema:
-              $ref: '#/components/schemas/update_user_request'
+              $ref: '#/components/schemas/update_user_request_body'
       responses:
         "200":
           description: User updated successfully
@@ -3775,7 +3948,6 @@ paths:
     get:
       tags:
       - users
-      - developer_apps
       description: Get developer apps for the user (Plans API). Requires OAuth.
       operationId: Get User Developer Apps
       parameters:
@@ -3808,7 +3980,6 @@ paths:
     post:
       tags:
       - users
-      - developer_apps
       description: Create a new developer app (Plans API). Requires OAuth Bearer token with plans app grant.
       operationId: Create User Developer App
       security:
@@ -3826,7 +3997,7 @@ paths:
         content:
           application/json:
             schema:
-              $ref: '#/components/schemas/create_user_developer_app_request'
+              $ref: '#/components/schemas/create_user_developer_app_request_body'
       responses:
         "200":
           description: Developer app created successfully
@@ -3847,7 +4018,6 @@ paths:
     delete:
       tags:
       - users
-      - developer_apps
       description: Delete a developer app (Plans API). Requires OAuth Bearer token with plans app grant.
       operationId: Delete User Developer App
       security:
@@ -3886,7 +4056,6 @@ paths:
     post:
       tags:
       - users
-      - developer_apps
       description: Deactivate a bearer token (API access key) for a developer app (Plans API). Requires OAuth Bearer token with plans app grant. The deactivated token will no longer authenticate requests.
       operationId: Deactivate User Developer App Access Key
       security:
@@ -3910,7 +4079,7 @@ paths:
         content:
           application/json:
             schema:
-              $ref: '#/components/schemas/deactivate_access_key_request'
+              $ref: '#/components/schemas/deactivate_access_key_request_body'
       responses:
         "200":
           description: Access key deactivated successfully
@@ -3934,7 +4103,6 @@ paths:
     post:
       tags:
       - users
-      - developer_apps
       description: Create a new bearer token (API access key) for a developer app (Plans API). Requires OAuth Bearer token with plans app grant.
       operationId: Create User Developer App Access Key
       security:
@@ -4351,6 +4519,12 @@ paths:
         required: true
         schema:
           type: string
+      - name: user_id
+        in: query
+        description: The user ID of the user making the request
+        required: true
+        schema:
+          type: string
       responses:
         "200":
           description: User followed successfully
@@ -4379,6 +4553,12 @@ paths:
       - name: id
         in: path
         description: A User ID
+        required: true
+        schema:
+          type: string
+      - name: user_id
+        in: query
+        description: The user ID of the user making the request
         required: true
         schema:
           type: string
@@ -4612,6 +4792,12 @@ paths:
         required: true
         schema:
           type: string
+      - name: user_id
+        in: query
+        description: The user ID of the user making the request
+        required: true
+        schema:
+          type: string
       responses:
         "200":
           description: User muted successfully
@@ -4640,6 +4826,12 @@ paths:
       - name: id
         in: path
         description: A User ID
+        required: true
+        schema:
+          type: string
+      - name: user_id
+        in: query
+        description: The user ID of the user making the request
         required: true
         schema:
           type: string
@@ -5220,6 +5412,12 @@ paths:
         required: true
         schema:
           type: string
+      - name: user_id
+        in: query
+        description: The user ID of the user making the request
+        required: true
+        schema:
+          type: string
       responses:
         "200":
           description: Subscribed successfully
@@ -5248,6 +5446,12 @@ paths:
       - name: id
         in: path
         description: A User ID
+        required: true
+        schema:
+          type: string
+      - name: user_id
+        in: query
+        description: The user ID of the user making the request
         required: true
         schema:
           type: string
@@ -5770,7 +5974,7 @@ paths:
         content:
           application/json:
             schema:
-              $ref: '#/components/schemas/create_coin_request'
+              $ref: '#/components/schemas/create_coin_request_body'
       responses:
         '201':
           description: Success - Coin created
@@ -5833,7 +6037,7 @@ paths:
         content:
           application/json:
             schema:
-              $ref: '#/components/schemas/update_coin_request'
+              $ref: '#/components/schemas/update_coin_request_body'
       responses:
         '200':
           description: Success - Coin updated
@@ -6158,7 +6362,7 @@ paths:
         content:
           application/json:
             schema:
-              $ref: '#/components/schemas/claim_rewards_request'
+              $ref: '#/components/schemas/claim_rewards_request_body'
       responses:
         "200":
           description: Success
@@ -6183,7 +6387,7 @@ paths:
         content:
           application/json:
             schema:
-              $ref: '#/components/schemas/create_reward_code_request'
+              $ref: '#/components/schemas/create_reward_code_request_body'
       responses:
         "201":
           description: Created - Reward code successfully created
@@ -6227,7 +6431,7 @@ paths:
         content:
           application/json:
             schema:
-              $ref: '#/components/schemas/prize_claim_request'
+              $ref: '#/components/schemas/prize_claim_request_body'
       responses:
         "200":
           description: Success - Prize claimed
@@ -7442,7 +7646,7 @@ components:
         entity_id:
           type: string
         entity_type:
-          type: string
+          $ref: '#/components/schemas/comment_entity_type'
         user_id:
           type: string
         message:
@@ -7504,7 +7708,7 @@ components:
         entity_id:
           type: string
         entity_type:
-          type: string
+          $ref: '#/components/schemas/comment_entity_type'
         user_id:
           type: string
         message:
@@ -8521,7 +8725,7 @@ components:
           type: array
           items:
             $ref: '#/components/schemas/coin'
-    create_coin_request:
+    create_coin_request_body:
       type: object
       required:
         - mint
@@ -8646,7 +8850,7 @@ components:
               format: date-time
               description: The date and time when the coin was created
               example: "2024-01-15T10:30:00Z"
-    update_coin_request:
+    update_coin_request_body:
       type: object
       description: Request body for updating coin information
       properties:
@@ -9254,7 +9458,7 @@ components:
                 type: string
                 description: Error message if claim failed
                 example: "Insufficient balance"
-    claim_rewards_request:
+    claim_rewards_request_body:
       type: object
       required:
         - userId
@@ -9304,7 +9508,7 @@ components:
           enum:
             - used
             - invalid
-    create_reward_code_request:
+    create_reward_code_request_body:
       type: object
       required:
         - signature
@@ -9348,7 +9552,7 @@ components:
           type: integer
           description: The reward amount
           example: 100
-    prize_claim_request:
+    prize_claim_request_body:
       type: object
       required:
         - signature
@@ -9548,7 +9752,7 @@ components:
         comment_id:
           type: string
           description: The ID of the created comment
-    create_track_request:
+    create_track_request_body:
       type: object
       required:
         - title
@@ -9563,16 +9767,13 @@ components:
           description: Track title
           example: "My New Track"
         genre:
-          type: string
-          description: Track genre
-          example: "Electronic"
+          $ref: '#/components/schemas/genre'
         description:
           type: string
           description: Track description
           maxLength: 1000
         mood:
-          type: string
-          description: Track mood
+          $ref: '#/components/schemas/mood'
         tags:
           type: string
           description: Comma-separated tags
@@ -9619,7 +9820,7 @@ components:
         parental_warning_type:
           type: string
           description: Parental warning type
-    update_track_request:
+    update_track_request_body:
       type: object
       description: Request body for updating track information. All fields are optional.
       properties:
@@ -9631,11 +9832,9 @@ components:
           description: Track description
           maxLength: 5000
         genre:
-          type: string
-          description: Track genre
+          $ref: '#/components/schemas/genre'
         mood:
-          type: string
-          description: Track mood
+          $ref: '#/components/schemas/mood'
         tags:
           type: string
           description: Comma-separated tags
@@ -9656,7 +9855,7 @@ components:
           type: string
           description: URL for track artwork
           format: uri
-    create_playlist_request:
+    create_playlist_request_body:
       type: object
       required:
         - playlist_name
@@ -9679,11 +9878,9 @@ components:
           type: boolean
           description: Whether this is an album
         genre:
-          type: string
-          description: Playlist genre
+          $ref: '#/components/schemas/genre'
         mood:
-          type: string
-          description: Playlist mood
+          $ref: '#/components/schemas/mood'
         tags:
           type: string
           description: Comma-separated tags
@@ -9695,6 +9892,7 @@ components:
           description: Universal Product Code (for albums)
         release_date:
           type: string
+          format: date
           description: Release date
         cover_art_cid:
           type: string
@@ -9713,7 +9911,7 @@ components:
         is_image_autogenerated:
           type: boolean
           description: Whether the image is autogenerated
-    update_playlist_request:
+    update_playlist_request_body:
       type: object
       description: Request body for updating playlist information. All fields are optional.
       properties:
@@ -9731,22 +9929,14 @@ components:
           type: array
           description: Array of track IDs to include in the playlist
           items:
-            type: object
-            properties:
-              track_id:
-                type: string
-                description: Track ID to add
-              timestamp:
-                type: integer
-                description: Unix timestamp when track was added
-        artwork_url:
+            $ref: '#/components/schemas/playlist_added_timestamp'
+        cover_art_cid:
           type: string
-          description: URL for playlist artwork
-          format: uri
+          description: IPFS CID for cover art
         upc:
           type: string
           description: Universal Product Code (for albums)
-    create_user_request:
+    create_user_request_body:
       type: object
       required:
         - handle
@@ -9813,7 +10003,7 @@ components:
         spl_usdc_payout_wallet:
           type: string
           description: Solana USDC payout wallet address
-    update_user_request:
+    update_user_request_body:
       type: object
       description: Request body for updating user profile. All fields are optional.
       properties:
@@ -9875,7 +10065,7 @@ components:
         coin_flair_mint:
           type: string
           description: Coin flair mint address
-    update_comment_request:
+    update_comment_request_body:
       type: object
       required:
         - body
@@ -9883,7 +10073,7 @@ components:
         body:
           type: string
           description: The updated comment text
-    create_comment_request:
+    create_comment_request_body:
       type: object
       required:
         - entityType
@@ -9891,8 +10081,8 @@ components:
         - body
       properties:
         entityType:
-          type: string
-          description: Type of entity being commented on
+          allOf:
+            - $ref: '#/components/schemas/comment_entity_type'
           example: "Track"
         entityId:
           type: string
@@ -9908,7 +10098,7 @@ components:
         parentId:
           type: integer
           description: Parent comment ID if this is a reply
-    create_developer_app_request:
+    create_developer_app_request_body:
       type: object
       required:
         - name
@@ -9938,7 +10128,7 @@ components:
             signature:
               type: string
               description: Signature
-    update_developer_app_request:
+    update_developer_app_request_body:
       type: object
       required:
         - name
@@ -9954,7 +10144,7 @@ components:
         imageUrl:
           type: string
           description: App logo/image URL (camelCase)
-    create_user_developer_app_request:
+    create_user_developer_app_request_body:
       type: object
       required:
         - name
@@ -9963,7 +10153,7 @@ components:
           type: string
           description: Developer app name (Plans API create)
           example: "My API Key"
-    deactivate_access_key_request:
+    deactivate_access_key_request_body:
       type: object
       required:
         - api_access_key
@@ -9979,7 +10169,7 @@ components:
         api_access_key:
           type: string
           description: The newly created bearer token (API access key)
-    track_download_request:
+    track_download_request_body:
       type: object
       properties:
         city:
@@ -10016,6 +10206,93 @@ components:
         success:
           type: boolean
           description: Whether the deactivation was successful
+    comment_entity_type:
+      type: string
+      description: Type of entity that can be commented on
+      enum:
+        - Track
+    genre:
+      type: string
+      description: Music genre
+      enum:
+        - Electronic
+        - Rock
+        - Metal
+        - Alternative
+        - Hip-Hop/Rap
+        - Experimental
+        - Punk
+        - Folk
+        - Pop
+        - Ambient
+        - Soundtrack
+        - World
+        - Jazz
+        - Acoustic
+        - Funk
+        - R&B/Soul
+        - Devotional
+        - Classical
+        - Reggae
+        - Podcasts
+        - Country
+        - Spoken Word
+        - Comedy
+        - Blues
+        - Kids
+        - Audiobooks
+        - Latin
+        - Lo-Fi
+        - Hyperpop
+        - Dancehall
+        - Techno
+        - Trap
+        - House
+        - Tech House
+        - Deep House
+        - Disco
+        - Electro
+        - Jungle
+        - Progressive House
+        - Hardstyle
+        - Glitch Hop
+        - Trance
+        - Future Bass
+        - Future House
+        - Tropical House
+        - Downtempo
+        - Drum & Bass
+        - Dubstep
+        - Jersey Club
+        - Vaporwave
+        - Moombahton
+    mood:
+      type: string
+      description: Music mood
+      enum:
+        - Peaceful
+        - Romantic
+        - Sentimental
+        - Tender
+        - Easygoing
+        - Yearning
+        - Sophisticated
+        - Sensual
+        - Cool
+        - Gritty
+        - Melancholy
+        - Serious
+        - Brooding
+        - Fiery
+        - Defiant
+        - Aggressive
+        - Rowdy
+        - Excited
+        - Energizing
+        - Empowering
+        - Stirring
+        - Upbeat
+        - Other
   responses:
     ParseError:
       description: When a mask can't be parsed
