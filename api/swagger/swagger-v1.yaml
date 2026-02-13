@@ -1494,6 +1494,12 @@ paths:
         required: true
         schema:
           type: string
+      - name: user_id
+        in: query
+        description: The user ID of the user making the request
+        required: true
+        schema:
+          type: string
       responses:
         "200":
           description: Playlist share recorded successfully
