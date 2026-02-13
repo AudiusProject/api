@@ -18,7 +18,7 @@ import (
 // Nested type definitions for track metadata
 
 type RemixParent struct {
-	ParentTrackId string `json:"parent_track_id" validate:"required"`
+	ParentTrackId int `json:"parent_track_id" validate:"required,min=1"`
 }
 
 type RemixOf struct {
@@ -27,7 +27,7 @@ type RemixOf struct {
 
 type StemOf struct {
 	Category      string `json:"category" validate:"required,oneof=INSTRUMENTAL LEAD_VOCALS MELODIC_LEAD PAD SNARE KICK HIHAT PERCUSSION SAMPLE BACKING_VOX BASS OTHER"`
-	ParentTrackId string `json:"parent_track_id" validate:"required"`
+	ParentTrackId int    `json:"parent_track_id" validate:"required,min=1"`
 }
 
 type FieldVisibility struct {
