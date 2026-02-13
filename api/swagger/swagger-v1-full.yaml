@@ -6553,7 +6553,7 @@ components:
         entity_id:
           type: string
         entity_type:
-          type: string
+          $ref: '#/components/schemas/comment_entity_type'
         user_id:
           type: string
         message:
@@ -6615,7 +6615,7 @@ components:
         entity_id:
           type: string
         entity_type:
-          type: string
+          $ref: '#/components/schemas/comment_entity_type'
         user_id:
           type: string
         message:
@@ -11553,6 +11553,11 @@ components:
           type: integer
           description: The reward amount
           example: 100
+    comment_entity_type:
+      type: string
+      description: Type of entity that can be commented on
+      enum:
+        - Track
   responses:
     ParseError:
       description: When a mask can't be parsed
