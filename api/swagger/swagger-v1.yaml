@@ -8092,6 +8092,21 @@ components:
           type: integer
         orig_filename:
           type: string
+    stem_category:
+      type: string
+      enum:
+        - INSTRUMENTAL
+        - LEAD_VOCALS
+        - MELODIC_LEAD
+        - PAD
+        - SNARE
+        - KICK
+        - HIHAT
+        - PERCUSSION
+        - SAMPLE
+        - BACKING_VOX
+        - BASS
+        - OTHER
     stem_parent:
       required:
       - category
@@ -8099,7 +8114,7 @@ components:
       type: object
       properties:
         category:
-          type: string
+          $ref: '#/components/schemas/stem_category'
         parent_track_id:
           type: integer
     undisbursed_challenges:
