@@ -163,6 +163,7 @@ paths:
         schema:
           type: string
       requestBody:
+        x-codegen-request-body-name: metadata
         required: true
         content:
           application/json:
@@ -229,6 +230,7 @@ paths:
         schema:
           type: string
       requestBody:
+        x-codegen-request-body-name: metadata
         required: true
         content:
           application/json:
@@ -534,6 +536,7 @@ paths:
         schema:
           type: string
       requestBody:
+        x-codegen-request-body-name: metadata
         required: true
         content:
           application/json:
@@ -606,6 +609,7 @@ paths:
         schema:
           type: string
       requestBody:
+        x-codegen-request-body-name: metadata
         required: true
         content:
           application/json:
@@ -3219,6 +3223,7 @@ paths:
         schema:
           type: string
       requestBody:
+        x-codegen-request-body-name: location
         content:
           application/json:
             schema:
@@ -4005,6 +4010,7 @@ paths:
         schema:
           type: string
       requestBody:
+        x-codegen-request-body-name: metadata
         required: true
         content:
           application/json:
@@ -4087,6 +4093,7 @@ paths:
         schema:
           type: string
       requestBody:
+        x-codegen-request-body-name: metadata
         required: true
         content:
           application/json:
@@ -5982,6 +5989,7 @@ paths:
           type: string
           example: "7eP5n"
       requestBody:
+        x-codegen-request-body-name: metadata
         required: true
         content:
           application/json:
@@ -6045,6 +6053,7 @@ paths:
           type: string
           example: "7eP5n"
       requestBody:
+        x-codegen-request-body-name: metadata
         required: true
         content:
           application/json:
@@ -6370,6 +6379,7 @@ paths:
       description: Claims all the filtered undisbursed rewards for a user
       operationId: Claim Rewards
       requestBody:
+        x-codegen-request-body-name: reward
         required: true
         content:
           application/json:
@@ -6395,7 +6405,7 @@ paths:
       description: Creates a new reward code with Solana signature verification
       operationId: Create Reward Code
       requestBody:
-        required: true
+        x-codegen-request-body-name: body
         content:
           application/json:
             schema:
@@ -6439,6 +6449,7 @@ paths:
       operationId: Claim Prize
       description: 'Claims a prize by verifying a Solana transaction. User must send exactly 2 YAK to the prize receiver address. Returns the prize won and any redeem codes/URLs.'
       requestBody:
+        x-codegen-request-body-name: claim
         required: true
         content:
           application/json:
