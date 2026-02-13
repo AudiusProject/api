@@ -6897,6 +6897,13 @@ components:
           type: array
           items:
             $ref: '#/components/schemas/track_element'
+    remix_parent_write:
+      type: object
+      properties:
+        tracks:
+          type: array
+          items:
+            $ref: '#/components/schemas/track_element_write'
     track_element:
       required:
       - parent_track_id
@@ -6904,6 +6911,13 @@ components:
       properties:
         parent_track_id:
           type: string
+    track_element_write:
+      required:
+      - parent_track_id
+      type: object
+      properties:
+        parent_track_id:
+          type: integer
     album_backlink:
       required:
       - permalink
@@ -8107,6 +8121,16 @@ components:
           type: integer
         orig_filename:
           type: string
+    stem_parent:
+      required:
+      - category
+      - parent_track_id
+      type: object
+      properties:
+        category:
+          type: string
+        parent_track_id:
+          type: integer
     undisbursed_challenges:
       type: object
       properties:
@@ -9832,6 +9856,10 @@ components:
         placement_hosts:
           type: string
           description: Placement hosts for the track
+        stem_of:
+          $ref: '#/components/schemas/stem_parent'
+        remix_of:
+          $ref: '#/components/schemas/remix_parent_write'
         ddex_app:
           type: string
           description: DDEX application identifier
@@ -9920,6 +9948,10 @@ components:
         placement_hosts:
           type: string
           description: Placement hosts for the track
+        stem_of:
+          $ref: '#/components/schemas/stem_parent'
+        remix_of:
+          $ref: '#/components/schemas/remix_parent_write'
         ddex_app:
           type: string
           description: DDEX application identifier
