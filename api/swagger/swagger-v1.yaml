@@ -7820,7 +7820,6 @@ components:
       - $ref: '#/components/schemas/tip_gate'
       - $ref: '#/components/schemas/follow_gate'
       - $ref: '#/components/schemas/extended_purchase_gate'
-      - $ref: '#/components/schemas/nft_gate'
       - $ref: '#/components/schemas/token_gate'
     tip_gate:
       required:
@@ -7900,16 +7899,6 @@ components:
           type: string
         amount:
           type: integer
-    nft_gate:
-      required:
-      - nft_collection
-      type: object
-      properties:
-        nft_collection:
-          type: object
-          description: Must hold an NFT of the given collection to unlock
-          allOf:
-          - $ref: '#/components/schemas/nft_collection'
     media_link:
       type: object
       properties:
@@ -7924,35 +7913,7 @@ components:
       - $ref: '#/components/schemas/tip_gate'
       - $ref: '#/components/schemas/follow_gate'
       - $ref: '#/components/schemas/extended_purchase_gate'
-      - $ref: '#/components/schemas/nft_gate'
       - $ref: '#/components/schemas/token_gate'
-    nft_collection:
-      required:
-      - address
-      - chain
-      - name
-      type: object
-      properties:
-        chain:
-          type: string
-          example: eth
-          enum:
-          - eth
-          - sol
-        standard:
-          type: string
-          example: ERC721
-          enum:
-          - ERC721
-          - ERC1155
-        address:
-          type: string
-        name:
-          type: string
-        imageUrl:
-          type: string
-        externalLink:
-          type: string
     track_response:
       type: object
       properties:
