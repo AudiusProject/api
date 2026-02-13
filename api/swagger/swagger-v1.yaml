@@ -9871,11 +9871,9 @@ components:
           type: boolean
           description: Whether this is an album
         genre:
-          type: string
-          description: Playlist genre
+          $ref: '#/components/schemas/genre'
         mood:
-          type: string
-          description: Playlist mood
+          $ref: '#/components/schemas/mood'
         tags:
           type: string
           description: Comma-separated tags
@@ -9887,6 +9885,7 @@ components:
           description: Universal Product Code (for albums)
         release_date:
           type: string
+          format: date
           description: Release date
         cover_art_cid:
           type: string
@@ -9923,14 +9922,7 @@ components:
           type: array
           description: Array of track IDs to include in the playlist
           items:
-            type: object
-            properties:
-              track_id:
-                type: string
-                description: Track ID to add
-              timestamp:
-                type: integer
-                description: Unix timestamp when track was added
+            $ref: '#/components/schemas/playlist_added_timestamp'
         artwork_url:
           type: string
           description: URL for playlist artwork
