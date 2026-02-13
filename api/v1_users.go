@@ -27,7 +27,7 @@ type PlaylistLibrary struct {
 }
 
 type CreateUserRequest struct {
-	UserId              *string `json:"user_id,omitempty"`
+	UserId              *int    `json:"user_id,omitempty" validate:"omitempty,min=1"`
 	Handle              string  `json:"handle" validate:"required,min=1"`
 	Wallet              string  `json:"wallet" validate:"required"`
 	Name                *string `json:"name,omitempty" validate:"omitempty,min=1"`
@@ -106,16 +106,16 @@ func (app *ApiServer) postV1Users(c *fiber.Ctx) error {
 	// Determine user ID
 	var userID int
 	if req.UserId != nil {
-		decodedID, err := trashid.DecodeHashId(*req.UserId)
+		userID = *req.UserId
+	} else {
+		// Generate unclaimed user ID if not provided
+		generatedID, err := app.generateUnclaimedId(c.Context(), "users", "user_id", 3_000_000, 999_999_999)
 		if err != nil {
-			return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
-				"error": "Invalid user_id: " + err.Error(),
+			return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{
+				"error": "Failed to generate user ID: " + err.Error(),
 			})
 		}
-		userID = decodedID
-	} else {
-		// Generate user ID from timestamp if not provided
-		userID = int(time.Now().UnixNano() % 1000000000)
+		userID = generatedID
 	}
 
 	// Convert struct to map for metadata
