@@ -560,7 +560,7 @@ paths:
       tags:
       - developer_apps
       description: Gets developer app matching given address (API key)
-      operationId: Get Developer App By API Key
+      operationId: Get Developer App
       parameters:
       - name: address
         in: path
@@ -3948,7 +3948,6 @@ paths:
     get:
       tags:
       - users
-      - developer_apps
       description: Get developer apps for the user (Plans API). Requires OAuth.
       operationId: Get User Developer Apps
       parameters:
@@ -3981,7 +3980,6 @@ paths:
     post:
       tags:
       - users
-      - developer_apps
       description: Create a new developer app (Plans API). Requires OAuth Bearer token with plans app grant.
       operationId: Create User Developer App
       security:
@@ -4020,7 +4018,6 @@ paths:
     delete:
       tags:
       - users
-      - developer_apps
       description: Delete a developer app (Plans API). Requires OAuth Bearer token with plans app grant.
       operationId: Delete User Developer App
       security:
@@ -4059,7 +4056,6 @@ paths:
     post:
       tags:
       - users
-      - developer_apps
       description: Deactivate a bearer token (API access key) for a developer app (Plans API). Requires OAuth Bearer token with plans app grant. The deactivated token will no longer authenticate requests.
       operationId: Deactivate User Developer App Access Key
       security:
@@ -4107,7 +4103,6 @@ paths:
     post:
       tags:
       - users
-      - developer_apps
       description: Create a new bearer token (API access key) for a developer app (Plans API). Requires OAuth Bearer token with plans app grant.
       operationId: Create User Developer App Access Key
       security:
