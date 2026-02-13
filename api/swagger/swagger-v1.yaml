@@ -10161,6 +10161,56 @@ components:
         spl_usdc_payout_wallet:
           type: string
           description: Solana USDC payout wallet address
+        playlist_library:
+          type: object
+          description: User's playlist library with support for folders and playlists
+          properties:
+            contents:
+              type: array
+              description: Array of folders and playlist identifiers
+              items:
+                oneOf:
+                  - type: object
+                    description: Folder containing nested playlists and folders
+                    required:
+                      - id
+                      - type
+                      - name
+                      - contents
+                    properties:
+                      id:
+                        type: string
+                      type:
+                        type: string
+                        enum: [folder]
+                      name:
+                        type: string
+                      contents:
+                        type: array
+                        items: {}
+                  - type: object
+                    description: Playlist identifier
+                    required:
+                      - type
+                      - playlist_id
+                    properties:
+                      type:
+                        type: string
+                        enum: [playlist]
+                      playlist_id:
+                        type: integer
+                        minimum: 1
+                  - type: object
+                    description: Explore playlist identifier
+                    required:
+                      - type
+                      - playlist_id
+                    properties:
+                      type:
+                        type: string
+                        enum: [explore_playlist]
+                      playlist_id:
+                        type: string
         events:
           type: object
           description: User events for tracking referrals and mobile users
@@ -10223,8 +10273,9 @@ components:
           type: boolean
           description: Whether the user is deactivated
         artist_pick_track_id:
-          type: string
+          type: integer
           description: Track ID to feature as artist pick
+          minimum: 1
         allow_ai_attribution:
           type: boolean
           description: Whether to allow AI attribution
@@ -10234,6 +10285,56 @@ components:
         coin_flair_mint:
           type: string
           description: Coin flair mint address
+        playlist_library:
+          type: object
+          description: User's playlist library with support for folders and playlists
+          properties:
+            contents:
+              type: array
+              description: Array of folders and playlist identifiers
+              items:
+                oneOf:
+                  - type: object
+                    description: Folder containing nested playlists and folders
+                    required:
+                      - id
+                      - type
+                      - name
+                      - contents
+                    properties:
+                      id:
+                        type: string
+                      type:
+                        type: string
+                        enum: [folder]
+                      name:
+                        type: string
+                      contents:
+                        type: array
+                        items: {}
+                  - type: object
+                    description: Playlist identifier
+                    required:
+                      - type
+                      - playlist_id
+                    properties:
+                      type:
+                        type: string
+                        enum: [playlist]
+                      playlist_id:
+                        type: integer
+                        minimum: 1
+                  - type: object
+                    description: Explore playlist identifier
+                    required:
+                      - type
+                      - playlist_id
+                    properties:
+                      type:
+                        type: string
+                        enum: [explore_playlist]
+                      playlist_id:
+                        type: string
         events:
           type: object
           description: User events for tracking referrals and mobile users

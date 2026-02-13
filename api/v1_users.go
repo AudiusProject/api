@@ -16,14 +16,11 @@ import (
 )
 
 // PlaylistLibraryItem represents an item in the user's playlist library
-type PlaylistLibraryItem struct {
-	Type          string  `json:"type" validate:"required,oneof=playlist album explore_playlist temp_playlist"`
-	PlaylistId    *string `json:"playlist_id,omitempty"`
-	ContentListId *string `json:"content_list_id,omitempty"`
-}
+// PlaylistLibraryItem can be either a folder or a playlist identifier
+type PlaylistLibraryItem map[string]interface{}
 
 type PlaylistLibrary struct {
-	Contents []PlaylistLibraryItem `json:"contents" validate:"required,dive"`
+	Contents []PlaylistLibraryItem `json:"contents" validate:"required"`
 }
 
 type Events struct {
@@ -32,25 +29,26 @@ type Events struct {
 }
 
 type CreateUserRequest struct {
-	UserId              *int    `json:"user_id,omitempty" validate:"omitempty,min=1"`
-	Handle              string  `json:"handle" validate:"required,min=1"`
-	Wallet              string  `json:"wallet" validate:"required"`
-	Name                *string `json:"name,omitempty" validate:"omitempty,min=1"`
-	Bio                 *string `json:"bio,omitempty" validate:"omitempty,max=256"`
-	Location            *string `json:"location,omitempty"`
-	Website             *string `json:"website,omitempty" validate:"omitempty,url"`
-	Donation            *string `json:"donation,omitempty"`
-	TwitterHandle       *string `json:"twitter_handle,omitempty"`
-	InstagramHandle     *string `json:"instagram_handle,omitempty"`
-	TiktokHandle        *string `json:"tiktok_handle,omitempty"`
-	ProfilePicture      *string `json:"profile_picture,omitempty"`
-	ProfilePictureSizes *string `json:"profile_picture_sizes,omitempty"`
-	CoverPhoto          *string `json:"cover_photo,omitempty"`
-	CoverPhotoSizes     *string `json:"cover_photo_sizes,omitempty"`
-	ProfileType         *string `json:"profile_type,omitempty" validate:"omitempty,oneof=label"`
-	AllowAiAttribution  *bool   `json:"allow_ai_attribution,omitempty"`
-	SplUsdcPayoutWallet *string `json:"spl_usdc_payout_wallet,omitempty"`
-	Events              *Events `json:"events,omitempty"`
+	UserId              *int             `json:"user_id,omitempty" validate:"omitempty,min=1"`
+	Handle              string           `json:"handle" validate:"required,min=1"`
+	Wallet              string           `json:"wallet" validate:"required"`
+	Name                *string          `json:"name,omitempty" validate:"omitempty,min=1"`
+	Bio                 *string          `json:"bio,omitempty" validate:"omitempty,max=256"`
+	Location            *string          `json:"location,omitempty"`
+	Website             *string          `json:"website,omitempty" validate:"omitempty,url"`
+	Donation            *string          `json:"donation,omitempty"`
+	TwitterHandle       *string          `json:"twitter_handle,omitempty"`
+	InstagramHandle     *string          `json:"instagram_handle,omitempty"`
+	TiktokHandle        *string          `json:"tiktok_handle,omitempty"`
+	ProfilePicture      *string          `json:"profile_picture,omitempty"`
+	ProfilePictureSizes *string          `json:"profile_picture_sizes,omitempty"`
+	CoverPhoto          *string          `json:"cover_photo,omitempty"`
+	CoverPhotoSizes     *string          `json:"cover_photo_sizes,omitempty"`
+	ProfileType         *string          `json:"profile_type,omitempty" validate:"omitempty,oneof=label"`
+	AllowAiAttribution  *bool            `json:"allow_ai_attribution,omitempty"`
+	SplUsdcPayoutWallet *string          `json:"spl_usdc_payout_wallet,omitempty"`
+	PlaylistLibrary     *PlaylistLibrary `json:"playlist_library,omitempty" validate:"omitempty"`
+	Events              *Events          `json:"events,omitempty"`
 }
 
 type UpdateUserRequest struct {
@@ -68,7 +66,7 @@ type UpdateUserRequest struct {
 	CoverPhotoSizes     *string          `json:"cover_photo_sizes,omitempty"`
 	ProfileType         *string          `json:"profile_type,omitempty" validate:"omitempty,oneof=label"`
 	IsDeactivated       *bool            `json:"is_deactivated,omitempty"`
-	ArtistPickTrackId   *string          `json:"artist_pick_track_id,omitempty"`
+	ArtistPickTrackId   *int             `json:"artist_pick_track_id,omitempty" validate:"omitempty,min=1"`
 	AllowAiAttribution  *bool            `json:"allow_ai_attribution,omitempty"`
 	PlaylistLibrary     *PlaylistLibrary `json:"playlist_library,omitempty" validate:"omitempty"`
 	SplUsdcPayoutWallet *string          `json:"spl_usdc_payout_wallet,omitempty"`
