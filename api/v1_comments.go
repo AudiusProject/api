@@ -2,6 +2,7 @@ package api
 
 import (
 	"encoding/json"
+	"math"
 	"strconv"
 	"time"
 
@@ -139,8 +140,14 @@ func (app *ApiServer) postV1Comment(c *fiber.Ctx) error {
 	if req.CommentId != nil {
 		commentID = *req.CommentId
 	} else {
-		// Generate random comment ID if not provided
-		commentID = int(nonce % 1000000)
+		// Generate unclaimed comment ID if not provided
+		generatedID, err := app.generateUnclaimedId(c.Context(), "comments", "comment_id", 4_000_000, math.MaxInt32)
+		if err != nil {
+			return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{
+				"error": "Failed to generate comment ID: " + err.Error(),
+			})
+		}
+		commentID = generatedID
 	}
 
 	// Build metadata
