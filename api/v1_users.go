@@ -26,6 +26,11 @@ type PlaylistLibrary struct {
 	Contents []PlaylistLibraryItem `json:"contents" validate:"required,dive"`
 }
 
+type Events struct {
+	Referrer     *int  `json:"referrer,omitempty" validate:"omitempty,min=1"`
+	IsMobileUser *bool `json:"is_mobile_user,omitempty"`
+}
+
 type CreateUserRequest struct {
 	UserId              *int    `json:"user_id,omitempty" validate:"omitempty,min=1"`
 	Handle              string  `json:"handle" validate:"required,min=1"`
@@ -45,6 +50,7 @@ type CreateUserRequest struct {
 	ProfileType         *string `json:"profile_type,omitempty" validate:"omitempty,oneof=label"`
 	AllowAiAttribution  *bool   `json:"allow_ai_attribution,omitempty"`
 	SplUsdcPayoutWallet *string `json:"spl_usdc_payout_wallet,omitempty"`
+	Events              *Events `json:"events,omitempty"`
 }
 
 type UpdateUserRequest struct {
@@ -67,6 +73,7 @@ type UpdateUserRequest struct {
 	PlaylistLibrary     *PlaylistLibrary `json:"playlist_library,omitempty" validate:"omitempty"`
 	SplUsdcPayoutWallet *string          `json:"spl_usdc_payout_wallet,omitempty"`
 	CoinFlairMint       *string          `json:"coin_flair_mint,omitempty"`
+	Events              *Events          `json:"events,omitempty"`
 }
 
 // v1Users is a handler that retrieves full user data

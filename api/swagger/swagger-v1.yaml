@@ -10161,6 +10161,17 @@ components:
         spl_usdc_payout_wallet:
           type: string
           description: Solana USDC payout wallet address
+        events:
+          type: object
+          description: User events for tracking referrals and mobile users
+          properties:
+            referrer:
+              type: integer
+              description: User ID of the referrer
+              minimum: 1
+            is_mobile_user:
+              type: boolean
+              description: Whether the user is on mobile
     update_user_request_body:
       type: object
       description: Request body for updating user profile. All fields are optional.
@@ -10223,6 +10234,17 @@ components:
         coin_flair_mint:
           type: string
           description: Coin flair mint address
+        events:
+          type: object
+          description: User events for tracking referrals and mobile users
+          properties:
+            referrer:
+              type: integer
+              description: User ID of the referrer
+              minimum: 1
+            is_mobile_user:
+              type: boolean
+              description: Whether the user is on mobile
     update_comment_request_body:
       type: object
       required:
