@@ -26,7 +26,7 @@ type RemixOf struct {
 }
 
 type StemOf struct {
-	Category      string `json:"category" validate:"required,oneof=BASS DRUMS MELODY VOCALS OTHER"`
+	Category      string `json:"category" validate:"required,oneof=INSTRUMENTAL LEAD_VOCALS MELODIC_LEAD PAD SNARE KICK HIHAT PERCUSSION SAMPLE BACKING_VOX BASS OTHER"`
 	ParentTrackId string `json:"parent_track_id" validate:"required"`
 }
 
