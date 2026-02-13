@@ -42,21 +42,6 @@ type DeveloperAppWithMetrics struct {
 	APIAccessKeys       json.RawMessage `json:"api_access_keys" db:"api_access_keys"`
 }
 
-// registerDeveloperAppRoutes adds developer app routes to the given router.
-// The secret and appName identify the frontend app that must have OAuth write grant from the user
-// to access the mutating endpoints (create, delete, manage access keys).
-func (app *ApiServer) registerDeveloperAppRoutes(g fiber.Router, secret string, appName string) {
-	auth := app.requireFrontendAppAuth(secret, appName)
-
-	g.Get("/users/:userId/developer_apps", app.v1UsersDeveloperApps)
-	g.Get("/users/:userId/developer-apps", app.v1UsersDeveloperApps)
-	g.Post("/users/:userId/developer_apps", auth, app.postV1UsersDeveloperAppCreate)
-	g.Post("/users/:userId/developer-apps", auth, app.postV1UsersDeveloperAppCreate)
-	g.Delete("/users/:userId/developer-apps/:address", auth, app.deleteV1UsersDeveloperApp)
-	g.Post("/users/:userId/developer-apps/:address/access-keys/deactivate", auth, app.postV1UsersDeveloperAppAccessKeyDeactivate)
-	g.Post("/users/:userId/developer-apps/:address/access-keys", auth, app.postV1UsersDeveloperAppAccessKeyCreate)
-}
-
 func (app *ApiServer) v1UsersDeveloperApps(c *fiber.Ctx) error {
 	userId := app.getUserId(c)
 	includeMetrics := c.Query("include") == "metrics"
@@ -223,10 +208,12 @@ func (app *ApiServer) validateOAuthJWTTokenToUserId(ctx context.Context, token s
 }
 
 type createDeveloperAppBody struct {
-	Name string `json:"name"`
+	Name        string  `json:"name"`
+	Description *string `json:"description"`
+	ImageUrl    *string `json:"image_url"`
 }
 
-func (app *ApiServer) postV1UsersDeveloperAppCreate(c *fiber.Ctx) error {
+func (app *ApiServer) postV1UsersDeveloperApp(c *fiber.Ctx) error {
 	userID := app.getUserId(c)
 
 	var body createDeveloperAppBody
@@ -290,8 +277,8 @@ func (app *ApiServer) postV1UsersDeveloperAppCreate(c *fiber.Ctx) error {
 	metadataObj := map[string]interface{}{
 		"address":     strings.ToLower(address),
 		"name":        name,
-		"description": "",
-		"image_url":   "",
+		"description": body.Description,
+		"image_url":   body.ImageUrl,
 		"app_signature": map[string]interface{}{
 			"message":   message,
 			"signature": signatureHex,
@@ -360,7 +347,8 @@ func (app *ApiServer) postV1UsersDeveloperAppCreate(c *fiber.Ctx) error {
 
 	return c.JSON(fiber.Map{
 		"api_key":          address,
-		"api_secret":       apiAccessKey,
+		"api_secret":       apiSecretHex,
+		"bearer_token":     apiAccessKey,
 		"transaction_hash": response.Msg.GetTransaction().GetHash(),
 	})
 }
@@ -528,7 +516,7 @@ func (app *ApiServer) postV1UsersDeveloperAppAccessKeyDeactivate(c *fiber.Ctx) e
 	return c.JSON(fiber.Map{"success": true})
 }
 
-func (app *ApiServer) postV1UsersDeveloperAppAccessKeyCreate(c *fiber.Ctx) error {
+func (app *ApiServer) postV1UsersDeveloperAppAccessKey(c *fiber.Ctx) error {
 	userID := app.getUserId(c)
 	address := c.Params("address")
 	if address == "" {

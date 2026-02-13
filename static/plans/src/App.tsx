@@ -800,7 +800,14 @@ export default function App() {
       if (!oauthUser?.userId) return;
       try {
         const appsRes = await fetch(
-          `${API_BASE}/v1/users/${encodeURIComponent(oauthUser.userId)}/developer-apps?include=metrics`,
+          `${API_BASE}/v1/developer-apps?include=metrics`,
+          {
+            headers: {
+              ...(sessionStorage.getItem(OAUTH_TOKEN_KEY)
+              ? { Authorization: `Bearer ${sessionStorage.getItem(OAUTH_TOKEN_KEY)}` }
+              : {}),
+            },
+          },
         );
         if (appsRes.ok) {
           const { data } = (await appsRes.json()) as { data: DeveloperApp[] };
@@ -828,17 +835,14 @@ export default function App() {
     async (name: string) => {
       if (!oauthUser?.userId) throw new Error("Not logged in");
       const token = sessionStorage.getItem(OAUTH_TOKEN_KEY);
-      const res = await fetch(
-        `${API_BASE}/v1/users/${encodeURIComponent(oauthUser.userId)}/developer-apps`,
-        {
-          method: "POST",
-          headers: {
-            "Content-Type": "application/json",
-            ...(token ? { Authorization: `Bearer ${token}` } : {}),
-          },
-          body: JSON.stringify({ name }),
+      const res = await fetch(`${API_BASE}/v1/developer-apps`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          ...(token ? { Authorization: `Bearer ${token}` } : {}),
         },
-      );
+        body: JSON.stringify({ name }),
+      });
       if (!res.ok) {
         const err = await res.json().catch(() => ({}));
         throw new Error(
@@ -848,10 +852,12 @@ export default function App() {
       const result = (await res.json()) as {
         api_key?: string;
         api_secret?: string;
+        bearer_token?: string;
+        transaction_hash?: string;
       };
-      if (result.api_key != null && result.api_secret != null) {
+      if (result.api_key != null && result.bearer_token != null) {
         navigator.clipboard.writeText(
-          `API Key: ${result.api_key}\nAPI Bearer Token: ${result.api_secret}`,
+          `API Key: ${result.api_key}\nBearer Token: ${result.bearer_token}`,
         );
       }
       // Optimistically add new app and reload; merge ensures it stays visible if indexer hasn't processed yet
@@ -865,8 +871,8 @@ export default function App() {
         request_count_all_time: 0,
         is_legacy: false,
         api_access_keys:
-          result.api_secret != null
-            ? [{ api_access_key: result.api_secret, is_active: true }]
+          result.bearer_token != null
+            ? [{ api_access_key: result.bearer_token, is_active: true }]
             : [],
       };
       await loadDeveloperApps(optimisticApp);
@@ -881,7 +887,7 @@ export default function App() {
       if (oauthUser?.userId == null) throw new Error("Not logged in");
       const token = sessionStorage.getItem(OAUTH_TOKEN_KEY);
       const res = await fetch(
-        `${API_BASE}/v1/users/${encodeURIComponent(oauthUser.userId)}/developer-apps/${encodeURIComponent(app.address)}/access-keys/deactivate`,
+        `${API_BASE}/v1/developer-apps/${encodeURIComponent(app.address)}/access-keys/deactivate`,
         {
           method: "POST",
           headers: {
@@ -916,7 +922,7 @@ export default function App() {
       if (oauthUser?.userId == null) throw new Error("Not logged in");
       const token = sessionStorage.getItem(OAUTH_TOKEN_KEY);
       const res = await fetch(
-        `${API_BASE}/v1/users/${encodeURIComponent(oauthUser.userId)}/developer-apps/${encodeURIComponent(app.address)}/access-keys`,
+        `${API_BASE}/v1/developer-apps/${encodeURIComponent(app.address)}/access-keys`,
         {
           method: "POST",
           headers: {
@@ -956,7 +962,7 @@ export default function App() {
       if (oauthUser?.userId == null) throw new Error("Not logged in");
       const token = sessionStorage.getItem(OAUTH_TOKEN_KEY);
       const res = await fetch(
-        `${API_BASE}/v1/users/${encodeURIComponent(oauthUser.userId)}/developer-apps/${encodeURIComponent(app.address)}`,
+        `${API_BASE}/v1/developer-apps/${encodeURIComponent(app.address)}`,
         {
           method: "DELETE",
           headers: {
@@ -986,11 +992,14 @@ export default function App() {
 
     const load = async () => {
       try {
+        const token = sessionStorage.getItem(OAUTH_TOKEN_KEY);
         const [userRes, appsRes] = await Promise.all([
           fetch(`${API_BASE}/v1/users/${encodeURIComponent(oauthUser.userId)}`),
-          fetch(
-            `${API_BASE}/v1/users/${encodeURIComponent(oauthUser.userId)}/developer-apps?include=metrics`,
-          ),
+          fetch(`${API_BASE}/v1/developer-apps?include=metrics`, {
+            headers: token
+              ? { Authorization: `Bearer ${token}` }
+              : undefined,
+          }),
         ]);
         const userData = userRes.ok
           ? (
