@@ -10164,53 +10164,17 @@ components:
         playlist_library:
           type: object
           description: User's playlist library with support for folders and playlists
+          required:
+            - contents
           properties:
             contents:
               type: array
               description: Array of folders and playlist identifiers
               items:
                 oneOf:
-                  - type: object
-                    description: Folder containing nested playlists and folders
-                    required:
-                      - id
-                      - type
-                      - name
-                      - contents
-                    properties:
-                      id:
-                        type: string
-                      type:
-                        type: string
-                        enum: [folder]
-                      name:
-                        type: string
-                      contents:
-                        type: array
-                        items: {}
-                  - type: object
-                    description: Playlist identifier
-                    required:
-                      - type
-                      - playlist_id
-                    properties:
-                      type:
-                        type: string
-                        enum: [playlist]
-                      playlist_id:
-                        type: integer
-                        minimum: 1
-                  - type: object
-                    description: Explore playlist identifier
-                    required:
-                      - type
-                      - playlist_id
-                    properties:
-                      type:
-                        type: string
-                        enum: [explore_playlist]
-                      playlist_id:
-                        type: string
+                  - $ref: '#/components/schemas/playlist_library_folder'
+                  - $ref: '#/components/schemas/playlist_library_playlist_identifier'
+                  - $ref: '#/components/schemas/playlist_library_explore_playlist_identifier'
         events:
           type: object
           description: User events for tracking referrals and mobile users
@@ -10294,47 +10258,9 @@ components:
               description: Array of folders and playlist identifiers
               items:
                 oneOf:
-                  - type: object
-                    description: Folder containing nested playlists and folders
-                    required:
-                      - id
-                      - type
-                      - name
-                      - contents
-                    properties:
-                      id:
-                        type: string
-                      type:
-                        type: string
-                        enum: [folder]
-                      name:
-                        type: string
-                      contents:
-                        type: array
-                        items: {}
-                  - type: object
-                    description: Playlist identifier
-                    required:
-                      - type
-                      - playlist_id
-                    properties:
-                      type:
-                        type: string
-                        enum: [playlist]
-                      playlist_id:
-                        type: integer
-                        minimum: 1
-                  - type: object
-                    description: Explore playlist identifier
-                    required:
-                      - type
-                      - playlist_id
-                    properties:
-                      type:
-                        type: string
-                        enum: [explore_playlist]
-                      playlist_id:
-                        type: string
+                  - $ref: '#/components/schemas/playlist_library_folder'
+                  - $ref: '#/components/schemas/playlist_library_playlist_identifier'
+                  - $ref: '#/components/schemas/playlist_library_explore_playlist_identifier'
         events:
           type: object
           description: User events for tracking referrals and mobile users
@@ -10551,6 +10477,59 @@ components:
         success:
           type: boolean
           description: Whether the deactivation was successful
+    playlist_library_folder:
+      type: object
+      description: Folder containing nested playlists and folders
+      required:
+        - id
+        - type
+        - name
+        - contents
+      properties:
+        id:
+          type: string
+          description: Unique folder identifier
+        type:
+          type: string
+          enum: [folder]
+        name:
+          type: string
+          description: Folder name
+        contents:
+          type: array
+          description: Nested folders and playlist identifiers
+          items:
+            oneOf:
+              - $ref: '#/components/schemas/playlist_library_folder'
+              - $ref: '#/components/schemas/playlist_library_playlist_identifier'
+              - $ref: '#/components/schemas/playlist_library_explore_playlist_identifier'
+    playlist_library_playlist_identifier:
+      type: object
+      description: Reference to a playlist
+      required:
+        - type
+        - playlist_id
+      properties:
+        type:
+          type: string
+          enum: [playlist]
+        playlist_id:
+          type: integer
+          description: Playlist ID
+          minimum: 1
+    playlist_library_explore_playlist_identifier:
+      type: object
+      description: Reference to an explore playlist
+      required:
+        - type
+        - playlist_id
+      properties:
+        type:
+          type: string
+          enum: [explore_playlist]
+        playlist_id:
+          type: string
+          description: Explore playlist identifier
     comment_entity_type:
       type: string
       enum:
