@@ -9841,9 +9841,6 @@ components:
       type: object
       description: Request body for updating track information. All fields are optional.
       properties:
-        track_id:
-          type: string
-          description: Optional track ID (will be generated if not provided)
         title:
           type: string
           description: Track title
