@@ -23,26 +23,30 @@ type GetCommentsParams struct {
 }
 
 type CreateCommentRequest struct {
-	EntityType string `json:"entityType" validate:"required,oneof=Track"`
-	EntityId   string `json:"entityId" validate:"required"`
-	Body       string `json:"body" validate:"required"`
-	CommentId  *int   `json:"commentId,omitempty"`
-	ParentId   *int   `json:"parentId,omitempty"`
+	EntityType      string `json:"entityType" validate:"required,oneof=Track"`
+	EntityId        int    `json:"entityId" validate:"required,min=1"`
+	Body            string `json:"body" validate:"required,max=500"`
+	CommentId       *int   `json:"commentId,omitempty" validate:"omitempty,min=1"`
+	ParentId        *int   `json:"parentId,omitempty" validate:"omitempty,min=1"`
+	TrackTimestampS *int   `json:"trackTimestampS,omitempty" validate:"omitempty,min=0"`
+	Mentions        []int  `json:"mentions,omitempty" validate:"omitempty,dive,min=1"`
 }
 
 type UpdateCommentRequest struct {
-	TrackId string `json:"trackId"`
-	Body    string `json:"body"`
+	EntityType string `json:"entityType" validate:"required,oneof=Track"`
+	EntityId   int    `json:"entityId" validate:"required,min=1"`
+	Body       string `json:"body" validate:"required,max=500"`
+	Mentions   []int  `json:"mentions,omitempty" validate:"omitempty,dive,min=1"`
 }
 
 type ReactCommentRequest struct {
-	TrackId string `json:"trackId"`
-	IsLiked bool   `json:"isLiked"`
+	EntityType string `json:"entityType" validate:"required,oneof=Track"`
+	EntityId   int    `json:"entityId" validate:"required,min=1"`
 }
 
 type PinCommentRequest struct {
-	TrackId string `json:"trackId"`
-	IsPin   bool   `json:"isPin"`
+	EntityType string `json:"entityType" validate:"required,oneof=Track"`
+	EntityId   int    `json:"entityId" validate:"required,min=1"`
 }
 
 func (app *ApiServer) queryFullComments(
@@ -159,6 +163,17 @@ func (app *ApiServer) postV1Comment(c *fiber.Ctx) error {
 	if req.ParentId != nil {
 		metadataMap["parent_id"] = *req.ParentId
 	}
+	if req.TrackTimestampS != nil {
+		metadataMap["track_timestamp_s"] = *req.TrackTimestampS
+	}
+	if len(req.Mentions) > 0 {
+		// Limit to first 10 mentions
+		mentions := req.Mentions
+		if len(mentions) > 10 {
+			mentions = mentions[:10]
+		}
+		metadataMap["mentions"] = mentions
+	}
 
 	metadataObj := map[string]interface{}{
 		"cid":  "",
@@ -213,12 +228,23 @@ func (app *ApiServer) putV1Comment(c *fiber.Ctx) error {
 
 	nonce := time.Now().UnixNano()
 
+	metadataMap := map[string]interface{}{
+		"entity_type": req.EntityType,
+		"entity_id":   req.EntityId,
+		"body":        req.Body,
+	}
+	if len(req.Mentions) > 0 {
+		// Limit to first 10 mentions
+		mentions := req.Mentions
+		if len(mentions) > 10 {
+			mentions = mentions[:10]
+		}
+		metadataMap["mentions"] = mentions
+	}
+
 	metadataObj := map[string]interface{}{
-		"cid": "",
-		"data": map[string]interface{}{
-			"entity_id": req.TrackId,
-			"body":      req.Body,
-		},
+		"cid":  "",
+		"data": metadataMap,
 	}
 	metadataBytes, _ := json.Marshal(metadataObj)
 
@@ -306,15 +332,12 @@ func (app *ApiServer) postV1CommentReact(c *fiber.Ctx) error {
 	nonce := time.Now().UnixNano()
 
 	action := indexer.Action_React
-	if !req.IsLiked {
-		action = indexer.Action_Unreact
-	}
 
 	metadataObj := map[string]interface{}{
 		"cid": "",
 		"data": map[string]interface{}{
-			"entity_id":   req.TrackId,
-			"entity_type": indexer.Entity_Track,
+			"entity_id":   req.EntityId,
+			"entity_type": req.EntityType,
 		},
 	}
 	metadataBytes, _ := json.Marshal(metadataObj)
@@ -367,8 +390,8 @@ func (app *ApiServer) deleteV1CommentReact(c *fiber.Ctx) error {
 	metadataObj := map[string]interface{}{
 		"cid": "",
 		"data": map[string]interface{}{
-			"entity_id":   req.TrackId,
-			"entity_type": indexer.Entity_Track,
+			"entity_id":   req.EntityId,
+			"entity_type": req.EntityType,
 		},
 	}
 	metadataBytes, _ := json.Marshal(metadataObj)
@@ -419,14 +442,12 @@ func (app *ApiServer) postV1CommentPin(c *fiber.Ctx) error {
 	nonce := time.Now().UnixNano()
 
 	action := indexer.Action_Pin
-	if !req.IsPin {
-		action = indexer.Action_Unpin
-	}
 
 	metadataObj := map[string]interface{}{
 		"cid": "",
 		"data": map[string]interface{}{
-			"entity_id": req.TrackId,
+			"entity_type": req.EntityType,
+			"entity_id":   req.EntityId,
 		},
 	}
 	metadataBytes, _ := json.Marshal(metadataObj)
@@ -479,7 +500,8 @@ func (app *ApiServer) deleteV1CommentPin(c *fiber.Ctx) error {
 	metadataObj := map[string]interface{}{
 		"cid": "",
 		"data": map[string]interface{}{
-			"entity_id": req.TrackId,
+			"entity_type": req.EntityType,
+			"entity_id":   req.EntityId,
 		},
 	}
 	metadataBytes, _ := json.Marshal(metadataObj)
