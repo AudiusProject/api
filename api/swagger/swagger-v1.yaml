@@ -7906,18 +7906,12 @@ components:
           items:
             type: string
     access_gate:
-      type: object
-      properties:
-        usdc_purchase:
-          $ref: '#/components/schemas/extended_purchase_gate'
-        follow_user_id:
-          type: integer
-        tip_user_id:
-          type: integer
-        nft_collection:
-          type: object
-        token_gate:
-          $ref: '#/components/schemas/extended_token_gate'
+      oneOf:
+      - $ref: '#/components/schemas/tip_gate'
+      - $ref: '#/components/schemas/follow_gate'
+      - $ref: '#/components/schemas/extended_purchase_gate'
+      - $ref: '#/components/schemas/nft_gate'
+      - $ref: '#/components/schemas/token_gate'
     nft_collection:
       required:
       - address
@@ -9774,6 +9768,12 @@ components:
           maxLength: 1000
         mood:
           $ref: '#/components/schemas/mood'
+        bpm:
+          type: number
+          description: Beats per minute (tempo)
+        musical_key:
+          type: string
+          description: Musical key of the track
         tags:
           type: string
           description: Comma-separated tags
@@ -9792,9 +9792,18 @@ components:
         track_cid:
           type: string
           description: IPFS CID for the track audio file (required)
+        orig_file_cid:
+          type: string
+          description: IPFS CID for the original track file
+        orig_filename:
+          type: string
+          description: Original filename of the track
         cover_art_cid:
           type: string
           description: IPFS CID for cover art
+        cover_art_sizes:
+          type: string
+          description: Cover art sizes metadata
         preview_cid:
           type: string
           description: IPFS CID for the track preview
@@ -9814,6 +9823,15 @@ components:
         is_unlisted:
           type: boolean
           description: Whether the track is unlisted
+        stream_conditions:
+          $ref: '#/components/schemas/access_gate'
+        download_conditions:
+          $ref: '#/components/schemas/access_gate'
+        field_visibility:
+          $ref: '#/components/schemas/field_visibility'
+        placement_hosts:
+          type: string
+          description: Placement hosts for the track
         ddex_app:
           type: string
           description: DDEX application identifier
@@ -9824,37 +9842,90 @@ components:
       type: object
       description: Request body for updating track information. All fields are optional.
       properties:
+        track_id:
+          type: string
+          description: Optional track ID (will be generated if not provided)
         title:
           type: string
           description: Track title
+        genre:
+          $ref: '#/components/schemas/genre'
         description:
           type: string
           description: Track description
-          maxLength: 5000
-        genre:
-          $ref: '#/components/schemas/genre'
+          maxLength: 1000
         mood:
           $ref: '#/components/schemas/mood'
+        bpm:
+          type: number
+          description: Beats per minute (tempo)
+        musical_key:
+          type: string
+          description: Musical key of the track
         tags:
           type: string
           description: Comma-separated tags
-        release_date:
+        license:
           type: string
-          format: date-time
-          description: Track release date
+          description: License type
         isrc:
           type: string
           description: International Standard Recording Code
-        is_downloadable:
+        iswc:
+          type: string
+          description: International Standard Musical Work Code
+        release_date:
+          type: string
+          description: Release date
+        track_cid:
+          type: string
+          description: IPFS CID for the track audio file
+        orig_file_cid:
+          type: string
+          description: IPFS CID for the original track file
+        orig_filename:
+          type: string
+          description: Original filename of the track
+        cover_art_cid:
+          type: string
+          description: IPFS CID for cover art
+        cover_art_sizes:
+          type: string
+          description: Cover art sizes metadata
+        preview_cid:
+          type: string
+          description: IPFS CID for the track preview
+        preview_start_seconds:
+          type: number
+          format: float
+          description: Preview start time in seconds
+          minimum: 0
+        duration:
+          type: number
+          format: float
+          description: Track duration in seconds
+          minimum: 0
+        downloadable:
           type: boolean
           description: Whether the track is downloadable
-        is_original_available:
+        is_unlisted:
           type: boolean
-          description: Whether the original file is available
-        artwork_url:
+          description: Whether the track is unlisted
+        stream_conditions:
+          $ref: '#/components/schemas/access_gate'
+        download_conditions:
+          $ref: '#/components/schemas/access_gate'
+        field_visibility:
+          $ref: '#/components/schemas/field_visibility'
+        placement_hosts:
           type: string
-          description: URL for track artwork
-          format: uri
+          description: Placement hosts for the track
+        ddex_app:
+          type: string
+          description: DDEX application identifier
+        parental_warning_type:
+          type: string
+          description: Parental warning type
     create_playlist_request_body:
       type: object
       required:
@@ -10211,6 +10282,28 @@ components:
       description: Type of entity that can be commented on
       enum:
         - Track
+    field_visibility:
+      required:
+      - genre
+      - mood
+      - play_count
+      - remixes
+      - share
+      - tags
+      type: object
+      properties:
+        mood:
+          type: boolean
+        tags:
+          type: boolean
+        genre:
+          type: boolean
+        share:
+          type: boolean
+        play_count:
+          type: boolean
+        remixes:
+          type: boolean
     genre:
       type: string
       description: Music genre
