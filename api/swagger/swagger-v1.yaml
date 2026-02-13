@@ -6906,6 +6906,8 @@ components:
             $ref: '#/components/schemas/track_element'
     remix_parent_write:
       type: object
+      required:
+      - tracks
       properties:
         tracks:
           type: array
@@ -9852,7 +9854,9 @@ components:
           description: Track description
           maxLength: 1000
         mood:
-          $ref: '#/components/schemas/mood'
+          nullable: true
+          allOf:
+            - $ref: '#/components/schemas/mood'
         bpm:
           type: number
           nullable: true
@@ -10299,13 +10303,6 @@ components:
       enum:
         - Track
     field_visibility:
-      required:
-      - genre
-      - mood
-      - play_count
-      - remixes
-      - share
-      - tags
       type: object
       properties:
         mood:
