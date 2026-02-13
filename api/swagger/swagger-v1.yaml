@@ -7651,7 +7651,7 @@ components:
         entity_id:
           type: string
         entity_type:
-          type: string
+          $ref: '#/components/schemas/comment_entity_type'
         user_id:
           type: string
         message:
@@ -7713,7 +7713,7 @@ components:
         entity_id:
           type: string
         entity_type:
-          type: string
+          $ref: '#/components/schemas/comment_entity_type'
         user_id:
           type: string
         message:
@@ -10087,8 +10087,8 @@ components:
         - body
       properties:
         entityType:
-          type: string
-          description: Type of entity being commented on
+          allOf:
+            - $ref: '#/components/schemas/comment_entity_type'
           example: "Track"
         entityId:
           type: string
@@ -10212,6 +10212,11 @@ components:
         success:
           type: boolean
           description: Whether the deactivation was successful
+    comment_entity_type:
+      type: string
+      description: Type of entity that can be commented on
+      enum:
+        - Track
     genre:
       type: string
       description: Music genre

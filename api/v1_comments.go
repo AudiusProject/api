@@ -22,9 +22,9 @@ type GetCommentsParams struct {
 }
 
 type CreateCommentRequest struct {
-	EntityType string `json:"entityType"`
-	EntityId   string `json:"entityId"`
-	Body       string `json:"body"`
+	EntityType string `json:"entityType" validate:"required,oneof=Track"`
+	EntityId   string `json:"entityId" validate:"required"`
+	Body       string `json:"body" validate:"required"`
 	CommentId  *int   `json:"commentId,omitempty"`
 	ParentId   *int   `json:"parentId,omitempty"`
 }
@@ -125,10 +125,8 @@ func (app *ApiServer) postV1Comment(c *fiber.Ctx) error {
 	userID := app.getMyId(c)
 
 	var req CreateCommentRequest
-	if err := c.BodyParser(&req); err != nil {
-		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
-			"error": "Invalid request body",
-		})
+	if err := app.ParseAndValidateBody(c, &req); err != nil {
+		return err
 	}
 
 	signer, err := app.getApiSigner(c)
