@@ -10508,9 +10508,9 @@ components:
           type: string
           enum: [playlist]
         playlist_id:
-          type: string
-          description: Playlist hash ID
-          example: "n7Qx4Mp"
+          type: integer
+          description: Playlist ID
+          example: 1234
     playlist_library_explore_playlist_identifier:
       type: object
       description: Reference to an explore playlist
