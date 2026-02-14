@@ -10174,9 +10174,9 @@ components:
           description: User events for tracking referrals and mobile users
           properties:
             referrer:
-              type: integer
-              description: User ID of the referrer
-              minimum: 1
+              type: string
+              description: Hash ID of the user who referred this user
+              example: "k9Xm5Pz"
             is_mobile_user:
               type: boolean
               description: Whether the user is on mobile
