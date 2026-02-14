@@ -54,11 +54,11 @@ type CollectibleGatedConditions struct {
 }
 
 type FollowGatedConditions struct {
-	FollowUserId trashid.HashId `json:"follow_user_id" validate:"required,min=1"`
+	FollowUserId int `json:"follow_user_id" validate:"required,min=1"`
 }
 
 type TipGatedConditions struct {
-	TipUserId trashid.HashId `json:"tip_user_id" validate:"required,min=1"`
+	TipUserId int `json:"tip_user_id" validate:"required,min=1"`
 }
 
 type TokenGate struct {
@@ -71,8 +71,8 @@ type TokenGatedConditions struct {
 }
 
 type PurchaseSplit struct {
-	UserId     trashid.HashId `json:"user_id" validate:"required,min=1"`
-	Percentage float64        `json:"percentage" validate:"required,min=0,max=100"`
+	UserId     int     `json:"user_id" validate:"required,min=1"`
+	Percentage float64 `json:"percentage" validate:"required,min=0,max=100"`
 }
 
 type USDCPurchase struct {
@@ -89,11 +89,11 @@ type USDCPurchaseConditions struct {
 // In Go, we use a flexible approach where the JSON contains the discriminating field.
 type AccessConditions struct {
 	// Exactly one of these should be populated
-	NftCollection *NFTCollection  `json:"nft_collection,omitempty" validate:"omitempty"`
-	FollowUserId  *trashid.HashId `json:"follow_user_id,omitempty" validate:"omitempty,min=1"`
-	TipUserId     *trashid.HashId `json:"tip_user_id,omitempty" validate:"omitempty,min=1"`
-	TokenGate     *TokenGate      `json:"token_gate,omitempty" validate:"omitempty"`
-	UsdcPurchase  *USDCPurchase   `json:"usdc_purchase,omitempty" validate:"omitempty"`
+	NftCollection *NFTCollection `json:"nft_collection,omitempty" validate:"omitempty"`
+	FollowUserId  *int           `json:"follow_user_id,omitempty" validate:"omitempty,min=1"`
+	TipUserId     *int           `json:"tip_user_id,omitempty" validate:"omitempty,min=1"`
+	TokenGate     *TokenGate     `json:"token_gate,omitempty" validate:"omitempty"`
+	UsdcPurchase  *USDCPurchase  `json:"usdc_purchase,omitempty" validate:"omitempty"`
 }
 
 type DDEXResourceContributor struct {

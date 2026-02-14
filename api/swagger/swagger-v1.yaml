@@ -7877,8 +7877,8 @@ components:
       type: object
       properties:
         tip_user_id:
-          type: string
-          example: "x5pJ3Az"
+          type: integer
+          example: 1234
           description: Must tip the given user ID to unlock
     follow_gate:
       required:
@@ -7886,8 +7886,8 @@ components:
       type: object
       properties:
         follow_user_id:
-          type: string
-          example: "x5pJ3Az"
+          type: integer
+          example: 1234
           description: Must follow the given user ID to unlock
     token_gate:
       required:
@@ -7942,8 +7942,8 @@ components:
       type: object
       properties:
         user_id:
-          type: string
-          example: "x5pJ3Az"
+          type: integer
+          example: 1234
         percentage:
           type: number
         eth_wallet:
