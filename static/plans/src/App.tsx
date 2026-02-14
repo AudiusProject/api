@@ -800,7 +800,7 @@ export default function App() {
       if (!oauthUser?.userId) return;
       try {
         const appsRes = await fetch(
-          `${API_BASE}/v1/developer-apps?include=metrics`,
+          `${API_BASE}/v1/users/${oauthUser.userId}/developer-apps?include=metrics`,
           {
             headers: {
               ...(sessionStorage.getItem(OAUTH_TOKEN_KEY)
@@ -835,7 +835,7 @@ export default function App() {
     async (name: string) => {
       if (!oauthUser?.userId) throw new Error("Not logged in");
       const token = sessionStorage.getItem(OAUTH_TOKEN_KEY);
-      const res = await fetch(`${API_BASE}/v1/developer-apps`, {
+      const res = await fetch(`${API_BASE}/v1/developer-apps?user_id=${oauthUser.userId}`, {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
@@ -887,7 +887,7 @@ export default function App() {
       if (oauthUser?.userId == null) throw new Error("Not logged in");
       const token = sessionStorage.getItem(OAUTH_TOKEN_KEY);
       const res = await fetch(
-        `${API_BASE}/v1/developer-apps/${encodeURIComponent(app.address)}/access-keys/deactivate`,
+        `${API_BASE}/v1/developer-apps/${encodeURIComponent(app.address)}/access-keys/deactivate?user_id=${oauthUser.userId}`,
         {
           method: "POST",
           headers: {
@@ -922,7 +922,7 @@ export default function App() {
       if (oauthUser?.userId == null) throw new Error("Not logged in");
       const token = sessionStorage.getItem(OAUTH_TOKEN_KEY);
       const res = await fetch(
-        `${API_BASE}/v1/developer-apps/${encodeURIComponent(app.address)}/access-keys`,
+        `${API_BASE}/v1/developer-apps/${encodeURIComponent(app.address)}/access-keys?user_id=${oauthUser.userId}`,
         {
           method: "POST",
           headers: {
@@ -962,7 +962,7 @@ export default function App() {
       if (oauthUser?.userId == null) throw new Error("Not logged in");
       const token = sessionStorage.getItem(OAUTH_TOKEN_KEY);
       const res = await fetch(
-        `${API_BASE}/v1/developer-apps/${encodeURIComponent(app.address)}`,
+        `${API_BASE}/v1/developer-apps/${encodeURIComponent(app.address)}?user_id=${oauthUser.userId}`,
         {
           method: "DELETE",
           headers: {
@@ -995,7 +995,7 @@ export default function App() {
         const token = sessionStorage.getItem(OAUTH_TOKEN_KEY);
         const [userRes, appsRes] = await Promise.all([
           fetch(`${API_BASE}/v1/users/${encodeURIComponent(oauthUser.userId)}`),
-          fetch(`${API_BASE}/v1/developer-apps?include=metrics`, {
+          fetch(`${API_BASE}/v1/users/${oauthUser.userId}/developer-apps?include=metrics`, {
             headers: token
               ? { Authorization: `Bearer ${token}` }
               : undefined,

@@ -43,11 +43,11 @@ type DeveloperAppWithMetrics struct {
 }
 
 func (app *ApiServer) v1UsersDeveloperApps(c *fiber.Ctx) error {
-	userId := app.getUserId(c)
+	userID := app.getUserId(c)
 	includeMetrics := c.Query("include") == "metrics"
 
 	if includeMetrics {
-		return app.v1UsersDeveloperAppsWithMetrics(c, userId)
+		return app.v1UsersDeveloperAppsWithMetrics(c, userID)
 	}
 
 	sql := `
@@ -59,7 +59,7 @@ func (app *ApiServer) v1UsersDeveloperApps(c *fiber.Ctx) error {
 	`
 
 	rows, err := app.pool.Query(c.Context(), sql, pgx.NamedArgs{
-		"userId": userId,
+		"userId": userID,
 	})
 	if err != nil {
 		return err
@@ -207,6 +207,44 @@ func (app *ApiServer) validateOAuthJWTTokenToUserId(ctx context.Context, token s
 	return trashid.HashId(jwtUserId), nil
 }
 
+// validateOAuthJWTTokenToWalletAndUserId validates the OAuth JWT and returns (wallet, userId).
+// Used by auth middleware when Bearer token is not an api_access_key.
+func (app *ApiServer) validateOAuthJWTTokenToWalletAndUserId(ctx context.Context, token string) (wallet string, userId int32, err error) {
+	id, err := app.validateOAuthJWTTokenToUserId(ctx, token)
+	if err != nil {
+		return "", 0, err
+	}
+	tokenParts := strings.Split(token, ".")
+	if len(tokenParts) != 3 {
+		return "", 0, fiber.NewError(fiber.StatusBadRequest, "Invalid JWT token format")
+	}
+	base64Payload, base64Signature := tokenParts[1], tokenParts[2]
+	paddedSignature := base64Signature
+	if len(paddedSignature)%4 != 0 {
+		paddedSignature += strings.Repeat("=", 4-len(paddedSignature)%4)
+	}
+	signatureDecoded, err := base64.URLEncoding.DecodeString(paddedSignature)
+	if err != nil {
+		return "", 0, fiber.NewError(fiber.StatusBadRequest, "The JWT signature could not be decoded")
+	}
+	signatureBytes := common.FromHex(string(signatureDecoded))
+	if len(signatureBytes) != 65 {
+		return "", 0, fiber.NewError(fiber.StatusBadRequest, "The JWT signature was incorrectly signed")
+	}
+	if signatureBytes[64] >= 27 {
+		signatureBytes[64] -= 27
+	}
+	message := fmt.Sprintf("%s.%s", tokenParts[0], base64Payload)
+	prefixedMessage := []byte(fmt.Sprintf("\x19Ethereum Signed Message:\n%d%s", len(message), message))
+	finalHash := crypto.Keccak256Hash(prefixedMessage)
+	publicKey, err := crypto.SigToPub(finalHash.Bytes(), signatureBytes)
+	if err != nil {
+		return "", 0, fiber.NewError(fiber.StatusUnauthorized, "The JWT signature is invalid")
+	}
+	recoveredAddr := crypto.PubkeyToAddress(*publicKey)
+	return strings.ToLower(recoveredAddr.Hex()), int32(id), nil
+}
+
 type createDeveloperAppBody struct {
 	Name        string  `json:"name"`
 	Description *string `json:"description"`
@@ -214,7 +252,12 @@ type createDeveloperAppBody struct {
 }
 
 func (app *ApiServer) postV1UsersDeveloperApp(c *fiber.Ctx) error {
-	userID := app.getUserId(c)
+	userID := app.getMyId(c)
+	if userID == 0 {
+		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
+			"error": "user_id query parameter is required",
+		})
+	}
 
 	var body createDeveloperAppBody
 	if err := c.BodyParser(&body); err != nil {
@@ -354,7 +397,12 @@ func (app *ApiServer) postV1UsersDeveloperApp(c *fiber.Ctx) error {
 }
 
 func (app *ApiServer) deleteV1UsersDeveloperApp(c *fiber.Ctx) error {
-	userID := app.getUserId(c)
+	userID := app.getMyId(c)
+	if userID == 0 {
+		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
+			"error": "user_id query parameter is required",
+		})
+	}
 	address := c.Params("address")
 	if address == "" {
 		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
@@ -452,7 +500,12 @@ type deactivateAccessKeyBody struct {
 }
 
 func (app *ApiServer) postV1UsersDeveloperAppAccessKeyDeactivate(c *fiber.Ctx) error {
-	userID := app.getUserId(c)
+	userID := app.getMyId(c)
+	if userID == 0 {
+		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
+			"error": "user_id query parameter is required",
+		})
+	}
 	address := c.Params("address")
 	if address == "" {
 		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
@@ -517,7 +570,12 @@ func (app *ApiServer) postV1UsersDeveloperAppAccessKeyDeactivate(c *fiber.Ctx) e
 }
 
 func (app *ApiServer) postV1UsersDeveloperAppAccessKey(c *fiber.Ctx) error {
-	userID := app.getUserId(c)
+	userID := app.getMyId(c)
+	if userID == 0 {
+		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
+			"error": "user_id query parameter is required",
+		})
+	}
 	address := c.Params("address")
 	if address == "" {
 		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{

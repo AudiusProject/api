@@ -555,41 +555,18 @@ paths:
           description: Server error
           content: {}
   /developer-apps:
-    get:
-      tags:
-        - developer_apps
-      description: Get developer apps for the authenticated user (Plans API). Requires OAuth Bearer token with Plans app grant.
-      operationId: Get Developer Apps
-      security:
-        - BearerAuth: []
-      parameters:
-        - name: include
-          in: query
-          description: Include metrics when set to "metrics"
-          schema:
-            type: string
-            enum:
-              - metrics
-      responses:
-        "200":
-          description: Success
-          content:
-            application/json:
-              schema:
-                $ref: "#/components/schemas/developer_apps_response"
-        "401":
-          description: Unauthorized
-          content: {}
-        "500":
-          description: Server error
-          content: {}
     post:
       tags:
         - developer_apps
-      description: Create a new developer app (Plans API). Requires OAuth Bearer token with Plans app grant.
+      description: Create a new developer app (Plans API). Indexer validates grants.
       operationId: Create Developer App
-      security:
-        - BearerAuth: []
+      parameters:
+        - name: user_id
+          in: query
+          description: The user ID of the user creating the developer app
+          required: true
+          schema:
+            type: string
       requestBody:
         x-codegen-request-body-name: metadata
         required: true
@@ -645,11 +622,15 @@ paths:
     delete:
       tags:
         - developer_apps
-      description: Deletes a developer app (Plans API). Requires OAuth Bearer token with Plans app grant.
+      description: Deletes a developer app (Plans API). Indexer validates grants.
       operationId: Delete Developer App
-      security:
-        - BearerAuth: []
       parameters:
+        - name: user_id
+          in: query
+          description: The user ID of the user who owns the developer app
+          required: true
+          schema:
+            type: string
         - name: address
           in: path
           description: Developer app address (API Key)
@@ -676,11 +657,15 @@ paths:
     post:
       tags:
         - developer_apps
-      description: Deactivate a bearer token (API access key) for a developer app (Plans API). Requires OAuth Bearer token with Plans app grant.
+      description: Deactivate a bearer token (API access key) for a developer app (Plans API). Indexer validates grants.
       operationId: Deactivate Developer App Access Key
-      security:
-        - BearerAuth: []
       parameters:
+        - name: user_id
+          in: query
+          description: The user ID of the user who owns the developer app
+          required: true
+          schema:
+            type: string
         - name: address
           in: path
           description: Developer app address (API Key)
@@ -717,11 +702,15 @@ paths:
     post:
       tags:
         - developer_apps
-      description: Create a new bearer token (API access key) for a developer app (Plans API). Requires OAuth Bearer token with Plans app grant.
+      description: Create a new bearer token (API access key) for a developer app (Plans API). Indexer validates grants.
       operationId: Create Developer App Access Key
-      security:
-        - BearerAuth: []
       parameters:
+        - name: user_id
+          in: query
+          description: The user ID of the user who owns the developer app
+          required: true
+          schema:
+            type: string
         - name: address
           in: path
           description: Developer app address (API Key)
@@ -4040,6 +4029,39 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/albums_response"
+        "400":
+          description: Bad request
+          content: {}
+        "500":
+          description: Server error
+          content: {}
+  /users/{id}/developer-apps:
+    get:
+      tags:
+        - developer_apps
+      description: Get developer apps for the user.
+      operationId: Get Developer Apps
+      parameters:
+        - name: id
+          in: path
+          description: The user ID whose developer apps to list
+          required: true
+          schema:
+            type: string
+        - name: include
+          in: query
+          description: Include metrics when set to "metrics"
+          schema:
+            type: string
+            enum:
+              - metrics
+      responses:
+        "200":
+          description: Success
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/developer_apps_response"
         "400":
           description: Bad request
           content: {}
