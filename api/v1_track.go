@@ -18,7 +18,7 @@ import (
 // Nested type definitions for track metadata
 
 type RemixParent struct {
-	ParentTrackId int `json:"parent_track_id" validate:"required,min=1"`
+	ParentTrackId trashid.HashId `json:"parent_track_id" validate:"required,min=1"`
 }
 
 type RemixOf struct {
@@ -26,8 +26,8 @@ type RemixOf struct {
 }
 
 type StemOf struct {
-	Category      string `json:"category" validate:"required,oneof=INSTRUMENTAL LEAD_VOCALS MELODIC_LEAD PAD SNARE KICK HIHAT PERCUSSION SAMPLE BACKING_VOX BASS OTHER"`
-	ParentTrackId int    `json:"parent_track_id" validate:"required,min=1"`
+	Category      string         `json:"category" validate:"required,oneof=INSTRUMENTAL LEAD_VOCALS MELODIC_LEAD PAD SNARE KICK HIHAT PERCUSSION SAMPLE BACKING_VOX BASS OTHER"`
+	ParentTrackId trashid.HashId `json:"parent_track_id" validate:"required,min=1"`
 }
 
 type FieldVisibility struct {
@@ -54,11 +54,11 @@ type CollectibleGatedConditions struct {
 }
 
 type FollowGatedConditions struct {
-	FollowUserId int `json:"follow_user_id" validate:"required,min=1"`
+	FollowUserId trashid.HashId `json:"follow_user_id" validate:"required,min=1"`
 }
 
 type TipGatedConditions struct {
-	TipUserId int `json:"tip_user_id" validate:"required,min=1"`
+	TipUserId trashid.HashId `json:"tip_user_id" validate:"required,min=1"`
 }
 
 type TokenGate struct {
@@ -71,8 +71,8 @@ type TokenGatedConditions struct {
 }
 
 type PurchaseSplit struct {
-	UserId     int     `json:"user_id" validate:"required,min=1"`
-	Percentage float64 `json:"percentage" validate:"required,min=0,max=100"`
+	UserId     trashid.HashId `json:"user_id" validate:"required,min=1"`
+	Percentage float64        `json:"percentage" validate:"required,min=0,max=100"`
 }
 
 type USDCPurchase struct {
@@ -89,11 +89,11 @@ type USDCPurchaseConditions struct {
 // In Go, we use a flexible approach where the JSON contains the discriminating field.
 type AccessConditions struct {
 	// Exactly one of these should be populated
-	NftCollection *NFTCollection `json:"nft_collection,omitempty" validate:"omitempty"`
-	FollowUserId  *int           `json:"follow_user_id,omitempty" validate:"omitempty,min=1"`
-	TipUserId     *int           `json:"tip_user_id,omitempty" validate:"omitempty,min=1"`
-	TokenGate     *TokenGate     `json:"token_gate,omitempty" validate:"omitempty"`
-	UsdcPurchase  *USDCPurchase  `json:"usdc_purchase,omitempty" validate:"omitempty"`
+	NftCollection *NFTCollection  `json:"nft_collection,omitempty" validate:"omitempty"`
+	FollowUserId  *trashid.HashId `json:"follow_user_id,omitempty" validate:"omitempty,min=1"`
+	TipUserId     *trashid.HashId `json:"tip_user_id,omitempty" validate:"omitempty,min=1"`
+	TokenGate     *TokenGate      `json:"token_gate,omitempty" validate:"omitempty"`
+	UsdcPurchase  *USDCPurchase   `json:"usdc_purchase,omitempty" validate:"omitempty"`
 }
 
 type DDEXResourceContributor struct {
@@ -114,7 +114,7 @@ type DDEXRightsController struct {
 }
 
 type CreateTrackRequest struct {
-	TrackId                      *int                       `json:"track_id,omitempty" validate:"omitempty,min=1"`
+	TrackId                      *trashid.HashId            `json:"track_id,omitempty" validate:"omitempty,min=1"`
 	Title                        string                     `json:"title" validate:"required,min=1"`
 	Genre                        string                     `json:"genre" validate:"required,oneof='Electronic' 'Rock' 'Metal' 'Alternative' 'Hip-Hop/Rap' 'Experimental' 'Punk' 'Folk' 'Pop' 'Ambient' 'Soundtrack' 'World' 'Jazz' 'Acoustic' 'Funk' 'R&B/Soul' 'Devotional' 'Classical' 'Reggae' 'Podcasts' 'Country' 'Spoken Word' 'Comedy' 'Blues' 'Kids' 'Audiobooks' 'Latin' 'Lo-Fi' 'Hyperpop' 'Dancehall' 'Techno' 'Trap' 'House' 'Tech House' 'Deep House' 'Disco' 'Electro' 'Jungle' 'Progressive House' 'Hardstyle' 'Glitch Hop' 'Trance' 'Future Bass' 'Future House' 'Tropical House' 'Downtempo' 'Drum & Bass' 'Dubstep' 'Jersey Club' 'Vaporwave' 'Moombahton'"`
 	Description                  *string                    `json:"description,omitempty" validate:"omitempty,max=1000"`
@@ -138,7 +138,7 @@ type CreateTrackRequest struct {
 	StreamConditions             *AccessConditions          `json:"stream_conditions,omitempty" validate:"omitempty"`
 	IsStreamGated                *bool                      `json:"is_stream_gated,omitempty"`
 	IsDownloadGated              *bool                      `json:"is_download_gated,omitempty"`
-	AiAttributionUserId          *int                       `json:"ai_attribution_user_id,omitempty" validate:"omitempty,min=0"`
+	AiAttributionUserId          *trashid.HashId            `json:"ai_attribution_user_id,omitempty" validate:"omitempty,min=0"`
 	AllowedApiKeys               *[]string                  `json:"allowed_api_keys,omitempty"`
 	PlacementHosts               *string                    `json:"placement_hosts,omitempty"`
 	DdexApp                      *string                    `json:"ddex_app,omitempty"`
@@ -179,7 +179,7 @@ type UpdateTrackRequest struct {
 	StreamConditions             *AccessConditions          `json:"stream_conditions,omitempty" validate:"omitempty"`
 	IsStreamGated                *bool                      `json:"is_stream_gated,omitempty"`
 	IsDownloadGated              *bool                      `json:"is_download_gated,omitempty"`
-	AiAttributionUserId          *int                       `json:"ai_attribution_user_id,omitempty" validate:"omitempty,min=0"`
+	AiAttributionUserId          *trashid.HashId            `json:"ai_attribution_user_id,omitempty" validate:"omitempty,min=0"`
 	AllowedApiKeys               *[]string                  `json:"allowed_api_keys,omitempty"`
 	PlacementHosts               *string                    `json:"placement_hosts,omitempty"`
 	DdexApp                      *string                    `json:"ddex_app,omitempty"`
@@ -235,7 +235,7 @@ func (app *ApiServer) postV1Tracks(c *fiber.Ctx) error {
 	// Determine track ID
 	var trackID int
 	if req.TrackId != nil {
-		trackID = *req.TrackId
+		trackID = int(*req.TrackId)
 	} else {
 		// Generate unclaimed track ID if not provided
 		generatedID, err := app.generateUnclaimedId(c.Context(), "tracks", "track_id", 2_000_000, math.MaxInt32)
