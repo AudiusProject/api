@@ -4517,6 +4517,211 @@ paths:
         "500":
           description: Server error
           content: {}
+  /users/{id}/grants:
+    post:
+      tags:
+        - users
+      description: Create a grant (authorize an app to act on the user's behalf)
+      operationId: Create Grant
+      security:
+        - BasicAuth: []
+        - BearerAuth: []
+      parameters:
+        - name: id
+          in: path
+          description: The user ID (grantor)
+          required: true
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/create_grant_request_body"
+      responses:
+        "200":
+          description: Grant created successfully
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/write_response"
+        "400":
+          description: Bad request
+          content: {}
+        "401":
+          description: Unauthorized
+          content: {}
+        "403":
+          description: Forbidden (user ID does not match)
+          content: {}
+        "500":
+          description: Server error
+          content: {}
+  /users/{id}/grants/{address}:
+    delete:
+      tags:
+        - users
+      description: Revoke a grant (remove app authorization)
+      operationId: Revoke Grant
+      security:
+        - BasicAuth: []
+        - BearerAuth: []
+      parameters:
+        - name: id
+          in: path
+          description: The user ID (grantor)
+          required: true
+          schema:
+            type: string
+        - name: address
+          in: path
+          description: The app API key (grantee address) to revoke
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: Grant revoked successfully
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/write_response"
+        "400":
+          description: Bad request
+          content: {}
+        "401":
+          description: Unauthorized
+          content: {}
+        "403":
+          description: Forbidden
+          content: {}
+        "500":
+          description: Server error
+          content: {}
+  /users/{id}/grants/approve:
+    post:
+      tags:
+        - users
+      description: Approve a manager request (manager approves being added by the child user)
+      operationId: Approve Grant
+      security:
+        - BasicAuth: []
+        - BearerAuth: []
+      parameters:
+        - name: id
+          in: path
+          description: The user ID of the manager (grantee) approving the request
+          required: true
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/approve_grant_request_body"
+      responses:
+        "200":
+          description: Grant approved successfully
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/write_response"
+        "400":
+          description: Bad request
+          content: {}
+        "401":
+          description: Unauthorized
+          content: {}
+        "403":
+          description: Forbidden
+          content: {}
+        "500":
+          description: Server error
+          content: {}
+  /users/{id}/managers:
+    post:
+      tags:
+        - users
+      description: Add a manager (authorize another user to act on your behalf)
+      operationId: Add Manager
+      security:
+        - BasicAuth: []
+        - BearerAuth: []
+      parameters:
+        - name: id
+          in: path
+          description: The user ID (child user adding the manager)
+          required: true
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/add_manager_request_body"
+      responses:
+        "200":
+          description: Manager added successfully
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/write_response"
+        "400":
+          description: Bad request
+          content: {}
+        "401":
+          description: Unauthorized
+          content: {}
+        "403":
+          description: Forbidden
+          content: {}
+        "500":
+          description: Server error
+          content: {}
+  /users/{id}/managers/{managerUserId}:
+    delete:
+      tags:
+        - users
+      description: Remove a manager (revoke user-to-user grant). Can be called by the child user or the manager.
+      operationId: Remove Manager
+      security:
+        - BasicAuth: []
+        - BearerAuth: []
+      parameters:
+        - name: id
+          in: path
+          description: The user ID (child user whose manager is being removed)
+          required: true
+          schema:
+            type: string
+        - name: managerUserId
+          in: path
+          description: The user ID of the manager to remove
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: Manager removed successfully
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/write_response"
+        "400":
+          description: Bad request
+          content: {}
+        "401":
+          description: Unauthorized
+          content: {}
+        "403":
+          description: Forbidden
+          content: {}
+        "500":
+          description: Server error
+          content: {}
   /users/{id}/following:
     get:
       tags:
@@ -10302,6 +10507,30 @@ components:
           description: ID of the entity (track or playlist) the comment is on
           minimum: 1
           example: 12345
+    create_grant_request_body:
+      type: object
+      required:
+        - app_api_key
+      properties:
+        app_api_key:
+          type: string
+          description: The developer app address (API key) to grant authorization to
+    add_manager_request_body:
+      type: object
+      required:
+        - manager_user_id
+      properties:
+        manager_user_id:
+          type: string
+          description: The user ID of the user to add as manager
+    approve_grant_request_body:
+      type: object
+      required:
+        - grantor_user_id
+      properties:
+        grantor_user_id:
+          type: string
+          description: The user ID of the child user who proposed the manager (grantor)
     create_developer_app_request_body:
       type: object
       required:
