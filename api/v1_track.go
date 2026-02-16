@@ -129,7 +129,7 @@ type CreateTrackRequest struct {
 	PreviewCid                   *string                    `json:"preview_cid,omitempty"`
 	PreviewStartSeconds          *float64                   `json:"preview_start_seconds,omitempty" validate:"omitempty,min=0"`
 	Duration                     *float64                   `json:"duration,omitempty" validate:"omitempty,min=0"`
-	Downloadable                 *bool                      `json:"downloadable,omitempty"`
+	IsDownloadable               *bool                      `json:"is_downloadable,omitempty"`
 	IsUnlisted                   *bool                      `json:"is_unlisted,omitempty"`
 	FieldVisibility              *FieldVisibility           `json:"field_visibility,omitempty" validate:"omitempty"`
 	RemixOf                      *RemixOf                   `json:"remix_of,omitempty" validate:"omitempty"`
@@ -170,7 +170,7 @@ type UpdateTrackRequest struct {
 	CoverArtCid                  *string                    `json:"cover_art_cid,omitempty"`
 	PreviewCid                   *string                    `json:"preview_cid,omitempty"`
 	PreviewStartSeconds          *float64                   `json:"preview_start_seconds,omitempty" validate:"omitempty,min=0"`
-	Downloadable                 *bool                      `json:"downloadable,omitempty"`
+	IsDownloadable               *bool                      `json:"is_downloadable,omitempty"`
 	IsUnlisted                   *bool                      `json:"is_unlisted,omitempty"`
 	FieldVisibility              *FieldVisibility           `json:"field_visibility,omitempty" validate:"omitempty"`
 	RemixOf                      *RemixOf                   `json:"remix_of,omitempty" validate:"omitempty"`
