@@ -23,30 +23,30 @@ type GetCommentsParams struct {
 }
 
 type CreateCommentRequest struct {
-	EntityType      string           `json:"entityType" validate:"required,oneof=Track"`
-	EntityId        trashid.HashId   `json:"entityId" validate:"required,min=1"`
-	Body            string           `json:"body" validate:"required,max=500"`
-	CommentId       *trashid.HashId  `json:"commentId,omitempty" validate:"omitempty,min=1"`
-	ParentId        *trashid.HashId  `json:"parentId,omitempty" validate:"omitempty,min=1"`
-	TrackTimestampS *int             `json:"trackTimestampS,omitempty" validate:"omitempty,min=0"`
-	Mentions        []trashid.HashId `json:"mentions,omitempty" validate:"omitempty,dive,min=1"`
+	EntityType      string `json:"entityType" validate:"required,oneof=Track"`
+	EntityId        int    `json:"entityId" validate:"required,min=1"`
+	Body            string `json:"body" validate:"required,max=500"`
+	CommentId       *int   `json:"commentId,omitempty" validate:"omitempty,min=1"`
+	ParentId        *int   `json:"parentId,omitempty" validate:"omitempty,min=1"`
+	TrackTimestampS *int   `json:"trackTimestampS,omitempty" validate:"omitempty,min=0"`
+	Mentions        []int  `json:"mentions,omitempty" validate:"omitempty,dive,min=1"`
 }
 
 type UpdateCommentRequest struct {
-	EntityType string           `json:"entityType" validate:"required,oneof=Track"`
-	EntityId   trashid.HashId   `json:"entityId" validate:"required,min=1"`
-	Body       string           `json:"body" validate:"required,max=500"`
-	Mentions   []trashid.HashId `json:"mentions,omitempty" validate:"omitempty,dive,min=1"`
+	EntityType string `json:"entityType" validate:"required,oneof=Track"`
+	EntityId   int    `json:"entityId" validate:"required,min=1"`
+	Body       string `json:"body" validate:"required,max=500"`
+	Mentions   []int  `json:"mentions,omitempty" validate:"omitempty,dive,min=1"`
 }
 
 type ReactCommentRequest struct {
-	EntityType string         `json:"entityType" validate:"required,oneof=Track"`
-	EntityId   trashid.HashId `json:"entityId" validate:"required,min=1"`
+	EntityType string `json:"entityType" validate:"required,oneof=Track"`
+	EntityId   int    `json:"entityId" validate:"required,min=1"`
 }
 
 type PinCommentRequest struct {
-	EntityType string         `json:"entityType" validate:"required,oneof=Track"`
-	EntityId   trashid.HashId `json:"entityId" validate:"required,min=1"`
+	EntityType string `json:"entityType" validate:"required,oneof=Track"`
+	EntityId   int    `json:"entityId" validate:"required,min=1"`
 }
 
 func (app *ApiServer) queryFullComments(
@@ -142,7 +142,7 @@ func (app *ApiServer) postV1Comment(c *fiber.Ctx) error {
 	nonce := time.Now().UnixNano()
 	commentID := 0
 	if req.CommentId != nil {
-		commentID = int(*req.CommentId)
+		commentID = *req.CommentId
 	} else {
 		// Generate unclaimed comment ID if not provided
 		generatedID, err := app.generateUnclaimedId(c.Context(), "comments", "comment_id", 4_000_000, math.MaxInt32)
@@ -157,11 +157,11 @@ func (app *ApiServer) postV1Comment(c *fiber.Ctx) error {
 	// Build metadata
 	metadataMap := map[string]interface{}{
 		"entity_type": req.EntityType,
-		"entity_id":   int(req.EntityId),
+		"entity_id":   req.EntityId,
 		"body":        req.Body,
 	}
 	if req.ParentId != nil {
-		metadataMap["parent_id"] = int(*req.ParentId)
+		metadataMap["parent_id"] = *req.ParentId
 	}
 	if req.TrackTimestampS != nil {
 		metadataMap["track_timestamp_s"] = *req.TrackTimestampS
@@ -172,12 +172,7 @@ func (app *ApiServer) postV1Comment(c *fiber.Ctx) error {
 		if len(mentions) > 10 {
 			mentions = mentions[:10]
 		}
-		// Convert trashid.HashId slice to int slice
-		mentionInts := make([]int, len(mentions))
-		for i, m := range mentions {
-			mentionInts[i] = int(m)
-		}
-		metadataMap["mentions"] = mentionInts
+		metadataMap["mentions"] = mentions
 	}
 
 	metadataObj := map[string]interface{}{
@@ -235,7 +230,7 @@ func (app *ApiServer) putV1Comment(c *fiber.Ctx) error {
 
 	metadataMap := map[string]interface{}{
 		"entity_type": req.EntityType,
-		"entity_id":   int(req.EntityId),
+		"entity_id":   req.EntityId,
 		"body":        req.Body,
 	}
 	if len(req.Mentions) > 0 {
@@ -244,12 +239,7 @@ func (app *ApiServer) putV1Comment(c *fiber.Ctx) error {
 		if len(mentions) > 10 {
 			mentions = mentions[:10]
 		}
-		// Convert trashid.HashId slice to int slice
-		mentionInts := make([]int, len(mentions))
-		for i, m := range mentions {
-			mentionInts[i] = int(m)
-		}
-		metadataMap["mentions"] = mentionInts
+		metadataMap["mentions"] = mentions
 	}
 
 	metadataObj := map[string]interface{}{
@@ -346,7 +336,7 @@ func (app *ApiServer) postV1CommentReact(c *fiber.Ctx) error {
 	metadataObj := map[string]interface{}{
 		"cid": "",
 		"data": map[string]interface{}{
-			"entity_id":   int(req.EntityId),
+			"entity_id":   req.EntityId,
 			"entity_type": req.EntityType,
 		},
 	}
@@ -400,7 +390,7 @@ func (app *ApiServer) deleteV1CommentReact(c *fiber.Ctx) error {
 	metadataObj := map[string]interface{}{
 		"cid": "",
 		"data": map[string]interface{}{
-			"entity_id":   int(req.EntityId),
+			"entity_id":   req.EntityId,
 			"entity_type": req.EntityType,
 		},
 	}
@@ -457,7 +447,7 @@ func (app *ApiServer) postV1CommentPin(c *fiber.Ctx) error {
 		"cid": "",
 		"data": map[string]interface{}{
 			"entity_type": req.EntityType,
-			"entity_id":   int(req.EntityId),
+			"entity_id":   req.EntityId,
 		},
 	}
 	metadataBytes, _ := json.Marshal(metadataObj)
@@ -511,7 +501,7 @@ func (app *ApiServer) deleteV1CommentPin(c *fiber.Ctx) error {
 		"cid": "",
 		"data": map[string]interface{}{
 			"entity_type": req.EntityType,
-			"entity_id":   int(req.EntityId),
+			"entity_id":   req.EntityId,
 		},
 	}
 	metadataBytes, _ := json.Marshal(metadataObj)
