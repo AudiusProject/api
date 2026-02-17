@@ -114,6 +114,19 @@ func (app *ApiServer) authMiddleware(c *fiber.Ctx) error {
 	} else {
 		wallet = app.recoverAuthorityFromSignatureHeaders(c)
 		myId = app.getMyId(c)
+		// OAuth JWT fallback: when Bearer token is not api_access_key, try as OAuth JWT (Plans app)
+		if wallet == "" && myId != 0 {
+			if authHeader := c.Get("Authorization"); authHeader != "" && strings.HasPrefix(authHeader, "Bearer ") {
+				token := strings.TrimSpace(strings.TrimPrefix(authHeader, "Bearer "))
+				if token != "" {
+					if oauthWallet, jwtUserId, err := app.validateOAuthJWTTokenToWalletAndUserId(c.Context(), token); err == nil {
+						if int32(jwtUserId) == myId {
+							wallet = oauthWallet
+						}
+					}
+				}
+			}
+		}
 	}
 
 	c.Locals("authedWallet", wallet)
