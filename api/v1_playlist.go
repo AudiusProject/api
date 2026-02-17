@@ -22,7 +22,7 @@ type PlaylistTrackInfo struct {
 }
 
 type CreatePlaylistRequest struct {
-	PlaylistId            *int                       `json:"playlist_id,omitempty" validate:"omitempty,min=1"`
+	PlaylistId            *trashid.HashId            `json:"playlist_id,omitempty" validate:"omitempty,min=1"`
 	PlaylistName          string                     `json:"playlist_name" validate:"required,min=1"`
 	Description           *string                    `json:"description,omitempty" validate:"omitempty,max=1000"`
 	IsPrivate             *bool                      `json:"is_private,omitempty"`
@@ -108,7 +108,7 @@ func (app *ApiServer) postV1Playlists(c *fiber.Ctx) error {
 	// Determine playlist ID
 	var playlistID int
 	if req.PlaylistId != nil {
-		playlistID = *req.PlaylistId
+		playlistID = int(*req.PlaylistId)
 	} else {
 		// Generate unclaimed playlist ID if not provided
 		generatedID, err := app.generateUnclaimedId(c.Context(), "tracks", "track_id", 400_000, math.MaxInt32)

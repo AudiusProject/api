@@ -18,7 +18,7 @@ import (
 // Nested type definitions for track metadata
 
 type RemixParent struct {
-	ParentTrackId int `json:"parent_track_id" validate:"required,min=1"`
+	ParentTrackId trashid.HashId `json:"parent_track_id" validate:"required,min=1"`
 }
 
 type RemixOf struct {
@@ -26,8 +26,8 @@ type RemixOf struct {
 }
 
 type StemOf struct {
-	Category      string `json:"category" validate:"required,oneof=INSTRUMENTAL LEAD_VOCALS MELODIC_LEAD PAD SNARE KICK HIHAT PERCUSSION SAMPLE BACKING_VOX BASS OTHER"`
-	ParentTrackId int    `json:"parent_track_id" validate:"required,min=1"`
+	Category      string         `json:"category" validate:"required,oneof=INSTRUMENTAL LEAD_VOCALS MELODIC_LEAD PAD SNARE KICK HIHAT PERCUSSION SAMPLE BACKING_VOX BASS OTHER"`
+	ParentTrackId trashid.HashId `json:"parent_track_id" validate:"required,min=1"`
 }
 
 type FieldVisibility struct {
@@ -114,7 +114,7 @@ type DDEXRightsController struct {
 }
 
 type CreateTrackRequest struct {
-	TrackId                      *int                       `json:"track_id,omitempty" validate:"omitempty,min=1"`
+	TrackId                      *trashid.HashId            `json:"track_id,omitempty" validate:"omitempty,min=1"`
 	Title                        string                     `json:"title" validate:"required,min=1"`
 	Genre                        string                     `json:"genre" validate:"required,oneof='Electronic' 'Rock' 'Metal' 'Alternative' 'Hip-Hop/Rap' 'Experimental' 'Punk' 'Folk' 'Pop' 'Ambient' 'Soundtrack' 'World' 'Jazz' 'Acoustic' 'Funk' 'R&B/Soul' 'Devotional' 'Classical' 'Reggae' 'Podcasts' 'Country' 'Spoken Word' 'Comedy' 'Blues' 'Kids' 'Audiobooks' 'Latin' 'Lo-Fi' 'Hyperpop' 'Dancehall' 'Techno' 'Trap' 'House' 'Tech House' 'Deep House' 'Disco' 'Electro' 'Jungle' 'Progressive House' 'Hardstyle' 'Glitch Hop' 'Trance' 'Future Bass' 'Future House' 'Tropical House' 'Downtempo' 'Drum & Bass' 'Dubstep' 'Jersey Club' 'Vaporwave' 'Moombahton'"`
 	Description                  *string                    `json:"description,omitempty" validate:"omitempty,max=1000"`
@@ -129,7 +129,7 @@ type CreateTrackRequest struct {
 	PreviewCid                   *string                    `json:"preview_cid,omitempty"`
 	PreviewStartSeconds          *float64                   `json:"preview_start_seconds,omitempty" validate:"omitempty,min=0"`
 	Duration                     *float64                   `json:"duration,omitempty" validate:"omitempty,min=0"`
-	Downloadable                 *bool                      `json:"downloadable,omitempty"`
+	IsDownloadable               *bool                      `json:"is_downloadable,omitempty"`
 	IsUnlisted                   *bool                      `json:"is_unlisted,omitempty"`
 	FieldVisibility              *FieldVisibility           `json:"field_visibility,omitempty" validate:"omitempty"`
 	RemixOf                      *RemixOf                   `json:"remix_of,omitempty" validate:"omitempty"`
@@ -138,7 +138,7 @@ type CreateTrackRequest struct {
 	StreamConditions             *AccessConditions          `json:"stream_conditions,omitempty" validate:"omitempty"`
 	IsStreamGated                *bool                      `json:"is_stream_gated,omitempty"`
 	IsDownloadGated              *bool                      `json:"is_download_gated,omitempty"`
-	AiAttributionUserId          *int                       `json:"ai_attribution_user_id,omitempty" validate:"omitempty,min=0"`
+	AiAttributionUserId          *trashid.HashId            `json:"ai_attribution_user_id,omitempty" validate:"omitempty,min=0"`
 	AllowedApiKeys               *[]string                  `json:"allowed_api_keys,omitempty"`
 	PlacementHosts               *string                    `json:"placement_hosts,omitempty"`
 	DdexApp                      *string                    `json:"ddex_app,omitempty"`
@@ -170,7 +170,7 @@ type UpdateTrackRequest struct {
 	CoverArtCid                  *string                    `json:"cover_art_cid,omitempty"`
 	PreviewCid                   *string                    `json:"preview_cid,omitempty"`
 	PreviewStartSeconds          *float64                   `json:"preview_start_seconds,omitempty" validate:"omitempty,min=0"`
-	Downloadable                 *bool                      `json:"downloadable,omitempty"`
+	IsDownloadable               *bool                      `json:"is_downloadable,omitempty"`
 	IsUnlisted                   *bool                      `json:"is_unlisted,omitempty"`
 	FieldVisibility              *FieldVisibility           `json:"field_visibility,omitempty" validate:"omitempty"`
 	RemixOf                      *RemixOf                   `json:"remix_of,omitempty" validate:"omitempty"`
@@ -179,7 +179,7 @@ type UpdateTrackRequest struct {
 	StreamConditions             *AccessConditions          `json:"stream_conditions,omitempty" validate:"omitempty"`
 	IsStreamGated                *bool                      `json:"is_stream_gated,omitempty"`
 	IsDownloadGated              *bool                      `json:"is_download_gated,omitempty"`
-	AiAttributionUserId          *int                       `json:"ai_attribution_user_id,omitempty" validate:"omitempty,min=0"`
+	AiAttributionUserId          *trashid.HashId            `json:"ai_attribution_user_id,omitempty" validate:"omitempty,min=0"`
 	AllowedApiKeys               *[]string                  `json:"allowed_api_keys,omitempty"`
 	PlacementHosts               *string                    `json:"placement_hosts,omitempty"`
 	DdexApp                      *string                    `json:"ddex_app,omitempty"`
@@ -235,7 +235,7 @@ func (app *ApiServer) postV1Tracks(c *fiber.Ctx) error {
 	// Determine track ID
 	var trackID int
 	if req.TrackId != nil {
-		trackID = *req.TrackId
+		trackID = int(*req.TrackId)
 	} else {
 		// Generate unclaimed track ID if not provided
 		generatedID, err := app.generateUnclaimedId(c.Context(), "tracks", "track_id", 2_000_000, math.MaxInt32)

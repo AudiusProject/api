@@ -24,12 +24,12 @@ type PlaylistLibrary struct {
 }
 
 type Events struct {
-	Referrer     *int  `json:"referrer,omitempty" validate:"omitempty,min=1"`
-	IsMobileUser *bool `json:"is_mobile_user,omitempty"`
+	Referrer     *trashid.HashId `json:"referrer,omitempty" validate:"omitempty,min=1"`
+	IsMobileUser *bool           `json:"is_mobile_user,omitempty"`
 }
 
 type CreateUserRequest struct {
-	UserId              *int             `json:"user_id,omitempty" validate:"omitempty,min=1"`
+	UserId              *trashid.HashId  `json:"user_id,omitempty" validate:"omitempty,min=1"`
 	Handle              string           `json:"handle" validate:"required,min=1"`
 	Wallet              string           `json:"wallet" validate:"required"`
 	Name                *string          `json:"name,omitempty" validate:"omitempty,min=1"`
@@ -66,7 +66,7 @@ type UpdateUserRequest struct {
 	CoverPhotoSizes     *string          `json:"cover_photo_sizes,omitempty"`
 	ProfileType         *string          `json:"profile_type,omitempty" validate:"omitempty,oneof=label"`
 	IsDeactivated       *bool            `json:"is_deactivated,omitempty"`
-	ArtistPickTrackId   *int             `json:"artist_pick_track_id,omitempty" validate:"omitempty,min=1"`
+	ArtistPickTrackId   *trashid.HashId  `json:"artist_pick_track_id,omitempty" validate:"omitempty,min=1"`
 	AllowAiAttribution  *bool            `json:"allow_ai_attribution,omitempty"`
 	PlaylistLibrary     *PlaylistLibrary `json:"playlist_library,omitempty" validate:"omitempty"`
 	SplUsdcPayoutWallet *string          `json:"spl_usdc_payout_wallet,omitempty"`
@@ -111,7 +111,7 @@ func (app *ApiServer) postV1Users(c *fiber.Ctx) error {
 	// Determine user ID
 	var userID int
 	if req.UserId != nil {
-		userID = *req.UserId
+		userID = int(*req.UserId)
 	} else {
 		// Generate unclaimed user ID if not provided
 		generatedID, err := app.generateUnclaimedId(c.Context(), "users", "user_id", 3_000_000, 999_999_999)

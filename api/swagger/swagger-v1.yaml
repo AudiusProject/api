@@ -6969,7 +6969,8 @@ components:
         access:
           $ref: "#/components/schemas/track_access_info"
         ai_attribution_user_id:
-          type: integer
+          type: string
+          example: "x5pJ3Az"
         allowed_api_keys:
           type: array
           items:
@@ -7118,7 +7119,8 @@ components:
       type: object
       properties:
         parent_track_id:
-          type: integer
+          type: string
+          example: "x5pJ3Az"
     album_backlink:
       required:
         - permalink
@@ -8032,6 +8034,7 @@ components:
       properties:
         tip_user_id:
           type: integer
+          example: 1234
           description: Must tip the given user ID to unlock
     follow_gate:
       required:
@@ -8040,6 +8043,7 @@ components:
       properties:
         follow_user_id:
           type: integer
+          example: 1234
           description: Must follow the given user ID to unlock
     token_gate:
       required:
@@ -8096,6 +8100,7 @@ components:
       properties:
         user_id:
           type: integer
+          example: 1234
         percentage:
           type: number
         eth_wallet:
@@ -8311,7 +8316,8 @@ components:
         category:
           $ref: "#/components/schemas/stem_category"
         parent_track_id:
-          type: integer
+          type: string
+          example: "x5pJ3Az"
     undisbursed_challenges:
       type: object
       properties:
@@ -9962,9 +9968,9 @@ components:
         - track_cid
       properties:
         track_id:
-          type: integer
+          type: string
           description: Optional track ID (will be generated if not provided)
-          minimum: 1
+          example: "x5pJ3Az"
         title:
           type: string
           description: Track title
@@ -10027,7 +10033,7 @@ components:
           format: float
           description: Track duration in seconds
           minimum: 0
-        downloadable:
+        is_downloadable:
           type: boolean
           description: Whether the track is downloadable
         is_unlisted:
@@ -10126,7 +10132,7 @@ components:
           format: float
           description: Track duration in seconds
           minimum: 0
-        downloadable:
+        is_downloadable:
           type: boolean
           description: Whether the track is downloadable
         is_unlisted:
@@ -10163,9 +10169,9 @@ components:
         - playlist_name
       properties:
         playlist_id:
-          type: integer
+          type: string
           description: Optional playlist ID (will be generated if not provided)
-          minimum: 1
+          example: "x5pJ3Az"
         playlist_name:
           type: string
           description: Playlist or album name
@@ -10260,9 +10266,9 @@ components:
         - wallet
       properties:
         user_id:
-          type: integer
-          description: Optional user ID (will be generated if not provided)
-          minimum: 1
+          type: string
+          description: Optional user hash ID (will be generated if not provided)
+          example: "p9Km2Lx"
         handle:
           type: string
           description: User handle (unique username)
@@ -10322,27 +10328,15 @@ components:
           type: string
           description: Solana USDC payout wallet address
         playlist_library:
-          type: object
-          description: User's playlist library with support for folders and playlists
-          required:
-            - contents
-          properties:
-            contents:
-              type: array
-              description: Array of folders and playlist identifiers
-              items:
-                oneOf:
-                  - $ref: "#/components/schemas/playlist_library_folder"
-                  - $ref: "#/components/schemas/playlist_library_playlist_identifier"
-                  - $ref: "#/components/schemas/playlist_library_explore_playlist_identifier"
+          $ref: '#/components/schemas/user_playlist_library'
         events:
           type: object
           description: User events for tracking referrals and mobile users
           properties:
             referrer:
-              type: integer
-              description: User ID of the referrer
-              minimum: 1
+              type: string
+              description: Hash ID of the user who referred this user
+              example: "k9Xm5Pz"
             is_mobile_user:
               type: boolean
               description: Whether the user is on mobile
@@ -10397,9 +10391,9 @@ components:
           type: boolean
           description: Whether the user is deactivated
         artist_pick_track_id:
-          type: integer
-          description: Track ID to feature as artist pick
-          minimum: 1
+          type: string
+          description: Track hash ID to feature as artist pick
+          example: "x5pJ3Az"
         allow_ai_attribution:
           type: boolean
           description: Whether to allow AI attribution
@@ -10410,25 +10404,15 @@ components:
           type: string
           description: Coin flair mint address
         playlist_library:
-          type: object
-          description: User's playlist library with support for folders and playlists
-          properties:
-            contents:
-              type: array
-              description: Array of folders and playlist identifiers
-              items:
-                oneOf:
-                  - $ref: "#/components/schemas/playlist_library_folder"
-                  - $ref: "#/components/schemas/playlist_library_playlist_identifier"
-                  - $ref: "#/components/schemas/playlist_library_explore_playlist_identifier"
+          $ref: '#/components/schemas/user_playlist_library'
         events:
           type: object
           description: User events for tracking referrals and mobile users
           properties:
             referrer:
-              type: integer
-              description: User ID of the referrer
-              minimum: 1
+              type: string
+              description: Hash ID of the user who referred this user
+              example: "k9Xm5Pz"
             is_mobile_user:
               type: boolean
               description: Whether the user is on mobile
@@ -10446,7 +10430,6 @@ components:
         entityId:
           type: integer
           description: ID of the entity being commented on
-          minimum: 1
           example: 12345
         body:
           type: string
@@ -10458,7 +10441,7 @@ components:
           maxItems: 10
           items:
             type: integer
-            minimum: 1
+            example: 67890
     create_comment_request_body:
       type: object
       required:
@@ -10473,7 +10456,6 @@ components:
         entityId:
           type: integer
           description: ID of the entity being commented on
-          minimum: 1
           example: 12345
         body:
           type: string
@@ -10482,12 +10464,12 @@ components:
           example: "Great track!"
         commentId:
           type: integer
-          description: Optional comment ID (will be generated if not provided)
-          minimum: 1
+          description: Optional ID for the comment (will be generated if not provided)
+          example: 98765
         parentId:
           type: integer
           description: Parent comment ID if this is a reply
-          minimum: 1
+          example: 54321
         trackTimestampS:
           type: integer
           description: Timestamp in the track where the comment was made (in seconds)
@@ -10498,7 +10480,7 @@ components:
           maxItems: 10
           items:
             type: integer
-            minimum: 1
+            example: 67890
     react_comment_request_body:
       type: object
       required:
@@ -10511,8 +10493,7 @@ components:
           example: "Track"
         entityId:
           type: integer
-          description: ID of the entity (track or playlist) being commented on
-          minimum: 1
+          description: ID of the entity (track) being commented on
           example: 12345
     pin_comment_request_body:
       type: object
@@ -10526,8 +10507,7 @@ components:
           example: "Track"
         entityId:
           type: integer
-          description: ID of the entity (track or playlist) the comment is on
-          minimum: 1
+          description: ID of the entity (track) the comment is on
           example: 12345
     create_grant_request_body:
       type: object
@@ -10662,6 +10642,20 @@ components:
         success:
           type: boolean
           description: Whether the deactivation was successful
+    user_playlist_library:
+      type: object
+      description: User's playlist library with support for folders and playlists
+      required:
+        - contents
+      properties:
+        contents:
+          type: array
+          description: Array of folders and playlist identifiers
+          items:
+            oneOf:
+              - $ref: '#/components/schemas/playlist_library_folder'
+              - $ref: '#/components/schemas/playlist_library_playlist_identifier'
+              - $ref: '#/components/schemas/playlist_library_explore_playlist_identifier'
     playlist_library_folder:
       type: object
       description: Folder containing nested playlists and folders
@@ -10701,7 +10695,7 @@ components:
         playlist_id:
           type: integer
           description: Playlist ID
-          minimum: 1
+          example: 1234
     playlist_library_explore_playlist_identifier:
       type: object
       description: Reference to an explore playlist
