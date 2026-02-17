@@ -35,5 +35,6 @@ EXPOSE 1323
 
 ARG GIT_SHA
 ENV GIT_SHA=$GIT_SHA
+ENV GODEBUG=http2client=0
 
 CMD ["bridge"] 
