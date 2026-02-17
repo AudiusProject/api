@@ -1,7 +1,6 @@
 package api
 
 import (
-	"context"
 	"crypto/ecdsa"
 	"crypto/rand"
 	"encoding/base64"
@@ -120,129 +119,106 @@ func (app *ApiServer) v1UsersDeveloperAppsWithMetrics(c *fiber.Ctx, userId int32
 	})
 }
 
-// validateOAuthJWTTokenToUserId validates the OAuth JWT and returns the userId from the payload.
-func (app *ApiServer) validateOAuthJWTTokenToUserId(ctx context.Context, token string) (trashid.HashId, error) {
-	tokenParts := strings.Split(token, ".")
-	if len(tokenParts) != 3 {
-		return 0, fiber.NewError(fiber.StatusBadRequest, "Invalid JWT token format")
-	}
-
-	base64Header := tokenParts[0]
-	base64Payload := tokenParts[1]
-	base64Signature := tokenParts[2]
-
-	paddedSignature := base64Signature
-	if len(paddedSignature)%4 != 0 {
-		paddedSignature += strings.Repeat("=", 4-len(paddedSignature)%4)
-	}
-	signatureDecoded, err := base64.URLEncoding.DecodeString(paddedSignature)
-	if err != nil {
-		return 0, fiber.NewError(fiber.StatusBadRequest, "The JWT signature could not be decoded")
-	}
-	signatureHex := string(signatureDecoded)
-	signatureBytes := common.FromHex(signatureHex)
-
-	message := fmt.Sprintf("%s.%s", base64Header, base64Payload)
-	encodedToRecover := []byte(message)
-	prefixedMessage := []byte(fmt.Sprintf("\x19Ethereum Signed Message:\n%d%s", len(encodedToRecover), encodedToRecover))
-	finalHash := crypto.Keccak256Hash(prefixedMessage)
-
-	if len(signatureBytes) != 65 {
-		return 0, fiber.NewError(fiber.StatusBadRequest, "The JWT signature was incorrectly signed")
-	}
-	if signatureBytes[64] >= 27 {
-		signatureBytes[64] -= 27
-	}
-	publicKey, err := crypto.SigToPub(finalHash.Bytes(), signatureBytes)
-	if err != nil {
-		return 0, fiber.NewError(fiber.StatusUnauthorized, "The JWT signature is invalid")
-	}
-	recoveredAddr := crypto.PubkeyToAddress(*publicKey)
-	walletLower := strings.ToLower(recoveredAddr.Hex())
-
-	paddedPayload := base64Payload
-	if len(paddedPayload)%4 != 0 {
-		paddedPayload += strings.Repeat("=", 4-len(paddedPayload)%4)
-	}
-	stringifiedPayload, err := base64.URLEncoding.DecodeString(paddedPayload)
-	if err != nil {
-		return 0, fiber.NewError(fiber.StatusBadRequest, "JWT payload could not be decoded")
-	}
-	var payload map[string]interface{}
-	if err := json.Unmarshal(stringifiedPayload, &payload); err != nil {
-		return 0, fiber.NewError(fiber.StatusBadRequest, "JWT payload could not be unmarshalled")
-	}
-
-	userIdInterface, exists := payload["userId"]
-	if !exists {
-		return 0, fiber.NewError(fiber.StatusBadRequest, "JWT payload missing userId field")
-	}
-	userIdStr, ok := userIdInterface.(string)
-	if !ok {
-		return 0, fiber.NewError(fiber.StatusBadRequest, "JWT payload userId must be a string")
-	}
-	jwtUserId, err := trashid.DecodeHashId(userIdStr)
-	if err != nil {
-		return 0, fiber.NewError(fiber.StatusBadRequest, "Invalid JWT payload userId")
-	}
-
-	walletUserId, err := app.queries.GetUserForWallet(ctx, walletLower)
-	if err != nil {
-		if err == pgx.ErrNoRows {
-			return 0, fiber.NewError(fiber.StatusUnauthorized, "The JWT signature is invalid - invalid wallet")
-		}
-		return 0, err
-	}
-
-	if int32(walletUserId) != int32(jwtUserId) {
-		isManager, err := app.isActiveManager(ctx, int32(jwtUserId), int32(walletUserId))
-		if err != nil {
-			return 0, err
-		}
-		if !isManager {
-			return 0, fiber.NewError(fiber.StatusForbidden, "The JWT signature is invalid - the wallet does not match the user")
-		}
-	}
-
-	return trashid.HashId(jwtUserId), nil
+type updateDeveloperAppBody struct {
+	Name        string  `json:"name"`
+	Description *string `json:"description"`
+	ImageUrl    *string `json:"imageUrl"`
 }
 
-// validateOAuthJWTTokenToWalletAndUserId validates the OAuth JWT and returns (wallet, userId).
-// Used by auth middleware when Bearer token is not an api_access_key.
-func (app *ApiServer) validateOAuthJWTTokenToWalletAndUserId(ctx context.Context, token string) (wallet string, userId int32, err error) {
-	id, err := app.validateOAuthJWTTokenToUserId(ctx, token)
+func (app *ApiServer) putV1UsersDeveloperApp(c *fiber.Ctx) error {
+	userID := app.getMyId(c)
+	if userID == 0 {
+		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
+			"error": "user_id query parameter is required",
+		})
+	}
+	address := c.Params("address")
+	if address == "" {
+		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
+			"error": "address is required",
+		})
+	}
+	if !strings.HasPrefix(address, "0x") {
+		address = "0x" + address
+	}
+	address = strings.ToLower(address)
+
+	var body updateDeveloperAppBody
+	if err := c.BodyParser(&body); err != nil {
+		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
+			"error": "Invalid request body",
+		})
+	}
+	name := strings.TrimSpace(body.Name)
+	if name == "" {
+		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
+			"error": "name is required",
+		})
+	}
+
+	// Verify the app belongs to this user
+	var ownerUserID int32
+	err := app.pool.QueryRow(c.Context(), `
+		SELECT user_id FROM developer_apps
+		WHERE LOWER(address) = LOWER($1)
+		  AND is_current = true
+		  AND is_delete = false
+		ORDER BY created_at DESC
+		LIMIT 1
+	`, address).Scan(&ownerUserID)
+	if err != nil || ownerUserID != userID {
+		return c.Status(fiber.StatusNotFound).JSON(fiber.Map{
+			"error": "Developer app not found",
+		})
+	}
+
+	plansSecret := app.config.AudiusApiSecret
+	if plansSecret == "" {
+		app.logger.Error("audiusApiSecret required for developer app update")
+		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{
+			"error": "Plans app not configured",
+		})
+	}
+	plansKey, err := crypto.HexToECDSA(strings.TrimPrefix(plansSecret, "0x"))
 	if err != nil {
-		return "", 0, err
+		app.logger.Error("Invalid audiusApiSecret", zap.Error(err))
+		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{
+			"error": "Plans app misconfigured",
+		})
 	}
-	tokenParts := strings.Split(token, ".")
-	if len(tokenParts) != 3 {
-		return "", 0, fiber.NewError(fiber.StatusBadRequest, "Invalid JWT token format")
+	plansAddress := strings.ToLower(crypto.PubkeyToAddress(plansKey.PublicKey).Hex())
+
+	metadataObj := map[string]interface{}{
+		"address":     address,
+		"name":        name,
+		"description": body.Description,
+		"image_url":   body.ImageUrl,
 	}
-	base64Payload, base64Signature := tokenParts[1], tokenParts[2]
-	paddedSignature := base64Signature
-	if len(paddedSignature)%4 != 0 {
-		paddedSignature += strings.Repeat("=", 4-len(paddedSignature)%4)
+	metadataBytes, _ := json.Marshal(metadataObj)
+
+	nonce := time.Now().UnixNano()
+	manageEntityTx := &corev1.ManageEntityLegacy{
+		Signer:     common.HexToAddress(plansAddress).String(),
+		UserId:     int64(userID),
+		EntityId:   0,
+		Action:     indexer.Action_Update,
+		EntityType: indexer.Entity_DeveloperApp,
+		Nonce:      strconv.FormatInt(nonce, 10),
+		Metadata:   string(metadataBytes),
 	}
-	signatureDecoded, err := base64.URLEncoding.DecodeString(paddedSignature)
+
+	response, err := app.sendTransactionWithSigner(manageEntityTx, plansKey)
 	if err != nil {
-		return "", 0, fiber.NewError(fiber.StatusBadRequest, "The JWT signature could not be decoded")
+		app.logger.Error("Failed to send developer app update transaction", zap.Error(err))
+		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{
+			"error": "Failed to update developer app",
+		})
 	}
-	signatureBytes := common.FromHex(string(signatureDecoded))
-	if len(signatureBytes) != 65 {
-		return "", 0, fiber.NewError(fiber.StatusBadRequest, "The JWT signature was incorrectly signed")
-	}
-	if signatureBytes[64] >= 27 {
-		signatureBytes[64] -= 27
-	}
-	message := fmt.Sprintf("%s.%s", tokenParts[0], base64Payload)
-	prefixedMessage := []byte(fmt.Sprintf("\x19Ethereum Signed Message:\n%d%s", len(message), message))
-	finalHash := crypto.Keccak256Hash(prefixedMessage)
-	publicKey, err := crypto.SigToPub(finalHash.Bytes(), signatureBytes)
-	if err != nil {
-		return "", 0, fiber.NewError(fiber.StatusUnauthorized, "The JWT signature is invalid")
-	}
-	recoveredAddr := crypto.PubkeyToAddress(*publicKey)
-	return strings.ToLower(recoveredAddr.Hex()), int32(id), nil
+
+	return c.JSON(fiber.Map{
+		"success":          true,
+		"transaction_hash": response.Msg.GetTransaction().GetHash(),
+	})
 }
 
 type createDeveloperAppBody struct {
@@ -329,7 +305,7 @@ func (app *ApiServer) postV1UsersDeveloperApp(c *fiber.Ctx) error {
 	}
 	metadataBytes, _ := json.Marshal(metadataObj)
 
-	// Sign the ManageEntity tx with the plans app (which has a grant from the user).
+	// Sign the ManageEntity tx with our api secret (which has a grant from the user).
 	// The indexer's validate_signer requires the signer to be the user or an authorized grantee.
 	// The app_signature in metadata proves the new app controls its address.
 	plansSecret := app.config.AudiusApiSecret
