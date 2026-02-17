@@ -20,7 +20,7 @@ func TestGetUserTracksCount(t *testing.T) {
 		Data int
 	}
 
-	baseUrl := fmt.Sprintf("/v1/full/users/%s/tracks/count", trashid.MustEncodeHashID(600))
+	baseUrl := fmt.Sprintf("/v1/users/%s/tracks/count", trashid.MustEncodeHashID(600))
 
 	// Test without filter - should return all tracks
 	status, _ := testGet(t, app, baseUrl, &response)
@@ -85,7 +85,7 @@ func TestGetUserTracksCountWithFilterTracks(t *testing.T) {
 		Data int
 	}
 
-	baseUrl := fmt.Sprintf("/v1/full/users/%s/tracks/count", trashid.MustEncodeHashID(600))
+	baseUrl := fmt.Sprintf("/v1/users/%s/tracks/count", trashid.MustEncodeHashID(600))
 
 	// Test with public filter
 	url := fmt.Sprintf("%s?filter_tracks=public", baseUrl)
@@ -106,7 +106,7 @@ func TestGetUserTracksCountInvalidParams(t *testing.T) {
 	fixtures := testTrackGateFixtures()
 	database.Seed(app.pool.Replicas[0], fixtures)
 
-	baseUrl := fmt.Sprintf("/v1/full/users/%s/tracks/count", trashid.MustEncodeHashID(600))
+	baseUrl := fmt.Sprintf("/v1/users/%s/tracks/count", trashid.MustEncodeHashID(600))
 
 	// Test invalid filter_tracks value
 	url := fmt.Sprintf("%s?filter_tracks=invalid", baseUrl)

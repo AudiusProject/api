@@ -51,7 +51,7 @@ func (app *ApiServer) v1Resolve(c *fiber.Ctx) error {
 		}
 
 		if isFull {
-			return c.Redirect("/v1/full/tracks/"+trackId, fiber.StatusFound)
+			return c.Redirect("/v1/tracks/"+trackId, fiber.StatusFound)
 		}
 		return c.Redirect("/v1/tracks/"+trackId, fiber.StatusFound)
 	}
@@ -76,7 +76,7 @@ func (app *ApiServer) v1Resolve(c *fiber.Ctx) error {
 		}
 
 		if isFull {
-			return c.Redirect("/v1/full/playlists/"+playlistId, fiber.StatusFound)
+			return c.Redirect("/v1/playlists/"+playlistId, fiber.StatusFound)
 		}
 		return c.Redirect("/v1/playlists/"+playlistId, fiber.StatusFound)
 	}
@@ -97,7 +97,7 @@ func (app *ApiServer) v1Resolve(c *fiber.Ctx) error {
 		}
 
 		if isFull {
-			return c.Redirect("/v1/full/users/"+userId, fiber.StatusFound)
+			return c.Redirect("/v1/users/"+userId, fiber.StatusFound)
 		}
 		return c.Redirect("/v1/users/"+userId, fiber.StatusFound)
 	}

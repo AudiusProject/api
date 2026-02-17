@@ -10,9 +10,8 @@ import (
 )
 
 func (app *ApiServer) isFullMiddleware(c *fiber.Ctx) error {
-	u := c.OriginalURL()
-	isFull := strings.Contains(u, "/full/")
-	c.Locals("isFull", isFull)
+	// v1 returns single user/object in data; v1/full returns array
+	c.Locals("isFull", strings.HasPrefix(c.Path(), "/v1/full"))
 	return c.Next()
 }
 

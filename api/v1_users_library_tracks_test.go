@@ -27,7 +27,7 @@ func TestUsersLibraryTracks(t *testing.T) {
 	user1Id := trashid.MustEncodeHashID(1)
 
 	// Test all library tracks
-	status, body := testGet(t, app, "/v1/full/users/"+user1Id+"/library/tracks?type=all", &response)
+	status, body := testGet(t, app, "/v1/users/"+user1Id+"/library/tracks?type=all", &response)
 	assert.Equal(t, 200, status)
 	assert.GreaterOrEqual(t, len(response.Data), 2, "Should have at least saved and reposted tracks")
 
@@ -37,7 +37,7 @@ func TestUsersLibraryTracks(t *testing.T) {
 	})
 
 	// Test favorite tracks only
-	status, body = testGet(t, app, "/v1/full/users/"+user1Id+"/library/tracks?type=favorite", &response)
+	status, body = testGet(t, app, "/v1/users/"+user1Id+"/library/tracks?type=favorite", &response)
 	assert.Equal(t, 200, status)
 	assert.GreaterOrEqual(t, len(response.Data), 1, "Should have at least one favorite track")
 
@@ -48,7 +48,7 @@ func TestUsersLibraryTracks(t *testing.T) {
 	})
 
 	// Test repost tracks only
-	status, body = testGet(t, app, "/v1/full/users/"+user1Id+"/library/tracks?type=repost", &response)
+	status, body = testGet(t, app, "/v1/users/"+user1Id+"/library/tracks?type=repost", &response)
 	assert.Equal(t, 200, status)
 	assert.GreaterOrEqual(t, len(response.Data), 1, "Should have at least one reposted track")
 
@@ -60,7 +60,7 @@ func TestUsersLibraryTracks(t *testing.T) {
 
 	// Test purchase tracks only (user 11 has purchased track 303)
 	user11Id := trashid.MustEncodeHashID(11)
-	status, body = testGet(t, app, "/v1/full/users/"+user11Id+"/library/tracks?type=purchase", &response)
+	status, body = testGet(t, app, "/v1/users/"+user11Id+"/library/tracks?type=purchase", &response)
 	assert.Equal(t, 200, status)
 	assert.GreaterOrEqual(t, len(response.Data), 1, "Should have at least one purchased track")
 
@@ -130,21 +130,21 @@ func TestUsersLibraryTracksUnlistedFiltered(t *testing.T) {
 	}
 
 	// Test that unlisted tracks saved (not purchased) are filtered out from favorites
-	status, _ := testGet(t, app, "/v1/full/users/"+user1Id+"/library/tracks?type=favorite", &response)
+	status, _ := testGet(t, app, "/v1/users/"+user1Id+"/library/tracks?type=favorite", &response)
 	assert.Equal(t, 200, status)
 	assert.Equal(t, 1, len(response.Data), "Should only have public track")
 	assert.Equal(t, int32(100), response.Data[0].ItemID, "Should only return public track")
 	assert.NotNil(t, response.Data[0].Item, "Track metadata should not be null")
 
 	// Test that unlisted purchased tracks ARE included and have metadata
-	status, _ = testGet(t, app, "/v1/full/users/"+user1Id+"/library/tracks?type=purchase", &response)
+	status, _ = testGet(t, app, "/v1/users/"+user1Id+"/library/tracks?type=purchase", &response)
 	assert.Equal(t, 200, status)
 	assert.Equal(t, 1, len(response.Data), "Should return unlisted purchased track")
 	assert.Equal(t, int32(201), response.Data[0].ItemID, "Should return unlisted purchased track")
 	assert.NotNil(t, response.Data[0].Item, "Unlisted purchased track metadata should not be null")
 
 	// Test that unlisted purchased tracks are included in all
-	status, _ = testGet(t, app, "/v1/full/users/"+user1Id+"/library/tracks?type=all", &response)
+	status, _ = testGet(t, app, "/v1/users/"+user1Id+"/library/tracks?type=all", &response)
 	assert.Equal(t, 200, status)
 	assert.Equal(t, 2, len(response.Data), "Should have both public and unlisted purchased tracks")
 	// Verify both tracks have metadata
@@ -167,7 +167,7 @@ func TestUsersLibraryTracksSorting(t *testing.T) {
 	}
 
 	// Test sorting by title
-	status, _ := testGet(t, app, "/v1/full/users/"+user1Id+"/library/tracks?type=all&sort_method=title&sort_direction=asc", &response)
+	status, _ := testGet(t, app, "/v1/users/"+user1Id+"/library/tracks?type=all&sort_method=title&sort_direction=asc", &response)
 	assert.Equal(t, 200, status)
 	assert.GreaterOrEqual(t, len(response.Data), 2, "Should have multiple tracks")
 
@@ -178,7 +178,7 @@ func TestUsersLibraryTracksSorting(t *testing.T) {
 	}
 
 	// Test sorting by added_date (default)
-	status, _ = testGet(t, app, "/v1/full/users/"+user1Id+"/library/tracks?type=all&sort_method=added_date&sort_direction=desc", &response)
+	status, _ = testGet(t, app, "/v1/users/"+user1Id+"/library/tracks?type=all&sort_method=added_date&sort_direction=desc", &response)
 	assert.Equal(t, 200, status)
 	assert.GreaterOrEqual(t, len(response.Data), 2, "Should have multiple tracks")
 }
@@ -197,7 +197,7 @@ func TestUsersLibraryTracksQuery(t *testing.T) {
 	}
 
 	// Test query filtering by track title
-	status, _ := testGet(t, app, "/v1/full/users/"+user1Id+"/library/tracks?type=all&query=T1", &response)
+	status, _ := testGet(t, app, "/v1/users/"+user1Id+"/library/tracks?type=all&query=T1", &response)
 	assert.Equal(t, 200, status)
 	assert.GreaterOrEqual(t, len(response.Data), 1, "Should find tracks matching query")
 
@@ -219,7 +219,7 @@ func TestUsersLibraryTracksMetadataNotNull(t *testing.T) {
 	}
 
 	// Test that all returned tracks have non-null metadata
-	status, _ := testGet(t, app, "/v1/full/users/"+user1Id+"/library/tracks?type=all", &response)
+	status, _ := testGet(t, app, "/v1/users/"+user1Id+"/library/tracks?type=all", &response)
 	assert.Equal(t, 200, status)
 	assert.GreaterOrEqual(t, len(response.Data), 1, "Should have at least one track")
 

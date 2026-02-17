@@ -93,7 +93,7 @@ func TestV1TrackRemixing(t *testing.T) {
 
 	database.Seed(app.pool.Replicas[0], fixtures)
 
-	status, body := testGet(t, app, "/v1/full/tracks/"+trashid.MustEncodeHashID(10)+"/remixing")
+	status, body := testGet(t, app, "/v1/tracks/"+trashid.MustEncodeHashID(10)+"/remixing")
 	assert.Equal(t, 200, status)
 
 	jsonAssert(t, body, map[string]any{
@@ -102,13 +102,13 @@ func TestV1TrackRemixing(t *testing.T) {
 		"data.1.id": trashid.MustEncodeHashID(1),
 	})
 
-	status, body = testGet(t, app, "/v1/full/tracks/"+trashid.MustEncodeHashID(11)+"/remixing")
+	status, body = testGet(t, app, "/v1/tracks/"+trashid.MustEncodeHashID(11)+"/remixing")
 
 	jsonAssert(t, body, map[string]any{
 		"data.#": 0,
 	})
 
-	status, body = testGet(t, app, "/v1/full/tracks/"+trashid.MustEncodeHashID(12)+"/remixing")
+	status, body = testGet(t, app, "/v1/tracks/"+trashid.MustEncodeHashID(12)+"/remixing")
 
 	jsonAssert(t, body, map[string]any{
 		"data.#": 0,
@@ -118,7 +118,7 @@ func TestV1TrackRemixing(t *testing.T) {
 func TestV1TrackRemixingInvalidParams(t *testing.T) {
 	app := emptyTestApp(t)
 
-	baseUrl := "/v1/full/tracks/" + trashid.MustEncodeHashID(10) + "/remixing"
+	baseUrl := "/v1/tracks/" + trashid.MustEncodeHashID(10) + "/remixing"
 
 	status, _ := testGet(t, app, baseUrl+"?limit=invalid")
 	assert.Equal(t, 400, status)

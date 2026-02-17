@@ -19,9 +19,9 @@ type GetUsersLibraryTracksParams struct {
 }
 
 /*
-/v1/full/users/aNzoj/library/tracks?limit=50&offset=50&query=&sort_direction=desc&sort_method=added_date&type=all&user_id=aNzoj
+/v1/users/aNzoj/library/tracks?limit=50&offset=50&query=&sort_direction=desc&sort_method=added_date&type=all&user_id=aNzoj
 
-/v1/full/users/aNzoj/library/tracks?limit=50&offset=0&query=&sort_direction=desc&sort_method=added_date&type=favorite&user_id=aNzoj
+/v1/users/aNzoj/library/tracks?limit=50&offset=0&query=&sort_direction=desc&sort_method=added_date&type=favorite&user_id=aNzoj
 */
 
 func (app *ApiServer) v1UsersLibraryTracks(c *fiber.Ctx) error {

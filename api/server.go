@@ -1,6 +1,7 @@
 package api
 
 import (
+	"bytes"
 	"context"
 	"crypto/tls"
 	_ "embed"
@@ -51,8 +52,13 @@ import (
 //go:embed swagger/swagger-v1.yaml
 var swaggerV1 []byte
 
-//go:embed swagger/swagger-v1-full.yaml
+// swaggerV1Full is the same merged spec with server /v1/full for the v1/full Swagger UI
 var swaggerV1Full []byte
+
+func init() {
+	swaggerV1Full = append([]byte(nil), swaggerV1...)
+	swaggerV1Full = bytes.Replace(swaggerV1Full, []byte("- url: /v1\n"), []byte("- url: /v1/full\n"), 1)
+}
 
 func RequestTimer() fiber.Handler {
 	return func(c *fiber.Ctx) error {
@@ -623,26 +629,21 @@ func NewApiServer(config config.Config) *ApiServer {
 
 	// Disable swagger in test environments, because it will slow things down a lot
 	if config.Env != "test" {
-		// Create Swagger middleware for v1
-		//
-		// Swagger will be available at: /v1
+		// Swagger for v1 (merged spec - includes all former v1/full endpoints)
 		app.Use(swagger.New(swagger.Config{
-			BasePath: "/",
-			Path:     "v1",
-			// Only controls where the swagger.json is server from
+			BasePath:    "/",
+			Path:        "v1",
 			FilePath:    "v1/swagger.yaml",
 			FileContent: swaggerV1,
+			Title:       "Audius API v1",
 		}))
-
-		// Create Swagger middleware for v1/full
-		//
-		// Swagger will be available at: /v1/full
+		// Swagger for v1/full (same merged spec, server base /v1/full)
 		app.Use(swagger.New(swagger.Config{
-			BasePath: "/",
-			Path:     "v1/full",
-			// Only controls where the swagger.json is server from
+			BasePath:    "/",
+			Path:        "v1/full",
 			FilePath:    "v1/full/swagger.yaml",
 			FileContent: swaggerV1Full,
+			Title:       "Audius API v1/full",
 		}))
 	}
 

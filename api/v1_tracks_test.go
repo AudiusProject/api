@@ -13,7 +13,7 @@ func TestTracksEndpoint(t *testing.T) {
 		Data []dbv1.Track
 	}
 
-	status, body := testGet(t, app, "/v1/full/tracks?id=eYZmn", &resp)
+	status, body := testGet(t, app, "/v1/tracks?id=eYZmn", &resp)
 	assert.Equal(t, 200, status)
 
 	jsonAssert(t, body, map[string]any{
@@ -25,7 +25,7 @@ func TestTracksEndpoint(t *testing.T) {
 func TestGetTracksByPermalink(t *testing.T) {
 	app := testAppWithFixtures(t)
 
-	status, body := testGet(t, app, "/v1/full/tracks?permalink=/TracksByPermalink/track-by-permalink")
+	status, body := testGet(t, app, "/v1/tracks?permalink=/TracksByPermalink/track-by-permalink")
 	assert.Equal(t, 200, status)
 
 	jsonAssert(t, body, map[string]any{

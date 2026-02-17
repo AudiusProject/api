@@ -49,7 +49,7 @@ func TestGetUserPlaylists(t *testing.T) {
 	}
 
 	{
-		status, body := testGet(t, app, "/v1/full/users/handle/one/playlists", &userPlaylistsResponse)
+		status, body := testGet(t, app, "/v1/users/handle/one/playlists", &userPlaylistsResponse)
 		assert.Equal(t, 200, status)
 		jsonAssert(t, body, map[string]any{
 			"data.0.id": trashid.MustEncodeHashID(2),
@@ -57,7 +57,7 @@ func TestGetUserPlaylists(t *testing.T) {
 		})
 	}
 	{
-		status, body := testGet(t, app, "/v1/full/users/"+trashid.MustEncodeHashID(1)+"/playlists", &userPlaylistsResponse)
+		status, body := testGet(t, app, "/v1/users/"+trashid.MustEncodeHashID(1)+"/playlists", &userPlaylistsResponse)
 		assert.Equal(t, 200, status)
 		jsonAssert(t, body, map[string]any{
 			"data.0.id": trashid.MustEncodeHashID(2),
@@ -104,7 +104,7 @@ func TestGetUserPlaylists_SortRecentDesc(t *testing.T) {
 		Data []dbv1.Playlist
 	}
 
-	status, body := testGet(t, app, "/v1/full/users/handle/one/playlists?sort_method=recent&sort_direction=desc", &userPlaylistsResponse)
+	status, body := testGet(t, app, "/v1/users/handle/one/playlists?sort_method=recent&sort_direction=desc", &userPlaylistsResponse)
 	assert.Equal(t, 200, status)
 	jsonAssert(t, body, map[string]any{
 		"data.0.id": trashid.MustEncodeHashID(2),
@@ -150,7 +150,7 @@ func TestGetUserPlaylists_SortPopularAsc(t *testing.T) {
 		Data []dbv1.Playlist
 	}
 
-	status, body := testGet(t, app, "/v1/full/users/handle/one/playlists?sort_method=popular&sort_direction=asc", &userPlaylistsResponse)
+	status, body := testGet(t, app, "/v1/users/handle/one/playlists?sort_method=popular&sort_direction=asc", &userPlaylistsResponse)
 	assert.Equal(t, 200, status)
 	jsonAssert(t, body, map[string]any{
 		"data.0.id": trashid.MustEncodeHashID(1),
@@ -199,7 +199,7 @@ func TestGetUserPlaylists_FilterPlaylistsPublic(t *testing.T) {
 		Data []dbv1.Playlist
 	}
 
-	status, body := testGet(t, app, "/v1/full/users/handle/one/playlists?filter_playlists=public", &userPlaylistsResponse)
+	status, body := testGet(t, app, "/v1/users/handle/one/playlists?filter_playlists=public", &userPlaylistsResponse)
 	assert.Equal(t, 200, status)
 	jsonAssert(t, body, map[string]any{
 		"data.#":    1,
@@ -248,7 +248,7 @@ func TestGetUserPlaylists_FilterPlaylistsPrivate(t *testing.T) {
 		Data []dbv1.Playlist
 	}
 
-	status, body := testGet(t, app, "/v1/full/users/handle/one/playlists?filter_playlists=private", &userPlaylistsResponse)
+	status, body := testGet(t, app, "/v1/users/handle/one/playlists?filter_playlists=private", &userPlaylistsResponse)
 	assert.Equal(t, 200, status)
 	jsonAssert(t, body, map[string]any{
 		"data.#":    2,

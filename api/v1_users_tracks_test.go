@@ -18,7 +18,7 @@ func TestGetUserTracks(t *testing.T) {
 	}
 
 	// Test support for handle
-	status, body := testGet(t, app, "/v1/full/users/handle/usertrackstester/tracks", &userTracksResponse)
+	status, body := testGet(t, app, "/v1/users/handle/usertrackstester/tracks", &userTracksResponse)
 
 	assert.Equal(t, 200, status)
 	jsonAssert(t, body, map[string]any{
@@ -29,7 +29,7 @@ func TestGetUserTracks(t *testing.T) {
 	})
 
 	// Remaining assertions use the user_id version of the route
-	baseUrl := fmt.Sprintf("/v1/full/users/%s/tracks", trashid.MustEncodeHashID(500))
+	baseUrl := fmt.Sprintf("/v1/users/%s/tracks", trashid.MustEncodeHashID(500))
 
 	status, body = testGet(t, app, baseUrl, &userTracksResponse)
 	assert.Equal(t, 200, status)
@@ -222,7 +222,7 @@ func TestGetUserTracks(t *testing.T) {
 
 func TestGetUserTracksInvalidParams(t *testing.T) {
 	app := testAppWithFixtures(t)
-	baseUrl := fmt.Sprintf("/v1/full/users/%s/tracks", trashid.MustEncodeHashID(500))
+	baseUrl := fmt.Sprintf("/v1/users/%s/tracks", trashid.MustEncodeHashID(500))
 	// Test invalid sort_method
 	url := fmt.Sprintf("%s?sort_method=invalid&sort_direction=desc", baseUrl)
 	status, _ := testGet(t, app, url)
@@ -258,7 +258,7 @@ func TestGetUserTracksWithGateConditionFilter(t *testing.T) {
 		Data []dbv1.Track
 	}
 
-	baseUrl := fmt.Sprintf("/v1/full/users/%s/tracks", trashid.MustEncodeHashID(600))
+	baseUrl := fmt.Sprintf("/v1/users/%s/tracks", trashid.MustEncodeHashID(600))
 
 	// Test without filter - should return all tracks
 	status, _ := testGet(t, app, baseUrl, &userTracksResponse)

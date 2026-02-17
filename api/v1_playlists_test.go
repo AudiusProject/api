@@ -9,7 +9,7 @@ import (
 
 func TestPlaylistsEndpoint(t *testing.T) {
 	app := testAppWithFixtures(t)
-	status, body := testGet(t, app, "/v1/full/playlists?id=7eP5n")
+	status, body := testGet(t, app, "/v1/playlists?id=7eP5n")
 	assert.Equal(t, 200, status)
 
 	jsonAssert(t, body, map[string]any{
@@ -21,7 +21,7 @@ func TestPlaylistsEndpoint(t *testing.T) {
 
 func TestPlaylistsEndpointWithTracks(t *testing.T) {
 	app := testAppWithFixtures(t)
-	status, body := testGet(t, app, "/v1/full/playlists?id=7eP5n&with_tracks=true")
+	status, body := testGet(t, app, "/v1/playlists?id=7eP5n&with_tracks=true")
 	assert.Equal(t, 200, status)
 
 	jsonAssert(t, body, map[string]any{
@@ -37,7 +37,7 @@ func TestPlaylistsEndpointWithPlaylistPermalink(t *testing.T) {
 		Data []dbv1.Playlist
 	}
 
-	status, body := testGet(t, app, "/v1/full/playlists?permalink=/PlaylistsByPermalink/playlist/playlist-by-permalink", &resp)
+	status, body := testGet(t, app, "/v1/playlists?permalink=/PlaylistsByPermalink/playlist/playlist-by-permalink", &resp)
 	assert.Equal(t, 200, status)
 
 	jsonAssert(t, body, map[string]any{
@@ -52,7 +52,7 @@ func TestPlaylistsEndpointWithAlbumPermalink(t *testing.T) {
 		Data []dbv1.Playlist
 	}
 
-	status, body := testGet(t, app, "/v1/full/playlists?permalink=/AlbumsByPermalink/album/album-by-permalink", &resp)
+	status, body := testGet(t, app, "/v1/playlists?permalink=/AlbumsByPermalink/album/album-by-permalink", &resp)
 	assert.Equal(t, 200, status)
 
 	jsonAssert(t, body, map[string]any{

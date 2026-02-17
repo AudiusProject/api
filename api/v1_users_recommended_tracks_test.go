@@ -67,7 +67,7 @@ func TestV1UsersRecommendedTracks(t *testing.T) {
 		Data []dbv1.Track
 	}
 
-	status, body := testGet(t, app, "/v1/full/users/"+trashid.MustEncodeHashID(1)+"/recommended-tracks", &response)
+	status, body := testGet(t, app, "/v1/users/"+trashid.MustEncodeHashID(1)+"/recommended-tracks", &response)
 	assert.Equal(t, 200, status)
 
 	jsonAssert(t, body, map[string]any{
@@ -88,12 +88,12 @@ func TestV1UsersRecommendedTracksInvalidParams(t *testing.T) {
 	app := emptyTestApp(t)
 
 	for _, val := range []string{"-1", "101", "invalid"} {
-		status, _ := testGet(t, app, "/v1/full/users/"+trashid.MustEncodeHashID(1)+"/recommended-tracks?limit="+val)
+		status, _ := testGet(t, app, "/v1/users/"+trashid.MustEncodeHashID(1)+"/recommended-tracks?limit="+val)
 		assert.Equal(t, 400, status)
 	}
 
 	for _, val := range []string{"-1", "invalid"} {
-		status, _ := testGet(t, app, "/v1/full/users/"+trashid.MustEncodeHashID(1)+"/recommended-tracks?offset="+val)
+		status, _ := testGet(t, app, "/v1/users/"+trashid.MustEncodeHashID(1)+"/recommended-tracks?offset="+val)
 		assert.Equal(t, 400, status)
 	}
 }

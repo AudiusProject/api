@@ -121,7 +121,7 @@ func TestGetUserTracksAiAttributed(t *testing.T) {
 		Data []dbv1.Track
 	}
 
-	baseUrl := "/v1/full/users/handle/testuser1/tracks/ai_attributed"
+	baseUrl := "/v1/users/handle/testuser1/tracks/ai_attributed"
 
 	// First test uses marshaling struct to verify that works
 	status, body := testGet(t, app, baseUrl, &userTracksResponse)
@@ -297,7 +297,7 @@ func TestGetUserTracksAiAttributed(t *testing.T) {
 
 func TestGetUserTracksAiAttributedInvalidParams(t *testing.T) {
 	app := testAppWithFixtures(t)
-	baseUrl := fmt.Sprintf("/v1/full/users/%s/tracks", trashid.MustEncodeHashID(500))
+	baseUrl := fmt.Sprintf("/v1/users/%s/tracks", trashid.MustEncodeHashID(500))
 	// Test invalid sort_method
 	url := fmt.Sprintf("%s?sort_method=invalid&sort_direction=desc", baseUrl)
 	status, _ := testGet(t, app, url)

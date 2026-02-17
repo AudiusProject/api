@@ -289,7 +289,7 @@ func TestExploreBestSelling(t *testing.T) {
 			}
 		}
 
-		status, body := testGet(t, app, "/v1/full/explore/best-selling", &BestSellingResponse)
+		status, body := testGet(t, app, "/v1/explore/best-selling", &BestSellingResponse)
 		assert.Equal(t, 200, status)
 
 		jsonAssert(t, body, map[string]any{
