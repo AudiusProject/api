@@ -558,7 +558,7 @@ paths:
     post:
       tags:
         - developer_apps
-      description: Create a new developer app (Plans API). Indexer validates grants.
+      description: Create a new developer app. Indexer validates grants.
       operationId: Create Developer App
       parameters:
         - name: user_id
@@ -622,7 +622,7 @@ paths:
     delete:
       tags:
         - developer_apps
-      description: Deletes a developer app (Plans API). Indexer validates grants.
+      description: Deletes a developer app. Indexer validates grants.
       operationId: Delete Developer App
       parameters:
         - name: user_id
@@ -653,11 +653,55 @@ paths:
         "500":
           description: Server error
           content: {}
+    put:
+      tags:
+        - developer_apps
+      description: Updates a developer app. Indexer validates grants.
+      operationId: Update Developer App
+      parameters:
+        - name: user_id
+          in: query
+          description: The user ID of the user who owns the developer app
+          required: true
+          schema:
+            type: string
+        - name: address
+          in: path
+          description: Developer app address (API Key)
+          required: true
+          schema:
+            type: string
+      requestBody:
+        x-codegen-request-body-name: metadata
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/update_developer_app_request_body"
+      responses:
+        "200":
+          description: Developer app updated successfully
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/write_response"
+        "400":
+          description: Bad request
+          content: {}
+        "401":
+          description: Unauthorized
+          content: {}
+        "404":
+          description: Developer app not found
+          content: {}
+        "500":
+          description: Server error
+          content: {}
   /developer-apps/{address}/access-keys/deactivate:
     post:
       tags:
         - developer_apps
-      description: Deactivate a bearer token (API access key) for a developer app (Plans API). Indexer validates grants.
+      description: Deactivate a bearer token (API access key) for a developer app. Indexer validates grants.
       operationId: Deactivate Developer App Access Key
       parameters:
         - name: user_id
@@ -702,7 +746,7 @@ paths:
     post:
       tags:
         - developer_apps
-      description: Create a new bearer token (API access key) for a developer app (Plans API). Indexer validates grants.
+      description: Create a new bearer token (API access key) for a developer app. Indexer validates grants.
       operationId: Create Developer App Access Key
       parameters:
         - name: user_id
@@ -10328,7 +10372,7 @@ components:
           type: string
           description: Solana USDC payout wallet address
         playlist_library:
-          $ref: '#/components/schemas/user_playlist_library'
+          $ref: "#/components/schemas/user_playlist_library"
         events:
           type: object
           description: User events for tracking referrals and mobile users
@@ -10404,7 +10448,7 @@ components:
           type: string
           description: Coin flair mint address
         playlist_library:
-          $ref: '#/components/schemas/user_playlist_library'
+          $ref: "#/components/schemas/user_playlist_library"
         events:
           type: object
           description: User events for tracking referrals and mobile users
@@ -10584,7 +10628,7 @@ components:
       properties:
         name:
           type: string
-          description: Developer app name (Plans API create)
+          description: Developer app name
           example: "My API Key"
     deactivate_access_key_request_body:
       type: object
@@ -10653,9 +10697,9 @@ components:
           description: Array of folders and playlist identifiers
           items:
             oneOf:
-              - $ref: '#/components/schemas/playlist_library_folder'
-              - $ref: '#/components/schemas/playlist_library_playlist_identifier'
-              - $ref: '#/components/schemas/playlist_library_explore_playlist_identifier'
+              - $ref: "#/components/schemas/playlist_library_folder"
+              - $ref: "#/components/schemas/playlist_library_playlist_identifier"
+              - $ref: "#/components/schemas/playlist_library_explore_playlist_identifier"
     playlist_library_folder:
       type: object
       description: Folder containing nested playlists and folders
@@ -10854,6 +10898,5 @@ components:
       scheme: bearer
       bearerFormat: JWT
       description: |
-        OAuth JWT Bearer token for Plans API. Used for user developer app create/delete.
-        Obtain via OAuth flow with write scope. The plans app must have a grant from the user.
+        The API bearer token or OAuth JWT token for the user.
 x-original-swagger-version: "2.0"

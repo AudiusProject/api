@@ -526,11 +526,13 @@ func NewApiServer(config config.Config) *ApiServer {
 		g.Get("/search/full", app.v1SearchFull)
 		g.Get("/search/tags", app.v1SearchFull)
 
-		// Developer Apps (Plans API - user_id query; indexer validates grants)
+		// Developer Apps
 		g.Get("/developer_apps/:address", app.v1DeveloperApps)
 		g.Get("/developer-apps/:address", app.v1DeveloperApps)
 		g.Post("/developer_apps", app.postV1UsersDeveloperApp)
 		g.Post("/developer-apps", app.postV1UsersDeveloperApp)
+		g.Put("/developer_apps/:address", app.putV1UsersDeveloperApp)
+		g.Put("/developer-apps/:address", app.putV1UsersDeveloperApp)
 		g.Delete("/developer_apps/:address", app.deleteV1UsersDeveloperApp)
 		g.Delete("/developer-apps/:address", app.deleteV1UsersDeveloperApp)
 		g.Post("/developer_apps/:address/access-keys/deactivate", app.postV1UsersDeveloperAppAccessKeyDeactivate)
