@@ -99,6 +99,7 @@ func testAppWithFixtures(t *testing.T) *ApiServer {
 	database.SeedTable(app.pool.Replicas[0], "saves", testdata.SaveFixtures)
 	database.SeedTable(app.pool.Replicas[0], "tracks", testdata.TrackFixtures)
 	database.SeedTable(app.pool.Replicas[0], "track_trending_scores", testdata.TrackTrendingScoresFixtures)
+	database.SeedTable(app.pool.Replicas[0], "trending_results", testdata.TrendingResultsFixtures)
 	database.SeedTable(app.pool.Replicas[0], "track_routes", testdata.TrackRoutesFixtures)
 	database.SeedTable(app.pool.Replicas[0], "usdc_purchases", testdata.UsdcPurchasesFixtures)
 	database.SeedTable(app.pool.Replicas[0], "usdc_transactions_history", testdata.UsdcTransactionsHistoryFixtures)
