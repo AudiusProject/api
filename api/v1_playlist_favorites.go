@@ -1,6 +1,7 @@
 package api
 
 import (
+	"encoding/json"
 	"strconv"
 	"time"
 
@@ -12,6 +13,10 @@ import (
 	"github.com/jackc/pgx/v5"
 	"go.uber.org/zap"
 )
+
+type favoriteRequestBody struct {
+	IsSaveOfRepost *bool `json:"is_save_of_repost"`
+}
 
 func (app *ApiServer) v1PlaylistFavorites(c *fiber.Ctx) error {
 	sql := `
@@ -50,6 +55,15 @@ func (app *ApiServer) postV1PlaylistFavorite(c *fiber.Ctx) error {
 		return err
 	}
 
+	metadata := ""
+	if body := c.Body(); len(body) > 0 {
+		var reqBody favoriteRequestBody
+		if err := json.Unmarshal(body, &reqBody); err == nil && reqBody.IsSaveOfRepost != nil {
+			metadataBytes, _ := json.Marshal(map[string]bool{"is_save_of_repost": *reqBody.IsSaveOfRepost})
+			metadata = string(metadataBytes)
+		}
+	}
+
 	nonce := time.Now().UnixNano()
 
 	manageEntityTx := &corev1.ManageEntityLegacy{
@@ -59,7 +73,7 @@ func (app *ApiServer) postV1PlaylistFavorite(c *fiber.Ctx) error {
 		Action:     indexer.Action_Save,
 		EntityType: indexer.Entity_Playlist,
 		Nonce:      strconv.FormatInt(nonce, 10),
-		Metadata:   "",
+		Metadata:   metadata,
 	}
 
 	response, err := app.sendTransactionWithSigner(manageEntityTx, signer.PrivateKey)
