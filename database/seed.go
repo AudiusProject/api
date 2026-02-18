@@ -153,6 +153,14 @@ var (
 			"score":      nil,
 			"created_at": time.Now(),
 		},
+		"trending_results": {
+			"user_id": nil,
+			"id":      nil,
+			"rank":    nil,
+			"type":    "TrendingType.TRACKS",
+			"version": "TrendingVersion.ML51L",
+			"week":    time.Now(),
+		},
 		"playlist_trending_scores": {
 			"playlist_id": nil,
 			"type":        "PLAYLISTS",
