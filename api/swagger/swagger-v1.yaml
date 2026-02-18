@@ -10567,10 +10567,7 @@ components:
       properties:
         is_save_of_repost:
           type: boolean
-          description: Set to true when favoriting a reposted playlist (used for notifications)
-        is_favorite_of_repost:
-          type: boolean
-          description: Set to true when favoriting a reposted track (used for notifications)
+          description: Set to true when favoriting a reposted item (used for notifications)
     repost_request_body:
       type: object
       description: Optional metadata for repost operations
