@@ -48,7 +48,13 @@ func (app *ApiServer) getTrendingWinnersIds(c *fiber.Ctx, weekParam string) ([]i
 	var weekFilter string
 	if weekParam != "" {
 		args["week"] = weekParam
-		weekFilter = "AND tr.week = @week"
+		// Nearest row on or after the requested week; if none (e.g. future date), use most recent
+		weekFilter = `AND tr.week = COALESCE(
+			(SELECT MIN(tr2.week) FROM trending_results tr2
+				WHERE tr2.type = @type AND tr2.week >= @week::date),
+			(SELECT MAX(tr2.week) FROM trending_results tr2
+				WHERE tr2.type = @type)
+		)`
 	} else {
 		// Default: use the most recent week in the table that is before today
 		weekFilter = `AND tr.week = (
