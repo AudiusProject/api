@@ -3228,6 +3228,7 @@ paths:
             type: string
         - name: user_id
           in: query
+          required: false
           description: The user ID of the user making the request
           schema:
             type: string
@@ -10332,6 +10333,8 @@ components:
           description: Array of tracks in the playlist
           items:
             $ref: "#/components/schemas/playlist_added_timestamp"
+        stream_conditions:
+          $ref: "#/components/schemas/access_gate"
         ddex_app:
           type: string
           description: DDEX application identifier
