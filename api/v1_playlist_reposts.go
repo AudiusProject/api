@@ -1,6 +1,7 @@
 package api
 
 import (
+	"encoding/json"
 	"strconv"
 	"time"
 
@@ -50,6 +51,17 @@ func (app *ApiServer) postV1PlaylistRepost(c *fiber.Ctx) error {
 		return err
 	}
 
+	metadata := ""
+	if body := c.Body(); len(body) > 0 {
+		var reqBody struct {
+			IsRepostOfRepost *bool `json:"is_repost_of_repost"`
+		}
+		if err := json.Unmarshal(body, &reqBody); err == nil && reqBody.IsRepostOfRepost != nil {
+			metadataBytes, _ := json.Marshal(map[string]bool{"is_repost_of_repost": *reqBody.IsRepostOfRepost})
+			metadata = string(metadataBytes)
+		}
+	}
+
 	nonce := time.Now().UnixNano()
 
 	manageEntityTx := &corev1.ManageEntityLegacy{
@@ -59,7 +71,7 @@ func (app *ApiServer) postV1PlaylistRepost(c *fiber.Ctx) error {
 		Action:     indexer.Action_Repost,
 		EntityType: indexer.Entity_Playlist,
 		Nonce:      strconv.FormatInt(nonce, 10),
-		Metadata:   "",
+		Metadata:   metadata,
 	}
 
 	response, err := app.sendTransactionWithSigner(manageEntityTx, signer.PrivateKey)

@@ -1,6 +1,7 @@
 package api
 
 import (
+	"encoding/json"
 	"strconv"
 	"time"
 
@@ -50,9 +51,18 @@ func (app *ApiServer) postV1TrackRepost(c *fiber.Ctx) error {
 		return err
 	}
 
+	metadata := ""
+	if body := c.Body(); len(body) > 0 {
+		var reqBody struct {
+			IsRepostOfRepost *bool `json:"is_repost_of_repost"`
+		}
+		if err := json.Unmarshal(body, &reqBody); err == nil && reqBody.IsRepostOfRepost != nil {
+			metadataBytes, _ := json.Marshal(map[string]bool{"is_repost_of_repost": *reqBody.IsRepostOfRepost})
+			metadata = string(metadataBytes)
+		}
+	}
+
 	nonce := time.Now().UnixNano()
-	nonceBytes := make([]byte, 32)
-	copy(nonceBytes, []byte(strconv.FormatInt(nonce, 10)))
 
 	manageEntityTx := &corev1.ManageEntityLegacy{
 		Signer:     common.HexToAddress(signer.Address).String(),
@@ -61,7 +71,7 @@ func (app *ApiServer) postV1TrackRepost(c *fiber.Ctx) error {
 		Action:     indexer.Action_Repost,
 		EntityType: indexer.Entity_Track,
 		Nonce:      strconv.FormatInt(nonce, 10),
-		Metadata:   "",
+		Metadata:   metadata,
 	}
 
 	response, err := app.sendTransactionWithSigner(manageEntityTx, signer.PrivateKey)
