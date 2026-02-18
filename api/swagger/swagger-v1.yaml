@@ -10119,11 +10119,66 @@ components:
           $ref: "#/components/schemas/remix_parent_write"
         ddex_app:
           type: string
+          nullable: true
           description: DDEX application identifier
+        ddex_release_ids:
+          type: object
+          nullable: true
+          description: DDEX release identifiers
+        artists:
+          type: array
+          nullable: true
+          items:
+            type: object
+          description: DDEX resource contributors / artists
+        resource_contributors:
+          type: array
+          nullable: true
+          items:
+            type: object
+          description: DDEX resource contributors
+        indirect_resource_contributors:
+          type: array
+          nullable: true
+          items:
+            type: object
+          description: DDEX indirect resource contributors
+        rights_controller:
+          type: object
+          nullable: true
+          description: DDEX rights controller
+        copyright_line:
+          type: object
+          nullable: true
+          description: DDEX copyright line
+        producer_copyright_line:
+          type: object
+          nullable: true
+          description: DDEX producer copyright line
         parental_warning_type:
           type: string
           nullable: true
           description: Parental warning type
+        cover_original_song_title:
+          type: string
+          nullable: true
+          description: Original song title for cover tracks
+        cover_original_artist:
+          type: string
+          nullable: true
+          description: Original artist for cover tracks
+        is_owned_by_user:
+          type: boolean
+          description: Whether the track is owned by the user
+        territory_codes:
+          type: array
+          nullable: true
+          items:
+            type: string
+          description: Territory codes for distribution
+        no_ai_use:
+          type: boolean
+          description: Whether AI use is prohibited
     update_track_request_body:
       type: object
       description: Request body for updating track information. All fields are optional.
@@ -10280,6 +10335,24 @@ components:
         ddex_app:
           type: string
           description: DDEX application identifier
+        ddex_release_ids:
+          type: object
+          nullable: true
+          description: DDEX release identifiers
+        artists:
+          type: array
+          nullable: true
+          items:
+            type: object
+          description: DDEX resource contributors / artists
+        copyright_line:
+          type: object
+          nullable: true
+          description: DDEX copyright line
+        producer_copyright_line:
+          type: object
+          nullable: true
+          description: DDEX producer copyright line
         parental_warning_type:
           type: string
           nullable: true
