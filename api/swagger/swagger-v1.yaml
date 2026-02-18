@@ -1474,6 +1474,13 @@ paths:
           required: true
           schema:
             type: string
+      requestBody:
+        required: false
+        x-codegen-request-body-name: metadata
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/favorite_request_body"
       responses:
         "200":
           description: Playlist favorited successfully
@@ -2922,6 +2929,13 @@ paths:
           required: true
           schema:
             type: string
+      requestBody:
+        required: false
+        x-codegen-request-body-name: metadata
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/favorite_request_body"
       responses:
         "200":
           description: Track favorited successfully
@@ -10532,6 +10546,13 @@ components:
           type: integer
           description: ID of the entity (track) being commented on
           example: 12345
+    favorite_request_body:
+      type: object
+      description: Optional metadata for favorite/save operations
+      properties:
+        is_save_of_repost:
+          type: boolean
+          description: Set to true when favoriting a reposted item (used for notifications)
     pin_comment_request_body:
       type: object
       required:
