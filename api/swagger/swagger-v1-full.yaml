@@ -5657,6 +5657,7 @@ components:
           properties: {}
         parental_warning_type:
           type: string
+          nullable: true
         is_stream_gated:
           type: boolean
           description: Whether or not the owner has restricted streaming behind an
@@ -6784,6 +6785,7 @@ components:
           properties: {}
         parental_warning_type:
           type: string
+          nullable: true
     playlist_artwork_full:
       type: object
       properties:
@@ -7475,6 +7477,7 @@ components:
           properties: {}
         parental_warning_type:
           type: string
+          nullable: true
     albums_response_full:
       required:
       - latest_chain_block
@@ -8769,6 +8772,7 @@ components:
           properties: {}
         parental_warning_type:
           type: string
+          nullable: true
         is_stream_gated:
           type: boolean
           description: Whether or not the owner has restricted streaming behind an
@@ -8927,6 +8931,7 @@ components:
           properties: {}
         parental_warning_type:
           type: string
+          nullable: true
     search_autocomplete_response:
       required:
       - latest_chain_block
