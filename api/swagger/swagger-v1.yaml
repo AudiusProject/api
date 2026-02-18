@@ -3382,6 +3382,12 @@ paths:
           required: true
           schema:
             type: string
+        - name: user_id
+          in: query
+          required: false
+          description: The user ID of the user making the request
+          schema:
+            type: string
       requestBody:
         x-codegen-request-body-name: location
         content:
@@ -10044,27 +10050,36 @@ components:
           $ref: "#/components/schemas/genre"
         description:
           type: string
+          nullable: true
           description: Track description
           maxLength: 1000
         mood:
-          $ref: "#/components/schemas/mood"
+          nullable: true
+          allOf:
+            - $ref: "#/components/schemas/mood"
         bpm:
           type: number
+          nullable: true
           description: Beats per minute (tempo)
         musical_key:
           type: string
+          nullable: true
           description: Musical key of the track
         tags:
           type: string
+          nullable: true
           description: Comma-separated tags
         license:
           type: string
+          nullable: true
           description: License type
         isrc:
           type: string
+          nullable: true
           description: International Standard Recording Code
         iswc:
           type: string
+          nullable: true
           description: International Standard Musical Work Code
         release_date:
           type: string
@@ -10104,10 +10119,18 @@ components:
         is_unlisted:
           type: boolean
           description: Whether the track is unlisted
+        is_stream_gated:
+          type: boolean
+          nullable: true
+          description: Whether streaming is restricted behind an access gate
         stream_conditions:
-          $ref: "#/components/schemas/access_gate"
+          nullable: true
+          allOf:
+            - $ref: "#/components/schemas/access_gate"
         download_conditions:
-          $ref: "#/components/schemas/access_gate"
+          nullable: true
+          allOf:
+            - $ref: "#/components/schemas/access_gate"
         field_visibility:
           $ref: "#/components/schemas/field_visibility"
         placement_hosts:
@@ -10259,6 +10282,10 @@ components:
         is_unlisted:
           type: boolean
           description: Whether the track is unlisted
+        is_stream_gated:
+          type: boolean
+          nullable: true
+          description: Whether streaming is restricted behind an access gate
         stream_conditions:
           nullable: true
           allOf:
@@ -10291,6 +10318,7 @@ components:
       properties:
         playlist_id:
           type: string
+          nullable: true
           description: Optional playlist ID (will be generated if not provided)
           example: "x5pJ3Az"
         playlist_name:
@@ -10299,41 +10327,67 @@ components:
           example: "My New Playlist"
         description:
           type: string
+          nullable: true
           description: Playlist description
           maxLength: 1000
         is_private:
           type: boolean
+          nullable: true
           description: Whether the playlist is private
         is_album:
           type: boolean
+          nullable: true
           description: Whether this is an album
         genre:
-          $ref: "#/components/schemas/genre"
+          nullable: true
+          allOf:
+            - $ref: "#/components/schemas/genre"
         mood:
-          $ref: "#/components/schemas/mood"
+          nullable: true
+          allOf:
+            - $ref: "#/components/schemas/mood"
         tags:
           type: string
+          nullable: true
           description: Comma-separated tags
         license:
           type: string
+          nullable: true
           description: License type
         upc:
           type: string
+          nullable: true
           description: Universal Product Code (for albums)
         release_date:
           type: string
           format: date
+          nullable: true
           description: Release date
         cover_art_cid:
           type: string
+          nullable: true
           description: IPFS CID for cover art
         playlist_contents:
           type: array
+          nullable: true
           description: Array of tracks in the playlist
           items:
             $ref: "#/components/schemas/playlist_added_timestamp"
+        is_stream_gated:
+          type: boolean
+          nullable: true
+          description: Whether streaming is restricted behind an access gate
+        is_scheduled_release:
+          type: boolean
+          nullable: true
+          description: Whether the playlist/album is a scheduled release
+        stream_conditions:
+          nullable: true
+          allOf:
+            - $ref: "#/components/schemas/access_gate"
         ddex_app:
           type: string
+          nullable: true
           description: DDEX application identifier
         ddex_release_ids:
           type: object
@@ -10359,6 +10413,7 @@ components:
           description: Parental warning type
         is_image_autogenerated:
           type: boolean
+          nullable: true
           description: Whether the image is autogenerated
     update_playlist_request_body:
       type: object
@@ -10366,38 +10421,55 @@ components:
       properties:
         playlist_name:
           type: string
+          nullable: true
           description: Playlist or album name
         description:
           type: string
+          nullable: true
           description: Playlist description
           maxLength: 5000
         is_private:
           type: boolean
+          nullable: true
           description: Whether the playlist is private
         genre:
-          $ref: "#/components/schemas/genre"
+          nullable: true
+          allOf:
+            - $ref: "#/components/schemas/genre"
         mood:
-          $ref: "#/components/schemas/mood"
+          nullable: true
+          allOf:
+            - $ref: "#/components/schemas/mood"
         tags:
           type: string
+          nullable: true
           description: Comma-separated tags
         license:
           type: string
+          nullable: true
           description: License type
         release_date:
           type: string
           format: date
+          nullable: true
           description: Release date
         playlist_contents:
           type: array
+          nullable: true
           description: Array of track IDs to include in the playlist
           items:
             $ref: "#/components/schemas/playlist_added_timestamp"
+        is_stream_gated:
+          type: boolean
+          nullable: true
+          description: Whether streaming is restricted behind an access gate
         cover_art_cid:
           type: string
+          nullable: true
           description: IPFS CID for cover art
         upc:
           type: string
+          nullable: true
           description: Universal Product Code (for albums)
         parental_warning_type:
           type: string
