@@ -10119,6 +10119,10 @@ components:
         is_unlisted:
           type: boolean
           description: Whether the track is unlisted
+        is_stream_gated:
+          type: boolean
+          nullable: true
+          description: Whether streaming is restricted behind an access gate
         stream_conditions:
           nullable: true
           allOf:
@@ -10278,6 +10282,10 @@ components:
         is_unlisted:
           type: boolean
           description: Whether the track is unlisted
+        is_stream_gated:
+          type: boolean
+          nullable: true
+          description: Whether streaming is restricted behind an access gate
         stream_conditions:
           nullable: true
           allOf:
@@ -10365,6 +10373,14 @@ components:
           description: Array of tracks in the playlist
           items:
             $ref: "#/components/schemas/playlist_added_timestamp"
+        is_stream_gated:
+          type: boolean
+          nullable: true
+          description: Whether streaming is restricted behind an access gate
+        is_scheduled_release:
+          type: boolean
+          nullable: true
+          description: Whether the playlist/album is a scheduled release
         stream_conditions:
           nullable: true
           allOf:
@@ -10443,6 +10459,10 @@ components:
           description: Array of track IDs to include in the playlist
           items:
             $ref: "#/components/schemas/playlist_added_timestamp"
+        is_stream_gated:
+          type: boolean
+          nullable: true
+          description: Whether streaming is restricted behind an access gate
         cover_art_cid:
           type: string
           nullable: true
