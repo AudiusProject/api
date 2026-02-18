@@ -10346,7 +10346,6 @@ components:
           description: Whether the track is unlisted
         is_stream_gated:
           type: boolean
-          nullable: true
           description: Whether streaming is restricted behind an access gate
         stream_conditions:
           nullable: true
@@ -10380,58 +10379,46 @@ components:
       properties:
         playlist_id:
           type: string
-          nullable: true
           description: Optional playlist ID (will be generated if not provided)
           example: "x5pJ3Az"
         playlist_name:
           type: string
+          minLength: 1
           description: Playlist or album name
           example: "My New Playlist"
         description:
           type: string
-          nullable: true
           description: Playlist description
           maxLength: 1000
         is_private:
           type: boolean
-          nullable: true
           description: Whether the playlist is private
         is_album:
           type: boolean
-          nullable: true
           description: Whether this is an album
         genre:
-          nullable: true
-          allOf:
-            - $ref: "#/components/schemas/genre"
+          $ref: "#/components/schemas/genre"
         mood:
-          nullable: true
           allOf:
             - $ref: "#/components/schemas/mood"
         tags:
           type: string
-          nullable: true
           description: Comma-separated tags
         license:
           type: string
-          nullable: true
           description: License type
         upc:
           type: string
-          nullable: true
           description: Universal Product Code (for albums)
         release_date:
           type: string
           format: date
-          nullable: true
           description: Release date
         cover_art_cid:
           type: string
-          nullable: true
           description: IPFS CID for cover art
         playlist_contents:
           type: array
-          nullable: true
           description: Array of tracks in the playlist
           items:
             $ref: "#/components/schemas/playlist_added_timestamp"
@@ -10449,25 +10436,28 @@ components:
             - $ref: "#/components/schemas/access_gate"
         ddex_app:
           type: string
-          nullable: true
           description: DDEX application identifier
         ddex_release_ids:
           type: object
           nullable: true
+          additionalProperties:
+            type: string
           description: DDEX release identifiers
         artists:
           type: array
           nullable: true
           items:
-            type: object
+            $ref: "#/components/schemas/ddex_resource_contributor"
           description: DDEX resource contributors / artists
         copyright_line:
-          type: object
           nullable: true
+          allOf:
+            - $ref: "#/components/schemas/ddex_copyright"
           description: DDEX copyright line
         producer_copyright_line:
-          type: object
           nullable: true
+          allOf:
+            - $ref: "#/components/schemas/ddex_copyright"
           description: DDEX producer copyright line
         parental_warning_type:
           type: string
@@ -10483,41 +10473,41 @@ components:
       properties:
         playlist_name:
           type: string
-          nullable: true
+          minLength: 1
           description: Playlist or album name
         description:
           type: string
-          nullable: true
           description: Playlist description
-          maxLength: 5000
+          maxLength: 1000
         is_private:
           type: boolean
-          nullable: true
           description: Whether the playlist is private
+        is_album:
+          type: boolean
+          description: Whether this is an album
         genre:
-          nullable: true
-          allOf:
-            - $ref: "#/components/schemas/genre"
+          $ref: "#/components/schemas/genre"
         mood:
-          nullable: true
           allOf:
             - $ref: "#/components/schemas/mood"
         tags:
           type: string
-          nullable: true
           description: Comma-separated tags
         license:
           type: string
-          nullable: true
           description: License type
+        upc:
+          type: string
+          description: Universal Product Code (for albums)
         release_date:
           type: string
           format: date
-          nullable: true
           description: Release date
+        cover_art_cid:
+          type: string
+          description: IPFS CID for cover art
         playlist_contents:
           type: array
-          nullable: true
           description: Array of track IDs to include in the playlist
           items:
             $ref: "#/components/schemas/playlist_added_timestamp"
@@ -10525,18 +10515,47 @@ components:
           type: boolean
           nullable: true
           description: Whether streaming is restricted behind an access gate
-        cover_art_cid:
-          type: string
+        is_scheduled_release:
+          type: boolean
           nullable: true
-          description: IPFS CID for cover art
-        upc:
-          type: string
+          description: Whether the playlist/album is a scheduled release
+        stream_conditions:
           nullable: true
-          description: Universal Product Code (for albums)
+          allOf:
+            - $ref: "#/components/schemas/access_gate"
+        ddex_app:
+          type: string
+          description: DDEX application identifier
+        ddex_release_ids:
+          type: object
+          nullable: true
+          additionalProperties:
+            type: string
+          description: DDEX release identifiers
+        artists:
+          type: array
+          nullable: true
+          items:
+            $ref: "#/components/schemas/ddex_resource_contributor"
+          description: DDEX resource contributors / artists
+        copyright_line:
+          nullable: true
+          allOf:
+            - $ref: "#/components/schemas/ddex_copyright"
+          description: DDEX copyright line
+        producer_copyright_line:
+          nullable: true
+          allOf:
+            - $ref: "#/components/schemas/ddex_copyright"
+          description: DDEX producer copyright line
         parental_warning_type:
           type: string
           nullable: true
           description: Parental warning type
+        is_image_autogenerated:
+          type: boolean
+          nullable: true
+          description: Whether the image is autogenerated
     create_user_request_body:
       type: object
       required:
@@ -11008,6 +11027,42 @@ components:
       type: string
       enum:
         - Track
+    ddex_resource_contributor:
+      type: object
+      required:
+        - name
+        - roles
+      properties:
+        name:
+          type: string
+          minLength: 1
+          description: Contributor name
+        roles:
+          type: array
+          minItems: 1
+          items:
+            type: string
+            minLength: 1
+          description: Contributor roles
+        sequence_number:
+          type: integer
+          minimum: 0
+          description: Sequence number for ordering
+    ddex_copyright:
+      type: object
+      required:
+        - year
+        - text
+      properties:
+        year:
+          type: string
+          minLength: 4
+          maxLength: 4
+          description: Copyright year (4 characters)
+        text:
+          type: string
+          minLength: 1
+          description: Copyright text
     field_visibility:
       type: object
       properties:
