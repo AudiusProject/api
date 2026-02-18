@@ -3228,7 +3228,6 @@ paths:
             type: string
         - name: user_id
           in: query
-          required: false
           description: The user ID of the user making the request
           schema:
             type: string
@@ -3381,6 +3380,12 @@ paths:
           in: path
           description: A Track ID
           required: true
+          schema:
+            type: string
+        - name: user_id
+          in: query
+          required: false
+          description: The user ID of the user making the request
           schema:
             type: string
       requestBody:
