@@ -10050,27 +10050,36 @@ components:
           $ref: "#/components/schemas/genre"
         description:
           type: string
+          nullable: true
           description: Track description
           maxLength: 1000
         mood:
-          $ref: "#/components/schemas/mood"
+          nullable: true
+          allOf:
+            - $ref: "#/components/schemas/mood"
         bpm:
           type: number
+          nullable: true
           description: Beats per minute (tempo)
         musical_key:
           type: string
+          nullable: true
           description: Musical key of the track
         tags:
           type: string
+          nullable: true
           description: Comma-separated tags
         license:
           type: string
+          nullable: true
           description: License type
         isrc:
           type: string
+          nullable: true
           description: International Standard Recording Code
         iswc:
           type: string
+          nullable: true
           description: International Standard Musical Work Code
         release_date:
           type: string
@@ -10111,9 +10120,13 @@ components:
           type: boolean
           description: Whether the track is unlisted
         stream_conditions:
-          $ref: "#/components/schemas/access_gate"
+          nullable: true
+          allOf:
+            - $ref: "#/components/schemas/access_gate"
         download_conditions:
-          $ref: "#/components/schemas/access_gate"
+          nullable: true
+          allOf:
+            - $ref: "#/components/schemas/access_gate"
         field_visibility:
           $ref: "#/components/schemas/field_visibility"
         placement_hosts:
