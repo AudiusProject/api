@@ -28,21 +28,17 @@ func (app *ApiServer) v1TrackTopListeners(c *fiber.Ctx) error {
 	}
 
 	sql := `
-		WITH deduped AS (
-			SELECT DISTINCT play_item_id, user_id, date_trunc('hour', created_at) as created_at
+		SELECT c.user_id, c.play_count
+		FROM (
+			SELECT user_id,
+				count(DISTINCT date_trunc('hour', created_at)) AS play_count
 			FROM plays
 			WHERE user_id IS NOT NULL
 				AND play_item_id = @trackId
-			),
-			counted as (
-				SELECT user_id, count(*) as play_count
-				FROM deduped
-				GROUP BY 1
-			)
-		SELECT counted.user_id, counted.play_count
-		FROM counted
-		LEFT JOIN aggregate_user USING (user_id)
-		ORDER BY play_count DESC, follower_count DESC, counted.user_id ASC
+			GROUP BY user_id
+		) c
+		LEFT JOIN aggregate_user au USING (user_id)
+		ORDER BY c.play_count DESC, au.follower_count DESC NULLS LAST, c.user_id ASC
 		LIMIT @limit
 		OFFSET @offset
 	`
