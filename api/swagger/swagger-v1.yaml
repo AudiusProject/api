@@ -3556,13 +3556,6 @@ paths:
       security:
         - BasicAuth: []
         - BearerAuth: []
-      parameters:
-        - name: user_id
-          in: query
-          description: The user ID of the user making the request
-          required: true
-          schema:
-            type: string
       requestBody:
         x-codegen-request-body-name: metadata
         required: true
