@@ -10381,6 +10381,9 @@ components:
       type: object
       description: Request body for updating user profile. All fields are optional.
       properties:
+        handle:
+          type: string
+          description: User handle. Can only be set if the user does not already have a handle.
         name:
           type: string
           description: Display name

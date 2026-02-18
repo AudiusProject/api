@@ -52,6 +52,7 @@ type CreateUserRequest struct {
 }
 
 type UpdateUserRequest struct {
+	Handle              *string          `json:"handle,omitempty" validate:"omitempty,min=1"`
 	Name                *string          `json:"name,omitempty" validate:"omitempty,min=1"`
 	Bio                 *string          `json:"bio,omitempty" validate:"omitempty,max=256"`
 	Location            *string          `json:"location,omitempty"`
