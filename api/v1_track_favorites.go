@@ -54,10 +54,10 @@ func (app *ApiServer) postV1TrackFavorite(c *fiber.Ctx) error {
 	metadata := ""
 	if body := c.Body(); len(body) > 0 {
 		var reqBody struct {
-			IsSaveOfRepost *bool `json:"is_save_of_repost"`
+			IsFavoriteOfRepost *bool `json:"is_favorite_of_repost"`
 		}
-		if err := json.Unmarshal(body, &reqBody); err == nil && reqBody.IsSaveOfRepost != nil {
-			metadataBytes, _ := json.Marshal(map[string]bool{"is_save_of_repost": *reqBody.IsSaveOfRepost})
+		if err := json.Unmarshal(body, &reqBody); err == nil && reqBody.IsFavoriteOfRepost != nil {
+			metadataBytes, _ := json.Marshal(map[string]bool{"is_favorite_of_repost": *reqBody.IsFavoriteOfRepost})
 			metadata = string(metadataBytes)
 		}
 	}

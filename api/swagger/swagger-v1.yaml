@@ -1556,6 +1556,12 @@ paths:
           required: true
           schema:
             type: string
+      requestBody:
+        required: false
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/repost_request_body"
       responses:
         "200":
           description: Playlist reposted successfully
@@ -3147,6 +3153,12 @@ paths:
           required: true
           schema:
             type: string
+      requestBody:
+        required: false
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/repost_request_body"
       responses:
         "200":
           description: Track reposted successfully
@@ -10555,7 +10567,17 @@ components:
       properties:
         is_save_of_repost:
           type: boolean
-          description: Set to true when favoriting a reposted item (used for notifications)
+          description: Set to true when favoriting a reposted playlist (used for notifications)
+        is_favorite_of_repost:
+          type: boolean
+          description: Set to true when favoriting a reposted track (used for notifications)
+    repost_request_body:
+      type: object
+      description: Optional metadata for repost operations
+      properties:
+        is_repost_of_repost:
+          type: boolean
+          description: Set to true when reposting an item that was reposted (used for notifications)
     pin_comment_request_body:
       type: object
       required:
