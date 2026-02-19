@@ -9262,6 +9262,25 @@ components:
           type: string
           minLength: 1
           description: Copyright text
+    ddex_rights_controller:
+      type: object
+      description: DDEX rights controller
+      required:
+      - name
+      - roles
+      properties:
+        name:
+          type: string
+          minLength: 1
+        roles:
+          type: array
+          minItems: 1
+          items:
+            type: string
+            minLength: 1
+        rights_share_unknown:
+          type: string
+          description: Optional
     claimed_prizes_response:
       type: object
       required:
@@ -9629,25 +9648,27 @@ components:
           type: array
           nullable: true
           items:
-            type: object
+            $ref: '#/components/schemas/ddex_resource_contributor'
           description: DDEX resource contributors
         indirect_resource_contributors:
           type: array
           nullable: true
           items:
-            type: object
+            $ref: '#/components/schemas/ddex_resource_contributor'
           description: DDEX indirect resource contributors
         rights_controller:
-          type: object
           nullable: true
+          $ref: '#/components/schemas/ddex_rights_controller'
           description: DDEX rights controller
         copyright_line:
-          type: object
           nullable: true
+          allOf:
+          - $ref: '#/components/schemas/ddex_copyright'
           description: DDEX copyright line
         producer_copyright_line:
-          type: object
           nullable: true
+          allOf:
+          - $ref: '#/components/schemas/ddex_copyright'
           description: DDEX producer copyright line
         parental_warning_type:
           type: string
@@ -9995,6 +10016,7 @@ components:
           type: boolean
         release_date:
           type: string
+          format: date
         ddex_release_ids:
           type: object
           properties: {}
@@ -11629,13 +11651,13 @@ components:
           $ref: '#/components/schemas/supporter'
     playlist_added_timestamp:
       required:
-      - metadata_timestamp
       - timestamp
       - track_id
       type: object
       properties:
         metadata_timestamp:
           type: integer
+          description: Optional. Metadata timestamp for when the track was added to the playlist.
         timestamp:
           type: integer
         track_id:
@@ -13247,6 +13269,7 @@ components:
           type: string
         release_date:
           type: string
+          format: date
         remix_of:
           $ref: '#/components/schemas/remix_parent'
         repost_count:
@@ -13373,23 +13396,25 @@ components:
             properties: {}
         resource_contributors:
           type: array
+          nullable: true
           items:
-            type: object
-            properties: {}
+            $ref: '#/components/schemas/ddex_resource_contributor'
         indirect_resource_contributors:
           type: array
+          nullable: true
           items:
-            type: object
-            properties: {}
+            $ref: '#/components/schemas/ddex_resource_contributor'
         rights_controller:
-          type: object
-          properties: {}
+          nullable: true
+          $ref: '#/components/schemas/ddex_rights_controller'
         copyright_line:
-          type: object
-          properties: {}
+          nullable: true
+          allOf:
+          - $ref: '#/components/schemas/ddex_copyright'
         producer_copyright_line:
-          type: object
-          properties: {}
+          nullable: true
+          allOf:
+          - $ref: '#/components/schemas/ddex_copyright'
         parental_warning_type:
           type: string
           nullable: true
@@ -14680,6 +14705,7 @@ components:
           type: string
         release_date:
           type: string
+          format: date
         remix_of:
           $ref: '#/components/schemas/remix_parent'
         repost_count:
@@ -14806,23 +14832,25 @@ components:
             properties: {}
         resource_contributors:
           type: array
+          nullable: true
           items:
-            type: object
-            properties: {}
+            $ref: '#/components/schemas/ddex_resource_contributor'
         indirect_resource_contributors:
           type: array
+          nullable: true
           items:
-            type: object
-            properties: {}
+            $ref: '#/components/schemas/ddex_resource_contributor'
         rights_controller:
-          type: object
-          properties: {}
+          nullable: true
+          $ref: '#/components/schemas/ddex_rights_controller'
         copyright_line:
-          type: object
-          properties: {}
+          nullable: true
+          allOf:
+          - $ref: '#/components/schemas/ddex_copyright'
         producer_copyright_line:
-          type: object
-          properties: {}
+          nullable: true
+          allOf:
+          - $ref: '#/components/schemas/ddex_copyright'
         parental_warning_type:
           type: string
           nullable: true
