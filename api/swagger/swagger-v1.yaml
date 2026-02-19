@@ -9750,7 +9750,6 @@ components:
       - $ref: '#/components/schemas/tip_gate'
       - $ref: '#/components/schemas/follow_gate'
       - $ref: '#/components/schemas/purchase_gate'
-      - $ref: '#/components/schemas/nft_gate'
       - $ref: '#/components/schemas/token_gate'
     update_track_request_body:
       type: object
@@ -14640,10 +14639,24 @@ components:
       - splits
       type: object
       properties:
-        splits:
-          $ref: '#/components/schemas/wild_card_split'
         price:
           type: integer
+          description: The price in USDC needed to unlock
+        splits:
+          type: array
+          items:
+            $ref: "#/components/schemas/payment_split"
+    payment_split:
+      required:
+      - user_id
+      - percentage
+      type: object
+      properties:
+        user_id:
+          type: integer
+          example: 1234
+        percentage:
+          type: number
     search_track:
       required:
       - access
