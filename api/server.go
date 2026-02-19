@@ -51,9 +51,6 @@ import (
 //go:embed swagger/swagger-v1.yaml
 var swaggerV1 []byte
 
-//go:embed swagger/swagger-v1-full.yaml
-var swaggerV1Full []byte
-
 func RequestTimer() fiber.Handler {
 	return func(c *fiber.Ctx) error {
 		c.Locals("start", time.Now())
@@ -699,23 +696,13 @@ func NewApiServer(config config.Config) *ApiServer {
 		// Create Swagger middleware for v1
 		//
 		// Swagger will be available at: /v1
+		// Note: v1/full endpoints exist for backwards compatibility but are not documented or exposed via SDK.
 		app.Use(swagger.New(swagger.Config{
 			BasePath: "/",
 			Path:     "v1",
 			// Only controls where the swagger.json is server from
 			FilePath:    "v1/swagger.yaml",
 			FileContent: swaggerV1,
-		}))
-
-		// Create Swagger middleware for v1/full
-		//
-		// Swagger will be available at: /v1/full
-		app.Use(swagger.New(swagger.Config{
-			BasePath: "/",
-			Path:     "v1/full",
-			// Only controls where the swagger.json is server from
-			FilePath:    "v1/full/swagger.yaml",
-			FileContent: swaggerV1Full,
 		}))
 	}
 
