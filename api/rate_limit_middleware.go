@@ -129,9 +129,12 @@ func (rlm *RateLimitMiddleware) Middleware(apiServer *ApiServer) fiber.Handler {
 
 		// Check RPS
 		if !rlm.rpsState.allow(identifier, rps, now) {
-			rlm.logger.Debug("RPS rate limit exceeded",
+			rlm.logger.Warn("RPS limit exceeded",
+				zap.String("limit_type", "rps"),
 				zap.String("identifier", identifier),
-				zap.Int("rps", rps))
+				zap.String("path", c.Path()),
+				zap.String("ip", ipAddress),
+				zap.Int("limit", rps))
 			return c.Status(fiber.StatusTooManyRequests).JSON(fiber.Map{
 				"error": "Rate limit exceeded. Try again later.",
 			})
@@ -143,9 +146,12 @@ func (rlm *RateLimitMiddleware) Middleware(apiServer *ApiServer) fiber.Handler {
 			allowed, remaining := rlm.checkRpm(c.Context(), identifier, int64(rpm))
 			remainingMonth = remaining
 			if !allowed {
-				rlm.logger.Debug("RPM rate limit exceeded (requests per month)",
+				rlm.logger.Warn("RPM limit exceeded",
+					zap.String("limit_type", "rpm"),
 					zap.String("identifier", identifier),
-					zap.Int("rpm", rpm))
+					zap.String("path", c.Path()),
+					zap.String("ip", ipAddress),
+					zap.Int("limit", rpm))
 				c.Set("X-RateLimit-Remaining-Month", "0")
 				c.Set("X-RateLimit-Limit-Month", strconv.Itoa(rpm))
 				return c.Status(fiber.StatusTooManyRequests).JSON(fiber.Map{
