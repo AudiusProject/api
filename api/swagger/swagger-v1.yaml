@@ -14226,6 +14226,10 @@ components:
           type: string
         1000x1000:
           type: string
+        mirrors:
+          type: array
+          items:
+            type: string
     track_segment:
       required:
       - duration
@@ -15134,8 +15138,8 @@ components:
           type: string
         verified:
           type: boolean
-        profilePicture:
-          $ref: '#/components/schemas/profilePicture'
+        profile_picture:
+          $ref: '#/components/schemas/profile_picture'
         sub:
           type: string
         iat:
@@ -15169,15 +15173,6 @@ components:
           type: boolean
           description: Whether the account is in the user's in-app wallet
           example: true
-    profilePicture:
-      type: object
-      properties:
-        150x150:
-          type: string
-        480x480:
-          type: string
-        1000x1000:
-          type: string
     sales_json_content:
       type: object
       properties:
