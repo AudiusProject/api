@@ -3,6 +3,7 @@ package testdata
 var TrackFixtures = []map[string]any{
 	{"track_id": 100, "genre": "Electronic", "owner_id": 1, "title": "T1", "is_unlisted": "f", "is_downloadable": "t"},
 	{"track_id": 101, "genre": "Alternative", "owner_id": 1, "title": "T2", "is_unlisted": "f", "is_downloadable": "f"},
+	{"track_id": 102, "genre": "Alternative", "owner_id": 2, "title": "T3", "is_unlisted": "f", "is_downloadable": "f"},
 	{"track_id": 200, "genre": "Electronic", "owner_id": 2, "title": "Culca Canyon", "is_unlisted": "f", "is_downloadable": "f"},
 	{"track_id": 201, "genre": "Alternative", "owner_id": 2, "title": "Turkey Time DEMO", "is_unlisted": "t", "is_downloadable": "f"},
 	{"track_id": 202, "genre": "Alternative", "owner_id": 2, "title": "Turkey Time (live)", "is_unlisted": "f", "is_downloadable": "f"},
