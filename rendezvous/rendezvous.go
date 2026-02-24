@@ -107,5 +107,14 @@ func (rh *RendezvousHasher) ReplicaSet3(key string) (string, []string) {
 		candidates[i], candidates[j] = candidates[j], candidates[i]
 	})
 
-	return candidates[0], candidates[1:]
+	live := make([]string, 0, len(candidates))
+	for _, h := range candidates {
+		if !slices.Contains(config.Cfg.BlacklistedNodes, h) {
+			live = append(live, h)
+		}
+	}
+	if len(live) == 0 {
+		return "", []string{}
+	}
+	return live[0], live[1:]
 }

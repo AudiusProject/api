@@ -24,9 +24,6 @@ type Config struct {
 	RunMigrations                  bool
 	EsUrl                          string
 	ArtistCoinRewardsStaticSenders []Node
-	StoreAllNodes                  []string
-	DeadNodes                      []string
-	UploadNodes                    []string
 	VerifierAddress                string
 	DelegatePrivateKey             string
 	AxiomToken                     string
@@ -49,6 +46,14 @@ type Config struct {
 	RewardCodeAuthorizedKeys       []string
 	LaunchpadDeterministicSecret   string
 	UnsplashKeys                   []string
+	// Nodes that volunteer as STORE_ALL nodes and are always included in mirrors lists
+	StoreAllNodes []string
+	// Nodes that are truly dead and should not be included in rendezvous
+	DeadNodes []string
+	// Nodes that are blacklisted and should not be included in mirrors lists
+	BlacklistedNodes []string
+	// Nodes that should handle inbound uploads
+	UploadNodes []string
 	// Optional API secret to be used for api.audius.co frontends
 	AudiusApiSecret string
 }
@@ -110,6 +115,7 @@ func init() {
 		Cfg.ChainId = "openaudio-devnet"
 		Cfg.SolanaIndexerWorkers = 1
 		Cfg.DeadNodes = []string{}
+		Cfg.BlacklistedNodes = []string{}
 		Cfg.StoreAllNodes = []string{}
 		Cfg.UploadNodes = DevUploadNodes
 		Cfg.AudiusdChainID = core_config.DevAcdcChainID
@@ -171,6 +177,28 @@ func init() {
 		Cfg.ArchiverNodes = []string{"https://discoveryprovider.audius.co"}
 		Cfg.DeadNodes = []string{
 			"https://content.grassfed.network",
+		}
+		Cfg.BlacklistedNodes = []string{
+			"https://audius-discovery-2.cultur3stake.com",
+			"https://audius-discovery-3.cultur3stake.com",
+			"https://audius-discovery-4.cultur3stake.com",
+			"https://audius-discovery-7.cultur3stake.com",
+			"https://audius-discovery-8.cultur3stake.com",
+			"https://audius-discovery-10.cultur3stake.com",
+			"https://audius-discovery-1.cultur3stake.com",
+			"https://audius-content-1.cultur3stake.com",
+			"https://audius-content-2.cultur3stake.com",
+			"https://audius-content-3.cultur3stake.com",
+			"https://audius-content-4.cultur3stake.com",
+			"https://audius-content-5.cultur3stake.com",
+			"https://audius-content-6.cultur3stake.com",
+			"https://audius-content-7.cultur3stake.com",
+			"https://audius-content-8.cultur3stake.com",
+			"https://audius-content-9.cultur3stake.com",
+			"https://audius-content-10.cultur3stake.com",
+			"https://audius-content-11.cultur3stake.com",
+			"https://audius-content-12.cultur3stake.com",
+			"https://audius-content-13.cultur3stake.com",
 		}
 		Cfg.StoreAllNodes = []string{
 			"https://creatornode2.audius.co",
