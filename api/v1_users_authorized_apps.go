@@ -9,7 +9,7 @@ import (
 )
 
 type GetUsersAuthorizedAppsQueryParams struct {
-	Limit  int `query:"limit" default:"10" validate:"min=1,max=100"`
+	Limit  int `query:"limit" default:"50" validate:"min=1,max=100"`
 	Offset int `query:"offset" default:"0" validate:"min=0"`
 }
 
