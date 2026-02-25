@@ -6,7 +6,6 @@ import (
 	"fmt"
 	"strings"
 
-	"api.audius.co/config"
 	"api.audius.co/rendezvous"
 	"api.audius.co/trashid"
 	"github.com/jackc/pgx/v5/pgtype"
@@ -64,8 +63,7 @@ func (q *Queries) UsersKeyed(ctx context.Context, arg GetUsersParams) (map[int32
 
 			if cid != "" {
 				// rendezvous for cid
-				first, rest := rendezvous.GlobalHasher.ReplicaSet3(cid)
-				rest = append(rest, config.Cfg.StoreAllNodes...)
+				first, rest := rendezvous.GlobalHasher.Select(cid)
 				coverPhoto = &RectangleImage{
 					X640:    fmt.Sprintf("%s/content/%s/640x.jpg", first, cid),
 					X2000:   fmt.Sprintf("%s/content/%s/2000x.jpg", first, cid),
@@ -126,8 +124,7 @@ func squareImageStruct(maybeCids ...pgtype.Text) *SquareImage {
 	}
 
 	// rendezvous for cid
-	first, rest := rendezvous.GlobalHasher.ReplicaSet3(cid)
-	rest = append(rest, config.Cfg.StoreAllNodes...)
+	first, rest := rendezvous.GlobalHasher.Select(cid)
 
 	return &SquareImage{
 		X150x150:   fmt.Sprintf("%s/content/%s/150x150.jpg", first, cid),
