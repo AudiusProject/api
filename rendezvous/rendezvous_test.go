@@ -6,7 +6,7 @@ import (
 	"github.com/stretchr/testify/assert"
 )
 
-func TestReplicaSet3(t *testing.T) {
+func TestSelect(t *testing.T) {
 	hosts := []string{
 		"https://host1.com",
 		"https://host2.com",
@@ -16,7 +16,7 @@ func TestReplicaSet3(t *testing.T) {
 	}
 
 	hasher := NewRendezvousHasher(hosts)
-	first, rest := hasher.ReplicaSet3("test-key")
+	first, rest := hasher.Select("test-key")
 	ranked := hasher.Rank("test-key")
 
 	assert.Equal(t, 2, len(rest))

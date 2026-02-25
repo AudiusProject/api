@@ -25,8 +25,7 @@ type Id3Tags struct {
 }
 
 func mediaLink(cid string, trackId int32, userId int32, id3Tags *Id3Tags) (*MediaLink, error) {
-	first, rest := rendezvous.GlobalHasher.ReplicaSet3(cid)
-	rest = append(config.Cfg.StoreAllNodes, rest...)
+	first, rest := rendezvous.GlobalHasher.Select(cid)
 
 	timestamp := time.Now().Unix() * 1000
 	data := map[string]interface{}{

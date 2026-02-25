@@ -20,7 +20,7 @@ func (app *ApiServer) v1Rendezvous(c *fiber.Ctx) error {
 	for i, node := range nodes {
 		endpoints[i] = node.Endpoint
 	}
-	first, rest := rendezvous.GlobalHasher.ReplicaSet3(cid)
+	first, rest := rendezvous.GlobalHasher.Select(cid)
 
 	return c.JSON(fiber.Map{
 		"first":      first,

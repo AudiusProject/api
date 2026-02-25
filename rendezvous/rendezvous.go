@@ -94,15 +94,23 @@ func (rh *RendezvousHasher) Rank(key string) []string {
 	return result
 }
 
-// Get a replica set of 3 nodes with random order
-func (rh *RendezvousHasher) ReplicaSet3(key string) (string, []string) {
+// Select returns a primary node and mirror nodes for the given key.
+func (rh *RendezvousHasher) Select(key string) (string, []string) {
 	ranked := rh.Rank(key)
-	n := min(len(ranked), 3)
+
+	combined := append([]string(nil), config.Cfg.StoreAllNodes...)
+	for _, h := range ranked {
+		if !slices.Contains(combined, h) {
+			combined = append(combined, h)
+		}
+	}
+
+	n := min(len(combined), 3)
 	if n == 0 {
 		return "", []string{}
 	}
 
-	candidates := append([]string(nil), ranked[:n]...)
+	candidates := append([]string(nil), combined[:n]...)
 	rand.Shuffle(n, func(i, j int) {
 		candidates[i], candidates[j] = candidates[j], candidates[i]
 	})
