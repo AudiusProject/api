@@ -13195,16 +13195,19 @@ components:
         data:
           $ref: '#/components/schemas/developer_app'
     remixes_response:
-      required:
-      - count
       type: object
       properties:
-        count:
-          type: integer
-        tracks:
-          type: array
-          items:
-            $ref: '#/components/schemas/track'
+        data:
+          type: object
+          required:
+          - count
+          properties:
+            count:
+              type: integer
+            tracks:
+              type: array
+              items:
+                $ref: '#/components/schemas/track'
     track:
       required:
       - access
