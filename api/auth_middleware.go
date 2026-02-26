@@ -232,16 +232,13 @@ func (app *ApiServer) validateOAuthJWTTokenToWalletAndUserId(ctx context.Context
 // - the user is not authorized to act on behalf of "myWallet"
 func (app *ApiServer) authMiddleware(c *fiber.Ctx) error {
 	var wallet string
-	var myId int32
 
 	signer, _ := app.getApiSigner(c)
+	myId := app.getMyId(c)
 	if signer != nil {
 		wallet = strings.ToLower(signer.Address)
-		c.Locals("myId", signer.UserId)
-		myId = int32(signer.UserId)
 	} else {
 		wallet = app.recoverAuthorityFromSignatureHeaders(c)
-		myId = app.getMyId(c)
 		// OAuth JWT fallback: when Bearer token is not api_access_key, try as OAuth JWT (Plans app)
 		if wallet == "" && myId != 0 {
 			if authHeader := c.Get("Authorization"); authHeader != "" && strings.HasPrefix(authHeader, "Bearer ") {
