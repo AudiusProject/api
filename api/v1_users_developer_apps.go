@@ -471,6 +471,84 @@ func (app *ApiServer) deleteV1UsersDeveloperApp(c *fiber.Ctx) error {
 	})
 }
 
+type registerApiKeyBody struct {
+	ApiSecret string `json:"api_secret"`
+}
+
+// postV1UsersDeveloperAppRegisterApiKey inserts api_key and api_secret into api_keys
+// for developer apps created via entity manager transactions. Used when the client
+// sends raw ManageEntity tx instead of POST /developer-apps. Inserts with rps=10,
+// rpm=500000 (same as POST create). Requires the app to exist in developer_apps and
+// belong to the authenticated user.
+func (app *ApiServer) postV1UsersDeveloperAppRegisterApiKey(c *fiber.Ctx) error {
+	userID := app.getMyId(c)
+	if userID == 0 {
+		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
+			"error": "user_id query parameter is required",
+		})
+	}
+
+	address := c.Params("address")
+	if address == "" {
+		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
+			"error": "address is required",
+		})
+	}
+	if !strings.HasPrefix(address, "0x") {
+		address = "0x" + address
+	}
+	apiKey := strings.ToLower(address)
+
+	var body registerApiKeyBody
+	if err := c.BodyParser(&body); err != nil {
+		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
+			"error": "Invalid request body",
+		})
+	}
+	apiSecret := strings.TrimSpace(body.ApiSecret)
+	if apiSecret == "" {
+		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
+			"error": "api_secret is required",
+		})
+	}
+
+	// Verify the app belongs to this user
+	var ownerUserID int32
+	err := app.pool.QueryRow(c.Context(), `
+		SELECT user_id FROM developer_apps
+		WHERE LOWER(address) = LOWER($1)
+		  AND is_current = true
+		  AND is_delete = false
+		ORDER BY created_at DESC
+		LIMIT 1
+	`, apiKey).Scan(&ownerUserID)
+	if err != nil || ownerUserID != userID {
+		return c.Status(fiber.StatusNotFound).JSON(fiber.Map{
+			"error": "Developer app not found",
+		})
+	}
+
+	if app.writePool == nil {
+		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{
+			"error": "Database write not available",
+		})
+	}
+
+	_, err = app.writePool.Exec(c.Context(), `
+		INSERT INTO api_keys (api_key, api_secret, rps, rpm)
+		VALUES ($1, $2, 10, 500000)
+		ON CONFLICT (api_key) DO UPDATE SET api_secret = EXCLUDED.api_secret
+	`, apiKey, apiSecret)
+	if err != nil {
+		app.logger.Error("Failed to insert api_keys", zap.Error(err))
+		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{
+			"error": "Failed to register API key",
+		})
+	}
+
+	return c.JSON(fiber.Map{"success": true})
+}
+
 type deactivateAccessKeyBody struct {
 	ApiAccessKey string `json:"api_access_key"`
 }

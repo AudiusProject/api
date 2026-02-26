@@ -536,6 +536,8 @@ func NewApiServer(config config.Config) *ApiServer {
 		g.Delete("/developer-apps/:address", app.deleteV1UsersDeveloperApp)
 		g.Post("/developer_apps/:address/access-keys/deactivate", app.postV1UsersDeveloperAppAccessKeyDeactivate)
 		g.Post("/developer-apps/:address/access-keys/deactivate", app.postV1UsersDeveloperAppAccessKeyDeactivate)
+		g.Post("/developer_apps/:address/register-api-key", app.requireAuthMiddleware, app.postV1UsersDeveloperAppRegisterApiKey)
+		g.Post("/developer-apps/:address/register-api-key", app.requireAuthMiddleware, app.postV1UsersDeveloperAppRegisterApiKey)
 		g.Post("/developer_apps/:address/access-keys", app.postV1UsersDeveloperAppAccessKey)
 		g.Post("/developer-apps/:address/access-keys", app.postV1UsersDeveloperAppAccessKey)
 

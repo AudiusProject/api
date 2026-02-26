@@ -22,7 +22,6 @@ type apiAccessKeySignerEntry struct {
 
 // Signer holds the address, public key, and private key for signing transactions
 type Signer struct {
-	UserId     int
 	Address    string
 	PrivateKey *ecdsa.PrivateKey
 }
