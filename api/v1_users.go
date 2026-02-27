@@ -183,8 +183,9 @@ func (app *ApiServer) postV1Users(c *fiber.Ctx) error {
 
 	encodedUserID, _ := trashid.EncodeHashId(userID)
 	return c.JSON(fiber.Map{
-		"success":          true,
 		"transaction_hash": response.Msg.GetTransaction().GetHash(),
+		"block_hash":       response.Msg.GetTransaction().GetBlockHash(),
+		"block_number":     response.Msg.GetTransaction().GetHeight(),
 		"user_id":          encodedUserID,
 	})
 }
@@ -314,7 +315,8 @@ func (app *ApiServer) putV1User(c *fiber.Ctx) error {
 	}
 
 	return c.JSON(fiber.Map{
-		"success":          true,
 		"transaction_hash": response.Msg.GetTransaction().GetHash(),
+		"block_hash":       response.Msg.GetTransaction().GetBlockHash(),
+		"block_number":     response.Msg.GetTransaction().GetHeight(),
 	})
 }

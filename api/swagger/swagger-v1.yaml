@@ -10415,12 +10415,16 @@ components:
     create_user_response:
       type: object
       properties:
-        success:
-          type: boolean
-          description: Whether the user was created successfully
         transaction_hash:
           type: string
           description: The blockchain transaction hash
+        block_hash:
+          type: string
+          description: The blockchain block hash
+        block_number:
+          type: integer
+          format: int64
+          description: The blockchain block number/height
         user_id:
           type: string
           description: The ID of the created user
@@ -10595,12 +10599,16 @@ components:
     create_comment_response:
       type: object
       properties:
-        success:
-          type: boolean
-          description: Whether the comment was created successfully
         transaction_hash:
           type: string
           description: The blockchain transaction hash
+        block_hash:
+          type: string
+          description: The blockchain block hash
+        block_number:
+          type: integer
+          format: int64
+          description: The blockchain block number/height
         comment_id:
           type: string
           description: The ID of the created comment
@@ -10644,12 +10652,16 @@ components:
     write_response:
       type: object
       properties:
-        success:
-          type: boolean
-          description: Whether the operation was successful
         transaction_hash:
           type: string
           description: The blockchain transaction hash
+        block_hash:
+          type: string
+          description: The blockchain block hash
+        block_number:
+          type: integer
+          format: int64
+          description: The blockchain block number/height
     playlist_artwork:
       type: object
       properties:
@@ -11116,6 +11128,13 @@ components:
         transaction_hash:
           type: string
           description: Transaction hash of the creation
+        block_hash:
+          type: string
+          description: The blockchain block hash
+        block_number:
+          type: integer
+          format: int64
+          description: The blockchain block number/height
     playlist_response:
       required:
       - latest_chain_block
@@ -12203,12 +12222,16 @@ components:
     create_playlist_response:
       type: object
       properties:
-        success:
-          type: boolean
-          description: Whether the playlist was created successfully
         transaction_hash:
           type: string
           description: The blockchain transaction hash
+        block_hash:
+          type: string
+          description: The blockchain block hash
+        block_number:
+          type: integer
+          format: int64
+          description: The blockchain block number/height
         playlist_id:
           type: string
           description: The ID of the created playlist
@@ -13074,12 +13097,16 @@ components:
     create_track_response:
       type: object
       properties:
-        success:
-          type: boolean
-          description: Whether the track was created successfully
         transaction_hash:
           type: string
           description: The blockchain transaction hash
+        block_hash:
+          type: string
+          description: The blockchain block hash
+        block_number:
+          type: integer
+          format: int64
+          description: The blockchain block number/height
         track_id:
           type: string
           description: The ID of the created track

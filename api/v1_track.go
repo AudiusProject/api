@@ -303,8 +303,9 @@ func (app *ApiServer) postV1Tracks(c *fiber.Ctx) error {
 
 	encodedTrackID, _ := trashid.EncodeHashId(trackID)
 	return c.JSON(fiber.Map{
-		"success":          true,
 		"transaction_hash": response.Msg.GetTransaction().GetHash(),
+		"block_hash":       response.Msg.GetTransaction().GetBlockHash(),
+		"block_number":     response.Msg.GetTransaction().GetHeight(),
 		"track_id":         encodedTrackID,
 	})
 }
@@ -391,8 +392,9 @@ func (app *ApiServer) putV1Track(c *fiber.Ctx) error {
 	}
 
 	return c.JSON(fiber.Map{
-		"success":          true,
 		"transaction_hash": response.Msg.GetTransaction().GetHash(),
+		"block_hash":       response.Msg.GetTransaction().GetBlockHash(),
+		"block_number":     response.Msg.GetTransaction().GetHeight(),
 	})
 }
 

@@ -182,8 +182,9 @@ func (app *ApiServer) postV1Playlists(c *fiber.Ctx) error {
 
 	encodedPlaylistID, _ := trashid.EncodeHashId(playlistID)
 	return c.JSON(fiber.Map{
-		"success":          true,
 		"transaction_hash": response.Msg.GetTransaction().GetHash(),
+		"block_hash":       response.Msg.GetTransaction().GetBlockHash(),
+		"block_number":     response.Msg.GetTransaction().GetHeight(),
 		"playlist_id":      encodedPlaylistID,
 	})
 }
@@ -270,8 +271,9 @@ func (app *ApiServer) putV1Playlist(c *fiber.Ctx) error {
 	}
 
 	return c.JSON(fiber.Map{
-		"success":          true,
 		"transaction_hash": response.Msg.GetTransaction().GetHash(),
+		"block_hash":       response.Msg.GetTransaction().GetBlockHash(),
+		"block_number":     response.Msg.GetTransaction().GetHeight(),
 	})
 }
 
@@ -308,7 +310,8 @@ func (app *ApiServer) deleteV1Playlist(c *fiber.Ctx) error {
 	}
 
 	return c.JSON(fiber.Map{
-		"success":          true,
 		"transaction_hash": response.Msg.GetTransaction().GetHash(),
+		"block_hash":       response.Msg.GetTransaction().GetBlockHash(),
+		"block_number":     response.Msg.GetTransaction().GetHeight(),
 	})
 }
