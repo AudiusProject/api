@@ -83,8 +83,9 @@ func (app *ApiServer) postV1TrackRepost(c *fiber.Ctx) error {
 	}
 
 	return c.JSON(fiber.Map{
-		"success":          true,
 		"transaction_hash": response.Msg.GetTransaction().GetHash(),
+		"block_hash":       response.Msg.GetTransaction().GetBlockHash(),
+		"block_number":     response.Msg.GetTransaction().GetHeight(),
 	})
 }
 
@@ -121,7 +122,8 @@ func (app *ApiServer) deleteV1TrackRepost(c *fiber.Ctx) error {
 	}
 
 	return c.JSON(fiber.Map{
-		"success":          true,
 		"transaction_hash": response.Msg.GetTransaction().GetHash(),
+		"block_hash":       response.Msg.GetTransaction().GetBlockHash(),
+		"block_number":     response.Msg.GetTransaction().GetHeight(),
 	})
 }

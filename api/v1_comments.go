@@ -201,8 +201,9 @@ func (app *ApiServer) postV1Comment(c *fiber.Ctx) error {
 
 	encodedCommentID, _ := trashid.EncodeHashId(commentID)
 	return c.JSON(fiber.Map{
-		"success":          true,
 		"transaction_hash": response.Msg.GetTransaction().GetHash(),
+		"block_hash":       response.Msg.GetTransaction().GetBlockHash(),
+		"block_number":     response.Msg.GetTransaction().GetHeight(),
 		"comment_id":       encodedCommentID,
 	})
 }
@@ -267,8 +268,9 @@ func (app *ApiServer) putV1Comment(c *fiber.Ctx) error {
 	}
 
 	return c.JSON(fiber.Map{
-		"success":          true,
 		"transaction_hash": response.Msg.GetTransaction().GetHash(),
+		"block_hash":       response.Msg.GetTransaction().GetBlockHash(),
+		"block_number":     response.Msg.GetTransaction().GetHeight(),
 	})
 }
 
@@ -305,8 +307,9 @@ func (app *ApiServer) deleteV1Comment(c *fiber.Ctx) error {
 	}
 
 	return c.JSON(fiber.Map{
-		"success":          true,
 		"transaction_hash": response.Msg.GetTransaction().GetHash(),
+		"block_hash":       response.Msg.GetTransaction().GetBlockHash(),
+		"block_number":     response.Msg.GetTransaction().GetHeight(),
 	})
 }
 
@@ -361,8 +364,9 @@ func (app *ApiServer) postV1CommentReact(c *fiber.Ctx) error {
 	}
 
 	return c.JSON(fiber.Map{
-		"success":          true,
 		"transaction_hash": response.Msg.GetTransaction().GetHash(),
+		"block_hash":       response.Msg.GetTransaction().GetBlockHash(),
+		"block_number":     response.Msg.GetTransaction().GetHeight(),
 	})
 }
 
@@ -415,8 +419,9 @@ func (app *ApiServer) deleteV1CommentReact(c *fiber.Ctx) error {
 	}
 
 	return c.JSON(fiber.Map{
-		"success":          true,
 		"transaction_hash": response.Msg.GetTransaction().GetHash(),
+		"block_hash":       response.Msg.GetTransaction().GetBlockHash(),
+		"block_number":     response.Msg.GetTransaction().GetHeight(),
 	})
 }
 
@@ -471,8 +476,9 @@ func (app *ApiServer) postV1CommentPin(c *fiber.Ctx) error {
 	}
 
 	return c.JSON(fiber.Map{
-		"success":          true,
 		"transaction_hash": response.Msg.GetTransaction().GetHash(),
+		"block_hash":       response.Msg.GetTransaction().GetBlockHash(),
+		"block_number":     response.Msg.GetTransaction().GetHeight(),
 	})
 }
 
@@ -525,8 +531,9 @@ func (app *ApiServer) deleteV1CommentPin(c *fiber.Ctx) error {
 	}
 
 	return c.JSON(fiber.Map{
-		"success":          true,
 		"transaction_hash": response.Msg.GetTransaction().GetHash(),
+		"block_hash":       response.Msg.GetTransaction().GetBlockHash(),
+		"block_number":     response.Msg.GetTransaction().GetHeight(),
 	})
 }
 
@@ -563,7 +570,8 @@ func (app *ApiServer) postV1CommentReport(c *fiber.Ctx) error {
 	}
 
 	return c.JSON(fiber.Map{
-		"success":          true,
 		"transaction_hash": response.Msg.GetTransaction().GetHash(),
+		"block_hash":       response.Msg.GetTransaction().GetBlockHash(),
+		"block_number":     response.Msg.GetTransaction().GetHeight(),
 	})
 }
