@@ -9659,6 +9659,12 @@ components:
           description: Placement hosts for the track
         stem_of:
           $ref: '#/components/schemas/stem_parent'
+        access_authorities:
+          type: array
+          nullable: true
+          items:
+            type: string
+          description: Programmable distribution - wallet addresses that can sign to authorize stream access. When set, only these addresses (not validator keys) may sign stream URLs.
         remix_of:
           $ref: '#/components/schemas/remix_parent_write'
         ddex_app:
