@@ -1170,37 +1170,6 @@ paths:
         '500':
           description: Server error
           content: {}
-  /playlists/by_permalink/{handle}/{slug}:
-    get:
-      tags:
-      - playlists
-      description: Get a playlist by handle and slug
-      operationId: Get Playlist By Handle and Slug
-      parameters:
-      - name: handle
-        in: path
-        description: playlist owner handle
-        required: true
-        schema:
-          type: string
-      - name: slug
-        in: path
-        description: playlist slug
-        required: true
-        schema:
-          type: string
-      - name: user_id
-        in: query
-        description: The user ID of the user making the request
-        schema:
-          type: string
-      responses:
-        '200':
-          description: Success
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/playlist_response'
   /playlists/search:
     get:
       tags:
