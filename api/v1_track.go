@@ -262,6 +262,10 @@ func (app *ApiServer) postV1Tracks(c *fiber.Ctx) error {
 		})
 	}
 
+	if metadata["owner_id"] == nil {
+		metadata["owner_id"] = userID
+	}
+
 	// Remove nil values from metadata
 	for key, value := range metadata {
 		if value == nil {
