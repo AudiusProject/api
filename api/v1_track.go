@@ -137,6 +137,7 @@ type CreateTrackRequest struct {
 	DownloadConditions           *AccessConditions          `json:"download_conditions,omitempty" validate:"omitempty"`
 	StreamConditions             *AccessConditions          `json:"stream_conditions,omitempty" validate:"omitempty"`
 	IsStreamGated                *bool                      `json:"is_stream_gated,omitempty"`
+	AccessAuthorities            *[]string                  `json:"access_authorities,omitempty"`
 	IsDownloadGated              *bool                      `json:"is_download_gated,omitempty"`
 	AiAttributionUserId          *trashid.HashId            `json:"ai_attribution_user_id,omitempty" validate:"omitempty,min=0"`
 	AllowedApiKeys               *[]string                  `json:"allowed_api_keys,omitempty"`
@@ -178,6 +179,7 @@ type UpdateTrackRequest struct {
 	DownloadConditions           *AccessConditions          `json:"download_conditions,omitempty" validate:"omitempty"`
 	StreamConditions             *AccessConditions          `json:"stream_conditions,omitempty" validate:"omitempty"`
 	IsStreamGated                *bool                      `json:"is_stream_gated,omitempty"`
+	AccessAuthorities            *[]string                  `json:"access_authorities,omitempty"`
 	IsDownloadGated              *bool                      `json:"is_download_gated,omitempty"`
 	AiAttributionUserId          *trashid.HashId            `json:"ai_attribution_user_id,omitempty" validate:"omitempty,min=0"`
 	AllowedApiKeys               *[]string                  `json:"allowed_api_keys,omitempty"`
@@ -282,8 +284,9 @@ func (app *ApiServer) postV1Tracks(c *fiber.Ctx) error {
 
 	// Build metadata JSON with cid and data fields
 	metadataJSON := map[string]interface{}{
-		"cid":  "",
-		"data": metadata,
+		"cid":                "",
+		"access_authorities": req.AccessAuthorities,
+		"data":               metadata,
 	}
 	finalMetadataBytes, _ := json.Marshal(metadataJSON)
 
@@ -372,8 +375,9 @@ func (app *ApiServer) putV1Track(c *fiber.Ctx) error {
 
 	// Build metadata JSON with cid and data fields
 	metadataJSON := map[string]interface{}{
-		"cid":  "",
-		"data": metadata,
+		"cid":                "",
+		"access_authorities": req.AccessAuthorities,
+		"data":               metadata,
 	}
 	finalMetadataBytes, _ := json.Marshal(metadataJSON)
 
