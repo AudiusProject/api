@@ -9373,9 +9373,9 @@ components:
           type: string
           format: date
           description: Release date
-        cover_art_cid:
+        playlist_image_sizes_multihash:
           type: string
-          description: IPFS CID for cover art
+          description: IPFS CID for playlist cover art sizes directory
         playlist_contents:
           type: array
           description: Array of tracks in the playlist
@@ -9777,12 +9777,9 @@ components:
         orig_filename:
           type: string
           description: Original filename of the track
-        cover_art_cid:
-          type: string
-          description: IPFS CID for cover art
         cover_art_sizes:
           type: string
-          description: Cover art sizes metadata
+          description: IPFS CID for cover art sizes directory
         preview_cid:
           type: string
           description: IPFS CID for the track preview
@@ -10005,12 +10002,9 @@ components:
         orig_filename:
           type: string
           description: Original filename of the track
-        cover_art_cid:
-          type: string
-          description: IPFS CID for cover art
         cover_art_sizes:
           type: string
-          description: Cover art sizes metadata
+          description: IPFS CID for cover art sizes directory
         preview_cid:
           type: string
           description: IPFS CID for the track preview
@@ -13362,9 +13356,9 @@ components:
           type: string
           format: date
           description: Release date
-        cover_art_cid:
+        playlist_image_sizes_multihash:
           type: string
-          description: IPFS CID for cover art
+          description: IPFS CID for playlist cover art sizes directory
         playlist_contents:
           type: array
           description: Array of track IDs to include in the playlist
