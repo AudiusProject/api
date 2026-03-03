@@ -9375,7 +9375,7 @@ components:
           description: Release date
         playlist_image_sizes_multihash:
           type: string
-          description: IPFS CID for playlist cover art sizes directory
+          description: CID for the playlist cover art
         playlist_contents:
           type: array
           description: Array of tracks in the playlist
@@ -9770,19 +9770,19 @@ components:
           description: Release date
         track_cid:
           type: string
-          description: IPFS CID for the track audio file (required)
+          description: CID for the track audio file (required)
         orig_file_cid:
           type: string
-          description: IPFS CID for the original track file
+          description: CID for the original track file
         orig_filename:
           type: string
           description: Original filename of the track
         cover_art_sizes:
           type: string
-          description: IPFS CID for cover art sizes directory
+          description: CID for the track cover art
         preview_cid:
           type: string
-          description: IPFS CID for the track preview
+          description: CID for the track preview
         preview_start_seconds:
           type: number
           format: float
@@ -9995,19 +9995,19 @@ components:
           description: Release date
         track_cid:
           type: string
-          description: IPFS CID for the track audio file
+          description: CID for the track audio file
         orig_file_cid:
           type: string
-          description: IPFS CID for the original track file
+          description: CID for the original track file
         orig_filename:
           type: string
           description: Original filename of the track
         cover_art_sizes:
           type: string
-          description: IPFS CID for cover art sizes directory
+          description: CID for the track cover art
         preview_cid:
           type: string
-          description: IPFS CID for the track preview
+          description: CID for the track preview
         preview_start_seconds:
           type: number
           format: float
@@ -13358,7 +13358,7 @@ components:
           description: Release date
         playlist_image_sizes_multihash:
           type: string
-          description: IPFS CID for playlist cover art sizes directory
+          description: CID for the playlist cover art
         playlist_contents:
           type: array
           description: Array of track IDs to include in the playlist
