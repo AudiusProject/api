@@ -57,6 +57,17 @@ func (app *ApiServer) getApiSigner(c *fiber.Ctx) (*Signer, error) {
 				return signer, nil
 			}
 		}
+		// If authMiddleware already validated a JWT and set authedWallet,
+		// use AudiusApiSecret to sign on behalf of the authenticated user.
+		if wallet, _ := c.Locals("authedWallet").(string); wallet != "" && app.config.AudiusApiSecret != "" {
+			apiSecret, err := crypto.HexToECDSA(strings.TrimPrefix(app.config.AudiusApiSecret, "0x"))
+			if err == nil {
+				return &Signer{
+					Address:    strings.ToLower(crypto.PubkeyToAddress(apiSecret.PublicKey).Hex()),
+					PrivateKey: apiSecret,
+				}, nil
+			}
+		}
 		return nil, fmt.Errorf("invalid Bearer token")
 	}
 
