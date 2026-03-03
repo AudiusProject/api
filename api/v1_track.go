@@ -284,9 +284,11 @@ func (app *ApiServer) postV1Tracks(c *fiber.Ctx) error {
 
 	// Build metadata JSON with cid and data fields
 	metadataJSON := map[string]interface{}{
-		"cid":                "",
-		"access_authorities": req.AccessAuthorities,
-		"data":               metadata,
+		"cid":  "",
+		"data": metadata,
+	}
+	if req.AccessAuthorities != nil {
+		metadataJSON["access_authorities"] = req.AccessAuthorities
 	}
 	finalMetadataBytes, _ := json.Marshal(metadataJSON)
 
@@ -375,9 +377,11 @@ func (app *ApiServer) putV1Track(c *fiber.Ctx) error {
 
 	// Build metadata JSON with cid and data fields
 	metadataJSON := map[string]interface{}{
-		"cid":                "",
-		"access_authorities": req.AccessAuthorities,
-		"data":               metadata,
+		"cid":  "",
+		"data": metadata,
+	}
+	if req.AccessAuthorities != nil {
+		metadataJSON["access_authorities"] = req.AccessAuthorities
 	}
 	finalMetadataBytes, _ := json.Marshal(metadataJSON)
 
