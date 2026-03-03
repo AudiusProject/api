@@ -4129,6 +4129,7 @@ paths:
       operationId: Update User
       security:
       - BasicAuth: []
+      - BearerAuth: []
       parameters:
       - name: id
         in: path
