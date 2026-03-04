@@ -56,6 +56,12 @@ func (app *ApiServer) getApiSigner(c *fiber.Ctx) (*Signer, error) {
 				return signer, nil
 			}
 		}
+		// Try PKCE token → look up client_id → get api_secret from api_keys → return Signer
+		if app.writePool != nil {
+			if signer := app.getSignerFromOAuthToken(c, token); signer != nil {
+				return signer, nil
+			}
+		}
 		// If authMiddleware already validated a JWT and set authedWallet,
 		// use AudiusApiSecret to sign on behalf of the authenticated user.
 		if wallet, _ := c.Locals("authedWallet").(string); wallet != "" && app.config.AudiusApiSecret != "" {
@@ -162,6 +168,34 @@ func (app *ApiServer) getSignerFromApiAccessKey(ctx context.Context, apiAccessKe
 	address := crypto.PubkeyToAddress(privateKey.PublicKey)
 	return &Signer{
 		Address:    address.Hex(),
+		PrivateKey: privateKey,
+	}
+}
+
+// getSignerFromOAuthToken looks up a PKCE access token, resolves the client_id to an api_key,
+// then gets the api_secret to build a Signer. This allows writes (ManageEntity signing)
+// to work for PKCE-authenticated requests.
+func (app *ApiServer) getSignerFromOAuthToken(c *fiber.Ctx, token string) *Signer {
+	entry, ok := app.lookupOAuthAccessToken(c, token)
+	if !ok {
+		return nil
+	}
+
+	// Look up api_secret for the client_id (developer app address = api_key)
+	var apiSecret string
+	err := app.writePool.QueryRow(c.Context(), `
+		SELECT api_secret FROM api_keys WHERE LOWER(api_key) = LOWER($1)
+	`, entry.ClientID).Scan(&apiSecret)
+	if err != nil || apiSecret == "" {
+		return nil
+	}
+
+	privateKey, err := crypto.HexToECDSA(strings.TrimPrefix(apiSecret, "0x"))
+	if err != nil {
+		return nil
+	}
+	return &Signer{
+		Address:    strings.ToLower(entry.ClientID),
 		PrivateKey: privateKey,
 	}
 }
