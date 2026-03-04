@@ -10,7 +10,7 @@ import (
 	"strings"
 	"time"
 
-	"api.audius.co/trashid"
+	"api.audius.co/api/dbv1"
 	"github.com/gofiber/fiber/v2"
 	"github.com/jackc/pgx/v5"
 	"go.uber.org/zap"
@@ -454,39 +454,30 @@ func (app *ApiServer) v1OAuthMe(c *fiber.Ctx) error {
 		return oauthError(c, fiber.StatusUnauthorized, "invalid_token", "Invalid or expired access token")
 	}
 
-	// Query user info
-	encodedUserId, _ := trashid.EncodeHashId(int(entry.UserID))
-
-	var handle, name string
-	var verified bool
-	var profilePicture *string
-	err := app.pool.QueryRow(c.Context(), `
-		SELECT handle, name, is_verified,
-			CASE WHEN profile_picture_sizes IS NOT NULL
-				THEN CONCAT($2::text, '/content/', profile_picture_sizes, '/150x150.jpg')
-				ELSE NULL
-			END as profile_picture
-		FROM users
-		WHERE user_id = $1 AND is_current = true
-	`, entry.UserID, app.audiusAppUrl).Scan(&handle, &name, &verified, &profilePicture)
+	// Fetch user via the standard query helper (includes rendezvous-based image URLs)
+	users, err := app.queries.Users(c.Context(), dbv1.GetUsersParams{
+		Ids: []int32{entry.UserID},
+	})
 	if err != nil {
-		if err == pgx.ErrNoRows {
-			return oauthError(c, fiber.StatusNotFound, "invalid_token", "User not found")
-		}
 		app.logger.Error("Failed to query user for /oauth/me", zap.Error(err))
 		return oauthError(c, fiber.StatusInternalServerError, "server_error", "Failed to get user info")
 	}
+	if len(users) == 0 {
+		return oauthError(c, fiber.StatusNotFound, "invalid_token", "User not found")
+	}
+
+	user := users[0]
 
 	response := fiber.Map{
-		"userId":   encodedUserId,
-		"name":     name,
-		"handle":   handle,
-		"verified": verified,
-		"sub":      encodedUserId,
+		"userId":   user.ID,
+		"name":     user.Name.String,
+		"handle":   user.Handle.String,
+		"verified": user.IsVerified,
+		"sub":      user.ID,
 		"iat":      time.Now().Unix(),
 	}
-	if profilePicture != nil {
-		response["profilePicture"] = *profilePicture
+	if user.ProfilePicture != nil {
+		response["profilePicture"] = user.ProfilePicture
 	}
 
 	// Try to get email if available
