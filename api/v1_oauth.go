@@ -480,15 +480,6 @@ func (app *ApiServer) v1OAuthMe(c *fiber.Ctx) error {
 		response["profilePicture"] = user.ProfilePicture
 	}
 
-	// Try to get email if available
-	var email *string
-	_ = app.pool.QueryRow(c.Context(), `
-		SELECT email_address FROM user_emails WHERE user_id = $1
-	`, entry.UserID).Scan(&email)
-	if email != nil {
-		response["email"] = *email
-	}
-
 	return c.JSON(response)
 }
 
