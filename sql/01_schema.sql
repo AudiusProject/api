@@ -7168,6 +7168,73 @@ CREATE TABLE public.notification_seen (
 
 
 --
+-- Name: oauth_authorization_codes; Type: TABLE; Schema: public; Owner: -
+--
+
+CREATE TABLE public.oauth_authorization_codes (
+    code character varying(255) NOT NULL,
+    client_id character varying(255) NOT NULL,
+    user_id integer NOT NULL,
+    redirect_uri text NOT NULL,
+    code_challenge character varying(255) NOT NULL,
+    code_challenge_method character varying(10) DEFAULT 'S256'::character varying NOT NULL,
+    scope character varying(50) NOT NULL,
+    expires_at timestamp with time zone DEFAULT (now() + '00:10:00'::interval) NOT NULL,
+    used boolean DEFAULT false NOT NULL
+);
+
+
+--
+-- Name: oauth_redirect_uris; Type: TABLE; Schema: public; Owner: -
+--
+
+CREATE TABLE public.oauth_redirect_uris (
+    id integer NOT NULL,
+    client_id character varying(255) NOT NULL,
+    redirect_uri text NOT NULL,
+    created_at timestamp with time zone DEFAULT now() NOT NULL
+);
+
+
+--
+-- Name: oauth_redirect_uris_id_seq; Type: SEQUENCE; Schema: public; Owner: -
+--
+
+CREATE SEQUENCE public.oauth_redirect_uris_id_seq
+    AS integer
+    START WITH 1
+    INCREMENT BY 1
+    NO MINVALUE
+    NO MAXVALUE
+    CACHE 1;
+
+
+--
+-- Name: oauth_redirect_uris_id_seq; Type: SEQUENCE OWNED BY; Schema: public; Owner: -
+--
+
+ALTER SEQUENCE public.oauth_redirect_uris_id_seq OWNED BY public.oauth_redirect_uris.id;
+
+
+--
+-- Name: oauth_tokens; Type: TABLE; Schema: public; Owner: -
+--
+
+CREATE TABLE public.oauth_tokens (
+    token character varying(255) NOT NULL,
+    token_type character varying(10) NOT NULL,
+    client_id character varying(255) NOT NULL,
+    user_id integer NOT NULL,
+    scope character varying(50) NOT NULL,
+    expires_at timestamp with time zone NOT NULL,
+    is_revoked boolean DEFAULT false NOT NULL,
+    created_at timestamp with time zone DEFAULT now() NOT NULL,
+    refresh_token_id character varying(255),
+    family_id character varying(255) NOT NULL
+);
+
+
+--
 -- Name: payment_router_txs; Type: TABLE; Schema: public; Owner: -
 --
 
@@ -8188,7 +8255,8 @@ CREATE TABLE public.sol_purchases (
     is_valid boolean,
     city character varying,
     region character varying,
-    country character varying
+    country character varying,
+    block_timestamp timestamp with time zone
 );
 
 
@@ -9305,6 +9373,13 @@ ALTER TABLE ONLY public.notification ALTER COLUMN id SET DEFAULT nextval('public
 
 
 --
+-- Name: oauth_redirect_uris id; Type: DEFAULT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.oauth_redirect_uris ALTER COLUMN id SET DEFAULT nextval('public.oauth_redirect_uris_id_seq'::regclass);
+
+
+--
 -- Name: plays id; Type: DEFAULT; Schema: public; Owner: -
 --
 
@@ -9902,6 +9977,30 @@ ALTER TABLE ONLY public.notification
 
 ALTER TABLE ONLY public.notification_seen
     ADD CONSTRAINT notification_seen_pkey PRIMARY KEY (user_id, seen_at);
+
+
+--
+-- Name: oauth_authorization_codes oauth_authorization_codes_pkey; Type: CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.oauth_authorization_codes
+    ADD CONSTRAINT oauth_authorization_codes_pkey PRIMARY KEY (code);
+
+
+--
+-- Name: oauth_redirect_uris oauth_redirect_uris_pkey; Type: CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.oauth_redirect_uris
+    ADD CONSTRAINT oauth_redirect_uris_pkey PRIMARY KEY (id);
+
+
+--
+-- Name: oauth_tokens oauth_tokens_pkey; Type: CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.oauth_tokens
+    ADD CONSTRAINT oauth_tokens_pkey PRIMARY KEY (token);
 
 
 --
@@ -10996,6 +11095,62 @@ CREATE INDEX idx_genre_related_artists ON public.aggregate_user USING btree (dom
 --
 
 CREATE INDEX idx_lower_wallet ON public.users USING btree (lower((wallet)::text));
+
+
+--
+-- Name: idx_oauth_authorization_codes_client_id; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX idx_oauth_authorization_codes_client_id ON public.oauth_authorization_codes USING btree (client_id);
+
+
+--
+-- Name: idx_oauth_authorization_codes_expires_used; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX idx_oauth_authorization_codes_expires_used ON public.oauth_authorization_codes USING btree (expires_at, used);
+
+
+--
+-- Name: idx_oauth_redirect_uris_client_id; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX idx_oauth_redirect_uris_client_id ON public.oauth_redirect_uris USING btree (client_id);
+
+
+--
+-- Name: idx_oauth_tokens_client_id; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX idx_oauth_tokens_client_id ON public.oauth_tokens USING btree (client_id);
+
+
+--
+-- Name: idx_oauth_tokens_family_id; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX idx_oauth_tokens_family_id ON public.oauth_tokens USING btree (family_id);
+
+
+--
+-- Name: idx_oauth_tokens_lookup; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX idx_oauth_tokens_lookup ON public.oauth_tokens USING btree (token, token_type, is_revoked, expires_at);
+
+
+--
+-- Name: idx_oauth_tokens_refresh_token_id; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX idx_oauth_tokens_refresh_token_id ON public.oauth_tokens USING btree (refresh_token_id);
+
+
+--
+-- Name: idx_oauth_tokens_user_id; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX idx_oauth_tokens_user_id ON public.oauth_tokens USING btree (user_id);
 
 
 --
