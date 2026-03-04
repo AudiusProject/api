@@ -125,7 +125,7 @@ type CreateTrackRequest struct {
 	Iswc                         *string                    `json:"iswc,omitempty"`
 	ReleaseDate                  *string                    `json:"release_date,omitempty"`
 	TrackCid                     string                     `json:"track_cid" validate:"required"`
-	CoverArtCid                  *string                    `json:"cover_art_cid,omitempty"`
+	CoverArtSizes                *string                    `json:"cover_art_sizes,omitempty"`
 	PreviewCid                   *string                    `json:"preview_cid,omitempty"`
 	PreviewStartSeconds          *float64                   `json:"preview_start_seconds,omitempty" validate:"omitempty,min=0"`
 	Duration                     *float64                   `json:"duration,omitempty" validate:"omitempty,min=0"`
@@ -168,7 +168,7 @@ type UpdateTrackRequest struct {
 	ReleaseDate                  *string                    `json:"release_date,omitempty"`
 	Artwork                      *map[string]interface{}    `json:"artwork,omitempty"`
 	TrackCid                     *string                    `json:"track_cid,omitempty"`
-	CoverArtCid                  *string                    `json:"cover_art_cid,omitempty"`
+	CoverArtSizes                *string                    `json:"cover_art_sizes,omitempty"`
 	PreviewCid                   *string                    `json:"preview_cid,omitempty"`
 	PreviewStartSeconds          *float64                   `json:"preview_start_seconds,omitempty" validate:"omitempty,min=0"`
 	IsDownloadable               *bool                      `json:"is_downloadable,omitempty"`
