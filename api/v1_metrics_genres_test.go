@@ -49,26 +49,25 @@ func TestMetricsGenresExcludesAccessAuthoritiesTracks(t *testing.T) {
 	ctx := context.Background()
 	require.NotNil(t, app.writePool, "test requires write pool")
 
-	// Get baseline Electronic count
-	oneHourAgo := time.Now().Add(-1 * time.Hour).Unix()
-	url := fmt.Sprintf("/v1/metrics/genres?start_time=%d", oneHourAgo)
+	// Get baseline Electronic count (use epoch so all fixture tracks are included)
+	url := fmt.Sprintf("/v1/metrics/genres?start_time=%d", 0)
 	var before struct {
 		Data []struct {
-			Genre string `json:"genre"`
-			Count int    `json:"count"`
+			Name  string `json:"name"`
+			Count int64  `json:"count"`
 		}
 	}
 	status, _ := testGet(t, app, url, &before)
 	require.Equal(t, 200, status)
 
-	var electronicCountBefore int
+	var electronicCountBefore int64
 	for _, g := range before.Data {
-		if g.Genre == "Electronic" {
+		if g.Name == "Electronic" {
 			electronicCountBefore = g.Count
 			break
 		}
 	}
-	require.Greater(t, electronicCountBefore, 0, "fixtures should have Electronic tracks")
+	require.Greater(t, electronicCountBefore, int64(0), "fixtures should have Electronic tracks")
 
 	// Gate one Electronic track (track 100 is Electronic)
 	_, err := app.writePool.Exec(ctx, `UPDATE tracks SET access_authorities = ARRAY['0xgate']::text[] WHERE track_id = 100 AND is_current = true`)
@@ -76,16 +75,16 @@ func TestMetricsGenresExcludesAccessAuthoritiesTracks(t *testing.T) {
 
 	var after struct {
 		Data []struct {
-			Genre string `json:"genre"`
-			Count int    `json:"count"`
+			Name  string `json:"name"`
+			Count int64  `json:"count"`
 		}
 	}
 	status, _ = testGet(t, app, url, &after)
 	require.Equal(t, 200, status)
 
-	var electronicCountAfter int
+	var electronicCountAfter int64
 	for _, g := range after.Data {
-		if g.Genre == "Electronic" {
+		if g.Name == "Electronic" {
 			electronicCountAfter = g.Count
 			break
 		}

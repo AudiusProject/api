@@ -53,6 +53,5 @@ var tracksConfig = collectionConfig{
 	AND users.is_available = true
 	AND users.is_deactivated = false
 	AND stem_of is null
-	AND tracks.access_authorities IS NULL
 	`,
 }
