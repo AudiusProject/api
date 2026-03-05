@@ -3810,6 +3810,7 @@ begin
       and t.is_delete is false
       and t.is_available is true
       and t.stem_of is null
+      and t.access_authorities is null
       and t.owner_id = new.owner_id
   )
   where user_id = new.owner_id
@@ -5013,6 +5014,7 @@ BEGIN
         and (t.is_delete is false)
         and (t.is_unlisted is false)
         and (t.stem_of is null)
+        and (t.access_authorities is null)
     ) with no data;
 
     create index trending_params_track_id_idx on public.trending_params using btree (track_id);
@@ -5165,7 +5167,8 @@ begin
   return track.is_unlisted = false
      and track.is_available = true
      and track.is_delete = false
-     and track.stem_of is null;
+     and track.stem_of is null
+     and track.access_authorities is null;
 end
 $$;
 

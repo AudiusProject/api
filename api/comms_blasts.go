@@ -64,6 +64,8 @@ func (app *ApiServer) getNewBlasts(c *fiber.Ctx) error {
 			WHERE blast.audience = 'remixer_audience'
 				AND og.owner_id = blast.from_user_id
 				AND t.owner_id = @user_id
+				AND t.access_authorities IS NULL
+				AND og.access_authorities IS NULL
 				AND (
 					blast.audience_content_id IS NULL
 					OR (

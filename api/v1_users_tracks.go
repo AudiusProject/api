@@ -75,7 +75,8 @@ func (app *ApiServer) v1UserTracks(c *fiber.Ctx) error {
 	  AND t.is_delete = false
 	  AND t.is_available = true
 	  AND ` + trackFilter + `
-	  AND t.stem_of is null` + gateFilter + `
+	  AND t.stem_of is null
+	  AND t.access_authorities IS NULL` + gateFilter + `
 	ORDER BY (CASE WHEN t.track_id = u.artist_pick_track_id THEN 0 ELSE 1 END), ` + orderClause + `
 	LIMIT @limit
 	OFFSET @offset

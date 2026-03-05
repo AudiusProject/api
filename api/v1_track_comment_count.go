@@ -16,7 +16,7 @@ func (app *ApiServer) v1TrackCommentCount(c *fiber.Ctx) error {
 	track AS (
 		SELECT track_id, owner_id
 		FROM tracks
-		WHERE track_id = @trackId
+		WHERE track_id = @trackId AND access_authorities IS NULL
 	),
 
 	-- Users muted by high-karma users

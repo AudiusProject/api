@@ -71,6 +71,7 @@ func (app *ApiServer) v1UserTracksAiAttributed(c *fiber.Ctx) error {
 	  AND t.is_available = true
 	  AND ` + trackFilter + `
 	  AND t.stem_of is null
+	  AND t.access_authorities IS NULL
 	ORDER BY ` + orderClause + `
 	LIMIT @limit
 	OFFSET @offset

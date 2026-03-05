@@ -27,6 +27,7 @@ func (app *ApiServer) v1UsersTags(c *fiber.Ctx) error {
 			AND is_unlisted = false
 			AND is_delete = false
 			AND stem_of is null
+			AND access_authorities IS NULL
 	) AS split_tags
 	WHERE tag != ''
 	GROUP BY tag

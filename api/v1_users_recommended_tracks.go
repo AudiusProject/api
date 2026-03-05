@@ -77,6 +77,8 @@ func (app *ApiServer) v1UsersRecommendedTracks(c *fiber.Ctx) error {
 			t.is_unlisted = false
 			AND t.is_current = true
 			AND t.is_delete = false
+			AND t.stem_of IS NULL
+			AND t.access_authorities IS NULL
 			AND u.is_deactivated = false
 		ORDER BY random()
 		LIMIT 10

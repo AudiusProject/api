@@ -28,6 +28,8 @@ func (app *ApiServer) v1TracksRecentPremium(c *fiber.Ctx) error {
 				is_unlisted = false AND
 				is_available = true AND
 				is_delete = false AND
+				stem_of IS NULL AND
+				access_authorities IS NULL AND
 				(stream_conditions ? 'usdc_purchase' OR download_conditions ? 'usdc_purchase') AND
 				created_at >= now() - interval '1 month'
 			ORDER BY owner_id, created_at DESC

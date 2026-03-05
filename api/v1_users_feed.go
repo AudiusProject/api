@@ -92,6 +92,7 @@ func (app *ApiServer) v1UsersFeed(c *fiber.Ctx) error {
 				AND is_unlisted = false
 				AND is_delete = false
 				AND stem_of is null
+				AND access_authorities IS NULL
 		)
 
 		UNION ALL
