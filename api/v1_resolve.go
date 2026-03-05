@@ -10,6 +10,26 @@ import (
 	"github.com/gofiber/fiber/v2"
 )
 
+// Params to preserve when redirecting (e.g. app_name, api_key for rate limiting/attribution)
+var resolvePreservedParams = map[string]bool{
+	"app_name": true,
+	"api_key":  true,
+}
+
+// redirectWithPreservedParams redirects to path with app_name, api_key, etc. preserved from the request.
+func (app *ApiServer) redirectWithPreservedParams(c *fiber.Ctx, path string, status int) error {
+	q := make(url.Values)
+	for k := range resolvePreservedParams {
+		if v := c.Query(k); v != "" {
+			q.Set(k, v)
+		}
+	}
+	if len(q) > 0 {
+		path = path + "?" + q.Encode()
+	}
+	return c.Redirect(path, status)
+}
+
 var (
 	trackURLRegex    = regexp.MustCompile(`^/?(?P<handle>[^/]+)/(?P<slug>[^/]+)$`)
 	playlistURLRegex = regexp.MustCompile(`/?(?P<handle>[^/]+)/(?P<playlistType>playlist|album)/(?P<slug>[^/]+)$`)
@@ -51,9 +71,9 @@ func (app *ApiServer) v1Resolve(c *fiber.Ctx) error {
 		}
 
 		if isFull {
-			return c.Redirect("/v1/full/tracks/"+trackId, fiber.StatusFound)
+			return app.redirectWithPreservedParams(c, "/v1/full/tracks/"+trackId, fiber.StatusFound)
 		}
-		return c.Redirect("/v1/tracks/"+trackId, fiber.StatusFound)
+		return app.redirectWithPreservedParams(c, "/v1/tracks/"+trackId, fiber.StatusFound)
 	}
 
 	// Try to match playlist URL
@@ -76,9 +96,9 @@ func (app *ApiServer) v1Resolve(c *fiber.Ctx) error {
 		}
 
 		if isFull {
-			return c.Redirect("/v1/full/playlists/"+playlistId, fiber.StatusFound)
+			return app.redirectWithPreservedParams(c, "/v1/full/playlists/"+playlistId, fiber.StatusFound)
 		}
-		return c.Redirect("/v1/playlists/"+playlistId, fiber.StatusFound)
+		return app.redirectWithPreservedParams(c, "/v1/playlists/"+playlistId, fiber.StatusFound)
 	}
 
 	// Try to match user URL
@@ -97,9 +117,9 @@ func (app *ApiServer) v1Resolve(c *fiber.Ctx) error {
 		}
 
 		if isFull {
-			return c.Redirect("/v1/full/users/"+userId, fiber.StatusFound)
+			return app.redirectWithPreservedParams(c, "/v1/full/users/"+userId, fiber.StatusFound)
 		}
-		return c.Redirect("/v1/users/"+userId, fiber.StatusFound)
+		return app.redirectWithPreservedParams(c, "/v1/users/"+userId, fiber.StatusFound)
 	}
 
 	return fiber.NewError(fiber.StatusNotFound, "URL not found")
