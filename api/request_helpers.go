@@ -161,7 +161,7 @@ func (app *ApiServer) getSignerFromApiAccessKey(ctx context.Context, apiAccessKe
 	}
 	address := crypto.PubkeyToAddress(privateKey.PublicKey)
 	return &Signer{
-		Address:    strings.ToLower(address.Hex()),
+		Address:    address.Hex(),
 		PrivateKey: privateKey,
 	}
 }
