@@ -21,7 +21,7 @@ lower_permalinks AS (
 SELECT tr.track_id
 FROM track_routes tr
 JOIN tracks t ON t.track_id = tr.track_id AND t.is_current = true
-  AND (t.access_authorities IS NULL OR t.access_authorities = '{}')
+  AND t.access_authorities IS NULL
 JOIN users u ON u.user_id = tr.owner_id
 JOIN lower_handles lh
   ON u.handle_lc = lh.handle

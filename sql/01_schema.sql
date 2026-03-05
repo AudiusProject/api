@@ -1302,8 +1302,8 @@ BEGIN
     AND chat_blast.audience = 'remixer_audience'
     AND og.owner_id = chat_blast.from_user_id
     AND t.owner_id != chat_blast.from_user_id
-    AND (t.access_authorities IS NULL OR t.access_authorities = '{}')
-    AND (og.access_authorities IS NULL OR og.access_authorities = '{}')
+    AND t.access_authorities IS NULL
+    AND og.access_authorities IS NULL
     AND (
       chat_blast.audience_content_id IS NULL
       OR (

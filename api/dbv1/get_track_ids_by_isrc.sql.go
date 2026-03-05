@@ -14,7 +14,7 @@ SELECT track_id
 FROM tracks
 WHERE isrc = ANY($1::text[])
   AND is_current = true
-  AND (access_authorities IS NULL OR access_authorities = '{}')
+  AND access_authorities IS NULL
 `
 
 func (q *Queries) GetTrackIdsByISRC(ctx context.Context, isrcs []string) ([]int32, error) {
