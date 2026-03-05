@@ -2335,10 +2335,11 @@ type TrackRow struct {
 	// Artist of the original song if this track is a cover
 	CoverOriginalArtist pgtype.Text `json:"cover_original_artist"`
 	// Indicates whether the track is owned by the user for publishing payouts
-	IsOwnedByUser   bool                    `json:"is_owned_by_user"`
-	NoAiUse         pgtype.Bool             `json:"no_ai_use"`
-	ParentalWarning NullParentalWarningType `json:"parental_warning"`
-	TerritoryCodes  []string                `json:"territory_codes"`
+	IsOwnedByUser     bool                    `json:"is_owned_by_user"`
+	NoAiUse           pgtype.Bool             `json:"no_ai_use"`
+	ParentalWarning   NullParentalWarningType `json:"parental_warning"`
+	TerritoryCodes    []string                `json:"territory_codes"`
+	AccessAuthorities []string                `json:"access_authorities"`
 }
 
 type TrackTrendingScore struct {

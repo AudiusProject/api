@@ -1,9 +1,11 @@
 package api
 
 import (
+	"context"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 )
 
 func TestResolveTrackURL(t *testing.T) {
@@ -11,6 +13,14 @@ func TestResolveTrackURL(t *testing.T) {
 	// Test successful track resolution
 	status, _ := testGet(t, app, "/v1/resolve?url=https://audius.co/TracksByPermalink/track-by-permalink")
 	assert.Equal(t, 302, status)
+
+	// Test that track with access_authorities is not resolved (404)
+	app2 := testAppWithFixtures(t)
+	require.NotNil(t, app2.writePool, "test requires write pool")
+	_, err := app2.writePool.Exec(context.Background(), `UPDATE tracks SET access_authorities = ARRAY['0xabc']::text[] WHERE track_id = 500 AND is_current = true`)
+	require.NoError(t, err)
+	status, _ = testGet(t, app2, "/v1/resolve?url=https://audius.co/TracksByPermalink/track-by-permalink")
+	assert.Equal(t, 404, status, "resolve must return 404 for track with access_authorities")
 
 	// Test failed track resolution
 	status, _ = testGet(t, app, "/v1/resolve?url=https://audius.co/nonexistent/track")

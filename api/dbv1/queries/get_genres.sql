@@ -9,6 +9,7 @@ WHERE
     AND genre != ''
     AND is_current = TRUE
     AND created_at > @start_time
+    AND (access_authorities IS NULL OR access_authorities = '{}')
 GROUP BY
     genre
 ORDER BY

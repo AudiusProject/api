@@ -1,11 +1,13 @@
 package api
 
 import (
+	"context"
 	"fmt"
 	"testing"
 	"time"
 
 	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 )
 
 func TestMetricsGenres(t *testing.T) {
@@ -41,3 +43,53 @@ func TestMetricsGenres(t *testing.T) {
 	}
 
 }
+
+func TestMetricsGenresExcludesAccessAuthoritiesTracks(t *testing.T) {
+	app := testAppWithFixtures(t)
+	ctx := context.Background()
+	require.NotNil(t, app.writePool, "test requires write pool")
+
+	// Get baseline Electronic count
+	oneHourAgo := time.Now().Add(-1 * time.Hour).Unix()
+	url := fmt.Sprintf("/v1/metrics/genres?start_time=%d", oneHourAgo)
+	var before struct {
+		Data []struct {
+			Genre string `json:"genre"`
+			Count int    `json:"count"`
+		}
+	}
+	status, _ := testGet(t, app, url, &before)
+	require.Equal(t, 200, status)
+
+	var electronicCountBefore int
+	for _, g := range before.Data {
+		if g.Genre == "Electronic" {
+			electronicCountBefore = g.Count
+			break
+		}
+	}
+	require.Greater(t, electronicCountBefore, 0, "fixtures should have Electronic tracks")
+
+	// Gate one Electronic track (track 100 is Electronic)
+	_, err := app.writePool.Exec(ctx, `UPDATE tracks SET access_authorities = ARRAY['0xgate']::text[] WHERE track_id = 100 AND is_current = true`)
+	require.NoError(t, err)
+
+	var after struct {
+		Data []struct {
+			Genre string `json:"genre"`
+			Count int    `json:"count"`
+		}
+	}
+	status, _ = testGet(t, app, url, &after)
+	require.Equal(t, 200, status)
+
+	var electronicCountAfter int
+	for _, g := range after.Data {
+		if g.Genre == "Electronic" {
+			electronicCountAfter = g.Count
+			break
+		}
+	}
+	assert.Equal(t, electronicCountBefore-1, electronicCountAfter, "genre count must exclude access_authorities tracks")
+}
+

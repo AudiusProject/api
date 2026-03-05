@@ -26,7 +26,7 @@ BEGIN
 
   UNION
 
-  -- remixer_audience
+  -- remixer_audience (exclude tracks with access_authorities / programmable distribution)
   SELECT chat_blast.blast_id, t.owner_id AS to_user_id
   FROM tracks t
   JOIN remixes ON remixes.child_track_id = t.track_id
@@ -35,6 +35,8 @@ BEGIN
     AND chat_blast.audience = 'remixer_audience'
     AND og.owner_id = chat_blast.from_user_id
     AND t.owner_id != chat_blast.from_user_id
+    AND (t.access_authorities IS NULL OR t.access_authorities = '{}')
+    AND (og.access_authorities IS NULL OR og.access_authorities = '{}')
     AND (
       chat_blast.audience_content_id IS NULL
       OR (

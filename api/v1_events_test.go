@@ -86,3 +86,27 @@ func TestGetEventsExcludesDeletedTracks(t *testing.T) {
 		"data.3.entity_id": trashid.MustEncodeHashID(101),
 	})
 }
+
+func TestGetEventsExcludesAccessAuthoritiesTracks(t *testing.T) {
+	app := testAppWithFixtures(t)
+	ctx := context.Background()
+	require.NotNil(t, app.writePool, "test requires write pool")
+
+	// Set access_authorities on track 102 (which has event 6) so it is gated
+	_, err := app.writePool.Exec(ctx, `UPDATE tracks SET access_authorities = ARRAY['0x123']::text[] WHERE track_id = 102 AND is_current = true`)
+	require.NoError(t, err)
+
+	var eventsResponse struct {
+		Data []dbv1.FullEvent
+	}
+	status, _ := testGet(t, app, "/v1/events", &eventsResponse)
+	assert.Equal(t, 200, status)
+
+	// Event 6 is for entity_id 102; it must not appear when the track has access_authorities
+	entity102Hash := trashid.MustEncodeHashID(102)
+	for _, e := range eventsResponse.Data {
+		assert.NotEqual(t, entity102Hash, e.EntityId, "events for access_authorities track 102 must not be returned")
+	}
+
+	assert.Len(t, eventsResponse.Data, 4, "expected 4 events after excluding event for access_authorities track")
+}

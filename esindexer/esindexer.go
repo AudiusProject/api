@@ -113,6 +113,15 @@ func (indexer *EsIndexer) indexIds(collection string, ids ...int64) error {
 		stringIds[idx] = strconv.Itoa(int(id))
 	}
 
+	// For tracks: delete requested IDs from the index first, then re-index only those
+	// that still pass the filter (e.g. no access_authorities). So when a track gets
+	// access_authorities set, the next listen cycle removes it from search.
+	if collection == "tracks" {
+		if err := indexer.deleteDocIds(cc.indexName, stringIds); err != nil {
+			return err
+		}
+	}
+
 	sql := fmt.Sprintf("%s AND %s IN (%s)",
 		cc.sql,
 		cc.idColumn,
@@ -121,6 +130,25 @@ func (indexer *EsIndexer) indexIds(collection string, ids ...int64) error {
 	slog.Info("index", "collection", collection, "ids", ids)
 
 	return indexer.indexSql(cc.indexName, sql)
+}
+
+// deleteDocIds removes documents by ID from an index (used for tracks so that
+// when access_authorities is set, the document is removed from search).
+func (indexer *EsIndexer) deleteDocIds(indexName string, docIds []string) error {
+	for _, id := range docIds {
+		resp, err := indexer.esc.Delete(indexName, id)
+		if err != nil {
+			return err
+		}
+		// 200 = deleted, 404 = not found (already missing)
+		if resp.IsError() && resp.StatusCode != 404 {
+			body, _ := io.ReadAll(resp.Body)
+			resp.Body.Close()
+			return fmt.Errorf("delete doc %s: %d %s", id, resp.StatusCode, body)
+		}
+		resp.Body.Close()
+	}
+	return nil
 }
 
 // runs a query + indexes documents

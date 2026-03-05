@@ -12,6 +12,7 @@ SELECT
   e.event_data AS event_data
 FROM events e
 LEFT JOIN tracks t ON t.track_id = e.entity_id AND t.is_current = true AND e.entity_type = 'track'
+  AND (t.access_authorities IS NULL OR t.access_authorities = '{}')
 WHERE
   (@entity_ids::int[] = '{}' OR e.entity_id = ANY(@entity_ids::int[]))
   AND (@event_ids::int[] = '{}' OR e.event_id = ANY(@event_ids::int[]))
