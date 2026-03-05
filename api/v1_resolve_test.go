@@ -14,12 +14,13 @@ func TestResolveTrackURL(t *testing.T) {
 	status, _ := testGet(t, app, "/v1/resolve?url=https://audius.co/TracksByPermalink/track-by-permalink")
 	assert.Equal(t, 302, status)
 
-	// Test that track with access_authorities is not resolved (404)
+	// Resolve does not filter by access_authorities (no tracks join); filter happens in GetTracks.
+	// So a gated track still resolves (302), but fetching the track by ID returns empty.
 	require.NotNil(t, app.writePool, "test requires write pool")
 	_, err := app.writePool.Exec(context.Background(), `UPDATE tracks SET access_authorities = ARRAY['0xabc']::text[] WHERE track_id = 500 AND is_current = true`)
 	require.NoError(t, err)
 	status, _ = testGet(t, app, "/v1/resolve?url=https://audius.co/TracksByPermalink/track-by-permalink")
-	assert.Equal(t, 404, status, "resolve must return 404 for track with access_authorities")
+	assert.Equal(t, 302, status, "resolve still redirects; GetTracks filters gated tracks when fetching by ID")
 
 	// Test failed track resolution
 	status, _ = testGet(t, app, "/v1/resolve?url=https://audius.co/nonexistent/track")
