@@ -159,8 +159,8 @@ paths:
       description: Creates a new comment
       operationId: Create Comment
       security:
-        - BasicAuth: []
         - BearerAuth: []
+        - BasicAuth: []
       parameters:
         - name: user_id
           in: query
@@ -220,8 +220,8 @@ paths:
       description: Updates a comment
       operationId: Update Comment
       security:
-        - BasicAuth: []
         - BearerAuth: []
+        - BasicAuth: []
       parameters:
         - name: comment_id
           in: path
@@ -264,8 +264,8 @@ paths:
       description: Deletes a comment
       operationId: Delete Comment
       security:
-        - BasicAuth: []
         - BearerAuth: []
+        - BasicAuth: []
       parameters:
         - name: comment_id
           in: path
@@ -302,8 +302,8 @@ paths:
       description: React to a comment
       operationId: React to Comment
       security:
-        - BasicAuth: []
         - BearerAuth: []
+        - BasicAuth: []
       parameters:
         - name: comment_id
           in: path
@@ -346,8 +346,8 @@ paths:
       description: Unreact to a comment
       operationId: Unreact to Comment
       security:
-        - BasicAuth: []
         - BearerAuth: []
+        - BasicAuth: []
       parameters:
         - name: comment_id
           in: path
@@ -391,8 +391,8 @@ paths:
       description: Pin a comment
       operationId: Pin Comment
       security:
-        - BasicAuth: []
         - BearerAuth: []
+        - BasicAuth: []
       parameters:
         - name: comment_id
           in: path
@@ -435,8 +435,8 @@ paths:
       description: Unpin a comment
       operationId: Unpin Comment
       security:
-        - BasicAuth: []
         - BearerAuth: []
+        - BasicAuth: []
       parameters:
         - name: comment_id
           in: path
@@ -480,8 +480,8 @@ paths:
       description: Report a comment
       operationId: Report Comment
       security:
-        - BasicAuth: []
         - BearerAuth: []
+        - BasicAuth: []
       parameters:
         - name: comment_id
           in: path
@@ -709,8 +709,8 @@ paths:
         authenticated user.
       operationId: Register Developer App API Key
       security:
-        - BasicAuth: []
         - BearerAuth: []
+        - BasicAuth: []
       parameters:
         - name: user_id
           in: query
@@ -1151,8 +1151,8 @@ paths:
       description: Creates a new playlist or album
       operationId: Create Playlist
       security:
-        - BasicAuth: []
         - BearerAuth: []
+        - BasicAuth: []
       parameters:
         - name: user_id
           in: query
@@ -1350,8 +1350,8 @@ paths:
       description: Updates an existing playlist or album
       operationId: Update Playlist
       security:
-        - BasicAuth: []
         - BearerAuth: []
+        - BasicAuth: []
       parameters:
         - name: playlist_id
           in: path
@@ -1397,8 +1397,8 @@ paths:
       description: Deletes a playlist or album
       operationId: Delete Playlist
       security:
-        - BasicAuth: []
         - BearerAuth: []
+        - BasicAuth: []
       parameters:
         - name: playlist_id
           in: path
@@ -1488,8 +1488,8 @@ paths:
       description: Favorite a playlist
       operationId: Favorite Playlist
       security:
-        - BasicAuth: []
         - BearerAuth: []
+        - BasicAuth: []
       parameters:
         - name: playlist_id
           in: path
@@ -1532,8 +1532,8 @@ paths:
       description: Unfavorite a playlist
       operationId: Unfavorite Playlist
       security:
-        - BasicAuth: []
         - BearerAuth: []
+        - BasicAuth: []
       parameters:
         - name: playlist_id
           in: path
@@ -1612,8 +1612,8 @@ paths:
       description: Repost a playlist
       operationId: Repost Playlist
       security:
-        - BasicAuth: []
         - BearerAuth: []
+        - BasicAuth: []
       parameters:
         - name: playlist_id
           in: path
@@ -1655,8 +1655,8 @@ paths:
       description: Unrepost a playlist
       operationId: Unrepost Playlist
       security:
-        - BasicAuth: []
         - BearerAuth: []
+        - BasicAuth: []
       parameters:
         - name: playlist_id
           in: path
@@ -1735,8 +1735,8 @@ paths:
       description: Record a playlist share event
       operationId: Share Playlist
       security:
-        - BasicAuth: []
         - BearerAuth: []
+        - BasicAuth: []
       parameters:
         - name: playlist_id
           in: path
@@ -1933,8 +1933,8 @@ paths:
       description: Creates a new track
       operationId: Create Track
       security:
-        - BasicAuth: []
         - BearerAuth: []
+        - BasicAuth: []
       parameters:
         - name: user_id
           in: query
@@ -2842,8 +2842,8 @@ paths:
       description: Updates an existing track
       operationId: Update Track
       security:
-        - BasicAuth: []
         - BearerAuth: []
+        - BasicAuth: []
       parameters:
         - name: track_id
           in: path
@@ -2889,8 +2889,8 @@ paths:
       description: Deletes a track
       operationId: Delete Track
       security:
-        - BasicAuth: []
         - BearerAuth: []
+        - BasicAuth: []
       parameters:
         - name: track_id
           in: path
@@ -3111,8 +3111,8 @@ paths:
       description: Favorite a track
       operationId: Favorite Track
       security:
-        - BasicAuth: []
         - BearerAuth: []
+        - BasicAuth: []
       parameters:
         - name: track_id
           in: path
@@ -3155,8 +3155,8 @@ paths:
       description: Unfavorite a track
       operationId: Unfavorite Track
       security:
-        - BasicAuth: []
         - BearerAuth: []
+        - BasicAuth: []
       parameters:
         - name: track_id
           in: path
@@ -3329,8 +3329,8 @@ paths:
       description: Repost a track
       operationId: Repost Track
       security:
-        - BasicAuth: []
         - BearerAuth: []
+        - BasicAuth: []
       parameters:
         - name: track_id
           in: path
@@ -3372,8 +3372,8 @@ paths:
       description: Unrepost a track
       operationId: Unrepost Track
       security:
-        - BasicAuth: []
         - BearerAuth: []
+        - BasicAuth: []
       parameters:
         - name: track_id
           in: path
@@ -3528,8 +3528,8 @@ paths:
       description: Record a track share event
       operationId: Share Track
       security:
-        - BasicAuth: []
         - BearerAuth: []
+        - BasicAuth: []
       parameters:
         - name: track_id
           in: path
@@ -3566,8 +3566,8 @@ paths:
       description: Record a track download event
       operationId: Record Track Download
       security:
-        - BasicAuth: []
         - BearerAuth: []
+        - BasicAuth: []
       parameters:
         - name: track_id
           in: path
@@ -3782,8 +3782,8 @@ paths:
       description: Creates a new user
       operationId: Create User
       security:
-        - BasicAuth: []
         - BearerAuth: []
+        - BasicAuth: []
       requestBody:
         x-codegen-request-body-name: metadata
         required: true
@@ -4195,8 +4195,8 @@ paths:
       description: Updates an existing user profile
       operationId: Update User
       security:
-        - BasicAuth: []
         - BearerAuth: []
+        - BasicAuth: []
       parameters:
         - name: id
           in: path
@@ -4746,8 +4746,8 @@ paths:
       description: Follow a user
       operationId: Follow User
       security:
-        - BasicAuth: []
         - BearerAuth: []
+        - BasicAuth: []
       parameters:
         - name: id
           in: path
@@ -4783,8 +4783,8 @@ paths:
       description: Unfollow a user
       operationId: Unfollow User
       security:
-        - BasicAuth: []
         - BearerAuth: []
+        - BasicAuth: []
       parameters:
         - name: id
           in: path
@@ -4821,8 +4821,8 @@ paths:
       description: Create a grant (authorize an app to act on the user's behalf)
       operationId: Create Grant
       security:
-        - BasicAuth: []
         - BearerAuth: []
+        - BasicAuth: []
       parameters:
         - name: id
           in: path
@@ -4862,8 +4862,8 @@ paths:
       description: Revoke a grant (remove app authorization)
       operationId: Revoke Grant
       security:
-        - BasicAuth: []
         - BearerAuth: []
+        - BasicAuth: []
       parameters:
         - name: id
           in: path
@@ -4905,8 +4905,8 @@ paths:
         child user)
       operationId: Approve Grant
       security:
-        - BasicAuth: []
         - BearerAuth: []
+        - BasicAuth: []
       parameters:
         - name: id
           in: path
@@ -4946,8 +4946,8 @@ paths:
       description: Add a manager (authorize another user to act on your behalf)
       operationId: Add Manager
       security:
-        - BasicAuth: []
         - BearerAuth: []
+        - BasicAuth: []
       parameters:
         - name: id
           in: path
@@ -5047,8 +5047,8 @@ paths:
         the child user or the manager.
       operationId: Remove Manager
       security:
-        - BasicAuth: []
         - BearerAuth: []
+        - BasicAuth: []
       parameters:
         - name: id
           in: path
@@ -5297,8 +5297,8 @@ paths:
       description: Mute a user
       operationId: Mute User
       security:
-        - BasicAuth: []
         - BearerAuth: []
+        - BasicAuth: []
       parameters:
         - name: id
           in: path
@@ -5334,8 +5334,8 @@ paths:
       description: Unmute a user
       operationId: Unmute User
       security:
-        - BasicAuth: []
         - BearerAuth: []
+        - BasicAuth: []
       parameters:
         - name: id
           in: path
@@ -5931,8 +5931,8 @@ paths:
       description: Subscribe to a user
       operationId: Subscribe to User
       security:
-        - BasicAuth: []
         - BearerAuth: []
+        - BasicAuth: []
       parameters:
         - name: id
           in: path
@@ -5968,8 +5968,8 @@ paths:
       description: Unsubscribe from a user
       operationId: Unsubscribe from User
       security:
-        - BasicAuth: []
         - BearerAuth: []
+        - BasicAuth: []
       parameters:
         - name: id
           in: path
