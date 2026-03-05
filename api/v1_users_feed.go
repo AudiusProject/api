@@ -92,7 +92,9 @@ func (app *ApiServer) v1UsersFeed(c *fiber.Ctx) error {
 				AND is_unlisted = false
 				AND is_delete = false
 				AND stem_of is null
-				AND access_authorities IS NULL
+				AND (access_authorities IS NULL
+				  OR (COALESCE(@authed_wallet, '') <> ''
+				      AND EXISTS (SELECT 1 FROM unnest(access_authorities) aa WHERE lower(aa) = lower(@authed_wallet))))
 		)
 
 		UNION ALL
@@ -124,12 +126,13 @@ func (app *ApiServer) v1UsersFeed(c *fiber.Ctx) error {
 	`
 
 	rows, err := app.pool.Query(c.Context(), sql, pgx.NamedArgs{
-		"userId":      app.getUserId(c),
-		"before":      time.Now(),
-		"limit":       params.Limit,
-		"offset":      params.Offset,
-		"filter":      params.Filter, // original, repost
-		"followeeIds": followeeIds,
+		"userId":       app.getUserId(c),
+		"before":       time.Now(),
+		"limit":        params.Limit,
+		"offset":       params.Offset,
+		"filter":       params.Filter, // original, repost
+		"followeeIds":  followeeIds,
+		"authed_wallet": app.getAuthedWalletOptional(c),
 	})
 	if err != nil {
 		return err
@@ -161,9 +164,10 @@ func (app *ApiServer) v1UsersFeed(c *fiber.Ctx) error {
 	}
 
 	loaded, err := app.queries.Parallel(c.Context(), dbv1.ParallelParams{
-		TrackIds:    trackIds,
-		PlaylistIds: playlistIds,
-		MyID:        myId,
+		TrackIds:      trackIds,
+		PlaylistIds:   playlistIds,
+		MyID:          myId,
+		AuthedWallet:  app.getAuthedWalletOptional(c),
 	})
 	if err != nil {
 		return err

@@ -41,14 +41,23 @@ func TestGetTracksExcludesAccessAuthorities(t *testing.T) {
 	ctx := context.Background()
 	require.NotNil(t, app.writePool, "test requires write pool")
 
+	// Use a wallet that has test signature data
+	gateWallet := "0x7d273271690538cf855e5b3002a0dd8c154bb060"
 	// Track 100 has title "T1" and is returned as id eYZmn. Set access_authorities so it is gated.
-	_, err := app.writePool.Exec(ctx, `UPDATE tracks SET access_authorities = ARRAY['0xgate']::text[] WHERE track_id = 100 AND is_current = true`)
+	_, err := app.writePool.Exec(ctx, `UPDATE tracks SET access_authorities = ARRAY[$1]::text[] WHERE track_id = 100 AND is_current = true`, gateWallet)
 	require.NoError(t, err)
 
+	// Without auth: track must not be returned
 	var resp struct {
 		Data []dbv1.Track
 	}
 	status, _ := testGet(t, app, "/v1/full/tracks?id=eYZmn", &resp)
 	assert.Equal(t, 200, status)
-	assert.Len(t, resp.Data, 0, "tracks with access_authorities must not be returned")
+	assert.Len(t, resp.Data, 0, "tracks with access_authorities must not be returned when unauthenticated")
+
+	// With auth signed by access authority: track must be returned
+	status, _ = testGetWithWallet(t, app, "/v1/full/tracks?id=eYZmn", gateWallet, &resp)
+	assert.Equal(t, 200, status)
+	assert.Len(t, resp.Data, 1, "tracks with access_authorities must be returned when request is signed by matching authority")
+	assert.Equal(t, "T1", resp.Data[0].Title.String)
 }

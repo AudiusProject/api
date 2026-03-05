@@ -14,7 +14,10 @@ func (app *ApiServer) v1TrackComments(c *fiber.Ctx) error {
 	track AS (
 		SELECT track_id, owner_id
 		FROM tracks
-		WHERE track_id = @track_id AND access_authorities IS NULL
+		WHERE track_id = @track_id
+			AND (access_authorities IS NULL
+			  OR (COALESCE(@authed_wallet, '') <> ''
+			      AND EXISTS (SELECT 1 FROM unnest(access_authorities) aa WHERE lower(aa) = lower(@authed_wallet))))
 	),
 
 	-- Users muted by high-karma users
@@ -107,6 +110,7 @@ func (app *ApiServer) v1TrackComments(c *fiber.Ctx) error {
 		"myId":                       myId,
 		"track_id":                   trackId,
 		"karmaCommentCountThreshold": karmaCommentCountThreshold,
+		"authed_wallet":              app.getAuthedWalletOptional(c),
 	}
 
 	return app.queryFullComments(c, sql, args, true)

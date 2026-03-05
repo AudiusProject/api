@@ -9,8 +9,9 @@ import (
 
 type PlaylistsParams struct {
 	GetPlaylistsParams
-	OmitTracks bool
-	TrackLimit int // 0 means use default (200), positive values set the limit
+	OmitTracks     bool
+	TrackLimit     int    // 0 means use default (200), positive values set the limit
+	AuthedWallet   string // wallet that signed the request; tracks with matching access_authorities are shown
 }
 
 type Playlist struct {
@@ -68,9 +69,10 @@ func (q *Queries) PlaylistsKeyed(ctx context.Context, arg PlaylistsParams) (map[
 
 	// fetch users + tracks in parallel
 	loaded, err := q.Parallel(ctx, ParallelParams{
-		UserIds:  userIds,
-		TrackIds: trackIds,
-		MyID:     arg.MyID.(int32),
+		UserIds:      userIds,
+		TrackIds:     trackIds,
+		MyID:         arg.MyID.(int32),
+		AuthedWallet: arg.AuthedWallet,
 	})
 	if err != nil {
 		return nil, err

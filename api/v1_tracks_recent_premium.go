@@ -29,7 +29,9 @@ func (app *ApiServer) v1TracksRecentPremium(c *fiber.Ctx) error {
 				is_available = true AND
 				is_delete = false AND
 				stem_of IS NULL AND
-				access_authorities IS NULL AND
+				(access_authorities IS NULL
+				  OR (COALESCE(@authed_wallet, '') <> ''
+				      AND EXISTS (SELECT 1 FROM unnest(access_authorities) aa WHERE lower(aa) = lower(@authed_wallet)))) AND
 				(stream_conditions ? 'usdc_purchase' OR download_conditions ? 'usdc_purchase') AND
 				created_at >= now() - interval '1 month'
 			ORDER BY owner_id, created_at DESC
@@ -39,9 +41,11 @@ func (app *ApiServer) v1TracksRecentPremium(c *fiber.Ctx) error {
 		LIMIT @limit
 		OFFSET @offset;
 		`
-	args := pgx.NamedArgs{}
-	args["limit"] = params.Limit
-	args["offset"] = params.Offset
+	args := pgx.NamedArgs{
+		"limit":        params.Limit,
+		"offset":       params.Offset,
+		"authed_wallet": app.getAuthedWalletOptional(c),
+	}
 
 	rows, err := app.pool.Query(c.Context(), sql, args)
 	if err != nil {
@@ -55,8 +59,9 @@ func (app *ApiServer) v1TracksRecentPremium(c *fiber.Ctx) error {
 
 	tracks, err := app.queries.Tracks(c.Context(), dbv1.TracksParams{
 		GetTracksParams: dbv1.GetTracksParams{
-			Ids:  trackIds,
-			MyID: myId,
+			Ids:          trackIds,
+			MyID:         myId,
+			AuthedWallet: app.getAuthedWalletOptional(c),
 		},
 	})
 

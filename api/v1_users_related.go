@@ -49,7 +49,9 @@ func (app *ApiServer) v1UsersRelated(c *fiber.Ctx) error {
 				AND t.is_unlisted IS false
 				AND t.is_available IS true
 				AND t.stem_of IS NULL
-				AND t.access_authorities IS NULL
+				AND (t.access_authorities IS NULL
+				  OR (COALESCE(@authed_wallet, '') <> ''
+				      AND EXISTS (SELECT 1 FROM unnest(t.access_authorities) aa WHERE lower(aa) = lower(@authed_wallet))))
 				AND owner_id = @userId
 			GROUP BY genre
 			ORDER BY count(*) DESC
@@ -102,7 +104,9 @@ func (app *ApiServer) v1UsersRelated(c *fiber.Ctx) error {
 				AND is_unlisted = false
 				AND is_available = true
 				AND stem_of IS NULL
-				AND access_authorities IS NULL
+				AND (access_authorities IS NULL
+				  OR (COALESCE(@authed_wallet, '') <> ''
+				      AND EXISTS (SELECT 1 FROM unnest(access_authorities) aa WHERE lower(aa) = lower(@authed_wallet))))
 				AND genre IS NOT NULL
 			GROUP BY genre
 			ORDER BY COUNT(*) DESC
@@ -173,10 +177,11 @@ func (app *ApiServer) v1UsersRelated(c *fiber.Ctx) error {
 	}
 
 	return app.queryUsers(c, sql, pgx.NamedArgs{
-		"myId":           app.getMyId(c),
-		"userId":         app.getUserId(c),
+		"myId":          app.getMyId(c),
+		"userId":        app.getUserId(c),
 		"filterFollowed": params.FilterFollowed,
-		"limit":          limit,
-		"offset":         params.Offset,
+		"limit":         limit,
+		"offset":        params.Offset,
+		"authed_wallet": app.getAuthedWalletOptional(c),
 	})
 }

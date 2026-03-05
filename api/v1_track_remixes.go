@@ -118,8 +118,9 @@ func (app *ApiServer) v1TrackRemixes(c *fiber.Ctx) error {
 
 	tracks, err := app.queries.Tracks(c.Context(), dbv1.TracksParams{
 		GetTracksParams: dbv1.GetTracksParams{
-			Ids:  ids,
-			MyID: myId,
+			Ids:          ids,
+			MyID:         myId,
+			AuthedWallet: app.getAuthedWalletOptional(c),
 		},
 	})
 	if err != nil {

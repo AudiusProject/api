@@ -101,6 +101,18 @@ func (app *ApiServer) getAuthedWallet(c *fiber.Ctx) string {
 	return c.Locals("authedWallet").(string)
 }
 
+// getAuthedWalletOptional returns the wallet that signed the request, or "" if not set.
+// Use when the request may be unauthenticated (e.g. for access_authorities filtering).
+func (app *ApiServer) getAuthedWalletOptional(c *fiber.Ctx) string {
+	if c == nil {
+		return ""
+	}
+	if w, ok := c.Locals("authedWallet").(string); ok {
+		return w
+	}
+	return ""
+}
+
 // validateOAuthJWTTokenToUserId validates the OAuth JWT and returns the userId from the payload.
 func (app *ApiServer) validateOAuthJWTTokenToUserId(ctx context.Context, token string) (trashid.HashId, error) {
 	tokenParts := strings.Split(token, ".")

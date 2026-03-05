@@ -111,9 +111,10 @@ func (app *ApiServer) v1ExploreBestSelling(c *fiber.Ctx) error {
 			}
 		}
 		related, err := app.queries.Parallel(c.Context(), dbv1.ParallelParams{
-			PlaylistIds: playlistIds,
-			TrackIds:    trackIds,
-			MyID:        app.getMyId(c),
+			PlaylistIds:  playlistIds,
+			TrackIds:     trackIds,
+			MyID:         app.getMyId(c),
+			AuthedWallet: app.getAuthedWalletOptional(c),
 		})
 		if err != nil {
 			return err

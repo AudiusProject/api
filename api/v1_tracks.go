@@ -50,9 +50,10 @@ func (app *ApiServer) v1Tracks(c *fiber.Ctx) error {
 
 	tracks, err := app.queries.Tracks(c.Context(), dbv1.TracksParams{
 		GetTracksParams: dbv1.GetTracksParams{
-			MyID:            int32(myId),
-			Ids:             ids,
+			MyID:          int32(myId),
+			Ids:           ids,
 			IncludeUnlisted: true,
+			AuthedWallet:  app.getAuthedWalletOptional(c),
 		},
 	})
 	if err != nil {

@@ -164,7 +164,8 @@ func (app *ApiServer) v1UsersLibraryPlaylists(c *fiber.Ctx) error {
 			Ids:  ids,
 			MyID: myId,
 		},
-		OmitTracks: true,
+		OmitTracks:   true,
+		AuthedWallet: app.getAuthedWalletOptional(c),
 	})
 	if err != nil {
 		return err

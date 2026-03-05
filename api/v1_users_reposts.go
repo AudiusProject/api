@@ -80,9 +80,10 @@ func (app *ApiServer) v1UsersReposts(c *fiber.Ctx) error {
 	}
 
 	loaded, err := app.queries.Parallel(c.Context(), dbv1.ParallelParams{
-		TrackIds:    trackIds,
-		PlaylistIds: playlistIds,
-		MyID:        myId,
+		TrackIds:     trackIds,
+		PlaylistIds:  playlistIds,
+		MyID:         myId,
+		AuthedWallet: app.getAuthedWalletOptional(c),
 	})
 	if err != nil {
 		return err

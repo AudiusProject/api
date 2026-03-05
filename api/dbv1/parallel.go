@@ -7,10 +7,11 @@ import (
 )
 
 type ParallelParams struct {
-	UserIds     []int32
-	TrackIds    []int32
-	PlaylistIds []int32
-	MyID        int32
+	UserIds       []int32
+	TrackIds      []int32
+	PlaylistIds   []int32
+	MyID          int32
+	AuthedWallet  string
 }
 
 type ParallelResult struct {
@@ -42,8 +43,9 @@ func (q *Queries) Parallel(ctx context.Context, arg ParallelParams) (*ParallelRe
 			var err error
 			trackMap, err = q.TracksKeyed(ctx, TracksParams{
 				GetTracksParams: GetTracksParams{
-					Ids:  arg.TrackIds,
-					MyID: arg.MyID,
+					Ids:           arg.TrackIds,
+					MyID:          arg.MyID,
+					AuthedWallet:  arg.AuthedWallet,
 				},
 			})
 			return err
@@ -58,6 +60,7 @@ func (q *Queries) Parallel(ctx context.Context, arg ParallelParams) (*ParallelRe
 					Ids:  arg.PlaylistIds,
 					MyID: arg.MyID,
 				},
+				AuthedWallet: arg.AuthedWallet,
 			})
 			return err
 		})

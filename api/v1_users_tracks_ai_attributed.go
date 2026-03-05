@@ -71,15 +71,18 @@ func (app *ApiServer) v1UserTracksAiAttributed(c *fiber.Ctx) error {
 	  AND t.is_available = true
 	  AND ` + trackFilter + `
 	  AND t.stem_of is null
-	  AND t.access_authorities IS NULL
+	  AND (t.access_authorities IS NULL
+	    OR (COALESCE(@authed_wallet, '') <> ''
+	        AND EXISTS (SELECT 1 FROM unnest(t.access_authorities) aa WHERE lower(aa) = lower(@authed_wallet))))
 	ORDER BY ` + orderClause + `
 	LIMIT @limit
 	OFFSET @offset
 	`
 
 	args := pgx.NamedArgs{
-		"user_id": userId,
-		"my_id":   myId,
+		"user_id":       userId,
+		"my_id":         myId,
+		"authed_wallet": app.getAuthedWalletOptional(c),
 	}
 	args["limit"] = params.Limit
 	args["offset"] = params.Offset
@@ -96,8 +99,9 @@ func (app *ApiServer) v1UserTracksAiAttributed(c *fiber.Ctx) error {
 
 	tracks, err := app.queries.Tracks(c.Context(), dbv1.TracksParams{
 		GetTracksParams: dbv1.GetTracksParams{
-			Ids:  ids,
-			MyID: myId,
+			Ids:          ids,
+			MyID:         myId,
+			AuthedWallet: app.getAuthedWalletOptional(c),
 		},
 	})
 	if err != nil {
