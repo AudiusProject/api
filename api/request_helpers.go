@@ -10,7 +10,6 @@ import (
 
 	"github.com/ethereum/go-ethereum/crypto"
 	"github.com/gofiber/fiber/v2"
-	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgtype"
 )
 
@@ -139,22 +138,30 @@ func (app *ApiServer) getSignerFromApiAccessKey(ctx context.Context, apiAccessKe
 		JOIN api_keys ak ON LOWER(ak.api_key) = LOWER(aak.api_key)
 		WHERE aak.api_access_key = $1 AND aak.is_active = true
 	`, apiAccessKey).Scan(&parentApiKey, &apiSecret)
-	if err == pgx.ErrNoRows || err != nil || apiSecret == "" {
-		return nil
+	if err == nil && apiSecret != "" {
+		privateKey, keyErr := crypto.HexToECDSA(strings.TrimPrefix(apiSecret, "0x"))
+		if keyErr != nil {
+			return nil
+		}
+		parentApiKeyLower := strings.ToLower(parentApiKey)
+		app.apiAccessKeySignerCache.Set(apiAccessKey, apiAccessKeySignerEntry{
+			ApiKey:    parentApiKeyLower,
+			ApiSecret: apiSecret,
+		})
+		return &Signer{
+			Address:    parentApiKeyLower,
+			PrivateKey: privateKey,
+		}
 	}
 
-	parentApiKeyLower := strings.ToLower(parentApiKey)
-	app.apiAccessKeySignerCache.Set(apiAccessKey, apiAccessKeySignerEntry{
-		ApiKey:    parentApiKeyLower,
-		ApiSecret: apiSecret,
-	})
-
-	privateKey, err := crypto.HexToECDSA(strings.TrimPrefix(apiSecret, "0x"))
+	// Fallback: use apiAccessKey as raw private key when no api_secret is found
+	privateKey, err := crypto.HexToECDSA(strings.TrimPrefix(apiAccessKey, "0x"))
 	if err != nil {
 		return nil
 	}
+	address := crypto.PubkeyToAddress(privateKey.PublicKey)
 	return &Signer{
-		Address:    parentApiKeyLower,
+		Address:    strings.ToLower(address.Hex()),
 		PrivateKey: privateKey,
 	}
 }
