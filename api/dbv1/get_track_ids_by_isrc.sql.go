@@ -13,7 +13,6 @@ const getTrackIdsByISRC = `-- name: GetTrackIdsByISRC :many
 SELECT track_id
 FROM tracks
 WHERE isrc = ANY($1::text[])
-  AND is_current = true
   AND access_authorities IS NULL
 `
 
