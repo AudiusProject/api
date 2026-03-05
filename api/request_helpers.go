@@ -51,17 +51,16 @@ func (app *ApiServer) getApiSigner(c *fiber.Ctx) (*Signer, error) {
 		if token == "" {
 			return nil, fmt.Errorf("Bearer token is empty")
 		}
-		if app.writePool != nil {
-			if signer := app.getSignerFromApiAccessKey(c.Context(), token); signer != nil {
-				return signer, nil
-			}
+
+		if signer := app.getSignerFromApiAccessKey(c.Context(), token); signer != nil {
+			return signer, nil
 		}
+
 		// Try PKCE token → look up client_id → get api_secret from api_keys → return Signer
-		if app.writePool != nil {
-			if signer := app.getSignerFromOAuthToken(c, token); signer != nil {
-				return signer, nil
-			}
+		if signer := app.getSignerFromOAuthToken(c, token); signer != nil {
+			return signer, nil
 		}
+
 		// If authMiddleware already validated a JWT and set authedWallet,
 		// use AudiusApiSecret to sign on behalf of the authenticated user.
 		if wallet, _ := c.Locals("authedWallet").(string); wallet != "" && app.config.AudiusApiSecret != "" {
@@ -138,7 +137,7 @@ func (app *ApiServer) getSignerFromApiAccessKey(ctx context.Context, apiAccessKe
 	}
 
 	var parentApiKey, apiSecret string
-	err := app.writePool.QueryRow(ctx, `
+	err := app.pool.QueryRow(ctx, `
 		SELECT aak.api_key, ak.api_secret
 		FROM api_access_keys aak
 		JOIN api_keys ak ON LOWER(ak.api_key) = LOWER(aak.api_key)
@@ -183,7 +182,7 @@ func (app *ApiServer) getSignerFromOAuthToken(c *fiber.Ctx, token string) *Signe
 
 	// Look up api_secret for the client_id (developer app address = api_key)
 	var apiSecret string
-	err := app.writePool.QueryRow(c.Context(), `
+	err := app.pool.QueryRow(c.Context(), `
 		SELECT api_secret FROM api_keys WHERE LOWER(api_key) = LOWER($1)
 	`, entry.ClientID).Scan(&apiSecret)
 	if err != nil || apiSecret == "" {
