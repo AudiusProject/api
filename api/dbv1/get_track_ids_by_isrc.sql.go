@@ -13,6 +13,7 @@ const getTrackIdsByISRC = `-- name: GetTrackIdsByISRC :many
 SELECT track_id
 FROM tracks
 WHERE isrc = ANY($1::text[])
+  AND access_authorities IS NULL
 `
 
 func (q *Queries) GetTrackIdsByISRC(ctx context.Context, isrcs []string) ([]int32, error) {

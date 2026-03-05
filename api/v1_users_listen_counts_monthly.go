@@ -25,7 +25,7 @@ func (app *ApiServer) v1UsersListenCountsMonthly(c *fiber.Ctx) error {
         SUM(count) AS count
     FROM aggregate_monthly_plays
     WHERE play_item_id IN (
-		SELECT track_id from tracks where owner_id = @userId
+		SELECT track_id FROM tracks WHERE owner_id = @userId AND stem_of IS NULL AND access_authorities IS NULL
 	)
     AND timestamp >= @startTime
     AND timestamp < @endTime

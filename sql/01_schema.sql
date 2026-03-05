@@ -1293,7 +1293,7 @@ BEGIN
 
   UNION
 
-  -- remixer_audience
+  -- remixer_audience (exclude tracks with access_authorities / programmable distribution)
   SELECT chat_blast.blast_id, t.owner_id AS to_user_id
   FROM tracks t
   JOIN remixes ON remixes.child_track_id = t.track_id
@@ -1302,6 +1302,8 @@ BEGIN
     AND chat_blast.audience = 'remixer_audience'
     AND og.owner_id = chat_blast.from_user_id
     AND t.owner_id != chat_blast.from_user_id
+    AND t.access_authorities IS NULL
+    AND og.access_authorities IS NULL
     AND (
       chat_blast.audience_content_id IS NULL
       OR (
@@ -3808,6 +3810,7 @@ begin
       and t.is_delete is false
       and t.is_available is true
       and t.stem_of is null
+      and t.access_authorities is null
       and t.owner_id = new.owner_id
   )
   where user_id = new.owner_id
@@ -5011,6 +5014,7 @@ BEGIN
         and (t.is_delete is false)
         and (t.is_unlisted is false)
         and (t.stem_of is null)
+        and (t.access_authorities is null)
     ) with no data;
 
     create index trending_params_track_id_idx on public.trending_params using btree (track_id);
@@ -5163,7 +5167,8 @@ begin
   return track.is_unlisted = false
      and track.is_available = true
      and track.is_delete = false
-     and track.stem_of is null;
+     and track.stem_of is null
+     and track.access_authorities is null;
 end
 $$;
 
@@ -5281,6 +5286,7 @@ CREATE TABLE public.tracks (
     no_ai_use boolean DEFAULT false,
     parental_warning public.parental_warning_type,
     territory_codes text[],
+    access_authorities text[],
     CONSTRAINT check_territory_codes CHECK (public.validate_territory_codes(territory_codes))
 );
 

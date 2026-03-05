@@ -31,6 +31,7 @@ func (app *ApiServer) v1TracksFeelingLucky(c *fiber.Ctx) error {
 		"is_delete = false",
 		"is_unlisted = false",
 		"stem_of IS NULL",
+		"access_authorities IS NULL",
 		"aggregate_plays.count >= 250",
 	}
 	if params.MinFollowers != 0 {

@@ -224,6 +224,7 @@ LEFT JOIN aggregate_plays on play_item_id = t.track_id
 LEFT JOIN track_routes on t.track_id = track_routes.track_id and track_routes.is_current = true
 WHERE (is_unlisted = false OR t.owner_id = $1 OR $2::bool = TRUE)
   AND t.track_id = ANY($3::int[])
+  AND t.access_authorities IS NULL
 ORDER BY t.track_id
 `
 

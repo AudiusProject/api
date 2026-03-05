@@ -611,6 +611,8 @@ func hasNewBlastFromUser(pool *dbv1.DBPools, ctx context.Context, userID int32, 
 				JOIN tracks og ON remixes.parent_track_id = og.track_id
 				WHERE og.owner_id = blast.from_user_id
 					AND t.owner_id = $1
+					AND t.access_authorities IS NULL
+					AND og.access_authorities IS NULL
 					AND (
 						blast.audience_content_id IS NULL
 						OR (

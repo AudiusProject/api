@@ -23,6 +23,7 @@ WHERE
     AND genre != ''
     AND is_current = TRUE
     AND created_at > $1
+    AND access_authorities IS NULL
 GROUP BY
     genre
 ORDER BY
