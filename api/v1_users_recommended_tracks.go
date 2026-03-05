@@ -78,17 +78,20 @@ func (app *ApiServer) v1UsersRecommendedTracks(c *fiber.Ctx) error {
 			AND t.is_current = true
 			AND t.is_delete = false
 			AND t.stem_of IS NULL
-			AND t.access_authorities IS NULL
+			AND (t.access_authorities IS NULL
+			  OR (COALESCE(@authed_wallet, '') <> ''
+			      AND EXISTS (SELECT 1 FROM unnest(t.access_authorities) aa WHERE lower(aa) = lower(@authed_wallet))))
 			AND u.is_deactivated = false
 		ORDER BY random()
 		LIMIT 10
 	`
 
 	rows, err := app.pool.Query(c.Context(), sql, pgx.NamedArgs{
-		"limit":     params.Limit,
-		"offset":    params.Offset,
-		"timeRange": timeRange,
-		"userId":    app.getUserId(c),
+		"limit":         params.Limit,
+		"offset":        params.Offset,
+		"timeRange":     timeRange,
+		"userId":        app.getUserId(c),
+		"authed_wallet": app.tryGetAuthedWallet(c),
 	})
 	if err != nil {
 		return err
@@ -101,8 +104,9 @@ func (app *ApiServer) v1UsersRecommendedTracks(c *fiber.Ctx) error {
 
 	tracks, err := app.queries.Tracks(c.Context(), dbv1.TracksParams{
 		GetTracksParams: dbv1.GetTracksParams{
-			Ids:  trackIds,
-			MyID: myId,
+			Ids:          trackIds,
+			MyID:         myId,
+			AuthedWallet: app.tryGetAuthedWallet(c),
 		},
 	})
 

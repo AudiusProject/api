@@ -161,6 +161,7 @@ func (app *ApiServer) v1UsersLibraryTracks(c *fiber.Ctx) error {
 		GetTracksParams: dbv1.GetTracksParams{
 			Ids:             trackIds,
 			MyID:            myId,
+			AuthedWallet:    app.tryGetAuthedWallet(c),
 			IncludeUnlisted: true,
 		},
 	})

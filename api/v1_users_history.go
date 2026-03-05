@@ -135,6 +135,7 @@ func (app *ApiServer) v1UsersHistory(c *fiber.Ctx) error {
 		GetTracksParams: dbv1.GetTracksParams{
 			Ids:             trackIds,
 			MyID:            myId,
+			AuthedWallet:    app.tryGetAuthedWallet(c),
 			IncludeUnlisted: true,
 		},
 	})

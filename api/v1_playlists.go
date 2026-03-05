@@ -54,7 +54,8 @@ func (app *ApiServer) v1Playlists(c *fiber.Ctx) error {
 			MyID: myId,
 			Ids:  ids,
 		},
-		OmitTracks: !withTracks,
+		OmitTracks:   !withTracks,
+		AuthedWallet: app.tryGetAuthedWallet(c),
 	})
 	if err != nil {
 		return err

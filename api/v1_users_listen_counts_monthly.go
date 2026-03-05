@@ -25,7 +25,10 @@ func (app *ApiServer) v1UsersListenCountsMonthly(c *fiber.Ctx) error {
         SUM(count) AS count
     FROM aggregate_monthly_plays
     WHERE play_item_id IN (
-		SELECT track_id FROM tracks WHERE owner_id = @userId AND stem_of IS NULL AND access_authorities IS NULL
+		SELECT track_id FROM tracks WHERE owner_id = @userId AND stem_of IS NULL
+			AND (access_authorities IS NULL
+			  OR (COALESCE(@authed_wallet, '') <> ''
+			      AND EXISTS (SELECT 1 FROM unnest(access_authorities) aa WHERE lower(aa) = lower(@authed_wallet))))
 	)
     AND timestamp >= @startTime
     AND timestamp < @endTime
@@ -34,9 +37,10 @@ func (app *ApiServer) v1UsersListenCountsMonthly(c *fiber.Ctx) error {
 	`
 
 	rows, err := app.pool.Query(c.Context(), sql, pgx.NamedArgs{
-		"userId":    app.getUserId(c),
-		"startTime": params.StartTime,
-		"endTime":   params.EndTime,
+		"userId":        app.getUserId(c),
+		"startTime":     params.StartTime,
+		"endTime":       params.EndTime,
+		"authed_wallet": app.tryGetAuthedWallet(c),
 	})
 	if err != nil {
 		return err

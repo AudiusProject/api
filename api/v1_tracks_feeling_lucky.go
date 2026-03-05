@@ -31,7 +31,7 @@ func (app *ApiServer) v1TracksFeelingLucky(c *fiber.Ctx) error {
 		"is_delete = false",
 		"is_unlisted = false",
 		"stem_of IS NULL",
-		"access_authorities IS NULL",
+		"(tracks.access_authorities IS NULL OR (COALESCE(@authed_wallet, '') <> '' AND EXISTS (SELECT 1 FROM unnest(tracks.access_authorities) aa WHERE lower(aa) = lower(@authed_wallet))))",
 		"aggregate_plays.count >= 250",
 	}
 	if params.MinFollowers != 0 {
@@ -50,8 +50,9 @@ func (app *ApiServer) v1TracksFeelingLucky(c *fiber.Ctx) error {
 	`
 
 	rows, err := app.pool.Query(c.Context(), sql, pgx.NamedArgs{
-		"limit":        params.Limit,
-		"minFollowers": params.MinFollowers,
+		"limit":         params.Limit,
+		"minFollowers":  params.MinFollowers,
+		"authed_wallet": app.tryGetAuthedWallet(c),
 	})
 	if err != nil {
 		return err
@@ -64,8 +65,9 @@ func (app *ApiServer) v1TracksFeelingLucky(c *fiber.Ctx) error {
 
 	tracks, err := app.queries.Tracks(c.Context(), dbv1.TracksParams{
 		GetTracksParams: dbv1.GetTracksParams{
-			Ids:  trackIds,
-			MyID: app.getMyId(c),
+			Ids:          trackIds,
+			MyID:         app.getMyId(c),
+			AuthedWallet: app.tryGetAuthedWallet(c),
 		},
 	})
 

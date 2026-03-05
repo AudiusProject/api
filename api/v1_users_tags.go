@@ -27,7 +27,9 @@ func (app *ApiServer) v1UsersTags(c *fiber.Ctx) error {
 			AND is_unlisted = false
 			AND is_delete = false
 			AND stem_of is null
-			AND access_authorities IS NULL
+			AND (access_authorities IS NULL
+			  OR (COALESCE(@authed_wallet, '') <> ''
+			      AND EXISTS (SELECT 1 FROM unnest(access_authorities) aa WHERE lower(aa) = lower(@authed_wallet))))
 	) AS split_tags
 	WHERE tag != ''
 	GROUP BY tag
@@ -36,8 +38,9 @@ func (app *ApiServer) v1UsersTags(c *fiber.Ctx) error {
 	`
 
 	rows, err := app.pool.Query(c.Context(), sql, pgx.NamedArgs{
-		"userId": app.getUserId(c),
-		"limit":  params.Limit,
+		"userId":        app.getUserId(c),
+		"limit":         params.Limit,
+		"authed_wallet": app.tryGetAuthedWallet(c),
 	})
 	if err != nil {
 		return err

@@ -43,11 +43,14 @@ func (app *ApiServer) v1UserTracksCount(c *fiber.Ctx) error {
 	  AND t.is_available = true
 	  AND ` + trackFilter + `
 	  AND t.stem_of is null
-	  AND t.access_authorities IS NULL` + gateFilter
+	  AND (t.access_authorities IS NULL
+	    OR (COALESCE(@authed_wallet, '') <> ''
+	        AND EXISTS (SELECT 1 FROM unnest(t.access_authorities) aa WHERE lower(aa) = lower(@authed_wallet))))` + gateFilter
 
 	args := pgx.NamedArgs{
-		"user_id": userId,
-		"my_id":   myId,
+		"user_id":       userId,
+		"my_id":         myId,
+		"authed_wallet": app.tryGetAuthedWallet(c),
 	}
 
 	var count int

@@ -63,7 +63,9 @@ func (app *ApiServer) v1PlaylistsTrending(c *fiber.Ctx) error {
 					AND t.is_delete = false
 					AND t.is_current = true
 					AND t.stem_of IS NULL
-					AND t.access_authorities IS NULL
+					AND (t.access_authorities IS NULL
+					  OR (COALESCE(@authed_wallet, '') <> ''
+					      AND EXISTS (SELECT 1 FROM unnest(t.access_authorities) aa WHERE lower(aa) = lower(@authed_wallet))))
 			)
 			SELECT
 				playlist_id
@@ -95,9 +97,10 @@ func (app *ApiServer) v1PlaylistsTrending(c *fiber.Ctx) error {
 		`
 
 	rows, err := app.pool.Query(c.Context(), sql, pgx.NamedArgs{
-		"limit":  params.Limit,
-		"offset": params.Offset,
-		"time":   params.Time,
+		"limit":         params.Limit,
+		"offset":        params.Offset,
+		"time":          params.Time,
+		"authed_wallet": app.tryGetAuthedWallet(c),
 	})
 	if err != nil {
 		return err
@@ -113,7 +116,8 @@ func (app *ApiServer) v1PlaylistsTrending(c *fiber.Ctx) error {
 			Ids:  ids,
 			MyID: myId,
 		},
-		OmitTracks: params.OmitTracks,
+		OmitTracks:   params.OmitTracks,
+		AuthedWallet: app.tryGetAuthedWallet(c),
 		// Limit these to 5 items to prevent slow load times
 		TrackLimit: 5,
 	})

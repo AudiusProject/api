@@ -58,8 +58,9 @@ func (app *ApiServer) v1PlaylistTracks(c *fiber.Ctx) error {
 
 	tracks, err := app.queries.Tracks(c.Context(), dbv1.TracksParams{
 		GetTracksParams: dbv1.GetTracksParams{
-			Ids:  trackIds,
-			MyID: myId,
+			Ids:          trackIds,
+			MyID:         myId,
+			AuthedWallet: app.tryGetAuthedWallet(c),
 		},
 	})
 

@@ -53,6 +53,7 @@ func (app *ApiServer) v1Tracks(c *fiber.Ctx) error {
 			MyID:            int32(myId),
 			Ids:             ids,
 			IncludeUnlisted: true,
+			AuthedWallet:    app.tryGetAuthedWallet(c),
 		},
 	})
 	if err != nil {

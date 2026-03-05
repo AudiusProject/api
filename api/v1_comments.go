@@ -109,9 +109,10 @@ func (app *ApiServer) queryFullComments(
 		}
 	}
 	related, err := app.queries.Parallel(c.Context(), dbv1.ParallelParams{
-		UserIds:  userIds,
-		TrackIds: trackIds,
-		MyID:     app.getMyId(c),
+		UserIds:      userIds,
+		TrackIds:     trackIds,
+		MyID:         app.getMyId(c),
+		AuthedWallet: app.tryGetAuthedWallet(c),
 	})
 	if err != nil {
 		return err

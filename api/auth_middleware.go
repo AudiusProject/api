@@ -97,8 +97,20 @@ func (app *ApiServer) isAuthorizedRequest(ctx context.Context, userId int32, aut
 	return isAuthorized
 }
 
+// get the wallet that signed the request
 func (app *ApiServer) getAuthedWallet(c *fiber.Ctx) string {
 	return c.Locals("authedWallet").(string)
+}
+
+// get the wallet that signed the request, or "" if not set
+func (app *ApiServer) tryGetAuthedWallet(c *fiber.Ctx) string {
+	if c == nil {
+		return ""
+	}
+	if w, ok := c.Locals("authedWallet").(string); ok {
+		return w
+	}
+	return ""
 }
 
 // validateOAuthJWTTokenToUserId validates the OAuth JWT and returns the userId from the payload.
