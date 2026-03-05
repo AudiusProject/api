@@ -29,7 +29,7 @@ func (app *ApiServer) v1TrackDownload(c *fiber.Ctx) error {
 		GetTracksParams: dbv1.GetTracksParams{
 			MyID:         myId,
 			Ids:          []int32{int32(trackId)},
-			AuthedWallet: app.getAuthedWalletOptional(c),
+			AuthedWallet: app.tryGetAuthedWallet(c),
 		},
 	})
 	if err != nil {

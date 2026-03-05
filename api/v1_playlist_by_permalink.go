@@ -33,7 +33,7 @@ func (app *ApiServer) v1PlaylistByPermalink(c *fiber.Ctx) error {
 			MyID: myId,
 			Ids:  ids,
 		},
-		AuthedWallet: app.getAuthedWalletOptional(c),
+		AuthedWallet: app.tryGetAuthedWallet(c),
 	})
 	if err != nil {
 		return err

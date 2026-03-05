@@ -31,7 +31,7 @@ func (app *ApiServer) v1TracksTrendingUndergroundWinners(c *fiber.Ctx) error {
 		GetTracksParams: dbv1.GetTracksParams{
 			Ids:          trackIds,
 			MyID:         myId,
-			AuthedWallet: app.getAuthedWalletOptional(c),
+			AuthedWallet: app.tryGetAuthedWallet(c),
 		},
 	})
 	if err != nil {

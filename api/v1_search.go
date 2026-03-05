@@ -173,7 +173,7 @@ func (app *ApiServer) searchTracks(c *fiber.Ctx) ([]dbv1.Track, error) {
 		GetTracksParams: dbv1.GetTracksParams{
 			Ids:          tracksIds,
 			MyID:         myId,
-			AuthedWallet: app.getAuthedWalletOptional(c),
+			AuthedWallet: app.tryGetAuthedWallet(c),
 		},
 	})
 	return tracks, err
@@ -216,7 +216,7 @@ func (app *ApiServer) searchPlaylists(c *fiber.Ctx) ([]dbv1.Playlist, error) {
 			MyID: myId,
 		},
 		OmitTracks:   true,
-		AuthedWallet: app.getAuthedWalletOptional(c),
+		AuthedWallet: app.tryGetAuthedWallet(c),
 	})
 	return playlists, err
 }
@@ -259,7 +259,7 @@ func (app *ApiServer) searchAlbums(c *fiber.Ctx) ([]dbv1.Playlist, error) {
 			MyID: myId,
 		},
 		OmitTracks:   true,
-		AuthedWallet: app.getAuthedWalletOptional(c),
+		AuthedWallet: app.tryGetAuthedWallet(c),
 	})
 	return playlists, err
 }

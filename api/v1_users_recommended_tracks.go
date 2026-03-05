@@ -87,11 +87,11 @@ func (app *ApiServer) v1UsersRecommendedTracks(c *fiber.Ctx) error {
 	`
 
 	rows, err := app.pool.Query(c.Context(), sql, pgx.NamedArgs{
-		"limit":        params.Limit,
-		"offset":       params.Offset,
-		"timeRange":   timeRange,
-		"userId":      app.getUserId(c),
-		"authed_wallet": app.getAuthedWalletOptional(c),
+		"limit":         params.Limit,
+		"offset":        params.Offset,
+		"timeRange":     timeRange,
+		"userId":        app.getUserId(c),
+		"authed_wallet": app.tryGetAuthedWallet(c),
 	})
 	if err != nil {
 		return err
@@ -106,7 +106,7 @@ func (app *ApiServer) v1UsersRecommendedTracks(c *fiber.Ctx) error {
 		GetTracksParams: dbv1.GetTracksParams{
 			Ids:          trackIds,
 			MyID:         myId,
-			AuthedWallet: app.getAuthedWalletOptional(c),
+			AuthedWallet: app.tryGetAuthedWallet(c),
 		},
 	})
 

@@ -159,9 +159,9 @@ func (app *ApiServer) v1UsersLibraryTracks(c *fiber.Ctx) error {
 	// get tracks - include unlisted tracks since they may be in the library (e.g., purchases)
 	tracks, err := app.queries.TracksKeyed(c.Context(), dbv1.TracksParams{
 		GetTracksParams: dbv1.GetTracksParams{
-			Ids:          trackIds,
-			MyID:         myId,
-			AuthedWallet: app.getAuthedWalletOptional(c),
+			Ids:             trackIds,
+			MyID:            myId,
+			AuthedWallet:    app.tryGetAuthedWallet(c),
 			IncludeUnlisted: true,
 		},
 	})

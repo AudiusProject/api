@@ -97,13 +97,13 @@ func (app *ApiServer) isAuthorizedRequest(ctx context.Context, userId int32, aut
 	return isAuthorized
 }
 
+// get the wallet that signed the request
 func (app *ApiServer) getAuthedWallet(c *fiber.Ctx) string {
 	return c.Locals("authedWallet").(string)
 }
 
-// getAuthedWalletOptional returns the wallet that signed the request, or "" if not set.
-// Use when the request may be unauthenticated (e.g. for access_authorities filtering).
-func (app *ApiServer) getAuthedWalletOptional(c *fiber.Ctx) string {
+// get the wallet that signed the request, or "" if not set
+func (app *ApiServer) tryGetAuthedWallet(c *fiber.Ctx) string {
 	if c == nil {
 		return ""
 	}

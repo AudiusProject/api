@@ -77,7 +77,7 @@ func (app *ApiServer) v1TrackInspect(c *fiber.Ctx) error {
 		GetTracksParams: dbv1.GetTracksParams{
 			MyID:         myId,
 			Ids:          []int32{int32(trackId)},
-			AuthedWallet: app.getAuthedWalletOptional(c),
+			AuthedWallet: app.tryGetAuthedWallet(c),
 		},
 	})
 	if err != nil {
@@ -108,7 +108,7 @@ func (app *ApiServer) v1TracksInspect(c *fiber.Ctx) error {
 		GetTracksParams: dbv1.GetTracksParams{
 			MyID:         myId,
 			Ids:          ids,
-			AuthedWallet: app.getAuthedWalletOptional(c),
+			AuthedWallet: app.tryGetAuthedWallet(c),
 		},
 	})
 	if err != nil {

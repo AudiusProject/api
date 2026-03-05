@@ -87,7 +87,7 @@ func (app *ApiServer) v1UserTracks(c *fiber.Ctx) error {
 	args := pgx.NamedArgs{
 		"user_id":       userId,
 		"my_id":         myId,
-		"authed_wallet": app.getAuthedWalletOptional(c),
+		"authed_wallet": app.tryGetAuthedWallet(c),
 	}
 	args["limit"] = params.Limit
 	args["offset"] = params.Offset
@@ -106,7 +106,7 @@ func (app *ApiServer) v1UserTracks(c *fiber.Ctx) error {
 		GetTracksParams: dbv1.GetTracksParams{
 			Ids:          ids,
 			MyID:         myId,
-			AuthedWallet: app.getAuthedWalletOptional(c),
+			AuthedWallet: app.tryGetAuthedWallet(c),
 		},
 	})
 	if err != nil {

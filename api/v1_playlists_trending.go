@@ -97,10 +97,10 @@ func (app *ApiServer) v1PlaylistsTrending(c *fiber.Ctx) error {
 		`
 
 	rows, err := app.pool.Query(c.Context(), sql, pgx.NamedArgs{
-		"limit":        params.Limit,
-		"offset":       params.Offset,
-		"time":         params.Time,
-		"authed_wallet": app.getAuthedWalletOptional(c),
+		"limit":         params.Limit,
+		"offset":        params.Offset,
+		"time":          params.Time,
+		"authed_wallet": app.tryGetAuthedWallet(c),
 	})
 	if err != nil {
 		return err
@@ -117,7 +117,7 @@ func (app *ApiServer) v1PlaylistsTrending(c *fiber.Ctx) error {
 			MyID: myId,
 		},
 		OmitTracks:   params.OmitTracks,
-		AuthedWallet: app.getAuthedWalletOptional(c),
+		AuthedWallet: app.tryGetAuthedWallet(c),
 		// Limit these to 5 items to prevent slow load times
 		TrackLimit: 5,
 	})

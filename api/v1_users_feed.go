@@ -126,13 +126,13 @@ func (app *ApiServer) v1UsersFeed(c *fiber.Ctx) error {
 	`
 
 	rows, err := app.pool.Query(c.Context(), sql, pgx.NamedArgs{
-		"userId":       app.getUserId(c),
-		"before":       time.Now(),
-		"limit":        params.Limit,
-		"offset":       params.Offset,
-		"filter":       params.Filter, // original, repost
-		"followeeIds":  followeeIds,
-		"authed_wallet": app.getAuthedWalletOptional(c),
+		"userId":        app.getUserId(c),
+		"before":        time.Now(),
+		"limit":         params.Limit,
+		"offset":        params.Offset,
+		"filter":        params.Filter, // original, repost
+		"followeeIds":   followeeIds,
+		"authed_wallet": app.tryGetAuthedWallet(c),
 	})
 	if err != nil {
 		return err
@@ -164,10 +164,10 @@ func (app *ApiServer) v1UsersFeed(c *fiber.Ctx) error {
 	}
 
 	loaded, err := app.queries.Parallel(c.Context(), dbv1.ParallelParams{
-		TrackIds:      trackIds,
-		PlaylistIds:   playlistIds,
-		MyID:          myId,
-		AuthedWallet:  app.getAuthedWalletOptional(c),
+		TrackIds:     trackIds,
+		PlaylistIds:  playlistIds,
+		MyID:         myId,
+		AuthedWallet: app.tryGetAuthedWallet(c),
 	})
 	if err != nil {
 		return err

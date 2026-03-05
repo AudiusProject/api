@@ -120,7 +120,7 @@ func (app *ApiServer) v1TrackRemixes(c *fiber.Ctx) error {
 		GetTracksParams: dbv1.GetTracksParams{
 			Ids:          ids,
 			MyID:         myId,
-			AuthedWallet: app.getAuthedWalletOptional(c),
+			AuthedWallet: app.tryGetAuthedWallet(c),
 		},
 	})
 	if err != nil {

@@ -50,7 +50,7 @@ func (app *ApiServer) v1UserTracksCount(c *fiber.Ctx) error {
 	args := pgx.NamedArgs{
 		"user_id":       userId,
 		"my_id":         myId,
-		"authed_wallet": app.getAuthedWalletOptional(c),
+		"authed_wallet": app.tryGetAuthedWallet(c),
 	}
 
 	var count int

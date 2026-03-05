@@ -18,7 +18,7 @@ func (app *ApiServer) v1PlaylistStream(c *fiber.Ctx) error {
 			MyID: myId,
 			Ids:  []int32{int32(playlistId)},
 		},
-		AuthedWallet: app.getAuthedWalletOptional(c),
+		AuthedWallet: app.tryGetAuthedWallet(c),
 	})
 	if err != nil {
 		return err

@@ -112,7 +112,7 @@ func (app *ApiServer) queryFullComments(
 		UserIds:      userIds,
 		TrackIds:     trackIds,
 		MyID:         app.getMyId(c),
-		AuthedWallet: app.getAuthedWalletOptional(c),
+		AuthedWallet: app.tryGetAuthedWallet(c),
 	})
 	if err != nil {
 		return err

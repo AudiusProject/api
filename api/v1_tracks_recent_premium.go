@@ -42,9 +42,9 @@ func (app *ApiServer) v1TracksRecentPremium(c *fiber.Ctx) error {
 		OFFSET @offset;
 		`
 	args := pgx.NamedArgs{
-		"limit":        params.Limit,
-		"offset":       params.Offset,
-		"authed_wallet": app.getAuthedWalletOptional(c),
+		"limit":         params.Limit,
+		"offset":        params.Offset,
+		"authed_wallet": app.tryGetAuthedWallet(c),
 	}
 
 	rows, err := app.pool.Query(c.Context(), sql, args)
@@ -61,7 +61,7 @@ func (app *ApiServer) v1TracksRecentPremium(c *fiber.Ctx) error {
 		GetTracksParams: dbv1.GetTracksParams{
 			Ids:          trackIds,
 			MyID:         myId,
-			AuthedWallet: app.getAuthedWalletOptional(c),
+			AuthedWallet: app.tryGetAuthedWallet(c),
 		},
 	})
 

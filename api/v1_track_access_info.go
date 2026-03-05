@@ -56,9 +56,9 @@ func (app *ApiServer) v1TrackAccessInfo(c *fiber.Ctx) error {
 	// Get the track with extended information
 	tracks, err := app.queries.Tracks(c.Context(), dbv1.TracksParams{
 		GetTracksParams: dbv1.GetTracksParams{
-			MyID:          myId,
-			Ids:           []int32{int32(trackId)},
-			AuthedWallet:  app.getAuthedWalletOptional(c),
+			MyID:            myId,
+			Ids:             []int32{int32(trackId)},
+			AuthedWallet:    app.tryGetAuthedWallet(c),
 			IncludeUnlisted: true,
 		},
 	})

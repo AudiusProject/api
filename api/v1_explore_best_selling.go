@@ -114,7 +114,7 @@ func (app *ApiServer) v1ExploreBestSelling(c *fiber.Ctx) error {
 			PlaylistIds:  playlistIds,
 			TrackIds:     trackIds,
 			MyID:         app.getMyId(c),
-			AuthedWallet: app.getAuthedWalletOptional(c),
+			AuthedWallet: app.tryGetAuthedWallet(c),
 		})
 		if err != nil {
 			return err

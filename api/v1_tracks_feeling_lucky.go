@@ -52,7 +52,7 @@ func (app *ApiServer) v1TracksFeelingLucky(c *fiber.Ctx) error {
 	rows, err := app.pool.Query(c.Context(), sql, pgx.NamedArgs{
 		"limit":         params.Limit,
 		"minFollowers":  params.MinFollowers,
-		"authed_wallet": app.getAuthedWalletOptional(c),
+		"authed_wallet": app.tryGetAuthedWallet(c),
 	})
 	if err != nil {
 		return err
@@ -67,7 +67,7 @@ func (app *ApiServer) v1TracksFeelingLucky(c *fiber.Ctx) error {
 		GetTracksParams: dbv1.GetTracksParams{
 			Ids:          trackIds,
 			MyID:         app.getMyId(c),
-			AuthedWallet: app.getAuthedWalletOptional(c),
+			AuthedWallet: app.tryGetAuthedWallet(c),
 		},
 	})
 

@@ -110,7 +110,7 @@ func (app *ApiServer) v1TrackComments(c *fiber.Ctx) error {
 		"myId":                       myId,
 		"track_id":                   trackId,
 		"karmaCommentCountThreshold": karmaCommentCountThreshold,
-		"authed_wallet":              app.getAuthedWalletOptional(c),
+		"authed_wallet":              app.tryGetAuthedWallet(c),
 	}
 
 	return app.queryFullComments(c, sql, args, true)

@@ -48,7 +48,7 @@ func (app *ApiServer) v1PlaylistsTop(c *fiber.Ctx) error {
 			MyID: myId,
 		},
 		OmitTracks:   true,
-		AuthedWallet: app.getAuthedWalletOptional(c),
+		AuthedWallet: app.tryGetAuthedWallet(c),
 	})
 
 	return v1PlaylistsResponse(c, playlists)

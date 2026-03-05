@@ -110,7 +110,7 @@ func (app *ApiServer) v1TrackCommentCount(c *fiber.Ctx) error {
 		"myId":                       myId,
 		"trackId":                    trackId,
 		"karmaCommentCountThreshold": karmaCommentCountThreshold,
-		"authed_wallet":              app.getAuthedWalletOptional(c),
+		"authed_wallet":              app.tryGetAuthedWallet(c),
 	})
 	if err != nil {
 		return err

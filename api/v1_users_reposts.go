@@ -83,7 +83,7 @@ func (app *ApiServer) v1UsersReposts(c *fiber.Ctx) error {
 		TrackIds:     trackIds,
 		PlaylistIds:  playlistIds,
 		MyID:         myId,
-		AuthedWallet: app.getAuthedWalletOptional(c),
+		AuthedWallet: app.tryGetAuthedWallet(c),
 	})
 	if err != nil {
 		return err

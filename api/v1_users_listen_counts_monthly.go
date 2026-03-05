@@ -37,10 +37,10 @@ func (app *ApiServer) v1UsersListenCountsMonthly(c *fiber.Ctx) error {
 	`
 
 	rows, err := app.pool.Query(c.Context(), sql, pgx.NamedArgs{
-		"userId":       app.getUserId(c),
-		"startTime":   params.StartTime,
-		"endTime":     params.EndTime,
-		"authed_wallet": app.getAuthedWalletOptional(c),
+		"userId":        app.getUserId(c),
+		"startTime":     params.StartTime,
+		"endTime":       params.EndTime,
+		"authed_wallet": app.tryGetAuthedWallet(c),
 	})
 	if err != nil {
 		return err

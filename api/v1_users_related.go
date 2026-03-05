@@ -177,11 +177,11 @@ func (app *ApiServer) v1UsersRelated(c *fiber.Ctx) error {
 	}
 
 	return app.queryUsers(c, sql, pgx.NamedArgs{
-		"myId":          app.getMyId(c),
-		"userId":        app.getUserId(c),
+		"myId":           app.getMyId(c),
+		"userId":         app.getUserId(c),
 		"filterFollowed": params.FilterFollowed,
-		"limit":         limit,
-		"offset":        params.Offset,
-		"authed_wallet": app.getAuthedWalletOptional(c),
+		"limit":          limit,
+		"offset":         params.Offset,
+		"authed_wallet":  app.tryGetAuthedWallet(c),
 	})
 }
