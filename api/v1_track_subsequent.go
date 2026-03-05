@@ -33,8 +33,6 @@ func (app *ApiServer) v1TrackSubsequent(c *fiber.Ctx) error {
 		FROM tracks
 		WHERE track_id = @trackId
 		AND is_current = true
-		AND stem_of IS NULL
-		AND access_authorities IS NULL
 		LIMIT 1
 	),
     same_block_tracks AS (
@@ -42,8 +40,6 @@ func (app *ApiServer) v1TrackSubsequent(c *fiber.Ctx) error {
         FROM tracks
         WHERE is_current = true AND created_at = (SELECT created_at from current_track)
 		AND track_id > @trackId
-		AND stem_of IS NULL
-		AND access_authorities IS NULL
         ORDER BY track_id ASC
         LIMIT @limit
     ),
@@ -51,8 +47,6 @@ func (app *ApiServer) v1TrackSubsequent(c *fiber.Ctx) error {
         SELECT track_id, created_at
         FROM tracks
         WHERE is_current = true AND created_at > (SELECT created_at from current_track)
-		AND stem_of IS NULL
-		AND access_authorities IS NULL
         ORDER by created_at ASC, track_ID ASC
         LIMIT @limit
     ),
