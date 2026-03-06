@@ -83,12 +83,12 @@ func (app *ApiServer) v1UsersFeed(c *fiber.Ctx) error {
 			SELECT
 				'track' as entity_type,
 				track_id as entity_id,
-				created_at
+				GREATEST(tracks.created_at, COALESCE(tracks.release_date, tracks.created_at)) as created_at
 			from tracks
 			join follow_set on owner_id = user_id
 			where @filter in ('all', 'original')
-				AND created_at < @before
-				AND created_at >= @before::timestamp - INTERVAL '1 YEAR'
+				AND GREATEST(tracks.created_at, COALESCE(tracks.release_date, tracks.created_at)) < @before
+				AND GREATEST(tracks.created_at, COALESCE(tracks.release_date, tracks.created_at)) >= @before::timestamp - INTERVAL '1 YEAR'
 				AND is_unlisted = false
 				AND is_delete = false
 				AND stem_of is null
