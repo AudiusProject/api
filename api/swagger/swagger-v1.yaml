@@ -31,7 +31,7 @@ info:
     name: Audius
     url: https://audius.co
   x-logo:
-    url: https://audius.co/favicon.ico
+    url: https://audius.co/favicons/favicon.ico
 servers:
   - url: https://api.audius.co/v1
     description: Production
