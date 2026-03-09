@@ -13,6 +13,7 @@ import (
 	"time"
 
 	"api.audius.co/database"
+	"api.audius.co/trashid"
 
 	"github.com/gofiber/fiber/v2"
 	"github.com/stretchr/testify/assert"
@@ -823,4 +824,28 @@ func TestAuthMiddleware_PKCEToken_InvalidToken(t *testing.T) {
 	require.NoError(t, err)
 	assert.Equal(t, 200, res.StatusCode)
 	assert.Equal(t, "", authedWallet)
+}
+
+func TestAuthMiddleware_PKCEToken_UserIDMismatch(t *testing.T) {
+	app := emptyTestApp(t)
+	clientID := seedOAuthTestData(t, app)
+
+	// Token belongs to user 100
+	familyID := "test-family-mismatch"
+	accessToken, _ := insertTestTokens(t, app, clientID, 100, "write", familyID, time.Hour, 30*24*time.Hour)
+
+	testApp := fiber.New()
+	testApp.Use(app.resolveMyIdMiddleware)
+	testApp.Use(app.authMiddleware)
+	testApp.Get("/test", func(c *fiber.Ctx) error {
+		return c.SendStatus(200)
+	})
+
+	// Request is for user 200 (different from token's user 100)
+	req := httptest.NewRequest("GET", "/test?user_id="+trashid.MustEncodeHashID(200), nil)
+	req.Header.Set("Authorization", "Bearer "+accessToken)
+	res, err := testApp.Test(req, -1)
+	require.NoError(t, err)
+	// Should be rejected because the token's user_id (100) does not match the requested user_id (200)
+	assert.Equal(t, 403, res.StatusCode)
 }
