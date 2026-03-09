@@ -80,6 +80,11 @@ type oauthTokenCacheEntry struct {
 // v1OAuthAuthorize handles POST /v1/oauth/authorize
 // Called by the audius.co consent screen after the user authenticates.
 func (app *ApiServer) v1OAuthAuthorize(c *fiber.Ctx) error {
+	if app.writePool == nil {
+		app.logger.Error("Write pool not configured")
+		return oauthError(c, fiber.StatusInternalServerError, "server_error", "Database write not available")
+	}
+
 	var body oauthAuthorizeBody
 	if err := c.BodyParser(&body); err != nil {
 		return oauthError(c, fiber.StatusBadRequest, "invalid_request", "Invalid request body")
@@ -181,6 +186,11 @@ func (app *ApiServer) v1OAuthAuthorize(c *fiber.Ctx) error {
 // v1OAuthToken handles POST /v1/oauth/token
 // Supports grant_type=authorization_code and grant_type=refresh_token.
 func (app *ApiServer) v1OAuthToken(c *fiber.Ctx) error {
+	if app.writePool == nil {
+		app.logger.Error("Write pool not configured")
+		return oauthError(c, fiber.StatusInternalServerError, "server_error", "Database write not available")
+	}
+
 	var body oauthTokenBody
 	if err := c.BodyParser(&body); err != nil {
 		return oauthError(c, fiber.StatusBadRequest, "invalid_request", "Invalid request body")
@@ -412,6 +422,11 @@ func (app *ApiServer) oauthTokenRefreshToken(c *fiber.Ctx, body *oauthTokenBody)
 // v1OAuthRevoke handles POST /v1/oauth/revoke
 // Per RFC 7009 §2.2, always returns 200 regardless of whether the token was valid.
 func (app *ApiServer) v1OAuthRevoke(c *fiber.Ctx) error {
+	if app.writePool == nil {
+		app.logger.Error("Write pool not configured")
+		return oauthError(c, fiber.StatusInternalServerError, "server_error", "Database write not available")
+	}
+
 	var body oauthRevokeBody
 	if err := c.BodyParser(&body); err != nil {
 		// Per RFC 7009, even for bad requests we should be lenient,
@@ -592,6 +607,9 @@ func (app *ApiServer) lookupOAuthAccessToken(c *fiber.Ctx, token string) (oauthT
 // all tokens in the family and delete them from cache individually.
 func (app *ApiServer) invalidateOAuthTokenCacheByFamily(ctx context.Context, familyID string) {
 	if app.oauthTokenCache == nil {
+		return
+	}
+	if app.writePool == nil {
 		return
 	}
 
