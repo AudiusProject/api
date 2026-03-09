@@ -235,62 +235,32 @@ function BearerTokenField({
         >
           {copied ? messages.copied : messages.copy}
         </Button>
-        <span
-          role="button"
-          tabIndex={0}
-          onClick={(e) => {
-            e.stopPropagation();
-            void handleRevoke();
-          }}
-          onKeyDown={(e) => {
-            if (e.key === "Enter" || e.key === " ") {
-              e.preventDefault();
+        <Tooltip text={messages.revokeToken} placement="top">
+          <IconButton
+            icon={IconClose}
+            size="s"
+            color="danger"
+            aria-label={messages.revokeToken}
+            disabled={pending}
+            onClick={(e) => {
+              e.stopPropagation();
               void handleRevoke();
-            }
-          }}
-          css={css`
-            display: inline-flex;
-            cursor: pointer;
-          `}
-        >
-          <Tooltip text={messages.revokeToken} placement="top">
-            <IconButton
-              icon={IconClose}
-              size="s"
-              color="danger"
-              aria-label={messages.revokeToken}
-              disabled={pending}
-            />
-          </Tooltip>
-        </span>
-        <span
-          role="button"
-          tabIndex={0}
-          onClick={(e) => {
-            e.stopPropagation();
-            void handleAdd();
-          }}
-          onKeyDown={(e) => {
-            if (e.key === "Enter" || e.key === " ") {
-              e.preventDefault();
+            }}
+          />
+        </Tooltip>
+        <Tooltip text={messages.newBearerToken} placement="top">
+          <IconButton
+            icon={IconPlus}
+            size="s"
+            color="success"
+            aria-label={messages.newBearerToken}
+            disabled={pending}
+            onClick={(e) => {
+              e.stopPropagation();
               void handleAdd();
-            }
-          }}
-          css={css`
-            display: inline-flex;
-            cursor: pointer;
-          `}
-        >
-          <Tooltip text={messages.newBearerToken} placement="top">
-            <IconButton
-              icon={IconPlus}
-              size="s"
-              color="success"
-              aria-label={messages.newBearerToken}
-              disabled={pending}
-            />
-          </Tooltip>
-        </span>
+            }}
+          />
+        </Tooltip>
       </Flex>
     </Flex>
   );
