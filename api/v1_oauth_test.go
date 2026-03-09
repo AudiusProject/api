@@ -4,6 +4,7 @@ import (
 	"context"
 	"crypto/sha256"
 	"encoding/base64"
+	"encoding/hex"
 	"encoding/json"
 	"fmt"
 	"io"
@@ -13,12 +14,17 @@ import (
 	"time"
 
 	"api.audius.co/database"
-
+	"api.audius.co/trashid"
+	"github.com/ethereum/go-ethereum/crypto"
 	"github.com/gofiber/fiber/v2"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"github.com/tidwall/gjson"
 )
+
+// oauthTestPrivKeyHex is the private key used to sign test JWTs for /v1/oauth/authorize.
+// The corresponding Ethereum wallet address is 0x58802e7a660990622b728bf06ae9361bc9403eb7.
+const oauthTestPrivKeyHex = "0633fddb74e32b3cbc64382e405146319c11a1a52dc96598e557c5dbe2f31468"
 
 // seedOAuthTestData seeds the database with test data for OAuth tests.
 // Uses database.Seed for standard tables and database.SeedTable for OAuth tables.
@@ -33,7 +39,7 @@ func seedOAuthTestData(t *testing.T, app *ApiServer) string {
 				"user_id":   100,
 				"handle":    "oauthuser",
 				"handle_lc": "oauthuser",
-				"wallet":    "0xoauthuserwallet000000000000000000000000",
+				"wallet":    "0x58802e7a660990622b728bf06ae9361bc9403eb7",
 				"name":      "OAuth User",
 			},
 		},
@@ -133,6 +139,275 @@ func oauthGetWithBearer(t *testing.T, app *ApiServer, path, token string) (int, 
 	require.NoError(t, err)
 	body, _ := io.ReadAll(res.Body)
 	return res.StatusCode, body
+}
+
+// makeOAuthJWT generates a valid Ethereum-signed JWT for use in /v1/oauth/authorize tests.
+// privKeyHex is an unpadded hex-encoded secp256k1 private key.
+// The JWT payload contains the base64url-encoded userId and the current unix timestamp as iat.
+func makeOAuthJWT(t *testing.T, userID int, privKeyHex string) string {
+	t.Helper()
+	privKey, err := crypto.HexToECDSA(privKeyHex)
+	require.NoError(t, err)
+
+	encodedUID := trashid.MustEncodeHashID(userID)
+	header := base64.RawURLEncoding.EncodeToString([]byte(`{"alg":"ES256"}`))
+	payloadJSON := fmt.Sprintf(`{"userId":"%s","iat":%d}`, encodedUID, time.Now().Unix())
+	payload := base64.RawURLEncoding.EncodeToString([]byte(payloadJSON))
+
+	message := header + "." + payload
+	prefixedMsg := []byte(fmt.Sprintf("\x19Ethereum Signed Message:\n%d%s", len(message), message))
+	finalHash := crypto.Keccak256Hash(prefixedMsg)
+
+	sigBytes, err := crypto.Sign(finalHash.Bytes(), privKey)
+	require.NoError(t, err)
+
+	sigHex := "0x" + hex.EncodeToString(sigBytes)
+	sigB64 := base64.RawURLEncoding.EncodeToString([]byte(sigHex))
+
+	return header + "." + payload + "." + sigB64
+}
+
+// --- /oauth/authorize ---
+
+func TestOAuthAuthorize(t *testing.T) {
+	app := emptyTestApp(t)
+	clientID := seedOAuthTestData(t, app)
+
+	token := makeOAuthJWT(t, 100, oauthTestPrivKeyHex)
+	h := sha256.Sum256([]byte("verifier"))
+	codeChallenge := base64.RawURLEncoding.EncodeToString(h[:])
+
+	status, body := oauthPostJSON(t, app, "/v1/oauth/authorize", map[string]string{
+		"token":                 token,
+		"client_id":             clientID,
+		"redirect_uri":          "https://example.com/callback",
+		"code_challenge":        codeChallenge,
+		"code_challenge_method": "S256",
+		"scope":                 "read",
+	})
+
+	assert.Equal(t, 200, status)
+	assert.True(t, gjson.GetBytes(body, "code").Exists())
+	assert.NotEmpty(t, gjson.GetBytes(body, "code").String())
+}
+
+func TestOAuthAuthorize_WriteScope(t *testing.T) {
+	app := emptyTestApp(t)
+	clientID := seedOAuthTestData(t, app)
+
+	token := makeOAuthJWT(t, 100, oauthTestPrivKeyHex)
+	h := sha256.Sum256([]byte("verifier"))
+	codeChallenge := base64.RawURLEncoding.EncodeToString(h[:])
+
+	status, body := oauthPostJSON(t, app, "/v1/oauth/authorize", map[string]string{
+		"token":                 token,
+		"client_id":             clientID,
+		"redirect_uri":          "https://example.com/callback",
+		"code_challenge":        codeChallenge,
+		"code_challenge_method": "S256",
+		"scope":                 "write",
+	})
+
+	// User 100 has an approved grant for clientID, so write scope succeeds
+	assert.Equal(t, 200, status)
+	assert.True(t, gjson.GetBytes(body, "code").Exists())
+	assert.NotEmpty(t, gjson.GetBytes(body, "code").String())
+}
+
+func TestOAuthAuthorize_MissingToken(t *testing.T) {
+	app := emptyTestApp(t)
+	clientID := seedOAuthTestData(t, app)
+
+	status, body := oauthPostJSON(t, app, "/v1/oauth/authorize", map[string]string{
+		"client_id":             clientID,
+		"redirect_uri":          "https://example.com/callback",
+		"code_challenge":        "somechallenge",
+		"code_challenge_method": "S256",
+		"scope":                 "read",
+	})
+
+	assert.Equal(t, 400, status)
+	jsonAssert(t, body, map[string]any{"error": "invalid_request"})
+}
+
+func TestOAuthAuthorize_MissingClientID(t *testing.T) {
+	app := emptyTestApp(t)
+	seedOAuthTestData(t, app)
+
+	token := makeOAuthJWT(t, 100, oauthTestPrivKeyHex)
+
+	status, body := oauthPostJSON(t, app, "/v1/oauth/authorize", map[string]string{
+		"token":                 token,
+		"redirect_uri":          "https://example.com/callback",
+		"code_challenge":        "somechallenge",
+		"code_challenge_method": "S256",
+		"scope":                 "read",
+	})
+
+	assert.Equal(t, 400, status)
+	jsonAssert(t, body, map[string]any{"error": "invalid_request"})
+}
+
+func TestOAuthAuthorize_MissingRedirectURI(t *testing.T) {
+	app := emptyTestApp(t)
+	clientID := seedOAuthTestData(t, app)
+
+	token := makeOAuthJWT(t, 100, oauthTestPrivKeyHex)
+
+	status, body := oauthPostJSON(t, app, "/v1/oauth/authorize", map[string]string{
+		"token":                 token,
+		"client_id":             clientID,
+		"code_challenge":        "somechallenge",
+		"code_challenge_method": "S256",
+		"scope":                 "read",
+	})
+
+	assert.Equal(t, 400, status)
+	jsonAssert(t, body, map[string]any{"error": "invalid_request"})
+}
+
+func TestOAuthAuthorize_MissingCodeChallenge(t *testing.T) {
+	app := emptyTestApp(t)
+	clientID := seedOAuthTestData(t, app)
+
+	token := makeOAuthJWT(t, 100, oauthTestPrivKeyHex)
+
+	status, body := oauthPostJSON(t, app, "/v1/oauth/authorize", map[string]string{
+		"token":                 token,
+		"client_id":             clientID,
+		"redirect_uri":          "https://example.com/callback",
+		"code_challenge_method": "S256",
+		"scope":                 "read",
+	})
+
+	assert.Equal(t, 400, status)
+	jsonAssert(t, body, map[string]any{"error": "invalid_request"})
+}
+
+func TestOAuthAuthorize_MissingScope(t *testing.T) {
+	app := emptyTestApp(t)
+	clientID := seedOAuthTestData(t, app)
+
+	token := makeOAuthJWT(t, 100, oauthTestPrivKeyHex)
+
+	status, body := oauthPostJSON(t, app, "/v1/oauth/authorize", map[string]string{
+		"token":                 token,
+		"client_id":             clientID,
+		"redirect_uri":          "https://example.com/callback",
+		"code_challenge":        "somechallenge",
+		"code_challenge_method": "S256",
+	})
+
+	assert.Equal(t, 400, status)
+	jsonAssert(t, body, map[string]any{"error": "invalid_request"})
+}
+
+func TestOAuthAuthorize_InvalidCodeChallengeMethod(t *testing.T) {
+	app := emptyTestApp(t)
+	clientID := seedOAuthTestData(t, app)
+
+	// Required fields all present, but code_challenge_method is not S256
+	status, body := oauthPostJSON(t, app, "/v1/oauth/authorize", map[string]string{
+		"token":                 "dummy.token.value",
+		"client_id":             clientID,
+		"redirect_uri":          "https://example.com/callback",
+		"code_challenge":        "somechallenge",
+		"code_challenge_method": "plain",
+		"scope":                 "read",
+	})
+
+	assert.Equal(t, 400, status)
+	jsonAssert(t, body, map[string]any{"error": "invalid_request"})
+	assert.Contains(t, gjson.GetBytes(body, "error_description").String(), "S256")
+}
+
+func TestOAuthAuthorize_InvalidScope(t *testing.T) {
+	app := emptyTestApp(t)
+	clientID := seedOAuthTestData(t, app)
+
+	// Required fields all present, but scope is not read/write
+	status, body := oauthPostJSON(t, app, "/v1/oauth/authorize", map[string]string{
+		"token":                 "dummy.token.value",
+		"client_id":             clientID,
+		"redirect_uri":          "https://example.com/callback",
+		"code_challenge":        "somechallenge",
+		"code_challenge_method": "S256",
+		"scope":                 "admin",
+	})
+
+	assert.Equal(t, 400, status)
+	jsonAssert(t, body, map[string]any{"error": "invalid_request"})
+}
+
+func TestOAuthAuthorize_InvalidToken(t *testing.T) {
+	app := emptyTestApp(t)
+	clientID := seedOAuthTestData(t, app)
+
+	// All required fields valid, but token is not a proper signed JWT
+	status, body := oauthPostJSON(t, app, "/v1/oauth/authorize", map[string]string{
+		"token":                 "not.a.validjwt",
+		"client_id":             clientID,
+		"redirect_uri":          "https://example.com/callback",
+		"code_challenge":        "somechallenge",
+		"code_challenge_method": "S256",
+		"scope":                 "read",
+	})
+
+	assert.Equal(t, 401, status)
+	jsonAssert(t, body, map[string]any{"error": "access_denied"})
+}
+
+func TestOAuthAuthorize_UnknownClientID(t *testing.T) {
+	app := emptyTestApp(t)
+	seedOAuthTestData(t, app)
+
+	token := makeOAuthJWT(t, 100, oauthTestPrivKeyHex)
+	h := sha256.Sum256([]byte("verifier"))
+	codeChallenge := base64.RawURLEncoding.EncodeToString(h[:])
+
+	status, body := oauthPostJSON(t, app, "/v1/oauth/authorize", map[string]string{
+		"token":                 token,
+		"client_id":             "0xdeadbeef000000000000000000000000000000ff",
+		"redirect_uri":          "https://example.com/callback",
+		"code_challenge":        codeChallenge,
+		"code_challenge_method": "S256",
+		"scope":                 "read",
+	})
+
+	assert.Equal(t, 400, status)
+	jsonAssert(t, body, map[string]any{"error": "invalid_client"})
+}
+
+func TestOAuthAuthorize_WriteScope_NoGrant(t *testing.T) {
+	app := emptyTestApp(t)
+	seedOAuthTestData(t, app)
+
+	// Add a second developer app that has no grant for user 100
+	clientIDNoGrant := "0xbbcc000000000000000000000000000000000002"
+	database.SeedTable(app.pool.Replicas[0], "developer_apps", []map[string]any{
+		{
+			"address":   clientIDNoGrant,
+			"user_id":   100,
+			"name":      "App Without Grant",
+			"is_delete": false,
+		},
+	})
+
+	token := makeOAuthJWT(t, 100, oauthTestPrivKeyHex)
+	h := sha256.Sum256([]byte("verifier"))
+	codeChallenge := base64.RawURLEncoding.EncodeToString(h[:])
+
+	status, body := oauthPostJSON(t, app, "/v1/oauth/authorize", map[string]string{
+		"token":                 token,
+		"client_id":             clientIDNoGrant,
+		"redirect_uri":          "https://example.com/callback",
+		"code_challenge":        codeChallenge,
+		"code_challenge_method": "S256",
+		"scope":                 "write",
+	})
+
+	assert.Equal(t, 403, status)
+	jsonAssert(t, body, map[string]any{"error": "access_denied"})
 }
 
 // --- /oauth/token (authorization_code grant) ---
