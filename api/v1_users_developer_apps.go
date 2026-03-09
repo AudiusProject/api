@@ -217,10 +217,11 @@ func (app *ApiServer) putV1UsersDeveloperApp(c *fiber.Ctx) error {
 	plansAddress := strings.ToLower(crypto.PubkeyToAddress(plansKey.PublicKey).Hex())
 
 	metadataObj := map[string]interface{}{
-		"address":     address,
-		"name":        name,
-		"description": req.Description,
-		"image_url":   req.ImageUrl,
+		"address":       address,
+		"name":          name,
+		"description":   req.Description,
+		"image_url":     req.ImageUrl,
+		"redirect_uris": req.RedirectURIs,
 	}
 	metadataBytes, _ := json.Marshal(metadataObj)
 
@@ -241,20 +242,6 @@ func (app *ApiServer) putV1UsersDeveloperApp(c *fiber.Ctx) error {
 		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{
 			"error": "Failed to update developer app",
 		})
-	}
-
-	// Persist redirect URIs: replace existing set
-	if app.writePool != nil {
-		_, err = app.writePool.Exec(c.Context(), `DELETE FROM oauth_redirect_uris WHERE client_id = $1`, address)
-		if err != nil {
-			app.logger.Error("Failed to clear redirect URIs", zap.Error(err))
-		}
-		for _, uri := range req.RedirectURIs {
-			_, err = app.writePool.Exec(c.Context(), `INSERT INTO oauth_redirect_uris (client_id, redirect_uri) VALUES ($1, $2)`, address, uri)
-			if err != nil {
-				app.logger.Error("Failed to insert redirect URI", zap.Error(err))
-			}
-		}
 	}
 
 	return c.JSON(fiber.Map{
@@ -343,6 +330,7 @@ func (app *ApiServer) postV1UsersDeveloperApp(c *fiber.Ctx) error {
 			"message":   message,
 			"signature": signatureHex,
 		},
+		"redirect_uris": req.RedirectURIs,
 	}
 	metadataBytes, _ := json.Marshal(metadataObj)
 
@@ -403,18 +391,6 @@ func (app *ApiServer) postV1UsersDeveloperApp(c *fiber.Ctx) error {
 		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{
 			"error": "Failed to create developer app",
 		})
-	}
-
-	// Persist redirect URIs
-	_, err = app.writePool.Exec(c.Context(), `DELETE FROM oauth_redirect_uris WHERE client_id = $1`, address)
-	if err != nil {
-		app.logger.Error("Failed to clear redirect URIs", zap.Error(err))
-	}
-	for _, uri := range req.RedirectURIs {
-		_, err = app.writePool.Exec(c.Context(), `INSERT INTO oauth_redirect_uris (client_id, redirect_uri) VALUES ($1, $2)`, address, uri)
-		if err != nil {
-			app.logger.Error("Failed to insert redirect URI", zap.Error(err))
-		}
 	}
 
 	return c.JSON(fiber.Map{
