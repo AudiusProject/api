@@ -268,10 +268,12 @@ func (app *ApiServer) authMiddleware(c *fiber.Ctx) error {
 		// PKCE token fallback: resolve opaque Bearer token from oauth_tokens
 		if wallet == "" && bearerToken != "" {
 			if entry, ok := app.lookupOAuthAccessToken(c, bearerToken); ok {
-				wallet = strings.ToLower(entry.ClientID)
-				if myId == 0 {
-					myId = entry.UserID
-					c.Locals("myId", int(entry.UserID))
+				if myId == 0 || entry.UserID == myId {
+					wallet = strings.ToLower(entry.ClientID)
+					if myId == 0 {
+						myId = entry.UserID
+						c.Locals("myId", int(entry.UserID))
+					}
 				}
 			}
 		}
