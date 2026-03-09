@@ -305,7 +305,7 @@ const UnlimitedPlanGraphic = () => (
 );
 
 function getPrimaryProfilePictureUrl(
-  profilePicture?: ProfilePictureData | null,
+  profilePicture?: ProfilePictureData | null
 ): string | undefined {
   if (!profilePicture) return undefined;
   return (
@@ -319,7 +319,7 @@ function getPrimaryProfilePictureUrl(
 }
 
 function getProfilePictureMirrors(
-  profilePicture?: ProfilePictureData | null,
+  profilePicture?: ProfilePictureData | null
 ): string[] {
   return profilePicture?.mirrors ?? [];
 }
@@ -430,9 +430,7 @@ function CopyableCodeBlock({ code }: { code: string }) {
           line-height: 1.5;
           border: 1px solid var(--harmony-neutral-neutral-3, #e8e8e8);
           cursor: pointer;
-          transition:
-            background 0.15s,
-            border-color 0.15s;
+          transition: background 0.15s, border-color 0.15s;
           &:hover {
             background: var(--harmony-neutral-neutral-2, #f0f0f0);
             border-color: var(--harmony-neutral-neutral-4, #d8d8d8);
@@ -779,7 +777,7 @@ export default function App() {
           sub?: string | number;
           handle?: string;
         },
-        token?: string,
+        token?: string
       ) => {
         const user: OAuthUser = {
           userId: String(profile.userId ?? profile.sub ?? ""),
@@ -804,10 +802,14 @@ export default function App() {
           {
             headers: {
               ...(sessionStorage.getItem(OAUTH_TOKEN_KEY)
-              ? { Authorization: `Bearer ${sessionStorage.getItem(OAUTH_TOKEN_KEY)}` }
-              : {}),
+                ? {
+                    Authorization: `Bearer ${sessionStorage.getItem(
+                      OAUTH_TOKEN_KEY
+                    )}`,
+                  }
+                : {}),
             },
-          },
+          }
         );
         if (appsRes.ok) {
           const { data } = (await appsRes.json()) as { data: DeveloperApp[] };
@@ -817,7 +819,7 @@ export default function App() {
             mergeApp?.address &&
             !apps.some(
               (a) =>
-                a.address?.toLowerCase() === mergeApp.address?.toLowerCase(),
+                a.address?.toLowerCase() === mergeApp.address?.toLowerCase()
             )
           ) {
             apps = [mergeApp, ...apps];
@@ -828,25 +830,28 @@ export default function App() {
         // ignore
       }
     },
-    [oauthUser?.userId],
+    [oauthUser?.userId]
   );
 
   const handleCreateKey = useCallback(
     async (name: string) => {
       if (!oauthUser?.userId) throw new Error("Not logged in");
       const token = sessionStorage.getItem(OAUTH_TOKEN_KEY);
-      const res = await fetch(`${API_BASE}/v1/developer-apps?user_id=${oauthUser.userId}`, {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          ...(token ? { Authorization: `Bearer ${token}` } : {}),
-        },
-        body: JSON.stringify({ name }),
-      });
+      const res = await fetch(
+        `${API_BASE}/v1/developer-apps?user_id=${oauthUser.userId}`,
+        {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            ...(token ? { Authorization: `Bearer ${token}` } : {}),
+          },
+          body: JSON.stringify({ name }),
+        }
+      );
       if (!res.ok) {
         const err = await res.json().catch(() => ({}));
         throw new Error(
-          (err as { error?: string })?.error ?? "Failed to create key",
+          (err as { error?: string })?.error ?? "Failed to create key"
         );
       }
       const result = (await res.json()) as {
@@ -857,7 +862,7 @@ export default function App() {
       };
       if (result.api_key != null && result.bearer_token != null) {
         navigator.clipboard.writeText(
-          `API Key: ${result.api_key}\nBearer Token: ${result.bearer_token}`,
+          `API Key: ${result.api_key}\nBearer Token: ${result.bearer_token}`
         );
       }
       // Optimistically add new app and reload; merge ensures it stays visible if indexer hasn't processed yet
@@ -879,7 +884,7 @@ export default function App() {
       // Retry after delay to pick up real data once indexer processes the new app
       setTimeout(() => loadDeveloperApps(optimisticApp), 5000);
     },
-    [oauthUser?.userId, loadDeveloperApps],
+    [oauthUser?.userId, loadDeveloperApps]
   );
 
   const handleDeactivateAccessKey = useCallback(
@@ -887,7 +892,9 @@ export default function App() {
       if (oauthUser?.userId == null) throw new Error("Not logged in");
       const token = sessionStorage.getItem(OAUTH_TOKEN_KEY);
       const res = await fetch(
-        `${API_BASE}/v1/developer-apps/${encodeURIComponent(app.address)}/access-keys/deactivate?user_id=${oauthUser.userId}`,
+        `${API_BASE}/v1/developer-apps/${encodeURIComponent(
+          app.address
+        )}/access-keys/deactivate?user_id=${oauthUser.userId}`,
         {
           method: "POST",
           headers: {
@@ -895,12 +902,12 @@ export default function App() {
             ...(token != null ? { Authorization: `Bearer ${token}` } : {}),
           },
           body: JSON.stringify({ api_access_key: apiAccessKey }),
-        },
+        }
       );
       if (!res.ok) {
         const err = await res.json().catch(() => ({}));
         throw new Error(
-          (err as { error?: string })?.error ?? "Failed to revoke bearer token",
+          (err as { error?: string })?.error ?? "Failed to revoke bearer token"
         );
       }
       setDeveloperApps((prev) =>
@@ -908,13 +915,13 @@ export default function App() {
           if (a.address?.toLowerCase() !== app.address?.toLowerCase()) return a;
           const keys =
             a.api_access_keys?.filter(
-              (k) => k.api_access_key !== apiAccessKey,
+              (k) => k.api_access_key !== apiAccessKey
             ) ?? [];
           return { ...a, api_access_keys: keys };
-        }),
+        })
       );
     },
-    [oauthUser?.userId],
+    [oauthUser?.userId]
   );
 
   const handleAddAccessKey = useCallback(
@@ -922,19 +929,21 @@ export default function App() {
       if (oauthUser?.userId == null) throw new Error("Not logged in");
       const token = sessionStorage.getItem(OAUTH_TOKEN_KEY);
       const res = await fetch(
-        `${API_BASE}/v1/developer-apps/${encodeURIComponent(app.address)}/access-keys?user_id=${oauthUser.userId}`,
+        `${API_BASE}/v1/developer-apps/${encodeURIComponent(
+          app.address
+        )}/access-keys?user_id=${oauthUser.userId}`,
         {
           method: "POST",
           headers: {
             "Content-Type": "application/json",
             ...(token != null ? { Authorization: `Bearer ${token}` } : {}),
           },
-        },
+        }
       );
       if (!res.ok) {
         const err = await res.json().catch(() => ({}));
         throw new Error(
-          (err as { error?: string })?.error ?? "Failed to create bearer token",
+          (err as { error?: string })?.error ?? "Failed to create bearer token"
         );
       }
       const result = (await res.json()) as { api_access_key: string };
@@ -949,12 +958,12 @@ export default function App() {
               is_active: true,
             });
             return { ...a, api_access_keys: keys };
-          }),
+          })
         );
         navigator.clipboard.writeText(result.api_access_key);
       }
     },
-    [oauthUser?.userId],
+    [oauthUser?.userId]
   );
 
   const handleDeleteApp = useCallback(
@@ -962,25 +971,27 @@ export default function App() {
       if (oauthUser?.userId == null) throw new Error("Not logged in");
       const token = sessionStorage.getItem(OAUTH_TOKEN_KEY);
       const res = await fetch(
-        `${API_BASE}/v1/developer-apps/${encodeURIComponent(app.address)}?user_id=${oauthUser.userId}`,
+        `${API_BASE}/v1/developer-apps/${encodeURIComponent(
+          app.address
+        )}?user_id=${oauthUser.userId}`,
         {
           method: "DELETE",
           headers: {
             ...(token != null ? { Authorization: `Bearer ${token}` } : {}),
           },
-        },
+        }
       );
       if (!res.ok) {
         const err = await res.json().catch(() => ({}));
         throw new Error(
-          (err as { error?: string })?.error ?? "Failed to delete API key",
+          (err as { error?: string })?.error ?? "Failed to delete API key"
         );
       }
       setDeleteAppModalApp(null);
       setDeveloperApps((prev) => prev.filter((a) => a.address !== app.address));
       loadDeveloperApps();
     },
-    [oauthUser?.userId, loadDeveloperApps],
+    [oauthUser?.userId, loadDeveloperApps]
   );
 
   /**
@@ -995,11 +1006,12 @@ export default function App() {
         const token = sessionStorage.getItem(OAUTH_TOKEN_KEY);
         const [userRes, appsRes] = await Promise.all([
           fetch(`${API_BASE}/v1/users/${encodeURIComponent(oauthUser.userId)}`),
-          fetch(`${API_BASE}/v1/users/${oauthUser.userId}/developer-apps?include=metrics`, {
-            headers: token
-              ? { Authorization: `Bearer ${token}` }
-              : undefined,
-          }),
+          fetch(
+            `${API_BASE}/v1/users/${oauthUser.userId}/developer-apps?include=metrics`,
+            {
+              headers: token ? { Authorization: `Bearer ${token}` } : undefined,
+            }
+          ),
         ]);
         const userData = userRes.ok
           ? (
@@ -1701,7 +1713,7 @@ export default function App() {
                             </Flex>
                             {!app.is_legacy &&
                             (app.api_access_keys?.length ?? 0) > 0
-                              ? (app.api_access_keys
+                              ? app.api_access_keys
                                   ?.filter((aak) => aak.is_active !== false)
                                   ?.map((aak, idx) => (
                                     <BearerTokenField
@@ -1711,12 +1723,12 @@ export default function App() {
                                       onRevoke={() =>
                                         handleDeactivateAccessKey(
                                           app,
-                                          aak.api_access_key,
+                                          aak.api_access_key
                                         )
                                       }
                                       onAdd={() => handleAddAccessKey(app)}
                                     />
-                                  )) ?? null)
+                                  )) ?? null
                               : null}
                           </Flex>
                         </Flex>

@@ -22,11 +22,12 @@ import (
 )
 
 type DeveloperApp struct {
-	Address     string         `json:"address" db:"address"`
-	UserId      trashid.HashId `json:"user_id" db:"user_id"`
-	Name        string         `json:"name" db:"name"`
-	Description *string        `json:"description" db:"description"`
-	ImageUrl    *string        `json:"image_url" db:"image_url"`
+	Address      string         `json:"address" db:"address"`
+	UserId       trashid.HashId `json:"user_id" db:"user_id"`
+	Name         string         `json:"name" db:"name"`
+	Description  *string        `json:"description" db:"description"`
+	ImageUrl     *string        `json:"image_url" db:"image_url"`
+	RedirectURIs []string       `json:"redirect_uris" db:"redirect_uris"`
 }
 
 type DeveloperAppWithMetrics struct {
@@ -39,18 +40,21 @@ type DeveloperAppWithMetrics struct {
 	RequestCountAllTime int64           `json:"request_count_all_time" db:"request_count_all_time"`
 	IsLegacy            bool            `json:"is_legacy" db:"is_legacy"`
 	APIAccessKeys       json.RawMessage `json:"api_access_keys" db:"api_access_keys"`
+	RedirectURIs        []string        `json:"redirect_uris" db:"redirect_uris"`
 }
 
 type CreateDeveloperAppRequest struct {
-	Name        string  `json:"name" validate:"required,min=1"`
-	Description *string `json:"description,omitempty"`
-	ImageUrl    *string `json:"image_url,omitempty"`
+	Name         string   `json:"name" validate:"required,min=1"`
+	Description  *string  `json:"description,omitempty"`
+	ImageUrl     *string  `json:"image_url,omitempty"`
+	RedirectURIs []string `json:"redirect_uris"`
 }
 
 type UpdateDeveloperAppRequest struct {
-	Name        string  `json:"name" validate:"required,min=1"`
-	Description *string `json:"description,omitempty"`
-	ImageUrl    *string `json:"image_url,omitempty"`
+	Name         string   `json:"name" validate:"required,min=1"`
+	Description  *string  `json:"description,omitempty"`
+	ImageUrl     *string  `json:"image_url,omitempty"`
+	RedirectURIs []string `json:"redirect_uris"`
 }
 
 func (app *ApiServer) v1UsersDeveloperApps(c *fiber.Ctx) error {
@@ -62,11 +66,19 @@ func (app *ApiServer) v1UsersDeveloperApps(c *fiber.Ctx) error {
 	}
 
 	sql := `
-		SELECT address, user_id, name, description, image_url
-		FROM developer_apps
-		WHERE user_id = @userId
-		AND developer_apps.is_current = true
-		AND developer_apps.is_delete = false
+		SELECT
+			da.address,
+			da.user_id,
+			da.name,
+			da.description,
+			da.image_url,
+			COALESCE(json_agg(oau.redirect_uri ORDER BY oau.id) FILTER (WHERE oau.redirect_uri IS NOT NULL), '[]'::json) AS redirect_uris
+		FROM developer_apps da
+		LEFT JOIN oauth_redirect_uris oau ON oau.client_id = da.address
+		WHERE da.user_id = @userId
+		AND da.is_current = true
+		AND da.is_delete = false
+		GROUP BY da.address, da.user_id, da.name, da.description, da.image_url
 	`
 
 	rows, err := app.pool.Query(c.Context(), sql, pgx.NamedArgs{
@@ -105,13 +117,19 @@ func (app *ApiServer) v1UsersDeveloperAppsWithMetrics(c *fiber.Ctx, userId int32
 				 FROM api_access_keys aak
 				 WHERE LOWER(aak.api_key) = LOWER(da.address) AND aak.is_active = true),
 				'[]'::json
-			) AS api_access_keys
+			) AS api_access_keys,
+			oau.redirect_uris
 		FROM developer_apps da
 		LEFT JOIN api_metrics_apps ama ON LOWER(ama.api_key) = LOWER(da.address)
+		LEFT JOIN LATERAL (
+			SELECT COALESCE(json_agg(redirect_uri ORDER BY id), '[]'::json) AS redirect_uris
+			FROM oauth_redirect_uris
+			WHERE client_id = da.address
+		) oau ON true
 		WHERE da.user_id = @userId
 			AND da.is_current = true
 			AND da.is_delete = false
-		GROUP BY da.address, da.user_id, da.name, da.description, da.image_url
+		GROUP BY da.address, da.user_id, da.name, da.description, da.image_url, oau.redirect_uris
 	`
 
 	rows, err := app.pool.Query(c.Context(), sql, pgx.NamedArgs{
@@ -199,10 +217,11 @@ func (app *ApiServer) putV1UsersDeveloperApp(c *fiber.Ctx) error {
 	plansAddress := strings.ToLower(crypto.PubkeyToAddress(plansKey.PublicKey).Hex())
 
 	metadataObj := map[string]interface{}{
-		"address":     address,
-		"name":        name,
-		"description": req.Description,
-		"image_url":   req.ImageUrl,
+		"address":       address,
+		"name":          name,
+		"description":   req.Description,
+		"image_url":     req.ImageUrl,
+		"redirect_uris": req.RedirectURIs,
 	}
 	metadataBytes, _ := json.Marshal(metadataObj)
 
@@ -311,6 +330,7 @@ func (app *ApiServer) postV1UsersDeveloperApp(c *fiber.Ctx) error {
 			"message":   message,
 			"signature": signatureHex,
 		},
+		"redirect_uris": req.RedirectURIs,
 	}
 	metadataBytes, _ := json.Marshal(metadataObj)
 

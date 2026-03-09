@@ -14,7 +14,8 @@ import { css } from "@emotion/react";
 
 const messages = {
   title: "Delete API Key",
-  description: "Are you sure you want to delete this API key? This action cannot be undone.",
+  description:
+    "Are you sure you want to delete this API key? This action cannot be undone.",
   cancel: "Cancel",
   confirm: "Delete",
   deleting: "Deleting...",
