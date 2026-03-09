@@ -47,14 +47,14 @@ type CreateDeveloperAppRequest struct {
 	Name         string   `json:"name" validate:"required,min=1"`
 	Description  *string  `json:"description,omitempty"`
 	ImageUrl     *string  `json:"image_url,omitempty"`
-	RedirectURIs []string `json:"redirect_uris"`
+	RedirectURIs []string `json:"redirect_uris" validate:"max=50,dive,max=2000"`
 }
 
 type UpdateDeveloperAppRequest struct {
 	Name         string   `json:"name" validate:"required,min=1"`
 	Description  *string  `json:"description,omitempty"`
 	ImageUrl     *string  `json:"image_url,omitempty"`
-	RedirectURIs []string `json:"redirect_uris"`
+	RedirectURIs []string `json:"redirect_uris" validate:"max=50,dive,max=2000"`
 }
 
 func (app *ApiServer) v1UsersDeveloperApps(c *fiber.Ctx) error {
