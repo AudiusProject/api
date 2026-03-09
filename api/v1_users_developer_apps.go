@@ -106,8 +106,8 @@ func (app *ApiServer) v1UsersDeveloperAppsWithMetrics(c *fiber.Ctx, userId int32
 			da.name,
 			da.description,
 			da.image_url,
-			COALESCE(SUM(ama.request_count) FILTER (WHERE ama.date >= DATE_TRUNC('month', CURRENT_DATE)::date AND ama.date <= CURRENT_DATE), 0)::bigint AS request_count,
-			COALESCE(SUM(ama.request_count), 0)::bigint AS request_count_all_time,
+			m.request_count,
+			m.request_count_all_time,
 			NOT EXISTS (
 				SELECT 1 FROM api_access_keys aak
 				WHERE LOWER(aak.api_key) = LOWER(da.address) AND aak.is_active = true
@@ -120,7 +120,13 @@ func (app *ApiServer) v1UsersDeveloperAppsWithMetrics(c *fiber.Ctx, userId int32
 			) AS api_access_keys,
 			oau.redirect_uris
 		FROM developer_apps da
-		LEFT JOIN api_metrics_apps ama ON LOWER(ama.api_key) = LOWER(da.address)
+		LEFT JOIN LATERAL (
+			SELECT
+				COALESCE(SUM(ama.request_count) FILTER (WHERE ama.date >= DATE_TRUNC('month', CURRENT_DATE)::date AND ama.date <= CURRENT_DATE), 0)::bigint AS request_count,
+				COALESCE(SUM(ama.request_count), 0)::bigint AS request_count_all_time
+			FROM api_metrics_apps ama
+			WHERE LOWER(ama.api_key) = LOWER(da.address)
+		) m ON true
 		LEFT JOIN LATERAL (
 			SELECT COALESCE(json_agg(redirect_uri ORDER BY id), '[]'::json) AS redirect_uris
 			FROM oauth_redirect_uris
@@ -129,7 +135,6 @@ func (app *ApiServer) v1UsersDeveloperAppsWithMetrics(c *fiber.Ctx, userId int32
 		WHERE da.user_id = @userId
 			AND da.is_current = true
 			AND da.is_delete = false
-		GROUP BY da.address, da.user_id, da.name, da.description, da.image_url, oau.redirect_uris
 	`
 
 	rows, err := app.pool.Query(c.Context(), sql, pgx.NamedArgs{
