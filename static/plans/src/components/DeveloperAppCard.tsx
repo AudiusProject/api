@@ -333,32 +333,20 @@ export function DeveloperAppCard({
                     </span>
                   </Tooltip>
                 ) : null}
-                <span
-                  role="button"
-                  tabIndex={0}
-                  onClick={(e) => {
-                    e.stopPropagation();
-                    onDelete(app);
-                  }}
-                  onKeyDown={(e) => {
-                    if (e.key === "Enter" || e.key === " ") {
-                      e.preventDefault();
+                <Tooltip text={messages.deleteApp} placement="top">
+                  <IconButton
+                    icon={IconTrash}
+                    size="s"
+                    aria-label={messages.deleteApp}
+                    onClick={(e) => {
+                      e.stopPropagation();
                       onDelete(app);
-                    }
-                  }}
-                  css={css`
-                    display: inline-flex;
-                    cursor: pointer;
-                  `}
-                >
-                  <Tooltip text={messages.deleteApp} placement="top">
-                    <IconButton
-                      icon={IconTrash}
-                      size="s"
-                      aria-label={messages.deleteApp}
-                    />
-                  </Tooltip>
-                </span>
+                    }}
+                    css={css`
+                      display: inline-flex;
+                    `}
+                  />
+                </Tooltip>
               </Flex>
               {app.description ? (
                 <Text color="subdued" variant="body">
