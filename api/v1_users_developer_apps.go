@@ -41,6 +41,18 @@ type DeveloperAppWithMetrics struct {
 	APIAccessKeys       json.RawMessage `json:"api_access_keys" db:"api_access_keys"`
 }
 
+type CreateDeveloperAppRequest struct {
+	Name        string  `json:"name" validate:"required,min=1"`
+	Description *string `json:"description,omitempty"`
+	ImageUrl    *string `json:"image_url,omitempty"`
+}
+
+type UpdateDeveloperAppRequest struct {
+	Name        string  `json:"name" validate:"required,min=1"`
+	Description *string `json:"description,omitempty"`
+	ImageUrl    *string `json:"image_url,omitempty"`
+}
+
 func (app *ApiServer) v1UsersDeveloperApps(c *fiber.Ctx) error {
 	userID := app.getUserId(c)
 	includeMetrics := c.Query("include") == "metrics"
@@ -119,12 +131,6 @@ func (app *ApiServer) v1UsersDeveloperAppsWithMetrics(c *fiber.Ctx, userId int32
 	})
 }
 
-type updateDeveloperAppBody struct {
-	Name        string  `json:"name"`
-	Description *string `json:"description"`
-	ImageUrl    *string `json:"imageUrl"`
-}
-
 func (app *ApiServer) putV1UsersDeveloperApp(c *fiber.Ctx) error {
 	userID := app.getMyId(c)
 	if userID == 0 {
@@ -143,13 +149,17 @@ func (app *ApiServer) putV1UsersDeveloperApp(c *fiber.Ctx) error {
 	}
 	address = strings.ToLower(address)
 
-	var body updateDeveloperAppBody
-	if err := c.BodyParser(&body); err != nil {
+	var req UpdateDeveloperAppRequest
+	if err := c.BodyParser(&req); err != nil {
 		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
-			"error": "Invalid request body",
+			"error": "Invalid request body: " + err.Error(),
 		})
 	}
-	name := strings.TrimSpace(body.Name)
+	if err := app.requestValidator.Validate(&req); err != nil {
+		return err
+	}
+
+	name := strings.TrimSpace(req.Name)
 	if name == "" {
 		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
 			"error": "name is required",
@@ -191,8 +201,8 @@ func (app *ApiServer) putV1UsersDeveloperApp(c *fiber.Ctx) error {
 	metadataObj := map[string]interface{}{
 		"address":     address,
 		"name":        name,
-		"description": body.Description,
-		"image_url":   body.ImageUrl,
+		"description": req.Description,
+		"image_url":   req.ImageUrl,
 	}
 	metadataBytes, _ := json.Marshal(metadataObj)
 
@@ -222,12 +232,6 @@ func (app *ApiServer) putV1UsersDeveloperApp(c *fiber.Ctx) error {
 	})
 }
 
-type createDeveloperAppBody struct {
-	Name        string  `json:"name"`
-	Description *string `json:"description"`
-	ImageUrl    *string `json:"image_url"`
-}
-
 func (app *ApiServer) postV1UsersDeveloperApp(c *fiber.Ctx) error {
 	userID := app.getMyId(c)
 	if userID == 0 {
@@ -236,13 +240,17 @@ func (app *ApiServer) postV1UsersDeveloperApp(c *fiber.Ctx) error {
 		})
 	}
 
-	var body createDeveloperAppBody
-	if err := c.BodyParser(&body); err != nil {
+	var req CreateDeveloperAppRequest
+	if err := c.BodyParser(&req); err != nil {
 		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
-			"error": "Invalid request body",
+			"error": "Invalid request body: " + err.Error(),
 		})
 	}
-	name := strings.TrimSpace(body.Name)
+	if err := app.requestValidator.Validate(&req); err != nil {
+		return err
+	}
+
+	name := strings.TrimSpace(req.Name)
 	if name == "" {
 		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
 			"error": "name is required",
@@ -297,8 +305,8 @@ func (app *ApiServer) postV1UsersDeveloperApp(c *fiber.Ctx) error {
 	metadataObj := map[string]interface{}{
 		"address":     strings.ToLower(address),
 		"name":        name,
-		"description": body.Description,
-		"image_url":   body.ImageUrl,
+		"description": req.Description,
+		"image_url":   req.ImageUrl,
 		"app_signature": map[string]interface{}{
 			"message":   message,
 			"signature": signatureHex,
