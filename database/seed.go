@@ -634,6 +634,34 @@ var (
 			"remaining_uses": 1,
 			"created_at":     time.Now(),
 		},
+		"oauth_redirect_uris": {
+			"client_id":    nil,
+			"redirect_uri": nil,
+			"created_at":   time.Now(),
+		},
+		"oauth_authorization_codes": {
+			"code":                  nil,
+			"client_id":             nil,
+			"user_id":               nil,
+			"redirect_uri":          "https://example.com/callback",
+			"code_challenge":        nil,
+			"code_challenge_method": "S256",
+			"scope":                 "read",
+			"expires_at":            time.Now().Add(10 * time.Minute),
+			"used":                  false,
+		},
+		"oauth_tokens": {
+			"token":            nil,
+			"token_type":       nil,
+			"client_id":        nil,
+			"user_id":          nil,
+			"scope":            "read",
+			"expires_at":       time.Now().Add(time.Hour),
+			"is_revoked":       false,
+			"created_at":       time.Now(),
+			"refresh_token_id": nil,
+			"family_id":        nil,
+		},
 	}
 )
 

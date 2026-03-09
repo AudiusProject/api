@@ -251,15 +251,28 @@ func (app *ApiServer) authMiddleware(c *fiber.Ctx) error {
 		wallet = strings.ToLower(signer.Address)
 	} else {
 		wallet = app.recoverAuthorityFromSignatureHeaders(c)
+		// Extract Bearer token once for the fallback checks below
+		var bearerToken string
+		if authHeader := c.Get("Authorization"); authHeader != "" && strings.HasPrefix(authHeader, "Bearer ") {
+			bearerToken = strings.TrimSpace(strings.TrimPrefix(authHeader, "Bearer "))
+		}
+
 		// OAuth JWT fallback: when Bearer token is not api_access_key, try as OAuth JWT (Plans app)
-		if wallet == "" && myId != 0 {
-			if authHeader := c.Get("Authorization"); authHeader != "" && strings.HasPrefix(authHeader, "Bearer ") {
-				token := strings.TrimSpace(strings.TrimPrefix(authHeader, "Bearer "))
-				if token != "" {
-					if oauthWallet, jwtUserId, err := app.validateOAuthJWTTokenToWalletAndUserId(c.Context(), token); err == nil {
-						if int32(jwtUserId) == myId {
-							wallet = oauthWallet
-						}
+		if wallet == "" && myId != 0 && bearerToken != "" {
+			if oauthWallet, jwtUserId, err := app.validateOAuthJWTTokenToWalletAndUserId(c.Context(), bearerToken); err == nil {
+				if int32(jwtUserId) == myId {
+					wallet = oauthWallet
+				}
+			}
+		}
+		// PKCE token fallback: resolve opaque Bearer token from oauth_tokens
+		if wallet == "" && bearerToken != "" {
+			if entry, ok := app.lookupOAuthAccessToken(c, bearerToken); ok {
+				if myId == 0 || entry.UserID == myId {
+					wallet = strings.ToLower(entry.ClientID)
+					if myId == 0 {
+						myId = entry.UserID
+						c.Locals("myId", int(entry.UserID))
 					}
 				}
 			}

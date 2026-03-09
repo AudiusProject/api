@@ -129,6 +129,14 @@ func NewApiServer(config config.Config) *ApiServer {
 		panic(err)
 	}
 
+	oauthTokenCache, err := otter.MustBuilder[string, oauthTokenCacheEntry](10_000).
+		WithTTL(60 * time.Second).
+		CollectStats().
+		Build()
+	if err != nil {
+		panic(err)
+	}
+
 	privateKey, err := crypto.HexToECDSA(config.DelegatePrivateKey)
 	if err != nil {
 		panic(err)
@@ -233,6 +241,7 @@ func NewApiServer(config config.Config) *ApiServer {
 		resolveGrantCache:       &resolveGrantCache,
 		resolveWalletCache:      &resolveWalletCache,
 		apiAccessKeySignerCache: &apiAccessKeySignerCache,
+		oauthTokenCache:         &oauthTokenCache,
 		requestValidator:        requestValidator,
 		rewardAttester:          rewardAttester,
 		transactionSender:       transactionSender,
@@ -541,6 +550,12 @@ func NewApiServer(config config.Config) *ApiServer {
 		g.Post("/developer_apps/:address/access-keys", app.postV1UsersDeveloperAppAccessKey)
 		g.Post("/developer-apps/:address/access-keys", app.postV1UsersDeveloperAppAccessKey)
 
+		// OAuth2 PKCE
+		g.Post("/oauth/authorize", app.v1OAuthAuthorize)
+		g.Post("/oauth/token", app.v1OAuthToken)
+		g.Post("/oauth/revoke", app.v1OAuthRevoke)
+		g.Get("/oauth/me", app.requireAuthMiddleware, app.v1OAuthMe)
+
 		// Rewards
 		g.Post("/rewards/claim", app.v1ClaimRewards)
 		g.Post("/rewards/code", app.v1CreateRewardCode)
@@ -737,6 +752,7 @@ type ApiServer struct {
 	resolveGrantCache       *otter.Cache[string, bool]
 	resolveWalletCache      *otter.Cache[string, int]
 	apiAccessKeySignerCache *otter.Cache[string, apiAccessKeySignerEntry]
+	oauthTokenCache         *otter.Cache[string, oauthTokenCacheEntry]
 	requestValidator        *RequestValidator
 	rewardManagerClient     *reward_manager.RewardManagerClient
 	claimableTokensClient   *claimable_tokens.ClaimableTokensClient
