@@ -12602,9 +12602,9 @@ components:
         description:
           type: string
           description: App description
-        imageUrl:
+        image_url:
           type: string
-          description: App logo/image URL (camelCase)
+          description: App logo/image URL
     playlist_without_tracks:
       required:
         - access
@@ -13261,7 +13261,7 @@ components:
         description:
           type: string
           description: App description
-        imageUrl:
+        image_url:
           type: string
           description: App logo/image URL
     coins_response:
