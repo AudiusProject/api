@@ -11429,6 +11429,11 @@ components:
           type: string
         image_url:
           type: string
+        redirect_uris:
+          type: array
+          items:
+            type: string
+          description: Pre-registered OAuth callback URLs for this app
     attestation:
       required:
         - attestation
@@ -12605,6 +12610,11 @@ components:
         image_url:
           type: string
           description: App logo/image URL
+        redirect_uris:
+          type: array
+          items:
+            type: string
+          description: Pre-registered OAuth redirect/callback URIs
     playlist_without_tracks:
       required:
         - access
@@ -13264,6 +13274,11 @@ components:
         image_url:
           type: string
           description: App logo/image URL
+        redirect_uris:
+          type: array
+          items:
+            type: string
+          description: Pre-registered OAuth redirect/callback URIs
     coins_response:
       type: object
       required:
