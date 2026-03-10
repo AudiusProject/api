@@ -128,19 +128,41 @@ func (app *ApiServer) v1OAuthAuthorize(c *fiber.Ctx) error {
 	}
 
 	// 3. Validate redirect_uri
-	// SKIP FOR NOW
-	// if !strings.EqualFold(body.RedirectURI, "postmessage") {
-	// 	var uriRegistered bool
-	// 	err = app.pool.QueryRow(c.Context(), `
-	// 		SELECT EXISTS (
-	// 			SELECT 1 FROM oauth_redirect_uris
-	// 			WHERE LOWER(client_id) = $1 AND redirect_uri = $2
-	// 		)
-	// 	`, clientID, body.RedirectURI).Scan(&uriRegistered)
-	// 	if err != nil || !uriRegistered {
-	// 		return oauthError(c, fiber.StatusBadRequest, "invalid_request", "redirect_uri not registered")
-	// 	}
-	// }
+	// Fetch all registered redirect URIs for this client.
+	// If none are registered, any redirect_uri is allowed (including postmessage).
+	// If any are registered, the submitted redirect_uri must exactly match one of them.
+	// postmessage is not special-cased — it must be explicitly registered to be used.
+	{
+		rows, err := app.pool.Query(c.Context(), `
+			SELECT redirect_uri FROM oauth_redirect_uris
+			WHERE LOWER(client_id) = $1
+		`, clientID)
+		if err != nil {
+			app.logger.Error("Failed to query redirect URIs", zap.Error(err))
+			return oauthError(c, fiber.StatusInternalServerError, "server_error", "Failed to validate redirect_uri")
+		}
+		var registeredURIs []string
+		for rows.Next() {
+			var uri string
+			if err := rows.Scan(&uri); err == nil {
+				registeredURIs = append(registeredURIs, uri)
+			}
+		}
+		rows.Close()
+
+		if len(registeredURIs) > 0 {
+			allowed := false
+			for _, uri := range registeredURIs {
+				if uri == body.RedirectURI {
+					allowed = true
+					break
+				}
+			}
+			if !allowed {
+				return oauthError(c, fiber.StatusBadRequest, "invalid_request", "redirect_uri not registered")
+			}
+		}
+	}
 
 	// 4. If scope is write, check for existing approved grant
 	if body.Scope == "write" {
@@ -298,15 +320,13 @@ func (app *ApiServer) oauthTokenAuthorizationCode(c *fiber.Ctx, body *oauthToken
 }
 
 func (app *ApiServer) oauthTokenRefreshToken(c *fiber.Ctx, body *oauthTokenBody) error {
-	if body.RefreshToken == "" || body.ClientID == "" {
-		return oauthError(c, fiber.StatusBadRequest, "invalid_request", "Missing required parameters for refresh_token grant")
+	if body.RefreshToken == "" {
+		return oauthError(c, fiber.StatusBadRequest, "invalid_request", "refresh_token is required for refresh_token grant")
 	}
-
-	clientID := normalizeClientID(body.ClientID)
 
 	// First, check if the token exists and whether it triggers reuse detection.
 	// We need a two-phase approach: check for reuse first, then atomically consume.
-	var storedClientID string
+	var clientID string
 	var storedUserID int32
 	var storedScope, storedFamilyID string
 	var storedIsRevoked bool
@@ -316,7 +336,7 @@ func (app *ApiServer) oauthTokenRefreshToken(c *fiber.Ctx, body *oauthTokenBody)
 		SELECT client_id, user_id, scope, family_id, is_revoked, expires_at, token_type
 		FROM oauth_tokens
 		WHERE token = $1
-	`, body.RefreshToken).Scan(&storedClientID, &storedUserID, &storedScope, &storedFamilyID, &storedIsRevoked, &storedExpiresAt, &storedTokenType)
+	`, body.RefreshToken).Scan(&clientID, &storedUserID, &storedScope, &storedFamilyID, &storedIsRevoked, &storedExpiresAt, &storedTokenType)
 	if err != nil {
 		if err == pgx.ErrNoRows {
 			return oauthError(c, fiber.StatusBadRequest, "invalid_grant", "Invalid refresh token")
@@ -330,9 +350,11 @@ func (app *ApiServer) oauthTokenRefreshToken(c *fiber.Ctx, body *oauthTokenBody)
 		return oauthError(c, fiber.StatusBadRequest, "invalid_grant", "Invalid refresh token")
 	}
 
-	// Verify client_id matches
-	if strings.ToLower(storedClientID) != clientID {
-		return oauthError(c, fiber.StatusBadRequest, "invalid_grant", "client_id mismatch")
+	// If client_id is provided, verify it matches the token's client_id
+	if body.ClientID != "" {
+		if normalizeClientID(body.ClientID) != strings.ToLower(clientID) {
+			return oauthError(c, fiber.StatusBadRequest, "invalid_grant", "client_id mismatch")
+		}
 	}
 
 	// If the token is already revoked — token reuse detected. Revoke all tokens in the family.
