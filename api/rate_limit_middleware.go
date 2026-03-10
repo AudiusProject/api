@@ -33,6 +33,17 @@ type rpsState struct {
 	data map[string][]int64
 }
 
+// normalizeAPIKeyForLookup prepends 0x when api_key is provided without it.
+func normalizeAPIKeyForLookup(apiKey string) string {
+	if apiKey == "" {
+		return ""
+	}
+	if strings.HasPrefix(strings.ToLower(apiKey), "0x") {
+		return apiKey
+	}
+	return "0x" + apiKey
+}
+
 func (r *rpsState) allow(identifier string, limit int, now int64) bool {
 	r.mu.Lock()
 	defer r.mu.Unlock()
@@ -106,7 +117,7 @@ func (rlm *RateLimitMiddleware) Middleware(apiServer *ApiServer) fiber.Handler {
 			}
 		}
 		if identifier == "" {
-			apiKey := c.Query("api_key")
+			apiKey := normalizeAPIKeyForLookup(c.Query("api_key"))
 			appName := c.Query("app_name")
 			identifier = apiKey
 			if identifier == "" {
