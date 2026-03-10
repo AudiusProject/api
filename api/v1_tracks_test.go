@@ -60,4 +60,5 @@ func TestGetTracksExcludesAccessAuthorities(t *testing.T) {
 	assert.Equal(t, 200, status)
 	assert.Len(t, resp.Data, 1, "tracks with access_authorities must be returned when request is signed by matching authority")
 	assert.Equal(t, "T1", resp.Data[0].Title.String)
+	assert.Equal(t, []string{gateWallet}, resp.Data[0].AccessAuthorities)
 }
