@@ -52,7 +52,7 @@ tags:
   - name: dashboard_wallet_users
     description: Protocol dashboard wallet users related operations
   - name: resolve
-    description: Audius Cannonical URL resolver
+    description: Audius Canonical URL resolver
   - name: comments
     description: Comment related operations
   - name: events
@@ -18006,6 +18006,36 @@ components:
       description: When any error occurs on mask
       content: {}
   securitySchemes:
+    OAuth2:
+      type: oauth2
+      description:
+        "OAuth 2.0 Authorization Code flow with PKCE for third-party applications.
+
+
+        Allows apps to authenticate users and obtain access tokens scoped to
+        read or read+write permissions on behalf of the user.
+
+
+        **Scopes:**
+
+        - `read` — Read-only access to the user's public and private data.
+
+        - `write` — Read and write access, allowing mutations on behalf of the user.
+
+
+        **PKCE Required:**
+
+        All authorization code requests must include `code_challenge` and
+        `code_challenge_method=S256` parameters.
+
+        "
+      flows:
+        authorizationCode:
+          authorizationUrl: https://audius.co/oauth/auth
+          tokenUrl: https://api.audius.co/v1/oauth/token
+          scopes:
+            read: Read-only access to user data
+            write: Read and write access on behalf of the user
     BasicAuth:
       type: http
       scheme: basic
