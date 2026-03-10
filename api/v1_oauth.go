@@ -350,6 +350,13 @@ func (app *ApiServer) oauthTokenRefreshToken(c *fiber.Ctx, body *oauthTokenBody)
 		return oauthError(c, fiber.StatusBadRequest, "invalid_grant", "Invalid refresh token")
 	}
 
+	// If client_id is provided, verify it matches the token's client_id
+	if body.ClientID != "" {
+		if normalizeClientID(body.ClientID) != strings.ToLower(clientID) {
+			return oauthError(c, fiber.StatusBadRequest, "invalid_grant", "client_id mismatch")
+		}
+	}
+
 	// If the token is already revoked — token reuse detected. Revoke all tokens in the family.
 	if storedIsRevoked {
 		_, _ = app.writePool.Exec(c.Context(), `
