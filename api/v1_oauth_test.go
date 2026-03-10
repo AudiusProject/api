@@ -410,6 +410,64 @@ func TestOAuthAuthorize_WriteScope_NoGrant(t *testing.T) {
 	jsonAssert(t, body, map[string]any{"error": "access_denied"})
 }
 
+func TestOAuthAuthorize_UnregisteredRedirectURI(t *testing.T) {
+	app := emptyTestApp(t)
+	clientID := seedOAuthTestData(t, app)
+	// seedOAuthTestData registers https://example.com/callback for clientID.
+	// Submitting a different redirect_uri must be rejected.
+
+	token := makeOAuthJWT(t, 100, oauthTestPrivKeyHex)
+	h := sha256.Sum256([]byte("verifier"))
+	codeChallenge := base64.RawURLEncoding.EncodeToString(h[:])
+
+	status, body := oauthPostJSON(t, app, "/v1/oauth/authorize", map[string]string{
+		"token":                 token,
+		"client_id":             clientID,
+		"redirect_uri":          "https://evil.com/callback",
+		"code_challenge":        codeChallenge,
+		"code_challenge_method": "S256",
+		"scope":                 "read",
+	})
+
+	assert.Equal(t, 400, status)
+	jsonAssert(t, body, map[string]any{"error": "invalid_request"})
+	assert.Contains(t, gjson.GetBytes(body, "error_description").String(), "redirect_uri")
+}
+
+func TestOAuthAuthorize_NoRegisteredRedirectURIs(t *testing.T) {
+	app := emptyTestApp(t)
+	seedOAuthTestData(t, app)
+
+	// Register a new developer app with no redirect URIs.
+	// Policy: if no URIs are registered, any redirect_uri is accepted.
+	clientIDNoURIs := "0xccdd000000000000000000000000000000000003"
+	database.SeedTable(app.pool.Replicas[0], "developer_apps", []map[string]any{
+		{
+			"address":   clientIDNoURIs,
+			"user_id":   100,
+			"name":      "App Without Redirect URIs",
+			"is_delete": false,
+		},
+	})
+
+	token := makeOAuthJWT(t, 100, oauthTestPrivKeyHex)
+	h := sha256.Sum256([]byte("verifier"))
+	codeChallenge := base64.RawURLEncoding.EncodeToString(h[:])
+
+	status, body := oauthPostJSON(t, app, "/v1/oauth/authorize", map[string]string{
+		"token":                 token,
+		"client_id":             clientIDNoURIs,
+		"redirect_uri":          "https://any-uri.example.com/callback",
+		"code_challenge":        codeChallenge,
+		"code_challenge_method": "S256",
+		"scope":                 "read",
+	})
+
+	assert.Equal(t, 200, status)
+	assert.True(t, gjson.GetBytes(body, "code").Exists())
+	assert.NotEmpty(t, gjson.GetBytes(body, "code").String())
+}
+
 // --- /oauth/token (authorization_code grant) ---
 
 func TestOAuthTokenAuthorizationCode(t *testing.T) {
