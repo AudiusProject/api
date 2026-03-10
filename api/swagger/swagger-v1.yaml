@@ -13726,6 +13726,12 @@ components:
           description:
             Whether or not the owner has restricted streaming behind an
             access gate
+        access_authorities:
+          type: array
+          nullable: true
+          items:
+            type: string
+          description: Wallet addresses that can sign to authorize stream access (programmable distribution). When empty or omitted, the track is public and validator/creator nodes can serve it.
         stream_conditions:
           type: object
           description: How to unlock stream access to the track

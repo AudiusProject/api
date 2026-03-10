@@ -201,7 +201,8 @@ SELECT
   download_conditions,
   cover_original_song_title,
   cover_original_artist,
-  is_owned_by_user
+  is_owned_by_user,
+  t.access_authorities
 
 FROM tracks t
 JOIN aggregate_track using (track_id)

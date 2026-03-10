@@ -216,7 +216,8 @@ SELECT
   download_conditions,
   cover_original_song_title,
   cover_original_artist,
-  is_owned_by_user
+  is_owned_by_user,
+  t.access_authorities
 
 FROM tracks t
 JOIN aggregate_track using (track_id)
@@ -311,6 +312,7 @@ type GetTracksRow struct {
 	CoverOriginalSongTitle             pgtype.Text     `json:"cover_original_song_title"`
 	CoverOriginalArtist                pgtype.Text     `json:"cover_original_artist"`
 	IsOwnedByUser                      bool            `json:"is_owned_by_user"`
+	AccessAuthorities                  []string        `json:"access_authorities"`
 }
 
 func (q *Queries) GetTracks(ctx context.Context, arg GetTracksParams) ([]GetTracksRow, error) {
@@ -401,6 +403,7 @@ func (q *Queries) GetTracks(ctx context.Context, arg GetTracksParams) ([]GetTrac
 			&i.CoverOriginalSongTitle,
 			&i.CoverOriginalArtist,
 			&i.IsOwnedByUser,
+			&i.AccessAuthorities,
 		); err != nil {
 			return nil, err
 		}
