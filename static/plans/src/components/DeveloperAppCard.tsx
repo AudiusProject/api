@@ -46,6 +46,8 @@ const messages = {
   revokeToken: "Revoke Bearer Token",
   newBearerToken: "New Bearer Token",
   redirectUrisLabel: "Redirect URIs",
+  redirectUrisHelp:
+    "Allowed callback URLs for OAuth2 authorization flows. Required when using OAuth2 PKCE to obtain user access tokens.",
   removeUri: "Remove Redirect URI",
   addUri: "Add Redirect URI",
   addUriPlaceholder: "https://example.com/callback",
@@ -394,6 +396,9 @@ function RedirectUrisField({
     <Flex direction="column" gap="xs">
       <Text tag="label" variant="body" strength="strong">
         {messages.redirectUrisLabel}
+      </Text>
+      <Text variant="body" size="s" color="subdued">
+        {messages.redirectUrisHelp}
       </Text>
       {uris.map((uri) => (
         <RedirectUriRow
