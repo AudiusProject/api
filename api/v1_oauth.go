@@ -58,6 +58,17 @@ type oauthRevokeBody struct {
 	ClientID string `json:"client_id" form:"client_id"`
 }
 
+// normalizeOAuthScope collapses space-separated OAuth scopes (e.g. "read write") to the
+// highest-privilege single scope. This tolerates Swagger UI sending compound scope strings.
+func normalizeOAuthScope(raw string) string {
+	for _, part := range strings.Fields(raw) {
+		if part == "write" {
+			return "write"
+		}
+	}
+	return strings.TrimSpace(raw)
+}
+
 // normalizeClientID lowercases and ensures the 0x prefix on a client_id (developer app address).
 func normalizeClientID(raw string) string {
 	id := strings.ToLower(strings.TrimSpace(raw))
@@ -76,6 +87,20 @@ type oauthTokenCacheEntry struct {
 }
 
 // --- Handlers ---
+
+// v1OAuthAuthorizeRedirect handles GET /v1/oauth/authorize
+// Redirects the browser to the Audius app consent page, forwarding all query parameters.
+func (app *ApiServer) v1OAuthAuthorizeRedirect(c *fiber.Ctx) error {
+	base := app.config.AudiusAppUrl
+	if base == "" {
+		base = "https://audius.co"
+	}
+	target := base + "/oauth/auth"
+	if qs := string(c.Request().URI().QueryString()); qs != "" {
+		target += "?" + qs
+	}
+	return c.Redirect(target, fiber.StatusFound)
+}
 
 // v1OAuthAuthorize handles POST /v1/oauth/authorize
 // Called by the audius.co consent screen after the user authenticates.
@@ -99,7 +124,8 @@ func (app *ApiServer) v1OAuthAuthorize(c *fiber.Ctx) error {
 		return oauthError(c, fiber.StatusBadRequest, "invalid_request", "code_challenge_method must be S256")
 	}
 
-	if body.Scope != "read" && body.Scope != "write" {
+	scope := normalizeOAuthScope(body.Scope)
+	if scope != "read" && scope != "write" {
 		return oauthError(c, fiber.StatusBadRequest, "invalid_request", "scope must be 'read' or 'write'")
 	}
 
@@ -165,7 +191,7 @@ func (app *ApiServer) v1OAuthAuthorize(c *fiber.Ctx) error {
 	}
 
 	// 4. If scope is write, check for existing approved grant
-	if body.Scope == "write" {
+	if scope == "write" {
 		var grantExists bool
 		err = app.pool.QueryRow(c.Context(), `
 			SELECT EXISTS (
@@ -193,7 +219,7 @@ func (app *ApiServer) v1OAuthAuthorize(c *fiber.Ctx) error {
 	_, err = app.writePool.Exec(c.Context(), `
 		INSERT INTO oauth_authorization_codes (code, client_id, user_id, redirect_uri, code_challenge, code_challenge_method, scope)
 		VALUES ($1, $2, $3, $4, $5, $6, $7)
-	`, code, clientID, int32(userId), body.RedirectURI, body.CodeChallenge, body.CodeChallengeMethod, body.Scope)
+	`, code, clientID, int32(userId), body.RedirectURI, body.CodeChallenge, body.CodeChallengeMethod, scope)
 	if err != nil {
 		app.logger.Error("Failed to insert auth code", zap.Error(err))
 		return oauthError(c, fiber.StatusInternalServerError, "server_error", "Failed to create authorization code")
