@@ -4,6 +4,7 @@ import (
 	"context"
 	"net/http"
 	"net/http/httptest"
+	"sync"
 	"testing"
 
 	"api.audius.co/config"
@@ -14,11 +15,17 @@ import (
 
 func TestFetchAttestations(t *testing.T) {
 	// Track which URLs are called
+	var urlCallCountMu sync.Mutex
 	urlCallCount := make(map[string]int)
+	incrementURLCallCount := func(host string) {
+		urlCallCountMu.Lock()
+		defer urlCallCountMu.Unlock()
+		urlCallCount[host]++
+	}
 
 	// Create mock HTTP servers for AAO and validators
 	aaoServer := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		urlCallCount[r.Host]++
+		incrementURLCallCount(r.Host)
 		w.Header().Set("Content-Type", "application/json")
 		w.WriteHeader(200)
 		w.Write([]byte(`{"result": "aabbccddaabbccddaabbccddaabbccddaabbccddaabbccddaabbccddaabbccdd"}`))
@@ -27,7 +34,7 @@ func TestFetchAttestations(t *testing.T) {
 
 	// Create separate validator servers
 	validator1 := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		urlCallCount[r.Host]++
+		incrementURLCallCount(r.Host)
 		w.Header().Set("Content-Type", "application/json")
 		w.WriteHeader(200)
 		w.Write([]byte(`{"attestation": "aabbccddaabbccddaabbccddaabbccddaabbccddaabbccddaabbccddaabbccdd", "owner": "0x1111111111111111111111111111111111111111"}`))
@@ -35,7 +42,7 @@ func TestFetchAttestations(t *testing.T) {
 	defer validator1.Close()
 
 	validator2 := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		urlCallCount[r.Host]++
+		incrementURLCallCount(r.Host)
 		w.Header().Set("Content-Type", "application/json")
 		w.WriteHeader(200)
 		// Duplicate owner should not be selected
@@ -44,7 +51,7 @@ func TestFetchAttestations(t *testing.T) {
 	defer validator2.Close()
 
 	validator3 := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		urlCallCount[r.Host]++
+		incrementURLCallCount(r.Host)
 		w.Header().Set("Content-Type", "application/json")
 		w.WriteHeader(200)
 		w.Write([]byte(`{"attestation": "aabbccddaabbccddaabbccddaabbccddaabbccddaabbccddaabbccddaabbccdd", "owner": "0x3333333333333333333333333333333333333333"}`))
@@ -52,7 +59,7 @@ func TestFetchAttestations(t *testing.T) {
 	defer validator3.Close()
 
 	validator4 := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		urlCallCount[r.Host]++
+		incrementURLCallCount(r.Host)
 		w.Header().Set("Content-Type", "application/json")
 		w.WriteHeader(400)
 		w.Write([]byte(`{"error": "unhappy validator"}`))
@@ -60,7 +67,7 @@ func TestFetchAttestations(t *testing.T) {
 	defer validator4.Close()
 
 	validator5 := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		urlCallCount[r.Host]++
+		incrementURLCallCount(r.Host)
 		w.Header().Set("Content-Type", "application/json")
 		w.WriteHeader(200)
 		w.Write([]byte(`{"attestation": "aabbccddaabbccddaabbccddaabbccddaabbccddaabbccddaabbccddaabbccdd", "owner": "0x5555555555555555555555555555555555555555"}`))
@@ -127,6 +134,8 @@ func TestFetchAttestations(t *testing.T) {
 	assert.False(t, addresses["0x4444444444444444444444444444444444444444"], "validator4 should not be present in attestations")
 
 	// Verify no URL was called more than once
+	urlCallCountMu.Lock()
+	defer urlCallCountMu.Unlock()
 	for url, count := range urlCallCount {
 		assert.LessOrEqual(t, count, 1, "URL %s should never be called more than once, but was called %d times", url, count)
 	}
