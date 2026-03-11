@@ -32,6 +32,7 @@ func emptyTestApp(t *testing.T) *ApiServer {
 
 	app := NewApiServer(config.Config{
 		Env:           "test",
+		LogLevel:      "fatal",
 		ReadDbUrl:     pool.Config().ConnString(),
 		WriteDbUrl:    pool.Config().ConnString(),
 		RunMigrations: false,
