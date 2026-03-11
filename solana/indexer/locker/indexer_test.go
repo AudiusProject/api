@@ -16,7 +16,7 @@ import (
 )
 
 func TestHandleUpdate_SlotCheckpoint(t *testing.T) {
-	pool := database.CreateTestDatabase(t, "test_solana_indexer_dbc")
+	pool := database.CreateTestDatabase(t, "test_solana_indexer_locker")
 	rpcClient := fake_rpc_client.FakeRpcClient{}
 	logger := zap.NewNop()
 
@@ -46,7 +46,7 @@ func TestHandleUpdate_SlotCheckpoint(t *testing.T) {
 }
 
 func TestHandleUpdate_VestingEscrow(t *testing.T) {
-	pool := database.CreateTestDatabase(t, "test_solana_indexer_dbc")
+	pool := database.CreateTestDatabase(t, "test_solana_indexer_locker")
 	rpcClient := fake_rpc_client.FakeRpcClient{}
 	logger := zap.NewNop()
 
