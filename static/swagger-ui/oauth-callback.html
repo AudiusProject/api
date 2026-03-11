@@ -1,0 +1,66 @@
+<!DOCTYPE html>
+<html lang="en-US">
+  <head>
+    <title>Swagger UI: OAuth2 Redirect</title>
+  </head>
+  <body>
+    <script>
+      "use strict";
+      function run() {
+        var oauth2 = window.opener.swaggerUIRedirectOauth2;
+        var sentState = oauth2.state;
+        var redirectUrl = oauth2.redirectUrl;
+        var isValid, qp, arr;
+
+        if (/code|token|error/.test(window.location.hash)) {
+          // Fragment-based response (default when no response_mode is sent)
+          qp = window.location.hash
+            .substring(1)
+            .replace("?", "&")
+            .split("&")
+            .reduce(function (obj, item) {
+              var parts = item.split("=");
+              obj[parts[0]] = parts.slice(1).join("=");
+              return obj;
+            }, {});
+        } else if (/code|token|error/.test(window.location.search)) {
+          // Query-based response (response_mode=query)
+          qp = window.location.search
+            .substring(1)
+            .split("&")
+            .reduce(function (obj, item) {
+              var parts = item.split("=");
+              obj[parts[0]] = parts.slice(1).join("=");
+              return obj;
+            }, {});
+        }
+
+        if (qp && qp.code) {
+          if (sentState === qp.state) {
+            oauth2.auth.code = qp.code;
+            oauth2.callback({ auth: oauth2.auth, redirectUrl: redirectUrl });
+          } else {
+            oauth2.errCb({
+              authId: oauth2.auth.name,
+              source: "auth",
+              level: "warning",
+              message:
+                "Authorization may be unsafe, passed state was changed in server. The passed state differs from the one expected.",
+            });
+          }
+        } else if (qp && qp.error) {
+          oauth2.errCb({
+            authId: oauth2.auth.name,
+            source: "auth",
+            level: "error",
+            message: JSON.stringify(qp),
+          });
+        }
+
+        window.close();
+      }
+
+      window.addEventListener("DOMContentLoaded", run);
+    </script>
+  </body>
+</html>

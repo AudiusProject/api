@@ -1,0 +1,31 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <title>Audius API</title>
+    <link rel="stylesheet" href="/swagger-ui/swagger-ui.css" />
+  </head>
+  <body>
+    <div id="swagger-ui"></div>
+    <script src="/swagger-ui/swagger-ui-bundle.js"></script>
+    <script src="/swagger-ui/swagger-ui-standalone-preset.js"></script>
+    <script>
+      window.onload = function () {
+        window.ui = SwaggerUIBundle({
+          url: "/v1/swagger.yaml",
+          dom_id: "#swagger-ui",
+          deepLinking: true,
+          presets: [SwaggerUIBundle.presets.apis, SwaggerUIStandalonePreset],
+          plugins: [SwaggerUIBundle.plugins.DownloadUrl],
+          layout: "StandaloneLayout",
+          oauth2RedirectUrl: location.origin + "/v1/swagger-oauth-callback",
+          usePkceWithAuthorizationCodeGrant: true,
+        });
+
+        window.ui.initOAuth({
+          usePkceWithAuthorizationCodeGrant: true,
+        });
+      };
+    </script>
+  </body>
+</html>

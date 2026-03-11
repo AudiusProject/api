@@ -4,7 +4,6 @@ import (
 	"context"
 	"crypto/tls"
 	_ "embed"
-	"fmt"
 	"net"
 	"net/http"
 	"os"
@@ -32,7 +31,6 @@ import (
 	"github.com/ethereum/go-ethereum/crypto"
 	"github.com/gagliardetto/solana-go/rpc"
 	"github.com/gofiber/contrib/fiberzap/v2"
-	"github.com/gofiber/contrib/swagger"
 	"github.com/gofiber/contrib/websocket"
 	"github.com/gofiber/fiber/v2"
 	"github.com/gofiber/fiber/v2/middleware/adaptor"
@@ -551,6 +549,7 @@ func NewApiServer(config config.Config) *ApiServer {
 		g.Post("/developer-apps/:address/access-keys", app.postV1UsersDeveloperAppAccessKey)
 
 		// OAuth2 PKCE
+		g.Get("/oauth/authorize", app.v1OAuthAuthorizeRedirect)
 		g.Post("/oauth/authorize", app.v1OAuthAuthorize)
 		g.Post("/oauth/token", app.v1OAuthToken)
 		g.Post("/oauth/revoke", app.v1OAuthRevoke)
@@ -714,13 +713,17 @@ func NewApiServer(config config.Config) *ApiServer {
 		//
 		// Swagger will be available at: /v1
 		// Note: v1/full endpoints exist for backwards compatibility but are not documented or exposed via SDK.
-		app.Use(swagger.New(swagger.Config{
-			BasePath: "/",
-			Path:     "v1",
-			// Only controls where the swagger.json is server from
-			FilePath:    "v1/swagger.yaml",
-			FileContent: swaggerV1,
-		}))
+		app.Get("/v1", func(c *fiber.Ctx) error {
+			return c.SendFile("./static/swagger-ui/index.html")
+		})
+		app.Get("/v1/swagger-oauth-callback", func(c *fiber.Ctx) error {
+			return c.SendFile("./static/swagger-ui/oauth-callback.html")
+		})
+		app.Get("/v1/swagger.yaml", func(c *fiber.Ctx) error {
+			c.Set("Content-Type", "application/yaml")
+			c.Set("Cache-Control", "public, max-age=3600")
+			return c.Send(swaggerV1)
+		})
 	}
 
 	// gracefully handle 404
@@ -809,38 +812,6 @@ func queryMulti(c *fiber.Ctx, key string) []string {
 		values = append(values, string(v))
 	}
 	return values
-}
-
-var validDateBuckets = map[string]bool{
-	"hour":   true,
-	"day":    true,
-	"week":   true,
-	"month":  true,
-	"year":   true,
-	"minute": true,
-}
-
-func (app *ApiServer) queryDateBucket(c *fiber.Ctx, param string, defaultValue string) (string, error) {
-	bucket := c.Query(param, defaultValue)
-	if !validDateBuckets[bucket] {
-		return "", fmt.Errorf("invalid %s parameter: %s", param, bucket)
-	}
-	return bucket, nil
-}
-
-var validTimeRanges = map[string]bool{
-	"week":     true,
-	"month":    true,
-	"year":     true,
-	"all_time": true,
-}
-
-func (app *ApiServer) paramTimeRange(c *fiber.Ctx, param string, defaultValue string) (string, error) {
-	timeRange := c.Params(param, defaultValue)
-	if !validTimeRanges[timeRange] {
-		return "", fmt.Errorf("invalid %s parameter: %s", param, timeRange)
-	}
-	return timeRange, nil
 }
 
 func (app *ApiServer) Serve() {
