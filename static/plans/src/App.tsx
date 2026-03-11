@@ -1245,8 +1245,9 @@ export default function App() {
               </Flex>
               <Button
                 variant="primary"
-                onClick={handleLogin}
-                disabled={!!oauthUser}
+                onClick={
+                  oauthUser ? () => setCreateKeyModalOpen(true) : handleLogin
+                }
                 css={css`
                   margin-top: 0.5rem;
                 `}
