@@ -33,9 +33,9 @@ info:
   x-logo:
     url: https://audius.co/favicons/favicon.ico
 servers:
+  - url: /v1
   - url: https://api.audius.co/v1
     description: Production
-  - url: /v1
 tags:
   - name: users
     description: User related operations
@@ -52,7 +52,7 @@ tags:
   - name: dashboard_wallet_users
     description: Protocol dashboard wallet users related operations
   - name: resolve
-    description: Audius Cannonical URL resolver
+    description: Audius Canonical URL resolver
   - name: comments
     description: Comment related operations
   - name: events
@@ -70,6 +70,10 @@ paths:
         - challenges
       description: Get all undisbursed challenges
       operationId: Get Undisbursed Challenges
+      security:
+        - {}
+        - OAuth2:
+            - read
       parameters:
         - name: offset
           in: query
@@ -192,6 +196,8 @@ paths:
       security:
         - BearerAuth: []
         - BasicAuth: []
+        - OAuth2:
+            - write
       parameters:
         - name: user_id
           in: query
@@ -253,6 +259,8 @@ paths:
       security:
         - BearerAuth: []
         - BasicAuth: []
+        - OAuth2:
+            - write
       parameters:
         - name: comment_id
           in: path
@@ -297,6 +305,8 @@ paths:
       security:
         - BearerAuth: []
         - BasicAuth: []
+        - OAuth2:
+            - write
       parameters:
         - name: comment_id
           in: path
@@ -335,6 +345,8 @@ paths:
       security:
         - BearerAuth: []
         - BasicAuth: []
+        - OAuth2:
+            - write
       parameters:
         - name: comment_id
           in: path
@@ -379,6 +391,8 @@ paths:
       security:
         - BearerAuth: []
         - BasicAuth: []
+        - OAuth2:
+            - write
       parameters:
         - name: comment_id
           in: path
@@ -424,6 +438,8 @@ paths:
       security:
         - BearerAuth: []
         - BasicAuth: []
+        - OAuth2:
+            - write
       parameters:
         - name: comment_id
           in: path
@@ -468,6 +484,8 @@ paths:
       security:
         - BearerAuth: []
         - BasicAuth: []
+        - OAuth2:
+            - write
       parameters:
         - name: comment_id
           in: path
@@ -513,6 +531,8 @@ paths:
       security:
         - BearerAuth: []
         - BasicAuth: []
+        - OAuth2:
+            - write
       parameters:
         - name: comment_id
           in: path
@@ -548,6 +568,10 @@ paths:
         - comments
       description: Gets replies to a parent comment
       operationId: Get Comment Replies
+      security:
+        - {}
+        - OAuth2:
+            - read
       parameters:
         - name: comment_id
           in: path
@@ -742,6 +766,8 @@ paths:
       security:
         - BearerAuth: []
         - BasicAuth: []
+        - OAuth2:
+            - write
       parameters:
         - name: user_id
           in: query
@@ -904,6 +930,10 @@ paths:
         - events
       description: Get a list of events by ID
       operationId: Get Bulk Events
+      security:
+        - {}
+        - OAuth2:
+            - read
       parameters:
         - name: user_id
           in: query
@@ -948,6 +978,10 @@ paths:
       summary: Get all events
       description: Get all events
       operationId: Get All Events
+      security:
+        - {}
+        - OAuth2:
+            - read
       parameters:
         - name: offset
           in: query
@@ -1004,6 +1038,10 @@ paths:
       summary: Get events for a specific entity
       description: Get events for a specific entity
       operationId: Get Entity Events
+      security:
+        - {}
+        - OAuth2:
+            - read
       parameters:
         - name: offset
           in: query
@@ -1083,6 +1121,10 @@ paths:
       summary: Get best selling tracks and playlists with related entities
       description: Get best selling tracks and/or albums with related entities
       operationId: Get Best Selling
+      security:
+        - {}
+        - OAuth2:
+            - read
       parameters:
         - name: offset
           in: query
@@ -1130,6 +1172,10 @@ paths:
         - playlists
       description: Gets a list of playlists by ID, UPC, or permalink
       operationId: Get Bulk Playlists
+      security:
+        - {}
+        - OAuth2:
+            - read
       parameters:
         - name: user_id
           in: query
@@ -1184,6 +1230,8 @@ paths:
       security:
         - BearerAuth: []
         - BasicAuth: []
+        - OAuth2:
+            - write
       parameters:
         - name: user_id
           in: query
@@ -1294,6 +1342,10 @@ paths:
         - playlists
       description: Returns trending playlists for a time period
       operationId: Get Trending Playlists
+      security:
+        - {}
+        - OAuth2:
+            - read
       parameters:
         - name: offset
           in: query
@@ -1356,6 +1408,10 @@ paths:
         - playlists
       description: Get a playlist by ID
       operationId: Get Playlist
+      security:
+        - {}
+        - OAuth2:
+            - read
       parameters:
         - name: playlist_id
           in: path
@@ -1383,6 +1439,8 @@ paths:
       security:
         - BearerAuth: []
         - BasicAuth: []
+        - OAuth2:
+            - write
       parameters:
         - name: playlist_id
           in: path
@@ -1430,6 +1488,8 @@ paths:
       security:
         - BearerAuth: []
         - BasicAuth: []
+        - OAuth2:
+            - write
       parameters:
         - name: playlist_id
           in: path
@@ -1467,6 +1527,10 @@ paths:
         Gets the information necessary to access the playlist and what
         access the given user has.
       operationId: Get Playlist Access Info
+      security:
+        - {}
+        - OAuth2:
+            - read
       parameters:
         - name: playlist_id
           in: path
@@ -1521,6 +1585,8 @@ paths:
       security:
         - BearerAuth: []
         - BasicAuth: []
+        - OAuth2:
+            - write
       parameters:
         - name: playlist_id
           in: path
@@ -1565,6 +1631,8 @@ paths:
       security:
         - BearerAuth: []
         - BasicAuth: []
+        - OAuth2:
+            - write
       parameters:
         - name: playlist_id
           in: path
@@ -1599,6 +1667,10 @@ paths:
         - playlists
       description: Get users that favorited a playlist
       operationId: Get Users From Playlist Favorites
+      security:
+        - {}
+        - OAuth2:
+            - read
       parameters:
         - name: playlist_id
           in: path
@@ -1645,6 +1717,8 @@ paths:
       security:
         - BearerAuth: []
         - BasicAuth: []
+        - OAuth2:
+            - write
       parameters:
         - name: playlist_id
           in: path
@@ -1688,6 +1762,8 @@ paths:
       security:
         - BearerAuth: []
         - BasicAuth: []
+        - OAuth2:
+            - write
       parameters:
         - name: playlist_id
           in: path
@@ -1722,6 +1798,10 @@ paths:
         - playlists
       description: Get users that reposted a playlist
       operationId: Get Users From Playlist Reposts
+      security:
+        - {}
+        - OAuth2:
+            - read
       parameters:
         - name: playlist_id
           in: path
@@ -1768,6 +1848,8 @@ paths:
       security:
         - BearerAuth: []
         - BasicAuth: []
+        - OAuth2:
+            - write
       parameters:
         - name: playlist_id
           in: path
@@ -1831,6 +1913,10 @@ paths:
         - tips
       description: Gets the most recent tips on the network
       operationId: Get Tips
+      security:
+        - {}
+        - OAuth2:
+            - read
       parameters:
         - name: offset
           in: query
@@ -1918,6 +2004,10 @@ paths:
         - tracks
       description: Gets a list of tracks using their IDs or permalinks
       operationId: Get Bulk Tracks
+      security:
+        - {}
+        - OAuth2:
+            - read
       parameters:
         - name: user_id
           in: query
@@ -1966,6 +2056,8 @@ paths:
       security:
         - BearerAuth: []
         - BasicAuth: []
+        - OAuth2:
+            - write
       parameters:
         - name: user_id
           in: query
@@ -2039,6 +2131,10 @@ paths:
         - tracks
       description: Gets the most recently listed premium tracks
       operationId: Get Recent Premium Tracks
+      security:
+        - {}
+        - OAuth2:
+            - read
       parameters:
         - name: offset
           in: query
@@ -2070,6 +2166,10 @@ paths:
         - tracks
       description: Get recommended tracks
       operationId: Get Recommended Tracks
+      security:
+        - {}
+        - OAuth2:
+            - read
       parameters:
         - name: limit
           in: query
@@ -2118,6 +2218,10 @@ paths:
         - tracks
       description: Get recommended tracks using the given trending strategy version
       operationId: Get Recommended Tracks With Version
+      security:
+        - {}
+        - OAuth2:
+            - read
       parameters:
         - name: version
           in: path
@@ -2172,6 +2276,10 @@ paths:
         - tracks
       description: Gets random tracks found on the "Feeling Lucky" smart playlist
       operationId: Get Feeling Lucky Tracks
+      security:
+        - {}
+        - OAuth2:
+            - read
       parameters:
         - name: user_id
           in: query
@@ -2215,6 +2323,10 @@ paths:
         - tracks
       description: Gets the most recent tracks with active discussion
       operationId: Get Tracks With Recent Comments
+      security:
+        - {}
+        - OAuth2:
+            - read
       parameters:
         - name: user_id
           in: query
@@ -2254,6 +2366,10 @@ paths:
         - tracks
       description: Gets the most shared tracks for a given time range
       operationId: Get Most Shared Tracks
+      security:
+        - {}
+        - OAuth2:
+            - read
       parameters:
         - name: user_id
           in: query
@@ -2306,6 +2422,10 @@ paths:
         - tracks
       description: Gets the top trending (most popular) USDC purchase tracks on Audius
       operationId: Get Trending USDC Purchase Tracks
+      security:
+        - {}
+        - OAuth2:
+            - read
       parameters:
         - name: offset
           in: query
@@ -2360,6 +2480,10 @@ paths:
         Gets the top trending (most popular) USDC purchase tracks on Audius
         using a given trending strategy version
       operationId: Get Trending USDC Purchase Tracks With Version
+      security:
+        - {}
+        - OAuth2:
+            - read
       parameters:
         - name: version
           in: path
@@ -2518,6 +2642,10 @@ paths:
         - tracks
       description: Gets the top 100 trending (most popular) tracks on Audius
       operationId: Get Trending Tracks
+      security:
+        - {}
+        - OAuth2:
+            - read
       parameters:
         - name: offset
           in: query
@@ -2573,6 +2701,10 @@ paths:
         track objects for the specified week. Defaults to the most recent week with
         data when no week is provided.
       operationId: Get Trending Winners
+      security:
+        - {}
+        - OAuth2:
+            - read
       parameters:
         - name: week
           in: query
@@ -2608,6 +2740,10 @@ paths:
         Gets the top 100 trending (most popular) tracks on Audius using
         a given trending strategy version
       operationId: Get Trending Tracks With Version
+      security:
+        - {}
+        - OAuth2:
+            - read
       parameters:
         - name: version
           in: path
@@ -2742,6 +2878,10 @@ paths:
         - tracks
       description: Gets the top 100 trending underground tracks on Audius
       operationId: Get Underground Trending Tracks
+      security:
+        - {}
+        - OAuth2:
+            - read
       parameters:
         - name: offset
           in: query
@@ -2776,6 +2916,10 @@ paths:
         table. Returns track objects for the specified week. Defaults to the most
         recent week with data when no week is provided.
       operationId: Get Trending Underground Winners
+      security:
+        - {}
+        - OAuth2:
+            - read
       parameters:
         - name: week
           in: query
@@ -2811,6 +2955,10 @@ paths:
         Gets the top 100 trending underground tracks on Audius using a
         given trending strategy version
       operationId: Get Underground Trending Tracks With Version
+      security:
+        - {}
+        - OAuth2:
+            - read
       parameters:
         - name: version
           in: path
@@ -2848,6 +2996,10 @@ paths:
         - tracks
       description: Gets a track by ID.
       operationId: Get Track
+      security:
+        - {}
+        - OAuth2:
+            - read
       parameters:
         - name: track_id
           in: path
@@ -2875,6 +3027,8 @@ paths:
       security:
         - BearerAuth: []
         - BasicAuth: []
+        - OAuth2:
+            - write
       parameters:
         - name: track_id
           in: path
@@ -2922,6 +3076,8 @@ paths:
       security:
         - BearerAuth: []
         - BasicAuth: []
+        - OAuth2:
+            - write
       parameters:
         - name: track_id
           in: path
@@ -2959,6 +3115,10 @@ paths:
         Gets the information necessary to access the track and what access
         the given user has.
       operationId: Get Track Access Info
+      security:
+        - {}
+        - OAuth2:
+            - read
       parameters:
         - name: track_id
           in: path
@@ -2984,6 +3144,10 @@ paths:
         - tracks
       description: Get the comment count for a track
       operationId: Get Track Comment Count
+      security:
+        - {}
+        - OAuth2:
+            - read
       parameters:
         - name: track_id
           in: path
@@ -3015,6 +3179,10 @@ paths:
         - tracks
       description: Get the comment notification setting for a track
       operationId: Get Track Comment Notification Setting
+      security:
+        - {}
+        - OAuth2:
+            - read
       parameters:
         - name: track_id
           in: path
@@ -3046,6 +3214,10 @@ paths:
         - tracks
       description: Get a list of comments for a track
       operationId: Get Track Comments
+      security:
+        - {}
+        - OAuth2:
+            - read
       parameters:
         - name: track_id
           in: path
@@ -3099,6 +3271,10 @@ paths:
         - tracks
       description: Get users that favorited a track
       operationId: Get Users From Favorites
+      security:
+        - {}
+        - OAuth2:
+            - read
       parameters:
         - name: track_id
           in: path
@@ -3144,6 +3320,8 @@ paths:
       security:
         - BearerAuth: []
         - BasicAuth: []
+        - OAuth2:
+            - write
       parameters:
         - name: track_id
           in: path
@@ -3188,6 +3366,8 @@ paths:
       security:
         - BearerAuth: []
         - BasicAuth: []
+        - OAuth2:
+            - write
       parameters:
         - name: track_id
           in: path
@@ -3223,6 +3403,10 @@ paths:
         - tracks
       description: Get all tracks that remix the given track
       operationId: Get Track Remixes
+      security:
+        - {}
+        - OAuth2:
+            - read
       parameters:
         - name: track_id
           in: path
@@ -3280,6 +3464,10 @@ paths:
         - tracks
       description: Gets all the tracks that the given track remixes
       operationId: Get Track Remix Parents
+      security:
+        - {}
+        - OAuth2:
+            - read
       parameters:
         - name: track_id
           in: path
@@ -3317,6 +3505,10 @@ paths:
         - tracks
       description: Get the users that reposted a track
       operationId: Get Users From Reposts
+      security:
+        - {}
+        - OAuth2:
+            - read
       parameters:
         - name: track_id
           in: path
@@ -3362,6 +3554,8 @@ paths:
       security:
         - BearerAuth: []
         - BasicAuth: []
+        - OAuth2:
+            - write
       parameters:
         - name: track_id
           in: path
@@ -3405,6 +3599,8 @@ paths:
       security:
         - BearerAuth: []
         - BasicAuth: []
+        - OAuth2:
+            - write
       parameters:
         - name: track_id
           in: path
@@ -3441,6 +3637,10 @@ paths:
       summary: Download the original or MP3 file of a track
       description: Download an original or mp3 track
       operationId: Download Track
+      security:
+        - {}
+        - OAuth2:
+            - read
       parameters:
         - name: track_id
           in: path
@@ -3561,6 +3761,8 @@ paths:
       security:
         - BearerAuth: []
         - BasicAuth: []
+        - OAuth2:
+            - write
       parameters:
         - name: track_id
           in: path
@@ -3599,6 +3801,8 @@ paths:
       security:
         - BearerAuth: []
         - BasicAuth: []
+        - OAuth2:
+            - write
       parameters:
         - name: track_id
           in: path
@@ -3645,6 +3849,10 @@ paths:
 
         https://developer.mozilla.org/en-US/docs/Web/HTTP/Range_requests"
       operationId: Stream Track
+      security:
+        - {}
+        - OAuth2:
+            - read
       parameters:
         - name: track_id
           in: path
@@ -3736,6 +3944,10 @@ paths:
         - tracks
       description: Get the users that have listened to a track the most
       operationId: Get Track Top Listeners
+      security:
+        - {}
+        - OAuth2:
+            - read
       parameters:
         - name: track_id
           in: path
@@ -3779,6 +3991,10 @@ paths:
         - users
       description: Gets a list of users by ID
       operationId: Get Bulk Users
+      security:
+        - {}
+        - OAuth2:
+            - read
       parameters:
         - name: user_id
           in: query
@@ -3815,6 +4031,8 @@ paths:
       security:
         - BearerAuth: []
         - BasicAuth: []
+        - OAuth2:
+            - write
       requestBody:
         x-codegen-request-body-name: metadata
         required: true
@@ -3873,6 +4091,10 @@ paths:
         - users
       description: Gets a single user by their handle
       operationId: Get User by Handle
+      security:
+        - {}
+        - OAuth2:
+            - read
       parameters:
         - name: handle
           in: path
@@ -3904,6 +4126,10 @@ paths:
         - users
       description: Gets the tracks created by a user using the user's handle
       operationId: Get Tracks by User Handle
+      security:
+        - {}
+        - OAuth2:
+            - read
       parameters:
         - name: handle
           in: path
@@ -4005,6 +4231,10 @@ paths:
         Gets the AI generated tracks attributed to a user using the user's
         handle
       operationId: Get AI Attributed Tracks by User Handle
+      security:
+        - {}
+        - OAuth2:
+            - read
       parameters:
         - name: handle
           in: path
@@ -4195,6 +4425,10 @@ paths:
         - users
       description: Gets a single user by their user ID
       operationId: Get User
+      security:
+        - {}
+        - OAuth2:
+            - read
       parameters:
         - name: id
           in: path
@@ -4228,6 +4462,8 @@ paths:
       security:
         - BearerAuth: []
         - BasicAuth: []
+        - OAuth2:
+            - write
       parameters:
         - name: id
           in: path
@@ -4273,6 +4509,10 @@ paths:
         - users
       description: Gets the albums created by a user using their user ID
       operationId: Get Albums by User
+      security:
+        - {}
+        - OAuth2:
+            - read
       parameters:
         - name: id
           in: path
@@ -4399,6 +4639,10 @@ paths:
         - users
       description: Get the user's historical portfolio balance data
       operationId: Get User Balance History
+      security:
+        - {}
+        - OAuth2:
+            - read
       parameters:
         - name: id
           in: path
@@ -4638,6 +4882,10 @@ paths:
         - users
       description: Get user comment history
       operationId: Get User Comments
+      security:
+        - {}
+        - OAuth2:
+            - read
       parameters:
         - name: id
           in: path
@@ -4733,6 +4981,10 @@ paths:
         - users
       description: All users that follow the provided user
       operationId: Get Followers
+      security:
+        - {}
+        - OAuth2:
+            - read
       parameters:
         - name: id
           in: path
@@ -4779,6 +5031,8 @@ paths:
       security:
         - BearerAuth: []
         - BasicAuth: []
+        - OAuth2:
+            - write
       parameters:
         - name: id
           in: path
@@ -4816,6 +5070,8 @@ paths:
       security:
         - BearerAuth: []
         - BasicAuth: []
+        - OAuth2:
+            - write
       parameters:
         - name: id
           in: path
@@ -4854,6 +5110,8 @@ paths:
       security:
         - BearerAuth: []
         - BasicAuth: []
+        - OAuth2:
+            - write
       parameters:
         - name: id
           in: path
@@ -4895,6 +5153,8 @@ paths:
       security:
         - BearerAuth: []
         - BasicAuth: []
+        - OAuth2:
+            - write
       parameters:
         - name: id
           in: path
@@ -4938,6 +5198,8 @@ paths:
       security:
         - BearerAuth: []
         - BasicAuth: []
+        - OAuth2:
+            - write
       parameters:
         - name: id
           in: path
@@ -4979,6 +5241,8 @@ paths:
       security:
         - BearerAuth: []
         - BasicAuth: []
+        - OAuth2:
+            - write
       parameters:
         - name: id
           in: path
@@ -5080,6 +5344,8 @@ paths:
       security:
         - BearerAuth: []
         - BasicAuth: []
+        - OAuth2:
+            - write
       parameters:
         - name: id
           in: path
@@ -5118,6 +5384,10 @@ paths:
         - users
       description: All users that the provided user follows
       operationId: Get Following
+      security:
+        - {}
+        - OAuth2:
+            - read
       parameters:
         - name: id
           in: path
@@ -5161,6 +5431,10 @@ paths:
         - users
       description: Get the tracks the user recently listened to.
       operationId: Get User's Track History
+      security:
+        - {}
+        - OAuth2:
+            - read
       parameters:
         - name: id
           in: path
@@ -5330,6 +5604,8 @@ paths:
       security:
         - BearerAuth: []
         - BasicAuth: []
+        - OAuth2:
+            - write
       parameters:
         - name: id
           in: path
@@ -5367,6 +5643,8 @@ paths:
       security:
         - BearerAuth: []
         - BasicAuth: []
+        - OAuth2:
+            - write
       parameters:
         - name: id
           in: path
@@ -5404,6 +5682,10 @@ paths:
         Get intersection of users that follow followeeUserId and users
         that are followed by followerUserId
       operationId: Get Mutual Followers
+      security:
+        - {}
+        - OAuth2:
+            - read
       parameters:
         - name: id
           in: path
@@ -5447,6 +5729,10 @@ paths:
         - users
       description: Gets the playlists created by a user using their user ID
       operationId: Get Playlists by User
+      security:
+        - {}
+        - OAuth2:
+            - read
       parameters:
         - name: id
           in: path
@@ -5516,6 +5802,10 @@ paths:
         Gets the list of unique users who have purchased content by the
         given user
       operationId: Get purchasers
+      security:
+        - {}
+        - OAuth2:
+            - read
       parameters:
         - name: id
           in: path
@@ -5571,6 +5861,10 @@ paths:
         - users
       description: Downloads the purchases the user has made as a CSV file
       operationId: Download Purchases as CSV
+      security:
+        - {}
+        - OAuth2:
+            - read
       parameters:
         - name: id
           in: path
@@ -5603,6 +5897,10 @@ paths:
         - users
       description: Gets the recommended tracks for the user
       operationId: Get User Recommended Tracks
+      security:
+        - {}
+        - OAuth2:
+            - read
       parameters:
         - name: id
           in: path
@@ -5658,6 +5956,10 @@ paths:
         Gets a list of users that might be of interest to followers of
         this user.
       operationId: Get Related Users
+      security:
+        - {}
+        - OAuth2:
+            - read
       parameters:
         - name: id
           in: path
@@ -5709,6 +6011,10 @@ paths:
         Gets the list of unique users who have remixed tracks by the given
         user, or a specific track by that user if provided
       operationId: Get remixers
+      security:
+        - {}
+        - OAuth2:
+            - read
       parameters:
         - name: id
           in: path
@@ -5757,6 +6063,10 @@ paths:
         - users
       description: Gets the given user's reposts
       operationId: Get Reposts
+      security:
+        - {}
+        - OAuth2:
+            - read
       parameters:
         - name: id
           in: path
@@ -5800,6 +6110,10 @@ paths:
         - users
       description: Gets the aggregated sales data for the user
       operationId: Get Sales Aggregate
+      security:
+        - {}
+        - OAuth2:
+            - read
       parameters:
         - name: id
           in: path
@@ -5847,6 +6161,10 @@ paths:
         - users
       description: Downloads the sales the user has made as a CSV file
       operationId: Download Sales as CSV
+      security:
+        - {}
+        - OAuth2:
+            - read
       parameters:
         - name: id
           in: path
@@ -5879,6 +6197,10 @@ paths:
         - users
       description: Gets the sales data for the user in JSON format
       operationId: Download Sales as JSON
+      security:
+        - {}
+        - OAuth2:
+            - read
       parameters:
         - name: id
           in: path
@@ -5919,6 +6241,10 @@ paths:
         - users
       description: All users that subscribe to the provided user
       operationId: Get Subscribers
+      security:
+        - {}
+        - OAuth2:
+            - read
       parameters:
         - name: id
           in: path
@@ -5964,6 +6290,8 @@ paths:
       security:
         - BearerAuth: []
         - BasicAuth: []
+        - OAuth2:
+            - write
       parameters:
         - name: id
           in: path
@@ -6001,6 +6329,8 @@ paths:
       security:
         - BearerAuth: []
         - BasicAuth: []
+        - OAuth2:
+            - write
       parameters:
         - name: id
           in: path
@@ -6036,6 +6366,10 @@ paths:
         - users
       description: Gets the supporters of the given user
       operationId: Get Supporters
+      security:
+        - {}
+        - OAuth2:
+            - read
       parameters:
         - name: id
           in: path
@@ -6073,6 +6407,10 @@ paths:
         - users
       description: Gets the users that the given user supports
       operationId: Get Supported Users
+      security:
+        - {}
+        - OAuth2:
+            - read
       parameters:
         - name: id
           in: path
@@ -6111,6 +6449,10 @@ paths:
       summary: Fetch most used tags in a user's tracks
       description: Gets the most used track tags by a user.
       operationId: Get Top Track Tags
+      security:
+        - {}
+        - OAuth2:
+            - read
       parameters:
         - name: id
           in: path
@@ -6147,6 +6489,10 @@ paths:
         - users
       description: Gets the tracks created by a user using their user ID
       operationId: Get Tracks by User
+      security:
+        - {}
+        - OAuth2:
+            - read
       parameters:
         - name: id
           in: path
@@ -6262,6 +6608,10 @@ paths:
         - users
       description: Gets the count of tracks created by a user
       operationId: Get Tracks Count by User
+      security:
+        - {}
+        - OAuth2:
+            - read
       parameters:
         - name: id
           in: path
@@ -6330,6 +6680,10 @@ paths:
         Gets tracks owned by the user which have been remixed by another
         track
       operationId: Get User Tracks Remixed
+      security:
+        - {}
+        - OAuth2:
+            - read
       parameters:
         - name: id
           in: path
@@ -6378,6 +6732,10 @@ paths:
         - users
       description: Downloads the USDC withdrawals the user has made as a CSV file
       operationId: Download USDC Withdrawals as CSV
+      security:
+        - {}
+        - OAuth2:
+            - read
       parameters:
         - name: id
           in: path
@@ -7056,6 +7414,10 @@ paths:
         Produces an attestation that a given user has completed a challenge,
         or errors.
       operationId: Get Challenge Attestation
+      security:
+        - {}
+        - OAuth2:
+            - read
       parameters:
         - name: challenge_id
           in: path
@@ -7240,6 +7602,10 @@ paths:
         Returns trending playlists for a time period based on the given
         trending version
       operationId: Get Trending Playlists With Version
+      security:
+        - {}
+        - OAuth2:
+            - read
       parameters:
         - name: version
           in: path
@@ -7334,6 +7700,10 @@ paths:
         Same as search but optimized for quicker response at the cost of
         some entity information.
       operationId: Search Autocomplete
+      security:
+        - {}
+        - OAuth2:
+            - read
       parameters:
         - name: offset
           in: query
@@ -7458,6 +7828,10 @@ paths:
         - search
       description: Get Users/Tracks/Playlists/Albums that best match the search query
       operationId: Search
+      security:
+        - {}
+        - OAuth2:
+            - read
       parameters:
         - name: offset
           in: query
@@ -7584,6 +7958,10 @@ paths:
         Get Users/Tracks/Playlists/Albums that best match the provided
         tag
       operationId: SearchTags
+      security:
+        - {}
+        - OAuth2:
+            - read
       parameters:
         - name: offset
           in: query
@@ -7708,6 +8086,10 @@ paths:
         - tracks
       description: Gets the tracks found on the "Best New Releases" smart playlist
       operationId: Get Best New Releases
+      security:
+        - {}
+        - OAuth2:
+            - read
       parameters:
         - name: user_id
           in: query
@@ -7748,6 +8130,10 @@ paths:
         - tracks
       description: Gets the tracks found on the "Most Loved" smart playlist
       operationId: Get Most Loved Tracks
+      security:
+        - {}
+        - OAuth2:
+            - read
       parameters:
         - name: user_id
           in: query
@@ -7778,6 +8164,10 @@ paths:
         - tracks
       description: Gets a list of tracks that have stems available for remixing
       operationId: Get Remixable Tracks
+      security:
+        - {}
+        - OAuth2:
+            - read
       parameters:
         - name: limit
           in: query
@@ -7813,6 +8203,10 @@ paths:
         - tracks
       description: Gets the tracks found on the "Under the Radar" smart playlist
       operationId: Get Under the Radar Tracks
+      security:
+        - {}
+        - OAuth2:
+            - read
       parameters:
         - name: offset
           in: query
@@ -8035,6 +8429,10 @@ paths:
         - users
       description: Gets the user's reposts by the user handle
       operationId: Get Reposts by Handle
+      security:
+        - {}
+        - OAuth2:
+            - read
       parameters:
         - name: handle
           in: path
@@ -8137,6 +8535,10 @@ paths:
         - users
       description: Get the Top Users having at least one track by follower count
       operationId: Get Top Users
+      security:
+        - {}
+        - OAuth2:
+            - read
       parameters:
         - name: offset
           in: query
@@ -8174,6 +8576,10 @@ paths:
         - users
       description: Gets a user's favorite tracks
       operationId: Get User Favorite Tracks
+      security:
+        - {}
+        - OAuth2:
+            - read
       parameters:
         - name: id
           in: path
@@ -8245,6 +8651,10 @@ paths:
         - users
       description: Gets the feed for the user
       operationId: Get User Feed
+      security:
+        - {}
+        - OAuth2:
+            - read
       parameters:
         - name: id
           in: path
@@ -8330,6 +8740,10 @@ paths:
       summary: Fetch a user's full library playlists
       description: Gets a user's saved/reposted/purchased/all albums
       operationId: Get User Library Albums
+      security:
+        - {}
+        - OAuth2:
+            - read
       parameters:
         - name: id
           in: path
@@ -8419,6 +8833,10 @@ paths:
       summary: Fetch a user's full library playlists
       description: Gets a user's saved/reposted/purchased/all playlists
       operationId: Get User Library Playlists
+      security:
+        - {}
+        - OAuth2:
+            - read
       parameters:
         - name: id
           in: path
@@ -8508,6 +8926,10 @@ paths:
       summary: Fetch a user's full library tracks
       description: Gets a user's saved/reposted/purchased/all tracks
       operationId: Get User Library Tracks
+      security:
+        - {}
+        - OAuth2:
+            - read
       parameters:
         - name: id
           in: path
@@ -8663,6 +9085,10 @@ paths:
         Gets the list of users who have purchased content by the given
         user
       operationId: Get purchasers count
+      security:
+        - {}
+        - OAuth2:
+            - read
       parameters:
         - name: id
           in: path
@@ -8718,6 +9144,10 @@ paths:
         - users
       description: Gets the purchases the user has made
       operationId: Get Purchases
+      security:
+        - {}
+        - OAuth2:
+            - read
       parameters:
         - name: id
           in: path
@@ -8792,6 +9222,10 @@ paths:
         - users
       description: Gets the count of purchases the user has made
       operationId: Get Purchases Count
+      security:
+        - {}
+        - OAuth2:
+            - read
       parameters:
         - name: id
           in: path
@@ -8838,6 +9272,10 @@ paths:
         Gets the count of unique users who have remixed tracks by the given
         user, or a specific track by that user if provided
       operationId: Get remixers count
+      security:
+        - {}
+        - OAuth2:
+            - read
       parameters:
         - name: id
           in: path
@@ -8874,6 +9312,10 @@ paths:
         - users
       description: Gets the sales the user has made
       operationId: Get Sales
+      security:
+        - {}
+        - OAuth2:
+            - read
       parameters:
         - name: id
           in: path
@@ -8948,6 +9390,10 @@ paths:
         - users
       description: Gets the count of sales the user has made
       operationId: Get Sales Count
+      security:
+        - {}
+        - OAuth2:
+            - read
       parameters:
         - name: id
           in: path
@@ -8992,6 +9438,10 @@ paths:
         - users
       description: Gets the specified supporter of the given user
       operationId: Get Supporter
+      security:
+        - {}
+        - OAuth2:
+            - read
       parameters:
         - name: id
           in: path
@@ -9023,6 +9473,10 @@ paths:
         - users
       description: Gets the support from the given user to the supported user
       operationId: Get Supporting
+      security:
+        - {}
+        - OAuth2:
+            - read
       parameters:
         - name: id
           in: path
@@ -18012,6 +18466,36 @@ components:
       description: When any error occurs on mask
       content: {}
   securitySchemes:
+    OAuth2:
+      type: oauth2
+      description:
+        "OAuth 2.0 Authorization Code flow with PKCE for third-party applications.
+
+
+        Allows apps to authenticate users and obtain access tokens scoped to
+        read or read+write permissions on behalf of the user.
+
+
+        **Scopes:**
+
+        - `read` — Read-only access to the user's public and private data.
+
+        - `write` — Read and write access, allowing mutations on behalf of the user.
+
+
+        **PKCE Required:**
+
+        All authorization code requests must include `code_challenge` and
+        `code_challenge_method=S256` parameters.
+
+        "
+      flows:
+        authorizationCode:
+          authorizationUrl: /v1/oauth/authorize
+          tokenUrl: /v1/oauth/token
+          scopes:
+            read: Read-only access to user data
+            write: Read and write access on behalf of the user
     BasicAuth:
       type: http
       scheme: basic
