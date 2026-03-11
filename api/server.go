@@ -300,32 +300,35 @@ func NewApiServer(config config.Config) *ApiServer {
 	if app.rateLimitMiddleware != nil {
 		app.Use(app.rateLimitMiddleware.Middleware(app))
 	}
-	app.Use(fiberzap.New(fiberzap.Config{
-		Logger: logger,
-		FieldsFunc: func(c *fiber.Ctx) []zap.Field {
-			fields := []zap.Field{}
+	// Avoid request log spam in tests; test failures still include assertion output.
+	if config.Env != "test" {
+		app.Use(fiberzap.New(fiberzap.Config{
+			Logger: logger,
+			FieldsFunc: func(c *fiber.Ctx) []zap.Field {
+				fields := []zap.Field{}
 
-			if startTime, ok := c.Locals("start").(time.Time); ok {
-				latencyMs := float64(time.Since(startTime).Nanoseconds()) / float64(time.Millisecond)
-				fields = append(fields, zap.Float64("latency_ms", latencyMs))
-			}
+				if startTime, ok := c.Locals("start").(time.Time); ok {
+					latencyMs := float64(time.Since(startTime).Nanoseconds()) / float64(time.Millisecond)
+					fields = append(fields, zap.Float64("latency_ms", latencyMs))
+				}
 
-			// Add upstream server to logs, if found
-			if upstream, ok := c.Locals("upstream").(string); ok && upstream != "" {
-				fields = append(fields, zap.String("upstream", upstream))
-			}
+				// Add upstream server to logs, if found
+				if upstream, ok := c.Locals("upstream").(string); ok && upstream != "" {
+					fields = append(fields, zap.String("upstream", upstream))
+				}
 
-			if requestId, ok := c.Locals("requestId").(string); ok && requestId != "" {
-				fields = append(fields, zap.String("request_id", requestId))
-			}
+				if requestId, ok := c.Locals("requestId").(string); ok && requestId != "" {
+					fields = append(fields, zap.String("request_id", requestId))
+				}
 
-			ipAddress := apiutils.GetIP(c)
-			fields = append(fields, zap.String("ip", ipAddress))
+				ipAddress := apiutils.GetIP(c)
+				fields = append(fields, zap.String("ip", ipAddress))
 
-			return fields
-		},
-		Fields: []string{"status", "method", "url", "route"},
-	}))
+				return fields
+			},
+			Fields: []string{"status", "method", "url", "route"},
+		}))
+	}
 
 	app.Get("/", app.home)
 
