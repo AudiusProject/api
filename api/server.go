@@ -208,7 +208,8 @@ func NewApiServer(config config.Config) *ApiServer {
 	// Initialize metrics collector if writePool is available
 	var metricsCollector *MetricsCollector
 	var rateLimitMiddleware *RateLimitMiddleware
-	if writePool != nil && config.Env != "test" {
+	isLocalDev := config.Env == "dev" || config.Env == "development"
+	if writePool != nil && config.Env != "test" && !isLocalDev {
 		metricsCollector = NewMetricsCollector(logger, writePool)
 		rateLimitMiddleware = NewRateLimitMiddleware(logger, writePool)
 	}
