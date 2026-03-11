@@ -696,6 +696,85 @@ export default function App() {
     [oauthUser?.userId]
   );
 
+  const handleAddRedirectUri = useCallback(
+    async (app: DeveloperApp, uri: string) => {
+      if (oauthUser?.userId == null) throw new Error("Not logged in");
+      const token = sessionStorage.getItem(OAUTH_TOKEN_KEY);
+      const updatedUris = [...(app.redirect_uris ?? [])];
+      if (!updatedUris.includes(uri)) updatedUris.push(uri);
+      const res = await fetch(
+        `${API_BASE}/v1/developer-apps/${encodeURIComponent(
+          app.address
+        )}?user_id=${oauthUser.userId}`,
+        {
+          method: "PUT",
+          headers: {
+            "Content-Type": "application/json",
+            ...(token != null ? { Authorization: `Bearer ${token}` } : {}),
+          },
+          body: JSON.stringify({
+            name: app.name,
+            description: app.description ?? undefined,
+            image_url: app.image_url ?? undefined,
+            redirect_uris: updatedUris,
+          }),
+        }
+      );
+      if (!res.ok) {
+        const err = await res.json().catch(() => ({}));
+        throw new Error(
+          (err as { error?: string })?.error ?? "Failed to add redirect URI"
+        );
+      }
+      setDeveloperApps((prev) =>
+        prev.map((a) => {
+          if (a.address?.toLowerCase() !== app.address?.toLowerCase()) return a;
+          return { ...a, redirect_uris: updatedUris };
+        })
+      );
+    },
+    [oauthUser?.userId]
+  );
+
+  const handleRemoveRedirectUri = useCallback(
+    async (app: DeveloperApp, uri: string) => {
+      if (oauthUser?.userId == null) throw new Error("Not logged in");
+      const token = sessionStorage.getItem(OAUTH_TOKEN_KEY);
+      const updatedUris = (app.redirect_uris ?? []).filter((u) => u !== uri);
+      const res = await fetch(
+        `${API_BASE}/v1/developer-apps/${encodeURIComponent(
+          app.address
+        )}?user_id=${oauthUser.userId}`,
+        {
+          method: "PUT",
+          headers: {
+            "Content-Type": "application/json",
+            ...(token != null ? { Authorization: `Bearer ${token}` } : {}),
+          },
+          body: JSON.stringify({
+            name: app.name,
+            description: app.description ?? undefined,
+            image_url: app.image_url ?? undefined,
+            redirect_uris: updatedUris,
+          }),
+        }
+      );
+      if (!res.ok) {
+        const err = await res.json().catch(() => ({}));
+        throw new Error(
+          (err as { error?: string })?.error ?? "Failed to remove redirect URI"
+        );
+      }
+      setDeveloperApps((prev) =>
+        prev.map((a) => {
+          if (a.address?.toLowerCase() !== app.address?.toLowerCase()) return a;
+          return { ...a, redirect_uris: updatedUris };
+        })
+      );
+    },
+    [oauthUser?.userId]
+  );
+
   const handleDeleteApp = useCallback(
     async (app: { address: string; name: string }) => {
       if (oauthUser?.userId == null) throw new Error("Not logged in");
@@ -1309,6 +1388,8 @@ export default function App() {
                         onDelete={setDeleteAppModalApp}
                         onDeactivateAccessKey={handleDeactivateAccessKey}
                         onAddAccessKey={handleAddAccessKey}
+                        onAddRedirectUri={handleAddRedirectUri}
+                        onRemoveRedirectUri={handleRemoveRedirectUri}
                       />
                     ))}
                   </Flex>

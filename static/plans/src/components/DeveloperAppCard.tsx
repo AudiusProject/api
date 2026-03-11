@@ -29,6 +29,7 @@ export type DeveloperApp = {
   request_count_all_time?: number;
   is_legacy?: boolean;
   api_access_keys?: ApiAccessKey[];
+  redirect_uris?: string[];
 };
 
 const messages = {
@@ -44,6 +45,10 @@ const messages = {
   deleteApp: "Delete API Key",
   revokeToken: "Revoke Bearer Token",
   newBearerToken: "New Bearer Token",
+  redirectUrisLabel: "Redirect URIs",
+  removeUri: "Remove Redirect URI",
+  addUri: "Add Redirect URI",
+  addUriPlaceholder: "https://example.com/callback",
 };
 
 const PLACEHOLDER_COLORS = [
@@ -266,13 +271,149 @@ function BearerTokenField({
   );
 }
 
+function RedirectUriRow({
+  value,
+  onRemove,
+}: {
+  value: string;
+  onRemove: () => void | Promise<void>;
+}) {
+  const [pending, setPending] = useState(false);
 
+  const handleRemove = async () => {
+    if (pending) return;
+    setPending(true);
+    try {
+      await onRemove();
+    } catch (err) {
+      console.error(err);
+    } finally {
+      setPending(false);
+    }
+  };
+
+  return (
+    <Flex gap="s" alignItems="center">
+      <input
+        type="text"
+        readOnly
+        value={value}
+        css={css`
+          flex: 1;
+          padding: 0.5rem 0.75rem;
+          font-family: "Monaco", "Menlo", "Ubuntu Mono", monospace;
+          font-size: 0.875rem;
+          border: 1px solid var(--harmony-neutral-neutral-3, #e0e0e0);
+          border-radius: 4px;
+          background: var(--harmony-background, #f5f5f5);
+          min-width: 0;
+        `}
+      />
+      <Tooltip text={messages.removeUri} placement="top">
+        <IconButton
+          icon={IconClose}
+          size="s"
+          color="danger"
+          aria-label={messages.removeUri}
+          disabled={pending}
+          onClick={handleRemove}
+        />
+      </Tooltip>
+    </Flex>
+  );
+}
+
+function AddRedirectUriRow({
+  onAdd,
+}: {
+  onAdd: (uri: string) => void | Promise<void>;
+}) {
+  const [value, setValue] = useState("");
+  const [pending, setPending] = useState(false);
+
+  const handleAdd = async () => {
+    if (pending || !value.trim()) return;
+    setPending(true);
+    try {
+      await onAdd(value.trim());
+      setValue("");
+    } catch (err) {
+      console.error(err);
+    } finally {
+      setPending(false);
+    }
+  };
+
+  return (
+    <Flex gap="s" alignItems="center">
+      <input
+        type="text"
+        placeholder={messages.addUriPlaceholder}
+        value={value}
+        onChange={(e) => setValue(e.target.value)}
+        onKeyDown={(e) => {
+          if (e.key === "Enter") void handleAdd();
+        }}
+        css={css`
+          flex: 1;
+          padding: 0.5rem 0.75rem;
+          font-family: "Monaco", "Menlo", "Ubuntu Mono", monospace;
+          font-size: 0.875rem;
+          border: 1px solid var(--harmony-neutral-neutral-3, #e0e0e0);
+          border-radius: 4px;
+          background: white;
+          min-width: 0;
+        `}
+      />
+      <Tooltip text={messages.addUri} placement="top">
+        <IconButton
+          icon={IconPlus}
+          size="s"
+          color="success"
+          aria-label={messages.addUri}
+          disabled={pending || !value.trim()}
+          onClick={handleAdd}
+        />
+      </Tooltip>
+    </Flex>
+  );
+}
+
+function RedirectUrisField({
+  uris,
+  appAddress,
+  onRemove,
+  onAdd,
+}: {
+  uris: string[];
+  appAddress: string;
+  onRemove: (uri: string) => void | Promise<void>;
+  onAdd: (uri: string) => void | Promise<void>;
+}) {
+  return (
+    <Flex direction="column" gap="xs">
+      <Text tag="label" variant="body" strength="strong">
+        {messages.redirectUrisLabel}
+      </Text>
+      {uris.map((uri) => (
+        <RedirectUriRow
+          key={`${appAddress}-uri-${uri}`}
+          value={uri}
+          onRemove={() => onRemove(uri)}
+        />
+      ))}
+      <AddRedirectUriRow onAdd={onAdd} />
+    </Flex>
+  );
+}
 
 type Props = {
   app: DeveloperApp;
   onDelete: (app: DeveloperApp) => void;
   onDeactivateAccessKey: (app: DeveloperApp, apiAccessKey: string) => void;
   onAddAccessKey: (app: DeveloperApp) => void;
+  onAddRedirectUri: (app: DeveloperApp, uri: string) => void;
+  onRemoveRedirectUri: (app: DeveloperApp, uri: string) => void;
 };
 
 export function DeveloperAppCard({
@@ -280,6 +421,8 @@ export function DeveloperAppCard({
   onDelete,
   onDeactivateAccessKey,
   onAddAccessKey,
+  onAddRedirectUri,
+  onRemoveRedirectUri,
 }: Props) {
   return (
     <Paper key={app.address} p="l">
@@ -410,6 +553,14 @@ export function DeveloperAppCard({
                   />
                 )) ?? null
             : null}
+          {!app.is_legacy ? (
+            <RedirectUrisField
+              uris={app.redirect_uris ?? []}
+              appAddress={app.address}
+              onRemove={(uri) => onRemoveRedirectUri(app, uri)}
+              onAdd={(uri) => onAddRedirectUri(app, uri)}
+            />
+          ) : null}
         </Flex>
       </Flex>
     </Paper>
