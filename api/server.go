@@ -210,7 +210,10 @@ func NewApiServer(config config.Config) *ApiServer {
 	var rateLimitMiddleware *RateLimitMiddleware
 	if writePool != nil && config.Env != "test" {
 		metricsCollector = NewMetricsCollector(logger, writePool)
-		rateLimitMiddleware = NewRateLimitMiddleware(logger, writePool)
+		isLocalDev := config.Env == "dev" || config.Env == "development" || config.Env == ""
+		if !isLocalDev {
+			rateLimitMiddleware = NewRateLimitMiddleware(logger, writePool)
+		}
 	}
 
 	commsRpcProcessor, err := comms.NewProcessor(pool, writePool, &config, logger)
