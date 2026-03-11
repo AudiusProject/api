@@ -270,6 +270,7 @@ func (app *ApiServer) authMiddleware(c *fiber.Ctx) error {
 			if entry, ok := app.lookupOAuthAccessToken(c, bearerToken); ok {
 				if myId == 0 || entry.UserID == myId {
 					wallet = strings.ToLower(entry.ClientID)
+					c.Locals("oauthScope", entry.Scope)
 					if myId == 0 {
 						myId = entry.UserID
 						c.Locals("myId", int(entry.UserID))
@@ -334,6 +335,17 @@ func (app *ApiServer) requireAuthMiddleware(c *fiber.Ctx) error {
 	authedWallet := app.getAuthedWallet(c)
 	if authedWallet == "" {
 		return fiber.NewError(fiber.StatusUnauthorized, "You must be logged in to make this request")
+	}
+
+	return c.Next()
+}
+
+// Middleware that asserts the request carries write scope when authenticated via
+// an OAuth PKCE token. Non-OAuth auth methods (signature, api_access_key) are
+// always allowed through. Must be placed after authMiddleware.
+func (app *ApiServer) requireWriteScope(c *fiber.Ctx) error {
+	if scope, ok := c.Locals("oauthScope").(string); ok && scope != "" && scope != "write" {
+		return fiber.NewError(fiber.StatusForbidden, "OAuth token scope insufficient: write scope required")
 	}
 
 	return c.Next()
