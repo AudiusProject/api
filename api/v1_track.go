@@ -201,9 +201,10 @@ func (app *ApiServer) v1Track(c *fiber.Ctx) error {
 
 	tracks, err := app.queries.Tracks(c.Context(), dbv1.TracksParams{
 		GetTracksParams: dbv1.GetTracksParams{
-			MyID:         myId,
-			Ids:          []int32{int32(trackId)},
-			AuthedWallet: app.tryGetAuthedWallet(c),
+			MyID:            myId,
+			Ids:             []int32{int32(trackId)},
+			AuthedWallet:    app.tryGetAuthedWallet(c),
+			IncludeUnlisted: true, // allow fetch by ID even when track is unlisted
 		},
 	})
 	if err != nil {

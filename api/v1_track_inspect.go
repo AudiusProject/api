@@ -75,9 +75,10 @@ func (app *ApiServer) v1TrackInspect(c *fiber.Ctx) error {
 
 	tracks, err := app.queries.Tracks(c.Context(), dbv1.TracksParams{
 		GetTracksParams: dbv1.GetTracksParams{
-			MyID:         myId,
-			Ids:          []int32{int32(trackId)},
-			AuthedWallet: app.tryGetAuthedWallet(c),
+			MyID:            myId,
+			Ids:             []int32{int32(trackId)},
+			AuthedWallet:    app.tryGetAuthedWallet(c),
+			IncludeUnlisted: true, // allow inspect by ID even when track is unlisted
 		},
 	})
 	if err != nil {
@@ -106,9 +107,10 @@ func (app *ApiServer) v1TracksInspect(c *fiber.Ctx) error {
 
 	tracks, err := app.queries.Tracks(c.Context(), dbv1.TracksParams{
 		GetTracksParams: dbv1.GetTracksParams{
-			MyID:         myId,
-			Ids:          ids,
-			AuthedWallet: app.tryGetAuthedWallet(c),
+			MyID:            myId,
+			Ids:             ids,
+			AuthedWallet:    app.tryGetAuthedWallet(c),
+			IncludeUnlisted: true, // allow inspect by ID even when track is unlisted
 		},
 	})
 	if err != nil {
