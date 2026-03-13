@@ -1,6 +1,7 @@
 package api
 
 import (
+	"context"
 	"testing"
 
 	"api.audius.co/database"
@@ -92,6 +93,9 @@ func TestV1TrackRemixing(t *testing.T) {
 	}
 
 	database.Seed(app.pool.Replicas[0], fixtures)
+
+	_, err := app.pool.Replicas[0].Exec(context.Background(), `UPDATE tracks SET is_unlisted = true WHERE track_id = 2`)
+	assert.NoError(t, err)
 
 	status, body := testGet(t, app, "/v1/full/tracks/"+trashid.MustEncodeHashID(10)+"/remixing")
 	assert.Equal(t, 200, status)
