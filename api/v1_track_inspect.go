@@ -78,7 +78,7 @@ func (app *ApiServer) v1TrackInspect(c *fiber.Ctx) error {
 			MyID:            myId,
 			Ids:             []int32{int32(trackId)},
 			AuthedWallet:    app.tryGetAuthedWallet(c),
-			IncludeUnlisted: true, // allow inspect by ID even when track is unlisted
+			IncludeUnlisted: true,
 		},
 	})
 	if err != nil {
@@ -110,7 +110,7 @@ func (app *ApiServer) v1TracksInspect(c *fiber.Ctx) error {
 			MyID:            myId,
 			Ids:             ids,
 			AuthedWallet:    app.tryGetAuthedWallet(c),
-			IncludeUnlisted: true, // allow inspect by ID even when track is unlisted
+			IncludeUnlisted: true,
 		},
 	})
 	if err != nil {

@@ -204,7 +204,7 @@ func (app *ApiServer) v1Track(c *fiber.Ctx) error {
 			MyID:            myId,
 			Ids:             []int32{int32(trackId)},
 			AuthedWallet:    app.tryGetAuthedWallet(c),
-			IncludeUnlisted: true, // allow fetch by ID even when track is unlisted
+			IncludeUnlisted: true,
 		},
 	})
 	if err != nil {

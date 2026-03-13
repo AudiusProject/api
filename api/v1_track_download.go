@@ -30,7 +30,7 @@ func (app *ApiServer) v1TrackDownload(c *fiber.Ctx) error {
 			MyID:            myId,
 			Ids:             []int32{int32(trackId)},
 			AuthedWallet:    app.tryGetAuthedWallet(c),
-			IncludeUnlisted: true, // allow download by ID even when track is unlisted
+			IncludeUnlisted: true,
 		},
 	})
 	if err != nil {

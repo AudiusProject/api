@@ -14,7 +14,7 @@ func (app *ApiServer) v1TrackStream(c *fiber.Ctx) error {
 			MyID:            myId,
 			Ids:             []int32{int32(trackId)},
 			AuthedWallet:    app.tryGetAuthedWallet(c),
-			IncludeUnlisted: true, // allow stream by ID even when track is unlisted
+			IncludeUnlisted: true,
 		},
 	})
 	if err != nil {
