@@ -434,38 +434,107 @@ func TestOAuthAuthorize_UnregisteredRedirectURI(t *testing.T) {
 	assert.Contains(t, gjson.GetBytes(body, "error_description").String(), "redirect_uri")
 }
 
-func TestOAuthAuthorize_NoRegisteredRedirectURIs(t *testing.T) {
-	app := emptyTestApp(t)
-	seedOAuthTestData(t, app)
-
-	// Register a new developer app with no redirect URIs.
-	// Policy: if no URIs are registered, any redirect_uri is accepted.
-	clientIDNoURIs := "0xccdd000000000000000000000000000000000003"
+// seedAppWithNoRedirectURIs registers a developer app with no redirect URIs and returns its client_id.
+func seedAppWithNoRedirectURIs(t *testing.T, app *ApiServer) string {
+	t.Helper()
+	clientID := "0xccdd000000000000000000000000000000000003"
 	database.SeedTable(app.pool.Replicas[0], "developer_apps", []map[string]any{
 		{
-			"address":   clientIDNoURIs,
+			"address":   clientID,
 			"user_id":   100,
 			"name":      "App Without Redirect URIs",
 			"is_delete": false,
 		},
 	})
+	return clientID
+}
 
+func authorizeWithNoURIsApp(t *testing.T, app *ApiServer, redirectURI string) (int, []byte) {
+	t.Helper()
+	clientID := seedAppWithNoRedirectURIs(t, app)
 	token := makeOAuthJWT(t, 100, oauthTestPrivKeyHex)
 	h := sha256.Sum256([]byte("verifier"))
 	codeChallenge := base64.RawURLEncoding.EncodeToString(h[:])
-
-	status, body := oauthPostJSON(t, app, "/v1/oauth/authorize", map[string]string{
+	return oauthPostJSON(t, app, "/v1/oauth/authorize", map[string]string{
 		"token":                 token,
-		"client_id":             clientIDNoURIs,
-		"redirect_uri":          "https://any-uri.example.com/callback",
+		"client_id":             clientID,
+		"redirect_uri":          redirectURI,
 		"code_challenge":        codeChallenge,
 		"code_challenge_method": "S256",
 		"scope":                 "read",
 	})
+}
 
+func TestOAuthAuthorize_NoRegisteredRedirectURIs_ValidHTTPS(t *testing.T) {
+	app := emptyTestApp(t)
+	seedOAuthTestData(t, app)
+	status, body := authorizeWithNoURIsApp(t, app, "https://any-uri.example.com/callback")
 	assert.Equal(t, 200, status)
-	assert.True(t, gjson.GetBytes(body, "code").Exists())
 	assert.NotEmpty(t, gjson.GetBytes(body, "code").String())
+}
+
+func TestOAuthAuthorize_NoRegisteredRedirectURIs_ValidHTTP(t *testing.T) {
+	app := emptyTestApp(t)
+	seedOAuthTestData(t, app)
+	status, body := authorizeWithNoURIsApp(t, app, "http://localhost:3000/callback")
+	assert.Equal(t, 200, status)
+	assert.NotEmpty(t, gjson.GetBytes(body, "code").String())
+}
+
+func TestOAuthAuthorize_NoRegisteredRedirectURIs_PostMessage(t *testing.T) {
+	app := emptyTestApp(t)
+	seedOAuthTestData(t, app)
+	status, body := authorizeWithNoURIsApp(t, app, "postMessage")
+	assert.Equal(t, 200, status)
+	assert.NotEmpty(t, gjson.GetBytes(body, "code").String())
+}
+
+func TestOAuthAuthorize_NoRegisteredRedirectURIs_LoopbackIP(t *testing.T) {
+	app := emptyTestApp(t)
+	seedOAuthTestData(t, app)
+	status, body := authorizeWithNoURIsApp(t, app, "http://127.0.0.1:8080/callback")
+	assert.Equal(t, 200, status)
+	assert.NotEmpty(t, gjson.GetBytes(body, "code").String())
+}
+
+func TestOAuthAuthorize_NoRegisteredRedirectURIs_NonHTTPScheme(t *testing.T) {
+	app := emptyTestApp(t)
+	seedOAuthTestData(t, app)
+	status, body := authorizeWithNoURIsApp(t, app, "myapp://oauth/callback")
+	assert.Equal(t, 400, status)
+	jsonAssert(t, body, map[string]any{"error": "invalid_request"})
+}
+
+func TestOAuthAuthorize_NoRegisteredRedirectURIs_BareIP(t *testing.T) {
+	app := emptyTestApp(t)
+	seedOAuthTestData(t, app)
+	status, body := authorizeWithNoURIsApp(t, app, "https://192.168.1.1/callback")
+	assert.Equal(t, 400, status)
+	jsonAssert(t, body, map[string]any{"error": "invalid_request"})
+}
+
+func TestOAuthAuthorize_NoRegisteredRedirectURIs_Credentials(t *testing.T) {
+	app := emptyTestApp(t)
+	seedOAuthTestData(t, app)
+	status, body := authorizeWithNoURIsApp(t, app, "https://user:pass@evil.com/callback")
+	assert.Equal(t, 400, status)
+	jsonAssert(t, body, map[string]any{"error": "invalid_request"})
+}
+
+func TestOAuthAuthorize_NoRegisteredRedirectURIs_Fragment(t *testing.T) {
+	app := emptyTestApp(t)
+	seedOAuthTestData(t, app)
+	status, body := authorizeWithNoURIsApp(t, app, "https://example.com/callback#fragment")
+	assert.Equal(t, 400, status)
+	jsonAssert(t, body, map[string]any{"error": "invalid_request"})
+}
+
+func TestOAuthAuthorize_NoRegisteredRedirectURIs_PathTraversal(t *testing.T) {
+	app := emptyTestApp(t)
+	seedOAuthTestData(t, app)
+	status, body := authorizeWithNoURIsApp(t, app, "https://example.com/foo/../../../callback")
+	assert.Equal(t, 400, status)
+	jsonAssert(t, body, map[string]any{"error": "invalid_request"})
 }
 
 // --- /oauth/token (authorization_code grant) ---

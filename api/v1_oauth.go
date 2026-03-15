@@ -7,6 +7,8 @@ import (
 	"encoding/base64"
 	"encoding/json"
 	"fmt"
+	"net"
+	"net/url"
 	"strings"
 	"time"
 
@@ -155,9 +157,12 @@ func (app *ApiServer) v1OAuthAuthorize(c *fiber.Ctx) error {
 
 	// 3. Validate redirect_uri
 	// Fetch all registered redirect URIs for this client.
-	// If none are registered, any redirect_uri is allowed (including postmessage).
 	// If any are registered, the submitted redirect_uri must exactly match one of them.
-	// postmessage is not special-cased — it must be explicitly registered to be used.
+	// If none are registered (legacy apps), apply format-based validation as a fallback:
+	//   - scheme must be http or https (or postmessage)
+	//   - no credentials or fragment
+	//   - no path traversal sequences
+	//   - no non-loopback IP addresses
 	{
 		rows, err := app.pool.Query(c.Context(), `
 			SELECT redirect_uri FROM oauth_redirect_uris
@@ -186,6 +191,30 @@ func (app *ApiServer) v1OAuthAuthorize(c *fiber.Ctx) error {
 			}
 			if !allowed {
 				return oauthError(c, fiber.StatusBadRequest, "invalid_request", "redirect_uri not registered")
+			}
+		} else {
+			// No registered URIs: apply legacy format validation.
+			// postmessage is always allowed for backwards compatibility.
+			if strings.ToLower(body.RedirectURI) != "postmessage" {
+				parsed, err := url.Parse(body.RedirectURI)
+				if err != nil || parsed.Host == "" {
+					return oauthError(c, fiber.StatusBadRequest, "invalid_request", "redirect_uri is not a valid URL")
+				}
+				if parsed.Scheme != "http" && parsed.Scheme != "https" {
+					return oauthError(c, fiber.StatusBadRequest, "invalid_request", "redirect_uri scheme must be http or https")
+				}
+				if parsed.Fragment != "" || parsed.User != nil {
+					return oauthError(c, fiber.StatusBadRequest, "invalid_request", "redirect_uri must not contain credentials or a fragment")
+				}
+				normalizedPath := strings.ReplaceAll(parsed.Path, "\\", "/")
+				for _, segment := range strings.Split(normalizedPath, "/") {
+					if segment == ".." {
+						return oauthError(c, fiber.StatusBadRequest, "invalid_request", "redirect_uri contains a path traversal sequence")
+					}
+				}
+				if ip := net.ParseIP(parsed.Hostname()); ip != nil && !ip.IsLoopback() {
+					return oauthError(c, fiber.StatusBadRequest, "invalid_request", "redirect_uri must not use a non-loopback IP address")
+				}
 			}
 		}
 	}
