@@ -213,7 +213,7 @@ func (app *ApiServer) v1OAuthAuthorize(c *fiber.Ctx) error {
 					}
 				}
 				if ip := net.ParseIP(parsed.Hostname()); ip != nil && !ip.IsLoopback() {
-					return oauthError(c, fiber.StatusBadRequest, "invalid_request", "redirect_uri must not use a bare IP address")
+					return oauthError(c, fiber.StatusBadRequest, "invalid_request", "redirect_uri must not use a non-loopback IP address")
 				}
 			}
 		}
