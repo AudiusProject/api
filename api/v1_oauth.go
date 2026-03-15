@@ -206,8 +206,11 @@ func (app *ApiServer) v1OAuthAuthorize(c *fiber.Ctx) error {
 				if parsed.Fragment != "" || parsed.User != nil {
 					return oauthError(c, fiber.StatusBadRequest, "invalid_request", "redirect_uri must not contain credentials or a fragment")
 				}
-				if strings.Contains(parsed.Path, "/..") || strings.Contains(parsed.Path, "\\..") || strings.Contains(parsed.Path, "../") {
-					return oauthError(c, fiber.StatusBadRequest, "invalid_request", "redirect_uri contains a path traversal sequence")
+				normalizedPath := strings.ReplaceAll(parsed.Path, "\\", "/")
+				for _, segment := range strings.Split(normalizedPath, "/") {
+					if segment == ".." {
+						return oauthError(c, fiber.StatusBadRequest, "invalid_request", "redirect_uri contains a path traversal sequence")
+					}
 				}
 				if ip := net.ParseIP(parsed.Hostname()); ip != nil && !ip.IsLoopback() {
 					return oauthError(c, fiber.StatusBadRequest, "invalid_request", "redirect_uri must not use a bare IP address")
