@@ -1,7 +1,6 @@
 package comms
 
 import (
-	"bytes"
 	"context"
 	"encoding/json"
 	"errors"
@@ -521,14 +520,12 @@ func validatePermittedToMessage(pool *dbv1.DBPools, ctx context.Context, userId 
 
 var ErrAttestationFailed = errors.New("attestation failed")
 
-// TODO: Better AAO usage that corresponds to the claim rewards code
 func validateSenderPassesAbuseCheck(pool *dbv1.DBPools, ctx context.Context, logger *zap.Logger, userId int32, aaoServer string) error {
 	if aaoServer == "" {
 		return nil
 	}
-	// Keeping this somewhat opaque as it gets sent to client
-	var handle string
-	err := pool.QueryRow(ctx, `SELECT handle FROM users WHERE user_id = $1`, userId).Scan(&handle)
+	var wallet string
+	err := pool.QueryRow(ctx, `SELECT wallet FROM users WHERE user_id = $1`, userId).Scan(&wallet)
 	if err != nil {
 		if err == pgx.ErrNoRows {
 			return fmt.Errorf("user %d not found", userId)
@@ -536,12 +533,10 @@ func validateSenderPassesAbuseCheck(pool *dbv1.DBPools, ctx context.Context, log
 		return err
 	}
 
-	url := fmt.Sprintf("%s/attestation/%s", aaoServer, handle)
-	// Dummy challenge for now to mitigate
-	requestBody := []byte(`{ "challengeId": "x", "challengeSpecifier": "x", "amount": 0 }`)
-	resp, err := http.Post(url, "application/json", bytes.NewBuffer(requestBody))
+	url := fmt.Sprintf("%s/attestation/check?wallet=%s", aaoServer, wallet)
+	resp, err := http.Get(url)
 	if err != nil {
-		logger.Error("Error checking user attestation", zap.Error(err), zap.String("handle", handle))
+		logger.Error("Error checking user attestation", zap.Error(err), zap.String("wallet", wallet))
 		return err
 	}
 	defer resp.Body.Close()
