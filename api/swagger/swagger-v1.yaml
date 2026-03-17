@@ -9805,10 +9805,10 @@ paths:
   /me:
     get:
       tags:
-        - oauth
+        - users
       summary: Get authenticated user
       description: Returns the full profile of the currently authenticated user based on the Bearer access token obtained via OAuth.
-      operationId: Get Authenticated User
+      operationId: Get Me
       security:
         - OAuth2:
             - read
