@@ -560,7 +560,8 @@ func (app *ApiServer) v1OAuthMe(c *fiber.Ctx) error {
 
 	// Fetch user via the standard query helper (includes rendezvous-based image URLs)
 	users, err := app.queries.Users(c.Context(), dbv1.GetUsersParams{
-		Ids: []int32{entry.UserID},
+		Ids:  []int32{entry.UserID},
+		MyID: entry.UserID,
 	})
 	if err != nil {
 		app.logger.Error("Failed to query user for /oauth/me", zap.Error(err))
