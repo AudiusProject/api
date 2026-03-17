@@ -44,6 +44,7 @@ import (
 	"github.com/mcuadros/go-defaults"
 	"github.com/segmentio/encoding/json"
 	"go.uber.org/zap"
+	"go.uber.org/zap/zapcore"
 )
 
 //go:embed swagger/swagger-v1.yaml
@@ -301,8 +302,13 @@ func NewApiServer(config config.Config) *ApiServer {
 	if app.rateLimitMiddleware != nil {
 		app.Use(app.rateLimitMiddleware.Middleware(app))
 	}
+	// In test, only log request errors to avoid noisy success logs
+	requestLogger := logger
+	if config.Env == "test" {
+		requestLogger = logger.WithOptions(zap.IncreaseLevel(zapcore.ErrorLevel))
+	}
 	app.Use(fiberzap.New(fiberzap.Config{
-		Logger: logger,
+		Logger: requestLogger,
 		FieldsFunc: func(c *fiber.Ctx) []zap.Field {
 			fields := []zap.Field{}
 
