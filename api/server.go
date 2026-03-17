@@ -357,6 +357,12 @@ func NewApiServer(config config.Config) *ApiServer {
 	// Archiver proxy
 	app.All("/archive/*", archiveProxy)
 
+	// Sitemaps
+	app.Get("/sitemaps/default.xml", app.sitemapDefault)
+	app.Get("/sitemaps/defaults.xml", app.sitemapDefaults)
+	app.Get("/sitemaps/:type/index.xml", app.sitemapTypeIndex)
+	app.Get("/sitemaps/:type/:fileName", app.sitemapTypePage)
+
 	// resolve myId
 	app.Use(app.isFullMiddleware)
 	app.Use(app.resolveMyIdMiddleware)
