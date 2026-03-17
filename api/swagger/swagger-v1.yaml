@@ -13992,6 +13992,7 @@ components:
         - is_unlisted
         - permalink
         - play_count
+        - download_count
         - preview
         - remix_of
         - repost_count
@@ -14047,6 +14048,9 @@ components:
           type: boolean
         play_count:
           type: integer
+        download_count:
+          type: integer
+          description: Full track + all stems (parent) or stem-only (stem)
         permalink:
           type: string
         is_streamable:
@@ -15458,6 +15462,7 @@ components:
         - is_unlisted
         - permalink
         - play_count
+        - download_count
         - preview
         - remix_of
         - repost_count
@@ -15513,6 +15518,9 @@ components:
           type: boolean
         play_count:
           type: integer
+        download_count:
+          type: integer
+          description: Full track + all stems (parent) or stem-only (stem)
         permalink:
           type: string
         is_streamable:

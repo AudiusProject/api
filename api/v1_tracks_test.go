@@ -19,8 +19,9 @@ func TestTracksEndpoint(t *testing.T) {
 	assert.Equal(t, 200, status)
 
 	jsonAssert(t, body, map[string]any{
-		"data.0.id":    "eYZmn",
-		"data.0.title": "T1",
+		"data.0.id":             "eYZmn",
+		"data.0.title":         "T1",
+		"data.0.download_count": 0,
 	})
 }
 
@@ -31,8 +32,9 @@ func TestGetTracksByPermalink(t *testing.T) {
 	assert.Equal(t, 200, status)
 
 	jsonAssert(t, body, map[string]any{
-		"data.0.id":    "eYake",
-		"data.0.title": "track by permalink",
+		"data.0.id":             "eYake",
+		"data.0.title":         "track by permalink",
+		"data.0.download_count": 0,
 	})
 }
 

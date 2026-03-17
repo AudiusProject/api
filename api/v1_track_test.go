@@ -1,11 +1,13 @@
 package api
 
 import (
+	"context"
 	"testing"
 
 	"api.audius.co/api/dbv1"
 	"api.audius.co/trashid"
 	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 )
 
 func TestGetTrack(t *testing.T) {
@@ -18,9 +20,33 @@ func TestGetTrack(t *testing.T) {
 	assert.Equal(t, 200, status)
 
 	jsonAssert(t, body, map[string]any{
-		"data.id":         "eYJyn",
-		"data.title":      "Culca Canyon",
-		"data.play_count": 0,
+		"data.id":             "eYJyn",
+		"data.title":          "Culca Canyon",
+		"data.play_count":     0,
+		"data.download_count": 0,
+	})
+}
+
+func TestGetTrackDownloadCount(t *testing.T) {
+	app := testAppWithFixtures(t)
+	ctx := context.Background()
+	require.NotNil(t, app.writePool, "test requires write pool")
+
+	// Track 200 is "Culca Canyon" (eYJyn). Insert two download rows so download_count is 2.
+	_, err := app.writePool.Exec(ctx, `
+		INSERT INTO track_downloads (txhash, blocknumber, parent_track_id, track_id, user_id)
+		VALUES ('tx-dl-1', 101, 200, 200, 1), ('tx-dl-2', 101, 200, 200, 2)
+	`)
+	require.NoError(t, err)
+
+	var trackResponse struct {
+		Data dbv1.Track
+	}
+	status, body := testGet(t, app, "/v1/full/tracks/eYJyn", &trackResponse)
+	assert.Equal(t, 200, status)
+	jsonAssert(t, body, map[string]any{
+		"data.id":             "eYJyn",
+		"data.download_count": 2,
 	})
 }
 
