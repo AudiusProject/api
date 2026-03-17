@@ -20,10 +20,9 @@ func TestGetTrack(t *testing.T) {
 	assert.Equal(t, 200, status)
 
 	jsonAssert(t, body, map[string]any{
-		"data.id":             "eYJyn",
-		"data.title":          "Culca Canyon",
-		"data.play_count":     0,
-		"data.download_count": 0,
+		"data.id":        "eYJyn",
+		"data.title":     "Culca Canyon",
+		"data.play_count": 0,
 	})
 }
 
@@ -39,14 +38,22 @@ func TestGetTrackDownloadCount(t *testing.T) {
 	`)
 	require.NoError(t, err)
 
-	var trackResponse struct {
-		Data dbv1.Track
-	}
-	status, body := testGet(t, app, "/v1/full/tracks/eYJyn", &trackResponse)
+	// Single track download_count endpoint
+	status, body := testGet(t, app, "/v1/full/tracks/eYJyn/download_count", nil)
 	assert.Equal(t, 200, status)
 	jsonAssert(t, body, map[string]any{
 		"data.id":             "eYJyn",
 		"data.download_count": 2,
+	})
+
+	// Bulk download_counts endpoint
+	status2, body2 := testGet(t, app, "/v1/full/tracks/download_counts?id=eYJyn&id=eYZmn", nil)
+	assert.Equal(t, 200, status2)
+	jsonAssert(t, body2, map[string]any{
+		"data.0.id":             "eYJyn",
+		"data.0.download_count": 2,
+		"data.1.id":             "eYZmn",
+		"data.1.download_count": 0,
 	})
 }
 

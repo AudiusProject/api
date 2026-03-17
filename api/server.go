@@ -473,9 +473,11 @@ func NewApiServer(config config.Config) *ApiServer {
 		g.Get("/tracks/feeling-lucky", app.v1TracksFeelingLucky)
 		g.Get("/tracks/recent-comments", app.v1TracksRecentComments)
 		g.Get("/tracks/most-shared", app.v1TracksMostShared)
+		g.Get("/tracks/download_counts", app.v1TracksDownloadCounts)
 
 		g.Use("/tracks/:trackId", app.requireTrackIdMiddleware)
 		g.Get("/tracks/:trackId", app.v1Track)
+		g.Get("/tracks/:trackId/download_count", app.v1TrackDownloadCount)
 		g.Get("/tracks/:trackId/stream", app.v1TrackStream)
 		g.Get("/tracks/:trackId/download", app.v1TrackDownload)
 		g.Get("/tracks/:trackId/inspect", app.v1TrackInspect)
