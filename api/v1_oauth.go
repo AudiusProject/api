@@ -570,21 +570,7 @@ func (app *ApiServer) v1OAuthMe(c *fiber.Ctx) error {
 		return oauthError(c, fiber.StatusNotFound, "invalid_token", "User not found")
 	}
 
-	user := users[0]
-
-	response := fiber.Map{
-		"userId":   user.ID,
-		"name":     user.Name.String,
-		"handle":   user.Handle.String,
-		"verified": user.IsVerified,
-		"sub":      user.ID,
-		"iat":      time.Now().Unix(),
-	}
-	if user.ProfilePicture != nil {
-		response["profilePicture"] = user.ProfilePicture
-	}
-
-	return c.JSON(response)
+	return c.JSON(fiber.Map{"data": users[0]})
 }
 
 // --- Helper methods ---
