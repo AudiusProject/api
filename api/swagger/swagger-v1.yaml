@@ -9750,7 +9750,7 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/transaction_history_count_response"
-  /oauth/me:
+  /me:
     get:
       tags:
         - oauth

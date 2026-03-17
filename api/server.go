@@ -556,7 +556,7 @@ func NewApiServer(config config.Config) *ApiServer {
 		g.Post("/oauth/authorize", app.v1OAuthAuthorize)
 		g.Post("/oauth/token", app.v1OAuthToken)
 		g.Post("/oauth/revoke", app.v1OAuthRevoke)
-		g.Get("/oauth/me", app.requireAuthMiddleware, app.v1OAuthMe)
+		g.Get("/me", app.requireAuthMiddleware, app.v1Me)
 
 		// Rewards
 		g.Post("/rewards/claim", app.v1ClaimRewards)
