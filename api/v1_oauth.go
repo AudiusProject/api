@@ -12,7 +12,6 @@ import (
 	"strings"
 	"time"
 
-	"api.audius.co/api/dbv1"
 	"github.com/gofiber/fiber/v2"
 	"github.com/jackc/pgx/v5"
 	"go.uber.org/zap"
@@ -539,53 +538,6 @@ func (app *ApiServer) v1OAuthRevoke(c *fiber.Ctx) error {
 	return c.JSON(fiber.Map{})
 }
 
-// v1OAuthMe handles GET /v1/oauth/me
-// Returns the authenticated user's profile based on Bearer access token.
-func (app *ApiServer) v1OAuthMe(c *fiber.Ctx) error {
-	// Extract Bearer token
-	authHeader := c.Get("Authorization")
-	if authHeader == "" || !strings.HasPrefix(authHeader, "Bearer ") {
-		return oauthError(c, fiber.StatusUnauthorized, "invalid_token", "Missing or invalid Authorization header")
-	}
-	token := strings.TrimSpace(strings.TrimPrefix(authHeader, "Bearer "))
-	if token == "" {
-		return oauthError(c, fiber.StatusUnauthorized, "invalid_token", "Bearer token is empty")
-	}
-
-	// Look up the access token (try cache first)
-	entry, ok := app.lookupOAuthAccessToken(c, token)
-	if !ok {
-		return oauthError(c, fiber.StatusUnauthorized, "invalid_token", "Invalid or expired access token")
-	}
-
-	// Fetch user via the standard query helper (includes rendezvous-based image URLs)
-	users, err := app.queries.Users(c.Context(), dbv1.GetUsersParams{
-		Ids: []int32{entry.UserID},
-	})
-	if err != nil {
-		app.logger.Error("Failed to query user for /oauth/me", zap.Error(err))
-		return oauthError(c, fiber.StatusInternalServerError, "server_error", "Failed to get user info")
-	}
-	if len(users) == 0 {
-		return oauthError(c, fiber.StatusNotFound, "invalid_token", "User not found")
-	}
-
-	user := users[0]
-
-	response := fiber.Map{
-		"userId":   user.ID,
-		"name":     user.Name.String,
-		"handle":   user.Handle.String,
-		"verified": user.IsVerified,
-		"sub":      user.ID,
-		"iat":      time.Now().Unix(),
-	}
-	if user.ProfilePicture != nil {
-		response["profilePicture"] = user.ProfilePicture
-	}
-
-	return c.JSON(response)
-}
 
 // --- Helper methods ---
 

@@ -901,7 +901,7 @@ func TestOAuthRevoke_MissingToken(t *testing.T) {
 	jsonAssert(t, body, map[string]any{"error": "invalid_request"})
 }
 
-// --- /oauth/me ---
+// --- /me ---
 
 func TestOAuthMe(t *testing.T) {
 	app := emptyTestApp(t)
@@ -910,25 +910,21 @@ func TestOAuthMe(t *testing.T) {
 	familyID := "test-family-me"
 	accessToken, _ := insertTestTokens(t, app, clientID, 100, "read", familyID, time.Hour, 30*24*time.Hour)
 
-	status, body := oauthGetWithBearer(t, app, "/v1/oauth/me", accessToken)
+	status, body := oauthGetWithBearer(t, app, "/v1/me", accessToken)
 
 	assert.Equal(t, 200, status)
-	assert.True(t, gjson.GetBytes(body, "userId").Exists())
+	assert.True(t, gjson.GetBytes(body, "data.id").Exists())
 	jsonAssert(t, body, map[string]any{
-		"handle":   "oauthuser",
-		"name":     "OAuth User",
-		"verified": false,
+		"data.handle":      "oauthuser",
+		"data.name":        "OAuth User",
+		"data.is_verified": false,
 	})
-	assert.Equal(t,
-		gjson.GetBytes(body, "userId").String(),
-		gjson.GetBytes(body, "sub").String(),
-	)
 }
 
 func TestOAuthMe_InvalidToken(t *testing.T) {
 	app := emptyTestApp(t)
 
-	status, _ := oauthGetWithBearer(t, app, "/v1/oauth/me", "invalid-token")
+	status, _ := oauthGetWithBearer(t, app, "/v1/me", "invalid-token")
 
 	// requireAuthMiddleware intercepts before the handler runs
 	assert.Equal(t, 401, status)
@@ -952,7 +948,7 @@ func TestOAuthMe_ExpiredToken(t *testing.T) {
 		},
 	})
 
-	status, _ := oauthGetWithBearer(t, app, "/v1/oauth/me", expiredToken)
+	status, _ := oauthGetWithBearer(t, app, "/v1/me", expiredToken)
 
 	// requireAuthMiddleware intercepts before the handler runs
 	assert.Equal(t, 401, status)
@@ -977,7 +973,7 @@ func TestOAuthMe_RevokedToken(t *testing.T) {
 		},
 	})
 
-	status, _ := oauthGetWithBearer(t, app, "/v1/oauth/me", revokedToken)
+	status, _ := oauthGetWithBearer(t, app, "/v1/me", revokedToken)
 
 	// requireAuthMiddleware intercepts before the handler runs
 	assert.Equal(t, 401, status)
@@ -986,7 +982,7 @@ func TestOAuthMe_RevokedToken(t *testing.T) {
 func TestOAuthMe_MissingAuthHeader(t *testing.T) {
 	app := emptyTestApp(t)
 
-	req := httptest.NewRequest("GET", "/v1/oauth/me", nil)
+	req := httptest.NewRequest("GET", "/v1/me", nil)
 	res, err := app.Test(req, -1)
 	require.NoError(t, err)
 
@@ -1015,9 +1011,9 @@ func TestOAuthFullFlow(t *testing.T) {
 	refreshToken := gjson.GetBytes(body, "refresh_token").String()
 
 	// Step 2: Use access token to get user profile
-	status, body = oauthGetWithBearer(t, app, "/v1/oauth/me", accessToken)
+	status, body = oauthGetWithBearer(t, app, "/v1/me", accessToken)
 	assert.Equal(t, 200, status)
-	jsonAssert(t, body, map[string]any{"handle": "oauthuser"})
+	jsonAssert(t, body, map[string]any{"data.handle": "oauthuser"})
 
 	// Step 3: Refresh the token
 	status, body = oauthPostJSON(t, app, "/v1/oauth/token", map[string]string{
@@ -1032,9 +1028,9 @@ func TestOAuthFullFlow(t *testing.T) {
 	assert.NotEqual(t, refreshToken, newRefreshToken)
 
 	// Step 4: New access token works
-	status, body = oauthGetWithBearer(t, app, "/v1/oauth/me", newAccessToken)
+	status, body = oauthGetWithBearer(t, app, "/v1/me", newAccessToken)
 	assert.Equal(t, 200, status)
-	jsonAssert(t, body, map[string]any{"handle": "oauthuser"})
+	jsonAssert(t, body, map[string]any{"data.handle": "oauthuser"})
 
 	// Step 5: Revoke
 	status, _ = oauthPostJSON(t, app, "/v1/oauth/revoke", map[string]string{
@@ -1044,7 +1040,7 @@ func TestOAuthFullFlow(t *testing.T) {
 	assert.Equal(t, 200, status)
 
 	// Step 6: Revoked tokens no longer work
-	status, _ = oauthGetWithBearer(t, app, "/v1/oauth/me", newAccessToken)
+	status, _ = oauthGetWithBearer(t, app, "/v1/me", newAccessToken)
 	assert.Equal(t, 401, status)
 
 	// Refreshing with the new refresh token also fails (family revoked)

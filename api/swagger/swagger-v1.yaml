@@ -63,6 +63,8 @@ tags:
     description: Rewards related operations
   - name: prizes
     description: Prize claiming related operations
+  - name: oauth
+    description: OAuth 2.0 authorization
 paths:
   /challenges/undisbursed:
     get:
@@ -9800,6 +9802,32 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/transaction_history_count_response"
+  /me:
+    get:
+      tags:
+        - oauth
+      summary: Get authenticated user
+      description: Returns the full profile of the currently authenticated user based on the Bearer access token obtained via OAuth.
+      operationId: Get Authenticated User
+      security:
+        - OAuth2:
+            - read
+      responses:
+        "200":
+          description: Success
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/user_response_single"
+        "401":
+          description: Missing or invalid access token
+          content: {}
+        "404":
+          description: User not found
+          content: {}
+        "500":
+          description: Server error
+          content: {}
 components:
   schemas:
     create_access_key_response:
