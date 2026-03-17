@@ -2088,6 +2088,34 @@ paths:
         "500":
           description: Server error
           content: {}
+  /tracks/download_counts:
+    get:
+      tags:
+        - tracks
+      description: Gets download counts for tracks by ID. Use this instead of loading full track objects when only download counts are needed.
+      operationId: Get Track Download Counts
+      security:
+        - {}
+        - OAuth2:
+            - read
+      parameters:
+        - name: id
+          in: query
+          description: Track ID(s)
+          required: true
+          style: form
+          explode: true
+          schema:
+            type: array
+            items:
+              type: string
+      responses:
+        "200":
+          description: Success
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/track_download_counts_response"
   /tracks/inspect:
     get:
       tags:
@@ -3107,6 +3135,30 @@ paths:
         "500":
           description: Server error
           content: {}
+  /tracks/{track_id}/download_count:
+    get:
+      tags:
+        - tracks
+      description: Gets the download count for a single track. Full track + all stems (parent) or stem-only (stem).
+      operationId: Get Track Download Count
+      security:
+        - {}
+        - OAuth2:
+            - read
+      parameters:
+        - name: track_id
+          in: path
+          description: A Track ID
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: Success
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/track_download_count_response"
   /tracks/{track_id}/access-info:
     get:
       tags:
@@ -11045,6 +11097,42 @@ components:
           $ref: "#/components/schemas/version_metadata"
         data:
           $ref: "#/components/schemas/track"
+    track_download_count_response:
+      type: object
+      required:
+        - data
+      properties:
+        data:
+          type: object
+          required:
+            - id
+            - download_count
+          properties:
+            id:
+              type: string
+              description: Track ID (hash)
+            download_count:
+              type: integer
+              description: Full track + all stems (parent) or stem-only (stem)
+    track_download_counts_response:
+      type: object
+      required:
+        - data
+      properties:
+        data:
+          type: array
+          items:
+            type: object
+            required:
+              - id
+              - download_count
+            properties:
+              id:
+                type: string
+                description: Track ID (hash)
+              download_count:
+                type: integer
+                description: Full track + all stems (parent) or stem-only (stem)
     create_user_response:
       type: object
       properties:
