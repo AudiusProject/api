@@ -913,16 +913,12 @@ func TestOAuthMe(t *testing.T) {
 	status, body := oauthGetWithBearer(t, app, "/v1/oauth/me", accessToken)
 
 	assert.Equal(t, 200, status)
-	assert.True(t, gjson.GetBytes(body, "userId").Exists())
+	assert.True(t, gjson.GetBytes(body, "data.id").Exists())
 	jsonAssert(t, body, map[string]any{
-		"handle":   "oauthuser",
-		"name":     "OAuth User",
-		"verified": false,
+		"data.handle":      "oauthuser",
+		"data.name":        "OAuth User",
+		"data.is_verified": false,
 	})
-	assert.Equal(t,
-		gjson.GetBytes(body, "userId").String(),
-		gjson.GetBytes(body, "sub").String(),
-	)
 }
 
 func TestOAuthMe_InvalidToken(t *testing.T) {
@@ -1017,7 +1013,7 @@ func TestOAuthFullFlow(t *testing.T) {
 	// Step 2: Use access token to get user profile
 	status, body = oauthGetWithBearer(t, app, "/v1/oauth/me", accessToken)
 	assert.Equal(t, 200, status)
-	jsonAssert(t, body, map[string]any{"handle": "oauthuser"})
+	jsonAssert(t, body, map[string]any{"data.handle": "oauthuser"})
 
 	// Step 3: Refresh the token
 	status, body = oauthPostJSON(t, app, "/v1/oauth/token", map[string]string{
@@ -1034,7 +1030,7 @@ func TestOAuthFullFlow(t *testing.T) {
 	// Step 4: New access token works
 	status, body = oauthGetWithBearer(t, app, "/v1/oauth/me", newAccessToken)
 	assert.Equal(t, 200, status)
-	jsonAssert(t, body, map[string]any{"handle": "oauthuser"})
+	jsonAssert(t, body, map[string]any{"data.handle": "oauthuser"})
 
 	// Step 5: Revoke
 	status, _ = oauthPostJSON(t, app, "/v1/oauth/revoke", map[string]string{
