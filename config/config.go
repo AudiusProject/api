@@ -174,7 +174,7 @@ func init() {
 			log.Fatalf("Missing required %s env var: delegatePrivateKey", env)
 		}
 		Cfg.AntiAbuseOracles = []string{"https://discoveryprovider.audius.co"}
-		Cfg.ArchiverNodes = []string{"https://discoveryprovider.audius.co"}
+		Cfg.ArchiverNodes = []string{"https://archiver.audius.engineering"}
 		Cfg.DeadNodes = []string{
 			"https://content.grassfed.network",
 		}
@@ -263,5 +263,10 @@ func init() {
 			panic("Invalid solanaIndexerWorkers: " + err.Error())
 		}
 		Cfg.SolanaIndexerWorkers = parsedWorkers
+	}
+
+	// Override archiver upstream(s) when set (e.g. rollback to discovery or point at different archiver)
+	if v := os.Getenv("archiverNodes"); v != "" {
+		Cfg.ArchiverNodes = strings.Split(v, ",")
 	}
 }
