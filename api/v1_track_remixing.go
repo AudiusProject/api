@@ -23,11 +23,9 @@ func (app *ApiServer) v1TrackRemixing(c *fiber.Ctx) error {
 		SELECT pt.track_id
 		FROM tracks pt
 		JOIN remixes r ON r.parent_track_id = pt.track_id AND r.child_track_id = @trackId
-		JOIN tracks ct ON ct.track_id = @trackId
+		JOIN tracks ct ON ct.track_id = @trackId AND ct.is_current = true AND ct.is_stream_gated = false
 		WHERE pt.is_current = true
 		AND pt.is_unlisted = false
-		AND ct.is_current = true
-		AND ct.is_stream_gated = false
 		ORDER BY pt.created_at DESC, pt.track_id DESC
 		LIMIT @limit OFFSET @offset
 	`

@@ -109,7 +109,7 @@ func init() {
 			Cfg.DelegatePrivateKey = "13422b9affd75ff80f94f1ea394e6a6097830cb58cda2d3542f37464ecaee7df"
 		}
 		Cfg.AntiAbuseOracles = []string{"http://audius-discovery-provider-1"}
-		Cfg.ArchiverNodes = []string{"http://audius-discovery-provider-1"}
+		Cfg.ArchiverNodes = []string{"https://archiver.audius.engineering"}
 		Cfg.Rewards = core_config.MakeRewards(core_config.DevClaimAuthorities, core_config.DevRewardExtensions)
 		Cfg.AudiusdURL = "https://node1.oap.devnet"
 		Cfg.ChainId = "openaudio-devnet"
@@ -174,7 +174,7 @@ func init() {
 			log.Fatalf("Missing required %s env var: delegatePrivateKey", env)
 		}
 		Cfg.AntiAbuseOracles = []string{"https://discoveryprovider.audius.co"}
-		Cfg.ArchiverNodes = []string{"https://discoveryprovider.audius.co"}
+		Cfg.ArchiverNodes = []string{"https://archiver.audius.engineering"}
 		Cfg.DeadNodes = []string{
 			"https://content.grassfed.network",
 		}
@@ -263,5 +263,10 @@ func init() {
 			panic("Invalid solanaIndexerWorkers: " + err.Error())
 		}
 		Cfg.SolanaIndexerWorkers = parsedWorkers
+	}
+
+	// Override archiver upstream(s) when set (e.g. rollback to discovery or point at different archiver)
+	if v := os.Getenv("archiverNodes"); v != "" {
+		Cfg.ArchiverNodes = strings.Split(v, ",")
 	}
 }

@@ -328,7 +328,10 @@ func TestGetNewBlasts(t *testing.T) {
 	})
 
 	t.Run("coin holder audience timing logic", func(t *testing.T) {
-		// Create a separate test to verify coin holder timing: sub.created_at < blast.created_at
+		// Use a fixed UTC base time so timestamp comparisons are deterministic and
+		// timezone-independent (avoids flakiness when local TZ differs from CI).
+		// Order: blast_before (oldest) < balance change < blast_after (newest).
+		base := time.Date(2026, 3, 17, 15, 0, 0, 0, time.UTC)
 		coinApp := emptyTestApp(t)
 
 		coinFixtures := database.FixtureMap{
@@ -337,24 +340,24 @@ func TestGetNewBlasts(t *testing.T) {
 					"user_id":    1,
 					"handle":     "artist_with_coin",
 					"wallet":     "0x7d273271690538cf855e5b3002a0dd8c154bb060",
-					"created_at": now.Add(-time.Hour * 2),
-					"updated_at": now.Add(-time.Hour * 2),
+					"created_at": base.Add(-time.Hour * 2),
+					"updated_at": base.Add(-time.Hour * 2),
 					"is_current": true,
 				},
 				{
 					"user_id":    50,
 					"handle":     "coin_holder",
 					"wallet":     "0xc3d1d41e6872ffbd15c473d14fc3a9250be5b5e0",
-					"created_at": now.Add(-time.Hour * 2),
-					"updated_at": now.Add(-time.Hour * 2),
+					"created_at": base.Add(-time.Hour * 2),
+					"updated_at": base.Add(-time.Hour * 2),
 					"is_current": true,
 				},
 				{
 					"user_id":    51,
 					"handle":     "mixed_coin_holder",
 					"wallet":     "0x4954d18926ba0ed9378938444731be4e622537b2",
-					"created_at": now.Add(-time.Hour * 2),
-					"updated_at": now.Add(-time.Hour * 2),
+					"created_at": base.Add(-time.Hour * 2),
+					"updated_at": base.Add(-time.Hour * 2),
 					"is_current": true,
 				},
 			},
@@ -388,7 +391,7 @@ func TestGetNewBlasts(t *testing.T) {
 					"ticker":     "TEST",
 					"mint":       "TestMint123456789",
 					"decimals":   8,
-					"created_at": now.Add(-time.Hour * 2),
+					"created_at": base.Add(-time.Hour * 2),
 				},
 			},
 			"sol_token_account_balance_changes": {
@@ -400,7 +403,7 @@ func TestGetNewBlasts(t *testing.T) {
 					"balance":   0,
 					"slot":      2,
 					// Lost balance before old blast was created
-					"block_timestamp": now.Add(-time.Hour * 8),
+					"block_timestamp": base.Add(-time.Hour * 8),
 				},
 				{
 					"signature":       "sig_123",
@@ -409,7 +412,7 @@ func TestGetNewBlasts(t *testing.T) {
 					"change":          500000000,
 					"balance":         500000000,
 					"slot":            3,
-					"block_timestamp": now.Add(-time.Hour),
+					"block_timestamp": base.Add(-time.Hour),
 				},
 				{
 					// User 51 has half a coin in associated account and half in claimable account
@@ -420,7 +423,7 @@ func TestGetNewBlasts(t *testing.T) {
 					"change":          50000000,
 					"balance":         50000000,
 					"slot":            3,
-					"block_timestamp": now.Add(-time.Hour),
+					"block_timestamp": base.Add(-time.Hour),
 				},
 				{
 					"signature":       "sig_123",
@@ -429,7 +432,7 @@ func TestGetNewBlasts(t *testing.T) {
 					"change":          50000000,
 					"balance":         50000000,
 					"slot":            3,
-					"block_timestamp": now.Add(-time.Hour),
+					"block_timestamp": base.Add(-time.Hour),
 				},
 			},
 			"chat_blast": {
@@ -439,14 +442,14 @@ func TestGetNewBlasts(t *testing.T) {
 					"from_user_id": 1,
 					"audience":     "coin_holder_audience",
 					"plaintext":    "Blast sent before user got coins (should NOT appear)",
-					"created_at":   now.Add(-time.Hour * 6),
+					"created_at":   base.Add(-time.Hour * 6),
 				},
 				{
 					"blast_id":     "blast_after_balance",
 					"from_user_id": 1,
 					"audience":     "coin_holder_audience",
 					"plaintext":    "Blast sent after user got coins (SHOULD appear)",
-					"created_at":   now.Add(-time.Minute * 30), // AFTER coin balance
+					"created_at":   base.Add(-time.Minute * 30), // AFTER coin balance
 				},
 			},
 		}

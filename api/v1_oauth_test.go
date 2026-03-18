@@ -434,38 +434,107 @@ func TestOAuthAuthorize_UnregisteredRedirectURI(t *testing.T) {
 	assert.Contains(t, gjson.GetBytes(body, "error_description").String(), "redirect_uri")
 }
 
-func TestOAuthAuthorize_NoRegisteredRedirectURIs(t *testing.T) {
-	app := emptyTestApp(t)
-	seedOAuthTestData(t, app)
-
-	// Register a new developer app with no redirect URIs.
-	// Policy: if no URIs are registered, any redirect_uri is accepted.
-	clientIDNoURIs := "0xccdd000000000000000000000000000000000003"
+// seedAppWithNoRedirectURIs registers a developer app with no redirect URIs and returns its client_id.
+func seedAppWithNoRedirectURIs(t *testing.T, app *ApiServer) string {
+	t.Helper()
+	clientID := "0xccdd000000000000000000000000000000000003"
 	database.SeedTable(app.pool.Replicas[0], "developer_apps", []map[string]any{
 		{
-			"address":   clientIDNoURIs,
+			"address":   clientID,
 			"user_id":   100,
 			"name":      "App Without Redirect URIs",
 			"is_delete": false,
 		},
 	})
+	return clientID
+}
 
+func authorizeWithNoURIsApp(t *testing.T, app *ApiServer, redirectURI string) (int, []byte) {
+	t.Helper()
+	clientID := seedAppWithNoRedirectURIs(t, app)
 	token := makeOAuthJWT(t, 100, oauthTestPrivKeyHex)
 	h := sha256.Sum256([]byte("verifier"))
 	codeChallenge := base64.RawURLEncoding.EncodeToString(h[:])
-
-	status, body := oauthPostJSON(t, app, "/v1/oauth/authorize", map[string]string{
+	return oauthPostJSON(t, app, "/v1/oauth/authorize", map[string]string{
 		"token":                 token,
-		"client_id":             clientIDNoURIs,
-		"redirect_uri":          "https://any-uri.example.com/callback",
+		"client_id":             clientID,
+		"redirect_uri":          redirectURI,
 		"code_challenge":        codeChallenge,
 		"code_challenge_method": "S256",
 		"scope":                 "read",
 	})
+}
 
+func TestOAuthAuthorize_NoRegisteredRedirectURIs_ValidHTTPS(t *testing.T) {
+	app := emptyTestApp(t)
+	seedOAuthTestData(t, app)
+	status, body := authorizeWithNoURIsApp(t, app, "https://any-uri.example.com/callback")
 	assert.Equal(t, 200, status)
-	assert.True(t, gjson.GetBytes(body, "code").Exists())
 	assert.NotEmpty(t, gjson.GetBytes(body, "code").String())
+}
+
+func TestOAuthAuthorize_NoRegisteredRedirectURIs_ValidHTTP(t *testing.T) {
+	app := emptyTestApp(t)
+	seedOAuthTestData(t, app)
+	status, body := authorizeWithNoURIsApp(t, app, "http://localhost:3000/callback")
+	assert.Equal(t, 200, status)
+	assert.NotEmpty(t, gjson.GetBytes(body, "code").String())
+}
+
+func TestOAuthAuthorize_NoRegisteredRedirectURIs_PostMessage(t *testing.T) {
+	app := emptyTestApp(t)
+	seedOAuthTestData(t, app)
+	status, body := authorizeWithNoURIsApp(t, app, "postMessage")
+	assert.Equal(t, 200, status)
+	assert.NotEmpty(t, gjson.GetBytes(body, "code").String())
+}
+
+func TestOAuthAuthorize_NoRegisteredRedirectURIs_LoopbackIP(t *testing.T) {
+	app := emptyTestApp(t)
+	seedOAuthTestData(t, app)
+	status, body := authorizeWithNoURIsApp(t, app, "http://127.0.0.1:8080/callback")
+	assert.Equal(t, 200, status)
+	assert.NotEmpty(t, gjson.GetBytes(body, "code").String())
+}
+
+func TestOAuthAuthorize_NoRegisteredRedirectURIs_NonHTTPScheme(t *testing.T) {
+	app := emptyTestApp(t)
+	seedOAuthTestData(t, app)
+	status, body := authorizeWithNoURIsApp(t, app, "myapp://oauth/callback")
+	assert.Equal(t, 400, status)
+	jsonAssert(t, body, map[string]any{"error": "invalid_request"})
+}
+
+func TestOAuthAuthorize_NoRegisteredRedirectURIs_BareIP(t *testing.T) {
+	app := emptyTestApp(t)
+	seedOAuthTestData(t, app)
+	status, body := authorizeWithNoURIsApp(t, app, "https://192.168.1.1/callback")
+	assert.Equal(t, 400, status)
+	jsonAssert(t, body, map[string]any{"error": "invalid_request"})
+}
+
+func TestOAuthAuthorize_NoRegisteredRedirectURIs_Credentials(t *testing.T) {
+	app := emptyTestApp(t)
+	seedOAuthTestData(t, app)
+	status, body := authorizeWithNoURIsApp(t, app, "https://user:pass@evil.com/callback")
+	assert.Equal(t, 400, status)
+	jsonAssert(t, body, map[string]any{"error": "invalid_request"})
+}
+
+func TestOAuthAuthorize_NoRegisteredRedirectURIs_Fragment(t *testing.T) {
+	app := emptyTestApp(t)
+	seedOAuthTestData(t, app)
+	status, body := authorizeWithNoURIsApp(t, app, "https://example.com/callback#fragment")
+	assert.Equal(t, 400, status)
+	jsonAssert(t, body, map[string]any{"error": "invalid_request"})
+}
+
+func TestOAuthAuthorize_NoRegisteredRedirectURIs_PathTraversal(t *testing.T) {
+	app := emptyTestApp(t)
+	seedOAuthTestData(t, app)
+	status, body := authorizeWithNoURIsApp(t, app, "https://example.com/foo/../../../callback")
+	assert.Equal(t, 400, status)
+	jsonAssert(t, body, map[string]any{"error": "invalid_request"})
 }
 
 // --- /oauth/token (authorization_code grant) ---
@@ -832,7 +901,7 @@ func TestOAuthRevoke_MissingToken(t *testing.T) {
 	jsonAssert(t, body, map[string]any{"error": "invalid_request"})
 }
 
-// --- /oauth/me ---
+// --- /me ---
 
 func TestOAuthMe(t *testing.T) {
 	app := emptyTestApp(t)
@@ -841,25 +910,21 @@ func TestOAuthMe(t *testing.T) {
 	familyID := "test-family-me"
 	accessToken, _ := insertTestTokens(t, app, clientID, 100, "read", familyID, time.Hour, 30*24*time.Hour)
 
-	status, body := oauthGetWithBearer(t, app, "/v1/oauth/me", accessToken)
+	status, body := oauthGetWithBearer(t, app, "/v1/me", accessToken)
 
 	assert.Equal(t, 200, status)
-	assert.True(t, gjson.GetBytes(body, "userId").Exists())
+	assert.True(t, gjson.GetBytes(body, "data.id").Exists())
 	jsonAssert(t, body, map[string]any{
-		"handle":   "oauthuser",
-		"name":     "OAuth User",
-		"verified": false,
+		"data.handle":      "oauthuser",
+		"data.name":        "OAuth User",
+		"data.is_verified": false,
 	})
-	assert.Equal(t,
-		gjson.GetBytes(body, "userId").String(),
-		gjson.GetBytes(body, "sub").String(),
-	)
 }
 
 func TestOAuthMe_InvalidToken(t *testing.T) {
 	app := emptyTestApp(t)
 
-	status, _ := oauthGetWithBearer(t, app, "/v1/oauth/me", "invalid-token")
+	status, _ := oauthGetWithBearer(t, app, "/v1/me", "invalid-token")
 
 	// requireAuthMiddleware intercepts before the handler runs
 	assert.Equal(t, 401, status)
@@ -883,7 +948,7 @@ func TestOAuthMe_ExpiredToken(t *testing.T) {
 		},
 	})
 
-	status, _ := oauthGetWithBearer(t, app, "/v1/oauth/me", expiredToken)
+	status, _ := oauthGetWithBearer(t, app, "/v1/me", expiredToken)
 
 	// requireAuthMiddleware intercepts before the handler runs
 	assert.Equal(t, 401, status)
@@ -908,7 +973,7 @@ func TestOAuthMe_RevokedToken(t *testing.T) {
 		},
 	})
 
-	status, _ := oauthGetWithBearer(t, app, "/v1/oauth/me", revokedToken)
+	status, _ := oauthGetWithBearer(t, app, "/v1/me", revokedToken)
 
 	// requireAuthMiddleware intercepts before the handler runs
 	assert.Equal(t, 401, status)
@@ -917,7 +982,7 @@ func TestOAuthMe_RevokedToken(t *testing.T) {
 func TestOAuthMe_MissingAuthHeader(t *testing.T) {
 	app := emptyTestApp(t)
 
-	req := httptest.NewRequest("GET", "/v1/oauth/me", nil)
+	req := httptest.NewRequest("GET", "/v1/me", nil)
 	res, err := app.Test(req, -1)
 	require.NoError(t, err)
 
@@ -946,9 +1011,9 @@ func TestOAuthFullFlow(t *testing.T) {
 	refreshToken := gjson.GetBytes(body, "refresh_token").String()
 
 	// Step 2: Use access token to get user profile
-	status, body = oauthGetWithBearer(t, app, "/v1/oauth/me", accessToken)
+	status, body = oauthGetWithBearer(t, app, "/v1/me", accessToken)
 	assert.Equal(t, 200, status)
-	jsonAssert(t, body, map[string]any{"handle": "oauthuser"})
+	jsonAssert(t, body, map[string]any{"data.handle": "oauthuser"})
 
 	// Step 3: Refresh the token
 	status, body = oauthPostJSON(t, app, "/v1/oauth/token", map[string]string{
@@ -963,9 +1028,9 @@ func TestOAuthFullFlow(t *testing.T) {
 	assert.NotEqual(t, refreshToken, newRefreshToken)
 
 	// Step 4: New access token works
-	status, body = oauthGetWithBearer(t, app, "/v1/oauth/me", newAccessToken)
+	status, body = oauthGetWithBearer(t, app, "/v1/me", newAccessToken)
 	assert.Equal(t, 200, status)
-	jsonAssert(t, body, map[string]any{"handle": "oauthuser"})
+	jsonAssert(t, body, map[string]any{"data.handle": "oauthuser"})
 
 	// Step 5: Revoke
 	status, _ = oauthPostJSON(t, app, "/v1/oauth/revoke", map[string]string{
@@ -975,7 +1040,7 @@ func TestOAuthFullFlow(t *testing.T) {
 	assert.Equal(t, 200, status)
 
 	// Step 6: Revoked tokens no longer work
-	status, _ = oauthGetWithBearer(t, app, "/v1/oauth/me", newAccessToken)
+	status, _ = oauthGetWithBearer(t, app, "/v1/me", newAccessToken)
 	assert.Equal(t, 401, status)
 
 	// Refreshing with the new refresh token also fails (family revoked)

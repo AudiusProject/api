@@ -7,5 +7,6 @@ CREATE DATABASE test_indexer TEMPLATE postgres;
 CREATE DATABASE test_solana_indexer_common TEMPLATE postgres;
 CREATE DATABASE test_solana_indexer_token TEMPLATE postgres;
 CREATE DATABASE test_solana_indexer_dbc TEMPLATE postgres;
+CREATE DATABASE test_solana_indexer_locker TEMPLATE postgres;
 CREATE DATABASE test_solana_indexer_damm_v2 TEMPLATE postgres;
 CREATE DATABASE test_solana_indexer_program TEMPLATE postgres;

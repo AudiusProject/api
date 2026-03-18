@@ -7,10 +7,11 @@ import (
 	"encoding/base64"
 	"encoding/json"
 	"fmt"
+	"net"
+	"net/url"
 	"strings"
 	"time"
 
-	"api.audius.co/api/dbv1"
 	"github.com/gofiber/fiber/v2"
 	"github.com/jackc/pgx/v5"
 	"go.uber.org/zap"
@@ -58,6 +59,17 @@ type oauthRevokeBody struct {
 	ClientID string `json:"client_id" form:"client_id"`
 }
 
+// normalizeOAuthScope collapses space-separated OAuth scopes (e.g. "read write") to the
+// highest-privilege single scope. This tolerates Swagger UI sending compound scope strings.
+func normalizeOAuthScope(raw string) string {
+	for _, part := range strings.Fields(raw) {
+		if part == "write" {
+			return "write"
+		}
+	}
+	return strings.TrimSpace(raw)
+}
+
 // normalizeClientID lowercases and ensures the 0x prefix on a client_id (developer app address).
 func normalizeClientID(raw string) string {
 	id := strings.ToLower(strings.TrimSpace(raw))
@@ -76,6 +88,20 @@ type oauthTokenCacheEntry struct {
 }
 
 // --- Handlers ---
+
+// v1OAuthAuthorizeRedirect handles GET /v1/oauth/authorize
+// Redirects the browser to the Audius app consent page, forwarding all query parameters.
+func (app *ApiServer) v1OAuthAuthorizeRedirect(c *fiber.Ctx) error {
+	base := app.config.AudiusAppUrl
+	if base == "" {
+		base = "https://audius.co"
+	}
+	target := base + "/oauth/auth"
+	if qs := string(c.Request().URI().QueryString()); qs != "" {
+		target += "?" + qs
+	}
+	return c.Redirect(target, fiber.StatusFound)
+}
 
 // v1OAuthAuthorize handles POST /v1/oauth/authorize
 // Called by the audius.co consent screen after the user authenticates.
@@ -99,7 +125,8 @@ func (app *ApiServer) v1OAuthAuthorize(c *fiber.Ctx) error {
 		return oauthError(c, fiber.StatusBadRequest, "invalid_request", "code_challenge_method must be S256")
 	}
 
-	if body.Scope != "read" && body.Scope != "write" {
+	scope := normalizeOAuthScope(body.Scope)
+	if scope != "read" && scope != "write" {
 		return oauthError(c, fiber.StatusBadRequest, "invalid_request", "scope must be 'read' or 'write'")
 	}
 
@@ -129,9 +156,12 @@ func (app *ApiServer) v1OAuthAuthorize(c *fiber.Ctx) error {
 
 	// 3. Validate redirect_uri
 	// Fetch all registered redirect URIs for this client.
-	// If none are registered, any redirect_uri is allowed (including postmessage).
 	// If any are registered, the submitted redirect_uri must exactly match one of them.
-	// postmessage is not special-cased — it must be explicitly registered to be used.
+	// If none are registered (legacy apps), apply format-based validation as a fallback:
+	//   - scheme must be http or https (or postmessage)
+	//   - no credentials or fragment
+	//   - no path traversal sequences
+	//   - no non-loopback IP addresses
 	{
 		rows, err := app.pool.Query(c.Context(), `
 			SELECT redirect_uri FROM oauth_redirect_uris
@@ -161,11 +191,35 @@ func (app *ApiServer) v1OAuthAuthorize(c *fiber.Ctx) error {
 			if !allowed {
 				return oauthError(c, fiber.StatusBadRequest, "invalid_request", "redirect_uri not registered")
 			}
+		} else {
+			// No registered URIs: apply legacy format validation.
+			// postmessage is always allowed for backwards compatibility.
+			if strings.ToLower(body.RedirectURI) != "postmessage" {
+				parsed, err := url.Parse(body.RedirectURI)
+				if err != nil || parsed.Host == "" {
+					return oauthError(c, fiber.StatusBadRequest, "invalid_request", "redirect_uri is not a valid URL")
+				}
+				if parsed.Scheme != "http" && parsed.Scheme != "https" {
+					return oauthError(c, fiber.StatusBadRequest, "invalid_request", "redirect_uri scheme must be http or https")
+				}
+				if parsed.Fragment != "" || parsed.User != nil {
+					return oauthError(c, fiber.StatusBadRequest, "invalid_request", "redirect_uri must not contain credentials or a fragment")
+				}
+				normalizedPath := strings.ReplaceAll(parsed.Path, "\\", "/")
+				for _, segment := range strings.Split(normalizedPath, "/") {
+					if segment == ".." {
+						return oauthError(c, fiber.StatusBadRequest, "invalid_request", "redirect_uri contains a path traversal sequence")
+					}
+				}
+				if ip := net.ParseIP(parsed.Hostname()); ip != nil && !ip.IsLoopback() {
+					return oauthError(c, fiber.StatusBadRequest, "invalid_request", "redirect_uri must not use a non-loopback IP address")
+				}
+			}
 		}
 	}
 
 	// 4. If scope is write, check for existing approved grant
-	if body.Scope == "write" {
+	if scope == "write" {
 		var grantExists bool
 		err = app.pool.QueryRow(c.Context(), `
 			SELECT EXISTS (
@@ -193,7 +247,7 @@ func (app *ApiServer) v1OAuthAuthorize(c *fiber.Ctx) error {
 	_, err = app.writePool.Exec(c.Context(), `
 		INSERT INTO oauth_authorization_codes (code, client_id, user_id, redirect_uri, code_challenge, code_challenge_method, scope)
 		VALUES ($1, $2, $3, $4, $5, $6, $7)
-	`, code, clientID, int32(userId), body.RedirectURI, body.CodeChallenge, body.CodeChallengeMethod, body.Scope)
+	`, code, clientID, int32(userId), body.RedirectURI, body.CodeChallenge, body.CodeChallengeMethod, scope)
 	if err != nil {
 		app.logger.Error("Failed to insert auth code", zap.Error(err))
 		return oauthError(c, fiber.StatusInternalServerError, "server_error", "Failed to create authorization code")
@@ -484,53 +538,6 @@ func (app *ApiServer) v1OAuthRevoke(c *fiber.Ctx) error {
 	return c.JSON(fiber.Map{})
 }
 
-// v1OAuthMe handles GET /v1/oauth/me
-// Returns the authenticated user's profile based on Bearer access token.
-func (app *ApiServer) v1OAuthMe(c *fiber.Ctx) error {
-	// Extract Bearer token
-	authHeader := c.Get("Authorization")
-	if authHeader == "" || !strings.HasPrefix(authHeader, "Bearer ") {
-		return oauthError(c, fiber.StatusUnauthorized, "invalid_token", "Missing or invalid Authorization header")
-	}
-	token := strings.TrimSpace(strings.TrimPrefix(authHeader, "Bearer "))
-	if token == "" {
-		return oauthError(c, fiber.StatusUnauthorized, "invalid_token", "Bearer token is empty")
-	}
-
-	// Look up the access token (try cache first)
-	entry, ok := app.lookupOAuthAccessToken(c, token)
-	if !ok {
-		return oauthError(c, fiber.StatusUnauthorized, "invalid_token", "Invalid or expired access token")
-	}
-
-	// Fetch user via the standard query helper (includes rendezvous-based image URLs)
-	users, err := app.queries.Users(c.Context(), dbv1.GetUsersParams{
-		Ids: []int32{entry.UserID},
-	})
-	if err != nil {
-		app.logger.Error("Failed to query user for /oauth/me", zap.Error(err))
-		return oauthError(c, fiber.StatusInternalServerError, "server_error", "Failed to get user info")
-	}
-	if len(users) == 0 {
-		return oauthError(c, fiber.StatusNotFound, "invalid_token", "User not found")
-	}
-
-	user := users[0]
-
-	response := fiber.Map{
-		"userId":   user.ID,
-		"name":     user.Name.String,
-		"handle":   user.Handle.String,
-		"verified": user.IsVerified,
-		"sub":      user.ID,
-		"iat":      time.Now().Unix(),
-	}
-	if user.ProfilePicture != nil {
-		response["profilePicture"] = user.ProfilePicture
-	}
-
-	return c.JSON(response)
-}
 
 // --- Helper methods ---
 

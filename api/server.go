@@ -4,7 +4,6 @@ import (
 	"context"
 	"crypto/tls"
 	_ "embed"
-	"fmt"
 	"net"
 	"net/http"
 	"os"
@@ -32,7 +31,6 @@ import (
 	"github.com/ethereum/go-ethereum/crypto"
 	"github.com/gagliardetto/solana-go/rpc"
 	"github.com/gofiber/contrib/fiberzap/v2"
-	"github.com/gofiber/contrib/swagger"
 	"github.com/gofiber/contrib/websocket"
 	"github.com/gofiber/fiber/v2"
 	"github.com/gofiber/fiber/v2/middleware/adaptor"
@@ -46,6 +44,7 @@ import (
 	"github.com/mcuadros/go-defaults"
 	"github.com/segmentio/encoding/json"
 	"go.uber.org/zap"
+	"go.uber.org/zap/zapcore"
 )
 
 //go:embed swagger/swagger-v1.yaml
@@ -210,7 +209,10 @@ func NewApiServer(config config.Config) *ApiServer {
 	var rateLimitMiddleware *RateLimitMiddleware
 	if writePool != nil && config.Env != "test" {
 		metricsCollector = NewMetricsCollector(logger, writePool)
-		rateLimitMiddleware = NewRateLimitMiddleware(logger, writePool)
+		isLocalDev := config.Env == "dev" || config.Env == "development" || config.Env == ""
+		if !isLocalDev {
+			rateLimitMiddleware = NewRateLimitMiddleware(logger, writePool)
+		}
 	}
 
 	commsRpcProcessor, err := comms.NewProcessor(pool, writePool, &config, logger)
@@ -353,6 +355,12 @@ func NewApiServer(config config.Config) *ApiServer {
 	// Archiver proxy
 	app.All("/archive/*", archiveProxy)
 
+	// Sitemaps
+	app.Get("/sitemaps/default.xml", app.sitemapDefault)
+	app.Get("/sitemaps/defaults.xml", app.sitemapDefaults)
+	app.Get("/sitemaps/:type/index.xml", app.sitemapTypeIndex)
+	app.Get("/sitemaps/:type/:fileName", app.sitemapTypePage)
+
 	// resolve myId
 	app.Use(app.isFullMiddleware)
 	app.Use(app.resolveMyIdMiddleware)
@@ -364,7 +372,7 @@ func NewApiServer(config config.Config) *ApiServer {
 	for _, g := range []fiber.Router{v1, v1Full} {
 		// Users
 		g.Get("/users", app.v1Users)
-		g.Post("/users", app.requireAuthMiddleware, app.postV1Users)
+		g.Post("/users", app.requireAuthMiddleware, app.requireWriteScope, app.postV1Users)
 		g.Get("/users/address", app.v1UserIdsByAddresses)
 		g.Get("/users/search", app.v1UsersSearch)
 		g.Get("/users/unclaimed_id", app.v1UsersUnclaimedId)
@@ -397,11 +405,11 @@ func NewApiServer(config config.Config) *ApiServer {
 		g.Get("/users/:userId/balance/history", app.v1UsersBalanceHistory)
 		g.Get("/users/:userId/managers", app.v1UsersManagers)
 		g.Get("/users/:userId/managed_users", app.v1UsersManagedUsers)
-		g.Post("/users/:userId/grants", app.requireAuthMiddleware, app.postV1UsersGrant)
-		g.Delete("/users/:userId/grants/:address", app.requireAuthMiddleware, app.deleteV1UsersGrant)
-		g.Post("/users/:userId/managers", app.requireAuthMiddleware, app.postV1UsersManager)
-		g.Delete("/users/:userId/managers/:managerUserId", app.requireAuthMiddleware, app.deleteV1UsersManager)
-		g.Post("/users/:userId/grants/approve", app.requireAuthMiddleware, app.postV1UsersApproveGrant)
+		g.Post("/users/:userId/grants", app.requireAuthMiddleware, app.requireWriteScope, app.postV1UsersGrant)
+		g.Delete("/users/:userId/grants/:address", app.requireAuthMiddleware, app.requireWriteScope, app.deleteV1UsersGrant)
+		g.Post("/users/:userId/managers", app.requireAuthMiddleware, app.requireWriteScope, app.postV1UsersManager)
+		g.Delete("/users/:userId/managers/:managerUserId", app.requireAuthMiddleware, app.requireWriteScope, app.deleteV1UsersManager)
+		g.Post("/users/:userId/grants/approve", app.requireAuthMiddleware, app.requireWriteScope, app.postV1UsersApproveGrant)
 		g.Get("/users/:userId/mutuals", app.v1UsersMutuals)
 		g.Get("/users/:userId/reposts", app.v1UsersReposts)
 		g.Get("/users/:userId/related", app.v1UsersRelated)
@@ -412,6 +420,7 @@ func NewApiServer(config config.Config) *ApiServer {
 		g.Get("/users/:userId/tags", app.v1UsersTags)
 		g.Get("/users/:userId/tracks", app.v1UserTracks)
 		g.Get("/users/:userId/tracks/count", app.v1UserTracksCount)
+		g.Get("/users/:userId/tracks/download_count", app.v1UserTracksDownloadCount)
 		g.Get("/users/:userId/tracks/remixed", app.v1UserTracksRemixed)
 		g.Get("/users/:userId/albums", app.v1UserAlbums)
 		g.Get("/users/:userId/playlists", app.v1UserPlaylists)
@@ -449,17 +458,17 @@ func NewApiServer(config config.Config) *ApiServer {
 		g.Get("/users/:userId/developer-apps", app.v1UsersDeveloperApps)
 		g.Get("/users/:userId/withdrawals/download", app.requireAuthForUserId, app.v1UsersWithdrawalsDownloadCsv)
 		g.Get("/users/:userId/withdrawals/download/json", app.requireAuthForUserId, app.v1UsersWithdrawalsDownloadJson)
-		g.Post("/users/:userId/follow", app.requireAuthMiddleware, app.postV1UserFollow)
-		g.Delete("/users/:userId/follow", app.requireAuthMiddleware, app.deleteV1UserFollow)
-		g.Post("/users/:userId/subscribe", app.requireAuthMiddleware, app.postV1UserSubscribe)
-		g.Delete("/users/:userId/subscribe", app.requireAuthMiddleware, app.deleteV1UserSubscribe)
-		g.Post("/users/:userId/mute", app.requireAuthMiddleware, app.postV1UserMute)
-		g.Delete("/users/:userId/mute", app.requireAuthMiddleware, app.deleteV1UserMute)
-		g.Put("/users/:userId", app.requireAuthMiddleware, app.putV1User)
+		g.Post("/users/:userId/follow", app.requireAuthMiddleware, app.requireWriteScope, app.postV1UserFollow)
+		g.Delete("/users/:userId/follow", app.requireAuthMiddleware, app.requireWriteScope, app.deleteV1UserFollow)
+		g.Post("/users/:userId/subscribe", app.requireAuthMiddleware, app.requireWriteScope, app.postV1UserSubscribe)
+		g.Delete("/users/:userId/subscribe", app.requireAuthMiddleware, app.requireWriteScope, app.deleteV1UserSubscribe)
+		g.Post("/users/:userId/mute", app.requireAuthMiddleware, app.requireWriteScope, app.postV1UserMute)
+		g.Delete("/users/:userId/mute", app.requireAuthMiddleware, app.requireWriteScope, app.deleteV1UserMute)
+		g.Put("/users/:userId", app.requireAuthMiddleware, app.requireWriteScope, app.putV1User)
 
 		// Tracks
 		g.Get("/tracks", app.v1Tracks)
-		g.Post("/tracks", app.requireAuthMiddleware, app.postV1Tracks)
+		g.Post("/tracks", app.requireAuthMiddleware, app.requireWriteScope, app.postV1Tracks)
 		g.Get("/tracks/search", app.v1TracksSearch)
 		g.Get("/tracks/unclaimed_id", app.v1TracksUnclaimedId)
 
@@ -475,25 +484,27 @@ func NewApiServer(config config.Config) *ApiServer {
 		g.Get("/tracks/feeling-lucky", app.v1TracksFeelingLucky)
 		g.Get("/tracks/recent-comments", app.v1TracksRecentComments)
 		g.Get("/tracks/most-shared", app.v1TracksMostShared)
+		g.Get("/tracks/download_counts", app.v1TracksDownloadCounts)
 
 		g.Use("/tracks/:trackId", app.requireTrackIdMiddleware)
 		g.Get("/tracks/:trackId", app.v1Track)
+		g.Get("/tracks/:trackId/download_count", app.v1TrackDownloadCount)
 		g.Get("/tracks/:trackId/stream", app.v1TrackStream)
 		g.Get("/tracks/:trackId/download", app.v1TrackDownload)
 		g.Get("/tracks/:trackId/inspect", app.v1TrackInspect)
 		g.Get("/tracks/:trackId/access-info", app.v1TrackAccessInfo)
 		g.Get("/tracks/:trackId/remixes", app.v1TrackRemixes)
 		g.Get("/tracks/:trackId/reposts", app.v1TrackReposts)
-		g.Post("/tracks/:trackId/reposts", app.requireAuthMiddleware, app.postV1TrackRepost)
-		g.Delete("/tracks/:trackId/reposts", app.requireAuthMiddleware, app.deleteV1TrackRepost)
+		g.Post("/tracks/:trackId/reposts", app.requireAuthMiddleware, app.requireWriteScope, app.postV1TrackRepost)
+		g.Delete("/tracks/:trackId/reposts", app.requireAuthMiddleware, app.requireWriteScope, app.deleteV1TrackRepost)
 		g.Get("/tracks/:trackId/stems", app.v1TrackStems)
 		g.Get("/tracks/:trackId/favorites", app.v1TrackFavorites)
-		g.Post("/tracks/:trackId/favorites", app.requireAuthMiddleware, app.postV1TrackFavorite)
-		g.Delete("/tracks/:trackId/favorites", app.requireAuthMiddleware, app.deleteV1TrackFavorite)
-		g.Post("/tracks/:trackId/shares", app.requireAuthMiddleware, app.postV1TrackShare)
-		g.Post("/tracks/:trackId/downloads", app.requireAuthMiddleware, app.postV1TrackDownload)
-		g.Put("/tracks/:trackId", app.requireAuthMiddleware, app.putV1Track)
-		g.Delete("/tracks/:trackId", app.requireAuthMiddleware, app.deleteV1Track)
+		g.Post("/tracks/:trackId/favorites", app.requireAuthMiddleware, app.requireWriteScope, app.postV1TrackFavorite)
+		g.Delete("/tracks/:trackId/favorites", app.requireAuthMiddleware, app.requireWriteScope, app.deleteV1TrackFavorite)
+		g.Post("/tracks/:trackId/shares", app.requireAuthMiddleware, app.requireWriteScope, app.postV1TrackShare)
+		g.Post("/tracks/:trackId/downloads", app.requireAuthMiddleware, app.requireWriteScope, app.postV1TrackDownload)
+		g.Put("/tracks/:trackId", app.requireAuthMiddleware, app.requireWriteScope, app.putV1Track)
+		g.Delete("/tracks/:trackId", app.requireAuthMiddleware, app.requireWriteScope, app.deleteV1Track)
 		g.Get("/tracks/:trackId/comments", app.v1TrackComments)
 		g.Get("/tracks/:trackId/comment_count", app.v1TrackCommentCount)
 		g.Get("/tracks/:trackId/comment-count", app.v1TrackCommentCount)
@@ -506,7 +517,7 @@ func NewApiServer(config config.Config) *ApiServer {
 
 		// Playlists
 		g.Get("/playlists", app.v1Playlists)
-		g.Post("/playlists", app.requireAuthMiddleware, app.postV1Playlists)
+		g.Post("/playlists", app.requireAuthMiddleware, app.requireWriteScope, app.postV1Playlists)
 		g.Get("/playlists/search", app.v1PlaylistsSearch)
 		g.Get("/playlists/unclaimed_id", app.v1PlaylistsUnclaimedId)
 		g.Get("/playlists/unclaimed-id", app.v1PlaylistsUnclaimedId)
@@ -519,14 +530,14 @@ func NewApiServer(config config.Config) *ApiServer {
 		g.Get("/playlists/:playlistId", app.v1Playlist)
 		g.Get("/playlists/:playlistId/stream", app.v1PlaylistStream)
 		g.Get("/playlists/:playlistId/reposts", app.v1PlaylistReposts)
-		g.Post("/playlists/:playlistId/reposts", app.requireAuthMiddleware, app.postV1PlaylistRepost)
-		g.Delete("/playlists/:playlistId/reposts", app.requireAuthMiddleware, app.deleteV1PlaylistRepost)
+		g.Post("/playlists/:playlistId/reposts", app.requireAuthMiddleware, app.requireWriteScope, app.postV1PlaylistRepost)
+		g.Delete("/playlists/:playlistId/reposts", app.requireAuthMiddleware, app.requireWriteScope, app.deleteV1PlaylistRepost)
 		g.Get("/playlists/:playlistId/favorites", app.v1PlaylistFavorites)
-		g.Post("/playlists/:playlistId/favorites", app.requireAuthMiddleware, app.postV1PlaylistFavorite)
-		g.Delete("/playlists/:playlistId/favorites", app.requireAuthMiddleware, app.deleteV1PlaylistFavorite)
-		g.Post("/playlists/:playlistId/shares", app.requireAuthMiddleware, app.postV1PlaylistShare)
-		g.Put("/playlists/:playlistId", app.requireAuthMiddleware, app.putV1Playlist)
-		g.Delete("/playlists/:playlistId", app.requireAuthMiddleware, app.deleteV1Playlist)
+		g.Post("/playlists/:playlistId/favorites", app.requireAuthMiddleware, app.requireWriteScope, app.postV1PlaylistFavorite)
+		g.Delete("/playlists/:playlistId/favorites", app.requireAuthMiddleware, app.requireWriteScope, app.deleteV1PlaylistFavorite)
+		g.Post("/playlists/:playlistId/shares", app.requireAuthMiddleware, app.requireWriteScope, app.postV1PlaylistShare)
+		g.Put("/playlists/:playlistId", app.requireAuthMiddleware, app.requireWriteScope, app.putV1Playlist)
+		g.Delete("/playlists/:playlistId", app.requireAuthMiddleware, app.requireWriteScope, app.deleteV1Playlist)
 		g.Get("/playlists/:playlistId/tracks", app.v1PlaylistTracks)
 
 		// Explore
@@ -540,24 +551,25 @@ func NewApiServer(config config.Config) *ApiServer {
 		// Developer Apps
 		g.Get("/developer_apps/:address", app.v1DeveloperApps)
 		g.Get("/developer-apps/:address", app.v1DeveloperApps)
-		g.Post("/developer_apps", app.postV1UsersDeveloperApp)
-		g.Post("/developer-apps", app.postV1UsersDeveloperApp)
-		g.Put("/developer_apps/:address", app.putV1UsersDeveloperApp)
-		g.Put("/developer-apps/:address", app.putV1UsersDeveloperApp)
-		g.Delete("/developer_apps/:address", app.deleteV1UsersDeveloperApp)
-		g.Delete("/developer-apps/:address", app.deleteV1UsersDeveloperApp)
-		g.Post("/developer_apps/:address/access-keys/deactivate", app.postV1UsersDeveloperAppAccessKeyDeactivate)
-		g.Post("/developer-apps/:address/access-keys/deactivate", app.postV1UsersDeveloperAppAccessKeyDeactivate)
-		g.Post("/developer_apps/:address/register-api-key", app.requireAuthMiddleware, app.postV1UsersDeveloperAppRegisterApiKey)
-		g.Post("/developer-apps/:address/register-api-key", app.requireAuthMiddleware, app.postV1UsersDeveloperAppRegisterApiKey)
-		g.Post("/developer_apps/:address/access-keys", app.postV1UsersDeveloperAppAccessKey)
-		g.Post("/developer-apps/:address/access-keys", app.postV1UsersDeveloperAppAccessKey)
+		g.Post("/developer_apps", app.requireAuthMiddleware, app.requireWriteScope, app.postV1UsersDeveloperApp)
+		g.Post("/developer-apps", app.requireAuthMiddleware, app.requireWriteScope, app.postV1UsersDeveloperApp)
+		g.Put("/developer_apps/:address", app.requireAuthMiddleware, app.requireWriteScope, app.putV1UsersDeveloperApp)
+		g.Put("/developer-apps/:address", app.requireAuthMiddleware, app.requireWriteScope, app.putV1UsersDeveloperApp)
+		g.Delete("/developer_apps/:address", app.requireAuthMiddleware, app.requireWriteScope, app.deleteV1UsersDeveloperApp)
+		g.Delete("/developer-apps/:address", app.requireAuthMiddleware, app.requireWriteScope, app.deleteV1UsersDeveloperApp)
+		g.Post("/developer_apps/:address/access-keys/deactivate", app.requireAuthMiddleware, app.requireWriteScope, app.postV1UsersDeveloperAppAccessKeyDeactivate)
+		g.Post("/developer-apps/:address/access-keys/deactivate", app.requireAuthMiddleware, app.requireWriteScope, app.postV1UsersDeveloperAppAccessKeyDeactivate)
+		g.Post("/developer_apps/:address/register-api-key", app.requireAuthMiddleware, app.requireWriteScope, app.postV1UsersDeveloperAppRegisterApiKey)
+		g.Post("/developer-apps/:address/register-api-key", app.requireAuthMiddleware, app.requireWriteScope, app.postV1UsersDeveloperAppRegisterApiKey)
+		g.Post("/developer_apps/:address/access-keys", app.requireAuthMiddleware, app.requireWriteScope, app.postV1UsersDeveloperAppAccessKey)
+		g.Post("/developer-apps/:address/access-keys", app.requireAuthMiddleware, app.requireWriteScope, app.postV1UsersDeveloperAppAccessKey)
 
 		// OAuth2 PKCE
+		g.Get("/oauth/authorize", app.v1OAuthAuthorizeRedirect)
 		g.Post("/oauth/authorize", app.v1OAuthAuthorize)
 		g.Post("/oauth/token", app.v1OAuthToken)
 		g.Post("/oauth/revoke", app.v1OAuthRevoke)
-		g.Get("/oauth/me", app.requireAuthMiddleware, app.v1OAuthMe)
+		g.Get("/me", app.requireAuthMiddleware, app.v1Me)
 
 		// Rewards
 		g.Post("/rewards/claim", app.v1ClaimRewards)
@@ -574,15 +586,15 @@ func NewApiServer(config config.Config) *ApiServer {
 		// Comments
 		g.Get("/comments/unclaimed_id", app.v1CommentsUnclaimedId)
 		g.Get("/comments/unclaimed-id", app.v1CommentsUnclaimedId)
-		g.Post("/comments", app.requireAuthMiddleware, app.postV1Comment)
+		g.Post("/comments", app.requireAuthMiddleware, app.requireWriteScope, app.postV1Comment)
 		g.Get("/comments/:commentId", app.v1Comment)
-		g.Put("/comments/:commentId", app.requireAuthMiddleware, app.putV1Comment)
-		g.Delete("/comments/:commentId", app.requireAuthMiddleware, app.deleteV1Comment)
-		g.Post("/comments/:commentId/react", app.requireAuthMiddleware, app.postV1CommentReact)
-		g.Delete("/comments/:commentId/react", app.requireAuthMiddleware, app.deleteV1CommentReact)
-		g.Post("/comments/:commentId/pin", app.requireAuthMiddleware, app.postV1CommentPin)
-		g.Delete("/comments/:commentId/pin", app.requireAuthMiddleware, app.deleteV1CommentPin)
-		g.Post("/comments/:commentId/report", app.requireAuthMiddleware, app.postV1CommentReport)
+		g.Put("/comments/:commentId", app.requireAuthMiddleware, app.requireWriteScope, app.putV1Comment)
+		g.Delete("/comments/:commentId", app.requireAuthMiddleware, app.requireWriteScope, app.deleteV1Comment)
+		g.Post("/comments/:commentId/react", app.requireAuthMiddleware, app.requireWriteScope, app.postV1CommentReact)
+		g.Delete("/comments/:commentId/react", app.requireAuthMiddleware, app.requireWriteScope, app.deleteV1CommentReact)
+		g.Post("/comments/:commentId/pin", app.requireAuthMiddleware, app.requireWriteScope, app.postV1CommentPin)
+		g.Delete("/comments/:commentId/pin", app.requireAuthMiddleware, app.requireWriteScope, app.deleteV1CommentPin)
+		g.Post("/comments/:commentId/report", app.requireAuthMiddleware, app.requireWriteScope, app.postV1CommentReport)
 
 		// Tips
 		g.Get("/tips", app.v1Tips)
@@ -717,13 +729,17 @@ func NewApiServer(config config.Config) *ApiServer {
 		//
 		// Swagger will be available at: /v1
 		// Note: v1/full endpoints exist for backwards compatibility but are not documented or exposed via SDK.
-		app.Use(swagger.New(swagger.Config{
-			BasePath: "/",
-			Path:     "v1",
-			// Only controls where the swagger.json is server from
-			FilePath:    "v1/swagger.yaml",
-			FileContent: swaggerV1,
-		}))
+		app.Get("/v1", func(c *fiber.Ctx) error {
+			return c.SendFile("./static/swagger-ui/index.html")
+		})
+		app.Get("/v1/swagger-oauth-callback", func(c *fiber.Ctx) error {
+			return c.SendFile("./static/swagger-ui/oauth-callback.html")
+		})
+		app.Get("/v1/swagger.yaml", func(c *fiber.Ctx) error {
+			c.Set("Content-Type", "application/yaml")
+			c.Set("Cache-Control", "public, max-age=3600")
+			return c.Send(swaggerV1)
+		})
 	}
 
 	// gracefully handle 404
@@ -812,38 +828,6 @@ func queryMulti(c *fiber.Ctx, key string) []string {
 		values = append(values, string(v))
 	}
 	return values
-}
-
-var validDateBuckets = map[string]bool{
-	"hour":   true,
-	"day":    true,
-	"week":   true,
-	"month":  true,
-	"year":   true,
-	"minute": true,
-}
-
-func (app *ApiServer) queryDateBucket(c *fiber.Ctx, param string, defaultValue string) (string, error) {
-	bucket := c.Query(param, defaultValue)
-	if !validDateBuckets[bucket] {
-		return "", fmt.Errorf("invalid %s parameter: %s", param, bucket)
-	}
-	return bucket, nil
-}
-
-var validTimeRanges = map[string]bool{
-	"week":     true,
-	"month":    true,
-	"year":     true,
-	"all_time": true,
-}
-
-func (app *ApiServer) paramTimeRange(c *fiber.Ctx, param string, defaultValue string) (string, error) {
-	timeRange := c.Params(param, defaultValue)
-	if !validTimeRanges[timeRange] {
-		return "", fmt.Errorf("invalid %s parameter: %s", param, timeRange)
-	}
-	return timeRange, nil
 }
 
 func (app *ApiServer) Serve() {
