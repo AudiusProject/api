@@ -422,6 +422,7 @@ func NewApiServer(config config.Config) *ApiServer {
 		g.Get("/users/:userId/tags", app.v1UsersTags)
 		g.Get("/users/:userId/tracks", app.v1UserTracks)
 		g.Get("/users/:userId/tracks/count", app.v1UserTracksCount)
+		g.Get("/users/:userId/tracks/download_count", app.v1UserTracksDownloadCount)
 		g.Get("/users/:userId/tracks/remixed", app.v1UserTracksRemixed)
 		g.Get("/users/:userId/albums", app.v1UserAlbums)
 		g.Get("/users/:userId/playlists", app.v1UserPlaylists)

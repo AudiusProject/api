@@ -6726,6 +6726,33 @@ paths:
         "500":
           description: Server error
           content: {}
+  /users/{id}/tracks/download_count:
+    get:
+      tags:
+        - users
+      description: Gets the total download count for all tracks (and stems) owned by the user. Use for dashboard "Downloads" tile.
+      operationId: Get User Tracks Download Count
+      security:
+        - {}
+        - OAuth2:
+            - read
+      parameters:
+        - name: id
+          in: path
+          description: A User ID
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: Success
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/user_tracks_download_count_response"
+        "500":
+          description: Server error
+          content: {}
   /users/{id}/tracks/remixed:
     get:
       tags:
@@ -11161,6 +11188,15 @@ components:
               download_count:
                 type: integer
                 description: Full track + all stems (parent) or stem-only (stem)
+    user_tracks_download_count_response:
+      type: object
+      required:
+        - data
+      properties:
+        data:
+          type: integer
+          format: int64
+          description: Total download count for all tracks (and stems) owned by the user
     create_user_response:
       type: object
       properties:
