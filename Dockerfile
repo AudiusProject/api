@@ -29,6 +29,7 @@ WORKDIR /app
 
 COPY --from=builder /app/bridge /bin/bridge
 COPY --from=builder /app/ddl ./ddl
+COPY --from=builder /app/static/swagger-ui ./static/swagger-ui
 COPY --from=plans-builder /app/static/plans/dist ./static/plans/dist
 
 EXPOSE 1323
