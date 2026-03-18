@@ -44,7 +44,6 @@ import (
 	"github.com/mcuadros/go-defaults"
 	"github.com/segmentio/encoding/json"
 	"go.uber.org/zap"
-	"go.uber.org/zap/zapcore"
 )
 
 //go:embed swagger/swagger-v1.yaml
