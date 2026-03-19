@@ -17,6 +17,7 @@ import (
 	"github.com/gofiber/fiber/v2"
 	"github.com/gofiber/fiber/v2/utils"
 	"github.com/jackc/pgx/v5"
+	"go.uber.org/zap"
 )
 
 // Recover user id and wallet from signature headers
@@ -42,6 +43,7 @@ func (app *ApiServer) recoverAuthorityFromSignatureHeaders(c *fiber.Ctx) string 
 
 	publicKey, err := crypto.SigToPub(finalHash.Bytes(), signatureBytes)
 	if err != nil {
+		app.logger.Warn("recoverAuthorityFromSignatureHeaders: failed to recover public key from signature", zap.Error(err))
 		return ""
 	}
 
@@ -90,6 +92,7 @@ func (app *ApiServer) isAuthorizedRequest(ctx context.Context, userId int32, aut
 		`, userId, authedWallet).Scan(&isAuthorized)
 
 	if err != nil {
+		app.logger.Warn("isAuthorizedRequest: db query failed", zap.Int32("userId", userId), zap.String("authedWallet", authedWallet), zap.Error(err))
 		return false
 	}
 
@@ -262,7 +265,11 @@ func (app *ApiServer) authMiddleware(c *fiber.Ctx) error {
 			if oauthWallet, jwtUserId, err := app.validateOAuthJWTTokenToWalletAndUserId(c.Context(), bearerToken); err == nil {
 				if int32(jwtUserId) == myId {
 					wallet = oauthWallet
+				} else {
+					app.logger.Warn("authMiddleware: OAuth JWT userId does not match myId", zap.Int32("jwtUserId", int32(jwtUserId)), zap.Int32("myId", myId))
 				}
+			} else {
+				app.logger.Warn("authMiddleware: OAuth JWT validation failed", zap.Error(err))
 			}
 		}
 		// PKCE token fallback: resolve opaque Bearer token from oauth_tokens
@@ -275,7 +282,11 @@ func (app *ApiServer) authMiddleware(c *fiber.Ctx) error {
 						myId = entry.UserID
 						c.Locals("myId", int(entry.UserID))
 					}
+				} else {
+					app.logger.Warn("authMiddleware: PKCE token userId does not match myId", zap.Int32("tokenUserId", entry.UserID), zap.Int32("myId", myId))
 				}
+			} else {
+				app.logger.Debug("authMiddleware: PKCE token lookup failed")
 			}
 		}
 	}
