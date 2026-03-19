@@ -2,6 +2,7 @@ package api
 
 import (
 	"strconv"
+	"strings"
 
 	"api.audius.co/api/dbv1"
 	"github.com/gofiber/fiber/v2"
@@ -10,6 +11,9 @@ import (
 
 func (app *ApiServer) v1GranteeUsers(c *fiber.Ctx) error {
 	address := c.Params("address")
+	if !strings.HasPrefix(address, "0x") {
+		address = "0x" + address
+	}
 
 	isApproved, err := getOptionalBool(c, "is_approved")
 	if err != nil {

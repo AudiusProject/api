@@ -1,6 +1,7 @@
 package api
 
 import (
+	"strings"
 	"testing"
 
 	"api.audius.co/api/dbv1"
@@ -62,6 +63,18 @@ func TestGetGranteeUsersRevoked(t *testing.T) {
 		Data []dbv1.User
 	}
 	status, _ := testGet(t, app, "/v1/grantees/"+testGranteeAddress+"/users?is_revoked=true", &response)
+	assert.Equal(t, 200, status)
+	assert.Equal(t, 2, len(response.Data))
+}
+
+// Address without 0x prefix should work the same as with prefix
+func TestGetGranteeUsersWithoutHexPrefix(t *testing.T) {
+	app := testAppWithFixtures(t)
+	var response struct {
+		Data []dbv1.User
+	}
+	addressWithoutPrefix := strings.TrimPrefix(testGranteeAddress, "0x")
+	status, _ := testGet(t, app, "/v1/grantees/"+addressWithoutPrefix+"/users", &response)
 	assert.Equal(t, 200, status)
 	assert.Equal(t, 2, len(response.Data))
 }
