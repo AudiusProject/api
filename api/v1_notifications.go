@@ -59,15 +59,6 @@ WITH user_seen as (
   ORDER BY
     seen_at desc
   LIMIT 10
-),
-user_created_at as (
-  SELECT
-    created_at
-  FROM
-    users
-  WHERE
-    user_id =  @user_id
-  AND is_current
 )
 SELECT
 	n.type,
@@ -114,7 +105,7 @@ LEFT JOIN playlists p ON
   p.playlist_id = (n.data->>'playlist_id')::integer AND
   p.is_current = true
 WHERE
-  ((ARRAY[@user_id] && n.user_ids) OR (n.type = 'announcement' AND n.timestamp > (SELECT created_at FROM user_created_at)))
+  (ARRAY[@user_id] && n.user_ids)
   AND (n.type = ANY(@types) OR @types IS NULL)
 	-- Ignore notification types not supported by frontend
 	AND (n.type != ALL(@unsupported_types))
