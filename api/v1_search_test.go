@@ -5,6 +5,7 @@ import (
 
 	"api.audius.co/database"
 	"api.audius.co/esindexer"
+	"api.audius.co/trashid"
 	"github.com/test-go/testify/require"
 )
 
@@ -443,6 +444,52 @@ func TestSearch(t *testing.T) {
 		jsonAssert(t, body, map[string]any{
 			"data.playlists.0.playlist_name": "Hot and New",
 		})
+	}
+
+	// tracks route wrapper
+	{
+		status, body := testGet(t, app, "/v1/tracks/search?query=mouse")
+		require.Equal(t, 200, status)
+		jsonAssert(t, body, map[string]any{
+			"data.#":       1,
+			"data.0.title": "mouse trap",
+		})
+	}
+
+	// playlists route wrapper
+	{
+		status, body := testGet(t, app, "/v1/playlists/search?query=brooding")
+		require.Equal(t, 200, status)
+		jsonAssert(t, body, map[string]any{
+			"data.#":               1,
+			"data.0.playlist_name": "Brooding Bangers",
+		})
+	}
+
+	// playlists top endpoint
+	{
+		status, body := testGet(t, app, "/v1/playlists/top?type=album")
+		require.Equal(t, 200, status)
+		jsonAssert(t, body, map[string]any{
+			"data.#":          1,
+			"data.0.is_album": true,
+			"data.0.id":       trashid.MustEncodeHashID(9002),
+		})
+	}
+
+	{
+		status, body := testGet(t, app, "/v1/playlists/top?type=playlist&mood=brooding")
+		require.Equal(t, 200, status)
+		jsonAssert(t, body, map[string]any{
+			"data.#":               1,
+			"data.0.playlist_name": "Brooding Bangers",
+			"data.0.is_album":      false,
+		})
+	}
+
+	{
+		status, _ := testGet(t, app, "/v1/playlists/top?type=invalid")
+		require.Equal(t, 400, status)
 	}
 
 	//

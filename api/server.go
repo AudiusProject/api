@@ -44,7 +44,6 @@ import (
 	"github.com/mcuadros/go-defaults"
 	"github.com/segmentio/encoding/json"
 	"go.uber.org/zap"
-	"go.uber.org/zap/zapcore"
 )
 
 //go:embed swagger/swagger-v1.yaml
@@ -302,37 +301,35 @@ func NewApiServer(config config.Config) *ApiServer {
 	if app.rateLimitMiddleware != nil {
 		app.Use(app.rateLimitMiddleware.Middleware(app))
 	}
-	// In test, only log request errors to avoid noisy success logs
-	requestLogger := logger
-	if config.Env == "test" {
-		requestLogger = logger.WithOptions(zap.IncreaseLevel(zapcore.ErrorLevel))
+	// Avoid request log spam in tests; test failures still include assertion output.
+	if config.Env != "test" {
+		app.Use(fiberzap.New(fiberzap.Config{
+			Logger: logger,
+			FieldsFunc: func(c *fiber.Ctx) []zap.Field {
+				fields := []zap.Field{}
+
+				if startTime, ok := c.Locals("start").(time.Time); ok {
+					latencyMs := float64(time.Since(startTime).Nanoseconds()) / float64(time.Millisecond)
+					fields = append(fields, zap.Float64("latency_ms", latencyMs))
+				}
+
+				// Add upstream server to logs, if found
+				if upstream, ok := c.Locals("upstream").(string); ok && upstream != "" {
+					fields = append(fields, zap.String("upstream", upstream))
+				}
+
+				if requestId, ok := c.Locals("requestId").(string); ok && requestId != "" {
+					fields = append(fields, zap.String("request_id", requestId))
+				}
+
+				ipAddress := apiutils.GetIP(c)
+				fields = append(fields, zap.String("ip", ipAddress))
+
+				return fields
+			},
+			Fields: []string{"status", "method", "url", "route"},
+		}))
 	}
-	app.Use(fiberzap.New(fiberzap.Config{
-		Logger: requestLogger,
-		FieldsFunc: func(c *fiber.Ctx) []zap.Field {
-			fields := []zap.Field{}
-
-			if startTime, ok := c.Locals("start").(time.Time); ok {
-				latencyMs := float64(time.Since(startTime).Nanoseconds()) / float64(time.Millisecond)
-				fields = append(fields, zap.Float64("latency_ms", latencyMs))
-			}
-
-			// Add upstream server to logs, if found
-			if upstream, ok := c.Locals("upstream").(string); ok && upstream != "" {
-				fields = append(fields, zap.String("upstream", upstream))
-			}
-
-			if requestId, ok := c.Locals("requestId").(string); ok && requestId != "" {
-				fields = append(fields, zap.String("request_id", requestId))
-			}
-
-			ipAddress := apiutils.GetIP(c)
-			fields = append(fields, zap.String("ip", ipAddress))
-
-			return fields
-		},
-		Fields: []string{"status", "method", "url", "route"},
-	}))
 
 	app.Get("/", app.home)
 
