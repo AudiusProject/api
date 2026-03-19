@@ -423,3 +423,48 @@ func TestV1Notifications_PrivatePlaylist(t *testing.T) {
 		"data.notifications.0.type": "milestone",
 	})
 }
+
+func TestV1Notifications_AnnouncementRequiresUserIdInUserIds(t *testing.T) {
+	app := emptyTestApp(t)
+
+	fixtures := database.FixtureMap{
+		"notification": []map[string]any{
+			{
+				"id":        1,
+				"specifier": "1",
+				"group_id":  "announcement:target-user-1",
+				"type":      "announcement",
+				"user_ids":  []int{1},
+				"data":      []byte(`{"title": "For user 1", "short_description": "hi"}`),
+			},
+			{
+				"id":        2,
+				"specifier": "2",
+				"group_id":  "announcement:target-user-2",
+				"type":      "announcement",
+				"user_ids":  []int{2},
+				"data":      []byte(`{"title": "For user 2", "short_description": "bye"}`),
+			},
+			{
+				"id":        3,
+				"specifier": "3",
+				"group_id":  "announcement:empty-user-ids",
+				"type":      "announcement",
+				"user_ids":  []int{},
+				"data":      []byte(`{"title": "Nobody", "short_description": "x"}`),
+			},
+		},
+	}
+
+	database.Seed(app.pool.Replicas[0], fixtures)
+
+	status, body := testGet(t, app, "/v1/notifications/"+trashid.MustEncodeHashID(1))
+	assert.Equal(t, 200, status)
+
+	jsonAssert(t, body, map[string]any{
+		"data.notifications.#":                        1,
+		"data.notifications.0.type":                   "announcement",
+		"data.notifications.0.group_id":               "announcement:target-user-1",
+		"data.notifications.0.actions.0.data.title":     "For user 1",
+	})
+}
