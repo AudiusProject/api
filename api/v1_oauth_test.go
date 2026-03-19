@@ -1246,3 +1246,33 @@ func TestAuthMiddleware_PKCEToken_UserIDMismatch(t *testing.T) {
 	// Should be rejected because the token's user_id (100) does not match the requested user_id (200)
 	assert.Equal(t, 403, res.StatusCode)
 }
+
+// TestOAuthMe_WithApiSecret tests the /me endpoint when the PKCE token belongs to a developer
+// app that also has an api_secret registered in api_keys. In this case getApiSigner resolves the
+// signer via getSignerFromOAuthToken, which must populate myId and oauthScope so that /me can
+// resolve the authenticated user without a second PKCE token lookup.
+func TestOAuthMe_WithApiSecret(t *testing.T) {
+	app := emptyTestApp(t)
+	clientID := seedOAuthTestData(t, app)
+
+	// Register a private key as the api_secret for this developer app.
+	// Using the well-known ganache key; the address must match clientID.
+	const apiSecret = "ac0974bec39a17e36ba4a6b4d238ff944bacb478cbed5efcae784d7bf4f2ff80"
+	ensureApiKeysTables(t, app, context.Background())
+	_, err := app.writePool.Exec(context.Background(), `
+		INSERT INTO api_keys (api_key, api_secret, rps, rpm)
+		VALUES ($1, $2, 10, 500000)
+		ON CONFLICT (api_key) DO UPDATE SET api_secret = EXCLUDED.api_secret
+	`, clientID, apiSecret)
+	require.NoError(t, err)
+
+	accessToken, _ := insertTestTokens(t, app, clientID, 100, "read", "family-apisecret", time.Hour, 30*24*time.Hour)
+
+	status, body := oauthGetWithBearer(t, app, "/v1/me", accessToken)
+
+	assert.Equal(t, 200, status)
+	jsonAssert(t, body, map[string]any{
+		"data.handle": "oauthuser",
+		"data.name":   "OAuth User",
+	})
+}

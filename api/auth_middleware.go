@@ -246,48 +246,76 @@ func (app *ApiServer) validateOAuthJWTTokenToWalletAndUserId(ctx context.Context
 // - the user is not authorized to act on behalf of "myId"
 // - the user is not authorized to act on behalf of "myWallet"
 func (app *ApiServer) authMiddleware(c *fiber.Ctx) error {
+
+	// Try to populate the authorized wallet from the Authorization header or signature headers. The authMiddleware is designed to be flexible and support multiple auth methods, so it will attempt to resolve the authed wallet from multiple sources in the following order:
+	// 1a. Static dev app Bearer token or secret (e.g. api_access_key or AudiusApiSecret) - highest precedence since it's the most explicit
+	// 1b. OAuth 2.0 access token lookup - allows support for OAuth clients to do read/writes
+	// 2. OAuth JWT Bearer token - used by older clients with the implicit signed JWTs to do auth
+	// 3. OAuth 2.0 access token lookup - for cases where the dev app doesn't have their secret stored on API server - will only work for reads, not writes
+	// 4. Signature headers - legacy method used for reads
 	var wallet string
 
+	// Start by trying to get the API key/secret from the Authorization header
 	signer, _ := app.getApiSigner(c)
 	myId := app.getMyId(c)
 	if signer != nil {
+		app.logger.Debug("authMiddleware: resolved via app bearer/secret/oauth", zap.String("wallet", strings.ToLower(signer.Address)))
 		wallet = strings.ToLower(signer.Address)
 	} else {
-		wallet = app.recoverAuthorityFromSignatureHeaders(c)
+		// The api secret couldn't be found, try other methods:
+
 		// Extract Bearer token once for the fallback checks below
 		var bearerToken string
 		if authHeader := c.Get("Authorization"); authHeader != "" && strings.HasPrefix(authHeader, "Bearer ") {
 			bearerToken = strings.TrimSpace(strings.TrimPrefix(authHeader, "Bearer "))
 		}
 
-		// OAuth JWT fallback: when Bearer token is not api_access_key, try as OAuth JWT (Plans app)
-		if wallet == "" && myId != 0 && bearerToken != "" {
-			if oauthWallet, jwtUserId, err := app.validateOAuthJWTTokenToWalletAndUserId(c.Context(), bearerToken); err == nil {
-				if int32(jwtUserId) == myId {
-					wallet = oauthWallet
-				} else {
-					app.logger.Warn("authMiddleware: OAuth JWT userId does not match myId", zap.Int32("jwtUserId", int32(jwtUserId)), zap.Int32("myId", myId))
-				}
-			} else {
-				app.logger.Warn("authMiddleware: OAuth JWT validation failed", zap.Error(err))
-			}
-		}
-		// PKCE token fallback: resolve opaque Bearer token from oauth_tokens
-		if wallet == "" && bearerToken != "" {
-			if entry, ok := app.lookupOAuthAccessToken(c, bearerToken); ok {
-				if myId == 0 || entry.UserID == myId {
-					wallet = strings.ToLower(entry.ClientID)
-					c.Locals("oauthScope", entry.Scope)
-					if myId == 0 {
-						myId = entry.UserID
-						c.Locals("myId", int(entry.UserID))
+		if bearerToken != "" {
+			// OAuth JWT fallback: when Bearer token is not api_access_key, try as OAuth JWT (Plans app)
+			if wallet == "" && myId != 0 {
+				if oauthWallet, jwtUserId, err := app.validateOAuthJWTTokenToWalletAndUserId(c.Context(), bearerToken); err == nil {
+					if int32(jwtUserId) == myId {
+						app.logger.Debug("authMiddleware: resolved via OAuth JWT", zap.String("wallet", oauthWallet), zap.Int32("myId", myId))
+						wallet = oauthWallet
+					} else {
+						app.logger.Warn("authMiddleware: OAuth JWT userId does not match myId", zap.Int32("jwtUserId", int32(jwtUserId)), zap.Int32("myId", myId))
 					}
 				} else {
-					app.logger.Warn("authMiddleware: PKCE token userId does not match myId", zap.Int32("tokenUserId", entry.UserID), zap.Int32("myId", myId))
+					app.logger.Warn("authMiddleware: OAuth JWT validation failed", zap.Error(err))
 				}
-			} else {
-				app.logger.Debug("authMiddleware: PKCE token lookup failed")
 			}
+
+			// PKCE token fallback: resolve opaque Bearer token from oauth_tokens in case the getSigner fails because there's no secret stored in the api_keys table
+			if wallet == "" {
+				if entry, ok := app.lookupOAuthAccessToken(c, bearerToken); ok {
+					if myId == 0 || entry.UserID == myId {
+						wallet = strings.ToLower(entry.ClientID)
+						c.Locals("oauthScope", entry.Scope)
+						if myId == 0 {
+							myId = entry.UserID
+							c.Locals("myId", int(entry.UserID))
+						}
+						app.logger.Debug("authMiddleware: resolved via PKCE token", zap.String("wallet", wallet), zap.Int32("userId", myId))
+					} else {
+						app.logger.Warn("authMiddleware: PKCE token userId does not match myId", zap.Int32("tokenUserId", entry.UserID), zap.Int32("myId", myId))
+					}
+				} else {
+					app.logger.Debug("authMiddleware: PKCE token lookup failed")
+				}
+			}
+		}
+
+		if wallet == "" {
+			// Try to get signer of headers for legacy signed requests
+			wallet = app.recoverAuthorityFromSignatureHeaders(c)
+			if wallet != "" {
+				app.logger.Debug("authMiddleware: resolved via signature headers", zap.String("wallet", wallet))
+			}
+		}
+
+		// If still no wallet, we couldn't resolve an authed wallet from the request
+		if wallet == "" {
+			app.logger.Debug("authMiddleware: no auth resolved")
 		}
 	}
 

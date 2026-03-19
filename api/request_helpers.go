@@ -193,6 +193,14 @@ func (app *ApiServer) getSignerFromOAuthToken(c *fiber.Ctx, token string) *Signe
 	if err != nil {
 		return nil
 	}
+
+	// Populate oauthScope and myId on the context so authMiddleware doesn't need
+	// a second PKCE token lookup when the signer was resolved via an OAuth token.
+	c.Locals("oauthScope", entry.Scope)
+	if myId, _ := c.Locals("myId").(int); myId == 0 {
+		c.Locals("myId", int(entry.UserID))
+	}
+
 	return &Signer{
 		Address:    strings.ToLower(entry.ClientID),
 		PrivateKey: privateKey,
