@@ -404,6 +404,7 @@ func NewApiServer(config config.Config) *ApiServer {
 		g.Get("/users/:userId/balance/history", app.v1UsersBalanceHistory)
 		g.Get("/users/:userId/managers", app.v1UsersManagers)
 		g.Get("/users/:userId/managed_users", app.v1UsersManagedUsers)
+		g.Get("/grantees/:address/users", app.v1GranteeUsers)
 		g.Post("/users/:userId/grants", app.requireAuthMiddleware, app.requireWriteScope, app.postV1UsersGrant)
 		g.Delete("/users/:userId/grants/:address", app.requireAuthMiddleware, app.requireWriteScope, app.deleteV1UsersGrant)
 		g.Post("/users/:userId/managers", app.requireAuthMiddleware, app.requireWriteScope, app.postV1UsersManager)

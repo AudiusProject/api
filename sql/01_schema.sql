@@ -11097,6 +11097,13 @@ CREATE INDEX idx_genre_related_artists ON public.aggregate_user USING btree (dom
 
 
 --
+-- Name: idx_grants_grantee_address; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX idx_grants_grantee_address ON public.grants USING btree (grantee_address, is_revoked, created_at DESC) WHERE (is_current = true);
+
+
+--
 -- Name: idx_lower_wallet; Type: INDEX; Schema: public; Owner: -
 --
 
