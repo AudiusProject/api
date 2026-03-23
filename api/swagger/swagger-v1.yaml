@@ -18347,6 +18347,9 @@ components:
           type: string
         route:
           type: string
+        dashboard_announcement_id:
+          type: string
+          nullable: true
     supporter_rank_up_notification_action:
       required:
         - data
