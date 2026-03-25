@@ -11,7 +11,6 @@ import (
 	"api.audius.co/trashid"
 	"connectrpc.com/connect"
 	v1 "github.com/OpenAudio/go-openaudio/pkg/api/core/v1"
-	"github.com/OpenAudio/go-openaudio/pkg/sdk"
 	cconfig "github.com/OpenAudio/go-openaudio/pkg/core/config"
 	"github.com/OpenAudio/go-openaudio/pkg/core/server"
 	eth_gen "github.com/OpenAudio/go-openaudio/pkg/eth/contracts/gen"
@@ -260,43 +259,37 @@ func (app *ApiServer) relay(c *fiber.Ctx) error {
 	})
 }
 
-const sosEndpoint = "https://sos.audius.co"
-
 func (app *ApiServer) handleRelay(ctx context.Context, logger *zap.Logger, decodedTx *v1.ManageEntityLegacy) (*v1.Transaction, error) {
-	req := &v1.SendTransactionRequest{
-		Transaction: &v1.SignedTransaction{
-			Transaction: &v1.SignedTransaction_ManageEntity{
-				ManageEntity: decodedTx,
+	allClients := app.openAudioPool.GetAll()
+	if len(allClients) == 0 {
+		logger.Error("no OpenAudio clients configured")
+		return nil, fmt.Errorf("no OpenAudio clients configured")
+	}
+
+	var lastErr error
+	for i, clientInfo := range allClients {
+		endpointLogger := logger.With(zap.String("openaudio_endpoint", clientInfo.Endpoint), zap.Int("attempt", i+1))
+		res, err := clientInfo.Client.Core.SendTransaction(ctx, connect.NewRequest(&v1.SendTransactionRequest{
+			Transaction: &v1.SignedTransaction{
+				Transaction: &v1.SignedTransaction_ManageEntity{
+					ManageEntity: decodedTx,
+				},
 			},
-		},
-	}
+		}))
 
-	// mainnet
-	go func() {
-		allClients := app.openAudioPool.GetAll()
-		for i, clientInfo := range allClients {
-			endpointLogger := logger.With(zap.String("openaudio_endpoint", clientInfo.Endpoint), zap.Int("attempt", i+1))
-			res, err := clientInfo.Client.Core.SendTransaction(context.Background(), connect.NewRequest(req))
-			if err != nil {
-				endpointLogger.Warn("transaction failed, trying next", zap.Error(err))
-				continue
-			}
-			endpointLogger.Info("transaction confirmed", zap.String("hash", res.Msg.Transaction.GetHash()))
-			return
+		if err != nil {
+			lastErr = err
+			endpointLogger.Warn("transaction failed, trying next", zap.Error(err))
+			continue
 		}
-		logger.Error("all mainnet endpoints failed")
-	}()
 
-	// sos
-	sosClient := sdk.NewOpenAudioSDK(sosEndpoint)
-	sosLogger := logger.With(zap.String("openaudio_endpoint", sosEndpoint))
-	res, err := sosClient.Core.SendTransaction(ctx, connect.NewRequest(req))
-	if err != nil {
-		sosLogger.Warn("sos dual-write failed", zap.Error(err))
-		return nil, err
+		msg := res.Msg.Transaction
+		endpointLogger.Info("transaction confirmed", zap.String("hash", msg.GetHash()))
+		return msg, nil
 	}
-	sosLogger.Info("sos dual-write confirmed", zap.String("hash", res.Msg.Transaction.GetHash()))
-	return res.Msg.Transaction, nil
+
+	logger.Error("all OpenAudio endpoints failed", zap.Error(lastErr))
+	return nil, fmt.Errorf("all endpoints failed, last error: %w", lastErr)
 }
 
 func transactionToReceipt(tx *v1.Transaction, wallet string) map[string]interface{} {
