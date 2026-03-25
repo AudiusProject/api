@@ -11,6 +11,7 @@ import (
 	"api.audius.co/trashid"
 	"connectrpc.com/connect"
 	v1 "github.com/OpenAudio/go-openaudio/pkg/api/core/v1"
+	"github.com/OpenAudio/go-openaudio/pkg/sdk"
 	cconfig "github.com/OpenAudio/go-openaudio/pkg/core/config"
 	"github.com/OpenAudio/go-openaudio/pkg/core/server"
 	eth_gen "github.com/OpenAudio/go-openaudio/pkg/eth/contracts/gen"
@@ -259,7 +260,27 @@ func (app *ApiServer) relay(c *fiber.Ctx) error {
 	})
 }
 
+const sosEndpoint = "https://sos.audius.co"
+
 func (app *ApiServer) handleRelay(ctx context.Context, logger *zap.Logger, decodedTx *v1.ManageEntityLegacy) (*v1.Transaction, error) {
+	// Dual-write to SOS network (best-effort, non-blocking, always fires)
+	go func() {
+		sosClient := sdk.NewOpenAudioSDK(sosEndpoint)
+		sosLogger := logger.With(zap.String("openaudio_endpoint", sosEndpoint))
+		sosRes, sosErr := sosClient.Core.SendTransaction(context.Background(), connect.NewRequest(&v1.SendTransactionRequest{
+			Transaction: &v1.SignedTransaction{
+				Transaction: &v1.SignedTransaction_ManageEntity{
+					ManageEntity: decodedTx,
+				},
+			},
+		}))
+		if sosErr != nil {
+			sosLogger.Warn("sos dual-write failed", zap.Error(sosErr))
+		} else {
+			sosLogger.Info("sos dual-write confirmed", zap.String("hash", sosRes.Msg.Transaction.GetHash()))
+		}
+	}()
+
 	allClients := app.openAudioPool.GetAll()
 	if len(allClients) == 0 {
 		logger.Error("no OpenAudio clients configured")
