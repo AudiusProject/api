@@ -56,6 +56,8 @@ type Config struct {
 	UploadNodes []string
 	// Optional API secret to be used for api.audius.co frontends
 	AudiusApiSecret string
+	// Shared secret for notifications-dashboard (or other internal jobs) to read notification campaign push open counts
+	NotificationCampaignOpenMetricsSecret string
 }
 
 var Cfg = Config{
@@ -80,6 +82,8 @@ var Cfg = Config{
 	LaunchpadDeterministicSecret: os.Getenv("launchpadDeterministicSecret"),
 	UnsplashKeys:                 strings.Split(os.Getenv("unsplashKeys"), ","),
 	AudiusApiSecret:              os.Getenv("audiusApiSecret"),
+	AudiusApiSecret:                       os.Getenv("audiusApiSecret"),
+	NotificationCampaignOpenMetricsSecret: os.Getenv("notificationCampaignOpenMetricsSecret"),
 }
 
 func init() {
