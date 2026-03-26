@@ -321,8 +321,11 @@ func (app *ApiServer) authMiddleware(c *fiber.Ctx) error {
 
 	c.Locals("authedWallet", wallet)
 
+	// A valid PKCE access token already proves the user authorized this client
+	_, pkceAuthed := c.Locals("oauthScope").(string)
+
 	// Not authorized to act on behalf of myId
-	if myId != 0 && !app.isAuthorizedRequest(c.Context(), myId, wallet) {
+	if myId != 0 && !pkceAuthed && !app.isAuthorizedRequest(c.Context(), myId, wallet) {
 		return fiber.NewError(
 			fiber.StatusForbidden,
 			fmt.Sprintf(

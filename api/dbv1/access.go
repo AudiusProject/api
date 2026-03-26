@@ -86,6 +86,7 @@ func (q *Queries) GetBulkTrackAccess(
 	myId int32,
 	tracks []*GetTracksRow,
 	users map[int32]*User,
+	solanaWallet string,
 ) (map[int32]Access, error) {
 	// Initialize result map
 	result := make(map[int32]Access)
@@ -203,6 +204,7 @@ func (q *Queries) GetBulkTrackAccess(
 	purchasedPlaylists := make(map[int32]bool)
 	prevPurchasedPlaylists := make(map[int32]bool)
 	userTokenBalances := make(map[string]int64)
+	walletTokenBalances := make(map[string]int64)
 	coinDecimals := make(map[string]int32)
 
 	g, ctx := errgroup.WithContext(ctx)
@@ -280,6 +282,7 @@ func (q *Queries) GetBulkTrackAccess(
 
 	// Query for token balances
 	if len(tokenGateTokenMintsSlice) > 0 {
+		// Look up balances from the per-user aggregate table
 		g.Go(func() error {
 			rows, err := q.db.Query(ctx, `
 				SELECT mint, COALESCE(balance, 0)
@@ -300,6 +303,32 @@ func (q *Queries) GetBulkTrackAccess(
 			}
 			return rows.Err()
 		})
+
+		// If a Solana wallet was provided (e.g. signed via middleware),
+		// also check balances from the token account balances table.
+		// Results are merged after g.Wait() to avoid concurrent map writes.
+		if solanaWallet != "" {
+			g.Go(func() error {
+				rows, err := q.db.Query(ctx, `
+					SELECT mint, COALESCE(balance, 0)
+					FROM sol_token_account_balances
+					WHERE owner = $1
+					AND mint = ANY($2)
+				`, solanaWallet, tokenGateTokenMintsSlice)
+				if err != nil {
+					return err
+				}
+				defer rows.Close()
+				for rows.Next() {
+					var mint string
+					var balance int64
+					if err := rows.Scan(&mint, &balance); err == nil {
+						walletTokenBalances[mint] = balance
+					}
+				}
+				return rows.Err()
+			})
+		}
 
 		// Query for coin decimals
 		g.Go(func() error {
@@ -387,6 +416,11 @@ func (q *Queries) GetBulkTrackAccess(
 	// Wait for all queries to complete
 	if err := g.Wait(); err != nil {
 		return nil, err
+	}
+
+	// Merge wallet balances by summing with user balances
+	for mint, balance := range walletTokenBalances {
+		userTokenBalances[mint] += balance
 	}
 
 	// Now determine access for each track
