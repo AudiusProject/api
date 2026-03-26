@@ -10,7 +10,7 @@ import (
 
 type TracksParams struct {
 	GetTracksParams
-	TokenBalanceFetcher TokenBalanceFetcher
+	SolanaWallet string
 }
 
 // Track is the standard track type containing all track data
@@ -85,7 +85,7 @@ func (q *Queries) TracksKeyed(ctx context.Context, arg TracksParams) (map[int32]
 	}
 
 	// Get bulk access for all tracks
-	accessMap, err := q.GetBulkTrackAccess(ctx, arg.MyID.(int32), trackPtrs, userPtrMap, arg.TokenBalanceFetcher)
+	accessMap, err := q.GetBulkTrackAccess(ctx, arg.MyID.(int32), trackPtrs, userPtrMap, arg.SolanaWallet)
 	if err != nil {
 		return nil, err
 	}

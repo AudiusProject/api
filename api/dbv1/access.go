@@ -13,10 +13,6 @@ type Access struct {
 	Download bool `json:"download"`
 }
 
-// TokenBalanceFetcher fetches on-chain token balances for a set of mints.
-// Returns a map of mint → raw balance (smallest unit, already scaled by decimals).
-type TokenBalanceFetcher func(ctx context.Context, mints []string) (map[string]int64, error)
-
 func (q *Queries) GetPlaylistAccess(
 	ctx context.Context,
 	myId int32,
@@ -90,7 +86,7 @@ func (q *Queries) GetBulkTrackAccess(
 	myId int32,
 	tracks []*GetTracksRow,
 	users map[int32]*User,
-	tokenBalanceFetcher TokenBalanceFetcher,
+	solanaWallet string,
 ) (map[int32]Access, error) {
 	// Initialize result map
 	result := make(map[int32]Access)
@@ -208,6 +204,7 @@ func (q *Queries) GetBulkTrackAccess(
 	purchasedPlaylists := make(map[int32]bool)
 	prevPurchasedPlaylists := make(map[int32]bool)
 	userTokenBalances := make(map[string]int64)
+	walletTokenBalances := make(map[string]int64)
 	coinDecimals := make(map[string]int32)
 
 	g, ctx := errgroup.WithContext(ctx)
@@ -285,26 +282,39 @@ func (q *Queries) GetBulkTrackAccess(
 
 	// Query for token balances
 	if len(tokenGateTokenMintsSlice) > 0 {
-		if tokenBalanceFetcher != nil {
-			// Use the provided fetcher (e.g. on-chain RPC for Solana wallet auth)
-			g.Go(func() error {
-				balances, err := tokenBalanceFetcher(ctx, tokenGateTokenMintsSlice)
-				if err != nil {
-					return err
-				}
-				for mint, balance := range balances {
+		// Look up balances from the per-user aggregate table
+		g.Go(func() error {
+			rows, err := q.db.Query(ctx, `
+				SELECT mint, COALESCE(balance, 0)
+				FROM sol_user_balances
+				WHERE user_id = $1
+				AND mint = ANY($2)
+			`, myId, tokenGateTokenMintsSlice)
+			if err != nil {
+				return err
+			}
+			defer rows.Close()
+			for rows.Next() {
+				var mint string
+				var balance int64
+				if err := rows.Scan(&mint, &balance); err == nil {
 					userTokenBalances[mint] = balance
 				}
-				return nil
-			})
-		} else {
+			}
+			return rows.Err()
+		})
+
+		// If a Solana wallet was provided (e.g. signed via middleware),
+		// also check balances from the token account balances table.
+		// Results are merged after g.Wait() to avoid concurrent map writes.
+		if solanaWallet != "" {
 			g.Go(func() error {
 				rows, err := q.db.Query(ctx, `
 					SELECT mint, COALESCE(balance, 0)
-					FROM sol_user_balances
-					WHERE user_id = $1
+					FROM sol_token_account_balances
+					WHERE owner = $1
 					AND mint = ANY($2)
-				`, myId, tokenGateTokenMintsSlice)
+				`, solanaWallet, tokenGateTokenMintsSlice)
 				if err != nil {
 					return err
 				}
@@ -313,7 +323,7 @@ func (q *Queries) GetBulkTrackAccess(
 					var mint string
 					var balance int64
 					if err := rows.Scan(&mint, &balance); err == nil {
-						userTokenBalances[mint] = balance
+						walletTokenBalances[mint] = balance
 					}
 				}
 				return rows.Err()
@@ -406,6 +416,13 @@ func (q *Queries) GetBulkTrackAccess(
 	// Wait for all queries to complete
 	if err := g.Wait(); err != nil {
 		return nil, err
+	}
+
+	// Merge wallet balances, keeping the higher value per mint
+	for mint, balance := range walletTokenBalances {
+		if balance > userTokenBalances[mint] {
+			userTokenBalances[mint] = balance
+		}
 	}
 
 	// Now determine access for each track
