@@ -418,11 +418,9 @@ func (q *Queries) GetBulkTrackAccess(
 		return nil, err
 	}
 
-	// Merge wallet balances, keeping the higher value per mint
+	// Merge wallet balances by summing with user balances
 	for mint, balance := range walletTokenBalances {
-		if balance > userTokenBalances[mint] {
-			userTokenBalances[mint] = balance
-		}
+		userTokenBalances[mint] += balance
 	}
 
 	// Now determine access for each track
