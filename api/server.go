@@ -364,6 +364,7 @@ func NewApiServer(config config.Config) *ApiServer {
 	app.Use(app.isFullMiddleware)
 	app.Use(app.resolveMyIdMiddleware)
 	app.Use(app.authMiddleware)
+	app.Use(app.solanaWalletMiddleware)
 
 	v1 := app.Group("/v1")
 	v1Full := app.Group("/v1/full")

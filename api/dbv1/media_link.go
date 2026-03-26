@@ -24,6 +24,11 @@ type Id3Tags struct {
 	Artist string `json:"artist"`
 }
 
+// BuildMediaLink generates a signed media link for streaming a track CID from content nodes.
+func BuildMediaLink(cid string, trackId int32, userId int32, id3Tags *Id3Tags) (*MediaLink, error) {
+	return mediaLink(cid, trackId, userId, id3Tags)
+}
+
 func mediaLink(cid string, trackId int32, userId int32, id3Tags *Id3Tags) (*MediaLink, error) {
 	first, rest := rendezvous.GlobalHasher.Select(cid)
 
