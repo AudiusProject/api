@@ -16,6 +16,8 @@ func TestGetDeveloperAppsQueries(t *testing.T) {
 	assert.NoError(t, err)
 	assert.Len(t, developerApps, 1)
 	assert.Equal(t, "0x7d7b6b7a97d1deefe3a1ccc5a13c48e8f055e0b6", developerApps[0].Address)
+	// redirect_uris must be an empty slice (not nil) when no URIs are registered
+	assert.Equal(t, []string{}, developerApps[0].RedirectUris)
 }
 
 func TestGetDeveloperApp(t *testing.T) {
@@ -29,4 +31,6 @@ func TestGetDeveloperApp(t *testing.T) {
 	assert.True(t, strings.Contains(string(body), `"user_id":"7eP5n"`))
 	assert.True(t, strings.Contains(string(body), `"name":"cool app"`))
 	assert.Equal(t, "cool app", resp.Data.Name)
+	// redirect_uris must be an empty slice (not nil) when no URIs are registered
+	assert.Equal(t, []string{}, resp.Data.RedirectUris)
 }
