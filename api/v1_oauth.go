@@ -538,7 +538,6 @@ func (app *ApiServer) v1OAuthRevoke(c *fiber.Ctx) error {
 	return c.JSON(fiber.Map{})
 }
 
-
 // --- Helper methods ---
 
 // validateJWTIat extracts and validates the iat (issued-at) claim from a JWT.

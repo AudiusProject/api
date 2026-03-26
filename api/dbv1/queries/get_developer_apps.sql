@@ -1,16 +1,19 @@
 -- name: GetDeveloperApps :many
 SELECT
-  address,
-  user_id,
-  name,
-  description,
-  image_url
-FROM developer_apps
-WHERE 
-  (user_id = @user_id OR address = @address)
-  AND is_current = true
-  AND is_delete = false
-ORDER BY created_at DESC;
+  da.address,
+  da.user_id,
+  da.name,
+  da.description,
+  da.image_url,
+  COALESCE(ARRAY_AGG(oau.redirect_uri ORDER BY oau.id) FILTER (WHERE oau.redirect_uri IS NOT NULL), ARRAY[]::text[])::text[] AS redirect_uris
+FROM developer_apps da
+LEFT JOIN oauth_redirect_uris oau ON oau.client_id = da.address
+WHERE
+  (da.user_id = @user_id OR da.address = @address)
+  AND da.is_current = true
+  AND da.is_delete = false
+GROUP BY da.address, da.user_id, da.name, da.description, da.image_url, da.created_at
+ORDER BY da.created_at DESC;
 
 -- name: GetDeveloperAppsWithGrants :many
 SELECT
