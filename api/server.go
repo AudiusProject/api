@@ -465,6 +465,7 @@ func NewApiServer(config config.Config) *ApiServer {
 		g.Post("/users/:userId/mute", app.requireAuthMiddleware, app.requireWriteScope, app.postV1UserMute)
 		g.Delete("/users/:userId/mute", app.requireAuthMiddleware, app.requireWriteScope, app.deleteV1UserMute)
 		g.Put("/users/:userId", app.requireAuthMiddleware, app.requireWriteScope, app.putV1User)
+		g.Post("/users/:userId/notifications/campaigns/:campaignId/open", app.requireAuthMiddleware, app.requireAuthForUserId, app.v1NotificationCampaignPushOpen)
 
 		// Tracks
 		g.Get("/tracks", app.v1Tracks)
@@ -626,6 +627,7 @@ func NewApiServer(config config.Config) *ApiServer {
 		// Notifications
 		g.Get("/notifications/:userId", app.requireUserIdMiddleware, app.v1Notifications)
 		g.Get("/notifications/:userId/playlist_updates", app.requireUserIdMiddleware, app.v1NotificationsPlaylistUpdates)
+		g.Get("/notifications/campaigns/:campaignId/opens", app.v1NotificationCampaignPushOpenMetrics)
 
 		// Protocol dashboard
 		g.Get("/dashboard_wallet_users", app.v1DashboardWalletUsers)

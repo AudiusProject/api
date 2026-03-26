@@ -56,30 +56,33 @@ type Config struct {
 	UploadNodes []string
 	// Optional API secret to be used for api.audius.co frontends
 	AudiusApiSecret string
+	// Shared secret for notifications-dashboard (or other internal jobs) to read notification campaign push open counts
+	NotificationCampaignOpenMetricsSecret string
 }
 
 var Cfg = Config{
-	Git:                          os.Getenv("GIT_SHA"),
-	Env:                          os.Getenv("ENV"),
-	LogLevel:                     os.Getenv("logLevel"),
-	ReadDbUrl:                    os.Getenv("readDbUrl"),
-	ReadDbReplicas:               strings.Split(os.Getenv("readDbReplicas"), ","),
-	WriteDbUrl:                   os.Getenv("writeDbUrl"),
-	RunMigrations:                os.Getenv("runMigrations") == "true",
-	EsUrl:                        os.Getenv("elasticsearchUrl"),
-	DelegatePrivateKey:           os.Getenv("delegatePrivateKey"),
-	AxiomToken:                   os.Getenv("axiomToken"),
-	AxiomDataset:                 os.Getenv("axiomDataset"),
-	NetworkTakeRate:              10,
-	AudiusdURL:                   os.Getenv("audiusdUrl"),
-	OpenAudioURLs:                []string{},
-	BirdeyeToken:                 os.Getenv("birdeyeToken"),
-	SolanaIndexerWorkers:         50,
-	SolanaIndexerRetryInterval:   5 * time.Minute,
-	CommsMessagePush:             true,
-	LaunchpadDeterministicSecret: os.Getenv("launchpadDeterministicSecret"),
-	UnsplashKeys:                 strings.Split(os.Getenv("unsplashKeys"), ","),
-	AudiusApiSecret:              os.Getenv("audiusApiSecret"),
+	Git:                                   os.Getenv("GIT_SHA"),
+	Env:                                   os.Getenv("ENV"),
+	LogLevel:                              os.Getenv("logLevel"),
+	ReadDbUrl:                             os.Getenv("readDbUrl"),
+	ReadDbReplicas:                        strings.Split(os.Getenv("readDbReplicas"), ","),
+	WriteDbUrl:                            os.Getenv("writeDbUrl"),
+	RunMigrations:                         os.Getenv("runMigrations") == "true",
+	EsUrl:                                 os.Getenv("elasticsearchUrl"),
+	DelegatePrivateKey:                    os.Getenv("delegatePrivateKey"),
+	AxiomToken:                            os.Getenv("axiomToken"),
+	AxiomDataset:                          os.Getenv("axiomDataset"),
+	NetworkTakeRate:                       10,
+	AudiusdURL:                            os.Getenv("audiusdUrl"),
+	OpenAudioURLs:                         []string{},
+	BirdeyeToken:                          os.Getenv("birdeyeToken"),
+	SolanaIndexerWorkers:                  50,
+	SolanaIndexerRetryInterval:            5 * time.Minute,
+	CommsMessagePush:                      true,
+	LaunchpadDeterministicSecret:          os.Getenv("launchpadDeterministicSecret"),
+	UnsplashKeys:                          strings.Split(os.Getenv("unsplashKeys"), ","),
+	AudiusApiSecret:                       os.Getenv("audiusApiSecret"),
+	NotificationCampaignOpenMetricsSecret: os.Getenv("notificationCampaignOpenMetricsSecret"),
 }
 
 func init() {

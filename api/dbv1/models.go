@@ -1381,6 +1381,12 @@ type Notification struct {
 	TypeV2      pgtype.Text `json:"type_v2"`
 }
 
+type NotificationCampaignPushOpen struct {
+	CampaignID pgtype.UUID        `json:"campaign_id"`
+	UserID     int32              `json:"user_id"`
+	OpenedAt   pgtype.Timestamptz `json:"opened_at"`
+}
+
 type NotificationSeen struct {
 	UserID      int32       `json:"user_id"`
 	SeenAt      time.Time   `json:"seen_at"`
