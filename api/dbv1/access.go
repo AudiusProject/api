@@ -13,6 +13,10 @@ type Access struct {
 	Download bool `json:"download"`
 }
 
+// TokenBalanceFetcher fetches on-chain token balances for a set of mints.
+// Returns a map of mint → raw balance (smallest unit, already scaled by decimals).
+type TokenBalanceFetcher func(ctx context.Context, mints []string) (map[string]int64, error)
+
 func (q *Queries) GetPlaylistAccess(
 	ctx context.Context,
 	myId int32,
@@ -86,6 +90,7 @@ func (q *Queries) GetBulkTrackAccess(
 	myId int32,
 	tracks []*GetTracksRow,
 	users map[int32]*User,
+	tokenBalanceFetcher TokenBalanceFetcher,
 ) (map[int32]Access, error) {
 	// Initialize result map
 	result := make(map[int32]Access)
@@ -280,26 +285,40 @@ func (q *Queries) GetBulkTrackAccess(
 
 	// Query for token balances
 	if len(tokenGateTokenMintsSlice) > 0 {
-		g.Go(func() error {
-			rows, err := q.db.Query(ctx, `
-				SELECT mint, COALESCE(balance, 0)
-				FROM sol_user_balances
-				WHERE user_id = $1
-				AND mint = ANY($2)
-			`, myId, tokenGateTokenMintsSlice)
-			if err != nil {
-				return err
-			}
-			defer rows.Close()
-			for rows.Next() {
-				var mint string
-				var balance int64
-				if err := rows.Scan(&mint, &balance); err == nil {
+		if tokenBalanceFetcher != nil {
+			// Use the provided fetcher (e.g. on-chain RPC for Solana wallet auth)
+			g.Go(func() error {
+				balances, err := tokenBalanceFetcher(ctx, tokenGateTokenMintsSlice)
+				if err != nil {
+					return err
+				}
+				for mint, balance := range balances {
 					userTokenBalances[mint] = balance
 				}
-			}
-			return rows.Err()
-		})
+				return nil
+			})
+		} else {
+			g.Go(func() error {
+				rows, err := q.db.Query(ctx, `
+					SELECT mint, COALESCE(balance, 0)
+					FROM sol_user_balances
+					WHERE user_id = $1
+					AND mint = ANY($2)
+				`, myId, tokenGateTokenMintsSlice)
+				if err != nil {
+					return err
+				}
+				defer rows.Close()
+				for rows.Next() {
+					var mint string
+					var balance int64
+					if err := rows.Scan(&mint, &balance); err == nil {
+						userTokenBalances[mint] = balance
+					}
+				}
+				return rows.Err()
+			})
+		}
 
 		// Query for coin decimals
 		g.Go(func() error {

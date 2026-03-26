@@ -2,87 +2,34 @@ package api
 
 import (
 	"context"
-	"math"
 
-	"github.com/gagliardetto/solana-go"
-	"github.com/gagliardetto/solana-go/rpc"
-	"go.uber.org/zap"
+	"api.audius.co/api/dbv1"
 )
 
-// checkSolanaWalletTokenAccess checks whether a Solana wallet holds sufficient tokens
-// for a coin-gated track by doing a real-time on-chain balance lookup.
-func (app *ApiServer) checkSolanaWalletTokenAccess(
-	ctx context.Context,
-	solanaWallet string,
-	tokenMint string,
-	requiredAmount int64,
-) (bool, error) {
-	walletPubkey, err := solana.PublicKeyFromBase58(solanaWallet)
-	if err != nil {
-		return false, err
-	}
-
-	mintPubkey, err := solana.PublicKeyFromBase58(tokenMint)
-	if err != nil {
-		return false, err
-	}
-
-	// Derive the associated token account address
-	ata, _, err := solana.FindAssociatedTokenAddress(walletPubkey, mintPubkey)
-	if err != nil {
-		return false, err
-	}
-
-	// Get token balance from chain
-	balanceResult, err := app.solanaRpcClient.GetTokenAccountBalance(ctx, ata, rpc.CommitmentConfirmed)
-	if err != nil {
-		// Account doesn't exist means zero balance
-		app.logger.Debug("checkSolanaWalletTokenAccess: token account not found",
-			zap.String("wallet", solanaWallet),
-			zap.String("mint", tokenMint),
-			zap.Error(err),
-		)
-		return false, nil
-	}
-
-	if balanceResult == nil || balanceResult.Value == nil {
-		return false, nil
-	}
-
-	rawBalance := balanceResult.Value.Amount
-	if rawBalance == "" {
-		return false, nil
-	}
-
-	// Parse the raw balance (string of lamports/smallest unit)
-	var balance uint64
-	for _, c := range rawBalance {
-		if c < '0' || c > '9' {
-			return false, nil
+// newSolanaWalletTokenBalanceFetcher returns a TokenBalanceFetcher that looks up
+// on-chain token balances for the given Solana wallet from the indexed
+// sol_token_account_balances table. The returned balances are raw (smallest unit)
+// matching the format used by GetBulkTrackAccess.
+func (app *ApiServer) newSolanaWalletTokenBalanceFetcher(wallet string) dbv1.TokenBalanceFetcher {
+	return func(ctx context.Context, mints []string) (map[string]int64, error) {
+		balances := make(map[string]int64, len(mints))
+		rows, err := app.pool.Query(ctx, `
+			SELECT mint, COALESCE(balance, 0)
+			FROM sol_token_account_balances
+			WHERE owner = $1
+			AND mint = ANY($2)
+		`, wallet, mints)
+		if err != nil {
+			return nil, err
 		}
-		balance = balance*10 + uint64(c-'0')
+		defer rows.Close()
+		for rows.Next() {
+			var mint string
+			var balance int64
+			if err := rows.Scan(&mint, &balance); err == nil {
+				balances[mint] = balance
+			}
+		}
+		return balances, rows.Err()
 	}
-
-	// Look up coin decimals from the artist_coins table
-	var decimals int32
-	err = app.pool.QueryRow(ctx, `
-		SELECT decimals FROM artist_coins WHERE mint = $1
-	`, tokenMint).Scan(&decimals)
-	if err != nil {
-		// If coin not found, try using the decimals from the RPC response
-		decimals = int32(balanceResult.Value.Decimals)
-	}
-
-	// Scale required amount by decimals
-	scaledRequired := requiredAmount * int64(math.Pow10(int(decimals)))
-
-	app.logger.Debug("checkSolanaWalletTokenAccess",
-		zap.String("wallet", solanaWallet),
-		zap.String("mint", tokenMint),
-		zap.Uint64("balance", balance),
-		zap.Int64("scaledRequired", scaledRequired),
-		zap.Bool("hasAccess", int64(balance) >= scaledRequired),
-	)
-
-	return int64(balance) >= scaledRequired, nil
 }
