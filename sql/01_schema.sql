@@ -7174,6 +7174,18 @@ CREATE TABLE public.notification_seen (
 
 
 --
+-- Name: notification_campaign_push_open; Type: TABLE; Schema: public; Owner: -
+-- Internal notification campaign id (e.g. Supabase announcement / engagement send UUID) + discovery user_id; first open per pair.
+--
+
+CREATE TABLE public.notification_campaign_push_open (
+    campaign_id uuid NOT NULL,
+    user_id integer NOT NULL,
+    opened_at timestamp with time zone DEFAULT now() NOT NULL
+);
+
+
+--
 -- Name: oauth_authorization_codes; Type: TABLE; Schema: public; Owner: -
 --
 
@@ -9983,6 +9995,14 @@ ALTER TABLE ONLY public.notification
 
 ALTER TABLE ONLY public.notification_seen
     ADD CONSTRAINT notification_seen_pkey PRIMARY KEY (user_id, seen_at);
+
+
+--
+-- Name: notification_campaign_push_open notification_campaign_push_open_pkey; Type: CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.notification_campaign_push_open
+    ADD CONSTRAINT notification_campaign_push_open_pkey PRIMARY KEY (campaign_id, user_id);
 
 
 --
