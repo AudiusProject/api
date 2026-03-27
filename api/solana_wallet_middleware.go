@@ -1,7 +1,6 @@
 package api
 
 import (
-	"context"
 	"crypto/ed25519"
 
 	"github.com/gofiber/fiber/v2"
@@ -52,6 +51,6 @@ func (app *ApiServer) solanaWalletMiddleware(c *fiber.Ctx) error {
 	}
 
 	app.logger.Debug("solanaWalletMiddleware: verified", zap.String("wallet", wallet))
-	c.SetUserContext(context.WithValue(c.UserContext(), SolanaWalletCtxKey, wallet))
+	c.Locals(SolanaWalletCtxKey, wallet)
 	return c.Next()
 }
