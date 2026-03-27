@@ -10,7 +10,6 @@ import (
 
 type TracksParams struct {
 	GetTracksParams
-	SolanaWallet string
 }
 
 // Track is the standard track type containing all track data
@@ -35,7 +34,7 @@ type Track struct {
 }
 
 func (q *Queries) TracksKeyed(ctx context.Context, arg TracksParams) (map[int32]Track, error) {
-	rawTracks, err := q.GetTracks(ctx, GetTracksParams(arg.GetTracksParams))
+	rawTracks, err := q.GetTracks(ctx, arg.GetTracksParams)
 	if err != nil {
 		return nil, err
 	}
@@ -84,8 +83,9 @@ func (q *Queries) TracksKeyed(ctx context.Context, arg TracksParams) (map[int32]
 		userPtrMap[id] = &userCopy
 	}
 
-	// Get bulk access for all tracks
-	accessMap, err := q.GetBulkTrackAccess(ctx, arg.MyID.(int32), trackPtrs, userPtrMap, arg.SolanaWallet)
+	// Read solana wallet from context (set by middleware) for token gate checks
+	solanaWallet, _ := ctx.Value("solanaWallet").(string)
+	accessMap, err := q.GetBulkTrackAccess(ctx, arg.MyID.(int32), trackPtrs, userPtrMap, solanaWallet)
 	if err != nil {
 		return nil, err
 	}
