@@ -18,12 +18,6 @@ func (app *ApiServer) v1TrackStream(c *fiber.Ctx) error {
 		},
 	}
 
-	// If a verified Solana wallet is present, pass it through so
-	// GetBulkTrackAccess can check token gate balances for it.
-	if solWallet := app.tryGetSolanaWallet(c); solWallet != "" {
-		params.SolanaWallet = solWallet
-	}
-
 	tracks, err := app.queries.Tracks(c.Context(), params)
 	if err != nil {
 		return err

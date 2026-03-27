@@ -1,6 +1,7 @@
 package api
 
 import (
+	"context"
 	"crypto/ed25519"
 
 	"github.com/gofiber/fiber/v2"
@@ -8,9 +9,12 @@ import (
 	"go.uber.org/zap"
 )
 
+// SolanaWalletCtxKey is the context key used to pass a verified Solana wallet
+// from the HTTP middleware to the database layer.
+const SolanaWalletCtxKey = "solanaWallet"
+
 // solanaWalletMiddleware verifies Solana wallet signatures from request headers.
-// If the X-Solana-Wallet, X-Solana-Message, and X-Solana-Signature headers are
-// present and valid, the verified wallet public key is stored in c.Locals("solanaWallet").
+// If valid, the verified wallet public key is set on the Go context via SolanaWalletCtxKey.
 // If headers are absent, the middleware is a no-op. If present but invalid, returns 401.
 func (app *ApiServer) solanaWalletMiddleware(c *fiber.Ctx) error {
 	wallet := c.Get("X-Solana-Wallet")
@@ -48,14 +52,6 @@ func (app *ApiServer) solanaWalletMiddleware(c *fiber.Ctx) error {
 	}
 
 	app.logger.Debug("solanaWalletMiddleware: verified", zap.String("wallet", wallet))
-	c.Locals("solanaWallet", wallet)
+	c.SetUserContext(context.WithValue(c.UserContext(), SolanaWalletCtxKey, wallet))
 	return c.Next()
-}
-
-// tryGetSolanaWallet returns the verified Solana wallet from context, or "" if not set.
-func (app *ApiServer) tryGetSolanaWallet(c *fiber.Ctx) string {
-	if w, ok := c.Locals("solanaWallet").(string); ok {
-		return w
-	}
-	return ""
 }
