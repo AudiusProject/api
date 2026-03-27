@@ -7,6 +7,7 @@ import (
 	"api.audius.co/database"
 	"api.audius.co/trashid"
 	"github.com/stretchr/testify/assert"
+	"github.com/tidwall/gjson"
 )
 
 func TestV1UsersDeveloperApps(t *testing.T) {
@@ -68,6 +69,11 @@ func TestV1UsersDeveloperApps(t *testing.T) {
 			"data.1.name":        "app_name_2",
 			"data.1.description": "app_description_2",
 		})
+		// redirect_uris must be an empty array (not null) when no URIs are registered
+		assert.True(t, gjson.GetBytes(body, "data.0.redirect_uris").IsArray())
+		assert.Equal(t, 0, len(gjson.GetBytes(body, "data.0.redirect_uris").Array()))
+		assert.True(t, gjson.GetBytes(body, "data.1.redirect_uris").IsArray())
+		assert.Equal(t, 0, len(gjson.GetBytes(body, "data.1.redirect_uris").Array()))
 	}
 
 	{
@@ -124,4 +130,58 @@ func TestV1UsersDeveloperAppsIncludeMetrics(t *testing.T) {
 		"data.0.redirect_uris.1":        "https://example.com/callback-b",
 		"data.0.api_access_keys.#":      0,
 	})
+}
+
+// TestV1UsersDeveloperAppsRedirectUrisOrdering verifies that redirect_uris are returned
+// in deterministic order (by oauth_redirect_uris.id) rather than alphabetically,
+// and that apps without registered URIs return an empty array rather than null.
+func TestV1UsersDeveloperAppsRedirectUrisOrdering(t *testing.T) {
+	app := emptyTestApp(t)
+
+	fixtures := database.FixtureMap{
+		"users": []map[string]any{
+			{"user_id": 1, "handle": "user1"},
+		},
+		"developer_apps": []map[string]any{
+			{
+				"address":    "app_address_1",
+				"user_id":    1,
+				"name":       "app_name_1",
+				"is_current": true,
+				"is_delete":  false,
+				"created_at": time.Now(),
+			},
+			{
+				"address":    "app_address_2",
+				"user_id":    1,
+				"name":       "app_name_2",
+				"is_current": true,
+				"is_delete":  false,
+				"created_at": time.Now().Add(-time.Second),
+			},
+		},
+		// Insert z before a: if ordering were alphabetical, a would come first.
+		// With id ordering, z comes first because it was inserted with a lower id.
+		"oauth_redirect_uris": []map[string]any{
+			{"client_id": "app_address_1", "redirect_uri": "https://z.example.com/callback"},
+			{"client_id": "app_address_1", "redirect_uri": "https://a.example.com/callback"},
+		},
+	}
+
+	database.Seed(app.pool.Replicas[0], fixtures)
+
+	status, body := testGet(t, app, "/v1/users/"+trashid.MustEncodeHashID(1)+"/developer-apps")
+	assert.Equal(t, 200, status)
+	// app_address_1 has 2 redirect URIs; z was inserted first (lower id) so it must come first
+	jsonAssert(t, body, map[string]any{
+		"data.#":                  2,
+		"data.0.address":          "app_address_1",
+		"data.0.redirect_uris.#":  2,
+		"data.0.redirect_uris.0":  "https://z.example.com/callback",
+		"data.0.redirect_uris.1":  "https://a.example.com/callback",
+		"data.1.address":          "app_address_2",
+	})
+	// app_address_2 has no redirect URIs; must be an empty array, not null
+	assert.True(t, gjson.GetBytes(body, "data.1.redirect_uris").IsArray())
+	assert.Equal(t, 0, len(gjson.GetBytes(body, "data.1.redirect_uris").Array()))
 }

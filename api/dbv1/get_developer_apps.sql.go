@@ -15,17 +15,20 @@ import (
 
 const getDeveloperApps = `-- name: GetDeveloperApps :many
 SELECT
-  address,
-  user_id,
-  name,
-  description,
-  image_url
-FROM developer_apps
-WHERE 
-  (user_id = $1 OR address = $2)
-  AND is_current = true
-  AND is_delete = false
-ORDER BY created_at DESC
+  da.address,
+  da.user_id,
+  da.name,
+  da.description,
+  da.image_url,
+  COALESCE(ARRAY_AGG(oau.redirect_uri ORDER BY oau.id) FILTER (WHERE oau.redirect_uri IS NOT NULL), ARRAY[]::text[])::text[] AS redirect_uris
+FROM developer_apps da
+LEFT JOIN oauth_redirect_uris oau ON oau.client_id = da.address
+WHERE
+  (da.user_id = $1 OR da.address = $2)
+  AND da.is_current = true
+  AND da.is_delete = false
+GROUP BY da.address, da.user_id, da.name, da.description, da.image_url, da.created_at
+ORDER BY da.created_at DESC
 `
 
 type GetDeveloperAppsParams struct {
@@ -34,11 +37,12 @@ type GetDeveloperAppsParams struct {
 }
 
 type GetDeveloperAppsRow struct {
-	Address     string         `json:"address"`
-	UserID      trashid.HashId `json:"user_id"`
-	Name        string         `json:"name"`
-	Description pgtype.Text    `json:"description"`
-	ImageUrl    pgtype.Text    `json:"image_url"`
+	Address      string         `json:"address"`
+	UserID       trashid.HashId `json:"user_id"`
+	Name         string         `json:"name"`
+	Description  pgtype.Text    `json:"description"`
+	ImageUrl     pgtype.Text    `json:"image_url"`
+	RedirectUris []string       `json:"redirect_uris"`
 }
 
 func (q *Queries) GetDeveloperApps(ctx context.Context, arg GetDeveloperAppsParams) ([]GetDeveloperAppsRow, error) {
@@ -56,6 +60,7 @@ func (q *Queries) GetDeveloperApps(ctx context.Context, arg GetDeveloperAppsPara
 			&i.Name,
 			&i.Description,
 			&i.ImageUrl,
+			&i.RedirectUris,
 		); err != nil {
 			return nil, err
 		}
