@@ -18,7 +18,7 @@ func TestSolanaWalletMiddleware(t *testing.T) {
 	var capturedWallet string
 	testApp := fiber.New()
 	testApp.Get("/", app.solanaWalletMiddleware, func(c *fiber.Ctx) error {
-		if w, ok := c.UserContext().Value(SolanaWalletCtxKey).(string); ok {
+		if w, ok := c.Context().Value(SolanaWalletCtxKey).(string); ok {
 			capturedWallet = w
 		}
 		return c.SendStatus(fiber.StatusOK)
