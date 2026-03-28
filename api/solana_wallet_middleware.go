@@ -52,3 +52,14 @@ func (app *ApiServer) solanaWalletMiddleware(c *fiber.Ctx) error {
 	c.Locals(SolanaWalletCtxKey, wallet)
 	return c.Next()
 }
+
+// tryGetSolanaWallet returns the verified wallet from the request context, or "".
+func (app *ApiServer) tryGetSolanaWallet(c *fiber.Ctx) string {
+	if c == nil {
+		return ""
+	}
+	if w, ok := c.UserContext().Value(SolanaWalletCtxKey).(string); ok {
+		return w
+	}
+	return ""
+}
