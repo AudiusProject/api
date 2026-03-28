@@ -8,8 +8,6 @@ import (
 	"go.uber.org/zap"
 )
 
-// SolanaWalletCtxKey is the context key used to pass a verified Solana wallet
-// from the HTTP middleware to the database layer.
 const SolanaWalletCtxKey = "solanaWallet"
 
 // solanaWalletMiddleware verifies Solana wallet signatures from request headers.
