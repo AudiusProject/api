@@ -14682,6 +14682,7 @@ components:
       description: Type of entity that can be commented on
       enum:
         - Track
+        - Coin
     top_listener:
       type: object
       properties:
