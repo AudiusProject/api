@@ -83,7 +83,7 @@ eligible_comments AS (
 		AND NOT EXISTS (
 			SELECT 1 FROM comment_threads ct WHERE ct.comment_id = comments.comment_id
 		)
-		AND comments.entity_type = 'Coin'
+		AND comments.entity_type = 'FanClub'
 		AND comments.is_delete = false
 		AND (
 			comment_reports.comment_id IS NULL
@@ -333,7 +333,7 @@ OFFSET @offset
 		if co.EntityType == "Track" {
 			relatedTrackIDs = append(relatedTrackIDs, int32(co.EntityId))
 		}
-		if co.EntityType == "Coin" {
+		if co.EntityType == "FanClub" {
 			userIDs = append(userIDs, int32(co.EntityId))
 		}
 		for _, m := range co.Mentions {
