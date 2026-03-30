@@ -128,7 +128,7 @@ func (q *Queries) FullCommentsKeyed(ctx context.Context, arg GetCommentsParams) 
 	WHERE comments.comment_id = ANY(@ids::int[])
 	AND (
 		(comments.entity_type = 'Track' AND (@include_unlisted = true OR COALESCE(tracks.is_unlisted, false) = false))
-		OR comments.entity_type = 'Coin'
+		OR comments.entity_type = 'FanClub'
 	)
 	ORDER BY comments.created_at DESC
 	`
