@@ -87,7 +87,12 @@ func TestV1UsersDeveloperApps(t *testing.T) {
 
 func TestV1UsersDeveloperAppsIncludeMetrics(t *testing.T) {
 	app := emptyTestApp(t)
-	now := time.Now()
+	// Use UTC so api_metrics row dates align with PostgreSQL CURRENT_DATE in tests.
+	now := time.Now().UTC()
+	// AddDate(0, -1, 0) from e.g. Mar 30 normalizes to Mar 2 (same month), which would
+	// incorrectly include prior-month metrics in month-to-date. Use last day of prev month.
+	firstOfMonth := time.Date(now.Year(), now.Month(), 1, 0, 0, 0, 0, time.UTC)
+	lastOfPrevMonth := firstOfMonth.AddDate(0, 0, -1)
 
 	fixtures := database.FixtureMap{
 		"users": []map[string]any{
@@ -113,7 +118,7 @@ func TestV1UsersDeveloperAppsIncludeMetrics(t *testing.T) {
 	_, err := app.pool.Exec(t.Context(), `
 		INSERT INTO api_metrics_apps (date, api_key, app_name, request_count)
 		VALUES ($1, $2, $3, $4), ($5, $6, $7, $8)
-	`, now, "app_address_1", "app_name_1", 7, now.AddDate(0, -1, 0), "app_address_1", "app_name_1", 3)
+	`, now, "app_address_1", "app_name_1", 7, lastOfPrevMonth, "app_address_1", "app_name_1", 3)
 	assert.NoError(t, err)
 
 	status, body := testGet(t, app, "/v1/users/"+trashid.MustEncodeHashID(1)+"/developer-apps?include=metrics")
