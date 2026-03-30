@@ -508,6 +508,7 @@ func NewApiServer(config config.Config) *ApiServer {
 		g.Put("/tracks/:trackId", app.requireAuthMiddleware, app.requireWriteScope, app.putV1Track)
 		g.Delete("/tracks/:trackId", app.requireAuthMiddleware, app.requireWriteScope, app.deleteV1Track)
 		g.Get("/fan_club/feed", app.v1FanClubFeed)
+		g.Get("/fan-club/feed", app.v1FanClubFeed)
 
 		g.Get("/tracks/:trackId/comments", app.v1TrackComments)
 		g.Get("/tracks/:trackId/comment_count", app.v1TrackCommentCount)
