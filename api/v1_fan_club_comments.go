@@ -231,7 +231,7 @@ func (app *ApiServer) v1FanClubFeed(c *fiber.Ctx) error {
 	}
 
 	myID := app.getMyId(c)
-	solWallet := app.tryGetSolanaWallet(c)
+	solWallet, _ := c.Context().Value(SolanaWalletCtxKey).(string)
 
 	revealText, err := app.viewerCanRevealFanClubText(c.Context(), artistUserID, mint, myID, solWallet)
 	if err != nil {
