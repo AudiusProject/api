@@ -3,8 +3,8 @@
 --
 
 
--- Dumped from database version 17.7 (Debian 17.7-3.pgdg13+1)
--- Dumped by pg_dump version 17.7 (Debian 17.7-3.pgdg13+1)
+-- Dumped from database version 17.9 (Debian 17.9-1.pgdg13+1)
+-- Dumped by pg_dump version 17.9 (Debian 17.9-1.pgdg13+1)
 
 SET statement_timeout = 0;
 SET lock_timeout = 0;
@@ -7141,6 +7141,17 @@ CREATE TABLE public.notification (
 
 
 --
+-- Name: notification_campaign_push_open; Type: TABLE; Schema: public; Owner: -
+--
+
+CREATE TABLE public.notification_campaign_push_open (
+    campaign_id uuid NOT NULL,
+    user_id integer NOT NULL,
+    opened_at timestamp with time zone DEFAULT now() NOT NULL
+);
+
+
+--
 -- Name: notification_id_seq; Type: SEQUENCE; Schema: public; Owner: -
 --
 
@@ -7170,18 +7181,6 @@ CREATE TABLE public.notification_seen (
     blocknumber integer,
     blockhash character varying,
     txhash character varying
-);
-
-
---
--- Name: notification_campaign_push_open; Type: TABLE; Schema: public; Owner: -
--- Internal notification campaign id (e.g. Supabase announcement / engagement send UUID) + discovery user_id; first open per pair.
---
-
-CREATE TABLE public.notification_campaign_push_open (
-    campaign_id uuid NOT NULL,
-    user_id integer NOT NULL,
-    opened_at timestamp with time zone DEFAULT now() NOT NULL
 );
 
 
@@ -9982,6 +9981,14 @@ ALTER TABLE ONLY public.muted_users
 
 
 --
+-- Name: notification_campaign_push_open notification_campaign_push_open_pkey; Type: CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.notification_campaign_push_open
+    ADD CONSTRAINT notification_campaign_push_open_pkey PRIMARY KEY (campaign_id, user_id);
+
+
+--
 -- Name: notification notification_pkey; Type: CONSTRAINT; Schema: public; Owner: -
 --
 
@@ -9995,14 +10002,6 @@ ALTER TABLE ONLY public.notification
 
 ALTER TABLE ONLY public.notification_seen
     ADD CONSTRAINT notification_seen_pkey PRIMARY KEY (user_id, seen_at);
-
-
---
--- Name: notification_campaign_push_open notification_campaign_push_open_pkey; Type: CONSTRAINT; Schema: public; Owner: -
---
-
-ALTER TABLE ONLY public.notification_campaign_push_open
-    ADD CONSTRAINT notification_campaign_push_open_pkey PRIMARY KEY (campaign_id, user_id);
 
 
 --
