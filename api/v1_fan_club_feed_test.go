@@ -15,7 +15,7 @@ import (
 )
 
 const testFanClubFeedMint = "FanClubMintTest11111111111111111111111"
-func testFanClubFeedBaseUsers() []map[string]any 
+func testFanClubFeedBaseUsers() []map[string]any {
 	return []map[string]any{
 		{
 			"user_id":   1,
