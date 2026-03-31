@@ -19,7 +19,7 @@ func testFanClubFeedBaseUsers() []map[string]any {
 	return []map[string]any{
 		{
 			"user_id":   1,
-			"handle":    "fcartist
+			"handle":    "fcartist",
 			"handle_lc": "fcartist",
 			"name":      "FC Artist",
 			"wallet":    "0x7d273271690538cf855e5b3002a0dd8c154bb060",
