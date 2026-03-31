@@ -109,6 +109,11 @@ type RateLimitMiddleware struct {
 // Middleware returns the Fiber handler. Pass apiServer to resolve identifier from Bearer or Basic Auth signer first; if nil or no signer, falls back to api_key/app_name query params.
 func (rlm *RateLimitMiddleware) Middleware(apiServer *ApiServer) fiber.Handler {
 	return func(c *fiber.Ctx) error {
+		// Skip rate limiting for relay endpoints
+		if strings.HasPrefix(c.Path(), "/relay") {
+			return c.Next()
+		}
+
 		var identifier string
 		if apiServer != nil {
 			signer, err := apiServer.getApiSigner(c)
