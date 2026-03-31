@@ -40,7 +40,6 @@ type FullComment struct {
 	Replies         []FullComment `json:"replies"`
 	ParentCommentId pgtype.Int4   `json:"parent_comment_id"`
 
-	// this should be omitted
 	ReplyIds []int32 `db:"reply_ids" json:"-"`
 }
 
@@ -51,12 +50,12 @@ func (q *Queries) FullCommentsKeyed(ctx context.Context, arg GetCommentsParams) 
 
 	sql := `
 	SELECT
-		comment_id as id,
-		parent_comment_id,
-		entity_type,
-		entity_id,
-		user_id,
-		text as message,
+		comments.comment_id AS id,
+		comment_threads.parent_comment_id,
+		comments.entity_type,
+		comments.entity_id,
+		comments.user_id,
+		comments.text AS message,
 
 		(
 			SELECT json_agg(
@@ -72,7 +71,7 @@ func (q *Queries) FullCommentsKeyed(ctx context.Context, arg GetCommentsParams) 
 			) m
 		)::jsonb as mentions,
 
-		track_timestamp_s,
+		comments.track_timestamp_s,
 
 		(
 			SELECT count(*)
@@ -90,7 +89,7 @@ func (q *Queries) FullCommentsKeyed(ctx context.Context, arg GetCommentsParams) 
 			AND cc.is_delete = false
 		) as reply_ids,
 
-		is_edited,
+		comments.is_edited,
 
 		EXISTS (
 			SELECT 1
@@ -104,7 +103,7 @@ func (q *Queries) FullCommentsKeyed(ctx context.Context, arg GetCommentsParams) 
 			SELECT 1
 			FROM comment_reactions
 			WHERE comment_id = comments.comment_id
-			AND user_id = tracks.owner_id
+			AND user_id = COALESCE(tracks.owner_id, comments.entity_id)
 			AND is_delete = false
 		) AS is_artist_reacted,
 
@@ -115,8 +114,8 @@ func (q *Queries) FullCommentsKeyed(ctx context.Context, arg GetCommentsParams) 
 			FROM comment_notification_settings mutes
 			WHERE @my_id > 0
 			AND mutes.user_id = @my_id
-			AND mutes.entity_type = entity_type
-			AND mutes.entity_id = entity_id
+			AND mutes.entity_type = comments.entity_type
+			AND mutes.entity_id = comments.entity_id
 			LIMIT 1
 		), false) as is_muted,
 
@@ -124,10 +123,13 @@ func (q *Queries) FullCommentsKeyed(ctx context.Context, arg GetCommentsParams) 
 		comments.updated_at
 
 	FROM comments
-	JOIN tracks ON entity_id = track_id
+	LEFT JOIN tracks ON comments.entity_type = 'Track' AND comments.entity_id = tracks.track_id
 	LEFT JOIN comment_threads USING (comment_id)
-	WHERE comment_id = ANY(@ids::int[])
-	AND (@include_unlisted = true OR tracks.is_unlisted = false)
+	WHERE comments.comment_id = ANY(@ids::int[])
+	AND (
+		(comments.entity_type = 'Track' AND (@include_unlisted = true OR COALESCE(tracks.is_unlisted, false) = false))
+		OR comments.entity_type = 'FanClub'
+	)
 	ORDER BY comments.created_at DESC
 	`
 
@@ -150,7 +152,6 @@ func (q *Queries) FullCommentsKeyed(ctx context.Context, arg GetCommentsParams) 
 		commentMap[int32(comment.Id)] = comment
 	}
 
-	// fetch replies
 	replyIds := []int32{}
 	for _, comment := range comments {
 		replyIds = append(replyIds, comment.ReplyIds...)
@@ -170,7 +171,6 @@ func (q *Queries) FullCommentsKeyed(ctx context.Context, arg GetCommentsParams) 
 				comment.Replies = append(comment.Replies, reply)
 			}
 		}
-		// todo: sort replies?
 		comment.ReplyCount = len(comment.Replies)
 
 		if comment.IsDelete {

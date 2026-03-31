@@ -7,11 +7,11 @@ import (
 )
 
 type ParallelParams struct {
-	UserIds       []int32
-	TrackIds      []int32
-	PlaylistIds   []int32
-	MyID          int32
-	AuthedWallet  string
+	UserIds      []int32
+	TrackIds     []int32
+	PlaylistIds  []int32
+	MyID         int32
+	AuthedWallet string
 }
 
 type ParallelResult struct {

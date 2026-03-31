@@ -611,6 +611,100 @@ paths:
         "500":
           description: Server error
           content: {}
+  /fan_club/feed:
+    get:
+      tags:
+        - fan_club
+      description: Get the fan club feed for a given artist, including text posts and comments
+      operationId: Get Fan Club Feed
+      security:
+        - {}
+        - OAuth2:
+            - read
+      parameters:
+        - name: mint
+          in: query
+          description: The mint address of the artist's fan club token
+          required: true
+          schema:
+            type: string
+        - name: user_id
+          in: query
+          description: The user ID of the user making the request
+          schema:
+            type: string
+        - name: offset
+          in: query
+          description:
+            The number of items to skip. Useful for pagination (page number
+            * limit)
+          schema:
+            type: integer
+        - name: limit
+          in: query
+          description: The number of items to fetch
+          schema:
+            type: integer
+      responses:
+        "200":
+          description: Success
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/track_comments_response"
+        "400":
+          description: Bad request
+          content: {}
+        "500":
+          description: Server error
+          content: {}
+  /fan-club/feed:
+    get:
+      tags:
+        - fan_club
+      description: Get the fan club feed for a given artist (hyphenated alias), including text posts and comments
+      operationId: Get Fan Club Feed Alias
+      security:
+        - {}
+        - OAuth2:
+            - read
+      parameters:
+        - name: mint
+          in: query
+          description: The mint address of the artist's fan club token
+          required: true
+          schema:
+            type: string
+        - name: user_id
+          in: query
+          description: The user ID of the user making the request
+          schema:
+            type: string
+        - name: offset
+          in: query
+          description:
+            The number of items to skip. Useful for pagination (page number
+            * limit)
+          schema:
+            type: integer
+        - name: limit
+          in: query
+          description: The number of items to fetch
+          schema:
+            type: integer
+      responses:
+        "200":
+          description: Success
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/track_comments_response"
+        "400":
+          description: Bad request
+          content: {}
+        "500":
+          description: Server error
+          content: {}
   /developer-apps:
     post:
       tags:
@@ -14682,6 +14776,7 @@ components:
       description: Type of entity that can be commented on
       enum:
         - Track
+        - Coin
     top_listener:
       type: object
       properties:

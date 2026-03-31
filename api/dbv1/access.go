@@ -323,7 +323,7 @@ func (q *Queries) GetBulkTrackAccess(
 					var mint string
 					var balance int64
 					if err := rows.Scan(&mint, &balance); err == nil {
-						walletTokenBalances[mint] = balance
+						walletTokenBalances[mint] += balance
 					}
 				}
 				return rows.Err()
