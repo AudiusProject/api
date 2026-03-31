@@ -15,7 +15,7 @@ import (
 )
 
 const testFanClubFeedMint = "FanClubMintTest11111111111111111111111"
-func testFanClubFeedBaseUsers() []map[string]any {
+func testFanClubFeedBaseUsers() []map[string]any 
 	return []map[string]any{
 		{
 			"user_id":   1,
@@ -223,7 +223,7 @@ func TestFanClubFeed_IncludesTextPostWhenCommentRowPresent(t *testing.T) {
 		"comment_id":  910,
 		"user_id":     2,
 		"entity_id":   1,
-		"entity_type": "Coin",
+		"entity_type": "FanClub",
 		"text":        "hello fan club",
 		"created_at":  "2020-06-01 00:00:00",
 	}
@@ -321,7 +321,7 @@ func TestFanClubFeed_FanWithoutBalanceGetsFeedWithRedactedText(t *testing.T) {
 				"comment_id":  920,
 				"user_id":     2,
 				"entity_id":   1,
-				"entity_type": "Coin",
+				"entity_type": "FanClub",
 				"text":        "secret post",
 				"created_at":  "2020-06-01 00:00:00",
 			},
@@ -373,7 +373,7 @@ func TestFanClubFeed_ExternalSolanaWalletRevealsTextPost(t *testing.T) {
 				"comment_id":  930,
 				"user_id":     2,
 				"entity_id":   1,
-				"entity_type": "Coin",
+				"entity_type": "FanClub",
 				"text":        "holders only",
 				"created_at":  "2020-06-01 00:00:00",
 			},
