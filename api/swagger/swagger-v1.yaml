@@ -2760,6 +2760,52 @@ paths:
         "500":
           description: Server error
           content: {}
+  /tracks/latest:
+    get:
+      tags:
+        - tracks
+      description: Gets the most recent tracks on Audius, ordered by creation date
+      operationId: Get Latest Tracks
+      security:
+        - {}
+        - OAuth2:
+            - read
+      parameters:
+        - name: offset
+          in: query
+          description:
+            The number of items to skip. Useful for pagination (page number
+            * limit)
+          schema:
+            type: integer
+        - name: limit
+          in: query
+          description: The number of items to fetch
+          schema:
+            type: integer
+        - name: user_id
+          in: query
+          description: The user ID of the user making the request
+          schema:
+            type: string
+        - name: genre
+          in: query
+          description: Filter to a specified genre
+          schema:
+            type: string
+      responses:
+        "200":
+          description: Success
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/tracks_response"
+        "400":
+          description: Bad request
+          content: {}
+        "500":
+          description: Server error
+          content: {}
   /tracks/trending:
     get:
       tags:
