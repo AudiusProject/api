@@ -4,12 +4,25 @@ import (
 	"testing"
 
 	"api.audius.co/api/dbv1"
+	"api.audius.co/database"
 	"api.audius.co/trashid"
 	"github.com/stretchr/testify/assert"
 )
 
-func TestGetLatest(t *testing.T) {
+func latestTestApp(t *testing.T) *ApiServer {
 	app := testAppWithFixtures(t)
+	database.SeedTable(app.pool.Replicas[0], "tracks", []map[string]any{
+		{"track_id": 800, "genre": "LatestTestGenreA", "owner_id": 1, "title": "Latest Track Old", "is_unlisted": "f", "created_at": "2025-01-01 00:00:00"},
+		{"track_id": 801, "genre": "LatestTestGenreA", "owner_id": 1, "title": "Latest Track Mid", "is_unlisted": "f", "created_at": "2025-02-01 00:00:00"},
+		{"track_id": 802, "genre": "LatestTestGenreC", "owner_id": 1, "title": "Latest Track New", "is_unlisted": "f", "created_at": "2025-03-01 00:00:00"},
+		{"track_id": 803, "genre": "LatestTestGenreB", "owner_id": 1, "title": "Latest Track Visible", "is_unlisted": "f", "created_at": "2025-02-15 00:00:00"},
+		{"track_id": 804, "genre": "LatestTestGenreB", "owner_id": 1, "title": "Latest Track Hidden", "is_unlisted": "t", "created_at": "2025-02-20 00:00:00"},
+	})
+	return app
+}
+
+func TestGetLatest(t *testing.T) {
+	app := latestTestApp(t)
 	var resp struct {
 		Data []dbv1.Track
 	}
@@ -19,7 +32,7 @@ func TestGetLatest(t *testing.T) {
 }
 
 func TestGetLatestWithGenre(t *testing.T) {
-	app := testAppWithFixtures(t)
+	app := latestTestApp(t)
 	var resp struct {
 		Data []dbv1.Track
 	}
@@ -34,7 +47,7 @@ func TestGetLatestWithGenre(t *testing.T) {
 }
 
 func TestGetLatestWithLimitOffset(t *testing.T) {
-	app := testAppWithFixtures(t)
+	app := latestTestApp(t)
 	var resp struct {
 		Data []dbv1.Track
 	}
@@ -50,7 +63,7 @@ func TestGetLatestWithLimitOffset(t *testing.T) {
 }
 
 func TestGetLatestExcludesUnlisted(t *testing.T) {
-	app := testAppWithFixtures(t)
+	app := latestTestApp(t)
 	var resp struct {
 		Data []dbv1.Track
 	}
