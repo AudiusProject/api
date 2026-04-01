@@ -14822,7 +14822,7 @@ components:
       description: Type of entity that can be commented on
       enum:
         - Track
-        - Coin
+        - FanClub
     top_listener:
       type: object
       properties:
