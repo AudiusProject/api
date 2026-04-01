@@ -58,6 +58,20 @@ type Config struct {
 	AudiusApiSecret string
 	// Shared secret for notifications-dashboard (or other internal jobs) to read notification campaign push open counts
 	NotificationCampaignOpenMetricsSecret string
+
+	// Genesis migration dual-write queue.
+	// NewChainURL is the bootstrap chain gRPC endpoint (e.g. http://bootstrap-node:50051).
+	// NewChainQueueEnabled turns on enqueuing of relayed txs for the new chain.
+	// NewChainFlushEnabled turns on the background flusher goroutine.
+	// NewChainFlushFromBlock, when set, causes the flusher to delete all queued rows with
+	// confirmed_block < NewChainFlushFromBlock before sending — trimming rows already
+	// covered by the backfill.
+	// NewChainInsecureSkipVerify disables TLS verification for the new chain endpoint (e.g. localstack).
+	NewChainURL                string
+	NewChainQueueEnabled       bool
+	NewChainFlushEnabled       bool
+	NewChainFlushFromBlock     int64
+	NewChainInsecureSkipVerify bool
 }
 
 var Cfg = Config{
@@ -271,5 +285,18 @@ func init() {
 	// Override archiver upstream(s) when set (e.g. rollback to discovery or point at different archiver)
 	if v := os.Getenv("archiverNodes"); v != "" {
 		Cfg.ArchiverNodes = strings.Split(v, ",")
+	}
+
+	// Genesis migration dual-write queue
+	Cfg.NewChainURL = os.Getenv("newChainUrl")
+	Cfg.NewChainQueueEnabled = os.Getenv("newChainQueueEnabled") == "true"
+	Cfg.NewChainFlushEnabled = os.Getenv("newChainFlushEnabled") == "true"
+	Cfg.NewChainInsecureSkipVerify = os.Getenv("newChainInsecureSkipVerify") == "true"
+	if v := os.Getenv("newChainFlushFromBlock"); v != "" {
+		n, err := strconv.ParseInt(v, 10, 64)
+		if err != nil {
+			panic("Invalid newChainFlushFromBlock: " + err.Error())
+		}
+		Cfg.NewChainFlushFromBlock = n
 	}
 }
