@@ -193,7 +193,7 @@ func fanClubRedactCommentMessageMap(m map[string]any) {
 }
 
 func fanClubCommentForFeedJSON(co dbv1.FullComment, reveal bool) (any, error) {
-	if reveal {
+	if reveal || !co.IsMembersOnly {
 		return co, nil
 	}
 	b, err := json.Marshal(co)

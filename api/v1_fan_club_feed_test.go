@@ -220,12 +220,13 @@ func TestFanClubFeed_IncludesTextPostWhenCommentRowPresent(t *testing.T) {
 	app := emptyTestApp(t)
 
 	commentRow := map[string]any{
-		"comment_id":  910,
-		"user_id":     2,
-		"entity_id":   1,
-		"entity_type": "FanClub",
-		"text":        "hello fan club",
-		"created_at":  "2020-06-01 00:00:00",
+		"comment_id":      910,
+		"user_id":         2,
+		"entity_id":       1,
+		"entity_type":     "FanClub",
+		"text":            "hello fan club",
+		"is_members_only": true,
+		"created_at":      "2020-06-01 00:00:00",
 	}
 
 	database.Seed(app.pool.Replicas[0], database.FixtureMap{
@@ -318,12 +319,13 @@ func TestFanClubFeed_FanWithoutBalanceGetsFeedWithRedactedText(t *testing.T) {
 		},
 		"comments": []map[string]any{
 			{
-				"comment_id":  920,
-				"user_id":     2,
-				"entity_id":   1,
-				"entity_type": "FanClub",
-				"text":        "secret post",
-				"created_at":  "2020-06-01 00:00:00",
+				"comment_id":      920,
+				"user_id":         2,
+				"entity_id":       1,
+				"entity_type":     "FanClub",
+				"text":            "secret post",
+				"is_members_only": true,
+				"created_at":      "2020-06-01 00:00:00",
 			},
 		},
 	})
@@ -339,6 +341,157 @@ func TestFanClubFeed_FanWithoutBalanceGetsFeedWithRedactedText(t *testing.T) {
 	})
 	jsonAssert(t, body, map[string]any{
 		"data.0.comment.message": nil,
+	})
+}
+
+func TestFanClubFeed_PublicPostVisibleToNonHolder(t *testing.T) {
+	app := emptyTestApp(t)
+	database.Seed(app.pool.Replicas[0], database.FixtureMap{
+		"users": testFanClubFeedBaseUsers(),
+		"artist_coins": {
+			{
+				"user_id":  1,
+				"mint":     testFanClubFeedMint,
+				"decimals": 6,
+				"ticker":   "FCT",
+			},
+		},
+		"sol_user_balances": {
+			{
+				"user_id": 2,
+				"mint":    testFanClubFeedMint,
+				"balance": int64(1), // not enough to reveal members-only
+			},
+		},
+		"comments": []map[string]any{
+			{
+				"comment_id":      940,
+				"user_id":         1,
+				"entity_id":       1,
+				"entity_type":     "FanClub",
+				"text":            "public announcement",
+				"is_members_only": false,
+				"created_at":      "2020-06-01 00:00:00",
+			},
+		},
+	})
+
+	path := testFanClubFeedURL(2, "sort_method=newest")
+	status, body := testGetWithWallet(t, app, path, "0xc3d1d41e6872ffbd15c473d14fc3a9250be5b5e0")
+	require.Equal(t, 200, status, string(body))
+
+	enc940, err := trashid.EncodeHashId(940)
+	require.NoError(t, err)
+
+	// Non-holder can still see the message because is_members_only=false
+	jsonAssert(t, body, map[string]any{
+		"data.#":                          1,
+		"data.0.item_type":                "text_post",
+		"data.0.comment.message":          "public announcement",
+		"data.0.comment.id":               enc940,
+		"data.0.comment.is_members_only":  false,
+	})
+}
+
+func TestFanClubFeed_MembersOnlyPostRedactedForNonHolder(t *testing.T) {
+	app := emptyTestApp(t)
+	database.Seed(app.pool.Replicas[0], database.FixtureMap{
+		"users": testFanClubFeedBaseUsers(),
+		"artist_coins": {
+			{
+				"user_id":  1,
+				"mint":     testFanClubFeedMint,
+				"decimals": 6,
+				"ticker":   "FCT",
+			},
+		},
+		"sol_user_balances": {
+			{
+				"user_id": 2,
+				"mint":    testFanClubFeedMint,
+				"balance": int64(1), // not enough
+			},
+		},
+		"comments": []map[string]any{
+			{
+				"comment_id":      941,
+				"user_id":         1,
+				"entity_id":       1,
+				"entity_type":     "FanClub",
+				"text":            "secret vip post",
+				"is_members_only": true,
+				"created_at":      "2020-06-01 00:00:00",
+			},
+		},
+	})
+
+	path := testFanClubFeedURL(2, "sort_method=newest")
+	status, body := testGetWithWallet(t, app, path, "0xc3d1d41e6872ffbd15c473d14fc3a9250be5b5e0")
+	require.Equal(t, 200, status, string(body))
+
+	// Non-holder cannot see the message because is_members_only=true
+	jsonAssert(t, body, map[string]any{
+		"data.#":                          1,
+		"data.0.item_type":                "text_post",
+		"data.0.comment.message":          nil,
+		"data.0.comment.is_members_only":  true,
+	})
+}
+
+func TestFanClubFeed_MixedPublicAndMembersOnlyPosts(t *testing.T) {
+	app := emptyTestApp(t)
+	database.Seed(app.pool.Replicas[0], database.FixtureMap{
+		"users": testFanClubFeedBaseUsers(),
+		"artist_coins": {
+			{
+				"user_id":  1,
+				"mint":     testFanClubFeedMint,
+				"decimals": 6,
+				"ticker":   "FCT",
+			},
+		},
+		"sol_user_balances": {
+			{
+				"user_id": 2,
+				"mint":    testFanClubFeedMint,
+				"balance": int64(1), // not enough
+			},
+		},
+		"comments": []map[string]any{
+			{
+				"comment_id":      950,
+				"user_id":         1,
+				"entity_id":       1,
+				"entity_type":     "FanClub",
+				"text":            "public post",
+				"is_members_only": false,
+				"created_at":      "2020-06-02 00:00:00",
+			},
+			{
+				"comment_id":      951,
+				"user_id":         1,
+				"entity_id":       1,
+				"entity_type":     "FanClub",
+				"text":            "secret post",
+				"is_members_only": true,
+				"created_at":      "2020-06-01 00:00:00",
+			},
+		},
+	})
+
+	path := testFanClubFeedURL(2, "sort_method=newest")
+	status, body := testGetWithWallet(t, app, path, "0xc3d1d41e6872ffbd15c473d14fc3a9250be5b5e0")
+	require.Equal(t, 200, status, string(body))
+
+	// Both posts appear, but only the public one has a visible message
+	jsonAssert(t, body, map[string]any{
+		"data.#":                          2,
+		"data.0.item_type":                "text_post",
+		"data.0.comment.message":          "public post",
+		"data.0.comment.is_members_only":  false,
+		"data.1.item_type":                "text_post",
+		"data.1.comment.message":          nil,
+		"data.1.comment.is_members_only":  true,
 	})
 }
 
@@ -370,12 +523,13 @@ func TestFanClubFeed_ExternalSolanaWalletRevealsTextPost(t *testing.T) {
 		},
 		"comments": []map[string]any{
 			{
-				"comment_id":  930,
-				"user_id":     2,
-				"entity_id":   1,
-				"entity_type": "FanClub",
-				"text":        "holders only",
-				"created_at":  "2020-06-01 00:00:00",
+				"comment_id":      930,
+				"user_id":         2,
+				"entity_id":       1,
+				"entity_type":     "FanClub",
+				"text":            "holders only",
+				"is_members_only": true,
+				"created_at":      "2020-06-01 00:00:00",
 			},
 		},
 	})

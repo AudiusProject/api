@@ -1160,6 +1160,7 @@ type Comment struct {
 	IsDelete        pgtype.Bool `json:"is_delete"`
 	IsVisible       pgtype.Bool `json:"is_visible"`
 	IsEdited        pgtype.Bool `json:"is_edited"`
+	IsMembersOnly   bool        `json:"is_members_only"`
 	Txhash          string      `json:"txhash"`
 	Blockhash       string      `json:"blockhash"`
 	Blocknumber     pgtype.Int4 `json:"blocknumber"`

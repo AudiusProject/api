@@ -6777,6 +6777,7 @@ CREATE TABLE public.comments (
     is_delete boolean DEFAULT false,
     is_visible boolean DEFAULT true,
     is_edited boolean DEFAULT false,
+    is_members_only boolean DEFAULT false NOT NULL,
     txhash text NOT NULL,
     blockhash text NOT NULL,
     blocknumber integer
