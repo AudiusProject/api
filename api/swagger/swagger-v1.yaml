@@ -14885,6 +14885,8 @@ components:
           type: boolean
         is_tombstone:
           type: boolean
+        is_members_only:
+          type: boolean
         is_muted:
           type: boolean
         created_at:
@@ -16488,6 +16490,7 @@ components:
         - $ref: "#/components/schemas/artist_remix_contest_ending_soon_notification"
         - $ref: "#/components/schemas/artist_remix_contest_submissions_notification"
         - $ref: "#/components/schemas/fan_remix_contest_winners_selected_notification"
+        - $ref: "#/components/schemas/fan_club_text_post_notification"
       discriminator:
         propertyName: type
         mapping:
@@ -16532,6 +16535,7 @@ components:
           artist_remix_contest_ending_soon: "#/components/schemas/artist_remix_contest_ending_soon_notification"
           artist_remix_contest_submissions: "#/components/schemas/artist_remix_contest_submissions_notification"
           fan_remix_contest_winners_selected: "#/components/schemas/fan_remix_contest_winners_selected_notification"
+          fan_club_text_post: "#/components/schemas/fan_club_text_post_notification"
     save_notification:
       required:
         - actions
@@ -17377,6 +17381,26 @@ components:
           type: array
           items:
             $ref: "#/components/schemas/supporter_rank_up_notification_action"
+    fan_club_text_post_notification:
+      required:
+        - actions
+        - group_id
+        - is_seen
+        - type
+      type: object
+      properties:
+        type:
+          type: string
+        group_id:
+          type: string
+        is_seen:
+          type: boolean
+        seen_at:
+          type: integer
+        actions:
+          type: array
+          items:
+            $ref: "#/components/schemas/fan_club_text_post_notification_action"
     fan_remix_contest_started_notification:
       required:
         - actions
@@ -18643,6 +18667,22 @@ components:
           type: integer
         data:
           $ref: "#/components/schemas/track_added_to_playlist_notification_action_data"
+    fan_club_text_post_notification_action:
+      required:
+        - data
+        - specifier
+        - timestamp
+        - type
+      type: object
+      properties:
+        specifier:
+          type: string
+        type:
+          type: string
+        timestamp:
+          type: integer
+        data:
+          $ref: "#/components/schemas/fan_club_text_post_notification_action_data"
     fan_remix_contest_started_notification_action:
       required:
         - data
@@ -18695,6 +18735,16 @@ components:
         entity_user_id:
           type: string
         entity_id:
+          type: string
+    fan_club_text_post_notification_action_data:
+      required:
+        - entity_user_id
+        - comment_id
+      type: object
+      properties:
+        entity_user_id:
+          type: string
+        comment_id:
           type: string
     fan_remix_contest_started_notification_action_data:
       required:
