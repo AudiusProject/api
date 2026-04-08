@@ -4,6 +4,7 @@ import (
 	"testing"
 
 	"api.audius.co/api/dbv1"
+	"api.audius.co/database"
 	"api.audius.co/trashid"
 	"github.com/stretchr/testify/assert"
 )
@@ -97,5 +98,60 @@ func TestGetPlaylistUsdcPurchaseSelfAccess(t *testing.T) {
 	jsonAssert(t, body2, map[string]any{
 		"data.0.playlist_name": "Purchase Gated Stream",
 		"data.0.access":        `{"stream":true,"download":true}`,
+	})
+}
+
+func TestGetPlaylistIncludesUnlistedTracks(t *testing.T) {
+	app := emptyTestApp(t)
+
+	fixtures := database.FixtureMap{
+		"users": []map[string]any{
+			{
+				"user_id": 1,
+				"handle":  "user1",
+				"name":    "User 1",
+			},
+		},
+		"tracks": []map[string]any{
+			{
+				"track_id": 1,
+				"owner_id": 1,
+				"title":    "Listed Track",
+			},
+			{
+				"track_id":    2,
+				"owner_id":    1,
+				"title":       "Unlisted Track",
+				"is_unlisted": true,
+			},
+		},
+		"playlists": []map[string]any{
+			{
+				"playlist_id":       1,
+				"playlist_owner_id": 1,
+				"playlist_contents": map[string]any{
+					"track_ids": []map[string]any{
+						{"track": 1, "time": 1, "metadata_time": 1},
+						{"track": 2, "time": 2, "metadata_time": 2},
+					},
+				},
+			},
+		},
+	}
+	database.Seed(app.pool.Replicas[0], fixtures)
+
+	playlistId := trashid.MustEncodeHashID(1)
+
+	var playlistResponse struct {
+		Data []dbv1.Playlist
+	}
+	status, body := testGet(t, app, "/v1/full/playlists/"+playlistId, &playlistResponse)
+	assert.Equal(t, 200, status)
+
+	// Both listed and unlisted tracks should appear in the hydrated tracks array
+	jsonAssert(t, body, map[string]any{
+		"data.0.tracks.#":    2,
+		"data.0.tracks.0.id": trashid.MustEncodeHashID(1),
+		"data.0.tracks.1.id": trashid.MustEncodeHashID(2),
 	})
 }
