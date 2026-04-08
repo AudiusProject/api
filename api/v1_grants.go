@@ -20,11 +20,11 @@ type createGrantBody struct {
 }
 
 type addManagerBody struct {
-	ManagerUserId trashid.HashId `json:"manager_user_id"`
+	ManagerUserId trashid.HashId `json:"manager_user_id" validate:"required,min=1"`
 }
 
 type approveGrantBody struct {
-	GrantorUserId trashid.HashId `json:"grantor_user_id"`
+	GrantorUserId trashid.HashId `json:"grantor_user_id" validate:"required,min=1"`
 }
 
 // postV1UsersGrant creates a grant from the user to an app (user authorizes app to act on their behalf)
@@ -161,6 +161,9 @@ func (app *ApiServer) postV1UsersManager(c *fiber.Ctx) error {
 		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
 			"error": "Invalid request body",
 		})
+	}
+	if err := app.requestValidator.Validate(&body); err != nil {
+		return err
 	}
 	// Get manager's wallet (grantee_address)
 	users, err := app.queries.Users(c.Context(), dbv1.GetUsersParams{
@@ -308,6 +311,9 @@ func (app *ApiServer) postV1UsersApproveGrant(c *fiber.Ctx) error {
 		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
 			"error": "Invalid request body",
 		})
+	}
+	if err := app.requestValidator.Validate(&body); err != nil {
+		return err
 	}
 	signer, err := app.getApiSigner(c)
 	if err != nil {
