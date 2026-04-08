@@ -16,9 +16,9 @@ import (
 )
 
 type PlaylistTrackInfo struct {
-	TrackId           string `json:"track_id" validate:"required"`
-	Timestamp         int64  `json:"timestamp" validate:"required,min=0"`
-	MetadataTimestamp *int64 `json:"metadata_timestamp,omitempty" validate:"omitempty,min=0"`
+	TrackId           trashid.IntId `json:"track_id" validate:"required"`
+	Timestamp         int64         `json:"timestamp" validate:"required,min=0"`
+	MetadataTimestamp *int64        `json:"metadata_timestamp,omitempty" validate:"omitempty,min=0"`
 }
 
 type CreatePlaylistRequest struct {
