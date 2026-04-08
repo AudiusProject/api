@@ -60,6 +60,30 @@ func MustDecodeHashID(id string) int {
 	return val
 }
 
+// IntId accepts a hash ID or raw int on input (JSON unmarshal) but
+// always marshals back as a plain integer. Use this for fields that are
+// part of chain metadata where the indexer expects numeric IDs.
+type IntId int
+
+func (num IntId) MarshalJSON() ([]byte, error) {
+	return []byte(strconv.Itoa(int(num))), nil
+}
+
+func (num *IntId) UnmarshalJSON(data []byte) error {
+	if data[0] == '"' {
+		idStr := strings.Trim(string(data), `"`)
+		id, err := DecodeHashId(idStr)
+		if err != nil {
+			return err
+		}
+		*num = IntId(id)
+		return nil
+	}
+	val, err := strconv.Atoi(string(data))
+	*num = IntId(val)
+	return err
+}
+
 // type alias for int that will do hashid on the way out the door
 type HashId int
 

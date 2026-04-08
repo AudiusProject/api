@@ -20,11 +20,11 @@ type createGrantBody struct {
 }
 
 type addManagerBody struct {
-	ManagerUserId string `json:"manager_user_id"`
+	ManagerUserId trashid.HashId `json:"manager_user_id" validate:"required,min=1"`
 }
 
 type approveGrantBody struct {
-	GrantorUserId string `json:"grantor_user_id"`
+	GrantorUserId trashid.HashId `json:"grantor_user_id" validate:"required,min=1"`
 }
 
 // postV1UsersGrant creates a grant from the user to an app (user authorizes app to act on their behalf)
@@ -162,17 +162,13 @@ func (app *ApiServer) postV1UsersManager(c *fiber.Ctx) error {
 			"error": "Invalid request body",
 		})
 	}
-	managerUserID, err := trashid.DecodeHashId(body.ManagerUserId)
-	if err != nil {
-		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
-			"error": "Invalid manager_user_id",
-		})
+	if err := app.requestValidator.Validate(&body); err != nil {
+		return err
 	}
-
 	// Get manager's wallet (grantee_address)
 	users, err := app.queries.Users(c.Context(), dbv1.GetUsersParams{
 		MyID: 0,
-		Ids:  []int32{int32(managerUserID)},
+		Ids:  []int32{int32(body.ManagerUserId)},
 	})
 	if err != nil || len(users) == 0 {
 		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
@@ -316,20 +312,16 @@ func (app *ApiServer) postV1UsersApproveGrant(c *fiber.Ctx) error {
 			"error": "Invalid request body",
 		})
 	}
-	grantorUserID, err := trashid.DecodeHashId(body.GrantorUserId)
-	if err != nil {
-		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
-			"error": "Invalid grantor_user_id",
-		})
+	if err := app.requestValidator.Validate(&body); err != nil {
+		return err
 	}
-
 	signer, err := app.getApiSigner(c)
 	if err != nil {
 		return err
 	}
 
 	nonce := time.Now().UnixNano()
-	metadata := map[string]interface{}{"grantor_user_id": int64(grantorUserID)}
+	metadata := map[string]interface{}{"grantor_user_id": int64(body.GrantorUserId)}
 	metadataBytes, _ := json.Marshal(metadata)
 
 	manageEntityTx := &corev1.ManageEntityLegacy{
