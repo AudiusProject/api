@@ -1164,6 +1164,7 @@ type Comment struct {
 	Txhash          string      `json:"txhash"`
 	Blockhash       string      `json:"blockhash"`
 	Blocknumber     pgtype.Int4 `json:"blocknumber"`
+	VideoUrl        pgtype.Text `json:"video_url"`
 }
 
 type CommentMention struct {

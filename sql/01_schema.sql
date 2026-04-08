@@ -6780,7 +6780,8 @@ CREATE TABLE public.comments (
     is_members_only boolean DEFAULT false NOT NULL,
     txhash text NOT NULL,
     blockhash text NOT NULL,
-    blocknumber integer
+    blocknumber integer,
+    video_url text
 );
 
 
