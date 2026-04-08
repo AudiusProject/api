@@ -32,6 +32,7 @@ type FullComment struct {
 	IsArtistReacted      bool        `json:"is_artist_reacted"`
 	IsDelete             bool        `json:"-"`
 	IsMembersOnly        bool        `json:"is_members_only"`
+	VideoUrl             *string     `json:"video_url"`
 	IsTombstone          bool        `json:"is_tombstone"`
 	ReactCount           int         `json:"react_count"`
 	CreatedAt            time.Time   `json:"created_at"`
@@ -110,6 +111,7 @@ func (q *Queries) FullCommentsKeyed(ctx context.Context, arg GetCommentsParams) 
 
 		comments.is_delete,
 		comments.is_members_only,
+		comments.video_url,
 
 		coalesce((
 			SELECT is_muted
