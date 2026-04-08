@@ -365,11 +365,12 @@ func (app *ApiServer) oauthTokenAuthorizationCode(c *fiber.Ctx, body *oauthToken
 	}
 
 	return c.JSON(fiber.Map{
-		"access_token":  accessToken,
-		"token_type":    "Bearer",
-		"expires_in":    3600,
-		"refresh_token": refreshToken,
-		"scope":         storedScope,
+		"access_token":       accessToken,
+		"token_type":         "Bearer",
+		"expires_in":         3600,
+		"refresh_token":      refreshToken,
+		"refresh_expires_in": int(30 * 24 * time.Hour / time.Second),
+		"scope":              storedScope,
 	})
 }
 
@@ -487,11 +488,12 @@ func (app *ApiServer) oauthTokenRefreshToken(c *fiber.Ctx, body *oauthTokenBody)
 	}
 
 	return c.JSON(fiber.Map{
-		"access_token":  accessToken,
-		"token_type":    "Bearer",
-		"expires_in":    3600,
-		"refresh_token": refreshToken,
-		"scope":         storedScope,
+		"access_token":       accessToken,
+		"token_type":         "Bearer",
+		"expires_in":         3600,
+		"refresh_token":      refreshToken,
+		"refresh_expires_in": int(30 * 24 * time.Hour / time.Second),
+		"scope":              storedScope,
 	})
 }
 
