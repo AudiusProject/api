@@ -74,19 +74,24 @@ SELECT
     SELECT json_agg(
       json_build_object(
         'user_id', r.user_id::text,
-        'repost_item_id', repost_item_id::text, -- this is redundant
+        'repost_item_id', r.repost_item_id::text, -- this is redundant
         'repost_type', 'RepostType.track', -- some sqlalchemy bs
         'created_at', r.created_at -- this is not actually present in python response?
       )
     )
     FROM (
-      SELECT user_id, repost_item_id, reposts.created_at
-      FROM reposts
-      JOIN my_follows USING (user_id)
-      WHERE repost_item_id = p.playlist_id
-        AND repost_type != 'track'
-        AND reposts.is_delete = false
-      ORDER BY follower_count DESC
+      SELECT mf.user_id, lr.repost_item_id, lr.created_at, mf.follower_count
+      FROM my_follows mf
+      CROSS JOIN LATERAL (
+        SELECT reposts.repost_item_id, reposts.created_at
+        FROM reposts
+        WHERE reposts.user_id = mf.user_id
+          AND reposts.repost_item_id = p.playlist_id
+          AND reposts.repost_type != 'track'
+          AND reposts.is_delete = false
+        LIMIT 1
+      ) lr
+      ORDER BY mf.follower_count DESC
       LIMIT 6
     ) r
   )::jsonb as followee_reposts,
@@ -101,13 +106,18 @@ SELECT
       )
     )
     FROM (
-      SELECT user_id, save_item_id, saves.created_at
-      FROM saves
-      JOIN my_follows USING (user_id)
-      WHERE save_item_id = p.playlist_id
-        AND save_type != 'track'
-        AND saves.is_delete = false
-      ORDER BY follower_count DESC
+      SELECT mf.user_id, ls.save_item_id, ls.created_at, mf.follower_count
+      FROM my_follows mf
+      CROSS JOIN LATERAL (
+        SELECT saves.save_item_id, saves.created_at
+        FROM saves
+        WHERE saves.user_id = mf.user_id
+          AND saves.save_item_id = p.playlist_id
+          AND saves.save_type != 'track'
+          AND saves.is_delete = false
+        LIMIT 1
+      ) ls
+      ORDER BY mf.follower_count DESC
       LIMIT 6
     ) r
   )::jsonb as followee_favorites
