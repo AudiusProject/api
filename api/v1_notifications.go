@@ -185,7 +185,10 @@ WHERE
 		)
 	)
   AND (
-    (@timestamp_offset = 0 AND @group_id_offset = '') OR
+    -- Initial load: bound to the last 90 days so heavy users don't fan out
+    -- over their entire notification history. Pagination (timestamp_offset > 0)
+    -- is unbounded so scrolling further back still works.
+    (@timestamp_offset = 0 AND @group_id_offset = '' AND n.timestamp > (now()::timestamp - interval '90 days')) OR
     (@timestamp_offset = 0 AND @group_id_offset != '' AND n.group_id < @group_id_offset) OR
     (@timestamp_offset > 0 AND n.timestamp < to_timestamp(@timestamp_offset)) OR
     (
