@@ -9,7 +9,7 @@ SELECT
 FROM developer_apps da
 LEFT JOIN oauth_redirect_uris oau ON oau.client_id = da.address
 WHERE
-  (da.user_id = @user_id OR lower(da.address) = lower(@address))
+  (da.user_id = @user_id OR da.address = @address)
   AND da.is_current = true
   AND da.is_delete = false
 GROUP BY da.address, da.user_id, da.name, da.description, da.image_url, da.created_at
@@ -27,7 +27,7 @@ SELECT
 FROM developer_apps
 LEFT JOIN grants ON grants.grantee_address = developer_apps.address
 WHERE
-  (grants.user_id = @user_id OR lower(developer_apps.address) = lower(@address))
+  (grants.user_id = @user_id OR developer_apps.address = @address)
   AND grants.is_revoked = false
   AND grants.is_current = true
   AND developer_apps.is_current = true
