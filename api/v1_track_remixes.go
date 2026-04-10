@@ -46,6 +46,7 @@ func (app *ApiServer) v1TrackRemixes(c *fiber.Ctx) error {
 		"t.is_current = true",
 		"t.is_delete = false",
 		"t.is_unlisted = false",
+		"t.is_available = true",
 	}
 
 	if params.OnlyContestEntries {

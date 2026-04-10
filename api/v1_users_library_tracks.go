@@ -104,7 +104,9 @@ func (app *ApiServer) v1UsersLibraryTracks(c *fiber.Ctx) error {
 			bool_or(is_purchase) as is_purchase
 		FROM library_items
 		JOIN tracks ON track_id = item_id
-		WHERE is_unlisted = false OR is_purchase = true
+		WHERE (is_unlisted = false OR is_purchase = true)
+			AND tracks.is_delete = false
+			AND (tracks.is_available = true OR tracks.owner_id = @myId)
 		GROUP BY item_id
 	)
 	SELECT
@@ -118,7 +120,8 @@ func (app *ApiServer) v1UsersLibraryTracks(c *fiber.Ctx) error {
 	JOIN users ON owner_id = user_id
 	LEFT JOIN aggregate_plays ON track_id = play_item_id
 	LEFT JOIN aggregate_track USING (track_id)
-	WHERE ` + strings.Join(trackFilters, " AND ") + `
+	WHERE users.is_deactivated = false
+	  AND ` + strings.Join(trackFilters, " AND ") + `
 	ORDER BY ` + sortField + ` ` + sortDirection + `
 	LIMIT @limit
 	OFFSET @offset
@@ -126,6 +129,7 @@ func (app *ApiServer) v1UsersLibraryTracks(c *fiber.Ctx) error {
 
 	rows, err := app.pool.Query(c.Context(), sql, pgx.NamedArgs{
 		"userId":     app.getUserId(c),
+		"myId":       myId,
 		"limit":      params.Limit,
 		"offset":     params.Offset,
 		"actionType": params.ActionType,

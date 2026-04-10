@@ -30,6 +30,7 @@ func (app *ApiServer) v1PlaylistTracks(c *fiber.Ctx) error {
 		"p.playlist_id = @playlistId",
 		"t.is_delete = false",
 		"t.is_current = true",
+		"(t.is_available = true OR t.owner_id = @myId)",
 	}
 	if excludeGated {
 		filters = append(filters, "t.is_stream_gated != true")
@@ -47,6 +48,7 @@ func (app *ApiServer) v1PlaylistTracks(c *fiber.Ctx) error {
 
 	rows, err := app.pool.Query(c.Context(), sql, pgx.NamedArgs{
 		"playlistId": playlistId,
+		"myId":       myId,
 	})
 	if err != nil {
 		return err

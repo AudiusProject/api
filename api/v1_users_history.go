@@ -62,19 +62,20 @@ func (app *ApiServer) v1UsersHistory(c *fiber.Ctx) error {
 		class = "track_activity_full"
 	}
 
-	filters := []string{}
+	filters := []string{
+		"tracks.is_delete = false",
+		"(tracks.is_available = true OR tracks.owner_id = @myId)",
+		"users.is_deactivated = false",
+	}
 	if params.Query != "" {
-		filters = append(filters, "tracks.title ILIKE '%' || @query || '%' OR users.name ILIKE '%' || @query || '%'")
+		filters = append(filters, "(tracks.title ILIKE '%' || @query || '%' OR users.name ILIKE '%' || @query || '%')")
 	}
 
 	if myId == 0 || myId != userId {
 		filters = append(filters, "tracks.is_unlisted = false")
 	}
 
-	filterString := ""
-	if len(filters) > 0 {
-		filterString = "WHERE " + strings.Join(filters, " AND ")
-	}
+	filterString := "WHERE " + strings.Join(filters, " AND ")
 
 	sql := `
 	WITH history AS (
@@ -101,6 +102,7 @@ func (app *ApiServer) v1UsersHistory(c *fiber.Ctx) error {
 	`
 	rows, err := app.pool.Query(c.Context(), sql, pgx.NamedArgs{
 		"userId": userId,
+		"myId":   myId,
 		"limit":  params.Limit,
 		"offset": params.Offset,
 		"query":  params.Query,

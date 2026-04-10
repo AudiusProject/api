@@ -59,6 +59,7 @@ func (app *ApiServer) v1ExploreBestSelling(c *fiber.Ctx) error {
                 AND t.is_delete = false
                 AND t.is_current = true
                 AND t.is_unlisted = false
+                AND t.is_available = true
 
 			UNION ALL
 

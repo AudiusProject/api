@@ -25,24 +25,32 @@ func (app *ApiServer) v1UsersFavorites(c *fiber.Ctx) error {
 		return err
 	}
 
+	myId := app.getMyId(c)
+
 	sql := `
 	SELECT
 		save_item_id,
 		'SaveType.' || save_type as save_item_type, -- concat in "SaveType" to match sqlalchemy bs
-		user_id,
-		created_at
+		saves.user_id,
+		saves.created_at
 	FROM saves
-	WHERE user_id = @userId
-	  AND is_delete = false
-		AND is_current = true
+	JOIN tracks ON tracks.track_id = saves.save_item_id
+	JOIN users ON users.user_id = tracks.owner_id
+	WHERE saves.user_id = @userId
+	  AND saves.is_delete = false
+		AND saves.is_current = true
 		AND save_type = 'track'
-	ORDER BY blocknumber, save_item_id desc
+		AND tracks.is_delete = false
+		AND (tracks.is_available = true OR tracks.owner_id = @myId)
+		AND users.is_deactivated = false
+	ORDER BY saves.blocknumber, save_item_id desc
 	LIMIT @limit
 	OFFSET @offset
 	`
 
 	rows, err := app.pool.Query(c.Context(), sql, pgx.NamedArgs{
 		"userId": app.getUserId(c),
+		"myId":   myId,
 		"limit":  params.Limit,
 		"offset": params.Offset,
 	})

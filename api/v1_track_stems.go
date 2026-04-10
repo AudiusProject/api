@@ -31,8 +31,10 @@ func (app *ApiServer) v1TrackStems(c *fiber.Ctx) error {
 	JOIN tracks parent ON parent.track_id = s.parent_track_id
 	WHERE t.is_current = true
 	  AND t.is_delete = false
+	  AND t.is_available = true
 	  AND s.parent_track_id = @track_id
 	  AND parent.is_delete = false
+	  AND parent.is_available = true
 	`
 
 	rows, err := app.pool.Query(c.Context(), sql, pgx.NamedArgs{

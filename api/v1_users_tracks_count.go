@@ -40,7 +40,7 @@ func (app *ApiServer) v1UserTracksCount(c *fiber.Ctx) error {
 	WHERE t.owner_id = @user_id
 	  AND u.is_deactivated = false
 	  AND t.is_delete = false
-	  AND t.is_available = true
+	  AND (t.is_available = true OR t.owner_id = @my_id)
 	  AND ` + trackFilter + `
 	  AND t.stem_of is null
 	  AND (t.access_authorities IS NULL

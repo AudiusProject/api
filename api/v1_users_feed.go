@@ -91,6 +91,7 @@ func (app *ApiServer) v1UsersFeed(c *fiber.Ctx) error {
 				AND created_at >= @before::timestamp - INTERVAL '1 YEAR'
 				AND is_unlisted = false
 				AND is_delete = false
+				AND is_available = true
 				AND stem_of is null
 				AND (access_authorities IS NULL
 				  OR (COALESCE(@authed_wallet, '') <> ''

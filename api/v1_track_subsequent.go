@@ -40,6 +40,9 @@ func (app *ApiServer) v1TrackSubsequent(c *fiber.Ctx) error {
         FROM tracks
         WHERE is_current = true AND created_at = (SELECT created_at from current_track)
 		AND track_id > @trackId
+		AND is_delete = false
+		AND is_available = true
+		AND is_unlisted = false
         ORDER BY track_id ASC
         LIMIT @limit
     ),
@@ -47,6 +50,9 @@ func (app *ApiServer) v1TrackSubsequent(c *fiber.Ctx) error {
         SELECT track_id, created_at
         FROM tracks
         WHERE is_current = true AND created_at > (SELECT created_at from current_track)
+		AND is_delete = false
+		AND is_available = true
+		AND is_unlisted = false
         ORDER by created_at ASC, track_ID ASC
         LIMIT @limit
     ),

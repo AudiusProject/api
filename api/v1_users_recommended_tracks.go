@@ -77,6 +77,7 @@ func (app *ApiServer) v1UsersRecommendedTracks(c *fiber.Ctx) error {
 			t.is_unlisted = false
 			AND t.is_current = true
 			AND t.is_delete = false
+			AND t.is_available = true
 			AND t.stem_of IS NULL
 			AND (t.access_authorities IS NULL
 			  OR (COALESCE(@authed_wallet, '') <> ''
