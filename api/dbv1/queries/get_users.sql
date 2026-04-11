@@ -1,6 +1,10 @@
 -- name: GetUsers :many
 SELECT
-  album_count,
+  -- Use total_album_count when viewing own profile, otherwise use album_count
+  (CASE
+    WHEN u.user_id = @my_id::int THEN total_album_count
+    ELSE album_count
+  END)::bigint as album_count,
   artist_pick_track_id,
   bio,
 
@@ -24,7 +28,11 @@ SELECT
   donation,
   location,
   name,
-  playlist_count,
+  -- Use total_playlist_count when viewing own profile, otherwise use playlist_count
+  (CASE
+    WHEN u.user_id = @my_id::int THEN total_playlist_count
+    ELSE playlist_count
+  END)::bigint as playlist_count,
   profile_type,
 
   -- todo: this can sometimes be a Qm cid

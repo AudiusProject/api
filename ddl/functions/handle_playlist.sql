@@ -46,6 +46,32 @@ begin
       where user_id = new.playlist_owner_id;
     end if;
   end if;
+
+  -- Update total counts (includes private items)
+  declare
+    total_delta int := 0;
+  begin
+    if (new.is_delete = true and new.is_current = true) and (old_row.is_delete = false) then
+      total_delta := -1;
+    end if;
+
+    if (old_row is null) then
+      total_delta := 1;
+    end if;
+
+    if total_delta != 0 then
+      if new.is_album then
+        update aggregate_user
+        set total_album_count = total_album_count + total_delta
+        where user_id = new.playlist_owner_id;
+      else
+        update aggregate_user
+        set total_playlist_count = total_playlist_count + total_delta
+        where user_id = new.playlist_owner_id;
+      end if;
+    end if;
+  end;
+
   -- Create playlist notification
   begin
     if new.is_private = FALSE AND

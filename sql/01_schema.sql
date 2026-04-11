@@ -5825,7 +5825,9 @@ CREATE TABLE public.aggregate_user (
     dominant_genre_count integer DEFAULT 0,
     score integer DEFAULT 0,
     total_track_count integer DEFAULT 0,
-    track_share_count integer DEFAULT 0
+    track_share_count integer DEFAULT 0,
+    total_playlist_count integer DEFAULT 0,
+    total_album_count integer DEFAULT 0
 );
 
 

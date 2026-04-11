@@ -16,7 +16,11 @@ import (
 
 const getUsers = `-- name: GetUsers :many
 SELECT
-  album_count,
+  -- Use total_album_count when viewing own profile, otherwise use album_count
+  (CASE
+    WHEN u.user_id = $1::int THEN total_album_count
+    ELSE album_count
+  END)::bigint as album_count,
   artist_pick_track_id,
   bio,
 
@@ -40,7 +44,11 @@ SELECT
   donation,
   location,
   name,
-  playlist_count,
+  -- Use total_playlist_count when viewing own profile, otherwise use playlist_count
+  (CASE
+    WHEN u.user_id = $1::int THEN total_playlist_count
+    ELSE playlist_count
+  END)::bigint as playlist_count,
   profile_type,
 
   -- todo: this can sometimes be a Qm cid
@@ -223,7 +231,7 @@ type GetUsersParams struct {
 }
 
 type GetUsersRow struct {
-	AlbumCount                     pgtype.Int8     `json:"album_count"`
+	AlbumCount                     int64           `json:"album_count"`
 	ArtistPickTrackID              pgtype.Int4     `json:"artist_pick_track_id"`
 	Bio                            pgtype.Text     `json:"bio"`
 	CoverPhoto                     pgtype.Text     `json:"cover_photo"`
@@ -243,7 +251,7 @@ type GetUsersRow struct {
 	Donation                       pgtype.Text     `json:"donation"`
 	Location                       pgtype.Text     `json:"location"`
 	Name                           pgtype.Text     `json:"name"`
-	PlaylistCount                  pgtype.Int8     `json:"playlist_count"`
+	PlaylistCount                  int64           `json:"playlist_count"`
 	ProfileType                    *string         `json:"profile_type"`
 	ProfilePicture                 pgtype.Text     `json:"profile_picture"`
 	RepostCount                    pgtype.Int8     `json:"repost_count"`
