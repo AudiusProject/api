@@ -18,6 +18,10 @@ func (app *ApiServer) v1DeveloperApps(c *fiber.Ctx) error {
 		address = "0x" + address
 	}
 
+	// Normalize address to lowercase to ensure case-insensitive matching
+	// (addresses in the DB are stored as lowercase)
+	address = strings.ToLower(address)
+
 	developerApps, err := app.queries.GetDeveloperApps(c.Context(), dbv1.GetDeveloperAppsParams{
 		Address: address,
 	})
