@@ -72,39 +72,3 @@ func TestGetDeveloperAppWithoutHexPrefix(t *testing.T) {
 	assert.Equal(t, 200, status)
 	assert.Equal(t, "cool app", resp.Data.Name)
 }
-
-func TestGetDeveloperAppUppercaseAddress(t *testing.T) {
-	app := testAppWithFixtures(t)
-
-	var resp struct {
-		Data dbv1.GetDeveloperAppsRow
-	}
-	// Uppercase address should still find the app (case-insensitive lookup)
-	status, _ := testGet(t, app, "/v1/developer_apps/0x7D7B6B7A97D1DEEFE3A1CCC5A13C48E8F055E0B6", &resp)
-	assert.Equal(t, 200, status)
-	assert.Equal(t, "cool app", resp.Data.Name)
-}
-
-func TestGetDeveloperAppMixedCaseAddress(t *testing.T) {
-	app := testAppWithFixtures(t)
-
-	var resp struct {
-		Data dbv1.GetDeveloperAppsRow
-	}
-	// Mixed-case address should still find the app (case-insensitive lookup)
-	status, _ := testGet(t, app, "/v1/developer_apps/0x7d7B6B7A97d1deEFe3A1ccc5A13c48E8F055e0B6", &resp)
-	assert.Equal(t, 200, status)
-	assert.Equal(t, "cool app", resp.Data.Name)
-}
-
-func TestGetDeveloperAppWithoutHexPrefix(t *testing.T) {
-	app := testAppWithFixtures(t)
-
-	var resp struct {
-		Data dbv1.GetDeveloperAppsRow
-	}
-	// Address without 0x prefix should still find the app
-	status, _ := testGet(t, app, "/v1/developer_apps/7D7B6B7A97D1DEEFE3A1CCC5A13C48E8F055E0B6", &resp)
-	assert.Equal(t, 200, status)
-	assert.Equal(t, "cool app", resp.Data.Name)
-}
