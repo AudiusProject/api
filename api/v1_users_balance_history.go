@@ -118,7 +118,7 @@ func (app *ApiServer) v1UsersBalanceHistory(c *fiber.Ctx) error {
 					WHEN @granularity::text = 'daily' THEN date_trunc('day', timestamp)
 					ELSE timestamp
 				END AS bucket_timestamp,
-				timestamp,
+				timestamp AS source_timestamp,
 				balance_usd
 			FROM hourly_totals
 		)
@@ -126,7 +126,7 @@ func (app *ApiServer) v1UsersBalanceHistory(c *fiber.Ctx) error {
 			bucket_timestamp AS timestamp,
 			balance_usd
 		FROM bucketed
-		ORDER BY bucket_timestamp ASC, timestamp DESC
+		ORDER BY bucket_timestamp ASC, source_timestamp DESC
 	`
 
 	rows, err := app.pool.Query(c.Context(), sql, pgx.NamedArgs{
