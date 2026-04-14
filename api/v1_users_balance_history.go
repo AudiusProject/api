@@ -96,27 +96,37 @@ func (app *ApiServer) v1UsersBalanceHistory(c *fiber.Ctx) error {
 		return err
 	}
 
-	// Build SQL query with granularity parameter
-	// Using a CTE to handle the conditional truncation based on granularity
+	// Build SQL query with granularity parameter.
+	// First sum balance_usd across mints at each hourly snapshot to get the
+	// total portfolio value per hour. For 'daily', pick the latest hour within
+	// each day (end-of-day balance) — do NOT sum balances across hours, since
+	// each hour is a point-in-time snapshot, not an additive quantity.
 	sql := `
-		WITH time_buckets AS (
+		WITH hourly_totals AS (
+			SELECT
+				timestamp,
+				SUM(balance_usd) AS balance_usd
+			FROM user_balance_history
+			WHERE user_id = @user_id
+				AND timestamp >= @start_time
+				AND timestamp <= @end_time
+			GROUP BY timestamp
+		),
+		bucketed AS (
 			SELECT
 				CASE
 					WHEN @granularity::text = 'daily' THEN date_trunc('day', timestamp)
 					ELSE timestamp
 				END AS bucket_timestamp,
+				timestamp AS source_timestamp,
 				balance_usd
-			FROM user_balance_history
-			WHERE user_id = @user_id
-				AND timestamp >= @start_time
-				AND timestamp <= @end_time
+			FROM hourly_totals
 		)
-		SELECT
+		SELECT DISTINCT ON (bucket_timestamp)
 			bucket_timestamp AS timestamp,
-			SUM(balance_usd) AS balance_usd
-		FROM time_buckets
-		GROUP BY bucket_timestamp
-		ORDER BY bucket_timestamp ASC
+			balance_usd
+		FROM bucketed
+		ORDER BY bucket_timestamp ASC, source_timestamp DESC
 	`
 
 	rows, err := app.pool.Query(c.Context(), sql, pgx.NamedArgs{
