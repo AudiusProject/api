@@ -67,6 +67,96 @@ func TestUserListeningHistory(t *testing.T) {
 	})
 }
 
+func TestUserListeningHistoryExcludesRemovedTracks(t *testing.T) {
+	app := emptyTestApp(t)
+
+	fixtures := database.FixtureMap{
+		"users": []map[string]any{
+			{
+				"user_id": 1,
+				"handle":  "active_user",
+			},
+			{
+				"user_id": 2,
+				"handle":  "listener",
+				"wallet":  "0x7d273271690538cf855e5b3002a0dd8c154bb060",
+			},
+			{
+				"user_id": 3,
+				"handle":  "deactivated_user",
+				"is_deactivated": true,
+			},
+		},
+		"tracks": []map[string]any{
+			{
+				"track_id":   1,
+				"title":      "Active Track",
+				"owner_id":   1,
+				"is_delete":  false,
+				"created_at": parseTime(t, "2024-01-01"),
+			},
+			{
+				"track_id":   2,
+				"title":      "Deleted Track",
+				"owner_id":   1,
+				"is_delete":  true,
+				"created_at": parseTime(t, "2024-01-01"),
+			},
+			{
+				"track_id":      3,
+				"title":         "Unavailable Track",
+				"owner_id":      1,
+				"is_available":  false,
+				"created_at":    parseTime(t, "2024-01-01"),
+			},
+			{
+				"track_id":   4,
+				"title":      "Deactivated User Track",
+				"owner_id":   3,
+				"created_at": parseTime(t, "2024-01-01"),
+			},
+		},
+		"user_listening_history": []map[string]any{
+			{
+				"user_id": 2,
+				"listening_history": []map[string]any{
+					{
+						"track_id":   1,
+						"play_count": 1,
+						"timestamp":  parseTime(t, "2024-01-04"),
+					},
+					{
+						"track_id":   2,
+						"play_count": 1,
+						"timestamp":  parseTime(t, "2024-01-03"),
+					},
+					{
+						"track_id":   3,
+						"play_count": 1,
+						"timestamp":  parseTime(t, "2024-01-02"),
+					},
+					{
+						"track_id":   4,
+						"play_count": 1,
+						"timestamp":  parseTime(t, "2024-01-01"),
+					},
+				},
+			},
+		},
+	}
+
+	database.Seed(app.pool.Replicas[0], fixtures)
+	listenerId := trashid.MustEncodeHashID(2)
+
+	// Only the active track should appear; deleted, unavailable, and deactivated-user tracks are excluded
+	status, body := testGetWithWallet(t, app, "/v1/full/users/"+listenerId+"/history/tracks?user_id="+listenerId, "0x7d273271690538cf855e5b3002a0dd8c154bb060")
+	assert.Equal(t, 200, status)
+	jsonAssert(t, body, map[string]any{
+		"data.#":           1,
+		"data.0.item.title": "Active Track",
+	})
+}
+
 func TestUserListeningHistoryUnlisted(t *testing.T) {
 	app := emptyTestApp(t)
 
