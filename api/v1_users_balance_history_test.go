@@ -538,13 +538,15 @@ func TestUserBalanceHistoryDailyGranularityWithMultipleHours(t *testing.T) {
 		"data.#": 3, // 3 hourly points
 	})
 
-	// Test daily granularity - should return 1 data point with summed balance
+	// Test daily granularity - should return 1 data point representing the
+	// balance at the latest hour of the day (end-of-day balance), not a sum
+	// across all hours (each row is a point-in-time portfolio snapshot).
 	status, body = testGet(t, app, "/v1/users/"+trashid.MustEncodeHashID(1)+"/balance/history?start_time="+startTime+"&end_time="+endTime+"&granularity=daily")
 	assert.Equal(t, 200, status)
 
 	jsonAssert(t, body, map[string]any{
-		"data.#":             1,    // 1 daily point (all hours on same day grouped)
-		"data.0.balance_usd": 60.0, // Sum: 10 + 20 + 30
+		"data.#":             1,    // 1 daily point (latest hour of the day)
+		"data.0.balance_usd": 30.0, // Balance at 18:00 (the latest hour)
 	})
 }
 
