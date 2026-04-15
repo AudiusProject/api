@@ -1194,6 +1194,57 @@ paths:
         "500":
           description: Server error
           content: {}
+  /events/remix-contests:
+    get:
+      tags:
+        - events
+      summary: Get all remix contests
+      description:
+        Get remix contest events ordered with currently-active contests first
+        (by soonest-ending), followed by ended contests (most-recently-ended
+        first). Active contests are those whose end_date is null or in the
+        future.
+      operationId: Get Remix Contests
+      security:
+        - {}
+        - OAuth2:
+            - read
+      parameters:
+        - name: offset
+          in: query
+          description:
+            The number of items to skip. Useful for pagination (page number
+            * limit)
+          schema:
+            type: integer
+        - name: limit
+          in: query
+          description: The number of items to fetch
+          schema:
+            type: integer
+        - name: status
+          in: query
+          description: Filter contests by status
+          schema:
+            type: string
+            default: all
+            enum:
+              - active
+              - ended
+              - all
+      responses:
+        "200":
+          description: Success
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/events_response"
+        "400":
+          description: Bad request
+          content: {}
+        "500":
+          description: Server error
+          content: {}
   /events/unclaimed_id:
     get:
       tags:

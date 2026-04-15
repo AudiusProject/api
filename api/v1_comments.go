@@ -23,7 +23,7 @@ type GetCommentsParams struct {
 }
 
 type CreateCommentRequest struct {
-	EntityType      string `json:"entityType" validate:"required,oneof=Track"`
+	EntityType      string `json:"entityType" validate:"required,oneof=Track FanClub Event"`
 	EntityId        int    `json:"entityId" validate:"required,min=1"`
 	Body            string `json:"body" validate:"required,max=500"`
 	CommentId       *int   `json:"commentId,omitempty" validate:"omitempty,min=1"`
@@ -33,19 +33,19 @@ type CreateCommentRequest struct {
 }
 
 type UpdateCommentRequest struct {
-	EntityType string `json:"entityType" validate:"required,oneof=Track"`
+	EntityType string `json:"entityType" validate:"required,oneof=Track FanClub Event"`
 	EntityId   int    `json:"entityId" validate:"required,min=1"`
 	Body       string `json:"body" validate:"required,max=500"`
 	Mentions   []int  `json:"mentions,omitempty" validate:"omitempty,dive,min=1"`
 }
 
 type ReactCommentRequest struct {
-	EntityType string `json:"entityType" validate:"required,oneof=Track"`
+	EntityType string `json:"entityType" validate:"required,oneof=Track FanClub Event"`
 	EntityId   int    `json:"entityId" validate:"required,min=1"`
 }
 
 type PinCommentRequest struct {
-	EntityType string `json:"entityType" validate:"required,oneof=Track"`
+	EntityType string `json:"entityType" validate:"required,oneof=Track FanClub Event"`
 	EntityId   int    `json:"entityId" validate:"required,min=1"`
 }
 
