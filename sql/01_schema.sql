@@ -3935,6 +3935,51 @@ begin
         raise warning 'An error occurred in %: %', tg_name, sqlerrm;
   end;
 
+  -- If a track with an active remix contest transitions from unlisted to public,
+  -- create fan_remix_contest_started notifications for the contest creator's
+  -- followers and the track's savers. Mirrors handle_event.sql for the case
+  -- where the contest was created while the track was still unlisted.
+  begin
+    if TG_OP = 'UPDATE' and OLD.is_unlisted = true and new.is_unlisted = false then
+      insert into notification
+        (blocknumber, user_ids, timestamp, type, specifier, group_id, data)
+      select
+        new.blocknumber,
+        ARRAY[u.user_id],
+        new.updated_at,
+        'fan_remix_contest_started',
+        u.user_id,
+        'fan_remix_contest_started:' || new.track_id || ':user:' || e.user_id,
+        json_build_object(
+          'entity_user_id', new.owner_id,
+          'entity_id', new.track_id
+        )
+      from events e
+      join lateral (
+        select f.follower_user_id as user_id
+          from follows f
+         where f.followee_user_id = e.user_id
+           and f.is_current = true
+           and f.is_delete = false
+        union
+        select s.user_id
+          from saves s
+         where s.save_item_id = new.track_id
+           and s.save_type = 'track'
+           and s.is_current = true
+           and s.is_delete = false
+      ) u on true
+      where e.event_type = 'remix_contest'
+        and e.is_deleted = false
+        and e.end_date > now()
+        and e.entity_id = new.track_id
+      on conflict do nothing;
+    end if;
+    exception
+      when others then
+        raise warning 'An error occurred in %: %', tg_name, sqlerrm;
+  end;
+
   return null;
 
 exception
@@ -8612,7 +8657,9 @@ CREATE TABLE public.subscriptions (
     is_current boolean NOT NULL,
     is_delete boolean NOT NULL,
     created_at timestamp without time zone DEFAULT CURRENT_TIMESTAMP NOT NULL,
-    txhash character varying DEFAULT ''::character varying NOT NULL
+    txhash character varying DEFAULT ''::character varying NOT NULL,
+    entity_type text DEFAULT 'User'::text NOT NULL,
+    entity_id integer
 );
 
 
@@ -11486,6 +11533,13 @@ CREATE INDEX ix_subscriptions_blocknumber ON public.subscriptions USING btree (b
 --
 
 CREATE INDEX ix_subscriptions_user_id ON public.subscriptions USING btree (user_id);
+
+
+--
+-- Name: subscriptions_entity_type_entity_id_idx; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX subscriptions_entity_type_entity_id_idx ON public.subscriptions USING btree (entity_type, entity_id) WHERE ((is_current = true) AND (is_delete = false));
 
 
 --
