@@ -511,6 +511,12 @@ func NewApiServer(config config.Config) *ApiServer {
 		g.Get("/fan_club/feed", app.v1FanClubFeed)
 		g.Get("/fan-club/feed", app.v1FanClubFeed)
 
+		g.Get("/events/:eventId/comments", app.v1EventComments)
+		g.Get("/events/:eventId/follow_state", app.v1EventFollowState)
+		g.Get("/events/:eventId/follow-state", app.v1EventFollowState)
+		g.Post("/events/:eventId/follow", app.requireAuthMiddleware, app.requireWriteScope, app.postV1EventFollow)
+		g.Delete("/events/:eventId/follow", app.requireAuthMiddleware, app.requireWriteScope, app.deleteV1EventFollow)
+
 		g.Get("/tracks/:trackId/comments", app.v1TrackComments)
 		g.Get("/tracks/:trackId/comment_count", app.v1TrackCommentCount)
 		g.Get("/tracks/:trackId/comment-count", app.v1TrackCommentCount)
@@ -608,6 +614,7 @@ func NewApiServer(config config.Config) *ApiServer {
 		// Events
 		g.Get("/events/unclaimed_id", app.v1EventsUnclaimedId)
 		g.Get("/events/unclaimed-id", app.v1EventsUnclaimedId)
+		g.Get("/events/remix-contests", app.v1EventsRemixContests)
 		g.Get("/events", app.v1Events)
 		g.Get("/events/all", app.v1Events)
 		g.Get("/events/entity", app.v1Events)

@@ -2244,6 +2244,8 @@ type Subscription struct {
 	IsDelete     bool        `json:"is_delete"`
 	CreatedAt    time.Time   `json:"created_at"`
 	Txhash       string      `json:"txhash"`
+	EntityType   string      `json:"entity_type"`
+	EntityID     pgtype.Int4 `json:"entity_id"`
 }
 
 type SupporterRankUp struct {
