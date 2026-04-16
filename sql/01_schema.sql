@@ -3935,6 +3935,71 @@ begin
         raise warning 'An error occurred in %: %', tg_name, sqlerrm;
   end;
 
+  -- If a track with an active remix contest transitions from unlisted to public,
+  -- create fan_remix_contest_started notifications for the contest creator's
+  -- followers and the track's savers. Mirrors handle_event.sql for the case
+  -- where the contest was created while the track was still unlisted.
+  begin
+    if TG_OP = 'UPDATE' and OLD.is_unlisted = true and new.is_unlisted = false THEN
+      declare
+        contest_event_id int;
+        contest_creator_id int;
+        notified_user_id int;
+      begin
+        select event_id, user_id
+        into contest_event_id, contest_creator_id
+        from events
+        where event_type = 'remix_contest'
+          and is_deleted = false
+          and end_date > now()
+          and entity_id = new.track_id
+        limit 1;
+
+        if contest_event_id is not null then
+          for notified_user_id in
+            select distinct user_id
+            from (
+              -- Get followers of the contest creator
+              select f.follower_user_id as user_id
+              from follows f
+              where f.followee_user_id = contest_creator_id
+                and f.is_current = true
+                and f.is_delete = false
+              union
+              -- Get users who favorited the track
+              select s.user_id
+              from saves s
+              where s.save_item_id = new.track_id
+                and s.save_type = 'track'
+                and s.is_current = true
+                and s.is_delete = false
+            ) as users_to_notify
+          loop
+            insert into notification
+              (blocknumber, user_ids, timestamp, type, specifier, group_id, data)
+            values
+              (
+                new.blocknumber,
+                ARRAY [notified_user_id],
+                new.updated_at,
+                'fan_remix_contest_started',
+                notified_user_id,
+                'fan_remix_contest_started:' || new.track_id || ':user:' || contest_creator_id,
+                json_build_object(
+                  'entity_user_id', new.owner_id,
+                  'entity_id', new.track_id
+                )
+              )
+            on conflict do nothing;
+          end loop;
+        end if;
+      end;
+    end if;
+    exception
+      when others then
+        raise warning 'An error occurred in %: %', tg_name, sqlerrm;
+  end;
+
   return null;
 
 exception
@@ -8612,7 +8677,9 @@ CREATE TABLE public.subscriptions (
     is_current boolean NOT NULL,
     is_delete boolean NOT NULL,
     created_at timestamp without time zone DEFAULT CURRENT_TIMESTAMP NOT NULL,
-    txhash character varying DEFAULT ''::character varying NOT NULL
+    txhash character varying DEFAULT ''::character varying NOT NULL,
+    entity_type text DEFAULT 'User'::text NOT NULL,
+    entity_id integer
 );
 
 
