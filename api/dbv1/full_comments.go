@@ -105,7 +105,7 @@ func (q *Queries) FullCommentsKeyed(ctx context.Context, arg GetCommentsParams) 
 			SELECT 1
 			FROM comment_reactions
 			WHERE comment_id = comments.comment_id
-			AND user_id = COALESCE(tracks.owner_id, events.user_id, comments.entity_id)
+			AND user_id = COALESCE(tracks.owner_id, comments.entity_id)
 			AND is_delete = false
 		) AS is_artist_reacted,
 
@@ -128,13 +128,11 @@ func (q *Queries) FullCommentsKeyed(ctx context.Context, arg GetCommentsParams) 
 
 	FROM comments
 	LEFT JOIN tracks ON comments.entity_type = 'Track' AND comments.entity_id = tracks.track_id
-	LEFT JOIN events ON comments.entity_type = 'Event' AND comments.entity_id = events.event_id
 	LEFT JOIN comment_threads USING (comment_id)
 	WHERE comments.comment_id = ANY(@ids::int[])
 	AND (
 		(comments.entity_type = 'Track' AND (@include_unlisted = true OR COALESCE(tracks.is_unlisted, false) = false))
 		OR comments.entity_type = 'FanClub'
-		OR (comments.entity_type = 'Event' AND COALESCE(events.is_deleted, false) = false)
 	)
 	ORDER BY comments.created_at DESC
 	`
