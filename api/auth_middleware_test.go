@@ -128,6 +128,47 @@ func TestRequireAuthMiddleware(t *testing.T) {
 	assert.Equal(t, fiber.StatusUnauthorized, res.StatusCode)
 }
 
+// An invalid/expired Bearer token used against an endpoint that asserts a
+// caller identity (myId via ?user_id, or :wallet route param) must return
+// 401 — the credential was supplied but couldn't be validated. Returning 403
+// here would imply the caller is authenticated but unauthorized, which would
+// keep clients from realizing they need to refresh their token.
+func TestAuthMiddlewareInvalidBearerReturns401(t *testing.T) {
+	app := testAppWithFixtures(t)
+
+	testApp := fiber.New()
+	testApp.Get("/", app.resolveMyIdMiddleware, app.authMiddleware, func(c *fiber.Ctx) error {
+		return c.SendStatus(fiber.StatusOK)
+	})
+	testApp.Get("/account/:wallet", app.resolveMyIdMiddleware, app.authMiddleware, func(c *fiber.Ctx) error {
+		return c.SendStatus(fiber.StatusOK)
+	})
+
+	t.Run("invalid bearer with myId returns 401", func(t *testing.T) {
+		req := httptest.NewRequest("GET", "/?user_id=7eP5n", nil)
+		req.Header.Set("Authorization", "Bearer expired-or-invalid-token")
+		res, err := testApp.Test(req, -1)
+		assert.NoError(t, err)
+		assert.Equal(t, fiber.StatusUnauthorized, res.StatusCode)
+	})
+
+	t.Run("invalid bearer with wallet param returns 401", func(t *testing.T) {
+		req := httptest.NewRequest("GET", "/account/0x111c616ae836ceca1effe00bd07f2fdbf9a082bc", nil)
+		req.Header.Set("Authorization", "Bearer expired-or-invalid-token")
+		res, err := testApp.Test(req, -1)
+		assert.NoError(t, err)
+		assert.Equal(t, fiber.StatusUnauthorized, res.StatusCode)
+	})
+
+	t.Run("invalid bearer without myId or wallet passes through", func(t *testing.T) {
+		req := httptest.NewRequest("GET", "/", nil)
+		req.Header.Set("Authorization", "Bearer expired-or-invalid-token")
+		res, err := testApp.Test(req, -1)
+		assert.NoError(t, err)
+		assert.Equal(t, fiber.StatusOK, res.StatusCode)
+	})
+}
+
 func TestWalletCache(t *testing.T) {
 	app := emptyTestApp(t)
 
