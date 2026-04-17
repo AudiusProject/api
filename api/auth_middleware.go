@@ -255,6 +255,14 @@ func (app *ApiServer) authMiddleware(c *fiber.Ctx) error {
 	// 4. Signature headers - legacy method used for reads
 	var wallet string
 
+	// Detect a supplied Bearer token up front so that, if no auth path can
+	// resolve a wallet from it, we can return 401 (auth attempted but invalid)
+	// instead of 403 (auth succeeded but unauthorized).
+	var bearerToken string
+	if authHeader := c.Get("Authorization"); authHeader != "" && strings.HasPrefix(authHeader, "Bearer ") {
+		bearerToken = strings.TrimSpace(strings.TrimPrefix(authHeader, "Bearer "))
+	}
+
 	// Start by trying to get the API key/secret from the Authorization header
 	signer, _ := app.getApiSigner(c)
 	myId := app.getMyId(c)
@@ -263,12 +271,6 @@ func (app *ApiServer) authMiddleware(c *fiber.Ctx) error {
 		wallet = strings.ToLower(signer.Address)
 	} else {
 		// The api secret couldn't be found, try other methods:
-
-		// Extract Bearer token once for the fallback checks below
-		var bearerToken string
-		if authHeader := c.Get("Authorization"); authHeader != "" && strings.HasPrefix(authHeader, "Bearer ") {
-			bearerToken = strings.TrimSpace(strings.TrimPrefix(authHeader, "Bearer "))
-		}
 
 		if bearerToken != "" {
 			// OAuth JWT fallback: when Bearer token is not api_access_key, try as OAuth JWT (Plans app)
@@ -324,6 +326,15 @@ func (app *ApiServer) authMiddleware(c *fiber.Ctx) error {
 	// A valid PKCE access token already proves the user authorized this client
 	_, pkceAuthed := c.Locals("oauthScope").(string)
 
+	myWallet := c.Params("wallet")
+
+	// A Bearer token was provided but no auth path could resolve it (expired,
+	// revoked, or otherwise invalid). Return 401 so clients know to refresh
+	// rather than 403, which implies an authorization (not authentication) failure.
+	if wallet == "" && bearerToken != "" && (myId != 0 || myWallet != "") {
+		return fiber.NewError(fiber.StatusUnauthorized, "Invalid or expired access token")
+	}
+
 	// Not authorized to act on behalf of myId
 	if myId != 0 && !pkceAuthed && !app.isAuthorizedRequest(c.Context(), myId, wallet) {
 		return fiber.NewError(
@@ -337,7 +348,6 @@ func (app *ApiServer) authMiddleware(c *fiber.Ctx) error {
 	}
 
 	// Not authorized to act on behalf of myWallet
-	myWallet := c.Params("wallet")
 	if myWallet != "" && !strings.EqualFold(myWallet, wallet) {
 		return fiber.NewError(
 			fiber.StatusForbidden,
