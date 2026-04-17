@@ -256,9 +256,12 @@ func (app *ApiServer) authMiddleware(c *fiber.Ctx) error {
 	var wallet string
 
 	// Detect a supplied Bearer token up front so that, if no auth path can
-	// resolve a wallet from it, we can return 401 (auth attempted but invalid)
-	// instead of 403 (auth succeeded but unauthorized).
+	// validate it, we can return 401 (auth attempted but invalid) instead of
+	// 403 (auth succeeded but unauthorized). bearerValidated tracks whether
+	// any path successfully decoded the token — a valid-but-mismatched token
+	// is still 403, only an undecodable/expired/revoked token is 401.
 	var bearerToken string
+	var bearerValidated bool
 	if authHeader := c.Get("Authorization"); authHeader != "" && strings.HasPrefix(authHeader, "Bearer ") {
 		bearerToken = strings.TrimSpace(strings.TrimPrefix(authHeader, "Bearer "))
 	}
@@ -269,6 +272,11 @@ func (app *ApiServer) authMiddleware(c *fiber.Ctx) error {
 	if signer != nil {
 		app.logger.Debug("authMiddleware: resolved via app bearer/secret/oauth", zap.String("wallet", strings.ToLower(signer.Address)))
 		wallet = strings.ToLower(signer.Address)
+		// signer != nil via Bearer means getApiSigner validated the credential
+		// (api_access_key, OAuth token + api_secret, or AudiusApiSecret path).
+		if bearerToken != "" {
+			bearerValidated = true
+		}
 	} else {
 		// The api secret couldn't be found, try other methods:
 
@@ -276,6 +284,7 @@ func (app *ApiServer) authMiddleware(c *fiber.Ctx) error {
 			// OAuth JWT fallback: when Bearer token is not api_access_key, try as OAuth JWT (Plans app)
 			if wallet == "" && myId != 0 {
 				if oauthWallet, jwtUserId, err := app.validateOAuthJWTTokenToWalletAndUserId(c.Context(), bearerToken); err == nil {
+					bearerValidated = true
 					if int32(jwtUserId) == myId {
 						app.logger.Debug("authMiddleware: resolved via OAuth JWT", zap.String("wallet", oauthWallet), zap.Int32("myId", myId))
 						wallet = oauthWallet
@@ -290,6 +299,7 @@ func (app *ApiServer) authMiddleware(c *fiber.Ctx) error {
 			// PKCE token fallback: resolve opaque Bearer token from oauth_tokens in case the getSigner fails because there's no secret stored in the api_keys table
 			if wallet == "" {
 				if entry, ok := app.lookupOAuthAccessToken(c, bearerToken); ok {
+					bearerValidated = true
 					if myId == 0 || entry.UserID == myId {
 						wallet = strings.ToLower(entry.ClientID)
 						c.Locals("oauthScope", entry.Scope)
@@ -328,10 +338,12 @@ func (app *ApiServer) authMiddleware(c *fiber.Ctx) error {
 
 	myWallet := c.Params("wallet")
 
-	// A Bearer token was provided but no auth path could resolve it (expired,
-	// revoked, or otherwise invalid). Return 401 so clients know to refresh
+	// A Bearer token was provided but no auth path could validate it (expired,
+	// revoked, or otherwise undecodable). Return 401 so clients know to refresh
 	// rather than 403, which implies an authorization (not authentication) failure.
-	if wallet == "" && bearerToken != "" && (myId != 0 || myWallet != "") {
+	// A token that decoded successfully but didn't match the requested user is
+	// still 403 below — it's a permission issue, not a credential issue.
+	if wallet == "" && bearerToken != "" && !bearerValidated && (myId != 0 || myWallet != "") {
 		return fiber.NewError(fiber.StatusUnauthorized, "Invalid or expired access token")
 	}
 
