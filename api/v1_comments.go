@@ -30,6 +30,7 @@ type CreateCommentRequest struct {
 	ParentId        *int   `json:"parentId,omitempty" validate:"omitempty,min=1"`
 	TrackTimestampS *int   `json:"trackTimestampS,omitempty" validate:"omitempty,min=0"`
 	Mentions        []int  `json:"mentions,omitempty" validate:"omitempty,dive,min=1"`
+	VideoUrl        string `json:"videoUrl,omitempty" validate:"omitempty,max=2048"`
 }
 
 type UpdateCommentRequest struct {
@@ -174,6 +175,9 @@ func (app *ApiServer) postV1Comment(c *fiber.Ctx) error {
 			mentions = mentions[:10]
 		}
 		metadataMap["mentions"] = mentions
+	}
+	if req.VideoUrl != "" {
+		metadataMap["video_url"] = req.VideoUrl
 	}
 
 	metadataObj := map[string]interface{}{

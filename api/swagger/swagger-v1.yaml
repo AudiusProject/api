@@ -10769,6 +10769,11 @@ components:
           items:
             type: integer
             example: 67890
+        videoUrl:
+          type: string
+          nullable: true
+          maxLength: 2048
+          description: Optional URL for a video attachment (stored on the comment record)
     dashboard_wallet_users_response:
       type: object
       properties:
@@ -14938,6 +14943,10 @@ components:
           type: boolean
         is_members_only:
           type: boolean
+        video_url:
+          type: string
+          nullable: true
+          description: Optional URL for a video attachment on this comment
         is_muted:
           type: boolean
         created_at:
@@ -16241,6 +16250,10 @@ components:
           type: string
         updated_at:
           type: string
+        video_url:
+          type: string
+          nullable: true
+          description: Optional URL for a video attachment on this reply
         parent_comment_id:
           type: integer
     user_playlist_library:
