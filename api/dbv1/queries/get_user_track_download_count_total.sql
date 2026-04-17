@@ -9,10 +9,10 @@ WHERE EXISTS (
   WHERE t.owner_id = @user_id
     AND t.is_current = true
     AND t.is_delete = false
+    AND d.track_id = t.track_id
     AND (
       (t.stem_of IS NULL AND d.parent_track_id = t.track_id)
       OR (t.stem_of IS NOT NULL
-          AND (t.stem_of->>'parent_track_id')::int = d.parent_track_id
-          AND d.track_id = t.track_id)
+          AND (t.stem_of->>'parent_track_id')::int = d.parent_track_id)
     )
 );

@@ -17,10 +17,16 @@ func TestV1TrackDownloadCount(t *testing.T) {
 	ctx := context.Background()
 	require.NotNil(t, app.writePool, "test requires write pool")
 
-	// Track 200 is "Culca Canyon" (eYJyn). Insert two download rows so download_count is 2.
+	// Track 200 is "Culca Canyon" (eYJyn). Insert two original-track download rows
+	// plus two stem download rows (same parent_track_id, different track_id).
+	// Only the originals should be counted.
 	_, err := app.writePool.Exec(ctx, `
 		INSERT INTO track_downloads (txhash, blocknumber, parent_track_id, track_id, user_id)
-		VALUES ('tx-dl-1', 101, 200, 200, 1), ('tx-dl-2', 101, 200, 200, 2)
+		VALUES
+			('tx-dl-1', 101, 200, 200, 1),
+			('tx-dl-2', 101, 200, 200, 2),
+			('tx-dl-stem-1', 101, 200, 9001, 1),
+			('tx-dl-stem-2', 101, 200, 9002, 1)
 	`)
 	require.NoError(t, err)
 
@@ -37,10 +43,14 @@ func TestV1TracksDownloadCounts(t *testing.T) {
 	ctx := context.Background()
 	require.NotNil(t, app.writePool, "test requires write pool")
 
-	// Track 200 (eYJyn) gets 2 downloads; track 201 (eYZmn) has none.
+	// Track 200 (eYJyn) gets 2 original-track downloads plus a stem download that
+	// should be ignored; track 201 (eYZmn) has none.
 	_, err := app.writePool.Exec(ctx, `
 		INSERT INTO track_downloads (txhash, blocknumber, parent_track_id, track_id, user_id)
-		VALUES ('tx-dl-1', 101, 200, 200, 1), ('tx-dl-2', 101, 200, 200, 2)
+		VALUES
+			('tx-dl-1', 101, 200, 200, 1),
+			('tx-dl-2', 101, 200, 200, 2),
+			('tx-dl-stem-1', 101, 200, 9001, 1)
 	`)
 	require.NoError(t, err)
 
@@ -64,10 +74,14 @@ func TestV1UserTracksDownloadCount(t *testing.T) {
 	ctx := context.Background()
 	require.NotNil(t, app.writePool, "test requires write pool")
 
-	// Track 200 (eYJyn) is owned by user 2. Insert two download rows.
+	// Track 200 (eYJyn) is owned by user 2. Insert two original-track download rows
+	// plus a stem download row that should be excluded from the total.
 	_, err := app.writePool.Exec(ctx, `
 		INSERT INTO track_downloads (txhash, blocknumber, parent_track_id, track_id, user_id)
-		VALUES ('tx-user-total-1', 101, 200, 200, 1), ('tx-user-total-2', 101, 200, 200, 2)
+		VALUES
+			('tx-user-total-1', 101, 200, 200, 1),
+			('tx-user-total-2', 101, 200, 200, 2),
+			('tx-user-total-stem-1', 101, 200, 9001, 1)
 	`)
 	require.NoError(t, err)
 
