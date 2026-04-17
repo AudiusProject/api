@@ -535,6 +535,7 @@ func NewApiServer(config config.Config) *ApiServer {
 		g.Get("/playlists/unclaimed-id", app.v1PlaylistsUnclaimedId)
 		g.Get("/playlists/trending", app.v1PlaylistsTrending)
 		g.Get("/playlists/top", app.v1PlaylistsTop)
+		g.Get("/playlists/new-releases", app.v1PlaylistsNewReleases)
 		g.Get("/playlists/by_permalink/:handle/:slug", app.v1PlaylistByPermalink)
 		g.Get("/playlists/by-permalink/:handle/:slug", app.v1PlaylistByPermalink)
 
