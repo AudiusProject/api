@@ -1483,6 +1483,51 @@ paths:
         "500":
           description: Server error
           content: {}
+  /playlists/new-releases:
+    get:
+      tags:
+        - playlists
+      description: Returns recently released playlists or albums
+      operationId: Get Playlists New Releases
+      security:
+        - {}
+        - OAuth2:
+            - read
+      parameters:
+        - name: offset
+          in: query
+          description:
+            The number of items to skip. Useful for pagination (page number
+            * limit)
+          schema:
+            type: integer
+        - name: limit
+          in: query
+          description: The number of items to fetch
+          schema:
+            type: integer
+        - name: type
+          in: query
+          description: The type of content to filter by
+          schema:
+            type: string
+            default: playlist
+            enum:
+              - playlist
+              - album
+      responses:
+        "200":
+          description: Success
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/trending_playlists_response"
+        "400":
+          description: Bad request
+          content: {}
+        "500":
+          description: Server error
+          content: {}
   /playlists/trending:
     get:
       tags:
