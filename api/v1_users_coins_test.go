@@ -131,17 +131,39 @@ func TestUserCoins(t *testing.T) {
 		assert.Equal(t, 200, status)
 
 		jsonAssert(t, body, map[string]any{
-			"data.#":             2,
-			"data.0.ticker":      "AUDIO",
-			"data.0.mint":        "9LzCMqDgTKYz9Drzqnpgee3SGa89up3a247ypMj2xrqM",
-			"data.0.decimals":    8,
-			"data.0.owner_id":    trashid.MustEncodeHashID(1),
-			"data.0.balance":     1800000000, // 18 AUDIO
-			"data.0.balance_usd": 180.0,      // Assuming $10 per AUDIO
-			"data.1.ticker":      "USDC",
-			"data.1.mint":        "EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v",
-			"data.1.balance":     7000000, // 7 USDC
-			"data.1.balance_usd": 7.0,
+			"data.#":                             2,
+			"data.0.ticker":                      "AUDIO",
+			"data.0.mint":                        "9LzCMqDgTKYz9Drzqnpgee3SGa89up3a247ypMj2xrqM",
+			"data.0.decimals":                    8,
+			"data.0.owner_id":                    trashid.MustEncodeHashID(1),
+			"data.0.balance":                     1800000000, // 18 AUDIO
+			"data.0.balance_usd":                 180.0,      // Assuming $10 per AUDIO
+			"data.0.accounts.#":                  3,
+			"data.0.accounts.0.account":          "associated",
+			"data.0.accounts.0.owner":            "owner_wallet",
+			"data.0.accounts.0.balance":          1000000000, // 10 AUDIO
+			"data.0.accounts.0.balance_usd":      100.0,
+			"data.0.accounts.0.is_in_app_wallet": false,
+			"data.0.accounts.1.account":          "associated3",
+			"data.0.accounts.1.owner":            "owner_wallet3",
+			"data.0.accounts.1.balance":          500000000, // 5 AUDIO
+			"data.0.accounts.1.balance_usd":      50.0,
+			"data.0.accounts.1.is_in_app_wallet": false,
+			"data.0.accounts.2.account":          "claimable",
+			"data.0.accounts.2.owner":            "claimable_tokens_pda",
+			"data.0.accounts.2.balance":          300000000, // 3 AUDIO
+			"data.0.accounts.2.balance_usd":      30.0,
+			"data.0.accounts.2.is_in_app_wallet": true,
+			"data.1.ticker":                      "USDC",
+			"data.1.mint":                        "EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v",
+			"data.1.balance":                     7000000, // 7 USDC
+			"data.1.balance_usd":                 7.0,
+			"data.1.accounts.#":                  1,
+			"data.1.accounts.0.account":          "associated2",
+			"data.1.accounts.0.owner":            "owner_wallet2",
+			"data.1.accounts.0.balance":          7000000,
+			"data.1.accounts.0.balance_usd":      7.0,
+			"data.1.accounts.0.is_in_app_wallet": false,
 		})
 	}
 }
@@ -344,10 +366,12 @@ func TestUserCoinsZeroBalanceOwned(t *testing.T) {
 		"data.0.owner_id":    trashid.MustEncodeHashID(2),
 		"data.0.balance":     0, // Zero balance
 		"data.0.balance_usd": 0.0,
+		"data.0.accounts.#":  0, // No token accounts for owned coin
 		"data.1.ticker":      "AUDIO", // Higher balance but not owned
 		"data.1.mint":        "9LzCMqDgTKYz9Drzqnpgee3SGa89up3a247ypMj2xrqM",
 		"data.1.balance":     5000000000, // 50 AUDIO
 		"data.1.balance_usd": 50.0,
+		"data.1.accounts.#":  1,
 	})
 }
 

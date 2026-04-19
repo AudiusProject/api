@@ -16452,6 +16452,7 @@ components:
         - balance
         - has_discord
         - balance_usd
+        - accounts
       type: object
       properties:
         mint:
@@ -16492,6 +16493,11 @@ components:
           type: number
           description: The balance of the coin in the user's account in USD
           example: 1.23
+        accounts:
+          type: array
+          description: The per-account balances that sum to the total balance, ordered by balance DESC
+          items:
+            $ref: "#/components/schemas/user_coin_account"
     track_feed_item:
       required:
         - item
