@@ -16492,6 +16492,11 @@ components:
           type: number
           description: The balance of the coin in the user's account in USD
           example: 1.23
+        accounts:
+          type: array
+          description: Per-token-account breakdown of the user's holdings for this coin. Populated by GET /v1/users/{id}/coins; omitted by GET /v1/wallet/{walletId}/coins.
+          items:
+            $ref: "#/components/schemas/user_coin_account"
     track_feed_item:
       required:
         - item

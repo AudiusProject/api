@@ -73,13 +73,37 @@ func (app *ApiServer) v1UsersCoins(c *fiber.Ctx) error {
 			artist_coins.logo_uri,
 			artist_coins.banner_image_url,
 			COALESCE(balances_by_mint.balance, 0) AS balance,
-			(COALESCE(balances_by_mint.balance, 0) * COALESCE(coin_prices.price, 0)) / POWER(10, artist_coins.decimals) AS balance_usd
+			(COALESCE(balances_by_mint.balance, 0) * COALESCE(coin_prices.price, 0)) / POWER(10, artist_coins.decimals) AS balance_usd,
+			COALESCE(
+				JSON_AGG(
+					JSON_BUILD_OBJECT(
+						'account', balances.account,
+						'owner', balances.owner,
+						'balance', balances.balance,
+						'balance_usd', (balances.balance * COALESCE(coin_prices.price, 0)) / POWER(10, artist_coins.decimals),
+						'is_in_app_wallet', balances.is_in_app_wallet
+					)
+					ORDER BY balances.balance DESC
+				) FILTER (WHERE balances.account IS NOT NULL),
+				'[]'::json
+			) AS accounts
 		FROM artist_coins
 		LEFT JOIN balances_by_mint ON balances_by_mint.mint = artist_coins.mint
 		LEFT JOIN artist_coin_prices coin_prices ON coin_prices.mint = artist_coins.mint
+		LEFT JOIN balances ON balances.mint = artist_coins.mint
 		WHERE artist_coins.user_id = @user_id  -- Show owned coins
-		   OR balance > 0  -- Show coins with positive balance
-		   OR ticker = 'AUDIO' -- Always show AUDIO
+		   OR balances_by_mint.balance > 0  -- Show coins with positive balance
+		   OR artist_coins.ticker = 'AUDIO' -- Always show AUDIO
+		GROUP BY
+			artist_coins.ticker,
+			artist_coins.mint,
+			artist_coins.decimals,
+			artist_coins.has_discord,
+			artist_coins.user_id,
+			artist_coins.logo_uri,
+			artist_coins.banner_image_url,
+			balances_by_mint.balance,
+			coin_prices.price
 		ORDER BY
 			-- Always show user's owned coins first, regardless of balance
 			(artist_coins.user_id = @user_id) DESC,
@@ -102,7 +126,7 @@ func (app *ApiServer) v1UsersCoins(c *fiber.Ctx) error {
 		return err
 	}
 
-	userCoins, err := pgx.CollectRows(rows, pgx.RowToStructByName[UserCoin])
+	userCoins, err := pgx.CollectRows(rows, pgx.RowToStructByName[UserCoinAccounts])
 	if err != nil {
 		return err
 	}
