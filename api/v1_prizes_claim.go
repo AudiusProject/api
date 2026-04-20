@@ -139,6 +139,14 @@ func (app *ApiServer) v1PrizesClaim(c *fiber.Ctx) error {
 			SELECT COUNT(*) FROM sol_token_account_balance_changes WHERE signature = $1
 		`, req.Signature).Scan(&count)
 		if err != nil {
+			// If the deadline hit while the query was in-flight, surface it as a
+			// timeout instead of a generic DB error so the caller can retry.
+			if ctx.Err() != nil {
+				app.logger.Error("Context deadline exceeded while processing prize claim",
+					zap.String("wallet", req.Wallet),
+					zap.String("signature", req.Signature))
+				return fiber.NewError(fiber.StatusRequestTimeout, "Request timed out")
+			}
 			app.logger.Error("Failed to query transaction existence", zap.Error(err))
 			return fiber.NewError(fiber.StatusInternalServerError, "Database error")
 		}
