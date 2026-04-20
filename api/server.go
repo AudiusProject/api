@@ -512,6 +512,7 @@ func NewApiServer(config config.Config) *ApiServer {
 		g.Get("/fan-club/feed", app.v1FanClubFeed)
 
 		g.Get("/events/:eventId/comments", app.v1EventComments)
+		g.Get("/events/:eventId/followers", app.v1EventsFollowers)
 		g.Get("/events/:eventId/follow_state", app.v1EventFollowState)
 		g.Get("/events/:eventId/follow-state", app.v1EventFollowState)
 		g.Post("/events/:eventId/follow", app.requireAuthMiddleware, app.requireWriteScope, app.postV1EventFollow)

@@ -491,3 +491,112 @@ func TestPostEventFollow_DeletedEventIs404(t *testing.T) {
 	)
 	assert.Equal(t, 404, status)
 }
+
+func TestEventsFollowers_ReturnsOnlyLiveEventSubscribers(t *testing.T) {
+	// /v1/events/:eventId/followers returns the list of users subscribed
+	// to the event. Mirrors the shape + filtering rules of follow_state:
+	// entity_type='Event', is_current & !is_delete, and ignores legacy
+	// user-type subscriptions with a colliding numeric id.
+	app := emptyTestApp(t)
+
+	database.Seed(app.pool.Replicas[0], database.FixtureMap{
+		"users": testEventFollowersBaseUsers(),
+		"tracks": {
+			{
+				"track_id":   1,
+				"owner_id":   1,
+				"title":      "Original",
+				"created_at": "2020-01-01 00:00:00",
+			},
+		},
+		"events": {
+			{
+				"event_id":    200,
+				"event_type":  "remix_contest",
+				"user_id":     1,
+				"entity_type": "track",
+				"entity_id":   1,
+				"event_data":  map[string]any{"description": "remix"},
+				"created_at":  "2020-05-01 00:00:00",
+				"updated_at":  "2020-05-01 00:00:00",
+			},
+		},
+		"subscriptions": []map[string]any{
+			{
+				"subscriber_id": 2,
+				"user_id":       200,
+				"entity_type":   "Event",
+				"entity_id":     200,
+				"is_current":    true,
+				"is_delete":     false,
+				"blockhash":     "bh1",
+				"blocknumber":   101,
+				"txhash":        "tx1",
+			},
+			{
+				"subscriber_id": 3,
+				"user_id":       200,
+				"entity_type":   "Event",
+				"entity_id":     200,
+				"is_current":    true,
+				"is_delete":     false,
+				"blockhash":     "bh2",
+				"blocknumber":   101,
+				"txhash":        "tx2",
+			},
+			// Legacy user-type subscription with a colliding numeric id —
+			// must NOT show up.
+			{
+				"subscriber_id": 1,
+				"user_id":       200,
+				"entity_type":   "User",
+				"entity_id":     nil,
+				"is_current":    true,
+				"is_delete":     false,
+				"blockhash":     "bh3",
+				"blocknumber":   101,
+				"txhash":        "tx3",
+			},
+			// Deleted event subscription — must NOT show up.
+			{
+				"subscriber_id": 1,
+				"user_id":       200,
+				"entity_type":   "Event",
+				"entity_id":     200,
+				"is_current":    true,
+				"is_delete":     true,
+				"blockhash":     "bh4",
+				"blocknumber":   101,
+				"txhash":        "tx4",
+			},
+		},
+	})
+
+	encEvent, err := trashid.EncodeHashId(200)
+	require.NoError(t, err)
+	status, body := testGet(t, app, "/v1/events/"+encEvent+"/followers")
+	require.Equal(t, 200, status, string(body))
+
+	jsonAssert(t, body, map[string]any{
+		"data.#": 2,
+	})
+}
+
+func TestEventsFollowers_UnknownEventReturnsEmptyList(t *testing.T) {
+	app := emptyTestApp(t)
+
+	encEvent, err := trashid.EncodeHashId(9999)
+	require.NoError(t, err)
+	status, body := testGet(t, app, "/v1/events/"+encEvent+"/followers")
+	require.Equal(t, 200, status, string(body))
+	jsonAssert(t, body, map[string]any{
+		"data.#": 0,
+	})
+}
+
+func TestEventsFollowers_InvalidEventIdReturns400(t *testing.T) {
+	app := emptyTestApp(t)
+
+	status, _ := testGet(t, app, "/v1/events/not-a-hashid/followers")
+	assert.Equal(t, 400, status)
+}
