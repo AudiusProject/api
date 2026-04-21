@@ -110,6 +110,40 @@ func (app *ApiServer) deleteV1EventFollow(c *fiber.Ctx) error {
 	})
 }
 
+// v1EventsFollowers returns the list of users subscribed to a given
+// remix-contest event, ordered by each user's own follower count so the
+// most-followed fans surface first in the avatar stack / leaderboard. The
+// response shape matches /v1/users/:userId/followers so the same User
+// renderers can consume it.
+func (app *ApiServer) v1EventsFollowers(c *fiber.Ctx) error {
+	eventID, err := trashid.DecodeHashId(c.Params("eventId"))
+	if err != nil {
+		return fiber.NewError(fiber.StatusBadRequest, "invalid event id")
+	}
+
+	// `subscriptions.user_id` mirrors the event id (legacy column), so the
+	// `USING (user_id)` shortcut from v1UsersFollowers would be ambiguous
+	// here — qualify both joins explicitly against the user being looked
+	// up (subscriber_id).
+	sql := `
+	SELECT subscriptions.subscriber_id
+	FROM subscriptions
+	JOIN users ON users.user_id = subscriptions.subscriber_id
+	JOIN aggregate_user ON aggregate_user.user_id = subscriptions.subscriber_id
+	WHERE subscriptions.entity_type = 'Event'
+	  AND subscriptions.entity_id = @eventId
+	  AND subscriptions.is_current = true
+	  AND subscriptions.is_delete = false
+	  AND users.is_deactivated = false
+	ORDER BY aggregate_user.follower_count DESC
+	LIMIT @limit
+	OFFSET @offset
+	`
+	return app.queryUsers(c, sql, pgx.NamedArgs{
+		"eventId": eventID,
+	})
+}
+
 // v1EventFollowState returns { is_followed, follower_count } for an event.
 // Used by the contest page to render the follow button in the right state.
 func (app *ApiServer) v1EventFollowState(c *fiber.Ctx) error {
