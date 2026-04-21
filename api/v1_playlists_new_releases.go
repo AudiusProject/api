@@ -6,6 +6,8 @@ import (
 	"github.com/jackc/pgx/v5"
 )
 
+const minNewAlbumValidationScore = 5
+
 type GetPlaylistsNewReleasesParams struct {
 	Limit  int    `query:"limit" default:"10" validate:"min=1,max=100"`
 	Offset int    `query:"offset" default:"0" validate:"min=0"`
@@ -19,25 +21,43 @@ func (app *ApiServer) v1PlaylistsNewReleases(c *fiber.Ctx) error {
 	}
 
 	isAlbum := params.Type == "album"
+	joinClause := ""
+	filterClause := ""
+	orderClause := "COALESCE(p.release_date, p.created_at) DESC, p.playlist_id DESC"
+
+	if isAlbum {
+		joinClause = "LEFT JOIN aggregate_playlist ap ON p.playlist_id = ap.playlist_id"
+		filterClause = `
+		  AND COALESCE(ap.save_count, 0) + COALESCE(ap.repost_count, 0) >= @min_validation_score
+		`
+		orderClause = `
+		  COALESCE(ap.save_count, 0) + COALESCE(ap.repost_count, 0) DESC,
+		  COALESCE(p.release_date, p.created_at) DESC,
+		  p.playlist_id DESC
+		`
+	}
 
 	sql := `
-		SELECT playlist_id
-		FROM playlists
-		WHERE is_delete = false
-		  AND is_current = true
-		  AND is_private = false
-		  AND is_album = @is_album
-		  AND COALESCE(release_date, created_at) <= NOW()
-		  AND COALESCE(release_date, created_at) > NOW() - INTERVAL '90 days'
-		ORDER BY COALESCE(release_date, created_at) DESC, playlist_id DESC
+		SELECT p.playlist_id
+		FROM playlists p
+		` + joinClause + `
+		WHERE p.is_delete = false
+		  AND p.is_current = true
+		  AND p.is_private = false
+		  AND p.is_album = @is_album
+		  AND COALESCE(p.release_date, p.created_at) <= NOW()
+		  AND COALESCE(p.release_date, p.created_at) > NOW() - INTERVAL '90 days'
+		  ` + filterClause + `
+		ORDER BY ` + orderClause + `
 		LIMIT @limit
 		OFFSET @offset
 	`
 
 	rows, err := app.pool.Query(c.Context(), sql, pgx.NamedArgs{
-		"is_album": isAlbum,
-		"limit":    params.Limit,
-		"offset":   params.Offset,
+		"is_album":             isAlbum,
+		"limit":                params.Limit,
+		"offset":               params.Offset,
+		"min_validation_score": minNewAlbumValidationScore,
 	})
 	if err != nil {
 		return err
