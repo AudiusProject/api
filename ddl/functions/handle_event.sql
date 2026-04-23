@@ -14,8 +14,7 @@ begin
 
     -- Only create notifications if the track is public
     if track_is_public then
-      -- For each follower of the event creator and each user who favorited the track
-      -- Using UNION to ensure we don't get duplicate user_ids
+      -- Followers of the host, track savers, and users who follow the contest (event subscribers)
       for notified_user_id in
         select distinct user_id
         from (
@@ -33,6 +32,13 @@ begin
             and s.save_type = 'track'
             and s.is_current = true
             and s.is_delete = false
+          union
+          select sub.subscriber_id as user_id
+          from subscriptions sub
+          where sub.entity_type = 'Event'
+            and sub.user_id = new.event_id
+            and sub.is_current = true
+            and sub.is_delete = false
         ) as users_to_notify
       loop
         -- Create a notification for this user
