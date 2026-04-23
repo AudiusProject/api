@@ -15213,6 +15213,7 @@ components:
       enum:
         - Track
         - FanClub
+        - Event
     top_listener:
       type: object
       properties:
