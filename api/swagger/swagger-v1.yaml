@@ -8201,9 +8201,12 @@ paths:
                 - fan_remix_contest_ended
                 - fan_remix_contest_ending_soon
                 - fan_remix_contest_winners_selected
+                - fan_remix_contest_submission
                 - artist_remix_contest_ended
                 - artist_remix_contest_ending_soon
                 - artist_remix_contest_submissions
+                - fan_club_text_post
+                - remix_contest_update
       responses:
         "200":
           description: Success
@@ -16894,6 +16897,8 @@ components:
         - $ref: "#/components/schemas/artist_remix_contest_ending_soon_notification"
         - $ref: "#/components/schemas/artist_remix_contest_submissions_notification"
         - $ref: "#/components/schemas/fan_remix_contest_winners_selected_notification"
+        - $ref: "#/components/schemas/remix_contest_update_notification"
+        - $ref: "#/components/schemas/fan_remix_contest_submission_notification"
         - $ref: "#/components/schemas/fan_club_text_post_notification"
       discriminator:
         propertyName: type
@@ -16939,6 +16944,8 @@ components:
           artist_remix_contest_ending_soon: "#/components/schemas/artist_remix_contest_ending_soon_notification"
           artist_remix_contest_submissions: "#/components/schemas/artist_remix_contest_submissions_notification"
           fan_remix_contest_winners_selected: "#/components/schemas/fan_remix_contest_winners_selected_notification"
+          remix_contest_update: "#/components/schemas/remix_contest_update_notification"
+          fan_remix_contest_submission: "#/components/schemas/fan_remix_contest_submission_notification"
           fan_club_text_post: "#/components/schemas/fan_club_text_post_notification"
     save_notification:
       required:
@@ -17088,6 +17095,46 @@ components:
           type: array
           items:
             $ref: "#/components/schemas/fan_remix_contest_winners_selected_notification_action"
+    remix_contest_update_notification:
+      required:
+        - actions
+        - group_id
+        - is_seen
+        - type
+      type: object
+      properties:
+        type:
+          type: string
+        group_id:
+          type: string
+        is_seen:
+          type: boolean
+        seen_at:
+          type: integer
+        actions:
+          type: array
+          items:
+            $ref: "#/components/schemas/remix_contest_update_notification_action"
+    fan_remix_contest_submission_notification:
+      required:
+        - actions
+        - group_id
+        - is_seen
+        - type
+      type: object
+      properties:
+        type:
+          type: string
+        group_id:
+          type: string
+        is_seen:
+          type: boolean
+        seen_at:
+          type: integer
+        actions:
+          type: array
+          items:
+            $ref: "#/components/schemas/fan_remix_contest_submission_notification_action"
     tier_change_notification:
       required:
         - actions
@@ -17516,6 +17563,38 @@ components:
           type: integer
         data:
           $ref: "#/components/schemas/fan_remix_contest_winners_selected_notification_action_data"
+    remix_contest_update_notification_action:
+      required:
+        - data
+        - specifier
+        - timestamp
+        - type
+      type: object
+      properties:
+        specifier:
+          type: string
+        type:
+          type: string
+        timestamp:
+          type: integer
+        data:
+          $ref: "#/components/schemas/remix_contest_update_notification_action_data"
+    fan_remix_contest_submission_notification_action:
+      required:
+        - data
+        - specifier
+        - timestamp
+        - type
+      type: object
+      properties:
+        specifier:
+          type: string
+        type:
+          type: string
+        timestamp:
+          type: integer
+        data:
+          $ref: "#/components/schemas/fan_remix_contest_submission_notification_action_data"
     send_tip_notification_action:
       required:
         - data
@@ -18086,6 +18165,41 @@ components:
         entity_user_id:
           type: string
         entity_id:
+          type: string
+    remix_contest_update_notification_action_data:
+      required:
+        - event_id
+        - entity_id
+        - entity_user_id
+        - comment_id
+      type: object
+      properties:
+        event_id:
+          type: string
+        entity_id:
+          type: string
+        entity_user_id:
+          type: string
+        comment_id:
+          type: string
+    fan_remix_contest_submission_notification_action_data:
+      required:
+        - event_id
+        - entity_id
+        - entity_user_id
+        - submission_track_id
+        - submitter_user_id
+      type: object
+      properties:
+        event_id:
+          type: string
+        entity_id:
+          type: string
+        entity_user_id:
+          type: string
+        submission_track_id:
+          type: string
+        submitter_user_id:
           type: string
     trending_notification_action:
       required:
