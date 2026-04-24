@@ -9914,7 +9914,7 @@ ALTER TABLE ONLY public.countries
 --
 
 ALTER TABLE ONLY public.dashboard_wallet_users
-    ADD CONSTRAINT dashboard_wallet_users_pkey PRIMARY KEY (user_id, wallet);
+    ADD CONSTRAINT dashboard_wallet_users_pkey PRIMARY KEY (wallet);
 
 
 --
