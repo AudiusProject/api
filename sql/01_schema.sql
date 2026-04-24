@@ -9930,7 +9930,7 @@ ALTER TABLE ONLY public.delist_status_cursor
 --
 
 ALTER TABLE ONLY public.developer_apps
-    ADD CONSTRAINT developer_apps_pkey PRIMARY KEY (txhash, address);
+    ADD CONSTRAINT developer_apps_pkey PRIMARY KEY (address, txhash);
 
 
 --
@@ -9986,7 +9986,7 @@ ALTER TABLE ONLY public.events
 --
 
 ALTER TABLE ONLY public.follows
-    ADD CONSTRAINT follows_pkey PRIMARY KEY (followee_user_id, txhash, follower_user_id);
+    ADD CONSTRAINT follows_pkey PRIMARY KEY (follower_user_id, followee_user_id, txhash);
 
 
 --
@@ -9994,7 +9994,7 @@ ALTER TABLE ONLY public.follows
 --
 
 ALTER TABLE ONLY public.grants
-    ADD CONSTRAINT grants_pkey PRIMARY KEY (user_id, txhash, grantee_address);
+    ADD CONSTRAINT grants_pkey PRIMARY KEY (grantee_address, user_id, txhash);
 
 
 --
@@ -10138,7 +10138,7 @@ ALTER TABLE ONLY public.playlist_trending_scores
 --
 
 ALTER TABLE ONLY public.playlists
-    ADD CONSTRAINT playlists_pkey PRIMARY KEY (txhash, playlist_id);
+    ADD CONSTRAINT playlists_pkey PRIMARY KEY (playlist_id, txhash);
 
 
 --
@@ -10210,7 +10210,7 @@ ALTER TABLE ONLY public.reported_comments
 --
 
 ALTER TABLE ONLY public.reposts
-    ADD CONSTRAINT reposts_pkey PRIMARY KEY (txhash, user_id, repost_item_id, repost_type);
+    ADD CONSTRAINT reposts_pkey PRIMARY KEY (user_id, repost_item_id, repost_type, txhash);
 
 
 --
@@ -10282,7 +10282,7 @@ ALTER TABLE ONLY public.rpclog
 --
 
 ALTER TABLE ONLY public.saves
-    ADD CONSTRAINT saves_pkey PRIMARY KEY (save_item_id, user_id, txhash, save_type);
+    ADD CONSTRAINT saves_pkey PRIMARY KEY (user_id, save_item_id, save_type, txhash);
 
 
 --
@@ -10570,7 +10570,7 @@ ALTER TABLE ONLY public.stems
 --
 
 ALTER TABLE ONLY public.subscriptions
-    ADD CONSTRAINT subscriptions_pkey PRIMARY KEY (txhash, user_id, subscriber_id);
+    ADD CONSTRAINT subscriptions_pkey PRIMARY KEY (subscriber_id, user_id, txhash);
 
 
 --
@@ -10626,7 +10626,7 @@ ALTER TABLE ONLY public.track_trending_scores
 --
 
 ALTER TABLE ONLY public.tracks
-    ADD CONSTRAINT tracks_pkey PRIMARY KEY (txhash, track_id);
+    ADD CONSTRAINT tracks_pkey PRIMARY KEY (track_id, txhash);
 
 
 --
@@ -10810,7 +10810,7 @@ ALTER TABLE ONLY public.user_tips
 --
 
 ALTER TABLE ONLY public.users
-    ADD CONSTRAINT users_pkey PRIMARY KEY (txhash, user_id);
+    ADD CONSTRAINT users_pkey PRIMARY KEY (user_id, txhash);
 
 
 --
