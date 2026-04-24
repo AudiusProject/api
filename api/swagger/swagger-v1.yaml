@@ -1238,7 +1238,7 @@ paths:
           content:
             application/json:
               schema:
-                $ref: "#/components/schemas/events_response"
+                $ref: "#/components/schemas/remix_contests_response"
         "400":
           description: Bad request
           content: {}
@@ -11795,6 +11795,35 @@ components:
           type: array
           items:
             $ref: "#/components/schemas/event"
+    remix_contests_related:
+      type: object
+      properties:
+        users:
+          type: array
+          items:
+            $ref: "#/components/schemas/user"
+        tracks:
+          type: array
+          items:
+            $ref: "#/components/schemas/track"
+        entry_counts:
+          type: object
+          additionalProperties:
+            type: integer
+            format: int64
+          description:
+            Per-contest entry counts keyed by the contest's parent track id
+            (hashid). Lets the discovery UI render entry counts without
+            issuing an extra `/tracks/{id}/remixes?limit=0` per card.
+    remix_contests_response:
+      type: object
+      properties:
+        data:
+          type: array
+          items:
+            $ref: "#/components/schemas/event"
+        related:
+          $ref: "#/components/schemas/remix_contests_related"
     event_follow_state:
       required:
         - is_followed

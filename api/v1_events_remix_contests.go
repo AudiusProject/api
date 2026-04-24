@@ -4,6 +4,7 @@ import (
 	"strings"
 
 	"api.audius.co/api/dbv1"
+	"api.audius.co/trashid"
 	"github.com/gofiber/fiber/v2"
 	"github.com/jackc/pgx/v5"
 )
@@ -96,11 +97,113 @@ func (app *ApiServer) v1EventsRemixContests(c *fiber.Ctx) error {
 	}
 
 	data := make([]dbv1.FullEvent, 0, len(items))
+	trackIDs := make([]int32, 0, len(items))
+	userIDSet := map[int32]struct{}{}
 	for _, event := range items {
 		data = append(data, app.queries.ToFullEvent(event))
+		if event.EntityType == dbv1.EventEntityTypeTrack && event.EntityID.Valid {
+			trackIDs = append(trackIDs, event.EntityID.Int32)
+		}
+		userIDSet[event.UserID] = struct{}{}
+	}
+
+	// Load tracks first so we can also resolve each track's owner id into the
+	// related users list (contest host ≠ track owner isn't common in practice,
+	// but we don't want the UI to make a second round-trip when it happens).
+	myID := app.getMyId(c)
+	authedWallet := app.tryGetAuthedWallet(c)
+
+	var trackMap map[int32]dbv1.Track
+	if len(trackIDs) > 0 {
+		trackMap, err = app.queries.TracksKeyed(c.Context(), dbv1.TracksParams{
+			GetTracksParams: dbv1.GetTracksParams{
+				Ids:          trackIDs,
+				MyID:         myID,
+				AuthedWallet: authedWallet,
+			},
+		})
+		if err != nil {
+			return err
+		}
+	}
+	for _, t := range trackMap {
+		userIDSet[t.GetTracksRow.UserID] = struct{}{}
+	}
+
+	userIDs := make([]int32, 0, len(userIDSet))
+	for id := range userIDSet {
+		userIDs = append(userIDs, id)
+	}
+	var userMap map[int32]dbv1.User
+	if len(userIDs) > 0 {
+		userMap, err = app.queries.UsersKeyed(c.Context(), dbv1.GetUsersParams{
+			Ids:  userIDs,
+			MyID: myID,
+		})
+		if err != nil {
+			return err
+		}
+	}
+
+	users := make([]dbv1.User, 0, len(userMap))
+	for _, u := range userMap {
+		users = append(users, u)
+	}
+	tracks := make([]dbv1.Track, 0, len(trackMap))
+	for _, t := range trackMap {
+		tracks = append(tracks, t)
+	}
+
+	// Per-contest entry counts. Mirrors the filter used in
+	// v1TrackRemixes when only_contest_entries=true: a remix is an entry iff
+	// the child track was created *after* the contest started and *before*
+	// its end_date, and the child track is listed + published. Keyed by the
+	// contest's parent track id (event.entity_id) so the UI can prime the
+	// `useRemixes({ trackId, isContestEntry: true })` cache directly.
+	entryCounts := map[string]int64{}
+	if len(trackIDs) > 0 {
+		countRows, err := app.pool.Query(c.Context(), `
+			SELECT
+				e.entity_id,
+				COUNT(DISTINCT t.track_id) FILTER (
+					WHERE t.is_current = true
+					AND t.is_delete = false
+					AND t.is_unlisted = false
+					AND t.created_at > e.created_at
+					AND (e.end_date IS NULL OR t.created_at < e.end_date)
+				) AS entry_count
+			FROM events e
+			LEFT JOIN remixes rm ON rm.parent_track_id = e.entity_id
+			LEFT JOIN tracks t ON t.track_id = rm.child_track_id
+			WHERE e.event_type = 'remix_contest'
+				AND e.is_deleted = false
+				AND e.entity_type = 'track'
+				AND e.entity_id = ANY(@track_ids)
+			GROUP BY e.entity_id
+		`, pgx.NamedArgs{"track_ids": trackIDs})
+		if err != nil {
+			return err
+		}
+		defer countRows.Close()
+		for countRows.Next() {
+			var parentTrackID int32
+			var count int64
+			if err := countRows.Scan(&parentTrackID, &count); err != nil {
+				return err
+			}
+			entryCounts[trashid.MustEncodeHashID(int(parentTrackID))] = count
+		}
+		if err := countRows.Err(); err != nil {
+			return err
+		}
 	}
 
 	return c.JSON(fiber.Map{
 		"data": data,
+		"related": fiber.Map{
+			"users":         users,
+			"tracks":        tracks,
+			"entry_counts":  entryCounts,
+		},
 	})
 }
