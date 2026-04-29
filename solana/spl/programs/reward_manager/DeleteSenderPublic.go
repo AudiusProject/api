@@ -27,7 +27,11 @@ import (
 //	3. []         sysvar instructions
 //	4..n. []      attester sender PDAs
 type DeleteSenderPublic struct {
-	EthAddress common.Address
+	// EthAddress is used to derive the sender PDA but is NOT serialized into
+	// the instruction data — the on-chain Instructions::DeleteSenderPublic
+	// variant carries no fields. The program reads the target sender's eth
+	// address from the sender PDA itself, not from instruction data.
+	EthAddress common.Address `bin:"-" borsh_skip:"true"`
 
 	Attesters []common.Address `bin:"-" borsh_skip:"true"`
 
