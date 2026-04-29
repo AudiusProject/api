@@ -24,6 +24,8 @@ github.com/OpenAudio/go-openaudio v1.2.0 h1:jnvc7nWpPEZlDTABVrp9uLuLh0BcchwpHkg8
 github.com/OpenAudio/go-openaudio v1.2.0/go.mod h1:tI/qfjYymj8TmVWEMl4WnciLxB//I2eZZyIkuUUCSnM=
 github.com/OpenAudio/go-openaudio v1.2.9 h1:dhUTfzNAq4jVhSRmu1XDpVs8wMen3rPlSuVW1qqwZdo=
 github.com/OpenAudio/go-openaudio v1.2.9/go.mod h1:+xl3SeIY7pc6CfwO1qmYjWELLSseQaulqSQefE6i2FA=
+github.com/OpenAudio/go-openaudio v1.2.11 h1:s30csv/5g2bi8j4RcI6op04AmazX3qFuOw1o+FAq7UE=
+github.com/OpenAudio/go-openaudio v1.2.11/go.mod h1:+xl3SeIY7pc6CfwO1qmYjWELLSseQaulqSQefE6i2FA=
 github.com/StackExchange/wmi v1.2.1 h1:VIkavFPXSjcnS+O8yTq7NI32k0R5Aj+v39y29VYDOSA=
 github.com/StackExchange/wmi v1.2.1/go.mod h1:rcmrprowKIVzvc+NUiLncP2uuArMWLCbu9SBzvHz7e8=
 github.com/VictoriaMetrics/fastcache v1.12.2 h1:N0y9ASrJ0F6h0QaC3o6uJb3NIZ9VKLjCM7NQbSmF7WI=
