@@ -801,19 +801,25 @@ func (app *ApiServer) v1ClaimRewards(c *fiber.Ctx) error {
 				Specifier:   row.Specifier,
 			}
 
-			reward, err := getReward(row.ChallengeID, app.rewardAttester.Rewards)
+			_, err := getReward(row.ChallengeID, app.rewardAttester.Rewards)
 			if err != nil {
 				results[i].Error = err.Error()
 				g.Done()
 				return
 			}
 
-			results[i].Amount = reward.Amount
+			// Use the per-challenge amount from user_challenges (set when the
+			// challenge was dispatched), not the static config reward.Amount.
+			// Trending tt/tut challenges pay rank-dependent amounts (e.g. 1000
+			// for ranks 1-5 and 100 for ranks 6-10) that the static reward
+			// config can't represent.
+			amount := uint64(row.Amount)
+			results[i].Amount = amount
 
 			rewardClaim := RewardClaim{
 				RewardClaim: rewards.RewardClaim{
 					RewardID:            row.ChallengeID,
-					Amount:              reward.Amount,
+					Amount:              amount,
 					Specifier:           row.Specifier,
 					RecipientEthAddress: row.Wallet.String,
 					ClaimAuthority:      antiAbuseOracle.DelegateWallet,
