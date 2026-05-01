@@ -3,7 +3,8 @@ SELECT
     users.handle,
     users.wallet,
     user_challenges.challenge_id,
-    user_challenges.specifier
+    user_challenges.specifier,
+    user_challenges.amount
 FROM user_challenges
 JOIN users ON users.user_id = user_challenges.user_id
 LEFT JOIN challenge_disbursements

@@ -16,7 +16,8 @@ SELECT
     users.handle,
     users.wallet,
     user_challenges.challenge_id,
-    user_challenges.specifier
+    user_challenges.specifier,
+    user_challenges.amount
 FROM user_challenges
 JOIN users ON users.user_id = user_challenges.user_id
 LEFT JOIN challenge_disbursements
@@ -41,6 +42,7 @@ type GetUndisbursedChallengesRow struct {
 	Wallet      pgtype.Text `json:"wallet"`
 	ChallengeID string      `json:"challenge_id"`
 	Specifier   string      `json:"specifier"`
+	Amount      int32       `json:"amount"`
 }
 
 func (q *Queries) GetUndisbursedChallenges(ctx context.Context, arg GetUndisbursedChallengesParams) ([]GetUndisbursedChallengesRow, error) {
@@ -57,6 +59,7 @@ func (q *Queries) GetUndisbursedChallenges(ctx context.Context, arg GetUndisburs
 			&i.Wallet,
 			&i.ChallengeID,
 			&i.Specifier,
+			&i.Amount,
 		); err != nil {
 			return nil, err
 		}
