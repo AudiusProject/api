@@ -10962,6 +10962,12 @@ components:
           items:
             type: string
           description: Wallet addresses that can sign to authorize stream access (programmable distribution). When empty or omitted, the track is public and validator/creator nodes can serve it.
+        allowed_api_keys:
+          type: array
+          nullable: true
+          items:
+            type: string
+          description: API keys allowed to stream this track
         stream_conditions:
           nullable: true
           allOf:
@@ -11191,6 +11197,12 @@ components:
           items:
             type: string
           description: Wallet addresses that can sign to authorize stream access (programmable distribution). When empty or omitted, the track is public and validator/creator nodes can serve it.
+        allowed_api_keys:
+          type: array
+          nullable: true
+          items:
+            type: string
+          description: API keys allowed to stream this track
         stream_conditions:
           nullable: true
           allOf:
