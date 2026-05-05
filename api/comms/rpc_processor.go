@@ -270,6 +270,13 @@ select last_active_at from chat_member where chat_id = $1 and user_id = $2`
 					return err
 				}
 			}
+		case RPCMethodChatReadAll:
+			// No params to unmarshal. The per-row last_active_at guard lives
+			// inside chatReadAllMessages so we don't have to read first.
+			err = chatReadAllMessages(tx, ctx, userId, messageTs)
+			if err != nil {
+				return err
+			}
 		case RPCMethodChatPermit:
 			var params ChatPermitRPCParams
 			err = json.Unmarshal(rawRpc.Params, &params)

@@ -67,6 +67,9 @@ func (vtor *Validator) Validate(ctx context.Context, userId int32, rawRpc RawRPC
 		return vtor.validateChatReact(vtor.pool, ctx, userId, rawRpc)
 	case RPCMethodChatRead:
 		return vtor.validateChatRead(userId, rawRpc)
+	case RPCMethodChatReadAll:
+		// No params to validate; ban check above already gates this call.
+		return nil
 	case RPCMethodChatPermit:
 		return vtor.validateChatPermit(userId, rawRpc)
 	case RPCMethodChatBlock:

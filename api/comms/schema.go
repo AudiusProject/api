@@ -95,6 +95,13 @@ type ChatReadRPCParams struct {
 	ChatID string `json:"chat_id"`
 }
 
+type ChatReadAllRPC struct {
+	Method ChatReadAllRPCMethod `json:"method"`
+	Params ChatReadAllRPCParams `json:"params"`
+}
+
+type ChatReadAllRPCParams struct{}
+
 type ChatBlockRPC struct {
 	Method ChatBlockRPCMethod `json:"method"`
 	Params ChatBlockRPCParams `json:"params"`
@@ -367,6 +374,12 @@ const (
 	MethodChatRead ChatReadRPCMethod = "chat.read"
 )
 
+type ChatReadAllRPCMethod string
+
+const (
+	MethodChatReadAll ChatReadAllRPCMethod = "chat.read_all"
+)
+
 type ChatBlockRPCMethod string
 
 const (
@@ -410,6 +423,7 @@ const (
 	RPCMethodChatPermit          RPCMethod = "chat.permit"
 	RPCMethodChatReact           RPCMethod = "chat.react"
 	RPCMethodChatRead            RPCMethod = "chat.read"
+	RPCMethodChatReadAll         RPCMethod = "chat.read_all"
 	RPCMethodChatUnblock         RPCMethod = "chat.unblock"
 	RPCMethodUserValidateCanChat RPCMethod = "user.validate_can_chat"
 )
