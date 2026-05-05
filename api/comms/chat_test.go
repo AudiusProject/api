@@ -141,7 +141,7 @@ func TestChat(t *testing.T) {
 }
 
 func TestChatReadAllMessages(t *testing.T) {
-	pool := database.CreateTestDatabase(t, "test_comms_read_all")
+	pool := database.CreateTestDatabase(t, "test_comms")
 	defer pool.Close()
 
 	ctx := context.Background()
