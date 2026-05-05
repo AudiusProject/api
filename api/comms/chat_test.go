@@ -139,3 +139,68 @@ func TestChat(t *testing.T) {
 
 	assertReaction(user1Id, replyMessageId, nil)
 }
+
+func TestChatReadAllMessages(t *testing.T) {
+	pool := database.CreateTestDatabase(t, "test_comms_read_all")
+	defer pool.Close()
+
+	ctx := context.Background()
+	seededRand := rand.New(rand.NewSource(time.Now().UnixNano()))
+
+	user1Id := int32(1)
+	user2Id := int32(2)
+	user3Id := int32(3)
+
+	chatA := trashid.ChatID(int(user1Id), int(user2Id))
+	chatB := trashid.ChatID(int(user1Id), int(user3Id))
+	SetupChatWithMembers(t, pool, ctx, chatA, user1Id, user2Id, "a1", "a2")
+	SetupChatWithMembers(t, pool, ctx, chatB, user1Id, user3Id, "b1", "b3")
+
+	assertUnreadCount := func(chatId string, userId int32, expected int) {
+		t.Helper()
+		unreadCount := 0
+		err := pool.QueryRow(ctx, "select unread_count from chat_member where chat_id = $1 and user_id = $2", chatId, userId).Scan(&unreadCount)
+		assert.NoError(t, err)
+		assert.Equal(t, expected, unreadCount, "unread for chat %s user %d", chatId, userId)
+	}
+
+	// Send user1Id one message in each chat from the other party.
+	err := chatSendMessage(pool, ctx, user2Id, chatA, strconv.Itoa(seededRand.Int()), time.Now(), "hi from 2")
+	assert.NoError(t, err)
+	err = chatSendMessage(pool, ctx, user3Id, chatB, strconv.Itoa(seededRand.Int()), time.Now(), "hi from 3")
+	assert.NoError(t, err)
+
+	assertUnreadCount(chatA, user1Id, 1)
+	assertUnreadCount(chatB, user1Id, 1)
+	// Senders' own unread counts stay at zero.
+	assertUnreadCount(chatA, user2Id, 0)
+	assertUnreadCount(chatB, user3Id, 0)
+
+	// Single call clears every unread chat for user1Id without touching
+	// the other members' chats.
+	readTs := time.Now()
+	err = chatReadAllMessages(pool, ctx, user1Id, readTs)
+	assert.NoError(t, err)
+
+	assertUnreadCount(chatA, user1Id, 0)
+	assertUnreadCount(chatB, user1Id, 0)
+
+	// Re-confirm: a stale read (older timestamp) does NOT roll back.
+	// Add a new unread, advance via chatReadAllMessages, then try a stale read.
+	err = chatSendMessage(pool, ctx, user2Id, chatA, strconv.Itoa(seededRand.Int()), time.Now(), "another from 2")
+	assert.NoError(t, err)
+	assertUnreadCount(chatA, user1Id, 1)
+
+	freshTs := time.Now()
+	err = chatReadAllMessages(pool, ctx, user1Id, freshTs)
+	assert.NoError(t, err)
+	assertUnreadCount(chatA, user1Id, 0)
+
+	// Older timestamp must be a no-op for last_active_at.
+	err = chatReadAllMessages(pool, ctx, user1Id, freshTs.Add(-time.Hour))
+	assert.NoError(t, err)
+	var lastActive time.Time
+	err = pool.QueryRow(ctx, "select last_active_at from chat_member where chat_id = $1 and user_id = $2", chatA, user1Id).Scan(&lastActive)
+	assert.NoError(t, err)
+	assert.WithinDuration(t, freshTs.UTC(), lastActive.UTC(), time.Second, "stale read should not roll back last_active_at")
+}
