@@ -705,6 +705,70 @@ paths:
         "500":
           description: Server error
           content: {}
+  /feed/for-you:
+    get:
+      tags:
+        - feed
+      summary: Get For You feed
+      description:
+        Returns a personalized For You feed using Twitter-style multi-source
+        ranking (in-network, trending, underground, similar-artist candidates
+        scored by recency decay × engagement × social affinity).
+      operationId: Get For You Feed
+      security:
+        - {}
+        - OAuth2:
+            - read
+      parameters:
+        - name: user_id
+          in: query
+          description:
+            The user ID of the caller. Required — "For You" is personalized,
+            so the handler 400s without it.
+          required: true
+          schema:
+            type: string
+        - name: limit
+          in: query
+          description: The number of items to fetch
+          schema:
+            type: integer
+            default: 25
+            minimum: 1
+            maximum: 100
+        - name: offset
+          in: query
+          description:
+            The number of items to skip. Useful for pagination (page number
+            * limit)
+          schema:
+            type: integer
+            default: 0
+            minimum: 0
+            maximum: 200
+        - name: max_per_artist
+          in: query
+          description:
+            Maximum number of tracks per artist on a single page. Used by the
+            diversity pass to cap consecutive same-artist results.
+          schema:
+            type: integer
+            default: 3
+            minimum: 1
+            maximum: 10
+      responses:
+        "200":
+          description: Success
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/tracks"
+        "400":
+          description: Bad request
+          content: {}
+        "500":
+          description: Server error
+          content: {}
   /developer-apps:
     post:
       tags:
