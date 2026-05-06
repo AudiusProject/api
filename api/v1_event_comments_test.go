@@ -121,14 +121,18 @@ func TestEventComments_ReturnsTopLevelOnlyNewestFirst(t *testing.T) {
 
 	// Default sort is newest-first, so 601 (Jun 2) should come before 600 (Jun 1).
 	// The reply (602) must NOT appear as its own top-level item.
+	// The reply nested under 600 must also expose `parent_comment_id` — without
+	// this field the mobile/web row classifier mis-routes artist replies to the
+	// "Updates" feed instead of threading them under the parent comment.
 	jsonAssert(t, body, map[string]any{
-		"data.#":           2,
-		"data.0.id":        enc601,
-		"data.0.message":   "thanks for joining",
-		"data.1.id":        enc600,
-		"data.1.message":   "first!",
-		"event_user_id":    encUser1,
-		"data.1.replies.#": 1,
+		"data.#":                          2,
+		"data.0.id":                       enc601,
+		"data.0.message":                  "thanks for joining",
+		"data.1.id":                       enc600,
+		"data.1.message":                  "first!",
+		"event_user_id":                   encUser1,
+		"data.1.replies.#":                1,
+		"data.1.replies.0.parent_comment_id": float64(600),
 	})
 }
 
@@ -293,6 +297,91 @@ func TestEventComments_PaginationAndTimestampSort(t *testing.T) {
 	jsonAssert(t, body, map[string]any{
 		"data.#":         1,
 		"data.0.message": "middle",
+	})
+}
+
+// TestEventComments_FiltersDeactivatedAuthor regression-tests that the
+// event-comment shadowban list (added in parity with v1_track_comments) hides
+// comments authored by deactivated users. Without this filter a globally
+// shadowbanned account could re-emerge on contest pages.
+func TestEventComments_FiltersDeactivatedAuthor(t *testing.T) {
+	app := emptyTestApp(t)
+
+	database.Seed(app.pool.Replicas[0], database.FixtureMap{
+		"users": []map[string]any{
+			{
+				"user_id":   1,
+				"handle":    "eventartist",
+				"handle_lc": "eventartist",
+				"name":      "Event Artist",
+				"wallet":    "0xe0f1230000000000000000000000000000000001",
+			},
+			{
+				"user_id":   2,
+				"handle":    "eventfan",
+				"handle_lc": "eventfan",
+				"name":      "Event Fan",
+				"wallet":    "0xe0f1230000000000000000000000000000000002",
+			},
+			{
+				"user_id":        3,
+				"handle":         "eventbanned",
+				"handle_lc":      "eventbanned",
+				"name":           "Event Banned",
+				"wallet":         "0xe0f1230000000000000000000000000000000003",
+				"is_deactivated": true,
+			},
+		},
+		"tracks": {
+			{
+				"track_id":   1,
+				"owner_id":   1,
+				"title":      "Original",
+				"created_at": "2020-01-01 00:00:00",
+			},
+		},
+		"events": {
+			{
+				"event_id":    1100,
+				"event_type":  "remix_contest",
+				"user_id":     1,
+				"entity_type": "track",
+				"entity_id":   1,
+				"event_data":  map[string]any{"description": "remix me"},
+				"created_at":  "2020-05-01 00:00:00",
+				"updated_at":  "2020-05-01 00:00:00",
+			},
+		},
+		"comments": []map[string]any{
+			{
+				"comment_id":  1100,
+				"user_id":     2,
+				"entity_id":   1100,
+				"entity_type": "Event",
+				"text":        "great contest",
+				"created_at":  "2020-06-01 00:00:00",
+			},
+			{
+				"comment_id":  1101,
+				"user_id":     3,
+				"entity_id":   1100,
+				"entity_type": "Event",
+				"text":        "i am deactivated",
+				"created_at":  "2020-06-02 00:00:00",
+			},
+		},
+	})
+
+	encEvent, err := trashid.EncodeHashId(1100)
+	require.NoError(t, err)
+
+	status, body := testGet(t, app, "/v1/events/"+encEvent+"/comments")
+	require.Equal(t, 200, status, string(body))
+
+	// The deactivated user's comment is filtered out; only the fan's row remains.
+	jsonAssert(t, body, map[string]any{
+		"data.#":         1,
+		"data.0.message": "great contest",
 	})
 }
 

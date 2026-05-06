@@ -58,6 +58,9 @@ type Config struct {
 	AudiusApiSecret string
 	// Shared secret for notifications-dashboard (or other internal jobs) to read notification campaign push open counts
 	NotificationCampaignOpenMetricsSecret string
+	// User id whose remix contests should sort first in the public contest list.
+	// Zero (the default when the env var is unset) disables featured prioritization.
+	FeaturedAudienceUserID int32
 }
 
 var Cfg = Config{
@@ -271,5 +274,13 @@ func init() {
 	// Override archiver upstream(s) when set (e.g. rollback to discovery or point at different archiver)
 	if v := os.Getenv("archiverNodes"); v != "" {
 		Cfg.ArchiverNodes = strings.Split(v, ",")
+	}
+
+	if v := os.Getenv("featuredAudienceUserId"); v != "" {
+		parsed, err := strconv.ParseInt(v, 10, 32)
+		if err != nil {
+			log.Fatalf("Invalid featuredAudienceUserId: %s", err)
+		}
+		Cfg.FeaturedAudienceUserID = int32(parsed)
 	}
 }

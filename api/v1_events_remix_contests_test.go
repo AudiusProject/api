@@ -3,6 +3,7 @@ package api
 import (
 	"testing"
 
+	"api.audius.co/config"
 	"api.audius.co/database"
 	"api.audius.co/trashid"
 	"github.com/stretchr/testify/assert"
@@ -222,5 +223,240 @@ func TestRemixContestsDiscoveryPage(t *testing.T) {
 			"data.#":          1,
 			"data.0.event_id": endedEventHash,
 		})
+	})
+}
+
+// TestRemixContestsSortPriority covers the multi-tier sort:
+//  1. Featured-audience-account contests come first.
+//  2. Then contests with at least one entry.
+//  3. Ended contests with zero entries land at the bottom.
+//
+// Within each group the existing active-first / soonest-ending sort still
+// applies — we don't reassert that here because TestRemixContestsDiscoveryPage
+// already covers it.
+func TestRemixContestsSortPriority(t *testing.T) {
+	app := emptyTestApp(t)
+
+	featuredHostID := 9101 // contests by this user must sort first
+	regularHostID := 9102
+	ownerID := 9103
+	remixerID := 9104
+
+	// Track ids for each contest's parent track.
+	featuredEndedZeroTrackID := 8201 // featured + ended + zero entries → still group 1
+	hasEntriesActiveTrackID := 8202  // group 2 (has entries)
+	hasEntriesEndedTrackID := 8203   // group 2 (has entries, ended)
+	activeZeroTrackID := 8204        // group 3 (active, no entries — neither featured nor has-entries nor ended-empty)
+	endedZeroTrackID := 8205         // group 4 (ended + zero entries) — must be LAST
+
+	farFuture := parseTime(t, "2099-01-01")
+	farPast := parseTime(t, "2024-02-10")
+	contestStart := parseTime(t, "2024-01-02")
+	inWindow := parseTime(t, "2024-01-03")
+
+	fixtures := database.FixtureMap{
+		"events": []map[string]any{
+			{
+				"event_id": 601, "event_type": "remix_contest", "entity_type": "track",
+				"entity_id": featuredEndedZeroTrackID, "user_id": featuredHostID,
+				"created_at": contestStart, "end_date": farPast,
+			},
+			{
+				"event_id": 602, "event_type": "remix_contest", "entity_type": "track",
+				"entity_id": hasEntriesActiveTrackID, "user_id": regularHostID,
+				"created_at": contestStart, "end_date": farFuture,
+			},
+			{
+				"event_id": 603, "event_type": "remix_contest", "entity_type": "track",
+				"entity_id": hasEntriesEndedTrackID, "user_id": regularHostID,
+				"created_at": contestStart, "end_date": farPast,
+			},
+			{
+				"event_id": 604, "event_type": "remix_contest", "entity_type": "track",
+				"entity_id": activeZeroTrackID, "user_id": regularHostID,
+				"created_at": contestStart, "end_date": farFuture,
+			},
+			{
+				"event_id": 605, "event_type": "remix_contest", "entity_type": "track",
+				"entity_id": endedZeroTrackID, "user_id": regularHostID,
+				"created_at": contestStart, "end_date": farPast,
+			},
+		},
+		"users": []map[string]any{
+			{"user_id": featuredHostID, "handle": "featured"},
+			{"user_id": regularHostID, "handle": "regular"},
+			{"user_id": ownerID, "handle": "owner"},
+			{"user_id": remixerID, "handle": "remixer"},
+		},
+		"tracks": []map[string]any{
+			{"track_id": featuredEndedZeroTrackID, "owner_id": featuredHostID, "created_at": contestStart},
+			{"track_id": hasEntriesActiveTrackID, "owner_id": regularHostID, "created_at": contestStart},
+			{"track_id": hasEntriesEndedTrackID, "owner_id": regularHostID, "created_at": contestStart},
+			{"track_id": activeZeroTrackID, "owner_id": regularHostID, "created_at": contestStart},
+			{"track_id": endedZeroTrackID, "owner_id": regularHostID, "created_at": contestStart},
+			// Entries — only for the two has-entries contests.
+			{"track_id": 8302, "owner_id": remixerID, "created_at": inWindow},
+			{"track_id": 8303, "owner_id": remixerID, "created_at": inWindow},
+		},
+		"remixes": []map[string]any{
+			{"parent_track_id": hasEntriesActiveTrackID, "child_track_id": 8302},
+			{"parent_track_id": hasEntriesEndedTrackID, "child_track_id": 8303},
+		},
+	}
+	database.Seed(app.pool.Replicas[0], fixtures)
+
+	featuredEvent := trashid.MustEncodeHashID(601)
+	hasActiveEvent := trashid.MustEncodeHashID(602)
+	hasEndedEvent := trashid.MustEncodeHashID(603)
+	activeZeroEvent := trashid.MustEncodeHashID(604)
+	endedZeroEvent := trashid.MustEncodeHashID(605)
+
+	t.Run("featured account contests sort first, ended-zero-entries last", func(t *testing.T) {
+		prev := config.Cfg.FeaturedAudienceUserID
+		config.Cfg.FeaturedAudienceUserID = int32(featuredHostID)
+		t.Cleanup(func() { config.Cfg.FeaturedAudienceUserID = prev })
+
+		status, body := testGet(t, app, "/v1/events/remix-contests")
+		assert.Equal(t, 200, status)
+
+		jsonAssert(t, body, map[string]any{
+			"data.#":          5,
+			"data.0.event_id": featuredEvent,  // featured (group 1)
+			"data.1.event_id": hasActiveEvent, // has entries, active (group 2)
+			"data.2.event_id": hasEndedEvent,  // has entries, ended (group 2)
+			"data.3.event_id": activeZeroEvent, // active, zero entries (group 3 — not ended-empty)
+			"data.4.event_id": endedZeroEvent,  // ended + zero entries (group 4, LAST)
+		})
+	})
+
+	t.Run("with featured user unset, featured contest falls back to entry-based sort", func(t *testing.T) {
+		prev := config.Cfg.FeaturedAudienceUserID
+		config.Cfg.FeaturedAudienceUserID = 0
+		t.Cleanup(func() { config.Cfg.FeaturedAudienceUserID = prev })
+
+		status, body := testGet(t, app, "/v1/events/remix-contests")
+		assert.Equal(t, 200, status)
+
+		// featuredEvent is now ended-with-zero-entries, so it should sort
+		// alongside endedZeroEvent at the bottom (group 4). The two has-entries
+		// contests are group 2, activeZeroEvent is group 3.
+		jsonAssert(t, body, map[string]any{
+			"data.#":          5,
+			"data.0.event_id": hasActiveEvent,
+			"data.1.event_id": hasEndedEvent,
+			"data.2.event_id": activeZeroEvent,
+		})
+		// Last two entries are both ended-zero-entries — order within is
+		// determined by end_date DESC then event_id; both events share end_date
+		// (farPast), so the smaller event_id (601) comes first.
+		jsonAssert(t, body, map[string]any{
+			"data.3.event_id": featuredEvent,
+			"data.4.event_id": endedZeroEvent,
+		})
+	})
+}
+
+// TestRemixContestsExcludesUnavailableContent covers server-side filtering
+// of contests whose track or host is not in a publishable state. The
+// frontend used to drop these on the client (the "deleted accounts surface
+// contests" workaround in useAllRemixContests); the backend is now the
+// source of truth.
+func TestRemixContestsExcludesUnavailableContent(t *testing.T) {
+	app := emptyTestApp(t)
+
+	activeHostID := 9501
+	deactivatedHostID := 9502
+	unavailableHostID := 9503
+
+	visibleTrackID := 8501
+	deletedTrackID := 8502
+	unlistedTrackID := 8503
+	deactivatedHostTrackID := 8504
+	unavailableHostTrackID := 8505
+
+	start := parseTime(t, "2024-01-02")
+	end := parseTime(t, "2099-01-01")
+
+	fixtures := database.FixtureMap{
+		"events": []map[string]any{
+			{
+				"event_id": 701, "event_type": "remix_contest", "entity_type": "track",
+				"entity_id": visibleTrackID, "user_id": activeHostID,
+				"created_at": start, "end_date": end,
+			},
+			{
+				"event_id": 702, "event_type": "remix_contest", "entity_type": "track",
+				"entity_id": deletedTrackID, "user_id": activeHostID,
+				"created_at": start, "end_date": end,
+			},
+			{
+				"event_id": 703, "event_type": "remix_contest", "entity_type": "track",
+				"entity_id": unlistedTrackID, "user_id": activeHostID,
+				"created_at": start, "end_date": end,
+			},
+			{
+				"event_id": 704, "event_type": "remix_contest", "entity_type": "track",
+				"entity_id": deactivatedHostTrackID, "user_id": deactivatedHostID,
+				"created_at": start, "end_date": end,
+			},
+			{
+				"event_id": 705, "event_type": "remix_contest", "entity_type": "track",
+				"entity_id": unavailableHostTrackID, "user_id": unavailableHostID,
+				"created_at": start, "end_date": end,
+			},
+		},
+		"users": []map[string]any{
+			{"user_id": activeHostID, "handle": "active_host"},
+			{"user_id": deactivatedHostID, "handle": "deactivated_host", "is_deactivated": true},
+			{"user_id": unavailableHostID, "handle": "unavailable_host", "is_available": false},
+		},
+		"tracks": []map[string]any{
+			{"track_id": visibleTrackID, "owner_id": activeHostID, "created_at": start},
+			{"track_id": deletedTrackID, "owner_id": activeHostID, "created_at": start, "is_delete": true},
+			{"track_id": unlistedTrackID, "owner_id": activeHostID, "created_at": start, "is_unlisted": true},
+			{"track_id": deactivatedHostTrackID, "owner_id": deactivatedHostID, "created_at": start},
+			{"track_id": unavailableHostTrackID, "owner_id": unavailableHostID, "created_at": start},
+		},
+	}
+	database.Seed(app.pool.Replicas[0], fixtures)
+
+	visibleEventHash := trashid.MustEncodeHashID(701)
+
+	t.Run("only the contest with a visible track and active host is returned", func(t *testing.T) {
+		status, body := testGet(t, app, "/v1/events/remix-contests")
+		assert.Equal(t, 200, status)
+
+		jsonAssert(t, body, map[string]any{
+			"data.#":          1,
+			"data.0.event_id": visibleEventHash,
+		})
+	})
+
+	t.Run("deleted track contest is excluded", func(t *testing.T) {
+		_, body := testGet(t, app, "/v1/events/remix-contests")
+		eventIds := pluckStrings(body, "data.#.event_id")
+		assert.NotContains(t, eventIds, trashid.MustEncodeHashID(702),
+			"contest pointing at a deleted track must not be returned")
+	})
+
+	t.Run("unlisted track contest is excluded", func(t *testing.T) {
+		_, body := testGet(t, app, "/v1/events/remix-contests")
+		eventIds := pluckStrings(body, "data.#.event_id")
+		assert.NotContains(t, eventIds, trashid.MustEncodeHashID(703),
+			"contest pointing at an unlisted track must not be returned")
+	})
+
+	t.Run("deactivated host contest is excluded", func(t *testing.T) {
+		_, body := testGet(t, app, "/v1/events/remix-contests")
+		eventIds := pluckStrings(body, "data.#.event_id")
+		assert.NotContains(t, eventIds, trashid.MustEncodeHashID(704),
+			"contest hosted by a deactivated user must not be returned")
+	})
+
+	t.Run("unavailable (deleted) host contest is excluded", func(t *testing.T) {
+		_, body := testGet(t, app, "/v1/events/remix-contests")
+		eventIds := pluckStrings(body, "data.#.event_id")
+		assert.NotContains(t, eventIds, trashid.MustEncodeHashID(705),
+			"contest hosted by a user with is_available=false must not be returned")
 	})
 }
