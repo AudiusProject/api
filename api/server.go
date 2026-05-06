@@ -511,6 +511,9 @@ func NewApiServer(config config.Config) *ApiServer {
 		g.Get("/fan_club/feed", app.v1FanClubFeed)
 		g.Get("/fan-club/feed", app.v1FanClubFeed)
 
+		// For You feed (Twitter-style ranked feed)
+		g.Get("/feed/for-you", app.v1FeedForYou)
+
 		g.Get("/events/:eventId/comments", app.v1EventComments)
 		g.Get("/events/:eventId/followers", app.v1EventsFollowers)
 		g.Get("/events/:eventId/follow_state", app.v1EventFollowState)
