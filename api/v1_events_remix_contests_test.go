@@ -355,3 +355,108 @@ func TestRemixContestsSortPriority(t *testing.T) {
 		})
 	})
 }
+
+// TestRemixContestsExcludesUnavailableContent covers server-side filtering
+// of contests whose track or host is not in a publishable state. The
+// frontend used to drop these on the client (the "deleted accounts surface
+// contests" workaround in useAllRemixContests); the backend is now the
+// source of truth.
+func TestRemixContestsExcludesUnavailableContent(t *testing.T) {
+	app := emptyTestApp(t)
+
+	activeHostID := 9501
+	deactivatedHostID := 9502
+	unavailableHostID := 9503
+
+	visibleTrackID := 8501
+	deletedTrackID := 8502
+	unlistedTrackID := 8503
+	deactivatedHostTrackID := 8504
+	unavailableHostTrackID := 8505
+
+	start := parseTime(t, "2024-01-02")
+	end := parseTime(t, "2099-01-01")
+
+	fixtures := database.FixtureMap{
+		"events": []map[string]any{
+			{
+				"event_id": 701, "event_type": "remix_contest", "entity_type": "track",
+				"entity_id": visibleTrackID, "user_id": activeHostID,
+				"created_at": start, "end_date": end,
+			},
+			{
+				"event_id": 702, "event_type": "remix_contest", "entity_type": "track",
+				"entity_id": deletedTrackID, "user_id": activeHostID,
+				"created_at": start, "end_date": end,
+			},
+			{
+				"event_id": 703, "event_type": "remix_contest", "entity_type": "track",
+				"entity_id": unlistedTrackID, "user_id": activeHostID,
+				"created_at": start, "end_date": end,
+			},
+			{
+				"event_id": 704, "event_type": "remix_contest", "entity_type": "track",
+				"entity_id": deactivatedHostTrackID, "user_id": deactivatedHostID,
+				"created_at": start, "end_date": end,
+			},
+			{
+				"event_id": 705, "event_type": "remix_contest", "entity_type": "track",
+				"entity_id": unavailableHostTrackID, "user_id": unavailableHostID,
+				"created_at": start, "end_date": end,
+			},
+		},
+		"users": []map[string]any{
+			{"user_id": activeHostID, "handle": "active_host"},
+			{"user_id": deactivatedHostID, "handle": "deactivated_host", "is_deactivated": true},
+			{"user_id": unavailableHostID, "handle": "unavailable_host", "is_available": false},
+		},
+		"tracks": []map[string]any{
+			{"track_id": visibleTrackID, "owner_id": activeHostID, "created_at": start},
+			{"track_id": deletedTrackID, "owner_id": activeHostID, "created_at": start, "is_delete": true},
+			{"track_id": unlistedTrackID, "owner_id": activeHostID, "created_at": start, "is_unlisted": true},
+			{"track_id": deactivatedHostTrackID, "owner_id": deactivatedHostID, "created_at": start},
+			{"track_id": unavailableHostTrackID, "owner_id": unavailableHostID, "created_at": start},
+		},
+	}
+	database.Seed(app.pool.Replicas[0], fixtures)
+
+	visibleEventHash := trashid.MustEncodeHashID(701)
+
+	t.Run("only the contest with a visible track and active host is returned", func(t *testing.T) {
+		status, body := testGet(t, app, "/v1/events/remix-contests")
+		assert.Equal(t, 200, status)
+
+		jsonAssert(t, body, map[string]any{
+			"data.#":          1,
+			"data.0.event_id": visibleEventHash,
+		})
+	})
+
+	t.Run("deleted track contest is excluded", func(t *testing.T) {
+		_, body := testGet(t, app, "/v1/events/remix-contests")
+		eventIds := pluckStrings(body, "data.#.event_id")
+		assert.NotContains(t, eventIds, trashid.MustEncodeHashID(702),
+			"contest pointing at a deleted track must not be returned")
+	})
+
+	t.Run("unlisted track contest is excluded", func(t *testing.T) {
+		_, body := testGet(t, app, "/v1/events/remix-contests")
+		eventIds := pluckStrings(body, "data.#.event_id")
+		assert.NotContains(t, eventIds, trashid.MustEncodeHashID(703),
+			"contest pointing at an unlisted track must not be returned")
+	})
+
+	t.Run("deactivated host contest is excluded", func(t *testing.T) {
+		_, body := testGet(t, app, "/v1/events/remix-contests")
+		eventIds := pluckStrings(body, "data.#.event_id")
+		assert.NotContains(t, eventIds, trashid.MustEncodeHashID(704),
+			"contest hosted by a deactivated user must not be returned")
+	})
+
+	t.Run("unavailable (deleted) host contest is excluded", func(t *testing.T) {
+		_, body := testGet(t, app, "/v1/events/remix-contests")
+		eventIds := pluckStrings(body, "data.#.event_id")
+		assert.NotContains(t, eventIds, trashid.MustEncodeHashID(705),
+			"contest hosted by a user with is_available=false must not be returned")
+	})
+}

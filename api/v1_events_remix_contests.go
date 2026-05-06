@@ -33,7 +33,9 @@ func (app *ApiServer) v1EventsRemixContests(c *fiber.Ctx) error {
 	filters := []string{
 		"e.event_type = 'remix_contest'",
 		"e.is_deleted = false",
-		"(e.entity_type != 'track' OR (t.track_id IS NOT NULL AND t.is_delete = false))",
+		"u.is_deactivated = false",
+		"u.is_available = true",
+		"(e.entity_type != 'track' OR (t.track_id IS NOT NULL AND t.is_delete = false AND t.is_unlisted = false))",
 	}
 
 	switch params.Status {
@@ -60,6 +62,8 @@ func (app *ApiServer) v1EventsRemixContests(c *fiber.Ctx) error {
 			e.event_data,
 			COALESCE(ec.entry_count, 0) AS entry_count
 		FROM events e
+		JOIN users u ON u.user_id = e.user_id
+			AND u.is_current = true
 		LEFT JOIN tracks t ON t.track_id = e.entity_id
 			AND t.is_current = true
 			AND e.entity_type = 'track'
