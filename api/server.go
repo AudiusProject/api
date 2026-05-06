@@ -584,6 +584,9 @@ func NewApiServer(config config.Config) *ApiServer {
 		g.Post("/oauth/token", app.v1OAuthToken)
 		g.Post("/oauth/revoke", app.v1OAuthRevoke)
 		g.Get("/me", app.requireAuthMiddleware, app.v1Me)
+		// Legacy alias for @audius/sdk <= 14, which calls /v1/oauth/me and
+		// expects the DecodedUserToken shape (userId, name, handle, ...).
+		g.Get("/oauth/me", app.requireAuthMiddleware, app.v1OAuthMe)
 
 		// Rewards
 		g.Post("/rewards/claim", app.v1ClaimRewards)
