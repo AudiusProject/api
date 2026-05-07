@@ -24,7 +24,11 @@ WITH my_follows AS (
     AND follower_user_id = $1
     AND follows.is_delete = false
   ORDER BY follower_count DESC
-  LIMIT 5000
+  -- The two consumers (followee_reposts, followee_favorites) both
+  -- emit at most 3 rows ordered by follower_count DESC. Caring about
+  -- followees ranked >200 by follower_count is wasted work: they're
+  -- ~always dominated by the top-200 in social-proof terms.
+  LIMIT 200
 )
 SELECT
   t.track_id,

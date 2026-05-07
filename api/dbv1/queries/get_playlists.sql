@@ -9,7 +9,8 @@ WITH my_follows AS (
     AND follower_user_id = @my_id
     AND follows.is_delete = false
   ORDER BY follower_count DESC
-  LIMIT 5000
+  -- See get_tracks.sql for rationale.
+  LIMIT 200
 )
 SELECT
   p.description,
