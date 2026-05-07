@@ -50,30 +50,49 @@ func (app *ApiServer) v1UsersFeed(c *fiber.Ctx) error {
 	),
 	history as (
 
+		-- Track-type reposts. Splitting from playlist-type reposts so each
+		-- branch can use a per-row JOIN against the entity instead of forcing
+		-- the planner to hash every public playlist (~94k rows) just to filter
+		-- a handful of repost rows.
 		(
 			SELECT
-				repost_type as entity_type,
+				'track' as entity_type,
 				repost_item_id as entity_id,
 				min(reposts.created_at) as created_at
 			FROM reposts
 			JOIN follow_set using (user_id)
-			LEFT JOIN tracks
-				ON repost_type = 'track'
-				AND repost_item_id = track_id
+			JOIN tracks ON repost_item_id = tracks.track_id
 				AND tracks.is_delete = false
 				AND tracks.is_unlisted = false
 				AND tracks.is_available = true
-			LEFT JOIN playlists
-				ON repost_type != 'track'
-				AND repost_item_id = playlist_id
+			WHERE
+				@filter in ('all', 'repost')
+				AND reposts.repost_type = 'track'
+				AND reposts.created_at < @before
+				AND reposts.created_at >= @before - INTERVAL '1 YEAR'
+				AND reposts.is_delete = false
+			GROUP BY entity_id
+		)
+
+		UNION ALL
+
+		-- Playlist/album-type reposts.
+		(
+			SELECT
+				reposts.repost_type::text as entity_type,
+				repost_item_id as entity_id,
+				min(reposts.created_at) as created_at
+			FROM reposts
+			JOIN follow_set using (user_id)
+			JOIN playlists ON repost_item_id = playlists.playlist_id
 				AND playlists.is_delete = false
 				AND playlists.is_private = false
 			WHERE
 				@filter in ('all', 'repost')
+				AND reposts.repost_type <> 'track'
 				AND reposts.created_at < @before
 				AND reposts.created_at >= @before - INTERVAL '1 YEAR'
 				AND reposts.is_delete = false
-				AND (tracks.track_id IS NOT NULL OR playlists.playlist_id IS NOT NULL)
 			GROUP BY entity_type, entity_id
 		)
 
