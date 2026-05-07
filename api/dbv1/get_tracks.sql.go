@@ -14,7 +14,7 @@ import (
 )
 
 const getTracks = `-- name: GetTracks :many
-WITH my_follows AS (
+WITH my_follows AS MATERIALIZED (
   SELECT
     followee_user_id as user_id,
     follower_count
@@ -325,6 +325,10 @@ type GetTracksRow struct {
 	AccessAuthorities                  []string        `json:"access_authorities"`
 }
 
+// MATERIALIZED forces this CTE to compute once per call. Without it the
+// planner inlines and re-evaluates the follows JOIN aggregate_user + sort
+// once per row in the followee_reposts/favorites SubPlans, which dominates
+// runtime for users with many follows.
 func (q *Queries) GetTracks(ctx context.Context, arg GetTracksParams) ([]GetTracksRow, error) {
 	rows, err := q.db.Query(ctx, getTracks,
 		arg.MyID,

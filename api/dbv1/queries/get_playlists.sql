@@ -1,5 +1,6 @@
 -- name: GetPlaylists :many
-WITH my_follows AS (
+-- See get_tracks.sql for why my_follows is MATERIALIZED.
+WITH my_follows AS MATERIALIZED (
   SELECT
     followee_user_id as user_id,
     follower_count

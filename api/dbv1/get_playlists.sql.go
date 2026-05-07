@@ -14,7 +14,7 @@ import (
 )
 
 const getPlaylists = `-- name: GetPlaylists :many
-WITH my_follows AS (
+WITH my_follows AS MATERIALIZED (
   SELECT
     followee_user_id as user_id,
     follower_count
@@ -182,6 +182,7 @@ type GetPlaylistsRow struct {
 	FolloweeFavorites      json.RawMessage  `json:"followee_favorites"`
 }
 
+// See get_tracks.sql for why my_follows is MATERIALIZED.
 func (q *Queries) GetPlaylists(ctx context.Context, arg GetPlaylistsParams) ([]GetPlaylistsRow, error) {
 	rows, err := q.db.Query(ctx, getPlaylists, arg.MyID, arg.Ids)
 	if err != nil {
