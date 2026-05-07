@@ -109,4 +109,14 @@ func TestV1UsersRelated(t *testing.T) {
 		assert.Len(t, userResponse.Data, 1)
 		assert.Equal(t, "someseller", userResponse.Data[0].Handle.String)
 	}
+
+	// Cache must not leak across cache-key dimensions: filter_followed=false
+	// (just queried above) and filter_followed=true return different result
+	// sets, and the second call must not return a stale unfiltered list.
+	{
+		var resp struct{ Data []dbv1.User }
+		status, _ := testGet(t, app, "/v1/users/7eP5n/related", &resp)
+		assert.Equal(t, 200, status)
+		assert.Len(t, resp.Data, 2, "filter_followed=false branch must not be served from filter_followed=true cache entry")
+	}
 }
