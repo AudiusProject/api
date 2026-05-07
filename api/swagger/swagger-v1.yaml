@@ -5599,6 +5599,64 @@ paths:
         "500":
           description: Server error
           content: {}
+  /users/{id}/contests:
+    get:
+      tags:
+        - users
+      summary: Get contests hosted by user
+      description:
+        Get the remix contests hosted by a single user, ordered with
+        currently-active contests first (by soonest-ending end_date)
+        followed by ended contests (most-recently-ended first). Mirrors
+        the response shape of `GET /events/remix-contests` (data +
+        related users / tracks / entry_counts).
+      operationId: Get Contests By User
+      security:
+        - {}
+        - OAuth2:
+            - read
+      parameters:
+        - name: id
+          in: path
+          description: A User ID
+          required: true
+          schema:
+            type: string
+        - name: offset
+          in: query
+          description:
+            The number of items to skip. Useful for pagination (page number
+            * limit)
+          schema:
+            type: integer
+        - name: limit
+          in: query
+          description: The number of items to fetch
+          schema:
+            type: integer
+        - name: status
+          in: query
+          description: Filter contests by status
+          schema:
+            type: string
+            default: all
+            enum:
+              - active
+              - ended
+              - all
+      responses:
+        "200":
+          description: Success
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/remix_contests_response"
+        "400":
+          description: Bad request
+          content: {}
+        "500":
+          description: Server error
+          content: {}
   /users/{id}/connected_wallets:
     get:
       tags:
