@@ -9439,6 +9439,66 @@ paths:
         "500":
           description: Server error
           content: {}
+  /users/{id}/feed/for-you:
+    get:
+      tags:
+        - users
+      summary: Get For You feed for user
+      description:
+        Returns a personalized For You track feed for the user. Mirrors
+        the client-side blend of recommended, following originals, weekly
+        trending, and underground trending using a fixed 10-slot
+        interleave (60% recommended, 20% following, 10% trending, 10%
+        underground). Already-saved tracks are filtered out and results
+        are deduped by track ID.
+      operationId: Get User For You Feed
+      security:
+        - {}
+        - OAuth2:
+            - read
+      parameters:
+        - name: id
+          in: path
+          description: A User ID
+          required: true
+          schema:
+            type: string
+        - name: limit
+          in: query
+          description: The number of items to fetch
+          schema:
+            type: integer
+            default: 10
+            minimum: 1
+            maximum: 100
+        - name: offset
+          in: query
+          description:
+            The number of items to skip. Useful for pagination (page number
+            * limit)
+          schema:
+            type: integer
+            default: 0
+            minimum: 0
+            maximum: 200
+        - name: user_id
+          in: query
+          description: The user ID of the user making the request
+          schema:
+            type: string
+      responses:
+        "200":
+          description: Success
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/tracks"
+        "400":
+          description: Bad request
+          content: {}
+        "500":
+          description: Server error
+          content: {}
   /users/{id}/library/albums:
     get:
       tags:
