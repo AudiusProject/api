@@ -1,6 +1,7 @@
 package api
 
 import (
+	"strconv"
 	"testing"
 
 	"api.audius.co/database"
@@ -468,3 +469,117 @@ func TestV1Notifications_AnnouncementRequiresUserIdInUserIds(t *testing.T) {
 		"data.notifications.0.actions.0.data.title":     "For user 1",
 	})
 }
+
+// TestV1Notifications_RelatedEntities exercises the response's `related` block:
+//
+//   - users/tracks/playlists referenced by notification action data are
+//     hydrated server-side so the client doesn't need follow-up round trips
+//   - actor IDs are capped at notificationRelatedActorsPerGroup per group so
+//     a fan-out notification (e.g. 100 followers) doesn't bloat the response;
+//     the target entity (the followee, in this case) is duplicated in every
+//     action's data so it's still picked up under the cap
+//   - polymorphic *_item_id fields (repost_item_id here) are routed to the
+//     right bucket based on the sibling `type` discriminator
+func TestV1Notifications_RelatedEntities(t *testing.T) {
+	app := emptyTestApp(t)
+
+	const recipient = 1
+	// Five followers, but the per-group cap should drop us to 3 + the followee.
+	followers := []int{100, 101, 102, 103, 104}
+	const reposter = 300
+	const repostedTrackID = 50
+	const repostedTrackOwner = 200
+	const savedPlaylistID = 60
+	const saver = 400
+
+	users := []map[string]any{
+		{"user_id": recipient},
+		{"user_id": reposter},
+		{"user_id": repostedTrackOwner},
+		{"user_id": saver},
+	}
+	for _, fid := range followers {
+		users = append(users, map[string]any{"user_id": fid})
+	}
+
+	notifs := []map[string]any{
+		{
+			"id":        10,
+			"specifier": "300",
+			"group_id":  "repost:track:50",
+			"type":      "repost",
+			"user_ids":  []int{recipient},
+			"data":      []byte(`{"type": "track", "user_id": 300, "repost_item_id": 50}`),
+			"timestamp": "2025-01-01 00:00:00",
+		},
+		{
+			"id":        11,
+			"specifier": "400",
+			"group_id":  "save:playlist:60",
+			"type":      "save",
+			"user_ids":  []int{recipient},
+			"data":      []byte(`{"type": "playlist", "user_id": 400, "save_item_id": 60}`),
+			"timestamp": "2025-01-02 00:00:00",
+		},
+	}
+	// Five follow notifications, all in the same group (one logical
+	// "you got followed by 5 people" notification after json_agg).
+	for i, fid := range followers {
+		notifs = append(notifs, map[string]any{
+			"id":        20 + i,
+			"specifier": strconv.Itoa(fid),
+			"group_id":  "follow:1",
+			"type":      "follow",
+			"user_ids":  []int{recipient},
+			"data": []byte(`{"follower_user_id": ` + strconv.Itoa(fid) +
+				`, "followee_user_id": ` + strconv.Itoa(recipient) + `}`),
+			"timestamp": "2025-01-03 00:00:00",
+		})
+	}
+
+	fixtures := database.FixtureMap{
+		"users":  users,
+		"tracks": []map[string]any{{"track_id": repostedTrackID, "owner_id": repostedTrackOwner}},
+		"playlists": []map[string]any{
+			{"playlist_id": savedPlaylistID, "playlist_owner_id": recipient},
+		},
+		"notification": notifs,
+	}
+
+	database.Seed(app.pool.Replicas[0], fixtures)
+
+	status, body := testGet(t, app, "/v1/notifications/"+trashid.MustEncodeHashID(recipient))
+	assert.Equal(t, 200, status)
+
+	gotTrackIds := pluckStrings(body, "related.tracks.#.id")
+	assert.ElementsMatch(t,
+		[]string{trashid.MustEncodeHashID(repostedTrackID)},
+		gotTrackIds,
+		"reposted track must be hydrated under related.tracks",
+	)
+
+	gotPlaylistIds := pluckStrings(body, "related.playlists.#.id")
+	assert.ElementsMatch(t,
+		[]string{trashid.MustEncodeHashID(savedPlaylistID)},
+		gotPlaylistIds,
+		"saved playlist must be hydrated under related.playlists",
+	)
+
+	gotUserIds := pluckStrings(body, "related.users.#.id")
+
+	// Fan-out cap: at most notificationRelatedActorsPerGroup followers from the
+	// follow group, plus the reposter, the saver, and the followee (recipient).
+	maxFollowersHydrated := notificationRelatedActorsPerGroup
+	maxExpected := maxFollowersHydrated + 3 // reposter, saver, followee
+	assert.LessOrEqual(t, len(gotUserIds), maxExpected,
+		"actor cap must bound the related.users size for fan-out groups; got %v", gotUserIds)
+
+	// Always-included targets: the recipient (followee), the reposter, the saver.
+	assert.Contains(t, gotUserIds, trashid.MustEncodeHashID(recipient),
+		"followee (recipient) must appear in related.users")
+	assert.Contains(t, gotUserIds, trashid.MustEncodeHashID(reposter),
+		"reposter must appear in related.users")
+	assert.Contains(t, gotUserIds, trashid.MustEncodeHashID(saver),
+		"saver must appear in related.users")
+}
+
