@@ -1,5 +1,9 @@
 -- name: GetTracks :many
-WITH my_follows AS (
+-- MATERIALIZED forces this CTE to compute once per call. Without it the
+-- planner inlines and re-evaluates the follows JOIN aggregate_user + sort
+-- once per row in the followee_reposts/favorites SubPlans, which dominates
+-- runtime for users with many follows.
+WITH my_follows AS MATERIALIZED (
   SELECT
     followee_user_id as user_id,
     follower_count
