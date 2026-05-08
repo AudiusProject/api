@@ -6,18 +6,19 @@ import (
 	"github.com/jackc/pgx/v5"
 )
 
-type GetFeedForYouParams struct {
+type GetUsersFeedForYouParams struct {
 	Limit        int `query:"limit" default:"25" validate:"min=1,max=100"`
 	Offset       int `query:"offset" default:"0" validate:"min=0,max=200"`
 	MaxPerArtist int `query:"max_per_artist" default:"3" validate:"min=1,max=10"`
 }
 
-// v1FeedForYou returns a personalized "For You" track feed, modeled on
-// Twitter's open-sourced 2023 algorithm (the-algorithm-ml). The shape of
-// the pipeline is candidate-retrieval → ranking → filtering+diversity,
-// the same three-stage pattern Twitter uses on top of a learned "heavy
-// ranker." Audius doesn't yet have a trained ranker, so the heavy ranker
-// is approximated by a hand-tuned linear blend below; the candidate
+// v1UsersFeedForYou returns a personalized "For You" track feed for the
+// user identified in the path. Modeled on Twitter's open-sourced 2023
+// algorithm (the-algorithm-ml). The shape of the pipeline is
+// candidate-retrieval → ranking → filtering+diversity, the same
+// three-stage pattern Twitter uses on top of a learned "heavy ranker."
+// Audius doesn't yet have a trained ranker, so the heavy ranker is
+// approximated by a hand-tuned linear blend below; the candidate
 // retrieval / diversity passes carry over directly so a learned model
 // can drop in later.
 //
@@ -53,8 +54,8 @@ type GetFeedForYouParams struct {
 //     as v1_events_remix_contests.go)
 //   - access_authorities: caller's wallet must be on the list, else
 //     ungated only (matches the v1_users_feed authed-wallet pattern)
-//   - already-saved by caller (don't resurface)
-//   - the caller's own uploads
+//   - already-saved by the path-param user (don't resurface)
+//   - the path-param user's own uploads
 //
 // 4. DIVERSITY — author-cap of N tracks per owner via row_number()
 // (configurable via max_per_artist; default 3), then a Go-side greedy
@@ -66,22 +67,30 @@ type GetFeedForYouParams struct {
 // PAGINATION is offset/limit applied on the diversity-ordered list, so
 // pages are stable as long as the underlying scores haven't shifted.
 //
+// Path:
+//   - id (required): the user being personalized for. Resolved by
+//     requireUserIdMiddleware; the handler returns the 400 from that
+//     middleware on an invalid hash id.
+//
 // Query params:
-//   - user_id        (required): the caller. The handler 400s without it
-//     because "For You" without a "you" degenerates into trending+underground.
 //   - limit          (default 25, max 100)
 //   - offset         (default 0,  max 200)
 //   - max_per_artist (default 3,  max 10) — author cap per page
-func (app *ApiServer) v1FeedForYou(c *fiber.Ctx) error {
-	var params = GetFeedForYouParams{}
+//   - user_id        (optional): the caller's id. Independent of the
+//     path id — used to populate has_current_user_reposted and similar
+//     viewer-relative fields on the returned tracks. Same role it plays
+//     on every other /v1/users/{id}/... endpoint.
+func (app *ApiServer) v1UsersFeedForYou(c *fiber.Ctx) error {
+	var params = GetUsersFeedForYouParams{}
 	if err := app.ParseAndValidateQueryParams(c, &params); err != nil {
 		return err
 	}
 
+	// Path id — the user we personalize for. Validated by middleware.
+	userId := app.getUserId(c)
+	// Optional caller id from ?user_id=, used only for viewer-relative
+	// track fields on the response shape.
 	myId := app.getMyId(c)
-	if myId == 0 {
-		return fiber.NewError(fiber.StatusBadRequest, "user_id is required")
-	}
 
 	authedWallet := app.tryGetAuthedWallet(c)
 
@@ -317,7 +326,7 @@ func (app *ApiServer) v1FeedForYou(c *fiber.Ctx) error {
 	`
 
 	rows, err := app.pool.Query(c.Context(), sql, pgx.NamedArgs{
-		"userId":        myId,
+		"userId":        userId,
 		"poolSize":      candidatePoolSize,
 		"maxPerArtist":  params.MaxPerArtist,
 		"authed_wallet": authedWallet,

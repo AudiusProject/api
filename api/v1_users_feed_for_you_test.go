@@ -118,7 +118,7 @@ func TestV1FeedForYou_Basic(t *testing.T) {
 	var response struct {
 		Data []dbv1.Track
 	}
-	path := "/v1/feed/for-you?user_id=" + trashid.MustEncodeHashID(1)
+	path := "/v1/users/" + trashid.MustEncodeHashID(1) + "/feed/for-you"
 	status, body := testGet(t, app, path, &response)
 	require.Equal(t, 200, status, string(body))
 
@@ -141,9 +141,10 @@ func TestV1FeedForYou_Basic(t *testing.T) {
 	assert.True(t, gotIDs[201], "expected trending track in results, got %v", gotIDs)
 }
 
-func TestV1FeedForYou_RequiresUserId(t *testing.T) {
+func TestV1FeedForYou_RequiresValidUserId(t *testing.T) {
 	app := emptyTestApp(t)
-	status, _ := testGet(t, app, "/v1/feed/for-you")
+	// Invalid hash id in the path → 400 from requireUserIdMiddleware.
+	status, _ := testGet(t, app, "/v1/users/not-a-real-id/feed/for-you")
 	assert.Equal(t, 400, status)
 }
 
@@ -155,7 +156,7 @@ func TestV1FeedForYou_ExcludesAlreadySavedTracks(t *testing.T) {
 	var response struct {
 		Data []dbv1.Track
 	}
-	path := "/v1/feed/for-you?user_id=" + trashid.MustEncodeHashID(1)
+	path := "/v1/users/" + trashid.MustEncodeHashID(1) + "/feed/for-you"
 	status, body := testGet(t, app, path, &response)
 	require.Equal(t, 200, status, string(body))
 
@@ -195,7 +196,7 @@ func TestV1FeedForYou_MaxThreePerArtist(t *testing.T) {
 	var response struct {
 		Data []dbv1.Track
 	}
-	path := "/v1/feed/for-you?user_id=" + trashid.MustEncodeHashID(1) + "&limit=20"
+	path := "/v1/users/" + trashid.MustEncodeHashID(1) + "/feed/for-you?limit=20"
 	status, body := testGet(t, app, path, &response)
 	require.Equal(t, 200, status, string(body))
 
@@ -244,7 +245,7 @@ func TestV1FeedForYou_DiversityPassNoConsecutiveSameArtist(t *testing.T) {
 	var response struct {
 		Data []dbv1.Track
 	}
-	path := "/v1/feed/for-you?user_id=" + trashid.MustEncodeHashID(1)
+	path := "/v1/users/" + trashid.MustEncodeHashID(1) + "/feed/for-you"
 	status, body := testGet(t, app, path, &response)
 	require.Equal(t, 200, status, string(body))
 	require.GreaterOrEqual(t, len(response.Data), 4, "want at least 4 tracks to assert interleave")
@@ -280,7 +281,7 @@ func TestV1FeedForYou_PaginationDoesNotRepeat(t *testing.T) {
 		var resp struct {
 			Data []dbv1.Track
 		}
-		path := fmt.Sprintf("/v1/feed/for-you?user_id=%s&limit=%d&offset=%d",
+		path := fmt.Sprintf("/v1/users/%s/feed/for-you?limit=%d&offset=%d",
 			trashid.MustEncodeHashID(1), limit, offset)
 		status, body := testGet(t, app, path, &resp)
 		require.Equal(t, 200, status, string(body))
@@ -308,11 +309,11 @@ func TestV1FeedForYou_InvalidParams(t *testing.T) {
 	app.skipAuthCheck = true
 
 	for _, val := range []string{"-1", "101", "invalid"} {
-		status, _ := testGet(t, app, "/v1/feed/for-you?user_id="+trashid.MustEncodeHashID(1)+"&limit="+val)
+		status, _ := testGet(t, app, "/v1/users/"+trashid.MustEncodeHashID(1)+"/feed/for-you?limit="+val)
 		assert.Equal(t, 400, status, "limit=%s", val)
 	}
 	for _, val := range []string{"-1", "invalid"} {
-		status, _ := testGet(t, app, "/v1/feed/for-you?user_id="+trashid.MustEncodeHashID(1)+"&offset="+val)
+		status, _ := testGet(t, app, "/v1/users/"+trashid.MustEncodeHashID(1)+"/feed/for-you?offset="+val)
 		assert.Equal(t, 400, status, "offset=%s", val)
 	}
 }
@@ -381,7 +382,7 @@ func TestV1FeedForYou_RecencyAndEngagementRanking(t *testing.T) {
 	var response struct {
 		Data []dbv1.Track
 	}
-	path := "/v1/feed/for-you?user_id=" + trashid.MustEncodeHashID(me)
+	path := "/v1/users/" + trashid.MustEncodeHashID(me) + "/feed/for-you"
 	status, body := testGet(t, app, path, &response)
 	require.Equal(t, 200, status, string(body))
 	require.GreaterOrEqual(t, len(response.Data), 3, "expected all three candidates in response")

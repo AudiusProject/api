@@ -426,6 +426,7 @@ func NewApiServer(config config.Config) *ApiServer {
 		g.Get("/users/:userId/albums", app.v1UserAlbums)
 		g.Get("/users/:userId/playlists", app.v1UserPlaylists)
 		g.Get("/users/:userId/feed", app.v1UsersFeed)
+		g.Get("/users/:userId/feed/for-you", app.v1UsersFeedForYou)
 		g.Get("/users/:userId/connected_wallets", app.v1UsersConnectedWallets)
 		g.Get("/users/:userId/transactions/audio", app.v1UsersTransactionsAudio)
 		g.Get("/users/:userId/transactions/audio/count", app.v1UsersTransactionsAudioCount)
@@ -510,9 +511,6 @@ func NewApiServer(config config.Config) *ApiServer {
 		g.Delete("/tracks/:trackId", app.requireAuthMiddleware, app.requireWriteScope, app.deleteV1Track)
 		g.Get("/fan_club/feed", app.v1FanClubFeed)
 		g.Get("/fan-club/feed", app.v1FanClubFeed)
-
-		// For You feed (Twitter-style ranked feed)
-		g.Get("/feed/for-you", app.v1FeedForYou)
 
 		g.Get("/events/:eventId/comments", app.v1EventComments)
 		g.Get("/events/:eventId/followers", app.v1EventsFollowers)
