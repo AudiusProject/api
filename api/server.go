@@ -135,6 +135,18 @@ func NewApiServer(config config.Config) *ApiServer {
 		panic(err)
 	}
 
+	// Holds at most ~4 entries (one per Type/Time combination used by
+	// /v1/playlists/trending). The "qualified" set is request-independent
+	// and the underlying query takes 3+ seconds, so a short TTL trades
+	// trivial staleness for huge p95 wins.
+	qualifiedPlaylistsCache, err := otter.MustBuilder[string, []int32](32).
+		WithTTL(5 * time.Minute).
+		CollectStats().
+		Build()
+	if err != nil {
+		panic(err)
+	}
+
 	privateKey, err := crypto.HexToECDSA(config.DelegatePrivateKey)
 	if err != nil {
 		panic(err)
@@ -243,6 +255,7 @@ func NewApiServer(config config.Config) *ApiServer {
 		resolveWalletCache:      &resolveWalletCache,
 		apiAccessKeySignerCache: &apiAccessKeySignerCache,
 		oauthTokenCache:         &oauthTokenCache,
+		qualifiedPlaylistsCache: &qualifiedPlaylistsCache,
 		requestValidator:        requestValidator,
 		rewardAttester:          rewardAttester,
 		transactionSender:       transactionSender,
@@ -793,6 +806,7 @@ type ApiServer struct {
 	resolveWalletCache      *otter.Cache[string, int]
 	apiAccessKeySignerCache *otter.Cache[string, apiAccessKeySignerEntry]
 	oauthTokenCache         *otter.Cache[string, oauthTokenCacheEntry]
+	qualifiedPlaylistsCache *otter.Cache[string, []int32]
 	requestValidator        *RequestValidator
 	rewardManagerClient     *reward_manager.RewardManagerClient
 	claimableTokensClient   *claimable_tokens.ClaimableTokensClient

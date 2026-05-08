@@ -1,6 +1,7 @@
 package api
 
 import (
+	"context"
 	"fmt"
 	"testing"
 
@@ -286,6 +287,27 @@ func TestGetTrendingPlaylists_Albums(t *testing.T) {
 		jsonAssert(t, body, map[string]any{
 			"data.4.id": trashid.MustEncodeHashID(8),
 		})
+	}
+
+	// Cache safety net: if an album becomes private after the qualified-ids
+	// cache was populated (a stale entry), the response handler should still
+	// drop it before returning. Flip album 1 to private and re-call — the
+	// cache will return the stale id list but the handler must filter it out.
+	_, err := app.pool.Exec(context.Background(),
+		`UPDATE playlists SET is_private = true WHERE playlist_id = 1`)
+	assert.NoError(t, err)
+	{
+		var resp struct {
+			Data []struct {
+				ID string `json:"id"`
+			}
+		}
+		status, _ := testGet(t, app, "/v1/playlists/trending?limit=5&type=album", &resp)
+		assert.Equal(t, 200, status)
+		flippedID := trashid.MustEncodeHashID(1)
+		for _, p := range resp.Data {
+			assert.NotEqual(t, flippedID, p.ID, "private playlist must not appear in trending")
+		}
 	}
 	{
 		status, body := testGet(t, app, "/v1/playlists/trending?limit=5&type=playlist", nil)
