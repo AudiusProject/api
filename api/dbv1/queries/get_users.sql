@@ -83,19 +83,31 @@ SELECT
   is_storage_v2,
   creator_node_endpoint,
 
+  -- "Of the people I follow, how many also follow this user?"
+  --
+  -- Drive the loop from my followees (always small — a few thousand at
+  -- most) and probe whether each follows the target user. The previous
+  -- shape let Postgres pick a Merge Join that walked the full follower
+  -- list of the target — for popular target users that's millions of
+  -- rows. The LIMIT 1 OFFSET 0 inside the EXISTS is the same
+  -- optimization fence used by the feed query: it pins the planner to
+  -- nested-loop semantics so the plan never flips to merge join.
   (
     SELECT count(*)
-    FROM follows f
-    JOIN (
-      SELECT followee_user_id
-      FROM follows mf
-      WHERE mf.follower_user_id = @my_id
-        AND mf.is_delete = false
-    ) mf ON f.follower_user_id = mf.followee_user_id
+    FROM follows mf
     WHERE @my_id > 0
-    AND @my_id != u.user_id -- don't compute when viewing own profile
-    AND f.followee_user_id = u.user_id
-    AND f.is_delete = false
+      AND @my_id != u.user_id -- don't compute when viewing own profile
+      AND mf.follower_user_id = @my_id
+      AND mf.is_delete = false
+      AND EXISTS (
+        SELECT 1 FROM (
+          SELECT 1 FROM follows f
+          WHERE f.follower_user_id = mf.followee_user_id
+            AND f.followee_user_id = u.user_id
+            AND f.is_delete = false
+          LIMIT 1 OFFSET 0
+        ) x
+      )
   ) AS current_user_followee_follow_count,
 
   (
