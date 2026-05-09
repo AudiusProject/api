@@ -484,7 +484,8 @@ func TestV1Notifications_RelatedEntities(t *testing.T) {
 	app := emptyTestApp(t)
 
 	const recipient = 1
-	// Five followers, but the per-group cap should drop us to 3 + the followee.
+	// Five followers, but the per-group cap should drop us to
+	// notificationRelatedActorsPerGroup followers + the followee.
 	followers := []int{100, 101, 102, 103, 104}
 	const reposter = 300
 	const repostedTrackID = 50

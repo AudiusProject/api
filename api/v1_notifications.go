@@ -14,11 +14,12 @@ import (
 )
 
 // Per-group cap on how many actions we mine for actor user IDs. Notification
-// groups can fan out (e.g. one row representing 100 followers); we only need
-// enough initiator profiles for the client to render a "X, Y, Z and N others"
-// summary. Target entity IDs (the followee, the reposted track, etc.) are
-// duplicated across every action in a group so the cap doesn't drop them.
-const notificationRelatedActorsPerGroup = 3
+// groups can fan out (e.g. one row representing 100 followers); the client
+// only renders one avatar per group, so a single actor profile is enough.
+// Target entity IDs (the followee, the reposted track, etc.) are duplicated
+// across every action in a group, so reading just the first action still
+// surfaces every target — only the actor list is bounded by this cap.
+const notificationRelatedActorsPerGroup = 1
 
 type GetNotificationsQueryParams struct {
 	// Note that when limit is 0, we return 20 items to calculate unread count
