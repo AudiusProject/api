@@ -15212,6 +15212,8 @@ components:
           $ref: "#/components/schemas/version_metadata"
         data:
           $ref: "#/components/schemas/notifications"
+        related:
+          $ref: "#/components/schemas/related"
     connected_wallets_response:
       type: object
       properties:
