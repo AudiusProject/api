@@ -503,6 +503,8 @@ func TestV1Notifications_RelatedEntities(t *testing.T) {
 		users = append(users, map[string]any{"user_id": fid})
 	}
 
+	// timestamp is intentionally omitted — the seed default (time.Now()) keeps
+	// these notifications inside the SQL handler's 90-day initial-load window.
 	notifs := []map[string]any{
 		{
 			"id":        10,
@@ -511,7 +513,6 @@ func TestV1Notifications_RelatedEntities(t *testing.T) {
 			"type":      "repost",
 			"user_ids":  []int{recipient},
 			"data":      []byte(`{"type": "track", "user_id": 300, "repost_item_id": 50}`),
-			"timestamp": "2025-01-01 00:00:00",
 		},
 		{
 			"id":        11,
@@ -520,7 +521,6 @@ func TestV1Notifications_RelatedEntities(t *testing.T) {
 			"type":      "save",
 			"user_ids":  []int{recipient},
 			"data":      []byte(`{"type": "playlist", "user_id": 400, "save_item_id": 60}`),
-			"timestamp": "2025-01-02 00:00:00",
 		},
 	}
 	// Five follow notifications, all in the same group (one logical
@@ -534,7 +534,6 @@ func TestV1Notifications_RelatedEntities(t *testing.T) {
 			"user_ids":  []int{recipient},
 			"data": []byte(`{"follower_user_id": ` + strconv.Itoa(fid) +
 				`, "followee_user_id": ` + strconv.Itoa(recipient) + `}`),
-			"timestamp": "2025-01-03 00:00:00",
 		})
 	}
 
