@@ -5,12 +5,21 @@ import (
 	"slices"
 	"strings"
 
+	"api.audius.co/api/dbv1"
 	"api.audius.co/trashid"
 	"github.com/gofiber/fiber/v2"
 	"github.com/jackc/pgx/v5"
 	"github.com/tidwall/gjson"
 	"github.com/tidwall/sjson"
 )
+
+// Per-group cap on how many actions we mine for actor user IDs. Notification
+// groups can fan out (e.g. one row representing 100 followers); the client
+// only renders one avatar per group, so a single actor profile is enough.
+// Target entity IDs (the followee, the reposted track, etc.) are duplicated
+// across every action in a group, so reading just the first action still
+// surfaces every target — only the actor list is bounded by this cap.
+const notificationRelatedActorsPerGroup = 1
 
 type GetNotificationsQueryParams struct {
 	// Note that when limit is 0, we return 20 items to calculate unread count
@@ -239,6 +248,10 @@ limit @limit::int
 		return err
 	}
 
+	userIds := []int32{}
+	trackIds := []int32{}
+	playlistIds := []int32{}
+
 	unreadCount := 0
 	for _, notif := range notifs {
 
@@ -247,6 +260,16 @@ limit @limit::int
 			specB := gjson.GetBytes(b, "specifier").String()
 			return strings.Compare(specA, specB)
 		})
+
+		// Mine related entity IDs from the first N actions of each group. This
+		// must happen BEFORE HashifyJson re-encodes ints as opaque strings.
+		mineLimit := len(notif.Actions)
+		if mineLimit > notificationRelatedActorsPerGroup {
+			mineLimit = notificationRelatedActorsPerGroup
+		}
+		for _, action := range notif.Actions[:mineLimit] {
+			collectNotificationRelatedIds(action, &userIds, &trackIds, &playlistIds)
+		}
 
 		// each row from notification table has `actions`
 		// which is a jsonb field that is an array of objects.
@@ -306,11 +329,111 @@ limit @limit::int
 		}
 	}
 
+	related, err := app.queries.Parallel(c.Context(), dbv1.ParallelParams{
+		UserIds:         userIds,
+		TrackIds:        trackIds,
+		PlaylistIds:     playlistIds,
+		MyID:            app.getMyId(c),
+		AuthedWallet:    app.tryGetAuthedWallet(c),
+		IncludeUnlisted: true,
+	})
+	if err != nil {
+		return err
+	}
+
 	return c.JSON(fiber.Map{
 		"data": fiber.Map{
 			"notifications": notifs,
 			"unread_count":  unreadCount,
 		},
+		"related": fiber.Map{
+			"users":     related.UserList(),
+			"tracks":    related.TrackList(),
+			"playlists": related.PlaylistList(),
+		},
 	})
 
+}
+
+// collectNotificationRelatedIds extracts user/track/playlist IDs from a single
+// raw (pre-hashify) notification action's data so the caller can batch-load
+// the related entities in one shot. Field names mirror the Python
+// extend_notification.py mapping; *_item_id and content_id fields are
+// polymorphic and disambiguated by the sibling type field.
+func collectNotificationRelatedIds(action json.RawMessage, userIds, trackIds, playlistIds *[]int32) {
+	appendInt := func(target *[]int32, val gjson.Result) {
+		if val.Exists() && val.Type == gjson.Number {
+			*target = append(*target, int32(val.Int()))
+		}
+	}
+
+	for _, path := range []string{
+		"data.user_id",
+		"data.follower_user_id",
+		"data.followee_user_id",
+		"data.comment_user_id",
+		"data.entity_user_id",
+		"data.reacter_user_id",
+		"data.sender_user_id",
+		"data.receiver_user_id",
+		"data.dethroned_user_id",
+		"data.grantee_user_id",
+		"data.tastemaker_user_id",
+		"data.tastemaker_item_owner_id",
+		"data.track_owner_id",
+		"data.parent_track_owner_id",
+		"data.playlist_owner_id",
+		"data.buyer_user_id",
+		"data.seller_user_id",
+	} {
+		appendInt(userIds, gjson.GetBytes(action, path))
+	}
+
+	appendInt(trackIds, gjson.GetBytes(action, "data.track_id"))
+	appendInt(trackIds, gjson.GetBytes(action, "data.parent_track_id"))
+	appendInt(playlistIds, gjson.GetBytes(action, "data.playlist_id"))
+
+	// Polymorphic fields: split by sibling type discriminator.
+	itemType := strings.ToLower(gjson.GetBytes(action, "data.type").String())
+	for _, path := range []string{
+		"data.repost_item_id",
+		"data.save_item_id",
+		"data.repost_of_repost_item_id",
+		"data.save_of_repost_item_id",
+	} {
+		val := gjson.GetBytes(action, path)
+		if !val.Exists() || val.Type != gjson.Number {
+			continue
+		}
+		if itemType == "track" {
+			*trackIds = append(*trackIds, int32(val.Int()))
+		} else if itemType == "playlist" || itemType == "album" {
+			*playlistIds = append(*playlistIds, int32(val.Int()))
+		}
+	}
+
+	if val := gjson.GetBytes(action, "data.tastemaker_item_id"); val.Exists() && val.Type == gjson.Number {
+		switch strings.ToLower(gjson.GetBytes(action, "data.tastemaker_item_type").String()) {
+		case "track":
+			*trackIds = append(*trackIds, int32(val.Int()))
+		case "playlist", "album":
+			*playlistIds = append(*playlistIds, int32(val.Int()))
+		}
+	}
+
+	if val := gjson.GetBytes(action, "data.content_id"); val.Exists() && val.Type == gjson.Number {
+		switch strings.ToLower(gjson.GetBytes(action, "data.content_type").String()) {
+		case "track":
+			*trackIds = append(*trackIds, int32(val.Int()))
+		case "playlist", "album":
+			*playlistIds = append(*playlistIds, int32(val.Int()))
+		}
+	}
+
+	// Comment notifications: entity_id is a track when entity_type is Track.
+	if val := gjson.GetBytes(action, "data.entity_id"); val.Exists() && val.Type == gjson.Number {
+		if strings.EqualFold(gjson.GetBytes(action, "data.entity_type").String(), "track") {
+			*trackIds = append(*trackIds, int32(val.Int()))
+		}
+	}
 }
