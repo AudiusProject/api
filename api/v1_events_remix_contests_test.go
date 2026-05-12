@@ -1,6 +1,7 @@
 package api
 
 import (
+	"context"
 	"testing"
 
 	"api.audius.co/config"
@@ -458,5 +459,108 @@ func TestRemixContestsExcludesUnavailableContent(t *testing.T) {
 		eventIds := pluckStrings(body, "data.#.event_id")
 		assert.NotContains(t, eventIds, trashid.MustEncodeHashID(705),
 			"contest hosted by a user with is_available=false must not be returned")
+	})
+}
+
+// TestRemixContestsExcludesShadowbannedHosts covers the two parallel
+// shadow-ban signals applied to the discovery list:
+//  1. `aggregate_user.score < 0` (account-quality signal — bots,
+//     impersonators, fast-challenge runners).
+//  2. The karma-muted set — host has been muted by users whose combined
+//     follower_count crosses karmaCommentCountThreshold (community-driven
+//     signal). Same shape used in v1_event_comments for comment authors.
+func TestRemixContestsExcludesShadowbannedHosts(t *testing.T) {
+	app := emptyTestApp(t)
+
+	cleanHostID := 9601
+	lowScoreHostID := 9602
+	karmaMutedHostID := 9603
+	highKarmaMuterID := 9604
+
+	cleanTrackID := 8601
+	lowScoreTrackID := 8602
+	karmaMutedTrackID := 8603
+
+	start := parseTime(t, "2024-01-02")
+	end := parseTime(t, "2099-01-01")
+
+	fixtures := database.FixtureMap{
+		"events": []map[string]any{
+			{
+				"event_id": 801, "event_type": "remix_contest", "entity_type": "track",
+				"entity_id": cleanTrackID, "user_id": cleanHostID,
+				"created_at": start, "end_date": end,
+			},
+			{
+				"event_id": 802, "event_type": "remix_contest", "entity_type": "track",
+				"entity_id": lowScoreTrackID, "user_id": lowScoreHostID,
+				"created_at": start, "end_date": end,
+			},
+			{
+				"event_id": 803, "event_type": "remix_contest", "entity_type": "track",
+				"entity_id": karmaMutedTrackID, "user_id": karmaMutedHostID,
+				"created_at": start, "end_date": end,
+			},
+		},
+		"users": []map[string]any{
+			{"user_id": cleanHostID, "handle": "clean_host"},
+			{"user_id": lowScoreHostID, "handle": "low_score_host"},
+			{"user_id": karmaMutedHostID, "handle": "karma_muted_host"},
+			{"user_id": highKarmaMuterID, "handle": "high_karma_muter"},
+		},
+		"tracks": []map[string]any{
+			{"track_id": cleanTrackID, "owner_id": cleanHostID, "created_at": start},
+			{"track_id": lowScoreTrackID, "owner_id": lowScoreHostID, "created_at": start},
+			{"track_id": karmaMutedTrackID, "owner_id": karmaMutedHostID, "created_at": start},
+		},
+		"muted_users": []map[string]any{
+			// High-karma muter mutes the karma-muted host — combined with the
+			// follower_count bump below, this should cross the threshold.
+			{"user_id": highKarmaMuterID, "muted_user_id": karmaMutedHostID},
+		},
+	}
+	database.Seed(app.pool.Replicas[0], fixtures)
+
+	// `aggregate_user` rows are created by the users trigger; tweak the two
+	// fields we care about: score on the low-score host, and the muter's
+	// follower_count so the karma-muted CTE actually trips.
+	_, err := app.pool.Exec(context.Background(),
+		`UPDATE aggregate_user SET score = $1 WHERE user_id = $2`,
+		-1, lowScoreHostID,
+	)
+	if err != nil {
+		t.Fatal(err)
+	}
+	_, err = app.pool.Exec(context.Background(),
+		`UPDATE aggregate_user SET follower_count = $1 WHERE user_id = $2`,
+		karmaCommentCountThreshold+1, highKarmaMuterID,
+	)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	cleanEventHash := trashid.MustEncodeHashID(801)
+
+	t.Run("only the clean host's contest is returned", func(t *testing.T) {
+		status, body := testGet(t, app, "/v1/events/remix-contests")
+		assert.Equal(t, 200, status)
+		jsonAssert(t, body, map[string]any{
+			"data.#":          1,
+			"data.0.event_id": cleanEventHash,
+		})
+	})
+
+	t.Run("host with score < 0 is excluded", func(t *testing.T) {
+		_, body := testGet(t, app, "/v1/events/remix-contests")
+		eventIds := pluckStrings(body, "data.#.event_id")
+		assert.NotContains(t, eventIds, trashid.MustEncodeHashID(802),
+			"contest hosted by a user with aggregate_user.score < 0 must not be returned")
+	})
+
+	t.Run("karma-muted host is excluded", func(t *testing.T) {
+		_, body := testGet(t, app, "/v1/events/remix-contests")
+		eventIds := pluckStrings(body, "data.#.event_id")
+		assert.NotContains(t, eventIds, trashid.MustEncodeHashID(803),
+			"contest hosted by a user in muted_by_karma must not be returned")
 	})
 }
