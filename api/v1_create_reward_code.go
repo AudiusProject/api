@@ -21,6 +21,13 @@ import (
 	"go.uber.org/zap"
 )
 
+// rewardPoolDeadlineWindow is the number of blocks ahead of the current
+// height at which we set the deadline_block_height on cometbft tx
+// envelopes that this server originates (CreateRewardPool, CreateReward).
+// Cheap to keep generous: the deadline only bounds how stale a single
+// signed envelope can sit before the validator rejects it.
+const rewardPoolDeadlineWindow = 100
+
 const (
 	signedAuthMessage = "code"
 	codeLength        = 10
@@ -212,8 +219,27 @@ func (app *ApiServer) createAndInsertRewardCode(ctx context.Context, code, mint 
 	return rewardAddress, nil
 }
 
-// createRewardCode creates or reuses a reward pool and returns the reward address.
-// This is shared business logic used by both v1CreateRewardCode and prize claim flow.
+// createRewardCode creates a cometbft reward bound to the launchpad mint's
+// pool and returns the reward address. Idempotent on the pool (a pool that
+// already exists is reused; only the very first reward for a brand-new
+// mint triggers CreateRewardPool).
+//
+// Three keys are involved:
+//   - The per-mint claim authority eth key (secp256k1, from
+//     DeriveEthAddressForMint). Signs the cometbft envelope and is the
+//     pool's sole initial authority.
+//   - The RM ed25519 keypair (from DeriveRewardManagerKeypair). Same
+//     keypair the solana-relay used to init the Solana reward manager
+//     state account; its public key IS the rewards_manager_pubkey.
+//     Signs the CreateRewardPool envelope's rm_owner_signature, which
+//     proves possession of the RM keypair and prevents pool-creation
+//     frontrunning.
+//
+// Both are derived from app.config.LaunchpadDeterministicSecret +
+// the mint, so they're available everywhere the secret is configured.
+// When the secret is empty, this function is a no-op and returns ""
+// (matches existing behavior for dev environments without launchpad
+// configuration).
 func (app *ApiServer) createRewardCode(ctx context.Context, code, mint string, amount int64, rewardName string) (string, error) {
 	app.logger.Info("createRewardCode: Starting",
 		zap.String("code", code),
@@ -223,65 +249,77 @@ func (app *ApiServer) createRewardCode(ctx context.Context, code, mint string, a
 		zap.Bool("has_deterministic_secret", app.config.LaunchpadDeterministicSecret != ""),
 		zap.String("audiusd_url", app.config.AudiusdURL))
 
-	var rewardAddress string
+	if app.config.LaunchpadDeterministicSecret == "" {
+		app.logger.Info("createRewardCode: Completed (no launchpad secret configured; reward pool skipped)",
+			zap.String("code", code))
+		return "", nil
+	}
 
-	// Only create reward pool if deterministic secret is configured
-	if app.config.LaunchpadDeterministicSecret != "" {
-		mintPubKey, err := solana.PublicKeyFromBase58(mint)
-		if err != nil {
-			return "", fmt.Errorf("invalid mint address: %w", err)
+	mintPubKey, err := solana.PublicKeyFromBase58(mint)
+	if err != nil {
+		return "", fmt.Errorf("invalid mint address: %w", err)
+	}
+
+	claimAuthority, claimAuthorityPrivateKey, err := utils.DeriveEthAddressForMint(
+		[]byte("claimAuthority"),
+		app.config.LaunchpadDeterministicSecret,
+		mintPubKey,
+	)
+	if err != nil {
+		return "", fmt.Errorf("failed to derive eth claim-authority key: %w", err)
+	}
+	envelopeKey, err := common.EthToEthKey(claimAuthorityPrivateKey)
+	if err != nil {
+		return "", fmt.Errorf("failed to convert eth claim-authority key: %w", err)
+	}
+
+	// Derive the RM ed25519 keypair matching what the solana-relay used
+	// to init the Solana reward manager state account. The base58-encoded
+	// public key IS the rewards_manager_pubkey cometbft carries for this
+	// mint's pool.
+	rmKey := utils.DeriveRewardManagerKeypair(app.config.LaunchpadDeterministicSecret, mintPubKey)
+	rewardsManagerPubkey := base58.Encode(rmKey.Public().(ed25519.PublicKey))
+
+	oap := sdk.NewOpenAudioSDK(app.config.AudiusdURL)
+	oap.SetPrivKey(envelopeKey)
+
+	statusResp, err := oap.Core.GetStatus(ctx, connect.NewRequest(&v1.GetStatusRequest{}))
+	if err != nil {
+		return "", fmt.Errorf("failed to get chain status: %w", err)
+	}
+	deadline := statusResp.Msg.ChainInfo.CurrentHeight + rewardPoolDeadlineWindow
+
+	// First reward against this mint? Create the pool. Pre-existing pool
+	// is the common case (every subsequent reward for the same mint).
+	if _, err := oap.Rewards.GetRewardPool(ctx, rewardsManagerPubkey); err != nil {
+		if connect.CodeOf(err) != connect.CodeNotFound {
+			return "", fmt.Errorf("failed to look up reward pool for RM %s: %w", rewardsManagerPubkey, err)
 		}
-
-		claimAuthority, claimAuthorityPrivateKey, err := utils.DeriveEthAddressForMint(
-			[]byte("claimAuthority"),
-			app.config.LaunchpadDeterministicSecret,
-			mintPubKey,
-		)
-		if err != nil {
-			return "", fmt.Errorf("failed to derive Ethereum key: %w", err)
-		}
-
-		// Convert the private key to the format expected by the SDK
-		privateKey, err := common.EthToEthKey(claimAuthorityPrivateKey)
-		if err != nil {
-			return "", fmt.Errorf("failed to convert private key: %w", err)
-		}
-
-		// Create OpenAudio SDK instance and set the private key
-		oap := sdk.NewOpenAudioSDK(app.config.AudiusdURL)
-		oap.SetPrivKey(privateKey)
-
-		// Get current chain status to calculate deadline
-		statusResp, err := oap.Core.GetStatus(context.Background(), connect.NewRequest(&v1.GetStatusRequest{}))
-		if err != nil {
-			return "", fmt.Errorf("failed to get chain status: %w", err)
-		}
-
-		currentHeight := statusResp.Msg.ChainInfo.CurrentHeight
-		deadline := currentHeight + 100
-		rewardID := fmt.Sprintf("%s", code)
-
-		reward, err := oap.Rewards.CreateReward(context.Background(), &v1.CreateReward{
-			RewardId: rewardID,
-			Name:     fmt.Sprintf("Launchpad Reward %s", code),
-			Amount:   uint64(amount),
-			ClaimAuthorities: []*v1.ClaimAuthority{
-				{Address: claimAuthority, Name: "Launchpad"},
-			},
-			DeadlineBlockHeight: deadline,
-		})
-		if err != nil {
+		app.logger.Info("createRewardCode: Creating reward pool",
+			zap.String("mint", mint),
+			zap.String("rewards_manager_pubkey", rewardsManagerPubkey),
+			zap.String("claim_authority", claimAuthority))
+		if _, err := oap.Rewards.CreateRewardPool(ctx, &v1.CreateRewardPool{
+			RewardsManagerPubkey: rewardsManagerPubkey,
+			Authorities:          []string{claimAuthority},
+		}, rmKey, deadline); err != nil {
 			return "", fmt.Errorf("failed to create reward pool: %w", err)
 		}
+	}
 
-		rewardAddress = reward.Address
-	} else {
-		rewardAddress = ""
+	reward, err := oap.Rewards.CreateReward(ctx, &v1.CreateReward{
+		RewardId:             code,
+		Name:                 fmt.Sprintf("Launchpad Reward %s", code),
+		Amount:               uint64(amount),
+		RewardsManagerPubkey: rewardsManagerPubkey,
+	}, deadline)
+	if err != nil {
+		return "", fmt.Errorf("failed to create reward: %w", err)
 	}
 
 	app.logger.Info("createRewardCode: Completed",
 		zap.String("code", code),
-		zap.String("reward_address", rewardAddress),
-		zap.Bool("has_reward_address", rewardAddress != ""))
-	return rewardAddress, nil
+		zap.String("reward_address", reward.Address),
+		zap.String("rewards_manager_pubkey", rewardsManagerPubkey))
+	return reward.Address, nil
 }

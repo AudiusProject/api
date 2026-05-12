@@ -2,6 +2,7 @@ package main
 
 import (
 	"context"
+	"crypto/ed25519"
 	"encoding/csv"
 	"errors"
 	"flag"
@@ -19,8 +20,14 @@ import (
 	"github.com/OpenAudio/go-openaudio/pkg/sdk"
 	"github.com/gagliardetto/solana-go"
 	"github.com/jackc/pgx/v5/pgxpool"
+	"github.com/mr-tron/base58"
 	"go.uber.org/zap"
 )
+
+// rewardPoolDeadlineWindow is the number of blocks ahead of the current
+// height at which the CLI sets the deadline_block_height on cometbft tx
+// envelopes (CreateRewardPool, CreateReward).
+const rewardPoolDeadlineWindow = 100
 
 const (
 	maxRetries        = 3
@@ -268,8 +275,15 @@ func processCode(ctx context.Context, logger *zap.Logger, pool *pgxpool.Pool, cf
 	oap := sdk.NewOpenAudioSDK(cfg.AudiusdURL)
 	oap.SetPrivKey(privateKey)
 
-	// Create reward pool (with retry and idempotency check)
-	rewardAddress, err := createRewardPool(ctx, logger, pool, oap, code, amount, claimAuthority)
+	// Derive the RM ed25519 keypair matching what the solana-relay used to
+	// init the Solana reward manager state account. The base58-encoded
+	// public key IS the rewards_manager_pubkey cometbft carries for this
+	// mint's pool.
+	rmKey := utils.DeriveRewardManagerKeypair(cfg.LaunchpadDeterministicSecret, mintPubKey)
+	rewardsManagerPubkey := base58.Encode(rmKey.Public().(ed25519.PublicKey))
+
+	// Ensure pool exists for this mint, then create the reward.
+	rewardAddress, err := ensurePoolAndCreateReward(ctx, logger, pool, oap, code, amount, claimAuthority, rewardsManagerPubkey, rmKey)
 	if err != nil {
 		return CodeResult{
 			Code:    code,
@@ -303,61 +317,67 @@ func checkCodeExists(ctx context.Context, pool *pgxpool.Pool, code string) (bool
 	return exists, err
 }
 
-func createRewardPool(ctx context.Context, logger *zap.Logger, pool *pgxpool.Pool, oap *sdk.OpenAudioSDK, code string, amount int64, claimAuthority string) (string, error) {
-	// Get current chain status to calculate deadline
+// ensurePoolAndCreateReward looks up (and if missing, creates) the reward
+// pool for the mint, then submits the CreateReward tx and returns the
+// reward address. The "reward already exists in pool" case is detected
+// via the cometbft error string and resolved by reading the previously
+// stored reward_address from the local DB — the idempotency guarantee
+// the prior implementation provided is preserved.
+func ensurePoolAndCreateReward(ctx context.Context, logger *zap.Logger, pool *pgxpool.Pool, oap *sdk.OpenAudioSDK, code string, amount int64, claimAuthority, rewardsManagerPubkey string, rmKey ed25519.PrivateKey) (string, error) {
 	var statusResp *connect.Response[v1.GetStatusResponse]
-	err := retryOperation(func() error {
+	if err := retryOperation(func() error {
 		var err error
 		statusResp, err = oap.Core.GetStatus(ctx, connect.NewRequest(&v1.GetStatusRequest{}))
 		return err
-	})
-	if err != nil {
+	}); err != nil {
 		return "", fmt.Errorf("failed to get chain status: %w", err)
 	}
+	deadline := statusResp.Msg.ChainInfo.CurrentHeight + rewardPoolDeadlineWindow
 
-	currentHeight := statusResp.Msg.ChainInfo.CurrentHeight
-	deadline := currentHeight + 100
-	rewardID := code
+	// Pool existence check. The common case (any non-first reward for the
+	// mint) is "pool exists, skip the create." Brand-new mints fall into
+	// the create branch exactly once.
+	if err := retryOperation(func() error {
+		_, err := oap.Rewards.GetRewardPool(ctx, rewardsManagerPubkey)
+		if err != nil && connect.CodeOf(err) == connect.CodeNotFound {
+			logger.Info("Creating reward pool", zap.String("rewards_manager_pubkey", rewardsManagerPubkey), zap.String("claim_authority", claimAuthority))
+			if _, createErr := oap.Rewards.CreateRewardPool(ctx, &v1.CreateRewardPool{
+				RewardsManagerPubkey: rewardsManagerPubkey,
+				Authorities:          []string{claimAuthority},
+			}, rmKey, deadline); createErr != nil && !strings.Contains(createErr.Error(), "already exists") {
+				return createErr
+			}
+			return nil
+		}
+		return err
+	}); err != nil {
+		return "", fmt.Errorf("failed to ensure reward pool: %w", err)
+	}
 
-	// Try to create reward pool
 	var reward *v1.GetRewardResponse
-	err = retryOperation(func() error {
+	if err := retryOperation(func() error {
 		var err error
 		reward, err = oap.Rewards.CreateReward(ctx, &v1.CreateReward{
-			RewardId: rewardID,
-			Name:     fmt.Sprintf("Launchpad Reward %s", code),
-			Amount:   uint64(amount),
-			ClaimAuthorities: []*v1.ClaimAuthority{
-				{Address: claimAuthority, Name: "Launchpad"},
-			},
-			DeadlineBlockHeight: deadline,
-		})
-
-		// If error indicates reward already exists, return special error
+			RewardId:             code,
+			Name:                 fmt.Sprintf("Launchpad Reward %s", code),
+			Amount:               uint64(amount),
+			RewardsManagerPubkey: rewardsManagerPubkey,
+		}, deadline)
 		if err != nil && strings.Contains(err.Error(), "already exists") {
-			logger.Info("Reward pool already exists", zap.String("code", code))
+			logger.Info("Reward already exists", zap.String("code", code))
 			return &RewardExistsError{Code: code}
 		}
-
 		return err
-	})
-
-	// Handle reward already exists case
-	if err != nil {
+	}); err != nil {
 		if existsErr, ok := err.(*RewardExistsError); ok {
-			// Reward pool already exists - check if we have it in the DB
-			// We need to pass pool to the closure, so we'll query it here
 			var rewardAddress string
 			dbErr := retryOperation(func() error {
 				return pool.QueryRow(ctx, "SELECT reward_address FROM reward_codes WHERE code = $1", existsErr.Code).Scan(&rewardAddress)
 			})
 			if dbErr == nil && rewardAddress != "" {
-				// We have it in DB, use that
 				return rewardAddress, nil
 			}
-			// If not in DB, we can't proceed - this shouldn't happen in normal flow
-			// but if it does, we'll return an error
-			return "", fmt.Errorf("reward pool exists but address not found in database")
+			return "", fmt.Errorf("reward already exists on chain but address not found in local DB")
 		}
 		return "", err
 	}
