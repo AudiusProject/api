@@ -36,6 +36,15 @@ func (app *ApiServer) v1EventsRemixContests(c *fiber.Ctx) error {
 		"u.is_deactivated = false",
 		"u.is_available = true",
 		"(e.entity_type != 'track' OR (t.track_id IS NOT NULL AND t.is_delete = false AND t.is_unlisted = false))",
+		// Shadow-ban filters — mirror what v1_event_comments.go applies to
+		// comment authors. Two parallel signals so the filter catches the
+		// full population: low-quality / impersonator / bot accounts via
+		// `aggregate_user.score < 0`, and community-flagged users via the
+		// karma-muted set (sum of muters' follower_count crosses the
+		// karmaCommentCountThreshold). Hosts in either bucket disappear
+		// from the discovery list.
+		"e.user_id NOT IN (SELECT user_id FROM low_abuse_score)",
+		"e.user_id NOT IN (SELECT muted_user_id FROM muted_by_karma)",
 	}
 
 	switch params.Status {
@@ -49,6 +58,18 @@ func (app *ApiServer) v1EventsRemixContests(c *fiber.Ctx) error {
 	// (only_contest_entries=true): a child track is an entry iff it was created
 	// after the contest started, before its end_date, and is currently listed.
 	sql := `
+		WITH
+		muted_by_karma AS (
+			SELECT muted_user_id
+			FROM muted_users
+			JOIN aggregate_user ON muted_users.user_id = aggregate_user.user_id
+			WHERE muted_users.is_delete = false
+			GROUP BY muted_user_id
+			HAVING SUM(aggregate_user.follower_count) >= @karmaCommentCountThreshold
+		),
+		low_abuse_score AS (
+			SELECT user_id FROM aggregate_user WHERE score < 0
+		)
 		SELECT
 			e.event_id,
 			e.entity_type::event_entity_type AS entity_type,
@@ -92,9 +113,10 @@ func (app *ApiServer) v1EventsRemixContests(c *fiber.Ctx) error {
 	`
 
 	rows, err := app.pool.Query(c.Context(), sql, pgx.NamedArgs{
-		"limit":            params.Limit,
-		"offset":           params.Offset,
-		"featured_user_id": config.Cfg.FeaturedAudienceUserID,
+		"limit":                      params.Limit,
+		"offset":                     params.Offset,
+		"featured_user_id":           config.Cfg.FeaturedAudienceUserID,
+		"karmaCommentCountThreshold": karmaCommentCountThreshold,
 	})
 	if err != nil {
 		return err
