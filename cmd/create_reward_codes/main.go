@@ -336,20 +336,35 @@ func ensurePoolAndCreateReward(ctx context.Context, logger *zap.Logger, pool *pg
 
 	// Pool existence check. The common case (any non-first reward for the
 	// mint) is "pool exists, skip the create." Brand-new mints fall into
-	// the create branch exactly once.
+	// the create branch exactly once — except for the race where two
+	// concurrent first-reward requests for the same mint both observe
+	// NotFound and both submit CreateRewardPool; the second one's tx
+	// fails, but the post-failure GetRewardPool will now find the pool,
+	// which we treat as success.
 	if err := retryOperation(func() error {
 		_, err := oap.Rewards.GetRewardPool(ctx, rewardsManagerPubkey)
-		if err != nil && connect.CodeOf(err) == connect.CodeNotFound {
-			logger.Info("Creating reward pool", zap.String("rewards_manager_pubkey", rewardsManagerPubkey), zap.String("claim_authority", claimAuthority))
-			if _, createErr := oap.Rewards.CreateRewardPool(ctx, &v1.CreateRewardPool{
-				RewardsManagerPubkey: rewardsManagerPubkey,
-				Authorities:          []string{claimAuthority},
-			}, rmKey, deadline); createErr != nil && !strings.Contains(createErr.Error(), "already exists") {
-				return createErr
-			}
+		if err == nil {
 			return nil
 		}
-		return err
+		if connect.CodeOf(err) != connect.CodeNotFound {
+			return err
+		}
+		logger.Info("Creating reward pool", zap.String("rewards_manager_pubkey", rewardsManagerPubkey), zap.String("claim_authority", claimAuthority))
+		if _, createErr := oap.Rewards.CreateRewardPool(ctx, &v1.CreateRewardPool{
+			RewardsManagerPubkey: rewardsManagerPubkey,
+			Authorities:          []string{claimAuthority},
+		}, rmKey, deadline); createErr != nil {
+			// Race: another caller created the pool between our
+			// GetRewardPool and CreateRewardPool. Verify by re-fetching
+			// the pool; if it now exists we lost the race cleanly.
+			// Anything else is a real error.
+			if _, verifyErr := oap.Rewards.GetRewardPool(ctx, rewardsManagerPubkey); verifyErr != nil {
+				return createErr
+			}
+			logger.Info("Lost CreateRewardPool race; pool now exists",
+				zap.String("rewards_manager_pubkey", rewardsManagerPubkey))
+		}
+		return nil
 	}); err != nil {
 		return "", fmt.Errorf("failed to ensure reward pool: %w", err)
 	}
@@ -363,34 +378,12 @@ func ensurePoolAndCreateReward(ctx context.Context, logger *zap.Logger, pool *pg
 			Amount:               uint64(amount),
 			RewardsManagerPubkey: rewardsManagerPubkey,
 		}, deadline)
-		if err != nil && strings.Contains(err.Error(), "already exists") {
-			logger.Info("Reward already exists", zap.String("code", code))
-			return &RewardExistsError{Code: code}
-		}
 		return err
 	}); err != nil {
-		if existsErr, ok := err.(*RewardExistsError); ok {
-			var rewardAddress string
-			dbErr := retryOperation(func() error {
-				return pool.QueryRow(ctx, "SELECT reward_address FROM reward_codes WHERE code = $1", existsErr.Code).Scan(&rewardAddress)
-			})
-			if dbErr == nil && rewardAddress != "" {
-				return rewardAddress, nil
-			}
-			return "", fmt.Errorf("reward already exists on chain but address not found in local DB")
-		}
-		return "", err
+		return "", fmt.Errorf("failed to create reward: %w", err)
 	}
 
 	return reward.Address, nil
-}
-
-type RewardExistsError struct {
-	Code string
-}
-
-func (e *RewardExistsError) Error() string {
-	return fmt.Sprintf("reward already exists: %s", e.Code)
 }
 
 func insertCodeIntoDB(ctx context.Context, pool *pgxpool.Pool, code, mint, rewardAddress string, amount int64, uses int) error {

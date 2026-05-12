@@ -21,17 +21,18 @@ import (
 	"go.uber.org/zap"
 )
 
-// rewardPoolDeadlineWindow is the number of blocks ahead of the current
-// height at which we set the deadline_block_height on cometbft tx
-// envelopes that this server originates (CreateRewardPool, CreateReward).
-// Cheap to keep generous: the deadline only bounds how stale a single
-// signed envelope can sit before the validator rejects it.
-const rewardPoolDeadlineWindow = 100
-
 const (
 	signedAuthMessage = "code"
 	codeLength        = 10
 	codeChars         = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789"
+
+	// rewardPoolDeadlineWindow is the number of blocks ahead of the
+	// current height at which we set the deadline_block_height on
+	// cometbft tx envelopes that this server originates
+	// (CreateRewardPool, CreateReward). Cheap to keep generous: the
+	// deadline only bounds how stale a single signed envelope can sit
+	// before the validator rejects it.
+	rewardPoolDeadlineWindow = 100
 )
 
 type CreateRewardCodeRequest struct {
@@ -299,11 +300,21 @@ func (app *ApiServer) createRewardCode(ctx context.Context, code, mint string, a
 			zap.String("mint", mint),
 			zap.String("rewards_manager_pubkey", rewardsManagerPubkey),
 			zap.String("claim_authority", claimAuthority))
-		if _, err := oap.Rewards.CreateRewardPool(ctx, &v1.CreateRewardPool{
+		if _, createErr := oap.Rewards.CreateRewardPool(ctx, &v1.CreateRewardPool{
 			RewardsManagerPubkey: rewardsManagerPubkey,
 			Authorities:          []string{claimAuthority},
-		}, rmKey, deadline); err != nil {
-			return "", fmt.Errorf("failed to create reward pool: %w", err)
+		}, rmKey, deadline); createErr != nil {
+			// Race window: two concurrent first-reward requests for the
+			// same brand-new mint can both observe NotFound and both
+			// submit CreateRewardPool. The second one will fail because
+			// the pool now exists. Re-fetch and treat "pool exists" as
+			// success — equivalent to having lost the race cleanly.
+			// Anything else is a real error.
+			if _, getErr := oap.Rewards.GetRewardPool(ctx, rewardsManagerPubkey); getErr != nil {
+				return "", fmt.Errorf("failed to create reward pool: %w", createErr)
+			}
+			app.logger.Info("createRewardCode: Lost CreateRewardPool race; pool now exists",
+				zap.String("rewards_manager_pubkey", rewardsManagerPubkey))
 		}
 	}
 
