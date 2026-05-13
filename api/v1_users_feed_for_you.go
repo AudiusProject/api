@@ -115,10 +115,23 @@ func (app *ApiServer) v1UsersFeedForYou(c *fiber.Ctx) error {
 		  AND is_current = true
 		  AND is_delete = false
 	),
+	-- The set of artists I save anchors the collaborative-filter join
+	-- below. For long-tenure power users with thousands of saved artists
+	-- the saves self-join explodes and the planner times out, so we cap
+	-- to the 200 most recently saved artists. Recency is the right axis:
+	-- old saves are weaker signal of current taste anyway, and a 200-artist
+	-- anchor still gives the similar-artists CTE enough to work with.
 	my_saved_artists AS (
-		SELECT DISTINCT t.owner_id AS artist_id
-		FROM my_saved_tracks mst
-		JOIN tracks t ON t.track_id = mst.track_id
+		SELECT t.owner_id AS artist_id, MAX(s.created_at) AS last_saved_at
+		FROM saves s
+		JOIN tracks t ON t.track_id = s.save_item_id
+		WHERE s.user_id = @userId
+		  AND s.save_type = 'track'
+		  AND s.is_current = true
+		  AND s.is_delete = false
+		GROUP BY t.owner_id
+		ORDER BY last_saved_at DESC
+		LIMIT 200
 	),
 	-- 1-hop collaborative filter on the saves graph: artists saved by
 	-- users who *also* save my saved-artists, but who I haven't saved myself.
