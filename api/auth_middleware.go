@@ -347,16 +347,8 @@ func (app *ApiServer) authMiddleware(c *fiber.Ctx) error {
 		return fiber.NewError(fiber.StatusUnauthorized, "Invalid or expired access token")
 	}
 
-	// Not authorized to act on behalf of myId.
-	//
-	// Exception: /users/:userId/feed/for-you accepts user_id as a viewer hint
-	// used only for response decoration (has_current_user_reposted etc.); the
-	// path :userId — not user_id — controls what gets personalized. Treat the
-	// query user_id as advisory rather than authoritative on this route so
-	// the endpoint can be called like the other public read endpoints.
-	allowUnauthenticatedViewerId := strings.HasSuffix(c.Path(), "/feed/for-you")
-
-	if myId != 0 && !pkceAuthed && !allowUnauthenticatedViewerId && !app.isAuthorizedRequest(c.Context(), myId, wallet) {
+	// Not authorized to act on behalf of myId
+	if myId != 0 && !pkceAuthed && !app.isAuthorizedRequest(c.Context(), myId, wallet) {
 		return fiber.NewError(
 			fiber.StatusForbidden,
 			fmt.Sprintf(
