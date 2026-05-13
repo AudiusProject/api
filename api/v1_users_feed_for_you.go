@@ -100,12 +100,19 @@ func (app *ApiServer) v1UsersFeedForYou(c *fiber.Ctx) error {
 
 	sql := `
 	WITH
+	-- Cap to the 500 most-recently-followed users. A power user with
+	-- thousands of follows pulls a huge hash table here that then has to
+	-- join against every recent track upload to find in-network candidates,
+	-- so the planner can stall. Recent follows are a better signal of
+	-- current taste anyway.
 	follow_set AS (
 		SELECT followee_user_id AS user_id
 		FROM follows
 		WHERE follower_user_id = @userId
 		  AND is_current = true
 		  AND is_delete = false
+		ORDER BY created_at DESC
+		LIMIT 500
 	),
 	my_saved_tracks AS (
 		SELECT save_item_id AS track_id
@@ -157,20 +164,31 @@ func (app *ApiServer) v1UsersFeedForYou(c *fiber.Ctx) error {
 	),
 	-- Per-artist engagement strength (saves + reposts + plays of any of
 	-- their tracks by me). Used for the social_boost multiplier.
+	--
+	-- Each sub-select is bounded by recency: a heavy listener can have
+	-- hundreds of thousands of play rows, and the unbounded union forces
+	-- a full scan of those rows on every request. Recent engagement is
+	-- the right signal anyway — old listens say less about current taste.
 	my_artist_affinity AS (
 		SELECT t.owner_id AS artist_id,
 		       LN(1 + COUNT(*)) AS affinity
 		FROM (
-			SELECT save_item_id AS track_id FROM saves
+			(SELECT save_item_id AS track_id FROM saves
 			 WHERE user_id = @userId AND save_type = 'track'
 			   AND is_current = true AND is_delete = false
+			 ORDER BY created_at DESC
+			 LIMIT 200)
 			UNION ALL
-			SELECT repost_item_id AS track_id FROM reposts
+			(SELECT repost_item_id AS track_id FROM reposts
 			 WHERE user_id = @userId AND repost_type = 'track'
 			   AND is_current = true AND is_delete = false
+			 ORDER BY created_at DESC
+			 LIMIT 200)
 			UNION ALL
-			SELECT play_item_id AS track_id FROM plays
+			(SELECT play_item_id AS track_id FROM plays
 			 WHERE user_id = @userId
+			 ORDER BY created_at DESC
+			 LIMIT 500)
 		) eng
 		JOIN tracks t ON t.track_id = eng.track_id
 		GROUP BY t.owner_id
