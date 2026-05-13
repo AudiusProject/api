@@ -148,6 +148,25 @@ func TestV1FeedForYou_RequiresValidUserId(t *testing.T) {
 	assert.Equal(t, 400, status)
 }
 
+// /feed/for-you is exempt from authMiddleware's "if user_id is set, wallet
+// must match" 403 — the query user_id is a viewer hint, not an authorization
+// claim. This test pins that exemption: with skipAuthCheck OFF (so the real
+// auth path runs) and no signature headers, the call still returns 200.
+func TestV1FeedForYou_UnauthenticatedViewerIdAllowed(t *testing.T) {
+	app := emptyTestApp(t)
+	// Deliberately NOT setting app.skipAuthCheck — exercise the real
+	// authMiddleware exemption added for this route.
+	database.Seed(app.pool.Replicas[0], feedForYouFixtures())
+
+	var response struct {
+		Data []dbv1.Track
+	}
+	encodedId := trashid.MustEncodeHashID(1)
+	path := "/v1/users/" + encodedId + "/feed/for-you?user_id=" + encodedId
+	status, body := testGet(t, app, path, &response)
+	require.Equal(t, 200, status, string(body))
+}
+
 func TestV1FeedForYou_ExcludesAlreadySavedTracks(t *testing.T) {
 	app := emptyTestApp(t)
 	app.skipAuthCheck = true
