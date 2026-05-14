@@ -62,7 +62,7 @@ func (app *ApiServer) v1ChallengesUndisbursed(c *fiber.Ctx) error {
 	FROM user_challenges
 	JOIN challenges ON challenges.id = user_challenges.challenge_id
 	JOIN users ON users.user_id = user_challenges.user_id
-	LEFT JOIN challenge_disbursements ON
+	LEFT JOIN v_challenge_disbursements AS challenge_disbursements ON
 		challenge_disbursements.challenge_id = user_challenges.challenge_id
 		AND challenge_disbursements.specifier = user_challenges.specifier
 	WHERE challenge_disbursements.challenge_id IS NULL

@@ -60,7 +60,7 @@ func (app *ApiServer) v1ChallengesInfo(c *fiber.Ctx) error {
 			WHEN c.weekly_pool IS NULL THEN NULL
 			ELSE c.weekly_pool - COALESCE(
 				(SELECT SUM(cd.amount::bigint) / 100000000
-				 FROM challenge_disbursements cd
+				 FROM v_challenge_disbursements cd
 				 WHERE cd.challenge_id = c.id
 				   AND cd.created_at > @weeklyPoolWindowStart),
 				0

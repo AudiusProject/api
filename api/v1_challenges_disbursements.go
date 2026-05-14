@@ -79,7 +79,7 @@ func (app *ApiServer) v1ChallengesDisbursements(c *fiber.Ctx) error {
 		cd.created_at,
 		cd.signature,
 		cd.slot
-	FROM challenge_disbursements cd
+	FROM v_challenge_disbursements cd
 	` + whereClause + `
 	ORDER BY ` + sortMethod + ` ` + sortDir + `, cd.user_id ASC
 	LIMIT @limit

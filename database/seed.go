@@ -520,6 +520,17 @@ var (
 			"ethereum_address":  nil,
 			"account":           nil,
 		},
+		"sol_reward_disbursements": {
+			"signature":             nil,
+			"instruction_index":     0,
+			"amount":                nil,
+			"slot":                  1,
+			"user_bank":             "user-bank-placeholder",
+			"challenge_id":          nil,
+			"specifier":             nil,
+			"recipient_eth_address": nil,
+			"created_at":            time.Now(),
+		},
 		"sol_token_account_balance_changes": {
 			"account":         nil,
 			"owner":           "owner-acc",

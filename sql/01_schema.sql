@@ -8413,7 +8413,8 @@ CREATE TABLE public.sol_reward_disbursements (
     user_bank character varying NOT NULL,
     challenge_id character varying NOT NULL,
     specifier character varying NOT NULL,
-    recipient_eth_address text
+    recipient_eth_address text,
+    created_at timestamp without time zone DEFAULT now()
 );
 
 
@@ -12870,6 +12871,22 @@ ALTER TABLE ONLY public.user_payout_wallet_history
 
 ALTER TABLE ONLY public.users
     ADD CONSTRAINT users_blocknumber_fkey FOREIGN KEY (blocknumber) REFERENCES public.blocks(number) ON DELETE CASCADE;
+
+
+--
+-- Name: v_challenge_disbursements; Type: VIEW; Schema: public; Owner: -
+--
+
+CREATE VIEW public.v_challenge_disbursements AS
+ SELECT rd.challenge_id,
+    rd.specifier,
+    (rd.amount)::text AS amount,
+    rd.signature,
+    rd.slot,
+    rd.created_at,
+    users.user_id
+   FROM (public.sol_reward_disbursements rd
+     JOIN public.users ON (((users.wallet = rd.recipient_eth_address) AND (users.is_current = true))));
 
 
 --
