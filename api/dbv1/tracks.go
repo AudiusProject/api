@@ -12,6 +12,11 @@ type TracksParams struct {
 	GetTracksParams
 }
 
+// IncludeID3TagsCtxKey is the request-context key used to opt in to ID3 tag
+// query params on generated stream/preview URLs. The id3 middleware sets it
+// from the `?id3=true` query param.
+const IncludeID3TagsCtxKey = "includeID3Tags"
+
 // Track is the standard track type containing all track data
 type Track struct {
 	GetTracksRow
@@ -128,9 +133,12 @@ func (q *Queries) TracksKeyed(ctx context.Context, arg TracksParams) (map[int32]
 		// Get access from the bulk access map
 		access := accessMap[rawTrack.TrackID]
 
-		id3Tags := &Id3Tags{
-			Title:  rawTrack.Title.String,
-			Artist: user.Name.String,
+		var id3Tags *Id3Tags
+		if includeID3Tags, _ := ctx.Value(IncludeID3TagsCtxKey).(bool); includeID3Tags {
+			id3Tags = &Id3Tags{
+				Title:  rawTrack.Title.String,
+				Artist: user.Name.String,
+			}
 		}
 
 		var stream *MediaLink

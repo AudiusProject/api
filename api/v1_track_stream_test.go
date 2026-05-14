@@ -12,5 +12,22 @@ func TestGetTrackStream(t *testing.T) {
 	req := httptest.NewRequest("GET", "/v1/tracks/eYJyn/stream", nil)
 	res, err := app.Test(req, -1)
 	assert.NoError(t, err)
-	assert.Contains(t, res.Header.Get("Location"), "tracks/cidstream/?id3=true&id3_artist=&id3_title=Culca+Canyon&signature=%7B%22data%22%3A%22%7B%5C%22cid%5C%22%3A%5C%22%5C%22%2C%5C%22timestamp%5C%22%3")
+	location := res.Header.Get("Location")
+	assert.Contains(t, location, "tracks/cidstream/")
+	assert.Contains(t, location, "signature=")
+	// ID3 tags are opt-in via ?id3=true; verify they are NOT present by default.
+	assert.NotContains(t, location, "id3=true")
+	assert.NotContains(t, location, "id3_artist=")
+	assert.NotContains(t, location, "id3_title=")
+}
+
+func TestGetTrackStreamWithID3(t *testing.T) {
+	app := testAppWithFixtures(t)
+	req := httptest.NewRequest("GET", "/v1/tracks/eYJyn/stream?id3=true", nil)
+	res, err := app.Test(req, -1)
+	assert.NoError(t, err)
+	location := res.Header.Get("Location")
+	assert.Contains(t, location, "tracks/cidstream/")
+	assert.Contains(t, location, "id3=true")
+	assert.Contains(t, location, "id3_title=Culca+Canyon")
 }
