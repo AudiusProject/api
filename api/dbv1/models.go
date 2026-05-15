@@ -2110,11 +2110,11 @@ type SolPurchase struct {
 	// Purchase transactions include the blocknumber that the content was most recently updated in order to ensure that the relevant pricing information has been indexed before evaluating whether the purchase is valid.
 	ValidAfterBlocknumber int64 `json:"valid_after_blocknumber"`
 	// A purchase is valid if it meets the pricing information set by the artist. If the pricing information is not available yet (as indicated by the valid_after_blocknumber), then is_valid will be NULL which indicates a "pending" state.
-	IsValid        pgtype.Bool        `json:"is_valid"`
-	City           pgtype.Text        `json:"city"`
-	Region         pgtype.Text        `json:"region"`
-	Country        pgtype.Text        `json:"country"`
-	BlockTimestamp pgtype.Timestamptz `json:"block_timestamp"`
+	IsValid   pgtype.Bool `json:"is_valid"`
+	City      pgtype.Text `json:"city"`
+	Region    pgtype.Text `json:"region"`
+	Country   pgtype.Text `json:"country"`
+	CreatedAt *time.Time  `json:"created_at"`
 }
 
 // Queue for retrying failed indexer updates.
@@ -2647,6 +2647,23 @@ type VChallengeDisbursement struct {
 	Slot        int64      `json:"slot"`
 	CreatedAt   *time.Time `json:"created_at"`
 	UserID      int32      `json:"user_id"`
+}
+
+type VUsdcPurchase struct {
+	Signature    string                  `json:"signature"`
+	Slot         int64                   `json:"slot"`
+	BuyerUserID  int32                   `json:"buyer_user_id"`
+	SellerUserID interface{}             `json:"seller_user_id"`
+	Amount       int64                   `json:"amount"`
+	ContentType  UsdcPurchaseContentType `json:"content_type"`
+	ContentID    int32                   `json:"content_id"`
+	CreatedAt    *time.Time              `json:"created_at"`
+	ExtraAmount  interface{}             `json:"extra_amount"`
+	Access       UsdcPurchaseAccessType  `json:"access"`
+	City         pgtype.Text             `json:"city"`
+	Region       pgtype.Text             `json:"region"`
+	Country      pgtype.Text             `json:"country"`
+	Splits       interface{}             `json:"splits"`
 }
 
 type VolumeLeaderExclusion struct {
