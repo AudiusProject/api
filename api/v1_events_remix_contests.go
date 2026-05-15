@@ -36,14 +36,17 @@ func (app *ApiServer) v1EventsRemixContests(c *fiber.Ctx) error {
 		"u.is_deactivated = false",
 		"u.is_available = true",
 		"(e.entity_type != 'track' OR (t.track_id IS NOT NULL AND t.is_delete = false AND t.is_unlisted = false))",
-		// Shadow-ban filters — mirror what v1_event_comments.go applies to
-		// comment authors. Two parallel signals so the filter catches the
-		// full population: low-quality / impersonator / bot accounts via
-		// `aggregate_user.score < 0`, and community-flagged users via the
-		// karma-muted set (sum of muters' follower_count crosses the
-		// karmaCommentCountThreshold). Hosts in either bucket disappear
-		// from the discovery list.
-		"e.user_id NOT IN (SELECT user_id FROM low_abuse_score)",
+		// Shadow-ban filters — two parallel community signals lifted from
+		// v1_event_comments / v1_track_comments. A host disappears from the
+		// discovery list if either:
+		//   1. They authored a comment that crossed the high-karma-reporter
+		//      threshold (sum of reporters' follower_count exceeds
+		//      karmaCommentCountThreshold) — same threshold that hides the
+		//      comment itself on comment endpoints, just lifted from
+		//      comment_id to author user_id.
+		//   2. They are in the karma-muted set (sum of muters'
+		//      follower_count crosses karmaCommentCountThreshold).
+		"e.user_id NOT IN (SELECT user_id FROM karma_reported_authors)",
 		"e.user_id NOT IN (SELECT muted_user_id FROM muted_by_karma)",
 	}
 
@@ -67,8 +70,23 @@ func (app *ApiServer) v1EventsRemixContests(c *fiber.Ctx) error {
 			GROUP BY muted_user_id
 			HAVING SUM(aggregate_user.follower_count) >= @karmaCommentCountThreshold
 		),
-		low_abuse_score AS (
-			SELECT user_id FROM aggregate_user WHERE score < 0
+		-- Comments that crossed the high-karma reporter threshold — identical
+		-- shape to high_karma_reporters in v1_track_comments / v1_event_comments.
+		high_karma_reporters AS (
+			SELECT comment_reports.comment_id
+			FROM comment_reports
+			JOIN aggregate_user ON comment_reports.user_id = aggregate_user.user_id
+			WHERE comment_reports.is_delete = false
+			GROUP BY comment_reports.comment_id
+			HAVING SUM(aggregate_user.follower_count) >= @karmaCommentCountThreshold
+		),
+		-- Authors of any comment in high_karma_reporters. Lifts the per-comment
+		-- shadow-ban signal up to the user level so the contest list hides
+		-- hosts whose comments are already being hidden by the same threshold.
+		karma_reported_authors AS (
+			SELECT DISTINCT comments.user_id
+			FROM comments
+			JOIN high_karma_reporters ON high_karma_reporters.comment_id = comments.comment_id
 		)
 		SELECT
 			e.event_id,
