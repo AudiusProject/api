@@ -2658,6 +2658,7 @@ type VUsdcPurchase struct {
 	ContentType  UsdcPurchaseContentType `json:"content_type"`
 	ContentID    int32                   `json:"content_id"`
 	CreatedAt    *time.Time              `json:"created_at"`
+	UpdatedAt    *time.Time              `json:"updated_at"`
 	ExtraAmount  interface{}             `json:"extra_amount"`
 	Access       UsdcPurchaseAccessType  `json:"access"`
 	City         pgtype.Text             `json:"city"`
