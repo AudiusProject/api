@@ -307,6 +307,26 @@ func TestVerifySignature(t *testing.T) {
 		assert.Error(t, err, "Should return error for invalid base58")
 	})
 
+	t.Run("Accepts SIMD-0048 off-chain wrapped signature (Ledger path)", func(t *testing.T) {
+		testPubKey, testPrivateKey, err := ed25519.GenerateKey(rand.Reader)
+		assert.NoError(t, err)
+
+		solanaPubKey := solana.PublicKeyFromBytes(testPubKey)
+		testPubKeyBase58 := solanaPubKey.String()
+
+		timestamp := time.Now().UnixMilli()
+		timestampStr := fmt.Sprintf("%d", timestamp)
+
+		for _, format := range []byte{0, 1, 2} {
+			wrapped := buildOffchainMessage(timestampStr, format)
+			signature := base58.Encode(ed25519.Sign(testPrivateKey, wrapped))
+
+			valid, err := verifySignature(signature, timestampStr, testPubKeyBase58)
+			assert.NoError(t, err)
+			assert.True(t, valid, "Should accept off-chain wrapped signature for format %d", format)
+		}
+	})
+
 	t.Run("Returns false for wrong message", func(t *testing.T) {
 		testPubKey, testPrivateKey, err := ed25519.GenerateKey(rand.Reader)
 		assert.NoError(t, err)

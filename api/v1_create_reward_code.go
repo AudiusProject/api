@@ -64,6 +64,25 @@ func generateCode() (string, error) {
 	return string(result), nil
 }
 
+// buildOffchainMessage wraps a message in Solana's SIMD-0048 off-chain
+// message envelope. Hardware wallets (notably Ledger) refuse to sign
+// arbitrary bytes, so wallets like Phantom wrap the message in this
+// envelope before sending it to the device — meaning the signature is
+// over the wrapped bytes rather than the raw message.
+func buildOffchainMessage(message string, format byte) []byte {
+	msgBytes := []byte(message)
+	msgLen := uint16(len(msgBytes))
+
+	// Signing domain (16 bytes) + version (1) + format (1) + length (2) + message
+	buf := make([]byte, 0, 20+len(msgBytes))
+	buf = append(buf, []byte("\xffsolana offchain")...)
+	buf = append(buf, 0x00)
+	buf = append(buf, format)
+	buf = append(buf, byte(msgLen), byte(msgLen>>8))
+	buf = append(buf, msgBytes...)
+	return buf
+}
+
 func verifySignature(signatureBase58 string, message string, authorizedPubKey string) (bool, error) {
 	// Decode the signature from base58
 	signatureBytes, err := base58.Decode(signatureBase58)
@@ -77,10 +96,20 @@ func verifySignature(signatureBase58 string, message string, authorizedPubKey st
 		return false, err
 	}
 
-	// Verify the signature
-	messageBytes := []byte(message)
-	valid := ed25519.Verify(expectedPubKey[:], messageBytes, signatureBytes)
-	return valid, nil
+	// Hot wallets sign the raw bytes directly.
+	if ed25519.Verify(expectedPubKey[:], []byte(message), signatureBytes) {
+		return true, nil
+	}
+
+	// Hardware wallets (e.g. Ledger via Phantom) sign the SIMD-0048 wrapped
+	// message instead. Try all three message formats since wallets vary.
+	for _, format := range []byte{0, 1, 2} {
+		if ed25519.Verify(expectedPubKey[:], buildOffchainMessage(message, format), signatureBytes) {
+			return true, nil
+		}
+	}
+
+	return false, nil
 }
 
 func verifySignatureAgainstKeys(signatureBase58 string, message string, authorizedKeys []string) (string, error) {
