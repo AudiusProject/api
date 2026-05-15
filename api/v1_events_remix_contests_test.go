@@ -464,22 +464,28 @@ func TestRemixContestsExcludesUnavailableContent(t *testing.T) {
 
 // TestRemixContestsExcludesShadowbannedHosts covers the two parallel
 // shadow-ban signals applied to the discovery list:
-//  1. `aggregate_user.score < 0` (account-quality signal — bots,
-//     impersonators, fast-challenge runners).
+//  1. `karma_reported_authors` — host authored a comment that crossed the
+//     high-karma-reporter threshold (sum of reporters' follower_count
+//     >= karmaCommentCountThreshold). Same threshold that hides the
+//     comment itself on comment endpoints, lifted to author user_id.
 //  2. The karma-muted set — host has been muted by users whose combined
-//     follower_count crosses karmaCommentCountThreshold (community-driven
-//     signal). Same shape used in v1_event_comments for comment authors.
+//     follower_count crosses karmaCommentCountThreshold.
 func TestRemixContestsExcludesShadowbannedHosts(t *testing.T) {
 	app := emptyTestApp(t)
 
 	cleanHostID := 9601
-	lowScoreHostID := 9602
+	karmaReportedHostID := 9602
 	karmaMutedHostID := 9603
-	highKarmaMuterID := 9604
+	highKarmaUserID := 9604
 
 	cleanTrackID := 8601
-	lowScoreTrackID := 8602
+	karmaReportedTrackID := 8602
 	karmaMutedTrackID := 8603
+
+	// Comment authored by karmaReportedHost on its own track; the high-karma
+	// user reports it, which should cross the threshold and propagate the
+	// shadow-ban from comment_id up to the host's user_id.
+	reportedCommentID := 7701
 
 	start := parseTime(t, "2024-01-02")
 	end := parseTime(t, "2099-01-01")
@@ -493,7 +499,7 @@ func TestRemixContestsExcludesShadowbannedHosts(t *testing.T) {
 			},
 			{
 				"event_id": 802, "event_type": "remix_contest", "entity_type": "track",
-				"entity_id": lowScoreTrackID, "user_id": lowScoreHostID,
+				"entity_id": karmaReportedTrackID, "user_id": karmaReportedHostID,
 				"created_at": start, "end_date": end,
 			},
 			{
@@ -504,36 +510,39 @@ func TestRemixContestsExcludesShadowbannedHosts(t *testing.T) {
 		},
 		"users": []map[string]any{
 			{"user_id": cleanHostID, "handle": "clean_host"},
-			{"user_id": lowScoreHostID, "handle": "low_score_host"},
+			{"user_id": karmaReportedHostID, "handle": "karma_reported_host"},
 			{"user_id": karmaMutedHostID, "handle": "karma_muted_host"},
-			{"user_id": highKarmaMuterID, "handle": "high_karma_muter"},
+			{"user_id": highKarmaUserID, "handle": "high_karma_user"},
 		},
 		"tracks": []map[string]any{
 			{"track_id": cleanTrackID, "owner_id": cleanHostID, "created_at": start},
-			{"track_id": lowScoreTrackID, "owner_id": lowScoreHostID, "created_at": start},
+			{"track_id": karmaReportedTrackID, "owner_id": karmaReportedHostID, "created_at": start},
 			{"track_id": karmaMutedTrackID, "owner_id": karmaMutedHostID, "created_at": start},
 		},
+		"comments": []map[string]any{
+			{
+				"comment_id": reportedCommentID, "user_id": karmaReportedHostID,
+				"entity_id": karmaReportedTrackID, "entity_type": "Track", "text": "reported comment",
+			},
+		},
+		"comment_reports": []map[string]any{
+			{"comment_id": reportedCommentID, "user_id": highKarmaUserID},
+		},
 		"muted_users": []map[string]any{
-			// High-karma muter mutes the karma-muted host — combined with the
+			// High-karma user mutes the karma-muted host — combined with the
 			// follower_count bump below, this should cross the threshold.
-			{"user_id": highKarmaMuterID, "muted_user_id": karmaMutedHostID},
+			{"user_id": highKarmaUserID, "muted_user_id": karmaMutedHostID},
 		},
 	}
 	database.Seed(app.pool.Replicas[0], fixtures)
 
-	// `aggregate_user` rows are created by the users trigger; tweak the two
-	// fields we care about: score on the low-score host, and the muter's
-	// follower_count so the karma-muted CTE actually trips.
+	// `aggregate_user` rows are created by the users trigger; bump the
+	// high-karma user's follower_count past the threshold so both
+	// karma_reported_authors (via comment_reports) and muted_by_karma
+	// (via muted_users) trip on their respective host.
 	_, err := app.pool.Exec(context.Background(),
-		`UPDATE aggregate_user SET score = $1 WHERE user_id = $2`,
-		-1, lowScoreHostID,
-	)
-	if err != nil {
-		t.Fatal(err)
-	}
-	_, err = app.pool.Exec(context.Background(),
 		`UPDATE aggregate_user SET follower_count = $1 WHERE user_id = $2`,
-		karmaCommentCountThreshold+1, highKarmaMuterID,
+		karmaCommentCountThreshold+1, highKarmaUserID,
 	)
 	if err != nil {
 		t.Fatal(err)
@@ -550,11 +559,11 @@ func TestRemixContestsExcludesShadowbannedHosts(t *testing.T) {
 		})
 	})
 
-	t.Run("host with score < 0 is excluded", func(t *testing.T) {
+	t.Run("host with karma-reported comment is excluded", func(t *testing.T) {
 		_, body := testGet(t, app, "/v1/events/remix-contests")
 		eventIds := pluckStrings(body, "data.#.event_id")
 		assert.NotContains(t, eventIds, trashid.MustEncodeHashID(802),
-			"contest hosted by a user with aggregate_user.score < 0 must not be returned")
+			"contest hosted by a user who authored a comment in high_karma_reporters must not be returned")
 	})
 
 	t.Run("karma-muted host is excluded", func(t *testing.T) {
