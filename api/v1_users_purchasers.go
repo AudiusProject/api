@@ -36,7 +36,7 @@ func (app *ApiServer) v1UserPurchasers(c *fiber.Ctx) error {
 		SELECT DISTINCT
 			buyer_user_id
 		FROM
-			usdc_purchases
+			v_usdc_purchases
 		WHERE
 			` + strings.Join(filters, " AND ") + `
 		ORDER BY

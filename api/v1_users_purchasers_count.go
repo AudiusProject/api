@@ -33,7 +33,7 @@ func (app *ApiServer) v1UserPurchasersCount(c *fiber.Ctx) error {
 	sql := `
 		SELECT count(DISTINCT buyer_user_id) as count
 		FROM
-			usdc_purchases
+			v_usdc_purchases
 		WHERE
 			` + strings.Join(filters, " AND ") + `
 	;`
