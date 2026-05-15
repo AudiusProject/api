@@ -163,7 +163,7 @@ func (app *ApiServer) v1CoinsPostRedeem(c *fiber.Ctx) error {
 		redeemCode = coinTicker
 		// Check for challenge disbursement for the given code/userId
 		var count int
-		err := app.writePool.QueryRow(c.Context(), `SELECT count(*) FROM challenge_disbursements WHERE challenge_id = @code AND specifier = @specifier LIMIT 1;`, pgx.NamedArgs{
+		err := app.writePool.QueryRow(c.Context(), `SELECT count(*) FROM v_challenge_disbursements WHERE challenge_id = @code AND specifier = @specifier LIMIT 1;`, pgx.NamedArgs{
 			"code":      redeemCode,
 			"specifier": specifier,
 		}).Scan(&count)

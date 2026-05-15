@@ -26,7 +26,7 @@ func (app *ApiServer) v1UsersChallenges(c *fiber.Ctx) error {
 
 	-- Pre-filter to their disbursements
 	challenge_disbursements_filtered AS (
-		SELECT * FROM challenge_disbursements JOIN user_row USING (user_id)
+		SELECT * FROM v_challenge_disbursements JOIN user_row USING (user_id)
 	),
 
 	-- Start with the list of all active challenges, and then

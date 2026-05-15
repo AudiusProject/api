@@ -26,15 +26,19 @@ func TestV1ChallengesInfo(t *testing.T) {
 				"cooldown_days":  7,
 			},
 		},
-		"challenge_disbursements": {
+		"users": {
+			{"user_id": 1, "handle": "user1", "handle_lc": "user1", "wallet": "0xwallet1"},
+		},
+		"sol_reward_disbursements": {
 			{
-				"challenge_id": "challenge-aggregate",
-				"user_id":      1,
-				"specifier":    "spec-a",
-				"signature":    "sig-a",
-				"slot":         1,
-				"amount":       "200000000",
-				"created_at":   now,
+				"challenge_id":          "challenge-aggregate",
+				"specifier":             "spec-a",
+				"signature":             "sig-a",
+				"instruction_index":     0,
+				"slot":                  1,
+				"amount":                200000000,
+				"recipient_eth_address": "0xwallet1",
+				"created_at":            now,
 			},
 		},
 	}

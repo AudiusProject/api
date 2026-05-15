@@ -2143,6 +2143,7 @@ type SolRewardDisbursement struct {
 	Specifier        string `json:"specifier"`
 	// The Ethereum address of the recipient of the reward.
 	RecipientEthAddress pgtype.Text `json:"recipient_eth_address"`
+	CreatedAt           *time.Time  `json:"created_at"`
 }
 
 // Stores Init instructions for the Reward Manager program
@@ -2636,6 +2637,16 @@ type UserTip struct {
 	Amount         int64     `json:"amount"`
 	CreatedAt      time.Time `json:"created_at"`
 	UpdatedAt      time.Time `json:"updated_at"`
+}
+
+type VChallengeDisbursement struct {
+	ChallengeID string     `json:"challenge_id"`
+	Specifier   string     `json:"specifier"`
+	Amount      string     `json:"amount"`
+	Signature   string     `json:"signature"`
+	Slot        int64      `json:"slot"`
+	CreatedAt   *time.Time `json:"created_at"`
+	UserID      int32      `json:"user_id"`
 }
 
 type VolumeLeaderExclusion struct {
