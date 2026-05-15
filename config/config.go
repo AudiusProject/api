@@ -216,7 +216,7 @@ func init() {
 		Cfg.AudiusdChainID = core_config.ProdAcdcChainID
 		Cfg.AudiusdEntityManagerAddress = core_config.ProdAcdcAddress
 		Cfg.AudiusAppUrl = "https://audius.co"
-		Cfg.RewardCodeAuthorizedKeys = []string{"4oGhuh6MkypUTnwUzKbtnUwFzjfaMWAgKYudchPfbYu8", "Du1sGwqC5yJFeoKJ73m3DrFLaRnc7rHM7g1z3Xe8jy8d"}
+		Cfg.RewardCodeAuthorizedKeys = []string{"4oGhuh6MkypUTnwUzKbtnUwFzjfaMWAgKYudchPfbYu8", "Du1sGwqC5yJFeoKJ73m3DrFLaRnc7rHM7g1z3Xe8jy8d", "4mzunYiiFSRGGc5iS3SVQQNdek6JiCyvkFALwoWu2xhP"}
 		Cfg.VerifierAddress = "0xbeef8E42e8B5964fDD2b7ca8efA0d9aef38AA996"
 		Cfg.ArtistCoinRewardsStaticSenders = []Node{
 			{
