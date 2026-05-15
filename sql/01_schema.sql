@@ -8320,7 +8320,7 @@ CREATE TABLE public.sol_purchases (
     city character varying,
     region character varying,
     country character varying,
-    block_timestamp timestamp with time zone
+    created_at timestamp without time zone DEFAULT now()
 );
 
 
@@ -11957,6 +11957,13 @@ COMMENT ON INDEX public.sol_purchases_from_account_idx IS 'Used for getting purc
 
 
 --
+-- Name: sol_purchases_created_at_idx; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX sol_purchases_created_at_idx ON public.sol_purchases USING btree (created_at);
+
+
+--
 -- Name: sol_purchases_valid_idx; Type: INDEX; Schema: public; Owner: -
 --
 
@@ -12887,6 +12894,89 @@ CREATE VIEW public.v_challenge_disbursements AS
     users.user_id
    FROM (public.sol_reward_disbursements rd
      JOIN public.users ON (((users.wallet = rd.recipient_eth_address) AND (users.is_current = true))));
+
+
+--
+-- Name: v_usdc_purchases; Type: VIEW; Schema: public; Owner: -
+--
+
+CREATE VIEW public.v_usdc_purchases AS
+ SELECT sp.signature,
+    sp.slot,
+    sp.buyer_user_id,
+    CASE sp.content_type
+        WHEN 'track'::text    THEN t.owner_id
+        WHEN 'album'::text    THEN p.playlist_owner_id
+        WHEN 'playlist'::text THEN p.playlist_owner_id
+    END AS seller_user_id,
+    sp.amount,
+    (sp.content_type)::public.usdc_purchase_content_type AS content_type,
+    sp.content_id,
+    sp.created_at,
+    GREATEST(
+        sp.amount - COALESCE(
+            CASE sp.content_type
+                WHEN 'track'::text THEN (
+                    SELECT (tph.total_price_cents * 10000)
+                      FROM public.track_price_history tph
+                     WHERE tph.track_id = sp.content_id
+                       AND tph.block_timestamp <= sp.created_at
+                     ORDER BY tph.block_timestamp DESC
+                     LIMIT 1
+                )
+                ELSE (
+                    SELECT (aph.total_price_cents * 10000)
+                      FROM public.album_price_history aph
+                     WHERE aph.playlist_id = sp.content_id
+                       AND aph.block_timestamp <= sp.created_at
+                     ORDER BY aph.block_timestamp DESC
+                     LIMIT 1
+                )
+            END,
+            0
+        ),
+        0
+    ) AS extra_amount,
+    (sp.access_type)::public.usdc_purchase_access_type AS access,
+    sp.city,
+    sp.region,
+    sp.country,
+    (
+        SELECT COALESCE(
+            jsonb_agg(
+                jsonb_build_object(
+                    'user_id', COALESCE(u_payout.user_id, u_sca.user_id),
+                    'payout_wallet', pay.to_account,
+                    'amount', pay.amount,
+                    'percentage', ((pay.amount * 100.0) / NULLIF(sp.amount, 0))
+                )
+                ORDER BY pay.route_index
+            ),
+            '[]'::jsonb
+        )
+          FROM public.sol_payments pay
+          LEFT JOIN public.users u_payout
+            ON u_payout.spl_usdc_payout_wallet = pay.to_account
+           AND u_payout.is_current = true
+          LEFT JOIN public.sol_claimable_accounts sca
+            ON sca.account = pay.to_account
+           AND sca.mint = 'EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v'::text
+          LEFT JOIN public.users u_sca
+            ON u_sca.wallet = sca.ethereum_address
+           AND u_sca.is_current = true
+         WHERE pay.signature = sp.signature
+           AND pay.instruction_index = sp.instruction_index
+    ) AS splits
+   FROM public.sol_purchases sp
+   LEFT JOIN public.tracks t
+     ON sp.content_type = 'track'::text
+    AND t.track_id = sp.content_id
+    AND t.is_current = true
+   LEFT JOIN public.playlists p
+     ON sp.content_type IN ('album'::text, 'playlist'::text)
+    AND p.playlist_id = sp.content_id
+    AND p.is_current = true
+  WHERE sp.is_valid IS TRUE;
 
 
 --
