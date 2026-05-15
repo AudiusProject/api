@@ -12934,7 +12934,7 @@ CREATE VIEW public.v_usdc_purchases AS
                      LIMIT 1
                 )
             END,
-            0
+            sp.amount
         ),
         0
     ) AS extra_amount,

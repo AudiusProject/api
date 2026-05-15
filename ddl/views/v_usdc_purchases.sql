@@ -34,7 +34,7 @@ SELECT
                  LIMIT 1
               )
             END,
-            0
+            sp.amount  -- no price_history match -> treat full amount as base price (extra_amount = 0)
         ),
         0
     ) AS extra_amount,
