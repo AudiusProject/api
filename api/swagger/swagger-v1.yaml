@@ -9433,6 +9433,75 @@ paths:
         "500":
           description: Server error
           content: {}
+  /users/{id}/feed/for-you:
+    get:
+      tags:
+        - users
+      summary: Get For You feed for user
+      description:
+        Returns a personalized For You feed for the user identified in the
+        path. Twitter-style multi-source pipeline — candidate retrieval
+        (in-network, trending, underground) → linear ranking (recency
+        decay × engagement × social affinity, weighted by source) →
+        diversity (per-artist cap + consecutive-same-artist lookahead).
+      operationId: Get User For You Feed
+      security:
+        - {}
+        - OAuth2:
+            - read
+      parameters:
+        - name: id
+          in: path
+          description: A User ID
+          required: true
+          schema:
+            type: string
+        - name: limit
+          in: query
+          description: The number of items to fetch
+          schema:
+            type: integer
+            default: 25
+            minimum: 1
+            maximum: 100
+        - name: offset
+          in: query
+          description:
+            The number of items to skip. Useful for pagination (page number
+            * limit)
+          schema:
+            type: integer
+            default: 0
+            minimum: 0
+            maximum: 200
+        - name: max_per_artist
+          in: query
+          description:
+            Maximum number of tracks per artist on a single page. Used by the
+            diversity pass to cap consecutive same-artist results.
+          schema:
+            type: integer
+            default: 3
+            minimum: 1
+            maximum: 10
+        - name: user_id
+          in: query
+          description: The user ID of the user making the request
+          schema:
+            type: string
+      responses:
+        "200":
+          description: Success
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/tracks"
+        "400":
+          description: Bad request
+          content: {}
+        "500":
+          description: Server error
+          content: {}
   /users/{id}/library/albums:
     get:
       tags:
