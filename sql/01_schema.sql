@@ -3,8 +3,8 @@
 --
 
 
--- Dumped from database version 17.9 (Debian 17.9-1.pgdg13+1)
--- Dumped by pg_dump version 17.9 (Debian 17.9-1.pgdg13+1)
+-- Dumped from database version 17.10 (Debian 17.10-1.pgdg13+1)
+-- Dumped by pg_dump version 17.10 (Debian 17.10-1.pgdg13+1)
 
 SET statement_timeout = 0;
 SET lock_timeout = 0;
@@ -2398,8 +2398,7 @@ begin
 
     -- Only create notifications if the track is public
     if track_is_public then
-      -- For each follower of the event creator and each user who favorited the track
-      -- Using UNION to ensure we don't get duplicate user_ids
+      -- Followers of the host, track savers, and users who follow the contest (event subscribers)
       for notified_user_id in
         select distinct user_id
         from (
@@ -2417,6 +2416,13 @@ begin
             and s.save_type = 'track'
             and s.is_current = true
             and s.is_delete = false
+          union
+          select sub.subscriber_id as user_id
+          from subscriptions sub
+          where sub.entity_type = 'Event'
+            and sub.user_id = new.event_id
+            and sub.is_current = true
+            and sub.is_delete = false
         ) as users_to_notify
       loop
         -- Create a notification for this user
@@ -3670,6 +3676,159 @@ $$;
 
 
 --
+-- Name: handle_sol_purchase(); Type: FUNCTION; Schema: public; Owner: -
+--
+
+CREATE FUNCTION public.handle_sol_purchase() RETURNS trigger
+    LANGUAGE plpgsql
+    AS $$
+declare
+  resolved_seller_user_id integer;
+begin
+  if new.is_valid is not true then
+    return null;
+  end if;
+
+  if new.content_type = 'track' then
+    select owner_id into resolved_seller_user_id
+      from tracks
+     where track_id = new.content_id
+       and is_current = true
+     limit 1;
+  else
+    select playlist_owner_id into resolved_seller_user_id
+      from playlists
+     where playlist_id = new.content_id
+       and is_current = true
+     limit 1;
+  end if;
+
+  if resolved_seller_user_id is null then
+    return null;
+  end if;
+
+  insert into notification
+        (slot, user_ids, timestamp, type, specifier, group_id, data)
+      values
+        (
+          new.slot,
+          ARRAY [resolved_seller_user_id],
+          new.created_at,
+          'usdc_purchase_seller',
+          new.buyer_user_id,
+          'usdc_purchase_seller:' || 'seller_user_id:' || resolved_seller_user_id || ':buyer_user_id:' || new.buyer_user_id || ':content_id:' || new.content_id || ':content_type:' || new.content_type,
+          json_build_object(
+              'content_type',   new.content_type,
+              'buyer_user_id',  new.buyer_user_id,
+              'seller_user_id', resolved_seller_user_id,
+              'amount',         new.amount,
+              'extra_amount',   null,
+              'content_id',     new.content_id,
+              'vendor',         null
+          )
+        ),
+        (
+          new.slot,
+          ARRAY [new.buyer_user_id],
+          new.created_at,
+          'usdc_purchase_buyer',
+          new.buyer_user_id,
+          'usdc_purchase_buyer:' || 'seller_user_id:' || resolved_seller_user_id || ':buyer_user_id:' || new.buyer_user_id || ':content_id:' || new.content_id || ':content_type:' || new.content_type,
+          json_build_object(
+              'content_type',   new.content_type,
+              'buyer_user_id',  new.buyer_user_id,
+              'seller_user_id', resolved_seller_user_id,
+              'amount',         new.amount,
+              'extra_amount',   null,
+              'content_id',     new.content_id,
+              'vendor',         null
+          )
+        )
+      on conflict do nothing;
+
+  return null;
+  exception
+    when others then
+        raise warning 'An error occurred in %: %', tg_name, sqlerrm;
+        return null;
+end;
+$$;
+
+
+--
+-- Name: handle_sol_reward_disbursement(); Type: FUNCTION; Schema: public; Owner: -
+--
+
+CREATE FUNCTION public.handle_sol_reward_disbursement() RETURNS trigger
+    LANGUAGE plpgsql
+    AS $$
+declare
+  resolved_user_id integer;
+  existing_notification integer;
+  reward_code_exists boolean;
+begin
+  select users.user_id
+    into resolved_user_id
+    from users
+   where users.wallet = new.recipient_eth_address
+     and users.is_current = true
+   limit 1;
+
+  if resolved_user_id is null then
+    return null;
+  end if;
+
+  select exists(select 1 from reward_codes where code = new.challenge_id) into reward_code_exists;
+
+  if not reward_code_exists then
+    select id into existing_notification
+      from notification
+     where type = 'challenge_reward'
+       and resolved_user_id = any(user_ids)
+       and timestamp >= (new.created_at - interval '1 hour')
+     limit 1;
+
+    if existing_notification is null then
+      insert into notification
+        (slot, user_ids, timestamp, type, group_id, specifier, data)
+      values
+        (
+          new.slot,
+          ARRAY [resolved_user_id],
+          new.created_at,
+          'challenge_reward',
+          'challenge_reward:' || resolved_user_id || ':challenge:' || new.challenge_id || ':specifier:' || new.specifier,
+          resolved_user_id,
+          json_build_object('specifier', new.specifier, 'challenge_id', new.challenge_id, 'amount', new.amount)
+        )
+        on conflict do nothing;
+    end if;
+  end if;
+
+  perform pg_notify(
+    'challenge_disbursed',
+    json_build_object(
+      'user_id', resolved_user_id,
+      'challenge_id', new.challenge_id,
+      'specifier', new.specifier,
+      'amount', new.amount,
+      'signature', new.signature,
+      'slot', new.slot
+    )::text
+  );
+
+  return null;
+
+exception
+  when others then
+    raise warning 'An error occurred in %: %', tg_name, sqlerrm;
+    return null;
+
+end;
+$$;
+
+
+--
 -- Name: handle_sol_token_balance_change(); Type: FUNCTION; Schema: public; Owner: -
 --
 
@@ -3807,8 +3966,8 @@ begin
       count(*)
     from tracks t
     where t.is_current is true
-      and t.is_delete is false
-      and t.is_available is true
+      and t.is_delete = false
+      and t.is_available = true
       and t.stem_of is null
       and t.access_authorities is null
       and t.owner_id = new.owner_id
@@ -3873,7 +4032,7 @@ begin
       raise warning 'An error occurred in %: %', tg_name, sqlerrm;
   end;
 
-  -- If new remix is a submission to an active remix contest, check for milestone notifications
+  -- If new remix is a submission to an active remix contest, milestones and follower alerts
   begin
     if track_should_notify(OLD, new, TG_OP) AND new.remix_of is not null THEN
       declare
@@ -3882,14 +4041,15 @@ begin
         submission_count int;
         milestone int;
         parent_track_id int := (new.remix_of->'tracks'->0->>'parent_track_id')::int;
+        contest_follower int;
       begin
-        select event_id, user_id
+        select e.event_id, e.user_id
         into contest_event_id, contest_creator_id
-        from events
-        where event_type = 'remix_contest'
-          and is_deleted = false
-          and end_date > now()
-          and entity_id = parent_track_id
+        from events e
+        where e.event_type = 'remix_contest'
+          and e.is_deleted = false
+          and (e.end_date is null or e.end_date > now())
+          and e.entity_id = parent_track_id
         limit 1;
 
         if contest_event_id is not null then
@@ -3899,6 +4059,7 @@ begin
           join events e on e.event_type = 'remix_contest'
             and e.is_deleted = false
             and e.entity_id = parent_track_id
+            and e.event_id = contest_event_id
           where t.is_current = true
             and t.is_delete = false
             and t.remix_of is not null
@@ -3927,6 +4088,44 @@ begin
               on conflict do nothing;
             END IF;
           END LOOP;
+
+          -- Notify everyone following the contest (and the host) of a new submission,
+          -- excluding the submitter. The host is included even if they are not a
+          -- subscriber so they get a per-submission alert in addition to the
+          -- existing milestone-based artist_remix_contest_submissions notification.
+          for contest_follower in
+            select user_id from (
+              select s.subscriber_id as user_id
+                from subscriptions s
+               where s.entity_type = 'Event'
+                 and s.user_id = contest_event_id
+                 and s.is_current = true
+                 and s.is_delete = false
+              union
+              select contest_creator_id as user_id
+            ) recipients
+            where user_id != new.owner_id
+          loop
+            insert into notification
+              (blocknumber, user_ids, timestamp, type, specifier, group_id, data)
+            values
+              (
+                new.blocknumber,
+                ARRAY [contest_follower],
+                new.updated_at,
+                'fan_remix_contest_submission',
+                contest_follower,
+                'fan_remix_contest_submission:' || contest_event_id || ':submission:' || new.track_id,
+                json_build_object(
+                  'event_id', contest_event_id,
+                  'entity_id', parent_track_id,
+                  'entity_user_id', contest_creator_id,
+                  'submission_track_id', new.track_id,
+                  'submitter_user_id', new.owner_id
+                )
+              )
+            on conflict do nothing;
+          end loop;
         end if;
       end;
     end if;
@@ -3937,8 +4136,7 @@ begin
 
   -- If a track with an active remix contest transitions from unlisted to public,
   -- create fan_remix_contest_started notifications for the contest creator's
-  -- followers and the track's savers. Mirrors handle_event.sql for the case
-  -- where the contest was created while the track was still unlisted.
+  -- followers, the track's savers, and contest followers.
   begin
     if TG_OP = 'UPDATE' and OLD.is_unlisted = true and new.is_unlisted = false then
       insert into notification
@@ -3968,10 +4166,17 @@ begin
            and s.save_type = 'track'
            and s.is_current = true
            and s.is_delete = false
+        union
+        select sub.subscriber_id as user_id
+          from subscriptions sub
+         where sub.entity_type = 'Event'
+           and sub.user_id = e.event_id
+           and sub.is_current = true
+           and sub.is_delete = false
       ) u on true
       where e.event_type = 'remix_contest'
         and e.is_deleted = false
-        and e.end_date > now()
+        and (e.end_date is null or e.end_date > now())
         and e.entity_id = new.track_id
       on conflict do nothing;
     end if;
@@ -3983,9 +4188,9 @@ begin
   return null;
 
 exception
-    when others then
-      raise warning 'An error occurred in %: %', tg_name, sqlerrm;
-      raise;
+  when others then
+    raise warning 'An error occurred in %: %', tg_name, sqlerrm;
+    raise;
 
 end;
 $$;
@@ -4719,6 +4924,60 @@ CREATE FUNCTION public.log_message(message_text text) RETURNS void
 BEGIN
     RAISE NOTICE '% %', pg_backend_pid(), message_text;
 END;
+$$;
+
+
+--
+-- Name: notify_pending_purchase_revalidation(); Type: FUNCTION; Schema: public; Owner: -
+--
+
+CREATE FUNCTION public.notify_pending_purchase_revalidation() RETURNS trigger
+    LANGUAGE plpgsql
+    AS $$
+declare
+  v_content_type text;
+  v_content_id int;
+  v_blocknumber int;
+begin
+  if tg_table_name = 'tracks' then
+    v_content_type := 'track';
+    v_content_id := new.track_id;
+  elsif tg_table_name = 'playlists' then
+    v_content_type := 'album';
+    v_content_id := new.playlist_id;
+  else
+    return null;
+  end if;
+
+  v_blocknumber := new.blocknumber;
+  if v_blocknumber is null then
+    return null;
+  end if;
+
+  -- Cheap EXISTS guard: tracks/playlists update churn dwarfs the pending
+  -- purchase set, so it's almost always a no-op. Uses sol_purchases_valid_idx
+  -- + sol_purchases_content_idx.
+  if exists (
+    select 1 from sol_purchases sp
+    where sp.content_id = v_content_id
+      and sp.content_type = v_content_type
+      and sp.is_valid is null
+      and sp.valid_after_blocknumber <= v_blocknumber
+  ) then
+    perform pg_notify(
+      'pending_purchase_revalidation',
+      v_content_type || ':' || v_content_id::text
+    );
+  end if;
+
+  return null;
+exception
+  when others then
+    -- Never let a notify failure break a tracks/playlists write. The sweep
+    -- will catch any pending rows that don't get notified.
+    raise warning 'An error occurred in %: %', tg_name, sqlerrm;
+    return null;
+end;
 $$;
 
 
@@ -9332,6 +9591,83 @@ CREATE TABLE public.user_tips (
 
 
 --
+-- Name: v_challenge_disbursements; Type: VIEW; Schema: public; Owner: -
+--
+
+CREATE VIEW public.v_challenge_disbursements AS
+ SELECT rd.challenge_id,
+    rd.specifier,
+    (rd.amount)::text AS amount,
+    rd.signature,
+    rd.slot,
+    rd.created_at,
+    users.user_id
+   FROM (public.sol_reward_disbursements rd
+     JOIN public.users ON ((((users.wallet)::text = rd.recipient_eth_address) AND (users.is_current = true))));
+
+
+--
+-- Name: VIEW v_challenge_disbursements; Type: COMMENT; Schema: public; Owner: -
+--
+
+COMMENT ON VIEW public.v_challenge_disbursements IS 'Compatibility view that exposes sol_reward_disbursements in the column shape the API routes used to read from challenge_disbursements. Resolves user_id via the indexer-populated recipient_eth_address (see migration 0172).';
+
+
+--
+-- Name: v_usdc_purchases; Type: VIEW; Schema: public; Owner: -
+--
+
+CREATE VIEW public.v_usdc_purchases AS
+ SELECT sp.signature,
+    sp.slot,
+    sp.buyer_user_id,
+        CASE sp.content_type
+            WHEN 'track'::text THEN t.owner_id
+            WHEN 'album'::text THEN p.playlist_owner_id
+            WHEN 'playlist'::text THEN p.playlist_owner_id
+            ELSE NULL::integer
+        END AS seller_user_id,
+    sp.amount,
+    (sp.content_type)::public.usdc_purchase_content_type AS content_type,
+    sp.content_id,
+    sp.created_at,
+    GREATEST((sp.amount - COALESCE(
+        CASE sp.content_type
+            WHEN 'track'::text THEN ( SELECT (tph.total_price_cents * 10000)
+               FROM public.track_price_history tph
+              WHERE ((tph.track_id = sp.content_id) AND (tph.block_timestamp <= sp.created_at))
+              ORDER BY tph.block_timestamp DESC
+             LIMIT 1)
+            ELSE ( SELECT (aph.total_price_cents * 10000)
+               FROM public.album_price_history aph
+              WHERE ((aph.playlist_id = sp.content_id) AND (aph.block_timestamp <= sp.created_at))
+              ORDER BY aph.block_timestamp DESC
+             LIMIT 1)
+        END, (0)::bigint)), (0)::bigint) AS extra_amount,
+    (sp.access_type)::public.usdc_purchase_access_type AS access,
+    sp.city,
+    sp.region,
+    sp.country,
+    ( SELECT COALESCE(jsonb_agg(jsonb_build_object('user_id', COALESCE(u_payout.user_id, u_sca.user_id), 'payout_wallet', pay.to_account, 'amount', pay.amount, 'percentage', (((pay.amount)::numeric * 100.0) / (NULLIF(sp.amount, 0))::numeric)) ORDER BY pay.route_index), '[]'::jsonb) AS "coalesce"
+           FROM (((public.sol_payments pay
+             LEFT JOIN public.users u_payout ON ((((u_payout.spl_usdc_payout_wallet)::text = (pay.to_account)::text) AND (u_payout.is_current = true))))
+             LEFT JOIN public.sol_claimable_accounts sca ON ((((sca.account)::text = (pay.to_account)::text) AND ((sca.mint)::text = 'EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v'::text))))
+             LEFT JOIN public.users u_sca ON ((((u_sca.wallet)::text = (sca.ethereum_address)::text) AND (u_sca.is_current = true))))
+          WHERE (((pay.signature)::text = (sp.signature)::text) AND (pay.instruction_index = sp.instruction_index))) AS splits
+   FROM ((public.sol_purchases sp
+     LEFT JOIN public.tracks t ON ((((sp.content_type)::text = 'track'::text) AND (t.track_id = sp.content_id) AND (t.is_current = true))))
+     LEFT JOIN public.playlists p ON ((((sp.content_type)::text = ANY ((ARRAY['album'::character varying, 'playlist'::character varying])::text[])) AND (p.playlist_id = sp.content_id) AND (p.is_current = true))))
+  WHERE (sp.is_valid IS TRUE);
+
+
+--
+-- Name: VIEW v_usdc_purchases; Type: COMMENT; Schema: public; Owner: -
+--
+
+COMMENT ON VIEW public.v_usdc_purchases IS 'Compatibility view exposing sol_purchases + sol_payments in the column shape API routes used to read from usdc_purchases. seller_user_id is the current content owner (not snapshotted at purchase time). extra_amount is amount paid minus base price from price history. vendor is intentionally dropped.';
+
+
+--
 -- Name: volume_leader_exclusions; Type: TABLE; Schema: public; Owner: -
 --
 
@@ -11257,6 +11593,20 @@ CREATE INDEX idx_playlist_tracks_track_id ON public.playlist_tracks USING btree 
 
 
 --
+-- Name: idx_playlists_albums_published; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX idx_playlists_albums_published ON public.playlists USING btree (playlist_id) WHERE ((is_album = true) AND (is_delete = false) AND (is_current = true));
+
+
+--
+-- Name: INDEX idx_playlists_albums_published; Type: COMMENT; Schema: public; Owner: -
+--
+
+COMMENT ON INDEX public.idx_playlists_albums_published IS 'Partial index for GetTracks album_backlink subquery; lets non-album lookups skip the heap entirely.';
+
+
+--
 -- Name: idx_reward_manager_txs_slot; Type: INDEX; Schema: public; Owner: -
 --
 
@@ -11534,13 +11884,6 @@ CREATE INDEX ix_subscriptions_blocknumber ON public.subscriptions USING btree (b
 --
 
 CREATE INDEX ix_subscriptions_user_id ON public.subscriptions USING btree (user_id);
-
-
---
--- Name: subscriptions_entity_type_entity_id_idx; Type: INDEX; Schema: public; Owner: -
---
-
-CREATE INDEX subscriptions_entity_type_entity_id_idx ON public.subscriptions USING btree (entity_type, entity_id) WHERE ((is_current = true) AND (is_delete = false));
 
 
 --
@@ -11943,6 +12286,13 @@ COMMENT ON INDEX public.sol_purchases_content_idx IS 'Used for getting sales of 
 
 
 --
+-- Name: sol_purchases_created_at_idx; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX sol_purchases_created_at_idx ON public.sol_purchases USING btree (created_at);
+
+
+--
 -- Name: sol_purchases_from_account_idx; Type: INDEX; Schema: public; Owner: -
 --
 
@@ -11954,13 +12304,6 @@ CREATE INDEX sol_purchases_from_account_idx ON public.sol_purchases USING btree 
 --
 
 COMMENT ON INDEX public.sol_purchases_from_account_idx IS 'Used for getting purchases by a user via their account.';
-
-
---
--- Name: sol_purchases_created_at_idx; Type: INDEX; Schema: public; Owner: -
---
-
-CREATE INDEX sol_purchases_created_at_idx ON public.sol_purchases USING btree (created_at);
 
 
 --
@@ -11989,6 +12332,20 @@ CREATE INDEX sol_reward_disbursements_challenge_idx ON public.sol_reward_disburs
 --
 
 COMMENT ON INDEX public.sol_reward_disbursements_challenge_idx IS 'Used for getting reward disbursements for a specific challenge type or claim.';
+
+
+--
+-- Name: sol_reward_disbursements_created_at_idx; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX sol_reward_disbursements_created_at_idx ON public.sol_reward_disbursements USING btree (created_at);
+
+
+--
+-- Name: sol_reward_disbursements_recipient_eth_address_idx; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX sol_reward_disbursements_recipient_eth_address_idx ON public.sol_reward_disbursements USING btree (recipient_eth_address);
 
 
 --
@@ -12108,6 +12465,13 @@ CREATE INDEX sol_user_balances_mint_user_id_idx ON public.sol_user_balances USIN
 --
 
 COMMENT ON INDEX public.sol_user_balances_mint_user_id_idx IS 'Index for quick access to user balances by mint and user ID.';
+
+
+--
+-- Name: subscriptions_entity_type_entity_id_idx; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX subscriptions_entity_type_entity_id_idx ON public.subscriptions USING btree (entity_type, entity_id) WHERE ((is_current = true) AND (is_delete = false));
 
 
 --
@@ -12391,6 +12755,13 @@ CREATE TRIGGER on_playlist AFTER INSERT ON public.playlists FOR EACH ROW EXECUTE
 
 
 --
+-- Name: playlists on_playlist_notify_pending_purchase_revalidation; Type: TRIGGER; Schema: public; Owner: -
+--
+
+CREATE TRIGGER on_playlist_notify_pending_purchase_revalidation AFTER INSERT OR UPDATE OF blocknumber ON public.playlists FOR EACH ROW EXECUTE FUNCTION public.notify_pending_purchase_revalidation();
+
+
+--
 -- Name: playlist_tracks on_playlist_track; Type: TRIGGER; Schema: public; Owner: -
 --
 
@@ -12447,6 +12818,20 @@ COMMENT ON TRIGGER on_sol_claimable_accounts ON public.sol_claimable_accounts IS
 
 
 --
+-- Name: sol_purchases on_sol_purchase; Type: TRIGGER; Schema: public; Owner: -
+--
+
+CREATE TRIGGER on_sol_purchase AFTER INSERT ON public.sol_purchases FOR EACH ROW EXECUTE FUNCTION public.handle_sol_purchase();
+
+
+--
+-- Name: sol_reward_disbursements on_sol_reward_disbursement; Type: TRIGGER; Schema: public; Owner: -
+--
+
+CREATE TRIGGER on_sol_reward_disbursement AFTER INSERT ON public.sol_reward_disbursements FOR EACH ROW EXECUTE FUNCTION public.handle_sol_reward_disbursement();
+
+
+--
 -- Name: sol_token_account_balance_changes on_sol_token_account_balance_changes; Type: TRIGGER; Schema: public; Owner: -
 --
 
@@ -12472,6 +12857,13 @@ CREATE TRIGGER on_supporter_rank_up AFTER INSERT ON public.supporter_rank_ups FO
 --
 
 CREATE TRIGGER on_track AFTER INSERT OR UPDATE ON public.tracks FOR EACH ROW EXECUTE FUNCTION public.handle_track();
+
+
+--
+-- Name: tracks on_track_notify_pending_purchase_revalidation; Type: TRIGGER; Schema: public; Owner: -
+--
+
+CREATE TRIGGER on_track_notify_pending_purchase_revalidation AFTER INSERT OR UPDATE OF blocknumber ON public.tracks FOR EACH ROW EXECUTE FUNCTION public.notify_pending_purchase_revalidation();
 
 
 --
@@ -12878,105 +13270,6 @@ ALTER TABLE ONLY public.user_payout_wallet_history
 
 ALTER TABLE ONLY public.users
     ADD CONSTRAINT users_blocknumber_fkey FOREIGN KEY (blocknumber) REFERENCES public.blocks(number) ON DELETE CASCADE;
-
-
---
--- Name: v_challenge_disbursements; Type: VIEW; Schema: public; Owner: -
---
-
-CREATE VIEW public.v_challenge_disbursements AS
- SELECT rd.challenge_id,
-    rd.specifier,
-    (rd.amount)::text AS amount,
-    rd.signature,
-    rd.slot,
-    rd.created_at,
-    users.user_id
-   FROM (public.sol_reward_disbursements rd
-     JOIN public.users ON (((users.wallet = rd.recipient_eth_address) AND (users.is_current = true))));
-
-
---
--- Name: v_usdc_purchases; Type: VIEW; Schema: public; Owner: -
---
-
-CREATE VIEW public.v_usdc_purchases AS
- SELECT sp.signature,
-    sp.slot,
-    sp.buyer_user_id,
-    CASE sp.content_type
-        WHEN 'track'::text    THEN t.owner_id
-        WHEN 'album'::text    THEN p.playlist_owner_id
-        WHEN 'playlist'::text THEN p.playlist_owner_id
-    END AS seller_user_id,
-    sp.amount,
-    (sp.content_type)::public.usdc_purchase_content_type AS content_type,
-    sp.content_id,
-    sp.created_at,
-    GREATEST(
-        sp.amount - COALESCE(
-            CASE sp.content_type
-                WHEN 'track'::text THEN (
-                    SELECT (tph.total_price_cents * 10000)
-                      FROM public.track_price_history tph
-                     WHERE tph.track_id = sp.content_id
-                       AND tph.block_timestamp <= sp.created_at
-                     ORDER BY tph.block_timestamp DESC
-                     LIMIT 1
-                )
-                ELSE (
-                    SELECT (aph.total_price_cents * 10000)
-                      FROM public.album_price_history aph
-                     WHERE aph.playlist_id = sp.content_id
-                       AND aph.block_timestamp <= sp.created_at
-                     ORDER BY aph.block_timestamp DESC
-                     LIMIT 1
-                )
-            END,
-            0
-        ),
-        0
-    ) AS extra_amount,
-    (sp.access_type)::public.usdc_purchase_access_type AS access,
-    sp.city,
-    sp.region,
-    sp.country,
-    (
-        SELECT COALESCE(
-            jsonb_agg(
-                jsonb_build_object(
-                    'user_id', COALESCE(u_payout.user_id, u_sca.user_id),
-                    'payout_wallet', pay.to_account,
-                    'amount', pay.amount,
-                    'percentage', ((pay.amount * 100.0) / NULLIF(sp.amount, 0))
-                )
-                ORDER BY pay.route_index
-            ),
-            '[]'::jsonb
-        )
-          FROM public.sol_payments pay
-          LEFT JOIN public.users u_payout
-            ON u_payout.spl_usdc_payout_wallet = pay.to_account
-           AND u_payout.is_current = true
-          LEFT JOIN public.sol_claimable_accounts sca
-            ON sca.account = pay.to_account
-           AND sca.mint = 'EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v'::text
-          LEFT JOIN public.users u_sca
-            ON u_sca.wallet = sca.ethereum_address
-           AND u_sca.is_current = true
-         WHERE pay.signature = sp.signature
-           AND pay.instruction_index = sp.instruction_index
-    ) AS splits
-   FROM public.sol_purchases sp
-   LEFT JOIN public.tracks t
-     ON sp.content_type = 'track'::text
-    AND t.track_id = sp.content_id
-    AND t.is_current = true
-   LEFT JOIN public.playlists p
-     ON sp.content_type IN ('album'::text, 'playlist'::text)
-    AND p.playlist_id = sp.content_id
-    AND p.is_current = true
-  WHERE sp.is_valid IS TRUE;
 
 
 --
