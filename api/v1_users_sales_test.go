@@ -32,7 +32,7 @@ func TestV1UsersSales(t *testing.T) {
 		},
 		"track_price_history": []map[string]any{
 			// Drives extra_amount = 1000000 for signature "abc" (amount=1000000, base_price=0)
-			{"track_id": 1, "total_price_cents": 0, "blocknumber": 100, "block_timestamp": time.Date(2024, 6, 2, 23, 0, 0, 0, time.UTC), "splits": "[]"},
+			{"track_id": 1, "total_price_cents": 0, "block_timestamp": time.Date(2024, 6, 2, 23, 0, 0, 0, time.UTC), "splits": "[]"},
 		},
 		"sol_purchases": []map[string]any{
 			{"signature": "gfsgf", "instruction_index": 0, "buyer_user_id": 5, "amount": 2000000, "content_type": "playlist", "content_id": 1, "created_at": time.Date(2024, 6, 1, 0, 0, 0, 0, time.UTC), "is_valid": true},

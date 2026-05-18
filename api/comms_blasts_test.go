@@ -59,8 +59,19 @@ func TestGetNewBlasts(t *testing.T) {
 			},
 			{
 				"track_id":   2,
-				"owner_id":   2,
+				"owner_id":   1,
 				"title":      "Remix Track",
+				"created_at": now.Add(-time.Minute * 10),
+				"updated_at": now.Add(-time.Minute * 10),
+			},
+			{
+				// Owned by user 2 so user 2 qualifies as a remixer of track 1.
+				// Track 2 is now owned by artist1 (so v_usdc_purchases reports
+				// user 1 as the seller for customer_audience filtering), which
+				// previously was what made user 2 a remixer.
+				"track_id":   3,
+				"owner_id":   2,
+				"title":      "Fan Remix",
 				"created_at": now.Add(-time.Minute * 10),
 				"updated_at": now.Add(-time.Minute * 10),
 			},
@@ -95,6 +106,11 @@ func TestGetNewBlasts(t *testing.T) {
 			{
 				"parent_track_id": 1,
 				"child_track_id":  2,
+			},
+			{
+				// Makes user 2 (owner of track 3) a remixer of track 1.
+				"parent_track_id": 1,
+				"child_track_id":  3,
 			},
 		},
 		"sol_purchases": {
