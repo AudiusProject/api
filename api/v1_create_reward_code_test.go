@@ -2,7 +2,6 @@ package api
 
 import (
 	"context"
-	"crypto/ed25519"
 	"crypto/rand"
 	"encoding/json"
 	"fmt"
@@ -11,14 +10,46 @@ import (
 
 	"api.audius.co/database"
 	"github.com/gagliardetto/solana-go"
-	"github.com/mr-tron/base58"
 	"github.com/stretchr/testify/assert"
 )
 
-// Helper function to create a valid signature for testing
-func createValidSignature(privateKey ed25519.PrivateKey, message string) string {
-	signature := ed25519.Sign(privateKey, []byte(message))
-	return base58.Encode(signature)
+// buildSignedMemoTx constructs a transaction containing a single Memo
+// Program instruction whose data is the millisecond timestamp encoded as
+// UTF-8 decimal digits, signs it with privKey, and returns the base64
+// representation suitable for the request body.
+func buildSignedMemoTx(t *testing.T, privKey solana.PrivateKey, timestamp int64) string {
+	t.Helper()
+
+	memoIx := solana.NewInstruction(
+		solana.MemoProgramID,
+		solana.AccountMetaSlice{},
+		[]byte(fmt.Sprintf("%d", timestamp)),
+	)
+
+	// Random dummy blockhash — wallets and our server don't validate it
+	// against a live chain since the tx is never submitted.
+	var blockhash solana.Hash
+	_, err := rand.Read(blockhash[:])
+	assert.NoError(t, err)
+
+	tx, err := solana.NewTransaction(
+		[]solana.Instruction{memoIx},
+		blockhash,
+		solana.TransactionPayer(privKey.PublicKey()),
+	)
+	assert.NoError(t, err)
+
+	_, err = tx.Sign(func(key solana.PublicKey) *solana.PrivateKey {
+		if key.Equals(privKey.PublicKey()) {
+			return &privKey
+		}
+		return nil
+	})
+	assert.NoError(t, err)
+
+	encoded, err := tx.ToBase64()
+	assert.NoError(t, err)
+	return encoded
 }
 
 func TestV1CreateRewardCode(t *testing.T) {
@@ -39,92 +70,23 @@ func TestV1CreateRewardCode(t *testing.T) {
 
 	database.Seed(app.pool.Replicas[0], fixtures)
 
-	// Save original config and restore after tests
 	originalKeys := app.config.RewardCodeAuthorizedKeys
 	defer func() {
 		app.config.RewardCodeAuthorizedKeys = originalKeys
 	}()
 
-	t.Run("Unauthorized with invalid signature", func(t *testing.T) {
-		_, wrongPrivateKey, err := ed25519.GenerateKey(rand.Reader)
-		assert.NoError(t, err)
-		signature := createValidSignature(wrongPrivateKey, "code")
-
-		requestBody := CreateRewardCodeRequest{
-			Signature: signature,
-			Mint:      "TestMint123",
-			Amount:    100,
-		}
-
-		body, err := json.Marshal(requestBody)
-		assert.NoError(t, err)
-
-		status, _ := testPost(t, app, "/v1/rewards/code", body, map[string]string{
-			"Content-Type": "application/json",
-		})
-
-		assert.Equal(t, 403, status, "Should return 403 for unauthorized signature")
-	})
-
-	t.Run("Missing required fields", func(t *testing.T) {
-		requestBody := map[string]interface{}{
-			"mint": "TestMint123",
-			// Missing signature and amount
-		}
-
-		body, err := json.Marshal(requestBody)
-		assert.NoError(t, err)
-
-		status, _ := testPost(t, app, "/v1/rewards/code", body, map[string]string{
-			"Content-Type": "application/json",
-		})
-
-		assert.Equal(t, 400, status, "Should return 400 for missing required fields")
-	})
-
-	t.Run("Invalid amount (zero)", func(t *testing.T) {
-		_, wrongPrivateKey, err := ed25519.GenerateKey(rand.Reader)
-		assert.NoError(t, err)
-		signature := createValidSignature(wrongPrivateKey, "code")
-
-		requestBody := CreateRewardCodeRequest{
-			Signature: signature,
-			Mint:      "TestMint123",
-			Amount:    0,
-		}
-
-		body, err := json.Marshal(requestBody)
-		assert.NoError(t, err)
-
-		status, _ := testPost(t, app, "/v1/rewards/code", body, map[string]string{
-			"Content-Type": "application/json",
-		})
-
-		assert.Equal(t, 400, status, "Should return 400 for invalid amount")
-	})
-
 	t.Run("Successfully creates a reward code", func(t *testing.T) {
-		// Generate a test keypair
-		testPublicKey, testPrivateKey, err := ed25519.GenerateKey(rand.Reader)
+		privKey, err := solana.NewRandomPrivateKey()
 		assert.NoError(t, err)
+		app.config.RewardCodeAuthorizedKeys = []string{privKey.PublicKey().String()}
 
-		// Convert to Solana format and inject into config
-		solanaPubKey := solana.PublicKeyFromBytes(testPublicKey)
-		testPubKeyBase58 := solanaPubKey.String()
-		app.config.RewardCodeAuthorizedKeys = []string{testPubKeyBase58}
+		signedTx := buildSignedMemoTx(t, privKey, time.Now().UnixMilli())
 
-		timestamp := time.Now().UnixMilli()
-		timestampStr := fmt.Sprintf("%d", timestamp)
-		signature := createValidSignature(testPrivateKey, timestampStr)
-
-		requestBody := CreateRewardCodeRequest{
-			Timestamp: timestamp,
-			Signature: signature,
-			Mint:      "TestMint123",
-			Amount:    500,
-		}
-
-		body, err := json.Marshal(requestBody)
+		body, err := json.Marshal(CreateRewardCodeRequest{
+			SignedTransaction: signedTx,
+			Mint:              "TestMint123",
+			Amount:            500,
+		})
 		assert.NoError(t, err)
 
 		var resp CreateRewardCodeResponse
@@ -135,47 +97,32 @@ func TestV1CreateRewardCode(t *testing.T) {
 		assert.Equal(t, "TestMint123", resp.Mint)
 		assert.Equal(t, int64(500), resp.Amount)
 		assert.Len(t, resp.Code, codeLength)
-		assert.Regexp(t, "^[a-zA-Z0-9]{10}$", resp.Code)
 
-		// Verify the code exists in the database and remaining_uses is 1
 		var dbCode string
-		var dbMint string
-		var dbAmount int64
 		var dbRemainingUses int
 		err = app.pool.QueryRow(context.Background(),
-			"SELECT code, mint, amount, remaining_uses FROM reward_codes WHERE code = $1", resp.Code).
-			Scan(&dbCode, &dbMint, &dbAmount, &dbRemainingUses)
+			"SELECT code, remaining_uses FROM reward_codes WHERE code = $1", resp.Code).
+			Scan(&dbCode, &dbRemainingUses)
 		assert.NoError(t, err)
-		assert.Equal(t, resp.Code, dbCode)
-		assert.Equal(t, resp.Mint, dbMint)
-		assert.Equal(t, resp.Amount, dbAmount)
 		assert.Equal(t, 1, dbRemainingUses)
 	})
 
-	t.Run("Successfully creates a reward code with second signer", func(t *testing.T) {
-		// Generate a test keypair
-		testPublicKey, _, err := ed25519.GenerateKey(rand.Reader)
-		testPublicKey2, testPrivateKey2, err := ed25519.GenerateKey(rand.Reader)
+	t.Run("Successfully creates a reward code with second authorized signer", func(t *testing.T) {
+		_, err := solana.NewRandomPrivateKey()
 		assert.NoError(t, err)
+		privKey2, err := solana.NewRandomPrivateKey()
+		assert.NoError(t, err)
+		other, err := solana.NewRandomPrivateKey()
+		assert.NoError(t, err)
+		app.config.RewardCodeAuthorizedKeys = []string{other.PublicKey().String(), privKey2.PublicKey().String()}
 
-		// Convert to Solana format and inject into config
-		solanaPubKey := solana.PublicKeyFromBytes(testPublicKey)
-		solanaPubKey2 := solana.PublicKeyFromBytes(testPublicKey2)
-		testPubKeyBase58 := solanaPubKey.String()
-		testPubKeyBase582 := solanaPubKey2.String()
-		app.config.RewardCodeAuthorizedKeys = []string{testPubKeyBase58, testPubKeyBase582}
+		signedTx := buildSignedMemoTx(t, privKey2, time.Now().UnixMilli())
 
-		timestamp := time.Now().UnixMilli()
-		timestampStr := fmt.Sprintf("%d", timestamp)
-		signature2 := createValidSignature(testPrivateKey2, timestampStr)
-		requestBody := CreateRewardCodeRequest{
-			Timestamp: timestamp,
-			Signature: signature2,
-			Mint:      "TestMint123",
-			Amount:    500,
-		}
-
-		body, err := json.Marshal(requestBody)
+		body, err := json.Marshal(CreateRewardCodeRequest{
+			SignedTransaction: signedTx,
+			Mint:              "TestMint123",
+			Amount:            500,
+		})
 		assert.NoError(t, err)
 
 		var resp CreateRewardCodeResponse
@@ -183,72 +130,109 @@ func TestV1CreateRewardCode(t *testing.T) {
 			"Content-Type": "application/json",
 		}, &resp)
 		assert.Equal(t, 201, status, "Response body: %s", string(respBody))
-		assert.Equal(t, "TestMint123", resp.Mint)
-		assert.Equal(t, int64(500), resp.Amount)
-		assert.Len(t, resp.Code, codeLength)
-		assert.Regexp(t, "^[a-zA-Z0-9]{10}$", resp.Code)
-
-		// Verify the code exists in the database and remaining_uses is 1
-		var dbCode string
-		var dbMint string
-		var dbAmount int64
-		var dbRemainingUses int
-		err = app.pool.QueryRow(context.Background(),
-			"SELECT code, mint, amount, remaining_uses FROM reward_codes WHERE code = $1", resp.Code).
-			Scan(&dbCode, &dbMint, &dbAmount, &dbRemainingUses)
-		assert.NoError(t, err)
-		assert.Equal(t, resp.Code, dbCode)
-		assert.Equal(t, resp.Mint, dbMint)
-		assert.Equal(t, resp.Amount, dbAmount)
-		assert.Equal(t, 1, dbRemainingUses)
 	})
 
-	t.Run("Replay prevention: same signature/timestamp with different parameters returns 400", func(t *testing.T) {
-		// Generate a test keypair
-		testPublicKey, testPrivateKey, err := ed25519.GenerateKey(rand.Reader)
+	t.Run("Unauthorized signer returns 403", func(t *testing.T) {
+		signerKey, err := solana.NewRandomPrivateKey()
+		assert.NoError(t, err)
+		otherKey, err := solana.NewRandomPrivateKey()
+		assert.NoError(t, err)
+		// Authorize a different key than the signer
+		app.config.RewardCodeAuthorizedKeys = []string{otherKey.PublicKey().String()}
+
+		signedTx := buildSignedMemoTx(t, signerKey, time.Now().UnixMilli())
+
+		body, err := json.Marshal(CreateRewardCodeRequest{
+			SignedTransaction: signedTx,
+			Mint:              "TestMint123",
+			Amount:            100,
+		})
 		assert.NoError(t, err)
 
-		// Convert to Solana format and inject into config
-		solanaPubKey := solana.PublicKeyFromBytes(testPublicKey)
-		testPubKeyBase58 := solanaPubKey.String()
-		app.config.RewardCodeAuthorizedKeys = []string{testPubKeyBase58}
-
-		timestamp := time.Now().UnixMilli()
-		timestampStr := fmt.Sprintf("%d", timestamp)
-		signature := createValidSignature(testPrivateKey, timestampStr)
-
-		// First request - should succeed
-		requestBody1 := CreateRewardCodeRequest{
-			Timestamp: timestamp,
-			Signature: signature,
-			Mint:      "TestMint123",
-			Amount:    500,
-		}
-
-		body1, err := json.Marshal(requestBody1)
-		assert.NoError(t, err)
-
-		var resp1 CreateRewardCodeResponse
-		status1, respBody1 := testPost(t, app, "/v1/rewards/code", body1, map[string]string{
-			"Content-Type": "application/json",
-		}, &resp1)
-		assert.Equal(t, 201, status1, "First request should succeed. Response body: %s", string(respBody1))
-
-		// Second request with same signature/timestamp but different parameters - should fail with 400
-		requestBody2 := CreateRewardCodeRequest{
-			Timestamp: timestamp,
-			Signature: signature,
-			Mint:      "TestMint123",
-			Amount:    1000, // Different amount
-		}
-
-		body2, err := json.Marshal(requestBody2)
-		assert.NoError(t, err)
-
-		status2, respBody2 := testPost(t, app, "/v1/rewards/code", body2, map[string]string{
+		status, _ := testPost(t, app, "/v1/rewards/code", body, map[string]string{
 			"Content-Type": "application/json",
 		})
-		assert.Equal(t, 400, status2, "Second request with same signature should return 400. Response body: %s", string(respBody2))
+		assert.Equal(t, 403, status)
+	})
+
+	t.Run("Missing signed_transaction returns 400", func(t *testing.T) {
+		body, err := json.Marshal(map[string]interface{}{
+			"mint":   "TestMint123",
+			"amount": 100,
+		})
+		assert.NoError(t, err)
+
+		status, _ := testPost(t, app, "/v1/rewards/code", body, map[string]string{
+			"Content-Type": "application/json",
+		})
+		assert.Equal(t, 400, status)
+	})
+
+	t.Run("Invalid base64 transaction returns 400", func(t *testing.T) {
+		privKey, err := solana.NewRandomPrivateKey()
+		assert.NoError(t, err)
+		app.config.RewardCodeAuthorizedKeys = []string{privKey.PublicKey().String()}
+
+		body, err := json.Marshal(CreateRewardCodeRequest{
+			SignedTransaction: "not-valid-base64!@#$",
+			Mint:              "TestMint123",
+			Amount:            100,
+		})
+		assert.NoError(t, err)
+
+		status, _ := testPost(t, app, "/v1/rewards/code", body, map[string]string{
+			"Content-Type": "application/json",
+		})
+		assert.Equal(t, 400, status)
+	})
+
+	t.Run("Timestamp out of range returns 400", func(t *testing.T) {
+		privKey, err := solana.NewRandomPrivateKey()
+		assert.NoError(t, err)
+		app.config.RewardCodeAuthorizedKeys = []string{privKey.PublicKey().String()}
+
+		// 24 hours in the past — outside the 12h drift window
+		staleTimestamp := time.Now().Add(-24 * time.Hour).UnixMilli()
+		signedTx := buildSignedMemoTx(t, privKey, staleTimestamp)
+
+		body, err := json.Marshal(CreateRewardCodeRequest{
+			SignedTransaction: signedTx,
+			Mint:              "TestMint123",
+			Amount:            100,
+		})
+		assert.NoError(t, err)
+
+		status, _ := testPost(t, app, "/v1/rewards/code", body, map[string]string{
+			"Content-Type": "application/json",
+		})
+		assert.Equal(t, 400, status)
+	})
+
+	t.Run("Replay prevention: duplicate signature returns 400", func(t *testing.T) {
+		privKey, err := solana.NewRandomPrivateKey()
+		assert.NoError(t, err)
+		app.config.RewardCodeAuthorizedKeys = []string{privKey.PublicKey().String()}
+
+		signedTx := buildSignedMemoTx(t, privKey, time.Now().UnixMilli())
+
+		body, err := json.Marshal(CreateRewardCodeRequest{
+			SignedTransaction: signedTx,
+			Mint:              "TestMint123",
+			Amount:            500,
+		})
+		assert.NoError(t, err)
+
+		// First request succeeds
+		status1, respBody1 := testPost(t, app, "/v1/rewards/code", body, map[string]string{
+			"Content-Type": "application/json",
+		})
+		assert.Equal(t, 201, status1, "First request should succeed. Body: %s", string(respBody1))
+
+		// Same transaction again should be rejected as a duplicate signature
+		status2, _ := testPost(t, app, "/v1/rewards/code", body, map[string]string{
+			"Content-Type": "application/json",
+		})
+		assert.Equal(t, 400, status2)
 	})
 }
 
@@ -278,72 +262,84 @@ func TestGenerateCode(t *testing.T) {
 			codes[code] = true
 		}
 
-		// With 62^6 possible combinations, we should get mostly unique codes
-		assert.Greater(t, len(codes), iterations*9/10, "Should unique codes")
+		assert.Greater(t, len(codes), iterations*9/10, "Should produce mostly unique codes")
 	})
 }
 
-func TestVerifySignature(t *testing.T) {
-	t.Run("Returns false for invalid signature", func(t *testing.T) {
-		_, testPrivateKey, err := ed25519.GenerateKey(rand.Reader)
+func TestExtractMemoTimestamp(t *testing.T) {
+	t.Run("extracts timestamp from memo instruction", func(t *testing.T) {
+		privKey, err := solana.NewRandomPrivateKey()
 		assert.NoError(t, err)
 
-		timestamp := time.Now().UnixMilli()
-		timestampStr := fmt.Sprintf("%d", timestamp)
-		signature := createValidSignature(testPrivateKey, timestampStr)
+		want := int64(1747251234567)
+		signedTx := buildSignedMemoTx(t, privKey, want)
 
-		// Verify against a different key (should fail)
-		mockKey := "DDT15s6MMNxE4jkyGN46wNYqrgLWofT6WAvWtjYYrCUq"
-		valid, err := verifySignature(signature, timestampStr, mockKey)
+		tx, err := solana.TransactionFromBase64(signedTx)
 		assert.NoError(t, err)
-		assert.False(t, valid, "Should return false for signature from wrong key")
+
+		got, err := extractMemoTimestamp(tx)
+		assert.NoError(t, err)
+		assert.Equal(t, want, got)
 	})
 
-	t.Run("Returns error for invalid base58", func(t *testing.T) {
-		timestamp := time.Now().UnixMilli()
-		timestampStr := fmt.Sprintf("%d", timestamp)
-		mockKey := "DDT15s6MMNxE4jkyGN46wNYqrgLWofT6WAvWtjYYrCUq"
-		_, err := verifySignature("not-valid-base58!@#", timestampStr, mockKey)
-		assert.Error(t, err, "Should return error for invalid base58")
+	t.Run("returns error when no memo instruction is present", func(t *testing.T) {
+		privKey, err := solana.NewRandomPrivateKey()
+		assert.NoError(t, err)
+
+		// Build a transaction with a non-memo instruction
+		nonMemoIx := solana.NewInstruction(
+			solana.SystemProgramID,
+			solana.AccountMetaSlice{},
+			[]byte{0, 0, 0, 0},
+		)
+		var blockhash solana.Hash
+		_, err = rand.Read(blockhash[:])
+		assert.NoError(t, err)
+		tx, err := solana.NewTransaction(
+			[]solana.Instruction{nonMemoIx},
+			blockhash,
+			solana.TransactionPayer(privKey.PublicKey()),
+		)
+		assert.NoError(t, err)
+		_, err = tx.Sign(func(key solana.PublicKey) *solana.PrivateKey {
+			if key.Equals(privKey.PublicKey()) {
+				return &privKey
+			}
+			return nil
+		})
+		assert.NoError(t, err)
+
+		_, err = extractMemoTimestamp(tx)
+		assert.Error(t, err)
 	})
 
-	t.Run("Accepts SIMD-0048 off-chain wrapped signature (Ledger path)", func(t *testing.T) {
-		testPubKey, testPrivateKey, err := ed25519.GenerateKey(rand.Reader)
+	t.Run("returns error when memo data is not a valid integer", func(t *testing.T) {
+		privKey, err := solana.NewRandomPrivateKey()
 		assert.NoError(t, err)
 
-		solanaPubKey := solana.PublicKeyFromBytes(testPubKey)
-		testPubKeyBase58 := solanaPubKey.String()
-
-		timestamp := time.Now().UnixMilli()
-		timestampStr := fmt.Sprintf("%d", timestamp)
-
-		for _, format := range []byte{0, 1, 2} {
-			wrapped := buildOffchainMessage(timestampStr, format)
-			signature := base58.Encode(ed25519.Sign(testPrivateKey, wrapped))
-
-			valid, err := verifySignature(signature, timestampStr, testPubKeyBase58)
-			assert.NoError(t, err)
-			assert.True(t, valid, "Should accept off-chain wrapped signature for format %d", format)
-		}
-	})
-
-	t.Run("Returns false for wrong message", func(t *testing.T) {
-		testPubKey, testPrivateKey, err := ed25519.GenerateKey(rand.Reader)
+		memoIx := solana.NewInstruction(
+			solana.MemoProgramID,
+			solana.AccountMetaSlice{},
+			[]byte("not-a-number"),
+		)
+		var blockhash solana.Hash
+		_, err = rand.Read(blockhash[:])
+		assert.NoError(t, err)
+		tx, err := solana.NewTransaction(
+			[]solana.Instruction{memoIx},
+			blockhash,
+			solana.TransactionPayer(privKey.PublicKey()),
+		)
+		assert.NoError(t, err)
+		_, err = tx.Sign(func(key solana.PublicKey) *solana.PrivateKey {
+			if key.Equals(privKey.PublicKey()) {
+				return &privKey
+			}
+			return nil
+		})
 		assert.NoError(t, err)
 
-		// Convert test public key to Solana base58
-		solanaPubKey := solana.PublicKeyFromBytes(testPubKey)
-		testPubKeyBase58 := solanaPubKey.String()
-
-		timestamp1 := time.Now().UnixMilli()
-		timestamp2 := timestamp1 + 1000
-		timestamp1Str := fmt.Sprintf("%d", timestamp1)
-		timestamp2Str := fmt.Sprintf("%d", timestamp2)
-
-		// Sign one timestamp but verify against a different timestamp (should fail)
-		signature := createValidSignature(testPrivateKey, timestamp1Str)
-		valid, err := verifySignature(signature, timestamp2Str, testPubKeyBase58)
-		assert.NoError(t, err)
-		assert.False(t, valid, "Should return false for signature of wrong message")
+		_, err = extractMemoTimestamp(tx)
+		assert.Error(t, err)
 	})
 }

@@ -4,9 +4,9 @@ import (
 	"context"
 	"crypto/ed25519"
 	"crypto/rand"
-	"errors"
 	"fmt"
 	"math/big"
+	"strconv"
 	"time"
 
 	"api.audius.co/utils"
@@ -22,9 +22,8 @@ import (
 )
 
 const (
-	signedAuthMessage = "code"
-	codeLength        = 10
-	codeChars         = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789"
+	codeLength = 10
+	codeChars  = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789"
 
 	// rewardPoolDeadlineWindow is the number of blocks ahead of the
 	// current height at which we set the deadline_block_height on
@@ -35,11 +34,16 @@ const (
 	rewardPoolDeadlineWindow = 100
 )
 
+// CreateRewardCodeRequest carries a signed Solana transaction containing a
+// single Memo Program instruction whose data is a millisecond-epoch timestamp
+// (as a UTF-8 decimal string). The transaction's fee-payer is the signer and
+// must appear in RewardCodeAuthorizedKeys. The transaction is never submitted
+// on-chain — it's used purely as a signing envelope so every wallet flow
+// (hot wallets and hardware wallets like Ledger) can authenticate uniformly.
 type CreateRewardCodeRequest struct {
-	Timestamp int64  `json:"timestamp" validate:"omitempty,min=1"`
-	Signature string `json:"signature" validate:"required"`
-	Mint      string `json:"mint" validate:"required"`
-	Amount    int64  `json:"amount" validate:"required,min=1"`
+	SignedTransaction string `json:"signed_transaction" validate:"required"`
+	Mint              string `json:"mint" validate:"required"`
+	Amount            int64  `json:"amount" validate:"required,min=1"`
 }
 
 type CreateRewardCodeResponse struct {
@@ -64,68 +68,25 @@ func generateCode() (string, error) {
 	return string(result), nil
 }
 
-// buildOffchainMessage wraps a message in Solana's SIMD-0048 off-chain
-// message envelope. Hardware wallets (notably Ledger) refuse to sign
-// arbitrary bytes, so wallets like Phantom wrap the message in this
-// envelope before sending it to the device — meaning the signature is
-// over the wrapped bytes rather than the raw message.
-func buildOffchainMessage(message string, format byte) []byte {
-	msgBytes := []byte(message)
-	msgLen := uint16(len(msgBytes))
-
-	// Signing domain (16 bytes) + version (1) + format (1) + length (2) + message
-	buf := make([]byte, 0, 20+len(msgBytes))
-	buf = append(buf, []byte("\xffsolana offchain")...)
-	buf = append(buf, 0x00)
-	buf = append(buf, format)
-	buf = append(buf, byte(msgLen), byte(msgLen>>8))
-	buf = append(buf, msgBytes...)
-	return buf
-}
-
-func verifySignature(signatureBase58 string, message string, authorizedPubKey string) (bool, error) {
-	// Decode the signature from base58
-	signatureBytes, err := base58.Decode(signatureBase58)
-	if err != nil {
-		return false, err
-	}
-
-	// Parse the expected public key
-	expectedPubKey, err := solana.PublicKeyFromBase58(authorizedPubKey)
-	if err != nil {
-		return false, err
-	}
-
-	// Hot wallets sign the raw bytes directly.
-	if ed25519.Verify(expectedPubKey[:], []byte(message), signatureBytes) {
-		return true, nil
-	}
-
-	// Hardware wallets (e.g. Ledger via Phantom) sign the SIMD-0048 wrapped
-	// message instead. Try all three message formats since wallets vary.
-	for _, format := range []byte{0, 1, 2} {
-		if ed25519.Verify(expectedPubKey[:], buildOffchainMessage(message, format), signatureBytes) {
-			return true, nil
-		}
-	}
-
-	return false, nil
-}
-
-func verifySignatureAgainstKeys(signatureBase58 string, message string, authorizedKeys []string) (string, error) {
-	for _, key := range authorizedKeys {
-		valid, err := verifySignature(signatureBase58, message, key)
-		if err != nil {
-			// If there's an error parsing the key or signature, continue to next key
+// extractMemoTimestamp finds the first Memo Program instruction in the
+// transaction and parses its data as a millisecond-epoch timestamp. Returns
+// an error if no memo instruction is present or its data isn't a valid
+// integer.
+func extractMemoTimestamp(tx *solana.Transaction) (int64, error) {
+	for _, ix := range tx.Message.Instructions {
+		if int(ix.ProgramIDIndex) >= len(tx.Message.AccountKeys) {
 			continue
 		}
-		if valid {
-			// Found a matching key
-			return key, nil
+		if !tx.Message.AccountKeys[ix.ProgramIDIndex].Equals(solana.MemoProgramID) {
+			continue
 		}
+		ts, err := strconv.ParseInt(string(ix.Data), 10, 64)
+		if err != nil {
+			return 0, fmt.Errorf("memo data is not a valid timestamp: %w", err)
+		}
+		return ts, nil
 	}
-	// No matching key found
-	return "", errors.New("unauthorized")
+	return 0, fmt.Errorf("no memo instruction found")
 }
 
 func (app *ApiServer) v1CreateRewardCode(c *fiber.Ctx) error {
@@ -133,31 +94,58 @@ func (app *ApiServer) v1CreateRewardCode(c *fiber.Ctx) error {
 	if err := app.ParseAndValidateBody(c, &req); err != nil {
 		return err
 	}
-	var message = signedAuthMessage
-	signatureIsSingleUse := req.Timestamp > 0
-	if signatureIsSingleUse {
-		message = fmt.Sprintf("%d", req.Timestamp)
-		var signatureUsed bool
-		// Check if signature already used
-		if err := app.writePool.QueryRow(context.Background(), `
-		SELECT EXISTS(SELECT 1 FROM reward_codes WHERE signature = $1)
-	`, req.Signature).Scan(&signatureUsed); err != nil {
-			app.logger.Error("Failed to query for existing verified signature", zap.Error(err))
-			return fiber.NewError(fiber.StatusInternalServerError)
-		} else if signatureUsed {
-			return fiber.NewError(fiber.StatusBadRequest, "Duplicate signature")
-		}
 
-		timestamp := time.UnixMilli(req.Timestamp)
-		// Allow drift of timestamp
-		if time.Since(timestamp).Abs() > (12 * time.Hour) {
-			return fiber.NewError(fiber.StatusBadRequest, "Timestamp out of range")
-		}
+	// Decode the signed transaction
+	tx, err := solana.TransactionFromBase64(req.SignedTransaction)
+	if err != nil {
+		return fiber.NewError(fiber.StatusBadRequest, "Invalid transaction: "+err.Error())
 	}
 
-	_, err := verifySignatureAgainstKeys(req.Signature, message, app.config.RewardCodeAuthorizedKeys)
+	// Must carry exactly one signature (the authorizing signer / fee payer)
+	if len(tx.Signatures) != 1 || len(tx.Message.AccountKeys) == 0 {
+		return fiber.NewError(fiber.StatusBadRequest, "Transaction must have exactly one signer")
+	}
+
+	// Cryptographically verify the signature against the message bytes
+	if err := tx.VerifySignatures(); err != nil {
+		return fiber.NewError(fiber.StatusForbidden, "Invalid signature: "+err.Error())
+	}
+
+	// Fee payer (account index 0) is the authorizing signer
+	signer := tx.Message.AccountKeys[0].String()
+	signerAuthorized := false
+	for _, key := range app.config.RewardCodeAuthorizedKeys {
+		if key == signer {
+			signerAuthorized = true
+			break
+		}
+	}
+	if !signerAuthorized {
+		return fiber.NewError(fiber.StatusForbidden, "Unauthorized: signer "+signer+" not in allowlist")
+	}
+
+	// Extract and validate the timestamp embedded in the memo instruction
+	timestamp, err := extractMemoTimestamp(tx)
 	if err != nil {
-		return fiber.NewError(fiber.StatusForbidden, "Unauthorized: "+err.Error())
+		return fiber.NewError(fiber.StatusBadRequest, err.Error())
+	}
+	if time.Since(time.UnixMilli(timestamp)).Abs() > (12 * time.Hour) {
+		return fiber.NewError(fiber.StatusBadRequest, "Timestamp out of range")
+	}
+
+	// The transaction signature uniquely identifies this signing event.
+	// We use it as the replay-prevention key.
+	txSig := tx.Signatures[0].String()
+
+	var signatureUsed bool
+	if err := app.writePool.QueryRow(context.Background(), `
+		SELECT EXISTS(SELECT 1 FROM reward_codes WHERE signature = $1)
+	`, txSig).Scan(&signatureUsed); err != nil {
+		app.logger.Error("Failed to query for existing signature", zap.Error(err))
+		return fiber.NewError(fiber.StatusInternalServerError)
+	}
+	if signatureUsed {
+		return fiber.NewError(fiber.StatusBadRequest, "Duplicate signature")
 	}
 
 	// Generate a code
@@ -166,15 +154,7 @@ func (app *ApiServer) v1CreateRewardCode(c *fiber.Ctx) error {
 		return fiber.NewError(fiber.StatusInternalServerError, "Failed to generate code: "+err.Error())
 	}
 
-	var codeSignature string
-	if signatureIsSingleUse {
-		codeSignature = req.Signature
-	} else {
-		codeSignature = ""
-	}
-
-	// Use shared function to create reward code and insert into database
-	rewardAddress, err := app.createAndInsertRewardCode(context.Background(), code, req.Mint, req.Amount, "Launchpad", codeSignature)
+	rewardAddress, err := app.createAndInsertRewardCode(context.Background(), code, req.Mint, req.Amount, "Launchpad", txSig)
 	if err != nil {
 		return fiber.NewError(fiber.StatusInternalServerError, "Failed to create reward code: "+err.Error())
 	}
