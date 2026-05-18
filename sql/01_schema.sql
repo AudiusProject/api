@@ -9631,6 +9631,7 @@ CREATE VIEW public.v_usdc_purchases AS
     (sp.content_type)::public.usdc_purchase_content_type AS content_type,
     sp.content_id,
     sp.created_at,
+    sp.created_at AS updated_at,
     GREATEST((sp.amount - COALESCE(
         CASE sp.content_type
             WHEN 'track'::text THEN ( SELECT (tph.total_price_cents * 10000)
