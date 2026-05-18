@@ -688,6 +688,12 @@ var (
 			"user_id":       nil,
 			"pubkey_base64": nil,
 		},
+		"blocks": {
+			"blockhash":  nil,
+			"parenthash": nil,
+			"is_current": false,
+			"number":     nil,
+		},
 		"reward_codes": {
 			"code":           nil,
 			"mint":           nil,
@@ -802,7 +808,7 @@ func Seed(pool *pgxpool.Pool, fixtures FixtureMap) {
 	// explicitly do the "entity" tables first
 	// so that data dependencies exist before attempting to do saves, follows, etc.
 	// (also do aggregates first so we can override the ones the entities autocreate)
-	entityTables := []string{"aggregate_user", "aggregate_track", "aggregate_playlist", "users", "tracks", "playlists", "sol_token_account_balances", "chat", "chat_member", "chat_message", "chat_blast", "sol_user_balances", "chat_blocked_users", "chat_permissions"}
+	entityTables := []string{"blocks", "aggregate_user", "aggregate_track", "aggregate_playlist", "users", "tracks", "playlists", "sol_token_account_balances", "chat", "chat_member", "chat_message", "chat_blast", "sol_user_balances", "chat_blocked_users", "chat_permissions"}
 	for _, tableName := range entityTables {
 		if rows, ok := fixtures[tableName]; ok {
 			SeedTable(pool, tableName, rows)

@@ -54,9 +54,21 @@ SELECT
         '[]'::jsonb
       )
         FROM sol_payments pay
-        LEFT JOIN users u_payout
-          ON u_payout.spl_usdc_payout_wallet = pay.to_account
-         AND u_payout.is_current = TRUE
+        -- Historical match: which user had this Solana wallet set as their
+        -- USDC payout wallet at the time of the purchase? Mirrors Python's
+        -- add_wallet_info_to_splits, which joins UserPayoutWalletHistory
+        -- filtered by block_timestamp < purchase_time.
+        LEFT JOIN LATERAL (
+          SELECT upwh.user_id
+            FROM user_payout_wallet_history upwh
+           WHERE upwh.spl_usdc_payout_wallet = pay.to_account
+             AND upwh.block_timestamp <= sp.created_at
+           ORDER BY upwh.block_timestamp DESC
+           LIMIT 1
+        ) u_payout ON TRUE
+        -- Fallback: if the user never set a custom payout (so no history
+        -- row exists), pay.to_account is their USDC user-bank PDA, which
+        -- is stable over time and resolves via sol_claimable_accounts.
         LEFT JOIN sol_claimable_accounts sca
           ON sca.account = pay.to_account
          AND sca.mint = 'EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v'

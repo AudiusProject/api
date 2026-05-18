@@ -9651,7 +9651,11 @@ CREATE VIEW public.v_usdc_purchases AS
     sp.country,
     ( SELECT COALESCE(jsonb_agg(jsonb_build_object('user_id', COALESCE(u_payout.user_id, u_sca.user_id), 'payout_wallet', pay.to_account, 'amount', pay.amount, 'percentage', (((pay.amount)::numeric * 100.0) / (NULLIF(sp.amount, 0))::numeric)) ORDER BY pay.route_index), '[]'::jsonb) AS "coalesce"
            FROM (((public.sol_payments pay
-             LEFT JOIN public.users u_payout ON ((((u_payout.spl_usdc_payout_wallet)::text = (pay.to_account)::text) AND (u_payout.is_current = true))))
+             LEFT JOIN LATERAL ( SELECT upwh.user_id
+                   FROM public.user_payout_wallet_history upwh
+                  WHERE (((upwh.spl_usdc_payout_wallet)::text = (pay.to_account)::text) AND (upwh.block_timestamp <= sp.created_at))
+                  ORDER BY upwh.block_timestamp DESC
+                 LIMIT 1) u_payout ON (true))
              LEFT JOIN public.sol_claimable_accounts sca ON ((((sca.account)::text = (pay.to_account)::text) AND ((sca.mint)::text = 'EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v'::text))))
              LEFT JOIN public.users u_sca ON ((((u_sca.wallet)::text = (sca.ethereum_address)::text) AND (u_sca.is_current = true))))
           WHERE (((pay.signature)::text = (sp.signature)::text) AND (pay.instruction_index = sp.instruction_index))) AS splits
@@ -12627,6 +12631,13 @@ CREATE INDEX user_challenges_user_id ON public.user_challenges USING btree (user
 --
 
 CREATE INDEX user_events_user_id_idx ON public.user_events USING btree (user_id);
+
+
+--
+-- Name: user_payout_wallet_history_wallet_idx; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX user_payout_wallet_history_wallet_idx ON public.user_payout_wallet_history USING btree (spl_usdc_payout_wallet, block_timestamp);
 
 
 --

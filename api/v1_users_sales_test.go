@@ -34,6 +34,10 @@ func TestV1UsersSales(t *testing.T) {
 			// Drives extra_amount = 1000000 for signature "abc" (amount=1000000, base_price=0)
 			{"track_id": 1, "total_price_cents": 0, "block_timestamp": time.Date(2024, 6, 2, 23, 0, 0, 0, time.UTC), "splits": "[]"},
 		},
+		// Seller user 1 had "something" set as their payout wallet before purchase "def".
+		"user_payout_wallet_history": []map[string]any{
+			{"user_id": 1, "spl_usdc_payout_wallet": "something", "block_timestamp": time.Date(2024, 5, 1, 0, 0, 0, 0, time.UTC)},
+		},
 		"sol_purchases": []map[string]any{
 			{"signature": "gfsgf", "instruction_index": 0, "buyer_user_id": 5, "amount": 2000000, "content_type": "playlist", "content_id": 1, "created_at": time.Date(2024, 6, 1, 0, 0, 0, 0, time.UTC), "is_valid": true},
 			{"signature": "faddf", "instruction_index": 0, "buyer_user_id": 5, "amount": 2000000, "content_type": "album", "content_id": 2, "created_at": time.Date(2024, 6, 1, 0, 1, 0, 0, time.UTC), "is_valid": true},
