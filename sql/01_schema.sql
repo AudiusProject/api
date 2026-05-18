@@ -9644,7 +9644,7 @@ CREATE VIEW public.v_usdc_purchases AS
               WHERE ((aph.playlist_id = sp.content_id) AND (aph.block_timestamp <= sp.created_at))
               ORDER BY aph.block_timestamp DESC
              LIMIT 1)
-        END, (0)::bigint)), (0)::bigint) AS extra_amount,
+        END, sp.amount)), (0)::bigint) AS extra_amount,
     (sp.access_type)::public.usdc_purchase_access_type AS access,
     sp.city,
     sp.region,
