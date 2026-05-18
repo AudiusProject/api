@@ -78,7 +78,7 @@ func (app *ApiServer) getNewBlasts(c *fiber.Ctx) error {
 		OR from_user_id IN (
 			-- customer_audience
 			SELECT seller_user_id
-			FROM usdc_purchases p
+			FROM v_usdc_purchases p
 			WHERE blast.audience = 'customer_audience'
 				AND p.seller_user_id = blast.from_user_id
 				AND p.buyer_user_id = @user_id

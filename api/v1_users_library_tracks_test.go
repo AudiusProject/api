@@ -107,15 +107,8 @@ func TestUsersLibraryTracksUnlistedFiltered(t *testing.T) {
 				"save_type":    "track",
 			},
 		},
-		"usdc_purchases": []map[string]any{
-			{
-				"signature":      "test1",
-				"buyer_user_id":  1,
-				"seller_user_id": 1,
-				"content_id":     201, // Purchase an unlisted track
-				"content_type":   "track",
-				"amount":         100,
-			},
+		"sol_purchases": []map[string]any{
+			{"signature": "test1", "instruction_index": 0, "buyer_user_id": 1, "content_id": 201, "content_type": "track", "amount": 100, "is_valid": true},
 		},
 	}
 

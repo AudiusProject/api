@@ -773,16 +773,8 @@ func TestChatBlastPurchasers(t *testing.T) {
 				"owner_id": 1,
 			},
 		},
-		"usdc_purchases": {
-			{
-				"buyer_user_id":  203,
-				"seller_user_id": 1,
-				"content_type":   "track",
-				"content_id":     1,
-				"amount":         5990000, // 5.99USDC in micro-units
-				"signature":      "purchase_sig_123",
-				"slot":           101,
-			},
+		"sol_purchases": {
+			{"signature": "purchase_sig_123", "instruction_index": 0, "buyer_user_id": 203, "content_type": "track", "content_id": 1, "amount": 5990000, "slot": 101, "is_valid": true},
 		},
 	})
 

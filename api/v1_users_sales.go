@@ -61,7 +61,7 @@ func (app *ApiServer) v1UsersSales(c *fiber.Ctx) error {
 
 	sql := `
 		WITH purchases AS (
-			SELECT * FROM usdc_purchases
+			SELECT * FROM v_usdc_purchases
 			WHERE ` + strings.Join(filters, " AND ") + `
 		),
 		purchases_with_content AS (

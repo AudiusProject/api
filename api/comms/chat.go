@@ -393,7 +393,7 @@ func getNewBlasts(tx dbv1.DBTX, ctx context.Context, arg getNewBlastsParams) ([]
 		OR from_user_id IN (
 			-- customer_audience
 			SELECT seller_user_id
-			FROM usdc_purchases p
+			FROM v_usdc_purchases p
 			WHERE blast.audience = 'customer_audience'
 				AND p.seller_user_id = blast.from_user_id
 				AND p.buyer_user_id = @user_id

@@ -623,7 +623,7 @@ func hasNewBlastFromUser(pool *dbv1.DBPools, ctx context.Context, userID int32, 
 			-- customer_audience
 			(blast.audience = 'customer_audience' and exists (
 				SELECT 1
-				FROM usdc_purchases p
+				FROM v_usdc_purchases p
 				WHERE p.seller_user_id = blast.from_user_id
 					AND p.buyer_user_id = $1
 					AND (

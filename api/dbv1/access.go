@@ -63,7 +63,7 @@ func (q *Queries) GetPlaylistAccess(
 		err := q.db.QueryRow(ctx, `
 			SELECT EXISTS (
 				SELECT 1
-				FROM usdc_purchases
+				FROM v_usdc_purchases
 				WHERE buyer_user_id = $1
 				AND content_id = $2
 				AND content_type = 'album'
@@ -261,7 +261,7 @@ func (q *Queries) GetBulkTrackAccess(
 		g.Go(func() error {
 			rows, err := q.db.Query(ctx, `
 				SELECT content_id
-				FROM usdc_purchases
+				FROM v_usdc_purchases
 				WHERE buyer_user_id = $1
 				AND content_id = ANY($2)
 				AND content_type = 'track'
@@ -357,7 +357,7 @@ func (q *Queries) GetBulkTrackAccess(
 		g.Go(func() error {
 			rows, err := q.db.Query(ctx, `
 				SELECT content_id
-				FROM usdc_purchases
+				FROM v_usdc_purchases
 				WHERE buyer_user_id = $1
 				AND content_id = ANY($2)
 				AND content_type = 'album'
@@ -390,7 +390,7 @@ func (q *Queries) GetBulkTrackAccess(
 			g.Go(func() error {
 				rows, err := q.db.Query(ctx, `
 					SELECT up.content_id
-					FROM usdc_purchases up
+					FROM v_usdc_purchases up
 					JOIN jsonb_each_text($2) AS prev_playlists(playlist_id, removal_time)
 					ON up.content_id = prev_playlists.playlist_id::integer
 					WHERE up.buyer_user_id = $1

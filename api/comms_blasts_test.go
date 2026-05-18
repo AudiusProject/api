@@ -97,37 +97,10 @@ func TestGetNewBlasts(t *testing.T) {
 				"child_track_id":  2,
 			},
 		},
-		"usdc_purchases": {
-			{
-				"buyer_user_id":  2,
-				"seller_user_id": 1,
-				"content_type":   "track",
-				"content_id":     1,
-				"amount":         1000000,                 // 1 USDC in micro-units
-				"created_at":     now.Add(-time.Hour * 2), // Purchase before blast
-				"signature":      "purchase_sig_123",
-				"slot":           101,
-			},
-			{
-				"buyer_user_id":  2,
-				"seller_user_id": 1,
-				"content_type":   "track",
-				"content_id":     2,
-				"amount":         2000000,                 // 2 USDC in micro-units
-				"created_at":     now.Add(-time.Hour * 2), // Purchase before blast
-				"signature":      "purchase_sig_456",
-				"slot":           102,
-			},
-			{
-				"buyer_user_id":  3,
-				"seller_user_id": 1,
-				"content_type":   "track",
-				"content_id":     1,                       // User 3 only bought track 1, not track 2
-				"amount":         500000,                  // 0.5 USDC in micro-units
-				"created_at":     now.Add(-time.Hour * 2), // Purchase before blast
-				"signature":      "purchase_sig_789",
-				"slot":           103,
-			},
+		"sol_purchases": {
+			{"signature": "purchase_sig_123", "instruction_index": 0, "buyer_user_id": 2, "content_type": "track", "content_id": 1, "amount": 1000000, "created_at": now.Add(-time.Hour * 2), "slot": 101, "is_valid": true},
+			{"signature": "purchase_sig_456", "instruction_index": 0, "buyer_user_id": 2, "content_type": "track", "content_id": 2, "amount": 2000000, "created_at": now.Add(-time.Hour * 2), "slot": 102, "is_valid": true},
+			{"signature": "purchase_sig_789", "instruction_index": 0, "buyer_user_id": 3, "content_type": "track", "content_id": 1, "amount": 500000, "created_at": now.Add(-time.Hour * 2), "slot": 103, "is_valid": true},
 		},
 		"artist_coins": {
 			{
@@ -665,17 +638,8 @@ func TestGetNewBlastsAudienceSpecificFiltering(t *testing.T) {
 				"updated_at": now.Add(-time.Hour),
 			},
 		},
-		"usdc_purchases": {
-			{
-				"buyer_user_id":  2,
-				"seller_user_id": 1,
-				"content_type":   "track",
-				"content_id":     1, // User only bought track 1
-				"amount":         1000000,
-				"created_at":     now.Add(-time.Hour),
-				"signature":      "purchase_sig_123",
-				"slot":           101,
-			},
+		"sol_purchases": {
+			{"signature": "purchase_sig_123", "instruction_index": 0, "buyer_user_id": 2, "content_type": "track", "content_id": 1, "amount": 1000000, "created_at": now.Add(-time.Hour), "slot": 101, "is_valid": true},
 		},
 		"chat_blast": {
 			{
