@@ -33,7 +33,7 @@ func TestV1UsersPurchases(t *testing.T) {
 		// For the purchase with non-zero extra_amount (signature "abc"), seed a track_price_history
 		// row so the view's amount - base_price computation produces extra_amount = 1000000.
 		"track_price_history": []map[string]any{
-			{"track_id": 1, "total_price_cents": 0, "blocknumber": 100, "block_timestamp": time.Date(2024, 6, 2, 23, 0, 0, 0, time.UTC), "splits": "[]"},
+			{"track_id": 1, "total_price_cents": 0, "block_timestamp": time.Date(2024, 6, 2, 23, 0, 0, 0, time.UTC), "splits": "[]"},
 		},
 		"sol_purchases": []map[string]any{
 			{

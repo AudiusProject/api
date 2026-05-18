@@ -49,7 +49,7 @@ func TestV1UsersSalesDownload(t *testing.T) {
 			{"signature": "def", "instruction_index": 0, "route_index": 1, "to_account": app.solanaConfig.StakingBridgeUsdcTokenAccount.String(), "amount": 100000, "slot": 101},
 		},
 		"track_price_history": []map[string]any{
-			{"track_id": 1, "total_price_cents": 50, "blocknumber": 100, "block_timestamp": time.Date(2024, 6, 3, 0, 0, 0, 0, time.UTC), "splits": "[]"},
+			{"track_id": 1, "total_price_cents": 50, "block_timestamp": time.Date(2024, 6, 3, 0, 0, 0, 0, time.UTC), "splits": "[]"},
 		},
 		"encrypted_emails": []map[string]any{
 			{
@@ -193,7 +193,7 @@ func TestV1UsersSalesDownloadWithGrantee(t *testing.T) {
 			{"signature": "def", "instruction_index": 0, "route_index": 1, "to_account": app.solanaConfig.StakingBridgeUsdcTokenAccount.String(), "amount": 100000, "slot": 101},
 		},
 		"track_price_history": []map[string]any{
-			{"track_id": 1, "total_price_cents": 50, "blocknumber": 100, "block_timestamp": time.Date(2024, 6, 3, 0, 0, 0, 0, time.UTC), "splits": "[]"},
+			{"track_id": 1, "total_price_cents": 50, "block_timestamp": time.Date(2024, 6, 3, 0, 0, 0, 0, time.UTC), "splits": "[]"},
 		},
 		"encrypted_emails": []map[string]any{
 			{
