@@ -26,6 +26,7 @@ type Indexer struct {
 	rpcClient        common.RpcClient
 	config           config.Config
 	transactionCache *otter.Cache[solana.Signature, *rpc.GetTransactionResult]
+	revalidator      *Revalidator
 	logger           *zap.Logger
 }
 
@@ -37,17 +38,21 @@ func New(
 	transactionCache *otter.Cache[solana.Signature, *rpc.GetTransactionResult],
 	logger *zap.Logger,
 ) *Indexer {
+	namedLogger := logger.Named(NAME)
 	return &Indexer{
 		pool:             pool,
 		grpcConfig:       grpcConfig,
 		rpcClient:        rpcClient,
 		config:           config,
 		transactionCache: transactionCache,
-		logger:           logger.Named(NAME),
+		revalidator:      NewRevalidator(pool, config, namedLogger),
+		logger:           namedLogger,
 	}
 }
 
 func (d *Indexer) Start(ctx context.Context) {
+	d.revalidator.Start(ctx)
+
 	client, err := d.subscribe(ctx)
 	if err != nil {
 		d.logger.Fatal("failed to start subscription", zap.Error(err))
