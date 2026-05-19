@@ -15,23 +15,32 @@
 -- account. Rows whose user record no longer exists are intentionally skipped;
 -- they would need on-chain signature replay (via program.Indexer) to recover.
 
--- CREATE INDEX CONCURRENTLY cannot run inside an explicit transaction, so
--- these statements stay outside the BEGIN/COMMIT below. psql executes each in
--- its own implicit transaction. Both indexes pay off well beyond this
--- migration: the first lets the dedup LEFT JOIN on (challenge_id, specifier)
--- use an index instead of a sequential scan; the second lets the live
--- reward_manager indexer (and this migration's LATERAL lookup) resolve a
--- user's current claimable account in O(log n) rather than scanning the table.
+BEGIN;
 
-CREATE INDEX CONCURRENTLY IF NOT EXISTS
+-- Build both indexes inside the migration transaction (non-CONCURRENTLY) so
+-- the writes are atomic with the backfill and not subject to virtualxid waits
+-- against concurrent transactions on this DB (notably the legacy Python
+-- index_rewards_manager Celery task on discovery-provider, which keeps long
+-- challenge_disbursements transactions open and can make CONCURRENTLY hang
+-- indefinitely). Regular CREATE INDEX takes a ShareLock on the target table:
+-- writes are blocked for the duration of the build, but both target tables
+-- have light write load (reward_manager EvaluateAttestations and claimable
+-- token creations are sparse on-chain) and the build itself completes in
+-- seconds at current row counts.
+--
+-- Both indexes pay off well beyond this migration: the first lets the dedup
+-- LEFT JOIN on (challenge_id, specifier) use an index instead of a sequential
+-- scan; the second lets the live reward_manager indexer (and the CTE below)
+-- resolve a user's current claimable account in O(log n) rather than scanning
+-- the table.
+
+CREATE INDEX IF NOT EXISTS
     sol_reward_disbursements_challenge_specifier_idx
     ON sol_reward_disbursements (challenge_id, specifier);
 
-CREATE INDEX CONCURRENTLY IF NOT EXISTS
+CREATE INDEX IF NOT EXISTS
     sol_claimable_accounts_eth_mint_slot_idx
     ON sol_claimable_accounts (ethereum_address, mint, slot DESC);
-
-BEGIN;
 
 -- Skip the on_sol_reward_disbursement trigger for this transaction. The
 -- trigger fires per-row to create challenge_reward notifications and a
