@@ -545,6 +545,7 @@ func NewApiServer(config config.Config) *ApiServer {
 		g.Get("/events/:eventId/follow-state", app.v1EventFollowState)
 		g.Post("/events/:eventId/follow", app.requireAuthMiddleware, app.requireWriteScope, app.postV1EventFollow)
 		g.Delete("/events/:eventId/follow", app.requireAuthMiddleware, app.requireWriteScope, app.deleteV1EventFollow)
+		g.Post("/events/:eventId/submit", app.requireAuthMiddleware, app.requireWriteScope, app.postV1EventSubmitToContest)
 
 		g.Get("/tracks/:trackId/comments", app.v1TrackComments)
 		g.Get("/tracks/:trackId/comment_count", app.v1TrackCommentCount)
