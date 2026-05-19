@@ -12,10 +12,13 @@ import (
 const getTrackIdsByISRC = `-- name: GetTrackIdsByISRC :many
 SELECT track_id
 FROM tracks
-WHERE isrc = ANY($1::text[])
+WHERE regexp_replace(upper(isrc), '[^A-Z0-9]', '', 'g') = ANY($1::text[])
   AND access_authorities IS NULL
 `
 
+// Match ISRC ignoring dashes/whitespace/case so a stored value like
+// "US-ANG-21-03742" matches a query of "USANG2103742" and vice versa.
+// Inputs in @isrcs must already be normalized (uppercased, non-alphanumerics stripped).
 func (q *Queries) GetTrackIdsByISRC(ctx context.Context, isrcs []string) ([]int32, error) {
 	rows, err := q.db.Query(ctx, getTrackIdsByISRC, isrcs)
 	if err != nil {
