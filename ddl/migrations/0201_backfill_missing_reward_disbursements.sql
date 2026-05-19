@@ -1,5 +1,3 @@
-BEGIN;
-
 -- One-shot recovery of challenge_disbursements rows that never made it into
 -- sol_reward_disbursements. Two historical loss sources contributed:
 --
@@ -16,6 +14,46 @@ BEGIN;
 -- relational state: a current users row plus an indexed AUDIO sol_claimable
 -- account. Rows whose user record no longer exists are intentionally skipped;
 -- they would need on-chain signature replay (via program.Indexer) to recover.
+
+-- CREATE INDEX CONCURRENTLY cannot run inside an explicit transaction, so
+-- these statements stay outside the BEGIN/COMMIT below. psql executes each in
+-- its own implicit transaction. Both indexes pay off well beyond this
+-- migration: the first lets the dedup LEFT JOIN on (challenge_id, specifier)
+-- use an index instead of a sequential scan; the second lets the live
+-- reward_manager indexer (and this migration's LATERAL lookup) resolve a
+-- user's current claimable account in O(log n) rather than scanning the table.
+
+CREATE INDEX CONCURRENTLY IF NOT EXISTS
+    sol_reward_disbursements_challenge_specifier_idx
+    ON sol_reward_disbursements (challenge_id, specifier);
+
+CREATE INDEX CONCURRENTLY IF NOT EXISTS
+    sol_claimable_accounts_eth_mint_slot_idx
+    ON sol_claimable_accounts (ethereum_address, mint, slot DESC);
+
+BEGIN;
+
+-- Skip the on_sol_reward_disbursement trigger for this transaction. The
+-- trigger fires per-row to create challenge_reward notifications and a
+-- pg_notify announcement for the Python ChallengeEventBus. For a one-shot
+-- backfill of months-old disbursements, those notifications would be
+-- both noisy (~29k user-facing pushes for historical rewards) and slow
+-- (extra SELECTs and an INSERT per row). SET LOCAL scopes this to the
+-- transaction so concurrent indexer writes still fire the trigger normally.
+SET LOCAL session_replication_role = replica;
+
+-- Pre-compute the current AUDIO claimable account per wallet in one indexed
+-- scan rather than re-running the LATERAL subquery per challenge_disbursements
+-- row. MATERIALIZED forces a one-time evaluation that the planner can hash-
+-- join against, instead of inlining the CTE into the main query.
+WITH user_banks AS MATERIALIZED (
+    SELECT DISTINCT ON (ethereum_address)
+        ethereum_address,
+        account
+    FROM sol_claimable_accounts
+    WHERE mint = '9LzCMqDgTKYz9Drzqnpgee3SGa89up3a247ypMj2xrqM'
+    ORDER BY ethereum_address, slot DESC
+)
 INSERT INTO sol_reward_disbursements
     (signature, instruction_index, amount, slot, user_bank, challenge_id, specifier, recipient_eth_address, created_at)
 SELECT
@@ -23,7 +61,7 @@ SELECT
     0 AS instruction_index,
     cd.amount::bigint,
     cd.slot,
-    sca.account AS user_bank,
+    ub.account AS user_bank,
     cd.challenge_id,
     cd.specifier,
     LOWER(u.wallet) AS recipient_eth_address,
@@ -35,16 +73,8 @@ LEFT JOIN sol_reward_disbursements rd
 JOIN users u
        ON u.user_id    = cd.user_id
       AND u.is_current = TRUE
-JOIN LATERAL (
-    -- A user can have multiple sol_claimable_accounts rows (one per on-chain
-    -- Create instruction over time). Pick the latest as the active user_bank.
-    SELECT account
-    FROM sol_claimable_accounts
-    WHERE ethereum_address = u.wallet
-      AND mint = '9LzCMqDgTKYz9Drzqnpgee3SGa89up3a247ypMj2xrqM'
-    ORDER BY slot DESC
-    LIMIT 1
-) sca ON TRUE
+JOIN user_banks ub
+       ON ub.ethereum_address = u.wallet
 WHERE rd.signature IS NULL
 ON CONFLICT (signature, instruction_index) DO NOTHING;
 
