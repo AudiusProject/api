@@ -153,6 +153,10 @@ func (s *SolanaIndexer) Start(ctx context.Context) error {
 		gapJob.ScheduleEvery(gapCtx, 1*time.Hour)
 	}
 
+	reclaimRentJob := jobs.NewReclaimRentJob(s.config, s.pool)
+	reclaimRentCtx := context.WithoutCancel(ctx)
+	reclaimRentJob.ScheduleEvery(reclaimRentCtx, 24*time.Hour)
+
 	for _, indexer := range s.indexers {
 		go indexer.Start(ctx)
 	}
