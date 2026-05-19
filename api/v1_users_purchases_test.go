@@ -35,6 +35,10 @@ func TestV1UsersPurchases(t *testing.T) {
 		"track_price_history": []map[string]any{
 			{"track_id": 1, "total_price_cents": 0, "block_timestamp": time.Date(2024, 6, 2, 23, 0, 0, 0, time.UTC), "splits": "[]"},
 		},
+		// Seller user 3 had "something" set as their payout wallet before purchase "def".
+		"user_payout_wallet_history": []map[string]any{
+			{"user_id": 3, "spl_usdc_payout_wallet": "something", "block_timestamp": time.Date(2024, 5, 1, 0, 0, 0, 0, time.UTC)},
+		},
 		"sol_purchases": []map[string]any{
 			{
 				"signature":         "gfsgf",

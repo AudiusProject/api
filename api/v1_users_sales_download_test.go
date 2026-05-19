@@ -31,6 +31,9 @@ func TestV1UsersSalesDownload(t *testing.T) {
 				"collision_id": 0,
 			},
 		},
+		"user_payout_wallet_history": []map[string]any{
+			{"user_id": 1, "spl_usdc_payout_wallet": user1Wallet, "block_timestamp": time.Date(2024, 6, 1, 0, 0, 0, 0, time.UTC)},
+		},
 		"sol_purchases": []map[string]any{
 			{
 				"signature":         "def",
@@ -174,6 +177,9 @@ func TestV1UsersSalesDownloadWithGrantee(t *testing.T) {
 				"title_slug":   "track1",
 				"collision_id": 0,
 			},
+		},
+		"user_payout_wallet_history": []map[string]any{
+			{"user_id": 1, "spl_usdc_payout_wallet": user1Wallet, "block_timestamp": time.Date(2024, 6, 1, 0, 0, 0, 0, time.UTC)},
 		},
 		"sol_purchases": []map[string]any{
 			{
