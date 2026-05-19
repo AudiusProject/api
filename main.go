@@ -27,7 +27,10 @@ func main() {
 		fmt.Println("Skipping migrations. Set env runMigrations=true to run.")
 	} else {
 		fmt.Println("Running migrations...")
-		ddl.RunMigrations()
+		if err := ddl.RunMigrations(); err != nil {
+			fmt.Println("migration failed:", err)
+			os.Exit(1)
+		}
 	}
 
 	switch command {
