@@ -155,7 +155,11 @@ func (s *SolanaIndexer) Start(ctx context.Context) error {
 
 	reclaimRentJob := jobs.NewReclaimRentJob(s.config, s.pool)
 	reclaimRentCtx := context.WithoutCancel(ctx)
-	reclaimRentJob.ScheduleEvery(reclaimRentCtx, 24*time.Hour)
+	reclaimRentLocation, err := time.LoadLocation("America/Los_Angeles")
+	if err != nil {
+		panic(fmt.Errorf("failed to load America/Los_Angeles timezone: %w", err))
+	}
+	reclaimRentJob.ScheduleDailyAt(reclaimRentCtx, 12, 0, reclaimRentLocation)
 
 	for _, indexer := range s.indexers {
 		go indexer.Start(ctx)

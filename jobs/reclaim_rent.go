@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"sync"
 	"time"
+	_ "time/tzdata" // embed IANA tzdata so time.LoadLocation works on minimal images
 
 	"api.audius.co/config"
 	"api.audius.co/database"
@@ -64,16 +65,23 @@ func NewReclaimRentJob(cfg config.Config, pool database.DbPool) *ReclaimRentJob 
 	}
 }
 
-// ScheduleEvery runs the job every `duration` until the context is cancelled.
-func (j *ReclaimRentJob) ScheduleEvery(ctx context.Context, duration time.Duration) *ReclaimRentJob {
+// ScheduleDailyAt runs the job once per day at hour:minute in the given
+// location, starting at the next occurrence after the call.
+func (j *ReclaimRentJob) ScheduleDailyAt(ctx context.Context, hour, minute int, location *time.Location) *ReclaimRentJob {
 	go func() {
-		ticker := time.NewTicker(duration)
-		defer ticker.Stop()
 		for {
+			now := time.Now().In(location)
+			next := time.Date(now.Year(), now.Month(), now.Day(), hour, minute, 0, 0, location)
+			if !next.After(now) {
+				next = next.Add(24 * time.Hour)
+			}
+			j.logger.Info("Next run scheduled", zap.Time("at", next))
+			timer := time.NewTimer(time.Until(next))
 			select {
-			case <-ticker.C:
+			case <-timer.C:
 				j.Run(ctx)
 			case <-ctx.Done():
+				timer.Stop()
 				j.logger.Info("Job schedule shutting down")
 				return
 			}
