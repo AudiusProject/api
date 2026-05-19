@@ -42,14 +42,18 @@ CREATE INDEX IF NOT EXISTS
     sol_claimable_accounts_eth_mint_slot_idx
     ON sol_claimable_accounts (ethereum_address, mint, slot DESC);
 
--- Skip the on_sol_reward_disbursement trigger for this transaction. The
--- trigger fires per-row to create challenge_reward notifications and a
--- pg_notify announcement for the Python ChallengeEventBus. For a one-shot
--- backfill of months-old disbursements, those notifications would be
--- both noisy (~29k user-facing pushes for historical rewards) and slow
--- (extra SELECTs and an INSERT per row). SET LOCAL scopes this to the
--- transaction so concurrent indexer writes still fire the trigger normally.
-SET LOCAL session_replication_role = replica;
+-- Disable the on_sol_reward_disbursement trigger for the duration of the
+-- backfill. The trigger fires per-row to create challenge_reward
+-- notifications and a pg_notify announcement for the Python
+-- ChallengeEventBus. For a one-shot backfill of months-old disbursements,
+-- those notifications would be both noisy (~29k user-facing pushes for
+-- historical rewards) and slow (extra SELECTs and an INSERT per row).
+--
+-- ALTER TABLE ... DISABLE TRIGGER is rolled back with the transaction if
+-- the INSERT fails, so the trigger state is preserved on error. CloudSQL
+-- doesn't permit `SET session_replication_role` (requires true superuser),
+-- so this is the available mechanism here.
+ALTER TABLE sol_reward_disbursements DISABLE TRIGGER on_sol_reward_disbursement;
 
 -- Pre-compute the current AUDIO claimable account per wallet in one indexed
 -- scan rather than re-running the LATERAL subquery per challenge_disbursements
@@ -86,5 +90,7 @@ JOIN user_banks ub
        ON ub.ethereum_address = u.wallet
 WHERE rd.signature IS NULL
 ON CONFLICT (signature, instruction_index) DO NOTHING;
+
+ALTER TABLE sol_reward_disbursements ENABLE TRIGGER on_sol_reward_disbursement;
 
 COMMIT;
