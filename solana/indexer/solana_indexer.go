@@ -138,6 +138,21 @@ func (s *SolanaIndexer) Start(ctx context.Context) error {
 	balanceHistoryJob.ScheduleEvery(balanceHistoryCtx, 1*time.Hour)
 	go balanceHistoryJob.Run(balanceHistoryCtx)
 
+	backfillers := make(map[string]jobs.Backfillable)
+	for name, idx := range s.indexers {
+		if bf, ok := idx.(jobs.Backfillable); ok {
+			backfillers[name] = bf
+		}
+	}
+	if len(backfillers) > 0 {
+		gapJob := jobs.NewCheckpointGapBackfillJob(s.config, jobs.CheckpointGapBackfillJobConfig{
+			Pool:        s.pool,
+			Backfillers: backfillers,
+		})
+		gapCtx := context.WithoutCancel(ctx)
+		gapJob.ScheduleEvery(gapCtx, 1*time.Hour)
+	}
+
 	for _, indexer := range s.indexers {
 		go indexer.Start(ctx)
 	}

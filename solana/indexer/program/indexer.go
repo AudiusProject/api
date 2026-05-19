@@ -70,6 +70,20 @@ func (d *Indexer) Start(ctx context.Context) {
 	}
 }
 
+// Backfill replays transactions for this indexer's subscribed programs across
+// the given inclusive slot range, routing each through ProcessTransaction.
+// Used by the gap-detection job to recover slots the live subscription missed.
+func (d *Indexer) Backfill(ctx context.Context, fromSlot, toSlot uint64) error {
+	bf := &Backfiller{
+		rpcClient:        d.rpcClient,
+		pool:             d.pool,
+		processor:        d,
+		transactionCache: d.transactionCache,
+		logger:           d.logger,
+	}
+	return bf.Start(ctx, fromSlot, toSlot)
+}
+
 func (d *Indexer) HandleUpdate(ctx context.Context, msg *pb.SubscribeUpdate) error {
 	// Handle slot updates
 	slotUpdate := msg.GetSlot()
@@ -109,8 +123,11 @@ func (d *Indexer) HandleUpdate(ctx context.Context, msg *pb.SubscribeUpdate) err
 		// Add the lookup table accounts to the message accounts
 		tx = common.ResolveLookupTables(ctx, d.rpcClient, tx, txRes.Meta)
 
-		// Process the transaction
-		d.ProcessTransaction(ctx, txRes.Slot, txRes.Meta, tx, txRes.BlockTime.Time())
+		// Process the transaction. Surface any error so HandleUpdate's caller
+		// can route the message onto the retry queue (see subscribe()).
+		if err := d.ProcessTransaction(ctx, txRes.Slot, txRes.Meta, tx, txRes.BlockTime.Time()); err != nil {
+			return fmt.Errorf("failed to process transaction %s: %w", txSig.String(), err)
+		}
 
 		return nil
 	}

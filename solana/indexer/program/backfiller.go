@@ -1,4 +1,4 @@
-package indexer
+package program
 
 import (
 	"context"
@@ -206,8 +206,13 @@ func (s *Backfiller) backfillAddressTransactions(ctx context.Context, address so
 			// Add the lookup table accounts to the message accounts
 			tx = common.ResolveLookupTables(ctx, s.rpcClient, tx, txRes.Meta)
 
-			// Process the transaction
-			s.processor.ProcessTransaction(ctx, txRes.Slot, txRes.Meta, tx, txRes.BlockTime.Time())
+			// Process the transaction. Errors used to be silently discarded here,
+			// which let intermittent failures advance the cursor without anyone noticing.
+			// Log at minimum so it's observable in retrospect; we still advance lastIndexedSig
+			// to keep forward progress on permanently-broken signatures.
+			if err := s.processor.ProcessTransaction(ctx, txRes.Slot, txRes.Meta, tx, txRes.BlockTime.Time()); err != nil {
+				logger.Error("failed to process transaction during backfill", zap.Error(err))
+			}
 
 			lastIndexedSig = sig.Signature
 
