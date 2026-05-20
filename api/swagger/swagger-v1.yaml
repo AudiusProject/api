@@ -8181,14 +8181,14 @@ paths:
         "500":
           description: Server error
           content: {}
-  /notifications/{user_id}:
+  /notifications/{id}:
     get:
       tags:
         - notifications
       description: Get notifications for user ID
       operationId: Get Notifications
       parameters:
-        - name: user_id
+        - name: id
           in: path
           description: A User ID
           required: true
@@ -8199,8 +8199,8 @@ paths:
           description:
             The user ID of the user making the request. Required for
             personalization of related users (e.g. does_current_user_follow)
-            in the response, and may differ from the path user_id when a
-            manager is reading a managed user's notifications.
+            in the response, and may differ from the path id when a manager
+            is reading a managed user's notifications.
           schema:
             type: string
         - name: timestamp
@@ -8281,7 +8281,7 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/notifications_response"
-  /notifications/{user_id}/playlist_updates:
+  /notifications/{id}/playlist_updates:
     get:
       tags:
         - notifications
@@ -8290,7 +8290,7 @@ paths:
         ID
       operationId: Get Playlist Updates
       parameters:
-        - name: user_id
+        - name: id
           in: path
           description: A User ID
           required: true
@@ -8301,8 +8301,8 @@ paths:
           description:
             The user ID of the user making the request. Required for
             personalization of related users (e.g. does_current_user_follow)
-            in the response, and may differ from the path user_id when a
-            manager is reading a managed user's playlist updates.
+            in the response, and may differ from the path id when a manager
+            is reading a managed user's playlist updates.
           schema:
             type: string
       responses:
