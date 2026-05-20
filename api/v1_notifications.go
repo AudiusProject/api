@@ -333,7 +333,11 @@ limit @limit::int
 		UserIds:         userIds,
 		TrackIds:        trackIds,
 		PlaylistIds:     playlistIds,
-		MyID:            app.getMyId(c),
+		// The notifications endpoint is keyed off the path-param userId — that
+		// user IS the viewer here. getMyId reads the (typically absent) `user_id`
+		// query param and would default to 0, which makes
+		// does_current_user_follow/_subscribe always false on related.users.
+		MyID:            userId,
 		AuthedWallet:    app.tryGetAuthedWallet(c),
 		IncludeUnlisted: true,
 	})
