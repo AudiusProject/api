@@ -1232,6 +1232,14 @@ paths:
               - active
               - ended
               - all
+        - name: user_id
+          in: query
+          description:
+            The user ID of the user making the request. Required for
+            personalization of related users (e.g. does_current_user_follow)
+            in the response.
+          schema:
+            type: string
       responses:
         "200":
           description: Success
@@ -1785,6 +1793,14 @@ paths:
             enum:
               - playlist
               - album
+        - name: user_id
+          in: query
+          description:
+            The user ID of the user making the request. Required for
+            personalization of related users (e.g. does_current_user_follow)
+            in the response.
+          schema:
+            type: string
       responses:
         "200":
           description: Success
@@ -5580,6 +5596,14 @@ paths:
               - active
               - ended
               - all
+        - name: user_id
+          in: query
+          description:
+            The user ID of the user making the request. Required for
+            personalization of related users (e.g. does_current_user_follow)
+            in the response.
+          schema:
+            type: string
       responses:
         "200":
           description: Success
