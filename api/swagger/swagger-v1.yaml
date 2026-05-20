@@ -8194,6 +8194,15 @@ paths:
           required: true
           schema:
             type: string
+        - name: user_id
+          in: query
+          description:
+            The user ID of the user making the request. Required for
+            personalization of related users (e.g. does_current_user_follow)
+            in the response, and may differ from the path user_id when a
+            manager is reading a managed user's notifications.
+          schema:
+            type: string
         - name: timestamp
           in: query
           description: The timestamp from which to paginate
@@ -8285,6 +8294,15 @@ paths:
           in: path
           description: A User ID
           required: true
+          schema:
+            type: string
+        - name: user_id
+          in: query
+          description:
+            The user ID of the user making the request. Required for
+            personalization of related users (e.g. does_current_user_follow)
+            in the response, and may differ from the path user_id when a
+            manager is reading a managed user's playlist updates.
           schema:
             type: string
       responses:
