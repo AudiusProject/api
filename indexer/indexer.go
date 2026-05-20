@@ -134,6 +134,11 @@ func (ci *CoreIndexer) startParityJobs(ctx context.Context) {
 
 	jobs.NewUpdateDelistStatusesJob(ci.Config, ci.pool).
 		ScheduleEvery(ctx, 5*time.Minute)
+
+	// Reconcile derived challenge state from source tables. Per-challenge
+	// scanners live in api/jobs/challenges/.
+	jobs.NewIndexChallengesJob(ci.Config, ci.pool).
+		ScheduleEvery(ctx, 30*time.Second)
 }
 
 func (ci *CoreIndexer) Close() {
