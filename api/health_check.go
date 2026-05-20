@@ -4,7 +4,6 @@ import (
 	"context"
 
 	"api.audius.co/config"
-	core_indexer "api.audius.co/indexer"
 	"connectrpc.com/connect"
 	corev1 "github.com/OpenAudio/go-openaudio/pkg/api/core/v1"
 	"github.com/gofiber/fiber/v2"
@@ -39,8 +38,12 @@ func (app *ApiServer) getCoreIndexerHealth(ctx context.Context) (*coreIndexerHea
 	}
 	chainHeight := nodeInfo.Msg.CurrentHeight
 
+	// ETL tracks the highest indexed chain height in `core_indexed_blocks`.
+	// COALESCE handles the cold-start case before any blocks are indexed.
 	var indexerLastBlockHeight int64
-	err = app.pool.QueryRow(ctx, "SELECT COALESCE(last_checkpoint, 0) FROM indexing_checkpoints WHERE tablename = $1", core_indexer.CoreIndexerCheckpointName).Scan(&indexerLastBlockHeight)
+	err = app.pool.QueryRow(ctx,
+		"SELECT COALESCE(MAX(height), 0) FROM core_indexed_blocks",
+	).Scan(&indexerLastBlockHeight)
 	if err != nil {
 		return nil, fiber.NewError(fiber.StatusInternalServerError, "Failed to get core indexer last block height")
 	}
