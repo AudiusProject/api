@@ -20,9 +20,12 @@ func (app *ApiServer) v1PlaylistByPermalink(c *fiber.Ctx) error {
 	}
 
 	ids, err := app.queries.GetPlaylistIdsByPermalink(c.Context(), dbv1.GetPlaylistIdsByPermalinkParams{
-		Handles:    []string{params.Handle},
-		Slugs:      []string{params.Slug},
-		Permalinks: []string{"/" + params.Handle + "/playlist/" + params.Slug},
+		Handles: []string{params.Handle},
+		Slugs:   []string{params.Slug},
+		Permalinks: []string{
+			"/" + params.Handle + "/playlist/" + params.Slug,
+			"/" + params.Handle + "/album/" + params.Slug,
+		},
 	})
 	if err != nil {
 		return err
@@ -30,8 +33,9 @@ func (app *ApiServer) v1PlaylistByPermalink(c *fiber.Ctx) error {
 
 	playlists, err := app.queries.Playlists(c.Context(), dbv1.PlaylistsParams{
 		GetPlaylistsParams: dbv1.GetPlaylistsParams{
-			MyID: myId,
-			Ids:  ids,
+			MyID:           myId,
+			Ids:            ids,
+			IncludePrivate: true,
 		},
 		AuthedWallet: app.tryGetAuthedWallet(c),
 	})
