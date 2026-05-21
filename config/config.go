@@ -58,8 +58,10 @@ type Config struct {
 	AudiusApiSecret string
 	// Shared secret for notifications-dashboard (or other internal jobs) to read notification campaign push open counts
 	NotificationCampaignOpenMetricsSecret string
-	// User id whose remix contests should sort first in the public contest list.
-	// Zero (the default when the env var is unset) disables featured prioritization.
+	// Audius account user id. In the public remix-contests list, hosts followed
+	// by this account sort ahead of other hosts within both the open and ended
+	// groups. Zero (the default when the env var is unset) disables follow-based
+	// prioritization (the list reduces to open-before-ended).
 	FeaturedAudienceUserID int32
 }
 

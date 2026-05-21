@@ -227,28 +227,31 @@ func TestRemixContestsDiscoveryPage(t *testing.T) {
 	})
 }
 
-// TestRemixContestsSortPriority covers the multi-tier sort:
-//  1. Featured-audience-account contests come first.
-//  2. Then contests with at least one entry.
-//  3. Ended contests with zero entries land at the bottom.
+// TestRemixContestsSortPriority covers the four-group sort:
+//  1. Open + Audius-followed host.
+//  2. Open + unfollowed host.
+//  3. Ended + Audius-followed host.
+//  4. Ended + unfollowed host.
 //
-// Within each group the existing active-first / soonest-ending sort still
-// applies — we don't reassert that here because TestRemixContestsDiscoveryPage
-// already covers it.
+// Within each group, contests sort by entry_count DESC.
 func TestRemixContestsSortPriority(t *testing.T) {
 	app := emptyTestApp(t)
 
-	featuredHostID := 9101 // contests by this user must sort first
-	regularHostID := 9102
-	ownerID := 9103
+	audiusUserID := 9100 // the "Audius" account whose follows reorder each open/ended group
+	followedHostID := 9101
+	unfollowedHostID := 9102
 	remixerID := 9104
 
-	// Track ids for each contest's parent track.
-	featuredEndedZeroTrackID := 8201 // featured + ended + zero entries → still group 1
-	hasEntriesActiveTrackID := 8202  // group 2 (has entries)
-	hasEntriesEndedTrackID := 8203   // group 2 (has entries, ended)
-	activeZeroTrackID := 8204        // group 3 (active, no entries — neither featured nor has-entries nor ended-empty)
-	endedZeroTrackID := 8205         // group 4 (ended + zero entries) — must be LAST
+	// Two contests per group so we can also exercise the entry_count DESC
+	// tiebreak inside each group.
+	openFollowedHighEntriesTrackID := 8201 // group 1, 2 entries
+	openFollowedLowEntriesTrackID := 8202  // group 1, 0 entries
+	openUnfollowedHighTrackID := 8203      // group 2, 2 entries
+	openUnfollowedLowTrackID := 8204       // group 2, 0 entries
+	endedFollowedHighTrackID := 8205       // group 3, 2 entries
+	endedFollowedLowTrackID := 8206        // group 3, 0 entries
+	endedUnfollowedHighTrackID := 8207     // group 4, 2 entries
+	endedUnfollowedLowTrackID := 8208      // group 4, 0 entries
 
 	farFuture := parseTime(t, "2099-01-01")
 	farPast := parseTime(t, "2024-02-10")
@@ -259,78 +262,117 @@ func TestRemixContestsSortPriority(t *testing.T) {
 		"events": []map[string]any{
 			{
 				"event_id": 601, "event_type": "remix_contest", "entity_type": "track",
-				"entity_id": featuredEndedZeroTrackID, "user_id": featuredHostID,
-				"created_at": contestStart, "end_date": farPast,
+				"entity_id": openFollowedHighEntriesTrackID, "user_id": followedHostID,
+				"created_at": contestStart, "end_date": farFuture,
 			},
 			{
 				"event_id": 602, "event_type": "remix_contest", "entity_type": "track",
-				"entity_id": hasEntriesActiveTrackID, "user_id": regularHostID,
+				"entity_id": openFollowedLowEntriesTrackID, "user_id": followedHostID,
 				"created_at": contestStart, "end_date": farFuture,
 			},
 			{
 				"event_id": 603, "event_type": "remix_contest", "entity_type": "track",
-				"entity_id": hasEntriesEndedTrackID, "user_id": regularHostID,
-				"created_at": contestStart, "end_date": farPast,
+				"entity_id": openUnfollowedHighTrackID, "user_id": unfollowedHostID,
+				"created_at": contestStart, "end_date": farFuture,
 			},
 			{
 				"event_id": 604, "event_type": "remix_contest", "entity_type": "track",
-				"entity_id": activeZeroTrackID, "user_id": regularHostID,
+				"entity_id": openUnfollowedLowTrackID, "user_id": unfollowedHostID,
 				"created_at": contestStart, "end_date": farFuture,
 			},
 			{
 				"event_id": 605, "event_type": "remix_contest", "entity_type": "track",
-				"entity_id": endedZeroTrackID, "user_id": regularHostID,
+				"entity_id": endedFollowedHighTrackID, "user_id": followedHostID,
+				"created_at": contestStart, "end_date": farPast,
+			},
+			{
+				"event_id": 606, "event_type": "remix_contest", "entity_type": "track",
+				"entity_id": endedFollowedLowTrackID, "user_id": followedHostID,
+				"created_at": contestStart, "end_date": farPast,
+			},
+			{
+				"event_id": 607, "event_type": "remix_contest", "entity_type": "track",
+				"entity_id": endedUnfollowedHighTrackID, "user_id": unfollowedHostID,
+				"created_at": contestStart, "end_date": farPast,
+			},
+			{
+				"event_id": 608, "event_type": "remix_contest", "entity_type": "track",
+				"entity_id": endedUnfollowedLowTrackID, "user_id": unfollowedHostID,
 				"created_at": contestStart, "end_date": farPast,
 			},
 		},
 		"users": []map[string]any{
-			{"user_id": featuredHostID, "handle": "featured"},
-			{"user_id": regularHostID, "handle": "regular"},
-			{"user_id": ownerID, "handle": "owner"},
+			{"user_id": audiusUserID, "handle": "audius"},
+			{"user_id": followedHostID, "handle": "followed"},
+			{"user_id": unfollowedHostID, "handle": "unfollowed"},
 			{"user_id": remixerID, "handle": "remixer"},
 		},
+		"follows": []map[string]any{
+			{"follower_user_id": audiusUserID, "followee_user_id": followedHostID},
+		},
 		"tracks": []map[string]any{
-			{"track_id": featuredEndedZeroTrackID, "owner_id": featuredHostID, "created_at": contestStart},
-			{"track_id": hasEntriesActiveTrackID, "owner_id": regularHostID, "created_at": contestStart},
-			{"track_id": hasEntriesEndedTrackID, "owner_id": regularHostID, "created_at": contestStart},
-			{"track_id": activeZeroTrackID, "owner_id": regularHostID, "created_at": contestStart},
-			{"track_id": endedZeroTrackID, "owner_id": regularHostID, "created_at": contestStart},
-			// Entries — only for the two has-entries contests.
-			{"track_id": 8302, "owner_id": remixerID, "created_at": inWindow},
-			{"track_id": 8303, "owner_id": remixerID, "created_at": inWindow},
+			{"track_id": openFollowedHighEntriesTrackID, "owner_id": followedHostID, "created_at": contestStart},
+			{"track_id": openFollowedLowEntriesTrackID, "owner_id": followedHostID, "created_at": contestStart},
+			{"track_id": openUnfollowedHighTrackID, "owner_id": unfollowedHostID, "created_at": contestStart},
+			{"track_id": openUnfollowedLowTrackID, "owner_id": unfollowedHostID, "created_at": contestStart},
+			{"track_id": endedFollowedHighTrackID, "owner_id": followedHostID, "created_at": contestStart},
+			{"track_id": endedFollowedLowTrackID, "owner_id": followedHostID, "created_at": contestStart},
+			{"track_id": endedUnfollowedHighTrackID, "owner_id": unfollowedHostID, "created_at": contestStart},
+			{"track_id": endedUnfollowedLowTrackID, "owner_id": unfollowedHostID, "created_at": contestStart},
+			// Two entries each for the "high" contest in every group.
+			{"track_id": 8311, "owner_id": remixerID, "created_at": inWindow},
+			{"track_id": 8312, "owner_id": remixerID, "created_at": inWindow},
+			{"track_id": 8313, "owner_id": remixerID, "created_at": inWindow},
+			{"track_id": 8314, "owner_id": remixerID, "created_at": inWindow},
+			{"track_id": 8315, "owner_id": remixerID, "created_at": inWindow},
+			{"track_id": 8316, "owner_id": remixerID, "created_at": inWindow},
+			{"track_id": 8317, "owner_id": remixerID, "created_at": inWindow},
+			{"track_id": 8318, "owner_id": remixerID, "created_at": inWindow},
 		},
 		"remixes": []map[string]any{
-			{"parent_track_id": hasEntriesActiveTrackID, "child_track_id": 8302},
-			{"parent_track_id": hasEntriesEndedTrackID, "child_track_id": 8303},
+			{"parent_track_id": openFollowedHighEntriesTrackID, "child_track_id": 8311},
+			{"parent_track_id": openFollowedHighEntriesTrackID, "child_track_id": 8312},
+			{"parent_track_id": openUnfollowedHighTrackID, "child_track_id": 8313},
+			{"parent_track_id": openUnfollowedHighTrackID, "child_track_id": 8314},
+			{"parent_track_id": endedFollowedHighTrackID, "child_track_id": 8315},
+			{"parent_track_id": endedFollowedHighTrackID, "child_track_id": 8316},
+			{"parent_track_id": endedUnfollowedHighTrackID, "child_track_id": 8317},
+			{"parent_track_id": endedUnfollowedHighTrackID, "child_track_id": 8318},
 		},
 	}
 	database.Seed(app.pool.Replicas[0], fixtures)
 
-	featuredEvent := trashid.MustEncodeHashID(601)
-	hasActiveEvent := trashid.MustEncodeHashID(602)
-	hasEndedEvent := trashid.MustEncodeHashID(603)
-	activeZeroEvent := trashid.MustEncodeHashID(604)
-	endedZeroEvent := trashid.MustEncodeHashID(605)
+	openFollowedHigh := trashid.MustEncodeHashID(601)
+	openFollowedLow := trashid.MustEncodeHashID(602)
+	openUnfollowedHigh := trashid.MustEncodeHashID(603)
+	openUnfollowedLow := trashid.MustEncodeHashID(604)
+	endedFollowedHigh := trashid.MustEncodeHashID(605)
+	endedFollowedLow := trashid.MustEncodeHashID(606)
+	endedUnfollowedHigh := trashid.MustEncodeHashID(607)
+	endedUnfollowedLow := trashid.MustEncodeHashID(608)
 
-	t.Run("featured account contests sort first, ended-zero-entries last", func(t *testing.T) {
+	t.Run("open-vs-ended × followed-vs-unfollowed, entries desc within group", func(t *testing.T) {
 		prev := config.Cfg.FeaturedAudienceUserID
-		config.Cfg.FeaturedAudienceUserID = int32(featuredHostID)
+		config.Cfg.FeaturedAudienceUserID = int32(audiusUserID)
 		t.Cleanup(func() { config.Cfg.FeaturedAudienceUserID = prev })
 
 		status, body := testGet(t, app, "/v1/events/remix-contests")
 		assert.Equal(t, 200, status)
 
 		jsonAssert(t, body, map[string]any{
-			"data.#":          5,
-			"data.0.event_id": featuredEvent,  // featured (group 1)
-			"data.1.event_id": hasActiveEvent, // has entries, active (group 2)
-			"data.2.event_id": hasEndedEvent,  // has entries, ended (group 2)
-			"data.3.event_id": activeZeroEvent, // active, zero entries (group 3 — not ended-empty)
-			"data.4.event_id": endedZeroEvent,  // ended + zero entries (group 4, LAST)
+			"data.#":          8,
+			"data.0.event_id": openFollowedHigh,    // group 1, 2 entries
+			"data.1.event_id": openFollowedLow,     // group 1, 0 entries
+			"data.2.event_id": openUnfollowedHigh,  // group 2, 2 entries
+			"data.3.event_id": openUnfollowedLow,   // group 2, 0 entries
+			"data.4.event_id": endedFollowedHigh,   // group 3, 2 entries
+			"data.5.event_id": endedFollowedLow,    // group 3, 0 entries
+			"data.6.event_id": endedUnfollowedHigh, // group 4, 2 entries
+			"data.7.event_id": endedUnfollowedLow,  // group 4, 0 entries
 		})
 	})
 
-	t.Run("with featured user unset, featured contest falls back to entry-based sort", func(t *testing.T) {
+	t.Run("with audius user unset, only the open-vs-ended split applies", func(t *testing.T) {
 		prev := config.Cfg.FeaturedAudienceUserID
 		config.Cfg.FeaturedAudienceUserID = 0
 		t.Cleanup(func() { config.Cfg.FeaturedAudienceUserID = prev })
@@ -338,22 +380,113 @@ func TestRemixContestsSortPriority(t *testing.T) {
 		status, body := testGet(t, app, "/v1/events/remix-contests")
 		assert.Equal(t, 200, status)
 
-		// featuredEvent is now ended-with-zero-entries, so it should sort
-		// alongside endedZeroEvent at the bottom (group 4). The two has-entries
-		// contests are group 2, activeZeroEvent is group 3.
+		// Without the Audius user, the follow-based tiebreak collapses. The
+		// remaining order is: open (4 rows) → ended (4 rows), each block sorted
+		// by entry_count DESC then event_id ASC.
 		jsonAssert(t, body, map[string]any{
-			"data.#":          5,
-			"data.0.event_id": hasActiveEvent,
-			"data.1.event_id": hasEndedEvent,
-			"data.2.event_id": activeZeroEvent,
+			"data.#": 8,
+			// Open contests with 2 entries (601, 603), then with 0 (602, 604).
+			"data.0.event_id": openFollowedHigh,   // 601, 2 entries
+			"data.1.event_id": openUnfollowedHigh, // 603, 2 entries
+			"data.2.event_id": openFollowedLow,    // 602, 0 entries
+			"data.3.event_id": openUnfollowedLow,  // 604, 0 entries
+			// Ended contests with 2 entries (605, 607), then with 0 (606, 608).
+			"data.4.event_id": endedFollowedHigh,   // 605
+			"data.5.event_id": endedUnfollowedHigh, // 607
+			"data.6.event_id": endedFollowedLow,    // 606
+			"data.7.event_id": endedUnfollowedLow,  // 608
 		})
-		// Last two entries are both ended-zero-entries — order within is
-		// determined by end_date DESC then event_id; both events share end_date
-		// (farPast), so the smaller event_id (601) comes first.
-		jsonAssert(t, body, map[string]any{
-			"data.3.event_id": featuredEvent,
-			"data.4.event_id": endedZeroEvent,
-		})
+	})
+}
+
+// TestRemixContestsFollowFilterIgnoresStaleRows verifies that the
+// follow-based tiebreak only counts live `follows` rows. A soft-deleted
+// (is_delete=true) or non-current (is_current=false) follow must not promote
+// a host into the "followed" sub-group.
+func TestRemixContestsFollowFilterIgnoresStaleRows(t *testing.T) {
+	app := emptyTestApp(t)
+
+	audiusUserID := 9200
+	liveFollowHostID := 9201
+	deletedFollowHostID := 9202
+	staleFollowHostID := 9203
+	remixerID := 9210
+
+	liveTrackID := 8401
+	deletedTrackID := 8402
+	staleTrackID := 8403
+
+	farFuture := parseTime(t, "2099-01-01")
+	contestStart := parseTime(t, "2024-01-02")
+	inWindow := parseTime(t, "2024-01-03")
+
+	fixtures := database.FixtureMap{
+		"events": []map[string]any{
+			// All three contests are open with the same entry_count (1), so the
+			// only differentiator left is the follow tiebreak.
+			{
+				"event_id": 701, "event_type": "remix_contest", "entity_type": "track",
+				"entity_id": liveTrackID, "user_id": liveFollowHostID,
+				"created_at": contestStart, "end_date": farFuture,
+			},
+			{
+				"event_id": 702, "event_type": "remix_contest", "entity_type": "track",
+				"entity_id": deletedTrackID, "user_id": deletedFollowHostID,
+				"created_at": contestStart, "end_date": farFuture,
+			},
+			{
+				"event_id": 703, "event_type": "remix_contest", "entity_type": "track",
+				"entity_id": staleTrackID, "user_id": staleFollowHostID,
+				"created_at": contestStart, "end_date": farFuture,
+			},
+		},
+		"users": []map[string]any{
+			{"user_id": audiusUserID, "handle": "audius"},
+			{"user_id": liveFollowHostID, "handle": "live_follow"},
+			{"user_id": deletedFollowHostID, "handle": "deleted_follow"},
+			{"user_id": staleFollowHostID, "handle": "stale_follow"},
+			{"user_id": remixerID, "handle": "remixer"},
+		},
+		"follows": []map[string]any{
+			{"follower_user_id": audiusUserID, "followee_user_id": liveFollowHostID},
+			{"follower_user_id": audiusUserID, "followee_user_id": deletedFollowHostID, "is_delete": true},
+			{"follower_user_id": audiusUserID, "followee_user_id": staleFollowHostID, "is_current": false},
+		},
+		"tracks": []map[string]any{
+			{"track_id": liveTrackID, "owner_id": liveFollowHostID, "created_at": contestStart},
+			{"track_id": deletedTrackID, "owner_id": deletedFollowHostID, "created_at": contestStart},
+			{"track_id": staleTrackID, "owner_id": staleFollowHostID, "created_at": contestStart},
+			// One entry per contest so all three reach the same entry_count.
+			{"track_id": 8411, "owner_id": remixerID, "created_at": inWindow},
+			{"track_id": 8412, "owner_id": remixerID, "created_at": inWindow},
+			{"track_id": 8413, "owner_id": remixerID, "created_at": inWindow},
+		},
+		"remixes": []map[string]any{
+			{"parent_track_id": liveTrackID, "child_track_id": 8411},
+			{"parent_track_id": deletedTrackID, "child_track_id": 8412},
+			{"parent_track_id": staleTrackID, "child_track_id": 8413},
+		},
+	}
+	database.Seed(app.pool.Replicas[0], fixtures)
+
+	liveEvent := trashid.MustEncodeHashID(701)
+	deletedEvent := trashid.MustEncodeHashID(702)
+	staleEvent := trashid.MustEncodeHashID(703)
+
+	prev := config.Cfg.FeaturedAudienceUserID
+	config.Cfg.FeaturedAudienceUserID = int32(audiusUserID)
+	t.Cleanup(func() { config.Cfg.FeaturedAudienceUserID = prev })
+
+	status, body := testGet(t, app, "/v1/events/remix-contests")
+	assert.Equal(t, 200, status)
+
+	// liveFollowHost should be the only one promoted to the followed sub-group.
+	// The other two are unfollowed and break by event_id ASC (702 < 703).
+	jsonAssert(t, body, map[string]any{
+		"data.#":          3,
+		"data.0.event_id": liveEvent,    // 701 — only live follow row
+		"data.1.event_id": deletedEvent, // 702 — follow soft-deleted, treated as unfollowed
+		"data.2.event_id": staleEvent,   // 703 — follow not current, treated as unfollowed
 	})
 }
 
