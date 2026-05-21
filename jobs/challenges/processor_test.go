@@ -17,11 +17,20 @@ func withChallengesDB(t *testing.T) *pgxpool.Pool {
 	pool := database.CreateTestDatabase(t, "test_jobs")
 	t.Cleanup(func() { pool.Close() })
 
-	// Seed Phase 1 challenges catalog inline. We don't run the production
-	// migration here because the test_jobs template DB isn't routed through
-	// the ddl runner — keeping the seed local to the test makes intent
-	// clearer too.
 	ctx := context.Background()
+	// The latest pg_migrate preflight seeds a `0x0` block with
+	// is_current=true. database.Seed() also inserts a `block1` block
+	// with is_current=true, which collides on the blocks_is_current_idx
+	// unique partial index. Clear the preflight row so Seed() can
+	// install its expected fixture.
+	if _, err := pool.Exec(ctx, "DELETE FROM blocks WHERE blockhash = '0x0'"); err != nil {
+		t.Fatalf("clean preflight block: %v", err)
+	}
+
+	// Seed Phase 1+2+3 challenges catalog inline. We don't run the
+	// production migration here because the test_jobs template DB isn't
+	// routed through the ddl runner — keeping the seed local to the
+	// test makes intent clearer too.
 	rows := []struct {
 		id, typ, amount       string
 		active                bool
@@ -49,6 +58,12 @@ func withChallengesDB(t *testing.T) *pgxpool.Pool {
 		{"w", "aggregate", "1000", true, i32p(2147483647), 98950182, 50000, i32p(7)},
 		{"b", "aggregate", "1", true, i32p(2147483647), 220157041, 25000, i32p(7)},
 		{"s", "aggregate", "5", true, i32p(2147483647), 220157041, 25000, i32p(7)},
+		// Phase 3 (signal-driven)
+		{"m", "boolean", "1", true, nil, 25346436, 25000, i32p(7)},
+		{"r", "aggregate", "1", true, i32p(5), 25346436, 25000, i32p(7)},
+		{"rv", "aggregate", "1", true, i32p(5000), 25346436, 25000, i32p(7)},
+		{"rd", "boolean", "1", true, nil, 25346436, 25000, i32p(7)},
+		{"o", "aggregate", "1", true, i32p(2147483647), 0, 2147483647, nil},
 	}
 	for _, r := range rows {
 		_, err := pool.Exec(ctx, `
