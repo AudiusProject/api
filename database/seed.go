@@ -520,6 +520,15 @@ var (
 			"ethereum_address":  nil,
 			"account":           nil,
 		},
+		"sol_claimable_account_transfers": {
+			"signature":          nil,
+			"instruction_index":  0,
+			"amount":             nil,
+			"slot":               1,
+			"from_account":       nil,
+			"to_account":         nil,
+			"sender_eth_address": nil,
+		},
 		"sol_reward_disbursements": {
 			"signature":             nil,
 			"instruction_index":     0,

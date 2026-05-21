@@ -9614,6 +9614,61 @@ COMMENT ON VIEW public.v_challenge_disbursements IS 'Compatibility view that exp
 
 
 --
+-- Name: v_token_transactions_history; Type: VIEW; Schema: public; Owner: -
+--
+
+CREATE VIEW public.v_token_transactions_history AS
+ SELECT bc.signature,
+    bc.mint,
+    bc.account AS user_bank,
+    users.user_id,
+    bc.block_timestamp AS transaction_date,
+    bc.created_at,
+    bc.slot,
+    (abs(bc.change))::text AS change,
+    (bc.balance)::text AS balance,
+        CASE
+            WHEN (bc.change < 0) THEN 'send'::text
+            ELSE 'receive'::text
+        END AS method,
+        CASE
+            WHEN (rd.signature IS NOT NULL) THEN
+            CASE
+                WHEN (c.type = 'trending'::public.challengetype) THEN 'trending_reward'::text
+                ELSE 'user_reward'::text
+            END
+            WHEN (p.signature IS NOT NULL) THEN 'purchase_content'::text
+            WHEN ((cat.signature IS NOT NULL) AND (from_owner.user_id IS NOT NULL) AND (to_owner.user_id IS NOT NULL) AND (from_owner.user_id <> to_owner.user_id)) THEN 'tip'::text
+            WHEN (cat.signature IS NOT NULL) THEN 'transfer'::text
+            ELSE 'transfer'::text
+        END AS transaction_type,
+        CASE
+            WHEN (rd.signature IS NOT NULL) THEN rd.challenge_id
+            WHEN ((cat.signature IS NOT NULL) AND (bc.change > 0) AND (from_owner.user_id IS NOT NULL)) THEN ((from_owner.user_id)::text)::character varying
+            WHEN ((cat.signature IS NOT NULL) AND (bc.change < 0) AND (to_owner.user_id IS NOT NULL)) THEN ((to_owner.user_id)::text)::character varying
+            ELSE NULL::character varying
+        END AS tx_metadata
+   FROM ((((((((((public.sol_token_account_balance_changes bc
+     JOIN public.sol_claimable_accounts sca ON ((((sca.account)::text = (bc.account)::text) AND ((sca.mint)::text = (bc.mint)::text))))
+     LEFT JOIN public.users ON ((((users.wallet)::text = (sca.ethereum_address)::text) AND (users.is_current = true))))
+     LEFT JOIN public.sol_claimable_account_transfers cat ON ((((cat.signature)::text = (bc.signature)::text) AND (((cat.from_account)::text = (bc.account)::text) OR ((cat.to_account)::text = (bc.account)::text)))))
+     LEFT JOIN public.sol_claimable_accounts from_sca ON ((((from_sca.account)::text = (cat.from_account)::text) AND ((from_sca.mint)::text = (bc.mint)::text))))
+     LEFT JOIN public.users from_owner ON ((((from_owner.wallet)::text = (from_sca.ethereum_address)::text) AND (from_owner.is_current = true))))
+     LEFT JOIN public.sol_claimable_accounts to_sca ON ((((to_sca.account)::text = (cat.to_account)::text) AND ((to_sca.mint)::text = (bc.mint)::text))))
+     LEFT JOIN public.users to_owner ON ((((to_owner.wallet)::text = (to_sca.ethereum_address)::text) AND (to_owner.is_current = true))))
+     LEFT JOIN public.sol_reward_disbursements rd ON ((((rd.signature)::text = (bc.signature)::text) AND ((rd.user_bank)::text = (bc.account)::text))))
+     LEFT JOIN public.challenges c ON (((c.id)::text = (rd.challenge_id)::text)))
+     LEFT JOIN public.sol_purchases p ON ((((p.signature)::text = (bc.signature)::text) AND ((p.from_account)::text = (bc.account)::text))));
+
+
+--
+-- Name: VIEW v_token_transactions_history; Type: COMMENT; Schema: public; Owner: -
+--
+
+COMMENT ON VIEW public.v_token_transactions_history IS 'Mint-agnostic transactions history derived from sol_token_account_balance_changes (the hub: only table with both mint and block_timestamp). Per-row transaction_type derived by LEFT JOIN to typed tables (sol_claimable_account_transfers, sol_reward_disbursements, sol_purchases). Callers filter by mint at query time. Powers /v1/users/{id}/transactions/audio today; will power /transactions/usdc once sol_withdrawals + vendor-memo capture land. Vendor purchase types (PURCHASE_STRIPE/COINBASE/UNKNOWN) degrade to bare transfer until that indexer work ships.';
+
+
+--
 -- Name: v_usdc_purchases; Type: VIEW; Schema: public; Owner: -
 --
 
@@ -12207,6 +12262,13 @@ COMMENT ON INDEX public.sol_claimable_accounts_account_idx IS 'Used for getting 
 
 
 --
+-- Name: sol_claimable_accounts_eth_mint_slot_idx; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX sol_claimable_accounts_eth_mint_slot_idx ON public.sol_claimable_accounts USING btree (ethereum_address, mint, slot DESC);
+
+
+--
 -- Name: sol_claimable_accounts_ethereum_address_idx; Type: INDEX; Schema: public; Owner: -
 --
 
@@ -12337,6 +12399,13 @@ CREATE INDEX sol_reward_disbursements_challenge_idx ON public.sol_reward_disburs
 --
 
 COMMENT ON INDEX public.sol_reward_disbursements_challenge_idx IS 'Used for getting reward disbursements for a specific challenge type or claim.';
+
+
+--
+-- Name: sol_reward_disbursements_challenge_specifier_idx; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX sol_reward_disbursements_challenge_specifier_idx ON public.sol_reward_disbursements USING btree (challenge_id, specifier);
 
 
 --
@@ -12554,6 +12623,20 @@ CREATE INDEX tracks_ai_attribution_user_id ON public.tracks USING btree (ai_attr
 --
 
 CREATE INDEX tracks_blocknumber_idx ON public.tracks USING btree (blocknumber);
+
+
+--
+-- Name: tracks_isrc_normalized_idx; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX tracks_isrc_normalized_idx ON public.tracks USING btree (regexp_replace(upper((isrc)::text), '[^A-Z0-9]'::text, ''::text, 'g'::text)) WHERE (isrc IS NOT NULL);
+
+
+--
+-- Name: INDEX tracks_isrc_normalized_idx; Type: COMMENT; Schema: public; Owner: -
+--
+
+COMMENT ON INDEX public.tracks_isrc_normalized_idx IS 'Functional index supporting GetTrackIdsByISRC; matches regexp_replace(upper(isrc), ''[^A-Z0-9]'', '''', ''g'') so dash/case-insensitive ?isrc= lookups hit the index.';
 
 
 --

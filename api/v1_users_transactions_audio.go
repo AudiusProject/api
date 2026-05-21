@@ -9,6 +9,9 @@ import (
 	"github.com/jackc/pgx/v5/pgtype"
 )
 
+// wAUDIO mint on mainnet — used to filter v_token_transactions_history.
+const wAudioMint = "9LzCMqDgTKYz9Drzqnpgee3SGa89up3a247ypMj2xrqM"
+
 type GetUsersTransactionsAudioParams struct {
 	Limit         int    `query:"limit" default:"100" validate:"min=1,max=100"`
 	Offset        int    `query:"offset" default:"0" validate:"min=0"`
@@ -38,23 +41,22 @@ func (app *ApiServer) v1UsersTransactionsAudio(c *fiber.Ctx) error {
 		sortDirection = "asc"
 	}
 
-	var orderBy = fmt.Sprintf("ath.created_at %s", sortDirection)
+	var orderBy = fmt.Sprintf("transaction_date %s", sortDirection)
 	if params.Sort == "transaction_type" {
-		orderBy = fmt.Sprintf("transaction_type %s, ath.created_at desc", sortDirection)
+		orderBy = fmt.Sprintf("transaction_type %s, transaction_date desc", sortDirection)
 	}
 
 	sql := `
-		SELECT ath.created_at as transaction_date, transaction_type, ath.signature, method, ath.user_bank, tx_metadata as metadata, change::text, balance::text
-		FROM users
-		JOIN user_bank_accounts uba ON uba.ethereum_address = users.wallet
-		JOIN audio_transactions_history ath ON ath.user_bank = uba.bank_account
-		WHERE users.user_id = @user_id::int AND users.is_current = TRUE
+		SELECT transaction_date, transaction_type, signature, method, user_bank, tx_metadata AS metadata, change, balance
+		FROM v_token_transactions_history
+		WHERE mint = @mint AND user_id = @user_id::int
 		ORDER BY ` + orderBy + `
 		LIMIT @limit_val
 		OFFSET @offset_val;
 	`
 
 	args := pgx.NamedArgs{
+		"mint":       wAudioMint,
 		"user_id":    app.getUserId(c),
 		"limit_val":  params.Limit,
 		"offset_val": params.Offset,
@@ -78,13 +80,12 @@ func (app *ApiServer) v1UsersTransactionsAudio(c *fiber.Ctx) error {
 func (app *ApiServer) v1UsersTransactionsAudioCount(c *fiber.Ctx) error {
 	sql := `
 		SELECT count(*)
-		FROM users
-		JOIN user_bank_accounts uba ON uba.ethereum_address = users.wallet
-		JOIN audio_transactions_history ath ON ath.user_bank = uba.bank_account
-		WHERE users.user_id = @user_id::int AND users.is_current = TRUE;
+		FROM v_token_transactions_history
+		WHERE mint = @mint AND user_id = @user_id::int;
 	`
 
 	row := app.pool.QueryRow(c.Context(), sql, pgx.NamedArgs{
+		"mint":    wAudioMint,
 		"user_id": app.getUserId(c),
 	})
 
