@@ -82,10 +82,14 @@ func (app *ApiServer) v1UserPlaylists(c *fiber.Ctx) error {
 		return err
 	}
 
+	// Privacy was already enforced by the outer query via playlistFilter, so
+	// allow Playlists() to hydrate private playlists when the caller has
+	// authorization (e.g. filter_playlists=private for the owner).
 	playlists, err := app.queries.Playlists(c.Context(), dbv1.PlaylistsParams{
 		GetPlaylistsParams: dbv1.GetPlaylistsParams{
-			Ids:  ids,
-			MyID: myId,
+			Ids:            ids,
+			MyID:           myId,
+			IncludePrivate: true,
 		},
 		OmitTracks:   true,
 		AuthedWallet: app.tryGetAuthedWallet(c),

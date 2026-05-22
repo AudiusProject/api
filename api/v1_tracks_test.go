@@ -78,6 +78,25 @@ func TestGetTracksByISRC(t *testing.T) {
 	}
 }
 
+func TestGetUnlistedTrackByPermalinkAnonymous(t *testing.T) {
+	app := testAppWithFixtures(t)
+	ctx := context.Background()
+	require.NotNil(t, app.writePool, "test requires write pool")
+
+	// Mark the permalink fixture track (track_id=500) as unlisted.
+	_, err := app.writePool.Exec(ctx, `UPDATE tracks SET is_unlisted = true WHERE track_id = 500 AND is_current = true`)
+	require.NoError(t, err)
+
+	// Anonymous request via permalink returns the unlisted track.
+	var resp struct {
+		Data []dbv1.Track
+	}
+	status, _ := testGet(t, app, "/v1/full/tracks?permalink=/TracksByPermalink/track-by-permalink", &resp)
+	assert.Equal(t, 200, status)
+	assert.Len(t, resp.Data, 1, "permalink lookup must return the unlisted track even without auth")
+	assert.Equal(t, "track by permalink", resp.Data[0].Title.String)
+}
+
 func TestGetTracksExcludesAccessAuthorities(t *testing.T) {
 	app := testAppWithFixtures(t)
 	ctx := context.Background()

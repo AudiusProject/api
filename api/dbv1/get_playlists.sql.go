@@ -143,11 +143,13 @@ JOIN aggregate_playlist using (playlist_id)
 LEFT JOIN playlist_routes on p.playlist_id = playlist_routes.playlist_id and playlist_routes.is_current = true
 WHERE is_delete = false
   and p.playlist_id = ANY($2::int[])
+  and (p.is_private = false OR p.playlist_owner_id = $1 OR $3::bool = TRUE)
 `
 
 type GetPlaylistsParams struct {
-	MyID interface{} `json:"my_id"`
-	Ids  []int32     `json:"ids"`
+	MyID           interface{} `json:"my_id"`
+	Ids            []int32     `json:"ids"`
+	IncludePrivate bool        `json:"include_private"`
 }
 
 type GetPlaylistsRow struct {
@@ -185,7 +187,7 @@ type GetPlaylistsRow struct {
 
 // See get_tracks.sql for why my_follows is MATERIALIZED.
 func (q *Queries) GetPlaylists(ctx context.Context, arg GetPlaylistsParams) ([]GetPlaylistsRow, error) {
-	rows, err := q.db.Query(ctx, getPlaylists, arg.MyID, arg.Ids)
+	rows, err := q.db.Query(ctx, getPlaylists, arg.MyID, arg.Ids, arg.IncludePrivate)
 	if err != nil {
 		return nil, err
 	}

@@ -129,4 +129,5 @@ JOIN aggregate_playlist using (playlist_id)
 LEFT JOIN playlist_routes on p.playlist_id = playlist_routes.playlist_id and playlist_routes.is_current = true
 WHERE is_delete = false
   and p.playlist_id = ANY(@ids::int[])
+  and (p.is_private = false OR p.playlist_owner_id = @my_id OR @include_private::bool = TRUE)
 ;
