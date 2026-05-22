@@ -501,28 +501,19 @@ type ethHealth struct {
 	LastBlockSeen   uint64     `json:"last_block_seen"`
 	CheckpointBlock uint64     `json:"checkpoint_block"`
 	LastEventAt     *time.Time `json:"last_event_at"`
-	TrackedWallets  int64      `json:"tracked_wallets"`
-	CachedWallets   int64      `json:"cached_wallets"`
 }
 
+// GetHealth returns indexer liveness in O(1) — all values are either in
+// memory or come from a single-row PK lookup. Wallet-population counts
+// previously lived on this response but were expensive on prod
+// (UNION/COUNT across users + associated_wallets ≈ 3M rows, no index, can
+// take 30s+) and don't actually answer "is the indexer alive?", which is
+// what a health endpoint is for. If you want population stats, query
+// eth_wallet_balances directly.
 func (e *EthIndexer) GetHealth(ctx context.Context, maxEventLagSecs int64) (*ethHealth, error) {
 	checkpoint, err := e.loadCheckpoint(ctx)
 	if err != nil {
 		return nil, fmt.Errorf("loading checkpoint: %w", err)
-	}
-
-	var tracked, cached int64
-	err = e.pool.QueryRow(ctx, `
-		SELECT
-			(SELECT COUNT(*) FROM (
-				SELECT LOWER(wallet) FROM users WHERE wallet IS NOT NULL AND wallet <> ''
-				UNION
-				SELECT LOWER(wallet) FROM associated_wallets WHERE chain = 'eth' AND is_delete = FALSE
-			) t) AS tracked,
-			(SELECT COUNT(*) FROM eth_wallet_balances) AS cached
-	`).Scan(&tracked, &cached)
-	if err != nil {
-		return nil, fmt.Errorf("counting wallets: %w", err)
 	}
 
 	errs := make([]string, 0)
@@ -545,8 +536,6 @@ func (e *EthIndexer) GetHealth(ctx context.Context, maxEventLagSecs int64) (*eth
 		LastBlockSeen:   e.lastBlockSeen.Load(),
 		CheckpointBlock: checkpoint,
 		LastEventAt:     e.lastEventAt.Load(),
-		TrackedWallets:  tracked,
-		CachedWallets:   cached,
 	}, nil
 }
 
