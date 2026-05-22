@@ -227,11 +227,6 @@ func init() {
 				Owner:          "0xe5b256d302ea2f4e04B8F3bfD8695aDe147aB68d",
 			},
 			{
-				DelegateWallet: "0x159200F84c2cF000b3A014cD4D8244500CCc36ca",
-				Endpoint:       "https://audius-cn1.tikilabs.com",
-				Owner:          "0xe4882D9A38A2A1fc652996719AF0fb15CB968d0a",
-			},
-			{
 				DelegateWallet: "0x627d23D17a3eAaDB1D3823e73Ab80D474023Acab",
 				Endpoint:       "https://audius.bragi.cc",
 				Owner:          "0xC88C8F9a15453c7D8Ea83120Af54cc4C40EC094a",
@@ -240,6 +235,11 @@ func init() {
 				DelegateWallet: "0x422541273087beC833c57D3c15B9e17F919bFB1F",
 				Endpoint:       "https://v.monophonic.digital",
 				Owner:          "0x6470Daf3bd32f5014512bCdF0D02232f5640a5BD",
+			},
+			{
+				DelegateWallet: "0xae5d0507b6653589a03ae5becb35eb0c160e7131",
+				Endpoint:       "https://audius.rickyrombo.com",
+				Owner:          "0x923EC9976bfEcFd0E8b7fEeaC9115F740f8ddB00",
 			},
 		}
 	default:
