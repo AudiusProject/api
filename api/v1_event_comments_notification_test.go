@@ -29,6 +29,11 @@ func TestRemixContestUpdate_NotifiesEventSubscribers(t *testing.T) {
 
 	now := time.Now().UTC()
 	fixtures := database.FixtureMap{
+		// comments has an FK on blocknumber → blocks.number; the comment we
+		// insert later uses blocknumber=100, so seed it.
+		"blocks": []map[string]any{
+			{"blockhash": "rcu-blk-100", "parenthash": nil, "number": 100},
+		},
 		"users": []map[string]any{
 			{"user_id": hostId, "handle": "rc_host"},
 			{"user_id": subA, "handle": "rc_subA"},
@@ -175,6 +180,13 @@ func TestRemixContestUpdate_SkipsReplies(t *testing.T) {
 
 	now := time.Now().UTC()
 	fixtures := database.FixtureMap{
+		// comments has an FK on blocknumber → blocks.number; both the seeded
+		// parent comment (blocknumber=99) and the reply we insert later
+		// (blocknumber=100) need their blocks rows.
+		"blocks": []map[string]any{
+			{"blockhash": "rcu-blk-99", "parenthash": nil, "number": 99},
+			{"blockhash": "rcu-blk-100", "parenthash": "rcu-blk-99", "number": 100},
+		},
 		"users": []map[string]any{
 			{"user_id": hostId, "handle": "rcr_host"},
 			{"user_id": subId, "handle": "rcr_sub"},
@@ -199,7 +211,7 @@ func TestRemixContestUpdate_SkipsReplies(t *testing.T) {
 				"entity_id": eventId, "entity_type": "Event",
 				"text": "opener", "is_delete": false, "is_visible": true,
 				"created_at": now, "updated_at": now,
-				"txhash": "tx-parent", "blockhash": "blk-parent", "blocknumber": 99},
+				"txhash": "tx-parent", "blockhash": "rcu-blk-99", "blocknumber": 99},
 		},
 	}
 	database.Seed(app.pool.Replicas[0], fixtures)
@@ -257,6 +269,10 @@ func TestRemixContestUpdate_SkipsNonHostComments(t *testing.T) {
 
 	now := time.Now().UTC()
 	fixtures := database.FixtureMap{
+		// comments has an FK on blocknumber → blocks.number.
+		"blocks": []map[string]any{
+			{"blockhash": "rcu-blk-100", "parenthash": nil, "number": 100},
+		},
 		"users": []map[string]any{
 			{"user_id": hostId, "handle": "rcn_host"},
 			{"user_id": commenterId, "handle": "rcn_commenter"},
