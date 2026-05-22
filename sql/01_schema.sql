@@ -3,8 +3,8 @@
 --
 
 
--- Dumped from database version 17.10 (Debian 17.10-1.pgdg13+1)
--- Dumped by pg_dump version 17.10 (Debian 17.10-1.pgdg13+1)
+-- Dumped from database version 17.9 (Debian 17.9-1.pgdg13+1)
+-- Dumped by pg_dump version 17.9 (Debian 17.9-1.pgdg13+1)
 
 SET statement_timeout = 0;
 SET lock_timeout = 0;
@@ -2332,6 +2332,92 @@ exception
     when others then
       raise warning 'An error occurred in %: %', tg_name, sqlerrm;
       return null;
+end;
+$$;
+
+
+--
+-- Name: handle_comment_remix_contest_update(); Type: FUNCTION; Schema: public; Owner: -
+--
+
+CREATE FUNCTION public.handle_comment_remix_contest_update() RETURNS trigger
+    LANGUAGE plpgsql
+    AS $$
+declare
+  event_host_id     int;
+  contest_track_id  int;
+  recipient_id      int;
+  group_id_str      text;
+  data_jsonb        jsonb;
+begin
+  -- Cheap pre-filters first.
+  if new.entity_type <> 'Event' or new.is_delete or not new.is_visible then
+    return null;
+  end if;
+
+  -- Bail if this comment is a reply (a comment_threads row was inserted
+  -- alongside or before commit). Replies do not produce
+  -- remix_contest_update -- only the host's top-level posts do.
+  if exists (
+    select 1 from comment_threads where comment_id = new.comment_id
+  ) then
+    return null;
+  end if;
+
+  -- The event must exist, must be a remix_contest, and the commenter
+  -- must be the host. entity_id on events is the parent track id.
+  select e.user_id, e.entity_id
+    into event_host_id, contest_track_id
+    from events e
+   where e.event_id = new.entity_id
+     and e.event_type = 'remix_contest'
+     and e.is_deleted = false
+   limit 1;
+
+  if event_host_id is null or event_host_id <> new.user_id then
+    return null;
+  end if;
+
+  group_id_str := 'remix_contest_update:' || new.comment_id || ':event:' || new.entity_id;
+  data_jsonb   := jsonb_build_object(
+    'event_id',       new.entity_id,
+    'entity_id',      contest_track_id,
+    'entity_user_id', event_host_id,
+    'comment_id',     new.comment_id
+  );
+
+  -- Fan out to subscribers, excluding the host (they have their own
+  -- view of the post).
+  for recipient_id in
+    select s.subscriber_id
+      from subscriptions s
+     where s.entity_type = 'Event'
+       and s.user_id = new.entity_id
+       and s.is_current = true
+       and s.is_delete = false
+       and s.subscriber_id <> event_host_id
+  loop
+    insert into notification
+      (blocknumber, user_ids, timestamp, type, specifier, group_id, data)
+    values
+      (
+        new.blocknumber,
+        ARRAY[recipient_id],
+        new.created_at,
+        'remix_contest_update',
+        recipient_id::text,
+        group_id_str,
+        data_jsonb
+      )
+    on conflict do nothing;
+  end loop;
+
+  return null;
+
+exception
+  when others then
+    raise warning 'An error occurred in %: %', tg_name, sqlerrm;
+    return null;
 end;
 $$;
 
@@ -8758,6 +8844,25 @@ COMMENT ON COLUMN public.sol_reward_manager_inits.authority IS 'Public key of th
 
 
 --
+-- Name: sol_slot_checkpoint; Type: TABLE; Schema: public; Owner: -
+--
+
+CREATE TABLE public.sol_slot_checkpoint (
+    id integer DEFAULT 1 NOT NULL,
+    slot bigint NOT NULL,
+    updated_at timestamp without time zone DEFAULT CURRENT_TIMESTAMP NOT NULL,
+    created_at timestamp without time zone DEFAULT CURRENT_TIMESTAMP NOT NULL
+);
+
+
+--
+-- Name: TABLE sol_slot_checkpoint; Type: COMMENT; Schema: public; Owner: -
+--
+
+COMMENT ON TABLE public.sol_slot_checkpoint IS 'Stores the most recent slot that the indexer has received.';
+
+
+--
 -- Name: sol_slot_checkpoints; Type: TABLE; Schema: public; Owner: -
 --
 
@@ -8785,6 +8890,30 @@ COMMENT ON TABLE public.sol_slot_checkpoints IS 'Stores checkpoints for Solana s
 --
 
 COMMENT ON COLUMN public.sol_slot_checkpoints.name IS 'The name of the indexer this checkpoint is for (e.g., token_indexer, damm_v2_indexer).';
+
+
+--
+-- Name: sol_swaps; Type: TABLE; Schema: public; Owner: -
+--
+
+CREATE TABLE public.sol_swaps (
+    signature character varying NOT NULL,
+    instruction_index integer NOT NULL,
+    slot bigint NOT NULL,
+    from_mint character varying NOT NULL,
+    from_account character varying NOT NULL,
+    from_amount bigint NOT NULL,
+    to_mint character varying NOT NULL,
+    to_account character varying NOT NULL,
+    to_amount bigint NOT NULL
+);
+
+
+--
+-- Name: TABLE sol_swaps; Type: COMMENT; Schema: public; Owner: -
+--
+
+COMMENT ON TABLE public.sol_swaps IS 'Stores eg. Jupiter swaps for tracked mints.';
 
 
 --
@@ -9716,7 +9845,7 @@ CREATE VIEW public.v_usdc_purchases AS
           WHERE (((pay.signature)::text = (sp.signature)::text) AND (pay.instruction_index = sp.instruction_index))) AS splits
    FROM ((public.sol_purchases sp
      LEFT JOIN public.tracks t ON ((((sp.content_type)::text = 'track'::text) AND (t.track_id = sp.content_id) AND (t.is_current = true))))
-     LEFT JOIN public.playlists p ON ((((sp.content_type)::text = ANY ((ARRAY['album'::character varying, 'playlist'::character varying])::text[])) AND (p.playlist_id = sp.content_id) AND (p.is_current = true))))
+     LEFT JOIN public.playlists p ON ((((sp.content_type)::text = ANY (ARRAY[('album'::character varying)::text, ('playlist'::character varying)::text])) AND (p.playlist_id = sp.content_id) AND (p.is_current = true))))
   WHERE (sp.is_valid IS TRUE);
 
 
@@ -10907,11 +11036,27 @@ ALTER TABLE ONLY public.sol_reward_manager_inits
 
 
 --
+-- Name: sol_slot_checkpoint sol_slot_checkpoint_pkey; Type: CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.sol_slot_checkpoint
+    ADD CONSTRAINT sol_slot_checkpoint_pkey PRIMARY KEY (id);
+
+
+--
 -- Name: sol_slot_checkpoints sol_slot_checkpoints_pkey; Type: CONSTRAINT; Schema: public; Owner: -
 --
 
 ALTER TABLE ONLY public.sol_slot_checkpoints
     ADD CONSTRAINT sol_slot_checkpoints_pkey PRIMARY KEY (id);
+
+
+--
+-- Name: sol_swaps sol_swaps_pkey; Type: CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.sol_swaps
+    ADD CONSTRAINT sol_swaps_pkey PRIMARY KEY (signature, instruction_index);
 
 
 --
@@ -12451,17 +12596,52 @@ CREATE INDEX sol_slot_checkpoints_to_slot_idx ON public.sol_slot_checkpoints USI
 
 
 --
+-- Name: sol_swaps_from_account_idx; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX sol_swaps_from_account_idx ON public.sol_swaps USING btree (from_account);
+
+
+--
+-- Name: sol_swaps_from_mint_idx; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX sol_swaps_from_mint_idx ON public.sol_swaps USING btree (from_mint);
+
+
+--
+-- Name: sol_swaps_to_account_idx; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX sol_swaps_to_account_idx ON public.sol_swaps USING btree (to_account);
+
+
+--
+-- Name: sol_swaps_to_mint_idx; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX sol_swaps_to_mint_idx ON public.sol_swaps USING btree (to_mint);
+
+
+--
 -- Name: sol_token_account_balance_changes_account_idx; Type: INDEX; Schema: public; Owner: -
 --
 
-CREATE INDEX sol_token_account_balance_changes_account_idx ON public.sol_token_account_balance_changes USING btree (account, slot);
+CREATE INDEX sol_token_account_balance_changes_account_idx ON public.sol_token_account_balance_changes USING btree (account, slot DESC);
 
 
 --
--- Name: INDEX sol_token_account_balance_changes_account_idx; Type: COMMENT; Schema: public; Owner: -
+-- Name: sol_token_account_balance_changes_mint_account_slot_idx; Type: INDEX; Schema: public; Owner: -
 --
 
-COMMENT ON INDEX public.sol_token_account_balance_changes_account_idx IS 'Used for getting recent transactions by account.';
+CREATE INDEX sol_token_account_balance_changes_mint_account_slot_idx ON public.sol_token_account_balance_changes USING btree (mint, account, slot DESC);
+
+
+--
+-- Name: INDEX sol_token_account_balance_changes_mint_account_slot_idx; Type: COMMENT; Schema: public; Owner: -
+--
+
+COMMENT ON INDEX public.sol_token_account_balance_changes_mint_account_slot_idx IS 'Used for getting top current balances for a mint.';
 
 
 --
@@ -12475,14 +12655,7 @@ CREATE INDEX sol_token_account_balance_changes_mint_block_timestamp ON public.so
 -- Name: sol_token_account_balance_changes_mint_idx; Type: INDEX; Schema: public; Owner: -
 --
 
-CREATE INDEX sol_token_account_balance_changes_mint_idx ON public.sol_token_account_balance_changes USING btree (mint, slot);
-
-
---
--- Name: INDEX sol_token_account_balance_changes_mint_idx; Type: COMMENT; Schema: public; Owner: -
---
-
-COMMENT ON INDEX public.sol_token_account_balance_changes_mint_idx IS 'Used for getting recent transactions by mint.';
+CREATE INDEX sol_token_account_balance_changes_mint_idx ON public.sol_token_account_balance_changes USING btree (mint, slot DESC);
 
 
 --
@@ -12805,6 +12978,13 @@ CREATE TRIGGER on_chat_message_reaction_changed AFTER INSERT OR DELETE OR UPDATE
 --
 
 CREATE TRIGGER on_comment AFTER INSERT ON public.comments FOR EACH ROW EXECUTE FUNCTION public.handle_comment();
+
+
+--
+-- Name: comments on_comment_remix_contest_update; Type: TRIGGER; Schema: public; Owner: -
+--
+
+CREATE CONSTRAINT TRIGGER on_comment_remix_contest_update AFTER INSERT ON public.comments DEFERRABLE INITIALLY DEFERRED FOR EACH ROW EXECUTE FUNCTION public.handle_comment_remix_contest_update();
 
 
 --
