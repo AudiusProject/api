@@ -5,11 +5,18 @@ import (
 	"encoding/json"
 	"net"
 	"net/http"
+	"time"
 
 	"github.com/gofiber/fiber/v2"
 	"github.com/mcuadros/go-defaults"
 	"go.uber.org/zap"
 )
+
+// healthHandlerTimeout caps how long /eth/health is willing to wait on
+// downstream work (DB, etc.) before returning an error. The endpoint is
+// supposed to be O(1); a 2s ceiling is generous and stops a future slow
+// query from hanging the handler indefinitely.
+const healthHandlerTimeout = 2 * time.Second
 
 type Server struct {
 	*fiber.App
@@ -39,7 +46,9 @@ func NewServer(indexer *EthIndexer) *Server {
 		}
 		defaults.SetDefaults(&q)
 
-		health, err := indexer.GetHealth(c.Context(), q.MaxEventLagSecs)
+		ctx, cancel := context.WithTimeout(c.Context(), healthHandlerTimeout)
+		defer cancel()
+		health, err := indexer.GetHealth(ctx, q.MaxEventLagSecs)
 		if err != nil {
 			return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{
 				"error": err.Error(),
