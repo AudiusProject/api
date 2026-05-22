@@ -29,6 +29,7 @@ type CoinRewardParams struct {
 }
 
 func (app *ApiServer) v1CoinsPostRedeem(c *fiber.Ctx) error {
+	logger := app.requestLogger(c)
 	// #region Validate Params
 	if app.config.LaunchpadDeterministicSecret == "" {
 		return fiber.NewError(fiber.StatusInternalServerError, "Claim authority base is not configured")
@@ -332,6 +333,14 @@ func (app *ApiServer) v1CoinsPostRedeem(c *fiber.Ctx) error {
 		})
 
 		if err != nil {
+			logger.Warn("validator attestation failed",
+				zap.String("validator", validator.Endpoint),
+				zap.String("validatorOwner", validator.Owner),
+				zap.String("handle", userHandle),
+				zap.String("rewardId", redeemCode),
+				zap.String("specifier", specifier),
+				zap.Error(err),
+			)
 			continue
 		}
 
@@ -342,6 +351,15 @@ func (app *ApiServer) v1CoinsPostRedeem(c *fiber.Ctx) error {
 		}
 		signatureBytes, err := hex.DecodeString(strings.TrimPrefix(signature, "0x"))
 		if err != nil {
+			logger.Warn("validator attestation signature decode failed",
+				zap.String("validator", validator.Endpoint),
+				zap.String("validatorOwner", validator.Owner),
+				zap.String("handle", userHandle),
+				zap.String("rewardId", redeemCode),
+				zap.String("specifier", specifier),
+				zap.String("attestation", response.Attestation),
+				zap.Error(err),
+			)
 			continue
 		}
 
@@ -375,7 +393,7 @@ func (app *ApiServer) v1CoinsPostRedeem(c *fiber.Ctx) error {
 	if err != nil {
 		var instrErr *spl.InstructionError
 		if errors.As(err, &instrErr) {
-			app.logger.Error("failed to claim challenge reward. transaction failed to send.",
+			logger.Error("failed to claim challenge reward. transaction failed to send.",
 				zap.String("handle", userHandle),
 				zap.String("rewardId", "code"),
 				zap.String("specifier", specifier),
@@ -384,7 +402,7 @@ func (app *ApiServer) v1CoinsPostRedeem(c *fiber.Ctx) error {
 				zap.Error(err),
 			)
 		} else {
-			app.logger.Error("failed to claim challenge reward.",
+			logger.Error("failed to claim challenge reward.",
 				zap.String("handle", userHandle),
 				zap.String("rewardId", "code"),
 				zap.String("specifier", specifier),
