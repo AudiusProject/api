@@ -18,11 +18,15 @@ type GetRemixContestsParams struct {
 
 // v1EventsRemixContests returns remix-contest events from the events table.
 // Sort priority:
-//  1. Featured-audience-account contests (config.Cfg.FeaturedAudienceUserID; 0 disables).
-//  2. Contests that have at least one entry.
-//  3. Ended contests with zero entries land last.
+//  1. Open contests whose host is followed by the Audius account.
+//  2. Open contests whose host is not followed by the Audius account.
+//  3. Ended contests whose host is followed by the Audius account.
+//  4. Ended contests whose host is not followed by the Audius account.
 //
-// Within each group we keep the existing active-first / soonest-ending sort.
+// The Audius account is config.Cfg.FeaturedAudienceUserID; 0 disables the
+// follow-based tiebreak (groups collapse to open-vs-ended only).
+// Within each group, results are sorted by entry count descending, then by
+// the active-first / soonest-ending sort, then event_id ASC as a stable tiebreak.
 // Supports pagination and an optional `status` filter (active | ended | all).
 func (app *ApiServer) v1EventsRemixContests(c *fiber.Ctx) error {
 	params := GetRemixContestsParams{}
@@ -120,10 +124,23 @@ func (app *ApiServer) v1EventsRemixContests(c *fiber.Ctx) error {
 		) ec ON true
 		WHERE ` + strings.Join(filters, " AND ") + `
 		ORDER BY
-			CASE WHEN @featured_user_id::int4 != 0 AND e.user_id = @featured_user_id::int4 THEN 0 ELSE 1 END ASC,
-			CASE WHEN COALESCE(ec.entry_count, 0) > 0 THEN 0 ELSE 1 END ASC,
-			CASE WHEN e.end_date IS NOT NULL AND e.end_date <= NOW() AND COALESCE(ec.entry_count, 0) = 0 THEN 1 ELSE 0 END ASC,
+			-- Primary: open (0) before ended (1).
 			CASE WHEN e.end_date IS NULL OR e.end_date > NOW() THEN 0 ELSE 1 END ASC,
+			-- Secondary: Audius-followed hosts (0) before unfollowed (1).
+			-- When @audius_user_id is 0 the tiebreak collapses (all rows score 1).
+			CASE
+				WHEN @audius_user_id::int4 != 0
+					AND EXISTS (
+						SELECT 1 FROM follows f
+						WHERE f.follower_user_id = @audius_user_id::int4
+							AND f.followee_user_id = e.user_id
+							AND f.is_current = true
+							AND f.is_delete = false
+					) THEN 0
+				ELSE 1
+			END ASC,
+			-- Within each group, more entries first.
+			COALESCE(ec.entry_count, 0) DESC,
 			CASE WHEN e.end_date IS NULL OR e.end_date > NOW() THEN e.end_date END ASC NULLS LAST,
 			CASE WHEN e.end_date IS NOT NULL AND e.end_date <= NOW() THEN e.end_date END DESC,
 			e.event_id ASC
@@ -133,7 +150,7 @@ func (app *ApiServer) v1EventsRemixContests(c *fiber.Ctx) error {
 	rows, err := app.pool.Query(c.Context(), sql, pgx.NamedArgs{
 		"limit":                      params.Limit,
 		"offset":                     params.Offset,
-		"featured_user_id":           config.Cfg.FeaturedAudienceUserID,
+		"audius_user_id":             config.Cfg.FeaturedAudienceUserID,
 		"karmaCommentCountThreshold": karmaCommentCountThreshold,
 	})
 	if err != nil {
