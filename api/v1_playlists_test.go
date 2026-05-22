@@ -120,6 +120,9 @@ func TestGetPlaylistPrivateAnonymous404(t *testing.T) {
 // The single playlist endpoint must return private playlists to their owner.
 func TestGetPlaylistPrivateOwnerAllowed(t *testing.T) {
 	app := testAppWithFixtures(t)
+	// user 7's fixture wallet has no test signature, so bypass the auth
+	// middleware and let user_id alone identify the owner for this test.
+	app.skipAuthCheck = true
 	ctx := context.Background()
 	require.NotNil(t, app.writePool, "test requires write pool")
 
