@@ -841,6 +841,16 @@ type ApiServer struct {
 	openAudioPool           *OpenAudioPool
 }
 
+// requestLogger returns app.logger annotated with the current request_id (set
+// by the requestid middleware) when available, so handler logs can be
+// correlated with access logs.
+func (app *ApiServer) requestLogger(c *fiber.Ctx) *zap.Logger {
+	if requestId, ok := c.Locals("requestId").(string); ok && requestId != "" {
+		return app.logger.With(zap.String("request_id", requestId))
+	}
+	return app.logger
+}
+
 func (app *ApiServer) home(c *fiber.Ctx) error {
 	return c.JSON(fiber.Map{
 		"env":     app.config.Env,

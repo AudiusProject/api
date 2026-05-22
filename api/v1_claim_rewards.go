@@ -212,6 +212,7 @@ func getValidatorAttestation(args GetValidatorAttestationParams) (*SenderAttesta
 // handling retries and reselection
 func fetchAttestations(
 	ctx context.Context,
+	logger *zap.Logger,
 	rewardClaim RewardClaim,
 	allValidators []config.Node,
 	excludedOperators []string,
@@ -321,6 +322,14 @@ func fetchAttestations(
 
 		for _, result := range results {
 			if result.err != nil {
+				logger.Warn("validator attestation failed",
+					zap.String("validator", result.node.Endpoint),
+					zap.String("validatorOwner", result.node.Owner),
+					zap.String("handle", rewardClaim.Handle),
+					zap.String("rewardId", rewardClaim.RewardID),
+					zap.String("specifier", rewardClaim.Specifier),
+					zap.Error(result.err),
+				)
 				badValidators[result.node.Endpoint] = true
 				continue
 			}
@@ -597,6 +606,7 @@ type RelayTransactionResponse struct {
 // Claims an individual reward.
 func claimReward(
 	ctx context.Context,
+	logger *zap.Logger,
 	rewardClaim RewardClaim,
 	rewardManagerClient *reward_manager.RewardManagerClient,
 	rewardAttester *rewards.RewardAttester,
@@ -639,6 +649,7 @@ func claimReward(
 	// Fetch AAO and validator attestations
 	attestations, err := fetchAttestations(
 		ctx,
+		logger,
 		rewardClaim,
 		validators,
 		existingValidatorOwners,
@@ -740,6 +751,7 @@ type ClaimRewardsBody struct {
 
 // Claims all the filtered undisbursed rewards for a user.
 func (app *ApiServer) v1ClaimRewards(c *fiber.Ctx) error {
+	logger := app.requestLogger(c)
 
 	body := ClaimRewardsBody{}
 	err := c.BodyParser(&body)
@@ -831,6 +843,7 @@ func (app *ApiServer) v1ClaimRewards(c *fiber.Ctx) error {
 			validators := app.config.ArtistCoinRewardsStaticSenders
 			sigs, err := claimReward(
 				ctx,
+				logger,
 				rewardClaim,
 				app.rewardManagerClient,
 				app.rewardAttester,
@@ -842,7 +855,7 @@ func (app *ApiServer) v1ClaimRewards(c *fiber.Ctx) error {
 			if err != nil {
 				var instrErr *spl.InstructionError
 				if errors.As(err, &instrErr) {
-					app.logger.Error("failed to claim challenge reward. transaction failed to send.",
+					logger.Error("failed to claim challenge reward. transaction failed to send.",
 						zap.String("handle", row.Handle.String),
 						zap.String("rewardId", row.ChallengeID),
 						zap.String("specifier", row.Specifier),
@@ -851,7 +864,7 @@ func (app *ApiServer) v1ClaimRewards(c *fiber.Ctx) error {
 						zap.Error(err),
 					)
 				} else {
-					app.logger.Error("failed to claim challenge reward.",
+					logger.Error("failed to claim challenge reward.",
 						zap.String("handle", row.Handle.String),
 						zap.String("rewardId", row.ChallengeID),
 						zap.String("specifier", row.Specifier),

@@ -11,6 +11,7 @@ import (
 	"github.com/OpenAudio/go-openaudio/pkg/rewards"
 	"github.com/gagliardetto/solana-go"
 	"github.com/stretchr/testify/assert"
+	"go.uber.org/zap"
 )
 
 func TestFetchAttestations(t *testing.T) {
@@ -106,6 +107,7 @@ func TestFetchAttestations(t *testing.T) {
 	// Call fetchAttestations
 	attestations, err := fetchAttestations(
 		context.Background(),
+		zap.NewNop(),
 		rewardClaim,
 		allValidators,
 		[]string{}, // no excluded operators
