@@ -37,15 +37,31 @@ type Config struct {
 	OpenAudioURLs                  []string
 	ChainId                        string
 	BirdeyeToken                   string
-	SolanaIndexerWorkers           int
-	SolanaIndexerRetryInterval     time.Duration
-	CommsMessagePush               bool
-	AudiusdChainID                 uint
-	AudiusdEntityManagerAddress    string
-	AudiusAppUrl                   string
-	RewardCodeAuthorizedKeys       []string
-	LaunchpadDeterministicSecret   string
-	UnsplashKeys                   []string
+	// HTTP(S) JSON-RPC endpoint for the Ethereum mainnet provider (e.g. an
+	// Alchemy URL). Used by the eth-indexer for backfill `eth_getLogs` and
+	// targeted `balanceOf` reads. If empty, the indexer is a no-op.
+	EthRpcUrl string
+	// WebSocket JSON-RPC endpoint used by the eth-indexer for live
+	// subscriptions to AUDIO Transfer events. Auto-derived from EthRpcUrl
+	// (https:// -> wss://) if left unset.
+	EthWsUrl string
+	// AUDIO ERC-20 contract address on Ethereum mainnet. Override only when
+	// pointing at a non-mainnet deployment.
+	EthAudioContractAddress string
+	// Audius Staking proxy address — used to read totalStakedFor(holder).
+	EthStakingContractAddress string
+	// Audius DelegateManager address — used to read
+	// getTotalDelegatorStake(holder).
+	EthDelegateManagerContractAddress string
+	SolanaIndexerWorkers         int
+	SolanaIndexerRetryInterval   time.Duration
+	CommsMessagePush             bool
+	AudiusdChainID               uint
+	AudiusdEntityManagerAddress  string
+	AudiusAppUrl                 string
+	RewardCodeAuthorizedKeys     []string
+	LaunchpadDeterministicSecret string
+	UnsplashKeys                 []string
 	// Nodes that volunteer as STORE_ALL nodes and are always included in mirrors lists
 	StoreAllNodes []string
 	// Nodes that are truly dead and should not be included in rendezvous
@@ -81,6 +97,11 @@ var Cfg = Config{
 	AudiusdURL:                            os.Getenv("audiusdUrl"),
 	OpenAudioURLs:                         []string{},
 	BirdeyeToken:                          os.Getenv("birdeyeToken"),
+	EthRpcUrl:                             os.Getenv("ethRpcUrl"),
+	EthWsUrl:                              os.Getenv("ethWsUrl"),
+	EthAudioContractAddress:               os.Getenv("ethAudioContractAddress"),
+	EthStakingContractAddress:             os.Getenv("ethStakingContractAddress"),
+	EthDelegateManagerContractAddress:     os.Getenv("ethDelegateManagerContractAddress"),
 	SolanaIndexerWorkers:                  50,
 	SolanaIndexerRetryInterval:            5 * time.Minute,
 	CommsMessagePush:                      true,
@@ -99,6 +120,27 @@ func init() {
 	Cfg.ZapLevel = zapLevel
 
 	Cfg.SolanaConfig = NewSolanaConfig()
+
+	// Default AUDIO ERC-20 + staking + delegate manager to mainnet addresses
+	// (from packages/sdk/src/sdk/config/production.ts).
+	if Cfg.EthAudioContractAddress == "" {
+		Cfg.EthAudioContractAddress = "0x18aAA7115705e8be94bfFEbDE57Af9BFc265B998"
+	}
+	if Cfg.EthStakingContractAddress == "" {
+		Cfg.EthStakingContractAddress = "0xe6D97B2099F142513be7A2a068bE040656Ae4591"
+	}
+	if Cfg.EthDelegateManagerContractAddress == "" {
+		Cfg.EthDelegateManagerContractAddress = "0x4d7968ebfD390D5E7926Cb3587C39eFf2F9FB225"
+	}
+	// Derive WS endpoint from the HTTP endpoint if not set explicitly.
+	if Cfg.EthWsUrl == "" && Cfg.EthRpcUrl != "" {
+		switch {
+		case strings.HasPrefix(Cfg.EthRpcUrl, "https://"):
+			Cfg.EthWsUrl = "wss://" + strings.TrimPrefix(Cfg.EthRpcUrl, "https://")
+		case strings.HasPrefix(Cfg.EthRpcUrl, "http://"):
+			Cfg.EthWsUrl = "ws://" + strings.TrimPrefix(Cfg.EthRpcUrl, "http://")
+		}
+	}
 
 	switch env := os.Getenv("ENV"); env {
 	case "dev":
