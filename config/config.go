@@ -181,7 +181,7 @@ func init() {
 		if Cfg.DelegatePrivateKey == "" {
 			log.Fatalf("Missing required %s env var: delegatePrivateKey", env)
 		}
-		Cfg.AntiAbuseOracles = []string{"https://discoveryprovider.audius.co"}
+		Cfg.AntiAbuseOracles = []string{"https://anti-abuse-oracle.audius.engineering"}
 		Cfg.ArchiverNodes = []string{"https://archiver.audius.engineering"}
 		Cfg.DeadNodes = []string{
 			"https://content.grassfed.network",
@@ -276,6 +276,11 @@ func init() {
 	// Override archiver upstream(s) when set (e.g. rollback to discovery or point at different archiver)
 	if v := os.Getenv("archiverNodes"); v != "" {
 		Cfg.ArchiverNodes = strings.Split(v, ",")
+	}
+
+	// Override anti-abuse oracle endpoint(s) when set, so the URL can be rotated without a code deploy.
+	if v := os.Getenv("antiAbuseOracles"); v != "" {
+		Cfg.AntiAbuseOracles = strings.Split(v, ",")
 	}
 
 	if v := os.Getenv("featuredAudienceUserId"); v != "" {
