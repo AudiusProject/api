@@ -20,7 +20,6 @@ import (
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgxpool"
 	"go.uber.org/zap"
-	"golang.org/x/sync/errgroup"
 )
 
 // Contract function selectors. Computed at startup from their signatures so
@@ -41,10 +40,6 @@ const checkpointName = "audio_transfers"
 
 // Backfill chunk size — Alchemy's free tier caps eth_getLogs at 10K blocks.
 const backfillChunkBlocks = 9000
-
-// Refresh fan-out: how many balanceOf calls we'll issue in parallel after a
-// burst of events. Keeps a burst from saturating the upstream.
-const balanceFetchWorkers = 8
 
 // Reconnect backoff bounds for the WS subscription.
 const (
@@ -325,60 +320,40 @@ func (e *EthIndexer) processLogs(ctx context.Context, logs []types.Log) {
 	}
 }
 
-// refreshAddresses fans out totalAudioBalance for each address (up to
-// balanceFetchWorkers in flight at once) and upserts the results in one
-// batch. blockByAddr is optional per-address block context: for live
-// Transfer events it's the block the event was mined in; for stale-refresh
-// sweeps it's nil so the existing blocknumber column is preserved. Returns
-// the number of addresses that were actually upserted (omitting failures).
+// refreshAddresses reads balanceOf + totalStakedFor +
+// getTotalDelegatorStake for each address via a single Multicall3
+// `aggregate3` (chunked at multicallChunkSize holders) and upserts the
+// summed results. blockByAddr is optional per-address block context: for
+// live Transfer events it's the block the event was mined in; for
+// stale-refresh sweeps it's nil so the existing blocknumber column is
+// preserved. Returns the number of addresses upserted.
 func (e *EthIndexer) refreshAddresses(ctx context.Context, addrs []common.Address, blockByAddr map[common.Address]uint64) int {
 	if len(addrs) == 0 {
 		return 0
 	}
 
-	jobs := make(chan common.Address, len(addrs))
-	results := make(chan balanceUpdate, len(addrs))
-	workers := balanceFetchWorkers
-	if workers > len(addrs) {
-		workers = len(addrs)
+	balances, err := e.totalAudioBalances(ctx, addrs)
+	if err != nil {
+		e.logger.Warn("totalAudioBalances failed",
+			zap.Int("holders", len(addrs)),
+			zap.Error(err),
+		)
+		return 0
 	}
-	for w := 0; w < workers; w++ {
-		go func() {
-			for addr := range jobs {
-				bal, err := e.totalAudioBalance(ctx, addr)
-				if err != nil {
-					e.logger.Warn("totalAudioBalance failed",
-						zap.String("addr", addr.Hex()),
-						zap.Error(err),
-					)
-					results <- balanceUpdate{} // sentinel so receiver count matches
-					continue
-				}
-				block := uint64(0)
-				if blockByAddr != nil {
-					block = blockByAddr[addr]
-				}
-				results <- balanceUpdate{addr: addr, bal: bal, block: block}
-			}
-		}()
-	}
-	for _, addr := range addrs {
-		jobs <- addr
-	}
-	close(jobs)
 
-	updates := make([]balanceUpdate, 0, len(addrs))
-	for i := 0; i < len(addrs); i++ {
-		select {
-		case <-ctx.Done():
-			return len(updates)
-		case r := <-results:
-			if r.bal == nil {
-				continue
-			}
-			updates = append(updates, r)
+	updates := make([]balanceUpdate, 0, len(balances))
+	for _, addr := range addrs {
+		bal, ok := balances[addr]
+		if !ok {
+			continue
 		}
+		block := uint64(0)
+		if blockByAddr != nil {
+			block = blockByAddr[addr]
+		}
+		updates = append(updates, balanceUpdate{addr: addr, bal: bal, block: block})
 	}
+
 	if err := e.upsertBalanceUpdates(ctx, updates); err != nil {
 		e.logger.Error("failed to upsert balances", zap.Error(err))
 		return 0
@@ -424,61 +399,6 @@ func (e *EthIndexer) filterTracked(ctx context.Context, candidates map[common.Ad
 	return tracked, rows.Err()
 }
 
-// totalAudioBalance returns balanceOf + totalStakedFor + getTotalDelegatorStake,
-// matching the Python discovery-provider's `associated_wallets_balance`
-// computation. All three calls run in parallel; any failure fails the whole
-// read (we'd rather skip the wallet this round than persist a partial total).
-func (e *EthIndexer) totalAudioBalance(ctx context.Context, holder common.Address) (*big.Int, error) {
-	var balance, staked, delegated *big.Int
-
-	g, gctx := errgroup.WithContext(ctx)
-	g.Go(func() error {
-		v, err := e.uintCall(gctx, e.audioContract, balanceOfSelector, holder)
-		if err != nil {
-			return fmt.Errorf("balanceOf: %w", err)
-		}
-		balance = v
-		return nil
-	})
-	g.Go(func() error {
-		v, err := e.uintCall(gctx, e.stakingContract, totalStakedForSelector, holder)
-		if err != nil {
-			return fmt.Errorf("totalStakedFor: %w", err)
-		}
-		staked = v
-		return nil
-	})
-	g.Go(func() error {
-		v, err := e.uintCall(gctx, e.delegateManager, getTotalDelegatorStakeSelector, holder)
-		if err != nil {
-			return fmt.Errorf("getTotalDelegatorStake: %w", err)
-		}
-		delegated = v
-		return nil
-	})
-	if err := g.Wait(); err != nil {
-		return nil, err
-	}
-
-	sum := new(big.Int).Add(balance, staked)
-	sum.Add(sum, delegated)
-	return sum, nil
-}
-
-// uintCall invokes a `func(address) returns (uint256)` style getter and
-// decodes the result as a big.Int.
-func (e *EthIndexer) uintCall(ctx context.Context, contract common.Address, selector []byte, holder common.Address) (*big.Int, error) {
-	data := append(append([]byte{}, selector...), common.LeftPadBytes(holder.Bytes(), 32)...)
-	msg := ethereum.CallMsg{To: &contract, Data: data}
-	out, err := e.httpClient.CallContract(ctx, msg, nil)
-	if err != nil {
-		return nil, err
-	}
-	if len(out) == 0 {
-		return big.NewInt(0), nil
-	}
-	return new(big.Int).SetBytes(out), nil
-}
 
 type balanceUpdate struct {
 	addr  common.Address
