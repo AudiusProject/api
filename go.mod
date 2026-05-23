@@ -6,7 +6,7 @@ require (
 	connectrpc.com/connect v1.18.1
 	github.com/AlecAivazis/survey/v2 v2.3.7
 	github.com/Doist/unfurlist v0.0.0-20250409100812-515f2735f8e5
-	github.com/OpenAudio/go-openaudio v1.3.0
+	github.com/OpenAudio/go-openaudio v1.3.1-0.20260522232340-9a1405832f14
 	github.com/aquasecurity/esquery v0.2.0
 	github.com/axiomhq/axiom-go v0.23.0
 	github.com/axiomhq/hyperloglog v0.2.5
@@ -55,7 +55,7 @@ require (
 	filippo.io/edwards25519 v1.0.0-rc.1 // indirect
 	github.com/DataDog/zstd v1.5.2 // indirect
 	github.com/Microsoft/go-winio v0.6.2 // indirect
-	github.com/OpenAudio/go-openaudio/pkg/etl v1.3.0 // indirect
+	github.com/OpenAudio/go-openaudio/pkg/etl v1.3.1-0.20260522232340-9a1405832f14 // indirect
 	github.com/StackExchange/wmi v1.2.1 // indirect
 	github.com/andres-erbsen/clock v0.0.0-20160526145045-9e14626cd129 // indirect
 	github.com/andybalholm/brotli v1.2.0 // indirect

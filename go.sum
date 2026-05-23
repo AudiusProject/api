@@ -24,8 +24,12 @@ github.com/OpenAudio/go-openaudio v1.2.13 h1:ILPaM6EneDQMoKXSyjb///758I7Ou52e76N
 github.com/OpenAudio/go-openaudio v1.2.13/go.mod h1:+xl3SeIY7pc6CfwO1qmYjWELLSseQaulqSQefE6i2FA=
 github.com/OpenAudio/go-openaudio v1.3.0 h1:Is1FFStckE116ZNuPNzu3wzdZdaYd6xslyciPgGut0E=
 github.com/OpenAudio/go-openaudio v1.3.0/go.mod h1:+xl3SeIY7pc6CfwO1qmYjWELLSseQaulqSQefE6i2FA=
+github.com/OpenAudio/go-openaudio v1.3.1-0.20260522232340-9a1405832f14 h1:mU120XjrHI5S0Qzl4Kb69LFA2l/kR8dOBGfzRW52Bak=
+github.com/OpenAudio/go-openaudio v1.3.1-0.20260522232340-9a1405832f14/go.mod h1:wiFXmVbIUkN2D5lRshknaARCKhzbHtCBKRCZe6UOnVs=
 github.com/OpenAudio/go-openaudio/pkg/etl v1.3.0 h1:RooZJ2OIDe7kLUNUVrQGHQFFyyHtayryhfG19MHIADw=
 github.com/OpenAudio/go-openaudio/pkg/etl v1.3.0/go.mod h1:LZKiU9vBYzlZzn6oPRHHLPXteBtMKQPegNH9bX9JuH8=
+github.com/OpenAudio/go-openaudio/pkg/etl v1.3.1-0.20260522232340-9a1405832f14 h1:xJbOgeQ9o6qWAfLz1JkfmcxZf+SCgc7c2X/eUQde9wI=
+github.com/OpenAudio/go-openaudio/pkg/etl v1.3.1-0.20260522232340-9a1405832f14/go.mod h1:LZKiU9vBYzlZzn6oPRHHLPXteBtMKQPegNH9bX9JuH8=
 github.com/StackExchange/wmi v1.2.1 h1:VIkavFPXSjcnS+O8yTq7NI32k0R5Aj+v39y29VYDOSA=
 github.com/StackExchange/wmi v1.2.1/go.mod h1:rcmrprowKIVzvc+NUiLncP2uuArMWLCbu9SBzvHz7e8=
 github.com/VictoriaMetrics/fastcache v1.12.2 h1:N0y9ASrJ0F6h0QaC3o6uJb3NIZ9VKLjCM7NQbSmF7WI=
