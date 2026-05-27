@@ -71,6 +71,12 @@ func NewIndexer(cfg config.Config) *CoreIndexer {
 	etlIndexer.SetDBURL(cfg.WriteDbUrl)
 	etlIndexer.SetCheckReadiness(true)
 
+	// Restore the pre-vendor setPubkeyForUser behavior via the upstream
+	// post-create hook (go-openaudio #317). Recovers the EIP-712 pubkey
+	// from each User Create tx and writes it to user_pubkeys in the same
+	// DB transaction as the user row.
+	etlIndexer.SetUserCreatedHook(newUserPubkeyHook(cfg, logger))
+
 	return &CoreIndexer{
 		aggregatesCalculator: aggregatesCalculator,
 		etlIndexer:           etlIndexer,
