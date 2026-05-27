@@ -3,8 +3,8 @@
 --
 
 
--- Dumped from database version 17.10 (Debian 17.10-1.pgdg13+1)
--- Dumped by pg_dump version 17.10 (Debian 17.10-1.pgdg13+1)
+-- Dumped from database version 17.9 (Debian 17.9-1.pgdg13+1)
+-- Dumped by pg_dump version 17.9 (Debian 17.9-1.pgdg13+1)
 
 SET statement_timeout = 0;
 SET lock_timeout = 0;
@@ -2357,7 +2357,7 @@ begin
 
   -- Bail if this comment is a reply (a comment_threads row was inserted
   -- alongside or before commit). Replies do not produce
-  -- remix_contest_update — only the host's top-level posts do.
+  -- remix_contest_update -- only the host's top-level posts do.
   if exists (
     select 1 from comment_threads where comment_id = new.comment_id
   ) then
@@ -7408,44 +7408,6 @@ ALTER SEQUENCE public.eth_blocks_last_scanned_block_seq OWNED BY public.eth_bloc
 
 
 --
--- Name: eth_indexer_checkpoints; Type: TABLE; Schema: public; Owner: -
---
-
-CREATE TABLE public.eth_indexer_checkpoints (
-    name text NOT NULL,
-    last_block bigint NOT NULL,
-    updated_at timestamp without time zone DEFAULT CURRENT_TIMESTAMP NOT NULL
-);
-
-
---
--- Name: TABLE eth_indexer_checkpoints; Type: COMMENT; Schema: public; Owner: -
---
-
-COMMENT ON TABLE public.eth_indexer_checkpoints IS 'Resumable backfill checkpoints for the eth-indexer (last block whose Transfer events have been processed, keyed by subscription name).';
-
-
---
--- Name: eth_wallet_balances; Type: TABLE; Schema: public; Owner: -
---
-
-CREATE TABLE public.eth_wallet_balances (
-    wallet text NOT NULL,
-    balance numeric DEFAULT 0 NOT NULL,
-    blocknumber bigint,
-    updated_at timestamp without time zone DEFAULT CURRENT_TIMESTAMP NOT NULL,
-    created_at timestamp without time zone DEFAULT CURRENT_TIMESTAMP NOT NULL
-);
-
-
---
--- Name: TABLE eth_wallet_balances; Type: COMMENT; Schema: public; Owner: -
---
-
-COMMENT ON TABLE public.eth_wallet_balances IS 'AUDIO ERC-20 balances (in wei) for tracked Ethereum wallets — primary users.wallet and chain=eth associated_wallets. Maintained event-driven by the eth-indexer (WebSocket subscription to the AUDIO Transfer topic, targeted balanceOf reads).';
-
-
---
 -- Name: events; Type: TABLE; Schema: public; Owner: -
 --
 
@@ -8882,6 +8844,25 @@ COMMENT ON COLUMN public.sol_reward_manager_inits.authority IS 'Public key of th
 
 
 --
+-- Name: sol_slot_checkpoint; Type: TABLE; Schema: public; Owner: -
+--
+
+CREATE TABLE public.sol_slot_checkpoint (
+    id integer DEFAULT 1 NOT NULL,
+    slot bigint NOT NULL,
+    updated_at timestamp without time zone DEFAULT CURRENT_TIMESTAMP NOT NULL,
+    created_at timestamp without time zone DEFAULT CURRENT_TIMESTAMP NOT NULL
+);
+
+
+--
+-- Name: TABLE sol_slot_checkpoint; Type: COMMENT; Schema: public; Owner: -
+--
+
+COMMENT ON TABLE public.sol_slot_checkpoint IS 'Stores the most recent slot that the indexer has received.';
+
+
+--
 -- Name: sol_slot_checkpoints; Type: TABLE; Schema: public; Owner: -
 --
 
@@ -8909,6 +8890,30 @@ COMMENT ON TABLE public.sol_slot_checkpoints IS 'Stores checkpoints for Solana s
 --
 
 COMMENT ON COLUMN public.sol_slot_checkpoints.name IS 'The name of the indexer this checkpoint is for (e.g., token_indexer, damm_v2_indexer).';
+
+
+--
+-- Name: sol_swaps; Type: TABLE; Schema: public; Owner: -
+--
+
+CREATE TABLE public.sol_swaps (
+    signature character varying NOT NULL,
+    instruction_index integer NOT NULL,
+    slot bigint NOT NULL,
+    from_mint character varying NOT NULL,
+    from_account character varying NOT NULL,
+    from_amount bigint NOT NULL,
+    to_mint character varying NOT NULL,
+    to_account character varying NOT NULL,
+    to_amount bigint NOT NULL
+);
+
+
+--
+-- Name: TABLE sol_swaps; Type: COMMENT; Schema: public; Owner: -
+--
+
+COMMENT ON TABLE public.sol_swaps IS 'Stores eg. Jupiter swaps for tracked mints.';
 
 
 --
@@ -9852,48 +9857,6 @@ COMMENT ON VIEW public.v_usdc_purchases IS 'Compatibility view exposing sol_purc
 
 
 --
--- Name: v_user_balances; Type: VIEW; Schema: public; Owner: -
---
-
-CREATE VIEW public.v_user_balances AS
- SELECT u.user_id,
-    (COALESCE(primary_eth.balance, (0)::numeric))::character varying AS balance,
-    (COALESCE(linked_eth.total_balance, (0)::numeric))::character varying AS associated_wallets_balance,
-    (COALESCE(user_bank_waudio.total_balance, (0)::numeric))::character varying AS waudio,
-    (COALESCE(linked_sol.total_balance, (0)::numeric))::character varying AS associated_sol_wallets_balance,
-    GREATEST(COALESCE(primary_eth.updated_at, '1970-01-01 00:00:00'::timestamp without time zone), COALESCE(linked_eth.updated_at, '1970-01-01 00:00:00'::timestamp without time zone), COALESCE(user_bank_waudio.updated_at, '1970-01-01 00:00:00'::timestamp without time zone), COALESCE(linked_sol.updated_at, '1970-01-01 00:00:00'::timestamp without time zone)) AS updated_at
-   FROM ((((public.users u
-     LEFT JOIN LATERAL ( SELECT ewb.balance,
-            ewb.updated_at
-           FROM public.eth_wallet_balances ewb
-          WHERE (lower(ewb.wallet) = lower((u.wallet)::text))
-         LIMIT 1) primary_eth ON (true))
-     LEFT JOIN LATERAL ( SELECT sum(ewb.balance) AS total_balance,
-            max(ewb.updated_at) AS updated_at
-           FROM (public.associated_wallets aw
-             JOIN public.eth_wallet_balances ewb ON ((lower(ewb.wallet) = lower((aw.wallet)::text))))
-          WHERE ((aw.user_id = u.user_id) AND (aw.chain = 'eth'::public.wallet_chain) AND (aw.is_delete = false) AND (aw.is_current = true))) linked_eth ON (true))
-     LEFT JOIN LATERAL ( SELECT sum(stab.balance) AS total_balance,
-            max(stab.updated_at) AS updated_at
-           FROM (public.sol_claimable_accounts sca
-             JOIN public.sol_token_account_balances stab ON (((stab.account)::text = (sca.account)::text)))
-          WHERE (((sca.ethereum_address)::text = (u.wallet)::text) AND ((sca.mint)::text = '9LzCMqDgTKYz9Drzqnpgee3SGa89up3a247ypMj2xrqM'::text) AND ((stab.mint)::text = '9LzCMqDgTKYz9Drzqnpgee3SGa89up3a247ypMj2xrqM'::text))) user_bank_waudio ON (true))
-     LEFT JOIN LATERAL ( SELECT sum(stab.balance) AS total_balance,
-            max(stab.updated_at) AS updated_at
-           FROM (public.associated_wallets aw
-             JOIN public.sol_token_account_balances stab ON (((stab.owner)::text = (aw.wallet)::text)))
-          WHERE ((aw.user_id = u.user_id) AND (aw.chain = 'sol'::public.wallet_chain) AND (aw.is_delete = false) AND (aw.is_current = true) AND ((stab.mint)::text = '9LzCMqDgTKYz9Drzqnpgee3SGa89up3a247ypMj2xrqM'::text))) linked_sol ON (true))
-  WHERE (u.is_current = true);
-
-
---
--- Name: VIEW v_user_balances; Type: COMMENT; Schema: public; Owner: -
---
-
-COMMENT ON VIEW public.v_user_balances IS 'Drop-in replacement for the legacy user_balances table, sourced entirely from indexer-maintained tables (eth_wallet_balances for ETH-side AUDIO+staking+delegation, sol_token_account_balances for wAUDIO). Column shape mirrors user_balances so callers swap with a table-name rename. balance / associated_wallets_balance are in wei; waudio / associated_sol_wallets_balance are in wAUDIO base units (multiply by 10^10 to compare to wei).';
-
-
---
 -- Name: volume_leader_exclusions; Type: TABLE; Schema: public; Owner: -
 --
 
@@ -10537,22 +10500,6 @@ ALTER TABLE ONLY public.eth_blocks
 
 
 --
--- Name: eth_indexer_checkpoints eth_indexer_checkpoints_pkey; Type: CONSTRAINT; Schema: public; Owner: -
---
-
-ALTER TABLE ONLY public.eth_indexer_checkpoints
-    ADD CONSTRAINT eth_indexer_checkpoints_pkey PRIMARY KEY (name);
-
-
---
--- Name: eth_wallet_balances eth_wallet_balances_pkey; Type: CONSTRAINT; Schema: public; Owner: -
---
-
-ALTER TABLE ONLY public.eth_wallet_balances
-    ADD CONSTRAINT eth_wallet_balances_pkey PRIMARY KEY (wallet);
-
-
---
 -- Name: events events_pkey; Type: CONSTRAINT; Schema: public; Owner: -
 --
 
@@ -11089,11 +11036,27 @@ ALTER TABLE ONLY public.sol_reward_manager_inits
 
 
 --
+-- Name: sol_slot_checkpoint sol_slot_checkpoint_pkey; Type: CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.sol_slot_checkpoint
+    ADD CONSTRAINT sol_slot_checkpoint_pkey PRIMARY KEY (id);
+
+
+--
 -- Name: sol_slot_checkpoints sol_slot_checkpoints_pkey; Type: CONSTRAINT; Schema: public; Owner: -
 --
 
 ALTER TABLE ONLY public.sol_slot_checkpoints
     ADD CONSTRAINT sol_slot_checkpoints_pkey PRIMARY KEY (id);
+
+
+--
+-- Name: sol_swaps sol_swaps_pkey; Type: CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.sol_swaps
+    ADD CONSTRAINT sol_swaps_pkey PRIMARY KEY (signature, instruction_index);
 
 
 --
@@ -11506,20 +11469,6 @@ COMMENT ON INDEX public.claimed_prizes_wallet_idx IS 'Used for getting claimed p
 
 
 --
--- Name: eth_wallet_balances_updated_at_idx; Type: INDEX; Schema: public; Owner: -
---
-
-CREATE INDEX eth_wallet_balances_updated_at_idx ON public.eth_wallet_balances USING btree (updated_at);
-
-
---
--- Name: INDEX eth_wallet_balances_updated_at_idx; Type: COMMENT; Schema: public; Owner: -
---
-
-COMMENT ON INDEX public.eth_wallet_balances_updated_at_idx IS 'Supports staleness queries / catch-up sweeps.';
-
-
---
 -- Name: fix_tracks_top_genre_users_idx; Type: INDEX; Schema: public; Owner: -
 --
 
@@ -11895,20 +11844,6 @@ COMMENT ON INDEX public.idx_sol_reward_manager_inits_mint IS 'Index to quickly f
 --
 
 CREATE INDEX idx_track_status ON public.tracks USING btree (track_id, is_unlisted, is_available, is_delete, is_current);
-
-
---
--- Name: idx_track_trending_scores_for_you; Type: INDEX; Schema: public; Owner: -
---
-
-CREATE INDEX idx_track_trending_scores_for_you ON public.track_trending_scores USING btree (score DESC, track_id) WHERE (((type)::text = 'TRACKS'::text) AND ((version)::text = 'pnagD'::text) AND ((time_range)::text = 'week'::text) AND ((genre IS NULL) OR ((genre)::text = ''::text)));
-
-
---
--- Name: INDEX idx_track_trending_scores_for_you; Type: COMMENT; Schema: public; Owner: -
---
-
-COMMENT ON INDEX public.idx_track_trending_scores_for_you IS 'Partial index for the For You feed trending/underground candidate sources; replaces a ~12s full-table scan with a small index seek.';
 
 
 --
@@ -12661,17 +12596,52 @@ CREATE INDEX sol_slot_checkpoints_to_slot_idx ON public.sol_slot_checkpoints USI
 
 
 --
+-- Name: sol_swaps_from_account_idx; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX sol_swaps_from_account_idx ON public.sol_swaps USING btree (from_account);
+
+
+--
+-- Name: sol_swaps_from_mint_idx; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX sol_swaps_from_mint_idx ON public.sol_swaps USING btree (from_mint);
+
+
+--
+-- Name: sol_swaps_to_account_idx; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX sol_swaps_to_account_idx ON public.sol_swaps USING btree (to_account);
+
+
+--
+-- Name: sol_swaps_to_mint_idx; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX sol_swaps_to_mint_idx ON public.sol_swaps USING btree (to_mint);
+
+
+--
 -- Name: sol_token_account_balance_changes_account_idx; Type: INDEX; Schema: public; Owner: -
 --
 
-CREATE INDEX sol_token_account_balance_changes_account_idx ON public.sol_token_account_balance_changes USING btree (account, slot);
+CREATE INDEX sol_token_account_balance_changes_account_idx ON public.sol_token_account_balance_changes USING btree (account, slot DESC);
 
 
 --
--- Name: INDEX sol_token_account_balance_changes_account_idx; Type: COMMENT; Schema: public; Owner: -
+-- Name: sol_token_account_balance_changes_mint_account_slot_idx; Type: INDEX; Schema: public; Owner: -
 --
 
-COMMENT ON INDEX public.sol_token_account_balance_changes_account_idx IS 'Used for getting recent transactions by account.';
+CREATE INDEX sol_token_account_balance_changes_mint_account_slot_idx ON public.sol_token_account_balance_changes USING btree (mint, account, slot DESC);
+
+
+--
+-- Name: INDEX sol_token_account_balance_changes_mint_account_slot_idx; Type: COMMENT; Schema: public; Owner: -
+--
+
+COMMENT ON INDEX public.sol_token_account_balance_changes_mint_account_slot_idx IS 'Used for getting top current balances for a mint.';
 
 
 --
@@ -12685,14 +12655,7 @@ CREATE INDEX sol_token_account_balance_changes_mint_block_timestamp ON public.so
 -- Name: sol_token_account_balance_changes_mint_idx; Type: INDEX; Schema: public; Owner: -
 --
 
-CREATE INDEX sol_token_account_balance_changes_mint_idx ON public.sol_token_account_balance_changes USING btree (mint, slot);
-
-
---
--- Name: INDEX sol_token_account_balance_changes_mint_idx; Type: COMMENT; Schema: public; Owner: -
---
-
-COMMENT ON INDEX public.sol_token_account_balance_changes_mint_idx IS 'Used for getting recent transactions by mint.';
+CREATE INDEX sol_token_account_balance_changes_mint_idx ON public.sol_token_account_balance_changes USING btree (mint, slot DESC);
 
 
 --

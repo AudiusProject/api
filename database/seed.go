@@ -512,11 +512,6 @@ var (
 			"balance": nil,
 			"slot":    1,
 		},
-		"eth_wallet_balances": {
-			"wallet":      nil,
-			"balance":     nil,
-			"blocknumber": 101,
-		},
 		"sol_claimable_accounts": {
 			"signature":         nil,
 			"instruction_index": 0,

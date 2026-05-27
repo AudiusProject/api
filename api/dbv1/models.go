@@ -1298,22 +1298,6 @@ type EthBlock struct {
 	UpdatedAt        time.Time `json:"updated_at"`
 }
 
-// Resumable backfill checkpoints for the eth-indexer (last block whose Transfer events have been processed, keyed by subscription name).
-type EthIndexerCheckpoint struct {
-	Name      string    `json:"name"`
-	LastBlock int64     `json:"last_block"`
-	UpdatedAt time.Time `json:"updated_at"`
-}
-
-// AUDIO ERC-20 balances (in wei) for tracked Ethereum wallets — primary users.wallet and chain=eth associated_wallets. Maintained event-driven by the eth-indexer (WebSocket subscription to the AUDIO Transfer topic, targeted balanceOf reads).
-type EthWalletBalance struct {
-	Wallet      string         `json:"wallet"`
-	Balance     pgtype.Numeric `json:"balance"`
-	Blocknumber pgtype.Int8    `json:"blocknumber"`
-	UpdatedAt   time.Time      `json:"updated_at"`
-	CreatedAt   time.Time      `json:"created_at"`
-}
-
 type Event struct {
 	EventID     int32               `json:"event_id"`
 	EventType   EventType           `json:"event_type"`
@@ -2655,7 +2639,6 @@ type UserTip struct {
 	UpdatedAt      time.Time `json:"updated_at"`
 }
 
-// Compatibility view that exposes sol_reward_disbursements in the column shape the API routes used to read from challenge_disbursements. Resolves user_id via the indexer-populated recipient_eth_address (see migration 0172).
 type VChallengeDisbursement struct {
 	ChallengeID string     `json:"challenge_id"`
 	Specifier   string     `json:"specifier"`
@@ -2666,49 +2649,21 @@ type VChallengeDisbursement struct {
 	UserID      int32      `json:"user_id"`
 }
 
-// Mint-agnostic transactions history derived from sol_token_account_balance_changes (the hub: only table with both mint and block_timestamp). Per-row transaction_type derived by LEFT JOIN to typed tables (sol_claimable_account_transfers, sol_reward_disbursements, sol_purchases). Callers filter by mint at query time. Powers /v1/users/{id}/transactions/audio today; will power /transactions/usdc once sol_withdrawals + vendor-memo capture land. Vendor purchase types (PURCHASE_STRIPE/COINBASE/UNKNOWN) degrade to bare transfer until that indexer work ships.
-type VTokenTransactionsHistory struct {
-	Signature       string      `json:"signature"`
-	Mint            string      `json:"mint"`
-	UserBank        string      `json:"user_bank"`
-	UserID          pgtype.Int4 `json:"user_id"`
-	TransactionDate time.Time   `json:"transaction_date"`
-	CreatedAt       time.Time   `json:"created_at"`
-	Slot            int64       `json:"slot"`
-	Change          string      `json:"change"`
-	Balance         string      `json:"balance"`
-	Method          string      `json:"method"`
-	TransactionType string      `json:"transaction_type"`
-	TxMetadata      string      `json:"tx_metadata"`
-}
-
-// Compatibility view exposing sol_purchases + sol_payments in the column shape API routes used to read from usdc_purchases. seller_user_id is the current content owner (not snapshotted at purchase time). extra_amount is amount paid minus base price from price history. vendor is intentionally dropped.
 type VUsdcPurchase struct {
 	Signature    string                  `json:"signature"`
 	Slot         int64                   `json:"slot"`
 	BuyerUserID  int32                   `json:"buyer_user_id"`
-	SellerUserID int32                   `json:"seller_user_id"`
+	SellerUserID interface{}             `json:"seller_user_id"`
 	Amount       int64                   `json:"amount"`
 	ContentType  UsdcPurchaseContentType `json:"content_type"`
 	ContentID    int32                   `json:"content_id"`
 	CreatedAt    *time.Time              `json:"created_at"`
-	UpdatedAt    *time.Time              `json:"updated_at"`
 	ExtraAmount  interface{}             `json:"extra_amount"`
 	Access       UsdcPurchaseAccessType  `json:"access"`
 	City         pgtype.Text             `json:"city"`
 	Region       pgtype.Text             `json:"region"`
 	Country      pgtype.Text             `json:"country"`
 	Splits       interface{}             `json:"splits"`
-}
-
-// Drop-in replacement for the legacy user_balances table, sourced entirely from indexer-maintained tables (eth_wallet_balances for ETH-side AUDIO+staking+delegation, sol_token_account_balances for wAUDIO). Column shape mirrors user_balances so callers swap with a table-name rename. balance / associated_wallets_balance are in wei; waudio / associated_sol_wallets_balance are in wAUDIO base units (multiply by 10^10 to compare to wei).
-type VUserBalance struct {
-	UserID                      int32       `json:"user_id"`
-	Balance                     string      `json:"balance"`
-	AssociatedWalletsBalance    string      `json:"associated_wallets_balance"`
-	Waudio                      string      `json:"waudio"`
-	AssociatedSolWalletsBalance string      `json:"associated_sol_wallets_balance"`
-	UpdatedAt                   interface{} `json:"updated_at"`
 }
 
 type VolumeLeaderExclusion struct {
