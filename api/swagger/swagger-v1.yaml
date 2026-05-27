@@ -9482,10 +9482,14 @@ paths:
       summary: Get For You feed for user
       description:
         Returns a personalized For You feed for the user identified in the
-        path. Twitter-style multi-source pipeline — candidate retrieval
-        (in-network, trending, underground) → linear ranking (recency
-        decay × engagement × social affinity, weighted by source) →
-        diversity (per-artist cap + consecutive-same-artist lookahead).
+        path. The response is a heterogenous list of tracks and
+        playlists/albums (`{type, timestamp, item}` envelope), mirroring
+        the chronological /v1/users/{id}/feed shape so clients can render
+        both in a single ranked list. Twitter-style multi-source pipeline
+        — candidate retrieval (in-network, trending, underground) →
+        linear ranking (recency decay × engagement × social affinity,
+        weighted by source) → diversity (shared per-artist cap across
+        tracks + collections + consecutive-same-artist lookahead).
       operationId: Get User For You Feed
       security:
         - {}
@@ -9519,8 +9523,9 @@ paths:
         - name: max_per_artist
           in: query
           description:
-            Maximum number of tracks per artist on a single page. Used by the
-            diversity pass to cap consecutive same-artist results.
+            Maximum number of items (tracks or playlists/albums combined)
+            per artist on a single page. Used by the diversity pass to cap
+            consecutive same-artist results.
           schema:
             type: integer
             default: 3
@@ -9537,7 +9542,7 @@ paths:
           content:
             application/json:
               schema:
-                $ref: "#/components/schemas/tracks"
+                $ref: "#/components/schemas/user_feed_response"
         "400":
           description: Bad request
           content: {}
