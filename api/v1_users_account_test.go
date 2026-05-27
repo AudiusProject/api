@@ -16,7 +16,10 @@ func TestGetUsersAccount(t *testing.T) {
 	assert.Equal(t, 200, status)
 
 	assert.Equal(t, "0x7d273271690538cf855e5b3002a0dd8c154bb060", accountResponse.Data.User.Wallet.String)
-	assert.Equal(t, (int64)(1), accountResponse.Data.TrackSaveCount)
+	// User 1 has three track saves in SaveFixtures: 100 (live), 950 (deleted
+	// track), 951 (deactivated owner). TrackSaveCount comes from
+	// aggregate_user (raw count, unfiltered) so it sees all three.
+	assert.Equal(t, (int64)(3), accountResponse.Data.TrackSaveCount)
 
 	// Check playlists
 	assert.Equal(t, 3, len(accountResponse.Data.Playlists))
