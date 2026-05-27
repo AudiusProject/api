@@ -3,193 +3,109 @@ package indexer
 import (
 	"context"
 	"fmt"
-	"time"
 
 	"api.audius.co/config"
 	dbv1 "api.audius.co/database"
 	"api.audius.co/logging"
-	"connectrpc.com/connect"
-	corev1 "github.com/OpenAudio/go-openaudio/pkg/api/core/v1"
+	etl "github.com/OpenAudio/go-openaudio/pkg/etl"
 	"github.com/OpenAudio/go-openaudio/pkg/sdk"
-	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgxpool"
 	"go.uber.org/zap"
 	"golang.org/x/sync/errgroup"
 )
 
+// CoreIndexer runs the OpenAudio ETL indexer plus the dependent api/-side
+// background jobs (aggregates, parity jobs, etc.). The block-fetching and
+// entity-manager dispatch loop that previously lived here was a stub that
+// only handled CreateUser — vendoring ETL via
+// `github.com/OpenAudio/go-openaudio/pkg/etl` gives us the full 31-entity-type
+// handler suite, materialized-view refresher, and scheduled-release publisher
+// in one package, kept in sync with upstream releases.
 type CoreIndexer struct {
 	aggregatesCalculator *AggregatesCalculator
+	etlIndexer           *etl.Indexer
 	pool                 dbv1.DbPool
 	openAudioSDK         *sdk.OpenAudioSDK
 	Config               config.Config
 	logger               *zap.Logger
-	closeCh              chan struct{}
 }
 
-const (
-	CoreIndexerCheckpointName = "api_core_indexer_last_height"
-)
+func NewIndexer(cfg config.Config) *CoreIndexer {
+	logger := logging.NewZapLogger(cfg).Named("CoreIndexer")
 
-func NewIndexer(config config.Config) *CoreIndexer {
-
-	connConfig, err := pgxpool.ParseConfig(config.WriteDbUrl)
+	connConfig, err := pgxpool.ParseConfig(cfg.WriteDbUrl)
 	if err != nil {
 		panic(fmt.Errorf("error parsing database URL: %w", err))
 	}
-
 	pool, err := pgxpool.NewWithConfig(context.Background(), connConfig)
 	if err != nil {
 		panic(fmt.Errorf("error connecting to database: %w", err))
 	}
 
-	openAudioSDK := sdk.NewOpenAudioSDK(config.AudiusdURL)
+	openAudioSDK := sdk.NewOpenAudioSDK(cfg.AudiusdURL)
+	aggregatesCalculator := NewAggregatesCalculator(cfg)
 
-	aggregatesCalculator := NewAggregatesCalculator(config)
+	// ETL needs the Connect/gRPC Core client (for block fetching) and a DB URL.
+	// SkipMigrations stays false (default): ETL's migrations are idempotent
+	// against api/'s schema — every migration uses CREATE TABLE IF NOT EXISTS /
+	// ADD COLUMN IF NOT EXISTS, and tracks state in its own `etl_db_migrations`
+	// table separate from api/'s `schema_version`. Verified by applying all 21
+	// current ETL migrations to a fresh DB seeded with api/'s schema: zero
+	// errors, only NOTICE messages for already-existing relations.
+	//
+	// Two optional ETL components are disabled here because they don't fit
+	// api/'s deployment:
+	//   - MaterializedViewRefresh: refreshes mv_dashboard_* views that don't
+	//     exist in api/'s schema (they were a go-openaudio-internal concern).
+	//   - PgNotifyListener: publishes block/play events on a PG NOTIFY channel
+	//     that api/ has no consumer for.
+	// ScheduledReleasePublisher stays enabled — it's the same job apps' Python
+	// `publish_scheduled_releases` celery task did and we want it running.
+	etlCfg := etl.DefaultConfig()
+	etlCfg.DisableMaterializedViewRefresh()
+	etlCfg.DisablePgNotifyListener()
+	etlCfg.ReadDataTypesEnv() // honors OPENAUDIO_ETL_ENTITY_MANAGER_DATA_TYPES if set
 
-	ci := &CoreIndexer{
+	etlIndexer := etl.New(openAudioSDK.Core, logger)
+	etlIndexer.SetConfig(etlCfg)
+	etlIndexer.SetDBURL(cfg.WriteDbUrl)
+	etlIndexer.SetCheckReadiness(true)
+
+	// Restore the pre-vendor setPubkeyForUser behavior via the upstream
+	// post-create hook (go-openaudio #317). Recovers the EIP-712 pubkey
+	// from each User Create tx and writes it to user_pubkeys in the same
+	// DB transaction as the user row.
+	etlIndexer.SetUserCreatedHook(newUserPubkeyHook(cfg, logger))
+
+	return &CoreIndexer{
 		aggregatesCalculator: aggregatesCalculator,
+		etlIndexer:           etlIndexer,
 		pool:                 pool,
 		openAudioSDK:         openAudioSDK,
-		Config:               config,
-		logger: logging.NewZapLogger(config).
-			Named("CoreIndexer"),
+		Config:               cfg,
+		logger:               logger,
 	}
-
-	return ci
 }
 
+// Start runs the ETL indexer alongside the aggregates calculator. Both are
+// long-lived; errgroup propagates the first error (and the ctx cancellation
+// it triggers) to all members.
+//
+// Caveat: etl.Indexer.Run() uses its own internal context.Background() rather
+// than honoring `ctx` — graceful shutdown via ctx cancellation isn't supported
+// by the upstream API today. Process termination (SIGTERM) still works the
+// way Go programs always do, and DB connections drain via pool finalizers on
+// process exit. Acceptable tradeoff to avoid forking ETL.
 func (ci *CoreIndexer) Start(ctx context.Context) error {
 	eg := errgroup.Group{}
 	eg.Go(func() error {
 		return ci.aggregatesCalculator.Start(ctx)
 	})
 	eg.Go(func() error {
-		return ci.run(ctx)
+		ci.logger.Info("Starting ETL indexer")
+		return ci.etlIndexer.Run()
 	})
 	return eg.Wait()
-}
-
-func (ci *CoreIndexer) run(ctx context.Context) error {
-	go logging.SyncOnTicks(ctx, ci.logger, time.Second*10)
-	var height int64
-	err := ci.pool.QueryRow(context.Background(), `select last_checkpoint from indexing_checkpoints where tablename = $1`, CoreIndexerCheckpointName).Scan(&height)
-	if err != nil {
-		if err == pgx.ErrNoRows {
-			nodeInfo, err := ci.openAudioSDK.Core.GetNodeInfo(context.Background(), connect.NewRequest(&corev1.GetNodeInfoRequest{}))
-			if err != nil {
-				return err
-			}
-			height = nodeInfo.Msg.CurrentHeight
-		} else {
-			return err
-		}
-	} else {
-		// If we have a checkpoint, we need to start at the next block
-		height++
-	}
-
-	ci.logger.Info("Core indexer started", zap.Int64("blockHeight", height))
-
-	for {
-		select {
-		case <-ctx.Done():
-			ci.logger.Info("Shutting down core indexer")
-			return ctx.Err()
-		default:
-		}
-		height = ci.attemptProcessNextBlock(ctx, height)
-	}
-}
-
-// Attempts to process the next block, returning height+1 if we found and
-// processed a block, or height in all other cases.
-// Will log errors and will snack on panics (yum).
-func (ci *CoreIndexer) attemptProcessNextBlock(ctx context.Context, height int64) (newHeight int64) {
-	// By default, return the same height in case we panic
-	newHeight = height
-	defer func() {
-		if r := recover(); r != nil {
-			ci.logger.Error("panic in attemptProcessNextBlock", zap.Any("panic", r))
-			// Sleep for 5 seconds in case it's a transient error
-			time.Sleep(5 * time.Second)
-		}
-	}()
-	block, err := ci.openAudioSDK.Core.GetBlock(ctx, connect.NewRequest(&corev1.GetBlockRequest{
-		Height: height,
-	}))
-	if err != nil {
-		ci.logger.Error("failed to get block", zap.Error(err))
-		return
-	}
-
-	if block.Msg.Block.Height < 0 {
-		ci.logger.Debug("No new blocks found, sleeping")
-		time.Sleep(1 * time.Second)
-		return
-	}
-
-	err = ci.handleBlock(block.Msg.Block)
-	if err != nil {
-		ci.logger.Error("failed to handle block", zap.Error(err))
-		return
-	}
-
-	newHeight = height + 1
-	return
-}
-
-func (ci *CoreIndexer) handleBlock(block *corev1.Block) error {
-	dbTx, err := ci.pool.Begin(context.Background())
-	if err != nil {
-		return err
-	}
-	defer dbTx.Rollback(context.Background())
-
-	for _, tx := range block.Transactions {
-		if txData := tx.GetTransaction(); txData != nil {
-			logger := ci.logger.With(zap.String("txHash", tx.GetHash()), zap.Int64("blockHeight", block.Height))
-			switch txData.GetTransaction().(type) {
-			case *corev1.SignedTransaction_ManageEntity:
-				em := txData.GetManageEntity()
-				if em == nil {
-					ci.logger.Error("ManageEntity transaction with empty data", zap.Any("tx", tx))
-					continue
-				}
-				err := ci.handleManageEntity(dbTx, logger, em)
-				if err != nil {
-					logger.Error("Error processing manage entity tx", zap.Error(err))
-					continue
-				}
-			}
-		}
-	}
-	_, err = dbTx.Exec(context.Background(), `
-	insert into indexing_checkpoints values ($1, $2)
-	on conflict (tablename) do update set last_checkpoint = excluded.last_checkpoint
-	`, CoreIndexerCheckpointName, block.Height)
-
-	if err != nil {
-		return err
-	}
-
-	err = dbTx.Commit(context.Background())
-	if err != nil {
-		return err
-	}
-
-	ci.logger.Debug("Indexed block", zap.Int64("blockHeight", block.Height))
-
-	return nil
-}
-
-func (ci *CoreIndexer) handleManageEntity(dbTx dbv1.DBTX, logger *zap.Logger, em *corev1.ManageEntityLegacy) error {
-	operation := em.Action + em.EntityType
-	switch operation {
-	case "CreateUser":
-		return ci.createUser(dbTx, logger, em)
-	default:
-		return nil
-	}
 }
 
 func (ci *CoreIndexer) Close() {
