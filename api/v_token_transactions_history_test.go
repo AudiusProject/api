@@ -164,6 +164,87 @@ func TestVTokenTransactionsHistory_TrendingReward(t *testing.T) {
 	})
 }
 
+// Memo-tagged transfer types: when sol_transfer_memo_types carries a row for
+// a transfer's signature, the view returns that type (withdrawal /
+// prepare_withdrawal / internal_transfer) instead of bare `transfer`. Also
+// asserts the tx_metadata override for `withdrawal` (returns to_account).
+func TestVTokenTransactionsHistory_MemoTaggedTransfers(t *testing.T) {
+	app := emptyTestApp(t)
+
+	t0 := time.Date(2024, 5, 1, 0, 0, 0, 0, time.UTC)
+	externalDest := "ExternalWithdrawDest____________________________"
+
+	fixtures := tthBaseFixtures(database.FixtureMap{
+		"sol_token_account_balance_changes": []map[string]any{
+			// Three outbound transfers from user A's bank to varied destinations.
+			{"signature": "withdraw_sig", "mint": tthWAudioMint, "owner": tthClaimablePDA, "account": tthUserABank, "change": -100, "balance": 900, "slot": 100, "block_timestamp": t0},
+			{"signature": "prep_sig", "mint": tthWAudioMint, "owner": tthClaimablePDA, "account": tthUserABank, "change": -200, "balance": 700, "slot": 200, "block_timestamp": t0.Add(time.Hour)},
+			{"signature": "intern_sig", "mint": tthWAudioMint, "owner": tthClaimablePDA, "account": tthUserABank, "change": -300, "balance": 400, "slot": 300, "block_timestamp": t0.Add(2 * time.Hour)},
+		},
+		"sol_claimable_account_transfers": []map[string]any{
+			{"signature": "withdraw_sig", "instruction_index": 1, "amount": 100, "slot": 100, "from_account": tthUserABank, "to_account": externalDest, "sender_eth_address": tthUserAWallet},
+			{"signature": "prep_sig", "instruction_index": 1, "amount": 200, "slot": 200, "from_account": tthUserABank, "to_account": externalDest, "sender_eth_address": tthUserAWallet},
+			// Internal transfer counterpart is user B (a known bank). The memo
+			// marker takes precedence over the tip branch.
+			{"signature": "intern_sig", "instruction_index": 1, "amount": 300, "slot": 300, "from_account": tthUserABank, "to_account": tthUserBBank, "sender_eth_address": tthUserAWallet},
+		},
+		"sol_transfer_memo_types": []map[string]any{
+			{"signature": "withdraw_sig", "instruction_index": 1, "slot": 100, "memo_type": "withdrawal"},
+			{"signature": "prep_sig", "instruction_index": 1, "slot": 200, "memo_type": "prepare_withdrawal"},
+			{"signature": "intern_sig", "instruction_index": 1, "slot": 300, "memo_type": "internal_transfer"},
+		},
+	})
+	database.Seed(app.pool.Replicas[0], fixtures)
+
+	// Default sort is transaction_date DESC.
+	status, body := testGet(t, app, "/v1/users/"+trashid.MustEncodeHashID(1)+"/transactions/audio")
+	assert.Equal(t, 200, status)
+	jsonAssert(t, body, map[string]any{
+		"data.#": 3,
+
+		"data.0.transaction_type": "internal_transfer",
+		"data.0.method":           "send",
+		"data.0.change":           float64(300),
+
+		"data.1.transaction_type": "prepare_withdrawal",
+		"data.1.method":           "send",
+		"data.1.change":           float64(200),
+
+		"data.2.transaction_type": "withdrawal",
+		"data.2.method":           "send",
+		"data.2.change":           float64(100),
+		// Withdrawal-specific tx_metadata: surfaces cat.to_account.
+		"data.2.metadata": externalDest,
+	})
+}
+
+// Recover-withdrawal markers are populated from the payment_router branch.
+// The view should classify the balance change as `recover_withdrawal` even
+// though there is no sol_claimable_account_transfers row for it.
+func TestVTokenTransactionsHistory_RecoverWithdrawal(t *testing.T) {
+	app := emptyTestApp(t)
+
+	t0 := time.Date(2024, 5, 2, 0, 0, 0, 0, time.UTC)
+
+	fixtures := tthBaseFixtures(database.FixtureMap{
+		"sol_token_account_balance_changes": []map[string]any{
+			{"signature": "recover_sig", "mint": tthWAudioMint, "owner": tthClaimablePDA, "account": tthUserABank, "change": 500, "balance": 500, "slot": 400, "block_timestamp": t0},
+		},
+		"sol_transfer_memo_types": []map[string]any{
+			{"signature": "recover_sig", "instruction_index": 0, "slot": 400, "memo_type": "recover_withdrawal"},
+		},
+	})
+	database.Seed(app.pool.Replicas[0], fixtures)
+
+	status, body := testGet(t, app, "/v1/users/"+trashid.MustEncodeHashID(1)+"/transactions/audio")
+	assert.Equal(t, 200, status)
+	jsonAssert(t, body, map[string]any{
+		"data.0.transaction_type": "recover_withdrawal",
+		"data.0.method":           "receive",
+		"data.0.change":           float64(500),
+	})
+}
+
 // Mint isolation: the view must not surface rows from other mints when filtered
 // to wAUDIO. Set up a USDC balance change on the same user_bank account and
 // confirm /transactions/audio doesn't return it.

@@ -51,6 +51,16 @@ func processPaymentRouterInstruction(
 				}
 			}
 
+			// Recover-withdrawal route: tag it so v_token_transactions_history
+			// reports `recover_withdrawal` instead of a bare transfer. Detected
+			// independently of the purchase-memo branch because the two memo
+			// types are mutually exclusive on chain.
+			if findTransferTypeMemo(tx) == TransferTypeRecoverWithdrawal {
+				if err := insertTransferTypeMarker(ctx, db, TransferTypeRecoverWithdrawal, signature, instructionIndex, slot); err != nil {
+					return fmt.Errorf("failed to insert recover_withdrawal marker at instruction %d: %w", instructionIndex, err)
+				}
+			}
+
 			parsedPurchaseMemo, ok := findNextPurchaseMemo(tx, instructionIndex, instLogger)
 			if ok {
 				parsedLocationMemo := findNextLocationMemo(tx, instructionIndex, instLogger)

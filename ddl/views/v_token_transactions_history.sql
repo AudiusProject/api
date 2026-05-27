@@ -18,10 +18,14 @@ SELECT
       -- Reward disbursement to this user_bank (USER_REWARD or TRENDING_REWARD).
       WHEN rd.signature IS NOT NULL THEN
         CASE WHEN c.type = 'trending' THEN 'trending_reward' ELSE 'user_reward' END
-      -- Content purchase via Payment Router (USDC). Checked before the claimable
-      -- branch since these never overlap, but ordered defensively so a purchase
-      -- never gets misclassified as a generic transfer.
+      -- Content purchase via Payment Router (USDC). Checked before the
+      -- recover_withdrawal branch because on chain they're mutually exclusive;
+      -- if both somehow appeared a content purchase is the higher-fidelity label.
       WHEN p.signature IS NOT NULL THEN 'purchase_content'
+      -- Memo-tagged transfer types. sol_transfer_memo_types is populated by
+      -- the program indexer when a recognized memo (or, for prepare_withdrawal,
+      -- the Jupiter program) accompanies the claimable transfer / route.
+      WHEN tmt.memo_type IS NOT NULL THEN tmt.memo_type
       -- Claimable Tokens transfer (in or out). Tips are claimable transfers where
       -- both endpoints resolve to distinct Audius users; everything else is a
       -- bare transfer.
@@ -38,9 +42,14 @@ SELECT
     -- Match legacy audio_transactions_history.tx_metadata format:
     --   tips: str(counterpart_user_id)
     --   rewards: challenge_id
+    --   withdrawal: the on-chain destination account (legacy stored the
+    --     resolved wallet; the Go indexer surfaces cat.to_account as the
+    --     closest equivalent — resolved-wallet capture is a follow-up).
     --   else: null
     CASE
       WHEN rd.signature IS NOT NULL THEN rd.challenge_id
+      WHEN tmt.memo_type = 'withdrawal' AND cat.to_account IS NOT NULL
+        THEN cat.to_account
       WHEN cat.signature IS NOT NULL AND bc.change > 0 AND from_owner.user_id IS NOT NULL
         THEN from_owner.user_id::text
       WHEN cat.signature IS NOT NULL AND bc.change < 0 AND to_owner.user_id IS NOT NULL
@@ -76,6 +85,8 @@ LEFT JOIN challenges c
     ON c.id = rd.challenge_id
 LEFT JOIN sol_purchases p
     ON p.signature = bc.signature
-   AND p.from_account = bc.account;
+   AND p.from_account = bc.account
+LEFT JOIN sol_transfer_memo_types tmt
+    ON tmt.signature = bc.signature;
 
-COMMENT ON VIEW v_token_transactions_history IS 'Mint-agnostic transactions history derived from sol_token_account_balance_changes (the hub: only table with both mint and block_timestamp). Per-row transaction_type derived by LEFT JOIN to typed tables (sol_claimable_account_transfers, sol_reward_disbursements, sol_purchases). Callers filter by mint at query time. Powers /v1/users/{id}/transactions/audio today; will power /transactions/usdc once sol_withdrawals + vendor-memo capture land. Vendor purchase types (PURCHASE_STRIPE/COINBASE/UNKNOWN) degrade to bare transfer until that indexer work ships.';
+COMMENT ON VIEW v_token_transactions_history IS 'Mint-agnostic transactions history derived from sol_token_account_balance_changes (the hub: only table with both mint and block_timestamp). Per-row transaction_type derived by LEFT JOIN to typed tables (sol_claimable_account_transfers, sol_reward_disbursements, sol_purchases, sol_transfer_memo_types). Callers filter by mint at query time. Vendor purchase types (PURCHASE_STRIPE/COINBASE/UNKNOWN) on AUDIO still degrade to bare transfer until the AUDIO mint subscription + vendor-memo capture land.';
