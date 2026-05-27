@@ -76,6 +76,19 @@ func processClaimableTokensInstruction(
 						return fmt.Errorf("failed to parse signed transfer data at instruction %d: %w", instructionIndex-1, err)
 					}
 				}
+				// Insert the memo marker BEFORE the transfer row so the
+				// AFTER INSERT trigger on sol_claimable_account_transfers
+				// (handle_sol_usdc_withdrawal) can resolve the memo_type when
+				// it fires — without this ordering it would default every
+				// outbound USDC notification to `usdc_transfer`.
+				transferType := findTransferTypeMemo(tx)
+				if transferType == TransferTypeUnknown && transactionTouchesJupiter(tx) {
+					transferType = TransferTypePrepareWithdrawal
+				}
+				if err := insertTransferTypeMarker(ctx, db, transferType, signature, instructionIndex, slot); err != nil {
+					return fmt.Errorf("failed to insert transfer-type marker at instruction %d: %w", instructionIndex, err)
+				}
+
 				err = insertClaimableAccountTransfer(ctx, db, claimableAccountTransfersRow{
 					signature:        signature,
 					instructionIndex: instructionIndex,
@@ -87,16 +100,6 @@ func processClaimableTokensInstruction(
 				})
 				if err != nil {
 					return fmt.Errorf("failed to insert claimable tokens transfer at instruction %d: %w", instructionIndex, err)
-				}
-
-				// Classify by memo (or by Jupiter presence) into one of the
-				// derived tables that v_token_transactions_history reads.
-				transferType := findTransferTypeMemo(tx)
-				if transferType == TransferTypeUnknown && transactionTouchesJupiter(tx) {
-					transferType = TransferTypePrepareWithdrawal
-				}
-				if err := insertTransferTypeMarker(ctx, db, transferType, signature, instructionIndex, slot); err != nil {
-					return fmt.Errorf("failed to insert transfer-type marker at instruction %d: %w", instructionIndex, err)
 				}
 
 				instLogger.Info("claimable_tokens transfer",
