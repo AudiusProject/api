@@ -56,8 +56,8 @@ SELECT
   is_deactivated,
   is_available,
   wallet as erc_wallet,
-  user_bank_accounts.bank_account as spl_wallet,
-  usdc_user_bank_accounts.bank_account as usdc_wallet,
+  spl_user_bank.account as spl_wallet,
+  usdc_user_bank.account as usdc_wallet,
   spl_usdc_payout_wallet,
   supporter_count,
   supporting_count,
@@ -91,7 +91,7 @@ SELECT
   -- payout wallet
   coalesce(
     spl_usdc_payout_wallet,
-    usdc_user_bank_accounts.bank_account,
+    usdc_user_bank.account,
     ''
   )::text as payout_wallet,
 
@@ -228,8 +228,12 @@ SELECT
 FROM users u
 JOIN aggregate_user using (user_id)
 LEFT JOIN v_user_balances using (user_id)
-LEFT JOIN user_bank_accounts on u.wallet = user_bank_accounts.ethereum_address
-LEFT JOIN usdc_user_bank_accounts on u.wallet = usdc_user_bank_accounts.ethereum_address
+LEFT JOIN sol_claimable_accounts spl_user_bank
+  ON spl_user_bank.ethereum_address = u.wallet
+  AND spl_user_bank.mint = '9LzCMqDgTKYz9Drzqnpgee3SGa89up3a247ypMj2xrqM' -- wAUDIO
+LEFT JOIN sol_claimable_accounts usdc_user_bank
+  ON usdc_user_bank.ethereum_address = u.wallet
+  AND usdc_user_bank.mint = 'EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v' -- USDC
 WHERE u.user_id = ANY($2::int[])
 ORDER BY u.user_id
 `
@@ -303,6 +307,9 @@ type GetUsersRow struct {
 	ArtistCoinBadge                json.RawMessage `json:"artist_coin_badge"`
 }
 
+// Each user has at most one Claimable Tokens account per mint in practice;
+// this preserves the same join shape (and edge cases) as the legacy
+// user_bank_accounts / usdc_user_bank_accounts joins it replaces.
 func (q *Queries) GetUsers(ctx context.Context, arg GetUsersParams) ([]GetUsersRow, error) {
 	rows, err := q.db.Query(ctx, getUsers, arg.MyID, arg.Ids)
 	if err != nil {

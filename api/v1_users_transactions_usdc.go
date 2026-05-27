@@ -11,6 +11,9 @@ import (
 	"github.com/jackc/pgx/v5/pgtype"
 )
 
+// USDC mint on mainnet — used to filter v_token_transactions_history.
+const usdcMint = "EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v"
+
 type UsdcTransaction struct {
 	TransactionDate time.Time   `json:"transaction_date"`
 	TransactionType string      `json:"transaction_type"`
@@ -32,6 +35,11 @@ type GetUsdcTransactionsParams struct {
 	TransactionMethod         string   `query:"method" default:"" validate:"omitempty,oneof=send receive"`
 }
 
+// Legacy `usdc_transactions_history.transaction_type` values still accepted on
+// the query string. Values not derivable from v_token_transactions_history
+// (purchase_stripe, internal_transfer, prepare_withdrawal, recover_withdrawal,
+// withdrawal) will simply match zero rows until the Go indexer grows vendor
+// memo capture + a sol_withdrawals table.
 var validTransactionTypes = []string{
 	"purchase_content",
 	"transfer",
@@ -48,7 +56,7 @@ func (app *ApiServer) v1UsersTransactionsUsdc(c *fiber.Ctx) error {
 		return err
 	}
 
-	filters := []string{"users.is_current = TRUE"}
+	filters := []string{"mint = @mint", "user_id = @user_id::int"}
 
 	transactionTypes := queryParams.TransactionTypes
 	if len(transactionTypes) > 0 {
@@ -68,35 +76,30 @@ func (app *ApiServer) v1UsersTransactionsUsdc(c *fiber.Ctx) error {
 		filters = append(filters, `method = @transaction_method`)
 	}
 
-	var orderBy string
-	var sortDirection string
-	switch queryParams.SortDirection {
-	case "asc":
+	var sortDirection = "desc"
+	if queryParams.SortDirection == "asc" {
 		sortDirection = "asc"
-	case "desc":
-		sortDirection = "desc"
 	}
 
+	var orderBy string
 	switch queryParams.SortMethod {
 	case "date":
-		orderBy = fmt.Sprintf("uth.created_at %s", sortDirection)
+		orderBy = fmt.Sprintf("transaction_date %s", sortDirection)
 	case "transaction_type":
-		orderBy = fmt.Sprintf("transaction_type %s, uth.created_at desc", sortDirection)
+		orderBy = fmt.Sprintf("transaction_type %s, transaction_date desc", sortDirection)
 	}
 
 	sql := `
-	SELECT uth.created_at as transaction_date, transaction_type, uth.signature, method, uth.user_bank, tx_metadata as metadata, change::text, balance::text
-	FROM users
-	JOIN usdc_user_bank_accounts uba ON uba.ethereum_address = users.wallet
-	JOIN usdc_transactions_history uth ON uth.user_bank = uba.bank_account
-	WHERE users.user_id = @user_id::int
-	AND ` + strings.Join(filters, " AND ") + `
+	SELECT transaction_date, transaction_type, signature, method, user_bank, tx_metadata AS metadata, change, balance
+	FROM v_token_transactions_history
+	WHERE ` + strings.Join(filters, " AND ") + `
 	ORDER BY ` + orderBy + `
 	LIMIT @limit_val
 	OFFSET @offset_val;
 	`
 
 	params := pgx.NamedArgs{
+		"mint":               usdcMint,
 		"user_id":            app.getUserId(c),
 		"transaction_types":  transactionTypes,
 		"limit_val":          queryParams.Limit,
@@ -124,7 +127,7 @@ func (app *ApiServer) v1UsersTransactionsUsdcCount(c *fiber.Ctx) error {
 	if err := app.ParseAndValidateQueryParams(c, &queryParams); err != nil {
 		return err
 	}
-	filters := []string{"users.is_current = TRUE"}
+	filters := []string{"mint = @mint", "user_id = @user_id::int"}
 
 	transactionTypes := queryParams.TransactionTypes
 	if len(transactionTypes) > 0 {
@@ -146,13 +149,11 @@ func (app *ApiServer) v1UsersTransactionsUsdcCount(c *fiber.Ctx) error {
 
 	sql := `
 		SELECT count(*)
-		FROM users
-		JOIN usdc_user_bank_accounts uba ON uba.ethereum_address = users.wallet
-		JOIN usdc_transactions_history uth ON uth.user_bank = uba.bank_account
-		WHERE users.user_id = @user_id::int
-		AND ` + strings.Join(filters, " AND ") + `;`
+		FROM v_token_transactions_history
+		WHERE ` + strings.Join(filters, " AND ") + `;`
 
 	params := pgx.NamedArgs{
+		"mint":               usdcMint,
 		"user_id":            app.getUserId(c),
 		"transaction_types":  transactionTypes,
 		"transaction_method": queryParams.TransactionMethod,

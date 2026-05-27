@@ -8,53 +8,74 @@ import (
 	"github.com/stretchr/testify/assert"
 )
 
-func TestV1UsersWithdrawalsDownload(t *testing.T) {
-	userWallet := "0x7d273271690538cf855e5b3002a0dd8c154bb060"
-	app := emptyTestApp(t)
-
-	fixtures := database.FixtureMap{
+// withdrawalFixtures seeds the sol_* tables that
+// /v1/users/{id}/withdrawals/download now reads from. Mirrors the two
+// outbound USDC transfers the legacy fixture set used to assert on.
+func withdrawalFixtures(userWallet string) database.FixtureMap {
+	usdcBank := "User1UsdcBank_withdrawals_test_____________"
+	return database.FixtureMap{
 		"users": []map[string]any{
 			{"user_id": 1, "handle": "user1", "name": "user1", "wallet": userWallet, "is_current": true},
 		},
-		"usdc_user_bank_accounts": []map[string]any{
+		"sol_claimable_accounts": []map[string]any{
 			{
-				"bank_account":     "bank123",
-				"ethereum_address": userWallet,
-				"created_at":       time.Now(),
-				"signature":        "sig123",
+				"signature":         "withdrawal_test_create",
+				"instruction_index": 0,
+				"slot":              1,
+				"mint":              "EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v", // USDC
+				"ethereum_address":  userWallet,
+				"account":           usdcBank,
 			},
 		},
-		"usdc_transactions_history": []map[string]any{
+		"sol_token_account_balance_changes": []map[string]any{
 			{
-				"user_bank":              "bank123",
-				"slot":                   101,
-				"signature":              "tx_sig_1",
-				"transaction_type":       "transfer",
-				"method":                 "send",
-				"created_at":             time.Now(),
-				"updated_at":             time.Now(),
-				"transaction_created_at": time.Date(2024, 6, 4, 0, 0, 0, 0, time.UTC),
-				"tx_metadata":            "0x1234567890abcdef1234567890abcdef12345678",
-				"change":                 -500000,
-				"balance":                1000000,
+				"signature":       "tx_sig_1",
+				"mint":            "EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v",
+				"owner":           "claimable-tokens-pda",
+				"account":         usdcBank,
+				"change":          -500000,
+				"balance":         1000000,
+				"slot":            101,
+				"block_timestamp": time.Date(2024, 6, 4, 0, 0, 0, 0, time.UTC),
 			},
 			{
-				"user_bank":              "bank123",
-				"slot":                   102,
-				"signature":              "tx_sig_2",
-				"transaction_type":       "transfer",
-				"method":                 "send",
-				"created_at":             time.Now(),
-				"updated_at":             time.Now(),
-				"transaction_created_at": time.Date(2024, 6, 5, 0, 0, 0, 0, time.UTC),
-				"tx_metadata":            "0xabcdef1234567890abcdef1234567890abcdef12",
-				"change":                 -1000000,
-				"balance":                500000,
+				"signature":       "tx_sig_2",
+				"mint":            "EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v",
+				"owner":           "claimable-tokens-pda",
+				"account":         usdcBank,
+				"change":          -1000000,
+				"balance":         500000,
+				"slot":            102,
+				"block_timestamp": time.Date(2024, 6, 5, 0, 0, 0, 0, time.UTC),
+			},
+		},
+		"sol_claimable_account_transfers": []map[string]any{
+			{
+				"signature":          "tx_sig_1",
+				"instruction_index":  0,
+				"amount":             500000,
+				"slot":               101,
+				"from_account":       usdcBank,
+				"to_account":         "0x1234567890abcdef1234567890abcdef12345678",
+				"sender_eth_address": userWallet,
+			},
+			{
+				"signature":          "tx_sig_2",
+				"instruction_index":  0,
+				"amount":             1000000,
+				"slot":               102,
+				"from_account":       usdcBank,
+				"to_account":         "0xabcdef1234567890abcdef1234567890abcdef12",
+				"sender_eth_address": userWallet,
 			},
 		},
 	}
+}
 
-	database.Seed(app.writePool, fixtures)
+func TestV1UsersWithdrawalsDownload(t *testing.T) {
+	userWallet := "0x7d273271690538cf855e5b3002a0dd8c154bb060"
+	app := emptyTestApp(t)
+	database.Seed(app.writePool, withdrawalFixtures(userWallet))
 
 	// json
 	{
@@ -88,14 +109,14 @@ func TestV1UsersWithdrawalsDownload(t *testing.T) {
 		assert.Equal(t, 2, len(dataRows))
 
 		row1 := dataRows[0]
-		assert.Equal(t, "0xabcdef1234567890abcdef1234567890abcdef12", row1[0]) // destination wallet
-		assert.Equal(t, "2024-06-05T00:00:00Z", row1[1])                       // date
-		assert.Equal(t, "1.000000", row1[2])                                   // amount
+		assert.Equal(t, "0xabcdef1234567890abcdef1234567890abcdef12", row1[0])
+		assert.Equal(t, "2024-06-05T00:00:00Z", row1[1])
+		assert.Equal(t, "1.000000", row1[2])
 
 		row2 := dataRows[1]
-		assert.Equal(t, "0x1234567890abcdef1234567890abcdef12345678", row2[0]) // destination wallet
-		assert.Equal(t, "2024-06-04T00:00:00Z", row2[1])                       // date
-		assert.Equal(t, "0.500000", row2[2])                                   // amount
+		assert.Equal(t, "0x1234567890abcdef1234567890abcdef12345678", row2[0])
+		assert.Equal(t, "2024-06-04T00:00:00Z", row2[1])
+		assert.Equal(t, "0.500000", row2[2])
 	}
 
 	// Test 403 with no wallet
@@ -106,7 +127,7 @@ func TestV1UsersWithdrawalsDownload(t *testing.T) {
 
 	// Test 403 with unauthorized wallet
 	{
-		unauthorizedWallet := "0x855d28d495ec1b06364bb7a521212753e2190b95" // wallet without grants
+		unauthorizedWallet := "0x855d28d495ec1b06364bb7a521212753e2190b95"
 		status, _ := testGetWithWallet(t, app, "/v1/users/7eP5n/withdrawals/download/json", unauthorizedWallet)
 		assert.Equal(t, 403, status)
 	}
@@ -117,60 +138,21 @@ func TestV1UsersWithdrawalsDownloadWithGrantee(t *testing.T) {
 	user3Wallet := "0x4954d18926ba0ed9378938444731be4e622537b2"
 	app := emptyTestApp(t)
 
-	fixtures := database.FixtureMap{
-		"users": []map[string]any{
-			{"user_id": 1, "handle": "user1", "name": "user1", "wallet": user1Wallet, "is_current": true},
-			{"user_id": 2, "handle": "grantee", "name": "grantee", "wallet": user3Wallet},
-		},
-		"usdc_user_bank_accounts": []map[string]any{
-			{
-				"bank_account":     "bank123",
-				"ethereum_address": user1Wallet,
-				"created_at":       time.Now(),
-				"signature":        "sig123",
-			},
-		},
-		"usdc_transactions_history": []map[string]any{
-			{
-				"user_bank":              "bank123",
-				"slot":                   101,
-				"signature":              "tx_sig_1",
-				"transaction_type":       "transfer",
-				"method":                 "send",
-				"created_at":             time.Now(),
-				"updated_at":             time.Now(),
-				"transaction_created_at": time.Date(2024, 6, 4, 0, 0, 0, 0, time.UTC),
-				"tx_metadata":            "0x1234567890abcdef1234567890abcdef12345678",
-				"change":                 -500000,
-				"balance":                1000000,
-			},
-			{
-				"user_bank":              "bank123",
-				"slot":                   102,
-				"signature":              "tx_sig_2",
-				"transaction_type":       "transfer",
-				"method":                 "send",
-				"created_at":             time.Now(),
-				"updated_at":             time.Now(),
-				"transaction_created_at": time.Date(2024, 6, 5, 0, 0, 0, 0, time.UTC),
-				"tx_metadata":            "0xabcdef1234567890abcdef1234567890abcdef12",
-				"change":                 -1000000,
-				"balance":                500000,
-			},
-		},
-		"grants": []map[string]any{
-			{
-				"user_id":         1,           // user1
-				"grantee_address": user3Wallet, // grantee wallet
-				"is_current":      true,
-				"is_approved":     true,
-				"is_revoked":      false,
-				"created_at":      time.Now(),
-				"updated_at":      time.Now(),
-			},
+	fixtures := withdrawalFixtures(user1Wallet)
+	fixtures["users"] = append(fixtures["users"],
+		map[string]any{"user_id": 2, "handle": "grantee", "name": "grantee", "wallet": user3Wallet},
+	)
+	fixtures["grants"] = []map[string]any{
+		{
+			"user_id":         1,
+			"grantee_address": user3Wallet,
+			"is_current":      true,
+			"is_approved":     true,
+			"is_revoked":      false,
+			"created_at":      time.Now(),
+			"updated_at":      time.Now(),
 		},
 	}
-
 	database.Seed(app.writePool, fixtures)
 
 	// Test JSON with grantee wallet
@@ -205,14 +187,14 @@ func TestV1UsersWithdrawalsDownloadWithGrantee(t *testing.T) {
 		assert.Equal(t, 2, len(dataRows))
 
 		row1 := dataRows[0]
-		assert.Equal(t, "0xabcdef1234567890abcdef1234567890abcdef12", row1[0]) // destination wallet
-		assert.Equal(t, "2024-06-05T00:00:00Z", row1[1])                       // date
-		assert.Equal(t, "1.000000", row1[2])                                   // amount
+		assert.Equal(t, "0xabcdef1234567890abcdef1234567890abcdef12", row1[0])
+		assert.Equal(t, "2024-06-05T00:00:00Z", row1[1])
+		assert.Equal(t, "1.000000", row1[2])
 
 		row2 := dataRows[1]
-		assert.Equal(t, "0x1234567890abcdef1234567890abcdef12345678", row2[0]) // destination wallet
-		assert.Equal(t, "2024-06-04T00:00:00Z", row2[1])                       // date
-		assert.Equal(t, "0.500000", row2[2])                                   // amount
+		assert.Equal(t, "0x1234567890abcdef1234567890abcdef12345678", row2[0])
+		assert.Equal(t, "2024-06-04T00:00:00Z", row2[1])
+		assert.Equal(t, "0.500000", row2[2])
 	}
 
 	// Test 403 with no wallet
@@ -223,7 +205,7 @@ func TestV1UsersWithdrawalsDownloadWithGrantee(t *testing.T) {
 
 	// Test 403 with unauthorized wallet (wallet without grants)
 	{
-		unauthorizedWallet := "0x855d28d495ec1b06364bb7a521212753e2190b95" // wallet without grants
+		unauthorizedWallet := "0x855d28d495ec1b06364bb7a521212753e2190b95"
 		status, _ := testGetWithWallet(t, app, "/v1/users/7eP5n/withdrawals/download/json", unauthorizedWallet)
 		assert.Equal(t, 403, status)
 	}
