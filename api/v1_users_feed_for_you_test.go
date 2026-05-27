@@ -1,6 +1,7 @@
 package api
 
 import (
+	"encoding/json"
 	"fmt"
 	"testing"
 	"time"
@@ -12,13 +13,23 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-// feedForYouFixtures builds a small graph that exercises the in-network
-// and trending candidate sources plus the standard filters.
+// feedForYouItem mirrors the heterogenous feed envelope on the wire:
+// {type, timestamp, item}. The item is left as raw JSON so tests can
+// pick out whichever entity-shape fields they need.
+type feedForYouItem struct {
+	Type      string          `json:"type"`
+	Timestamp time.Time       `json:"timestamp"`
+	Item      json.RawMessage `json:"item"`
+}
+
+// feedForYouFixtures builds a small graph that exercises the in-network,
+// trending, and underground candidate sources for BOTH tracks and
+// playlists, plus the standard filters.
 //
 //	user 1 = me (the viewer)
-//	user 2 = an artist I follow         -> in-network candidates
-//	user 3 = an artist I do NOT follow  -> trending candidate
-//	user 4 = an underground artist      -> underground candidate
+//	user 2 = an artist I follow         -> in-network track + playlist
+//	user 3 = an artist I do NOT follow  -> trending track + playlist
+//	user 4 = an underground artist      -> underground track + playlist
 //	user 7 = a deactivated artist       -> filter test
 //	user 8 = saved artist               -> already-saved filter
 func feedForYouFixtures() database.FixtureMap {
@@ -53,17 +64,38 @@ func feedForYouFixtures() database.FixtureMap {
 		{"track_id": 902, "owner_id": 2, "title": "deleted", "created_at": hoursAgo(2), "is_delete": true},
 	}
 
+	playlists := []map[string]any{
+		// In-network playlist: recent, by a user I follow.
+		{"playlist_id": 1101, "playlist_owner_id": 2, "playlist_name": "in-network playlist", "is_album": false, "is_private": false, "playlist_contents": "{}", "created_at": hoursAgo(3), "updated_at": hoursAgo(3)},
+		// Trending playlist by someone I don't follow.
+		{"playlist_id": 1201, "playlist_owner_id": 3, "playlist_name": "trending playlist", "is_album": false, "is_private": false, "playlist_contents": "{}", "created_at": hoursAgo(96), "updated_at": hoursAgo(96)},
+		// Underground playlist by sub-1500 follower artist.
+		{"playlist_id": 1301, "playlist_owner_id": 4, "playlist_name": "underground playlist", "is_album": false, "is_private": false, "playlist_contents": "{}", "created_at": hoursAgo(60), "updated_at": hoursAgo(60)},
+		// Already-saved playlist (should be filtered out).
+		{"playlist_id": 1801, "playlist_owner_id": 8, "playlist_name": "already saved playlist", "is_album": false, "is_private": false, "playlist_contents": "{}", "created_at": hoursAgo(120), "updated_at": hoursAgo(120)},
+		// Private playlist by a user I follow (should be filtered out).
+		{"playlist_id": 1102, "playlist_owner_id": 2, "playlist_name": "private playlist", "is_album": false, "is_private": true, "playlist_contents": "{}", "created_at": hoursAgo(3), "updated_at": hoursAgo(3)},
+		// Deleted playlist (should be filtered out).
+		{"playlist_id": 1103, "playlist_owner_id": 2, "playlist_name": "deleted playlist", "is_album": false, "is_private": false, "playlist_contents": "{}", "created_at": hoursAgo(3), "updated_at": hoursAgo(3), "is_delete": true},
+	}
+
 	follows := []map[string]any{
 		{"follower_user_id": 1, "followee_user_id": 2},
 	}
 
 	saves := []map[string]any{
 		{"user_id": 1, "save_item_id": 801, "save_type": "track"},
+		{"user_id": 1, "save_item_id": 1801, "save_type": "playlist"},
 	}
 
 	trackTrendingScores := []map[string]any{
 		{"track_id": 201, "score": 9_000_000_000, "time_range": "week"},
 		{"track_id": 301, "score": 5_000_000_000, "time_range": "week"},
+	}
+
+	playlistTrendingScores := []map[string]any{
+		{"playlist_id": 1201, "type": "PLAYLISTS", "version": "pnagD", "time_range": "week", "score": 9_000_000_000.0},
+		{"playlist_id": 1301, "type": "PLAYLISTS", "version": "pnagD", "time_range": "week", "score": 5_000_000_000.0},
 	}
 
 	aggregateTrack := []map[string]any{
@@ -73,14 +105,23 @@ func feedForYouFixtures() database.FixtureMap {
 		{"track_id": 301, "save_count": 30, "repost_count": 10},
 	}
 
+	aggregatePlaylist := []map[string]any{
+		{"playlist_id": 1101, "is_album": false, "save_count": 4, "repost_count": 1},
+		{"playlist_id": 1201, "is_album": false, "save_count": 80, "repost_count": 30},
+		{"playlist_id": 1301, "is_album": false, "save_count": 20, "repost_count": 5},
+	}
+
 	return database.FixtureMap{
-		"users":                 users,
-		"aggregate_user":        aggregateUser,
-		"tracks":                tracks,
-		"follows":               follows,
-		"saves":                 saves,
-		"track_trending_scores": trackTrendingScores,
-		"aggregate_track":       aggregateTrack,
+		"users":                    users,
+		"aggregate_user":           aggregateUser,
+		"tracks":                   tracks,
+		"playlists":                playlists,
+		"follows":                  follows,
+		"saves":                    saves,
+		"track_trending_scores":    trackTrendingScores,
+		"playlist_trending_scores": playlistTrendingScores,
+		"aggregate_track":          aggregateTrack,
+		"aggregate_playlist":       aggregatePlaylist,
 	}
 }
 
@@ -110,7 +151,7 @@ func TestV1FeedForYou_EmptyFeedForNewUser(t *testing.T) {
 	})
 
 	var response struct {
-		Data []dbv1.Track
+		Data []feedForYouItem
 	}
 	path := "/v1/users/" + trashid.MustEncodeHashID(42) + "/feed/for-you"
 	status, body := testGet(t, app, path, &response)
@@ -119,35 +160,148 @@ func TestV1FeedForYou_EmptyFeedForNewUser(t *testing.T) {
 }
 
 // TestV1FeedForYou_PaginationDoesNotRepeat asserts that two consecutive
-// pages of the diversity-ordered list don't overlap on track ids.
+// pages of the diversity-ordered list don't overlap on (type, id).
 func TestV1FeedForYou_PaginationDoesNotRepeat(t *testing.T) {
 	app := emptyTestApp(t)
 	app.skipAuthCheck = true
 	database.Seed(app.pool.Replicas[0], feedForYouFixtures())
 
-	page := func(limit, offset int) []int32 {
+	page := func(limit, offset int) []string {
 		var resp struct {
-			Data []dbv1.Track
+			Data []feedForYouItem
 		}
 		path := fmt.Sprintf("/v1/users/%s/feed/for-you?limit=%d&offset=%d",
 			trashid.MustEncodeHashID(1), limit, offset)
 		status, body := testGet(t, app, path, &resp)
 		require.Equal(t, 200, status, string(body))
-		ids := make([]int32, len(resp.Data))
-		for i, tr := range resp.Data {
-			ids[i] = tr.TrackID
+		keys := make([]string, len(resp.Data))
+		for i, it := range resp.Data {
+			// Pull the id out of the wrapped track/playlist payload.
+			var idHolder struct {
+				ID         string `json:"id"`
+				PlaylistID string `json:"playlist_id"`
+				TrackID    string `json:"track_id"`
+			}
+			_ = json.Unmarshal(it.Item, &idHolder)
+			id := idHolder.ID
+			if id == "" {
+				id = idHolder.PlaylistID
+			}
+			if id == "" {
+				id = idHolder.TrackID
+			}
+			keys[i] = fmt.Sprintf("%s:%s", it.Type, id)
 		}
-		return ids
+		return keys
 	}
 
 	first := page(2, 0)
 	second := page(2, 2)
 
-	seen := map[int32]bool{}
-	for _, id := range first {
-		seen[id] = true
+	seen := map[string]bool{}
+	for _, k := range first {
+		seen[k] = true
 	}
-	for _, id := range second {
-		assert.Falsef(t, seen[id], "track %d appeared on both pages", id)
+	for _, k := range second {
+		assert.Falsef(t, seen[k], "item %s appeared on both pages", k)
 	}
+}
+
+// TestV1FeedForYou_IncludesCollections asserts that with both tracks
+// and playlists available across all three candidate sources, the feed
+// surfaces a mix of types — not tracks-only.
+func TestV1FeedForYou_IncludesCollections(t *testing.T) {
+	app := emptyTestApp(t)
+	app.skipAuthCheck = true
+	database.Seed(app.pool.Replicas[0], feedForYouFixtures())
+
+	var resp struct {
+		Data []feedForYouItem
+	}
+	// Pull a wide page so all 3 in-network + 2 trending + 2 underground
+	// playlists have a chance to land alongside the tracks.
+	path := fmt.Sprintf("/v1/users/%s/feed/for-you?limit=20", trashid.MustEncodeHashID(1))
+	status, body := testGet(t, app, path, &resp)
+	require.Equal(t, 200, status, string(body))
+
+	var (
+		sawTrack    bool
+		sawPlaylist bool
+		ids         = map[string]bool{}
+	)
+	for _, it := range resp.Data {
+		switch it.Type {
+		case "track":
+			sawTrack = true
+		case "playlist":
+			sawPlaylist = true
+		}
+
+		// Filtered/already-saved entities should never show up.
+		var idHolder struct {
+			PlaylistID string `json:"playlist_id"`
+			TrackID    string `json:"track_id"`
+		}
+		_ = json.Unmarshal(it.Item, &idHolder)
+		key := fmt.Sprintf("%s:%s%s", it.Type, idHolder.PlaylistID, idHolder.TrackID)
+		ids[key] = true
+	}
+	assert.True(t, sawTrack, "expected at least one track in the for-you feed")
+	assert.True(t, sawPlaylist, "expected at least one playlist in the for-you feed")
+	assert.False(t, ids["playlist:"+trashid.MustEncodeHashID(1801)],
+		"already-saved playlist 1801 must not appear")
+	assert.False(t, ids["playlist:"+trashid.MustEncodeHashID(1102)],
+		"private playlist 1102 must not appear")
+	assert.False(t, ids["playlist:"+trashid.MustEncodeHashID(1103)],
+		"deleted playlist 1103 must not appear")
+	assert.False(t, ids["track:"+trashid.MustEncodeHashID(701)],
+		"deactivated-owner track 701 must not appear")
+}
+
+// TestV1FeedForYou_PerArtistCapIsShared asserts that max_per_artist
+// applies across both tracks and playlists for the same owner — the
+// diversity cap is shared, not per-type. User 2 (followed) has 2 tracks
+// and 1 in-network playlist; with max_per_artist=1 we should see at
+// most 1 item from user 2 on a page.
+func TestV1FeedForYou_PerArtistCapIsShared(t *testing.T) {
+	app := emptyTestApp(t)
+	app.skipAuthCheck = true
+	database.Seed(app.pool.Replicas[0], feedForYouFixtures())
+
+	var (
+		_   dbv1.Track    // keep import alive even if Track shape is unused below
+		_   dbv1.Playlist // ditto for Playlist
+		_   = time.Time{} //
+	)
+
+	var resp struct {
+		Data []feedForYouItem
+	}
+	path := fmt.Sprintf("/v1/users/%s/feed/for-you?limit=20&max_per_artist=1",
+		trashid.MustEncodeHashID(1))
+	status, body := testGet(t, app, path, &resp)
+	require.Equal(t, 200, status, string(body))
+
+	// Count entities authored by user 2. Track owner is `user_id`;
+	// playlist owner is `user.user_id` inside the wrapped user object on
+	// playlists. To stay schema-agnostic in this test we pull the owner
+	// hash id out of either `user.id` (playlist shape) or `user.id`
+	// (track shape) — both pin owner_id to the same nested user.
+	type idHolder struct {
+		User struct {
+			ID string `json:"id"`
+		} `json:"user"`
+	}
+	user2 := trashid.MustEncodeHashID(2)
+	var fromUser2 int
+	for _, it := range resp.Data {
+		var h idHolder
+		_ = json.Unmarshal(it.Item, &h)
+		if h.User.ID == user2 {
+			fromUser2++
+		}
+	}
+	assert.LessOrEqualf(t, fromUser2, 1,
+		"max_per_artist=1 should produce at most 1 item from user 2 across track+playlist, got %d",
+		fromUser2)
 }
