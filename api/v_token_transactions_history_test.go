@@ -245,6 +245,48 @@ func TestVTokenTransactionsHistory_RecoverWithdrawal(t *testing.T) {
 	})
 }
 
+// AUDIO vendor purchases (Stripe / Coinbase / Unknown) — populated by the
+// token indexer when it detects the "In-App $AUDIO Purchase: <Vendor>" memo
+// on an inbound wAUDIO transfer. The view returns memo_type directly as
+// transaction_type, so the indexer just needs to write the right string.
+func TestVTokenTransactionsHistory_AudioVendorPurchases(t *testing.T) {
+	cases := []struct {
+		memoType        string
+		transactionType string
+	}{
+		{"purchase_stripe", "purchase_stripe"},
+		{"purchase_coinbase", "purchase_coinbase"},
+		{"purchase_unknown", "purchase_unknown"},
+	}
+	for _, c := range cases {
+		t.Run(c.memoType, func(t *testing.T) {
+			app := emptyTestApp(t)
+			t0 := time.Date(2024, 5, 3, 0, 0, 0, 0, time.UTC)
+			sig := "vendor_sig_" + c.memoType
+
+			fixtures := tthBaseFixtures(database.FixtureMap{
+				// Direct SPL token transfer in — no claimable_account_transfers
+				// row, just the balance change + memo marker.
+				"sol_token_account_balance_changes": []map[string]any{
+					{"signature": sig, "mint": tthWAudioMint, "owner": tthClaimablePDA, "account": tthUserABank, "change": 50000, "balance": 50000, "slot": 500, "block_timestamp": t0},
+				},
+				"sol_transfer_memo_types": []map[string]any{
+					{"signature": sig, "instruction_index": 1, "slot": 500, "memo_type": c.memoType},
+				},
+			})
+			database.Seed(app.pool.Replicas[0], fixtures)
+
+			status, body := testGet(t, app, "/v1/users/"+trashid.MustEncodeHashID(1)+"/transactions/audio")
+			assert.Equal(t, 200, status)
+			jsonAssert(t, body, map[string]any{
+				"data.0.transaction_type": c.transactionType,
+				"data.0.method":           "receive",
+				"data.0.change":           float64(50000),
+			})
+		})
+	}
+}
+
 // Mint isolation: the view must not surface rows from other mints when filtered
 // to wAUDIO. Set up a USDC balance change on the same user_bank account and
 // confirm /transactions/audio doesn't return it.

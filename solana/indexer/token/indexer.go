@@ -229,6 +229,18 @@ func (d *Indexer) HandleUpdate(ctx context.Context, msg *pb.SubscribeUpdate) err
 		if err != nil {
 			return fmt.Errorf("failed to process balance changes: %w", err)
 		}
+
+		// Detect AUDIO top-up memos (Stripe / Coinbase Pay / Unknown) and tag
+		// the signature in sol_transfer_memo_types so
+		// v_token_transactions_history surfaces transaction_type as the right
+		// purchase_* value instead of a bare transfer. Cheap: scans
+		// instructions once, skips non-memo programs immediately. Idempotent
+		// via ON CONFLICT.
+		if memoType, instIdx, ok := findAudioVendorMemoType(tx); ok {
+			if err := insertAudioVendorMemoMarker(ctx, d.pool, txSig.String(), instIdx, txRes.Slot, memoType); err != nil {
+				logger.Warn("failed to insert audio vendor memo marker", zap.Error(err))
+			}
+		}
 	}
 	return nil
 }
