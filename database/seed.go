@@ -567,6 +567,12 @@ var (
 			"amount":            nil,
 			"slot":              101,
 		},
+		"sol_transfer_memo_types": {
+			"signature":         nil,
+			"instruction_index": 0,
+			"slot":              101,
+			"memo_type":         nil,
+		},
 		"album_price_history": {
 			"playlist_id":       nil,
 			"splits":            "[]",

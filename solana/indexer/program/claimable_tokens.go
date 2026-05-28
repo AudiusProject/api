@@ -76,6 +76,19 @@ func processClaimableTokensInstruction(
 						return fmt.Errorf("failed to parse signed transfer data at instruction %d: %w", instructionIndex-1, err)
 					}
 				}
+				// Insert the memo marker BEFORE the transfer row so the
+				// AFTER INSERT trigger on sol_claimable_account_transfers
+				// (handle_sol_usdc_withdrawal) can resolve the memo_type when
+				// it fires — without this ordering it would default every
+				// outbound USDC notification to `usdc_transfer`.
+				transferType := findTransferTypeMemo(tx)
+				if transferType == TransferTypeUnknown && transactionTouchesJupiter(tx) {
+					transferType = TransferTypePrepareWithdrawal
+				}
+				if err := insertTransferTypeMarker(ctx, db, transferType, signature, instructionIndex, slot); err != nil {
+					return fmt.Errorf("failed to insert transfer-type marker at instruction %d: %w", instructionIndex, err)
+				}
+
 				err = insertClaimableAccountTransfer(ctx, db, claimableAccountTransfersRow{
 					signature:        signature,
 					instructionIndex: instructionIndex,
@@ -88,16 +101,53 @@ func processClaimableTokensInstruction(
 				if err != nil {
 					return fmt.Errorf("failed to insert claimable tokens transfer at instruction %d: %w", instructionIndex, err)
 				}
+
 				instLogger.Info("claimable_tokens transfer",
 					zap.String("ethAddress", transferInst.SenderEthAddress.String()),
 					zap.String("userBank", transferInst.SenderUserBank().PublicKey.String()),
 					zap.String("destination", transferInst.Destination().PublicKey.String()),
 					zap.Uint64("amount", signedData.Amount),
+					zap.Stringer("transferType", transferType),
 				)
 			}
 		}
 	}
 	return nil
+}
+
+// insertTransferTypeMarker writes a row into sol_transfer_memo_types tagging
+// the given (signature, instruction_index) with its memo-derived type.
+// TransferTypeUnknown is a no-op — bare transfers don't get a marker row.
+func insertTransferTypeMarker(ctx context.Context, db database.DBTX, t TransferType, signature string, instructionIndex int, slot uint64) error {
+	if t == TransferTypeUnknown {
+		return nil
+	}
+	sql := `
+		INSERT INTO sol_transfer_memo_types (signature, instruction_index, slot, memo_type)
+		VALUES (@signature, @instructionIndex, @slot, @memoType)
+		ON CONFLICT DO NOTHING
+	;`
+	_, err := db.Exec(ctx, sql, pgx.NamedArgs{
+		"signature":        signature,
+		"instructionIndex": instructionIndex,
+		"slot":             slot,
+		"memoType":         t.String(),
+	})
+	return err
+}
+
+func (t TransferType) String() string {
+	switch t {
+	case TransferTypeWithdrawal:
+		return "withdrawal"
+	case TransferTypePrepareWithdrawal:
+		return "prepare_withdrawal"
+	case TransferTypeInternalTransfer:
+		return "internal_transfer"
+	case TransferTypeRecoverWithdrawal:
+		return "recover_withdrawal"
+	}
+	return "unknown"
 }
 
 type claimableAccountsRow struct {
