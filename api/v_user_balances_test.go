@@ -8,15 +8,13 @@ import (
 	"github.com/stretchr/testify/assert"
 )
 
-// Tests for v_user_balances. The view sources:
-//   * ETH side from eth_wallet_balances (primary + linked chain=eth wallets)
-//   * wAUDIO side from sol_user_balances (pre-aggregated user_bank + linked sol
-//     wallets, maintained by update_sol_user_balance_mint triggers)
-//
-// The associated_sol_wallets_balance column is always '0' — sol_user_balances
-// collapses the legacy user_bank-vs-linked split into a single per-user/mint
-// total. Downstream total_balance computations sum waudio +
-// associated_sol_wallets_balance, so totals stay unchanged.
+// Tests for v_user_balances. The view exposes one total per network per user:
+//   * eth_balance — SUM of eth_wallet_balances over the user's primary wallet
+//     plus all chain=eth associated_wallets (current, not deleted), in wei.
+//   * sol_balance — sol_user_balances for the wAUDIO mint, already pre-aggregated
+//     across user_bank PDAs + linked Solana wallets by the
+//     handle_sol_claimable_accounts / update_sol_user_balance triggers, in
+//     wAUDIO base units (8 decimals).
 
 const (
 	vubWAudioMint        = "9LzCMqDgTKYz9Drzqnpgee3SGa89up3a247ypMj2xrqM"
@@ -30,20 +28,18 @@ const (
 
 // row holds the v_user_balances columns we assert on.
 type vUserBalanceRow struct {
-	Balance                     string
-	AssociatedWalletsBalance    string
-	Waudio                      string
-	AssociatedSolWalletsBalance string
+	EthBalance string
+	SolBalance string
 }
 
 func queryVUserBalances(t *testing.T, app *ApiServer, userID int) vUserBalanceRow {
 	t.Helper()
 	var r vUserBalanceRow
 	err := app.pool.QueryRow(context.Background(), `
-		SELECT balance, associated_wallets_balance, waudio, associated_sol_wallets_balance
+		SELECT eth_balance, sol_balance
 		FROM v_user_balances
 		WHERE user_id = $1
-	`, userID).Scan(&r.Balance, &r.AssociatedWalletsBalance, &r.Waudio, &r.AssociatedSolWalletsBalance)
+	`, userID).Scan(&r.EthBalance, &r.SolBalance)
 	assert.NoError(t, err)
 	return r
 }
@@ -62,13 +58,11 @@ func TestVUserBalances_EthPrimaryOnly(t *testing.T) {
 	database.Seed(app.pool.Replicas[0], fixtures)
 
 	r := queryVUserBalances(t, app, 1)
-	assert.Equal(t, "1000000000000000000", r.Balance)
-	assert.Equal(t, "0", r.AssociatedWalletsBalance)
-	assert.Equal(t, "0", r.Waudio)
-	assert.Equal(t, "0", r.AssociatedSolWalletsBalance)
+	assert.Equal(t, "1000000000000000000", r.EthBalance)
+	assert.Equal(t, "0", r.SolBalance)
 }
 
-// User with linked ETH wallets — view sums across them.
+// User with linked ETH wallets — view sums primary + linked into eth_balance.
 func TestVUserBalances_LinkedEthSum(t *testing.T) {
 	app := emptyTestApp(t)
 	fixtures := database.FixtureMap{
@@ -88,11 +82,11 @@ func TestVUserBalances_LinkedEthSum(t *testing.T) {
 	database.Seed(app.pool.Replicas[0], fixtures)
 
 	r := queryVUserBalances(t, app, 1)
-	assert.Equal(t, "100", r.Balance)
-	assert.Equal(t, "500", r.AssociatedWalletsBalance) // 200 + 300
+	assert.Equal(t, "600", r.EthBalance) // 100 + 200 + 300
+	assert.Equal(t, "0", r.SolBalance)
 }
 
-// User with wAUDIO on their user_bank PDA — surfaces under `waudio` (the
+// User with wAUDIO on their user_bank PDA — surfaces under sol_balance (the
 // sol_user_balances trigger sums user_bank + linked sol wallets into one row).
 func TestVUserBalances_UserBankWAudio(t *testing.T) {
 	app := emptyTestApp(t)
@@ -110,13 +104,12 @@ func TestVUserBalances_UserBankWAudio(t *testing.T) {
 	database.Seed(app.pool.Replicas[0], fixtures)
 
 	r := queryVUserBalances(t, app, 1)
-	assert.Equal(t, "42000000000", r.Waudio)
-	// Always 0 — see file-level comment.
-	assert.Equal(t, "0", r.AssociatedSolWalletsBalance)
+	assert.Equal(t, "0", r.EthBalance)
+	assert.Equal(t, "42000000000", r.SolBalance)
 }
 
 // User with wAUDIO held by a linked Solana wallet — also surfaces under
-// `waudio` since sol_user_balances rolls the linked-sol leg into the same row.
+// sol_balance since sol_user_balances rolls the linked-sol leg into the same row.
 func TestVUserBalances_LinkedSolWAudio(t *testing.T) {
 	app := emptyTestApp(t)
 	fixtures := database.FixtureMap{
@@ -133,12 +126,12 @@ func TestVUserBalances_LinkedSolWAudio(t *testing.T) {
 	database.Seed(app.pool.Replicas[0], fixtures)
 
 	r := queryVUserBalances(t, app, 1)
-	assert.Equal(t, "7500000", r.Waudio)
-	assert.Equal(t, "0", r.AssociatedSolWalletsBalance)
+	assert.Equal(t, "0", r.EthBalance)
+	assert.Equal(t, "7500000", r.SolBalance)
 }
 
-// All sources populated — ETH still splits primary vs linked; sol legs are
-// combined into a single waudio total.
+// All sources populated — eth_balance is the sum of primary + linked eth,
+// sol_balance is the sum of user_bank + linked sol.
 func TestVUserBalances_AllSources(t *testing.T) {
 	app := emptyTestApp(t)
 	fixtures := database.FixtureMap{
@@ -164,10 +157,8 @@ func TestVUserBalances_AllSources(t *testing.T) {
 	database.Seed(app.pool.Replicas[0], fixtures)
 
 	r := queryVUserBalances(t, app, 1)
-	assert.Equal(t, "1", r.Balance)
-	assert.Equal(t, "2", r.AssociatedWalletsBalance)
-	assert.Equal(t, "7", r.Waudio, "user_bank + linked sol rolled into waudio") // 3 + 4
-	assert.Equal(t, "0", r.AssociatedSolWalletsBalance)
+	assert.Equal(t, "3", r.EthBalance, "primary + linked eth")          // 1 + 2
+	assert.Equal(t, "7", r.SolBalance, "user_bank + linked sol rolled") // 3 + 4
 }
 
 // User with no on-chain balances anywhere — view still returns a row with
@@ -182,13 +173,11 @@ func TestVUserBalances_NoBalances(t *testing.T) {
 	database.Seed(app.pool.Replicas[0], fixtures)
 
 	r := queryVUserBalances(t, app, 1)
-	assert.Equal(t, "0", r.Balance)
-	assert.Equal(t, "0", r.AssociatedWalletsBalance)
-	assert.Equal(t, "0", r.Waudio)
-	assert.Equal(t, "0", r.AssociatedSolWalletsBalance)
+	assert.Equal(t, "0", r.EthBalance)
+	assert.Equal(t, "0", r.SolBalance)
 }
 
-// Deleted associated_wallets must not contribute to associated_wallets_balance.
+// Deleted associated_wallets must not contribute to eth_balance.
 // (sol_user_balances triggers handle the sol-side delete case internally; this
 // asserts the LATERAL on the ETH side honors the same filter.)
 func TestVUserBalances_DeletedAssociatedWalletsExcluded(t *testing.T) {
@@ -207,5 +196,5 @@ func TestVUserBalances_DeletedAssociatedWalletsExcluded(t *testing.T) {
 	database.Seed(app.pool.Replicas[0], fixtures)
 
 	r := queryVUserBalances(t, app, 1)
-	assert.Equal(t, "0", r.AssociatedWalletsBalance, "deleted associated_wallets should not contribute")
+	assert.Equal(t, "0", r.EthBalance, "deleted associated_wallets should not contribute")
 }

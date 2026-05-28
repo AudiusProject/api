@@ -9857,19 +9857,19 @@ COMMENT ON VIEW public.v_usdc_purchases IS 'Compatibility view exposing sol_purc
 
 CREATE VIEW public.v_user_balances AS
  SELECT u.user_id,
-    (COALESCE(ewb.balance, (0)::numeric))::character varying AS balance,
-    (COALESCE(linked_eth.total_balance, (0)::numeric))::character varying AS associated_wallets_balance,
-    (COALESCE(sub.balance, (0)::bigint))::character varying AS waudio,
-    '0'::character varying AS associated_sol_wallets_balance,
-    GREATEST(COALESCE(ewb.updated_at, '1970-01-01 00:00:00'::timestamp without time zone), COALESCE(linked_eth.updated_at, '1970-01-01 00:00:00'::timestamp without time zone), COALESCE(sub.updated_at, '1970-01-01 00:00:00'::timestamp without time zone)) AS updated_at
-   FROM (((public.users u
-     LEFT JOIN public.eth_wallet_balances ewb ON ((ewb.wallet = (u.wallet)::text)))
+    (COALESCE(eth.total_balance, (0)::numeric))::character varying AS eth_balance,
+    (COALESCE(sub.balance, (0)::bigint))::character varying AS sol_balance,
+    GREATEST(COALESCE(eth.updated_at, '1970-01-01 00:00:00'::timestamp without time zone), COALESCE(sub.updated_at, '1970-01-01 00:00:00'::timestamp without time zone)) AS updated_at
+   FROM ((public.users u
      LEFT JOIN public.sol_user_balances sub ON (((sub.user_id = u.user_id) AND (sub.mint = '9LzCMqDgTKYz9Drzqnpgee3SGa89up3a247ypMj2xrqM'::text))))
-     LEFT JOIN LATERAL ( SELECT sum(ewb2.balance) AS total_balance,
-            max(ewb2.updated_at) AS updated_at
-           FROM (public.associated_wallets aw
-             JOIN public.eth_wallet_balances ewb2 ON ((ewb2.wallet = (aw.wallet)::text)))
-          WHERE ((aw.user_id = u.user_id) AND (aw.chain = 'eth'::public.wallet_chain) AND (aw.is_current = true) AND (aw.is_delete = false))) linked_eth ON (true))
+     LEFT JOIN LATERAL ( SELECT sum(ewb.balance) AS total_balance,
+            max(ewb.updated_at) AS updated_at
+           FROM public.eth_wallet_balances ewb
+          WHERE (ewb.wallet IN ( SELECT u.wallet
+                UNION ALL
+                 SELECT aw.wallet
+                   FROM public.associated_wallets aw
+                  WHERE ((aw.user_id = u.user_id) AND (aw.chain = 'eth'::public.wallet_chain) AND (aw.is_current = true) AND (aw.is_delete = false))))) eth ON (true))
   WHERE (u.is_current = true);
 
 
@@ -9877,7 +9877,7 @@ CREATE VIEW public.v_user_balances AS
 -- Name: VIEW v_user_balances; Type: COMMENT; Schema: public; Owner: -
 --
 
-COMMENT ON VIEW public.v_user_balances IS 'Drop-in replacement for the legacy user_balances table. ETH-side (balance / associated_wallets_balance) sourced from eth_wallet_balances; wAUDIO total sourced from sol_user_balances (pre-aggregated by triggers, rolls user_bank + linked sol wallets into one row per user/mint). associated_sol_wallets_balance is always 0 — the legacy user_bank-vs-linked split is collapsed into waudio; downstream total_balance computations are unchanged. All balances stored as varchar to match the legacy column types: ETH columns in wei, waudio in wAUDIO base units (multiply by 10^10 to compare to wei).';
+COMMENT ON VIEW public.v_user_balances IS 'Per-user AUDIO/wAUDIO balance totals. One row per current user with eth_balance (wei) and sol_balance (wAUDIO base units, 8 decimals — multiply by 10^10 to compare to wei). eth_balance sums eth_wallet_balances across users.wallet + chain=eth associated_wallets (current, not deleted). sol_balance is sol_user_balances for the wAUDIO mint, already pre-aggregated across user_bank PDAs + linked Solana wallets by handle_sol_claimable_accounts / update_sol_user_balance triggers.';
 
 
 --

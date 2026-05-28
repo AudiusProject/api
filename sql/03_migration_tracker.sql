@@ -149,7 +149,8 @@ views/v_challenge_disbursements.sql	74a0a05af6a02f82af3695d5c3ade45c	2026-05-27 
 views/v_token_transactions_history.sql	fd753db4177640b9cfed9ef6b6359d7d	2026-05-27 00:22:38.98482+00
 views/v_usdc_purchases.sql	322a527e132aed647c39b70d63aa6b51	2026-05-27 00:22:39.061667+00
 preflight/0001_initial_block.sql	1e59cca66b2208eda67a87ac0d09b67d	2026-05-27 00:22:39.249328+00
-views/v_user_balances.sql	1994c37a9567ad0683aa83add1a3c38c	2026-05-27 19:18:04.552089+00
+migrations/0204_backfill_eth_wallet_balances_tracked.sql	d8b752794c42edb94f0d43633e14208c	2026-05-28 00:56:10.178339+00
+views/v_user_balances.sql	afe7026956272a1044f985515294e895	2026-05-28 00:56:10.657022+00
 \.
 
 
