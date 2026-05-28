@@ -349,18 +349,28 @@ func (app *ApiServer) authMiddleware(c *fiber.Ctx) error {
 
 	// Not authorized to act on behalf of myId.
 	//
-	// Exceptions: a small set of public discovery reads accept user_id
-	// purely as a viewer hint used for response decoration
-	// (has_current_user_reposted, has_current_user_saved, etc.) and have
-	// no permission semantics tied to it. Treat the query user_id as
+	// Exceptions: public discovery reads where user_id is purely a
+	// viewer hint used for response decoration
+	// (has_current_user_reposted, has_current_user_saved, etc.) with no
+	// permission semantics tied to it. Treat the query user_id as
 	// advisory rather than authoritative on these routes so logged-in
 	// SDK clients can pass it without forging signature headers.
 	//
-	// Keep this list narrow — anything that materially personalizes
-	// content selection (not just decoration) MUST stay authoritative.
+	// Anything in this list MUST satisfy two conditions:
+	//   1. Method is GET (no writes — writes must remain authoritative).
+	//   2. user_id is used only to populate has_current_user_* / similar
+	//      decoration flags. It MUST NOT control content selection,
+	//      permission, or row visibility — that responsibility lives on
+	//      a path :userId param or an explicit auth middleware.
+	//
+	// Follow-up: the list below is the tactical patch for the most
+	// affected discovery surfaces. The longer-term fix is a per-route
+	// opt-in marker (e.g. an `advisoryUserId` middleware attached at
+	// route registration) so this allowlist doesn't have to grow with
+	// every new public read. Tracked in api#TBD.
 	path := c.Path()
-	allowUnauthenticatedViewerId := strings.HasSuffix(path, "/feed/for-you") ||
-		strings.HasSuffix(path, "/playlists/trending")
+	allowUnauthenticatedViewerId := c.Method() == fiber.MethodGet &&
+		isAdvisoryUserIdPath(path)
 
 	if myId != 0 && !pkceAuthed && !allowUnauthenticatedViewerId && !app.isAuthorizedRequest(c.Context(), myId, wallet) {
 		return fiber.NewError(
@@ -386,6 +396,68 @@ func (app *ApiServer) authMiddleware(c *fiber.Ctx) error {
 	}
 
 	return c.Next()
+}
+
+// isAdvisoryUserIdPath matches request paths where ?user_id is treated as a
+// viewer hint for response decoration only — no permission semantics. See the
+// big comment in authMiddleware for the contract; this matcher must stay in
+// sync with it.
+//
+// All entries are conceptual route patterns rewritten as a literal path-match
+// or a small predicate. Anything load-bearing on user_id (e.g. /me, /account,
+// any write) is intentionally absent.
+func isAdvisoryUserIdPath(path string) bool {
+	// Normalize: drop the /v1 prefix so the matcher is version-agnostic.
+	stripped := strings.TrimPrefix(path, "/v1")
+
+	switch stripped {
+	case "/playlists",
+		"/playlists/trending",
+		"/playlists/top",
+		"/playlists/new-releases",
+		"/playlists/by_permalink",
+		"/playlists/search",
+		"/tracks",
+		"/tracks/trending",
+		"/tracks/recommended",
+		"/tracks/trending/ids",
+		"/users",
+		"/users/search",
+		"/users/top",
+		"/users/genre/top":
+		return true
+	}
+
+	// /users/:userId/feed/for-you and other /feed/for-you variants.
+	if strings.HasSuffix(stripped, "/feed/for-you") {
+		return true
+	}
+
+	// Dynamic single-resource reads: /playlists/<id>, /tracks/<id>,
+	// /users/<id>, /users/handle/<handle>. These are decorative — the path
+	// param controls the resource; user_id only personalizes flags.
+	segs := strings.Split(strings.TrimPrefix(stripped, "/"), "/")
+	if len(segs) >= 2 {
+		switch segs[0] {
+		case "playlists", "tracks":
+			// /playlists/<id>, /tracks/<id> — but NOT /playlists/<id>/stream
+			// etc. (those endpoints may have their own semantics). Match
+			// only the two-segment case here; sub-resources stay strict.
+			if len(segs) == 2 {
+				return true
+			}
+		case "users":
+			// /users/<id>, /users/handle/<handle> — single user fetch.
+			// Their sub-resource reads (/users/<id>/tracks, /followers,
+			// etc.) are NOT in this tactical exemption; if needed, add
+			// them explicitly.
+			if len(segs) == 2 || (len(segs) == 3 && segs[1] == "handle") {
+				return true
+			}
+		}
+	}
+
+	return false
 }
 
 // Middleware to require auth for the userId in the route params
