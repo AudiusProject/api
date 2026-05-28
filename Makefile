@@ -52,7 +52,10 @@ test-schema::
 	adjustedUrl=$$(echo "$$writeDbUrl" | sed 's/localhost/host.docker.internal/g'); \
 	docker compose exec db bash -c "pg_dump '$$adjustedUrl' --schema-only --no-owner --no-acl > ./sql/01_schema.sql"; \
 	sed '/^\\restrict /d;/^\\unrestrict /d' ./sql/01_schema.sql > ./sql/01_schema.sql.tmp && mv ./sql/01_schema.sql.tmp ./sql/01_schema.sql; \
-	echo "Schema dumped to ./sql/01_schema.sql"; \
+	echo "\033[0;32mDumping migration tracker rows...\033[0m"; \
+	docker compose exec db bash -c "pg_dump '$$adjustedUrl' --data-only --no-owner --no-acl --table=schema_version > ./sql/03_migration_tracker.sql"; \
+	sed '/^\\restrict /d;/^\\unrestrict /d' ./sql/03_migration_tracker.sql > ./sql/03_migration_tracker.sql.tmp && mv ./sql/03_migration_tracker.sql.tmp ./sql/03_migration_tracker.sql; \
+	echo "Schema dumped to ./sql/01_schema.sql and ./sql/03_migration_tracker.sql"; \
 	echo "\n\033[0;32mRestarting containers...\033[0m"; \
 	docker compose down --volumes; \
 	docker compose up -d --wait; \
