@@ -3958,6 +3958,98 @@ $$;
 
 
 --
+-- Name: handle_sol_usdc_withdrawal(); Type: FUNCTION; Schema: public; Owner: -
+--
+
+CREATE FUNCTION public.handle_sol_usdc_withdrawal() RETURNS trigger
+    LANGUAGE plpgsql
+    AS $$
+DECLARE
+    users_row users%ROWTYPE;
+    mint_addr varchar;
+    memo_type_str varchar;
+    notification_type varchar;
+    change_value bigint;
+    balance_value bigint;
+    block_ts timestamp;
+begin
+  -- Resolve sender's mint + user via sol_claimable_accounts. Skip rows
+  -- whose from_account isn't a tracked user_bank, and skip non-USDC mints
+  -- (AUDIO is not part of the legacy withdrawal-notification surface).
+  select sca.mint into mint_addr
+    from sol_claimable_accounts sca
+   where sca.account = new.from_account
+   limit 1;
+  select u.* into users_row
+    from users u
+    join sol_claimable_accounts sca on sca.ethereum_address = u.wallet
+   where sca.account = new.from_account
+     and u.is_current = true
+   limit 1;
+
+  if mint_addr is null or mint_addr not in (
+        'EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v', -- prod/stage USDC
+        '26Q7gP8UfkDzi7GMFEQxTJaNJ8D2ybCUjex58M5MLu8y'  -- dev USDC
+      ) then
+    return null;
+  end if;
+
+  -- Look up memo type. The legacy trigger only notified for `transfer` and
+  -- `withdrawal` — so we skip prepare_withdrawal / internal_transfer /
+  -- recover_withdrawal to preserve that behavior.
+  select memo_type into memo_type_str
+    from sol_transfer_memo_types
+   where signature = new.signature and instruction_index = new.instruction_index;
+
+  if memo_type_str is null then
+    notification_type := 'usdc_transfer';
+  elsif memo_type_str = 'withdrawal' then
+    notification_type := 'usdc_withdrawal';
+  else
+    return null;
+  end if;
+
+  -- Pull the per-account balance change (sign + post-balance). Indexer
+  -- writes this in common.ProcessBalanceChanges before claimable_tokens
+  -- handling, so it's guaranteed to be visible.
+  select change, balance, block_timestamp
+    into change_value, balance_value, block_ts
+    from sol_token_account_balance_changes
+   where signature = new.signature
+     and account = new.from_account
+   limit 1;
+
+  insert into notification
+    (slot, user_ids, timestamp, type, specifier, group_id, data)
+  values
+    (
+      new.slot,
+      ARRAY[users_row.user_id],
+      coalesce(block_ts, now()),
+      notification_type,
+      users_row.user_id,
+      notification_type || ':' || users_row.user_id || ':' || 'signature:' || new.signature,
+      json_build_object(
+        'user_id', users_row.user_id,
+        'user_bank', new.from_account,
+        'signature', new.signature,
+        'change', change_value,
+        'balance', balance_value,
+        'receiver_account', new.to_account
+      )
+    )
+    on conflict do nothing;
+
+  return null;
+  exception
+    when others then
+        raise warning 'An error occurred in %: %', tg_name, sqlerrm;
+        return null;
+end;
+$$;
+
+
+--
 -- Name: handle_supporter_rank_up(); Type: FUNCTION; Schema: public; Owner: -
 --
 
@@ -8988,6 +9080,26 @@ COMMENT ON TABLE public.sol_token_transfers IS 'Stores SPL token transfers for t
 
 
 --
+-- Name: sol_transfer_memo_types; Type: TABLE; Schema: public; Owner: -
+--
+
+CREATE TABLE public.sol_transfer_memo_types (
+    signature character varying NOT NULL,
+    instruction_index integer NOT NULL,
+    slot bigint NOT NULL,
+    memo_type character varying NOT NULL,
+    created_at timestamp without time zone DEFAULT now() NOT NULL
+);
+
+
+--
+-- Name: TABLE sol_transfer_memo_types; Type: COMMENT; Schema: public; Owner: -
+--
+
+COMMENT ON TABLE public.sol_transfer_memo_types IS 'Memo-tagged classifications for claimable_tokens transfers and payment_router routes. memo_type is one of: withdrawal, prepare_withdrawal, internal_transfer, recover_withdrawal.';
+
+
+--
 -- Name: sol_user_balances; Type: TABLE; Schema: public; Owner: -
 --
 
@@ -9762,17 +9874,19 @@ CREATE VIEW public.v_token_transactions_history AS
                 ELSE 'user_reward'::text
             END
             WHEN (p.signature IS NOT NULL) THEN 'purchase_content'::text
+            WHEN (tmt.memo_type IS NOT NULL) THEN (tmt.memo_type)::text
             WHEN ((cat.signature IS NOT NULL) AND (from_owner.user_id IS NOT NULL) AND (to_owner.user_id IS NOT NULL) AND (from_owner.user_id <> to_owner.user_id)) THEN 'tip'::text
             WHEN (cat.signature IS NOT NULL) THEN 'transfer'::text
             ELSE 'transfer'::text
         END AS transaction_type,
         CASE
             WHEN (rd.signature IS NOT NULL) THEN rd.challenge_id
+            WHEN (((tmt.memo_type)::text = 'withdrawal'::text) AND (cat.to_account IS NOT NULL)) THEN cat.to_account
             WHEN ((cat.signature IS NOT NULL) AND (bc.change > 0) AND (from_owner.user_id IS NOT NULL)) THEN ((from_owner.user_id)::text)::character varying
             WHEN ((cat.signature IS NOT NULL) AND (bc.change < 0) AND (to_owner.user_id IS NOT NULL)) THEN ((to_owner.user_id)::text)::character varying
             ELSE NULL::character varying
         END AS tx_metadata
-   FROM ((((((((((public.sol_token_account_balance_changes bc
+   FROM (((((((((((public.sol_token_account_balance_changes bc
      JOIN public.sol_claimable_accounts sca ON ((((sca.account)::text = (bc.account)::text) AND ((sca.mint)::text = (bc.mint)::text))))
      LEFT JOIN public.users ON ((((users.wallet)::text = (sca.ethereum_address)::text) AND (users.is_current = true))))
      LEFT JOIN public.sol_claimable_account_transfers cat ON ((((cat.signature)::text = (bc.signature)::text) AND (((cat.from_account)::text = (bc.account)::text) OR ((cat.to_account)::text = (bc.account)::text)))))
@@ -9782,14 +9896,15 @@ CREATE VIEW public.v_token_transactions_history AS
      LEFT JOIN public.users to_owner ON ((((to_owner.wallet)::text = (to_sca.ethereum_address)::text) AND (to_owner.is_current = true))))
      LEFT JOIN public.sol_reward_disbursements rd ON ((((rd.signature)::text = (bc.signature)::text) AND ((rd.user_bank)::text = (bc.account)::text))))
      LEFT JOIN public.challenges c ON (((c.id)::text = (rd.challenge_id)::text)))
-     LEFT JOIN public.sol_purchases p ON ((((p.signature)::text = (bc.signature)::text) AND ((p.from_account)::text = (bc.account)::text))));
+     LEFT JOIN public.sol_purchases p ON ((((p.signature)::text = (bc.signature)::text) AND ((p.from_account)::text = (bc.account)::text))))
+     LEFT JOIN public.sol_transfer_memo_types tmt ON (((tmt.signature)::text = (bc.signature)::text)));
 
 
 --
 -- Name: VIEW v_token_transactions_history; Type: COMMENT; Schema: public; Owner: -
 --
 
-COMMENT ON VIEW public.v_token_transactions_history IS 'Mint-agnostic transactions history derived from sol_token_account_balance_changes (the hub: only table with both mint and block_timestamp). Per-row transaction_type derived by LEFT JOIN to typed tables (sol_claimable_account_transfers, sol_reward_disbursements, sol_purchases). Callers filter by mint at query time. Powers /v1/users/{id}/transactions/audio today; will power /transactions/usdc once sol_withdrawals + vendor-memo capture land. Vendor purchase types (PURCHASE_STRIPE/COINBASE/UNKNOWN) degrade to bare transfer until that indexer work ships.';
+COMMENT ON VIEW public.v_token_transactions_history IS 'Mint-agnostic transactions history derived from sol_token_account_balance_changes (the hub: only table with both mint and block_timestamp). Per-row transaction_type derived by LEFT JOIN to typed tables (sol_claimable_account_transfers, sol_reward_disbursements, sol_purchases, sol_transfer_memo_types). Callers filter by mint at query time. Vendor purchase types (PURCHASE_STRIPE/COINBASE/UNKNOWN) on AUDIO still degrade to bare transfer until the AUDIO mint subscription + vendor-memo capture land.';
 
 
 --
@@ -11105,6 +11220,14 @@ ALTER TABLE ONLY public.sol_token_account_balances
 
 ALTER TABLE ONLY public.sol_token_transfers
     ADD CONSTRAINT sol_token_transfers_pkey PRIMARY KEY (signature, instruction_index);
+
+
+--
+-- Name: sol_transfer_memo_types sol_transfer_memo_types_pkey; Type: CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.sol_transfer_memo_types
+    ADD CONSTRAINT sol_transfer_memo_types_pkey PRIMARY KEY (signature, instruction_index);
 
 
 --
@@ -12725,6 +12848,20 @@ CREATE INDEX sol_token_transfers_to_account_idx ON public.sol_token_transfers US
 
 
 --
+-- Name: sol_transfer_memo_types_slot_idx; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX sol_transfer_memo_types_slot_idx ON public.sol_transfer_memo_types USING btree (slot);
+
+
+--
+-- Name: sol_transfer_memo_types_type_idx; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX sol_transfer_memo_types_type_idx ON public.sol_transfer_memo_types USING btree (memo_type);
+
+
+--
 -- Name: sol_user_balances_mint_user_id_idx; Type: INDEX; Schema: public; Owner: -
 --
 
@@ -13142,6 +13279,13 @@ CREATE TRIGGER on_sol_token_account_balance_changes AFTER INSERT ON public.sol_t
 --
 
 COMMENT ON TRIGGER on_sol_token_account_balance_changes ON public.sol_token_account_balance_changes IS 'Updates sol_token_account_balances whenever a sol_token_balance_change is inserted with a higher slot.';
+
+
+--
+-- Name: sol_claimable_account_transfers on_sol_usdc_withdrawal; Type: TRIGGER; Schema: public; Owner: -
+--
+
+CREATE TRIGGER on_sol_usdc_withdrawal AFTER INSERT ON public.sol_claimable_account_transfers FOR EACH ROW EXECUTE FUNCTION public.handle_sol_usdc_withdrawal();
 
 
 --

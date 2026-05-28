@@ -132,7 +132,6 @@ functions/handle_sol_token_balance_change.sql	212ea3ca708570c506051a167e1e9117	2
 functions/handle_supporter_rank_ups.sql	dea497f1859ade282b4f7d33687e6fe7	2026-05-27 00:22:37.633644+00
 functions/handle_track.sql	89ef5a957b3662310fb30f914aab9ed4	2026-05-27 00:22:37.715524+00
 functions/handle_usdc_purchase.sql	c35bccc2789ae0641d413d28a131ef8d	2026-05-27 00:22:37.800109+00
-functions/handle_usdc_withdrawal.sql	ad7910b1d374c1a195b4ebc154c18d7b	2026-05-27 00:22:37.876178+00
 functions/handle_user.sql	169778112e5362ee20af56d9b8f274c5	2026-05-27 00:22:37.955619+00
 functions/handle_user_balance_changes.sql	1ae7f99f4f37194cdf27dc3189ebc858	2026-05-27 00:22:38.02983+00
 functions/handle_user_challenges.sql	c2adfee92cab36dee37ab7b8af5449c1	2026-05-27 00:22:38.103198+00
@@ -146,11 +145,14 @@ functions/update_sol_user_balance.sql	4a297a671c74a683814ff217bd097589	2026-05-2
 functions/user_mint_balance_at.sql	6d227781d4d97500e0ec2bb76e8fa295	2026-05-27 00:22:38.701765+00
 views/artist_coin_prices.sql	10a65b64b7d13aaabe18ad1055e9fd7b	2026-05-27 00:22:38.820919+00
 views/v_challenge_disbursements.sql	74a0a05af6a02f82af3695d5c3ade45c	2026-05-27 00:22:38.899214+00
-views/v_token_transactions_history.sql	fd753db4177640b9cfed9ef6b6359d7d	2026-05-27 00:22:38.98482+00
 views/v_usdc_purchases.sql	322a527e132aed647c39b70d63aa6b51	2026-05-27 00:22:39.061667+00
 preflight/0001_initial_block.sql	1e59cca66b2208eda67a87ac0d09b67d	2026-05-27 00:22:39.249328+00
 migrations/0204_backfill_eth_wallet_balances_tracked.sql	d8b752794c42edb94f0d43633e14208c	2026-05-28 00:56:10.178339+00
 views/v_user_balances.sql	ff6db739c1a77101021d4629647a44df	2026-05-28 17:28:07.629633+00
+migrations/0205_sol_transfer_memo_tables.sql	49aa6bdf68df733710e7820153a78393	2026-05-28 19:54:42.181969+00
+migrations/0206_backfill_sol_transfer_memo_types.sql	8b63b2e420c94b740a15e7f1fbd02ae7	2026-05-28 19:54:42.266989+00
+functions/handle_usdc_withdrawal.sql	f590eb5d53ec82c63d3d2d7b1913cbef	2026-05-28 19:54:42.61986+00
+views/v_token_transactions_history.sql	a00eeaf663c8b16dd60e26b7c75a8fff	2026-05-28 19:54:42.836012+00
 \.
 
 
