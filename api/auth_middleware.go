@@ -349,12 +349,18 @@ func (app *ApiServer) authMiddleware(c *fiber.Ctx) error {
 
 	// Not authorized to act on behalf of myId.
 	//
-	// Exception: /users/:userId/feed/for-you accepts user_id as a viewer hint
-	// used only for response decoration (has_current_user_reposted etc.); the
-	// path :userId — not user_id — controls what gets personalized. Treat the
-	// query user_id as advisory rather than authoritative on this route so
-	// the endpoint can be called like the other public read endpoints.
-	allowUnauthenticatedViewerId := strings.HasSuffix(c.Path(), "/feed/for-you")
+	// Exceptions: a small set of public discovery reads accept user_id
+	// purely as a viewer hint used for response decoration
+	// (has_current_user_reposted, has_current_user_saved, etc.) and have
+	// no permission semantics tied to it. Treat the query user_id as
+	// advisory rather than authoritative on these routes so logged-in
+	// SDK clients can pass it without forging signature headers.
+	//
+	// Keep this list narrow — anything that materially personalizes
+	// content selection (not just decoration) MUST stay authoritative.
+	path := c.Path()
+	allowUnauthenticatedViewerId := strings.HasSuffix(path, "/feed/for-you") ||
+		strings.HasSuffix(path, "/playlists/trending")
 
 	if myId != 0 && !pkceAuthed && !allowUnauthenticatedViewerId && !app.isAuthorizedRequest(c.Context(), myId, wallet) {
 		return fiber.NewError(
