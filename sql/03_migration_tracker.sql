@@ -153,6 +153,7 @@ migrations/0205_sol_transfer_memo_tables.sql	49aa6bdf68df733710e7820153a78393	20
 migrations/0206_backfill_sol_transfer_memo_types.sql	8b63b2e420c94b740a15e7f1fbd02ae7	2026-05-28 19:54:42.266989+00
 functions/handle_usdc_withdrawal.sql	f590eb5d53ec82c63d3d2d7b1913cbef	2026-05-28 19:54:42.61986+00
 views/v_token_transactions_history.sql	a00eeaf663c8b16dd60e26b7c75a8fff	2026-05-28 19:54:42.836012+00
+migrations/0207_canonicalize_associated_wallets_eth.sql	83e88b1102c1bc5e2526a919e5266864	2026-05-28 20:11:26.200227+00
 \.
 
 

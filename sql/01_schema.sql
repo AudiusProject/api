@@ -1143,6 +1143,22 @@ $$;
 
 
 --
+-- Name: canonicalize_associated_wallet(); Type: FUNCTION; Schema: public; Owner: -
+--
+
+CREATE FUNCTION public.canonicalize_associated_wallet() RETURNS trigger
+    LANGUAGE plpgsql
+    AS $$
+BEGIN
+    IF NEW.chain = 'eth' AND NEW.wallet IS NOT NULL THEN
+        NEW.wallet := LOWER(NEW.wallet);
+    END IF;
+    RETURN NEW;
+END;
+$$;
+
+
+--
 -- Name: chat_allowed(integer, integer); Type: FUNCTION; Schema: public; Owner: -
 --
 
@@ -13076,6 +13092,20 @@ CREATE INDEX users_new_handle_lc_idx ON public.users USING btree (handle_lc);
 --
 
 CREATE INDEX users_new_wallet_idx ON public.users USING btree (wallet);
+
+
+--
+-- Name: associated_wallets before_associated_wallets_canonicalize; Type: TRIGGER; Schema: public; Owner: -
+--
+
+CREATE TRIGGER before_associated_wallets_canonicalize BEFORE INSERT OR UPDATE ON public.associated_wallets FOR EACH ROW EXECUTE FUNCTION public.canonicalize_associated_wallet();
+
+
+--
+-- Name: TRIGGER before_associated_wallets_canonicalize ON associated_wallets; Type: COMMENT; Schema: public; Owner: -
+--
+
+COMMENT ON TRIGGER before_associated_wallets_canonicalize ON public.associated_wallets IS 'Lowercases chain=eth wallets on insert/update so eth_wallet_balances joins (PK on lowercase) hit without case mismatches. Solana wallets are left alone — base58 is case-sensitive.';
 
 
 --
