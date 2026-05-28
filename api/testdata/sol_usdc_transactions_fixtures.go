@@ -10,24 +10,27 @@ const usdcMintTestData = "EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v"
 // v_token_transactions_history disambiguates cleanly.
 const (
 	user1UsdcBank        = "User1UsdcBank________________________________"
+	user2UsdcBank        = "User2UsdcBank________________________________"
 	user1WithdrawDest1   = "0x1234567890abcdef1234567890abcdef12345678"
 	user1WithdrawDest2   = "0xabcdef1234567890abcdef1234567890abcdef12"
 	user1UsdcExternalIn  = "ExternalUsdcSender___________________________"
+	jupiterRoutedToAcct  = "JupiterDestinationTokenAcct_________________"
+	recoverDestinationCT = "RecoverWithdrawalDestination________________"
 )
 
-// Mirrors the legacy UsdcTransactionsHistoryFixtures rows in sol_* shape, used
-// by /v1/users/{id}/transactions/usdc and /v1/users/{id}/withdrawals/download.
+// Fixtures for the USDC user_bank covering every memo-derived transaction_type
+// that v_token_transactions_history can return after #858:
 //
-// Per legacy fixture for user 7eP5n's USDC user_bank (4 derivable rows;
-// prepare_withdrawal / recover_withdrawal are system-level events with no
-// underlying balance change, so they are intentionally omitted):
-//   0x12345 — TRANSFER receive,        change=+100, balance=100
-//   0x23456 — PURCHASE_CONTENT send,   change=-10,  balance=90
-//   0x34567 — TRANSFER send,           change=-10,  balance=80
-//   0x67890 — TRANSFER send (legacy: WITHDRAWAL), change=-10, balance=70
+//   0x12345_usdc — TRANSFER receive (from external)
+//   0x23456_usdc — PURCHASE_CONTENT (sol_purchases row)
+//   0x34567_usdc — TRANSFER send (no memo)
+//   0x67890_usdc — WITHDRAWAL (memo marker)
+//   0x78901_usdc — PREPARE_WITHDRAWAL (memo marker)
+//   0x89012_usdc — RECOVER_WITHDRAWAL (memo marker, on payment_router)
+//   0x90123_usdc — INTERNAL_TRANSFER (memo marker, user1 → user2)
 //
-// The two "send transfer" rows exercise the withdrawals-download path
-// (cat.to_account surfaces the destination).
+// The memo markers are populated by the program indexer at write time; here we
+// seed them directly to exercise the view's CASE branches.
 
 var SolClaimableAccountsUsdcFixtures = []map[string]any{
 	{
@@ -37,6 +40,14 @@ var SolClaimableAccountsUsdcFixtures = []map[string]any{
 		"mint":              usdcMintTestData,
 		"ethereum_address":  "0x7d273271690538cf855e5b3002a0dd8c154bb060", // user 1
 		"account":           user1UsdcBank,
+	},
+	{
+		"signature":         "claim_create_user2_usdc",
+		"instruction_index": 0,
+		"slot":              2,
+		"mint":              usdcMintTestData,
+		"ethereum_address":  "0x1234567890abcdef", // user 2 (matches existing fixtures)
+		"account":           user2UsdcBank,
 	},
 }
 
@@ -81,6 +92,36 @@ var SolTokenAccountBalanceChangesUsdcFixtures = []map[string]any{
 		"slot":            40,
 		"block_timestamp": time.Date(2024, 6, 5, 0, 0, 0, 0, time.UTC),
 	},
+	{
+		"signature":       "0x78901_usdc",
+		"mint":            usdcMintTestData,
+		"owner":           "claimable-tokens-pda",
+		"account":         user1UsdcBank,
+		"change":          -2000000,
+		"balance":         50,
+		"slot":            50,
+		"block_timestamp": time.Date(2024, 6, 6, 0, 0, 0, 0, time.UTC),
+	},
+	{
+		"signature":       "0x89012_usdc",
+		"mint":            usdcMintTestData,
+		"owner":           "claimable-tokens-pda",
+		"account":         user1UsdcBank,
+		"change":          1500000,
+		"balance":         1550,
+		"slot":            60,
+		"block_timestamp": time.Date(2024, 6, 7, 0, 0, 0, 0, time.UTC),
+	},
+	{
+		"signature":       "0x90123_usdc",
+		"mint":            usdcMintTestData,
+		"owner":           "claimable-tokens-pda",
+		"account":         user1UsdcBank,
+		"change":          -300000,
+		"balance":         50,
+		"slot":            70,
+		"block_timestamp": time.Date(2024, 6, 8, 0, 0, 0, 0, time.UTC),
+	},
 }
 
 var SolClaimableAccountTransfersUsdcFixtures = []map[string]any{
@@ -94,7 +135,7 @@ var SolClaimableAccountTransfersUsdcFixtures = []map[string]any{
 		"to_account":         user1UsdcBank,
 		"sender_eth_address": "0xdeadbeefdeadbeefdeadbeefdeadbeefdeadbeef",
 	},
-	// TRANSFER send to external (legacy fixture 0x34567 — generic transfer).
+	// TRANSFER send to external — no memo marker, plain transfer.
 	{
 		"signature":          "0x34567_usdc",
 		"instruction_index":  0,
@@ -104,8 +145,7 @@ var SolClaimableAccountTransfersUsdcFixtures = []map[string]any{
 		"to_account":         user1WithdrawDest1,
 		"sender_eth_address": "0x7d273271690538cf855e5b3002a0dd8c154bb060",
 	},
-	// TRANSFER send to external (legacy fixture 0x67890 — was "withdrawal";
-	// now indistinguishable from any other send-to-external).
+	// WITHDRAWAL — memo-tagged in sol_transfer_memo_types below.
 	{
 		"signature":          "0x67890_usdc",
 		"instruction_index":  0,
@@ -115,11 +155,52 @@ var SolClaimableAccountTransfersUsdcFixtures = []map[string]any{
 		"to_account":         user1WithdrawDest2,
 		"sender_eth_address": "0x7d273271690538cf855e5b3002a0dd8c154bb060",
 	},
+	// PREPARE_WITHDRAWAL — claimable transfer to a Jupiter-routed token account.
+	{
+		"signature":          "0x78901_usdc",
+		"instruction_index":  0,
+		"amount":             2000000,
+		"slot":               50,
+		"from_account":       user1UsdcBank,
+		"to_account":         jupiterRoutedToAcct,
+		"sender_eth_address": "0x7d273271690538cf855e5b3002a0dd8c154bb060",
+	},
+	// INTERNAL_TRANSFER — user1 → user2 (both known user_banks).
+	{
+		"signature":          "0x90123_usdc",
+		"instruction_index":  0,
+		"amount":             300000,
+		"slot":               70,
+		"from_account":       user1UsdcBank,
+		"to_account":         user2UsdcBank,
+		"sender_eth_address": "0x7d273271690538cf855e5b3002a0dd8c154bb060",
+	},
 }
 
-// PURCHASE_CONTENT — matches the legacy 0x23456 send purchase_content row.
-// Added to SolPurchasesFixtures so v_token_transactions_history classifies it
-// correctly.
+// RECOVER_WITHDRAWAL is a payment_router route (not a claimable transfer), so
+// it lives in sol_payments instead of sol_claimable_account_transfers.
+var SolPaymentsUsdcFixtures = []map[string]any{
+	{
+		"signature":         "0x89012_usdc",
+		"instruction_index": 0,
+		"route_index":       0,
+		"to_account":        user1UsdcBank,
+		"amount":            1500000,
+		"slot":              60,
+	},
+}
+
+// Memo markers — populated by the program/token indexer when it spots one of
+// the recognized memo strings. Seeded here so v_token_transactions_history's
+// CASE picks the right transaction_type.
+var SolTransferMemoTypesUsdcFixtures = []map[string]any{
+	{"signature": "0x67890_usdc", "instruction_index": 0, "slot": 40, "memo_type": "withdrawal"},
+	{"signature": "0x78901_usdc", "instruction_index": 0, "slot": 50, "memo_type": "prepare_withdrawal"},
+	{"signature": "0x89012_usdc", "instruction_index": 0, "slot": 60, "memo_type": "recover_withdrawal"},
+	{"signature": "0x90123_usdc", "instruction_index": 0, "slot": 70, "memo_type": "internal_transfer"},
+}
+
+// PURCHASE_CONTENT — matches the 0x23456 send purchase_content row.
 var SolPurchasesUsdcFixtures = []map[string]any{
 	{
 		"signature":         "0x23456_usdc",

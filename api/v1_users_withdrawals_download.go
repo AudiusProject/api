@@ -16,15 +16,15 @@ type WithdrawalForDownload struct {
 func (app *ApiServer) userWithdrawalsForDownload(c *fiber.Ctx) ([]WithdrawalForDownload, error) {
 	userId := app.getUserId(c)
 
-	// Sourced from the same sol_* tables that v_token_transactions_history uses,
-	// but joined directly to sol_claimable_account_transfers so we can surface
-	// the destination wallet (cat.to_account) — the view's tx_metadata is NULL
-	// for transfers, so it can't be used. Until the Go indexer adds a
-	// sol_withdrawals table this also includes any USDC send between
-	// user_banks (rare in practice).
+	// Scoped to claimable transfers explicitly tagged as `withdrawal` in
+	// sol_transfer_memo_types (the program indexer writes these markers when
+	// it sees the "Withdrawal" memo). Resolves destination_wallet to the
+	// Solana account owner via sol_token_account_balances (the legacy
+	// equivalent was Python's receiver_account_owner lookup), falling back
+	// to cat.to_account when the destination token account isn't tracked.
 	sql := `
 		SELECT
-			cat.to_account AS destination_wallet,
+			COALESCE(stab.owner, cat.to_account) AS destination_wallet,
 			bc.block_timestamp AS date,
 			ABS(bc.change)::numeric / 1000000 AS amount
 		FROM users
@@ -37,6 +37,13 @@ func (app *ApiServer) userWithdrawalsForDownload(c *fiber.Ctx) ([]WithdrawalForD
 		JOIN sol_claimable_account_transfers cat
 			ON cat.signature = bc.signature
 		   AND cat.from_account = bc.account
+		JOIN sol_transfer_memo_types tmt
+			ON tmt.signature = cat.signature
+		   AND tmt.instruction_index = cat.instruction_index
+		   AND tmt.memo_type = 'withdrawal'
+		LEFT JOIN sol_token_account_balances stab
+			ON stab.account = cat.to_account
+		   AND stab.mint = sca.mint
 		WHERE users.user_id = @userId
 		  AND users.is_current = TRUE
 		  AND bc.change < 0

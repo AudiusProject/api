@@ -9,10 +9,22 @@ import (
 )
 
 // withdrawalFixtures seeds the sol_* tables that
-// /v1/users/{id}/withdrawals/download now reads from. Mirrors the two
-// outbound USDC transfers the legacy fixture set used to assert on.
+// /v1/users/{id}/withdrawals/download reads from. Three claimable transfers:
+//   - tx_sig_withdraw_a / tx_sig_withdraw_b are tagged `withdrawal` via memo
+//     markers and surface in the download
+//   - tx_sig_plain_xfer is a bare transfer (no memo marker) and must NOT
+//     surface, since the endpoint is now scoped to actual withdrawals
+//
+// destination_wallet is resolved through sol_token_account_balances.owner,
+// so each destination token account is seeded with a known owner wallet.
 func withdrawalFixtures(userWallet string) database.FixtureMap {
 	usdcBank := "User1UsdcBank_withdrawals_test_____________"
+	const (
+		destTokenAcctA = "DestUsdcTokenAccountA_______________________"
+		destTokenAcctB = "DestUsdcTokenAccountB_______________________"
+		destOwnerA     = "0x1234567890abcdef1234567890abcdef12345678"
+		destOwnerB     = "0xabcdef1234567890abcdef1234567890abcdef12"
+	)
 	return database.FixtureMap{
 		"users": []map[string]any{
 			{"user_id": 1, "handle": "user1", "name": "user1", "wallet": userWallet, "is_current": true},
@@ -29,7 +41,7 @@ func withdrawalFixtures(userWallet string) database.FixtureMap {
 		},
 		"sol_token_account_balance_changes": []map[string]any{
 			{
-				"signature":       "tx_sig_1",
+				"signature":       "tx_sig_withdraw_a",
 				"mint":            "EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v",
 				"owner":           "claimable-tokens-pda",
 				"account":         usdcBank,
@@ -39,7 +51,7 @@ func withdrawalFixtures(userWallet string) database.FixtureMap {
 				"block_timestamp": time.Date(2024, 6, 4, 0, 0, 0, 0, time.UTC),
 			},
 			{
-				"signature":       "tx_sig_2",
+				"signature":       "tx_sig_withdraw_b",
 				"mint":            "EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v",
 				"owner":           "claimable-tokens-pda",
 				"account":         usdcBank,
@@ -48,26 +60,57 @@ func withdrawalFixtures(userWallet string) database.FixtureMap {
 				"slot":            102,
 				"block_timestamp": time.Date(2024, 6, 5, 0, 0, 0, 0, time.UTC),
 			},
+			{
+				"signature":       "tx_sig_plain_xfer",
+				"mint":            "EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v",
+				"owner":           "claimable-tokens-pda",
+				"account":         usdcBank,
+				"change":          -250000,
+				"balance":         250000,
+				"slot":            103,
+				"block_timestamp": time.Date(2024, 6, 6, 0, 0, 0, 0, time.UTC),
+			},
 		},
 		"sol_claimable_account_transfers": []map[string]any{
 			{
-				"signature":          "tx_sig_1",
+				"signature":          "tx_sig_withdraw_a",
 				"instruction_index":  0,
 				"amount":             500000,
 				"slot":               101,
 				"from_account":       usdcBank,
-				"to_account":         "0x1234567890abcdef1234567890abcdef12345678",
+				"to_account":         destTokenAcctA,
 				"sender_eth_address": userWallet,
 			},
 			{
-				"signature":          "tx_sig_2",
+				"signature":          "tx_sig_withdraw_b",
 				"instruction_index":  0,
 				"amount":             1000000,
 				"slot":               102,
 				"from_account":       usdcBank,
-				"to_account":         "0xabcdef1234567890abcdef1234567890abcdef12",
+				"to_account":         destTokenAcctB,
 				"sender_eth_address": userWallet,
 			},
+			{
+				"signature":          "tx_sig_plain_xfer",
+				"instruction_index":  0,
+				"amount":             250000,
+				"slot":               103,
+				"from_account":       usdcBank,
+				"to_account":         "0xshouldnotappear_______________________________",
+				"sender_eth_address": userWallet,
+			},
+		},
+		// Only the two `withdraw_*` transfers are tagged — the plain transfer
+		// has no marker and must be excluded from the download.
+		"sol_transfer_memo_types": []map[string]any{
+			{"signature": "tx_sig_withdraw_a", "instruction_index": 0, "slot": 101, "memo_type": "withdrawal"},
+			{"signature": "tx_sig_withdraw_b", "instruction_index": 0, "slot": 102, "memo_type": "withdrawal"},
+		},
+		// Destination token accounts on Solana, with their resolved wallet
+		// owners (what destination_wallet ultimately surfaces).
+		"sol_token_account_balances": []map[string]any{
+			{"account": destTokenAcctA, "mint": "EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v", "owner": destOwnerA, "balance": 500000, "slot": 101},
+			{"account": destTokenAcctB, "mint": "EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v", "owner": destOwnerB, "balance": 1000000, "slot": 102},
 		},
 	}
 }

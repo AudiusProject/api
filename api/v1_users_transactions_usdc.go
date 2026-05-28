@@ -35,11 +35,12 @@ type GetUsdcTransactionsParams struct {
 	TransactionMethod         string   `query:"method" default:"" validate:"omitempty,oneof=send receive"`
 }
 
-// Legacy `usdc_transactions_history.transaction_type` values still accepted on
-// the query string. Values not derivable from v_token_transactions_history
-// (purchase_stripe, internal_transfer, prepare_withdrawal, recover_withdrawal,
-// withdrawal) will simply match zero rows until the Go indexer grows vendor
-// memo capture + a sol_withdrawals table.
+// Valid transaction_type filters on the query string. Every value here now
+// flows through v_token_transactions_history end-to-end: the program indexer
+// tags sol_transfer_memo_types markers from claimable-tokens / payment-router
+// memos (withdrawal, prepare_withdrawal, internal_transfer, recover_withdrawal)
+// and the token indexer tags the AUDIO vendor-purchase memos. The view returns
+// memo_type verbatim as transaction_type.
 var validTransactionTypes = []string{
 	"purchase_content",
 	"transfer",
@@ -48,6 +49,8 @@ var validTransactionTypes = []string{
 	"recover_withdrawal",
 	"withdrawal",
 	"purchase_stripe",
+	"purchase_coinbase",
+	"purchase_unknown",
 }
 
 func (app *ApiServer) v1UsersTransactionsUsdc(c *fiber.Ctx) error {
