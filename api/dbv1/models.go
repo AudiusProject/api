@@ -2701,14 +2701,12 @@ type VUsdcPurchase struct {
 	Splits       interface{}             `json:"splits"`
 }
 
-// Drop-in replacement for the legacy user_balances table, sourced entirely from indexer-maintained tables (eth_wallet_balances for ETH-side AUDIO+staking+delegation, sol_token_account_balances for wAUDIO). Column shape mirrors user_balances so callers swap with a table-name rename. balance / associated_wallets_balance are in wei; waudio / associated_sol_wallets_balance are in wAUDIO base units (multiply by 10^10 to compare to wei).
+// Per-user AUDIO/wAUDIO balance totals. One row per current user with eth_balance (wei) and sol_balance (wAUDIO base units, 8 decimals — multiply by 10^10 to compare to wei). eth_balance sums eth_wallet_balances across users.wallet + chain=eth associated_wallets (current, not deleted). sol_balance is sol_user_balances for the wAUDIO mint, already pre-aggregated across user_bank PDAs + linked Solana wallets by handle_sol_claimable_accounts / update_sol_user_balance triggers.
 type VUserBalance struct {
-	UserID                      int32       `json:"user_id"`
-	Balance                     string      `json:"balance"`
-	AssociatedWalletsBalance    string      `json:"associated_wallets_balance"`
-	Waudio                      string      `json:"waudio"`
-	AssociatedSolWalletsBalance string      `json:"associated_sol_wallets_balance"`
-	UpdatedAt                   interface{} `json:"updated_at"`
+	UserID     int32       `json:"user_id"`
+	EthBalance string      `json:"eth_balance"`
+	SolBalance string      `json:"sol_balance"`
+	UpdatedAt  interface{} `json:"updated_at"`
 }
 
 type VolumeLeaderExclusion struct {

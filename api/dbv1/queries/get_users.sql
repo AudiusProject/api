@@ -46,26 +46,29 @@ SELECT
   supporter_count,
   supporting_count,
   wallet,
-  balance,
-  associated_wallets_balance,
 
-  -- total_balance
+  -- Legacy `balance` (ETH-side AUDIO in wei) and `associated_wallets_balance`
+  -- (the split between primary and linked wallets) are collapsed into
+  -- v_user_balances.eth_balance — sol_user_balances doesn't preserve a
+  -- user_bank-vs-linked breakdown so we don't preserve one on the ETH side
+  -- either. Surface the full ETH total under `balance` and zero out
+  -- `associated_wallets_balance` so the response shape stays the same and
+  -- `total_balance` still adds up to the right number.
+  coalesce(eth_balance, '0') as balance,
+  '0' as associated_wallets_balance,
+
+  -- total_balance: eth_balance is in wei, sol_balance is in wAUDIO base units
+  -- (8 decimals) so multiply by 10^10 to convert.
   (
-    coalesce(balance, '0')::NUMERIC +
-    coalesce(associated_wallets_balance, '0')::NUMERIC +
-    -- to wei
-    (coalesce(associated_sol_wallets_balance, '0')::NUMERIC * 10^10) +
-    (coalesce(waudio, '0')::NUMERIC * 10^10)
+    coalesce(eth_balance, '0')::NUMERIC +
+    (coalesce(sol_balance, '0')::NUMERIC * 10^10)
   )::NUMERIC::TEXT AS total_balance,
 
   -- total_audio_balance,
   FLOOR(
     (
-      coalesce(balance, '0')::NUMERIC +
-      coalesce(associated_wallets_balance, '0')::NUMERIC +
-      -- to wei
-      (coalesce(associated_sol_wallets_balance, '0')::NUMERIC * 10^10) +
-      (coalesce(waudio, '0')::NUMERIC * 10^10)
+      coalesce(eth_balance, '0')::NUMERIC +
+      (coalesce(sol_balance, '0')::NUMERIC * 10^10)
     ) / 1e18
   )::INT AS total_audio_balance,
 
@@ -76,8 +79,10 @@ SELECT
     ''
   )::text as payout_wallet,
 
-  coalesce(waudio, '0') as waudio_balance,
-  coalesce(associated_sol_wallets_balance, '0') as associated_sol_wallets_balance,
+  -- Same collapse on the sol side: full sol total under `waudio_balance`,
+  -- `associated_sol_wallets_balance` zeroed.
+  coalesce(sol_balance, '0') as waudio_balance,
+  '0' as associated_sol_wallets_balance,
   blocknumber,
   u.created_at,
   is_storage_v2,
@@ -206,7 +211,7 @@ SELECT
 
 FROM users u
 JOIN aggregate_user using (user_id)
-LEFT JOIN user_balances using (user_id)
+LEFT JOIN v_user_balances using (user_id)
 LEFT JOIN user_bank_accounts on u.wallet = user_bank_accounts.ethereum_address
 LEFT JOIN usdc_user_bank_accounts on u.wallet = usdc_user_bank_accounts.ethereum_address
 WHERE u.user_id = ANY(@ids::int[])
