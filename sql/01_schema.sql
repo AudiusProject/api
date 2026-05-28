@@ -9865,9 +9865,9 @@ CREATE VIEW public.v_user_balances AS
      LEFT JOIN LATERAL ( SELECT sum(ewb.balance) AS total_balance,
             max(ewb.updated_at) AS updated_at
            FROM public.eth_wallet_balances ewb
-          WHERE (ewb.wallet IN ( SELECT u.wallet
+          WHERE (ewb.wallet IN ( SELECT lower((u.wallet)::text) AS lower
                 UNION ALL
-                 SELECT aw.wallet
+                 SELECT lower((aw.wallet)::text) AS lower
                    FROM public.associated_wallets aw
                   WHERE ((aw.user_id = u.user_id) AND (aw.chain = 'eth'::public.wallet_chain) AND (aw.is_current = true) AND (aw.is_delete = false))))) eth ON (true))
   WHERE (u.is_current = true);

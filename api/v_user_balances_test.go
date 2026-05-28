@@ -198,3 +198,30 @@ func TestVUserBalances_DeletedAssociatedWalletsExcluded(t *testing.T) {
 	r := queryVUserBalances(t, app, 1)
 	assert.Equal(t, "0", r.EthBalance, "deleted associated_wallets should not contribute")
 }
+
+// Mixed-case wallets in associated_wallets must still resolve against
+// eth_wallet_balances (which is canonical lowercase). This was a real bug on
+// prod where ~35% of the top-100 legacy balances diverged purely because the
+// view's IN-list comparison was case-sensitive. The LOWER() inside the
+// LATERAL keeps the eth_wallet_balances_pkey lookup intact.
+func TestVUserBalances_MixedCaseLinkedWallets(t *testing.T) {
+	app := emptyTestApp(t)
+	const mixedCaseLinked = "0xAbCdEf1234567890abCDef1234567890ABCdEf12"
+	fixtures := database.FixtureMap{
+		"users": []map[string]any{
+			{"user_id": 1, "handle": "u1", "wallet": vubUserPrimaryWallet},
+		},
+		"associated_wallets": []map[string]any{
+			// As-stored mixed case (legacy entry).
+			{"id": 1, "user_id": 1, "wallet": mixedCaseLinked, "chain": "eth", "blockhash": "h", "blocknumber": 101, "is_current": true, "is_delete": false},
+		},
+		"eth_wallet_balances": []map[string]any{
+			// Canonical lowercase (what the eth-indexer + seed migration write).
+			{"wallet": "0xabcdef1234567890abcdef1234567890abcdef12", "balance": "999"},
+		},
+	}
+	database.Seed(app.pool.Replicas[0], fixtures)
+
+	r := queryVUserBalances(t, app, 1)
+	assert.Equal(t, "999", r.EthBalance, "mixed-case associated_wallets entry must still match lowercase eth_wallet_balances")
+}

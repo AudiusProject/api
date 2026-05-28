@@ -7,10 +7,12 @@ SELECT
     -- chain=eth associated_wallets, summed server-side. eth_wallet_balances
     -- already includes ERC-20 balanceOf + staking + delegation (Multicall3 sum
     -- in eth/indexer/multicall.go), matching the legacy Python
-    -- cache_user_balance.py semantic. No LOWER() on the join key — the
-    -- eth-indexer normalizes via lowerHex() and users.wallet is already
-    -- lowercase, and LOWER() would force a seq scan instead of using
-    -- eth_wallet_balances_pkey.
+    -- cache_user_balance.py semantic. The IN-list values are LOWER()'d
+    -- because eth_wallet_balances stores wallets lowercased (eth-indexer
+    -- normalizes via lowerHex()) while associated_wallets historically
+    -- accepted mixed-case input. LOWER() is on the *values* being looked
+    -- up, not on ewb.wallet, so eth_wallet_balances_pkey still drives the
+    -- lookup — no seq scan.
     COALESCE(eth.total_balance, 0)::varchar AS eth_balance,
 
     -- wAUDIO total for the user — sol_user_balances already pre-aggregates
@@ -33,9 +35,9 @@ LEFT JOIN LATERAL (
            MAX(ewb.updated_at) AS updated_at
       FROM eth_wallet_balances ewb
      WHERE ewb.wallet IN (
-        SELECT u.wallet
+        SELECT LOWER(u.wallet)
         UNION ALL
-        SELECT aw.wallet
+        SELECT LOWER(aw.wallet)
           FROM associated_wallets aw
          WHERE aw.user_id = u.user_id
            AND aw.chain = 'eth'
