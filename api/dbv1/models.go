@@ -2231,6 +2231,15 @@ type SolTokenTransfer struct {
 	ToAccount        string `json:"to_account"`
 }
 
+// Memo-tagged classifications for claimable_tokens transfers and payment_router routes. memo_type is one of: withdrawal, prepare_withdrawal, internal_transfer, recover_withdrawal.
+type SolTransferMemoType struct {
+	Signature        string    `json:"signature"`
+	InstructionIndex int32     `json:"instruction_index"`
+	Slot             int64     `json:"slot"`
+	MemoType         string    `json:"memo_type"`
+	CreatedAt        time.Time `json:"created_at"`
+}
+
 // Stores the balances of Solana tokens for users.
 type SolUserBalance struct {
 	UserID    int32     `json:"user_id"`
@@ -2666,7 +2675,7 @@ type VChallengeDisbursement struct {
 	UserID      int32      `json:"user_id"`
 }
 
-// Mint-agnostic transactions history derived from sol_token_account_balance_changes (the hub: only table with both mint and block_timestamp). Per-row transaction_type derived by LEFT JOIN to typed tables (sol_claimable_account_transfers, sol_reward_disbursements, sol_purchases). Callers filter by mint at query time. Powers /v1/users/{id}/transactions/audio today; will power /transactions/usdc once sol_withdrawals + vendor-memo capture land. Vendor purchase types (PURCHASE_STRIPE/COINBASE/UNKNOWN) degrade to bare transfer until that indexer work ships.
+// Mint-agnostic transactions history derived from sol_token_account_balance_changes (the hub: only table with both mint and block_timestamp). Per-row transaction_type derived by LEFT JOIN to typed tables (sol_claimable_account_transfers, sol_reward_disbursements, sol_purchases, sol_transfer_memo_types). Callers filter by mint at query time. Vendor purchase types (PURCHASE_STRIPE/COINBASE/UNKNOWN) on AUDIO still degrade to bare transfer until the AUDIO mint subscription + vendor-memo capture land.
 type VTokenTransactionsHistory struct {
 	Signature       string      `json:"signature"`
 	Mint            string      `json:"mint"`
