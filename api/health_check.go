@@ -40,9 +40,22 @@ func (app *ApiServer) getCoreIndexerHealth(ctx context.Context) (*coreIndexerHea
 
 	// ETL tracks the highest indexed chain height in `core_indexed_blocks`.
 	// COALESCE handles the cold-start case before any blocks are indexed.
+	//
+	// The chain_id predicate is required for index usage. `core_indexed_blocks`
+	// has indexes (PK on (chain_id, height) and idx_chain_id_height), all
+	// leading with chain_id. Without the filter, MAX(height) degrades to a
+	// sequential scan over the whole table (~tens of millions of rows on
+	// prod) — at k8s probe cadence × bridge replicas that becomes enough
+	// load to saturate I/O and exhaust the connection pool. The filter
+	// makes it a sub-millisecond index seek.
+	//
+	// We reuse the Chainid from the just-fetched nodeInfo rather than
+	// plumbing a separate config field — same value ETL uses when it
+	// writes rows here, so the filter always matches the writer's intent.
 	var indexerLastBlockHeight int64
 	err = app.pool.QueryRow(ctx,
-		"SELECT COALESCE(MAX(height), 0) FROM core_indexed_blocks",
+		"SELECT COALESCE(MAX(height), 0) FROM core_indexed_blocks WHERE chain_id = $1",
+		nodeInfo.Msg.Chainid,
 	).Scan(&indexerLastBlockHeight)
 	if err != nil {
 		return nil, fiber.NewError(fiber.StatusInternalServerError, "Failed to get core indexer last block height")
