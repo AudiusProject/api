@@ -89,6 +89,17 @@ func NewIndexer(cfg config.Config) *CoreIndexer {
 	etlIndexer.SetUserCreatedHook(userEventsHook)
 	etlIndexer.RegisterPostHook(em.EntityTypeUser, em.ActionUpdate, userEventsHook)
 
+	// Decode hashid-encoded track IDs in playlist_contents back to integers.
+	// ETL's playlist Create/Update handlers decode hashids only for the
+	// playlist_tracks junction; the JSONB column is written verbatim, so
+	// SDK-supplied string IDs ("1aV5byE") leak into the column and break
+	// the downstream `::int` cast in v1_playlist_tracks and the int64 Scan
+	// in dbv1.PlaylistContents. The hook re-reads the JSONB and rewrites
+	// any string `track`/`track_id` values to ints in the same tx.
+	playlistContentsHook := newPlaylistContentsHook(logger)
+	etlIndexer.RegisterPostHook(em.EntityTypePlaylist, em.ActionCreate, playlistContentsHook)
+	etlIndexer.RegisterPostHook(em.EntityTypePlaylist, em.ActionUpdate, playlistContentsHook)
+
 	return &CoreIndexer{
 		aggregatesCalculator: aggregatesCalculator,
 		etlIndexer:           etlIndexer,
