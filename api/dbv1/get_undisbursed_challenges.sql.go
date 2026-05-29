@@ -20,7 +20,7 @@ SELECT
     user_challenges.amount
 FROM user_challenges
 JOIN users ON users.user_id = user_challenges.user_id
-LEFT JOIN v_challenge_disbursements AS challenge_disbursements
+LEFT JOIN sol_reward_disbursements AS challenge_disbursements
     ON challenge_disbursements.challenge_id = user_challenges.challenge_id
     AND challenge_disbursements.specifier = user_challenges.specifier
 WHERE
@@ -45,6 +45,10 @@ type GetUndisbursedChallengesRow struct {
 	Amount      int32       `json:"amount"`
 }
 
+// Match raw disbursement rows by (challenge_id, specifier): a reward is disbursed
+// once per specifier on-chain regardless of recipient, and reading
+// sol_reward_disbursements directly avoids v_challenge_disbursements dropping
+// disbursements whose recipient wallet does not resolve to a current user.
 func (q *Queries) GetUndisbursedChallenges(ctx context.Context, arg GetUndisbursedChallengesParams) ([]GetUndisbursedChallengesRow, error) {
 	rows, err := q.db.Query(ctx, getUndisbursedChallenges, arg.UserID, arg.ChallengeID, arg.Specifier)
 	if err != nil {

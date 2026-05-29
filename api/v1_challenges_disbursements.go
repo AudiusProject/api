@@ -51,7 +51,7 @@ func (app *ApiServer) v1ChallengesDisbursements(c *fiber.Ctx) error {
 	case "specifier":
 		sortMethod = "cd.specifier"
 	case "user_id":
-		sortMethod = "cd.user_id"
+		sortMethod = "u.user_id"
 	}
 
 	whereClause := ""
@@ -63,25 +63,33 @@ func (app *ApiServer) v1ChallengesDisbursements(c *fiber.Ctx) error {
 		filters = append(filters, "cd.specifier ILIKE '%' || @specifierQuery || '%'")
 	}
 	if params.ChallengeUserID != 0 {
-		filters = append(filters, "cd.user_id = @challengeUserId")
+		filters = append(filters, "u.user_id = @challengeUserId")
 	}
 
 	if len(filters) > 0 {
 		whereClause = "WHERE " + strings.Join(filters, " AND ")
 	}
 
+	// Resolve the recipient user_id from the on-chain recipient_eth_address.
+	// The Go indexer stores recipient_eth_address lowercased, while users.wallet
+	// is an EIP-55 checksummed (mixed-case) address, so normalise before joining
+	// (see migration 0204). This inlines the former v_challenge_disbursements view,
+	// now that this is its only consumer.
 	sql := `
 	SELECT
 		cd.challenge_id,
-		cd.user_id,
+		u.user_id,
 		cd.specifier,
-		cd.amount,
+		cd.amount::text AS amount,
 		cd.created_at,
 		cd.signature,
 		cd.slot
-	FROM v_challenge_disbursements cd
+	FROM sol_reward_disbursements cd
+	JOIN users u
+		ON LOWER(u.wallet) = cd.recipient_eth_address
+		AND u.is_current = true
 	` + whereClause + `
-	ORDER BY ` + sortMethod + ` ` + sortDir + `, cd.user_id ASC
+	ORDER BY ` + sortMethod + ` ` + sortDir + `, u.user_id ASC
 	LIMIT @limit
 	OFFSET @offset;
 	`

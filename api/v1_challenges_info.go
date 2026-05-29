@@ -59,8 +59,12 @@ func (app *ApiServer) v1ChallengesInfo(c *fiber.Ctx) error {
 		CASE
 			WHEN c.weekly_pool IS NULL THEN NULL
 			ELSE c.weekly_pool - COALESCE(
-				(SELECT SUM(cd.amount::bigint) / 100000000
-				 FROM v_challenge_disbursements cd
+				-- Read sol_reward_disbursements directly: the weekly pool spent is the
+				-- sum of all disbursements for the challenge, independent of recipient.
+				-- v_challenge_disbursements would drop any whose recipient wallet does
+				-- not resolve to a current user, overstating the remaining pool.
+				(SELECT SUM(cd.amount) / 100000000
+				 FROM sol_reward_disbursements cd
 				 WHERE cd.challenge_id = c.id
 				   AND cd.created_at > @weeklyPoolWindowStart),
 				0

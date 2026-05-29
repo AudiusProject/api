@@ -164,7 +164,11 @@ func (app *ApiServer) v1CoinsPostRedeem(c *fiber.Ctx) error {
 		redeemCode = coinTicker
 		// Check for challenge disbursement for the given code/userId
 		var count int
-		err := app.writePool.QueryRow(c.Context(), `SELECT count(*) FROM v_challenge_disbursements WHERE challenge_id = @code AND specifier = @specifier LIMIT 1;`, pgx.NamedArgs{
+		// Read sol_reward_disbursements directly: this is an existence check by
+		// (challenge_id, specifier) and must count a prior redemption even if its
+		// recipient wallet does not resolve to a current user (which
+		// v_challenge_disbursements would drop, allowing a double redemption).
+		err := app.writePool.QueryRow(c.Context(), `SELECT count(*) FROM sol_reward_disbursements WHERE challenge_id = @code AND specifier = @specifier LIMIT 1;`, pgx.NamedArgs{
 			"code":      redeemCode,
 			"specifier": specifier,
 		}).Scan(&count)
