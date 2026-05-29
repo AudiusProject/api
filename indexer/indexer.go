@@ -89,6 +89,15 @@ func NewIndexer(cfg config.Config) *CoreIndexer {
 	etlIndexer.SetUserCreatedHook(userEventsHook)
 	etlIndexer.RegisterPostHook(em.EntityTypeUser, em.ActionUpdate, userEventsHook)
 
+	// Write each on-chain play into the `plays` table, restoring the legacy
+	// Python `index_core_plays` behavior. The vendored ETL play processor
+	// only writes `etl_plays` (which nothing in api/ reads); this hook
+	// bridges plays into the `plays` table every downstream consumer (the
+	// on_play trigger's aggregates/milestones/notifications, the challenge
+	// processors, trending, hourly-play-count) depends on. Runs in the same
+	// DB tx as etl_plays, so the rows commit atomically.
+	etlIndexer.RegisterPlaysHook(newPlaysHook(logger))
+
 	return &CoreIndexer{
 		aggregatesCalculator: aggregatesCalculator,
 		etlIndexer:           etlIndexer,
