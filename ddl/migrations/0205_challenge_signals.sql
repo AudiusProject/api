@@ -1,5 +1,5 @@
 -- challenge_signals: client- and admin-reported events that don't surface
--- from any on-chain or Solana table on their own. Consumed by the m/o/r/
+-- from any on-chain or Solana table on their own. Consumed by the m/r/
 -- rv/rd challenge processors in api/jobs/challenges/.
 --
 -- One row per discrete event. Rows are append-only — processors track
@@ -10,7 +10,6 @@ BEGIN;
 DO $$ BEGIN
   CREATE TYPE challenge_signal_type AS ENUM (
     'mobile_install',
-    'one_shot',
     'referral'
   );
 EXCEPTION
@@ -41,8 +40,7 @@ INSERT INTO challenges (id, type, amount, active, step_count, starting_block, we
   ('m',  'boolean',   '1', true,  NULL,        25346436, 25000,      7),
   ('r',  'aggregate', '1', true,  5,           25346436, 25000,      7),
   ('rv', 'aggregate', '1', true,  5000,        25346436, 25000,      7),
-  ('rd', 'boolean',   '1', true,  NULL,        25346436, 25000,      7),
-  ('o',  'aggregate', '1', true,  2147483647,  0,        2147483647, 0)
+  ('rd', 'boolean',   '1', true,  NULL,        25346436, 25000,      7)
 ON CONFLICT (id) DO UPDATE SET
   type           = EXCLUDED.type,
   amount         = EXCLUDED.amount,

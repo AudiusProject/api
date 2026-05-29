@@ -59,7 +59,6 @@ func NewIndexChallengesJob(cfg config.Config, pool database.DbPool) *IndexChalle
 			challenges.NewAudioMatchingSellerProcessor(),
 			// Phase 3 (signal-driven)
 			&challenges.MobileInstallProcessor{},
-			&challenges.OneShotProcessor{},
 			challenges.NewReferralProcessor(),
 			challenges.NewVerifiedReferralProcessor(),
 			&challenges.ReferredProcessor{},

@@ -35,24 +35,6 @@ func TestMobileInstall_OneRowPerUser(t *testing.T) {
 	assert.Equal(t, 1, count)
 }
 
-func TestOneShot_ExtraAmountOverrides(t *testing.T) {
-	pool := withChallengesDB(t)
-	ctx := context.Background()
-	_, err := pool.Exec(ctx, `
-		INSERT INTO challenge_signals (type, user_id, extra)
-		VALUES ('one_shot', 2100, '{"amount": 500, "nonce": "drop-1"}'::jsonb)
-	`)
-	require.NoError(t, err)
-
-	runProcessor(t, pool, &OneShotProcessor{})
-
-	r, ok := queryUserChallenge(t, pool, "o", fmt.Sprintf("%x:drop-1", 2100))
-	if assert.True(t, ok) {
-		assert.Equal(t, int32(500), r.Amount, "extra.amount should override catalog amount")
-		assert.True(t, r.IsComplete)
-	}
-}
-
 func TestReferral_NonVerifiedReferrer(t *testing.T) {
 	pool := withChallengesDB(t)
 	ctx := context.Background()

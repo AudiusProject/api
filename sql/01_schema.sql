@@ -87,7 +87,6 @@ COMMENT ON EXTENSION tsm_system_rows IS 'TABLESAMPLE method which accepts number
 
 CREATE TYPE public.challenge_signal_type AS ENUM (
     'mobile_install',
-    'one_shot',
     'referral'
 );
 

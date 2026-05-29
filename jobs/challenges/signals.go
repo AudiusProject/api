@@ -1,6 +1,6 @@
 // Package challenges, signal-driven processors.
 //
-// Phase 3 processors (m, o, r, rv, rd) consume from the challenge_signals
+// Phase 3 processors (m, r, rv, rd) consume from the challenge_signals
 // table (populated by POST /v1/challenges/signals or by admins via SQL).
 // Each processor reads its slice of signals since checkpoint and mints
 // the appropriate user_challenges row.
@@ -95,65 +95,6 @@ func (p *MobileInstallProcessor) Reconcile(ctx context.Context, tx pgx.Tx) error
 		if err := UpsertUserChallenge(ctx, tx,
 			p.ChallengeID(), SpecifierFromUserID(s.UserID),
 			s.UserID, 1, 1, amount,
-		); err != nil {
-			return fmt.Errorf("upsert: %w", err)
-		}
-	}
-	if maxID > prev {
-		if err := writeCheckpointInt(ctx, tx, cpName, maxID); err != nil {
-			return err
-		}
-	}
-	return nil
-}
-
-// OneShotProcessor implements challenge "o" — admin-issued grants.
-// Signal type: "one_shot". The signal's `extra.amount` overrides the
-// catalog amount; a `extra.nonce` field becomes part of the specifier
-// so the same user can receive multiple grants.
-type OneShotProcessor struct{}
-
-func (p *OneShotProcessor) ChallengeID() string { return "o" }
-
-func (p *OneShotProcessor) Reconcile(ctx context.Context, tx pgx.Tx) error {
-	c, ok, err := LoadChallenge(ctx, tx, p.ChallengeID())
-	if err != nil {
-		return fmt.Errorf("load challenge: %w", err)
-	}
-	if !ok || !c.Active {
-		return nil
-	}
-	catalogAmount := c.AmountInt()
-	cpName := signalsCheckpointName(p.ChallengeID(), "one_shot")
-	prev, err := readCheckpointInt(ctx, tx, cpName)
-	if err != nil {
-		return err
-	}
-	signals, maxID, err := readSignalsSince(ctx, tx, "one_shot", prev, 5000)
-	if err != nil {
-		return err
-	}
-	for _, s := range signals {
-		var extra struct {
-			Amount *int32  `json:"amount"`
-			Nonce  *string `json:"nonce"`
-		}
-		if err := decodeSignalExtra(s.ExtraJSON, &extra); err != nil {
-			return fmt.Errorf("decode one_shot extra: %w", err)
-		}
-		amount := catalogAmount
-		if extra.Amount != nil && *extra.Amount > 0 {
-			amount = *extra.Amount
-		}
-		// Default specifier nonce = signal id so same user multiple
-		// grants stay distinct even when no nonce is provided.
-		nonce := fmt.Sprintf("%d", s.ID)
-		if extra.Nonce != nil && *extra.Nonce != "" {
-			nonce = *extra.Nonce
-		}
-		specifier := fmt.Sprintf("%x:%s", s.UserID, nonce)
-		if err := UpsertUserChallenge(ctx, tx,
-			p.ChallengeID(), specifier, s.UserID, 1, 1, amount,
 		); err != nil {
 			return fmt.Errorf("upsert: %w", err)
 		}
