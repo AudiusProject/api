@@ -10586,29 +10586,6 @@ CREATE TABLE public.user_tips (
 
 
 --
--- Name: v_challenge_disbursements; Type: VIEW; Schema: public; Owner: -
---
-
-CREATE VIEW public.v_challenge_disbursements AS
- SELECT rd.challenge_id,
-    rd.specifier,
-    (rd.amount)::text AS amount,
-    rd.signature,
-    rd.slot,
-    rd.created_at,
-    users.user_id
-   FROM (public.sol_reward_disbursements rd
-     JOIN public.users ON (((lower((users.wallet)::text) = rd.recipient_eth_address) AND (users.is_current = true))));
-
-
---
--- Name: VIEW v_challenge_disbursements; Type: COMMENT; Schema: public; Owner: -
---
-
-COMMENT ON VIEW public.v_challenge_disbursements IS 'Compatibility view that exposes sol_reward_disbursements in the column shape the API routes used to read from challenge_disbursements. Resolves user_id via the indexer-populated recipient_eth_address (see migration 0172).';
-
-
---
 -- Name: v_token_transactions_history; Type: VIEW; Schema: public; Owner: -
 --
 

@@ -161,6 +161,7 @@ migrations/0208_seed_challenge_checkpoints.sql	ed11876806de4dd1d80b389894b4db45	
 migrations/0209_user_events_blocknumber_idx.sql	19ed339385266f28e83399125b6593df	2026-05-29 19:30:00.000000+00
 migrations/0210_notification_cooldown_partial_gin.sql	7156a9b6e236e17acef7d6b91cb1291b	2026-05-29 19:30:00.100000+00
 migrations/0211_seed_phase_3_user_event_checkpoints.sql	e37093a8ba1d1a4a3bcca7f98b612be2	2026-05-29 19:30:00.200000+00
+migrations/0212_drop_v_challenge_disbursements.sql	90097355681a3a9b3cde2586511f0f16	2026-05-29 23:22:07.541889+00
 \.
 
 
