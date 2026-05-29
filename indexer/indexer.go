@@ -149,6 +149,18 @@ func (ci *CoreIndexer) startParityJobs(ctx context.Context) {
 	// scanners live in api/jobs/challenges/.
 	jobs.NewIndexChallengesJob(ci.Config, ci.pool).
 		ScheduleEvery(ctx, 30*time.Second)
+
+	// Time-based notifications that the legacy Python beat produced. Unlike
+	// the event-driven notifications (handled by DB triggers), these fire on
+	// a timer because they depend on elapsed time, not an indexed entity.
+	jobs.NewEngagementNotificationsJob(ci.Config, ci.pool).
+		ScheduleEvery(ctx, 10*time.Minute)
+
+	jobs.NewListenStreakReminderJob(ci.Config, ci.pool).
+		ScheduleEvery(ctx, 10*time.Second)
+
+	jobs.NewRemixContestNotificationsJob(ci.Config, ci.pool).
+		ScheduleEvery(ctx, 30*time.Second)
 }
 
 func (ci *CoreIndexer) Close() {
