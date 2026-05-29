@@ -157,6 +157,7 @@ migrations/0207_canonicalize_associated_wallets_eth.sql	83e88b1102c1bc5e2526a919
 migrations/0203_seed_phase_1_challenges.sql	b027784464de897b26d4b420ca51a970	2026-05-29 16:22:36.535877+00
 migrations/0204_seed_phase_2_challenges.sql	168a6d57c056e2e8f7fe14c36fc1c367	2026-05-29 16:22:36.811563+00
 migrations/0205_challenge_signals.sql	e40e6a236a10dc528443cc3ef871171b	2026-05-29 16:22:37.200322+00
+migrations/0208_seed_challenge_checkpoints.sql	ed11876806de4dd1d80b389894b4db45	2026-05-29 16:22:38.000000+00
 \.
 
 
