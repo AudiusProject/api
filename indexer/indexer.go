@@ -108,24 +108,6 @@ func NewIndexer(cfg config.Config) *CoreIndexer {
 	}
 }
 
-// Start runs the ETL indexer alongside the aggregates calculator. The
-// errgroup uses WithContext so that if either long-lived goroutine returns
-// an error — most importantly an ETL halt from go-openaudio#323's
-// halt-on-block-error path — the shared ctx is cancelled and the aggregates
-// loop + parity jobs exit too, allowing eg.Wait() to return and main.go's
-// `panic(err)` to crash-restart the pod.
-//
-// A previous version used a bare `errgroup.Group{}` (no shared ctx),
-// which silently broke the halt path: ETL Run() returned its error, but
-// aggregatesCalculator.Start kept spinning on an uncancelled ctx, eg.Wait
-// blocked forever, and the process never exited. Observed in prod on
-// cd94ede when an ETL 25P02 cascade halted the indexer but the pod stayed
-// 1/1 Running — defeating the whole point of #323.
-//
-// Caveat: etl.Indexer.Run() still uses its own internal context.Background()
-// rather than honoring the shared ctx — upstream doesn't expose ctx-driven
-// shutdown. External SIGTERM still terminates via Go signal handling +
-// k8s grace period, and DB pools drain via finalizers on exit.
 func (ci *CoreIndexer) Start(ctx context.Context) error {
 	eg, gCtx := errgroup.WithContext(ctx)
 	eg.Go(func() error {
