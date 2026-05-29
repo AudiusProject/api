@@ -41,6 +41,14 @@ func withChallengesDB(t *testing.T) *pgxpool.Pool {
 		{"tt", "trending", "1000", true, nil, 25346436, 100000, nil},
 		{"tut", "trending", "1000", true, nil, 25346436, 100000, nil},
 		{"tp", "trending", "100", true, nil, 25346436, 10000, nil},
+		// Phase 2
+		{"c", "aggregate", "1", true, i32p(2147483647), 0, 2147483647, i32p(7)},
+		{"t", "aggregate", "100", true, i32p(2147483647), 0, 2147483647, i32p(7)},
+		{"cp", "aggregate", "10", true, i32p(2147483647), 1979515, 2147483647, i32p(7)},
+		{"cs", "aggregate", "1000", false, i32p(2147483647), 95017582, 50000, i32p(7)},
+		{"w", "aggregate", "1000", true, i32p(2147483647), 98950182, 50000, i32p(7)},
+		{"b", "aggregate", "1", true, i32p(2147483647), 220157041, 25000, i32p(7)},
+		{"s", "aggregate", "5", true, i32p(2147483647), 220157041, 25000, i32p(7)},
 	}
 	for _, r := range rows {
 		_, err := pool.Exec(ctx, `
