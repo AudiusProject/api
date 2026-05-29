@@ -3,9 +3,11 @@ package indexer
 import (
 	"context"
 	"fmt"
+	"time"
 
 	"api.audius.co/config"
 	dbv1 "api.audius.co/database"
+	"api.audius.co/jobs"
 	"api.audius.co/logging"
 	etl "github.com/OpenAudio/go-openaudio/pkg/etl"
 	"github.com/OpenAudio/go-openaudio/pkg/sdk"
@@ -105,7 +107,33 @@ func (ci *CoreIndexer) Start(ctx context.Context) error {
 		ci.logger.Info("Starting ETL indexer")
 		return ci.etlIndexer.Run()
 	})
+	ci.startParityJobs(ctx)
 	return eg.Wait()
+}
+
+// startParityJobs schedules the periodic jobs that mirror what the legacy
+// Python discovery-provider celery beat used to run. Each job's ScheduleEvery
+// launches its own goroutine and exits when ctx is cancelled, so we don't
+// need to add them to the errgroup — they self-manage.
+//
+// Intervals match apps' celery beat_schedule in src/app.py where applicable.
+// update_delist_statuses isn't in apps' beat (apps invokes it externally),
+// so we pick a conservative default.
+func (ci *CoreIndexer) startParityJobs(ctx context.Context) {
+	jobs.NewHourlyPlayCountsJob(ci.Config, ci.pool).
+		ScheduleEvery(ctx, 30*time.Second)
+
+	jobs.NewPrunePlaysJob(ci.Config, ci.pool).
+		ScheduleEvery(ctx, 30*time.Second)
+
+	jobs.NewUserListeningHistoryJob(ci.Config, ci.pool).
+		ScheduleEvery(ctx, 5*time.Second)
+
+	jobs.NewTrendingJob(ci.Config, ci.pool).
+		ScheduleEvery(ctx, 10*time.Second)
+
+	jobs.NewUpdateDelistStatusesJob(ci.Config, ci.pool).
+		ScheduleEvery(ctx, 5*time.Minute)
 }
 
 func (ci *CoreIndexer) Close() {
