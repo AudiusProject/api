@@ -7,7 +7,9 @@ SELECT
     user_challenges.amount
 FROM user_challenges
 JOIN users ON users.user_id = user_challenges.user_id
-LEFT JOIN v_challenge_disbursements AS challenge_disbursements
+-- Anti-join the raw table by (challenge_id, specifier); the v_challenge_disbursements
+-- view drops disbursements whose recipient wallet doesn't resolve to a user.
+LEFT JOIN sol_reward_disbursements AS challenge_disbursements
     ON challenge_disbursements.challenge_id = user_challenges.challenge_id
     AND challenge_disbursements.specifier = user_challenges.specifier
 WHERE

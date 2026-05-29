@@ -20,7 +20,7 @@ SELECT
     user_challenges.amount
 FROM user_challenges
 JOIN users ON users.user_id = user_challenges.user_id
-LEFT JOIN v_challenge_disbursements AS challenge_disbursements
+LEFT JOIN sol_reward_disbursements AS challenge_disbursements
     ON challenge_disbursements.challenge_id = user_challenges.challenge_id
     AND challenge_disbursements.specifier = user_challenges.specifier
 WHERE
@@ -45,6 +45,8 @@ type GetUndisbursedChallengesRow struct {
 	Amount      int32       `json:"amount"`
 }
 
+// Anti-join the raw table by (challenge_id, specifier); the v_challenge_disbursements
+// view drops disbursements whose recipient wallet doesn't resolve to a user.
 func (q *Queries) GetUndisbursedChallenges(ctx context.Context, arg GetUndisbursedChallengesParams) ([]GetUndisbursedChallengesRow, error) {
 	rows, err := q.db.Query(ctx, getUndisbursedChallenges, arg.UserID, arg.ChallengeID, arg.Specifier)
 	if err != nil {

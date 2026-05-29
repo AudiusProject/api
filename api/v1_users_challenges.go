@@ -24,11 +24,6 @@ func (app *ApiServer) v1UsersChallenges(c *fiber.Ctx) error {
 		SELECT * FROM user_challenges JOIN user_row USING (user_id)
 	),
 
-	-- Pre-filter to their disbursements
-	challenge_disbursements_filtered AS (
-		SELECT * FROM v_challenge_disbursements JOIN user_row USING (user_id)
-	),
-
 	-- Start with the list of all active challenges, and then
 	-- apply the user's user challenges and disbursements.
 	-- verified-only challenges if not verified
@@ -39,21 +34,23 @@ func (app *ApiServer) v1UsersChallenges(c *fiber.Ctx) error {
 			COALESCE(user_challenges_filtered.specifier, '') AS specifier,
 			COALESCE(user_challenges_filtered.is_complete, false) AS is_complete,
 			challenges.active AS is_active,
-			(challenge_disbursements_filtered.slot IS NOT NULL) AS is_disbursed,
+			(reward_disbursements.slot IS NOT NULL) AS is_disbursed,
 			COALESCE(user_challenges_filtered.current_step_count, 0) AS current_step_count,
 			challenges.step_count AS max_steps,
 			challenges.type AS challenge_type,
 			COALESCE(challenges.amount::BIGINT, 0) AS amount,
 			COALESCE(user_challenges_filtered.amount, 0) AS user_amount,
-			COALESCE(challenge_disbursements_filtered.amount, '0')::BIGINT / 100000000 AS disbursed_amount,
+			COALESCE(reward_disbursements.amount, 0) / 100000000 AS disbursed_amount,
 			COALESCE(challenges.cooldown_days, 0) AS cooldown_days,
 			user_challenges_filtered.created_at
 		FROM challenges
 		LEFT JOIN user_challenges_filtered ON challenges.id = user_challenges_filtered.challenge_id
 		CROSS JOIN user_row
-		LEFT JOIN challenge_disbursements_filtered
-			ON user_challenges_filtered.challenge_id = challenge_disbursements_filtered.challenge_id
-			AND user_challenges_filtered.specifier = challenge_disbursements_filtered.specifier
+		-- Match by (challenge_id, specifier), not user: a specifier is disbursed once
+		-- on-chain, so a paid reward is never shown claimable even if paid to another user.
+		LEFT JOIN sol_reward_disbursements AS reward_disbursements
+			ON user_challenges_filtered.challenge_id = reward_disbursements.challenge_id
+			AND user_challenges_filtered.specifier = reward_disbursements.specifier
 		WHERE challenges.active
 			AND NOT (challenges.id IN ('rv', 's') AND NOT user_row.is_verified)
 			AND NOT (challenges.id IN ('r') AND user_row.is_verified)
