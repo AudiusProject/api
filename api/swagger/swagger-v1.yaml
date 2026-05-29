@@ -14387,59 +14387,17 @@ components:
           $ref: "#/components/schemas/grant"
     genre:
       type: string
-      description: Music genre
-      enum:
-        - Electronic
-        - Rock
-        - Metal
-        - Alternative
-        - Hip-Hop/Rap
-        - Experimental
-        - Punk
-        - Folk
-        - Pop
-        - Ambient
-        - Soundtrack
-        - World
-        - Jazz
-        - Acoustic
-        - Funk
-        - R&B/Soul
-        - Devotional
-        - Classical
-        - Reggae
-        - Podcasts
-        - Country
-        - Spoken Word
-        - Comedy
-        - Blues
-        - Kids
-        - Audiobooks
-        - Latin
-        - Lo-Fi
-        - Hyperpop
-        - Dancehall
-        - Techno
-        - Trap
-        - House
-        - Tech House
-        - Deep House
-        - Disco
-        - Electro
-        - Jungle
-        - Progressive House
-        - Hardstyle
-        - Glitch Hop
-        - Trance
-        - Future Bass
-        - Future House
-        - Tropical House
-        - Downtempo
-        - Drum & Bass
-        - Dubstep
-        - Jersey Club
-        - Vaporwave
-        - Moombahton
+      maxLength: 100
+      description: |
+        Music genre. Any string up to 100 characters is accepted. Known/canonical
+        values (shown as autocomplete suggestions in clients): Electronic, Rock,
+        Metal, Alternative, Hip-Hop/Rap, Experimental, Punk, Folk, Pop, Ambient,
+        Soundtrack, World, Jazz, Acoustic, Funk, R&B/Soul, Devotional, Classical,
+        Reggae, Podcasts, Country, Spoken Word, Comedy, Blues, Kids, Audiobooks,
+        Latin, Lo-Fi, Hyperpop, Dancehall, Techno, Trap, House, Tech House,
+        Deep House, Disco, Electro, Jungle, Progressive House, Hardstyle,
+        Glitch Hop, Trance, Future Bass, Future House, Tropical House, Downtempo,
+        Drum & Bass, Dubstep, Jersey Club, Vaporwave, Moombahton.
     albums_response:
       required:
         - latest_chain_block
