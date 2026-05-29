@@ -46,13 +46,8 @@ func (app *ApiServer) v1UsersChallenges(c *fiber.Ctx) error {
 		FROM challenges
 		LEFT JOIN user_challenges_filtered ON challenges.id = user_challenges_filtered.challenge_id
 		CROSS JOIN user_row
-		-- A reward is disbursed exactly once per (challenge_id, specifier) on-chain,
-		-- regardless of which wallet/user received it. Match disbursements by
-		-- specifier (not by user_id) so a reward that has already been paid out is
-		-- never surfaced as still-claimable, even when it was attributed to a
-		-- different user than user_challenges records. Read sol_reward_disbursements
-		-- directly rather than v_challenge_disbursements so disbursements whose
-		-- recipient wallet does not resolve to a current user are still counted.
+		-- Match by (challenge_id, specifier), not user: a specifier is disbursed once
+		-- on-chain, so a paid reward is never shown claimable even if paid to another user.
 		LEFT JOIN sol_reward_disbursements AS reward_disbursements
 			ON user_challenges_filtered.challenge_id = reward_disbursements.challenge_id
 			AND user_challenges_filtered.specifier = reward_disbursements.specifier

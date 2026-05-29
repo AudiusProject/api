@@ -7,10 +7,8 @@ SELECT
     user_challenges.amount
 FROM user_challenges
 JOIN users ON users.user_id = user_challenges.user_id
--- Match raw disbursement rows by (challenge_id, specifier): a reward is disbursed
--- once per specifier on-chain regardless of recipient, and reading
--- sol_reward_disbursements directly avoids v_challenge_disbursements dropping
--- disbursements whose recipient wallet does not resolve to a current user.
+-- Anti-join the raw table by (challenge_id, specifier); the v_challenge_disbursements
+-- view drops disbursements whose recipient wallet doesn't resolve to a user.
 LEFT JOIN sol_reward_disbursements AS challenge_disbursements
     ON challenge_disbursements.challenge_id = user_challenges.challenge_id
     AND challenge_disbursements.specifier = user_challenges.specifier

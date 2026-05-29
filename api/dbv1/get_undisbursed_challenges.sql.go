@@ -45,10 +45,8 @@ type GetUndisbursedChallengesRow struct {
 	Amount      int32       `json:"amount"`
 }
 
-// Match raw disbursement rows by (challenge_id, specifier): a reward is disbursed
-// once per specifier on-chain regardless of recipient, and reading
-// sol_reward_disbursements directly avoids v_challenge_disbursements dropping
-// disbursements whose recipient wallet does not resolve to a current user.
+// Anti-join the raw table by (challenge_id, specifier); the v_challenge_disbursements
+// view drops disbursements whose recipient wallet doesn't resolve to a user.
 func (q *Queries) GetUndisbursedChallenges(ctx context.Context, arg GetUndisbursedChallengesParams) ([]GetUndisbursedChallengesRow, error) {
 	rows, err := q.db.Query(ctx, getUndisbursedChallenges, arg.UserID, arg.ChallengeID, arg.Specifier)
 	if err != nil {

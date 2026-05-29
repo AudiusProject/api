@@ -62,11 +62,9 @@ func (app *ApiServer) v1ChallengesUndisbursed(c *fiber.Ctx) error {
 	FROM user_challenges
 	JOIN challenges ON challenges.id = user_challenges.challenge_id
 	JOIN users ON users.user_id = user_challenges.user_id
-	-- A reward is disbursed once per (challenge_id, specifier) on-chain, regardless
-	-- of recipient. Match on the raw sol_reward_disbursements rows by specifier so a
-	-- reward that was already paid is never offered for claim, even if its recipient
-	-- wallet does not resolve to a current user (which v_challenge_disbursements would
-	-- drop, wrongly surfacing it as claimable).
+	-- Anti-join raw sol_reward_disbursements by (challenge_id, specifier), not the
+	-- v_challenge_disbursements view: a paid specifier must never be offered for claim,
+	-- and the view drops disbursements whose recipient wallet doesn't resolve to a user.
 	LEFT JOIN sol_reward_disbursements AS challenge_disbursements ON
 		challenge_disbursements.challenge_id = user_challenges.challenge_id
 		AND challenge_disbursements.specifier = user_challenges.specifier

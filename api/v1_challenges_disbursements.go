@@ -70,11 +70,9 @@ func (app *ApiServer) v1ChallengesDisbursements(c *fiber.Ctx) error {
 		whereClause = "WHERE " + strings.Join(filters, " AND ")
 	}
 
-	// Resolve the recipient user_id from the on-chain recipient_eth_address.
-	// The Go indexer stores recipient_eth_address lowercased, while users.wallet
-	// is an EIP-55 checksummed (mixed-case) address, so normalise before joining
-	// (see migration 0204). This inlines the former v_challenge_disbursements view,
-	// now that this is its only consumer.
+	// Inlines the former v_challenge_disbursements view to resolve recipient user_id.
+	// recipient_eth_address is stored lowercase but users.wallet is checksummed, so
+	// join on LOWER(users.wallet) (see migration 0204).
 	sql := `
 	SELECT
 		cd.challenge_id,
