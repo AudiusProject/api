@@ -21,6 +21,10 @@ import (
 // current_step_count is the sum of the 7 booleans.
 //
 // Mirrors apps/packages/discovery-provider/src/challenges/profile_challenge.py.
+//
+// Incremental: rather than rescanning users/follows/reposts/saves every tick
+// (a full recompute timed out past 90s against prod), we only recompute users
+// touched since the last checkpoint. See incremental.go.
 type ProfileCompletionProcessor struct{}
 
 func (p *ProfileCompletionProcessor) ChallengeID() string { return "p" }
@@ -29,7 +33,23 @@ const (
 	profileFollowThreshold   = 5
 	profileRepostThreshold   = 1
 	profileFavoriteThreshold = 1
+
+	profileCheckpoint = "challenges:p:last_blocknumber"
 )
+
+// profileDirtySQL returns (user_id, blocknumber) for every user whose profile,
+// follow, repost, or favorite state changed since the checkpoint. Each source
+// row maps to the user it belongs to; the union is index-scanned on blocknumber.
+const profileDirtySQL = `
+	SELECT user_id, blocknumber FROM (
+		SELECT follower_user_id AS user_id, blocknumber FROM follows WHERE blocknumber > $1
+		UNION ALL SELECT user_id, blocknumber FROM reposts WHERE blocknumber > $1
+		UNION ALL SELECT user_id, blocknumber FROM saves   WHERE blocknumber > $1
+		UNION ALL SELECT user_id, blocknumber FROM users   WHERE blocknumber > $1
+	) s
+	ORDER BY blocknumber ASC
+	LIMIT $2
+`
 
 func (p *ProfileCompletionProcessor) Reconcile(ctx context.Context, tx pgx.Tx) error {
 	c, ok, err := LoadChallenge(ctx, tx, p.ChallengeID())
@@ -42,81 +62,55 @@ func (p *ProfileCompletionProcessor) Reconcile(ctx context.Context, tx pgx.Tx) e
 	stepCount := *c.StepCount // should be 7
 	amount := c.AmountInt()
 
-	// Recompute every step from scratch for users with any in-flight
-	// or completable progress. We use a single CTE-driven query that
-	// returns one row per user with the seven booleans.
-	//
-	// We only consider users with handle_lc set (i.e. real accounts),
-	// matching apps' downstream behavior — anonymous/guest users don't
-	// earn challenges.
+	return reconcileIncrementalUsers(ctx, tx, profileCheckpoint, profileDirtySQL,
+		func(ctx context.Context, tx pgx.Tx, userIDs []int64) error {
+			return p.recompute(ctx, tx, userIDs, stepCount, amount)
+		})
+}
+
+// recompute re-derives the seven profile steps for the given user ids and
+// upserts both the per-challenge state table and user_challenges.
+//
+// The follow/repost/favorite steps are pure thresholds (>=5, >=1, >=1), so we
+// cap the scans: the follow count stops at the threshold (LIMIT) and the
+// repost/favorite checks are EXISTS. That turns each per-user probe from an
+// unbounded COUNT(*) over a possibly-huge history into an O(threshold) index
+// lookup — the difference between the 90s full-table timeout and ~ms here.
+func (p *ProfileCompletionProcessor) recompute(ctx context.Context, tx pgx.Tx, userIDs []int64, stepCount, amount int32) error {
 	rows, err := tx.Query(ctx, `
-		WITH active_users AS (
-			SELECT user_id, bio, name,
-			       profile_picture, profile_picture_sizes,
-			       cover_photo, cover_photo_sizes
-			FROM users
-			WHERE is_current = true
-			  AND handle_lc IS NOT NULL
-			  AND is_deactivated = false
-		),
-		follow_counts AS (
-			SELECT follower_user_id AS user_id, COUNT(*) AS n
-			FROM follows
-			WHERE is_current = true AND is_delete = false
-			GROUP BY follower_user_id
-		),
-		repost_counts AS (
-			SELECT user_id, COUNT(*) AS n
-			FROM reposts
-			WHERE is_current = true AND is_delete = false
-			GROUP BY user_id
-		),
-		save_counts AS (
-			SELECT user_id, COUNT(*) AS n
-			FROM saves
-			WHERE is_current = true AND is_delete = false
-			GROUP BY user_id
-		)
 		SELECT u.user_id,
-		       (u.bio IS NOT NULL)::int +
-		       (u.name IS NOT NULL)::int +
-		       ((u.profile_picture IS NOT NULL OR u.profile_picture_sizes IS NOT NULL))::int +
-		       ((u.cover_photo IS NOT NULL OR u.cover_photo_sizes IS NOT NULL))::int +
-		       (COALESCE(fc.n, 0) >= $1)::int +
-		       (COALESCE(rc.n, 0) >= $2)::int +
-		       (COALESCE(sc.n, 0) >= $3)::int AS steps,
-		       (u.bio IS NOT NULL) AS f_bio,
+		       (u.bio IS NOT NULL)  AS f_bio,
 		       (u.name IS NOT NULL) AS f_name,
 		       (u.profile_picture IS NOT NULL OR u.profile_picture_sizes IS NOT NULL) AS f_picture,
-		       (u.cover_photo IS NOT NULL OR u.cover_photo_sizes IS NOT NULL) AS f_cover,
-		       (COALESCE(fc.n, 0) >= $1) AS f_follows,
-		       (COALESCE(rc.n, 0) >= $2) AS f_reposts,
-		       (COALESCE(sc.n, 0) >= $3) AS f_favorites
-		FROM active_users u
-		LEFT JOIN follow_counts fc ON fc.user_id = u.user_id
-		LEFT JOIN repost_counts rc ON rc.user_id = u.user_id
-		LEFT JOIN save_counts sc ON sc.user_id = u.user_id
-		WHERE
-		    -- Only touch users with at least one step OR an existing in-progress row.
-		    u.bio IS NOT NULL OR u.name IS NOT NULL
-		    OR u.profile_picture IS NOT NULL OR u.profile_picture_sizes IS NOT NULL
-		    OR u.cover_photo IS NOT NULL OR u.cover_photo_sizes IS NOT NULL
-		    OR COALESCE(fc.n, 0) >= $1
-		    OR COALESCE(rc.n, 0) >= $2
-		    OR COALESCE(sc.n, 0) >= $3
-	`, profileFollowThreshold, profileRepostThreshold, profileFavoriteThreshold)
+		       (u.cover_photo IS NOT NULL OR u.cover_photo_sizes IS NOT NULL)         AS f_cover,
+		       (fc.cnt >= $2) AS f_follows,
+		       EXISTS (SELECT 1 FROM reposts r WHERE r.user_id = u.user_id AND r.is_current AND NOT r.is_delete) AS f_reposts,
+		       EXISTS (SELECT 1 FROM saves   sv WHERE sv.user_id = u.user_id AND sv.is_current AND NOT sv.is_delete) AS f_favorites
+		FROM users u
+		LEFT JOIN LATERAL (
+			SELECT count(*) AS cnt
+			FROM (
+				SELECT 1 FROM follows f
+				WHERE f.follower_user_id = u.user_id AND f.is_current AND NOT f.is_delete
+				LIMIT $2
+			) z
+		) fc ON true
+		WHERE u.user_id = ANY($1)
+		  AND u.is_current = true
+		  AND u.handle_lc IS NOT NULL
+		  AND u.is_deactivated = false
+	`, userIDs, profileFollowThreshold)
 	if err != nil {
 		return fmt.Errorf("scan profile users: %w", err)
 	}
 	type pcRow struct {
-		userID                                                          int64
-		steps                                                           int32
+		userID                                                        int64
 		fBio, fName, fPicture, fCover, fFollows, fReposts, fFavorites bool
 	}
 	var results []pcRow
 	for rows.Next() {
 		var r pcRow
-		if err := rows.Scan(&r.userID, &r.steps,
+		if err := rows.Scan(&r.userID,
 			&r.fBio, &r.fName, &r.fPicture, &r.fCover,
 			&r.fFollows, &r.fReposts, &r.fFavorites); err != nil {
 			rows.Close()
@@ -130,6 +124,9 @@ func (p *ProfileCompletionProcessor) Reconcile(ctx context.Context, tx pgx.Tx) e
 	}
 
 	for _, r := range results {
+		steps := b2i(r.fBio) + b2i(r.fName) + b2i(r.fPicture) + b2i(r.fCover) +
+			b2i(r.fFollows) + b2i(r.fReposts) + b2i(r.fFavorites)
+
 		// Upsert the per-challenge state table first so the booleans are
 		// queryable (apps tools read this for client display).
 		if _, err := tx.Exec(ctx, `
@@ -150,10 +147,17 @@ func (p *ProfileCompletionProcessor) Reconcile(ctx context.Context, tx pgx.Tx) e
 		}
 		if err := UpsertUserChallenge(ctx, tx,
 			p.ChallengeID(), SpecifierFromUserID(r.userID),
-			r.userID, r.steps, stepCount, amount,
+			r.userID, steps, stepCount, amount,
 		); err != nil {
 			return fmt.Errorf("upsert user_challenge: %w", err)
 		}
 	}
 	return nil
+}
+
+func b2i(b bool) int32 {
+	if b {
+		return 1
+	}
+	return 0
 }
