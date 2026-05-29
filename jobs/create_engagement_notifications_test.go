@@ -21,11 +21,16 @@ func TestEngagementNotifications_FullPipeline(t *testing.T) {
 	now := time.Date(2025, 1, 15, 12, 0, 0, 0, time.UTC)
 	completedAt := now.Add(-8 * 24 * time.Hour) // past the 7-day cooldown
 
+	// Seed challenges before user_challenges: the latter has a FK to the former
+	// and database.Seed processes non-entity tables in randomized map order, so
+	// a single combined call can violate the FK. Two calls force the order.
 	database.Seed(pool, database.FixtureMap{
 		"users": {{"user_id": 1, "wallet": "0x01"}},
 		"challenges": {
 			{"id": "b", "type": "aggregate", "amount": "10", "active": true, "cooldown_days": 7},
 		},
+	})
+	database.Seed(pool, database.FixtureMap{
 		"user_challenges": {
 			{"challenge_id": "b", "user_id": 1, "specifier": "s1", "is_complete": true,
 				"amount": 100, "completed_at": completedAt, "completed_blocknumber": 42},
@@ -70,12 +75,16 @@ func TestEngagementNotifications_Exclusions(t *testing.T) {
 	now := time.Date(2025, 1, 15, 12, 0, 0, 0, time.UTC)
 	old := now.Add(-8 * 24 * time.Hour)
 
+	// Seed challenges before user_challenges (FK dependency + randomized Seed
+	// ordering — see TestEngagementNotifications_FullPipeline).
 	database.Seed(pool, database.FixtureMap{
 		"users": {{"user_id": 1, "wallet": "0x01"}},
 		"challenges": {
 			{"id": "cd7", "type": "aggregate", "amount": "10", "active": true, "cooldown_days": 7},
 			{"id": "cd14", "type": "aggregate", "amount": "10", "active": true, "cooldown_days": 14},
 		},
+	})
+	database.Seed(pool, database.FixtureMap{
 		"user_challenges": {
 			// Disbursed already -> excluded.
 			{"challenge_id": "cd7", "user_id": 1, "specifier": "disbursed", "is_complete": true, "amount": 100, "completed_at": old},
