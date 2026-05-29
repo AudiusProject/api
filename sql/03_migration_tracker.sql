@@ -109,7 +109,7 @@ functions/get_user_score.sql	2d5e3003ae1074cbe22ee780dd0ff901	2026-05-27 00:22:3
 functions/get_user_scores.sql	b22e36599e6503649d7cabff0609bc05	2026-05-27 00:22:35.829695+00
 functions/handle_artist_coins.sql	21ed1610d80cceca2262efb1338060ed	2026-05-27 00:22:35.905536+00
 functions/handle_associated_wallet.sql	6c9299c3b14bc1db4a578f4ad46e2225	2026-05-27 00:22:35.99395+00
-functions/handle_challenge_disbursements.sql	5177268be28586a350606b8cec13b294	2026-05-27 00:22:36.072508+00
+functions/handle_challenge_disbursements.sql	1bbf82cc035971d828ed96f3ea1a23d6	2026-05-29 22:00:00.000000+00
 functions/handle_chat_blast.sql	ccd276957c1b68bfc82fb5a11bac09ee	2026-05-27 00:22:36.155215+00
 functions/handle_chat_message.sql	31bebee3d0437133f1f53c2eadb7b391	2026-05-27 00:22:36.229275+00
 functions/handle_chat_message_reaction.sql	b898313aa8f31c61df7f1e6dd791ef31	2026-05-27 00:22:36.304728+00
@@ -134,7 +134,7 @@ functions/handle_track.sql	89ef5a957b3662310fb30f914aab9ed4	2026-05-27 00:22:37.
 functions/handle_usdc_purchase.sql	c35bccc2789ae0641d413d28a131ef8d	2026-05-27 00:22:37.800109+00
 functions/handle_user.sql	169778112e5362ee20af56d9b8f274c5	2026-05-27 00:22:37.955619+00
 functions/handle_user_balance_changes.sql	1ae7f99f4f37194cdf27dc3189ebc858	2026-05-27 00:22:38.02983+00
-functions/handle_user_challenges.sql	c2adfee92cab36dee37ab7b8af5449c1	2026-05-27 00:22:38.103198+00
+functions/handle_user_challenges.sql	8a1287bc971c83e7440b88da7c86e93d	2026-05-29 22:00:00.100000+00
 functions/handle_user_tip.sql	e4bde4e7e04b0ed8254690959513bd69	2026-05-27 00:22:38.167097+00
 functions/is_country_eur.sql	c5641d570edb9cd47cd4e38d883e941a	2026-05-27 00:22:38.234372+00
 functions/notify_on_row.sql	8b0232ed60eb108aa45f68c6dfe05d59	2026-05-27 00:22:38.304698+00
