@@ -3,8 +3,8 @@
 --
 
 
--- Dumped from database version 17.10 (Debian 17.10-1.pgdg13+1)
--- Dumped by pg_dump version 17.10 (Debian 17.10-1.pgdg13+1)
+-- Dumped from database version 17.9 (Debian 17.9-1.pgdg13+1)
+-- Dumped by pg_dump version 17.9 (Debian 17.9-1.pgdg13+1)
 
 SET statement_timeout = 0;
 SET lock_timeout = 0;
@@ -79,6 +79,17 @@ CREATE EXTENSION IF NOT EXISTS tsm_system_rows WITH SCHEMA public;
 --
 
 COMMENT ON EXTENSION tsm_system_rows IS 'TABLESAMPLE method which accepts number of rows as a limit';
+
+
+--
+-- Name: challenge_signal_type; Type: TYPE; Schema: public; Owner: -
+--
+
+CREATE TYPE public.challenge_signal_type AS ENUM (
+    'mobile_install',
+    'one_shot',
+    'referral'
+);
 
 
 --
@@ -6960,6 +6971,40 @@ ALTER SEQUENCE public.challenge_profile_completion_user_id_seq OWNED BY public.c
 
 
 --
+-- Name: challenge_signals; Type: TABLE; Schema: public; Owner: -
+--
+
+CREATE TABLE public.challenge_signals (
+    id bigint NOT NULL,
+    type public.challenge_signal_type NOT NULL,
+    user_id integer NOT NULL,
+    extra jsonb DEFAULT '{}'::jsonb NOT NULL,
+    created_at timestamp with time zone DEFAULT now() NOT NULL,
+    source character varying,
+    client_nonce character varying
+);
+
+
+--
+-- Name: challenge_signals_id_seq; Type: SEQUENCE; Schema: public; Owner: -
+--
+
+CREATE SEQUENCE public.challenge_signals_id_seq
+    START WITH 1
+    INCREMENT BY 1
+    NO MINVALUE
+    NO MAXVALUE
+    CACHE 1;
+
+
+--
+-- Name: challenge_signals_id_seq; Type: SEQUENCE OWNED BY; Schema: public; Owner: -
+--
+
+ALTER SEQUENCE public.challenge_signals_id_seq OWNED BY public.challenge_signals.id;
+
+
+--
 -- Name: challenges; Type: TABLE; Schema: public; Owner: -
 --
 
@@ -10085,6 +10130,13 @@ ALTER TABLE ONLY public.challenge_profile_completion ALTER COLUMN user_id SET DE
 
 
 --
+-- Name: challenge_signals id; Type: DEFAULT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.challenge_signals ALTER COLUMN id SET DEFAULT nextval('public.challenge_signals_id_seq'::regclass);
+
+
+--
 -- Name: claimed_prizes id; Type: DEFAULT; Schema: public; Owner: -
 --
 
@@ -10436,6 +10488,14 @@ ALTER TABLE ONLY public.challenge_listen_streak
 
 ALTER TABLE ONLY public.challenge_profile_completion
     ADD CONSTRAINT challenge_profile_completion_pkey PRIMARY KEY (user_id);
+
+
+--
+-- Name: challenge_signals challenge_signals_pkey; Type: CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.challenge_signals
+    ADD CONSTRAINT challenge_signals_pkey PRIMARY KEY (id);
 
 
 --
@@ -11573,6 +11633,20 @@ CREATE UNIQUE INDEX blocks_is_current_idx ON public.blocks USING btree (is_curre
 --
 
 CREATE INDEX challenge_disbursements_user_id ON public.challenge_disbursements USING btree (user_id);
+
+
+--
+-- Name: challenge_signals_nonce_idx; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE UNIQUE INDEX challenge_signals_nonce_idx ON public.challenge_signals USING btree (type, user_id, client_nonce) WHERE (client_nonce IS NOT NULL);
+
+
+--
+-- Name: challenge_signals_type_id_idx; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX challenge_signals_type_id_idx ON public.challenge_signals USING btree (type, id);
 
 
 --

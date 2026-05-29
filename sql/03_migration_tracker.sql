@@ -3,8 +3,8 @@
 --
 
 
--- Dumped from database version 17.10 (Debian 17.10-1.pgdg13+1)
--- Dumped by pg_dump version 17.10 (Debian 17.10-1.pgdg13+1)
+-- Dumped from database version 17.9 (Debian 17.9-1.pgdg13+1)
+-- Dumped by pg_dump version 17.9 (Debian 17.9-1.pgdg13+1)
 
 SET statement_timeout = 0;
 SET lock_timeout = 0;
@@ -154,6 +154,9 @@ migrations/0206_backfill_sol_transfer_memo_types.sql	8b63b2e420c94b740a15e7f1fbd
 functions/handle_usdc_withdrawal.sql	f590eb5d53ec82c63d3d2d7b1913cbef	2026-05-28 19:54:42.61986+00
 views/v_token_transactions_history.sql	a00eeaf663c8b16dd60e26b7c75a8fff	2026-05-28 19:54:42.836012+00
 migrations/0207_canonicalize_associated_wallets_eth.sql	83e88b1102c1bc5e2526a919e5266864	2026-05-28 20:11:26.200227+00
+migrations/0203_seed_phase_1_challenges.sql	b027784464de897b26d4b420ca51a970	2026-05-29 00:57:55.041265+00
+migrations/0204_seed_phase_2_challenges.sql	168a6d57c056e2e8f7fe14c36fc1c367	2026-05-29 00:57:55.242989+00
+migrations/0205_challenge_signals.sql	5d6fd14902d7709bfc4b0292e43bc9d9	2026-05-29 00:57:55.767993+00
 \.
 
 
