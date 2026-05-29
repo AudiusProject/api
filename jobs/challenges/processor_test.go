@@ -58,12 +58,11 @@ func withChallengesDB(t *testing.T) *pgxpool.Pool {
 		{"w", "aggregate", "1000", true, i32p(2147483647), 98950182, 50000, i32p(7)},
 		{"b", "aggregate", "1", true, i32p(2147483647), 220157041, 25000, i32p(7)},
 		{"s", "aggregate", "5", true, i32p(2147483647), 220157041, 25000, i32p(7)},
-		// Phase 3 (signal-driven)
+		// Phase 3 (user_events-sourced)
 		{"m", "boolean", "1", true, nil, 25346436, 25000, i32p(7)},
 		{"r", "aggregate", "1", true, i32p(5), 25346436, 25000, i32p(7)},
 		{"rv", "aggregate", "1", true, i32p(5000), 25346436, 25000, i32p(7)},
 		{"rd", "boolean", "1", true, nil, 25346436, 25000, i32p(7)},
-		{"o", "aggregate", "1", true, i32p(2147483647), 0, 2147483647, nil},
 	}
 	for _, r := range rows {
 		_, err := pool.Exec(ctx, `

@@ -10,6 +10,7 @@ import (
 	"api.audius.co/jobs"
 	"api.audius.co/logging"
 	etl "github.com/OpenAudio/go-openaudio/pkg/etl"
+	em "github.com/OpenAudio/go-openaudio/pkg/etl/processors/entity_manager"
 	"github.com/OpenAudio/go-openaudio/pkg/sdk"
 	"github.com/jackc/pgx/v5/pgxpool"
 	"go.uber.org/zap"
@@ -78,6 +79,15 @@ func NewIndexer(cfg config.Config) *CoreIndexer {
 	// from each User Create tx and writes it to user_pubkeys in the same
 	// DB transaction as the user row.
 	etlIndexer.SetUserCreatedHook(newUserPubkeyHook(cfg, logger))
+
+	// Index the user metadata `events` object (is_mobile_user, referrer)
+	// into user_events on User Create + Update. This is the on-chain
+	// source the mobile-install / referral challenge processors reconcile
+	// from. Registered on both actions since the fields can arrive on a
+	// create or a later profile update.
+	userEventsHook := newUserEventsHook(logger)
+	etlIndexer.SetUserCreatedHook(userEventsHook)
+	etlIndexer.RegisterPostHook(em.EntityTypeUser, em.ActionUpdate, userEventsHook)
 
 	return &CoreIndexer{
 		aggregatesCalculator: aggregatesCalculator,
