@@ -37,8 +37,8 @@ func TestCosign_VerifiedParentReposting(t *testing.T) {
 	`)
 	require.NoError(t, err)
 	_, err = pool.Exec(ctx, `
-		INSERT INTO reposts (user_id, repost_item_id, repost_type, is_current, is_delete, created_at, txhash)
-		VALUES (1000, 100001, 'track', true, false, now(), 'tx-r1')
+		INSERT INTO reposts (user_id, repost_item_id, repost_type, is_current, is_delete, created_at, txhash, blocknumber)
+		VALUES (1000, 100001, 'track', true, false, now(), 'tx-r1', 1)
 	`)
 	require.NoError(t, err)
 
@@ -90,8 +90,8 @@ func TestCosign_MonthCap(t *testing.T) {
 	`)
 	require.NoError(t, err)
 	_, err = pool.Exec(ctx, `
-		INSERT INTO reposts (user_id, repost_item_id, repost_type, is_current, is_delete, created_at, txhash)
-		VALUES (1100, 110001, 'track', true, false, now(), 'tx-r6')
+		INSERT INTO reposts (user_id, repost_item_id, repost_type, is_current, is_delete, created_at, txhash, blocknumber)
+		VALUES (1100, 110001, 'track', true, false, now(), 'tx-r6', 1)
 	`)
 	require.NoError(t, err)
 
