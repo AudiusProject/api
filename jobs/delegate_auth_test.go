@@ -30,8 +30,20 @@ func TestBasicAuthNonce_Shape(t *testing.T) {
 	parts := strings.SplitN(string(decoded), ":", 2)
 	require.Len(t, parts, 2)
 	assert.Equal(t, "1700000000000", parts[0])
-	// signature is 65 bytes = 130 hex chars
-	assert.Len(t, parts[1], 130)
+	// The signature must be "0x"-prefixed to match apps' nonce format
+	// (f"{ts}:{HexBytes.hex()}" with hexbytes 0.3.1, which prepends "0x").
+	// The notifier strips this prefix before decoding; without it the sig
+	// bytes shift and verification fails with "recovery param is more than
+	// two bits". 2 chars ("0x") + 65 bytes * 2 = 132.
+	assert.True(t, strings.HasPrefix(parts[1], "0x"),
+		"signature hex must carry 0x prefix, got %q", parts[1])
+	assert.Len(t, parts[1], 132)
+
+	// The recovery byte (last hex pair) must be 1b or 1c (27/28), matching
+	// web3.py's sign_message convention that apps and the notifier expect.
+	recoveryByte := parts[1][len(parts[1])-2:]
+	assert.Contains(t, []string{"1b", "1c"}, recoveryByte,
+		"recovery byte should be 27/28, got %q", recoveryByte)
 }
 
 func TestBasicAuthNonce_BadKey(t *testing.T) {
