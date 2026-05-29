@@ -4704,6 +4704,92 @@ $$;
 
 
 --
+-- Name: handle_tastemaker(); Type: FUNCTION; Schema: public; Owner: -
+--
+
+CREATE FUNCTION public.handle_tastemaker() RETURNS trigger
+    LANGUAGE plpgsql
+    AS $_$
+declare
+  track_hex     text;
+  track_id_int  bigint;
+  owner_id_int  int;
+  action_str    text;
+begin
+  -- WHEN clause on the trigger gates challenge_id='t', but defend in
+  -- depth here too in case the trigger is invoked another way.
+  if new.challenge_id <> 't' then
+    return null;
+  end if;
+
+  -- Parse trailing hex segment "<user_hex>:t:<track_hex>" → track_id.
+  track_hex := split_part(new.specifier, ':', 3);
+  if track_hex !~ '^[0-9a-f]+$' then
+    return null;
+  end if;
+  track_id_int := ('x' || lpad(track_hex, 16, '0'))::bit(64)::bigint;
+  if track_id_int <= 0 then
+    return null;
+  end if;
+
+  select t.owner_id
+    into owner_id_int
+    from tracks t
+   where t.track_id = track_id_int
+     and t.is_current = true
+   limit 1;
+  if owner_id_int is null then
+    return null;
+  end if;
+
+  -- Repost takes precedence over save when a user is in both lists for
+  -- the same track — matches apps' dedupe_notifications_by_group_id
+  -- where repost_notifications win over save_notifications.
+  if exists (
+    select 1
+      from reposts
+     where user_id = new.user_id
+       and repost_item_id = track_id_int
+       and repost_type = 'track'
+       and is_current = true
+       and is_delete = false
+  ) then
+    action_str := 'repost';
+  else
+    action_str := 'save';
+  end if;
+
+  insert into notification
+    (blocknumber, user_ids, timestamp, type, specifier, group_id, data)
+  values
+    (
+      new.completed_blocknumber,
+      ARRAY[new.user_id],
+      new.completed_at,
+      'tastemaker',
+      track_id_int::text,
+      'tastemaker_user_id:' || new.user_id || ':tastemaker_item_id:' || track_id_int,
+      jsonb_build_object(
+        'tastemaker_item_id',       track_id_int,
+        'tastemaker_item_type',     'track',
+        'tastemaker_item_owner_id', owner_id_int,
+        'action',                   action_str,
+        'tastemaker_user_id',       new.user_id
+      )
+    )
+  on conflict do nothing;
+
+  return null;
+
+exception
+  when others then
+    raise warning 'An error occurred in %: %', tg_name, sqlerrm;
+    return null;
+end;
+$_$;
+
+
+--
 -- Name: handle_track(); Type: FUNCTION; Schema: public; Owner: -
 --
 
@@ -4950,6 +5036,99 @@ exception
     raise warning 'An error occurred in %: %', tg_name, sqlerrm;
     raise;
 
+end;
+$$;
+
+
+--
+-- Name: handle_trending(); Type: FUNCTION; Schema: public; Owner: -
+--
+
+CREATE FUNCTION public.handle_trending() RETURNS trigger
+    LANGUAGE plpgsql
+    AS $$
+declare
+  rank_int        int;
+  week_date       date;
+  entity_id_str   text;
+  entity_id_int   bigint;
+  notif_type      text;
+  trend_type      text;
+  ts_epoch        bigint;
+  data_jsonb      jsonb;
+begin
+  if new.challenge_id not in ('tt', 'tut') then
+    return null;
+  end if;
+
+  case new.challenge_id
+    when 'tt'  then notif_type := 'trending';             trend_type := 'TRACKS';
+    when 'tut' then notif_type := 'trending_underground'; trend_type := 'UNDERGROUND_TRACKS';
+  end case;
+
+  -- Specifier: "<YYYY-MM-DD>:<rank>"
+  begin
+    week_date := split_part(new.specifier, ':', 1)::date;
+    rank_int  := split_part(new.specifier, ':', 2)::int;
+  exception when others then
+    return null;
+  end;
+
+  -- Recover entity id from the trending_results row the processor wrote
+  -- earlier in this transaction. PK is (rank, type, version, week); we
+  -- pin to NEW.user_id so we ignore any unrelated version rows.
+  select id
+    into entity_id_str
+    from trending_results
+   where rank    = rank_int
+     and type    = trend_type
+     and week    = week_date
+     and user_id = new.user_id
+   limit 1;
+  if entity_id_str is null then
+    return null;
+  end if;
+  begin
+    entity_id_int := entity_id_str::bigint;
+  exception when others then
+    return null;
+  end;
+
+  -- timestamp suffix matches apps: epoch seconds of the recompute. We
+  -- use completed_at which is set by UpsertUserChallenge to now() on
+  -- the first insert — close enough to the recompute moment.
+  ts_epoch := extract(epoch from new.completed_at)::bigint;
+
+  data_jsonb := jsonb_build_object(
+    'time_range', 'week',
+    'genre',      'all',
+    'rank',       rank_int,
+    'track_id',   entity_id_int
+  );
+
+  insert into notification
+    (blocknumber, user_ids, timestamp, type, specifier, group_id, data)
+  values
+    (
+      new.completed_blocknumber,
+      ARRAY[new.user_id],
+      new.completed_at,
+      notif_type,
+      entity_id_int::text,
+      notif_type
+        || ':time_range:week:genre:all:rank:' || rank_int
+        || ':track_id:' || entity_id_int
+        || ':timestamp:' || ts_epoch,
+      data_jsonb
+    )
+  on conflict do nothing;
+
+  return null;
+
+exception
+  when others then
+    raise warning 'An error occurred in %: %', tg_name, sqlerrm;
+    return null;
 end;
 $$;
 
@@ -13953,6 +14132,13 @@ CREATE TRIGGER on_supporter_rank_up AFTER INSERT ON public.supporter_rank_ups FO
 
 
 --
+-- Name: user_challenges on_tastemaker_user_challenge; Type: TRIGGER; Schema: public; Owner: -
+--
+
+CREATE TRIGGER on_tastemaker_user_challenge AFTER INSERT ON public.user_challenges FOR EACH ROW WHEN (((new.challenge_id)::text = 't'::text)) EXECUTE FUNCTION public.handle_tastemaker();
+
+
+--
 -- Name: tracks on_track; Type: TRIGGER; Schema: public; Owner: -
 --
 
@@ -13964,6 +14150,13 @@ CREATE TRIGGER on_track AFTER INSERT OR UPDATE ON public.tracks FOR EACH ROW EXE
 --
 
 CREATE TRIGGER on_track_notify_pending_purchase_revalidation AFTER INSERT OR UPDATE OF blocknumber ON public.tracks FOR EACH ROW EXECUTE FUNCTION public.notify_pending_purchase_revalidation();
+
+
+--
+-- Name: user_challenges on_trending_user_challenge; Type: TRIGGER; Schema: public; Owner: -
+--
+
+CREATE TRIGGER on_trending_user_challenge AFTER INSERT ON public.user_challenges FOR EACH ROW WHEN (((new.challenge_id)::text = ANY ((ARRAY['tt'::character varying, 'tut'::character varying])::text[]))) EXECUTE FUNCTION public.handle_trending();
 
 
 --

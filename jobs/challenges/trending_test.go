@@ -2,6 +2,7 @@ package challenges
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
 	"testing"
 	"time"
@@ -90,4 +91,68 @@ func TestTrending_SkipsNonFriday(t *testing.T) {
 	require.NoError(t, pool.QueryRow(context.Background(),
 		"SELECT COUNT(*) FROM trending_results").Scan(&count))
 	assert.Equal(t, 0, count, "no rows written on non-Friday")
+}
+
+// TestTrending_EmitsNotification — handle_trending trigger fans out a
+// `trending` notification when a user_challenges row is minted for 'tt'.
+// Skips on non-Fridays since the underlying processor is Friday-gated.
+func TestTrending_EmitsNotification(t *testing.T) {
+	if time.Now().UTC().Weekday() != time.Friday {
+		t.Skip("trending processor only runs on Fridays UTC")
+	}
+	pool := withChallengesDB(t)
+	ctx := context.Background()
+	now := time.Now()
+
+	database.Seed(pool, database.FixtureMap{
+		"blocks": {{"blockhash": "blk_ttn", "number": 1}},
+		"users": {
+			{"user_id": 600, "wallet": "0x600"},
+			{"user_id": 601, "wallet": "0x601"},
+		},
+		"tracks": {
+			{"track_id": 6001, "owner_id": 600, "title": "Hit1", "blocknumber": 1, "created_at": now},
+			{"track_id": 6011, "owner_id": 601, "title": "Hit2", "blocknumber": 1, "created_at": now},
+		},
+	})
+
+	for i, tid := range []int{6001, 6011} {
+		_, err := pool.Exec(ctx, `
+			INSERT INTO track_trending_scores (track_id, type, version, time_range, score, created_at)
+			VALUES ($1, 'TRACKS', 'pnagD', 'week', $2, now())
+		`, tid, float64(100-i))
+		require.NoError(t, err)
+	}
+
+	runProcessor(t, pool, NewTrendingTrackProcessor())
+
+	weekDate := time.Date(now.UTC().Year(), now.UTC().Month(), now.UTC().Day(), 0, 0, 0, 0, time.UTC).Format("2006-01-02")
+
+	// Find the rank-1 row.
+	var ownerID int64
+	var specifier string
+	require.NoError(t, pool.QueryRow(ctx, `
+		SELECT user_id, specifier FROM user_challenges
+		WHERE challenge_id = 'tt' AND specifier = $1
+	`, fmt.Sprintf("%s:1", weekDate)).Scan(&ownerID, &specifier))
+
+	// Find the corresponding notification.
+	var nUserIDs []int64
+	var nSpecifier, nGroupID string
+	var nData []byte
+	err := pool.QueryRow(ctx, `
+		SELECT user_ids, specifier, group_id, data
+		FROM notification
+		WHERE type = 'trending' AND user_ids = ARRAY[$1::int]
+	`, ownerID).Scan(&nUserIDs, &nSpecifier, &nGroupID, &nData)
+	require.NoError(t, err, "expected trending notif for owner %d", ownerID)
+
+	var data map[string]any
+	require.NoError(t, json.Unmarshal(nData, &data))
+	assert.Equal(t, "week", data["time_range"])
+	assert.Equal(t, "all", data["genre"])
+	assert.EqualValues(t, 1, data["rank"])
+	assert.Contains(t, data, "track_id")
+	assert.Contains(t, nGroupID, ":rank:1:track_id:")
+	assert.Contains(t, nGroupID, "trending:time_range:week:genre:all")
 }
