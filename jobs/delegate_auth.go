@@ -90,6 +90,15 @@ func basicAuthNonce(delegatePrivateKey string, now time.Time) (string, error) {
 		sig[64] += 27
 	}
 
-	nonce := tsStr + ":" + hex.EncodeToString(sig)
+	// The signature hex MUST carry the "0x" prefix. apps builds the nonce as
+	// f"{timestamp}:{signature.hex()}" where signature is a web3.py HexBytes;
+	// under hexbytes 0.3.1 (apps' pinned version) HexBytes.hex() returns the
+	// string WITH a leading "0x". The notifier's verifier parses the sig
+	// assuming that prefix (it strips the first two chars). Without "0x" the
+	// whole 65-byte signature shifts by one byte: r/s are corrupted and the
+	// recovery byte is read from the wrong offset — yielding a value outside
+	// [0,3] and the notifier's "recovery param is more than two bits" 401.
+	// mediorum's basic_auth.go does the same `0x`-prefixing for this reason.
+	nonce := tsStr + ":0x" + hex.EncodeToString(sig)
 	return "Basic " + base64.StdEncoding.EncodeToString([]byte(nonce)), nil
 }
