@@ -27,16 +27,22 @@ func (app *ApiServer) v1UsersFavorites(c *fiber.Ctx) error {
 
 	sql := `
 	SELECT
-		save_item_id,
-		'SaveType.' || save_type as save_item_type, -- concat in "SaveType" to match sqlalchemy bs
-		user_id,
-		created_at
+		saves.save_item_id,
+		'SaveType.' || saves.save_type as save_item_type, -- concat in "SaveType" to match sqlalchemy bs
+		saves.user_id,
+		saves.created_at
 	FROM saves
-	WHERE user_id = @userId
-	  AND is_delete = false
-		AND is_current = true
-		AND save_type = 'track'
-	ORDER BY blocknumber, save_item_id desc
+	JOIN tracks t ON t.track_id = saves.save_item_id
+		AND t.is_current = true
+		AND t.is_delete = false
+	JOIN users u ON u.user_id = t.owner_id
+		AND u.is_current = true
+		AND u.is_deactivated = false
+	WHERE saves.user_id = @userId
+	  AND saves.is_delete = false
+		AND saves.is_current = true
+		AND saves.save_type = 'track'
+	ORDER BY saves.blocknumber, saves.save_item_id desc
 	LIMIT @limit
 	OFFSET @offset
 	`
