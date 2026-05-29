@@ -158,6 +158,9 @@ migrations/0203_seed_phase_1_challenges.sql	b027784464de897b26d4b420ca51a970	202
 migrations/0204_seed_phase_2_challenges.sql	168a6d57c056e2e8f7fe14c36fc1c367	2026-05-29 16:22:36.811563+00
 migrations/0205_seed_phase_3_challenges.sql	dc2a08647a63c0e355c6a3b2cc23a8bd	2026-05-29 16:22:37.200322+00
 migrations/0208_seed_challenge_checkpoints.sql	ed11876806de4dd1d80b389894b4db45	2026-05-29 16:22:38.000000+00
+migrations/0209_user_events_blocknumber_idx.sql	19ed339385266f28e83399125b6593df	2026-05-29 19:30:00.000000+00
+migrations/0210_notification_cooldown_partial_gin.sql	7156a9b6e236e17acef7d6b91cb1291b	2026-05-29 19:30:00.100000+00
+migrations/0211_seed_phase_3_user_event_checkpoints.sql	e37093a8ba1d1a4a3bcca7f98b612be2	2026-05-29 19:30:00.200000+00
 \.
 
 

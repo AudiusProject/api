@@ -111,3 +111,25 @@ func TestReferred_AwardsReferredUser(t *testing.T) {
 		assert.True(t, r.IsComplete)
 	}
 }
+
+// Pre-seeding the checkpoint past a user_events row's blocknumber must
+// cause the dirty scan to skip it — this is what makes the prod backfill
+// safe on first deploy (migration 0211 sets checkpoints to current max).
+func TestMobileInstall_SkipsRowsBelowCheckpoint(t *testing.T) {
+	pool := withChallengesDB(t)
+	database.Seed(pool, database.FixtureMap{}) // seeds block 101
+	seedUserEvent(t, pool, 700, true, nil)     // mobile user at block 101
+
+	// Set the checkpoint past the seeded row's blocknumber.
+	_, err := pool.Exec(context.Background(), `
+		INSERT INTO indexing_checkpoints (tablename, last_checkpoint)
+		VALUES ('challenges:m:last_blocknumber', 200)
+		ON CONFLICT (tablename) DO UPDATE SET last_checkpoint = EXCLUDED.last_checkpoint
+	`)
+	require.NoError(t, err)
+
+	runProcessor(t, pool, &MobileInstallProcessor{})
+
+	_, ok := queryUserChallenge(t, pool, "m", fmt.Sprintf("%x", 700))
+	assert.False(t, ok, "row below checkpoint must not be reprocessed")
+}

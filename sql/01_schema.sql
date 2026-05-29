@@ -12213,6 +12213,20 @@ CREATE INDEX ix_notification ON public.notification USING gin (user_ids);
 
 
 --
+-- Name: ix_notification_cooldown_user_ids; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX ix_notification_cooldown_user_ids ON public.notification USING gin (user_ids) WHERE ((type)::text = 'reward_in_cooldown'::text);
+
+
+--
+-- Name: INDEX ix_notification_cooldown_user_ids; Type: COMMENT; Schema: public; Owner: -
+--
+
+COMMENT ON INDEX public.ix_notification_cooldown_user_ids IS 'Partial GIN for the on_user_challenge trigger''s cooldown-window check; replaces a multi-second IO-bound scan against the full 8GB notification table with a tiny in-subset lookup.';
+
+
+--
 -- Name: ix_playlist_trending_scores_playlist_id; Type: INDEX; Schema: public; Owner: -
 --
 
@@ -12329,6 +12343,20 @@ CREATE INDEX ix_trending_scores ON public.track_trending_scores USING btree (typ
 --
 
 CREATE INDEX ix_user_created_at ON public.users USING btree (created_at, user_id, is_current);
+
+
+--
+-- Name: ix_user_events_blocknumber; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX ix_user_events_blocknumber ON public.user_events USING btree (blocknumber);
+
+
+--
+-- Name: INDEX ix_user_events_blocknumber; Type: COMMENT; Schema: public; Owner: -
+--
+
+COMMENT ON INDEX public.ix_user_events_blocknumber IS 'Range scans by blocknumber for the incremental Phase 3 challenge processors (m/r/rv/rd).';
 
 
 --
