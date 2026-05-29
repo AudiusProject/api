@@ -2353,6 +2353,375 @@ $$;
 
 
 --
+-- Name: handle_comment_mention(); Type: FUNCTION; Schema: public; Owner: -
+--
+
+CREATE FUNCTION public.handle_comment_mention() RETURNS trigger
+    LANGUAGE plpgsql
+    AS $$
+declare
+  c_row            record;
+  entity_user_id   int;
+  data_entity_ref  int;
+  is_self_mention  boolean;
+  mention_muted    boolean;
+  owner_mute       boolean;
+  is_owner_mention boolean;
+begin
+  if new.is_delete then
+    return null;
+  end if;
+
+  -- Fetch the parent comment for entity context + author.
+  select user_id, entity_type, entity_id, blocknumber, created_at, is_delete, is_visible
+    into c_row
+    from comments
+   where comment_id = new.comment_id
+   limit 1;
+  if not found or c_row.is_delete or not c_row.is_visible then
+    return null;
+  end if;
+
+  -- Self-mention is a no-op.
+  if new.user_id = c_row.user_id then
+    return null;
+  end if;
+
+  -- Resolve entity owner — used for the "owner has notifications off"
+  -- gate when the mention IS the owner.
+  if c_row.entity_type = 'Track' then
+    select t.owner_id into entity_user_id
+      from tracks t
+     where t.track_id = c_row.entity_id
+       and t.is_current = true
+     limit 1;
+    data_entity_ref := c_row.entity_id;
+  elsif c_row.entity_type = 'Event' then
+    select e.user_id into entity_user_id
+      from events e
+     where e.event_id = c_row.entity_id
+       and e.is_deleted = false
+     limit 1;
+    data_entity_ref := c_row.entity_id;
+  elsif c_row.entity_type = 'FanClub' then
+    entity_user_id  := c_row.entity_id;
+    data_entity_ref := c_row.entity_id;
+  else
+    return null;
+  end if;
+
+  is_owner_mention := (entity_user_id is not null and new.user_id = entity_user_id);
+
+  -- Mentioned user has muted the commenter — skip.
+  select exists (
+    select 1 from muted_users mu
+     where mu.user_id       = new.user_id
+       and mu.muted_user_id = c_row.user_id
+       and mu.is_delete     = false
+  ) into mention_muted;
+  if mention_muted then
+    return null;
+  end if;
+
+  -- If the mention is the entity owner AND the owner muted notifications
+  -- on this entity, skip — matches apps' track_owner_mention_mute logic.
+  if is_owner_mention then
+    select exists (
+      select 1 from comment_notification_settings cns
+       where cns.user_id     = entity_user_id
+         and cns.entity_type = c_row.entity_type
+         and cns.entity_id   = data_entity_ref
+         and cns.is_muted    = true
+    ) or exists (
+      select 1 from muted_users mu
+       where mu.user_id       = entity_user_id
+         and mu.muted_user_id = c_row.user_id
+         and mu.is_delete     = false
+    ) into owner_mute;
+    if owner_mute then
+      return null;
+    end if;
+  end if;
+
+  insert into notification
+    (blocknumber, user_ids, timestamp, type, specifier, group_id, data)
+  values
+    (
+      c_row.blocknumber,
+      ARRAY[new.user_id],
+      c_row.created_at,
+      'comment_mention',
+      new.user_id::text,
+      'comment_mention:' || new.comment_id,
+      jsonb_build_object(
+        'type',            c_row.entity_type,
+        'entity_id',       data_entity_ref,
+        'entity_user_id',  entity_user_id,
+        'comment_user_id', c_row.user_id,
+        'comment_id',      new.comment_id
+      )
+    )
+  on conflict do nothing;
+
+  return null;
+
+exception
+  when others then
+    raise warning 'An error occurred in %: %', tg_name, sqlerrm;
+    return null;
+end;
+$$;
+
+
+--
+-- Name: handle_comment_notification(); Type: FUNCTION; Schema: public; Owner: -
+--
+
+CREATE FUNCTION public.handle_comment_notification() RETURNS trigger
+    LANGUAGE plpgsql
+    AS $$
+declare
+  entity_user_id   int;
+  data_entity_ref  int;
+  group_id_str     text;
+  is_reply         boolean;
+  owner_mentioned  boolean;
+  owner_mute       boolean;
+begin
+  if new.is_delete or not new.is_visible then
+    return null;
+  end if;
+
+  -- Resolve recipient (entity_user_id) + data.entity_id by entity_type.
+  if new.entity_type = 'Track' then
+    select t.owner_id into entity_user_id
+      from tracks t
+     where t.track_id = new.entity_id
+       and t.is_current = true
+     limit 1;
+    data_entity_ref := new.entity_id;
+  elsif new.entity_type = 'Event' then
+    select e.user_id into entity_user_id
+      from events e
+     where e.event_id = new.entity_id
+       and e.is_deleted = false
+     limit 1;
+    data_entity_ref := new.entity_id;
+  elsif new.entity_type = 'FanClub' then
+    -- For FanClub, entity_id IS the artist's user_id.
+    entity_user_id  := new.entity_id;
+    data_entity_ref := new.entity_id;
+  else
+    return null;
+  end if;
+
+  if entity_user_id is null then
+    return null;
+  end if;
+
+  -- Skip self-comment.
+  if new.user_id = entity_user_id then
+    return null;
+  end if;
+
+  -- Skip replies (they emit comment_thread instead, to the parent
+  -- comment author). Deferred so comment_threads is visible.
+  select exists (
+    select 1 from comment_threads where comment_id = new.comment_id
+  ) into is_reply;
+  if is_reply then
+    return null;
+  end if;
+
+  -- Skip if owner is mentioned in this comment (they get comment_mention
+  -- instead, also more specific). Deferred so comment_mentions is visible.
+  select exists (
+    select 1 from comment_mentions
+     where comment_id = new.comment_id
+       and user_id    = entity_user_id
+       and is_delete  = false
+  ) into owner_mentioned;
+  if owner_mentioned then
+    return null;
+  end if;
+
+  -- Skip if owner muted notifications on this entity (CommentNotificationSetting
+  -- with is_muted=true) OR muted this commenter (MutedUser).
+  select exists (
+    select 1 from comment_notification_settings cns
+     where cns.user_id     = entity_user_id
+       and cns.entity_type = new.entity_type
+       and cns.entity_id   = data_entity_ref
+       and cns.is_muted    = true
+  ) or exists (
+    select 1 from muted_users mu
+     where mu.user_id       = entity_user_id
+       and mu.muted_user_id = new.user_id
+       and mu.is_delete     = false
+  ) into owner_mute;
+  if owner_mute then
+    return null;
+  end if;
+
+  group_id_str := 'comment:' || data_entity_ref || ':type:' || new.entity_type;
+
+  insert into notification
+    (blocknumber, user_ids, timestamp, type, specifier, group_id, data)
+  values
+    (
+      new.blocknumber,
+      ARRAY[entity_user_id],
+      new.created_at,
+      'comment',
+      new.comment_id::text,
+      group_id_str,
+      jsonb_build_object(
+        'type',            new.entity_type,
+        'entity_id',       data_entity_ref,
+        'comment_user_id', new.user_id,
+        'comment_id',      new.comment_id
+      )
+    )
+  on conflict do nothing;
+
+  return null;
+
+exception
+  when others then
+    raise warning 'An error occurred in %: %', tg_name, sqlerrm;
+    return null;
+end;
+$$;
+
+
+--
+-- Name: handle_comment_reaction(); Type: FUNCTION; Schema: public; Owner: -
+--
+
+CREATE FUNCTION public.handle_comment_reaction() RETURNS trigger
+    LANGUAGE plpgsql
+    AS $$
+declare
+  c_row            record;
+  entity_user_id   int;
+  data_entity_ref  int;
+  comment_owner_mute boolean;
+  owner_mute_extra   boolean;
+begin
+  if new.is_delete then
+    return null;
+  end if;
+
+  -- The comment being reacted to. Use the stored entity_type from the
+  -- comments row (apps notes clients have sometimes shipped wrong values
+  -- in the reaction's metadata).
+  select user_id, entity_type, entity_id, is_delete, is_visible
+    into c_row
+    from comments
+   where comment_id = new.comment_id
+   limit 1;
+  if not found or c_row.is_delete or not c_row.is_visible then
+    return null;
+  end if;
+
+  -- Self-react is a no-op.
+  if new.user_id = c_row.user_id then
+    return null;
+  end if;
+
+  -- Resolve entity context for the notification payload.
+  if c_row.entity_type = 'Track' then
+    select t.owner_id into entity_user_id
+      from tracks t
+     where t.track_id = c_row.entity_id
+       and t.is_current = true
+     limit 1;
+    data_entity_ref := c_row.entity_id;
+  elsif c_row.entity_type = 'Event' then
+    select e.user_id into entity_user_id
+      from events e
+     where e.event_id = c_row.entity_id
+       and e.is_deleted = false
+     limit 1;
+    data_entity_ref := c_row.entity_id;
+  elsif c_row.entity_type = 'FanClub' then
+    entity_user_id  := c_row.entity_id;
+    data_entity_ref := c_row.entity_id;
+  else
+    entity_user_id  := null;
+    data_entity_ref := c_row.entity_id;
+  end if;
+
+  -- Comment author muted notifications on this comment OR this reacter.
+  select exists (
+    select 1 from comment_notification_settings cns
+     where cns.user_id     = c_row.user_id
+       and cns.entity_type = 'Comment'
+       and cns.entity_id   = new.comment_id
+       and cns.is_muted    = true
+  ) or exists (
+    select 1 from muted_users mu
+     where mu.user_id       = c_row.user_id
+       and mu.muted_user_id = new.user_id
+       and mu.is_delete     = false
+  ) into comment_owner_mute;
+  if comment_owner_mute then
+    return null;
+  end if;
+
+  -- Apps' track_owner_mention_mute: if commenter is the entity owner
+  -- AND owner has notifications off on the entity, drop the reaction
+  -- notification too (their muted state shouldn't be circumvented by
+  -- a reaction notification).
+  if entity_user_id is not null and c_row.user_id = entity_user_id then
+    select exists (
+      select 1 from comment_notification_settings cns
+       where cns.user_id     = entity_user_id
+         and cns.entity_type = c_row.entity_type
+         and cns.entity_id   = data_entity_ref
+         and cns.is_muted    = true
+    ) or exists (
+      select 1 from muted_users mu
+       where mu.user_id       = entity_user_id
+         and mu.muted_user_id = new.user_id
+         and mu.is_delete     = false
+    ) into owner_mute_extra;
+    if owner_mute_extra then
+      return null;
+    end if;
+  end if;
+
+  insert into notification
+    (blocknumber, user_ids, timestamp, type, specifier, group_id, data)
+  values
+    (
+      new.blocknumber,
+      ARRAY[c_row.user_id],
+      new.created_at,
+      'comment_reaction',
+      new.user_id::text,
+      'comment_reaction:' || new.comment_id,
+      jsonb_build_object(
+        'type',            c_row.entity_type,
+        'entity_id',       data_entity_ref,
+        'entity_user_id',  entity_user_id,
+        'comment_id',      new.comment_id,
+        'reacter_user_id', new.user_id
+      )
+    )
+  on conflict do nothing;
+
+  return null;
+
+exception
+  when others then
+    raise warning 'An error occurred in %: %', tg_name, sqlerrm;
+    return null;
+end;
+$$;
+
+
+--
 -- Name: handle_comment_remix_contest_update(); Type: FUNCTION; Schema: public; Owner: -
 --
 
@@ -2427,6 +2796,118 @@ begin
       )
     on conflict do nothing;
   end loop;
+
+  return null;
+
+exception
+  when others then
+    raise warning 'An error occurred in %: %', tg_name, sqlerrm;
+    return null;
+end;
+$$;
+
+
+--
+-- Name: handle_comment_thread(); Type: FUNCTION; Schema: public; Owner: -
+--
+
+CREATE FUNCTION public.handle_comment_thread() RETURNS trigger
+    LANGUAGE plpgsql
+    AS $$
+declare
+  reply_row       record;
+  parent_row      record;
+  entity_user_id  int;
+  data_entity_ref int;
+  parent_mute     boolean;
+begin
+  -- The reply.
+  select user_id, blocknumber, created_at, is_delete, is_visible
+    into reply_row
+    from comments
+   where comment_id = new.comment_id
+   limit 1;
+  if not found or reply_row.is_delete or not reply_row.is_visible then
+    return null;
+  end if;
+
+  -- The parent — used for both recipient and the entity context the
+  -- notification payload includes.
+  select user_id, entity_type, entity_id
+    into parent_row
+    from comments
+   where comment_id = new.parent_comment_id
+   limit 1;
+  if not found then
+    return null;
+  end if;
+
+  -- Self-reply is a no-op.
+  if reply_row.user_id = parent_row.user_id then
+    return null;
+  end if;
+
+  -- Resolve the entity owner for the notification payload (matches the
+  -- entity-type switch in apps' comment.py).
+  if parent_row.entity_type = 'Track' then
+    select t.owner_id into entity_user_id
+      from tracks t
+     where t.track_id = parent_row.entity_id
+       and t.is_current = true
+     limit 1;
+    data_entity_ref := parent_row.entity_id;
+  elsif parent_row.entity_type = 'Event' then
+    select e.user_id into entity_user_id
+      from events e
+     where e.event_id = parent_row.entity_id
+       and e.is_deleted = false
+     limit 1;
+    data_entity_ref := parent_row.entity_id;
+  elsif parent_row.entity_type = 'FanClub' then
+    entity_user_id  := parent_row.entity_id;
+    data_entity_ref := parent_row.entity_id;
+  else
+    -- Unknown entity_type — emit without owner context rather than skip.
+    entity_user_id  := null;
+    data_entity_ref := parent_row.entity_id;
+  end if;
+
+  -- Parent author muted this thread or this user.
+  select exists (
+    select 1 from comment_notification_settings cns
+     where cns.user_id     = parent_row.user_id
+       and cns.entity_type = 'Comment'
+       and cns.entity_id   = new.parent_comment_id
+       and cns.is_muted    = true
+  ) or exists (
+    select 1 from muted_users mu
+     where mu.user_id       = parent_row.user_id
+       and mu.muted_user_id = reply_row.user_id
+       and mu.is_delete     = false
+  ) into parent_mute;
+  if parent_mute then
+    return null;
+  end if;
+
+  insert into notification
+    (blocknumber, user_ids, timestamp, type, specifier, group_id, data)
+  values
+    (
+      reply_row.blocknumber,
+      ARRAY[parent_row.user_id],
+      reply_row.created_at,
+      'comment_thread',
+      new.comment_id::text,
+      'comment_thread:' || new.parent_comment_id,
+      jsonb_build_object(
+        'type',            parent_row.entity_type,
+        'entity_id',       data_entity_ref,
+        'entity_user_id',  entity_user_id,
+        'comment_user_id', reply_row.user_id,
+        'comment_id',      new.comment_id
+      )
+    )
+  on conflict do nothing;
 
   return null;
 
@@ -2547,6 +3028,89 @@ begin
       end loop;
     end if;
   end if;
+
+  return null;
+
+exception
+  when others then
+    raise warning 'An error occurred in %: %', tg_name, sqlerrm;
+    return null;
+end;
+$$;
+
+
+--
+-- Name: handle_fan_club_text_post(); Type: FUNCTION; Schema: public; Owner: -
+--
+
+CREATE FUNCTION public.handle_fan_club_text_post() RETURNS trigger
+    LANGUAGE plpgsql
+    AS $$
+declare
+  artist_user_id  int;
+  recipient_id    int;
+  group_id_str    text;
+  data_jsonb      jsonb;
+  is_reply        boolean;
+begin
+  if new.entity_type <> 'FanClub' or new.is_delete or not new.is_visible then
+    return null;
+  end if;
+
+  -- Artist = new.entity_id (the fan club's owner). Post author must be
+  -- the artist; fan comments don't fan out.
+  artist_user_id := new.entity_id;
+  if new.user_id <> artist_user_id then
+    return null;
+  end if;
+
+  -- Skip replies — only root-level posts fan out.
+  select exists (
+    select 1 from comment_threads where comment_id = new.comment_id
+  ) into is_reply;
+  if is_reply then
+    return null;
+  end if;
+
+  group_id_str := 'fan_club_text_post:' || new.comment_id
+                  || ':user:' || artist_user_id;
+  data_jsonb   := jsonb_build_object(
+    'entity_user_id', artist_user_id,
+    'comment_id',     new.comment_id
+  );
+
+  -- Fan out: followers ∪ coin holders, excluding the artist.
+  for recipient_id in
+    select u
+      from (
+        select follower_user_id as u
+          from follows
+         where followee_user_id = artist_user_id
+           and is_current = true
+           and is_delete  = false
+        union
+        select sub.user_id as u
+          from sol_user_balances sub
+          join artist_coins ac on ac.mint = sub.mint
+         where ac.user_id   = artist_user_id
+           and sub.balance > 0
+      ) recipients
+     where u <> artist_user_id
+  loop
+    insert into notification
+      (blocknumber, user_ids, timestamp, type, specifier, group_id, data)
+    values
+      (
+        new.blocknumber,
+        ARRAY[recipient_id],
+        new.created_at,
+        'fan_club_text_post',
+        recipient_id::text,
+        group_id_str,
+        data_jsonb
+      )
+    on conflict do nothing;
+  end loop;
 
   return null;
 
@@ -9855,7 +10419,7 @@ CREATE VIEW public.v_challenge_disbursements AS
     rd.created_at,
     users.user_id
    FROM (public.sol_reward_disbursements rd
-     JOIN public.users ON ((((users.wallet)::text = rd.recipient_eth_address) AND (users.is_current = true))));
+     JOIN public.users ON (((lower((users.wallet)::text) = rd.recipient_eth_address) AND (users.is_current = true))));
 
 
 --
@@ -13172,10 +13736,38 @@ CREATE TRIGGER on_comment AFTER INSERT ON public.comments FOR EACH ROW EXECUTE F
 
 
 --
+-- Name: comment_mentions on_comment_mention; Type: TRIGGER; Schema: public; Owner: -
+--
+
+CREATE TRIGGER on_comment_mention AFTER INSERT ON public.comment_mentions FOR EACH ROW EXECUTE FUNCTION public.handle_comment_mention();
+
+
+--
+-- Name: comments on_comment_notification; Type: TRIGGER; Schema: public; Owner: -
+--
+
+CREATE CONSTRAINT TRIGGER on_comment_notification AFTER INSERT ON public.comments DEFERRABLE INITIALLY DEFERRED FOR EACH ROW EXECUTE FUNCTION public.handle_comment_notification();
+
+
+--
+-- Name: comment_reactions on_comment_reaction; Type: TRIGGER; Schema: public; Owner: -
+--
+
+CREATE TRIGGER on_comment_reaction AFTER INSERT ON public.comment_reactions FOR EACH ROW EXECUTE FUNCTION public.handle_comment_reaction();
+
+
+--
 -- Name: comments on_comment_remix_contest_update; Type: TRIGGER; Schema: public; Owner: -
 --
 
 CREATE CONSTRAINT TRIGGER on_comment_remix_contest_update AFTER INSERT ON public.comments DEFERRABLE INITIALLY DEFERRED FOR EACH ROW EXECUTE FUNCTION public.handle_comment_remix_contest_update();
+
+
+--
+-- Name: comment_threads on_comment_thread; Type: TRIGGER; Schema: public; Owner: -
+--
+
+CREATE TRIGGER on_comment_thread AFTER INSERT ON public.comment_threads FOR EACH ROW EXECUTE FUNCTION public.handle_comment_thread();
 
 
 --
@@ -13197,6 +13789,13 @@ COMMENT ON TRIGGER on_dbc_pool_change ON public.sol_meteora_dbc_pools IS 'Notifi
 --
 
 CREATE TRIGGER on_event AFTER INSERT ON public.events FOR EACH ROW EXECUTE FUNCTION public.handle_event();
+
+
+--
+-- Name: comments on_fan_club_text_post; Type: TRIGGER; Schema: public; Owner: -
+--
+
+CREATE CONSTRAINT TRIGGER on_fan_club_text_post AFTER INSERT ON public.comments DEFERRABLE INITIALLY DEFERRED FOR EACH ROW EXECUTE FUNCTION public.handle_fan_club_text_post();
 
 
 --
