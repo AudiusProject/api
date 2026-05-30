@@ -3,8 +3,8 @@
 --
 
 
--- Dumped from database version 17.9 (Debian 17.9-1.pgdg13+1)
--- Dumped by pg_dump version 17.9 (Debian 17.9-1.pgdg13+1)
+-- Dumped from database version 17.10 (Debian 17.10-1.pgdg13+1)
+-- Dumped by pg_dump version 17.10 (Debian 17.10-1.pgdg13+1)
 
 SET statement_timeout = 0;
 SET lock_timeout = 0;
@@ -2137,33 +2137,39 @@ CREATE FUNCTION public.handle_associated_wallets() RETURNS trigger
     LANGUAGE plpgsql
     AS $$
 DECLARE
-    v_mint varchar;
+    v_mint    varchar;
+    v_user_id int;
+    v_wallet  text;
+    v_chain   text;
 BEGIN
-    -- For INSERT, always run
-    IF TG_OP = 'INSERT' THEN
-        FOR v_mint IN
-            SELECT DISTINCT mint FROM sol_token_account_balances WHERE owner = NEW.wallet
-        LOOP
-            PERFORM update_sol_user_balance_mint(NEW.user_id, v_mint);
-        END LOOP;
-    END IF;
-
-    -- For UPDATE, only run if is_delete changed
-    IF TG_OP = 'UPDATE' AND (NEW.is_delete IS DISTINCT FROM OLD.is_delete) THEN
-        FOR v_mint IN
-            SELECT DISTINCT mint FROM sol_token_account_balances WHERE owner = NEW.wallet
-        LOOP
-            PERFORM update_sol_user_balance_mint(NEW.user_id, v_mint);
-        END LOOP;
-    END IF;
-
-    -- For DELETE, always run
     IF TG_OP = 'DELETE' THEN
-        FOR v_mint IN
-            SELECT DISTINCT mint FROM sol_token_account_balances WHERE owner = OLD.wallet
-        LOOP
-            PERFORM update_sol_user_balance_mint(OLD.user_id, v_mint);
-        END LOOP;
+        v_user_id := OLD.user_id;
+        v_wallet  := OLD.wallet;
+        v_chain   := OLD.chain;
+    ELSE
+        v_user_id := NEW.user_id;
+        v_wallet  := NEW.wallet;
+        v_chain   := NEW.chain;
+    END IF;
+
+    -- Only act on INSERT, DELETE, or an is_delete flip on UPDATE — a no-op
+    -- metadata UPDATE shouldn't recompute balances (preserves prior behavior).
+    IF TG_OP = 'UPDATE' AND (NEW.is_delete IS NOT DISTINCT FROM OLD.is_delete) THEN
+        RETURN NULL;
+    END IF;
+
+    -- wAUDIO / artist-coin (sol) balances: recompute every sol mint this wallet
+    -- holds. For a chain=eth wallet this loop simply finds nothing.
+    FOR v_mint IN
+        SELECT DISTINCT mint FROM sol_token_account_balances WHERE owner = v_wallet
+    LOOP
+        PERFORM update_sol_user_balance_mint(v_user_id, v_mint);
+    END LOOP;
+
+    -- AUDIO (ETH-side) balance: linking / unlinking a chain=eth wallet changes
+    -- the user's aggregated eth_user_balances total.
+    IF v_chain = 'eth' THEN
+        PERFORM update_eth_user_balance(v_user_id);
     END IF;
 
     RETURN NULL;
@@ -2955,6 +2961,49 @@ BEGIN
         WHEN OTHERS THEN
             RAISE WARNING 'An error occurred in %: %', TG_NAME, SQLERRM;
             RETURN NULL;
+END;
+$$;
+
+
+--
+-- Name: handle_eth_wallet_balance_change(); Type: FUNCTION; Schema: public; Owner: -
+--
+
+CREATE FUNCTION public.handle_eth_wallet_balance_change() RETURNS trigger
+    LANGUAGE plpgsql
+    AS $$
+DECLARE
+    v_user_id int;
+BEGIN
+    -- Skip metadata-only updates (e.g. an updated_at touch with no balance
+    -- delta) so we don't churn eth_user_balances for no reason.
+    IF TG_OP = 'UPDATE' AND NEW.balance IS NOT DISTINCT FROM OLD.balance THEN
+        RETURN NULL;
+    END IF;
+
+    FOR v_user_id IN
+        SELECT user_id
+          FROM users
+         WHERE LOWER(wallet) = NEW.wallet
+           AND is_current = TRUE
+
+        UNION
+
+        SELECT user_id
+          FROM associated_wallets
+         WHERE LOWER(wallet) = NEW.wallet
+           AND chain = 'eth'
+           AND is_current = TRUE
+           AND is_delete = FALSE
+    LOOP
+        PERFORM update_eth_user_balance(v_user_id);
+    END LOOP;
+
+    RETURN NULL;
+EXCEPTION
+    WHEN OTHERS THEN
+        RAISE WARNING 'An error occurred in %: %', TG_NAME, SQLERRM;
+        RETURN NULL;
 END;
 $$;
 
@@ -6573,6 +6622,47 @@ $$;
 
 
 --
+-- Name: update_eth_user_balance(integer); Type: FUNCTION; Schema: public; Owner: -
+--
+
+CREATE FUNCTION public.update_eth_user_balance(p_user_id integer) RETURNS void
+    LANGUAGE plpgsql
+    AS $$
+BEGIN
+    INSERT INTO eth_user_balances (user_id, balance, updated_at, created_at)
+    SELECT
+        p_user_id,
+        COALESCE(SUM(ewb.balance), 0),
+        NOW(),
+        NOW()
+    FROM eth_wallet_balances ewb
+    WHERE ewb.wallet IN (
+        -- eth_wallet_balances PK is lowercase hex; users.wallet can be
+        -- mixed-case, associated_wallets are canonical lowercase (0207).
+        SELECT LOWER(wallet)
+          FROM users
+         WHERE user_id = p_user_id
+           AND is_current = TRUE
+           AND wallet IS NOT NULL
+
+        UNION ALL
+
+        SELECT LOWER(wallet)
+          FROM associated_wallets
+         WHERE user_id = p_user_id
+           AND chain = 'eth'
+           AND is_current = TRUE
+           AND is_delete = FALSE
+    )
+    ON CONFLICT (user_id)
+    DO UPDATE SET
+        balance = EXCLUDED.balance,
+        updated_at = NOW();
+END;
+$$;
+
+
+--
 -- Name: update_sol_user_balance_mint(integer, character varying); Type: FUNCTION; Schema: public; Owner: -
 --
 
@@ -8274,6 +8364,25 @@ CREATE TABLE public.eth_indexer_checkpoints (
 --
 
 COMMENT ON TABLE public.eth_indexer_checkpoints IS 'Resumable backfill checkpoints for the eth-indexer (last block whose Transfer events have been processed, keyed by subscription name).';
+
+
+--
+-- Name: eth_user_balances; Type: TABLE; Schema: public; Owner: -
+--
+
+CREATE TABLE public.eth_user_balances (
+    user_id integer NOT NULL,
+    balance numeric DEFAULT 0 NOT NULL,
+    updated_at timestamp without time zone DEFAULT now() NOT NULL,
+    created_at timestamp without time zone DEFAULT now() NOT NULL
+);
+
+
+--
+-- Name: TABLE eth_user_balances; Type: COMMENT; Schema: public; Owner: -
+--
+
+COMMENT ON TABLE public.eth_user_balances IS 'Per-user AUDIO ERC-20 balance (wei), summed across users.wallet + chain=eth associated_wallets. Pre-aggregated mirror of eth_wallet_balances, maintained by triggers (handle_eth_wallet_balance_change / handle_associated_wallets) and recomputed by update_eth_user_balance(user_id). ETH-side analog of sol_user_balances.';
 
 
 --
@@ -10586,6 +10695,29 @@ CREATE TABLE public.user_tips (
 
 
 --
+-- Name: v_challenge_disbursements; Type: VIEW; Schema: public; Owner: -
+--
+
+CREATE VIEW public.v_challenge_disbursements AS
+ SELECT rd.challenge_id,
+    rd.specifier,
+    (rd.amount)::text AS amount,
+    rd.signature,
+    rd.slot,
+    rd.created_at,
+    users.user_id
+   FROM (public.sol_reward_disbursements rd
+     JOIN public.users ON (((lower((users.wallet)::text) = rd.recipient_eth_address) AND (users.is_current = true))));
+
+
+--
+-- Name: VIEW v_challenge_disbursements; Type: COMMENT; Schema: public; Owner: -
+--
+
+COMMENT ON VIEW public.v_challenge_disbursements IS 'Compatibility view that exposes sol_reward_disbursements in the column shape the API routes used to read from challenge_disbursements. Resolves user_id via the indexer-populated recipient_eth_address (see migration 0172). Join uses LOWER(users.wallet) because the Go indexer stores recipient_eth_address as lowercase.';
+
+
+--
 -- Name: v_token_transactions_history; Type: VIEW; Schema: public; Owner: -
 --
 
@@ -10708,19 +10840,12 @@ COMMENT ON VIEW public.v_usdc_purchases IS 'Compatibility view exposing sol_purc
 
 CREATE VIEW public.v_user_balances AS
  SELECT u.user_id,
-    (COALESCE(eth.total_balance, (0)::numeric))::character varying AS eth_balance,
+    (COALESCE(eub.balance, (0)::numeric))::character varying AS eth_balance,
     (COALESCE(sub.balance, (0)::bigint))::character varying AS sol_balance,
-    GREATEST(COALESCE(eth.updated_at, '1970-01-01 00:00:00'::timestamp without time zone), COALESCE(sub.updated_at, '1970-01-01 00:00:00'::timestamp without time zone)) AS updated_at
+    GREATEST(COALESCE(eub.updated_at, '1970-01-01 00:00:00'::timestamp without time zone), COALESCE(sub.updated_at, '1970-01-01 00:00:00'::timestamp without time zone)) AS updated_at
    FROM ((public.users u
      LEFT JOIN public.sol_user_balances sub ON (((sub.user_id = u.user_id) AND (sub.mint = '9LzCMqDgTKYz9Drzqnpgee3SGa89up3a247ypMj2xrqM'::text))))
-     LEFT JOIN LATERAL ( SELECT sum(ewb.balance) AS total_balance,
-            max(ewb.updated_at) AS updated_at
-           FROM public.eth_wallet_balances ewb
-          WHERE (ewb.wallet IN ( SELECT lower((u.wallet)::text) AS lower
-                UNION ALL
-                 SELECT lower((aw.wallet)::text) AS lower
-                   FROM public.associated_wallets aw
-                  WHERE ((aw.user_id = u.user_id) AND (aw.chain = 'eth'::public.wallet_chain) AND (aw.is_current = true) AND (aw.is_delete = false))))) eth ON (true))
+     LEFT JOIN public.eth_user_balances eub ON ((eub.user_id = u.user_id)))
   WHERE (u.is_current = true);
 
 
@@ -10728,7 +10853,7 @@ CREATE VIEW public.v_user_balances AS
 -- Name: VIEW v_user_balances; Type: COMMENT; Schema: public; Owner: -
 --
 
-COMMENT ON VIEW public.v_user_balances IS 'Per-user AUDIO/wAUDIO balance totals. One row per current user with eth_balance (wei) and sol_balance (wAUDIO base units, 8 decimals — multiply by 10^10 to compare to wei). eth_balance sums eth_wallet_balances across users.wallet + chain=eth associated_wallets (current, not deleted). sol_balance is sol_user_balances for the wAUDIO mint, already pre-aggregated across user_bank PDAs + linked Solana wallets by handle_sol_claimable_accounts / update_sol_user_balance triggers.';
+COMMENT ON VIEW public.v_user_balances IS 'Per-user AUDIO/wAUDIO balance totals. One row per current user with eth_balance (wei) and sol_balance (wAUDIO base units, 8 decimals — multiply by 10^10 to compare to wei). eth_balance is eth_user_balances (pre-aggregated across users.wallet + chain=eth associated_wallets, maintained by handle_eth_wallet_balance_change / handle_associated_wallets). sol_balance is sol_user_balances for the wAUDIO mint, pre-aggregated across user_bank PDAs + linked Solana wallets by handle_sol_claimable_accounts / update_sol_user_balance triggers.';
 
 
 --
@@ -11380,6 +11505,14 @@ ALTER TABLE ONLY public.eth_blocks
 
 ALTER TABLE ONLY public.eth_indexer_checkpoints
     ADD CONSTRAINT eth_indexer_checkpoints_pkey PRIMARY KEY (name);
+
+
+--
+-- Name: eth_user_balances eth_user_balances_pkey; Type: CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.eth_user_balances
+    ADD CONSTRAINT eth_user_balances_pkey PRIMARY KEY (user_id);
 
 
 --
@@ -13881,7 +14014,7 @@ CREATE TRIGGER on_associated_wallets AFTER INSERT OR DELETE OR UPDATE ON public.
 -- Name: TRIGGER on_associated_wallets ON associated_wallets; Type: COMMENT; Schema: public; Owner: -
 --
 
-COMMENT ON TRIGGER on_associated_wallets ON public.associated_wallets IS 'Updates sol_user_balances when associated_wallets are added and removed';
+COMMENT ON TRIGGER on_associated_wallets ON public.associated_wallets IS 'Updates sol_user_balances and eth_user_balances when associated_wallets are added and removed';
 
 
 --
@@ -13966,6 +14099,20 @@ CREATE TRIGGER on_dbc_pool_change AFTER INSERT ON public.sol_meteora_dbc_pools F
 --
 
 COMMENT ON TRIGGER on_dbc_pool_change ON public.sol_meteora_dbc_pools IS 'Notifies when DBC pools are added, removed, or updated.';
+
+
+--
+-- Name: eth_wallet_balances on_eth_wallet_balance_changes; Type: TRIGGER; Schema: public; Owner: -
+--
+
+CREATE TRIGGER on_eth_wallet_balance_changes AFTER INSERT OR UPDATE ON public.eth_wallet_balances FOR EACH ROW EXECUTE FUNCTION public.handle_eth_wallet_balance_change();
+
+
+--
+-- Name: TRIGGER on_eth_wallet_balance_changes ON eth_wallet_balances; Type: COMMENT; Schema: public; Owner: -
+--
+
+COMMENT ON TRIGGER on_eth_wallet_balance_changes ON public.eth_wallet_balances IS 'Recomputes eth_user_balances for affected users whenever an eth wallet balance changes.';
 
 
 --
@@ -14133,7 +14280,7 @@ CREATE TRIGGER on_track_notify_pending_purchase_revalidation AFTER INSERT OR UPD
 -- Name: user_challenges on_trending_user_challenge; Type: TRIGGER; Schema: public; Owner: -
 --
 
-CREATE TRIGGER on_trending_user_challenge AFTER INSERT ON public.user_challenges FOR EACH ROW WHEN (((new.challenge_id)::text = ANY ((ARRAY['tt'::character varying, 'tut'::character varying])::text[]))) EXECUTE FUNCTION public.handle_trending();
+CREATE TRIGGER on_trending_user_challenge AFTER INSERT ON public.user_challenges FOR EACH ROW WHEN (((new.challenge_id)::text = ANY (ARRAY[('tt'::character varying)::text, ('tut'::character varying)::text]))) EXECUTE FUNCTION public.handle_trending();
 
 
 --

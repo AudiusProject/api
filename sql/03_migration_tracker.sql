@@ -3,8 +3,8 @@
 --
 
 
--- Dumped from database version 17.9 (Debian 17.9-1.pgdg13+1)
--- Dumped by pg_dump version 17.9 (Debian 17.9-1.pgdg13+1)
+-- Dumped from database version 17.10 (Debian 17.10-1.pgdg13+1)
+-- Dumped by pg_dump version 17.10 (Debian 17.10-1.pgdg13+1)
 
 SET statement_timeout = 0;
 SET lock_timeout = 0;
@@ -108,8 +108,7 @@ functions/find_track.sql	f09431015118f31aa7b4ac49d14e7639	2026-05-27 00:22:35.66
 functions/get_user_score.sql	2d5e3003ae1074cbe22ee780dd0ff901	2026-05-27 00:22:35.742438+00
 functions/get_user_scores.sql	b22e36599e6503649d7cabff0609bc05	2026-05-27 00:22:35.829695+00
 functions/handle_artist_coins.sql	21ed1610d80cceca2262efb1338060ed	2026-05-27 00:22:35.905536+00
-functions/handle_associated_wallet.sql	6c9299c3b14bc1db4a578f4ad46e2225	2026-05-27 00:22:35.99395+00
-functions/handle_challenge_disbursements.sql	1bbf82cc035971d828ed96f3ea1a23d6	2026-05-29 22:00:00.000000+00
+functions/handle_challenge_disbursements.sql	1bbf82cc035971d828ed96f3ea1a23d6	2026-05-29 22:00:00+00
 functions/handle_chat_blast.sql	ccd276957c1b68bfc82fb5a11bac09ee	2026-05-27 00:22:36.155215+00
 functions/handle_chat_message.sql	31bebee3d0437133f1f53c2eadb7b391	2026-05-27 00:22:36.229275+00
 functions/handle_chat_message_reaction.sql	b898313aa8f31c61df7f1e6dd791ef31	2026-05-27 00:22:36.304728+00
@@ -134,7 +133,7 @@ functions/handle_track.sql	89ef5a957b3662310fb30f914aab9ed4	2026-05-27 00:22:37.
 functions/handle_usdc_purchase.sql	c35bccc2789ae0641d413d28a131ef8d	2026-05-27 00:22:37.800109+00
 functions/handle_user.sql	169778112e5362ee20af56d9b8f274c5	2026-05-27 00:22:37.955619+00
 functions/handle_user_balance_changes.sql	1ae7f99f4f37194cdf27dc3189ebc858	2026-05-27 00:22:38.02983+00
-functions/handle_user_challenges.sql	8a1287bc971c83e7440b88da7c86e93d	2026-05-29 22:00:00.100000+00
+functions/handle_user_challenges.sql	8a1287bc971c83e7440b88da7c86e93d	2026-05-29 22:00:00.1+00
 functions/handle_user_tip.sql	e4bde4e7e04b0ed8254690959513bd69	2026-05-27 00:22:38.167097+00
 functions/is_country_eur.sql	c5641d570edb9cd47cd4e38d883e941a	2026-05-27 00:22:38.234372+00
 functions/notify_on_row.sql	8b0232ed60eb108aa45f68c6dfe05d59	2026-05-27 00:22:38.304698+00
@@ -148,7 +147,6 @@ views/v_challenge_disbursements.sql	74a0a05af6a02f82af3695d5c3ade45c	2026-05-27 
 views/v_usdc_purchases.sql	322a527e132aed647c39b70d63aa6b51	2026-05-27 00:22:39.061667+00
 preflight/0001_initial_block.sql	1e59cca66b2208eda67a87ac0d09b67d	2026-05-27 00:22:39.249328+00
 migrations/0204_backfill_eth_wallet_balances_tracked.sql	d8b752794c42edb94f0d43633e14208c	2026-05-28 00:56:10.178339+00
-views/v_user_balances.sql	ff6db739c1a77101021d4629647a44df	2026-05-28 17:28:07.629633+00
 migrations/0205_sol_transfer_memo_tables.sql	49aa6bdf68df733710e7820153a78393	2026-05-28 19:54:42.181969+00
 migrations/0206_backfill_sol_transfer_memo_types.sql	8b63b2e420c94b740a15e7f1fbd02ae7	2026-05-28 19:54:42.266989+00
 functions/handle_usdc_withdrawal.sql	f590eb5d53ec82c63d3d2d7b1913cbef	2026-05-28 19:54:42.61986+00
@@ -157,11 +155,24 @@ migrations/0207_canonicalize_associated_wallets_eth.sql	83e88b1102c1bc5e2526a919
 migrations/0203_seed_phase_1_challenges.sql	b027784464de897b26d4b420ca51a970	2026-05-29 16:22:36.535877+00
 migrations/0204_seed_phase_2_challenges.sql	168a6d57c056e2e8f7fe14c36fc1c367	2026-05-29 16:22:36.811563+00
 migrations/0205_seed_phase_3_challenges.sql	dc2a08647a63c0e355c6a3b2cc23a8bd	2026-05-29 16:22:37.200322+00
-migrations/0208_seed_challenge_checkpoints.sql	ed11876806de4dd1d80b389894b4db45	2026-05-29 16:22:38.000000+00
-migrations/0209_user_events_blocknumber_idx.sql	19ed339385266f28e83399125b6593df	2026-05-29 19:30:00.000000+00
-migrations/0210_notification_cooldown_partial_gin.sql	7156a9b6e236e17acef7d6b91cb1291b	2026-05-29 19:30:00.100000+00
-migrations/0211_seed_phase_3_user_event_checkpoints.sql	e37093a8ba1d1a4a3bcca7f98b612be2	2026-05-29 19:30:00.200000+00
+migrations/0208_seed_challenge_checkpoints.sql	ed11876806de4dd1d80b389894b4db45	2026-05-29 16:22:38+00
+migrations/0209_user_events_blocknumber_idx.sql	19ed339385266f28e83399125b6593df	2026-05-29 19:30:00+00
+migrations/0210_notification_cooldown_partial_gin.sql	7156a9b6e236e17acef7d6b91cb1291b	2026-05-29 19:30:00.1+00
+migrations/0211_seed_phase_3_user_event_checkpoints.sql	e37093a8ba1d1a4a3bcca7f98b612be2	2026-05-29 19:30:00.2+00
 migrations/0212_drop_v_challenge_disbursements.sql	90097355681a3a9b3cde2586511f0f16	2026-05-29 23:22:07.541889+00
+migrations/0204_fix_challenge_disbursements_case_sensitivity.sql	a73b4830e81426df9a6f8aeaf61ff861	2026-05-30 01:37:22.201761+00
+migrations/0213_add_eth_user_balances.sql	111eb6a0ba9326bacacbc3c1726d19ff	2026-05-30 01:37:22.343704+00
+functions/handle_associated_wallet.sql	c069cb48c574cc01689ab45f6e036443	2026-05-30 01:37:22.553815+00
+functions/handle_comment_mention.sql	518e297c3053c240ec1cb804ff4228ee	2026-05-30 01:37:22.69354+00
+views/v_user_balances.sql	9ee4060617250285c419e5caf6cb5fab	2026-05-30 01:37:23.77109+00
+functions/handle_comment_notification.sql	f9ee033ab1fe8ee8dc3437e328873242	2026-05-30 01:37:22.773681+00
+functions/handle_comment_reaction.sql	8153e3cdb922265857b6beaf20d29733	2026-05-30 01:37:22.856663+00
+functions/handle_comment_thread.sql	6eb74eb92cf3a01421498df96c6832f3	2026-05-30 01:37:22.955997+00
+functions/handle_eth_wallet_balance_change.sql	3e31160b4bc55e951d9dfa4d994c180b	2026-05-30 01:37:23.054573+00
+functions/handle_fan_club_text_post.sql	531bf682bcfd67c6866faf8ccdf7603b	2026-05-30 01:37:23.160142+00
+functions/handle_tastemaker.sql	04690b53bd094a59717ef3a5b5d2c0a0	2026-05-30 01:37:23.34542+00
+functions/handle_trending.sql	b754ca4670313bbd331102244f6182e5	2026-05-30 01:37:23.437507+00
+functions/update_eth_user_balance.sql	52d3ab427477d0a49ce68bc1ee270aec	2026-05-30 01:37:23.595691+00
 \.
 
 
