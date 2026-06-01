@@ -174,19 +174,15 @@ func (ci *CoreIndexer) startParityJobs(ctx context.Context) {
 	// Reconcile derived challenge state from source tables. Per-challenge
 	// scanners live in api/jobs/challenges/.
 	//
-	// A full reconcile pass observed ~330-360s in production, so a 30s tick
-	// meant a new pass effectively started the instant the previous one
-	// finished — running back-to-back and IO-starving the block loop. The job
-	// has a sync.Mutex/isRunning re-entrancy guard (see jobs/index_challenges.go)
-	// that drops overlapping ticks, but those dropped ticks are wasted wakeups
-	// and the back-to-back execution still saturated the pool. Match the tick to
-	// real runtime: at 5m a pass finishes (~6 min worst case) close to one tick
-	// before the next fires, leaving headroom for the block loop. apps' legacy
-	// index_challenges wasn't on a fixed beat — it self-re-queued under a Redis
-	// lock and drained an event queue — so there's no upstream interval to copy;
-	// 5m reflects our full-table reconcile cost instead.
+	// Running every processor on one shared tick forced a single cadence on a
+	// mix of cheap checkpoint-incremental processors (near-real-time, idle ticks
+	// ~free) and a few bounded full-scan ones — a slow processor delayed the
+	// fast ones and all the DB work bunched into one burst. Schedule() instead
+	// runs each cadence group on its own goroutine and interval (see
+	// jobs/index_challenges.go), so the real-time challenges stay real-time
+	// without the heavy ones hot-looping.
 	jobs.NewIndexChallengesJob(ci.Config, ci.pool).
-		ScheduleEvery(ctx, 5*time.Minute)
+		Schedule(ctx)
 
 	// Time-based notifications that the legacy Python beat produced. Unlike
 	// the event-driven notifications (handled by DB triggers), these fire on
