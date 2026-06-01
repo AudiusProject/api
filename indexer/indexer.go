@@ -148,12 +148,9 @@ func (ci *CoreIndexer) startParityJobs(ctx context.Context) {
 	jobs.NewUserListeningHistoryJob(ci.Config, ci.pool).
 		ScheduleEvery(ctx, 5*time.Second)
 
-	// Hourly to match discovery's effective cadence: apps' celery beat ticked
-	// index_trending every 10s but an internal gate (trending_refresh_seconds,
-	// default 3600) only recomputed once an hour. The vendored port dropped
-	// that gate, so a 10s schedule meant the multi-minute recompute ran
-	// continuously, IO-starving the block-indexing loop. Trending leaderboards
-	// don't need sub-hour freshness.
+	// Hourly to match discovery's effective cadence (trending_refresh_seconds
+	// default 3600). The vendored port dropped that gate, so a 10s schedule ran
+	// the multi-minute recompute continuously and IO-starved the block loop.
 	jobs.NewTrendingJob(ci.Config, ci.pool).
 		ScheduleEvery(ctx, 1*time.Hour)
 

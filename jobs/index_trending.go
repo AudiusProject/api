@@ -15,38 +15,15 @@ import (
 // TrendingJob recomputes trending scores. Ports the score-computation half
 // of apps/packages/discovery-provider/src/tasks/index_trending.py.
 //
-// On each run:
-//  1. Refresh aggregate_interval_plays MV (feeds week/month listen counts).
-//  2. Refresh trending_params MV (per-track inputs).
-//  3. For each (entity_type, version), reconcile track_trending_scores /
-//     playlist_trending_scores against this cycle's computed scores using an
-//     upsert (skip-unchanged) plus an anti-join delete of rows that no longer
-//     qualify.
+// On each run it refreshes the aggregate_interval_plays and trending_params
+// matviews, then for each (entity_type, version) reconciles the *_trending_scores
+// tables via a skip-unchanged upsert plus an anti-join delete of rows that no
+// longer qualify (instead of the old DELETE-all + bulk-INSERT, which rewrote the
+// whole 16GB table and its six indexes every run).
 //
-// Cadence: discovery ran this hourly (default `trending_refresh_seconds = 3600`
-// in apps' default_config.ini — its celery beat ticked every 10s but an
-// internal time gate only recomputed once an hour). The vendored port dropped
-// that gate, so it must be scheduled at the real cadence (see indexer's
-// startParityJobs) rather than every tick.
-//
-// Write strategy: step 3 used to DELETE every row for a (type, version) and
-// bulk-INSERT them all back on every run, rewriting the entire 16GB
-// track_trending_scores table (and all six of its indexes) regardless of
-// whether any score changed. Because the decay formula has day granularity,
-// most per-track scores are stable between hourly runs, so we now stage scores
-// in a temp table and UPSERT with a `score IS DISTINCT` guard — turning the
-// common case into a near-zero-write no-op — then delete only the rows that
-// dropped out of the result set.
-//
-// What is intentionally NOT ported here:
-//   - Trending notifications (top-10 mover diff against the notification
-//     table). Lands with the challenges/notifications work.
-//   - index_tastemaker (writes challenge events). Depends on the challenge
-//     bus, which is a separate effort.
-//
-// Trending score templates are copied verbatim from
-// apps/packages/discovery-provider/src/trending_strategies/{pnagD,AnlGe}_*.py
-// so the scoring stays bit-identical to discovery.
+// Scheduled hourly to match discovery (default trending_refresh_seconds=3600;
+// see indexer's startParityJobs). Score templates are copied verbatim from
+// apps' trending_strategies/{pnagD,AnlGe}_*.py so scoring stays bit-identical.
 type TrendingJob struct {
 	pool   database.DbPool
 	logger *zap.Logger
@@ -129,17 +106,11 @@ func (j *TrendingJob) run(ctx context.Context) error {
 	return nil
 }
 
-// refreshMatview refreshes a trending matview, preferring the CONCURRENTLY
-// variant so the refresh doesn't take an ACCESS EXCLUSIVE lock that stalls
-// every reader (the block-indexing loop included).
-//
-// CONCURRENTLY has two preconditions: the matview must already be populated,
-// and it must carry a unique index (added by migration 0214). Both can be
-// transiently false — right after a schema-only bootstrap the matview is
-// created WITH NO DATA, and during a rolling deploy the new code can land
-// before the index migration. In those windows we fall back to a blocking
-// refresh so the job still makes progress; the next cycle uses CONCURRENTLY
-// once the preconditions hold.
+// refreshMatview prefers REFRESH ... CONCURRENTLY so it doesn't take an ACCESS
+// EXCLUSIVE lock that stalls every reader (the block-indexing loop included).
+// CONCURRENTLY needs the matview populated and carrying a unique index (migration
+// 0214); both can be transiently false (fresh schema-only DB, or pre-migration
+// during a rolling deploy), so we fall back to a blocking refresh until they hold.
 func (j *TrendingJob) refreshMatview(ctx context.Context, mv string) error {
 	mvStart := time.Now()
 	concurrent := true
