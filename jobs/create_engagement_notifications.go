@@ -87,31 +87,10 @@ func (j *EngagementNotificationsJob) run(ctx context.Context) error {
 		j.mutex.Unlock()
 	}()
 
-	// completed_at < now - 1 week. Two-stage dedup, mirroring the original
-	// Python task (create_engagement_notifications.py), split into an explicit
-	// MATERIALIZED CTE so the two stages run in that order rather than being
-	// fused into one anti-join by the planner:
-	//
-	//   1. `candidates` CTE — the cheap, LIMIT-bounded selection. The exact
-	//      (group_id, specifier) anti-join is served by the uq_notification
-	//      unique index, so the LIMIT fills via index probes and the scan
-	//      terminates early. This mirrors Python's `Notification.id IS NULL`
-	//      filter (which the first port dropped in favor of ON CONFLICT alone)
-	//      plus its `.limit(BATCH_SIZE)`. AS MATERIALIZED is an optimization
-	//      fence: it forces Postgres to compute these <=500 rows first instead
-	//      of inlining the CTE and re-fusing both anti-joins. Without the fence,
-	//      the planner underestimates the overlap anti-join's selectivity,
-	//      materializes a full `notification` scan, and nested-loop-anti-joins
-	//      every undisbursed candidate across the multi-year window — a
-	//      ~22-billion-cost plan that ran for tens of minutes per tick.
-	//
-	//   2. user_ids overlap anti-join — the 1-hour debounce: suppress a second
-	//      claimable_reward for the same user within the hour before completion
-	//      (Python's per-row existing_notification check). Running it against
-	//      the materialized `candidates` bounds the anti-join's outer side to
-	//      the <=500 rows surviving stage 1 instead of the full multi-year
-	//      candidate set, which is what made the fused plan quadratic. The
-	//      ON CONFLICT below is kept only as a race safety net.
+	// AS MATERIALIZED is load-bearing: it fences the LIMIT-bounded candidate
+	// selection from the 1-hour debounce so the debounce runs against <=500
+	// rows, not the full multi-year window. Without it the planner fuses both
+	// anti-joins into a multi-minute scan.
 	res, err := j.pool.Exec(ctx, `
 		WITH candidates AS MATERIALIZED (
 			SELECT
