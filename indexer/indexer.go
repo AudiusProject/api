@@ -148,8 +148,11 @@ func (ci *CoreIndexer) startParityJobs(ctx context.Context) {
 	jobs.NewUserListeningHistoryJob(ci.Config, ci.pool).
 		ScheduleEvery(ctx, 5*time.Second)
 
+	// Hourly to match discovery's effective cadence (trending_refresh_seconds
+	// default 3600). The vendored port dropped that gate, so a 10s schedule ran
+	// the multi-minute recompute continuously and IO-starved the block loop.
 	jobs.NewTrendingJob(ci.Config, ci.pool).
-		ScheduleEvery(ctx, 10*time.Second)
+		ScheduleEvery(ctx, 1*time.Hour)
 
 	jobs.NewUpdateDelistStatusesJob(ci.Config, ci.pool).
 		ScheduleEvery(ctx, 5*time.Minute)
