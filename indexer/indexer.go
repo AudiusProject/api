@@ -40,6 +40,23 @@ func NewIndexer(cfg config.Config) *CoreIndexer {
 	if err != nil {
 		panic(fmt.Errorf("error parsing database URL: %w", err))
 	}
+	// This single write pool is shared by ~9 parity jobs scheduled in
+	// startParityJobs (HourlyPlayCounts, PrunePlays, UserListeningHistory,
+	// Trending, UpdateDelistStatuses, IndexChallenges, EngagementNotifications,
+	// ListenStreakReminder, RemixContestNotifications). pgx defaults MaxConns to
+	// max(4, runtime.NumCPU()), so on a small box that floor leaves jobs queueing
+	// for connections behind each other and serializing work that should overlap
+	// (a single job holding a tx for minutes — e.g. IndexChallenges — can starve
+	// the rest). Pin a higher floor so the jobs don't fight over a handful of
+	// connections. Mirrors the explicit-MaxConns pattern in
+	// solana/indexer/solana_indexer.go. 20 is a conservative ceiling, well under
+	// Postgres max_connections while giving each concurrent job room. We only
+	// raise the floor, so a DB URL that already asks for more via pool_max_conns
+	// is respected.
+	const defaultJobsPoolMaxConns = 20
+	if connConfig.MaxConns < defaultJobsPoolMaxConns {
+		connConfig.MaxConns = defaultJobsPoolMaxConns
+	}
 	pool, err := pgxpool.NewWithConfig(context.Background(), connConfig)
 	if err != nil {
 		panic(fmt.Errorf("error connecting to database: %w", err))
@@ -156,8 +173,16 @@ func (ci *CoreIndexer) startParityJobs(ctx context.Context) {
 
 	// Reconcile derived challenge state from source tables. Per-challenge
 	// scanners live in api/jobs/challenges/.
+	//
+	// Running every processor on one shared tick forced a single cadence on a
+	// mix of cheap checkpoint-incremental processors (near-real-time, idle ticks
+	// ~free) and a few bounded full-scan ones — a slow processor delayed the
+	// fast ones and all the DB work bunched into one burst. Schedule() instead
+	// runs each cadence group on its own goroutine and interval (see
+	// jobs/index_challenges.go), so the real-time challenges stay real-time
+	// without the heavy ones hot-looping.
 	jobs.NewIndexChallengesJob(ci.Config, ci.pool).
-		ScheduleEvery(ctx, 30*time.Second)
+		Schedule(ctx)
 
 	// Time-based notifications that the legacy Python beat produced. Unlike
 	// the event-driven notifications (handled by DB triggers), these fire on
