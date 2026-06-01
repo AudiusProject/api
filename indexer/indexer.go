@@ -40,6 +40,23 @@ func NewIndexer(cfg config.Config) *CoreIndexer {
 	if err != nil {
 		panic(fmt.Errorf("error parsing database URL: %w", err))
 	}
+	// This single write pool is shared by ~9 parity jobs scheduled in
+	// startParityJobs (HourlyPlayCounts, PrunePlays, UserListeningHistory,
+	// Trending, UpdateDelistStatuses, IndexChallenges, EngagementNotifications,
+	// ListenStreakReminder, RemixContestNotifications). pgx defaults MaxConns to
+	// max(4, runtime.NumCPU()), so on a small box that floor leaves jobs queueing
+	// for connections behind each other and serializing work that should overlap
+	// (a single job holding a tx for minutes — e.g. IndexChallenges — can starve
+	// the rest). Pin a higher floor so the jobs don't fight over a handful of
+	// connections. Mirrors the explicit-MaxConns pattern in
+	// solana/indexer/solana_indexer.go. 20 is a conservative ceiling, well under
+	// Postgres max_connections while giving each concurrent job room. We only
+	// raise the floor, so a DB URL that already asks for more via pool_max_conns
+	// is respected.
+	const defaultJobsPoolMaxConns = 20
+	if connConfig.MaxConns < defaultJobsPoolMaxConns {
+		connConfig.MaxConns = defaultJobsPoolMaxConns
+	}
 	pool, err := pgxpool.NewWithConfig(context.Background(), connConfig)
 	if err != nil {
 		panic(fmt.Errorf("error connecting to database: %w", err))
@@ -156,8 +173,20 @@ func (ci *CoreIndexer) startParityJobs(ctx context.Context) {
 
 	// Reconcile derived challenge state from source tables. Per-challenge
 	// scanners live in api/jobs/challenges/.
+	//
+	// A full reconcile pass observed ~330-360s in production, so a 30s tick
+	// meant a new pass effectively started the instant the previous one
+	// finished — running back-to-back and IO-starving the block loop. The job
+	// has a sync.Mutex/isRunning re-entrancy guard (see jobs/index_challenges.go)
+	// that drops overlapping ticks, but those dropped ticks are wasted wakeups
+	// and the back-to-back execution still saturated the pool. Match the tick to
+	// real runtime: at 5m a pass finishes (~6 min worst case) close to one tick
+	// before the next fires, leaving headroom for the block loop. apps' legacy
+	// index_challenges wasn't on a fixed beat — it self-re-queued under a Redis
+	// lock and drained an event queue — so there's no upstream interval to copy;
+	// 5m reflects our full-table reconcile cost instead.
 	jobs.NewIndexChallengesJob(ci.Config, ci.pool).
-		ScheduleEvery(ctx, 30*time.Second)
+		ScheduleEvery(ctx, 5*time.Minute)
 
 	// Time-based notifications that the legacy Python beat produced. Unlike
 	// the event-driven notifications (handled by DB triggers), these fire on
