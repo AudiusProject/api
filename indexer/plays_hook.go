@@ -48,11 +48,20 @@ import (
 func newPlaysHook(logger *zap.Logger) etl.PlaysHook {
 	hookLogger := logger.Named("PlaysHook")
 	return func(ctx context.Context, params *etl.PlaysParams) error {
+		start := time.Now()
 		if err := indexPlays(ctx, params); err != nil {
 			hookLogger.Warn("failed to index plays into plays table",
 				zap.String("tx_hash", params.TxHash),
 				zap.Int64("block_height", params.BlockHeight),
+				zap.Int("plays", len(params.Plays)),
+				zap.Duration("duration", time.Since(start)),
 				zap.Error(err))
+		} else if elapsed := time.Since(start); elapsed > time.Second {
+			hookLogger.Info("indexed plays into plays table",
+				zap.String("tx_hash", params.TxHash),
+				zap.Int64("block_height", params.BlockHeight),
+				zap.Int("plays", len(params.Plays)),
+				zap.Duration("duration", elapsed))
 		}
 		return nil
 	}

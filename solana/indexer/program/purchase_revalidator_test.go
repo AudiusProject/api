@@ -182,13 +182,9 @@ func seedRevalidatorFixtures(
 
 func insertBlock(t *testing.T, pool *pgxpool.Pool, number int) {
 	t.Helper()
-	// is_current is left false to avoid colliding with the auto-inserted block
-	// 101 that database.Seed adds (a partial unique index allows only one row
-	// with is_current=true). validatePurchase reads MAX(number), not by
-	// is_current, so this is fine for these tests.
 	_, err := pool.Exec(t.Context(), `
-		INSERT INTO blocks (blockhash, parenthash, is_current, number)
-		VALUES ('test-block-' || $1::integer::text, NULL, false, $1::integer)
+		INSERT INTO blocks (blockhash, parenthash, number)
+		VALUES ('test-block-' || $1::integer::text, NULL, $1::integer)
 		ON CONFLICT DO NOTHING
 	`, number)
 	require.NoError(t, err)
@@ -256,4 +252,3 @@ func pollUntil(t *testing.T, timeout, interval time.Duration, cond func() bool, 
 	}
 	t.Fatalf("condition not met within %s: %s", timeout, msg)
 }
-

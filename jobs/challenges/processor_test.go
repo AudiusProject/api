@@ -18,26 +18,18 @@ func withChallengesDB(t *testing.T) *pgxpool.Pool {
 	t.Cleanup(func() { pool.Close() })
 
 	ctx := context.Background()
-	// The latest pg_migrate preflight seeds a `0x0` block with
-	// is_current=true. database.Seed() also inserts a `block1` block
-	// with is_current=true, which collides on the blocks_is_current_idx
-	// unique partial index. Clear the preflight row so Seed() can
-	// install its expected fixture.
-	if _, err := pool.Exec(ctx, "DELETE FROM blocks WHERE blockhash = '0x0'"); err != nil {
-		t.Fatalf("clean preflight block: %v", err)
-	}
 
 	// Seed Phase 1+2+3 challenges catalog inline. We don't run the
 	// production migration here because the test_jobs template DB isn't
 	// routed through the ddl runner — keeping the seed local to the
 	// test makes intent clearer too.
 	rows := []struct {
-		id, typ, amount       string
-		active                bool
-		stepCount             *int32
-		startingBlock         int32
-		weeklyPool            int32
-		cooldownDays          *int32
+		id, typ, amount string
+		active          bool
+		stepCount       *int32
+		startingBlock   int32
+		weeklyPool      int32
+		cooldownDays    *int32
 	}{
 		{"p", "numeric", "1", true, i32p(7), 0, 25000, i32p(7)},
 		{"u", "numeric", "1", true, i32p(3), 25346436, 25000, i32p(7)},

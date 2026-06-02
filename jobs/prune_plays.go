@@ -91,6 +91,7 @@ func (j *PrunePlaysJob) Run(ctx context.Context) {
 }
 
 func (j *PrunePlaysJob) run(ctx context.Context) error {
+	start := time.Now()
 	j.mutex.Lock()
 	if j.isRunning {
 		j.mutex.Unlock()
@@ -129,7 +130,13 @@ func (j *PrunePlaysJob) run(ctx context.Context) error {
 		j.logger.Info("Pruned plays",
 			zap.Int64("deleted", deleted),
 			zap.Time("cutoff", cutoff),
-			zap.Int("batch_size", j.batchSize))
+			zap.Int("batch_size", j.batchSize),
+			zap.Duration("duration", time.Since(start)))
+	} else {
+		j.logger.Debug("No plays pruned",
+			zap.Time("cutoff", cutoff),
+			zap.Int("batch_size", j.batchSize),
+			zap.Duration("duration", time.Since(start)))
 	}
 	return nil
 }

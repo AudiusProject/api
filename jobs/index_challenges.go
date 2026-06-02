@@ -108,12 +108,18 @@ func (j *IndexChallengesJob) run(ctx context.Context) error {
 	start := time.Now()
 	var anyErr error
 	for _, p := range j.processors {
+		processorStart := time.Now()
 		if err := j.runProcessor(ctx, p); err != nil {
 			j.logger.Error("processor failed",
 				zap.String("challenge_id", p.ChallengeID()),
+				zap.Duration("duration", time.Since(processorStart)),
 				zap.Error(err))
 			anyErr = err
 			// Continue — one bad processor shouldn't kill the rest.
+		} else {
+			j.logger.Info("challenge processor reconciled",
+				zap.String("challenge_id", p.ChallengeID()),
+				zap.Duration("duration", time.Since(processorStart)))
 		}
 	}
 	j.logger.Info("Reconciled challenges",

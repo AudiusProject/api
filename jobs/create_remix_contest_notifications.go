@@ -72,6 +72,7 @@ func (j *RemixContestNotificationsJob) Run(ctx context.Context) {
 }
 
 func (j *RemixContestNotificationsJob) run(ctx context.Context) error {
+	start := time.Now()
 	j.mutex.Lock()
 	if j.isRunning {
 		j.mutex.Unlock()
@@ -100,18 +101,31 @@ func (j *RemixContestNotificationsJob) run(ctx context.Context) error {
 	}
 	var firstErr error
 	for _, s := range steps {
+		stepStart := time.Now()
 		n, err := s.fn(ctx, now)
 		if err != nil {
-			j.logger.Error("remix contest notification step failed", zap.String("step", s.name), zap.Error(err))
+			j.logger.Error("remix contest notification step failed",
+				zap.String("step", s.name),
+				zap.Duration("duration", time.Since(stepStart)),
+				zap.Error(err))
 			if firstErr == nil {
 				firstErr = err
 			}
 			continue
 		}
 		if n > 0 {
-			j.logger.Info("Inserted remix contest notifications", zap.String("step", s.name), zap.Int64("count", n))
+			j.logger.Info("Inserted remix contest notifications",
+				zap.String("step", s.name),
+				zap.Int64("count", n),
+				zap.Duration("duration", time.Since(stepStart)))
+		} else {
+			j.logger.Debug("No remix contest notifications inserted",
+				zap.String("step", s.name),
+				zap.Duration("duration", time.Since(stepStart)))
 		}
 	}
+	j.logger.Info("Checked remix contest notifications",
+		zap.Duration("duration", time.Since(start)))
 	return firstErr
 }
 

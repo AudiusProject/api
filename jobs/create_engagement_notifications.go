@@ -74,6 +74,7 @@ func (j *EngagementNotificationsJob) Run(ctx context.Context) {
 }
 
 func (j *EngagementNotificationsJob) run(ctx context.Context) error {
+	start := time.Now()
 	j.mutex.Lock()
 	if j.isRunning {
 		j.mutex.Unlock()
@@ -147,8 +148,8 @@ func (j *EngagementNotificationsJob) run(ctx context.Context) error {
 		return fmt.Errorf("insert claimable_reward notifications: %w", err)
 	}
 
-	if n := res.RowsAffected(); n > 0 {
-		j.logger.Info("Inserted claimable_reward notifications", zap.Int64("count", n))
-	}
+	j.logger.Info("Checked claimable_reward notifications",
+		zap.Int64("count", res.RowsAffected()),
+		zap.Duration("duration", time.Since(start)))
 	return nil
 }

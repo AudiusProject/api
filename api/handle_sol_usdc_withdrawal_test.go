@@ -29,8 +29,8 @@ func TestHandleSolUsdcWithdrawalTrigger(t *testing.T) {
 	// the memo marker must be present at trigger time. Mirrors the order the
 	// indexer uses in claimable_tokens.go.
 	_, err := app.writePool.Exec(ctx, `
-		INSERT INTO public.blocks (blockhash, parenthash, is_current, number)
-		VALUES ('block1', 'block0', true, 101)
+		INSERT INTO public.blocks (blockhash, parenthash, number)
+		VALUES ('block1', 'block0', 101)
 		ON CONFLICT DO NOTHING;`)
 	require.NoError(t, err)
 	database.SeedTable(app.writePool, "users", []map[string]any{
@@ -153,8 +153,8 @@ func TestHandleSolUsdcWithdrawalTrigger_SkipsSystemTypes(t *testing.T) {
 	userBank := "User1UsdcBank_skip_test_____________________"
 
 	_, err := app.writePool.Exec(ctx, `
-		INSERT INTO public.blocks (blockhash, parenthash, is_current, number)
-		VALUES ('block1', 'block0', true, 101)
+		INSERT INTO public.blocks (blockhash, parenthash, number)
+		VALUES ('block1', 'block0', 101)
 		ON CONFLICT DO NOTHING;`)
 	require.NoError(t, err)
 	database.SeedTable(app.writePool, "users", []map[string]any{

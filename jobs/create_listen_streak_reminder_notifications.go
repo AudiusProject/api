@@ -70,6 +70,7 @@ func (j *ListenStreakReminderJob) Run(ctx context.Context) {
 }
 
 func (j *ListenStreakReminderJob) run(ctx context.Context) error {
+	start := time.Now()
 	j.mutex.Lock()
 	if j.isRunning {
 		j.mutex.Unlock()
@@ -115,8 +116,8 @@ func (j *ListenStreakReminderJob) run(ctx context.Context) error {
 		return fmt.Errorf("insert listen_streak_reminder notifications: %w", err)
 	}
 
-	if n := res.RowsAffected(); n > 0 {
-		j.logger.Info("Inserted listen_streak_reminder notifications", zap.Int64("count", n))
-	}
+	j.logger.Info("Checked listen_streak_reminder notifications",
+		zap.Int64("count", res.RowsAffected()),
+		zap.Duration("duration", time.Since(start)))
 	return nil
 }
