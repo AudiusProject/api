@@ -13,6 +13,11 @@ import (
 	"go.uber.org/zap"
 )
 
+// slowProcessorThreshold is the per-processor duration above which a single
+// tick logs the processor's id and timing. Sub-second processors stay quiet so
+// the loop logs at most a handful of lines per tick.
+const slowProcessorThreshold = time.Second
+
 // IndexChallengesJob runs all registered challenge processors on a tick.
 // Each processor runs inside its own pgx transaction; failures in one
 // don't stop the others.
@@ -105,24 +110,39 @@ func (j *IndexChallengesJob) run(ctx context.Context) error {
 
 	start := time.Now()
 	var anyErr error
+	var slowestID string
+	var slowestDur time.Duration
 	for _, p := range j.processors {
-		processorStart := time.Now()
-		if err := j.runProcessor(ctx, p); err != nil {
+		pStart := time.Now()
+		err := j.runProcessor(ctx, p)
+		elapsed := time.Since(pStart)
+		if elapsed > slowestDur {
+			slowestDur = elapsed
+			slowestID = p.ChallengeID()
+		}
+		if err != nil {
 			j.logger.Error("processor failed",
 				zap.String("challenge_id", p.ChallengeID()),
-				zap.Duration("duration", time.Since(processorStart)),
+				zap.Duration("duration", elapsed),
 				zap.Error(err))
 			anyErr = err
 			// Continue — one bad processor shouldn't kill the rest.
-		} else {
-			j.logger.Info("challenge processor reconciled",
+			continue
+		}
+		// Per-processor timing: only the slow ones, to keep this from
+		// spamming a line per tick for the (many) sub-second processors.
+		// This is how we identify the next bottleneck by measurement.
+		if elapsed > slowProcessorThreshold {
+			j.logger.Info("slow challenge processor",
 				zap.String("challenge_id", p.ChallengeID()),
-				zap.Duration("duration", time.Since(processorStart)))
+				zap.Duration("duration", elapsed))
 		}
 	}
 	j.logger.Info("Reconciled challenges",
 		zap.Int("processors", len(j.processors)),
-		zap.Duration("duration", time.Since(start)))
+		zap.Duration("duration", time.Since(start)),
+		zap.String("slowest_id", slowestID),
+		zap.Duration("slowest_duration", slowestDur))
 	return anyErr
 }
 
