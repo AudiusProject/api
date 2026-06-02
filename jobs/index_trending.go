@@ -16,10 +16,19 @@ import (
 // of apps/packages/discovery-provider/src/tasks/index_trending.py.
 //
 // On each run it refreshes the aggregate_interval_plays and trending_params
-// matviews, then for each (entity_type, version) reconciles the *_trending_scores
-// tables via a skip-unchanged upsert plus an anti-join delete of rows that no
-// longer qualify (instead of the old DELETE-all + bulk-INSERT, which rewrote the
-// whole 16GB table and its six indexes every run).
+// matviews (CONCURRENTLY, so readers aren't blocked — see refreshMatview), then
+// for each (entity_type, version) clears that slice of the *_trending_scores
+// table and repopulates it with plain bulk INSERTs, all in one transaction so
+// readers never see an empty table.
+//
+// This DELETE-all + bulk-INSERT is what discovery's Python did for years. A
+// previous attempt to replace it with a skip-unchanged upsert (temp-table stage
+// + INSERT ... ON CONFLICT DO UPDATE + anti-join prune) aimed to avoid rewriting
+// the whole ~16GB table and its indexes each run, but in practice the per-row
+// unique-index probe over ~4M rows took 40+ minutes and never finished inside
+// the hourly window, so scores went stale. The bulk rewrite costs more dead
+// tuples (autovacuum handles it, as it did under Python) but completes in
+// seconds, which is the tradeoff that actually matters here.
 //
 // Scheduled hourly to match discovery (default trending_refresh_seconds=3600;
 // see indexer's startParityJobs). Score templates are copied verbatim from
@@ -165,22 +174,22 @@ func (j *TrendingJob) computeTrendingTracks(ctx context.Context, trendingType, v
 	}
 	defer tx.Rollback(ctx)
 
-	// Stage this cycle's scores in a temp table, then reconcile against the
-	// live table (upsert changed/new rows, delete dropped-out rows). The score
-	// expressions below are byte-for-byte the discovery templates; only the
-	// write target changed (they now feed tmp_track_scores instead of a
-	// DELETE+INSERT of track_trending_scores), and the bind parameters were
-	// renumbered without gaps because the (constant) type/version no longer
-	// appear in the staged SELECT — type/version are applied at the upsert.
-	if _, err := tx.Exec(ctx, `
-		CREATE TEMP TABLE tmp_track_scores (
-			track_id   integer,
-			genre      varchar,
-			time_range varchar,
-			score      double precision
-		) ON COMMIT DROP
-	`); err != nil {
-		return fmt.Errorf("create temp: %w", err)
+	// Mirror apps' update_track_score_query: clear this (type, version)'s rows
+	// and repopulate with plain bulk INSERTs, all inside the one transaction
+	// opened above so readers never observe an empty table (the DELETE isn't
+	// visible until COMMIT, by which point the INSERTs have committed too).
+	//
+	// An earlier temp-table + ON CONFLICT DO UPDATE reconcile turned this into a
+	// ~4M-row-per-cycle upsert — one unique-index probe and IS DISTINCT FROM
+	// comparison per row — which took 40+ minutes and could never finish inside
+	// the refresh interval. The blunt DELETE + append matches the proven Python
+	// behavior and runs in seconds. The score expressions below are byte-for-byte
+	// the discovery templates.
+	if _, err := tx.Exec(ctx,
+		`DELETE FROM track_trending_scores WHERE type = $1 AND version = $2`,
+		trendingType, version,
+	); err != nil {
+		return fmt.Errorf("delete existing: %w", err)
 	}
 
 	// Week + month follow the same shape; we generate one query per range.
@@ -195,36 +204,40 @@ func (j *TrendingJob) computeTrendingTracks(ctx context.Context, trendingType, v
 		{"month", trendingMo, "aip.month_listen_counts", "tp.repost_month_count", "tp.save_month_count"},
 	} {
 		q := fmt.Sprintf(`
-			INSERT INTO tmp_track_scores (track_id, genre, time_range, score)
+			INSERT INTO track_trending_scores
+				(track_id, genre, type, version, time_range, score, created_at)
 			SELECT
 				tp.track_id,
 				tp.genre,
 				$1,
+				$2,
+				$3,
 				CASE
-				WHEN tp.owner_follower_count < $2 THEN 0
+				WHEN tp.owner_follower_count < $4 THEN 0
 				WHEN EXTRACT(DAYS FROM now() - (
 					CASE
 						WHEN tp.release_date > now() THEN aip.created_at
 						ELSE GREATEST(tp.release_date, aip.created_at)
 					END
-				)) > $3 THEN GREATEST(
-					1.0 / $4,
-					POW($4, GREATEST(
+				)) > $5 THEN GREATEST(
+					1.0 / $6,
+					POW($6, GREATEST(
 						-10,
 						1.0 - 1.0 * EXTRACT(DAYS FROM now() - (
 							CASE
 								WHEN tp.release_date > now() THEN aip.created_at
 								ELSE GREATEST(tp.release_date, aip.created_at)
 							END
-						)) / $3
+						)) / $5
 					))
 				) * (
-					$5 * %s + $6 * %s + $7 * %s + $8 * tp.repost_count + $9 * tp.save_count
+					$7 * %s + $8 * %s + $9 * %s + $10 * tp.repost_count + $11 * tp.save_count
 				) * %s
 				ELSE (
-					$5 * %s + $6 * %s + $7 * %s + $8 * tp.repost_count + $9 * tp.save_count
+					$7 * %s + $8 * %s + $9 * %s + $10 * tp.repost_count + $11 * tp.save_count
 				) * %s
-				END
+				END,
+				now()
 			FROM trending_params tp
 			INNER JOIN aggregate_interval_plays aip ON tp.track_id = aip.track_id
 		`,
@@ -232,6 +245,7 @@ func (j *TrendingJob) computeTrendingTracks(ctx context.Context, trendingType, v
 			r.listenField, r.repostField, r.saveField, p.karmaExpr,
 		)
 		if _, err := tx.Exec(ctx, q,
+			trendingType, version,
 			r.name,
 			trendingY, r.days, trendingQ,
 			trendingN, trendingF, trendingO, trendingR, trendingI,
@@ -242,13 +256,15 @@ func (j *TrendingJob) computeTrendingTracks(ctx context.Context, trendingType, v
 
 	// All-time uses aggregate_plays.count rather than aggregate_interval_plays.
 	q := fmt.Sprintf(`
-		INSERT INTO tmp_track_scores (track_id, genre, time_range, score)
+		INSERT INTO track_trending_scores
+			(track_id, genre, type, version, time_range, score, created_at)
 		SELECT
-			tp.track_id, tp.genre, 'allTime',
+			tp.track_id, tp.genre, $1, $2, 'allTime',
 			CASE
-			WHEN tp.owner_follower_count < $1 THEN 0
-			ELSE ($2 * ap.count + $3 * tp.repost_count + $4 * tp.save_count) * %s
-			END
+			WHEN tp.owner_follower_count < $3 THEN 0
+			ELSE ($4 * ap.count + $5 * tp.repost_count + $6 * tp.save_count) * %s
+			END,
+			now()
 		FROM trending_params tp
 		INNER JOIN aggregate_plays ap ON tp.track_id = ap.play_item_id
 		INNER JOIN tracks t ON ap.play_item_id = t.track_id
@@ -258,39 +274,10 @@ func (j *TrendingJob) computeTrendingTracks(ctx context.Context, trendingType, v
 		  AND t.stem_of IS NULL
 	`, p.karmaExpr)
 	if _, err := tx.Exec(ctx, q,
+		trendingType, version,
 		trendingY, trendingN, trendingR, trendingI,
 	); err != nil {
 		return fmt.Errorf("allTime range: %w", err)
-	}
-
-	// Upsert new/changed rows; the WHERE guard skips rows whose score and genre
-	// are unchanged so a no-op cycle writes (and dirties indexes for) nothing.
-	if _, err := tx.Exec(ctx, `
-		INSERT INTO track_trending_scores
-			(track_id, genre, type, version, time_range, score, created_at)
-		SELECT s.track_id, s.genre, $1, $2, s.time_range, s.score, now()
-		FROM tmp_track_scores s
-		ON CONFLICT (track_id, type, version, time_range) DO UPDATE
-			SET score = EXCLUDED.score,
-			    genre = EXCLUDED.genre,
-			    created_at = EXCLUDED.created_at
-			WHERE track_trending_scores.score IS DISTINCT FROM EXCLUDED.score
-			   OR track_trending_scores.genre IS DISTINCT FROM EXCLUDED.genre
-	`, trendingType, version); err != nil {
-		return fmt.Errorf("upsert: %w", err)
-	}
-
-	// Delete rows that no longer qualify this cycle (e.g. track deleted/unlisted
-	// or aged out of the interval window).
-	if _, err := tx.Exec(ctx, `
-		DELETE FROM track_trending_scores t
-		WHERE t.type = $1 AND t.version = $2
-		  AND NOT EXISTS (
-		      SELECT 1 FROM tmp_track_scores s
-		      WHERE s.track_id = t.track_id AND s.time_range = t.time_range
-		  )
-	`, trendingType, version); err != nil {
-		return fmt.Errorf("prune stale: %w", err)
 	}
 
 	return tx.Commit(ctx)
@@ -305,19 +292,15 @@ func (j *TrendingJob) computeTrendingPlaylists(ctx context.Context, trendingType
 	}
 	defer tx.Rollback(ctx)
 
-	// Stage this cycle's scores, then upsert/prune (see computeTrendingTracks
-	// for the rationale). The per-range SELECT is the verbatim discovery
-	// template; only its write target changed, and the bind parameters were
-	// renumbered without gaps now that the (constant) type/version are applied
-	// at the upsert instead of in the staged SELECT.
-	if _, err := tx.Exec(ctx, `
-		CREATE TEMP TABLE tmp_playlist_scores (
-			playlist_id integer,
-			time_range  varchar,
-			score       double precision
-		) ON COMMIT DROP
-	`); err != nil {
-		return fmt.Errorf("create temp: %w", err)
+	// Clear this (type, version)'s rows and repopulate with plain bulk INSERTs in
+	// the single transaction opened above — same DELETE+INSERT strategy as
+	// computeTrendingTracks (see the rationale there). The per-range SELECT is
+	// the verbatim discovery template.
+	if _, err := tx.Exec(ctx,
+		`DELETE FROM playlist_trending_scores WHERE type = $1 AND version = $2`,
+		trendingType, version,
+	); err != nil {
+		return fmt.Errorf("delete existing: %w", err)
 	}
 
 	// Each time range gets its own query because the interval (':week days'
@@ -332,7 +315,8 @@ func (j *TrendingJob) computeTrendingPlaylists(ctx context.Context, trendingType
 	} {
 		intervalLit := fmt.Sprintf("%d days", r.days)
 		q := `
-			INSERT INTO tmp_playlist_scores (playlist_id, time_range, score)
+			INSERT INTO playlist_trending_scores
+				(playlist_id, type, version, time_range, score, created_at)
 			WITH saves_and_reposts AS (
 			    SELECT user_id, repost_item_id AS item_id
 			    FROM reposts
@@ -340,7 +324,7 @@ func (j *TrendingJob) computeTrendingPlaylists(ctx context.Context, trendingType
 			      AND is_delete IS FALSE
 			      AND repost_type = 'playlist'
 			      AND repost_item_id IN (SELECT playlist_id FROM playlists WHERE is_current IS TRUE AND is_delete IS FALSE AND is_private IS FALSE)
-			      AND created_at >= NOW() - $1::interval
+			      AND created_at >= NOW() - $3::interval
 			    UNION ALL
 			    SELECT user_id, save_item_id AS item_id
 			    FROM saves
@@ -348,7 +332,7 @@ func (j *TrendingJob) computeTrendingPlaylists(ctx context.Context, trendingType
 			      AND is_delete IS FALSE
 			      AND save_type = 'playlist'
 			      AND save_item_id IN (SELECT playlist_id FROM playlists WHERE is_current IS TRUE AND is_delete IS FALSE AND is_private IS FALSE)
-			      AND created_at >= NOW() - $1::interval
+			      AND created_at >= NOW() - $3::interval
 			),
 			filtered_users AS (
 			    SELECT sr.user_id, sr.item_id
@@ -371,7 +355,7 @@ func (j *TrendingJob) computeTrendingPlaylists(ctx context.Context, trendingType
 			    WHERE is_current IS TRUE
 			      AND is_delete IS FALSE
 			      AND save_type = 'playlist'
-			      AND created_at > NOW() - $1::interval
+			      AND created_at > NOW() - $3::interval
 			    GROUP BY save_item_id
 			),
 			windowed_reposts AS (
@@ -380,35 +364,38 @@ func (j *TrendingJob) computeTrendingPlaylists(ctx context.Context, trendingType
 			    WHERE is_current IS TRUE
 			      AND is_delete IS FALSE
 			      AND repost_type = 'playlist'
-			      AND created_at > NOW() - $1::interval
+			      AND created_at > NOW() - $3::interval
 			    GROUP BY repost_item_id
 			)
 			SELECT
 			    p.playlist_id,
+			    $1,
 			    $2,
+			    $4,
 			    CASE
-			    WHEN au.follower_count < $3 THEN 0
+			    WHEN au.follower_count < $5 THEN 0
 			    WHEN EXTRACT(DAYS FROM now() - (
 			        CASE WHEN p.release_date > now() THEN p.created_at
 			             ELSE GREATEST(p.release_date, p.created_at) END
-			    )) > $4 THEN GREATEST(
-			        1.0 / $5,
-			        POW($5, GREATEST(
+			    )) > $6 THEN GREATEST(
+			        1.0 / $7,
+			        POW($7, GREATEST(
 			            -10,
 			            1.0 - 1.0 * EXTRACT(DAYS FROM now() - (
 			                CASE WHEN p.release_date > now() THEN p.created_at
 			                     ELSE GREATEST(p.release_date, p.created_at) END
-			            )) / $4
+			            )) / $6
 			        ))
 			    ) * (
-			        $6 * 1 + $7 * COALESCE(rp.week_count, 0) + $8 * COALESCE(s.week_count, 0)
-			          + $9 * COALESCE(ap.repost_count, 0) + $10 * COALESCE(ap.save_count, 0)
+			        $8 * 1 + $9 * COALESCE(rp.week_count, 0) + $10 * COALESCE(s.week_count, 0)
+			          + $11 * COALESCE(ap.repost_count, 0) + $12 * COALESCE(ap.save_count, 0)
 			    ) * COALESCE(k.karma, 1)
 			    ELSE (
-			        $6 * 1 + $7 * COALESCE(rp.week_count, 0) + $8 * COALESCE(s.week_count, 0)
-			          + $9 * COALESCE(ap.repost_count, 0) + $10 * COALESCE(ap.save_count, 0)
+			        $8 * 1 + $9 * COALESCE(rp.week_count, 0) + $10 * COALESCE(s.week_count, 0)
+			          + $11 * COALESCE(ap.repost_count, 0) + $12 * COALESCE(ap.save_count, 0)
 			    ) * COALESCE(k.karma, 1)
-			    END
+			    END,
+			    now()
 			FROM playlists p
 			INNER JOIN aggregate_user au ON p.playlist_owner_id = au.user_id
 			LEFT JOIN aggregate_playlist ap ON p.playlist_id = ap.playlist_id
@@ -421,38 +408,13 @@ func (j *TrendingJob) computeTrendingPlaylists(ctx context.Context, trendingType
 			  AND jsonb_array_length(p.playlist_contents->'track_ids') >= 3
 		`
 		if _, err := tx.Exec(ctx, q,
+			trendingType, version,
 			intervalLit, r.name,
 			trendingY, r.days, trendingQ,
 			trendingN, trendingF, trendingO, trendingR, trendingI,
 		); err != nil {
 			return fmt.Errorf("%s range: %w", r.name, err)
 		}
-	}
-
-	// Upsert new/changed rows; skip rows whose score is unchanged.
-	if _, err := tx.Exec(ctx, `
-		INSERT INTO playlist_trending_scores
-			(playlist_id, type, version, time_range, score, created_at)
-		SELECT s.playlist_id, $1, $2, s.time_range, s.score, now()
-		FROM tmp_playlist_scores s
-		ON CONFLICT (playlist_id, type, version, time_range) DO UPDATE
-			SET score = EXCLUDED.score,
-			    created_at = EXCLUDED.created_at
-			WHERE playlist_trending_scores.score IS DISTINCT FROM EXCLUDED.score
-	`, trendingType, version); err != nil {
-		return fmt.Errorf("upsert: %w", err)
-	}
-
-	// Delete rows that no longer qualify this cycle.
-	if _, err := tx.Exec(ctx, `
-		DELETE FROM playlist_trending_scores t
-		WHERE t.type = $1 AND t.version = $2
-		  AND NOT EXISTS (
-		      SELECT 1 FROM tmp_playlist_scores s
-		      WHERE s.playlist_id = t.playlist_id AND s.time_range = t.time_range
-		  )
-	`, trendingType, version); err != nil {
-		return fmt.Errorf("prune stale: %w", err)
 	}
 
 	return tx.Commit(ctx)
