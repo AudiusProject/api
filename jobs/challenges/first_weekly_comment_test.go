@@ -25,10 +25,12 @@ func TestFirstWeeklyComment_OneRowPerUserPerWeek(t *testing.T) {
 		"blocks": {{"blockhash": "blk_fwc", "number": 1}},
 		"users":  {{"user_id": 700, "wallet": "0x700"}, {"user_id": 800, "wallet": "0x800"}},
 		"tracks": {{"track_id": 7000, "owner_id": 800, "title": "T", "blocknumber": 1}},
+		// blocknumber must be > 0 so the incremental dirty scan picks these up
+		// (tests don't run migrations, so the checkpoint stays at 0).
 		"comments": {
-			{"comment_id": 1, "user_id": 700, "entity_id": 7000, "entity_type": "Track", "text": "a", "created_at": wk1A, "blockhash": "x", "txhash": "tx1"},
-			{"comment_id": 2, "user_id": 700, "entity_id": 7000, "entity_type": "Track", "text": "b", "created_at": wk1B, "blockhash": "x", "txhash": "tx2"},
-			{"comment_id": 3, "user_id": 700, "entity_id": 7000, "entity_type": "Track", "text": "c", "created_at": wk5, "blockhash": "x", "txhash": "tx3"},
+			{"comment_id": 1, "user_id": 700, "entity_id": 7000, "entity_type": "Track", "text": "a", "created_at": wk1A, "blockhash": "x", "txhash": "tx1", "blocknumber": 1},
+			{"comment_id": 2, "user_id": 700, "entity_id": 7000, "entity_type": "Track", "text": "b", "created_at": wk1B, "blockhash": "x", "txhash": "tx2", "blocknumber": 1},
+			{"comment_id": 3, "user_id": 700, "entity_id": 7000, "entity_type": "Track", "text": "c", "created_at": wk5, "blockhash": "x", "txhash": "tx3", "blocknumber": 1},
 		},
 	})
 
