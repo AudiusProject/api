@@ -2654,6 +2654,20 @@ type UserScoreFeature struct {
 	UpdatedAt      pgtype.Timestamptz `json:"updated_at"`
 }
 
+type UserSocialSet struct {
+	UserID          int32     `json:"user_id"`
+	FolloweesBitmap []byte    `json:"followees_bitmap"`
+	FollowersBitmap []byte    `json:"followers_bitmap"`
+	UpdatedAt       time.Time `json:"updated_at"`
+}
+
+type UserSocialSetDirty struct {
+	UserID         int32     `json:"user_id"`
+	FolloweesDirty bool      `json:"followees_dirty"`
+	FollowersDirty bool      `json:"followers_dirty"`
+	UpdatedAt      time.Time `json:"updated_at"`
+}
+
 type UserTip struct {
 	Slot           int32     `json:"slot"`
 	Signature      string    `json:"signature"`

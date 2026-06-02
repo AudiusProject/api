@@ -1,55 +1,4 @@
 -- name: GetUsers :many
-WITH input_users AS (
-  SELECT DISTINCT unnest(@ids::int[])::int AS user_id
-),
-current_user_followees AS (
-  SELECT followee_user_id
-  FROM follows
-  WHERE @my_id > 0
-    AND follower_user_id = @my_id
-    AND is_delete = false
-),
-current_user_following_targets AS (
-  SELECT f.followee_user_id AS user_id
-  FROM follows f
-  JOIN input_users i ON i.user_id = f.followee_user_id
-  WHERE @my_id > 0
-    AND f.follower_user_id = @my_id
-    AND f.is_delete = false
-  GROUP BY f.followee_user_id
-),
-current_user_subscribed_targets AS (
-  SELECT s.user_id
-  FROM subscriptions s
-  JOIN input_users i ON i.user_id = s.user_id
-  WHERE @my_id > 0
-    AND s.subscriber_id = @my_id
-    AND s.is_delete = false
-  GROUP BY s.user_id
-),
-targets_following_current_user AS (
-  SELECT f.follower_user_id AS user_id
-  FROM follows f
-  JOIN input_users i ON i.user_id = f.follower_user_id
-  WHERE @my_id > 0
-    AND f.followee_user_id = @my_id
-    AND f.is_delete = false
-  GROUP BY f.follower_user_id
-),
-current_user_followee_follow_counts AS (
-  SELECT target.user_id, count(*)::bigint AS count
-  FROM current_user_followees mf
-  JOIN LATERAL (
-    SELECT f.followee_user_id AS user_id
-    FROM follows f
-    WHERE f.follower_user_id = mf.followee_user_id
-      AND f.followee_user_id = ANY(@ids::int[])
-      AND f.followee_user_id != @my_id
-      AND f.is_delete = false
-    OFFSET 0
-  ) target ON TRUE
-  GROUP BY target.user_id
-)
 SELECT
   album_count,
   artist_pick_track_id,
@@ -139,17 +88,10 @@ SELECT
   is_storage_v2,
   creator_node_endpoint,
 
-  -- "Of the people I follow, how many also follow this user?"
-  --
-  -- Compute viewer relationship state once for the whole @ids batch. The
-  -- previous correlated shape repeated the mutual-follow count for every
-  -- returned user, which multiplied the viewer followee scan by result size.
-  -- The CTE above drives from the viewer's followees once and probes the
-  -- target batch via the fanout index.
-  COALESCE(current_user_followee_follow_counts.count, 0)::bigint AS current_user_followee_follow_count,
-  (current_user_following_targets.user_id IS NOT NULL)::bool AS does_current_user_follow,
-  (current_user_subscribed_targets.user_id IS NOT NULL)::bool AS does_current_user_subscribe,
-  (targets_following_current_user.user_id IS NOT NULL)::bool AS does_follow_current_user,
+  0::bigint AS current_user_followee_follow_count,
+  false::bool AS does_current_user_follow,
+  false::bool AS does_current_user_subscribe,
+  false::bool AS does_follow_current_user,
 
   handle_lc,
   u.updated_at,
@@ -230,14 +172,6 @@ LEFT JOIN sol_claimable_accounts spl_user_bank
 LEFT JOIN sol_claimable_accounts usdc_user_bank
   ON usdc_user_bank.ethereum_address = u.wallet
   AND usdc_user_bank.mint = 'EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v' -- USDC
-LEFT JOIN current_user_followee_follow_counts
-  ON current_user_followee_follow_counts.user_id = u.user_id
-LEFT JOIN current_user_following_targets
-  ON current_user_following_targets.user_id = u.user_id
-LEFT JOIN current_user_subscribed_targets
-  ON current_user_subscribed_targets.user_id = u.user_id
-LEFT JOIN targets_following_current_user
-  ON targets_following_current_user.user_id = u.user_id
 WHERE u.user_id = ANY(@ids::int[])
 ORDER BY u.user_id
 ;

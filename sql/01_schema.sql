@@ -14688,9 +14688,92 @@ ALTER TABLE ONLY public.user_payout_wallet_history
 ALTER TABLE ONLY public.users
     ADD CONSTRAINT users_blocknumber_fkey FOREIGN KEY (blocknumber) REFERENCES public.blocks(number) ON DELETE CASCADE;
 
+CREATE TABLE public.user_social_sets (
+    user_id integer NOT NULL,
+    followees_bitmap bytea DEFAULT '\x'::bytea NOT NULL,
+    followers_bitmap bytea DEFAULT '\x'::bytea NOT NULL,
+    updated_at timestamp without time zone DEFAULT CURRENT_TIMESTAMP NOT NULL
+);
+
+ALTER TABLE ONLY public.user_social_sets
+    ADD CONSTRAINT user_social_sets_pkey PRIMARY KEY (user_id);
+
+CREATE TABLE public.user_social_set_dirty (
+    user_id integer NOT NULL,
+    followees_dirty boolean DEFAULT false NOT NULL,
+    followers_dirty boolean DEFAULT false NOT NULL,
+    updated_at timestamp without time zone DEFAULT CURRENT_TIMESTAMP NOT NULL
+);
+
+ALTER TABLE ONLY public.user_social_set_dirty
+    ADD CONSTRAINT user_social_set_dirty_pkey PRIMARY KEY (user_id);
+
+CREATE INDEX user_social_set_dirty_updated_at_idx ON public.user_social_set_dirty USING btree (updated_at, user_id);
+
+CREATE FUNCTION public.mark_user_social_set_dirty() RETURNS trigger
+    LANGUAGE plpgsql
+    AS $$
+BEGIN
+    IF TG_OP = 'DELETE' THEN
+        INSERT INTO user_social_set_dirty (user_id, followees_dirty, followers_dirty, updated_at)
+        VALUES (OLD.follower_user_id, true, false, CURRENT_TIMESTAMP)
+        ON CONFLICT (user_id) DO UPDATE SET
+            followees_dirty = user_social_set_dirty.followees_dirty OR EXCLUDED.followees_dirty,
+            followers_dirty = user_social_set_dirty.followers_dirty OR EXCLUDED.followers_dirty,
+            updated_at = CURRENT_TIMESTAMP;
+
+        INSERT INTO user_social_set_dirty (user_id, followees_dirty, followers_dirty, updated_at)
+        VALUES (OLD.followee_user_id, false, true, CURRENT_TIMESTAMP)
+        ON CONFLICT (user_id) DO UPDATE SET
+            followees_dirty = user_social_set_dirty.followees_dirty OR EXCLUDED.followees_dirty,
+            followers_dirty = user_social_set_dirty.followers_dirty OR EXCLUDED.followers_dirty,
+            updated_at = CURRENT_TIMESTAMP;
+
+        RETURN OLD;
+    END IF;
+
+    INSERT INTO user_social_set_dirty (user_id, followees_dirty, followers_dirty, updated_at)
+    VALUES (NEW.follower_user_id, true, false, CURRENT_TIMESTAMP)
+    ON CONFLICT (user_id) DO UPDATE SET
+        followees_dirty = user_social_set_dirty.followees_dirty OR EXCLUDED.followees_dirty,
+        followers_dirty = user_social_set_dirty.followers_dirty OR EXCLUDED.followers_dirty,
+        updated_at = CURRENT_TIMESTAMP;
+
+    INSERT INTO user_social_set_dirty (user_id, followees_dirty, followers_dirty, updated_at)
+    VALUES (NEW.followee_user_id, false, true, CURRENT_TIMESTAMP)
+    ON CONFLICT (user_id) DO UPDATE SET
+        followees_dirty = user_social_set_dirty.followees_dirty OR EXCLUDED.followees_dirty,
+        followers_dirty = user_social_set_dirty.followers_dirty OR EXCLUDED.followers_dirty,
+        updated_at = CURRENT_TIMESTAMP;
+
+    IF TG_OP = 'UPDATE' THEN
+        IF OLD.follower_user_id IS DISTINCT FROM NEW.follower_user_id THEN
+            INSERT INTO user_social_set_dirty (user_id, followees_dirty, followers_dirty, updated_at)
+            VALUES (OLD.follower_user_id, true, false, CURRENT_TIMESTAMP)
+            ON CONFLICT (user_id) DO UPDATE SET
+                followees_dirty = user_social_set_dirty.followees_dirty OR EXCLUDED.followees_dirty,
+                followers_dirty = user_social_set_dirty.followers_dirty OR EXCLUDED.followers_dirty,
+                updated_at = CURRENT_TIMESTAMP;
+        END IF;
+
+        IF OLD.followee_user_id IS DISTINCT FROM NEW.followee_user_id THEN
+            INSERT INTO user_social_set_dirty (user_id, followees_dirty, followers_dirty, updated_at)
+            VALUES (OLD.followee_user_id, false, true, CURRENT_TIMESTAMP)
+            ON CONFLICT (user_id) DO UPDATE SET
+                followees_dirty = user_social_set_dirty.followees_dirty OR EXCLUDED.followees_dirty,
+                followers_dirty = user_social_set_dirty.followers_dirty OR EXCLUDED.followers_dirty,
+                updated_at = CURRENT_TIMESTAMP;
+        END IF;
+    END IF;
+
+    RETURN NEW;
+END;
+$$;
+
+CREATE TRIGGER mark_user_social_set_dirty AFTER INSERT OR DELETE OR UPDATE ON public.follows FOR EACH ROW EXECUTE FUNCTION public.mark_user_social_set_dirty();
+
 
 --
 -- PostgreSQL database dump complete
 --
-
 
