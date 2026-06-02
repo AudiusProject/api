@@ -180,6 +180,12 @@ func (ci *CoreIndexer) startParityJobs(ctx context.Context) {
 
 	jobs.NewRemixContestNotificationsJob(ci.Config, ci.pool).
 		ScheduleEvery(ctx, 30*time.Second)
+
+	// Backfill missing track bpm / musical_key from content-node audio
+	// analyses. Mirrors apps' repair_audio_analyses celery task, whose beat
+	// schedule ran every 3 minutes. Needs the SDK for content-node discovery.
+	jobs.NewRepairAudioAnalysesJob(ci.Config, ci.pool, ci.openAudioSDK).
+		ScheduleEvery(ctx, 3*time.Minute)
 }
 
 func (ci *CoreIndexer) Close() {
