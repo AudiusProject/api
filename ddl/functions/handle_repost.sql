@@ -33,37 +33,20 @@ begin
     where ap.playlist_id = new.repost_item_id;
   end if;
 
-  -- increment or decrement?
-  if new.is_delete then
-    delta := -1;
-  else
-    delta := 1;
-  end if;
+  -- transition-aware delta (active = not is_delete); 0 on no-op re-delivery
+  delta := (case when new.is_delete then 0 else 1 end)
+         - (case when tg_op = 'UPDATE' and old.is_delete is false then 1 else 0 end);
 
   -- update agg user
-  update aggregate_user 
-  set repost_count = (
-    select count(*)
-    from reposts r
-    where r.is_current is true
-      and r.is_delete is false
-      and r.user_id = new.user_id
-  )
+  update aggregate_user
+  set repost_count = repost_count + delta
   where user_id = new.user_id;
 
   -- update agg track or playlist
   if new.repost_type = 'track' then
     milestone_name := 'TRACK_REPOST_COUNT';
-    update aggregate_track 
-    set repost_count = (
-      select count(*)
-      from reposts r
-      where
-          r.is_current is true
-          and r.is_delete is false
-          and r.repost_type = new.repost_type
-          and r.repost_item_id = new.repost_item_id
-    )
+    update aggregate_track
+    set repost_count = repost_count + delta
     where track_id = new.repost_item_id
     returning repost_count into new_val;
   	if new.is_delete IS FALSE then
@@ -72,15 +55,7 @@ begin
   else
     milestone_name := 'PLAYLIST_REPOST_COUNT';
     update aggregate_playlist
-    set repost_count = (
-      select count(*)
-      from reposts r
-      where
-          r.is_current is true
-          and r.is_delete is false
-          and r.repost_type = new.repost_type
-          and r.repost_item_id = new.repost_item_id
-    )    
+    set repost_count = repost_count + delta
     where playlist_id = new.repost_item_id
     returning repost_count into new_val;
 
@@ -243,10 +218,7 @@ end;
 $$ language plpgsql;
 
 
-do $$ begin
-  create trigger on_repost
-  after insert on reposts
-  for each row execute procedure handle_repost();
-exception
-  when others then null;
-end $$;
+drop trigger if exists on_repost on reposts;
+create trigger on_repost
+after insert or update on reposts
+for each row execute procedure handle_repost();

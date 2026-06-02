@@ -63,42 +63,24 @@ begin
     ) into is_purchased;
   end if;
 
-  -- increment or decrement?
-  if new.is_delete then
-    delta := -1;
-  else
-    delta := 1;
-  end if;
+  -- transition-aware delta (active = not is_delete); 0 on no-op re-delivery
+  delta := (case when new.is_delete then 0 else 1 end)
+         - (case when tg_op = 'UPDATE' and old.is_delete is false then 1 else 0 end);
 
   -- update agg track or playlist
   if new.save_type = 'track' then
     milestone_name := 'TRACK_SAVE_COUNT';
 
-    update aggregate_track 
-    set save_count = (
-      select count(*)
-      from saves r
-      where
-          r.is_current is true
-          and r.is_delete is false
-          and r.save_type = new.save_type
-          and r.save_item_id = new.save_item_id
-    )
+    update aggregate_track
+    set save_count = save_count + delta
     where track_id = new.save_item_id
     returning save_count into new_val;
 
     -- update agg user
-    update aggregate_user 
-    set track_save_count = (
-      select count(*)
-      from saves r
-      where r.is_current is true
-        and r.is_delete is false
-        and r.user_id = new.user_id
-        and r.save_type = new.save_type
-    )
+    update aggregate_user
+    set track_save_count = track_save_count + delta
     where user_id = new.user_id;
-    
+
   	if new.is_delete IS FALSE then
 		  select tracks.owner_id, tracks.remix_of into owner_user_id, track_remix_of from tracks where is_current and track_id = new.save_item_id;
 	  end if;
@@ -106,15 +88,7 @@ begin
     milestone_name := 'PLAYLIST_SAVE_COUNT';
 
     update aggregate_playlist
-    set save_count = (
-      select count(*)
-      from saves r
-      where
-          r.is_current is true
-          and r.is_delete is false
-          and r.save_type = new.save_type
-          and r.save_item_id = new.save_item_id
-    )
+    set save_count = save_count + delta
     where playlist_id = new.save_item_id
     returning save_count into new_val;
 
@@ -284,10 +258,7 @@ end;
 $$ language plpgsql;
 
 
-do $$ begin
-  create trigger on_save
-  after insert on saves
-  for each row execute procedure handle_save();
-exception
-  when others then null;
-end $$;
+drop trigger if exists on_save on saves;
+create trigger on_save
+after insert or update on saves
+for each row execute procedure handle_save();

@@ -157,6 +157,13 @@ func (ci *CoreIndexer) startParityJobs(ctx context.Context) {
 	jobs.NewUpdateDelistStatusesJob(ci.Config, ci.pool).
 		ScheduleEvery(ctx, 5*time.Minute)
 
+	// Drift backstop: recompute aggregate counts from source tables to correct
+	// any hot-path trigger delta divergence. 10m matches discovery's
+	// update_aggregates celery cadence. Column-disjoint from the score-only
+	// AggregatesCalculator, so they can run concurrently.
+	jobs.NewReconcileAggregatesJob(ci.Config, ci.pool).
+		ScheduleEvery(ctx, 10*time.Minute)
+
 	// Reconcile derived challenge state from source tables. Per-challenge
 	// scanners live in api/jobs/challenges/.
 	jobs.NewIndexChallengesJob(ci.Config, ci.pool).
