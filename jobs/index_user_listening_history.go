@@ -100,6 +100,7 @@ type listenEntry struct {
 }
 
 func (j *UserListeningHistoryJob) run(ctx context.Context) error {
+	start := time.Now()
 	j.mutex.Lock()
 	if j.isRunning {
 		j.mutex.Unlock()
@@ -144,6 +145,8 @@ func (j *UserListeningHistoryJob) run(ctx context.Context) error {
 	}
 
 	if len(newPlays) == 0 {
+		j.logger.Debug("No new plays for user listening history",
+			zap.Duration("duration", time.Since(start)))
 		return nil
 	}
 
@@ -219,7 +222,8 @@ func (j *UserListeningHistoryJob) run(ctx context.Context) error {
 	j.logger.Info("Indexed user listening history",
 		zap.Int("plays_processed", len(newPlays)),
 		zap.Int("users_touched", updated),
-		zap.Int64("new_checkpoint", maxID))
+		zap.Int64("new_checkpoint", maxID),
+		zap.Duration("duration", time.Since(start)))
 	return nil
 }
 

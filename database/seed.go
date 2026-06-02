@@ -711,7 +711,6 @@ var (
 		"blocks": {
 			"blockhash":  nil,
 			"parenthash": nil,
-			"is_current": false,
 			"number":     nil,
 		},
 		"reward_codes": {
@@ -811,12 +810,10 @@ func Seed(pool *pgxpool.Pool, fixtures FixtureMap) {
 	INSERT INTO public.blocks (
 		blockhash,
 		parenthash,
-		is_current,
 		number
 	) VALUES (
 		'block1',   -- blockhash
 		'block0',   -- parenthash
-		true,
 		101
 	) ON CONFLICT DO NOTHING;
 	`)

@@ -7705,7 +7705,6 @@ CREATE TABLE public.audius_data_txs (
 CREATE TABLE public.blocks (
     blockhash character varying NOT NULL,
     parenthash character varying,
-    is_current boolean,
     number integer
 );
 
@@ -12415,13 +12414,6 @@ COMMENT ON INDEX public.artist_coins_user_id_idx IS 'Used for getting coins mint
 
 
 --
--- Name: blocks_is_current_idx; Type: INDEX; Schema: public; Owner: -
---
-
-CREATE UNIQUE INDEX blocks_is_current_idx ON public.blocks USING btree (is_current) WHERE (is_current IS TRUE);
-
-
---
 -- Name: challenge_disbursements_user_id; Type: INDEX; Schema: public; Owner: -
 --
 
@@ -12979,13 +12971,6 @@ CREATE INDEX interval_play_track_id_idx ON public.aggregate_interval_plays USING
 --
 
 CREATE INDEX interval_play_week_count_idx ON public.aggregate_interval_plays USING btree (week_listen_counts);
-
-
---
--- Name: is_current_blocks_idx; Type: INDEX; Schema: public; Owner: -
---
-
-CREATE INDEX is_current_blocks_idx ON public.blocks USING btree (is_current);
 
 
 --
@@ -14692,5 +14677,3 @@ ALTER TABLE ONLY public.users
 --
 -- PostgreSQL database dump complete
 --
-
-

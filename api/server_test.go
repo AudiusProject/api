@@ -68,12 +68,10 @@ func testAppWithFixtures(t *testing.T) *ApiServer {
 	INSERT INTO public.blocks (
 		blockhash,
 		parenthash,
-		is_current,
 		number
 	) VALUES (
 		'block1',   -- blockhash
 		'block0',   -- parenthash
-		true,
 		101
 	);
 	`)

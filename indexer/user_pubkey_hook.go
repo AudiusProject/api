@@ -3,6 +3,7 @@ package indexer
 import (
 	"context"
 	"encoding/base64"
+	"time"
 
 	"api.audius.co/config"
 	corev1 "github.com/OpenAudio/go-openaudio/pkg/api/core/v1"
@@ -50,6 +51,15 @@ func newUserPubkeyHook(cfg config.Config, logger *zap.Logger) em.PostHook {
 		if tx == nil {
 			return nil // defensive — proto should always be set on dispatch
 		}
+		start := time.Now()
+		defer func() {
+			if elapsed := time.Since(start); elapsed > time.Second {
+				hookLogger.Info("indexed user pubkey hook completed",
+					zap.Int64("user_id", params.EntityID),
+					zap.Int64("blocknumber", params.BlockNumber),
+					zap.Duration("duration", elapsed))
+			}
+		}()
 		return recoverAndStorePubkey(ctx, hookLogger, coreCfg, tx, params)
 	}
 }

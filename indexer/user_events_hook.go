@@ -3,6 +3,7 @@ package indexer
 import (
 	"context"
 	"errors"
+	"time"
 
 	em "github.com/OpenAudio/go-openaudio/pkg/etl/processors/entity_manager"
 	"github.com/jackc/pgx/v5"
@@ -31,10 +32,18 @@ import (
 func newUserEventsHook(logger *zap.Logger) em.PostHook {
 	hookLogger := logger.Named("UserEventsHook")
 	return func(ctx context.Context, params *em.Params) error {
+		start := time.Now()
 		if err := indexUserEvents(ctx, params); err != nil {
 			hookLogger.Warn("failed to index user_events",
 				zap.Int64("user_id", params.EntityID),
+				zap.Int64("blocknumber", params.BlockNumber),
+				zap.Duration("duration", time.Since(start)),
 				zap.Error(err))
+		} else if elapsed := time.Since(start); elapsed > time.Second {
+			hookLogger.Info("indexed user_events",
+				zap.Int64("user_id", params.EntityID),
+				zap.Int64("blocknumber", params.BlockNumber),
+				zap.Duration("duration", elapsed))
 		}
 		return nil
 	}

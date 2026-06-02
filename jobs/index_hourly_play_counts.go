@@ -70,6 +70,7 @@ func (j *HourlyPlayCountsJob) Run(ctx context.Context) {
 }
 
 func (j *HourlyPlayCountsJob) run(ctx context.Context) error {
+	start := time.Now()
 	j.mutex.Lock()
 	if j.isRunning {
 		j.mutex.Unlock()
@@ -94,7 +95,8 @@ func (j *HourlyPlayCountsJob) run(ctx context.Context) error {
 		return fmt.Errorf("read max(plays.id): %w", err)
 	}
 	if newMax == nil || *newMax == prev {
-		j.logger.Debug("No new plays since last run")
+		j.logger.Debug("No new plays since last run",
+			zap.Duration("duration", time.Since(start)))
 		return nil
 	}
 
@@ -126,7 +128,8 @@ func (j *HourlyPlayCountsJob) run(ctx context.Context) error {
 	j.logger.Info("Hourly play counts updated",
 		zap.Int64("prev_checkpoint", prev),
 		zap.Int64("new_checkpoint", *newMax),
-		zap.Int64("hours_touched", res.RowsAffected()))
+		zap.Int64("hours_touched", res.RowsAffected()),
+		zap.Duration("duration", time.Since(start)))
 	return nil
 }
 
