@@ -89,6 +89,10 @@ func (q *Queries) UsersKeyed(ctx context.Context, arg GetUsersParams) (map[int32
 		}
 	}
 
+	if err := q.hydrateCurrentUserRelationships(ctx, arg.MyID, userMap); err != nil {
+		return nil, err
+	}
+
 	return userMap, nil
 }
 
@@ -133,4 +137,3 @@ func squareImageStruct(maybeCids ...pgtype.Text) *SquareImage {
 		Mirrors:    rest,
 	}
 }
-

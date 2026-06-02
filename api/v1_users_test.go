@@ -5,6 +5,7 @@ import (
 	"testing"
 
 	"api.audius.co/api/dbv1"
+	"github.com/RoaringBitmap/roaring"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
@@ -85,6 +86,91 @@ func TestUserQuery(t *testing.T) {
 		user := users[0]
 		assert.Equal(t, int64(1), user.CurrentUserFolloweeFollowCount)
 	}
+}
+
+func TestUserQueryUsesSocialSetSnapshots(t *testing.T) {
+	app := testAppWithFixtures(t)
+
+	createUserSocialSetsTable(t, app)
+
+	myFollowees := testBitmapBytes(t, 99)
+	targetFollowers := testBitmapBytes(t, 99)
+	empty := testBitmapBytes(t)
+
+	_, err := app.pool.Exec(t.Context(), `
+		INSERT INTO user_social_sets (user_id, followees_bitmap, followers_bitmap)
+		VALUES
+			(1, $1, $3),
+			(3, $3, $2)
+		ON CONFLICT (user_id) DO UPDATE SET
+			followees_bitmap = EXCLUDED.followees_bitmap,
+			followers_bitmap = EXCLUDED.followers_bitmap
+	`, myFollowees, targetFollowers, empty)
+	require.NoError(t, err)
+
+	users, err := app.queries.Users(t.Context(), dbv1.GetUsersParams{
+		MyID: 1,
+		Ids:  []int32{3},
+	})
+	require.NoError(t, err)
+	require.Len(t, users, 1)
+
+	assert.False(t, users[0].DoesCurrentUserFollow)
+	assert.False(t, users[0].DoesFollowCurrentUser)
+	assert.Equal(t, int64(1), users[0].CurrentUserFolloweeFollowCount)
+}
+
+func TestUserQuerySocialSetSnapshotsMatchFollows(t *testing.T) {
+	app := testAppWithFixtures(t)
+	params := dbv1.GetUsersParams{
+		MyID: 1,
+		Ids:  []int32{1, 2, 3},
+	}
+
+	rawUsers, err := app.queries.Users(t.Context(), params)
+	require.NoError(t, err)
+
+	createUserSocialSetsTable(t, app)
+	for _, userID := range params.Ids {
+		require.NoError(t, app.queries.RebuildUserSocialSet(t.Context(), userID))
+	}
+
+	snapshotUsers, err := app.queries.Users(t.Context(), params)
+	require.NoError(t, err)
+	require.Len(t, snapshotUsers, len(rawUsers))
+
+	for i := range rawUsers {
+		assert.Equal(t, rawUsers[i].UserID, snapshotUsers[i].UserID)
+		assert.Equal(t, rawUsers[i].DoesCurrentUserFollow, snapshotUsers[i].DoesCurrentUserFollow)
+		assert.Equal(t, rawUsers[i].DoesCurrentUserSubscribe, snapshotUsers[i].DoesCurrentUserSubscribe)
+		assert.Equal(t, rawUsers[i].DoesFollowCurrentUser, snapshotUsers[i].DoesFollowCurrentUser)
+		assert.Equal(t, rawUsers[i].CurrentUserFolloweeFollowCount, snapshotUsers[i].CurrentUserFolloweeFollowCount)
+	}
+}
+
+func createUserSocialSetsTable(t *testing.T, app *ApiServer) {
+	t.Helper()
+
+	_, err := app.pool.Exec(t.Context(), `
+		CREATE TABLE IF NOT EXISTS user_social_sets (
+			user_id integer PRIMARY KEY,
+			followees_bitmap bytea NOT NULL DEFAULT '\x'::bytea,
+			followers_bitmap bytea NOT NULL DEFAULT '\x'::bytea,
+			updated_at timestamp without time zone NOT NULL DEFAULT CURRENT_TIMESTAMP
+		)
+	`)
+	require.NoError(t, err)
+}
+
+func testBitmapBytes(t *testing.T, ids ...uint32) []byte {
+	t.Helper()
+	bitmap := roaring.NewBitmap()
+	for _, id := range ids {
+		bitmap.Add(id)
+	}
+	data, err := bitmap.ToBytes()
+	require.NoError(t, err)
+	return data
 }
 
 func TestGetUsers(t *testing.T) {
