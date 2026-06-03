@@ -65,14 +65,15 @@ func TestRateLimitMiddleware_NormalizesApiKeyWithout0xPrefix(t *testing.T) {
 		return c.SendString("ok")
 	})
 
-	// Request omits 0x prefix but should still match stored 0x api_key row.
-	req1 := httptest.NewRequest("GET", "/test?api_key=6c1ef2e9c33e2ba1c0d352e41e06e8a3c7721c6f", nil)
+	// Request omits 0x prefix and uses mixed case, but should still match the
+	// stored canonical lowercase api_key row.
+	req1 := httptest.NewRequest("GET", "/test?api_key=6C1EF2E9C33E2BA1C0D352E41E06E8A3C7721C6F", nil)
 	res1, err := testApp.Test(req1, -1)
 	assert.NoError(t, err)
 	assert.Equal(t, fiber.StatusOK, res1.StatusCode, "first request should succeed")
 
 	// If normalization works, this hits app rps=1 and should be limited.
-	req2 := httptest.NewRequest("GET", "/test?api_key=6c1ef2e9c33e2ba1c0d352e41e06e8a3c7721c6f", nil)
+	req2 := httptest.NewRequest("GET", "/test?api_key=6C1EF2E9C33E2BA1C0D352E41E06E8A3C7721C6F", nil)
 	res2, err := testApp.Test(req2, -1)
 	assert.NoError(t, err)
 	assert.Equal(t, fiber.StatusTooManyRequests, res2.StatusCode, "second request should be rate limited")

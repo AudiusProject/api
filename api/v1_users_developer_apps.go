@@ -110,12 +110,12 @@ func (app *ApiServer) v1UsersDeveloperAppsWithMetrics(c *fiber.Ctx, userId int32
 			m.request_count_all_time,
 			NOT EXISTS (
 				SELECT 1 FROM api_access_keys aak
-				WHERE LOWER(aak.api_key) = LOWER(da.address) AND aak.is_active = true
+				WHERE aak.api_key = LOWER(da.address) AND aak.is_active = true
 			) AS is_legacy,
 			COALESCE(
 				(SELECT json_agg(json_build_object('api_access_key', aak.api_access_key, 'is_active', aak.is_active))
 				 FROM api_access_keys aak
-				 WHERE LOWER(aak.api_key) = LOWER(da.address) AND aak.is_active = true),
+				 WHERE aak.api_key = LOWER(da.address) AND aak.is_active = true),
 				'[]'::json
 			) AS api_access_keys,
 			oau.redirect_uris
@@ -424,6 +424,7 @@ func (app *ApiServer) deleteV1UsersDeveloperApp(c *fiber.Ctx) error {
 	if !strings.HasPrefix(address, "0x") {
 		address = "0x" + address
 	}
+	address = strings.ToLower(address)
 
 	// Verify the app belongs to this user
 	var ownerUserID int32
@@ -461,14 +462,14 @@ func (app *ApiServer) deleteV1UsersDeveloperApp(c *fiber.Ctx) error {
 	// 2. Delete api_keys row
 	// 3. Send ManageEntity transaction to delete the developer app on-chain
 	if app.writePool != nil {
-		_, err = app.writePool.Exec(c.Context(), `DELETE FROM api_access_keys WHERE LOWER(api_key) = LOWER($1)`, address)
+		_, err = app.writePool.Exec(c.Context(), `DELETE FROM api_access_keys WHERE api_key = $1`, address)
 		if err != nil {
 			app.logger.Error("Failed to delete api_access_keys", zap.Error(err))
 			return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{
 				"error": "Failed to delete developer app",
 			})
 		}
-		_, err = app.writePool.Exec(c.Context(), `DELETE FROM api_keys WHERE LOWER(api_key) = LOWER($1)`, address)
+		_, err = app.writePool.Exec(c.Context(), `DELETE FROM api_keys WHERE api_key = $1`, address)
 		if err != nil {
 			app.logger.Error("Failed to delete api_keys", zap.Error(err))
 			return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{
@@ -606,6 +607,7 @@ func (app *ApiServer) postV1UsersDeveloperAppAccessKeyDeactivate(c *fiber.Ctx) e
 	if !strings.HasPrefix(address, "0x") {
 		address = "0x" + address
 	}
+	address = strings.ToLower(address)
 
 	var body deactivateAccessKeyBody
 	if err := c.BodyParser(&body); err != nil || strings.TrimSpace(body.ApiAccessKey) == "" {
@@ -640,7 +642,7 @@ func (app *ApiServer) postV1UsersDeveloperAppAccessKeyDeactivate(c *fiber.Ctx) e
 	result, err := app.writePool.Exec(c.Context(), `
 		UPDATE api_access_keys
 		SET is_active = false
-		WHERE LOWER(api_key) = LOWER($1) AND api_access_key = $2
+		WHERE api_key = $1 AND api_access_key = $2
 	`, address, apiAccessKey)
 	if err != nil {
 		app.logger.Error("Failed to deactivate api_access_key", zap.Error(err))
