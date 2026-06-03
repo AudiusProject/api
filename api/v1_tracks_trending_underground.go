@@ -25,11 +25,6 @@ func (app *ApiServer) v1TracksTrendingUnderground(c *fiber.Ctx) error {
 	    WITH trending_tracks AS (
 			SELECT track_trending_scores.track_id
 			FROM track_trending_scores
-			LEFT JOIN tracks
-				ON tracks.track_id = track_trending_scores.track_id
-				AND tracks.is_delete = false
-				AND tracks.is_unlisted = false
-				AND tracks.is_available = true
 			WHERE type = 'TRACKS'
 				AND version = 'pnagD'
 				AND time_range = @time
@@ -42,12 +37,12 @@ func (app *ApiServer) v1TracksTrendingUnderground(c *fiber.Ctx) error {
 
 		SELECT track_trending_scores.track_id
 		FROM track_trending_scores
-		LEFT JOIN tracks
+		JOIN tracks
 			ON tracks.track_id = track_trending_scores.track_id
 			AND tracks.is_delete = false
 			AND tracks.is_unlisted = false
 			AND tracks.is_available = true
-		LEFT JOIN aggregate_user
+		JOIN aggregate_user
 			ON aggregate_user.user_id = tracks.owner_id
 		WHERE type = 'TRACKS'
 			AND version = 'pnagD'
