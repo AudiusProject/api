@@ -100,7 +100,51 @@ func (p *TrendingProcessor) Reconcile(ctx context.Context, tx pgx.Tx) error {
 	// Pull the top-N entries with their owners. Both score tables share
 	// the same shape minus the entity id column name.
 	var rows pgx.Rows
-	if p.EntityKind == "track" {
+	switch {
+	case p.TrendingTyp == "UNDERGROUND_TRACKS":
+		// Underground winners are NOT a distinct score set: they're the
+		// regular TRACKS week scores restricted to "underground" artists
+		// and with the global top-20 TRACKS excluded. This mirrors apps'
+		// make_get_unpopulated_tracks in get_underground_trending.py (the
+		// underground strategy there reuses the TRACKS strategy, so it reads
+		// TRACKS-typed scores). Selecting raw UNDERGROUND_TRACKS scores
+		// instead — which index_trending computes identically to TRACKS,
+		// with no eligibility filter — made underground winners nearly
+		// identical to regular trending. The same filter already lives in
+		// the read endpoint, api/v1_tracks_trending_underground.go. version
+		// stays p.Version (pnagD); the written trending_results rows keep
+		// type = UNDERGROUND_TRACKS.
+		rows, err = tx.Query(ctx, `
+			WITH top_trending AS (
+				SELECT s.track_id
+				FROM track_trending_scores s
+				JOIN tracks t ON t.track_id = s.track_id
+					AND t.is_current = true
+					AND t.is_delete = false
+					AND t.is_unlisted = false
+					AND t.is_available = true
+				WHERE s.type = 'TRACKS' AND s.version = $1 AND s.time_range = 'week'
+				ORDER BY s.score DESC, s.track_id DESC
+				LIMIT 20
+			)
+			SELECT s.track_id AS entity_id, t.owner_id AS user_id
+			FROM track_trending_scores s
+			JOIN tracks t ON t.track_id = s.track_id
+				AND t.is_current = true
+				AND t.is_delete = false
+				AND t.is_unlisted = false
+				AND t.is_available = true
+			JOIN aggregate_user au ON au.user_id = t.owner_id
+			WHERE s.type = 'TRACKS' AND s.version = $1 AND s.time_range = 'week'
+				AND au.follower_count < 1500
+				AND au.following_count < 1500
+				AND NOT EXISTS (
+					SELECT 1 FROM top_trending tt WHERE tt.track_id = s.track_id
+				)
+			ORDER BY s.score DESC, s.track_id DESC
+			LIMIT $2
+		`, p.Version, trendingTopN)
+	case p.EntityKind == "track":
 		rows, err = tx.Query(ctx, `
 			SELECT s.track_id AS entity_id, t.owner_id AS user_id
 			FROM track_trending_scores s
@@ -109,7 +153,7 @@ func (p *TrendingProcessor) Reconcile(ctx context.Context, tx pgx.Tx) error {
 			ORDER BY s.score DESC NULLS LAST
 			LIMIT $3
 		`, p.TrendingTyp, p.Version, trendingTopN)
-	} else {
+	default:
 		rows, err = tx.Query(ctx, `
 			SELECT s.playlist_id AS entity_id, pl.playlist_owner_id AS user_id
 			FROM playlist_trending_scores s

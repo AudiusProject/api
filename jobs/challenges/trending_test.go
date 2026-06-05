@@ -80,6 +80,134 @@ func TestTrending_IdempotentSameWeek(t *testing.T) {
 	assert.Equal(t, 3, count2, "second run on same Friday should not duplicate")
 }
 
+// TestTrending_UndergroundFiltersMainstream is the regression test for the
+// underground winners filter. It seeds a realistic mix — a 20+ track mainstream
+// top list owned by high-follower artists, plus a few genuinely niche tracks —
+// and asserts the underground processor pays out ONLY the niche tracks. Before
+// the fix the underground path read raw UNDERGROUND_TRACKS scores (computed
+// identically to TRACKS, with no eligibility filter), so its winners were
+// effectively the same as regular trending. Friday-gated like the others.
+func TestTrending_UndergroundFiltersMainstream(t *testing.T) {
+	if time.Now().UTC().Weekday() != time.Friday {
+		t.Skip("trending processor only runs on Fridays UTC")
+	}
+	pool := withChallengesDB(t)
+	ctx := context.Background()
+	now := time.Now()
+
+	userRows := []map[string]any{}
+	trackRows := []map[string]any{}
+
+	// 22 mainstream tracks (ids 7000..7021) by high-follower artists
+	// (ids 700..721), descending scores 1000..979. The top 20 form the
+	// global trending list; all 22 owners are too popular to be underground.
+	for i := 0; i < 22; i++ {
+		uid := 700 + i
+		tid := 7000 + i
+		userRows = append(userRows, map[string]any{"user_id": uid, "wallet": fmt.Sprintf("0x%d", uid)})
+		trackRows = append(trackRows, map[string]any{"track_id": tid, "owner_id": uid, "title": fmt.Sprintf("Main%d", i), "blocknumber": 1, "created_at": now})
+	}
+	// 3 genuinely underground tracks (7030..7032) by niche artists
+	// (730..732): few followers, few follows, scores well below the top 20.
+	for i := 0; i < 3; i++ {
+		uid := 730 + i
+		tid := 7030 + i
+		userRows = append(userRows, map[string]any{"user_id": uid, "wallet": fmt.Sprintf("0x%d", uid)})
+		trackRows = append(trackRows, map[string]any{"track_id": tid, "owner_id": uid, "title": fmt.Sprintf("Under%d", i), "blocknumber": 1, "created_at": now})
+	}
+	// Two artists that should still be excluded even though their score is
+	// below the top 20: 740 has too many followers, 741 follows too many.
+	userRows = append(userRows,
+		map[string]any{"user_id": 740, "wallet": "0x740"},
+		map[string]any{"user_id": 741, "wallet": "0x741"},
+	)
+	trackRows = append(trackRows,
+		map[string]any{"track_id": 7040, "owner_id": 740, "title": "PopularLowScore", "blocknumber": 1, "created_at": now},
+		map[string]any{"track_id": 7041, "owner_id": 741, "title": "FollowsEveryone", "blocknumber": 1, "created_at": now},
+	)
+
+	database.Seed(pool, database.FixtureMap{
+		"blocks": {{"blockhash": "blk_ug", "number": 1}},
+		"users":  userRows,
+		"tracks": trackRows,
+	})
+
+	// Owner follower/following counts. aggregate_user rows already exist via
+	// the users-insert trigger (default 0), so upsert the real values.
+	setCounts := func(uid, followers, following int) {
+		_, err := pool.Exec(ctx, `
+			INSERT INTO aggregate_user (user_id, follower_count, following_count)
+			VALUES ($1, $2, $3)
+			ON CONFLICT (user_id) DO UPDATE
+			SET follower_count = EXCLUDED.follower_count,
+			    following_count = EXCLUDED.following_count
+		`, uid, followers, following)
+		require.NoError(t, err)
+	}
+	for i := 0; i < 22; i++ {
+		setCounts(700+i, 5000, 50) // mainstream: too many followers
+	}
+	for i := 0; i < 3; i++ {
+		setCounts(730+i, 100, 100) // underground: eligible
+	}
+	setCounts(740, 5000, 50)   // excluded by follower cap
+	setCounts(741, 100, 5000)  // excluded by following cap
+
+	// Scores: mainstream 1000..979, underground 500/499/498, the two
+	// excluded low-score artists at 480/470 (below the top 20 cutoff but
+	// still filtered out by the follower/following caps).
+	insertScore := func(tid int, score float64) {
+		_, err := pool.Exec(ctx, `
+			INSERT INTO track_trending_scores (track_id, type, version, time_range, score, created_at)
+			VALUES ($1, 'TRACKS', 'pnagD', 'week', $2, now())
+		`, tid, score)
+		require.NoError(t, err)
+	}
+	for i := 0; i < 22; i++ {
+		insertScore(7000+i, float64(1000-i))
+	}
+	insertScore(7030, 500)
+	insertScore(7031, 499)
+	insertScore(7032, 498)
+	insertScore(7040, 480)
+	insertScore(7041, 470)
+
+	runProcessor(t, pool, NewTrendingUndergroundProcessor())
+
+	// trending_results for UNDERGROUND_TRACKS should be exactly the three
+	// niche tracks, ranked by score desc — no mainstream or capped artists.
+	rows, err := pool.Query(ctx, `
+		SELECT id, rank FROM trending_results
+		WHERE type = 'UNDERGROUND_TRACKS' AND version = 'pnagD'
+		ORDER BY rank
+	`)
+	require.NoError(t, err)
+	var gotIDs []string
+	var gotRanks []int32
+	for rows.Next() {
+		var id string
+		var rank int32
+		require.NoError(t, rows.Scan(&id, &rank))
+		gotIDs = append(gotIDs, id)
+		gotRanks = append(gotRanks, rank)
+	}
+	rows.Close()
+	require.NoError(t, rows.Err())
+
+	assert.Equal(t, []string{"7030", "7031", "7032"}, gotIDs,
+		"underground winners must be the niche tracks only, in score order")
+	assert.Equal(t, []int32{1, 2, 3}, gotRanks)
+
+	// And a user_challenge should be minted for each underground owner.
+	weekDate := time.Date(now.UTC().Year(), now.UTC().Month(), now.UTC().Day(), 0, 0, 0, 0, time.UTC).Format("2006-01-02")
+	for rank, owner := range map[int32]int64{1: 730, 2: 731, 3: 732} {
+		uc, ok := queryUserChallenge(t, pool, "tut", fmt.Sprintf("%s:%d", weekDate, rank))
+		require.True(t, ok, "expected tut challenge for rank %d", rank)
+		assert.Equal(t, owner, uc.UserID)
+		assert.Equal(t, int32(1000), uc.Amount)
+	}
+}
+
 func TestTrending_SkipsNonFriday(t *testing.T) {
 	if time.Now().UTC().Weekday() == time.Friday {
 		t.Skip("test only meaningful on non-Fridays")
