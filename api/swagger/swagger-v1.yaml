@@ -11981,6 +11981,8 @@ components:
           type: array
           items:
             $ref: "#/components/schemas/event"
+        related:
+          $ref: "#/components/schemas/remix_contests_related"
     remix_contests_related:
       type: object
       properties:

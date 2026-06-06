@@ -5,6 +5,7 @@ import (
 	"testing"
 
 	"api.audius.co/api/dbv1"
+	"api.audius.co/database"
 	"api.audius.co/trashid"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -84,6 +85,89 @@ func TestGetEventsExcludesDeletedTracks(t *testing.T) {
 		"data.0.entity_id": trashid.MustEncodeHashID(100),
 		"data.3.event_id":  trashid.MustEncodeHashID(5),
 		"data.3.entity_id": trashid.MustEncodeHashID(101),
+	})
+}
+
+// TestGetEntityEventsEntryCounts verifies the /events/entity endpoint returns
+// related.entry_counts using the same in-window filter as the remix-contests
+// discovery endpoint, so callers can prime useRemixesCount({ isContestEntry:
+// true }) instead of issuing a separate /tracks/{id}/remixes?limit=0 per card.
+func TestGetEntityEventsEntryCounts(t *testing.T) {
+	app := emptyTestApp(t)
+
+	hostID := 7101
+	remixer := 7102
+
+	contestTrackID := 7001
+	contestStart := parseTime(t, "2024-01-02")
+	contestEnd := parseTime(t, "2099-01-01")
+
+	inWindow := parseTime(t, "2024-01-03")
+	tooEarly := parseTime(t, "2024-01-01") // before contest start => excluded
+
+	fixtures := database.FixtureMap{
+		"events": []map[string]any{
+			{
+				"event_id":    601,
+				"event_type":  "remix_contest",
+				"entity_type": "track",
+				"entity_id":   contestTrackID,
+				"user_id":     hostID,
+				"created_at":  contestStart,
+				"end_date":    contestEnd,
+			},
+		},
+		"users": []map[string]any{
+			{"user_id": hostID, "handle": "entryhost"},
+			{"user_id": remixer, "handle": "entryremixer"},
+		},
+		"tracks": []map[string]any{
+			{
+				"track_id":   contestTrackID,
+				"owner_id":   hostID,
+				"title":      "Contest Parent",
+				"created_at": contestStart,
+			},
+			{
+				"track_id":   7201,
+				"owner_id":   remixer,
+				"title":      "In Window Entry A",
+				"created_at": inWindow,
+			},
+			{
+				"track_id":   7202,
+				"owner_id":   remixer,
+				"title":      "In Window Entry B",
+				"created_at": inWindow,
+			},
+			{
+				"track_id":   7203,
+				"owner_id":   remixer,
+				"title":      "Too Early (excluded)",
+				"created_at": tooEarly,
+			},
+		},
+		"remixes": []map[string]any{
+			{"parent_track_id": contestTrackID, "child_track_id": 7201},
+			{"parent_track_id": contestTrackID, "child_track_id": 7202},
+			{"parent_track_id": contestTrackID, "child_track_id": 7203},
+		},
+	}
+	database.Seed(app.pool.Replicas[0], fixtures)
+
+	contestTrackHash := trashid.MustEncodeHashID(contestTrackID)
+
+	status, body := testGet(
+		t, app,
+		"/v1/events/entity?entity_id="+contestTrackHash,
+	)
+	assert.Equal(t, 200, status)
+
+	// 2 in-window remixes counted; the pre-window remix (7203) excluded.
+	jsonAssert(t, body, map[string]any{
+		"data.0.event_id":  trashid.MustEncodeHashID(601),
+		"data.0.entity_id": contestTrackHash,
+		"related.entry_counts." + contestTrackHash: float64(2),
 	})
 }
 
