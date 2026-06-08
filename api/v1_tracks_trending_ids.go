@@ -8,23 +8,18 @@ import (
 
 func (app *ApiServer) getTrendingIds(c *fiber.Ctx, timeRange string, genre string, limit int, offset int) ([]int32, error) {
 	sql := `
-		SELECT track_trending_scores.track_id
-		FROM track_trending_scores
-		LEFT JOIN tracks
-			ON tracks.track_id = track_trending_scores.track_id
-			AND tracks.is_delete = false
-			AND tracks.is_unlisted = false
-			AND tracks.is_available = true
-		WHERE type = 'TRACKS'
-			AND version = 'pnagD'
-			AND time_range = @time
-			AND (@genre = '' OR track_trending_scores.genre = @genre)
-		ORDER BY
-			score DESC,
-			track_id DESC
-		LIMIT @limit
-		OFFSET @offset
-		`
+			SELECT track_trending_scores.track_id
+			FROM track_trending_scores
+			WHERE type = 'TRACKS'
+				AND version = 'pnagD'
+				AND time_range = @time
+				AND (@genre = '' OR track_trending_scores.genre = @genre)
+			ORDER BY
+				score DESC,
+				track_id DESC
+			LIMIT @limit
+			OFFSET @offset
+			`
 
 	args := pgx.NamedArgs{}
 	args["limit"] = limit
