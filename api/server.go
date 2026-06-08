@@ -504,7 +504,7 @@ func NewApiServer(config config.Config) *ApiServer {
 		g.Get("/tracks/unclaimed_id", app.v1TracksUnclaimedId)
 
 		g.Get("/tracks/latest", app.v1TracksLatest)
-			g.Get("/tracks/trending", app.v1TracksTrending)
+		g.Get("/tracks/trending", app.v1TracksTrending)
 		g.Get("/tracks/trending/ids", app.v1TracksTrendingIds)
 		g.Get("/tracks/trending/winners", app.v1TracksTrendingWinners)
 		g.Get("/tracks/trending/underground", app.v1TracksTrendingUnderground)
@@ -688,8 +688,8 @@ func NewApiServer(config config.Config) *ApiServer {
 		g.Get("/coins/:mint/members/count", app.v1CoinMembersCount)
 		g.Get("/coins/:mint/redeem", app.v1CoinsRedeem)
 		g.Get("/coins/:mint/redeem/:code", app.v1CoinsRedeemCode)
-		g.Post("/coins/:mint/redeem", app.requireAuthMiddleware, app.v1CoinsPostRedeem)
-		g.Post("/coins/:mint/redeem/:code", app.requireAuthMiddleware, app.v1CoinsPostRedeem)
+		g.Post("/coins/:mint/redeem", app.requireAuthMiddleware, app.requireWriteScope, app.v1CoinsPostRedeem)
+		g.Post("/coins/:mint/redeem/:code", app.requireAuthMiddleware, app.requireWriteScope, app.v1CoinsPostRedeem)
 		g.Post("/coins", app.v1CreateCoin)
 		g.Post("/coins/:mint", app.v1UpdateCoin)
 
