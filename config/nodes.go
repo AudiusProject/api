@@ -19,7 +19,7 @@ type Node struct {
 
 var (
 	ProdUploadNodes = []string{
-		"https://creatornode2.audius.co",
+		"https://creatornode.audius.co",
 	}
 	StageUploadNodes = []string{
 		"https://creatornode6.staging.audius.co",
