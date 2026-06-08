@@ -318,7 +318,7 @@ func TestGetApiSignerWithApiAccessKey(t *testing.T) {
 
 	// Same private key as TestGetApiSignerBasicAuth - derives to 0xf39Fd6e51aad88F6F4ce6aB8827279cffFb92266
 	testPrivateKey := "ac0974bec39a17e36ba4a6b4d238ff944bacb478cbed5efcae784d7bf4f2ff80"
-	parentApiKey := "0xf39Fd6e51aad88F6F4ce6aB8827279cffFb92266"
+	parentApiKey := strings.ToLower("0xf39Fd6e51aad88F6F4ce6aB8827279cffFb92266")
 	apiAccessKey := "test-access-key-123"
 
 	_, err := app.writePool.Exec(ctx, `
