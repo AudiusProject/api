@@ -217,8 +217,7 @@ func init() {
 		fallthrough
 	case "production":
 		Cfg.OpenAudioURLs = []string{
-			"creatornode.audius.co",
-			"creatornode2.audius.co",
+			"rpc.audius.co",
 		}
 		if Cfg.DelegatePrivateKey == "" {
 			log.Fatalf("Missing required %s env var: delegatePrivateKey", env)
@@ -251,11 +250,11 @@ func init() {
 			"https://audius-content-13.cultur3stake.com",
 		}
 		Cfg.StoreAllNodes = []string{
-			"https://creatornode2.audius.co",
+			"https://creatornode.audius.co",
 		}
 		Cfg.UploadNodes = ProdUploadNodes
 		Cfg.Rewards = core_config.MakeRewards(core_config.ProdClaimAuthorities, core_config.ProdRewardExtensions)
-		Cfg.AudiusdURL = "creatornode.audius.co"
+		Cfg.AudiusdURL = "rpc.audius.co"
 		Cfg.ChainId = "audius-mainnet-alpha-beta"
 		Cfg.AudiusdChainID = core_config.ProdAcdcChainID
 		Cfg.AudiusdEntityManagerAddress = core_config.ProdAcdcAddress
