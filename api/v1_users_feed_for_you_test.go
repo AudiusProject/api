@@ -159,6 +159,41 @@ func TestV1FeedForYou_EmptyFeedForNewUser(t *testing.T) {
 	assert.Empty(t, response.Data, "new user with no graph should get an empty feed")
 }
 
+// TestV1FeedForYou_OldTrendingCandidateDoesNotUnderflow asserts that very old
+// candidates decay to an effectively zero recency score instead of making
+// PostgreSQL throw a numeric underflow from exp(...).
+func TestV1FeedForYou_OldTrendingCandidateDoesNotUnderflow(t *testing.T) {
+	app := emptyTestApp(t)
+	app.skipAuthCheck = true
+
+	fixtures := feedForYouFixtures()
+	ancient := time.Date(1900, time.January, 1, 0, 0, 0, 0, time.UTC)
+	fixtures["users"] = append(fixtures["users"], map[string]any{
+		"user_id":   5,
+		"handle":    "ancient_artist",
+		"handle_lc": "ancient_artist",
+		"wallet":    "0x0000000000000000000000000000000000000005",
+	})
+	fixtures["aggregate_user"] = append(fixtures["aggregate_user"], map[string]any{
+		"user_id": 5, "follower_count": 5000, "following_count": 100,
+	})
+	fixtures["tracks"] = append(fixtures["tracks"], map[string]any{
+		"track_id": 401, "owner_id": 5, "title": "ancient trending", "created_at": ancient,
+	})
+	fixtures["track_trending_scores"] = append(fixtures["track_trending_scores"], map[string]any{
+		"track_id": 401, "score": 10_000_000_000, "time_range": "week",
+	})
+	database.Seed(app.pool.Replicas[0], fixtures)
+
+	var resp struct {
+		Data []feedForYouItem
+	}
+	path := fmt.Sprintf("/v1/users/%s/feed/for-you?limit=20", trashid.MustEncodeHashID(1))
+	status, body := testGet(t, app, path, &resp)
+	require.Equal(t, 200, status, string(body))
+	assert.NotEmpty(t, resp.Data)
+}
+
 // TestV1FeedForYou_PaginationDoesNotRepeat asserts that two consecutive
 // pages of the diversity-ordered list don't overlap on (type, id).
 func TestV1FeedForYou_PaginationDoesNotRepeat(t *testing.T) {
