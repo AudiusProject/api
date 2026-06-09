@@ -378,6 +378,8 @@ func collectNotificationRelatedIds(action json.RawMessage, userIds, trackIds, pl
 		"data.receiver_user_id",
 		"data.dethroned_user_id",
 		"data.grantee_user_id",
+		"data.inviter_user_id",
+		"data.collaborator_user_id",
 		"data.tastemaker_user_id",
 		"data.tastemaker_item_owner_id",
 		"data.track_owner_id",
