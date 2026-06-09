@@ -14953,6 +14953,11 @@ components:
           type: string
         user:
           $ref: "#/components/schemas/user"
+        collaborators:
+          type: array
+          description: Accepted collaborator artists on the track.
+          items:
+            $ref: "#/components/schemas/user"
         duration:
           type: integer
         is_downloadable:
@@ -16429,6 +16434,11 @@ components:
           type: string
         user:
           $ref: "#/components/schemas/user"
+        collaborators:
+          type: array
+          description: Accepted collaborator artists on the track.
+          items:
+            $ref: "#/components/schemas/user"
         duration:
           type: integer
         is_downloadable:
