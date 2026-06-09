@@ -51,7 +51,6 @@ func NewIndexChallengesJob(cfg config.Config, pool database.DbPool) *IndexChalle
 			challenges.NewPlayCountMilestonesProcessor(),
 			challenges.NewTrendingTrackProcessor(),
 			challenges.NewTrendingUndergroundProcessor(),
-			challenges.NewTrendingPlaylistProcessor(),
 			// Phase 2
 			&challenges.FirstWeeklyCommentProcessor{},
 			&challenges.CommentPinProcessor{},
