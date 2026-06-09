@@ -226,6 +226,16 @@ var (
 			"blocknumber":  101,
 			"txhash":       "tx123",
 		},
+		"track_collaborators": {
+			"track_id":             nil,
+			"collaborator_user_id": nil,
+			"invited_by":           nil,
+			"status":               "pending",
+			"created_at":           time.Now(),
+			"updated_at":           time.Now(),
+			"txhash":               "tx123",
+			"blocknumber":          101,
+		},
 		"playlist_routes": {
 			"slug":         nil,
 			"title_slug":   nil,

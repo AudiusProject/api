@@ -25,7 +25,10 @@ func (app *ApiServer) v1UsersListenCountsMonthly(c *fiber.Ctx) error {
         SUM(count) AS count
     FROM aggregate_monthly_plays
     WHERE play_item_id IN (
-		SELECT track_id FROM tracks WHERE owner_id = @userId AND stem_of IS NULL
+		SELECT track_id FROM tracks WHERE stem_of IS NULL
+			AND (owner_id = @userId
+			  OR track_id IN (SELECT track_id FROM track_collaborators
+			                  WHERE collaborator_user_id = @userId AND status = 'accepted'))
 			AND (access_authorities IS NULL
 			  OR (COALESCE(@authed_wallet, '') <> ''
 			      AND EXISTS (SELECT 1 FROM unnest(access_authorities) aa WHERE lower(aa) = lower(@authed_wallet))))
