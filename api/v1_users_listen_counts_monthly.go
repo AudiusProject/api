@@ -18,6 +18,27 @@ func (app *ApiServer) v1UsersListenCountsMonthly(c *fiber.Ctx) error {
 		return err
 	}
 
+	userId := app.getUserId(c)
+
+	// See v1_users_tracks.go: fold the (usually empty) collaborator set in via an
+	// explicit id array only when present, so the common case keeps its owner-only
+	// plan rather than seq-scanning tracks.
+	collabRows, err := app.pool.Query(c.Context(),
+		`SELECT track_id FROM track_collaborators WHERE collaborator_user_id = $1 AND status = 'accepted'`,
+		userId)
+	if err != nil {
+		return err
+	}
+	collabTrackIds, err := pgx.CollectRows(collabRows, pgx.RowTo[int32])
+	if err != nil {
+		return err
+	}
+
+	ownerFilter := "owner_id = @userId"
+	if len(collabTrackIds) > 0 {
+		ownerFilter = "(owner_id = @userId OR track_id = ANY(@collab_track_ids))"
+	}
+
 	sql := `
     SELECT
         play_item_id,
@@ -26,9 +47,7 @@ func (app *ApiServer) v1UsersListenCountsMonthly(c *fiber.Ctx) error {
     FROM aggregate_monthly_plays
     WHERE play_item_id IN (
 		SELECT track_id FROM tracks WHERE stem_of IS NULL
-			AND (owner_id = @userId
-			  OR track_id IN (SELECT track_id FROM track_collaborators
-			                  WHERE collaborator_user_id = @userId AND status = 'accepted'))
+			AND ` + ownerFilter + `
 			AND (access_authorities IS NULL
 			  OR (COALESCE(@authed_wallet, '') <> ''
 			      AND EXISTS (SELECT 1 FROM unnest(access_authorities) aa WHERE lower(aa) = lower(@authed_wallet))))
@@ -39,12 +58,17 @@ func (app *ApiServer) v1UsersListenCountsMonthly(c *fiber.Ctx) error {
 	;
 	`
 
-	rows, err := app.pool.Query(c.Context(), sql, pgx.NamedArgs{
-		"userId":        app.getUserId(c),
+	args := pgx.NamedArgs{
+		"userId":        userId,
 		"startTime":     params.StartTime,
 		"endTime":       params.EndTime,
 		"authed_wallet": app.tryGetAuthedWallet(c),
-	})
+	}
+	if len(collabTrackIds) > 0 {
+		args["collab_track_ids"] = collabTrackIds
+	}
+
+	rows, err := app.pool.Query(c.Context(), sql, args)
 	if err != nil {
 		return err
 	}

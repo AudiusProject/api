@@ -64,19 +64,46 @@ func (app *ApiServer) v1UserTracks(c *fiber.Ctx) error {
 	gateConditions := queryMulti(c, "gate_condition")
 	gateFilter := buildGateConditionFilter(gateConditions)
 
+	// Fetch the user's accepted-collaboration track ids up front. This is a
+	// small, index-only lookup (covering index on
+	// track_collaborators(collaborator_user_id, status, track_id)). For the
+	// overwhelming majority of users it returns nothing, which lets us run the
+	// original owner-only query with its original plan. Folding the collaborator
+	// set into the main WHERE as `OR t.track_id IN (subquery)` instead made
+	// Postgres sequential-scan the entire tracks table on every profile load.
+	collabRows, err := app.pool.Query(c.Context(),
+		`SELECT track_id FROM track_collaborators WHERE collaborator_user_id = $1 AND status = 'accepted'`,
+		userId)
+	if err != nil {
+		return err
+	}
+	collabTrackIds, err := pgx.CollectRows(collabRows, pgx.RowTo[int32])
+	if err != nil {
+		return err
+	}
+
+	// Default (no collaborations): identical to the original owner-only query —
+	// `u` is the profile user, so the artist pick comes from the join.
+	ownerFilter := "t.owner_id = @user_id"
+	pinExpr := "t.track_id = u.artist_pick_track_id"
+	if len(collabTrackIds) > 0 {
+		// Use an explicit id array (plans far better than a correlated subquery,
+		// via a bitmap OR of the owner_id index and the track_id PK). `u` may be
+		// another owner for collab tracks, so the pin references the profile user.
+		ownerFilter = "(t.owner_id = @user_id OR t.track_id = ANY(@collab_track_ids))"
+		pinExpr = "t.track_id = (SELECT artist_pick_track_id FROM users WHERE user_id = @user_id)"
+	}
+
 	// The profile lists a user's own tracks plus tracks they've accepted a
 	// collaborator credit on. `u` is the track's owner (the deactivation check
-	// stays on the owner); the artist-pick pin references the profile user, so a
-	// collaborator's track is never spuriously pinned by the owner's pick.
+	// stays on the owner).
 	sql := `
 	SELECT track_id
 	FROM tracks t
 	JOIN users u ON owner_id = u.user_id
 	LEFT JOIN aggregate_plays ON track_id = play_item_id
 	LEFT JOIN aggregate_track USING (track_id)
-	WHERE (t.owner_id = @user_id
-	    OR t.track_id IN (SELECT track_id FROM track_collaborators
-	                      WHERE collaborator_user_id = @user_id AND status = 'accepted'))
+	WHERE ` + ownerFilter + `
 	  AND u.is_deactivated = false
 	  AND t.is_delete = false
 	  AND t.is_available = true
@@ -85,7 +112,7 @@ func (app *ApiServer) v1UserTracks(c *fiber.Ctx) error {
 	  AND (t.access_authorities IS NULL
 	    OR (COALESCE(@authed_wallet, '') <> ''
 	        AND EXISTS (SELECT 1 FROM unnest(t.access_authorities) aa WHERE lower(aa) = lower(@authed_wallet))))` + gateFilter + `
-	ORDER BY (CASE WHEN t.track_id = (SELECT artist_pick_track_id FROM users WHERE user_id = @user_id) THEN 0 ELSE 1 END), ` + orderClause + `
+	ORDER BY (CASE WHEN ` + pinExpr + ` THEN 0 ELSE 1 END), ` + orderClause + `
 	LIMIT @limit
 	OFFSET @offset
 	`
@@ -94,6 +121,9 @@ func (app *ApiServer) v1UserTracks(c *fiber.Ctx) error {
 		"user_id":       userId,
 		"my_id":         myId,
 		"authed_wallet": app.tryGetAuthedWallet(c),
+	}
+	if len(collabTrackIds) > 0 {
+		args["collab_track_ids"] = collabTrackIds
 	}
 	args["limit"] = params.Limit
 	args["offset"] = params.Offset
