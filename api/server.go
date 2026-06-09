@@ -170,6 +170,15 @@ func NewApiServer(config config.Config) *ApiServer {
 		panic(err)
 	}
 
+	// Entries carry their own freshness window so expired sitemap pages can be
+	// served stale while a background refresh rebuilds them.
+	sitemapPageCache, err := otter.MustBuilder[string, sitemapPageCacheEntry](256).
+		CollectStats().
+		Build()
+	if err != nil {
+		panic(err)
+	}
+
 	privateKey, err := crypto.HexToECDSA(config.DelegatePrivateKey)
 	if err != nil {
 		panic(err)
@@ -281,6 +290,7 @@ func NewApiServer(config config.Config) *ApiServer {
 		qualifiedPlaylistsCache: &qualifiedPlaylistsCache,
 		relatedUsersCache:       &relatedUsersCache,
 		genresPopularCache:      &genresPopularCache,
+		sitemapPageCache:        &sitemapPageCache,
 		requestValidator:        requestValidator,
 		rewardAttester:          rewardAttester,
 		transactionSender:       transactionSender,
@@ -841,6 +851,7 @@ type ApiServer struct {
 	qualifiedPlaylistsCache *otter.Cache[string, []int32]
 	relatedUsersCache       *otter.Cache[string, []int32]
 	genresPopularCache      *otter.Cache[string, []PopularGenre]
+	sitemapPageCache        *otter.Cache[string, sitemapPageCacheEntry]
 	requestValidator        *RequestValidator
 	rewardManagerClient     *reward_manager.RewardManagerClient
 	claimableTokensClient   *claimable_tokens.ClaimableTokensClient
