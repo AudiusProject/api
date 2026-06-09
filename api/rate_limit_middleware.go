@@ -198,7 +198,7 @@ func (rlm *RateLimitMiddleware) checkRpm(ctx context.Context, identifier string,
 		err := rlm.writePool.QueryRow(ctx, `
 			SELECT COALESCE(SUM(request_count), 0)
 			FROM api_metrics_apps
-			WHERE (LOWER(api_key) = LOWER($1) OR LOWER(app_name) = LOWER($1))
+			WHERE api_key = $1
 			  AND date >= CURRENT_DATE - INTERVAL '30 days'
 		`, identifier).Scan(&dbCount)
 		if err != nil {

@@ -110,7 +110,7 @@ func (rmc *MetricsCollector) Middleware(apiServer *ApiServer) fiber.Handler {
 			}
 		}
 		if apiKey == "" && appName == "" {
-			apiKey = c.Query("api_key")
+			apiKey = normalizeAPIKeyForLookup(c.Query("api_key"))
 			appName = c.Query("app_name")
 		}
 		ipAddress := utils.GetIP(c)
