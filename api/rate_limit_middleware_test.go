@@ -78,3 +78,23 @@ func TestRateLimitMiddleware_NormalizesApiKeyWithout0xPrefix(t *testing.T) {
 	assert.NoError(t, err)
 	assert.Equal(t, fiber.StatusTooManyRequests, res2.StatusCode, "second request should be rate limited")
 }
+
+func TestRateLimitMiddleware_CheckRpmUsesCanonicalApiKeyBucket(t *testing.T) {
+	pool := database.CreateTestDatabase(t, "test_api")
+	ctx := context.Background()
+
+	_, err := pool.Exec(ctx, `
+		INSERT INTO api_metrics_apps (date, api_key, app_name, request_count)
+		VALUES
+			(CURRENT_DATE, '0xrate-test-key', '', 490),
+			(CURRENT_DATE, '0xother-key', '0xrate-test-key', 490)
+	`)
+	assert.NoError(t, err)
+
+	logger := logging.NewZapLogger(config.Config{}).With()
+	rlm := NewRateLimitMiddleware(logger, pool)
+
+	allowed, remaining := rlm.checkRpm(ctx, "0xrate-test-key", 500)
+	assert.True(t, allowed, "only the api_key bucket should count toward RPM")
+	assert.Equal(t, int64(9), remaining)
+}
