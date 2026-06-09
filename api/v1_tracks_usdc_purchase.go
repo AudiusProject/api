@@ -21,21 +21,20 @@ func (app *ApiServer) v1TracksUsdcPurchase(c *fiber.Ctx) error {
 	}
 
 	sql := `
-		WITH usdc_track_ids AS MATERIALIZED (
-			SELECT track_id
-			FROM tracks
-			WHERE
-				is_unlisted = false AND
-				is_available = true AND
-				is_delete = false AND
-				stream_conditions ? 'usdc_purchase'
-			)
-	    SELECT track_trending_scores.track_id
+		SELECT track_trending_scores.track_id
 		FROM track_trending_scores
-		JOIN usdc_track_ids ON track_trending_scores.track_id = usdc_track_ids.track_id
 		WHERE type = 'TRACKS'
 			AND version = 'pnagD'
 			AND time_range = @time
+			AND EXISTS (
+				SELECT 1
+				FROM tracks
+				WHERE tracks.track_id = track_trending_scores.track_id
+					AND tracks.is_unlisted = false
+					AND tracks.is_available = true
+					AND tracks.is_delete = false
+					AND tracks.stream_conditions ? 'usdc_purchase'
+			)
 		ORDER BY
 			track_trending_scores.score DESC,
 			track_trending_scores.track_id DESC
