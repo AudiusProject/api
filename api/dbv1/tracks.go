@@ -21,15 +21,16 @@ const IncludeID3TagsCtxKey = "includeID3Tags"
 type Track struct {
 	GetTracksRow
 
-	Permalink    string         `json:"permalink"`
-	IsStreamable bool           `json:"is_streamable"`
-	Artwork      *SquareImage   `json:"artwork"`
-	Stream       *MediaLink     `json:"stream"`
-	Download     *MediaLink     `json:"download"`
-	Preview      *MediaLink     `json:"preview"`
-	UserID       trashid.HashId `json:"user_id"`
-	User         User       `json:"user"`
-	Access       Access         `json:"access"`
+	Permalink     string         `json:"permalink"`
+	IsStreamable  bool           `json:"is_streamable"`
+	Artwork       *SquareImage   `json:"artwork"`
+	Stream        *MediaLink     `json:"stream"`
+	Download      *MediaLink     `json:"download"`
+	Preview       *MediaLink     `json:"preview"`
+	UserID        trashid.HashId `json:"user_id"`
+	User          User           `json:"user"`
+	Collaborators []User         `json:"collaborators"`
+	Access        Access         `json:"access"`
 
 	FolloweeReposts    []*FolloweeRepost   `json:"followee_reposts"`
 	FolloweeFavorites  []*FolloweeFavorite `json:"followee_favorites"`
@@ -45,6 +46,7 @@ func (q *Queries) TracksKeyed(ctx context.Context, arg TracksParams) (map[int32]
 	}
 
 	userIds := []int32{}
+	trackIds := make([]int32, 0, len(rawTracks))
 	collectSplitUserIds := func(usage *AccessGate) {
 		if usage == nil || usage.UsdcPurchase == nil {
 			return
@@ -56,6 +58,7 @@ func (q *Queries) TracksKeyed(ctx context.Context, arg TracksParams) (map[int32]
 
 	for _, rawTrack := range rawTracks {
 		userIds = append(userIds, rawTrack.UserID)
+		trackIds = append(trackIds, rawTrack.TrackID)
 
 		var remixOf RemixOf
 		json.Unmarshal(rawTrack.RemixOf, &remixOf)
@@ -65,6 +68,18 @@ func (q *Queries) TracksKeyed(ctx context.Context, arg TracksParams) (map[int32]
 
 		collectSplitUserIds(rawTrack.StreamConditions)
 		collectSplitUserIds(rawTrack.DownloadConditions)
+	}
+
+	// Fetch accepted collaborators for these tracks in one query, and fold
+	// their user IDs into the bulk user fetch below so each is fully resolved.
+	collaboratorRows, err := q.GetTrackCollaborators(ctx, trackIds)
+	if err != nil {
+		return nil, err
+	}
+	collaboratorsByTrack := map[int32][]int32{}
+	for _, cr := range collaboratorRows {
+		collaboratorsByTrack[cr.TrackID] = append(collaboratorsByTrack[cr.TrackID], cr.CollaboratorUserID)
+		userIds = append(userIds, cr.CollaboratorUserID)
 	}
 
 	userMap, err := q.UsersKeyed(ctx, GetUsersParams{
@@ -130,6 +145,14 @@ func (q *Queries) TracksKeyed(ctx context.Context, arg TracksParams) (map[int32]
 			}
 		}
 
+		// Resolve accepted collaborators (order preserved from the query).
+		collaborators := []User{}
+		for _, cid := range collaboratorsByTrack[rawTrack.TrackID] {
+			if cu, ok := userMap[cid]; ok {
+				collaborators = append(collaborators, cu)
+			}
+		}
+
 		// Get access from the bulk access map
 		access := accessMap[rawTrack.TrackID]
 
@@ -179,6 +202,7 @@ func (q *Queries) TracksKeyed(ctx context.Context, arg TracksParams) (map[int32]
 			Preview:            preview,
 			User:               user,
 			UserID:             user.ID,
+			Collaborators:      collaborators,
 			FolloweeFavorites:  fullFolloweeFavorites(rawTrack.FolloweeFavorites),
 			FolloweeReposts:    fullFolloweeReposts(rawTrack.FolloweeReposts),
 			RemixOf:            fullRemixOf,

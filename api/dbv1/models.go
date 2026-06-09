@@ -1005,7 +1005,6 @@ type AudiusDataTx struct {
 type Block struct {
 	Blockhash  string      `json:"blockhash"`
 	Parenthash pgtype.Text `json:"parenthash"`
-	IsCurrent  pgtype.Bool `json:"is_current"`
 	Number     pgtype.Int4 `json:"number"`
 }
 
@@ -1303,6 +1302,14 @@ type EthIndexerCheckpoint struct {
 	Name      string    `json:"name"`
 	LastBlock int64     `json:"last_block"`
 	UpdatedAt time.Time `json:"updated_at"`
+}
+
+// Per-user AUDIO ERC-20 balance (wei), summed across users.wallet + chain=eth associated_wallets. Pre-aggregated mirror of eth_wallet_balances, maintained by triggers (handle_eth_wallet_balance_change / handle_associated_wallets) and recomputed by update_eth_user_balance(user_id). ETH-side analog of sol_user_balances.
+type EthUserBalance struct {
+	UserID    int32          `json:"user_id"`
+	Balance   pgtype.Numeric `json:"balance"`
+	UpdatedAt time.Time      `json:"updated_at"`
+	CreatedAt time.Time      `json:"created_at"`
 }
 
 // AUDIO ERC-20 balances (in wei) for tracked Ethereum wallets — primary users.wallet and chain=eth associated_wallets. Maintained event-driven by the eth-indexer (WebSocket subscription to the AUDIO Transfer topic, targeted balanceOf reads).
@@ -2287,6 +2294,17 @@ type TagTrackUser struct {
 	OwnerID int32       `json:"owner_id"`
 }
 
+type TrackCollaborator struct {
+	TrackID            int32       `json:"track_id"`
+	CollaboratorUserID int32       `json:"collaborator_user_id"`
+	InvitedBy          int32       `json:"invited_by"`
+	Status             string      `json:"status"`
+	CreatedAt          time.Time   `json:"created_at"`
+	UpdatedAt          time.Time   `json:"updated_at"`
+	Txhash             string      `json:"txhash"`
+	Blocknumber        pgtype.Int4 `json:"blocknumber"`
+}
+
 type TrackDelistStatus struct {
 	CreatedAt pgtype.Timestamptz `json:"created_at"`
 	TrackID   int32              `json:"track_id"`
@@ -2664,7 +2682,7 @@ type UserTip struct {
 	UpdatedAt      time.Time `json:"updated_at"`
 }
 
-// Compatibility view that exposes sol_reward_disbursements in the column shape the API routes used to read from challenge_disbursements. Resolves user_id via the indexer-populated recipient_eth_address (see migration 0172).
+// Compatibility view that exposes sol_reward_disbursements in the column shape the API routes used to read from challenge_disbursements. Resolves user_id via the indexer-populated recipient_eth_address (see migration 0172). Join uses LOWER(users.wallet) because the Go indexer stores recipient_eth_address as lowercase.
 type VChallengeDisbursement struct {
 	ChallengeID string     `json:"challenge_id"`
 	Specifier   string     `json:"specifier"`
@@ -2710,7 +2728,7 @@ type VUsdcPurchase struct {
 	Splits       interface{}             `json:"splits"`
 }
 
-// Per-user AUDIO/wAUDIO balance totals. One row per current user with eth_balance (wei) and sol_balance (wAUDIO base units, 8 decimals — multiply by 10^10 to compare to wei). eth_balance sums eth_wallet_balances across users.wallet + chain=eth associated_wallets (current, not deleted). sol_balance is sol_user_balances for the wAUDIO mint, already pre-aggregated across user_bank PDAs + linked Solana wallets by handle_sol_claimable_accounts / update_sol_user_balance triggers.
+// Per-user AUDIO/wAUDIO balance totals. One row per current user with eth_balance (wei) and sol_balance (wAUDIO base units, 8 decimals — multiply by 10^10 to compare to wei). eth_balance is eth_user_balances (pre-aggregated across users.wallet + chain=eth associated_wallets, maintained by handle_eth_wallet_balance_change / handle_associated_wallets). sol_balance is sol_user_balances for the wAUDIO mint, pre-aggregated across user_bank PDAs + linked Solana wallets by handle_sol_claimable_accounts / update_sol_user_balance triggers.
 type VUserBalance struct {
 	UserID     int32       `json:"user_id"`
 	EthBalance string      `json:"eth_balance"`

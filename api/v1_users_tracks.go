@@ -64,13 +64,19 @@ func (app *ApiServer) v1UserTracks(c *fiber.Ctx) error {
 	gateConditions := queryMulti(c, "gate_condition")
 	gateFilter := buildGateConditionFilter(gateConditions)
 
+	// The profile lists a user's own tracks plus tracks they've accepted a
+	// collaborator credit on. `u` is the track's owner (the deactivation check
+	// stays on the owner); the artist-pick pin references the profile user, so a
+	// collaborator's track is never spuriously pinned by the owner's pick.
 	sql := `
 	SELECT track_id
 	FROM tracks t
 	JOIN users u ON owner_id = u.user_id
 	LEFT JOIN aggregate_plays ON track_id = play_item_id
 	LEFT JOIN aggregate_track USING (track_id)
-	WHERE t.owner_id = @user_id
+	WHERE (t.owner_id = @user_id
+	    OR t.track_id IN (SELECT track_id FROM track_collaborators
+	                      WHERE collaborator_user_id = @user_id AND status = 'accepted'))
 	  AND u.is_deactivated = false
 	  AND t.is_delete = false
 	  AND t.is_available = true
@@ -79,7 +85,7 @@ func (app *ApiServer) v1UserTracks(c *fiber.Ctx) error {
 	  AND (t.access_authorities IS NULL
 	    OR (COALESCE(@authed_wallet, '') <> ''
 	        AND EXISTS (SELECT 1 FROM unnest(t.access_authorities) aa WHERE lower(aa) = lower(@authed_wallet))))` + gateFilter + `
-	ORDER BY (CASE WHEN t.track_id = u.artist_pick_track_id THEN 0 ELSE 1 END), ` + orderClause + `
+	ORDER BY (CASE WHEN t.track_id = (SELECT artist_pick_track_id FROM users WHERE user_id = @user_id) THEN 0 ELSE 1 END), ` + orderClause + `
 	LIMIT @limit
 	OFFSET @offset
 	`

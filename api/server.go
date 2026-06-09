@@ -432,6 +432,7 @@ func NewApiServer(config config.Config) *ApiServer {
 		g.Get("/users/:userId/balance/history", app.v1UsersBalanceHistory)
 		g.Get("/users/:userId/managers", app.v1UsersManagers)
 		g.Get("/users/:userId/managed_users", app.v1UsersManagedUsers)
+		g.Get("/users/:userId/collaboration_invites", app.v1UsersCollaborationInvites)
 		g.Get("/grantees/:address/users", app.v1GranteeUsers)
 		g.Post("/users/:userId/grants", app.requireAuthMiddleware, app.requireWriteScope, app.postV1UsersGrant)
 		g.Delete("/users/:userId/grants/:address", app.requireAuthMiddleware, app.requireWriteScope, app.deleteV1UsersGrant)
