@@ -103,10 +103,16 @@ func (app *ApiServer) v1EventsRemixContests(c *fiber.Ctx) error {
 			e.created_at,
 			e.updated_at,
 			e.event_data,
+			CASE
+				WHEN er.slug IS NOT NULL AND u.handle_lc IS NOT NULL
+				THEN '/' || u.handle_lc || '/contest/' || er.slug
+				ELSE NULL
+			END AS permalink,
 			COALESCE(ec.entry_count, 0) AS entry_count
 		FROM events e
 		JOIN users u ON u.user_id = e.user_id
 			AND u.is_current = true
+		LEFT JOIN event_routes er ON er.event_id = e.event_id AND er.is_current = true
 		LEFT JOIN tracks t ON t.track_id = e.entity_id
 			AND t.is_current = true
 			AND e.entity_type = 'track'
@@ -174,6 +180,7 @@ func (app *ApiServer) v1EventsRemixContests(c *fiber.Ctx) error {
 			&row.CreatedAt,
 			&row.UpdatedAt,
 			&row.EventData,
+			&row.Permalink,
 			&entryCount,
 		); err != nil {
 			return err

@@ -9,10 +9,17 @@ SELECT
   e.is_deleted AS is_deleted,
   e.created_at AS created_at,
   e.updated_at AS updated_at,
-  e.event_data AS event_data
+  e.event_data AS event_data,
+  CASE
+    WHEN er.slug IS NOT NULL AND u.handle_lc IS NOT NULL
+    THEN '/' || u.handle_lc || '/contest/' || er.slug
+    ELSE NULL
+  END AS permalink
 FROM events e
 LEFT JOIN tracks t ON t.track_id = e.entity_id AND t.is_current = true AND e.entity_type = 'track'
   AND t.access_authorities IS NULL
+LEFT JOIN event_routes er ON er.event_id = e.event_id AND er.is_current = true
+LEFT JOIN users u ON u.user_id = e.user_id AND u.is_current = true
 WHERE
   (@entity_ids::int[] = '{}' OR e.entity_id = ANY(@entity_ids::int[]))
   AND (@event_ids::int[] = '{}' OR e.event_id = ANY(@event_ids::int[]))
