@@ -34,6 +34,7 @@ type Config struct {
 	ArchiverNodes                  []string
 	Rewards                        []rewards.Reward
 	AudiusdURL                     string
+	CoreBlockStreamEnabled         bool
 	OpenAudioURLs                  []string
 	ChainId                        string
 	BirdeyeToken                   string
@@ -95,6 +96,7 @@ var Cfg = Config{
 	AxiomDataset:                          os.Getenv("axiomDataset"),
 	NetworkTakeRate:                       10,
 	AudiusdURL:                            os.Getenv("audiusdUrl"),
+	CoreBlockStreamEnabled:                os.Getenv("coreBlockStreamEnabled") == "true",
 	OpenAudioURLs:                         []string{},
 	BirdeyeToken:                          os.Getenv("birdeyeToken"),
 	EthRpcUrl:                             os.Getenv("ethRpcUrl"),

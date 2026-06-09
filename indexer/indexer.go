@@ -3,12 +3,16 @@ package indexer
 import (
 	"context"
 	"fmt"
+	"net/http"
+	"strings"
 	"time"
 
 	"api.audius.co/config"
 	dbv1 "api.audius.co/database"
 	"api.audius.co/jobs"
 	"api.audius.co/logging"
+	"connectrpc.com/connect"
+	corev1connect "github.com/OpenAudio/go-openaudio/pkg/api/core/v1/v1connect"
 	etl "github.com/OpenAudio/go-openaudio/pkg/etl"
 	em "github.com/OpenAudio/go-openaudio/pkg/etl/processors/entity_manager"
 	"github.com/OpenAudio/go-openaudio/pkg/sdk"
@@ -68,11 +72,21 @@ func NewIndexer(cfg config.Config) *CoreIndexer {
 	etlCfg.DisableMaterializedViewRefresh()
 	etlCfg.DisablePgNotifyListener()
 	etlCfg.ReadDataTypesEnv() // honors OPENAUDIO_ETL_ENTITY_MANAGER_DATA_TYPES if set
+	etlCfg.BlockStreamEnabled = cfg.CoreBlockStreamEnabled
 
 	etlIndexer := etl.New(openAudioSDK.Core, logger)
 	etlIndexer.SetConfig(etlCfg)
 	etlIndexer.SetDBURL(cfg.WriteDbUrl)
 	etlIndexer.SetCheckReadiness(true)
+
+	// When enabled, source blocks from the CoreService.StreamBlocks gRPC stream
+	// instead of polling GetBlocks. The ETL falls back to polling automatically
+	// if the endpoint doesn't support it, so this is safe to flip on per-env.
+	// Kept separate from the SDK's unary Core client (used for status + fallback).
+	if cfg.CoreBlockStreamEnabled {
+		etlIndexer.SetBlockStreamClient(newCoreStreamClient(cfg.AudiusdURL))
+		logger.Info("etl block source: gRPC stream", zap.String("endpoint", cfg.AudiusdURL))
+	}
 
 	// Restore the pre-vendor setPubkeyForUser behavior via the upstream
 	// post-create hook (go-openaudio #317). Recovers the EIP-712 pubkey
@@ -106,6 +120,18 @@ func NewIndexer(cfg config.Config) *CoreIndexer {
 		Config:               cfg,
 		logger:               logger,
 	}
+}
+
+// newCoreStreamClient builds a gRPC (HTTP/2) CoreService client for the block
+// stream. connect.WithGRPC requires HTTP/2, which the default transport
+// negotiates over TLS. This is separate from the SDK's unary Core client, which
+// the ETL still uses for status checks and the polling fallback.
+func newCoreStreamClient(audiusdURL string) corev1connect.CoreServiceClient {
+	baseURL := audiusdURL
+	if !strings.HasPrefix(baseURL, "http://") && !strings.HasPrefix(baseURL, "https://") {
+		baseURL = "https://" + baseURL
+	}
+	return corev1connect.NewCoreServiceClient(http.DefaultClient, baseURL, connect.WithGRPC())
 }
 
 // Start runs the ETL indexer alongside the aggregates calculator. Both are
