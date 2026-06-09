@@ -92,6 +92,12 @@ func (app *ApiServer) v1UserTracks(c *fiber.Ctx) error {
 		// another owner for collab tracks, so the pin references the profile user.
 		ownerFilter = "(t.owner_id = @user_id OR t.track_id = ANY(@collab_track_ids))"
 		pinExpr = "t.track_id = (SELECT artist_pick_track_id FROM users WHERE user_id = @user_id)"
+		// Surface the user's own unlisted collaborations on their own profile
+		// (my_id == user_id); a private collab track stays hidden from other
+		// viewers, who only see it once it's public.
+		if params.FilterTracks != "public" {
+			trackFilter = "(" + trackFilter + " OR (t.track_id = ANY(@collab_track_ids) AND @my_id = @user_id))"
+		}
 	}
 
 	// The profile lists a user's own tracks plus tracks they've accepted a

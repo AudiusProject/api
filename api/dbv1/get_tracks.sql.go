@@ -237,7 +237,11 @@ FROM tracks t
 JOIN aggregate_track using (track_id)
 LEFT JOIN aggregate_plays on play_item_id = t.track_id
 LEFT JOIN track_routes on t.track_id = track_routes.track_id and track_routes.is_current = true
-WHERE (is_unlisted = false OR t.owner_id = $1 OR $2::bool = TRUE)
+WHERE (is_unlisted = false OR t.owner_id = $1 OR $2::bool = TRUE
+    OR EXISTS (SELECT 1 FROM track_collaborators tc
+               WHERE tc.track_id = t.track_id
+                 AND tc.collaborator_user_id = $1
+                 AND tc.status IN ('pending', 'accepted')))
   AND t.track_id = ANY($3::int[])
   AND (t.access_authorities IS NULL
     OR (COALESCE($4, '') <> ''
