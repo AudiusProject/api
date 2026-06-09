@@ -128,3 +128,49 @@ func TestTrackCollaboratorNotificationsGenerated(t *testing.T) {
 	assert.NoError(t, err)
 	assert.Equal(t, 1, acceptCount, "accepted credit should notify the inviter (user 500)")
 }
+
+// An invited collaborator can see a private (unlisted) track they're on; other
+// users cannot. Exercises the get_tracks visibility clause directly.
+func TestCollaboratorSeesPrivateTrack(t *testing.T) {
+	app := testAppWithFixtures(t)
+	ctx := context.Background()
+
+	// Track 700 (owned by user 500) is private/unlisted.
+	_, err := app.pool.Replicas[0].Exec(ctx,
+		"UPDATE tracks SET is_unlisted = true WHERE track_id = 700 AND is_current = true")
+	assert.NoError(t, err)
+
+	// User 1 is a pending collaborator (hasn't accepted yet) — they still need
+	// to see the track to decide.
+	now := time.Now()
+	database.SeedTable(app.pool.Replicas[0], "track_collaborators", []map[string]any{
+		{"track_id": 700, "collaborator_user_id": 1, "invited_by": 500, "status": "pending", "created_at": now, "updated_at": now},
+	})
+
+	// Collaborator (user 1) sees the private track.
+	rows, err := app.queries.GetTracks(ctx, dbv1.GetTracksParams{
+		Ids:  []int32{700},
+		MyID: int32(1),
+	})
+	assert.NoError(t, err)
+	assert.Len(t, rows, 1, "an invited collaborator should see the private track")
+
+	// A non-collaborator (user 2) does not.
+	rows, err = app.queries.GetTracks(ctx, dbv1.GetTracksParams{
+		Ids:  []int32{700},
+		MyID: int32(2),
+	})
+	assert.NoError(t, err)
+	assert.Len(t, rows, 0, "a non-collaborator must not see the private track")
+
+	// Once the collaborator declines, they no longer see it.
+	_, err = app.pool.Replicas[0].Exec(ctx,
+		"UPDATE track_collaborators SET status = 'rejected' WHERE track_id = 700 AND collaborator_user_id = 1")
+	assert.NoError(t, err)
+	rows, err = app.queries.GetTracks(ctx, dbv1.GetTracksParams{
+		Ids:  []int32{700},
+		MyID: int32(1),
+	})
+	assert.NoError(t, err)
+	assert.Len(t, rows, 0, "a rejected collaborator must not see the private track")
+}
