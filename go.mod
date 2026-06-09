@@ -6,8 +6,8 @@ require (
 	connectrpc.com/connect v1.18.1
 	github.com/AlecAivazis/survey/v2 v2.3.7
 	github.com/Doist/unfurlist v0.0.0-20250409100812-515f2735f8e5
-	github.com/OpenAudio/go-openaudio v1.3.1-0.20260609193221-97ccec32c1c6
-	github.com/OpenAudio/go-openaudio/pkg/etl v1.3.1-0.20260609193221-97ccec32c1c6
+	github.com/OpenAudio/go-openaudio v1.3.1-0.20260609211151-aee578ec923b
+	github.com/OpenAudio/go-openaudio/pkg/etl v1.3.1-0.20260609211151-aee578ec923b
 	github.com/aquasecurity/esquery v0.2.0
 	github.com/axiomhq/axiom-go v0.23.0
 	github.com/axiomhq/hyperloglog v0.2.5
