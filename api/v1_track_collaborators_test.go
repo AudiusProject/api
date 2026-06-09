@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"testing"
+	"time"
 
 	"api.audius.co/api/dbv1"
 	"api.audius.co/database"
@@ -14,9 +15,15 @@ import (
 // seedCollaborators adds: user 1 accepted on track 700 (owned by user 500) and
 // user 1 pending on track 701 (owned by user 500).
 func seedCollaborators(t *testing.T, app *ApiServer) {
+	// created_at must equal updated_at so the notification trigger's "new pending
+	// invite" branch fires (it mirrors the ETL, which writes them equal on
+	// insert). The seed baseRow's defaults call time.Now() twice, which only
+	// round-trip equal when both calls land in the same microsecond — a flaky
+	// coin flip. Pin a single value for both.
+	now := time.Now()
 	database.SeedTable(app.pool.Replicas[0], "track_collaborators", []map[string]any{
-		{"track_id": 700, "collaborator_user_id": 1, "invited_by": 500, "status": "accepted"},
-		{"track_id": 701, "collaborator_user_id": 1, "invited_by": 500, "status": "pending"},
+		{"track_id": 700, "collaborator_user_id": 1, "invited_by": 500, "status": "accepted", "created_at": now, "updated_at": now},
+		{"track_id": 701, "collaborator_user_id": 1, "invited_by": 500, "status": "pending", "created_at": now, "updated_at": now},
 	})
 }
 
