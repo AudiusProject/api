@@ -289,6 +289,23 @@ func TestGetTrendingPlaylists_Albums(t *testing.T) {
 		})
 	}
 
+	// Regression: a signed-out SDK caller passes user_id as a viewer hint
+	// (purely for has_current_user_* decoration). The middleware must
+	// treat it as advisory and not 403 the request — otherwise every
+	// logged-in client gets an empty trending list. Same path serves both
+	// type=playlist and type=album, so one exemption covers both.
+	{
+		viewer := trashid.MustEncodeHashID(1)
+		status, body := testGet(t,
+			app,
+			"/v1/playlists/trending?limit=5&type=album&user_id="+viewer,
+			nil)
+		assert.Equal(t, 200, status)
+		jsonAssert(t, body, map[string]any{
+			"data.#": 5,
+		})
+	}
+
 	// Cache safety net: if an album becomes private after the qualified-ids
 	// cache was populated (a stale entry), the response handler should still
 	// drop it before returning. Flip album 1 to private and re-call — the

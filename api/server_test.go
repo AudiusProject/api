@@ -94,6 +94,7 @@ func testAppWithFixtures(t *testing.T) *ApiServer {
 	database.SeedTable(app.pool.Replicas[0], "associated_wallets", testdata.ConnectedWallets)
 	database.SeedTable(app.pool.Replicas[0], "developer_apps", testdata.DeveloperApps)
 	database.SeedTable(app.pool.Replicas[0], "events", testdata.Events)
+	database.SeedTable(app.pool.Replicas[0], "event_routes", testdata.EventRoutes)
 	database.SeedTable(app.pool.Replicas[0], "follows", testdata.Follows)
 	database.SeedTable(app.pool.Replicas[0], "grants", testdata.Grants)
 	database.SeedTable(app.pool.Replicas[0], "playlists", testdata.Playlists)

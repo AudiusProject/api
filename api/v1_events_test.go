@@ -21,20 +21,25 @@ func TestGetEvents(t *testing.T) {
 	assert.Equal(t, 200, status)
 
 	jsonAssert(t, body, map[string]any{
-		"data.0.event_id":  trashid.MustEncodeHashID(1),
-		"data.0.entity_id": trashid.MustEncodeHashID(100),
+		"data.0.event_id":   trashid.MustEncodeHashID(1),
+		"data.0.entity_id":  trashid.MustEncodeHashID(100),
+		"data.0.permalink":  "/eventsuser/contest/summer-remix-contest",
 
-		"data.1.event_id":  trashid.MustEncodeHashID(2),
-		"data.1.entity_id": trashid.MustEncodeHashID(100),
+		"data.1.event_id":   trashid.MustEncodeHashID(2),
+		"data.1.entity_id":  trashid.MustEncodeHashID(100),
+		"data.1.permalink":  "/eventsuser/contest/live-at-the-venue",
 
-		"data.2.event_id":  trashid.MustEncodeHashID(4),
-		"data.2.entity_id": trashid.MustEncodeHashID(101),
+		"data.2.event_id":   trashid.MustEncodeHashID(4),
+		"data.2.entity_id":  trashid.MustEncodeHashID(101),
+		"data.2.permalink":  "/eventsuser/contest/fall-remix-contest",
 
-		"data.3.event_id":  trashid.MustEncodeHashID(5),
-		"data.3.entity_id": trashid.MustEncodeHashID(101),
+		"data.3.event_id":   trashid.MustEncodeHashID(5),
+		"data.3.entity_id":  trashid.MustEncodeHashID(101),
+		"data.3.permalink":  "/eventsuser/contest/live-fall-show",
 
-		"data.4.event_id":  trashid.MustEncodeHashID(6),
-		"data.4.entity_id": trashid.MustEncodeHashID(102),
+		"data.4.event_id":   trashid.MustEncodeHashID(6),
+		"data.4.entity_id":  trashid.MustEncodeHashID(102),
+		"data.4.permalink":  "/eventsuser2/contest/indie-remix-contest",
 	})
 }
 

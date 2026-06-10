@@ -8426,6 +8426,21 @@ CREATE TABLE public.events (
 
 
 --
+-- Name: event_routes; Type: TABLE; Schema: public; Owner: -
+--
+
+CREATE TABLE public.event_routes (
+    slug        character varying NOT NULL,
+    owner_id    integer           NOT NULL,
+    event_id    integer           NOT NULL,
+    is_current  boolean           NOT NULL,
+    blockhash   character varying NOT NULL,
+    blocknumber integer           NOT NULL,
+    txhash      character varying NOT NULL
+);
+
+
+--
 -- Name: follows; Type: TABLE; Schema: public; Owner: -
 --
 

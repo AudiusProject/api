@@ -435,3 +435,58 @@ func base64Encode(s string) string {
 func base64EncodeBytes(b []byte) string {
 	return base64.StdEncoding.EncodeToString(b)
 }
+
+// TestIsAdvisoryUserIdPath documents the contract for which public read
+// surfaces treat ?user_id as advisory (decoration only) vs authoritative
+// (permission/selection). The list MUST stay narrow — anything that
+// materially uses user_id beyond decoration should NOT be marked advisory.
+func TestIsAdvisoryUserIdPath(t *testing.T) {
+	cases := []struct {
+		path string
+		want bool
+	}{
+		// Documented exempt — viewer hint only.
+		{"/v1/playlists/trending", true},
+		{"/v1/playlists/top", true},
+		{"/v1/playlists/new-releases", true},
+		{"/v1/playlists/by_permalink", true},
+		{"/v1/playlists/search", true},
+		{"/v1/tracks/trending", true},
+		{"/v1/tracks/recommended", true},
+
+		// Single-resource reads — :id is the resource selector; user_id
+		// only personalizes has_current_user_*.
+		{"/v1/playlists/abc123", true},
+		{"/v1/tracks/def456", true},
+		{"/v1/users/oaM5J", true},
+		{"/v1/users/handle/somebody", true},
+
+		// For You — the canonical example.
+		{"/v1/users/oaM5J/feed/for-you", true},
+
+		// NOT exempt — authoritative on myId. /me derives "who is the
+		// caller" from user_id, so impersonation here would be a
+		// security hole. (See big comment in authMiddleware.)
+		{"/v1/me", false},
+		{"/v1/oauth/me", false},
+		{"/v1/users/account/0xabc", false},
+
+		// NOT exempt — sub-resource reads that this tactical patch
+		// doesn't claim coverage for. They may need to be added in a
+		// follow-up; for now they stay strict (which is the existing
+		// pre-patch behavior).
+		{"/v1/playlists/abc/tracks", false},
+		{"/v1/users/oaM5J/tracks", false},
+		{"/v1/users/oaM5J/followers", false},
+
+		// Random paths should never match.
+		{"/v1/notifications", false},
+		{"/v1/", false},
+		{"/", false},
+	}
+
+	for _, tc := range cases {
+		got := isAdvisoryUserIdPath(tc.path)
+		assert.Equalf(t, tc.want, got, "isAdvisoryUserIdPath(%q)", tc.path)
+	}
+}
