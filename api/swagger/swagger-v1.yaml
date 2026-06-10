@@ -14958,6 +14958,11 @@ components:
           description: Accepted collaborator artists on the track.
           items:
             $ref: "#/components/schemas/user"
+        pending_collaborators:
+          type: array
+          description: Pending collaborator invites; only present on the owner's own tracks.
+          items:
+            $ref: "#/components/schemas/user"
         duration:
           type: integer
         is_downloadable:
@@ -16437,6 +16442,11 @@ components:
         collaborators:
           type: array
           description: Accepted collaborator artists on the track.
+          items:
+            $ref: "#/components/schemas/user"
+        pending_collaborators:
+          type: array
+          description: Pending collaborator invites; only present on the owner's own tracks.
           items:
             $ref: "#/components/schemas/user"
         duration:

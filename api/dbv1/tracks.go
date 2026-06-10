@@ -30,7 +30,10 @@ type Track struct {
 	UserID        trashid.HashId `json:"user_id"`
 	User          User           `json:"user"`
 	Collaborators []User         `json:"collaborators"`
-	Access        Access         `json:"access"`
+	// PendingCollaborators is populated only on the requester's own tracks (so
+	// the owner's edit form can preserve still-pending invites); empty otherwise.
+	PendingCollaborators []User `json:"pending_collaborators"`
+	Access               Access `json:"access"`
 
 	FolloweeReposts    []*FolloweeRepost   `json:"followee_reposts"`
 	FolloweeFavorites  []*FolloweeFavorite `json:"followee_favorites"`
@@ -70,16 +73,35 @@ func (q *Queries) TracksKeyed(ctx context.Context, arg TracksParams) (map[int32]
 		collectSplitUserIds(rawTrack.DownloadConditions)
 	}
 
-	// Fetch accepted collaborators for these tracks in one query, and fold
-	// their user IDs into the bulk user fetch below so each is fully resolved.
+	// Fetch accepted + pending collaborators for these tracks in one query, and
+	// fold their user IDs into the bulk user fetch below so each is fully
+	// resolved. Accepted are embedded on every response; pending are embedded
+	// only on the requester's own tracks (for the owner's edit form), so their
+	// user IDs are only resolved for owned tracks.
+	myID := arg.MyID.(int32)
+	ownedTracks := map[int32]bool{}
+	for _, rawTrack := range rawTracks {
+		if rawTrack.UserID == myID {
+			ownedTracks[rawTrack.TrackID] = true
+		}
+	}
 	collaboratorRows, err := q.GetTrackCollaborators(ctx, trackIds)
 	if err != nil {
 		return nil, err
 	}
 	collaboratorsByTrack := map[int32][]int32{}
+	pendingByTrack := map[int32][]int32{}
 	for _, cr := range collaboratorRows {
-		collaboratorsByTrack[cr.TrackID] = append(collaboratorsByTrack[cr.TrackID], cr.CollaboratorUserID)
-		userIds = append(userIds, cr.CollaboratorUserID)
+		switch cr.Status {
+		case "accepted":
+			collaboratorsByTrack[cr.TrackID] = append(collaboratorsByTrack[cr.TrackID], cr.CollaboratorUserID)
+			userIds = append(userIds, cr.CollaboratorUserID)
+		case "pending":
+			if ownedTracks[cr.TrackID] {
+				pendingByTrack[cr.TrackID] = append(pendingByTrack[cr.TrackID], cr.CollaboratorUserID)
+				userIds = append(userIds, cr.CollaboratorUserID)
+			}
+		}
 	}
 
 	userMap, err := q.UsersKeyed(ctx, GetUsersParams{
@@ -153,6 +175,14 @@ func (q *Queries) TracksKeyed(ctx context.Context, arg TracksParams) (map[int32]
 			}
 		}
 
+		// Resolve pending collaborators (only present for the owner's own tracks).
+		pendingCollaborators := []User{}
+		for _, cid := range pendingByTrack[rawTrack.TrackID] {
+			if cu, ok := userMap[cid]; ok {
+				pendingCollaborators = append(pendingCollaborators, cu)
+			}
+		}
+
 		// Get access from the bulk access map
 		access := accessMap[rawTrack.TrackID]
 
@@ -193,22 +223,23 @@ func (q *Queries) TracksKeyed(ctx context.Context, arg TracksParams) (map[int32]
 		}
 
 		track := Track{
-			GetTracksRow:       rawTrack,
-			IsStreamable:       !rawTrack.IsDelete && !user.IsDeactivated,
-			Permalink:          fmt.Sprintf("/%s/%s", user.Handle.String, rawTrack.Slug.String),
-			Artwork:            squareImageStruct(rawTrack.CoverArtSizes, rawTrack.CoverArt),
-			Stream:             stream,
-			Download:           download,
-			Preview:            preview,
-			User:               user,
-			UserID:             user.ID,
-			Collaborators:      collaborators,
-			FolloweeFavorites:  fullFolloweeFavorites(rawTrack.FolloweeFavorites),
-			FolloweeReposts:    fullFolloweeReposts(rawTrack.FolloweeReposts),
-			RemixOf:            fullRemixOf,
-			StreamConditions:   rawTrack.StreamConditions,
-			DownloadConditions: rawTrack.DownloadConditions,
-			Access:             access,
+			GetTracksRow:         rawTrack,
+			IsStreamable:         !rawTrack.IsDelete && !user.IsDeactivated,
+			Permalink:            fmt.Sprintf("/%s/%s", user.Handle.String, rawTrack.Slug.String),
+			Artwork:              squareImageStruct(rawTrack.CoverArtSizes, rawTrack.CoverArt),
+			Stream:               stream,
+			Download:             download,
+			Preview:              preview,
+			User:                 user,
+			UserID:               user.ID,
+			Collaborators:        collaborators,
+			PendingCollaborators: pendingCollaborators,
+			FolloweeFavorites:    fullFolloweeFavorites(rawTrack.FolloweeFavorites),
+			FolloweeReposts:      fullFolloweeReposts(rawTrack.FolloweeReposts),
+			RemixOf:              fullRemixOf,
+			StreamConditions:     rawTrack.StreamConditions,
+			DownloadConditions:   rawTrack.DownloadConditions,
+			Access:               access,
 		}
 		trackMap[rawTrack.TrackID] = track
 	}
