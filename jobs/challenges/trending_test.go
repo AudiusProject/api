@@ -72,6 +72,14 @@ func TestTrending_IdempotentSameWeek(t *testing.T) {
 		}
 	}
 
+	// Regression: completed_blocknumber must be stamped. A NULL value is
+	// invisible to the pedalboard disburser, which pages /challenges/undisbursed
+	// with a `completed_blocknumber > cursor` filter.
+	var nullBlocks int
+	require.NoError(t, pool.QueryRow(context.Background(),
+		"SELECT COUNT(*) FROM user_challenges WHERE challenge_id = 'tt' AND completed_blocknumber IS NULL").Scan(&nullBlocks))
+	assert.Equal(t, 0, nullBlocks, "trending winners must have completed_blocknumber set")
+
 	// Second run is a no-op (already paid this week).
 	runProcessor(t, pool, NewTrendingTrackProcessor())
 	var count2 int

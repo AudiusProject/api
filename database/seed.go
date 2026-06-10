@@ -215,6 +215,15 @@ var (
 			"updated_at":      time.Now(),
 			"txhash":          "tx123",
 		},
+		"event_routes": {
+			"slug":        nil,
+			"owner_id":    nil,
+			"event_id":    nil,
+			"is_current":  true,
+			"blockhash":   "block_abc123",
+			"blocknumber": 101,
+			"txhash":      "tx123",
+		},
 		"track_routes": {
 			"slug":         nil,
 			"title_slug":   nil,
@@ -225,6 +234,16 @@ var (
 			"blockhash":    "block_abc123",
 			"blocknumber":  101,
 			"txhash":       "tx123",
+		},
+		"track_collaborators": {
+			"track_id":             nil,
+			"collaborator_user_id": nil,
+			"invited_by":           nil,
+			"status":               "pending",
+			"created_at":           time.Now(),
+			"updated_at":           time.Now(),
+			"txhash":               "tx123",
+			"blocknumber":          101,
 		},
 		"playlist_routes": {
 			"slug":         nil,

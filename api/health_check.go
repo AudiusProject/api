@@ -42,12 +42,10 @@ func (app *ApiServer) getCoreIndexerHealth(ctx context.Context) (*coreIndexerHea
 	// COALESCE handles the cold-start case before any blocks are indexed.
 	//
 	// The chain_id predicate is required for index usage. `core_indexed_blocks`
-	// has indexes (PK on (chain_id, height) and idx_chain_id_height), all
-	// leading with chain_id. Without the filter, MAX(height) degrades to a
-	// sequential scan over the whole table (~tens of millions of rows on
-	// prod) — at k8s probe cadence × bridge replicas that becomes enough
-	// load to saturate I/O and exhaust the connection pool. The filter
-	// makes it a sub-millisecond index seek.
+	// has a primary-key index on (chain_id, height), so the filter makes this a
+	// sub-millisecond index seek. Without the filter, MAX(height) degrades to a
+	// sequential scan over the whole table (~tens of millions of rows on prod)
+	// at k8s probe cadence.
 	//
 	// We reuse the Chainid from the just-fetched nodeInfo rather than
 	// plumbing a separate config field — same value ETL uses when it

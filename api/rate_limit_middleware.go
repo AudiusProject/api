@@ -33,12 +33,13 @@ type rpsState struct {
 	data map[string][]int64
 }
 
-// normalizeAPIKeyForLookup prepends 0x when api_key is provided without it.
+// normalizeAPIKeyForLookup canonicalizes api_key for exact primary-key lookup.
 func normalizeAPIKeyForLookup(apiKey string) string {
 	if apiKey == "" {
 		return ""
 	}
-	if strings.HasPrefix(strings.ToLower(apiKey), "0x") {
+	apiKey = strings.ToLower(apiKey)
+	if strings.HasPrefix(apiKey, "0x") {
 		return apiKey
 	}
 	return "0x" + apiKey
@@ -197,7 +198,7 @@ func (rlm *RateLimitMiddleware) checkRpm(ctx context.Context, identifier string,
 		err := rlm.writePool.QueryRow(ctx, `
 			SELECT COALESCE(SUM(request_count), 0)
 			FROM api_metrics_apps
-			WHERE (LOWER(api_key) = LOWER($1) OR LOWER(app_name) = LOWER($1))
+			WHERE api_key = $1
 			  AND date >= CURRENT_DATE - INTERVAL '30 days'
 		`, identifier).Scan(&dbCount)
 		if err != nil {
@@ -239,7 +240,7 @@ func (rlm *RateLimitMiddleware) getLimits(ctx context.Context, identifier string
 	err := rlm.writePool.QueryRow(ctx, `
 		SELECT COALESCE(rps, 10), COALESCE(rpm, 500000)
 		FROM api_keys
-		WHERE LOWER(api_key) = LOWER($1)
+		WHERE api_key = $1
 	`, identifier).Scan(&rpsVal, &rpmVal)
 	if err == pgx.ErrNoRows || err != nil {
 		return 0, 0, true

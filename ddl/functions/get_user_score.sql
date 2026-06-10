@@ -15,31 +15,7 @@ create or replace function get_user_score(target_user_id integer) returns table(
         has_profile_picture boolean,
         karma bigint,
         score bigint
-    ) language sql as $function$ with play_activity as (
-        select p.user_id,
-            count(distinct date_trunc('day', p.created_at)) as play_count,
-            count(distinct p.play_item_id) as distinct_tracks_played
-        from plays p
-        where p.user_id = target_user_id
-        group by p.user_id
-    ),
-    fast_challenge_completion as (
-        select u.user_id,
-            u.handle_lc,
-            u.created_at,
-            count(*) as challenge_count,
-            array_agg(uc.challenge_id) as challenge_ids
-        from users u
-            left join user_challenges uc on u.user_id = uc.user_id
-        where u.user_id = target_user_id
-            and uc.is_complete
-            and uc.completed_at - u.created_at <= interval '3 minutes'
-            and uc.challenge_id not in ('m', 'b')
-        group by u.user_id,
-            u.handle_lc,
-            u.created_at
-    ),
-    chat_blocks as (
+    ) language sql as $function$ with chat_blocks as (
         select c.blockee_user_id as user_id,
             count(*) as block_count
         from chat_blocked_users c
@@ -49,9 +25,9 @@ create or replace function get_user_score(target_user_id integer) returns table(
     aggregate_scores as (
         select u.user_id,
             u.handle_lc,
-            coalesce(p.play_count, 0) as play_count,
-            coalesce(p.distinct_tracks_played, 0) as distinct_tracks_played,
-            coalesce(c.challenge_count, 0) as challenge_count,
+            coalesce(udph.hours_with_play, 0)::bigint as play_count,
+            coalesce(udpt.track_count, 0)::bigint as distinct_tracks_played,
+            coalesce(usf.challenge_count, 0)::bigint as challenge_count,
             coalesce(au.following_count, 0) as following_count,
             coalesce(au.follower_count, 0) as follower_count,
             coalesce(cb.block_count, 0) as chat_block_count,
@@ -86,11 +62,13 @@ create or replace function get_user_score(target_user_id integer) returns table(
                 )
             end as karma
         from users u
-            left join play_activity p on u.user_id = p.user_id
-            left join fast_challenge_completion c on u.user_id = c.user_id
+            left join user_distinct_play_hours udph on u.user_id = udph.user_id
+            left join user_distinct_play_tracks udpt on u.user_id = udpt.user_id
+            left join user_score_features usf on u.user_id = usf.user_id
             left join chat_blocks cb on u.user_id = cb.user_id
             left join aggregate_user au on u.user_id = au.user_id
         where u.user_id = target_user_id
+            and u.is_current
             and u.handle_lc is not null
     )
 select a.*,

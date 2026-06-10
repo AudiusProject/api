@@ -464,6 +464,40 @@ func sendRewardClaimTransactionsBatched(
 	return txSignatures, nil
 }
 
+// waitForSubmittedAttestations polls the attestations account until it
+// reflects at least expectedCount submitted attestations. This ensures the
+// account state written by a previously-sent (and confirmed) transaction is
+// actually visible on the RPC node before we build and simulate a dependent
+// transaction. Without this, the dependent transaction's simulation can race
+// ahead of the RPC's account state and fail spuriously.
+//
+// It's best-effort: if the state still isn't visible after the polling window,
+// it returns nil and lets the caller proceed (the dependent send has its own
+// retries).
+func waitForSubmittedAttestations(
+	ctx context.Context,
+	rewardManagerClient *reward_manager.RewardManagerClient,
+	claim rewards.RewardClaim,
+	expectedCount int,
+) error {
+	const (
+		maxAttempts  = 20
+		pollInterval = 250 * time.Millisecond
+	)
+	for range maxAttempts {
+		attestationsData, err := rewardManagerClient.GetSubmittedAttestations(ctx, claim)
+		if err == nil && int(attestationsData.Count) >= expectedCount {
+			return nil
+		}
+		select {
+		case <-ctx.Done():
+			return ctx.Err()
+		case <-time.After(pollInterval):
+		}
+	}
+	return nil
+}
+
 // Builds a Solana transaction to claim a reward from the attestations and sends it with retries.
 func sendRewardClaimTransactions(
 	ctx context.Context,
@@ -548,12 +582,31 @@ func sendRewardClaimTransactions(
 		estimatedEvaluateInstructionSize := 205
 		threshold := spl.MAX_TRANSACTION_SIZE - estimatedEvaluateInstructionSize
 		if len(partialTxBinary) > threshold {
-			sig, err := transactionSender.SendTransactionWithRetries(ctx, partialTx, rpc.CommitmentConfirmed, rpc.TransactionOpts{})
+			// Record how many attestations are visible before submitting so we
+			// can confirm partialTx's writes have landed on the RPC afterwards.
+			preCount := 0
+			if existing, err := rewardManagerClient.GetSubmittedAttestations(ctx, rewardClaim.RewardClaim); err == nil {
+				preCount = int(existing.Count)
+			}
+
+			sig, err := transactionSender.SendTransactionWithRetries(ctx, partialTx, rpc.CommitmentConfirmed, rpc.TransactionOpts{
+				SkipPreflight: true,
+			})
 			if err != nil {
 				return nil, err
 			}
 			txSignatures = append(txSignatures, *sig)
 			remainderTx = solana.NewTransactionBuilder()
+
+			// partialTx wrote the submitted attestations that the evaluate
+			// instruction in remainderTx reads. Even though partialTx is
+			// confirmed, the RPC node we simulate/send remainderTx against may
+			// not yet reflect that state, racing the remainderTx simulation
+			// into a spurious failure. Wait for the new attestations to become
+			// visible before continuing.
+			if err := waitForSubmittedAttestations(ctx, rewardManagerClient, rewardClaim.RewardClaim, preCount+len(attestations)); err != nil {
+				return txSignatures, err
+			}
 		}
 	}
 
@@ -588,7 +641,9 @@ func sendRewardClaimTransactions(
 		return nil, err
 	}
 
-	sig, err := transactionSender.SendTransactionWithRetries(ctx, remainderTx, rpc.CommitmentConfirmed, rpc.TransactionOpts{})
+	sig, err := transactionSender.SendTransactionWithRetries(ctx, remainderTx, rpc.CommitmentConfirmed, rpc.TransactionOpts{
+		SkipPreflight: true,
+	})
 	if err != nil {
 		return nil, err
 	}

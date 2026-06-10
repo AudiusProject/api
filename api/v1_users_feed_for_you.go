@@ -442,7 +442,10 @@ func (app *ApiServer) v1FeedForYou(c *fiber.Ctx) error {
 			f.entity_id,
 			f.owner_id,
 			f.created_at,
-			EXP(-LN(2) * GREATEST(EXTRACT(EPOCH FROM (NOW() - f.created_at)) / 3600.0, 0) / 48.0)
+			EXP(GREATEST(
+				-LN(2.0::double precision) * GREATEST(EXTRACT(EPOCH FROM (NOW() - f.created_at))::double precision / 3600.0, 0.0) / 48.0,
+				-700.0
+			))
 				AS recency_score,
 			LN(1 + 3 * f.save_count + 2 * f.repost_count + f.play_count) / 12.0
 				AS engagement_score,

@@ -8426,6 +8426,21 @@ CREATE TABLE public.events (
 
 
 --
+-- Name: event_routes; Type: TABLE; Schema: public; Owner: -
+--
+
+CREATE TABLE public.event_routes (
+    slug        character varying NOT NULL,
+    owner_id    integer           NOT NULL,
+    event_id    integer           NOT NULL,
+    is_current  boolean           NOT NULL,
+    blockhash   character varying NOT NULL,
+    blocknumber integer           NOT NULL,
+    txhash      character varying NOT NULL
+);
+
+
+--
 -- Name: follows; Type: TABLE; Schema: public; Owner: -
 --
 
@@ -8458,6 +8473,95 @@ CREATE TABLE public.grants (
     created_at timestamp without time zone NOT NULL,
     txhash character varying NOT NULL
 );
+
+
+--
+-- Name: track_collaborators; Type: TABLE; Schema: public; Owner: -
+--
+
+CREATE TABLE public.track_collaborators (
+    track_id integer NOT NULL,
+    collaborator_user_id integer NOT NULL,
+    invited_by integer NOT NULL,
+    status text DEFAULT 'pending'::text NOT NULL,
+    created_at timestamp without time zone NOT NULL,
+    updated_at timestamp without time zone NOT NULL,
+    txhash character varying NOT NULL,
+    blocknumber integer,
+    CONSTRAINT track_collaborators_pkey PRIMARY KEY (track_id, collaborator_user_id),
+    CONSTRAINT track_collaborators_status_check CHECK ((status = ANY (ARRAY['pending'::text, 'accepted'::text, 'rejected'::text])))
+);
+
+
+CREATE INDEX IF NOT EXISTS idx_track_collaborators_collaborator ON public.track_collaborators USING btree (collaborator_user_id, status, track_id);
+
+
+-- Notification trigger for collaborative tracks (see
+-- ddl/functions/handle_track_collaborator.sql). Defined inline here so fresh /
+-- test databases loaded from this schema have it; `make test-schema` will
+-- canonicalize the placement.
+create or replace function public.process_track_collaborator_change() returns trigger as $$
+begin
+    if (TG_OP = 'INSERT' and NEW.status = 'pending' and NEW.created_at = NEW.updated_at) or
+       (TG_OP = 'UPDATE' and NEW.status = 'pending' and OLD.status is distinct from 'pending')
+    then
+        insert into notification
+                (blocknumber, user_ids, timestamp, type, specifier, group_id, data)
+              values
+                (
+                  new.blocknumber,
+                  array [new.collaborator_user_id],
+                  new.updated_at,
+                  'track_collaborator_invite',
+                  new.invited_by,
+                  'track_collaborator_invite:' || 'track_id:' || new.track_id ||
+                    ':collaborator_user_id:' || new.collaborator_user_id ||
+                    ':inviter_user_id:' || new.invited_by,
+                  json_build_object(
+                      'track_id', new.track_id,
+                      'collaborator_user_id', new.collaborator_user_id,
+                      'inviter_user_id', new.invited_by
+                    )
+                )
+              on conflict do nothing;
+    elsif (TG_OP = 'UPDATE' and NEW.status = 'accepted' and OLD.status is distinct from 'accepted') or
+          (TG_OP = 'INSERT' and NEW.status = 'accepted')
+    then
+        insert into notification
+                (blocknumber, user_ids, timestamp, type, specifier, group_id, data)
+              values
+                (
+                  new.blocknumber,
+                  array [new.invited_by],
+                  new.updated_at,
+                  'track_collaborator_accept',
+                  new.collaborator_user_id,
+                  'track_collaborator_accept:' || 'track_id:' || new.track_id ||
+                    ':collaborator_user_id:' || new.collaborator_user_id ||
+                    ':inviter_user_id:' || new.invited_by,
+                  json_build_object(
+                      'track_id', new.track_id,
+                      'collaborator_user_id', new.collaborator_user_id,
+                      'inviter_user_id', new.invited_by
+                    )
+                )
+              on conflict do nothing;
+    end if;
+    return null;
+exception
+  when others then
+      raise warning 'An error occurred in %: %', tg_name, sqlerrm;
+      return null;
+end;
+$$ language plpgsql;
+
+do $$ begin
+  create trigger trigger_track_collaborator_change
+  after insert or update on public.track_collaborators
+  for each row execute procedure public.process_track_collaborator_change();
+exception
+  when others then null;
+end $$;
 
 
 --

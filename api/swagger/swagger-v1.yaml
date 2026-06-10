@@ -11981,6 +11981,8 @@ components:
           type: array
           items:
             $ref: "#/components/schemas/event"
+        related:
+          $ref: "#/components/schemas/remix_contests_related"
     remix_contests_related:
       type: object
       properties:
@@ -14951,6 +14953,16 @@ components:
           type: string
         user:
           $ref: "#/components/schemas/user"
+        collaborators:
+          type: array
+          description: Accepted collaborator artists on the track.
+          items:
+            $ref: "#/components/schemas/user"
+        pending_collaborators:
+          type: array
+          description: Pending collaborator invites; only present on the owner's own tracks.
+          items:
+            $ref: "#/components/schemas/user"
         duration:
           type: integer
         is_downloadable:
@@ -16427,6 +16439,16 @@ components:
           type: string
         user:
           $ref: "#/components/schemas/user"
+        collaborators:
+          type: array
+          description: Accepted collaborator artists on the track.
+          items:
+            $ref: "#/components/schemas/user"
+        pending_collaborators:
+          type: array
+          description: Pending collaborator invites; only present on the owner's own tracks.
+          items:
+            $ref: "#/components/schemas/user"
         duration:
           type: integer
         is_downloadable:

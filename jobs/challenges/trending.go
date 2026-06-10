@@ -188,6 +188,20 @@ func (p *TrendingProcessor) Reconcile(ctx context.Context, tx pgx.Tx) error {
 		return nil
 	}
 
+	// The pedalboard disburser pages /challenges/undisbursed with a
+	// `completed_blocknumber > cursor` filter, so rows with a NULL
+	// completed_blocknumber are never swept by the batch job (only client-side
+	// claims, which pass cursor 0, pay out). Stamp the current indexed block so
+	// weekly winners are disbursable, as the legacy indexer did.
+	var completedBlock int64
+	if err := tx.QueryRow(ctx, `
+		SELECT GREATEST(
+			COALESCE((SELECT max(blocknumber) FROM tracks), 0),
+			COALESCE((SELECT max(blocknumber) FROM playlists), 0))
+	`).Scan(&completedBlock); err != nil {
+		return fmt.Errorf("trending completed_blocknumber: %w", err)
+	}
+
 	for idx, e := range entries {
 		rank := int32(idx + 1)
 		rewardAmount := p.amountForRank(rank)
@@ -206,6 +220,13 @@ func (p *TrendingProcessor) Reconcile(ctx context.Context, tx pgx.Tx) error {
 		); err != nil {
 			return fmt.Errorf("upsert trending user_challenge: %w", err)
 		}
+	}
+
+	if _, err := tx.Exec(ctx, `
+		UPDATE user_challenges SET completed_blocknumber = $1
+		WHERE challenge_id = $2 AND specifier LIKE $3 AND completed_blocknumber IS NULL
+	`, completedBlock, p.ID, weekDate.Format("2006-01-02")+":%"); err != nil {
+		return fmt.Errorf("stamp trending completed_blocknumber: %w", err)
 	}
 	return nil
 }
