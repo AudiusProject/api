@@ -174,3 +174,33 @@ func TestCollaboratorSeesPrivateTrack(t *testing.T) {
 	assert.NoError(t, err)
 	assert.Len(t, rows, 0, "a rejected collaborator must not see the private track")
 }
+
+// Pending collaborator invites are embedded only on the owner's own tracks (so
+// their edit form can preserve them); accepted collaborators stay public.
+func TestPendingCollaboratorsVisibleToOwnerOnly(t *testing.T) {
+	app := testAppWithFixtures(t)
+	ctx := context.Background()
+
+	// Track 700 is owned by user 500: user 1 accepted, user 2 still pending.
+	now := time.Now()
+	database.SeedTable(app.pool.Replicas[0], "track_collaborators", []map[string]any{
+		{"track_id": 700, "collaborator_user_id": 1, "invited_by": 500, "status": "accepted", "created_at": now, "updated_at": now},
+		{"track_id": 700, "collaborator_user_id": 2, "invited_by": 500, "status": "pending", "created_at": now, "updated_at": now},
+	})
+
+	// As the owner (my_id = 500): accepted embedded + pending visible.
+	owned, err := app.queries.TracksKeyed(ctx, dbv1.TracksParams{
+		GetTracksParams: dbv1.GetTracksParams{Ids: []int32{700}, MyID: int32(500)},
+	})
+	assert.NoError(t, err)
+	assert.Len(t, owned[700].Collaborators, 1, "accepted collaborator is embedded")
+	assert.Len(t, owned[700].PendingCollaborators, 1, "owner sees the pending invite")
+
+	// As a non-owner (my_id = 1): accepted still embedded, pending hidden.
+	other, err := app.queries.TracksKeyed(ctx, dbv1.TracksParams{
+		GetTracksParams: dbv1.GetTracksParams{Ids: []int32{700}, MyID: int32(1)},
+	})
+	assert.NoError(t, err)
+	assert.Len(t, other[700].Collaborators, 1, "accepted collaborator stays public")
+	assert.Len(t, other[700].PendingCollaborators, 0, "pending invite is hidden from non-owners")
+}

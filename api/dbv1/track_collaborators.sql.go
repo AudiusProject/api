@@ -65,22 +65,25 @@ func (q *Queries) GetTrackCollaboratorInvitesForUser(ctx context.Context, arg Ge
 }
 
 const getTrackCollaborators = `-- name: GetTrackCollaborators :many
-SELECT track_id, collaborator_user_id
+SELECT track_id, collaborator_user_id, status
 FROM track_collaborators
 WHERE track_id = ANY($1::int[])
-  AND status = 'accepted'
+  AND status IN ('accepted', 'pending')
 ORDER BY track_id, created_at
 `
 
 type GetTrackCollaboratorsRow struct {
-	TrackID            int32 `json:"track_id"`
-	CollaboratorUserID int32 `json:"collaborator_user_id"`
+	TrackID            int32  `json:"track_id"`
+	CollaboratorUserID int32  `json:"collaborator_user_id"`
+	Status             string `json:"status"`
 }
 
-// Accepted collaborators for a set of tracks, used to embed a `collaborators`
-// array on track responses. Returns one row per (track, collaborator); the Go
-// layer bulk-resolves the user objects. Backed by the track_collaborators
-// primary key (track_id leads), so the ANY(...) lookup is index-served.
+// Accepted and pending collaborators for a set of tracks, used to embed a
+// `collaborators` array (accepted) on every track response and a
+// `pending_collaborators` array on the owner's own tracks. Returns one row per
+// (track, collaborator) with status; the Go layer splits by status and
+// bulk-resolves the user objects. Backed by the track_collaborators primary key
+// (track_id leads), so the ANY(...) lookup is index-served.
 func (q *Queries) GetTrackCollaborators(ctx context.Context, trackIds []int32) ([]GetTrackCollaboratorsRow, error) {
 	rows, err := q.db.Query(ctx, getTrackCollaborators, trackIds)
 	if err != nil {
@@ -90,7 +93,7 @@ func (q *Queries) GetTrackCollaborators(ctx context.Context, trackIds []int32) (
 	var items []GetTrackCollaboratorsRow
 	for rows.Next() {
 		var i GetTrackCollaboratorsRow
-		if err := rows.Scan(&i.TrackID, &i.CollaboratorUserID); err != nil {
+		if err := rows.Scan(&i.TrackID, &i.CollaboratorUserID, &i.Status); err != nil {
 			return nil, err
 		}
 		items = append(items, i)
