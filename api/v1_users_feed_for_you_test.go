@@ -370,6 +370,78 @@ func TestV1FeedForYou_OldPlaysDoNotSuppress(t *testing.T) {
 		"a 20-day-old play is outside the window and should not downrank track 101")
 }
 
+// feedForYouGenreFixtures returns the standard fixture graph with
+// genres on the two in-network sibling tracks: 101 (the naturally
+// stronger one) is Rock, 102 is Electronic. Track 666 is an old upload
+// (outside every candidate window) that exists only to receive plays
+// that shape the viewer's genre mix.
+func feedForYouGenreFixtures() database.FixtureMap {
+	fixtures := feedForYouFixtures()
+	for _, tr := range fixtures["tracks"] {
+		switch tr["track_id"] {
+		case 101:
+			tr["genre"] = "Rock"
+		case 102:
+			tr["genre"] = "Electronic"
+		}
+	}
+	fixtures["tracks"] = append(fixtures["tracks"], map[string]any{
+		"track_id": 666, "owner_id": 3, "title": "old electronic upload",
+		"genre":      "Electronic",
+		"created_at": time.Now().Add(-100 * 24 * time.Hour),
+	})
+	return fixtures
+}
+
+// TestV1FeedForYou_GenreAffinityBoostsFavoredGenre asserts the
+// genre_affinity multiplier: the viewer's recent plays are 100%
+// Electronic, so Electronic track 102 (1.30x) should outrank its
+// naturally-stronger Rock sibling 101 (0.85x, unfamiliar genre) —
+// while 101 stays in the feed rather than being filtered.
+func TestV1FeedForYou_GenreAffinityBoostsFavoredGenre(t *testing.T) {
+	app := emptyTestApp(t)
+	app.skipAuthCheck = true
+
+	fixtures := feedForYouGenreFixtures()
+	// Plays of old track 666 build an all-Electronic genre profile.
+	// 666 is 100 days old: outside the artist-affinity 90-day window
+	// and outside every candidate source, so the only signal these
+	// plays add is genre. The plays are 30+ days old so the repeat
+	// penalty (14-day window) is not in play either.
+	plays := make([]map[string]any, 0, 5)
+	for i := 0; i < 5; i++ {
+		plays = append(plays, map[string]any{
+			"id": i + 1, "user_id": 1, "play_item_id": 666,
+			"created_at": time.Now().Add(-time.Duration(30+i) * 24 * time.Hour),
+		})
+	}
+	fixtures["plays"] = plays
+	database.Seed(app.pool.Replicas[0], fixtures)
+
+	pos := feedForYouTrackPositions(t, app, 101, 102)
+	require.NotEqual(t, -1, pos[102], "favored-genre track 102 should be in the feed")
+	require.NotEqual(t, -1, pos[101],
+		"unfamiliar-genre track 101 should stay in the feed, just ranked lower")
+	assert.Greater(t, pos[101], pos[102],
+		"Electronic track 102 should outrank Rock sibling 101 for an all-Electronic listener")
+}
+
+// TestV1FeedForYou_GenreAffinityNeutralOnColdStart asserts that a user
+// with no play history gets no genre boost or penalty: 101 keeps its
+// natural position above 102 even though genres differ.
+func TestV1FeedForYou_GenreAffinityNeutralOnColdStart(t *testing.T) {
+	app := emptyTestApp(t)
+	app.skipAuthCheck = true
+
+	database.Seed(app.pool.Replicas[0], feedForYouGenreFixtures())
+
+	pos := feedForYouTrackPositions(t, app, 101, 102)
+	require.NotEqual(t, -1, pos[101])
+	require.NotEqual(t, -1, pos[102])
+	assert.Less(t, pos[101], pos[102],
+		"with no play history genre_affinity must be neutral; 101 keeps its natural rank")
+}
+
 // TestV1FeedForYou_PerArtistCapIsShared asserts that max_per_artist
 // applies across both tracks and playlists for the same owner — the
 // diversity cap is shared, not per-type. User 2 (followed) has 2 tracks

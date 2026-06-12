@@ -72,10 +72,17 @@ type GetUsersFeedForYouParams struct {
 //	                   // tracks the user already heard recently stay in
 //	                   // the feed but rank below fresh content. Playlists
 //	                   // always get 1.00 (no per-user playlist play data).
+//	genre_affinity   = 0.85 + 0.45 * min(genre_share / 0.30, 1)
+//	                   // genre_share is the fraction of my recent plays
+//	                   // in the track's genre: a genre at >= 30% of my
+//	                   // listening gets the full 1.30x, genres I never
+//	                   // play get 0.85x. Neutral 1.00 for playlists,
+//	                   // genre-less tracks, and cold-start users with
+//	                   // no play history.
 //
 //	final_score = (0.55 * recency_score + 0.45 * engagement_score)
 //	              * social_boost * source_weight * content_type_weight
-//	              * repeat_penalty
+//	              * repeat_penalty * genre_affinity
 //
 // 3. FILTERS — applied once after the union to keep the candidate set
 // cheap:
@@ -186,6 +193,28 @@ func (app *ApiServer) v1FeedForYou(c *fiber.Ctx) error {
 		) p
 		WHERE created_at >= NOW() - INTERVAL '14 days'
 		GROUP BY track_id
+	),
+	-- Genre mix of my recent listening: share = fraction of my recent
+	-- plays that landed in each genre. Feeds the genre_affinity
+	-- multiplier so tracks in genres I play often rank higher and
+	-- genres I never touch rank slightly lower.
+	--
+	-- Bounded like the other play sub-selects: only the most recent
+	-- slice of plays is scanned, so a heavy listener can't pull this
+	-- CTE wide.
+	my_genre_affinity AS (
+		SELECT t.genre,
+		       COUNT(*)::double precision / SUM(COUNT(*)) OVER () AS share
+		FROM (
+			SELECT play_item_id AS track_id
+			FROM plays
+			WHERE user_id = @userId
+			ORDER BY created_at DESC
+			LIMIT 1000
+		) p
+		JOIN tracks t ON t.track_id = p.track_id
+		WHERE t.genre IS NOT NULL AND t.genre <> ''
+		GROUP BY t.genre
 	),
 	-- Per-owner engagement strength: saves+reposts of any of their
 	-- tracks/playlists by me, plus plays of their tracks. Used for the
@@ -402,7 +431,9 @@ func (app *ApiServer) v1FeedForYou(c *fiber.Ctx) error {
 			COALESCE(at.repost_count, 0) AS repost_count,
 			COALESCE(ap.count, 0)        AS play_count,
 			COALESCE(maa.affinity, 0)    AS affinity,
-			mrp.last_played_at           AS last_played_at
+			mrp.last_played_at           AS last_played_at,
+			t.genre                      AS genre,
+			mga.share                    AS genre_share
 		FROM candidates c
 		JOIN tracks t ON t.track_id = c.entity_id
 		JOIN users  u ON u.user_id  = t.owner_id
@@ -410,6 +441,7 @@ func (app *ApiServer) v1FeedForYou(c *fiber.Ctx) error {
 		LEFT JOIN aggregate_plays ap  ON ap.play_item_id = c.entity_id
 		LEFT JOIN my_artist_affinity maa ON maa.artist_id = t.owner_id
 		LEFT JOIN my_recent_plays mrp ON mrp.track_id = c.entity_id
+		LEFT JOIN my_genre_affinity mga ON mga.genre = t.genre
 		WHERE c.entity_type = 'track'
 		  AND t.is_current   = true
 		  AND t.is_delete    = false
@@ -441,7 +473,9 @@ func (app *ApiServer) v1FeedForYou(c *fiber.Ctx) error {
 			COALESCE(ap.repost_count, 0) AS repost_count,
 			0                            AS play_count,
 			COALESCE(maa.affinity, 0)    AS affinity,
-			NULL::timestamp              AS last_played_at
+			NULL::timestamp              AS last_played_at,
+			NULL::text                   AS genre,
+			NULL::double precision       AS genre_share
 		FROM candidates c
 		JOIN playlists p ON p.playlist_id = c.entity_id
 		JOIN users     u ON u.user_id     = p.playlist_owner_id
@@ -461,11 +495,13 @@ func (app *ApiServer) v1FeedForYou(c *fiber.Ctx) error {
 	),
 	filtered AS (
 		SELECT entity_type, entity_id, owner_id, created_at, source,
-		       save_count, repost_count, play_count, affinity, last_played_at
+		       save_count, repost_count, play_count, affinity, last_played_at,
+		       genre, genre_share
 		FROM filtered_tracks
 		UNION ALL
 		SELECT entity_type, entity_id, owner_id, created_at, source,
-		       save_count, repost_count, play_count, affinity, last_played_at
+		       save_count, repost_count, play_count, affinity, last_played_at,
+		       genre, genre_share
 		FROM filtered_playlists
 	),
 	scored AS (
@@ -496,7 +532,17 @@ func (app *ApiServer) v1FeedForYou(c *fiber.Ctx) error {
 				WHEN f.last_played_at >= NOW() - INTERVAL '7 days'  THEN 0.25
 				WHEN f.last_played_at >= NOW() - INTERVAL '14 days' THEN 0.50
 				ELSE 1.00
-			END AS repeat_penalty
+			END AS repeat_penalty,
+			CASE
+				-- Playlists carry no single genre; genre-less tracks
+				-- and cold-start users (no genre history at all) are
+				-- neutral rather than penalized.
+				WHEN f.entity_type <> 'track'           THEN 1.00
+				WHEN f.genre IS NULL OR f.genre = ''    THEN 1.00
+				WHEN NOT EXISTS (SELECT 1 FROM my_genre_affinity) THEN 1.00
+				WHEN f.genre_share IS NULL              THEN 0.85
+				ELSE 0.85 + 0.45 * LEAST(f.genre_share / 0.30, 1.0)
+			END AS genre_affinity
 		FROM filtered f
 	),
 	final_scored AS (
@@ -507,7 +553,7 @@ func (app *ApiServer) v1FeedForYou(c *fiber.Ctx) error {
 			created_at,
 			(0.55 * recency_score + 0.45 * engagement_score)
 				* social_boost * source_weight * content_type_weight
-				* repeat_penalty AS score
+				* repeat_penalty * genre_affinity AS score
 		FROM scored
 	),
 	capped AS (
