@@ -38,19 +38,19 @@ type GetUsersFeedForYouParams struct {
 //     < 1500 follower & following count
 //     (mirrors GET /tracks/trending/underground). Capped at 50.
 //   - cand_in_network_playlist    — playlists/albums created in the last
-//     14 days by users I follow. Capped at 50.
+//     14 days by users I follow. Capped at 30.
 //   - cand_trending_playlist      — top week-trending playlists/albums
 //     (playlist_trending_scores). Mirrors GET /playlists/trending.
-//     Capped at 50.
+//     Capped at 30.
 //   - cand_underground_playlist   — week-trending playlists/albums whose
-//     owner has < 1500 follower & following count. Capped at 25.
+//     owner has < 1500 follower & following count. Capped at 15.
 //
 // Per-source caps are smaller for playlists because they're heavier
 // objects to hydrate downstream and rarer in the index — flooding the
 // pool with them would crowd out tracks under the shared per-artist cap.
 //
-// 2. RANKING — three light signals combined linearly, identical formula
-// across types:
+// 2. RANKING — three light signals combined linearly, then scaled by a
+// content-type weight that keeps the feed track-forward:
 //
 //	recency_score    = exp(-ln(2) * age_hours / 48)
 //	                   // 48h half-life: 48h-old → 0.5, 96h → 0.25
@@ -63,9 +63,13 @@ type GetUsersFeedForYouParams struct {
 //	                   // tracks AND playlists, plus plays of tracks.
 //	source_weight    = {in_network: 1.20, trending: 1.00,
 //	                    underground: 0.95}
+//	content_type_weight = {track: 1.00, playlist/album: 0.60}
+//	                   // collections stay in the feed but rank below
+//	                   // comparably-scored tracks, targeting roughly one
+//	                   // collection per 5-6 tracks.
 //
 //	final_score = (0.55 * recency_score + 0.45 * engagement_score)
-//	              * social_boost * source_weight
+//	              * social_boost * source_weight * content_type_weight
 //
 // 3. FILTERS — applied once after the union to keep the candidate set
 // cheap:
@@ -303,7 +307,7 @@ func (app *ApiServer) v1FeedForYou(c *fiber.Ctx) error {
 		  AND p.is_private = false
 		  AND p.created_at >= NOW() - INTERVAL '14 days'
 		ORDER BY p.created_at DESC
-		LIMIT 50
+		LIMIT 30
 	),
 	-- Source 2b: weekly trending playlists/albums.
 	cand_trending_playlist AS (
@@ -319,7 +323,7 @@ func (app *ApiServer) v1FeedForYou(c *fiber.Ctx) error {
 		  AND pts.version = 'pnagD'
 		  AND pts.time_range = 'week'
 		ORDER BY pts.score DESC, pts.playlist_id DESC
-		LIMIT 50
+		LIMIT 30
 	),
 	-- Source 3b: underground trending playlists/albums.
 	cand_underground_playlist AS (
@@ -338,7 +342,7 @@ func (app *ApiServer) v1FeedForYou(c *fiber.Ctx) error {
 		  AND au.follower_count < 1500
 		  AND au.following_count < 1500
 		ORDER BY pts.score DESC, pts.playlist_id DESC
-		LIMIT 25
+		LIMIT 15
 	),
 	-- One row per (entity_type, entity_id). DISTINCT ON keeps the
 	-- strongest (lowest-prio) source so an in-network item that's also
@@ -455,7 +459,11 @@ func (app *ApiServer) v1FeedForYou(c *fiber.Ctx) error {
 				WHEN 'trending'    THEN 1.00
 				WHEN 'underground' THEN 0.95
 				ELSE 1.00
-			END AS source_weight
+			END AS source_weight,
+			CASE f.entity_type
+				WHEN 'track' THEN 1.00
+				ELSE 0.60
+			END AS content_type_weight
 		FROM filtered f
 	),
 	final_scored AS (
@@ -465,7 +473,7 @@ func (app *ApiServer) v1FeedForYou(c *fiber.Ctx) error {
 			owner_id,
 			created_at,
 			(0.55 * recency_score + 0.45 * engagement_score)
-				* social_boost * source_weight AS score
+				* social_boost * source_weight * content_type_weight AS score
 		FROM scored
 	),
 	capped AS (
