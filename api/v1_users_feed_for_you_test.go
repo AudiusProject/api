@@ -293,6 +293,83 @@ func TestV1FeedForYou_IncludesCollections(t *testing.T) {
 		"deactivated-owner track 701 must not appear")
 }
 
+// feedForYouTrackPositions fetches a wide page of the for-you feed for
+// user 1 and returns the index of each track by raw track id (-1 if the
+// track isn't on the page).
+func feedForYouTrackPositions(t *testing.T, app *ApiServer, trackIds ...int32) map[int32]int {
+	t.Helper()
+	var resp struct {
+		Data []feedForYouItem
+	}
+	path := fmt.Sprintf("/v1/users/%s/feed/for-you?limit=20", trashid.MustEncodeHashID(1))
+	status, body := testGet(t, app, path, &resp)
+	require.Equal(t, 200, status, string(body))
+
+	positions := map[int32]int{}
+	for _, id := range trackIds {
+		positions[id] = -1
+	}
+	for i, it := range resp.Data {
+		if it.Type != "track" {
+			continue
+		}
+		var idHolder struct {
+			ID string `json:"id"`
+		}
+		_ = json.Unmarshal(it.Item, &idHolder)
+		for _, id := range trackIds {
+			if idHolder.ID == trashid.MustEncodeHashID(int(id)) {
+				positions[id] = i
+			}
+		}
+	}
+	return positions
+}
+
+// TestV1FeedForYou_RepeatSuppressionDownranksPlayedTracks asserts that a
+// track the viewer played in the last 7 days gets the 0.25x repeat
+// penalty: track 101 normally outranks its sibling 102 (same owner,
+// fresher, more engagement), but a recent play by user 1 should push it
+// below 102 — while still keeping it in the feed.
+func TestV1FeedForYou_RepeatSuppressionDownranksPlayedTracks(t *testing.T) {
+	app := emptyTestApp(t)
+	app.skipAuthCheck = true
+
+	fixtures := feedForYouFixtures()
+	fixtures["plays"] = []map[string]any{
+		{"id": 1, "user_id": 1, "play_item_id": 101,
+			"created_at": time.Now().Add(-2 * 24 * time.Hour)},
+	}
+	database.Seed(app.pool.Replicas[0], fixtures)
+
+	pos := feedForYouTrackPositions(t, app, 101, 102)
+	require.NotEqual(t, -1, pos[102], "unplayed track 102 should be in the feed")
+	require.NotEqual(t, -1, pos[101], "played track 101 should stay in the feed, just ranked lower")
+	assert.Greater(t, pos[101], pos[102],
+		"recently played track 101 should rank below unplayed sibling 102")
+}
+
+// TestV1FeedForYou_OldPlaysDoNotSuppress asserts the repeat penalty only
+// looks back 14 days: a play from 20 days ago should leave track 101 in
+// its natural position above 102.
+func TestV1FeedForYou_OldPlaysDoNotSuppress(t *testing.T) {
+	app := emptyTestApp(t)
+	app.skipAuthCheck = true
+
+	fixtures := feedForYouFixtures()
+	fixtures["plays"] = []map[string]any{
+		{"id": 1, "user_id": 1, "play_item_id": 101,
+			"created_at": time.Now().Add(-20 * 24 * time.Hour)},
+	}
+	database.Seed(app.pool.Replicas[0], fixtures)
+
+	pos := feedForYouTrackPositions(t, app, 101, 102)
+	require.NotEqual(t, -1, pos[101])
+	require.NotEqual(t, -1, pos[102])
+	assert.Less(t, pos[101], pos[102],
+		"a 20-day-old play is outside the window and should not downrank track 101")
+}
+
 // TestV1FeedForYou_PerArtistCapIsShared asserts that max_per_artist
 // applies across both tracks and playlists for the same owner — the
 // diversity cap is shared, not per-type. User 2 (followed) has 2 tracks

@@ -67,9 +67,15 @@ type GetUsersFeedForYouParams struct {
 //	                   // collections stay in the feed but rank below
 //	                   // comparably-scored tracks, targeting roughly one
 //	                   // collection per 5-6 tracks.
+//	repeat_penalty   = {played in last 7d: 0.25, played in last 14d: 0.50,
+//	                    unplayed: 1.00}
+//	                   // tracks the user already heard recently stay in
+//	                   // the feed but rank below fresh content. Playlists
+//	                   // always get 1.00 (no per-user playlist play data).
 //
 //	final_score = (0.55 * recency_score + 0.45 * engagement_score)
 //	              * social_boost * source_weight * content_type_weight
+//	              * repeat_penalty
 //
 // 3. FILTERS — applied once after the union to keep the candidate set
 // cheap:
@@ -161,6 +167,25 @@ func (app *ApiServer) v1FeedForYou(c *fiber.Ctx) error {
 		  AND save_type IN ('playlist', 'album')
 		  AND is_current = true
 		  AND is_delete = false
+	),
+	-- Tracks I've played in the last 14 days, with the most recent play
+	-- time. Used for the repeat_penalty multiplier so already-heard
+	-- tracks rank below fresh content without being filtered out.
+	--
+	-- Bounded the same way as the affinity play sub-select: a heavy
+	-- listener can have hundreds of thousands of play rows, so scan only
+	-- the most recent slice before applying the 14-day window.
+	my_recent_plays AS (
+		SELECT track_id, MAX(created_at) AS last_played_at
+		FROM (
+			SELECT play_item_id AS track_id, created_at
+			FROM plays
+			WHERE user_id = @userId
+			ORDER BY created_at DESC
+			LIMIT 2000
+		) p
+		WHERE created_at >= NOW() - INTERVAL '14 days'
+		GROUP BY track_id
 	),
 	-- Per-owner engagement strength: saves+reposts of any of their
 	-- tracks/playlists by me, plus plays of their tracks. Used for the
@@ -376,13 +401,15 @@ func (app *ApiServer) v1FeedForYou(c *fiber.Ctx) error {
 			COALESCE(at.save_count, 0)   AS save_count,
 			COALESCE(at.repost_count, 0) AS repost_count,
 			COALESCE(ap.count, 0)        AS play_count,
-			COALESCE(maa.affinity, 0)    AS affinity
+			COALESCE(maa.affinity, 0)    AS affinity,
+			mrp.last_played_at           AS last_played_at
 		FROM candidates c
 		JOIN tracks t ON t.track_id = c.entity_id
 		JOIN users  u ON u.user_id  = t.owner_id
 		LEFT JOIN aggregate_track at  ON at.track_id     = c.entity_id
 		LEFT JOIN aggregate_plays ap  ON ap.play_item_id = c.entity_id
 		LEFT JOIN my_artist_affinity maa ON maa.artist_id = t.owner_id
+		LEFT JOIN my_recent_plays mrp ON mrp.track_id = c.entity_id
 		WHERE c.entity_type = 'track'
 		  AND t.is_current   = true
 		  AND t.is_delete    = false
@@ -413,7 +440,8 @@ func (app *ApiServer) v1FeedForYou(c *fiber.Ctx) error {
 			COALESCE(ap.save_count, 0)   AS save_count,
 			COALESCE(ap.repost_count, 0) AS repost_count,
 			0                            AS play_count,
-			COALESCE(maa.affinity, 0)    AS affinity
+			COALESCE(maa.affinity, 0)    AS affinity,
+			NULL::timestamp              AS last_played_at
 		FROM candidates c
 		JOIN playlists p ON p.playlist_id = c.entity_id
 		JOIN users     u ON u.user_id     = p.playlist_owner_id
@@ -433,11 +461,11 @@ func (app *ApiServer) v1FeedForYou(c *fiber.Ctx) error {
 	),
 	filtered AS (
 		SELECT entity_type, entity_id, owner_id, created_at, source,
-		       save_count, repost_count, play_count, affinity
+		       save_count, repost_count, play_count, affinity, last_played_at
 		FROM filtered_tracks
 		UNION ALL
 		SELECT entity_type, entity_id, owner_id, created_at, source,
-		       save_count, repost_count, play_count, affinity
+		       save_count, repost_count, play_count, affinity, last_played_at
 		FROM filtered_playlists
 	),
 	scored AS (
@@ -463,7 +491,12 @@ func (app *ApiServer) v1FeedForYou(c *fiber.Ctx) error {
 			CASE f.entity_type
 				WHEN 'track' THEN 1.00
 				ELSE 0.60
-			END AS content_type_weight
+			END AS content_type_weight,
+			CASE
+				WHEN f.last_played_at >= NOW() - INTERVAL '7 days'  THEN 0.25
+				WHEN f.last_played_at >= NOW() - INTERVAL '14 days' THEN 0.50
+				ELSE 1.00
+			END AS repeat_penalty
 		FROM filtered f
 	),
 	final_scored AS (
@@ -473,7 +506,8 @@ func (app *ApiServer) v1FeedForYou(c *fiber.Ctx) error {
 			owner_id,
 			created_at,
 			(0.55 * recency_score + 0.45 * engagement_score)
-				* social_boost * source_weight * content_type_weight AS score
+				* social_boost * source_weight * content_type_weight
+				* repeat_penalty AS score
 		FROM scored
 	),
 	capped AS (
