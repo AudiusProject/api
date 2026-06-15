@@ -406,6 +406,7 @@ func NewApiServer(config config.Config) *ApiServer {
 		g.Get("/users/genre/top", app.v1UsersGenreTop)
 		g.Get("/users/account/:wallet", app.requireAuthMiddleware, app.v1UsersAccount)
 		g.Get("/users/verify_token", app.v1UsersVerifyToken)
+		g.Post("/users/me/ping", app.requireAuthMiddleware, app.postV1UsersPing)
 
 		g.Use("/users/handle/:handle", app.requireHandleMiddleware)
 		g.Get("/users/handle/:handle", app.v1User)
