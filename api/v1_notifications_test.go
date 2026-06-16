@@ -1,8 +1,10 @@
 package api
 
 import (
+	"context"
 	"strconv"
 	"testing"
+	"time"
 
 	"api.audius.co/database"
 	"api.audius.co/trashid"
@@ -463,10 +465,59 @@ func TestV1Notifications_AnnouncementRequiresUserIdInUserIds(t *testing.T) {
 	assert.Equal(t, 200, status)
 
 	jsonAssert(t, body, map[string]any{
-		"data.notifications.#":                        1,
-		"data.notifications.0.type":                   "announcement",
-		"data.notifications.0.group_id":               "announcement:target-user-1",
-		"data.notifications.0.actions.0.data.title":     "For user 1",
+		"data.notifications.#":                      1,
+		"data.notifications.0.type":                 "announcement",
+		"data.notifications.0.group_id":             "announcement:target-user-1",
+		"data.notifications.0.actions.0.data.title": "For user 1",
+	})
+}
+
+func TestV1Notifications_TrackCollaboratorInviteIncludesCurrentStatus(t *testing.T) {
+	app := emptyTestApp(t)
+	ctx := context.Background()
+
+	const trackID = 700
+	const collaboratorUserID = 1
+	const inviterUserID = 500
+
+	invitedAt := time.Now()
+	_, err := app.pool.Replicas[0].Exec(ctx, `
+		INSERT INTO track_collaborators (
+			track_id,
+			collaborator_user_id,
+			invited_by,
+			status,
+			created_at,
+			updated_at,
+			txhash
+		)
+		VALUES ($1, $2, $3, 'pending', $4, $4, 'invite-tx')
+	`, trackID, collaboratorUserID, inviterUserID, invitedAt)
+	assert.NoError(t, err)
+
+	_, err = app.pool.Replicas[0].Exec(ctx, `
+		UPDATE track_collaborators
+		SET status = 'accepted', updated_at = $3
+		WHERE track_id = $1 AND collaborator_user_id = $2
+	`, trackID, collaboratorUserID, invitedAt.Add(time.Second))
+	assert.NoError(t, err)
+
+	status, body := testGet(
+		t,
+		app,
+		"/v1/notifications/"+
+			trashid.MustEncodeHashID(collaboratorUserID)+
+			"?types=track_collaborator_invite",
+	)
+	assert.Equal(t, 200, status)
+
+	jsonAssert(t, body, map[string]any{
+		"data.notifications.#":                                     1,
+		"data.notifications.0.type":                                "track_collaborator_invite",
+		"data.notifications.0.actions.0.data.track_id":             trashid.MustEncodeHashID(trackID),
+		"data.notifications.0.actions.0.data.collaborator_user_id": trashid.MustEncodeHashID(collaboratorUserID),
+		"data.notifications.0.actions.0.data.inviter_user_id":      trashid.MustEncodeHashID(inviterUserID),
+		"data.notifications.0.actions.0.data.status":               "accepted",
 	})
 }
 
@@ -582,4 +633,3 @@ func TestV1Notifications_RelatedEntities(t *testing.T) {
 	assert.Contains(t, gotUserIds, trashid.MustEncodeHashID(saver),
 		"saver must appear in related.users")
 }
-

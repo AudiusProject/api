@@ -8282,6 +8282,8 @@ paths:
                 - track_added_to_purchased_album
                 - request_manager
                 - approve_manager_request
+                - track_collaborator_invite
+                - track_collaborator_accept
                 - claimable_reward
                 - comment
                 - comment_thread
@@ -17078,6 +17080,7 @@ components:
         - $ref: "#/components/schemas/usdc_purchase_buyer_notification"
         - $ref: "#/components/schemas/request_manager_notification"
         - $ref: "#/components/schemas/approve_manager_request_notification"
+        - $ref: "#/components/schemas/track_collaborator_notification"
         - $ref: "#/components/schemas/trending_notification"
         - $ref: "#/components/schemas/trending_playlist_notification"
         - $ref: "#/components/schemas/trending_underground_notification"
@@ -17125,6 +17128,8 @@ components:
           usdc_purchase_buyer: "#/components/schemas/usdc_purchase_buyer_notification"
           request_manager: "#/components/schemas/request_manager_notification"
           approve_manager_request: "#/components/schemas/approve_manager_request_notification"
+          track_collaborator_invite: "#/components/schemas/track_collaborator_notification"
+          track_collaborator_accept: "#/components/schemas/track_collaborator_notification"
           trending: "#/components/schemas/trending_notification"
           trending_playlist: "#/components/schemas/trending_playlist_notification"
           trending_underground: "#/components/schemas/trending_underground_notification"
@@ -17412,6 +17417,29 @@ components:
           type: array
           items:
             $ref: "#/components/schemas/approve_manager_request_notification_action"
+    track_collaborator_notification:
+      required:
+        - actions
+        - group_id
+        - is_seen
+        - type
+      type: object
+      properties:
+        type:
+          type: string
+          enum:
+            - track_collaborator_invite
+            - track_collaborator_accept
+        group_id:
+          type: string
+        is_seen:
+          type: boolean
+        seen_at:
+          type: integer
+        actions:
+          type: array
+          items:
+            $ref: "#/components/schemas/track_collaborator_notification_action"
     fan_remix_contest_ended_notification_action:
       required:
         - data
@@ -17493,6 +17521,22 @@ components:
           type: integer
         data:
           $ref: "#/components/schemas/approve_manager_request_notification_action_data"
+    track_collaborator_notification_action:
+      required:
+        - data
+        - specifier
+        - timestamp
+        - type
+      type: object
+      properties:
+        specifier:
+          type: string
+        type:
+          type: string
+        timestamp:
+          type: integer
+        data:
+          $ref: "#/components/schemas/track_collaborator_notification_action_data"
     comment_mention_notification:
       required:
         - actions
@@ -18658,6 +18702,26 @@ components:
           type: string
         grantee_address:
           type: string
+    track_collaborator_notification_action_data:
+      required:
+        - collaborator_user_id
+        - inviter_user_id
+        - track_id
+      type: object
+      properties:
+        track_id:
+          type: string
+        inviter_user_id:
+          type: string
+        collaborator_user_id:
+          type: string
+        status:
+          type: string
+          description: Current collaborator invite status at response time.
+          enum:
+            - pending
+            - accepted
+            - rejected
     save_of_repost_notification_action:
       required:
         - data

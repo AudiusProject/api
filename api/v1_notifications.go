@@ -74,12 +74,17 @@ SELECT
 	n.group_id AS group_id,
 	json_agg(
 		json_build_object(
-			'type', type,
-			'specifier', specifier,
-			'timestamp', EXTRACT(EPOCH FROM timestamp),
-			'data', data
+			'type', n.type,
+			'specifier', n.specifier,
+			'timestamp', EXTRACT(EPOCH FROM n.timestamp),
+			'data',
+				CASE
+					WHEN n.type = 'track_collaborator_invite' AND tc.status IS NOT NULL
+					THEN jsonb_set(n.data, '{status}', to_jsonb(tc.status), true)
+					ELSE n.data
+				END
 		)
-		ORDER BY timestamp DESC
+		ORDER BY n.timestamp DESC
 	)::jsonb AS actions,
 	CASE
 		-- If seen at is not null, we were able to match a window between seen events
@@ -113,6 +118,12 @@ LEFT JOIN playlists p ON
   n.data ? 'playlist_id' AND
   p.playlist_id = (n.data->>'playlist_id')::integer AND
   p.is_current = true
+LEFT JOIN track_collaborators tc ON
+  n.type = 'track_collaborator_invite' AND
+  n.data ? 'track_id' AND
+  n.data ? 'collaborator_user_id' AND
+  tc.track_id = (n.data->>'track_id')::integer AND
+  tc.collaborator_user_id = (n.data->>'collaborator_user_id')::integer
 WHERE
   (ARRAY[@user_id] && n.user_ids)
   AND (n.type = ANY(@types) OR @types IS NULL)
