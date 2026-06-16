@@ -45,7 +45,6 @@ func (app *ApiServer) getUserId(c *fiber.Ctx) int32 {
 }
 
 func (app *ApiServer) requireUserIdMiddleware(c *fiber.Ctx) error {
-	// Allow /users/me/* routes to pass through without userId resolution
 	if c.Params("userId") == "me" {
 		return c.Next()
 	}
