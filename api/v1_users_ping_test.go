@@ -13,10 +13,13 @@ import (
 func TestPostV1UsersPing(t *testing.T) {
 	app := emptyTestApp(t)
 
-	_, err := app.pool.Exec(context.Background(), `
+	ctx := context.Background()
+	_, err := app.pool.Exec(ctx, `
 		INSERT INTO public.blocks (blockhash, parenthash, number)
 		VALUES ('block1', 'block0', 101)
 		ON CONFLICT DO NOTHING;`)
+	require.NoError(t, err)
+	_, err = app.pool.Exec(ctx, `ALTER TABLE users ADD COLUMN IF NOT EXISTS last_active_at TIMESTAMPTZ DEFAULT NULL;`)
 	require.NoError(t, err)
 
 	database.SeedTable(app.pool.Replicas[0], "users", testdata.UserFixtures)

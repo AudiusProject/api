@@ -10286,7 +10286,8 @@ CREATE TABLE public.users (
     website character varying,
     donation character varying,
     profile_type public.profile_type_enum,
-    coin_flair_mint text
+    coin_flair_mint text,
+    last_active_at timestamp with time zone
 );
 
 
