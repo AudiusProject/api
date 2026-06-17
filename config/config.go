@@ -253,6 +253,7 @@ func init() {
 		}
 		Cfg.StoreAllNodes = []string{
 			"https://creatornode.audius.co",
+			"https://v.monophonic.digital",
 		}
 		Cfg.UploadNodes = ProdUploadNodes
 		Cfg.Rewards = core_config.MakeRewards(core_config.ProdClaimAuthorities, core_config.ProdRewardExtensions)
