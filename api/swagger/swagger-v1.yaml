@@ -59,6 +59,8 @@ tags:
     description: Events related operations
   - name: explore
     description: Explore related operations
+  - name: genres
+    description: Genre discovery operations
   - name: rewards
     description: Rewards related operations
   - name: prizes
@@ -1585,6 +1587,57 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/best_selling_response"
+        "400":
+          description: Bad request
+          content: {}
+        "500":
+          description: Server error
+          content: {}
+  /genres/popular:
+    get:
+      tags:
+        - genres
+      description: Get popular genres from recently created tracks.
+      operationId: Get Popular Genres
+      parameters:
+        - name: start_time
+          in: query
+          description: Unix timestamp. Only tracks created after this time are counted.
+          schema:
+            type: integer
+            default: 0
+        - name: limit
+          in: query
+          description: The number of genres to fetch
+          schema:
+            type: integer
+            minimum: 1
+            maximum: 100
+            default: 100
+        - name: offset
+          in: query
+          description:
+            The number of items to skip. Useful for pagination (page number
+            * limit)
+          schema:
+            type: integer
+            minimum: 0
+            default: 0
+        - name: min_count
+          in: query
+          description: Minimum number of tracks required for a genre to be returned
+          schema:
+            type: integer
+            minimum: 1
+            maximum: 1000000
+            default: 1
+      responses:
+        "200":
+          description: Success
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/popular_genres_response"
         "400":
           description: Bad request
           content: {}
@@ -10594,6 +10647,28 @@ paths:
           content: {}
 components:
   schemas:
+    popular_genres_response:
+      required:
+        - data
+      type: object
+      properties:
+        data:
+          type: array
+          items:
+            $ref: "#/components/schemas/popular_genre"
+    popular_genre:
+      required:
+        - name
+        - count
+      type: object
+      properties:
+        name:
+          type: string
+          description: Genre name
+        count:
+          type: integer
+          format: int64
+          description: Number of tracks in this genre for the requested time window
     create_access_key_response:
       type: object
       required:
@@ -13564,6 +13639,9 @@ components:
         event_data:
           type: object
           properties: {}
+        permalink:
+          type: string
+          description: Canonical contest permalink derived from event_routes.
     create_user_request_body:
       type: object
       required:

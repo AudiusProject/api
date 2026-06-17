@@ -628,6 +628,9 @@ func NewApiServer(config config.Config) *ApiServer {
 		g.Post("/prizes/claim", app.v1PrizesClaim)
 		g.Get("/wallet/:wallet/prizes", app.v1WalletPrizes)
 
+		// Genres
+		g.Get("/genres/popular", app.v1GenresPopular)
+
 		// Resolve
 		g.Get("/resolve", app.v1Resolve)
 
