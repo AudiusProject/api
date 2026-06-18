@@ -14,7 +14,7 @@ func TestGenreNormalize(t *testing.T) {
 	}{
 		// trimming
 		{"trims surrounding whitespace", "  Electronic  ", "Electronic"},
-		{"collapses internal whitespace", "Hip   Hop", "Hip Hop"},
+		{"collapses internal whitespace", "Deep   House", "Deep House"},
 		{"empty stays empty", "", ""},
 		{"whitespace-only stays empty", "   ", ""},
 
@@ -25,15 +25,16 @@ func TestGenreNormalize(t *testing.T) {
 		{"multi-word title case", "deep house", "Deep House"},
 
 		// hip-hop / hiphop variants collapse to "Hip Hop"
-		{"hyphenated hip-hop", "hip-hop", "Hip Hop"},
-		{"squashed hiphop", "hiphop", "Hip Hop"},
-		{"spaced hip hop lowercase", "hip hop", "Hip Hop"},
-		{"uppercase HIP-HOP", "HIP-HOP", "Hip Hop"},
+		// hip-hop / hiphop variants collapse to the allowlist form "Hip-Hop/Rap"
+		{"hyphenated hip-hop", "hip-hop", "Hip-Hop/Rap"},
+		{"squashed hiphop", "hiphop", "Hip-Hop/Rap"},
+		{"spaced hip hop lowercase", "hip hop", "Hip-Hop/Rap"},
+		{"uppercase HIP-HOP", "HIP-HOP", "Hip-Hop/Rap"},
 
-		// r&b variants collapse to "R&B"
-		{"r&b lowercase", "r&b", "R&B"},
-		{"rnb", "rnb", "R&B"},
-		{"r & b spaced", "R & B", "R&B"},
+		// r&b variants collapse to the allowlist form "R&B/Soul"
+		{"r&b lowercase", "r&b", "R&B/Soul"},
+		{"rnb", "rnb", "R&B/Soul"},
+		{"r & b spaced", "R & B", "R&B/Soul"},
 
 		// other special cases keep conventional casing
 		{"edm", "edm", "EDM"},
@@ -41,12 +42,14 @@ func TestGenreNormalize(t *testing.T) {
 		{"drum and bass", "drum and bass", "Drum & Bass"},
 		{"dnb", "dnb", "Drum & Bass"},
 
-		// already-correct values pass through unchanged
+		// already-canonical allowlist values pass through unchanged
 		{"Electronic unchanged", "Electronic", "Electronic"},
-		{"R&B unchanged", "R&B", "R&B"},
-		{"Hip Hop unchanged", "Hip Hop", "Hip Hop"},
+		{"Hip-Hop/Rap unchanged", "Hip-Hop/Rap", "Hip-Hop/Rap"},
+		{"R&B/Soul unchanged", "R&B/Soul", "R&B/Soul"},
+		{"Drum & Bass unchanged", "Drum & Bass", "Drum & Bass"},
+		{"Lo-Fi unchanged", "Lo-Fi", "Lo-Fi"},
+		{"Deep House unchanged", "Deep House", "Deep House"},
 		{"EDM unchanged", "EDM", "EDM"},
-		{"hyphen/slash genre preserved", "Hip-Hop/Rap", "Hip-Hop/Rap"},
 	}
 
 	for _, tc := range cases {

@@ -7,25 +7,36 @@ import (
 
 // canonicalGenres maps a collapsed lookup key (see genreKey) to the canonical
 // display form for genres that must not be plain title-cased — either because
-// they merge separator variants ("hip-hop"/"hiphop" -> "Hip Hop") or because
-// their conventional casing is not title case (R&B, EDM, DJ, ...).
+// they merge separator variants ("hip-hop"/"hiphop" -> "Hip-Hop/Rap") or
+// because their conventional casing is not title case (R&B/Soul, EDM, ...).
+//
+// The canonical output forms mirror go-openaudio's GenreAllowlist
+// (pkg/etl/processors/entity_manager/genre_allowlist.go), which is the
+// protocol's source of truth for canonical genre spelling. Keeping these in
+// sync means the API's normalized output agrees with the form the upstream ETL
+// indexer (the genre write path) treats as canonical.
 //
 // The key is the lowercased, alphanumeric-only form of the input, so every
 // punctuation/spacing variant of a genre maps through the same entry:
-// "R&B", "r & b", "rnb" all collapse to key "rb"/"rnb" -> "R&B".
+// "R&B", "r & b", "rnb", "R&B/Soul" all collapse to "R&B/Soul".
 var canonicalGenres = map[string]string{
-	"hiphop":      "Hip Hop",
-	"rb":          "R&B", // "r&b", "r & b"
-	"rnb":         "R&B", // "rnb"
-	"randb":       "R&B", // "r and b"
-	"edm":         "EDM",
-	"dj":          "DJ",
+	// Allowlist genres whose canonical spelling differs from naive title case.
+	"hiphop":      "Hip-Hop/Rap", // "Hip Hop", "hip-hop", "hiphop"
+	"hiphoprap":   "Hip-Hop/Rap", // "Hip-Hop/Rap", "hip hop rap"
+	"rb":          "R&B/Soul",    // "r&b", "r & b"
+	"rnb":         "R&B/Soul",    // "rnb"
+	"randb":       "R&B/Soul",    // "r and b"
+	"rbsoul":      "R&B/Soul",    // "R&B/Soul"
+	"rnbsoul":     "R&B/Soul",    // "rnb/soul"
 	"dnb":         "Drum & Bass",
 	"drumandbass": "Drum & Bass",
-	"drumbass":    "Drum & Bass",
+	"drumbass":    "Drum & Bass", // "Drum & Bass" itself
 	"lofi":        "Lo-Fi",
-	"kpop":        "K-Pop",
-	"jpop":        "J-Pop",
+
+	// Acronyms not in the allowlist, kept only to preserve casing (so they are
+	// not title-cased to "Edm"/"Dj").
+	"edm": "EDM",
+	"dj":  "DJ",
 }
 
 // genreKey reduces a genre string to a comparison key: lowercased and stripped
@@ -43,12 +54,14 @@ func genreKey(s string) string {
 
 // NormalizeGenre collapses genre variants to a single canonical form:
 //   - trims surrounding whitespace and collapses internal whitespace runs
-//   - maps known special cases via canonicalGenres (R&B, EDM, Hip Hop, ...)
+//   - maps known special cases via canonicalGenres (R&B/Soul, EDM,
+//     Hip-Hop/Rap, ...)
 //   - otherwise title-cases the value, preserving internal separators
-//     ("hip-hop/rap" -> "Hip-Hop/Rap")
+//     ("deep house" -> "Deep House")
 //
-// Already-canonical values pass through unchanged (e.g. "Electronic",
-// "R&B", "Hip Hop"). An empty/whitespace-only input returns "".
+// Already-canonical allowlist values pass through unchanged (e.g.
+// "Electronic", "R&B/Soul", "Hip-Hop/Rap"). An empty/whitespace-only input
+// returns "".
 func NormalizeGenre(s string) string {
 	trimmed := strings.TrimSpace(s)
 	if trimmed == "" {
