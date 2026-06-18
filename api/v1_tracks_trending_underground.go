@@ -65,7 +65,7 @@ func (app *ApiServer) v1TracksTrendingUnderground(c *fiber.Ctx) error {
 	args["limit"] = params.Limit
 	args["offset"] = params.Offset
 	args["time"] = params.Time
-	args["genre"] = NormalizeGenre(params.Genre)
+	args["genre"] = params.Genre
 
 	rows, err := app.pool.Query(c.Context(), sql, args)
 	if err != nil {

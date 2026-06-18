@@ -28,12 +28,7 @@ func (app *ApiServer) v1UsersGenreTop(c *fiber.Ctx) error {
 		OFFSET @offset
 	;`
 
-	genres := make([]string, len(query.Genres))
-	for i, g := range query.Genres {
-		genres[i] = NormalizeGenre(g)
-	}
-
 	return app.queryUsers(c, sql, pgx.NamedArgs{
-		"genres": genres,
+		"genres": query.Genres,
 	})
 }
