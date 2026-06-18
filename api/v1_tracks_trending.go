@@ -23,7 +23,7 @@ func (app *ApiServer) v1TracksTrending(c *fiber.Ctx) error {
 	trackIds, err := app.getTrendingIds(
 		c,
 		params.Time,
-		params.Genre,
+		NormalizeGenre(params.Genre),
 		params.Limit,
 		params.Offset,
 	)

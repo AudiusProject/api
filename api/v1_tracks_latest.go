@@ -20,7 +20,7 @@ func (app *ApiServer) v1TracksLatest(c *fiber.Ctx) error {
 
 	myId := app.getMyId(c)
 
-	trackIds, err := app.getLatestTrackIds(c, params.Genre, params.Limit, params.Offset)
+	trackIds, err := app.getLatestTrackIds(c, NormalizeGenre(params.Genre), params.Limit, params.Offset)
 	if err != nil {
 		return err
 	}
