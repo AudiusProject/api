@@ -158,6 +158,18 @@ func NewApiServer(config config.Config) *ApiServer {
 		panic(err)
 	}
 
+	// Caches the normalized popular-genre slice returned by /v1/genres/popular,
+	// which otherwise runs a GROUP BY genre scan over the tracks table on every
+	// request. Keyed by (limit, offset, startTime bucket); the result is an
+	// approximate popularity ranking, so a 15-minute TTL is fine.
+	genresPopularCache, err := otter.MustBuilder[string, []PopularGenre](1_000).
+		WithTTL(genresPopularCacheTTL).
+		CollectStats().
+		Build()
+	if err != nil {
+		panic(err)
+	}
+
 	privateKey, err := crypto.HexToECDSA(config.DelegatePrivateKey)
 	if err != nil {
 		panic(err)
@@ -268,6 +280,7 @@ func NewApiServer(config config.Config) *ApiServer {
 		oauthTokenCache:         &oauthTokenCache,
 		qualifiedPlaylistsCache: &qualifiedPlaylistsCache,
 		relatedUsersCache:       &relatedUsersCache,
+		genresPopularCache:      &genresPopularCache,
 		requestValidator:        requestValidator,
 		rewardAttester:          rewardAttester,
 		transactionSender:       transactionSender,
@@ -827,6 +840,7 @@ type ApiServer struct {
 	oauthTokenCache         *otter.Cache[string, oauthTokenCacheEntry]
 	qualifiedPlaylistsCache *otter.Cache[string, []int32]
 	relatedUsersCache       *otter.Cache[string, []int32]
+	genresPopularCache      *otter.Cache[string, []PopularGenre]
 	requestValidator        *RequestValidator
 	rewardManagerClient     *reward_manager.RewardManagerClient
 	claimableTokensClient   *claimable_tokens.ClaimableTokensClient
