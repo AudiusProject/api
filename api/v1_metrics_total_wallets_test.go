@@ -4,6 +4,7 @@ import (
 	"testing"
 
 	"api.audius.co/database"
+	"github.com/stretchr/testify/require"
 )
 
 func TestMetricsTotalWallets_Empty(t *testing.T) {
@@ -44,5 +45,20 @@ func TestMetricsTotalWallets_WithFixtures(t *testing.T) {
 
 	jsonAssert(t, body, map[string]any{
 		"data.total": 7,
+	})
+}
+
+func TestMetricsTotalWallets_Cache(t *testing.T) {
+	app := emptyTestApp(t)
+
+	_, ok := app.totalWalletsCache.Get(totalWalletsCacheKey)
+	require.False(t, ok)
+
+	app.totalWalletsCache.Set(totalWalletsCacheKey, 42)
+
+	status, body := testGet(t, app, "/v1/metrics/total_wallets")
+	require.Equal(t, 200, status)
+	jsonAssert(t, body, map[string]any{
+		"data.total": 42,
 	})
 }
