@@ -45,7 +45,7 @@ func (p *TastemakerProcessor) Reconcile(ctx context.Context, tx pgx.Tx) error {
 		SELECT track_id
 		FROM track_trending_scores
 		WHERE type = 'TRACKS' AND version = 'pnagD' AND time_range = 'week'
-		ORDER BY score DESC NULLS LAST
+		ORDER BY score DESC, track_id DESC
 		LIMIT $1
 	`, tastemakerTrackLimit)
 	if err != nil {

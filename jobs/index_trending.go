@@ -24,15 +24,15 @@ import (
 // This DELETE-all + bulk-INSERT is what discovery's Python did for years. A
 // previous attempt to replace it with a skip-unchanged upsert (temp-table stage
 // + INSERT ... ON CONFLICT DO UPDATE + anti-join prune) aimed to avoid rewriting
-// the whole ~16GB table and its indexes each run, but in practice the per-row
+// the whole multi-GB table and its indexes each run, but in practice the per-row
 // unique-index probe over ~4M rows took 40+ minutes and never finished inside
-// the hourly window, so scores went stale. The bulk rewrite costs more dead
-// tuples (autovacuum handles it, as it did under Python) but completes in
-// seconds, which is the tradeoff that actually matters here.
+// the hourly window, so scores went stale. The bulk rewrite avoids that probe
+// storm, and this job only persists positive track scores to keep the rewrite
+// and index maintenance bounded as the track corpus grows.
 //
 // Scheduled hourly to match discovery (default trending_refresh_seconds=3600;
-// see indexer's startParityJobs). Score templates are copied verbatim from
-// apps' trending_strategies/{pnagD,AnlGe}_*.py so scoring stays bit-identical.
+// see indexer's startParityJobs). Score expressions are copied from apps'
+// trending_strategies/{pnagD,AnlGe}_*.py so scoring stays bit-identical.
 type TrendingJob struct {
 	pool   database.DbPool
 	logger *zap.Logger
@@ -183,8 +183,9 @@ func (j *TrendingJob) computeTrendingTracks(ctx context.Context, trendingType, v
 	// ~4M-row-per-cycle upsert — one unique-index probe and IS DISTINCT FROM
 	// comparison per row — which took 40+ minutes and could never finish inside
 	// the refresh interval. The blunt DELETE + append matches the proven Python
-	// behavior and runs in seconds. The score expressions below are byte-for-byte
-	// the discovery templates.
+	// behavior. The score expressions below are intentionally kept aligned with
+	// the discovery templates, then filtered so we only persist tracks that can
+	// actually appear ahead of the zero-score tail.
 	if _, err := tx.Exec(ctx,
 		`DELETE FROM track_trending_scores WHERE type = $1 AND version = $2`,
 		trendingType, version,
@@ -207,39 +208,50 @@ func (j *TrendingJob) computeTrendingTracks(ctx context.Context, trendingType, v
 			INSERT INTO track_trending_scores
 				(track_id, genre, type, version, time_range, score, created_at)
 			SELECT
-				tp.track_id,
-				tp.genre,
-				$1,
-				$2,
-				$3,
-				CASE
-				WHEN tp.owner_follower_count < $4 THEN 0
-				WHEN EXTRACT(DAYS FROM now() - (
+				track_id,
+				genre,
+				trending_type,
+				trending_version,
+				score_time_range,
+				score,
+				created_at
+			FROM (
+				SELECT
+					tp.track_id,
+					tp.genre,
+					$1::varchar AS trending_type,
+					$2::varchar AS trending_version,
+					$3::varchar AS score_time_range,
 					CASE
-						WHEN tp.release_date > now() THEN aip.created_at
-						ELSE GREATEST(tp.release_date, aip.created_at)
-					END
-				)) > $5 THEN GREATEST(
-					1.0 / $6,
-					POW($6, GREATEST(
-						-10,
-						1.0 - 1.0 * EXTRACT(DAYS FROM now() - (
-							CASE
-								WHEN tp.release_date > now() THEN aip.created_at
-								ELSE GREATEST(tp.release_date, aip.created_at)
-							END
-						)) / $5
-					))
-				) * (
-					$7 * %s + $8 * %s + $9 * %s + $10 * tp.repost_count + $11 * tp.save_count
-				) * %s
-				ELSE (
-					$7 * %s + $8 * %s + $9 * %s + $10 * tp.repost_count + $11 * tp.save_count
-				) * %s
-				END,
-				now()
-			FROM trending_params tp
-			INNER JOIN aggregate_interval_plays aip ON tp.track_id = aip.track_id
+					WHEN tp.owner_follower_count < $4 THEN 0
+					WHEN EXTRACT(DAYS FROM now() - (
+						CASE
+							WHEN tp.release_date > now() THEN aip.created_at
+							ELSE GREATEST(tp.release_date, aip.created_at)
+						END
+					)) > $5 THEN GREATEST(
+						1.0 / $6,
+						POW($6, GREATEST(
+							-10,
+							1.0 - 1.0 * EXTRACT(DAYS FROM now() - (
+								CASE
+									WHEN tp.release_date > now() THEN aip.created_at
+									ELSE GREATEST(tp.release_date, aip.created_at)
+								END
+							)) / $5
+						))
+					) * (
+						$7 * %s + $8 * %s + $9 * %s + $10 * tp.repost_count + $11 * tp.save_count
+					) * %s
+					ELSE (
+						$7 * %s + $8 * %s + $9 * %s + $10 * tp.repost_count + $11 * tp.save_count
+					) * %s
+					END AS score,
+					now() AS created_at
+				FROM trending_params tp
+				INNER JOIN aggregate_interval_plays aip ON tp.track_id = aip.track_id
+			) scored
+			WHERE score > 0
 		`,
 			r.listenField, r.repostField, r.saveField, p.karmaExpr,
 			r.listenField, r.repostField, r.saveField, p.karmaExpr,
@@ -259,19 +271,34 @@ func (j *TrendingJob) computeTrendingTracks(ctx context.Context, trendingType, v
 		INSERT INTO track_trending_scores
 			(track_id, genre, type, version, time_range, score, created_at)
 		SELECT
-			tp.track_id, tp.genre, $1, $2, 'allTime',
-			CASE
-			WHEN tp.owner_follower_count < $3 THEN 0
-			ELSE ($4 * ap.count + $5 * tp.repost_count + $6 * tp.save_count) * %s
-			END,
-			now()
-		FROM trending_params tp
-		INNER JOIN aggregate_plays ap ON tp.track_id = ap.play_item_id
-		INNER JOIN tracks t ON ap.play_item_id = t.track_id
-		WHERE t.is_current IS TRUE
-		  AND t.is_delete IS FALSE
-		  AND t.is_unlisted IS FALSE
-		  AND t.stem_of IS NULL
+			track_id,
+			genre,
+			trending_type,
+			trending_version,
+			time_range,
+			score,
+			created_at
+		FROM (
+			SELECT
+				tp.track_id,
+				tp.genre,
+				$1::varchar AS trending_type,
+				$2::varchar AS trending_version,
+				'allTime'::varchar AS time_range,
+				CASE
+				WHEN tp.owner_follower_count < $3 THEN 0
+				ELSE ($4 * ap.count + $5 * tp.repost_count + $6 * tp.save_count) * %s
+				END AS score,
+				now() AS created_at
+			FROM trending_params tp
+			INNER JOIN aggregate_plays ap ON tp.track_id = ap.play_item_id
+			INNER JOIN tracks t ON ap.play_item_id = t.track_id
+			WHERE t.is_current IS TRUE
+			  AND t.is_delete IS FALSE
+			  AND t.is_unlisted IS FALSE
+			  AND t.stem_of IS NULL
+		) scored
+		WHERE score > 0
 	`, p.karmaExpr)
 	if _, err := tx.Exec(ctx, q,
 		trendingType, version,

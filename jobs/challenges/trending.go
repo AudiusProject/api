@@ -150,7 +150,7 @@ func (p *TrendingProcessor) Reconcile(ctx context.Context, tx pgx.Tx) error {
 			FROM track_trending_scores s
 			JOIN tracks t ON t.track_id = s.track_id AND t.is_current = true
 			WHERE s.type = $1 AND s.version = $2 AND s.time_range = 'week'
-			ORDER BY s.score DESC NULLS LAST
+			ORDER BY s.score DESC, s.track_id DESC
 			LIMIT $3
 		`, p.TrendingTyp, p.Version, trendingTopN)
 	default:
@@ -159,7 +159,7 @@ func (p *TrendingProcessor) Reconcile(ctx context.Context, tx pgx.Tx) error {
 			FROM playlist_trending_scores s
 			JOIN playlists pl ON pl.playlist_id = s.playlist_id AND pl.is_current = true
 			WHERE s.type = $1 AND s.version = $2 AND s.time_range = 'week'
-			ORDER BY s.score DESC NULLS LAST
+			ORDER BY s.score DESC, s.playlist_id DESC
 			LIMIT $3
 		`, p.TrendingTyp, p.Version, trendingTopN)
 	}
