@@ -252,7 +252,6 @@ func init() {
 			"https://audius-content-13.cultur3stake.com",
 		}
 		Cfg.StoreAllNodes = []string{
-			"https://creatornode.audius.co",
 			"https://v.monophonic.digital",
 			"https://audius.zeogrid.com",
 		}
