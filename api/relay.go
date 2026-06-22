@@ -2,6 +2,7 @@ package api
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
 	"math/big"
 	"strings"
@@ -204,9 +205,7 @@ func (app *ApiServer) relay(c *fiber.Ctx) error {
 			return fiber.NewError(fiber.StatusInternalServerError, "failed to handle relay: "+err.Error())
 		}
 		receipt := transactionToReceipt(msg, wallet)
-		return c.JSON(map[string]interface{}{
-			"receipt": receipt,
-		})
+		return sendRelayResponse(c, receipt)
 	}
 
 	isUser := false
@@ -254,9 +253,21 @@ func (app *ApiServer) relay(c *fiber.Ctx) error {
 		return fiber.NewError(fiber.StatusInternalServerError, "failed to handle relay: "+err.Error())
 	}
 	receipt := transactionToReceipt(msg, wallet)
-	return c.JSON(map[string]interface{}{
+	return sendRelayResponse(c, receipt)
+}
+
+func sendRelayResponse(c *fiber.Ctx, receipt map[string]interface{}) error {
+	body, err := json.Marshal(map[string]interface{}{
 		"receipt": receipt,
 	})
+	if err != nil {
+		return fiber.NewError(fiber.StatusInternalServerError, "failed to encode relay response: "+err.Error())
+	}
+
+	c.Set(fiber.HeaderCacheControl, "no-store, no-transform")
+	c.Set(fiber.HeaderContentLength, fmt.Sprint(len(body)))
+	c.Set(fiber.HeaderContentType, fiber.MIMEApplicationJSONCharsetUTF8)
+	return c.Send(body)
 }
 
 func (app *ApiServer) handleRelay(ctx context.Context, logger *zap.Logger, decodedTx *v1.ManageEntityLegacy) (*v1.Transaction, error) {
