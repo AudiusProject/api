@@ -18,6 +18,7 @@ import (
 
 const sitemapLimit = 40_000
 const sitemapCountCacheTTL = 1 * time.Hour
+const sitemapPageCacheTTL = 1 * time.Hour
 
 var sitemapPageRegex = regexp.MustCompile(`^(\d+)\.xml$`)
 
@@ -55,6 +56,12 @@ type cachedCount struct {
 	refreshing bool // true if a background refresh is already in flight
 }
 
+type sitemapPageCacheEntry struct {
+	data       []byte
+	expiresAt  time.Time
+	refreshing bool
+}
+
 var (
 	sitemapCountCache = make(map[string]cachedCount)
 	sitemapCountMu    sync.Mutex
@@ -85,6 +92,44 @@ func setCachedCount(key string, value int64) {
 		value:     value,
 		expiresAt: time.Now().Add(sitemapCountCacheTTL),
 	}
+}
+
+func (app *ApiServer) getCachedSitemapPage(key string) (data []byte, exists bool, needsRefresh bool) {
+	if app.sitemapPageCache == nil {
+		return nil, false, false
+	}
+	entry, ok := app.sitemapPageCache.Get(key)
+	if !ok {
+		return nil, false, false
+	}
+	if time.Now().After(entry.expiresAt) && !entry.refreshing {
+		entry.refreshing = true
+		app.sitemapPageCache.Set(key, entry)
+		return entry.data, true, true
+	}
+	return entry.data, true, false
+}
+
+func (app *ApiServer) setCachedSitemapPage(key string, data []byte) {
+	if app.sitemapPageCache == nil {
+		return
+	}
+	app.sitemapPageCache.Set(key, sitemapPageCacheEntry{
+		data:      data,
+		expiresAt: time.Now().Add(sitemapPageCacheTTL),
+	})
+}
+
+func (app *ApiServer) clearSitemapPageRefreshing(key string) {
+	if app.sitemapPageCache == nil {
+		return
+	}
+	entry, ok := app.sitemapPageCache.Get(key)
+	if !ok {
+		return
+	}
+	entry.refreshing = false
+	app.sitemapPageCache.Set(key, entry)
 }
 
 type sitemapURL struct {
@@ -266,8 +311,42 @@ func (app *ApiServer) sitemapTypePage(c *fiber.Ctx) error {
 		return fiber.NewError(400, "Page number must be >= 1")
 	}
 
+	cacheKey := entityType + ":" + fileName
+	if data, ok, needsRefresh := app.getCachedSitemapPage(cacheKey); ok {
+		if needsRefresh {
+			go app.refreshSitemapPage(cacheKey, entityType, pageNumber)
+		}
+		c.Set("Content-Type", "text/xml")
+		return c.Send(data)
+	}
+
+	data, err := app.buildSitemapPage(c.Context(), entityType, pageNumber)
+	if err != nil {
+		return err
+	}
+	app.setCachedSitemapPage(cacheKey, data)
+	c.Set("Content-Type", "text/xml")
+	return c.Send(data)
+}
+
+func (app *ApiServer) refreshSitemapPage(cacheKey string, entityType string, pageNumber int) {
+	data, err := app.buildSitemapPage(context.Background(), entityType, pageNumber)
+	if err != nil {
+		app.clearSitemapPageRefreshing(cacheKey)
+		app.logger.Error(
+			"failed to refresh sitemap page",
+			zap.String("cache_key", cacheKey),
+			zap.String("type", entityType),
+			zap.Int("page", pageNumber),
+			zap.Error(err),
+		)
+		return
+	}
+	app.setCachedSitemapPage(cacheKey, data)
+}
+
+func (app *ApiServer) buildSitemapPage(ctx context.Context, entityType string, pageNumber int) ([]byte, error) {
 	offset := int32((pageNumber - 1) * sitemapLimit)
-	ctx := c.Context()
 	baseURL := app.audiusAppUrl
 
 	var slugs []string
@@ -280,7 +359,7 @@ func (app *ApiServer) sitemapTypePage(c *fiber.Ctx) error {
 			Offset: offset,
 		})
 		if e != nil {
-			return e
+			return nil, e
 		}
 		for _, r := range rows {
 			if r.Handle.Valid {
@@ -294,7 +373,7 @@ func (app *ApiServer) sitemapTypePage(c *fiber.Ctx) error {
 			Offset: offset,
 		})
 		if e != nil {
-			return e
+			return nil, e
 		}
 		for _, r := range rows {
 			if r.Handle.Valid {
@@ -312,7 +391,7 @@ func (app *ApiServer) sitemapTypePage(c *fiber.Ctx) error {
 			Offset: offset,
 		})
 		if e != nil {
-			return e
+			return nil, e
 		}
 		for _, h := range handles {
 			if h.Valid {
@@ -321,13 +400,12 @@ func (app *ApiServer) sitemapTypePage(c *fiber.Ctx) error {
 		}
 
 	default:
-		return fiber.NewError(400, fmt.Sprintf("Invalid sitemap type %s, should be one of track, playlist, user", entityType))
+		return nil, fiber.NewError(400, fmt.Sprintf("Invalid sitemap type %s, should be one of track, playlist, user", entityType))
 	}
 
 	data, err := buildURLSet(slugs, baseURL)
 	if err != nil {
-		return err
+		return nil, err
 	}
-	c.Set("Content-Type", "text/xml")
-	return c.Send(data)
+	return data, nil
 }

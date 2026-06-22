@@ -3,6 +3,7 @@ package api
 import (
 	"strings"
 	"testing"
+	"time"
 
 	"api.audius.co/database"
 	"github.com/stretchr/testify/assert"
@@ -110,6 +111,40 @@ func TestSitemapTrackPage(t *testing.T) {
 	assert.NotContains(t, xml, "deleted-track")
 	// Slashes should not be encoded
 	assert.NotContains(t, xml, "%2F")
+}
+
+func TestSitemapTrackPageCache(t *testing.T) {
+	app := sitemapTestApp(t)
+
+	cached := []byte(`<?xml version="1.0" encoding="UTF-8"?><urlset><url><loc>cached-track-page</loc></url></urlset>`)
+	app.setCachedSitemapPage("track:1.xml", cached)
+
+	status, body := testGet(t, app, "/sitemaps/track/1.xml")
+	require.Equal(t, 200, status)
+	assert.Contains(t, string(body), "cached-track-page")
+}
+
+func TestSitemapTrackPageStaleCacheRefreshesInBackground(t *testing.T) {
+	app := sitemapTestApp(t)
+
+	stale := []byte(`<?xml version="1.0" encoding="UTF-8"?><urlset><url><loc>stale-track-page</loc></url></urlset>`)
+	require.True(t, app.sitemapPageCache.Set("track:1.xml", sitemapPageCacheEntry{
+		data:      stale,
+		expiresAt: time.Now().Add(-time.Minute),
+	}))
+
+	status, body := testGet(t, app, "/sitemaps/track/1.xml")
+	require.Equal(t, 200, status)
+	assert.Contains(t, string(body), "stale-track-page")
+
+	require.Eventually(t, func() bool {
+		entry, ok := app.sitemapPageCache.Get("track:1.xml")
+		return ok &&
+			!entry.refreshing &&
+			time.Now().Before(entry.expiresAt) &&
+			strings.Contains(string(entry.data), "artist1/listed-track") &&
+			!strings.Contains(string(entry.data), "stale-track-page")
+	}, time.Second, 10*time.Millisecond)
 }
 
 func TestSitemapPlaylistPage(t *testing.T) {
