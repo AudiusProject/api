@@ -1,6 +1,7 @@
 package api
 
 import (
+	"net/http/httptest"
 	"strings"
 	"testing"
 	"time"
@@ -54,6 +55,12 @@ func sitemapTestApp(t *testing.T) *ApiServer {
 	return app
 }
 
+func clearCachedSitemapCount(entityType string) {
+	sitemapCountMu.Lock()
+	defer sitemapCountMu.Unlock()
+	delete(sitemapCountCache, entityType)
+}
+
 func TestSitemapDefault(t *testing.T) {
 	app := sitemapTestApp(t)
 	status, body := testGet(t, app, "/sitemaps/default.xml")
@@ -82,10 +89,7 @@ func TestSitemapDefaults(t *testing.T) {
 func TestSitemapTrackIndex(t *testing.T) {
 	app := sitemapTestApp(t)
 
-	// Clear the count cache so test gets fresh data
-	sitemapCountMu.Lock()
-	delete(sitemapCountCache, "track")
-	sitemapCountMu.Unlock()
+	clearCachedSitemapCount("track")
 
 	status, body := testGet(t, app, "/sitemaps/track/index.xml")
 	require.Equal(t, 200, status)
@@ -93,6 +97,41 @@ func TestSitemapTrackIndex(t *testing.T) {
 	xml := string(body)
 	assert.Contains(t, xml, "<sitemapindex")
 	assert.Contains(t, xml, "/sitemaps/track/1.xml")
+}
+
+func TestSitemapTrackIndexCache(t *testing.T) {
+	app := sitemapTestApp(t)
+
+	cached := []byte(`<?xml version="1.0" encoding="UTF-8"?><sitemapindex><sitemap><loc>cached-track-index</loc></sitemap></sitemapindex>`)
+	app.setCachedSitemapXML("track:index.xml", cached)
+
+	status, body := testGet(t, app, "/sitemaps/track/index.xml")
+	require.Equal(t, 200, status)
+	assert.Contains(t, string(body), "cached-track-index")
+}
+
+func TestSitemapTrackIndexStaleCacheRefreshesInBackground(t *testing.T) {
+	app := sitemapTestApp(t)
+	clearCachedSitemapCount("track")
+
+	stale := []byte(`<?xml version="1.0" encoding="UTF-8"?><sitemapindex><sitemap><loc>stale-track-index</loc></sitemap></sitemapindex>`)
+	require.True(t, app.sitemapXMLCache.Set("track:index.xml", sitemapXMLCacheEntry{
+		data:      stale,
+		expiresAt: time.Now().Add(-time.Minute),
+	}))
+
+	status, body := testGet(t, app, "/sitemaps/track/index.xml")
+	require.Equal(t, 200, status)
+	assert.Contains(t, string(body), "stale-track-index")
+
+	require.Eventually(t, func() bool {
+		entry, ok := app.sitemapXMLCache.Get("track:index.xml")
+		return ok &&
+			!entry.refreshing &&
+			time.Now().Before(entry.expiresAt) &&
+			strings.Contains(string(entry.data), "/sitemaps/track/1.xml") &&
+			!strings.Contains(string(entry.data), "stale-track-index")
+	}, time.Second, 10*time.Millisecond)
 }
 
 func TestSitemapTrackPage(t *testing.T) {
@@ -117,7 +156,7 @@ func TestSitemapTrackPageCache(t *testing.T) {
 	app := sitemapTestApp(t)
 
 	cached := []byte(`<?xml version="1.0" encoding="UTF-8"?><urlset><url><loc>cached-track-page</loc></url></urlset>`)
-	app.setCachedSitemapPage("track:1.xml", cached)
+	app.setCachedSitemapXML("track:1.xml", cached)
 
 	status, body := testGet(t, app, "/sitemaps/track/1.xml")
 	require.Equal(t, 200, status)
@@ -128,7 +167,7 @@ func TestSitemapTrackPageStaleCacheRefreshesInBackground(t *testing.T) {
 	app := sitemapTestApp(t)
 
 	stale := []byte(`<?xml version="1.0" encoding="UTF-8"?><urlset><url><loc>stale-track-page</loc></url></urlset>`)
-	require.True(t, app.sitemapPageCache.Set("track:1.xml", sitemapPageCacheEntry{
+	require.True(t, app.sitemapXMLCache.Set("track:1.xml", sitemapXMLCacheEntry{
 		data:      stale,
 		expiresAt: time.Now().Add(-time.Minute),
 	}))
@@ -138,7 +177,7 @@ func TestSitemapTrackPageStaleCacheRefreshesInBackground(t *testing.T) {
 	assert.Contains(t, string(body), "stale-track-page")
 
 	require.Eventually(t, func() bool {
-		entry, ok := app.sitemapPageCache.Get("track:1.xml")
+		entry, ok := app.sitemapXMLCache.Get("track:1.xml")
 		return ok &&
 			!entry.refreshing &&
 			time.Now().Before(entry.expiresAt) &&
@@ -196,4 +235,28 @@ func TestSitemapContentType(t *testing.T) {
 	status, body := testGet(t, app, "/sitemaps/default.xml")
 	require.Equal(t, 200, status)
 	assert.Contains(t, string(body), "<?xml")
+}
+
+func TestSitemapCacheControlHeaders(t *testing.T) {
+	app := sitemapTestApp(t)
+
+	req := httptest.NewRequest("GET", "/sitemaps/track/index.xml", nil)
+	res, err := app.Test(req, -1)
+	require.NoError(t, err)
+	defer res.Body.Close()
+
+	require.Equal(t, 200, res.StatusCode)
+	assert.Equal(t, sitemapCacheControl, res.Header.Get("Cache-Control"))
+}
+
+func TestSitemapErrorCacheControlHeaders(t *testing.T) {
+	app := sitemapTestApp(t)
+
+	req := httptest.NewRequest("GET", "/sitemaps/bogus/index.xml", nil)
+	res, err := app.Test(req, -1)
+	require.NoError(t, err)
+	defer res.Body.Close()
+
+	require.Equal(t, 400, res.StatusCode)
+	assert.Equal(t, "no-store", res.Header.Get("Cache-Control"))
 }

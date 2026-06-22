@@ -3,6 +3,7 @@ package api
 import (
 	"errors"
 	"net/http"
+	"strings"
 
 	"github.com/gofiber/fiber/v2"
 	"github.com/jackc/pgx/v5"
@@ -24,6 +25,9 @@ func errorHandler(logger *zap.Logger) func(*fiber.Ctx, error) error {
 		if code > 499 {
 			logger.Error(err.Error(),
 				zap.String("url", ctx.OriginalURL()))
+		}
+		if strings.HasPrefix(ctx.Path(), "/sitemaps/") {
+			ctx.Set("Cache-Control", "no-store")
 		}
 
 		return ctx.Status(code).JSON(&fiber.Map{
