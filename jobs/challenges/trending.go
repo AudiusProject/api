@@ -108,12 +108,11 @@ func (p *TrendingProcessor) Reconcile(ctx context.Context, tx pgx.Tx) error {
 		// make_get_unpopulated_tracks in get_underground_trending.py (the
 		// underground strategy there reuses the TRACKS strategy, so it reads
 		// TRACKS-typed scores). Selecting raw UNDERGROUND_TRACKS scores
-		// instead — which index_trending computes identically to TRACKS,
-		// with no eligibility filter — made underground winners nearly
-		// identical to regular trending. The same filter already lives in
-		// the read endpoint, api/v1_tracks_trending_underground.go. version
-		// stays p.Version (pnagD); the written trending_results rows keep
-		// type = UNDERGROUND_TRACKS.
+		// instead made underground winners nearly identical to regular
+		// trending. The same filter already lives in the read endpoint,
+		// api/v1_tracks_trending_underground.go. version stays p.Version
+		// (pnagD); the written trending_results rows keep type =
+		// UNDERGROUND_TRACKS.
 		rows, err = tx.Query(ctx, `
 			WITH top_trending AS (
 				SELECT s.track_id
