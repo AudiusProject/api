@@ -8,13 +8,12 @@ import (
 func (app *ApiServer) v1UsersComments(c *fiber.Ctx) error {
 
 	sql := `
-	SELECT comment_id as id
-	FROM comments
-	LEFT JOIN comment_threads USING (comment_id)
-	WHERE user_id = @user_id
-	AND entity_type = 'Track'
-	AND comments.is_delete = false
-	`
+		SELECT comment_id as id
+		FROM comments
+		WHERE user_id = @user_id
+		AND entity_type = 'Track'
+		AND comments.is_delete = false
+		`
 
 	args := pgx.NamedArgs{
 		"user_id": app.getUserId(c),
