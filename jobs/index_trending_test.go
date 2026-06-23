@@ -49,12 +49,11 @@ func TestTrendingJob_PopulatesScores(t *testing.T) {
 	job := NewTrendingJob(newTestConfig(), pool)
 	require.NoError(t, job.run(ctx))
 
-	// Track scores: 3 ranges for TRACKS/pnagD, TRACKS/AnlGe, and
-	// UNDERGROUND_TRACKS/pnagD. At minimum we expect 9 positive rows for the
-	// seeded track.
+	// Track scores: 3 ranges for TRACKS/pnagD.
+	// At minimum we expect 3 positive rows for the seeded track.
 	var nTracks int
 	require.NoError(t, pool.QueryRow(ctx, "SELECT COUNT(*) FROM track_trending_scores WHERE track_id = 100").Scan(&nTracks))
-	assert.GreaterOrEqual(t, nTracks, 9, "expected at least 9 score rows for the seeded track")
+	assert.GreaterOrEqual(t, nTracks, 3, "expected at least 3 score rows for the seeded track")
 
 	// Re-running should keep the same row shape.
 	require.NoError(t, job.run(ctx))

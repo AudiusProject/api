@@ -32,7 +32,7 @@ import (
 //
 // Scheduled hourly to match discovery (default trending_refresh_seconds=3600;
 // see indexer's startParityJobs). Score expressions are copied from apps'
-// trending_strategies/{pnagD,AnlGe}_*.py so scoring stays bit-identical.
+// trending_strategies/pnagD_*.py so scoring stays bit-identical.
 type TrendingJob struct {
 	pool   database.DbPool
 	logger *zap.Logger
@@ -98,14 +98,6 @@ func (j *TrendingJob) run(ctx context.Context) error {
 	if err := j.computeTrendingTracks(ctx, "TRACKS", "pnagD", trackParamsPnagD); err != nil {
 		return fmt.Errorf("trending tracks pnagD: %w", err)
 	}
-	if err := j.computeTrendingTracks(ctx, "TRACKS", "AnlGe", trackParamsAnlGe); err != nil {
-		return fmt.Errorf("trending tracks AnlGe: %w", err)
-	}
-	// Underground uses the same TRACKS strategies but registers under a
-	// different trending_type key; apps only registers pnagD for it.
-	if err := j.computeTrendingTracks(ctx, "UNDERGROUND_TRACKS", "pnagD", trackParamsPnagD); err != nil {
-		return fmt.Errorf("trending underground tracks pnagD: %w", err)
-	}
 
 	if err := j.computeTrendingPlaylists(ctx, "PLAYLISTS", "pnagD"); err != nil {
 		return fmt.Errorf("trending playlists pnagD: %w", err)
@@ -138,20 +130,14 @@ func (j *TrendingJob) refreshMatview(ctx context.Context, mv string) error {
 	return nil
 }
 
-// trackScoreParams holds the scalar weights used by a tracks strategy. The
-// only behavior difference between pnagD and AnlGe is whether the trailing
-// multiplier is `karma` or `(1 + LOG(1 + karma))`.
+// trackScoreParams holds the scalar weights used by a tracks strategy.
 type trackScoreParams struct {
 	karmaExpr string
 }
 
-var (
-	trackParamsPnagD = trackScoreParams{karmaExpr: "tp.karma"}
-	trackParamsAnlGe = trackScoreParams{karmaExpr: "(1 + LOG(1 + tp.karma))"}
-)
+var trackParamsPnagD = trackScoreParams{karmaExpr: "tp.karma"}
 
 // Score weights matching apps' constants in pnagD_trending_tracks_strategy.py
-// (and AnlGe — they share the same constants).
 const (
 	trendingN  = 1
 	trendingF  = 50
