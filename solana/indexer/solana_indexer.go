@@ -196,6 +196,7 @@ func (s *SolanaIndexer) ProcessRetryQueue(ctx context.Context) {
 	offset := 0
 	logger := s.logger.Named("RetryQueue")
 	count := 0
+	failedByIndexer := map[string]int{}
 	start := time.Now()
 	logger.Debug("starting to process retry queue...")
 	for {
@@ -217,7 +218,8 @@ func (s *SolanaIndexer) ProcessRetryQueue(ctx context.Context) {
 			}
 			err := indexer.HandleUpdate(ctx, item.UpdateMessage.SubscribeUpdate)
 			if err != nil {
-				logger.Error("failed to retry", zap.String("indexer", locker.NAME), zap.Error(err))
+				logger.Debug("retry queue item failed", zap.String("indexer", item.Indexer), zap.Error(err))
+				failedByIndexer[item.Indexer]++
 				offset++
 			} else {
 				err = common.DeleteFromRetryQueue(ctx, s.pool, item.ID)
@@ -232,6 +234,12 @@ func (s *SolanaIndexer) ProcessRetryQueue(ctx context.Context) {
 	if count == 0 {
 		logger.Debug("no unprocessed transactions to retry")
 		return
+	}
+
+	if len(failedByIndexer) > 0 {
+		logger.Warn("retry queue items failed",
+			zap.Int("failed", offset),
+			zap.Any("failed_by_indexer", failedByIndexer))
 	}
 
 	logger.Info("finished processing retry queue",
