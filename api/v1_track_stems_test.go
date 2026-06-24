@@ -45,6 +45,17 @@ func TestGetTrackStems(t *testing.T) {
 					"category":        "vocals",
 				},
 			},
+			{
+				"track_id":    4,
+				"owner_id":    1,
+				"title":       "Stem Without Original Filename",
+				"track_cid":   "testcid3",
+				"blocknumber": 101,
+				"stem_of": map[string]any{
+					"parent_track_id": 1,
+					"category":        "guitar",
+				},
+			},
 		},
 		"stems": {
 			{
@@ -53,6 +64,10 @@ func TestGetTrackStems(t *testing.T) {
 			},
 			{
 				"child_track_id":  3,
+				"parent_track_id": 1,
+			},
+			{
+				"child_track_id":  4,
 				"parent_track_id": 1,
 			},
 		},
@@ -64,7 +79,7 @@ func TestGetTrackStems(t *testing.T) {
 	assert.Equal(t, 200, status)
 
 	jsonAssert(t, body, map[string]any{
-		"data.#":               2,
+		"data.#":               3,
 		"data.0.id":            trashid.MustEncodeHashID(2),
 		"data.0.parent_id":     trashid.MustEncodeHashID(1),
 		"data.0.category":      "bass",
@@ -77,5 +92,11 @@ func TestGetTrackStems(t *testing.T) {
 		"data.1.orig_filename": "stem2.wav",
 		"data.1.cid":           "testcid2",
 		"data.1.user_id":       trashid.MustEncodeHashID(1),
+		"data.2.id":            trashid.MustEncodeHashID(4),
+		"data.2.parent_id":     trashid.MustEncodeHashID(1),
+		"data.2.category":      "guitar",
+		"data.2.orig_filename": "Stem Without Original Filename",
+		"data.2.cid":           "testcid3",
+		"data.2.user_id":       trashid.MustEncodeHashID(1),
 	})
 }

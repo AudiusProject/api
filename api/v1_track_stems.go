@@ -25,7 +25,7 @@ func (app *ApiServer) v1TrackStems(c *fiber.Ctx) error {
 	  t.track_cid,
 	  t.owner_id,
 	  t.blocknumber,
-	  t.orig_filename
+	  COALESCE(t.orig_filename, t.title, '') AS orig_filename
 	FROM tracks t
 	JOIN stems s ON s.child_track_id = t.track_id
 	JOIN tracks parent ON parent.track_id = s.parent_track_id
@@ -33,6 +33,7 @@ func (app *ApiServer) v1TrackStems(c *fiber.Ctx) error {
 	  AND t.is_delete = false
 	  AND s.parent_track_id = @track_id
 	  AND parent.is_delete = false
+	ORDER BY t.track_id
 	`
 
 	rows, err := app.pool.Query(c.Context(), sql, pgx.NamedArgs{
