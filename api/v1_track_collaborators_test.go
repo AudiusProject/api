@@ -31,6 +31,10 @@ func seedCollaborators(t *testing.T, app *ApiServer) {
 func TestTrackCollaboratorsEmbeddedOnTrack(t *testing.T) {
 	app := testAppWithFixtures(t)
 	seedCollaborators(t, app)
+	now := time.Now()
+	database.SeedTable(app.pool.Replicas[0], "track_collaborators", []map[string]any{
+		{"track_id": 700, "collaborator_user_id": 500, "invited_by": 500, "status": "accepted", "created_at": now, "updated_at": now},
+	})
 
 	var resp struct {
 		Data []dbv1.Track
@@ -42,6 +46,7 @@ func TestTrackCollaboratorsEmbeddedOnTrack(t *testing.T) {
 		"data.3.id":                     trashid.MustEncodeHashID(700),
 		"data.3.collaborators.0.handle": "rayjacobson",
 	})
+	assert.Len(t, resp.Data[3].Collaborators, 1, "owner should not be embedded as their own collaborator")
 	// Non-collaborated tracks carry an empty array, not null.
 	assert.Contains(t, string(body), `"collaborators":[]`)
 }
