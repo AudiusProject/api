@@ -121,10 +121,9 @@ func (app *ApiServer) v1EventsFollowers(c *fiber.Ctx) error {
 		return fiber.NewError(fiber.StatusBadRequest, "invalid event id")
 	}
 
-	// `subscriptions.user_id` mirrors the event id (legacy column), so the
-	// `USING (user_id)` shortcut from v1UsersFollowers would be ambiguous
-	// here — qualify both joins explicitly against the user being looked
-	// up (subscriber_id).
+	// `subscriptions.user_id` is only the legacy event-id mirror for Event
+	// subscriptions, so qualify joins against the real user being looked up
+	// (subscriber_id) and key the event lookup by entity_id.
 	sql := `
 	SELECT subscriptions.subscriber_id
 	FROM subscriptions
@@ -158,7 +157,7 @@ func (app *ApiServer) v1EventFollowState(c *fiber.Ctx) error {
 		SELECT COUNT(*)
 		FROM subscriptions
 		WHERE entity_type = 'Event'
-		  AND user_id = $1
+		  AND entity_id = $1
 		  AND is_current = true
 		  AND is_delete = false
 	`, eventID).Scan(&followerCount); err != nil {
@@ -173,7 +172,7 @@ func (app *ApiServer) v1EventFollowState(c *fiber.Ctx) error {
 			SELECT EXISTS (
 				SELECT 1 FROM subscriptions
 				WHERE entity_type = 'Event'
-				  AND user_id = $1
+				  AND entity_id = $1
 				  AND subscriber_id = $2
 				  AND is_current = true
 				  AND is_delete = false

@@ -120,7 +120,7 @@ func seedRemixContest(t *testing.T, pool *pgxpool.Pool, endDate time.Time) {
 			{"user_id": 4, "save_item_id": 1000, "save_type": "track"},
 		},
 		"subscriptions": {
-			{"subscriber_id": 5, "user_id": 500, "entity_type": "Event", "entity_id": 1000},
+			{"subscriber_id": 5, "user_id": 500, "entity_type": "Event", "entity_id": 500},
 		},
 	})
 }
