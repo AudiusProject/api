@@ -116,10 +116,11 @@ func TestEventFollowState_ZeroFollowers(t *testing.T) {
 
 func TestEventFollowState_CountsOnlyLiveEventSubscriptions(t *testing.T) {
 	// follower_count MUST:
-	//   - count rows with entity_type='Event' and matching user_id=event_id
+	//   - count rows with entity_type='Event' and matching entity_id=event_id
 	//   - only include current & non-deleted rows
 	//   - NOT count rows with entity_type='User' (legacy user-follows) even if
 	//     they happen to target the same numeric id
+	//   - NOT count Event rows where only the legacy user_id mirror matches
 	//   - NOT count stale (is_current=false) rows
 	app := emptyTestApp(t)
 
@@ -193,6 +194,19 @@ func TestEventFollowState_CountsOnlyLiveEventSubscriptions(t *testing.T) {
 				"blockhash":     "bh4",
 				"blocknumber":   101,
 				"txhash":        "tx4",
+			},
+			// An Event subscription whose legacy mirror matches this event
+			// but canonical entity_id points elsewhere — must NOT be counted.
+			{
+				"subscriber_id": 4,
+				"user_id":       200,
+				"entity_type":   "Event",
+				"entity_id":     999,
+				"is_current":    true,
+				"is_delete":     false,
+				"blockhash":     "bh5",
+				"blocknumber":   101,
+				"txhash":        "tx5",
 			},
 		},
 	})

@@ -152,7 +152,7 @@ func (j *RemixContestNotificationsJob) fanEnded(ctx context.Context, now time.Ti
 					AND t.remix_of->'tracks' @> jsonb_build_array(jsonb_build_object('parent_track_id', e.entity_id))
 			UNION
 			SELECT s.subscriber_id FROM subscriptions s
-				WHERE s.user_id = e.event_id AND s.entity_type = 'Event'
+				WHERE s.entity_id = e.event_id AND s.entity_type = 'Event'
 					AND s.is_current AND NOT s.is_delete
 			UNION
 			SELECT f.follower_user_id FROM follows f
@@ -203,7 +203,7 @@ func (j *RemixContestNotificationsJob) fanEndingSoon(ctx context.Context, now ti
 					AND sv.is_current AND NOT sv.is_delete
 			UNION
 			SELECT s.subscriber_id FROM subscriptions s
-				WHERE s.user_id = e.event_id AND s.entity_type = 'Event'
+				WHERE s.entity_id = e.event_id AND s.entity_type = 'Event'
 					AND s.is_current AND NOT s.is_delete
 		) aud
 		WHERE e.event_type = 'remix_contest' AND NOT e.is_deleted

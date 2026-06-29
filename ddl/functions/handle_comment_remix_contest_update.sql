@@ -67,7 +67,7 @@ begin
     select s.subscriber_id
       from subscriptions s
      where s.entity_type = 'Event'
-       and s.user_id = new.entity_id
+       and s.entity_id = new.entity_id
        and s.is_current = true
        and s.is_delete = false
        and s.subscriber_id <> event_host_id

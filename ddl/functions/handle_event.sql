@@ -36,7 +36,7 @@ begin
           select sub.subscriber_id as user_id
           from subscriptions sub
           where sub.entity_type = 'Event'
-            and sub.user_id = new.event_id
+            and sub.entity_id = new.event_id
             and sub.is_current = true
             and sub.is_delete = false
         ) as users_to_notify

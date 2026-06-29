@@ -2783,7 +2783,7 @@ begin
     select s.subscriber_id
       from subscriptions s
      where s.entity_type = 'Event'
-       and s.user_id = new.entity_id
+       and s.entity_id = new.entity_id
        and s.is_current = true
        and s.is_delete = false
        and s.subscriber_id <> event_host_id
@@ -3052,7 +3052,7 @@ begin
           select sub.subscriber_id as user_id
           from subscriptions sub
           where sub.entity_type = 'Event'
-            and sub.user_id = new.event_id
+            and sub.entity_id = new.event_id
             and sub.is_current = true
             and sub.is_delete = false
         ) as users_to_notify
@@ -4991,7 +4991,7 @@ begin
               select s.subscriber_id as user_id
                 from subscriptions s
                where s.entity_type = 'Event'
-                 and s.user_id = contest_event_id
+                 and s.entity_id = contest_event_id
                  and s.is_current = true
                  and s.is_delete = false
               union
@@ -5063,7 +5063,7 @@ begin
         select sub.subscriber_id as user_id
           from subscriptions sub
          where sub.entity_type = 'Event'
-           and sub.user_id = e.event_id
+           and sub.entity_id = e.event_id
            and sub.is_current = true
            and sub.is_delete = false
       ) u on true
