@@ -39,24 +39,29 @@ type TrendingJob struct {
 
 	mutex     sync.Mutex
 	isRunning bool
+	now       func() time.Time
 }
 
 func NewTrendingJob(cfg config.Config, pool database.DbPool) *TrendingJob {
 	return &TrendingJob{
 		pool:   pool,
 		logger: logging.NewZapLogger(cfg).Named("TrendingJob"),
+		now:    time.Now,
 	}
 }
 
 // ScheduleEvery runs the job every `interval` until the context is cancelled.
+// The interval is measured after each completed run, so a slow run does not
+// leave a pending ticker event that immediately starts another DB-heavy pass.
 func (j *TrendingJob) ScheduleEvery(ctx context.Context, interval time.Duration) *TrendingJob {
 	go func() {
-		ticker := time.NewTicker(interval)
-		defer ticker.Stop()
+		timer := time.NewTimer(interval)
+		defer timer.Stop()
 		for {
 			select {
-			case <-ticker.C:
+			case <-timer.C:
 				j.Run(ctx)
+				timer.Reset(interval)
 			case <-ctx.Done():
 				j.logger.Info("Job shutting down")
 				return
@@ -101,6 +106,10 @@ func (j *TrendingJob) run(ctx context.Context) error {
 
 	if err := j.computeTrendingPlaylists(ctx, "PLAYLISTS", "pnagD"); err != nil {
 		return fmt.Errorf("trending playlists pnagD: %w", err)
+	}
+
+	if err := j.computeTrendingTrackAllTimeIfDue(ctx, "TRACKS", "pnagD", trackParamsPnagD); err != nil {
+		return fmt.Errorf("trending tracks pnagD allTime: %w", err)
 	}
 
 	j.logger.Info("Trending scores recomputed", zap.Duration("duration", time.Since(start)))
@@ -148,9 +157,12 @@ const (
 	trendingY  = 3
 	trendingWk = 7
 	trendingMo = 30
+
+	trendingAllTimeCheckpoint = "track_trending_scores_all_time"
+	trendingAllTimeInterval   = 24 * time.Hour
 )
 
-// computeTrendingTracks runs the three-time-range score insert for one
+// computeTrendingTracks runs the week/month score inserts for one
 // (trending_type, version) combination. Mirrors update_track_score_query
 // from apps' track strategies.
 func (j *TrendingJob) computeTrendingTracks(ctx context.Context, trendingType, version string, p trackScoreParams) error {
@@ -160,20 +172,21 @@ func (j *TrendingJob) computeTrendingTracks(ctx context.Context, trendingType, v
 	}
 	defer tx.Rollback(ctx)
 
-	// Mirror apps' update_track_score_query: clear this (type, version)'s rows
-	// and repopulate with plain bulk INSERTs, all inside the one transaction
-	// opened above so readers never observe an empty table (the DELETE isn't
-	// visible until COMMIT, by which point the INSERTs have committed too).
+	// Mirror apps' update_track_score_query shape: clear this (type, version)'s
+	// rolling rows and repopulate with plain bulk INSERTs, all inside the one
+	// transaction opened above so readers never observe missing rolling rows.
 	//
 	// An earlier temp-table + ON CONFLICT DO UPDATE reconcile turned this into a
 	// ~4M-row-per-cycle upsert — one unique-index probe and IS DISTINCT FROM
 	// comparison per row — which took 40+ minutes and could never finish inside
 	// the refresh interval. The blunt DELETE + append matches the proven Python
-	// behavior. The score expressions below are intentionally kept aligned with
-	// the discovery templates, then filtered so we only persist tracks that can
+	// behavior. allTime is intentionally refreshed separately and less often.
+	// The score expressions below are intentionally kept aligned with the
+	// discovery templates, then filtered so we only persist tracks that can
 	// actually appear ahead of the zero-score tail.
 	if _, err := tx.Exec(ctx,
-		`DELETE FROM track_trending_scores WHERE type = $1 AND version = $2`,
+		`DELETE FROM track_trending_scores
+		 WHERE type = $1 AND version = $2 AND time_range IN ('week', 'month')`,
 		trendingType, version,
 	); err != nil {
 		return fmt.Errorf("delete existing: %w", err)
@@ -252,7 +265,46 @@ func (j *TrendingJob) computeTrendingTracks(ctx context.Context, trendingType, v
 		}
 	}
 
-	// All-time uses aggregate_plays.count rather than aggregate_interval_plays.
+	return tx.Commit(ctx)
+}
+
+func (j *TrendingJob) computeTrendingTrackAllTimeIfDue(ctx context.Context, trendingType, version string, p trackScoreParams) error {
+	now := j.now().UTC()
+	lastRunUnix, err := getCheckpoint(ctx, j.pool, trendingAllTimeCheckpoint)
+	if err != nil {
+		return fmt.Errorf("read allTime checkpoint: %w", err)
+	}
+	if lastRunUnix > 0 {
+		lastRun := time.Unix(lastRunUnix, 0).UTC()
+		if now.Sub(lastRun) < trendingAllTimeInterval {
+			j.logger.Debug("Skipping allTime trending refresh",
+				zap.Time("last_run", lastRun),
+				zap.Duration("next_run_in", trendingAllTimeInterval-now.Sub(lastRun)))
+			return nil
+		}
+	}
+
+	return j.computeTrendingTrackAllTime(ctx, trendingType, version, p, now)
+}
+
+// computeTrendingTrackAllTime refreshes only the allTime range. It is kept out
+// of the hourly week/month pass because it scans aggregate_plays and changes
+// slowly compared with rolling windows.
+func (j *TrendingJob) computeTrendingTrackAllTime(ctx context.Context, trendingType, version string, p trackScoreParams, checkpointTime time.Time) error {
+	tx, err := j.pool.Begin(ctx)
+	if err != nil {
+		return err
+	}
+	defer tx.Rollback(ctx)
+
+	if _, err := tx.Exec(ctx,
+		`DELETE FROM track_trending_scores
+		 WHERE type = $1 AND version = $2 AND time_range = 'allTime'`,
+		trendingType, version,
+	); err != nil {
+		return fmt.Errorf("delete existing allTime: %w", err)
+	}
+
 	q := fmt.Sprintf(`
 		INSERT INTO track_trending_scores
 			(track_id, genre, type, version, time_range, score, created_at)
@@ -291,6 +343,14 @@ func (j *TrendingJob) computeTrendingTracks(ctx context.Context, trendingType, v
 		trendingY, trendingN, trendingR, trendingI,
 	); err != nil {
 		return fmt.Errorf("allTime range: %w", err)
+	}
+
+	if _, err := tx.Exec(ctx, `
+		INSERT INTO indexing_checkpoints (tablename, last_checkpoint)
+		VALUES ($1, $2)
+		ON CONFLICT (tablename) DO UPDATE SET last_checkpoint = EXCLUDED.last_checkpoint
+	`, trendingAllTimeCheckpoint, checkpointTime.Unix()); err != nil {
+		return fmt.Errorf("save allTime checkpoint: %w", err)
 	}
 
 	return tx.Commit(ctx)
