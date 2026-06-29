@@ -50,6 +50,7 @@ func (q *Queries) TracksKeyed(ctx context.Context, arg TracksParams) (map[int32]
 
 	userIds := []int32{}
 	trackIds := make([]int32, 0, len(rawTracks))
+	ownerByTrack := make(map[int32]int32, len(rawTracks))
 	collectSplitUserIds := func(usage *AccessGate) {
 		if usage == nil || usage.UsdcPurchase == nil {
 			return
@@ -62,6 +63,7 @@ func (q *Queries) TracksKeyed(ctx context.Context, arg TracksParams) (map[int32]
 	for _, rawTrack := range rawTracks {
 		userIds = append(userIds, rawTrack.UserID)
 		trackIds = append(trackIds, rawTrack.TrackID)
+		ownerByTrack[rawTrack.TrackID] = rawTrack.UserID
 
 		var remixOf RemixOf
 		json.Unmarshal(rawTrack.RemixOf, &remixOf)
@@ -169,7 +171,7 @@ func (q *Queries) TracksKeyed(ctx context.Context, arg TracksParams) (map[int32]
 
 		// Resolve accepted collaborators (order preserved from the query).
 		collaborators := []User{}
-		for _, cid := range collaboratorsByTrack[rawTrack.TrackID] {
+		for _, cid := range uniqueCollaboratorIDs(collaboratorsByTrack[rawTrack.TrackID], ownerByTrack[rawTrack.TrackID]) {
 			if cu, ok := userMap[cid]; ok {
 				collaborators = append(collaborators, cu)
 			}
@@ -177,7 +179,7 @@ func (q *Queries) TracksKeyed(ctx context.Context, arg TracksParams) (map[int32]
 
 		// Resolve pending collaborators (only present for the owner's own tracks).
 		pendingCollaborators := []User{}
-		for _, cid := range pendingByTrack[rawTrack.TrackID] {
+		for _, cid := range uniqueCollaboratorIDs(pendingByTrack[rawTrack.TrackID], ownerByTrack[rawTrack.TrackID]) {
 			if cu, ok := userMap[cid]; ok {
 				pendingCollaborators = append(pendingCollaborators, cu)
 			}
@@ -263,4 +265,21 @@ func (q *Queries) Tracks(ctx context.Context, arg TracksParams) ([]Track, error)
 	}
 
 	return tracks, nil
+}
+
+func uniqueCollaboratorIDs(collaboratorIDs []int32, ownerID int32) []int32 {
+	if len(collaboratorIDs) == 0 {
+		return nil
+	}
+
+	seen := map[int32]struct{}{ownerID: {}}
+	uniqueIDs := make([]int32, 0, len(collaboratorIDs))
+	for _, collaboratorID := range collaboratorIDs {
+		if _, ok := seen[collaboratorID]; ok {
+			continue
+		}
+		seen[collaboratorID] = struct{}{}
+		uniqueIDs = append(uniqueIDs, collaboratorID)
+	}
+	return uniqueIDs
 }
