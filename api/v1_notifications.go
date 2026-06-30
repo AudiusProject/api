@@ -166,7 +166,10 @@ WHERE
 					WHERE u2.user_id = (n.data->>'user_id')::integer
 					AND u2.is_current = true
 					AND u2.is_deactivated = false
-					AND a2.score >= 0
+					AND (
+						n.type in ('request_manager', 'approve_manager_request')
+						OR a2.score >= 0
+					)
 				)
 			)
 			AND (

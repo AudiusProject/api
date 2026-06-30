@@ -331,6 +331,59 @@ func TestV1Notifications_LowScore(t *testing.T) {
 	})
 }
 
+func TestV1Notifications_LowScoreManagerRequest(t *testing.T) {
+	app := emptyTestApp(t)
+
+	const recipientUserID = 1
+	const lowScoreGrantorUserID = 67576
+
+	fixtures := database.FixtureMap{
+		"users": []map[string]any{
+			{
+				"user_id":        lowScoreGrantorUserID,
+				"is_deactivated": false,
+			},
+		},
+		"aggregate_user": []map[string]any{
+			{
+				"user_id": lowScoreGrantorUserID,
+				"score":   -1,
+			},
+		},
+		"notification": []map[string]any{
+			{
+				"id":        1,
+				"specifier": strconv.Itoa(lowScoreGrantorUserID),
+				"group_id":  "request_manager:grantee_user_id:1:user_id:67576",
+				"type":      "request_manager",
+				"user_ids":  []int{recipientUserID},
+				"data": []byte(
+					`{"user_id": 67576, "grantee_address": "0xabc", "grantee_user_id": 1}`,
+				),
+			},
+		},
+	}
+
+	database.Seed(app.pool.Replicas[0], fixtures)
+
+	status, body := testGet(
+		t,
+		app,
+		"/v1/notifications/"+
+			trashid.MustEncodeHashID(recipientUserID)+
+			"?types=request_manager",
+	)
+	assert.Equal(t, 200, status)
+
+	jsonAssert(t, body, map[string]any{
+		"data.notifications.#":                                1,
+		"data.notifications.0.type":                           "request_manager",
+		"data.notifications.0.actions.0.specifier":            trashid.MustEncodeHashID(lowScoreGrantorUserID),
+		"data.notifications.0.actions.0.data.user_id":         trashid.MustEncodeHashID(lowScoreGrantorUserID),
+		"data.notifications.0.actions.0.data.grantee_user_id": trashid.MustEncodeHashID(recipientUserID),
+	})
+}
+
 func TestV1Notifications_UnlistedTrack(t *testing.T) {
 	app := emptyTestApp(t)
 
