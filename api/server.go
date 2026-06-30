@@ -791,6 +791,8 @@ func NewApiServer(config config.Config) *ApiServer {
 	app.Get("/content-nodes", app.contentNodes)
 	app.Get("/content/verbose", app.contentNodes)
 	app.Get("/content-nodes/verbose", app.contentNodes)
+	app.Get("/content/:cid", app.contentAssetRedirect)
+	app.Get("/content/:cid/:asset", app.contentAssetRedirect)
 
 	// Plans React app - serve static assets first, then SPA routing
 	app.Static("/plans/assets", "./static/plans/dist/assets")
