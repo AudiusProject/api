@@ -74,6 +74,84 @@ func TestV1Notifications(t *testing.T) {
 	})
 }
 
+func TestV1Notifications_LimitZeroReturnsUnreadOnly(t *testing.T) {
+	app := emptyTestApp(t)
+
+	fixtures := database.FixtureMap{
+		"notification": []map[string]any{
+			{
+				"id":        1,
+				"specifier": "111",
+				"group_id":  "tip_send:user_id:111:signature:eee",
+				"type":      "tip_send",
+				"user_ids":  []int{1},
+				"data":      []byte(`{"amount": 100000000, "tx_signature": "asdf", "sender_user_id": 111, "receiver_user_id": 222}`),
+			},
+		},
+	}
+
+	database.Seed(app.pool.Replicas[0], fixtures)
+
+	status, body := testGet(t, app, "/v1/notifications/"+trashid.MustEncodeHashID(1)+"?limit=0")
+	assert.Equal(t, 200, status)
+
+	jsonAssert(t, body, map[string]any{
+		"data.notifications.#": 0,
+		"data.unread_count":    1,
+		"related.users.#":      0,
+		"related.tracks.#":     0,
+		"related.playlists.#":  0,
+	})
+}
+
+func TestV1Notifications_ReturnsMultiRecipientRows(t *testing.T) {
+	app := emptyTestApp(t)
+
+	fixtures := database.FixtureMap{
+		"notification": []map[string]any{
+			{
+				"id":        1,
+				"specifier": "single",
+				"group_id":  "single:1",
+				"type":      "milestone",
+				"user_ids":  []int{1},
+				"timestamp": time.Now().Add(-1 * time.Minute),
+				"data":      []byte(`{"type": "TRACK_REPOST_COUNT", "threshold": 10, "track_id": 101}`),
+			},
+			{
+				"id":        2,
+				"specifier": "multi",
+				"group_id":  "multi:1",
+				"type":      "milestone",
+				"user_ids":  []int{1, 2},
+				"timestamp": time.Now(),
+				"data":      []byte(`{"type": "TRACK_SAVE_COUNT", "threshold": 10, "track_id": 102}`),
+			},
+		},
+	}
+
+	database.Seed(app.pool.Replicas[0], fixtures)
+
+	status, body := testGet(t, app, "/v1/notifications/"+trashid.MustEncodeHashID(1))
+	assert.Equal(t, 200, status)
+
+	jsonAssert(t, body, map[string]any{
+		"data.notifications.#":          2,
+		"data.notifications.0.type":     "milestone",
+		"data.notifications.0.group_id": "multi:1",
+		"data.notifications.1.type":     "milestone",
+		"data.notifications.1.group_id": "single:1",
+	})
+
+	status, body = testGet(t, app, "/v1/notifications/"+trashid.MustEncodeHashID(1)+"?limit=0")
+	assert.Equal(t, 200, status)
+
+	jsonAssert(t, body, map[string]any{
+		"data.notifications.#": 0,
+		"data.unread_count":    2,
+	})
+}
+
 func TestV1Notifications_NotDeletedTrack(t *testing.T) {
 	app := emptyTestApp(t)
 
