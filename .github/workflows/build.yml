@@ -1,8 +1,19 @@
 name: Build Docker Image
 
 on:
+  # Only build/push images on main. Previously this ran on every push to every
+  # branch ("**"), producing a full amd64 + arm64 multi-arch build, push, and
+  # GitHub Release for every feature-branch commit — by far the largest source
+  # of Actions spend in this repo. Feature-branch images are not consumed by any
+  # deploy; use the manual trigger below to build one on demand when needed.
   push:
-    branches: ["**"]
+    branches: [ main ]
+  workflow_dispatch:
+
+# Serialize main builds; a newer main push supersedes an older in-flight build.
+concurrency:
+  group: build-${{ github.ref }}
+  cancel-in-progress: true
 
 jobs:
   build-amd64:
