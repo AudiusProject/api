@@ -74,7 +74,7 @@ WITH latest_seen AS (
 -- Equivalent to ARRAY[@user_id] && n.user_ids, split so single-recipient rows
 -- can use notification_single_recipient_user_timestamp_idx while
 -- multi-recipient arrays keep the existing overlap semantics.
-matched_notifications AS (
+single_recipient_groups AS MATERIALIZED (
 	SELECT n.type, n.group_id
 	FROM notification n
 	CROSS JOIN latest_seen
@@ -84,22 +84,40 @@ matched_notifications AS (
 		AND n.timestamp > COALESCE(latest_seen.seen_at, '-infinity'::timestamp)
 		AND (n.type = ANY(@types) OR @types IS NULL)
 		AND (n.type != ALL(@unsupported_types))
-	UNION ALL
+	GROUP BY n.type, n.group_id
+	LIMIT @limit
+),
+single_recipient_count AS MATERIALIZED (
+	SELECT COUNT(*)::int AS unread_count
+	FROM single_recipient_groups
+),
+-- Only touch the broader multi-recipient GIN path if the fast single-recipient
+-- path did not already satisfy the capped unread count.
+multi_recipient_groups AS MATERIALIZED (
 	SELECT n.type, n.group_id
 	FROM notification n
 	CROSS JOIN latest_seen
-	WHERE COALESCE(array_length(n.user_ids, 1), 0) != 1
+	WHERE (SELECT unread_count FROM single_recipient_count) < @limit
+		AND COALESCE(array_length(n.user_ids, 1), 0) != 1
 		AND ARRAY[@user_id] && n.user_ids
 		AND n.timestamp > (now()::timestamp - interval '90 days')
 		AND n.timestamp > COALESCE(latest_seen.seen_at, '-infinity'::timestamp)
 		AND (n.type = ANY(@types) OR @types IS NULL)
 		AND (n.type != ALL(@unsupported_types))
+		AND NOT EXISTS (
+			SELECT 1
+			FROM single_recipient_groups sg
+			WHERE sg.type = n.type
+				AND sg.group_id = n.group_id
+		)
+	GROUP BY n.type, n.group_id
+	LIMIT GREATEST(@limit - (SELECT unread_count FROM single_recipient_count), 0)
 )
 SELECT COUNT(*)
 FROM (
-	SELECT 1
-	FROM matched_notifications
-	GROUP BY type, group_id
+	SELECT type, group_id FROM single_recipient_groups
+	UNION ALL
+	SELECT type, group_id FROM multi_recipient_groups
 	LIMIT @limit
 ) unread_notifications;
 `
