@@ -33,6 +33,10 @@ const (
 	// Historically `limit=0` fell back to the default limit of 20, so unread
 	// polling counted at most the first page of notification groups.
 	notificationUnreadPollLimit = 20
+
+	// Timestamp pagination should only need the newest rows before the cursor.
+	// This keeps hot users from grouping years of notifications before LIMIT.
+	notificationPaginationCandidateLimit = 25000
 )
 
 type GetNotificationsQueryParams struct {
@@ -163,26 +167,7 @@ func (app *ApiServer) v1Notifications(c *fiber.Ctx) error {
 		return app.v1NotificationsUnreadPoll(c, params)
 	}
 
-	sql := `
--- user_seen is a window function that gets windows between seen events.
---
--- seen_at	              prev_seen_at
--- now()	                "2025-08-05 16:27:53"
--- "2025-08-05 16:27:53"	"2025-08-04 21:50:38"
--- "2025-08-04 21:50:38"	"2025-08-04 18:12:41"
---
-WITH user_seen as (
-  SELECT
-    LAG(seen_at, 1, now()::timestamp) OVER ( ORDER BY seen_at desc ) AS seen_at,
-    seen_at as prev_seen_at
-  FROM
-    notification_seen
-  WHERE
-    user_id = @user_id
-  ORDER BY
-    seen_at desc
-  LIMIT 10
-),
+	matchedNotificationsCTE := `
 -- Equivalent to ARRAY[@user_id] && n.user_ids, split so single-recipient rows
 -- can use notification_single_recipient_user_timestamp_idx while
 -- multi-recipient arrays keep the existing overlap semantics.
@@ -239,6 +224,92 @@ matched_notifications AS (
 			)
 		)
 )
+`
+
+	if params.Timestamp > 0 {
+		matchedNotificationsCTE = `
+-- Timestamp pagination can otherwise aggregate every older notification for
+-- prolific users before LIMIT. Pull a generous timestamp-ordered candidate set
+-- from each recipient shape first, then apply the same grouping/filtering.
+single_recipient_candidates AS MATERIALIZED (
+	SELECT
+		n.id,
+		n.specifier,
+		n.group_id,
+		n.type,
+		n.timestamp,
+		n.data
+	FROM notification n
+	WHERE
+		array_length(n.user_ids, 1) = 1
+		AND n.user_ids[1] = @user_id
+		AND (n.type = ANY(@types) OR @types IS NULL)
+		AND (n.type != ALL(@unsupported_types))
+		AND (
+			n.timestamp < to_timestamp(@timestamp_offset) OR
+			(
+				@group_id_offset != '' AND
+				n.timestamp = to_timestamp(@timestamp_offset) AND
+				n.group_id < @group_id_offset
+			)
+		)
+	ORDER BY n.timestamp DESC, n.group_id DESC
+	LIMIT @pagination_candidate_limit
+),
+multi_recipient_candidates AS MATERIALIZED (
+	SELECT
+		n.id,
+		n.specifier,
+		n.group_id,
+		n.type,
+		n.timestamp,
+		n.data
+	FROM notification n
+	WHERE
+		COALESCE(array_length(n.user_ids, 1), 0) != 1
+		AND ARRAY[@user_id] && n.user_ids
+		AND (n.type = ANY(@types) OR @types IS NULL)
+		AND (n.type != ALL(@unsupported_types))
+		AND (
+			n.timestamp < to_timestamp(@timestamp_offset) OR
+			(
+				@group_id_offset != '' AND
+				n.timestamp = to_timestamp(@timestamp_offset) AND
+				n.group_id < @group_id_offset
+			)
+		)
+	ORDER BY n.timestamp DESC, n.group_id DESC
+	LIMIT @pagination_candidate_limit
+),
+matched_notifications AS (
+	SELECT * FROM single_recipient_candidates
+	UNION ALL
+	SELECT * FROM multi_recipient_candidates
+)
+`
+	}
+
+	sql := `
+-- user_seen is a window function that gets windows between seen events.
+--
+-- seen_at	              prev_seen_at
+-- now()	                "2025-08-05 16:27:53"
+-- "2025-08-05 16:27:53"	"2025-08-04 21:50:38"
+-- "2025-08-04 21:50:38"	"2025-08-04 18:12:41"
+--
+WITH user_seen as (
+  SELECT
+    LAG(seen_at, 1, now()::timestamp) OVER ( ORDER BY seen_at desc ) AS seen_at,
+    seen_at as prev_seen_at
+  FROM
+    notification_seen
+  WHERE
+    user_id = @user_id
+  ORDER BY
+    seen_at desc
+  LIMIT 10
+),
+` + matchedNotificationsCTE + `
 SELECT
 	n.type,
 	n.group_id AS group_id,
@@ -395,22 +466,31 @@ limit @limit::int
 	ctx, cancel := context.WithTimeout(c.Context(), notificationReadTimeout)
 	defer cancel()
 
-	rows, err := app.pool.Query(ctx, sql, pgx.NamedArgs{
+	args := pgx.NamedArgs{
 		"user_id":           userId,
 		"limit":             params.Limit,
 		"types":             params.Types,
 		"group_id_offset":   params.GroupID,
 		"timestamp_offset":  params.Timestamp,
 		"unsupported_types": unsupportedNotificationTypes,
-	})
-	if err != nil {
-		if errors.Is(err, context.DeadlineExceeded) {
-			return fiber.NewError(fiber.StatusGatewayTimeout, "notifications query timed out")
-		}
-		return err
 	}
 
-	notifs, err := pgx.CollectRows(rows, pgx.RowToAddrOfStructByNameLax[notificationRow])
+	if params.Timestamp > 0 {
+		args["pagination_candidate_limit"] = notificationPaginationCandidateLimit
+	}
+
+	var notifs []*notificationRow
+	var err error
+	if params.Timestamp > 0 {
+		notifs, err = app.v1NotificationsPaginatedRows(ctx, sql, args)
+	} else {
+		rows, queryErr := app.pool.Query(ctx, sql, args)
+		if queryErr != nil {
+			err = queryErr
+		} else {
+			notifs, err = pgx.CollectRows(rows, pgx.RowToAddrOfStructByNameLax[notificationRow])
+		}
+	}
 	if err != nil {
 		if errors.Is(err, context.DeadlineExceeded) {
 			return fiber.NewError(fiber.StatusGatewayTimeout, "notifications query timed out")
@@ -523,6 +603,45 @@ limit @limit::int
 		},
 	})
 
+}
+
+func (app *ApiServer) v1NotificationsPaginatedRows(ctx context.Context, sql string, args pgx.NamedArgs) ([]*notificationRow, error) {
+	pool := dbv1.ChooseReplica(app.pool.Replicas)
+	if pool == nil {
+		return nil, pgx.ErrNoRows
+	}
+
+	tx, err := pool.BeginTx(ctx, pgx.TxOptions{AccessMode: pgx.ReadOnly})
+	if err != nil {
+		return nil, err
+	}
+	defer func() {
+		rollbackCtx, cancel := context.WithTimeout(context.Background(), 2*time.Second)
+		defer cancel()
+		_ = tx.Rollback(rollbackCtx)
+	}()
+
+	// The production planner overestimates the multi-recipient overlap branch
+	// and prefers a table scan; keep the override scoped to this read only.
+	if _, err := tx.Exec(ctx, "SET LOCAL enable_seqscan = off"); err != nil {
+		return nil, err
+	}
+
+	rows, err := tx.Query(ctx, sql, args)
+	if err != nil {
+		return nil, err
+	}
+
+	notifs, err := pgx.CollectRows(rows, pgx.RowToAddrOfStructByNameLax[notificationRow])
+	if err != nil {
+		return nil, err
+	}
+
+	if err := tx.Commit(ctx); err != nil {
+		return nil, err
+	}
+
+	return notifs, nil
 }
 
 // collectNotificationRelatedIds extracts user/track/playlist IDs from a single
