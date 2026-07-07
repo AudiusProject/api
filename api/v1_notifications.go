@@ -30,6 +30,10 @@ const (
 	// holding hot-standby snapshots and making the replica fall behind.
 	notificationReadTimeout = 8 * time.Second
 
+	// Unread polling runs frequently in clients. If the multi-recipient array
+	// path is cold, fall back quickly instead of surfacing a 504.
+	notificationUnreadPollTimeout = 3 * time.Second
+
 	// Historically `limit=0` fell back to the default limit of 20, so unread
 	// polling counted at most the first page of notification groups.
 	notificationUnreadPollLimit = 20
@@ -38,6 +42,11 @@ const (
 	// window. This keeps hot users from grouping years of notifications before
 	// LIMIT.
 	notificationReadCandidateLimit = 25000
+
+	// Old timestamp pagination can still have years of history behind the
+	// cursor. A smaller window is enough to find many candidate groups while
+	// avoiding cold reads over tens of thousands of historical rows.
+	notificationTimestampPaginationCandidateLimit = 2000
 
 	// Keep the expensive validation/JSON aggregation work bounded after the
 	// newest notification groups have been selected.
@@ -143,7 +152,7 @@ FROM (
 	LIMIT @limit
 ) unread_notifications;
 `
-	ctx, cancel := context.WithTimeout(c.Context(), notificationReadTimeout)
+	ctx, cancel := context.WithTimeout(c.Context(), notificationUnreadPollTimeout)
 	defer cancel()
 
 	var unreadCount int
@@ -158,7 +167,17 @@ FROM (
 	})
 	if err != nil {
 		if errors.Is(err, context.DeadlineExceeded) {
-			return fiber.NewError(fiber.StatusGatewayTimeout, "notifications unread query timed out")
+			return c.JSON(fiber.Map{
+				"data": fiber.Map{
+					"notifications": []notificationRow{},
+					"unread_count":  notificationUnreadPollLimit,
+				},
+				"related": fiber.Map{
+					"users":     []any{},
+					"tracks":    []any{},
+					"playlists": []any{},
+				},
+			})
 		}
 		return err
 	}
@@ -578,6 +597,10 @@ limit @limit::int
 ;
 `
 	userId := app.getUserId(c)
+	candidateLimit := notificationReadCandidateLimit
+	if params.Timestamp > 0 {
+		candidateLimit = notificationTimestampPaginationCandidateLimit
+	}
 
 	ctx, cancel := context.WithTimeout(c.Context(), notificationReadTimeout)
 	defer cancel()
@@ -592,7 +615,7 @@ limit @limit::int
 	}
 
 	if usesCandidateLimit {
-		args["candidate_limit"] = notificationReadCandidateLimit
+		args["candidate_limit"] = candidateLimit
 		args["group_candidate_limit"] = notificationGroupCandidateLimit
 		args["actions_per_group_limit"] = notificationActionsPerGroupLimit
 	}
