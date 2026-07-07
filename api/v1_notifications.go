@@ -34,9 +34,15 @@ const (
 	// polling counted at most the first page of notification groups.
 	notificationUnreadPollLimit = 20
 
-	// Timestamp pagination should only need the newest rows before the cursor.
-	// This keeps hot users from grouping years of notifications before LIMIT.
-	notificationPaginationCandidateLimit = 25000
+	// Notification reads should only need the newest rows in the requested
+	// window. This keeps hot users from grouping years of notifications before
+	// LIMIT.
+	notificationReadCandidateLimit = 25000
+
+	// Keep the expensive validation/JSON aggregation work bounded after the
+	// newest notification groups have been selected.
+	notificationGroupCandidateLimit  = 200
+	notificationActionsPerGroupLimit = 100
 )
 
 type GetNotificationsQueryParams struct {
@@ -78,8 +84,8 @@ WITH latest_seen AS (
 -- Equivalent to ARRAY[@user_id] && n.user_ids, split so single-recipient rows
 -- can use notification_single_recipient_user_timestamp_idx while
 -- multi-recipient arrays keep the existing overlap semantics.
-single_recipient_groups AS MATERIALIZED (
-	SELECT n.type, n.group_id
+single_recipient_candidates AS MATERIALIZED (
+	SELECT n.type, n.group_id, n.timestamp
 	FROM notification n
 	CROSS JOIN latest_seen
 	WHERE array_length(n.user_ids, 1) = 1
@@ -88,7 +94,13 @@ single_recipient_groups AS MATERIALIZED (
 		AND n.timestamp > COALESCE(latest_seen.seen_at, '-infinity'::timestamp)
 		AND (n.type = ANY(@types) OR @types IS NULL)
 		AND (n.type != ALL(@unsupported_types))
-	GROUP BY n.type, n.group_id
+	ORDER BY n.timestamp DESC, n.group_id DESC
+	LIMIT @candidate_limit
+),
+single_recipient_groups AS MATERIALIZED (
+	SELECT type, group_id
+	FROM single_recipient_candidates
+	GROUP BY type, group_id
 	LIMIT @limit
 ),
 single_recipient_count AS MATERIALIZED (
@@ -97,8 +109,8 @@ single_recipient_count AS MATERIALIZED (
 ),
 -- Only touch the broader multi-recipient GIN path if the fast single-recipient
 -- path did not already satisfy the capped unread count.
-multi_recipient_groups AS MATERIALIZED (
-	SELECT n.type, n.group_id
+multi_recipient_candidates AS MATERIALIZED (
+	SELECT n.type, n.group_id, n.timestamp
 	FROM notification n
 	CROSS JOIN latest_seen
 	WHERE (SELECT unread_count FROM single_recipient_count) < @limit
@@ -114,7 +126,13 @@ multi_recipient_groups AS MATERIALIZED (
 			WHERE sg.type = n.type
 				AND sg.group_id = n.group_id
 		)
-	GROUP BY n.type, n.group_id
+	ORDER BY n.timestamp DESC, n.group_id DESC
+	LIMIT @candidate_limit
+),
+multi_recipient_groups AS MATERIALIZED (
+	SELECT type, group_id
+	FROM multi_recipient_candidates
+	GROUP BY type, group_id
 	LIMIT GREATEST(@limit - (SELECT unread_count FROM single_recipient_count), 0)
 )
 SELECT COUNT(*)
@@ -129,12 +147,15 @@ FROM (
 	defer cancel()
 
 	var unreadCount int
-	err := app.pool.QueryRow(ctx, sql, pgx.NamedArgs{
-		"user_id":           app.getUserId(c),
-		"limit":             notificationUnreadPollLimit,
-		"types":             params.Types,
-		"unsupported_types": unsupportedNotificationTypes,
-	}).Scan(&unreadCount)
+	err := app.v1NotificationsReadTx(ctx, func(tx pgx.Tx) error {
+		return tx.QueryRow(ctx, sql, pgx.NamedArgs{
+			"user_id":           app.getUserId(c),
+			"limit":             notificationUnreadPollLimit,
+			"candidate_limit":   notificationReadCandidateLimit,
+			"types":             params.Types,
+			"unsupported_types": unsupportedNotificationTypes,
+		}).Scan(&unreadCount)
+	})
 	if err != nil {
 		if errors.Is(err, context.DeadlineExceeded) {
 			return fiber.NewError(fiber.StatusGatewayTimeout, "notifications unread query timed out")
@@ -167,6 +188,7 @@ func (app *ApiServer) v1Notifications(c *fiber.Ctx) error {
 		return app.v1NotificationsUnreadPoll(c, params)
 	}
 
+	usesCandidateLimit := params.Timestamp > 0 || (params.Timestamp == 0 && params.GroupID == "")
 	matchedNotificationsCTE := `
 -- Equivalent to ARRAY[@user_id] && n.user_ids, split so single-recipient rows
 -- can use notification_single_recipient_user_timestamp_idx while
@@ -226,7 +248,75 @@ matched_notifications AS (
 )
 `
 
-	if params.Timestamp > 0 {
+	if params.Timestamp == 0 && params.GroupID == "" {
+		matchedNotificationsCTE = `
+-- Initial loads are bounded to 90 days, but hot users can still have enough
+-- rows in that window to time out while grouping. Pull newest candidates from
+-- each recipient shape first, then apply the same grouping/filtering.
+single_recipient_candidates AS MATERIALIZED (
+	SELECT
+		n.id,
+		n.specifier,
+		n.group_id,
+		n.type,
+		n.timestamp,
+		n.data
+	FROM notification n
+	WHERE
+		array_length(n.user_ids, 1) = 1
+		AND n.user_ids[1] = @user_id
+		AND (n.type = ANY(@types) OR @types IS NULL)
+		AND (n.type != ALL(@unsupported_types))
+		AND n.timestamp > (now()::timestamp - interval '90 days')
+	ORDER BY n.timestamp DESC, n.group_id DESC
+	LIMIT @candidate_limit
+),
+multi_recipient_candidates AS MATERIALIZED (
+	SELECT
+		n.id,
+		n.specifier,
+		n.group_id,
+		n.type,
+		n.timestamp,
+		n.data
+	FROM notification n
+	WHERE
+		COALESCE(array_length(n.user_ids, 1), 0) != 1
+		AND ARRAY[@user_id] && n.user_ids
+		AND (n.type = ANY(@types) OR @types IS NULL)
+		AND (n.type != ALL(@unsupported_types))
+		AND n.timestamp > (now()::timestamp - interval '90 days')
+	ORDER BY n.timestamp DESC, n.group_id DESC
+	LIMIT @candidate_limit
+),
+matched_notifications AS (
+	SELECT * FROM single_recipient_candidates
+	UNION ALL
+	SELECT * FROM multi_recipient_candidates
+),
+candidate_groups AS MATERIALIZED (
+	SELECT type, group_id, max(timestamp) AS max_timestamp
+	FROM matched_notifications
+	GROUP BY type, group_id
+	ORDER BY max(timestamp) DESC, group_id DESC
+	LIMIT @group_candidate_limit
+),
+capped_notifications AS MATERIALIZED (
+	SELECT id, specifier, group_id, type, timestamp, data
+	FROM (
+		SELECT
+			n.*,
+			row_number() OVER (
+				PARTITION BY n.type, n.group_id
+				ORDER BY n.timestamp DESC, n.id DESC
+			) AS action_rank
+		FROM matched_notifications n
+		JOIN candidate_groups g USING (type, group_id)
+	) ranked
+	WHERE action_rank <= @actions_per_group_limit
+)
+`
+	} else if params.Timestamp > 0 {
 		matchedNotificationsCTE = `
 -- Timestamp pagination can otherwise aggregate every older notification for
 -- prolific users before LIMIT. Pull a generous timestamp-ordered candidate set
@@ -254,7 +344,7 @@ single_recipient_candidates AS MATERIALIZED (
 			)
 		)
 	ORDER BY n.timestamp DESC, n.group_id DESC
-	LIMIT @pagination_candidate_limit
+	LIMIT @candidate_limit
 ),
 multi_recipient_candidates AS MATERIALIZED (
 	SELECT
@@ -279,14 +369,40 @@ multi_recipient_candidates AS MATERIALIZED (
 			)
 		)
 	ORDER BY n.timestamp DESC, n.group_id DESC
-	LIMIT @pagination_candidate_limit
+	LIMIT @candidate_limit
 ),
 matched_notifications AS (
 	SELECT * FROM single_recipient_candidates
 	UNION ALL
 	SELECT * FROM multi_recipient_candidates
+),
+candidate_groups AS MATERIALIZED (
+	SELECT type, group_id, max(timestamp) AS max_timestamp
+	FROM matched_notifications
+	GROUP BY type, group_id
+	ORDER BY max(timestamp) DESC, group_id DESC
+	LIMIT @group_candidate_limit
+),
+capped_notifications AS MATERIALIZED (
+	SELECT id, specifier, group_id, type, timestamp, data
+	FROM (
+		SELECT
+			n.*,
+			row_number() OVER (
+				PARTITION BY n.type, n.group_id
+				ORDER BY n.timestamp DESC, n.id DESC
+			) AS action_rank
+		FROM matched_notifications n
+		JOIN candidate_groups g USING (type, group_id)
+	) ranked
+	WHERE action_rank <= @actions_per_group_limit
 )
 `
+	}
+
+	notificationSourceCTE := "matched_notifications"
+	if usesCandidateLimit {
+		notificationSourceCTE = "capped_notifications"
 	}
 
 	sql := `
@@ -344,7 +460,7 @@ SELECT
 		ELSE null
 	END AS seen_at
 FROM
-    matched_notifications n
+    ` + notificationSourceCTE + ` n
 LEFT JOIN user_seen ON
   user_seen.seen_at >= n.timestamp AND user_seen.prev_seen_at < n.timestamp
 -- Join with tracks table to filter out deleted tracks for "create" notifications that have track_id
@@ -475,14 +591,16 @@ limit @limit::int
 		"unsupported_types": unsupportedNotificationTypes,
 	}
 
-	if params.Timestamp > 0 {
-		args["pagination_candidate_limit"] = notificationPaginationCandidateLimit
+	if usesCandidateLimit {
+		args["candidate_limit"] = notificationReadCandidateLimit
+		args["group_candidate_limit"] = notificationGroupCandidateLimit
+		args["actions_per_group_limit"] = notificationActionsPerGroupLimit
 	}
 
 	var notifs []*notificationRow
 	var err error
-	if params.Timestamp > 0 {
-		notifs, err = app.v1NotificationsPaginatedRows(ctx, sql, args)
+	if usesCandidateLimit {
+		notifs, err = app.v1NotificationsRowsWithReadTx(ctx, sql, args)
 	} else {
 		rows, queryErr := app.pool.Query(ctx, sql, args)
 		if queryErr != nil {
@@ -605,15 +723,15 @@ limit @limit::int
 
 }
 
-func (app *ApiServer) v1NotificationsPaginatedRows(ctx context.Context, sql string, args pgx.NamedArgs) ([]*notificationRow, error) {
+func (app *ApiServer) v1NotificationsReadTx(ctx context.Context, fn func(pgx.Tx) error) error {
 	pool := dbv1.ChooseReplica(app.pool.Replicas)
 	if pool == nil {
-		return nil, pgx.ErrNoRows
+		return pgx.ErrNoRows
 	}
 
 	tx, err := pool.BeginTx(ctx, pgx.TxOptions{AccessMode: pgx.ReadOnly})
 	if err != nil {
-		return nil, err
+		return err
 	}
 	defer func() {
 		rollbackCtx, cancel := context.WithTimeout(context.Background(), 2*time.Second)
@@ -624,20 +742,28 @@ func (app *ApiServer) v1NotificationsPaginatedRows(ctx context.Context, sql stri
 	// The production planner overestimates the multi-recipient overlap branch
 	// and prefers a table scan; keep the override scoped to this read only.
 	if _, err := tx.Exec(ctx, "SET LOCAL enable_seqscan = off"); err != nil {
-		return nil, err
+		return err
 	}
 
-	rows, err := tx.Query(ctx, sql, args)
+	if err := fn(tx); err != nil {
+		return err
+	}
+
+	return tx.Commit(ctx)
+}
+
+func (app *ApiServer) v1NotificationsRowsWithReadTx(ctx context.Context, sql string, args pgx.NamedArgs) ([]*notificationRow, error) {
+	var notifs []*notificationRow
+	err := app.v1NotificationsReadTx(ctx, func(tx pgx.Tx) error {
+		rows, err := tx.Query(ctx, sql, args)
+		if err != nil {
+			return err
+		}
+
+		notifs, err = pgx.CollectRows(rows, pgx.RowToAddrOfStructByNameLax[notificationRow])
+		return err
+	})
 	if err != nil {
-		return nil, err
-	}
-
-	notifs, err := pgx.CollectRows(rows, pgx.RowToAddrOfStructByNameLax[notificationRow])
-	if err != nil {
-		return nil, err
-	}
-
-	if err := tx.Commit(ctx); err != nil {
 		return nil, err
 	}
 
