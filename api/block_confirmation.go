@@ -5,6 +5,8 @@ import (
 	"github.com/jackc/pgx/v5"
 )
 
+const fallbackChainID = "--"
+
 type BlockConfirmationQueryParams struct {
 	BlockHash   string `query:"blockhash"`
 	BlockNumber int64  `query:"blocknumber"`
@@ -22,14 +24,14 @@ func (app *ApiServer) BlockConfirmation(c *fiber.Ctx) error {
 		(
 			SELECT EXISTS (
 				SELECT 1 FROM core_indexed_blocks
-				WHERE chain_id = @chainId AND height = @blockNumber
+				WHERE chain_id = ANY(@chainIds) AND height = @blockNumber
 				LIMIT 1
 			)
 		) AS block_passed,
 		(
 			SELECT EXISTS (
 				SELECT 1 FROM core_indexed_blocks
-				WHERE chain_id = @chainId AND blockhash = @blockHash
+				WHERE chain_id = ANY(@chainIds) AND blockhash = @blockHash
 				LIMIT 1
 			)
 		) AS block_found
@@ -38,7 +40,7 @@ func (app *ApiServer) BlockConfirmation(c *fiber.Ctx) error {
 	rows, err := app.pool.Query(c.Context(), sql, pgx.NamedArgs{
 		"blockHash":   params.BlockHash,
 		"blockNumber": params.BlockNumber,
-		"chainId":     app.config.ChainId,
+		"chainIds":    []string{app.config.ChainId, fallbackChainID},
 	})
 	if err != nil {
 		return err
