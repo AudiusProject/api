@@ -196,8 +196,13 @@ func (q *Queries) TracksKeyed(ctx context.Context, arg TracksParams) (map[int32]
 			}
 		}
 
+		// A track row can have empty cid columns (e.g. an upload-v2 row whose
+		// track_cid/orig_file_cid backfill never ran). Signing an empty cid
+		// produces a content-node URL that is guaranteed to 404, so leave the
+		// media link nil instead and let the endpoints report the track as
+		// unavailable.
 		var stream *MediaLink
-		if access.Stream {
+		if access.Stream && rawTrack.TrackCid.String != "" {
 			stream, err = mediaLink(rawTrack.TrackCid.String, rawTrack.TrackID, arg.MyID.(int32), id3Tags)
 			if err != nil {
 				return nil, err
@@ -210,9 +215,11 @@ func (q *Queries) TracksKeyed(ctx context.Context, arg TracksParams) (map[int32]
 			if cid == "" {
 				cid = rawTrack.TrackCid.String
 			}
-			download, err = mediaLink(cid, rawTrack.TrackID, arg.MyID.(int32), nil)
-			if err != nil {
-				return nil, err
+			if cid != "" {
+				download, err = mediaLink(cid, rawTrack.TrackID, arg.MyID.(int32), nil)
+				if err != nil {
+					return nil, err
+				}
 			}
 		}
 
