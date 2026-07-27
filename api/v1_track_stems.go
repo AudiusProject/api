@@ -17,12 +17,20 @@ type TrackStem struct {
 }
 
 func (app *ApiServer) v1TrackStems(c *fiber.Ctx) error {
+	// Every text/int column here must tolerate NULL: rows written by the Go
+	// ETL (post the July 2026 Python cutover) can lack orig_filename, and a
+	// stem_of wiped by an explicit-null client update (see
+	// OpenAudio/go-openaudio#410 for the same class of bug on CIDs) leaves
+	// category/parent_track_id NULL while the stems join row survives. A
+	// single NULL scanned into a non-pointer field fails the whole request,
+	// which renders every stem on the parent invisible. parent_track_id
+	// therefore comes from the stems join key, which is never NULL.
 	sql := `
 	SELECT
 	  t.track_id,
-	  t.stem_of->>'category' AS category,
-	  (t.stem_of->>'parent_track_id')::int AS parent_track_id,
-	  t.track_cid,
+	  COALESCE(t.stem_of->>'category', '') AS category,
+	  s.parent_track_id,
+	  COALESCE(t.track_cid, '') AS track_cid,
 	  t.owner_id,
 	  t.blocknumber,
 	  COALESCE(t.orig_filename, t.title, '') AS orig_filename
