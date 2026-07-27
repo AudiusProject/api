@@ -100,3 +100,57 @@ func TestGetTrackStems(t *testing.T) {
 		"data.2.user_id":       trashid.MustEncodeHashID(1),
 	})
 }
+
+// A stems join row can outlive its track's stem_of jsonb: an explicit
+// "stem_of": null in a client update wipes the column (same class of bug as
+// the CID wipe fixed in OpenAudio/go-openaudio#410) without touching the
+// stems table. category and parent_track_id then come back NULL from the
+// jsonb, and a NULL scanned into a non-pointer field used to fail the whole
+// request — hiding every stem on the parent, not just the wiped one.
+func TestGetTrackStemsWipedStemOf(t *testing.T) {
+	app := emptyTestApp(t)
+
+	fixtures := database.FixtureMap{
+		"users": {
+			{
+				"user_id": 10,
+			},
+		},
+		"tracks": {
+			{
+				"track_id": 11,
+				"owner_id": 10,
+			},
+			{
+				"track_id":    12,
+				"owner_id":    10,
+				"title":       "  Backing Vox 2.wav",
+				"track_cid":   "etlcid1",
+				"blocknumber": 101,
+				// no stem_of and no orig_filename: the link survives only in
+				// the stems join row
+			},
+		},
+		"stems": {
+			{
+				"child_track_id":  12,
+				"parent_track_id": 11,
+			},
+		},
+	}
+
+	database.Seed(app.pool.Replicas[0], fixtures)
+
+	status, body := testGet(t, app, fmt.Sprintf("/v1/full/tracks/%s/stems", trashid.MustEncodeHashID(11)))
+	assert.Equal(t, 200, status)
+
+	jsonAssert(t, body, map[string]any{
+		"data.#":               1,
+		"data.0.id":            trashid.MustEncodeHashID(12),
+		"data.0.parent_id":     trashid.MustEncodeHashID(11),
+		"data.0.category":      "",
+		"data.0.orig_filename": "  Backing Vox 2.wav",
+		"data.0.cid":           "etlcid1",
+		"data.0.user_id":       trashid.MustEncodeHashID(10),
+	})
+}
