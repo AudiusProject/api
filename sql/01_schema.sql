@@ -7349,6 +7349,25 @@ CREATE TABLE public.artist_coin_pools (
 
 
 --
+-- Name: artist_coin_price_history; Type: TABLE; Schema: public; Owner: -
+--
+
+CREATE TABLE public.artist_coin_price_history (
+    mint text NOT NULL,
+    "timestamp" timestamp without time zone NOT NULL,
+    price double precision NOT NULL,
+    created_at timestamp without time zone DEFAULT CURRENT_TIMESTAMP NOT NULL
+);
+
+
+--
+-- Name: TABLE artist_coin_price_history; Type: COMMENT; Schema: public; Owner: -
+--
+
+COMMENT ON TABLE public.artist_coin_price_history IS 'Hourly USD price snapshots per artist coin, used to compute 24h price change.';
+
+
+--
 -- Name: artist_coin_stats; Type: TABLE; Schema: public; Owner: -
 --
 
@@ -7610,6 +7629,130 @@ CREATE VIEW public.artist_coin_prices AS
 --
 
 COMMENT ON VIEW public.artist_coin_prices IS 'View that provides artist coin prices using DAMM V2 pool if available, DBC pools if not and still applicable, artist_coin_pools.price_usd as fallback, and artist_coin_stats.price as final fallback (primarily for AUDIO and other tokens without pools). Makes use of the price of the quote token (AUDIO) from Birdeye if using a pool.';
+
+
+--
+-- Name: artist_coin_stats_onchain; Type: TABLE; Schema: public; Owner: -
+--
+
+CREATE TABLE public.artist_coin_stats_onchain (
+    mint text NOT NULL,
+    market_cap double precision,
+    fdv double precision,
+    liquidity double precision,
+    last_trade_unix_time bigint,
+    last_trade_human_time text,
+    price double precision,
+    history_24h_price double precision,
+    price_change_24h_percent double precision,
+    unique_wallet_24h integer,
+    unique_wallet_history_24h integer,
+    unique_wallet_24h_change_percent double precision,
+    total_supply double precision,
+    circulating_supply double precision,
+    holder integer,
+    trade_24h integer,
+    trade_history_24h integer,
+    trade_24h_change_percent double precision,
+    sell_24h integer,
+    sell_history_24h integer,
+    sell_24h_change_percent double precision,
+    buy_24h integer,
+    buy_history_24h integer,
+    buy_24h_change_percent double precision,
+    v_24h double precision,
+    v_24h_usd double precision,
+    v_history_24h double precision,
+    v_history_24h_usd double precision,
+    v_24h_change_percent double precision,
+    v_buy_24h double precision,
+    v_buy_24h_usd double precision,
+    v_buy_history_24h double precision,
+    v_buy_history_24h_usd double precision,
+    v_buy_24h_change_percent double precision,
+    v_sell_24h double precision,
+    v_sell_24h_usd double precision,
+    v_sell_history_24h double precision,
+    v_sell_history_24h_usd double precision,
+    v_sell_24h_change_percent double precision,
+    number_markets integer,
+    created_at timestamp without time zone DEFAULT CURRENT_TIMESTAMP NOT NULL,
+    updated_at timestamp without time zone DEFAULT CURRENT_TIMESTAMP NOT NULL,
+    total_volume double precision,
+    total_volume_usd double precision,
+    volume_buy double precision,
+    volume_buy_usd double precision,
+    volume_sell double precision,
+    volume_sell_usd double precision,
+    buy integer,
+    sell integer,
+    total_trade integer
+);
+
+
+--
+-- Name: TABLE artist_coin_stats_onchain; Type: COMMENT; Schema: public; Owner: -
+--
+
+COMMENT ON TABLE public.artist_coin_stats_onchain IS 'On-chain-derived shadow of artist_coin_stats, written by CoinStatsOnchainJob. Used to validate against the Birdeye-populated artist_coin_stats before replacing it.';
+
+
+--
+-- Name: artist_coin_stats_comparison; Type: VIEW; Schema: public; Owner: -
+--
+
+CREATE VIEW public.artist_coin_stats_comparison AS
+ SELECT ac.mint,
+    ac.ticker,
+    b.price AS birdeye_price,
+    o.price AS onchain_price,
+    round(((((o.price - b.price) / NULLIF(b.price, (0)::double precision)) * (100)::double precision))::numeric, 2) AS price_pct_diff,
+    b.market_cap AS birdeye_market_cap,
+    o.market_cap AS onchain_market_cap,
+    round(((((o.market_cap - b.market_cap) / NULLIF(b.market_cap, (0)::double precision)) * (100)::double precision))::numeric, 2) AS market_cap_pct_diff,
+    b.holder AS birdeye_holder,
+    o.holder AS onchain_holder,
+    (o.holder - b.holder) AS holder_diff,
+    b.liquidity AS birdeye_liquidity,
+    o.liquidity AS onchain_liquidity,
+    round(((((o.liquidity - b.liquidity) / NULLIF(b.liquidity, (0)::double precision)) * (100)::double precision))::numeric, 2) AS liquidity_pct_diff,
+    b.total_volume_usd AS birdeye_total_volume_usd,
+    o.total_volume_usd AS onchain_total_volume_usd,
+    round(((((o.total_volume_usd - b.total_volume_usd) / NULLIF(b.total_volume_usd, (0)::double precision)) * (100)::double precision))::numeric, 2) AS total_volume_usd_pct_diff,
+    b.price_change_24h_percent AS birdeye_price_change_24h_percent,
+    o.price_change_24h_percent AS onchain_price_change_24h_percent,
+    o.updated_at AS onchain_updated_at,
+    b.updated_at AS birdeye_updated_at
+   FROM ((public.artist_coins ac
+     LEFT JOIN public.artist_coin_stats b ON ((b.mint = (ac.mint)::text)))
+     LEFT JOIN public.artist_coin_stats_onchain o ON ((o.mint = (ac.mint)::text)));
+
+
+--
+-- Name: VIEW artist_coin_stats_comparison; Type: COMMENT; Schema: public; Owner: -
+--
+
+COMMENT ON VIEW public.artist_coin_stats_comparison IS 'Compares Birdeye artist_coin_stats vs on-chain artist_coin_stats_onchain per coin (values + % diff) to validate CoinStatsOnchainJob before cutover.';
+
+
+--
+-- Name: artist_coin_volume_accumulator; Type: TABLE; Schema: public; Owner: -
+--
+
+CREATE TABLE public.artist_coin_volume_accumulator (
+    mint text NOT NULL,
+    last_processed_slot bigint DEFAULT 0 NOT NULL,
+    total_volume double precision DEFAULT 0 NOT NULL,
+    total_volume_usd double precision DEFAULT 0 NOT NULL,
+    updated_at timestamp without time zone DEFAULT CURRENT_TIMESTAMP NOT NULL
+);
+
+
+--
+-- Name: TABLE artist_coin_volume_accumulator; Type: COMMENT; Schema: public; Owner: -
+--
+
+COMMENT ON TABLE public.artist_coin_volume_accumulator IS 'Running per-coin trading volume (AUDIO + USD) accumulated from pool quote-vault balance changes, watermarked by last_processed_slot. Written by CoinStatsOnchainJob.';
 
 
 --
@@ -11221,11 +11364,35 @@ ALTER TABLE ONLY public.artist_coin_pools
 
 
 --
+-- Name: artist_coin_price_history artist_coin_price_history_pkey; Type: CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.artist_coin_price_history
+    ADD CONSTRAINT artist_coin_price_history_pkey PRIMARY KEY (mint, "timestamp");
+
+
+--
+-- Name: artist_coin_stats_onchain artist_coin_stats_onchain_pkey; Type: CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.artist_coin_stats_onchain
+    ADD CONSTRAINT artist_coin_stats_onchain_pkey PRIMARY KEY (mint);
+
+
+--
 -- Name: artist_coin_stats artist_coin_stats_pkey; Type: CONSTRAINT; Schema: public; Owner: -
 --
 
 ALTER TABLE ONLY public.artist_coin_stats
     ADD CONSTRAINT artist_coin_stats_pkey PRIMARY KEY (mint);
+
+
+--
+-- Name: artist_coin_volume_accumulator artist_coin_volume_accumulator_pkey; Type: CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.artist_coin_volume_accumulator
+    ADD CONSTRAINT artist_coin_volume_accumulator_pkey PRIMARY KEY (mint);
 
 
 --
@@ -12417,6 +12584,13 @@ ALTER TABLE ONLY public.volume_leader_exclusions
 --
 
 CREATE INDEX agg_user_has_tracks_idx ON public.aggregate_user USING btree (user_id) WHERE (total_track_count > 0);
+
+
+--
+-- Name: artist_coin_price_history_mint_ts_idx; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX artist_coin_price_history_mint_ts_idx ON public.artist_coin_price_history USING btree (mint, "timestamp" DESC);
 
 
 --

@@ -123,6 +123,14 @@ func (s *SolanaIndexer) Start(ctx context.Context) error {
 	statsJob.ScheduleEvery(statsCtx, 15*time.Minute)
 	go statsJob.Run(statsCtx)
 
+	// On-chain replacement for CoinStatsJob, running in shadow: it writes
+	// artist_coin_stats_onchain so its values can be validated against Birdeye
+	// (see artist_coin_stats_comparison) before cutover.
+	statsOnchainJob := jobs.NewCoinStatsOnchainJob(s.config, s.pool)
+	statsOnchainCtx := context.WithoutCancel(ctx)
+	statsOnchainJob.ScheduleEvery(statsOnchainCtx, 15*time.Minute)
+	go statsOnchainJob.Run(statsOnchainCtx)
+
 	audioPriceJob := jobs.NewAudioPriceJob(s.config, s.pool)
 	priceCtx := context.WithoutCancel(ctx)
 	audioPriceJob.ScheduleEvery(priceCtx, 5*time.Minute)
