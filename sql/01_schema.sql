@@ -1894,31 +1894,7 @@ $$;
 
 CREATE FUNCTION public.get_user_score(target_user_id integer) RETURNS TABLE(user_id integer, handle_lc text, play_count bigint, distinct_tracks_played bigint, challenge_count bigint, following_count bigint, follower_count bigint, chat_block_count bigint, is_audius_impersonator boolean, has_profile_picture boolean, karma bigint, score bigint)
     LANGUAGE sql
-    AS $$ with play_activity as (
-        select p.user_id,
-            count(distinct date_trunc('day', p.created_at)) as play_count,
-            count(distinct p.play_item_id) as distinct_tracks_played
-        from plays p
-        where p.user_id = target_user_id
-        group by p.user_id
-    ),
-    fast_challenge_completion as (
-        select u.user_id,
-            u.handle_lc,
-            u.created_at,
-            count(*) as challenge_count,
-            array_agg(uc.challenge_id) as challenge_ids
-        from users u
-            left join user_challenges uc on u.user_id = uc.user_id
-        where u.user_id = target_user_id
-            and uc.is_complete
-            and uc.completed_at - u.created_at <= interval '3 minutes'
-            and uc.challenge_id not in ('m', 'b')
-        group by u.user_id,
-            u.handle_lc,
-            u.created_at
-    ),
-    chat_blocks as (
+    AS $$ with chat_blocks as (
         select c.blockee_user_id as user_id,
             count(*) as block_count
         from chat_blocked_users c
@@ -1928,9 +1904,9 @@ CREATE FUNCTION public.get_user_score(target_user_id integer) RETURNS TABLE(user
     aggregate_scores as (
         select u.user_id,
             u.handle_lc,
-            coalesce(p.play_count, 0) as play_count,
-            coalesce(p.distinct_tracks_played, 0) as distinct_tracks_played,
-            coalesce(c.challenge_count, 0) as challenge_count,
+            coalesce(udph.hours_with_play, 0)::bigint as play_count,
+            coalesce(udpt.track_count, 0)::bigint as distinct_tracks_played,
+            coalesce(usf.challenge_count, 0)::bigint as challenge_count,
             coalesce(au.following_count, 0) as following_count,
             coalesce(au.follower_count, 0) as follower_count,
             coalesce(cb.block_count, 0) as chat_block_count,
@@ -1965,11 +1941,13 @@ CREATE FUNCTION public.get_user_score(target_user_id integer) RETURNS TABLE(user
                 )
             end as karma
         from users u
-            left join play_activity p on u.user_id = p.user_id
-            left join fast_challenge_completion c on u.user_id = c.user_id
+            left join user_distinct_play_hours udph on u.user_id = udph.user_id
+            left join user_distinct_play_tracks udpt on u.user_id = udpt.user_id
+            left join user_score_features usf on u.user_id = usf.user_id
             left join chat_blocks cb on u.user_id = cb.user_id
             left join aggregate_user au on u.user_id = au.user_id
         where u.user_id = target_user_id
+            and u.is_current
             and u.handle_lc is not null
     )
 select a.*,
@@ -1994,36 +1972,7 @@ $$;
 
 CREATE FUNCTION public.get_user_scores(target_user_ids integer[] DEFAULT NULL::integer[]) RETURNS TABLE(user_id integer, handle_lc text, play_count bigint, distinct_tracks_played bigint, follower_count bigint, following_count bigint, challenge_count bigint, chat_block_count bigint, is_audius_impersonator boolean, has_profile_picture boolean, karma bigint, score bigint)
     LANGUAGE sql
-    AS $$ with play_activity as (
-        select plays.user_id,
-            count(distinct (date_trunc('hour', plays.created_at))) as play_count,
-            count(distinct(plays.play_item_id)) as distinct_tracks_played
-        from plays
-            join users on plays.user_id = users.user_id
-        where target_user_ids is null
-            or plays.user_id = any(target_user_ids)
-        group by plays.user_id
-    ),
-    fast_challenge_completion as (
-        select users.user_id,
-            handle_lc,
-            users.created_at,
-            count(*) as challenge_count,
-            array_agg(user_challenges.challenge_id) as challenge_ids
-        from users
-            left join user_challenges on users.user_id = user_challenges.user_id
-        where user_challenges.is_complete
-            and user_challenges.completed_at - users.created_at <= interval '3 minutes'
-            and user_challenges.challenge_id not in ('m', 'b')
-            and (
-                target_user_ids is null
-                or users.user_id = any(target_user_ids)
-            )
-        group by users.user_id,
-            users.handle_lc,
-            users.created_at
-    ),
-    chat_blocks as (
+    AS $$ with chat_blocks as (
         select chat_blocked_users.blockee_user_id as user_id,
             count(*) as block_count
         from chat_blocked_users
@@ -2035,11 +1984,11 @@ CREATE FUNCTION public.get_user_scores(target_user_ids integer[] DEFAULT NULL::i
     aggregate_scores as (
         select users.user_id,
             users.handle_lc,
-            coalesce(play_activity.play_count, 0) as play_count,
-            coalesce(play_activity.distinct_tracks_played, 0) as distinct_tracks_played,
+            coalesce(user_distinct_play_hours.hours_with_play, 0)::bigint as play_count,
+            coalesce(user_distinct_play_tracks.track_count, 0)::bigint as distinct_tracks_played,
             coalesce(aggregate_user.following_count, 0) as following_count,
             coalesce(aggregate_user.follower_count, 0) as follower_count,
-            coalesce(fast_challenge_completion.challenge_count, 0) as challenge_count,
+            coalesce(user_score_features.challenge_count, 0)::bigint as challenge_count,
             coalesce(chat_blocks.block_count, 0) as chat_block_count,
             case
                 when (
@@ -2072,11 +2021,13 @@ CREATE FUNCTION public.get_user_scores(target_user_ids integer[] DEFAULT NULL::i
                 )
             end as karma
         from users
-            left join play_activity on users.user_id = play_activity.user_id
-            left join fast_challenge_completion on users.user_id = fast_challenge_completion.user_id
+            left join user_distinct_play_hours on users.user_id = user_distinct_play_hours.user_id
+            left join user_distinct_play_tracks on users.user_id = user_distinct_play_tracks.user_id
+            left join user_score_features on users.user_id = user_score_features.user_id
             left join chat_blocks on users.user_id = chat_blocks.user_id
             left join aggregate_user on aggregate_user.user_id = users.user_id
         where users.handle_lc is not null
+            and users.is_current
             and (
                 target_user_ids is null
                 or users.user_id = any(target_user_ids)
@@ -3187,12 +3138,9 @@ begin
   insert into aggregate_user (user_id) values (new.followee_user_id) on conflict do nothing;
   insert into aggregate_user (user_id) values (new.follower_user_id) on conflict do nothing;
 
-  -- increment or decrement?
-  if new.is_delete then
-    delta := -1;
-  else
-    delta := 1;
-  end if;
+  -- transition-aware delta (active = not is_delete); 0 on no-op re-delivery
+  delta := (case when new.is_delete then 0 else 1 end)
+         - (case when tg_op = 'UPDATE' and old.is_delete is false then 1 else 0 end);
 
   update aggregate_user 
   set following_count = following_count + delta 
@@ -3796,37 +3744,20 @@ begin
     where ap.playlist_id = new.repost_item_id;
   end if;
 
-  -- increment or decrement?
-  if new.is_delete then
-    delta := -1;
-  else
-    delta := 1;
-  end if;
+  -- transition-aware delta (active = not is_delete); 0 on no-op re-delivery
+  delta := (case when new.is_delete then 0 else 1 end)
+         - (case when tg_op = 'UPDATE' and old.is_delete is false then 1 else 0 end);
 
   -- update agg user
-  update aggregate_user 
-  set repost_count = (
-    select count(*)
-    from reposts r
-    where r.is_current is true
-      and r.is_delete is false
-      and r.user_id = new.user_id
-  )
+  update aggregate_user
+  set repost_count = repost_count + delta
   where user_id = new.user_id;
 
   -- update agg track or playlist
   if new.repost_type = 'track' then
     milestone_name := 'TRACK_REPOST_COUNT';
-    update aggregate_track 
-    set repost_count = (
-      select count(*)
-      from reposts r
-      where
-          r.is_current is true
-          and r.is_delete is false
-          and r.repost_type = new.repost_type
-          and r.repost_item_id = new.repost_item_id
-    )
+    update aggregate_track
+    set repost_count = repost_count + delta
     where track_id = new.repost_item_id
     returning repost_count into new_val;
   	if new.is_delete IS FALSE then
@@ -3835,15 +3766,7 @@ begin
   else
     milestone_name := 'PLAYLIST_REPOST_COUNT';
     update aggregate_playlist
-    set repost_count = (
-      select count(*)
-      from reposts r
-      where
-          r.is_current is true
-          and r.is_delete is false
-          and r.repost_type = new.repost_type
-          and r.repost_item_id = new.repost_item_id
-    )    
+    set repost_count = repost_count + delta
     where playlist_id = new.repost_item_id
     returning repost_count into new_val;
 
@@ -4076,42 +3999,24 @@ begin
     ) into is_purchased;
   end if;
 
-  -- increment or decrement?
-  if new.is_delete then
-    delta := -1;
-  else
-    delta := 1;
-  end if;
+  -- transition-aware delta (active = not is_delete); 0 on no-op re-delivery
+  delta := (case when new.is_delete then 0 else 1 end)
+         - (case when tg_op = 'UPDATE' and old.is_delete is false then 1 else 0 end);
 
   -- update agg track or playlist
   if new.save_type = 'track' then
     milestone_name := 'TRACK_SAVE_COUNT';
 
-    update aggregate_track 
-    set save_count = (
-      select count(*)
-      from saves r
-      where
-          r.is_current is true
-          and r.is_delete is false
-          and r.save_type = new.save_type
-          and r.save_item_id = new.save_item_id
-    )
+    update aggregate_track
+    set save_count = save_count + delta
     where track_id = new.save_item_id
     returning save_count into new_val;
 
     -- update agg user
-    update aggregate_user 
-    set track_save_count = (
-      select count(*)
-      from saves r
-      where r.is_current is true
-        and r.is_delete is false
-        and r.user_id = new.user_id
-        and r.save_type = new.save_type
-    )
+    update aggregate_user
+    set track_save_count = track_save_count + delta
     where user_id = new.user_id;
-    
+
   	if new.is_delete IS FALSE then
 		  select tracks.owner_id, tracks.remix_of into owner_user_id, track_remix_of from tracks where is_current and track_id = new.save_item_id;
 	  end if;
@@ -4119,15 +4024,7 @@ begin
     milestone_name := 'PLAYLIST_SAVE_COUNT';
 
     update aggregate_playlist
-    set save_count = (
-      select count(*)
-      from saves r
-      where
-          r.is_current is true
-          and r.is_delete is false
-          and r.save_type = new.save_type
-          and r.save_item_id = new.save_item_id
-    )
+    set save_count = save_count + delta
     where playlist_id = new.save_item_id
     returning save_count into new_val;
 
@@ -5980,6 +5877,20 @@ begin
       PERFORM pg_notify(TG_TABLE_NAME, json_build_object('track_id', new.track_id, 'updated_at', new.updated_at, 'created_at', new.created_at, 'blocknumber', new.blocknumber)::text);
     when 'users' then
       PERFORM pg_notify(TG_TABLE_NAME, json_build_object('user_id', new.user_id, 'blocknumber', new.blocknumber)::text);
+      -- Dedicated verification-transition channel.
+      --
+      -- The Go ETL writes `users` in place (single is_current row per user; it
+      -- bumps blocknumber rather than appending a versioned row), so consumers
+      -- can no longer reconstruct the "previous" verification state from the
+      -- `users` table or from revert_blocks. But because the update is in place,
+      -- this AFTER trigger's OLD row holds the true pre-update state. Emit on a
+      -- separate channel only for the genuine false -> true transition (or a
+      -- brand-new row that arrives already verified) so downstream listeners
+      -- (e.g. the verified-notifications Slack bot) fire exactly once instead of
+      -- on every profile edit by an already-verified user.
+      if new.is_verified and (TG_OP = 'INSERT' or not coalesce(old.is_verified, false)) then
+        PERFORM pg_notify('user_verified', json_build_object('user_id', new.user_id, 'blocknumber', new.blocknumber)::text);
+      end if;
     when 'playlists' then
       PERFORM pg_notify(TG_TABLE_NAME, json_build_object('playlist_id', new.playlist_id)::text);
     else
@@ -6070,6 +5981,72 @@ exception
       raise warning 'An error occurred in %: %', tg_name, sqlerrm;
       return null;
 end; 
+$$;
+
+
+--
+-- Name: process_track_collaborator_change(); Type: FUNCTION; Schema: public; Owner: -
+--
+
+CREATE FUNCTION public.process_track_collaborator_change() RETURNS trigger
+    LANGUAGE plpgsql
+    AS $$
+begin
+    -- A newly created pending invite (created_at = updated_at distinguishes a
+    -- fresh insert from a reconciled re-write), or a row resurrected back to
+    -- pending: notify the invited collaborator.
+    if (TG_OP = 'INSERT' and NEW.status = 'pending' and NEW.created_at = NEW.updated_at) or
+       (TG_OP = 'UPDATE' and NEW.status = 'pending' and OLD.status is distinct from 'pending')
+    then
+        insert into notification
+                (blocknumber, user_ids, timestamp, type, specifier, group_id, data)
+              values
+                (
+                  new.blocknumber,
+                  array [new.collaborator_user_id],
+                  new.updated_at,
+                  'track_collaborator_invite',
+                  new.invited_by,
+                  'track_collaborator_invite:' || 'track_id:' || new.track_id ||
+                    ':collaborator_user_id:' || new.collaborator_user_id ||
+                    ':inviter_user_id:' || new.invited_by,
+                  json_build_object(
+                      'track_id', new.track_id,
+                      'collaborator_user_id', new.collaborator_user_id,
+                      'inviter_user_id', new.invited_by
+                    )
+                )
+              on conflict do nothing;
+    -- Invite accepted: notify the inviter (track owner).
+    elsif (TG_OP = 'UPDATE' and NEW.status = 'accepted' and OLD.status is distinct from 'accepted') or
+          (TG_OP = 'INSERT' and NEW.status = 'accepted')
+    then
+        insert into notification
+                (blocknumber, user_ids, timestamp, type, specifier, group_id, data)
+              values
+                (
+                  new.blocknumber,
+                  array [new.invited_by],
+                  new.updated_at,
+                  'track_collaborator_accept',
+                  new.collaborator_user_id,
+                  'track_collaborator_accept:' || 'track_id:' || new.track_id ||
+                    ':collaborator_user_id:' || new.collaborator_user_id ||
+                    ':inviter_user_id:' || new.invited_by,
+                  json_build_object(
+                      'track_id', new.track_id,
+                      'collaborator_user_id', new.collaborator_user_id,
+                      'inviter_user_id', new.invited_by
+                    )
+                )
+              on conflict do nothing;
+    end if;
+    return null;
+exception
+  when others then
+      raise warning 'An error occurred in %: %', tg_name, sqlerrm;
+      return null;
+end;
 $$;
 
 
@@ -7193,7 +7170,8 @@ CREATE TABLE public.api_access_keys (
     api_key character varying(255) NOT NULL,
     api_access_key character varying(255) NOT NULL,
     created_at timestamp without time zone DEFAULT now() NOT NULL,
-    is_active boolean DEFAULT true NOT NULL
+    is_active boolean DEFAULT true NOT NULL,
+    CONSTRAINT api_access_keys_api_key_lowercase_check CHECK (((api_key)::text = lower((api_key)::text)))
 );
 
 
@@ -7206,7 +7184,8 @@ CREATE TABLE public.api_keys (
     api_secret character varying(255),
     rps integer DEFAULT 10 NOT NULL,
     rpm integer DEFAULT 500000 NOT NULL,
-    created_at timestamp without time zone DEFAULT now() NOT NULL
+    created_at timestamp without time zone DEFAULT now() NOT NULL,
+    CONSTRAINT api_keys_api_key_lowercase_check CHECK (((api_key)::text = lower((api_key)::text)))
 );
 
 
@@ -8405,6 +8384,21 @@ COMMENT ON TABLE public.eth_wallet_balances IS 'AUDIO ERC-20 balances (in wei) f
 
 
 --
+-- Name: event_routes; Type: TABLE; Schema: public; Owner: -
+--
+
+CREATE TABLE public.event_routes (
+    slug character varying NOT NULL,
+    owner_id integer NOT NULL,
+    event_id integer NOT NULL,
+    is_current boolean NOT NULL,
+    blockhash character varying NOT NULL,
+    blocknumber integer NOT NULL,
+    txhash character varying NOT NULL
+);
+
+
+--
 -- Name: events; Type: TABLE; Schema: public; Owner: -
 --
 
@@ -8422,21 +8416,6 @@ CREATE TABLE public.events (
     txhash text NOT NULL,
     blockhash text NOT NULL,
     blocknumber integer
-);
-
-
---
--- Name: event_routes; Type: TABLE; Schema: public; Owner: -
---
-
-CREATE TABLE public.event_routes (
-    slug        character varying NOT NULL,
-    owner_id    integer           NOT NULL,
-    event_id    integer           NOT NULL,
-    is_current  boolean           NOT NULL,
-    blockhash   character varying NOT NULL,
-    blocknumber integer           NOT NULL,
-    txhash      character varying NOT NULL
 );
 
 
@@ -8473,95 +8452,6 @@ CREATE TABLE public.grants (
     created_at timestamp without time zone NOT NULL,
     txhash character varying NOT NULL
 );
-
-
---
--- Name: track_collaborators; Type: TABLE; Schema: public; Owner: -
---
-
-CREATE TABLE public.track_collaborators (
-    track_id integer NOT NULL,
-    collaborator_user_id integer NOT NULL,
-    invited_by integer NOT NULL,
-    status text DEFAULT 'pending'::text NOT NULL,
-    created_at timestamp without time zone NOT NULL,
-    updated_at timestamp without time zone NOT NULL,
-    txhash character varying NOT NULL,
-    blocknumber integer,
-    CONSTRAINT track_collaborators_pkey PRIMARY KEY (track_id, collaborator_user_id),
-    CONSTRAINT track_collaborators_status_check CHECK ((status = ANY (ARRAY['pending'::text, 'accepted'::text, 'rejected'::text])))
-);
-
-
-CREATE INDEX IF NOT EXISTS idx_track_collaborators_collaborator ON public.track_collaborators USING btree (collaborator_user_id, status, track_id);
-
-
--- Notification trigger for collaborative tracks (see
--- ddl/functions/handle_track_collaborator.sql). Defined inline here so fresh /
--- test databases loaded from this schema have it; `make test-schema` will
--- canonicalize the placement.
-create or replace function public.process_track_collaborator_change() returns trigger as $$
-begin
-    if (TG_OP = 'INSERT' and NEW.status = 'pending' and NEW.created_at = NEW.updated_at) or
-       (TG_OP = 'UPDATE' and NEW.status = 'pending' and OLD.status is distinct from 'pending')
-    then
-        insert into notification
-                (blocknumber, user_ids, timestamp, type, specifier, group_id, data)
-              values
-                (
-                  new.blocknumber,
-                  array [new.collaborator_user_id],
-                  new.updated_at,
-                  'track_collaborator_invite',
-                  new.invited_by,
-                  'track_collaborator_invite:' || 'track_id:' || new.track_id ||
-                    ':collaborator_user_id:' || new.collaborator_user_id ||
-                    ':inviter_user_id:' || new.invited_by,
-                  json_build_object(
-                      'track_id', new.track_id,
-                      'collaborator_user_id', new.collaborator_user_id,
-                      'inviter_user_id', new.invited_by
-                    )
-                )
-              on conflict do nothing;
-    elsif (TG_OP = 'UPDATE' and NEW.status = 'accepted' and OLD.status is distinct from 'accepted') or
-          (TG_OP = 'INSERT' and NEW.status = 'accepted')
-    then
-        insert into notification
-                (blocknumber, user_ids, timestamp, type, specifier, group_id, data)
-              values
-                (
-                  new.blocknumber,
-                  array [new.invited_by],
-                  new.updated_at,
-                  'track_collaborator_accept',
-                  new.collaborator_user_id,
-                  'track_collaborator_accept:' || 'track_id:' || new.track_id ||
-                    ':collaborator_user_id:' || new.collaborator_user_id ||
-                    ':inviter_user_id:' || new.invited_by,
-                  json_build_object(
-                      'track_id', new.track_id,
-                      'collaborator_user_id', new.collaborator_user_id,
-                      'inviter_user_id', new.invited_by
-                    )
-                )
-              on conflict do nothing;
-    end if;
-    return null;
-exception
-  when others then
-      raise warning 'An error occurred in %: %', tg_name, sqlerrm;
-      return null;
-end;
-$$ language plpgsql;
-
-do $$ begin
-  create trigger trigger_track_collaborator_change
-  after insert or update on public.track_collaborators
-  for each row execute procedure public.process_track_collaborator_change();
-exception
-  when others then null;
-end $$;
 
 
 --
@@ -10161,6 +10051,30 @@ CREATE MATERIALIZED VIEW public.tag_track_user AS
 
 
 --
+-- Name: track_collaborators; Type: TABLE; Schema: public; Owner: -
+--
+
+CREATE TABLE public.track_collaborators (
+    track_id integer NOT NULL,
+    collaborator_user_id integer NOT NULL,
+    invited_by integer NOT NULL,
+    status text DEFAULT 'pending'::text NOT NULL,
+    created_at timestamp without time zone NOT NULL,
+    updated_at timestamp without time zone NOT NULL,
+    txhash character varying NOT NULL,
+    blocknumber integer,
+    CONSTRAINT track_collaborators_status_check CHECK ((status = ANY (ARRAY['pending'::text, 'accepted'::text, 'rejected'::text])))
+);
+
+
+--
+-- Name: TABLE track_collaborators; Type: COMMENT; Schema: public; Owner: -
+--
+
+COMMENT ON TABLE public.track_collaborators IS 'Collaborator credits on a track. Owner invites via track metadata (status=pending); the collaborator accepts/declines on-chain (accepted/rejected). Indexed by ETL (go-openaudio).';
+
+
+--
 -- Name: track_delist_statuses; Type: TABLE; Schema: public; Owner: -
 --
 
@@ -10296,6 +10210,13 @@ CREATE TABLE public.users (
 --
 
 COMMENT ON COLUMN public.users.coin_flair_mint IS 'The mint of the coin which the user has selected as their preferred flair. NULL for auto, empty string for none.';
+
+
+--
+-- Name: COLUMN users.last_active_at; Type: COMMENT; Schema: public; Owner: -
+--
+
+COMMENT ON COLUMN public.users.last_active_at IS 'Timestamp of the user''s most recent app-open event, updated by POST /v1/users/me/ping.';
 
 
 --
@@ -12244,6 +12165,14 @@ ALTER TABLE ONLY public.supporter_rank_ups
 
 
 --
+-- Name: track_collaborators track_collaborators_pkey; Type: CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.track_collaborators
+    ADD CONSTRAINT track_collaborators_pkey PRIMARY KEY (track_id, collaborator_user_id);
+
+
+--
 -- Name: track_delist_statuses track_delist_statuses_pkey; Type: CONSTRAINT; Schema: public; Owner: -
 --
 
@@ -12526,17 +12455,31 @@ CREATE INDEX challenge_disbursements_user_id ON public.challenge_disbursements U
 
 
 --
--- Name: chat_chat_id_idx; Type: INDEX; Schema: public; Owner: -
---
-
-CREATE INDEX chat_chat_id_idx ON public.chat USING btree (chat_id);
-
-
---
 -- Name: chat_member_user_idx; Type: INDEX; Schema: public; Owner: -
 --
 
 CREATE INDEX chat_member_user_idx ON public.chat_member USING btree (user_id);
+
+
+--
+-- Name: chat_message_chat_created_non_blast_idx; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX chat_message_chat_created_non_blast_idx ON public.chat_message USING btree (chat_id, created_at, user_id) WHERE (blast_id IS NULL);
+
+
+--
+-- Name: chat_message_reactions_updated_at_idx; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX chat_message_reactions_updated_at_idx ON public.chat_message_reactions USING btree (updated_at, message_id, user_id);
+
+
+--
+-- Name: INDEX chat_message_reactions_updated_at_idx; Type: COMMENT; Schema: public; Owner: -
+--
+
+COMMENT ON INDEX public.chat_message_reactions_updated_at_idx IS 'Supports DM reaction notification polling by updated_at cursor.';
 
 
 --
@@ -12582,6 +12525,34 @@ COMMENT ON INDEX public.claimed_prizes_wallet_idx IS 'Used for getting claimed p
 
 
 --
+-- Name: comment_threads_comment_id_idx; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX comment_threads_comment_id_idx ON public.comment_threads USING btree (comment_id);
+
+
+--
+-- Name: comments_blocknumber_idx; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX comments_blocknumber_idx ON public.comments USING btree (blocknumber);
+
+
+--
+-- Name: INDEX comments_blocknumber_idx; Type: COMMENT; Schema: public; Owner: -
+--
+
+COMMENT ON INDEX public.comments_blocknumber_idx IS 'Range scans by blocknumber for the incremental FirstWeeklyComment challenge processor (c).';
+
+
+--
+-- Name: comments_user_track_created_at_idx; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX comments_user_track_created_at_idx ON public.comments USING btree (user_id, created_at DESC) INCLUDE (comment_id) WHERE ((entity_type = 'Track'::text) AND (is_delete = false));
+
+
+--
 -- Name: eth_wallet_balances_updated_at_idx; Type: INDEX; Schema: public; Owner: -
 --
 
@@ -12593,6 +12564,13 @@ CREATE INDEX eth_wallet_balances_updated_at_idx ON public.eth_wallet_balances US
 --
 
 COMMENT ON INDEX public.eth_wallet_balances_updated_at_idx IS 'Supports staleness queries / catch-up sweeps.';
+
+
+--
+-- Name: event_routes_event_id_idx; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX event_routes_event_id_idx ON public.event_routes USING btree (event_id);
 
 
 --
@@ -12705,13 +12683,6 @@ CREATE INDEX idx_api_metrics_routes_route_pattern ON public.api_metrics_routes U
 --
 
 CREATE INDEX idx_chain_blockhash ON public.core_indexed_blocks USING btree (blockhash);
-
-
---
--- Name: idx_chain_id_height; Type: INDEX; Schema: public; Owner: -
---
-
-CREATE INDEX idx_chain_id_height ON public.core_indexed_blocks USING btree (chain_id, height);
 
 
 --
@@ -12925,6 +12896,20 @@ CREATE INDEX idx_playlist_tracks_track_id ON public.playlist_tracks USING btree 
 
 
 --
+-- Name: idx_playlist_trending_scores_ordered; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX idx_playlist_trending_scores_ordered ON public.playlist_trending_scores USING btree (type, version, time_range, score DESC, playlist_id DESC);
+
+
+--
+-- Name: INDEX idx_playlist_trending_scores_ordered; Type: COMMENT; Schema: public; Owner: -
+--
+
+COMMENT ON INDEX public.idx_playlist_trending_scores_ordered IS 'Covers playlist trending endpoints ordered by score desc, playlist_id desc.';
+
+
+--
 -- Name: idx_playlists_albums_published; Type: INDEX; Schema: public; Owner: -
 --
 
@@ -12967,6 +12952,13 @@ COMMENT ON INDEX public.idx_sol_reward_manager_inits_mint IS 'Index to quickly f
 
 
 --
+-- Name: idx_track_collaborators_collaborator; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX idx_track_collaborators_collaborator ON public.track_collaborators USING btree (collaborator_user_id, status, track_id);
+
+
+--
 -- Name: idx_track_status; Type: INDEX; Schema: public; Owner: -
 --
 
@@ -12974,24 +12966,31 @@ CREATE INDEX idx_track_status ON public.tracks USING btree (track_id, is_unliste
 
 
 --
--- Name: idx_track_trending_scores_for_you; Type: INDEX; Schema: public; Owner: -
+-- Name: idx_track_trending_scores_for_you_desc_tiebreak; Type: INDEX; Schema: public; Owner: -
 --
 
-CREATE INDEX idx_track_trending_scores_for_you ON public.track_trending_scores USING btree (score DESC, track_id) WHERE (((type)::text = 'TRACKS'::text) AND ((version)::text = 'pnagD'::text) AND ((time_range)::text = 'week'::text) AND ((genre IS NULL) OR ((genre)::text = ''::text)));
-
-
---
--- Name: INDEX idx_track_trending_scores_for_you; Type: COMMENT; Schema: public; Owner: -
---
-
-COMMENT ON INDEX public.idx_track_trending_scores_for_you IS 'Partial index for the For You feed trending/underground candidate sources; replaces a ~12s full-table scan with a small index seek.';
+CREATE INDEX idx_track_trending_scores_for_you_desc_tiebreak ON public.track_trending_scores USING btree (score DESC, track_id DESC) WHERE (((type)::text = 'TRACKS'::text) AND ((version)::text = 'pnagD'::text) AND ((time_range)::text = 'week'::text) AND ((genre IS NULL) OR ((genre)::text = ''::text)));
 
 
 --
--- Name: idx_tts_genre_time_score; Type: INDEX; Schema: public; Owner: -
+-- Name: INDEX idx_track_trending_scores_for_you_desc_tiebreak; Type: COMMENT; Schema: public; Owner: -
 --
 
-CREATE INDEX idx_tts_genre_time_score ON public.track_trending_scores USING btree (genre, time_range, score DESC, track_id);
+COMMENT ON INDEX public.idx_track_trending_scores_for_you_desc_tiebreak IS 'Partial index matching For You feed weekly track candidate ordering by score desc, track_id desc.';
+
+
+--
+-- Name: idx_tts_tracks_pnagd_genre_time_score_desc; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX idx_tts_tracks_pnagd_genre_time_score_desc ON public.track_trending_scores USING btree (genre, time_range, score DESC, track_id DESC) WHERE (((type)::text = 'TRACKS'::text) AND ((version)::text = 'pnagD'::text));
+
+
+--
+-- Name: INDEX idx_tts_tracks_pnagd_genre_time_score_desc; Type: COMMENT; Schema: public; Owner: -
+--
+
+COMMENT ON INDEX public.idx_tts_tracks_pnagd_genre_time_score_desc IS 'Covers current TRACKS/pnagD genre-filtered trending reads with score desc, track_id desc ordering.';
 
 
 --
@@ -13058,24 +13057,10 @@ CREATE INDEX idx_user_status ON public.users USING btree (user_id, is_deactivate
 
 
 --
--- Name: interval_play_month_count_idx; Type: INDEX; Schema: public; Owner: -
---
-
-CREATE INDEX interval_play_month_count_idx ON public.aggregate_interval_plays USING btree (month_listen_counts);
-
-
---
 -- Name: interval_play_track_id_idx; Type: INDEX; Schema: public; Owner: -
 --
 
-CREATE INDEX interval_play_track_id_idx ON public.aggregate_interval_plays USING btree (track_id);
-
-
---
--- Name: interval_play_week_count_idx; Type: INDEX; Schema: public; Owner: -
---
-
-CREATE INDEX interval_play_week_count_idx ON public.aggregate_interval_plays USING btree (week_listen_counts);
+CREATE UNIQUE INDEX interval_play_track_id_idx ON public.aggregate_interval_plays USING btree (track_id);
 
 
 --
@@ -13261,24 +13246,10 @@ CREATE INDEX ix_supporter_rank_ups_slot ON public.supporter_rank_ups USING btree
 
 
 --
--- Name: ix_track_trending_scores_genre; Type: INDEX; Schema: public; Owner: -
+-- Name: ix_trending_scores_desc_tiebreak; Type: INDEX; Schema: public; Owner: -
 --
 
-CREATE INDEX ix_track_trending_scores_genre ON public.track_trending_scores USING btree (genre);
-
-
---
--- Name: ix_track_trending_scores_track_id; Type: INDEX; Schema: public; Owner: -
---
-
-CREATE INDEX ix_track_trending_scores_track_id ON public.track_trending_scores USING btree (track_id);
-
-
---
--- Name: ix_trending_scores; Type: INDEX; Schema: public; Owner: -
---
-
-CREATE INDEX ix_trending_scores ON public.track_trending_scores USING btree (type, version, time_range, score DESC, track_id);
+CREATE INDEX ix_trending_scores_desc_tiebreak ON public.track_trending_scores USING btree (type, version, time_range, score DESC, track_id DESC);
 
 
 --
@@ -13331,10 +13302,38 @@ CREATE INDEX milestones_name_idx ON public.milestones USING btree (name, id);
 
 
 --
+-- Name: notification_multi_recipient_user_ids_idx; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX notification_multi_recipient_user_ids_idx ON public.notification USING gin (user_ids) WHERE (COALESCE(array_length(user_ids, 1), 0) <> 1);
+
+
+--
+-- Name: INDEX notification_multi_recipient_user_ids_idx; Type: COMMENT; Schema: public; Owner: -
+--
+
+COMMENT ON INDEX public.notification_multi_recipient_user_ids_idx IS 'Covers notification reads for the uncommon multi-recipient user_ids array path.';
+
+
+--
 -- Name: notification_seen_blocknumber_idx; Type: INDEX; Schema: public; Owner: -
 --
 
 CREATE INDEX notification_seen_blocknumber_idx ON public.notification_seen USING btree (blocknumber);
+
+
+--
+-- Name: notification_single_recipient_user_timestamp_idx; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX notification_single_recipient_user_timestamp_idx ON public.notification USING btree ((user_ids[1]), "timestamp" DESC, group_id DESC, type) WHERE (array_length(user_ids, 1) = 1);
+
+
+--
+-- Name: INDEX notification_single_recipient_user_timestamp_idx; Type: COMMENT; Schema: public; Owner: -
+--
+
+COMMENT ON INDEX public.notification_single_recipient_user_timestamp_idx IS 'Covers notification reads for the common single-recipient user_ids array path.';
 
 
 --
@@ -13363,6 +13362,20 @@ CREATE INDEX playlist_routes_playlist_id_idx ON public.playlist_routes USING btr
 --
 
 CREATE INDEX playlists_blocknumber_idx ON public.playlists USING btree (blocknumber);
+
+
+--
+-- Name: playlists_scheduled_release_due_idx; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX playlists_scheduled_release_due_idx ON public.playlists USING btree (release_date) WHERE ((is_private = true) AND (is_album = true) AND (is_scheduled_release = true) AND (release_date IS NOT NULL) AND (is_current = true) AND (is_delete = false));
+
+
+--
+-- Name: INDEX playlists_scheduled_release_due_idx; Type: COMMENT; Schema: public; Owner: -
+--
+
+COMMENT ON INDEX public.playlists_scheduled_release_due_idx IS 'Covers the scheduled-release publisher album update by release_date for due private scheduled albums.';
 
 
 --
@@ -13412,6 +13425,13 @@ CREATE INDEX reposts_new_blocknumber_idx ON public.reposts USING btree (blocknum
 --
 
 CREATE INDEX reposts_new_created_at_idx ON public.reposts USING btree (created_at);
+
+
+--
+-- Name: reposts_user_created_at_active_idx; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX reposts_user_created_at_active_idx ON public.reposts USING btree (user_id, created_at DESC) INCLUDE (repost_type, repost_item_id) WHERE (is_delete = false);
 
 
 --
@@ -13475,6 +13495,13 @@ CREATE INDEX saves_new_blocknumber_idx ON public.saves USING btree (blocknumber)
 --
 
 CREATE INDEX saves_user_idx ON public.saves USING btree (user_id, save_type, save_item_id, is_delete);
+
+
+--
+-- Name: saves_user_track_current_blocknumber_idx; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX saves_user_track_current_blocknumber_idx ON public.saves USING btree (user_id, blocknumber, save_item_id DESC) INCLUDE (created_at) WHERE ((save_type = 'track'::public.savetype) AND (is_current = true) AND (is_delete = false));
 
 
 --
@@ -13709,13 +13736,6 @@ COMMENT ON INDEX public.sol_reward_disbursements_challenge_idx IS 'Used for gett
 
 
 --
--- Name: sol_reward_disbursements_challenge_specifier_idx; Type: INDEX; Schema: public; Owner: -
---
-
-CREATE INDEX sol_reward_disbursements_challenge_specifier_idx ON public.sol_reward_disbursements USING btree (challenge_id, specifier);
-
-
---
 -- Name: sol_reward_disbursements_created_at_idx; Type: INDEX; Schema: public; Owner: -
 --
 
@@ -13926,6 +13946,13 @@ CREATE INDEX track_owner_idx ON public.tracks USING btree (owner_id, created_at)
 
 
 --
+-- Name: track_routes_owner_title_slug_collision_idx; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX track_routes_owner_title_slug_collision_idx ON public.track_routes USING btree (owner_id, title_slug, collision_id DESC);
+
+
+--
 -- Name: track_routes_track_id_idx; Type: INDEX; Schema: public; Owner: -
 --
 
@@ -13961,6 +13988,20 @@ COMMENT ON INDEX public.tracks_isrc_normalized_idx IS 'Functional index supporti
 
 
 --
+-- Name: tracks_scheduled_release_due_idx; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX tracks_scheduled_release_due_idx ON public.tracks USING btree (release_date) WHERE ((is_unlisted = true) AND (is_scheduled_release = true) AND (release_date IS NOT NULL) AND (is_current = true) AND (is_delete = false));
+
+
+--
+-- Name: INDEX tracks_scheduled_release_due_idx; Type: COMMENT; Schema: public; Owner: -
+--
+
+COMMENT ON INDEX public.tracks_scheduled_release_due_idx IS 'Covers the scheduled-release publisher tracks update by release_date for due unlisted scheduled tracks.';
+
+
+--
 -- Name: tracks_track_cid_idx; Type: INDEX; Schema: public; Owner: -
 --
 
@@ -13971,7 +14012,7 @@ CREATE INDEX tracks_track_cid_idx ON public.tracks USING btree (track_cid, is_de
 -- Name: trending_params_track_id_idx; Type: INDEX; Schema: public; Owner: -
 --
 
-CREATE INDEX trending_params_track_id_idx ON public.trending_params USING btree (track_id);
+CREATE UNIQUE INDEX trending_params_track_id_idx ON public.trending_params USING btree (track_id);
 
 
 --
@@ -13986,20 +14027,6 @@ CREATE INDEX user_balance_history_timestamp_idx ON public.user_balance_history U
 --
 
 COMMENT ON INDEX public.user_balance_history_timestamp_idx IS 'Optimizes queries finding recent balances across all users';
-
-
---
--- Name: user_balance_history_user_mint_timestamp_idx; Type: INDEX; Schema: public; Owner: -
---
-
-CREATE INDEX user_balance_history_user_mint_timestamp_idx ON public.user_balance_history USING btree (user_id, mint, "timestamp");
-
-
---
--- Name: INDEX user_balance_history_user_mint_timestamp_idx; Type: COMMENT; Schema: public; Owner: -
---
-
-COMMENT ON INDEX public.user_balance_history_user_mint_timestamp_idx IS 'Optimizes queries filtering by specific mint(s) and time range (e.g., "show USDC balance history")';
 
 
 --
@@ -14223,7 +14250,7 @@ CREATE CONSTRAINT TRIGGER on_fan_club_text_post AFTER INSERT ON public.comments 
 -- Name: follows on_follow; Type: TRIGGER; Schema: public; Owner: -
 --
 
-CREATE TRIGGER on_follow AFTER INSERT ON public.follows FOR EACH ROW EXECUTE FUNCTION public.handle_follow();
+CREATE TRIGGER on_follow AFTER INSERT OR UPDATE ON public.follows FOR EACH ROW EXECUTE FUNCTION public.handle_follow();
 
 
 --
@@ -14265,7 +14292,7 @@ CREATE TRIGGER on_reaction AFTER INSERT ON public.reactions FOR EACH ROW EXECUTE
 -- Name: reposts on_repost; Type: TRIGGER; Schema: public; Owner: -
 --
 
-CREATE TRIGGER on_repost AFTER INSERT ON public.reposts FOR EACH ROW EXECUTE FUNCTION public.handle_repost();
+CREATE TRIGGER on_repost AFTER INSERT OR UPDATE ON public.reposts FOR EACH ROW EXECUTE FUNCTION public.handle_repost();
 
 
 --
@@ -14279,7 +14306,7 @@ CREATE TRIGGER on_rpc_log AFTER INSERT ON public.rpc_log FOR EACH ROW EXECUTE FU
 -- Name: saves on_save; Type: TRIGGER; Schema: public; Owner: -
 --
 
-CREATE TRIGGER on_save AFTER INSERT ON public.saves FOR EACH ROW EXECUTE FUNCTION public.handle_save();
+CREATE TRIGGER on_save AFTER INSERT OR UPDATE ON public.saves FOR EACH ROW EXECUTE FUNCTION public.handle_save();
 
 
 --
@@ -14497,6 +14524,13 @@ CREATE TRIGGER trg_users AFTER INSERT OR UPDATE ON public.users FOR EACH ROW EXE
 --
 
 CREATE TRIGGER trigger_grant_change AFTER INSERT OR UPDATE ON public.grants FOR EACH ROW EXECUTE FUNCTION public.process_grant_change();
+
+
+--
+-- Name: track_collaborators trigger_track_collaborator_change; Type: TRIGGER; Schema: public; Owner: -
+--
+
+CREATE TRIGGER trigger_track_collaborator_change AFTER INSERT OR UPDATE ON public.track_collaborators FOR EACH ROW EXECUTE FUNCTION public.process_track_collaborator_change();
 
 
 --
@@ -14782,3 +14816,5 @@ ALTER TABLE ONLY public.users
 --
 -- PostgreSQL database dump complete
 --
+
+
