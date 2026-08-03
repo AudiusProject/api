@@ -67,7 +67,6 @@ type ArtistCoin struct {
 	VSell24hChangePercent        float64 `json:"vSell24hChangePercent" db:"v_sell_24h_change_percent"`
 	NumberMarkets                int     `json:"numberMarkets" db:"number_markets"`
 	TotalVolume                  float64 `json:"totalVolume" db:"total_volume"`
-	TotalVolumeUSD               float64 `json:"totalVolumeUSD" db:"total_volume_usd"`
 	VolumeBuyUSD                 float64 `json:"volumeBuyUSD" db:"volume_buy_usd"`
 	VolumeSellUSD                float64 `json:"volumeSellUSD" db:"volume_sell_usd"`
 	VolumeBuy                    float64 `json:"volumeBuy" db:"volume_buy"`
@@ -162,7 +161,6 @@ const sharedSelectCoinSql = `
 			COALESCE(artist_coin_stats.v_sell_24h_change_percent, 0) as v_sell_24h_change_percent,
 			COALESCE(artist_coin_stats.number_markets, 0) as number_markets,
 			COALESCE(artist_coin_stats.total_volume, 0) as total_volume,
-			COALESCE(artist_coin_stats.total_volume_usd, 0) as total_volume_usd,
 			COALESCE(artist_coin_stats.volume_buy, 0) as volume_buy,
 			COALESCE(artist_coin_stats.volume_buy_usd, 0) as volume_buy_usd,
 			COALESCE(artist_coin_stats.volume_sell, 0) as volume_sell,
