@@ -1,6 +1,7 @@
 package api
 
 import (
+	"context"
 	"fmt"
 	"testing"
 
@@ -286,6 +287,44 @@ func TestGetTrendingPlaylists_Albums(t *testing.T) {
 		jsonAssert(t, body, map[string]any{
 			"data.4.id": trashid.MustEncodeHashID(8),
 		})
+	}
+
+	// Regression: a signed-out SDK caller passes user_id as a viewer hint
+	// (purely for has_current_user_* decoration). The middleware must
+	// treat it as advisory and not 403 the request — otherwise every
+	// logged-in client gets an empty trending list. Same path serves both
+	// type=playlist and type=album, so one exemption covers both.
+	{
+		viewer := trashid.MustEncodeHashID(1)
+		status, body := testGet(t,
+			app,
+			"/v1/playlists/trending?limit=5&type=album&user_id="+viewer,
+			nil)
+		assert.Equal(t, 200, status)
+		jsonAssert(t, body, map[string]any{
+			"data.#": 5,
+		})
+	}
+
+	// Cache safety net: if an album becomes private after the qualified-ids
+	// cache was populated (a stale entry), the response handler should still
+	// drop it before returning. Flip album 1 to private and re-call — the
+	// cache will return the stale id list but the handler must filter it out.
+	_, err := app.pool.Exec(context.Background(),
+		`UPDATE playlists SET is_private = true WHERE playlist_id = 1`)
+	assert.NoError(t, err)
+	{
+		var resp struct {
+			Data []struct {
+				ID string `json:"id"`
+			}
+		}
+		status, _ := testGet(t, app, "/v1/playlists/trending?limit=5&type=album", &resp)
+		assert.Equal(t, 200, status)
+		flippedID := trashid.MustEncodeHashID(1)
+		for _, p := range resp.Data {
+			assert.NotEqual(t, flippedID, p.ID, "private playlist must not appear in trending")
+		}
 	}
 	{
 		status, body := testGet(t, app, "/v1/playlists/trending?limit=5&type=playlist", nil)

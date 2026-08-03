@@ -42,7 +42,7 @@ func (app *ApiServer) v1ExploreBestSelling(c *fiber.Ctx) error {
 	sql := `
 		WITH ranked_sales AS (
 			SELECT content_id, content_type, COUNT(*) AS sales_count
-			FROM usdc_purchases
+			FROM v_usdc_purchases
 			WHERE ` + strings.Join(filters, " AND ") + `
 			GROUP BY content_id, content_type
 		),

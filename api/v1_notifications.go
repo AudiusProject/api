@@ -1,10 +1,14 @@
 package api
 
 import (
+	"context"
 	"encoding/json"
+	"errors"
 	"slices"
 	"strings"
+	"time"
 
+	"api.audius.co/api/dbv1"
 	"api.audius.co/trashid"
 	"github.com/gofiber/fiber/v2"
 	"github.com/jackc/pgx/v5"
@@ -12,12 +16,57 @@ import (
 	"github.com/tidwall/sjson"
 )
 
+// Per-group cap on how many actions we mine for actor user IDs. Notification
+// groups can fan out (e.g. one row representing 100 followers); the client
+// only renders one avatar per group, so a single actor profile is enough.
+// Target entity IDs (the followee, the reposted track, etc.) are duplicated
+// across every action in a group, so reading just the first action still
+// surfaces every target — only the actor list is bounded by this cap.
+const notificationRelatedActorsPerGroup = 1
+
+const (
+	// Keep notification reads well below the production replica's
+	// max_standby_streaming_delay so pathological reads fail fast instead of
+	// holding hot-standby snapshots and making the replica fall behind.
+	notificationReadTimeout = 8 * time.Second
+
+	// Unread polling runs frequently in clients. If the multi-recipient array
+	// path is cold, fall back quickly instead of surfacing a 504.
+	notificationUnreadPollTimeout = 3 * time.Second
+
+	// Historically `limit=0` fell back to the default limit of 20, so unread
+	// polling counted at most the first page of notification groups.
+	notificationUnreadPollLimit = 20
+
+	// Notification reads should only need the newest rows in the requested
+	// window. This keeps hot users from grouping years of notifications before
+	// LIMIT.
+	notificationReadCandidateLimit = 25000
+
+	// Old timestamp pagination can still have years of history behind the
+	// cursor. A smaller window is enough to find many candidate groups while
+	// avoiding cold reads over tens of thousands of historical rows.
+	notificationTimestampPaginationCandidateLimit = 2000
+
+	// Keep the expensive validation/JSON aggregation work bounded after the
+	// newest notification groups have been selected.
+	notificationGroupCandidateLimit  = 200
+	notificationActionsPerGroupLimit = 100
+)
+
 type GetNotificationsQueryParams struct {
-	// Note that when limit is 0, we return 20 items to calculate unread count
 	Limit     int      `query:"limit" default:"20" validate:"min=0,max=100"`
-	Types     []string `query:"types" validate:"dive,oneof=announcement follow repost save remix cosign create tip_receive tip_send challenge_reward repost_of_repost save_of_repost tastemaker reaction supporter_dethroned supporter_rank_up supporting_rank_up milestone track_added_to_playlist tier_change trending trending_playlist trending_underground usdc_purchase_buyer usdc_purchase_seller track_added_to_purchased_album request_manager approve_manager_request claimable_reward comment comment_thread comment_mention comment_reaction listen_streak_reminder fan_remix_contest_started fan_remix_contest_ended fan_remix_contest_ending_soon fan_remix_contest_winners_selected artist_remix_contest_ended artist_remix_contest_ending_soon artist_remix_contest_submissions"`
+	Types     []string `query:"types" validate:"dive,oneof=announcement follow repost save remix cosign create tip_receive tip_send challenge_reward repost_of_repost save_of_repost tastemaker reaction supporter_dethroned supporter_rank_up supporting_rank_up milestone track_added_to_playlist tier_change trending trending_playlist trending_underground usdc_purchase_buyer usdc_purchase_seller track_added_to_purchased_album request_manager approve_manager_request track_collaborator_invite track_collaborator_accept claimable_reward comment comment_thread comment_mention comment_reaction listen_streak_reminder fan_remix_contest_started fan_remix_contest_ended fan_remix_contest_ending_soon fan_remix_contest_winners_selected fan_remix_contest_submission artist_remix_contest_ended artist_remix_contest_ending_soon artist_remix_contest_submissions fan_club_text_post remix_contest_update"`
 	GroupID   string   `query:"group_id" validate:"omitempty"`
 	Timestamp float64  `query:"timestamp" validate:"omitempty,min=0"`
+}
+
+type notificationRow struct {
+	Type    string            `json:"type"`
+	GroupID string            `json:"group_id"`
+	Actions []json.RawMessage `json:"actions"`
+	IsSeen  bool              `json:"is_seen"`
+	SeenAt  interface{}       `json:"seen_at"`
 }
 
 var unsupportedNotificationTypes = []string{
@@ -34,10 +83,345 @@ var unsupportedNotificationTypes = []string{
 	"remix",
 }
 
+func (app *ApiServer) v1NotificationsUnreadPoll(c *fiber.Ctx, params GetNotificationsQueryParams) error {
+	sql := `
+WITH latest_seen AS (
+	SELECT MAX(seen_at) AS seen_at
+	FROM notification_seen
+	WHERE user_id = @user_id
+),
+-- Equivalent to ARRAY[@user_id] && n.user_ids, split so single-recipient rows
+-- can use notification_single_recipient_user_timestamp_idx while
+-- multi-recipient arrays keep the existing overlap semantics.
+single_recipient_candidates AS MATERIALIZED (
+	SELECT n.type, n.group_id, n.timestamp
+	FROM notification n
+	CROSS JOIN latest_seen
+	WHERE array_length(n.user_ids, 1) = 1
+		AND n.user_ids[1] = @user_id
+		AND n.timestamp > (now()::timestamp - interval '90 days')
+		AND n.timestamp > COALESCE(latest_seen.seen_at, '-infinity'::timestamp)
+		AND (n.type = ANY(@types) OR @types IS NULL)
+		AND (n.type != ALL(@unsupported_types))
+	ORDER BY n.timestamp DESC, n.group_id DESC
+	LIMIT @candidate_limit
+),
+single_recipient_groups AS MATERIALIZED (
+	SELECT type, group_id
+	FROM single_recipient_candidates
+	GROUP BY type, group_id
+	LIMIT @limit
+),
+single_recipient_count AS MATERIALIZED (
+	SELECT COUNT(*)::int AS unread_count
+	FROM single_recipient_groups
+),
+-- Only touch the broader multi-recipient GIN path if the fast single-recipient
+-- path did not already satisfy the capped unread count.
+multi_recipient_candidates AS MATERIALIZED (
+	SELECT n.type, n.group_id, n.timestamp
+	FROM notification n
+	CROSS JOIN latest_seen
+	WHERE (SELECT unread_count FROM single_recipient_count) < @limit
+		AND COALESCE(array_length(n.user_ids, 1), 0) != 1
+		AND ARRAY[@user_id] && n.user_ids
+		AND n.timestamp > (now()::timestamp - interval '90 days')
+		AND n.timestamp > COALESCE(latest_seen.seen_at, '-infinity'::timestamp)
+		AND (n.type = ANY(@types) OR @types IS NULL)
+		AND (n.type != ALL(@unsupported_types))
+		AND NOT EXISTS (
+			SELECT 1
+			FROM single_recipient_groups sg
+			WHERE sg.type = n.type
+				AND sg.group_id = n.group_id
+		)
+	ORDER BY n.timestamp DESC, n.group_id DESC
+	LIMIT @candidate_limit
+),
+multi_recipient_groups AS MATERIALIZED (
+	SELECT type, group_id
+	FROM multi_recipient_candidates
+	GROUP BY type, group_id
+	LIMIT GREATEST(@limit - (SELECT unread_count FROM single_recipient_count), 0)
+)
+SELECT COUNT(*)
+FROM (
+	SELECT type, group_id FROM single_recipient_groups
+	UNION ALL
+	SELECT type, group_id FROM multi_recipient_groups
+	LIMIT @limit
+) unread_notifications;
+`
+	ctx, cancel := context.WithTimeout(c.Context(), notificationUnreadPollTimeout)
+	defer cancel()
+
+	var unreadCount int
+	err := app.v1NotificationsReadTx(ctx, func(tx pgx.Tx) error {
+		return tx.QueryRow(ctx, sql, pgx.NamedArgs{
+			"user_id":           app.getUserId(c),
+			"limit":             notificationUnreadPollLimit,
+			"candidate_limit":   notificationReadCandidateLimit,
+			"types":             params.Types,
+			"unsupported_types": unsupportedNotificationTypes,
+		}).Scan(&unreadCount)
+	})
+	if err != nil {
+		if errors.Is(err, context.DeadlineExceeded) {
+			return c.JSON(fiber.Map{
+				"data": fiber.Map{
+					"notifications": []notificationRow{},
+					"unread_count":  notificationUnreadPollLimit,
+				},
+				"related": fiber.Map{
+					"users":     []any{},
+					"tracks":    []any{},
+					"playlists": []any{},
+				},
+			})
+		}
+		return err
+	}
+
+	return c.JSON(fiber.Map{
+		"data": fiber.Map{
+			"notifications": []notificationRow{},
+			"unread_count":  unreadCount,
+		},
+		"related": fiber.Map{
+			"users":     []any{},
+			"tracks":    []any{},
+			"playlists": []any{},
+		},
+	})
+}
+
 func (app *ApiServer) v1Notifications(c *fiber.Ctx) error {
+	limitZeroPoll := c.Query("limit") == "0"
+
 	params := GetNotificationsQueryParams{}
 	if err := app.ParseAndValidateQueryParams(c, &params); err != nil {
 		return err
+	}
+
+	if limitZeroPoll {
+		return app.v1NotificationsUnreadPoll(c, params)
+	}
+
+	usesCandidateLimit := params.Timestamp > 0 || (params.Timestamp == 0 && params.GroupID == "")
+	matchedNotificationsCTE := `
+-- Equivalent to ARRAY[@user_id] && n.user_ids, split so single-recipient rows
+-- can use notification_single_recipient_user_timestamp_idx while
+-- multi-recipient arrays keep the existing overlap semantics.
+matched_notifications AS (
+	SELECT
+		n.id,
+		n.specifier,
+		n.group_id,
+		n.type,
+		n.timestamp,
+		n.data
+	FROM notification n
+	WHERE
+		array_length(n.user_ids, 1) = 1
+		AND n.user_ids[1] = @user_id
+		AND (n.type = ANY(@types) OR @types IS NULL)
+		AND (n.type != ALL(@unsupported_types))
+		AND (
+			-- Initial load: bound to the last 90 days so heavy users don't fan out
+			-- over their entire notification history. Pagination (timestamp_offset > 0)
+			-- is unbounded so scrolling further back still works.
+			(@timestamp_offset = 0 AND @group_id_offset = '' AND n.timestamp > (now()::timestamp - interval '90 days')) OR
+			(@timestamp_offset = 0 AND @group_id_offset != '' AND n.group_id < @group_id_offset) OR
+			(@timestamp_offset > 0 AND n.timestamp < to_timestamp(@timestamp_offset)) OR
+			(
+				@group_id_offset != '' AND @timestamp_offset > 0 AND
+				(n.timestamp = to_timestamp(@timestamp_offset) AND n.group_id < @group_id_offset)
+			)
+		)
+	UNION ALL
+	SELECT
+		n.id,
+		n.specifier,
+		n.group_id,
+		n.type,
+		n.timestamp,
+		n.data
+	FROM notification n
+	WHERE
+		COALESCE(array_length(n.user_ids, 1), 0) != 1
+		AND ARRAY[@user_id] && n.user_ids
+		AND (n.type = ANY(@types) OR @types IS NULL)
+		AND (n.type != ALL(@unsupported_types))
+		AND (
+			-- Initial load: bound to the last 90 days so heavy users don't fan out
+			-- over their entire notification history. Pagination (timestamp_offset > 0)
+			-- is unbounded so scrolling further back still works.
+			(@timestamp_offset = 0 AND @group_id_offset = '' AND n.timestamp > (now()::timestamp - interval '90 days')) OR
+			(@timestamp_offset = 0 AND @group_id_offset != '' AND n.group_id < @group_id_offset) OR
+			(@timestamp_offset > 0 AND n.timestamp < to_timestamp(@timestamp_offset)) OR
+			(
+				@group_id_offset != '' AND @timestamp_offset > 0 AND
+				(n.timestamp = to_timestamp(@timestamp_offset) AND n.group_id < @group_id_offset)
+			)
+		)
+)
+`
+
+	if params.Timestamp == 0 && params.GroupID == "" {
+		matchedNotificationsCTE = `
+-- Initial loads are bounded to 90 days, but hot users can still have enough
+-- rows in that window to time out while grouping. Pull newest candidates from
+-- each recipient shape first, then apply the same grouping/filtering.
+single_recipient_candidates AS MATERIALIZED (
+	SELECT
+		n.id,
+		n.specifier,
+		n.group_id,
+		n.type,
+		n.timestamp,
+		n.data
+	FROM notification n
+	WHERE
+		array_length(n.user_ids, 1) = 1
+		AND n.user_ids[1] = @user_id
+		AND (n.type = ANY(@types) OR @types IS NULL)
+		AND (n.type != ALL(@unsupported_types))
+		AND n.timestamp > (now()::timestamp - interval '90 days')
+	ORDER BY n.timestamp DESC, n.group_id DESC
+	LIMIT @candidate_limit
+),
+multi_recipient_candidates AS MATERIALIZED (
+	SELECT
+		n.id,
+		n.specifier,
+		n.group_id,
+		n.type,
+		n.timestamp,
+		n.data
+	FROM notification n
+	WHERE
+		COALESCE(array_length(n.user_ids, 1), 0) != 1
+		AND ARRAY[@user_id] && n.user_ids
+		AND (n.type = ANY(@types) OR @types IS NULL)
+		AND (n.type != ALL(@unsupported_types))
+		AND n.timestamp > (now()::timestamp - interval '90 days')
+	ORDER BY n.timestamp DESC, n.group_id DESC
+	LIMIT @candidate_limit
+),
+matched_notifications AS (
+	SELECT * FROM single_recipient_candidates
+	UNION ALL
+	SELECT * FROM multi_recipient_candidates
+),
+candidate_groups AS MATERIALIZED (
+	SELECT type, group_id, max(timestamp) AS max_timestamp
+	FROM matched_notifications
+	GROUP BY type, group_id
+	ORDER BY max(timestamp) DESC, group_id DESC
+	LIMIT @group_candidate_limit
+),
+capped_notifications AS MATERIALIZED (
+	SELECT id, specifier, group_id, type, timestamp, data
+	FROM (
+		SELECT
+			n.*,
+			row_number() OVER (
+				PARTITION BY n.type, n.group_id
+				ORDER BY n.timestamp DESC, n.id DESC
+			) AS action_rank
+		FROM matched_notifications n
+		JOIN candidate_groups g USING (type, group_id)
+	) ranked
+	WHERE action_rank <= @actions_per_group_limit
+)
+`
+	} else if params.Timestamp > 0 {
+		matchedNotificationsCTE = `
+-- Timestamp pagination can otherwise aggregate every older notification for
+-- prolific users before LIMIT. Pull a generous timestamp-ordered candidate set
+-- from each recipient shape first, then apply the same grouping/filtering.
+single_recipient_candidates AS MATERIALIZED (
+	SELECT
+		n.id,
+		n.specifier,
+		n.group_id,
+		n.type,
+		n.timestamp,
+		n.data
+	FROM notification n
+	WHERE
+		array_length(n.user_ids, 1) = 1
+		AND n.user_ids[1] = @user_id
+		AND (n.type = ANY(@types) OR @types IS NULL)
+		AND (n.type != ALL(@unsupported_types))
+		AND (
+			n.timestamp < to_timestamp(@timestamp_offset) OR
+			(
+				@group_id_offset != '' AND
+				n.timestamp = to_timestamp(@timestamp_offset) AND
+				n.group_id < @group_id_offset
+			)
+		)
+	ORDER BY n.timestamp DESC, n.group_id DESC
+	LIMIT @candidate_limit
+),
+multi_recipient_candidates AS MATERIALIZED (
+	SELECT
+		n.id,
+		n.specifier,
+		n.group_id,
+		n.type,
+		n.timestamp,
+		n.data
+	FROM notification n
+	WHERE
+		COALESCE(array_length(n.user_ids, 1), 0) != 1
+		AND ARRAY[@user_id] && n.user_ids
+		AND (n.type = ANY(@types) OR @types IS NULL)
+		AND (n.type != ALL(@unsupported_types))
+		AND (
+			n.timestamp < to_timestamp(@timestamp_offset) OR
+			(
+				@group_id_offset != '' AND
+				n.timestamp = to_timestamp(@timestamp_offset) AND
+				n.group_id < @group_id_offset
+			)
+		)
+	ORDER BY n.timestamp DESC, n.group_id DESC
+	LIMIT @candidate_limit
+),
+matched_notifications AS (
+	SELECT * FROM single_recipient_candidates
+	UNION ALL
+	SELECT * FROM multi_recipient_candidates
+),
+candidate_groups AS MATERIALIZED (
+	SELECT type, group_id, max(timestamp) AS max_timestamp
+	FROM matched_notifications
+	GROUP BY type, group_id
+	ORDER BY max(timestamp) DESC, group_id DESC
+	LIMIT @group_candidate_limit
+),
+capped_notifications AS MATERIALIZED (
+	SELECT id, specifier, group_id, type, timestamp, data
+	FROM (
+		SELECT
+			n.*,
+			row_number() OVER (
+				PARTITION BY n.type, n.group_id
+				ORDER BY n.timestamp DESC, n.id DESC
+			) AS action_rank
+		FROM matched_notifications n
+		JOIN candidate_groups g USING (type, group_id)
+	) ranked
+	WHERE action_rank <= @actions_per_group_limit
+)
+`
+	}
+
+	notificationSourceCTE := "matched_notifications"
+	if usesCandidateLimit {
+		notificationSourceCTE = "capped_notifications"
 	}
 
 	sql := `
@@ -59,18 +443,24 @@ WITH user_seen as (
   ORDER BY
     seen_at desc
   LIMIT 10
-)
+),
+` + matchedNotificationsCTE + `
 SELECT
 	n.type,
 	n.group_id AS group_id,
 	json_agg(
 		json_build_object(
-			'type', type,
-			'specifier', specifier,
-			'timestamp', EXTRACT(EPOCH FROM timestamp),
-			'data', data
+			'type', n.type,
+			'specifier', n.specifier,
+			'timestamp', EXTRACT(EPOCH FROM n.timestamp),
+			'data',
+				CASE
+					WHEN n.type = 'track_collaborator_invite' AND tc.status IS NOT NULL
+					THEN jsonb_set(n.data, '{status}', to_jsonb(tc.status), true)
+					ELSE n.data
+				END
 		)
-		ORDER BY timestamp DESC
+		ORDER BY n.timestamp DESC
 	)::jsonb AS actions,
 	CASE
 		-- If seen at is not null, we were able to match a window between seen events
@@ -89,7 +479,7 @@ SELECT
 		ELSE null
 	END AS seen_at
 FROM
-    notification n
+    ` + notificationSourceCTE + ` n
 LEFT JOIN user_seen ON
   user_seen.seen_at >= n.timestamp AND user_seen.prev_seen_at < n.timestamp
 -- Join with tracks table to filter out deleted tracks for "create" notifications that have track_id
@@ -104,13 +494,15 @@ LEFT JOIN playlists p ON
   n.data ? 'playlist_id' AND
   p.playlist_id = (n.data->>'playlist_id')::integer AND
   p.is_current = true
+LEFT JOIN track_collaborators tc ON
+  n.type = 'track_collaborator_invite' AND
+  n.data ? 'track_id' AND
+  n.data ? 'collaborator_user_id' AND
+  tc.track_id = (n.data->>'track_id')::integer AND
+  tc.collaborator_user_id = (n.data->>'collaborator_user_id')::integer
 WHERE
-  (ARRAY[@user_id] && n.user_ids)
-  AND (n.type = ANY(@types) OR @types IS NULL)
-	-- Ignore notification types not supported by frontend
-	AND (n.type != ALL(@unsupported_types))
   -- Filter out notifications for deleted tracks (only for create notifications that have track_id)
-  AND (
+  (
 		n.type != 'create'
 		OR NOT (n.data ? 'track_id')
 		OR (t.is_delete = false AND t.is_unlisted = false)
@@ -146,7 +538,10 @@ WHERE
 					WHERE u2.user_id = (n.data->>'user_id')::integer
 					AND u2.is_current = true
 					AND u2.is_deactivated = false
-					AND a2.score >= 0
+					AND (
+						n.type in ('request_manager', 'approve_manager_request')
+						OR a2.score >= 0
+					)
 				)
 			)
 			AND (
@@ -172,27 +567,18 @@ WHERE
 				)
 			)
 			AND (
-				-- Check entity_user_id if present
+				-- Check entity_user_id if present (skip score check for fan club notifications since the entity user must be verified)
 				NOT (n.data ? 'entity_user_id') OR EXISTS (
 					SELECT 1 FROM users u2
 					JOIN aggregate_user a2 ON u2.user_id = a2.user_id
 					WHERE u2.user_id = (n.data->>'entity_user_id')::integer
 					AND u2.is_current = true
 					AND u2.is_deactivated = false
-					AND a2.score >= 0
+					AND (n.type = 'fan_club_text_post' OR a2.score >= 0)
 				)
 			)
 		)
 	)
-  AND (
-    (@timestamp_offset = 0 AND @group_id_offset = '') OR
-    (@timestamp_offset = 0 AND @group_id_offset != '' AND n.group_id < @group_id_offset) OR
-    (@timestamp_offset > 0 AND n.timestamp < to_timestamp(@timestamp_offset)) OR
-    (
-        @group_id_offset != '' AND @timestamp_offset > 0 AND
-        (n.timestamp = to_timestamp(@timestamp_offset) AND n.group_id < @group_id_offset)
-    )
-  )
 GROUP BY
   n.type, n.group_id, user_seen.seen_at, user_seen.prev_seen_at,
   CASE
@@ -211,30 +597,51 @@ limit @limit::int
 ;
 `
 	userId := app.getUserId(c)
-	type GetNotifsRow struct {
-		Type    string            `json:"type"`
-		GroupID string            `json:"group_id"`
-		Actions []json.RawMessage `json:"actions"`
-		IsSeen  bool              `json:"is_seen"`
-		SeenAt  interface{}       `json:"seen_at"`
+	candidateLimit := notificationReadCandidateLimit
+	if params.Timestamp > 0 {
+		candidateLimit = notificationTimestampPaginationCandidateLimit
 	}
 
-	rows, err := app.pool.Query(c.Context(), sql, pgx.NamedArgs{
+	ctx, cancel := context.WithTimeout(c.Context(), notificationReadTimeout)
+	defer cancel()
+
+	args := pgx.NamedArgs{
 		"user_id":           userId,
 		"limit":             params.Limit,
 		"types":             params.Types,
 		"group_id_offset":   params.GroupID,
 		"timestamp_offset":  params.Timestamp,
 		"unsupported_types": unsupportedNotificationTypes,
-	})
+	}
+
+	if usesCandidateLimit {
+		args["candidate_limit"] = candidateLimit
+		args["group_candidate_limit"] = notificationGroupCandidateLimit
+		args["actions_per_group_limit"] = notificationActionsPerGroupLimit
+	}
+
+	var notifs []*notificationRow
+	var err error
+	if usesCandidateLimit {
+		notifs, err = app.v1NotificationsRowsWithReadTx(ctx, sql, args)
+	} else {
+		rows, queryErr := app.pool.Query(ctx, sql, args)
+		if queryErr != nil {
+			err = queryErr
+		} else {
+			notifs, err = pgx.CollectRows(rows, pgx.RowToAddrOfStructByNameLax[notificationRow])
+		}
+	}
 	if err != nil {
+		if errors.Is(err, context.DeadlineExceeded) {
+			return fiber.NewError(fiber.StatusGatewayTimeout, "notifications query timed out")
+		}
 		return err
 	}
 
-	notifs, err := pgx.CollectRows(rows, pgx.RowToAddrOfStructByNameLax[GetNotifsRow])
-	if err != nil {
-		return err
-	}
+	userIds := []int32{}
+	trackIds := []int32{}
+	playlistIds := []int32{}
 
 	unreadCount := 0
 	for _, notif := range notifs {
@@ -244,6 +651,16 @@ limit @limit::int
 			specB := gjson.GetBytes(b, "specifier").String()
 			return strings.Compare(specA, specB)
 		})
+
+		// Mine related entity IDs from the first N actions of each group. This
+		// must happen BEFORE HashifyJson re-encodes ints as opaque strings.
+		mineLimit := len(notif.Actions)
+		if mineLimit > notificationRelatedActorsPerGroup {
+			mineLimit = notificationRelatedActorsPerGroup
+		}
+		for _, action := range notif.Actions[:mineLimit] {
+			collectNotificationRelatedIds(action, &userIds, &trackIds, &playlistIds)
+		}
 
 		// each row from notification table has `actions`
 		// which is a jsonb field that is an array of objects.
@@ -303,11 +720,160 @@ limit @limit::int
 		}
 	}
 
+	related, err := app.queries.Parallel(c.Context(), dbv1.ParallelParams{
+		UserIds:         userIds,
+		TrackIds:        trackIds,
+		PlaylistIds:     playlistIds,
+		MyID:            app.getMyId(c),
+		AuthedWallet:    app.tryGetAuthedWallet(c),
+		IncludeUnlisted: true,
+	})
+	if err != nil {
+		return err
+	}
+
 	return c.JSON(fiber.Map{
 		"data": fiber.Map{
 			"notifications": notifs,
 			"unread_count":  unreadCount,
 		},
+		"related": fiber.Map{
+			"users":     related.UserList(),
+			"tracks":    related.TrackList(),
+			"playlists": related.PlaylistList(),
+		},
 	})
 
+}
+
+func (app *ApiServer) v1NotificationsReadTx(ctx context.Context, fn func(pgx.Tx) error) error {
+	pool := dbv1.ChooseReplica(app.pool.Replicas)
+	if pool == nil {
+		return pgx.ErrNoRows
+	}
+
+	tx, err := pool.BeginTx(ctx, pgx.TxOptions{AccessMode: pgx.ReadOnly})
+	if err != nil {
+		return err
+	}
+	defer func() {
+		rollbackCtx, cancel := context.WithTimeout(context.Background(), 2*time.Second)
+		defer cancel()
+		_ = tx.Rollback(rollbackCtx)
+	}()
+
+	// The production planner overestimates the multi-recipient overlap branch
+	// and prefers a table scan; keep the override scoped to this read only.
+	if _, err := tx.Exec(ctx, "SET LOCAL enable_seqscan = off"); err != nil {
+		return err
+	}
+
+	if err := fn(tx); err != nil {
+		return err
+	}
+
+	return tx.Commit(ctx)
+}
+
+func (app *ApiServer) v1NotificationsRowsWithReadTx(ctx context.Context, sql string, args pgx.NamedArgs) ([]*notificationRow, error) {
+	var notifs []*notificationRow
+	err := app.v1NotificationsReadTx(ctx, func(tx pgx.Tx) error {
+		rows, err := tx.Query(ctx, sql, args)
+		if err != nil {
+			return err
+		}
+
+		notifs, err = pgx.CollectRows(rows, pgx.RowToAddrOfStructByNameLax[notificationRow])
+		return err
+	})
+	if err != nil {
+		return nil, err
+	}
+
+	return notifs, nil
+}
+
+// collectNotificationRelatedIds extracts user/track/playlist IDs from a single
+// raw (pre-hashify) notification action's data so the caller can batch-load
+// the related entities in one shot. Field names mirror the Python
+// extend_notification.py mapping; *_item_id and content_id fields are
+// polymorphic and disambiguated by the sibling type field.
+func collectNotificationRelatedIds(action json.RawMessage, userIds, trackIds, playlistIds *[]int32) {
+	appendInt := func(target *[]int32, val gjson.Result) {
+		if val.Exists() && val.Type == gjson.Number {
+			*target = append(*target, int32(val.Int()))
+		}
+	}
+
+	for _, path := range []string{
+		"data.user_id",
+		"data.follower_user_id",
+		"data.followee_user_id",
+		"data.comment_user_id",
+		"data.entity_user_id",
+		"data.reacter_user_id",
+		"data.sender_user_id",
+		"data.receiver_user_id",
+		"data.dethroned_user_id",
+		"data.grantee_user_id",
+		"data.inviter_user_id",
+		"data.collaborator_user_id",
+		"data.tastemaker_user_id",
+		"data.tastemaker_item_owner_id",
+		"data.track_owner_id",
+		"data.parent_track_owner_id",
+		"data.playlist_owner_id",
+		"data.buyer_user_id",
+		"data.seller_user_id",
+	} {
+		appendInt(userIds, gjson.GetBytes(action, path))
+	}
+
+	appendInt(trackIds, gjson.GetBytes(action, "data.track_id"))
+	appendInt(trackIds, gjson.GetBytes(action, "data.parent_track_id"))
+	appendInt(playlistIds, gjson.GetBytes(action, "data.playlist_id"))
+
+	// Polymorphic fields: split by sibling type discriminator.
+	itemType := strings.ToLower(gjson.GetBytes(action, "data.type").String())
+	for _, path := range []string{
+		"data.repost_item_id",
+		"data.save_item_id",
+		"data.repost_of_repost_item_id",
+		"data.save_of_repost_item_id",
+	} {
+		val := gjson.GetBytes(action, path)
+		if !val.Exists() || val.Type != gjson.Number {
+			continue
+		}
+		if itemType == "track" {
+			*trackIds = append(*trackIds, int32(val.Int()))
+		} else if itemType == "playlist" || itemType == "album" {
+			*playlistIds = append(*playlistIds, int32(val.Int()))
+		}
+	}
+
+	if val := gjson.GetBytes(action, "data.tastemaker_item_id"); val.Exists() && val.Type == gjson.Number {
+		switch strings.ToLower(gjson.GetBytes(action, "data.tastemaker_item_type").String()) {
+		case "track":
+			*trackIds = append(*trackIds, int32(val.Int()))
+		case "playlist", "album":
+			*playlistIds = append(*playlistIds, int32(val.Int()))
+		}
+	}
+
+	if val := gjson.GetBytes(action, "data.content_id"); val.Exists() && val.Type == gjson.Number {
+		switch strings.ToLower(gjson.GetBytes(action, "data.content_type").String()) {
+		case "track":
+			*trackIds = append(*trackIds, int32(val.Int()))
+		case "playlist", "album":
+			*playlistIds = append(*playlistIds, int32(val.Int()))
+		}
+	}
+
+	// Comment notifications: entity_id is a track when entity_type is Track.
+	if val := gjson.GetBytes(action, "data.entity_id"); val.Exists() && val.Type == gjson.Number {
+		if strings.EqualFold(gjson.GetBytes(action, "data.entity_type").String(), "track") {
+			*trackIds = append(*trackIds, int32(val.Int()))
+		}
+	}
 }

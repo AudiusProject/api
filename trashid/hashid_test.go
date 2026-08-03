@@ -46,3 +46,38 @@ func TestHashId(t *testing.T) {
 		assert.Equal(t, 0, int(h))
 	}
 }
+
+func TestIntId(t *testing.T) {
+
+	// when we serialize... it emits a plain number (not a hash string)
+	{
+		i := IntId(44)
+		j, err := json.Marshal(i)
+		assert.NoError(t, err)
+		assert.Equal(t, `44`, string(j))
+	}
+
+	// when we parse a hashid string... it decodes to the numeric value
+	{
+		var i IntId
+		err := json.Unmarshal([]byte(`"eYorL"`), &i)
+		assert.NoError(t, err)
+		assert.Equal(t, 44, int(i))
+	}
+
+	// when we parse a raw number... it works as-is
+	{
+		var i IntId
+		err := json.Unmarshal([]byte("33"), &i)
+		assert.NoError(t, err)
+		assert.Equal(t, 33, int(i))
+	}
+
+	// errors on bad hashid string
+	{
+		var i IntId
+		err := json.Unmarshal([]byte(`"asdjkfalksdjfaklsdjf"`), &i)
+		assert.Error(t, err)
+		assert.Equal(t, 0, int(i))
+	}
+}

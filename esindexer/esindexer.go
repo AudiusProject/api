@@ -219,10 +219,10 @@ func (indexer *EsIndexer) scriptedUpdateSocial(userId int64, fieldName string, e
 		if err := indexer.indexIds("socials", userId); err != nil {
 			slog.Error("socials indexIds failed", "user", userId, "field", fieldName, "id", entityId, "err", err)
 		} else {
-			slog.Info("socials indexIds", "user", userId, "field", fieldName, "id", entityId)
+			slog.Debug("socials indexIds", "user", userId, "field", fieldName, "id", entityId)
 		}
 	} else {
-		slog.Info("social update", "user", userId, "field", fieldName, "id", entityId)
+		slog.Debug("social update", "user", userId, "field", fieldName, "id", entityId)
 	}
 
 }

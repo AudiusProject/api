@@ -90,15 +90,12 @@ func (app *ApiServer) v1Resolve(c *fiber.Ctx) error {
 			return fiber.NewError(fiber.StatusNotFound, "Playlist not found")
 		}
 
-		playlistId, err := trashid.EncodeHashId(int(playlistIds[0]))
-		if err != nil {
-			return err
-		}
-
+		// Redirect to the by_permalink route so the destination handler can
+		// honor "has the link" as access to private playlists/albums.
 		if isFull {
-			return app.redirectWithPreservedParams(c, "/v1/full/playlists/"+playlistId, fiber.StatusFound)
+			return app.redirectWithPreservedParams(c, "/v1/full/playlists/by_permalink/"+handle+"/"+slug, fiber.StatusFound)
 		}
-		return app.redirectWithPreservedParams(c, "/v1/playlists/"+playlistId, fiber.StatusFound)
+		return app.redirectWithPreservedParams(c, "/v1/playlists/by_permalink/"+handle+"/"+slug, fiber.StatusFound)
 	}
 
 	// Try to match user URL

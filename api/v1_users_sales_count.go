@@ -34,7 +34,7 @@ func (app *ApiServer) v1UsersSalesCount(c *fiber.Ctx) error {
 	}
 
 	sql := `
-		SELECT COUNT(*) FROM usdc_purchases
+		SELECT COUNT(*) FROM v_usdc_purchases
 		WHERE ` + strings.Join(filters, " AND ") + `
 	;`
 

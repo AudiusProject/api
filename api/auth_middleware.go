@@ -255,25 +255,36 @@ func (app *ApiServer) authMiddleware(c *fiber.Ctx) error {
 	// 4. Signature headers - legacy method used for reads
 	var wallet string
 
+	// Detect a supplied Bearer token up front so that, if no auth path can
+	// validate it, we can return 401 (auth attempted but invalid) instead of
+	// 403 (auth succeeded but unauthorized). bearerValidated tracks whether
+	// any path successfully decoded the token — a valid-but-mismatched token
+	// is still 403, only an undecodable/expired/revoked token is 401.
+	var bearerToken string
+	var bearerValidated bool
+	if authHeader := c.Get("Authorization"); authHeader != "" && strings.HasPrefix(authHeader, "Bearer ") {
+		bearerToken = strings.TrimSpace(strings.TrimPrefix(authHeader, "Bearer "))
+	}
+
 	// Start by trying to get the API key/secret from the Authorization header
 	signer, _ := app.getApiSigner(c)
 	myId := app.getMyId(c)
 	if signer != nil {
 		app.logger.Debug("authMiddleware: resolved via app bearer/secret/oauth", zap.String("wallet", strings.ToLower(signer.Address)))
 		wallet = strings.ToLower(signer.Address)
+		// signer != nil via Bearer means getApiSigner validated the credential
+		// (api_access_key, OAuth token + api_secret, or AudiusApiSecret path).
+		if bearerToken != "" {
+			bearerValidated = true
+		}
 	} else {
 		// The api secret couldn't be found, try other methods:
-
-		// Extract Bearer token once for the fallback checks below
-		var bearerToken string
-		if authHeader := c.Get("Authorization"); authHeader != "" && strings.HasPrefix(authHeader, "Bearer ") {
-			bearerToken = strings.TrimSpace(strings.TrimPrefix(authHeader, "Bearer "))
-		}
 
 		if bearerToken != "" {
 			// OAuth JWT fallback: when Bearer token is not api_access_key, try as OAuth JWT (Plans app)
 			if wallet == "" && myId != 0 {
 				if oauthWallet, jwtUserId, err := app.validateOAuthJWTTokenToWalletAndUserId(c.Context(), bearerToken); err == nil {
+					bearerValidated = true
 					if int32(jwtUserId) == myId {
 						app.logger.Debug("authMiddleware: resolved via OAuth JWT", zap.String("wallet", oauthWallet), zap.Int32("myId", myId))
 						wallet = oauthWallet
@@ -288,6 +299,7 @@ func (app *ApiServer) authMiddleware(c *fiber.Ctx) error {
 			// PKCE token fallback: resolve opaque Bearer token from oauth_tokens in case the getSigner fails because there's no secret stored in the api_keys table
 			if wallet == "" {
 				if entry, ok := app.lookupOAuthAccessToken(c, bearerToken); ok {
+					bearerValidated = true
 					if myId == 0 || entry.UserID == myId {
 						wallet = strings.ToLower(entry.ClientID)
 						c.Locals("oauthScope", entry.Scope)
@@ -324,8 +336,43 @@ func (app *ApiServer) authMiddleware(c *fiber.Ctx) error {
 	// A valid PKCE access token already proves the user authorized this client
 	_, pkceAuthed := c.Locals("oauthScope").(string)
 
-	// Not authorized to act on behalf of myId
-	if myId != 0 && !pkceAuthed && !app.isAuthorizedRequest(c.Context(), myId, wallet) {
+	myWallet := c.Params("wallet")
+
+	// A Bearer token was provided but no auth path could validate it (expired,
+	// revoked, or otherwise undecodable). Return 401 so clients know to refresh
+	// rather than 403, which implies an authorization (not authentication) failure.
+	// A token that decoded successfully but didn't match the requested user is
+	// still 403 below — it's a permission issue, not a credential issue.
+	if wallet == "" && bearerToken != "" && !bearerValidated && (myId != 0 || myWallet != "") {
+		return fiber.NewError(fiber.StatusUnauthorized, "Invalid or expired access token")
+	}
+
+	// Not authorized to act on behalf of myId.
+	//
+	// Exceptions: public discovery reads where user_id is purely a
+	// viewer hint used for response decoration
+	// (has_current_user_reposted, has_current_user_saved, etc.) with no
+	// permission semantics tied to it. Treat the query user_id as
+	// advisory rather than authoritative on these routes so logged-in
+	// SDK clients can pass it without forging signature headers.
+	//
+	// Anything in this list MUST satisfy two conditions:
+	//   1. Method is GET (no writes — writes must remain authoritative).
+	//   2. user_id is used only to populate has_current_user_* / similar
+	//      decoration flags. It MUST NOT control content selection,
+	//      permission, or row visibility — that responsibility lives on
+	//      a path :userId param or an explicit auth middleware.
+	//
+	// Follow-up: the list below is the tactical patch for the most
+	// affected discovery surfaces. The longer-term fix is a per-route
+	// opt-in marker (e.g. an `advisoryUserId` middleware attached at
+	// route registration) so this allowlist doesn't have to grow with
+	// every new public read. Tracked in api#TBD.
+	path := c.Path()
+	allowUnauthenticatedViewerId := c.Method() == fiber.MethodGet &&
+		isAdvisoryUserIdPath(path)
+
+	if myId != 0 && !pkceAuthed && !allowUnauthenticatedViewerId && !app.isAuthorizedRequest(c.Context(), myId, wallet) {
 		return fiber.NewError(
 			fiber.StatusForbidden,
 			fmt.Sprintf(
@@ -337,7 +384,6 @@ func (app *ApiServer) authMiddleware(c *fiber.Ctx) error {
 	}
 
 	// Not authorized to act on behalf of myWallet
-	myWallet := c.Params("wallet")
 	if myWallet != "" && !strings.EqualFold(myWallet, wallet) {
 		return fiber.NewError(
 			fiber.StatusForbidden,
@@ -350,6 +396,68 @@ func (app *ApiServer) authMiddleware(c *fiber.Ctx) error {
 	}
 
 	return c.Next()
+}
+
+// isAdvisoryUserIdPath matches request paths where ?user_id is treated as a
+// viewer hint for response decoration only — no permission semantics. See the
+// big comment in authMiddleware for the contract; this matcher must stay in
+// sync with it.
+//
+// All entries are conceptual route patterns rewritten as a literal path-match
+// or a small predicate. Anything load-bearing on user_id (e.g. /me, /account,
+// any write) is intentionally absent.
+func isAdvisoryUserIdPath(path string) bool {
+	// Normalize: drop the /v1 prefix so the matcher is version-agnostic.
+	stripped := strings.TrimPrefix(path, "/v1")
+
+	switch stripped {
+	case "/playlists",
+		"/playlists/trending",
+		"/playlists/top",
+		"/playlists/new-releases",
+		"/playlists/by_permalink",
+		"/playlists/search",
+		"/tracks",
+		"/tracks/trending",
+		"/tracks/recommended",
+		"/tracks/trending/ids",
+		"/users",
+		"/users/search",
+		"/users/top",
+		"/users/genre/top":
+		return true
+	}
+
+	// /users/:userId/feed/for-you and other /feed/for-you variants.
+	if strings.HasSuffix(stripped, "/feed/for-you") {
+		return true
+	}
+
+	// Dynamic single-resource reads: /playlists/<id>, /tracks/<id>,
+	// /users/<id>, /users/handle/<handle>. These are decorative — the path
+	// param controls the resource; user_id only personalizes flags.
+	segs := strings.Split(strings.TrimPrefix(stripped, "/"), "/")
+	if len(segs) >= 2 {
+		switch segs[0] {
+		case "playlists", "tracks":
+			// /playlists/<id>, /tracks/<id> — but NOT /playlists/<id>/stream
+			// etc. (those endpoints may have their own semantics). Match
+			// only the two-segment case here; sub-resources stay strict.
+			if len(segs) == 2 {
+				return true
+			}
+		case "users":
+			// /users/<id>, /users/handle/<handle> — single user fetch.
+			// Their sub-resource reads (/users/<id>/tracks, /followers,
+			// etc.) are NOT in this tactical exemption; if needed, add
+			// them explicitly.
+			if len(segs) == 2 || (len(segs) == 3 && segs[1] == "handle") {
+				return true
+			}
+		}
+	}
+
+	return false
 }
 
 // Middleware to require auth for the userId in the route params

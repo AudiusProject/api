@@ -92,7 +92,7 @@ func (app *ApiServer) v1UsersLibraryTracks(c *fiber.Ctx) error {
 			content_id as item_id,
 			created_at as item_created_at,
 			true as is_purchase
-		FROM usdc_purchases
+		FROM v_usdc_purchases
 		WHERE content_type = 'track'
 			AND buyer_user_id = @userId
 			AND @actionType in ('purchase', 'all')

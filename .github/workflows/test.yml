@@ -1,10 +1,16 @@
 name: Go Tests with Docker Compose
 
 on:
-  push:
-    branches: [ main ]
+  # Tests gate PRs into main. The redundant push:main run (same commits already
+  # tested on the PR) is dropped; keep workflow_dispatch for manual reruns.
   pull_request:
     branches: [ main ]
+  workflow_dispatch:
+
+# Cancel superseded runs when a PR is updated with new commits.
+concurrency:
+  group: test-${{ github.head_ref || github.ref }}
+  cancel-in-progress: true
 
 jobs:
   test:

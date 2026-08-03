@@ -14,6 +14,80 @@ import (
 // OLD_MEMO_PROGRAM_ID is the old memo program ID used for legacy memos.
 var OLD_MEMO_PROGRAM_ID = solana.MustPublicKeyFromBase58("Memo1UhkJRfHyvLMcVucJwxXeuD728EqVDDwQDxFMNo")
 
+// Jupiter V6 router. When this program is in a claimable_tokens transfer's
+// account_keys, the transfer is the "prepare" step of a swap-out withdrawal
+// (user_bank USDC → some other token via Jupiter), regardless of memo.
+var JUPITER_V6_PROGRAM_ID = solana.MustPublicKeyFromBase58("JUP6LkbZbjS1jKKwapdHNy74zcZ3tLUZoi5QNyVTaV4")
+
+// TransferType is the classification a claimable_tokens transfer or
+// payment_router route gets based on the memos in its transaction.
+type TransferType int
+
+const (
+	// TransferTypeUnknown means no recognized type memo was found — treat as
+	// a bare transfer.
+	TransferTypeUnknown TransferType = iota
+	TransferTypeWithdrawal
+	TransferTypePrepareWithdrawal
+	TransferTypeInternalTransfer
+	TransferTypeRecoverWithdrawal
+)
+
+// Memo string constants — these match the strings the legacy Python indexer
+// (and the Audius web clients) write into the memo instruction at send time.
+const (
+	memoWithdrawal         = "Withdrawal"
+	memoPrepareWithdrawal  = "Prepare Withdrawal"
+	memoInternalTransfer   = "Internal Transfer"
+	memoRecoverWithdrawal  = "Recover Withdrawal"
+)
+
+// parseTransferTypeMemo returns the TransferType that matches the memo's
+// exact string, or TransferTypeUnknown if it doesn't match any known label.
+func parseTransferTypeMemo(memo []byte) TransferType {
+	switch string(memo) {
+	case memoWithdrawal:
+		return TransferTypeWithdrawal
+	case memoPrepareWithdrawal:
+		return TransferTypePrepareWithdrawal
+	case memoInternalTransfer:
+		return TransferTypeInternalTransfer
+	case memoRecoverWithdrawal:
+		return TransferTypeRecoverWithdrawal
+	}
+	return TransferTypeUnknown
+}
+
+// findTransferTypeMemo scans every memo instruction in the transaction and
+// returns the first recognized TransferType. Unlike findNextPurchaseMemo it
+// scans from the beginning — memos can land anywhere in the instruction list
+// (e.g. before the secp256k1 signature or after the Transfer call), and
+// there's at most one type-label memo per transaction in practice.
+func findTransferTypeMemo(tx *solana.Transaction) TransferType {
+	for _, inst := range tx.Message.Instructions {
+		programId := tx.Message.AccountKeys[inst.ProgramIDIndex]
+		if programId.Equals(solana.MemoProgramID) || programId.Equals(OLD_MEMO_PROGRAM_ID) {
+			if t := parseTransferTypeMemo(inst.Data); t != TransferTypeUnknown {
+				return t
+			}
+		}
+	}
+	return TransferTypeUnknown
+}
+
+// transactionTouchesJupiter reports whether the Jupiter V6 router appears in
+// the transaction's account_keys (including LUT-resolved entries). Used by
+// the claimable_tokens classifier to mark a transfer as "prepare withdrawal"
+// even when the memo is missing.
+func transactionTouchesJupiter(tx *solana.Transaction) bool {
+	for _, key := range tx.Message.AccountKeys {
+		if key.Equals(JUPITER_V6_PROGRAM_ID) {
+			return true
+		}
+	}
+	return false
+}
+
 type parsedPurchaseMemo struct {
 	ContentType           string
 	ContentId             int

@@ -8,6 +8,20 @@ begin
       PERFORM pg_notify(TG_TABLE_NAME, json_build_object('track_id', new.track_id, 'updated_at', new.updated_at, 'created_at', new.created_at, 'blocknumber', new.blocknumber)::text);
     when 'users' then
       PERFORM pg_notify(TG_TABLE_NAME, json_build_object('user_id', new.user_id, 'blocknumber', new.blocknumber)::text);
+      -- Dedicated verification-transition channel.
+      --
+      -- The Go ETL writes `users` in place (single is_current row per user; it
+      -- bumps blocknumber rather than appending a versioned row), so consumers
+      -- can no longer reconstruct the "previous" verification state from the
+      -- `users` table or from revert_blocks. But because the update is in place,
+      -- this AFTER trigger's OLD row holds the true pre-update state. Emit on a
+      -- separate channel only for the genuine false -> true transition (or a
+      -- brand-new row that arrives already verified) so downstream listeners
+      -- (e.g. the verified-notifications Slack bot) fire exactly once instead of
+      -- on every profile edit by an already-verified user.
+      if new.is_verified and (TG_OP = 'INSERT' or not coalesce(old.is_verified, false)) then
+        PERFORM pg_notify('user_verified', json_build_object('user_id', new.user_id, 'blocknumber', new.blocknumber)::text);
+      end if;
     when 'playlists' then
       PERFORM pg_notify(TG_TABLE_NAME, json_build_object('playlist_id', new.playlist_id)::text);
     else

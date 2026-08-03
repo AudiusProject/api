@@ -15,7 +15,7 @@ func TestV1UsersSalesDownload(t *testing.T) {
 
 	fixtures := database.FixtureMap{
 		"users": []map[string]any{
-			{"user_id": 1, "handle": "seller", "wallet": user1Wallet},
+			{"user_id": 1, "handle": "seller", "wallet": user1Wallet, "spl_usdc_payout_wallet": user1Wallet},
 			{"user_id": 2, "handle": "buyer1", "name": "buyer1"},
 			{"user_id": 3, "handle": "buyer2", "name": "buyer2"},
 		},
@@ -31,32 +31,28 @@ func TestV1UsersSalesDownload(t *testing.T) {
 				"collision_id": 0,
 			},
 		},
-		"usdc_purchases": []map[string]any{
+		"user_payout_wallet_history": []map[string]any{
+			{"user_id": 1, "spl_usdc_payout_wallet": user1Wallet, "block_timestamp": time.Date(2024, 6, 1, 0, 0, 0, 0, time.UTC)},
+		},
+		"sol_purchases": []map[string]any{
 			{
-				"seller_user_id": 1,
-				"buyer_user_id":  2,
-				"country":        "US",
-				"content_type":   "track",
-				"content_id":     1,
-				"amount":         1000000,
-				"extra_amount":   500000,
-				"created_at":     time.Date(2024, 6, 4, 0, 0, 0, 0, time.UTC),
-				"signature":      "def",
-				"splits": []map[string]any{
-					{
-						"user_id":       1,
-						"eth_wallet":    user1Wallet,
-						"payout_wallet": user1Wallet,
-						"amount":        900000,
-						"percentage":    100,
-					},
-					{
-						"payout_wallet": app.solanaConfig.StakingBridgeUsdcTokenAccount.String(),
-						"amount":        100000,
-						"percentage":    10,
-					},
-				},
+				"signature":         "def",
+				"instruction_index": 0,
+				"buyer_user_id":     2,
+				"country":           "US",
+				"content_type":      "track",
+				"content_id":        1,
+				"amount":            1000000,
+				"created_at":        time.Date(2024, 6, 4, 0, 0, 0, 0, time.UTC),
+				"is_valid":          true,
 			},
+		},
+		"sol_payments": []map[string]any{
+			{"signature": "def", "instruction_index": 0, "route_index": 0, "to_account": user1Wallet, "amount": 900000, "slot": 101},
+			{"signature": "def", "instruction_index": 0, "route_index": 1, "to_account": app.solanaConfig.StakingBridgeUsdcTokenAccount.String(), "amount": 100000, "slot": 101},
+		},
+		"track_price_history": []map[string]any{
+			{"track_id": 1, "total_price_cents": 50, "block_timestamp": time.Date(2024, 6, 3, 0, 0, 0, 0, time.UTC), "splits": "[]"},
 		},
 		"encrypted_emails": []map[string]any{
 			{
@@ -166,7 +162,7 @@ func TestV1UsersSalesDownloadWithGrantee(t *testing.T) {
 
 	fixtures := database.FixtureMap{
 		"users": []map[string]any{
-			{"user_id": 1, "handle": "seller", "wallet": user1Wallet},
+			{"user_id": 1, "handle": "seller", "wallet": user1Wallet, "spl_usdc_payout_wallet": user1Wallet},
 			{"user_id": 2, "handle": "buyer1", "name": "buyer1", "wallet": user2Wallet},
 			{"user_id": 3, "handle": "grantee", "name": "grantee", "wallet": user3Wallet},
 		},
@@ -182,32 +178,28 @@ func TestV1UsersSalesDownloadWithGrantee(t *testing.T) {
 				"collision_id": 0,
 			},
 		},
-		"usdc_purchases": []map[string]any{
+		"user_payout_wallet_history": []map[string]any{
+			{"user_id": 1, "spl_usdc_payout_wallet": user1Wallet, "block_timestamp": time.Date(2024, 6, 1, 0, 0, 0, 0, time.UTC)},
+		},
+		"sol_purchases": []map[string]any{
 			{
-				"seller_user_id": 1,
-				"buyer_user_id":  2,
-				"country":        "US",
-				"content_type":   "track",
-				"content_id":     1,
-				"amount":         1000000,
-				"extra_amount":   500000,
-				"created_at":     time.Date(2024, 6, 4, 0, 0, 0, 0, time.UTC),
-				"signature":      "def",
-				"splits": []map[string]any{
-					{
-						"user_id":       1,
-						"eth_wallet":    user1Wallet,
-						"payout_wallet": user1Wallet,
-						"amount":        900000,
-						"percentage":    100,
-					},
-					{
-						"payout_wallet": app.solanaConfig.StakingBridgeUsdcTokenAccount.String(),
-						"amount":        100000,
-						"percentage":    10,
-					},
-				},
+				"signature":         "def",
+				"instruction_index": 0,
+				"buyer_user_id":     2,
+				"country":           "US",
+				"content_type":      "track",
+				"content_id":        1,
+				"amount":            1000000,
+				"created_at":        time.Date(2024, 6, 4, 0, 0, 0, 0, time.UTC),
+				"is_valid":          true,
 			},
+		},
+		"sol_payments": []map[string]any{
+			{"signature": "def", "instruction_index": 0, "route_index": 0, "to_account": user1Wallet, "amount": 900000, "slot": 101},
+			{"signature": "def", "instruction_index": 0, "route_index": 1, "to_account": app.solanaConfig.StakingBridgeUsdcTokenAccount.String(), "amount": 100000, "slot": 101},
+		},
+		"track_price_history": []map[string]any{
+			{"track_id": 1, "total_price_cents": 50, "block_timestamp": time.Date(2024, 6, 3, 0, 0, 0, 0, time.UTC), "splits": "[]"},
 		},
 		"encrypted_emails": []map[string]any{
 			{

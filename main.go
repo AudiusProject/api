@@ -13,6 +13,7 @@ import (
 	"api.audius.co/config"
 	"api.audius.co/ddl"
 	"api.audius.co/esindexer"
+	eth_indexer "api.audius.co/eth/indexer"
 	core_indexer "api.audius.co/indexer"
 	solana_indexer "api.audius.co/solana/indexer"
 )
@@ -27,7 +28,10 @@ func main() {
 		fmt.Println("Skipping migrations. Set env runMigrations=true to run.")
 	} else {
 		fmt.Println("Running migrations...")
-		ddl.RunMigrations()
+		if err := ddl.RunMigrations(); err != nil {
+			fmt.Println("migration failed:", err)
+			os.Exit(1)
+		}
 	}
 
 	switch command {
@@ -77,6 +81,26 @@ func main() {
 			go healthServer.Start(ctx)
 
 			if err := solanaIndexer.Start(ctx); err != nil {
+				if !errors.Is(err, context.Canceled) {
+					panic(err)
+				}
+			}
+		}
+	case "eth-indexer":
+		{
+			fmt.Println("Running eth-indexer...")
+			ethIndexer := eth_indexer.New(config.Cfg)
+			defer ethIndexer.Close()
+
+			healthServer := eth_indexer.NewServer(ethIndexer)
+
+			// Capture termination signals for graceful shutdown of the indexer
+			ctx, stop := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM, syscall.SIGINT, os.Interrupt)
+			defer stop()
+
+			go healthServer.Start(ctx)
+
+			if err := ethIndexer.Start(ctx); err != nil {
 				if !errors.Is(err, context.Canceled) {
 					panic(err)
 				}

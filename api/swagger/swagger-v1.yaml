@@ -59,6 +59,8 @@ tags:
     description: Events related operations
   - name: explore
     description: Explore related operations
+  - name: genres
+    description: Genre discovery operations
   - name: rewards
     description: Rewards related operations
   - name: prizes
@@ -611,6 +613,100 @@ paths:
         "500":
           description: Server error
           content: {}
+  /fan_club/feed:
+    get:
+      tags:
+        - fan_club
+      description: Get the fan club feed for a given artist, including text posts and comments
+      operationId: Get Fan Club Feed
+      security:
+        - {}
+        - OAuth2:
+            - read
+      parameters:
+        - name: mint
+          in: query
+          description: The mint address of the artist's fan club token
+          required: true
+          schema:
+            type: string
+        - name: user_id
+          in: query
+          description: The user ID of the user making the request
+          schema:
+            type: string
+        - name: offset
+          in: query
+          description:
+            The number of items to skip. Useful for pagination (page number
+            * limit)
+          schema:
+            type: integer
+        - name: limit
+          in: query
+          description: The number of items to fetch
+          schema:
+            type: integer
+      responses:
+        "200":
+          description: Success
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/track_comments_response"
+        "400":
+          description: Bad request
+          content: {}
+        "500":
+          description: Server error
+          content: {}
+  /fan-club/feed:
+    get:
+      tags:
+        - fan_club
+      description: Get the fan club feed for a given artist (hyphenated alias), including text posts and comments
+      operationId: Get Fan Club Feed Alias
+      security:
+        - {}
+        - OAuth2:
+            - read
+      parameters:
+        - name: mint
+          in: query
+          description: The mint address of the artist's fan club token
+          required: true
+          schema:
+            type: string
+        - name: user_id
+          in: query
+          description: The user ID of the user making the request
+          schema:
+            type: string
+        - name: offset
+          in: query
+          description:
+            The number of items to skip. Useful for pagination (page number
+            * limit)
+          schema:
+            type: integer
+        - name: limit
+          in: query
+          description: The number of items to fetch
+          schema:
+            type: integer
+      responses:
+        "200":
+          description: Success
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/track_comments_response"
+        "400":
+          description: Bad request
+          content: {}
+        "500":
+          description: Server error
+          content: {}
   /developer-apps:
     post:
       tags:
@@ -1100,6 +1196,335 @@ paths:
         "500":
           description: Server error
           content: {}
+  /events/remix-contests:
+    get:
+      tags:
+        - events
+      summary: Get all remix contests
+      description:
+        Get remix contest events ordered with currently-active contests first
+        (by soonest-ending), followed by ended contests (most-recently-ended
+        first). Active contests are those whose end_date is null or in the
+        future.
+      operationId: Get Remix Contests
+      security:
+        - {}
+        - OAuth2:
+            - read
+      parameters:
+        - name: offset
+          in: query
+          description:
+            The number of items to skip. Useful for pagination (page number
+            * limit)
+          schema:
+            type: integer
+        - name: limit
+          in: query
+          description: The number of items to fetch
+          schema:
+            type: integer
+        - name: status
+          in: query
+          description: Filter contests by status
+          schema:
+            type: string
+            default: all
+            enum:
+              - active
+              - ended
+              - all
+        - name: user_id
+          in: query
+          description:
+            The user ID of the user making the request. Required for
+            personalization of related users (e.g. does_current_user_follow)
+            in the response.
+          schema:
+            type: string
+      responses:
+        "200":
+          description: Success
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/remix_contests_response"
+        "400":
+          description: Bad request
+          content: {}
+        "500":
+          description: Server error
+          content: {}
+  /events/{eventId}/comments:
+    get:
+      tags:
+        - events
+      summary: Get event comments
+      description:
+        Paginated stream of top-level comments (with nested replies) for a
+        remix-contest event. Host-authored top-level comments represent
+        "post updates"; everything else is a community comment.
+      operationId: Get Event Comments
+      security:
+        - {}
+        - OAuth2:
+            - read
+      parameters:
+        - name: eventId
+          in: path
+          description: An Event ID
+          required: true
+          schema:
+            type: string
+        - name: offset
+          in: query
+          description:
+            The number of items to skip. Useful for pagination (page number
+            * limit)
+          schema:
+            type: integer
+        - name: limit
+          in: query
+          description: The number of items to fetch
+          schema:
+            type: integer
+        - name: user_id
+          in: query
+          description: The user ID of the user making the request
+          schema:
+            type: string
+        - name: sort_method
+          in: query
+          description: The sort method
+          schema:
+            type: string
+            default: newest
+            enum:
+              - top
+              - newest
+              - timestamp
+      responses:
+        "200":
+          description: Success
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/track_comments_response"
+        "400":
+          description: Bad request
+          content: {}
+        "500":
+          description: Server error
+          content: {}
+  /events/{eventId}/follow:
+    post:
+      tags:
+        - events
+      summary: Follow event
+      description:
+        Subscribe to a remix-contest event. Emits a Subscribe/Event
+        ManageEntity transaction so the indexer records the follow.
+      operationId: Follow Event
+      security:
+        - BearerAuth: []
+        - BasicAuth: []
+        - OAuth2:
+            - write
+      parameters:
+        - name: eventId
+          in: path
+          description: An Event ID
+          required: true
+          schema:
+            type: string
+        - name: user_id
+          in: query
+          description: The user ID of the user making the request
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: Event followed successfully
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/write_response"
+        "401":
+          description: Unauthorized
+          content: {}
+        "404":
+          description: Event not found
+          content: {}
+        "500":
+          description: Server error
+          content: {}
+    delete:
+      tags:
+        - events
+      summary: Unfollow event
+      description:
+        Unsubscribe from a remix-contest event. Emits an
+        Unsubscribe/Event ManageEntity transaction.
+      operationId: Unfollow Event
+      security:
+        - BearerAuth: []
+        - BasicAuth: []
+        - OAuth2:
+            - write
+      parameters:
+        - name: eventId
+          in: path
+          description: An Event ID
+          required: true
+          schema:
+            type: string
+        - name: user_id
+          in: query
+          description: The user ID of the user making the request
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: Event unfollowed successfully
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/write_response"
+        "401":
+          description: Unauthorized
+          content: {}
+        "500":
+          description: Server error
+          content: {}
+  /events/{eventId}/follow_state:
+    get:
+      tags:
+        - events
+      summary: Get event follow state
+      description:
+        Returns whether the current user is subscribed to (follows) a given
+        remix-contest event, plus the total follower count. Useful for
+        rendering the Follow / Following button.
+      operationId: Get Event Follow State
+      security:
+        - {}
+        - OAuth2:
+            - read
+      parameters:
+        - name: eventId
+          in: path
+          description: An Event ID
+          required: true
+          schema:
+            type: string
+        - name: user_id
+          in: query
+          description: The user ID of the user making the request
+          schema:
+            type: string
+      responses:
+        "200":
+          description: Success
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/event_follow_state_response"
+        "400":
+          description: Bad request
+          content: {}
+        "500":
+          description: Server error
+          content: {}
+  /events/{eventId}/follow-state:
+    get:
+      tags:
+        - events
+      summary: Get event follow state (hyphenated alias)
+      description: Hyphenated alias of /events/{eventId}/follow_state.
+      operationId: Get Event Follow State Alias
+      security:
+        - {}
+        - OAuth2:
+            - read
+      parameters:
+        - name: eventId
+          in: path
+          description: An Event ID
+          required: true
+          schema:
+            type: string
+        - name: user_id
+          in: query
+          description: The user ID of the user making the request
+          schema:
+            type: string
+      responses:
+        "200":
+          description: Success
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/event_follow_state_response"
+        "400":
+          description: Bad request
+          content: {}
+        "500":
+          description: Server error
+          content: {}
+  /events/{eventId}/followers:
+    get:
+      tags:
+        - events
+      summary: Get event followers
+      description:
+        Returns the list of users subscribed to a given remix-contest
+        event, ordered by each follower's own follower count so the
+        most-followed fans surface first. Used by the contest page's
+        Followers card (avatar stack + leaderboard).
+      operationId: Get Event Followers
+      security:
+        - {}
+        - OAuth2:
+            - read
+      parameters:
+        - name: eventId
+          in: path
+          description: An Event ID
+          required: true
+          schema:
+            type: string
+        - name: offset
+          in: query
+          description:
+            The number of items to skip. Useful for pagination (page number
+            * limit)
+          schema:
+            type: integer
+        - name: limit
+          in: query
+          description: The number of items to fetch
+          schema:
+            type: integer
+        - name: user_id
+          in: query
+          description: The user ID of the user making the request
+          schema:
+            type: string
+      responses:
+        "200":
+          description: Success
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/followers_response"
+        "400":
+          description: Bad request
+          content: {}
+        "500":
+          description: Server error
+          content: {}
   /events/unclaimed_id:
     get:
       tags:
@@ -1162,6 +1587,57 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/best_selling_response"
+        "400":
+          description: Bad request
+          content: {}
+        "500":
+          description: Server error
+          content: {}
+  /genres/popular:
+    get:
+      tags:
+        - genres
+      description: Get popular genres from recently created tracks.
+      operationId: Get Popular Genres
+      parameters:
+        - name: start_time
+          in: query
+          description: Unix timestamp. Only tracks created after this time are counted.
+          schema:
+            type: integer
+            default: 0
+        - name: limit
+          in: query
+          description: The number of genres to fetch
+          schema:
+            type: integer
+            minimum: 1
+            maximum: 100
+            default: 100
+        - name: offset
+          in: query
+          description:
+            The number of items to skip. Useful for pagination (page number
+            * limit)
+          schema:
+            type: integer
+            minimum: 0
+            default: 0
+        - name: min_count
+          in: query
+          description: Minimum number of tracks required for a genre to be returned
+          schema:
+            type: integer
+            minimum: 1
+            maximum: 1000000
+            default: 1
+      responses:
+        "200":
+          description: Success
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/popular_genres_response"
         "400":
           description: Bad request
           content: {}
@@ -1332,6 +1808,59 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/playlist_search_result"
+        "400":
+          description: Bad request
+          content: {}
+        "500":
+          description: Server error
+          content: {}
+  /playlists/new-releases:
+    get:
+      tags:
+        - playlists
+      description: Returns recently released playlists or albums
+      operationId: Get Playlists New Releases
+      security:
+        - {}
+        - OAuth2:
+            - read
+      parameters:
+        - name: offset
+          in: query
+          description:
+            The number of items to skip. Useful for pagination (page number
+            * limit)
+          schema:
+            type: integer
+        - name: limit
+          in: query
+          description: The number of items to fetch
+          schema:
+            type: integer
+        - name: type
+          in: query
+          description: The type of content to filter by
+          schema:
+            type: string
+            default: playlist
+            enum:
+              - playlist
+              - album
+        - name: user_id
+          in: query
+          description:
+            The user ID of the user making the request. Required for
+            personalization of related users (e.g. does_current_user_follow)
+            in the response.
+          schema:
+            type: string
+      responses:
+        "200":
+          description: Success
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/trending_playlists_response"
         "400":
           description: Bad request
           content: {}
@@ -2660,6 +3189,52 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/track_search"
+        "400":
+          description: Bad request
+          content: {}
+        "500":
+          description: Server error
+          content: {}
+  /tracks/latest:
+    get:
+      tags:
+        - tracks
+      description: Gets the most recent tracks on Audius, ordered by creation date
+      operationId: Get Latest Tracks
+      security:
+        - {}
+        - OAuth2:
+            - read
+      parameters:
+        - name: offset
+          in: query
+          description:
+            The number of items to skip. Useful for pagination (page number
+            * limit)
+          schema:
+            type: integer
+        - name: limit
+          in: query
+          description: The number of items to fetch
+          schema:
+            type: integer
+        - name: user_id
+          in: query
+          description: The user ID of the user making the request
+          schema:
+            type: string
+        - name: genre
+          in: query
+          description: Filter to a specified genre
+          schema:
+            type: string
+      responses:
+        "200":
+          description: Success
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/tracks_response"
         "400":
           description: Bad request
           content: {}
@@ -5023,6 +5598,72 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/user_comments_response"
+        "400":
+          description: Bad request
+          content: {}
+        "500":
+          description: Server error
+          content: {}
+  /users/{id}/contests:
+    get:
+      tags:
+        - users
+      summary: Get contests hosted by user
+      description:
+        Get the remix contests hosted by a single user, ordered with
+        currently-active contests first (by soonest-ending end_date)
+        followed by ended contests (most-recently-ended first). Mirrors
+        the response shape of `GET /events/remix-contests` (data +
+        related users / tracks / entry_counts).
+      operationId: Get Contests By User
+      security:
+        - {}
+        - OAuth2:
+            - read
+      parameters:
+        - name: id
+          in: path
+          description: A User ID
+          required: true
+          schema:
+            type: string
+        - name: offset
+          in: query
+          description:
+            The number of items to skip. Useful for pagination (page number
+            * limit)
+          schema:
+            type: integer
+        - name: limit
+          in: query
+          description: The number of items to fetch
+          schema:
+            type: integer
+        - name: status
+          in: query
+          description: Filter contests by status
+          schema:
+            type: string
+            default: all
+            enum:
+              - active
+              - ended
+              - all
+        - name: user_id
+          in: query
+          description:
+            The user ID of the user making the request. Required for
+            personalization of related users (e.g. does_current_user_follow)
+            in the response.
+          schema:
+            type: string
+      responses:
+        "200":
+          description: Success
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/remix_contests_response"
         "400":
           description: Bad request
           content: {}
@@ -7617,17 +8258,26 @@ paths:
         "500":
           description: Server error
           content: {}
-  /notifications/{user_id}:
+  /notifications/{id}:
     get:
       tags:
         - notifications
       description: Get notifications for user ID
       operationId: Get Notifications
       parameters:
-        - name: user_id
+        - name: id
           in: path
           description: A User ID
           required: true
+          schema:
+            type: string
+        - name: user_id
+          in: query
+          description:
+            The user ID of the user making the request. Required for
+            personalization of related users (e.g. does_current_user_follow)
+            in the response, and may differ from the path id when a manager
+            is reading a managed user's notifications.
           schema:
             type: string
         - name: timestamp
@@ -7685,6 +8335,8 @@ paths:
                 - track_added_to_purchased_album
                 - request_manager
                 - approve_manager_request
+                - track_collaborator_invite
+                - track_collaborator_accept
                 - claimable_reward
                 - comment
                 - comment_thread
@@ -7695,9 +8347,12 @@ paths:
                 - fan_remix_contest_ended
                 - fan_remix_contest_ending_soon
                 - fan_remix_contest_winners_selected
+                - fan_remix_contest_submission
                 - artist_remix_contest_ended
                 - artist_remix_contest_ending_soon
                 - artist_remix_contest_submissions
+                - fan_club_text_post
+                - remix_contest_update
       responses:
         "200":
           description: Success
@@ -7705,7 +8360,7 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/notifications_response"
-  /notifications/{user_id}/playlist_updates:
+  /notifications/{id}/playlist_updates:
     get:
       tags:
         - notifications
@@ -7714,10 +8369,19 @@ paths:
         ID
       operationId: Get Playlist Updates
       parameters:
-        - name: user_id
+        - name: id
           in: path
           description: A User ID
           required: true
+          schema:
+            type: string
+        - name: user_id
+          in: query
+          description:
+            The user ID of the user making the request. Required for
+            personalization of related users (e.g. does_current_user_follow)
+            in the response, and may differ from the path id when a manager
+            is reading a managed user's playlist updates.
           schema:
             type: string
       responses:
@@ -8866,6 +9530,80 @@ paths:
         "500":
           description: Server error
           content: {}
+  /users/{id}/feed/for-you:
+    get:
+      tags:
+        - users
+      summary: Get For You feed for user
+      description:
+        Returns a personalized For You feed for the user identified in the
+        path. The response is a heterogenous list of tracks and
+        playlists/albums (`{type, timestamp, item}` envelope), mirroring
+        the chronological /v1/users/{id}/feed shape so clients can render
+        both in a single ranked list. Twitter-style multi-source pipeline
+        — candidate retrieval (in-network, trending, underground) →
+        linear ranking (recency decay × engagement × social affinity,
+        weighted by source) → diversity (shared per-artist cap across
+        tracks + collections + consecutive-same-artist lookahead).
+      operationId: Get User For You Feed
+      security:
+        - {}
+        - OAuth2:
+            - read
+      parameters:
+        - name: id
+          in: path
+          description: A User ID
+          required: true
+          schema:
+            type: string
+        - name: limit
+          in: query
+          description: The number of items to fetch
+          schema:
+            type: integer
+            default: 25
+            minimum: 1
+            maximum: 100
+        - name: offset
+          in: query
+          description:
+            The number of items to skip. Useful for pagination (page number
+            * limit)
+          schema:
+            type: integer
+            default: 0
+            minimum: 0
+            maximum: 200
+        - name: max_per_artist
+          in: query
+          description:
+            Maximum number of items (tracks or playlists/albums combined)
+            per artist on a single page. Used by the diversity pass to cap
+            consecutive same-artist results.
+          schema:
+            type: integer
+            default: 3
+            minimum: 1
+            maximum: 10
+        - name: user_id
+          in: query
+          description: The user ID of the user making the request
+          schema:
+            type: string
+      responses:
+        "200":
+          description: Success
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/user_feed_response"
+        "400":
+          description: Bad request
+          content: {}
+        "500":
+          description: Server error
+          content: {}
   /users/{id}/library/albums:
     get:
       tags:
@@ -9909,6 +10647,28 @@ paths:
           content: {}
 components:
   schemas:
+    popular_genres_response:
+      required:
+        - data
+      type: object
+      properties:
+        data:
+          type: array
+          items:
+            $ref: "#/components/schemas/popular_genre"
+    popular_genre:
+      required:
+        - name
+        - count
+      type: object
+      properties:
+        name:
+          type: string
+          description: Genre name
+        count:
+          type: integer
+          format: int64
+          description: Number of tracks in this genre for the requested time window
     create_access_key_response:
       type: object
       required:
@@ -10453,6 +11213,12 @@ components:
           items:
             type: string
           description: Wallet addresses that can sign to authorize stream access (programmable distribution). When empty or omitted, the track is public and validator/creator nodes can serve it.
+        allowed_api_keys:
+          type: array
+          nullable: true
+          items:
+            type: string
+          description: API keys allowed to stream this track
         stream_conditions:
           nullable: true
           allOf:
@@ -10578,6 +11344,11 @@ components:
           items:
             type: integer
             example: 67890
+        videoUrl:
+          type: string
+          nullable: true
+          maxLength: 2048
+          description: Optional URL for a video attachment (stored on the comment record)
     dashboard_wallet_users_response:
       type: object
       properties:
@@ -10677,6 +11448,12 @@ components:
           items:
             type: string
           description: Wallet addresses that can sign to authorize stream access (programmable distribution). When empty or omitted, the track is public and validator/creator nodes can serve it.
+        allowed_api_keys:
+          type: array
+          nullable: true
+          items:
+            type: string
+          description: API keys allowed to stream this track
         stream_conditions:
           nullable: true
           allOf:
@@ -11281,6 +12058,56 @@ components:
           type: array
           items:
             $ref: "#/components/schemas/event"
+        related:
+          $ref: "#/components/schemas/remix_contests_related"
+    remix_contests_related:
+      type: object
+      properties:
+        users:
+          type: array
+          items:
+            $ref: "#/components/schemas/user"
+        tracks:
+          type: array
+          items:
+            $ref: "#/components/schemas/track"
+        entry_counts:
+          type: object
+          additionalProperties:
+            type: integer
+            format: int64
+          description:
+            Per-contest entry counts keyed by the contest's parent track id
+            (hashid). Lets the discovery UI render entry counts without
+            issuing an extra `/tracks/{id}/remixes?limit=0` per card.
+    remix_contests_response:
+      type: object
+      properties:
+        data:
+          type: array
+          items:
+            $ref: "#/components/schemas/event"
+        related:
+          $ref: "#/components/schemas/remix_contests_related"
+    event_follow_state:
+      required:
+        - is_followed
+        - follower_count
+      type: object
+      properties:
+        is_followed:
+          type: boolean
+          description:
+            Whether the authenticated / requested user is currently
+            subscribed to this event.
+        follower_count:
+          type: integer
+          description: Total number of users following this event.
+    event_follow_state_response:
+      type: object
+      properties:
+        data:
+          $ref: "#/components/schemas/event_follow_state"
     version_metadata:
       required:
         - service
@@ -12812,6 +13639,9 @@ components:
         event_data:
           type: object
           properties: {}
+        permalink:
+          type: string
+          description: Canonical contest permalink derived from event_routes.
     create_user_request_body:
       type: object
       required:
@@ -13639,59 +14469,17 @@ components:
           $ref: "#/components/schemas/grant"
     genre:
       type: string
-      description: Music genre
-      enum:
-        - Electronic
-        - Rock
-        - Metal
-        - Alternative
-        - Hip-Hop/Rap
-        - Experimental
-        - Punk
-        - Folk
-        - Pop
-        - Ambient
-        - Soundtrack
-        - World
-        - Jazz
-        - Acoustic
-        - Funk
-        - R&B/Soul
-        - Devotional
-        - Classical
-        - Reggae
-        - Podcasts
-        - Country
-        - Spoken Word
-        - Comedy
-        - Blues
-        - Kids
-        - Audiobooks
-        - Latin
-        - Lo-Fi
-        - Hyperpop
-        - Dancehall
-        - Techno
-        - Trap
-        - House
-        - Tech House
-        - Deep House
-        - Disco
-        - Electro
-        - Jungle
-        - Progressive House
-        - Hardstyle
-        - Glitch Hop
-        - Trance
-        - Future Bass
-        - Future House
-        - Tropical House
-        - Downtempo
-        - Drum & Bass
-        - Dubstep
-        - Jersey Club
-        - Vaporwave
-        - Moombahton
+      maxLength: 100
+      description: |
+        Music genre. Any string up to 100 characters is accepted. Known/canonical
+        values (shown as autocomplete suggestions in clients): Electronic, Rock,
+        Metal, Alternative, Hip-Hop/Rap, Experimental, Punk, Folk, Pop, Ambient,
+        Soundtrack, World, Jazz, Acoustic, Funk, R&B/Soul, Devotional, Classical,
+        Reggae, Podcasts, Country, Spoken Word, Comedy, Blues, Kids, Audiobooks,
+        Latin, Lo-Fi, Hyperpop, Dancehall, Techno, Trap, House, Tech House,
+        Deep House, Disco, Electro, Jungle, Progressive House, Hardstyle,
+        Glitch Hop, Trance, Future Bass, Future House, Tropical House, Downtempo,
+        Drum & Bass, Dubstep, Jersey Club, Vaporwave, Moombahton.
     albums_response:
       required:
         - latest_chain_block
@@ -14245,6 +15033,16 @@ components:
           type: string
         user:
           $ref: "#/components/schemas/user"
+        collaborators:
+          type: array
+          description: Accepted collaborator artists on the track.
+          items:
+            $ref: "#/components/schemas/user"
+        pending_collaborators:
+          type: array
+          description: Pending collaborator invites; only present on the owner's own tracks.
+          items:
+            $ref: "#/components/schemas/user"
         duration:
           type: integer
         is_downloadable:
@@ -14510,6 +15308,8 @@ components:
           $ref: "#/components/schemas/version_metadata"
         data:
           $ref: "#/components/schemas/notifications"
+        related:
+          $ref: "#/components/schemas/related"
     connected_wallets_response:
       type: object
       properties:
@@ -14682,6 +15482,8 @@ components:
       description: Type of entity that can be commented on
       enum:
         - Track
+        - FanClub
+        - Event
     top_listener:
       type: object
       properties:
@@ -14744,6 +15546,12 @@ components:
           type: boolean
         is_tombstone:
           type: boolean
+        is_members_only:
+          type: boolean
+        video_url:
+          type: string
+          nullable: true
+          description: Optional URL for a video attachment on this comment
         is_muted:
           type: boolean
         created_at:
@@ -15711,6 +16519,16 @@ components:
           type: string
         user:
           $ref: "#/components/schemas/user"
+        collaborators:
+          type: array
+          description: Accepted collaborator artists on the track.
+          items:
+            $ref: "#/components/schemas/user"
+        pending_collaborators:
+          type: array
+          description: Pending collaborator invites; only present on the owner's own tracks.
+          items:
+            $ref: "#/components/schemas/user"
         duration:
           type: integer
         is_downloadable:
@@ -16047,6 +16865,10 @@ components:
           type: string
         updated_at:
           type: string
+        video_url:
+          type: string
+          nullable: true
+          description: Optional URL for a video attachment on this reply
         parent_comment_id:
           type: integer
     user_playlist_library:
@@ -16240,6 +17062,11 @@ components:
           type: number
           description: The balance of the coin in the user's account in USD
           example: 1.23
+        accounts:
+          type: array
+          description: Per-token-account breakdown of the user's holdings for this coin. Populated by GET /v1/users/{id}/coins; omitted by GET /v1/wallet/{walletId}/coins.
+          items:
+            $ref: "#/components/schemas/user_coin_account"
     track_feed_item:
       required:
         - item
@@ -16331,6 +17158,7 @@ components:
         - $ref: "#/components/schemas/usdc_purchase_buyer_notification"
         - $ref: "#/components/schemas/request_manager_notification"
         - $ref: "#/components/schemas/approve_manager_request_notification"
+        - $ref: "#/components/schemas/track_collaborator_notification"
         - $ref: "#/components/schemas/trending_notification"
         - $ref: "#/components/schemas/trending_playlist_notification"
         - $ref: "#/components/schemas/trending_underground_notification"
@@ -16347,6 +17175,9 @@ components:
         - $ref: "#/components/schemas/artist_remix_contest_ending_soon_notification"
         - $ref: "#/components/schemas/artist_remix_contest_submissions_notification"
         - $ref: "#/components/schemas/fan_remix_contest_winners_selected_notification"
+        - $ref: "#/components/schemas/remix_contest_update_notification"
+        - $ref: "#/components/schemas/fan_remix_contest_submission_notification"
+        - $ref: "#/components/schemas/fan_club_text_post_notification"
       discriminator:
         propertyName: type
         mapping:
@@ -16375,6 +17206,8 @@ components:
           usdc_purchase_buyer: "#/components/schemas/usdc_purchase_buyer_notification"
           request_manager: "#/components/schemas/request_manager_notification"
           approve_manager_request: "#/components/schemas/approve_manager_request_notification"
+          track_collaborator_invite: "#/components/schemas/track_collaborator_notification"
+          track_collaborator_accept: "#/components/schemas/track_collaborator_notification"
           trending: "#/components/schemas/trending_notification"
           trending_playlist: "#/components/schemas/trending_playlist_notification"
           trending_underground: "#/components/schemas/trending_underground_notification"
@@ -16391,6 +17224,9 @@ components:
           artist_remix_contest_ending_soon: "#/components/schemas/artist_remix_contest_ending_soon_notification"
           artist_remix_contest_submissions: "#/components/schemas/artist_remix_contest_submissions_notification"
           fan_remix_contest_winners_selected: "#/components/schemas/fan_remix_contest_winners_selected_notification"
+          remix_contest_update: "#/components/schemas/remix_contest_update_notification"
+          fan_remix_contest_submission: "#/components/schemas/fan_remix_contest_submission_notification"
+          fan_club_text_post: "#/components/schemas/fan_club_text_post_notification"
     save_notification:
       required:
         - actions
@@ -16539,6 +17375,46 @@ components:
           type: array
           items:
             $ref: "#/components/schemas/fan_remix_contest_winners_selected_notification_action"
+    remix_contest_update_notification:
+      required:
+        - actions
+        - group_id
+        - is_seen
+        - type
+      type: object
+      properties:
+        type:
+          type: string
+        group_id:
+          type: string
+        is_seen:
+          type: boolean
+        seen_at:
+          type: integer
+        actions:
+          type: array
+          items:
+            $ref: "#/components/schemas/remix_contest_update_notification_action"
+    fan_remix_contest_submission_notification:
+      required:
+        - actions
+        - group_id
+        - is_seen
+        - type
+      type: object
+      properties:
+        type:
+          type: string
+        group_id:
+          type: string
+        is_seen:
+          type: boolean
+        seen_at:
+          type: integer
+        actions:
+          type: array
+          items:
+            $ref: "#/components/schemas/fan_remix_contest_submission_notification_action"
     tier_change_notification:
       required:
         - actions
@@ -16619,6 +17495,29 @@ components:
           type: array
           items:
             $ref: "#/components/schemas/approve_manager_request_notification_action"
+    track_collaborator_notification:
+      required:
+        - actions
+        - group_id
+        - is_seen
+        - type
+      type: object
+      properties:
+        type:
+          type: string
+          enum:
+            - track_collaborator_invite
+            - track_collaborator_accept
+        group_id:
+          type: string
+        is_seen:
+          type: boolean
+        seen_at:
+          type: integer
+        actions:
+          type: array
+          items:
+            $ref: "#/components/schemas/track_collaborator_notification_action"
     fan_remix_contest_ended_notification_action:
       required:
         - data
@@ -16700,6 +17599,22 @@ components:
           type: integer
         data:
           $ref: "#/components/schemas/approve_manager_request_notification_action_data"
+    track_collaborator_notification_action:
+      required:
+        - data
+        - specifier
+        - timestamp
+        - type
+      type: object
+      properties:
+        specifier:
+          type: string
+        type:
+          type: string
+        timestamp:
+          type: integer
+        data:
+          $ref: "#/components/schemas/track_collaborator_notification_action_data"
     comment_mention_notification:
       required:
         - actions
@@ -16967,6 +17882,38 @@ components:
           type: integer
         data:
           $ref: "#/components/schemas/fan_remix_contest_winners_selected_notification_action_data"
+    remix_contest_update_notification_action:
+      required:
+        - data
+        - specifier
+        - timestamp
+        - type
+      type: object
+      properties:
+        specifier:
+          type: string
+        type:
+          type: string
+        timestamp:
+          type: integer
+        data:
+          $ref: "#/components/schemas/remix_contest_update_notification_action_data"
+    fan_remix_contest_submission_notification_action:
+      required:
+        - data
+        - specifier
+        - timestamp
+        - type
+      type: object
+      properties:
+        specifier:
+          type: string
+        type:
+          type: string
+        timestamp:
+          type: integer
+        data:
+          $ref: "#/components/schemas/fan_remix_contest_submission_notification_action_data"
     send_tip_notification_action:
       required:
         - data
@@ -17236,6 +18183,26 @@ components:
           type: array
           items:
             $ref: "#/components/schemas/supporter_rank_up_notification_action"
+    fan_club_text_post_notification:
+      required:
+        - actions
+        - group_id
+        - is_seen
+        - type
+      type: object
+      properties:
+        type:
+          type: string
+        group_id:
+          type: string
+        is_seen:
+          type: boolean
+        seen_at:
+          type: integer
+        actions:
+          type: array
+          items:
+            $ref: "#/components/schemas/fan_club_text_post_notification_action"
     fan_remix_contest_started_notification:
       required:
         - actions
@@ -17518,6 +18485,41 @@ components:
           type: string
         entity_id:
           type: string
+    remix_contest_update_notification_action_data:
+      required:
+        - event_id
+        - entity_id
+        - entity_user_id
+        - comment_id
+      type: object
+      properties:
+        event_id:
+          type: string
+        entity_id:
+          type: string
+        entity_user_id:
+          type: string
+        comment_id:
+          type: string
+    fan_remix_contest_submission_notification_action_data:
+      required:
+        - event_id
+        - entity_id
+        - entity_user_id
+        - submission_track_id
+        - submitter_user_id
+      type: object
+      properties:
+        event_id:
+          type: string
+        entity_id:
+          type: string
+        entity_user_id:
+          type: string
+        submission_track_id:
+          type: string
+        submitter_user_id:
+          type: string
     trending_notification_action:
       required:
         - data
@@ -17778,6 +18780,26 @@ components:
           type: string
         grantee_address:
           type: string
+    track_collaborator_notification_action_data:
+      required:
+        - collaborator_user_id
+        - inviter_user_id
+        - track_id
+      type: object
+      properties:
+        track_id:
+          type: string
+        inviter_user_id:
+          type: string
+        collaborator_user_id:
+          type: string
+        status:
+          type: string
+          description: Current collaborator invite status at response time.
+          enum:
+            - pending
+            - accepted
+            - rejected
     save_of_repost_notification_action:
       required:
         - data
@@ -18502,6 +19524,22 @@ components:
           type: integer
         data:
           $ref: "#/components/schemas/track_added_to_playlist_notification_action_data"
+    fan_club_text_post_notification_action:
+      required:
+        - data
+        - specifier
+        - timestamp
+        - type
+      type: object
+      properties:
+        specifier:
+          type: string
+        type:
+          type: string
+        timestamp:
+          type: integer
+        data:
+          $ref: "#/components/schemas/fan_club_text_post_notification_action_data"
     fan_remix_contest_started_notification_action:
       required:
         - data
@@ -18554,6 +19592,16 @@ components:
         entity_user_id:
           type: string
         entity_id:
+          type: string
+    fan_club_text_post_notification_action_data:
+      required:
+        - entity_user_id
+        - comment_id
+      type: object
+      properties:
+        entity_user_id:
+          type: string
+        comment_id:
           type: string
     fan_remix_contest_started_notification_action_data:
       required:

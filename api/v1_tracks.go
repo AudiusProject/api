@@ -1,12 +1,21 @@
 package api
 
 import (
+	"regexp"
 	"strings"
 
 	"api.audius.co/api/dbv1"
 	"api.audius.co/trashid"
 	"github.com/gofiber/fiber/v2"
 )
+
+// ISRCs may be stored with or without dashes (e.g. "US-ANG-21-03742" vs
+// "USANG2103742"); normalize so either form matches the same row.
+var isrcNonAlphanum = regexp.MustCompile(`[^A-Z0-9]`)
+
+func normalizeISRC(s string) string {
+	return isrcNonAlphanum.ReplaceAllString(strings.ToUpper(s), "")
+}
 
 func (app *ApiServer) v1Tracks(c *fiber.Ctx) error {
 	myId, _ := trashid.DecodeHashId(c.Query("user_id"))
@@ -41,7 +50,11 @@ func (app *ApiServer) v1Tracks(c *fiber.Ctx) error {
 	// Add ISRC ID mappings
 	isrcs := queryMulti(c, "isrc")
 	if len(isrcs) > 0 {
-		newIds, err := app.queries.GetTrackIdsByISRC(c.Context(), isrcs)
+		normalized := make([]string, len(isrcs))
+		for i, isrc := range isrcs {
+			normalized[i] = normalizeISRC(isrc)
+		}
+		newIds, err := app.queries.GetTrackIdsByISRC(c.Context(), normalized)
 		if err != nil {
 			return err
 		}

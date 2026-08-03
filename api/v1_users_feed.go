@@ -33,9 +33,20 @@ func (app *ApiServer) v1UsersFeed(c *fiber.Ctx) error {
 		return err
 	}
 
+	// follow_set is MATERIALIZED + each branch is a LATERAL with an OFFSET 0
+	// optimization fence. Without this, Postgres mis-estimates follow_set
+	// cardinality for some users (stale n_distinct stats on
+	// follows.follower_user_id) and flips from a sane nested-loop plan to
+	// "materialize all 2M reposts of the past year, then merge-join,"
+	// turning a sub-second feed into a 9-18 second feed.
+	//
+	// Per-followee LIMIT 100 (50 for playlists) caps the cost when a
+	// followee is very active. The outer query takes only the top-@limit
+	// by created_at, so any reposts/tracks past the per-followee top-100
+	// can never reach the response anyway.
 	sql := `
 	WITH
-	follow_set AS (
+	follow_set AS MATERIALIZED (
 		SELECT followee_user_id AS user_id
 		FROM follows
 		WHERE
@@ -50,30 +61,58 @@ func (app *ApiServer) v1UsersFeed(c *fiber.Ctx) error {
 	),
 	history as (
 
+		-- Track-type reposts.
 		(
 			SELECT
-				repost_type as entity_type,
-				repost_item_id as entity_id,
-				min(reposts.created_at) as created_at
-			FROM reposts
-			JOIN follow_set using (user_id)
-			LEFT JOIN tracks
-				ON repost_type = 'track'
-				AND repost_item_id = track_id
+				'track' as entity_type,
+				r.repost_item_id as entity_id,
+				min(r.created_at) as created_at
+			FROM follow_set fs
+			CROSS JOIN LATERAL (
+				SELECT repost_item_id, created_at
+				FROM reposts
+				WHERE reposts.user_id = fs.user_id
+					AND reposts.repost_type = 'track'
+					AND reposts.created_at < @before
+					AND reposts.created_at >= @before - INTERVAL '1 YEAR'
+					AND reposts.is_delete = false
+				ORDER BY created_at DESC
+				LIMIT 100
+				OFFSET 0
+			) r
+			JOIN tracks ON r.repost_item_id = tracks.track_id
 				AND tracks.is_delete = false
 				AND tracks.is_unlisted = false
 				AND tracks.is_available = true
-			LEFT JOIN playlists
-				ON repost_type != 'track'
-				AND repost_item_id = playlist_id
+			WHERE @filter in ('all', 'repost')
+			GROUP BY entity_id
+		)
+
+		UNION ALL
+
+		-- Playlist/album-type reposts.
+		(
+			SELECT
+				r.repost_type::text as entity_type,
+				r.repost_item_id as entity_id,
+				min(r.created_at) as created_at
+			FROM follow_set fs
+			CROSS JOIN LATERAL (
+				SELECT repost_type, repost_item_id, created_at
+				FROM reposts
+				WHERE reposts.user_id = fs.user_id
+					AND reposts.repost_type <> 'track'
+					AND reposts.created_at < @before
+					AND reposts.created_at >= @before - INTERVAL '1 YEAR'
+					AND reposts.is_delete = false
+				ORDER BY created_at DESC
+				LIMIT 100
+				OFFSET 0
+			) r
+			JOIN playlists ON r.repost_item_id = playlists.playlist_id
 				AND playlists.is_delete = false
 				AND playlists.is_private = false
-			WHERE
-				@filter in ('all', 'repost')
-				AND reposts.created_at < @before
-				AND reposts.created_at >= @before - INTERVAL '1 YEAR'
-				AND reposts.is_delete = false
-				AND (tracks.track_id IS NOT NULL OR playlists.playlist_id IS NOT NULL)
+			WHERE @filter in ('all', 'repost')
 			GROUP BY entity_type, entity_id
 		)
 
@@ -82,19 +121,26 @@ func (app *ApiServer) v1UsersFeed(c *fiber.Ctx) error {
 		(
 			SELECT
 				'track' as entity_type,
-				track_id as entity_id,
-				created_at
-			from tracks
-			join follow_set on owner_id = user_id
-			where @filter in ('all', 'original')
-				AND created_at < @before
-				AND created_at >= @before::timestamp - INTERVAL '1 YEAR'
-				AND is_unlisted = false
-				AND is_delete = false
-				AND stem_of is null
-				AND (access_authorities IS NULL
-				  OR (COALESCE(@authed_wallet, '') <> ''
-				      AND EXISTS (SELECT 1 FROM unnest(access_authorities) aa WHERE lower(aa) = lower(@authed_wallet))))
+				t.track_id as entity_id,
+				t.created_at
+			FROM follow_set fs
+			CROSS JOIN LATERAL (
+				SELECT track_id, created_at
+				FROM tracks
+				WHERE owner_id = fs.user_id
+					AND created_at < @before
+					AND created_at >= @before::timestamp - INTERVAL '1 YEAR'
+					AND is_unlisted = false
+					AND is_delete = false
+					AND stem_of IS NULL
+					AND (access_authorities IS NULL
+					  OR (COALESCE(@authed_wallet, '') <> ''
+					      AND EXISTS (SELECT 1 FROM unnest(access_authorities) aa WHERE lower(aa) = lower(@authed_wallet))))
+				ORDER BY created_at DESC
+				LIMIT 100
+				OFFSET 0
+			) t
+			WHERE @filter in ('all', 'original')
 		)
 
 		UNION ALL
@@ -102,15 +148,22 @@ func (app *ApiServer) v1UsersFeed(c *fiber.Ctx) error {
 		(
 			SELECT
 				'playlist' as entity_type,
-				playlist_id as entity_id,
-				created_at
-			from playlists
-			join follow_set on playlist_owner_id = user_id
-			where @filter in ('all', 'original')
-				AND created_at < @before
-				AND created_at >= @before - INTERVAL '1 YEAR'
-				AND is_delete = false
-				AND is_private = false
+				p.playlist_id as entity_id,
+				p.created_at
+			FROM follow_set fs
+			CROSS JOIN LATERAL (
+				SELECT playlist_id, created_at
+				FROM playlists
+				WHERE playlist_owner_id = fs.user_id
+					AND created_at < @before
+					AND created_at >= @before - INTERVAL '1 YEAR'
+					AND is_delete = false
+					AND is_private = false
+				ORDER BY created_at DESC
+				LIMIT 50
+				OFFSET 0
+			) p
+			WHERE @filter in ('all', 'original')
 		)
 
 	)

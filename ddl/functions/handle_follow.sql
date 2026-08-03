@@ -8,12 +8,9 @@ begin
   insert into aggregate_user (user_id) values (new.followee_user_id) on conflict do nothing;
   insert into aggregate_user (user_id) values (new.follower_user_id) on conflict do nothing;
 
-  -- increment or decrement?
-  if new.is_delete then
-    delta := -1;
-  else
-    delta := 1;
-  end if;
+  -- transition-aware delta (active = not is_delete); 0 on no-op re-delivery
+  delta := (case when new.is_delete then 0 else 1 end)
+         - (case when tg_op = 'UPDATE' and old.is_delete is false then 1 else 0 end);
 
   update aggregate_user 
   set following_count = following_count + delta 
@@ -80,10 +77,7 @@ exception
 end; 
 $$ language plpgsql;
 
-do $$ begin
-  create trigger on_follow
-  after insert on follows
-  for each row execute procedure handle_follow();
-exception
-  when others then null;
-end $$;
+drop trigger if exists on_follow on follows;
+create trigger on_follow
+after insert or update on follows
+for each row execute procedure handle_follow();

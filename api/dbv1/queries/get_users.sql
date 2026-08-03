@@ -1,4 +1,55 @@
 -- name: GetUsers :many
+WITH input_users AS (
+  SELECT DISTINCT unnest(@ids::int[])::int AS user_id
+),
+current_user_followees AS (
+  SELECT followee_user_id
+  FROM follows
+  WHERE @my_id > 0
+    AND follower_user_id = @my_id
+    AND is_delete = false
+),
+current_user_following_targets AS (
+  SELECT f.followee_user_id AS user_id
+  FROM follows f
+  JOIN input_users i ON i.user_id = f.followee_user_id
+  WHERE @my_id > 0
+    AND f.follower_user_id = @my_id
+    AND f.is_delete = false
+  GROUP BY f.followee_user_id
+),
+current_user_subscribed_targets AS (
+  SELECT s.user_id
+  FROM subscriptions s
+  JOIN input_users i ON i.user_id = s.user_id
+  WHERE @my_id > 0
+    AND s.subscriber_id = @my_id
+    AND s.is_delete = false
+  GROUP BY s.user_id
+),
+targets_following_current_user AS (
+  SELECT f.follower_user_id AS user_id
+  FROM follows f
+  JOIN input_users i ON i.user_id = f.follower_user_id
+  WHERE @my_id > 0
+    AND f.followee_user_id = @my_id
+    AND f.is_delete = false
+  GROUP BY f.follower_user_id
+),
+current_user_followee_follow_counts AS (
+  SELECT target.user_id, count(*)::bigint AS count
+  FROM current_user_followees mf
+  JOIN LATERAL (
+    SELECT f.followee_user_id AS user_id
+    FROM follows f
+    WHERE f.follower_user_id = mf.followee_user_id
+      AND f.followee_user_id = ANY(@ids::int[])
+      AND f.followee_user_id != @my_id
+      AND f.is_delete = false
+    OFFSET 0
+  ) target ON TRUE
+  GROUP BY target.user_id
+)
 SELECT
   album_count,
   artist_pick_track_id,
@@ -40,90 +91,65 @@ SELECT
   is_deactivated,
   is_available,
   wallet as erc_wallet,
-  user_bank_accounts.bank_account as spl_wallet,
-  usdc_user_bank_accounts.bank_account as usdc_wallet,
+  spl_user_bank.account as spl_wallet,
+  usdc_user_bank.account as usdc_wallet,
   spl_usdc_payout_wallet,
   supporter_count,
   supporting_count,
   wallet,
-  balance,
-  associated_wallets_balance,
 
-  -- total_balance
+  -- Legacy `balance` (ETH-side AUDIO in wei) and `associated_wallets_balance`
+  -- (the split between primary and linked wallets) are collapsed into
+  -- v_user_balances.eth_balance — sol_user_balances doesn't preserve a
+  -- user_bank-vs-linked breakdown so we don't preserve one on the ETH side
+  -- either. Surface the full ETH total under `balance` and zero out
+  -- `associated_wallets_balance` so the response shape stays the same and
+  -- `total_balance` still adds up to the right number.
+  coalesce(eth_balance, '0') as balance,
+  '0' as associated_wallets_balance,
+
+  -- total_balance: eth_balance is in wei, sol_balance is in wAUDIO base units
+  -- (8 decimals) so multiply by 10^10 to convert.
   (
-    coalesce(balance, '0')::NUMERIC +
-    coalesce(associated_wallets_balance, '0')::NUMERIC +
-    -- to wei
-    (coalesce(associated_sol_wallets_balance, '0')::NUMERIC * 10^10) +
-    (coalesce(waudio, '0')::NUMERIC * 10^10)
+    coalesce(eth_balance, '0')::NUMERIC +
+    (coalesce(sol_balance, '0')::NUMERIC * 10^10)
   )::NUMERIC::TEXT AS total_balance,
 
   -- total_audio_balance,
   FLOOR(
     (
-      coalesce(balance, '0')::NUMERIC +
-      coalesce(associated_wallets_balance, '0')::NUMERIC +
-      -- to wei
-      (coalesce(associated_sol_wallets_balance, '0')::NUMERIC * 10^10) +
-      (coalesce(waudio, '0')::NUMERIC * 10^10)
+      coalesce(eth_balance, '0')::NUMERIC +
+      (coalesce(sol_balance, '0')::NUMERIC * 10^10)
     ) / 1e18
   )::INT AS total_audio_balance,
 
   -- payout wallet
   coalesce(
     spl_usdc_payout_wallet,
-    usdc_user_bank_accounts.bank_account,
+    usdc_user_bank.account,
     ''
   )::text as payout_wallet,
 
-  coalesce(waudio, '0') as waudio_balance,
-  coalesce(associated_sol_wallets_balance, '0') as associated_sol_wallets_balance,
+  -- Same collapse on the sol side: full sol total under `waudio_balance`,
+  -- `associated_sol_wallets_balance` zeroed.
+  coalesce(sol_balance, '0') as waudio_balance,
+  '0' as associated_sol_wallets_balance,
   blocknumber,
   u.created_at,
   is_storage_v2,
   creator_node_endpoint,
 
-  (
-    SELECT count(*)
-    FROM follows f
-    JOIN (
-      SELECT followee_user_id
-      FROM follows mf
-      WHERE mf.follower_user_id = @my_id
-        AND mf.is_delete = false
-    ) mf ON f.follower_user_id = mf.followee_user_id
-    WHERE @my_id > 0
-    AND @my_id != u.user_id -- don't compute when viewing own profile
-    AND f.followee_user_id = u.user_id
-    AND f.is_delete = false
-  ) AS current_user_followee_follow_count,
-
-  (
-    SELECT count(*) > 0
-    FROM follows
-    WHERE @my_id > 0
-      AND follower_user_id = @my_id
-      AND followee_user_id = u.user_id
-      AND is_delete = false
-  ) AS does_current_user_follow,
-
-  (
-    SELECT count(*) > 0
-    FROM subscriptions
-    WHERE @my_id > 0
-      AND subscriber_id = @my_id
-      AND user_id = u.user_id
-      AND is_delete = false
-  ) AS does_current_user_subscribe,
-
-  (
-    SELECT count(*) > 0
-    FROM follows
-    WHERE @my_id > 0
-      AND followee_user_id = @my_id
-      AND follower_user_id = u.user_id
-      AND is_delete = false
-  ) AS does_follow_current_user,
+  -- "Of the people I follow, how many also follow this user?"
+  --
+  -- Compute viewer relationship state once for the whole @ids batch. The
+  -- previous correlated shape repeated the mutual-follow count for every
+  -- returned user, which multiplied the viewer followee scan by result size.
+  -- The CTE above drives from the viewer's followees once and probes the
+  -- target batch via the fanout index.
+  COALESCE(current_user_followee_follow_counts.count, 0)::bigint AS current_user_followee_follow_count,
+  (current_user_following_targets.user_id IS NOT NULL)::bool AS does_current_user_follow,
+  (current_user_subscribed_targets.user_id IS NOT NULL)::bool AS does_current_user_subscribe,
+  (targets_following_current_user.user_id IS NOT NULL)::bool AS does_follow_current_user,
 
   handle_lc,
   u.updated_at,
@@ -194,9 +220,24 @@ SELECT
 
 FROM users u
 JOIN aggregate_user using (user_id)
-LEFT JOIN user_balances using (user_id)
-LEFT JOIN user_bank_accounts on u.wallet = user_bank_accounts.ethereum_address
-LEFT JOIN usdc_user_bank_accounts on u.wallet = usdc_user_bank_accounts.ethereum_address
+LEFT JOIN v_user_balances using (user_id)
+-- Each user has at most one Claimable Tokens account per mint in practice;
+-- this preserves the same join shape (and edge cases) as the legacy
+-- user_bank_accounts / usdc_user_bank_accounts joins it replaces.
+LEFT JOIN sol_claimable_accounts spl_user_bank
+  ON spl_user_bank.ethereum_address = u.wallet
+  AND spl_user_bank.mint = '9LzCMqDgTKYz9Drzqnpgee3SGa89up3a247ypMj2xrqM' -- wAUDIO
+LEFT JOIN sol_claimable_accounts usdc_user_bank
+  ON usdc_user_bank.ethereum_address = u.wallet
+  AND usdc_user_bank.mint = 'EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v' -- USDC
+LEFT JOIN current_user_followee_follow_counts
+  ON current_user_followee_follow_counts.user_id = u.user_id
+LEFT JOIN current_user_following_targets
+  ON current_user_following_targets.user_id = u.user_id
+LEFT JOIN current_user_subscribed_targets
+  ON current_user_subscribed_targets.user_id = u.user_id
+LEFT JOIN targets_following_current_user
+  ON targets_following_current_user.user_id = u.user_id
 WHERE u.user_id = ANY(@ids::int[])
 ORDER BY u.user_id
 ;

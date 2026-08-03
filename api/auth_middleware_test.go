@@ -128,6 +128,47 @@ func TestRequireAuthMiddleware(t *testing.T) {
 	assert.Equal(t, fiber.StatusUnauthorized, res.StatusCode)
 }
 
+// An invalid/expired Bearer token used against an endpoint that asserts a
+// caller identity (myId via ?user_id, or :wallet route param) must return
+// 401 — the credential was supplied but couldn't be validated. Returning 403
+// here would imply the caller is authenticated but unauthorized, which would
+// keep clients from realizing they need to refresh their token.
+func TestAuthMiddlewareInvalidBearerReturns401(t *testing.T) {
+	app := testAppWithFixtures(t)
+
+	testApp := fiber.New()
+	testApp.Get("/", app.resolveMyIdMiddleware, app.authMiddleware, func(c *fiber.Ctx) error {
+		return c.SendStatus(fiber.StatusOK)
+	})
+	testApp.Get("/account/:wallet", app.resolveMyIdMiddleware, app.authMiddleware, func(c *fiber.Ctx) error {
+		return c.SendStatus(fiber.StatusOK)
+	})
+
+	t.Run("invalid bearer with myId returns 401", func(t *testing.T) {
+		req := httptest.NewRequest("GET", "/?user_id=7eP5n", nil)
+		req.Header.Set("Authorization", "Bearer expired-or-invalid-token")
+		res, err := testApp.Test(req, -1)
+		assert.NoError(t, err)
+		assert.Equal(t, fiber.StatusUnauthorized, res.StatusCode)
+	})
+
+	t.Run("invalid bearer with wallet param returns 401", func(t *testing.T) {
+		req := httptest.NewRequest("GET", "/account/0x111c616ae836ceca1effe00bd07f2fdbf9a082bc", nil)
+		req.Header.Set("Authorization", "Bearer expired-or-invalid-token")
+		res, err := testApp.Test(req, -1)
+		assert.NoError(t, err)
+		assert.Equal(t, fiber.StatusUnauthorized, res.StatusCode)
+	})
+
+	t.Run("invalid bearer without myId or wallet passes through", func(t *testing.T) {
+		req := httptest.NewRequest("GET", "/", nil)
+		req.Header.Set("Authorization", "Bearer expired-or-invalid-token")
+		res, err := testApp.Test(req, -1)
+		assert.NoError(t, err)
+		assert.Equal(t, fiber.StatusOK, res.StatusCode)
+	})
+}
+
 func TestWalletCache(t *testing.T) {
 	app := emptyTestApp(t)
 
@@ -277,7 +318,7 @@ func TestGetApiSignerWithApiAccessKey(t *testing.T) {
 
 	// Same private key as TestGetApiSignerBasicAuth - derives to 0xf39Fd6e51aad88F6F4ce6aB8827279cffFb92266
 	testPrivateKey := "ac0974bec39a17e36ba4a6b4d238ff944bacb478cbed5efcae784d7bf4f2ff80"
-	parentApiKey := "0xf39Fd6e51aad88F6F4ce6aB8827279cffFb92266"
+	parentApiKey := strings.ToLower("0xf39Fd6e51aad88F6F4ce6aB8827279cffFb92266")
 	apiAccessKey := "test-access-key-123"
 
 	_, err := app.writePool.Exec(ctx, `
@@ -393,4 +434,59 @@ func base64Encode(s string) string {
 
 func base64EncodeBytes(b []byte) string {
 	return base64.StdEncoding.EncodeToString(b)
+}
+
+// TestIsAdvisoryUserIdPath documents the contract for which public read
+// surfaces treat ?user_id as advisory (decoration only) vs authoritative
+// (permission/selection). The list MUST stay narrow — anything that
+// materially uses user_id beyond decoration should NOT be marked advisory.
+func TestIsAdvisoryUserIdPath(t *testing.T) {
+	cases := []struct {
+		path string
+		want bool
+	}{
+		// Documented exempt — viewer hint only.
+		{"/v1/playlists/trending", true},
+		{"/v1/playlists/top", true},
+		{"/v1/playlists/new-releases", true},
+		{"/v1/playlists/by_permalink", true},
+		{"/v1/playlists/search", true},
+		{"/v1/tracks/trending", true},
+		{"/v1/tracks/recommended", true},
+
+		// Single-resource reads — :id is the resource selector; user_id
+		// only personalizes has_current_user_*.
+		{"/v1/playlists/abc123", true},
+		{"/v1/tracks/def456", true},
+		{"/v1/users/oaM5J", true},
+		{"/v1/users/handle/somebody", true},
+
+		// For You — the canonical example.
+		{"/v1/users/oaM5J/feed/for-you", true},
+
+		// NOT exempt — authoritative on myId. /me derives "who is the
+		// caller" from user_id, so impersonation here would be a
+		// security hole. (See big comment in authMiddleware.)
+		{"/v1/me", false},
+		{"/v1/oauth/me", false},
+		{"/v1/users/account/0xabc", false},
+
+		// NOT exempt — sub-resource reads that this tactical patch
+		// doesn't claim coverage for. They may need to be added in a
+		// follow-up; for now they stay strict (which is the existing
+		// pre-patch behavior).
+		{"/v1/playlists/abc/tracks", false},
+		{"/v1/users/oaM5J/tracks", false},
+		{"/v1/users/oaM5J/followers", false},
+
+		// Random paths should never match.
+		{"/v1/notifications", false},
+		{"/v1/", false},
+		{"/", false},
+	}
+
+	for _, tc := range cases {
+		got := isAdvisoryUserIdPath(tc.path)
+		assert.Equalf(t, tc.want, got, "isAdvisoryUserIdPath(%q)", tc.path)
+	}
 }

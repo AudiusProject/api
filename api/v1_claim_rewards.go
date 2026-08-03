@@ -212,6 +212,7 @@ func getValidatorAttestation(args GetValidatorAttestationParams) (*SenderAttesta
 // handling retries and reselection
 func fetchAttestations(
 	ctx context.Context,
+	logger *zap.Logger,
 	rewardClaim RewardClaim,
 	allValidators []config.Node,
 	excludedOperators []string,
@@ -321,6 +322,14 @@ func fetchAttestations(
 
 		for _, result := range results {
 			if result.err != nil {
+				logger.Warn("validator attestation failed",
+					zap.String("validator", result.node.Endpoint),
+					zap.String("validatorOwner", result.node.Owner),
+					zap.String("handle", rewardClaim.Handle),
+					zap.String("rewardId", rewardClaim.RewardID),
+					zap.String("specifier", rewardClaim.Specifier),
+					zap.Error(result.err),
+				)
 				badValidators[result.node.Endpoint] = true
 				continue
 			}
@@ -455,6 +464,40 @@ func sendRewardClaimTransactionsBatched(
 	return txSignatures, nil
 }
 
+// waitForSubmittedAttestations polls the attestations account until it
+// reflects at least expectedCount submitted attestations. This ensures the
+// account state written by a previously-sent (and confirmed) transaction is
+// actually visible on the RPC node before we build and simulate a dependent
+// transaction. Without this, the dependent transaction's simulation can race
+// ahead of the RPC's account state and fail spuriously.
+//
+// It's best-effort: if the state still isn't visible after the polling window,
+// it returns nil and lets the caller proceed (the dependent send has its own
+// retries).
+func waitForSubmittedAttestations(
+	ctx context.Context,
+	rewardManagerClient *reward_manager.RewardManagerClient,
+	claim rewards.RewardClaim,
+	expectedCount int,
+) error {
+	const (
+		maxAttempts  = 20
+		pollInterval = 250 * time.Millisecond
+	)
+	for range maxAttempts {
+		attestationsData, err := rewardManagerClient.GetSubmittedAttestations(ctx, claim)
+		if err == nil && int(attestationsData.Count) >= expectedCount {
+			return nil
+		}
+		select {
+		case <-ctx.Done():
+			return ctx.Err()
+		case <-time.After(pollInterval):
+		}
+	}
+	return nil
+}
+
 // Builds a Solana transaction to claim a reward from the attestations and sends it with retries.
 func sendRewardClaimTransactions(
 	ctx context.Context,
@@ -539,12 +582,31 @@ func sendRewardClaimTransactions(
 		estimatedEvaluateInstructionSize := 205
 		threshold := spl.MAX_TRANSACTION_SIZE - estimatedEvaluateInstructionSize
 		if len(partialTxBinary) > threshold {
-			sig, err := transactionSender.SendTransactionWithRetries(ctx, partialTx, rpc.CommitmentConfirmed, rpc.TransactionOpts{})
+			// Record how many attestations are visible before submitting so we
+			// can confirm partialTx's writes have landed on the RPC afterwards.
+			preCount := 0
+			if existing, err := rewardManagerClient.GetSubmittedAttestations(ctx, rewardClaim.RewardClaim); err == nil {
+				preCount = int(existing.Count)
+			}
+
+			sig, err := transactionSender.SendTransactionWithRetries(ctx, partialTx, rpc.CommitmentConfirmed, rpc.TransactionOpts{
+				SkipPreflight: true,
+			})
 			if err != nil {
 				return nil, err
 			}
 			txSignatures = append(txSignatures, *sig)
 			remainderTx = solana.NewTransactionBuilder()
+
+			// partialTx wrote the submitted attestations that the evaluate
+			// instruction in remainderTx reads. Even though partialTx is
+			// confirmed, the RPC node we simulate/send remainderTx against may
+			// not yet reflect that state, racing the remainderTx simulation
+			// into a spurious failure. Wait for the new attestations to become
+			// visible before continuing.
+			if err := waitForSubmittedAttestations(ctx, rewardManagerClient, rewardClaim.RewardClaim, preCount+len(attestations)); err != nil {
+				return txSignatures, err
+			}
 		}
 	}
 
@@ -579,7 +641,9 @@ func sendRewardClaimTransactions(
 		return nil, err
 	}
 
-	sig, err := transactionSender.SendTransactionWithRetries(ctx, remainderTx, rpc.CommitmentConfirmed, rpc.TransactionOpts{})
+	sig, err := transactionSender.SendTransactionWithRetries(ctx, remainderTx, rpc.CommitmentConfirmed, rpc.TransactionOpts{
+		SkipPreflight: true,
+	})
 	if err != nil {
 		return nil, err
 	}
@@ -597,6 +661,7 @@ type RelayTransactionResponse struct {
 // Claims an individual reward.
 func claimReward(
 	ctx context.Context,
+	logger *zap.Logger,
 	rewardClaim RewardClaim,
 	rewardManagerClient *reward_manager.RewardManagerClient,
 	rewardAttester *rewards.RewardAttester,
@@ -639,6 +704,7 @@ func claimReward(
 	// Fetch AAO and validator attestations
 	attestations, err := fetchAttestations(
 		ctx,
+		logger,
 		rewardClaim,
 		validators,
 		existingValidatorOwners,
@@ -740,6 +806,7 @@ type ClaimRewardsBody struct {
 
 // Claims all the filtered undisbursed rewards for a user.
 func (app *ApiServer) v1ClaimRewards(c *fiber.Ctx) error {
+	logger := app.requestLogger(c)
 
 	body := ClaimRewardsBody{}
 	err := c.BodyParser(&body)
@@ -801,19 +868,25 @@ func (app *ApiServer) v1ClaimRewards(c *fiber.Ctx) error {
 				Specifier:   row.Specifier,
 			}
 
-			reward, err := getReward(row.ChallengeID, app.rewardAttester.Rewards)
+			_, err := getReward(row.ChallengeID, app.rewardAttester.Rewards)
 			if err != nil {
 				results[i].Error = err.Error()
 				g.Done()
 				return
 			}
 
-			results[i].Amount = reward.Amount
+			// Use the per-challenge amount from user_challenges (set when the
+			// challenge was dispatched), not the static config reward.Amount.
+			// Trending tt/tut challenges pay rank-dependent amounts (e.g. 1000
+			// for ranks 1-5 and 100 for ranks 6-10) that the static reward
+			// config can't represent.
+			amount := uint64(row.Amount)
+			results[i].Amount = amount
 
 			rewardClaim := RewardClaim{
 				RewardClaim: rewards.RewardClaim{
 					RewardID:            row.ChallengeID,
-					Amount:              reward.Amount,
+					Amount:              amount,
 					Specifier:           row.Specifier,
 					RecipientEthAddress: row.Wallet.String,
 					ClaimAuthority:      antiAbuseOracle.DelegateWallet,
@@ -825,6 +898,7 @@ func (app *ApiServer) v1ClaimRewards(c *fiber.Ctx) error {
 			validators := app.config.ArtistCoinRewardsStaticSenders
 			sigs, err := claimReward(
 				ctx,
+				logger,
 				rewardClaim,
 				app.rewardManagerClient,
 				app.rewardAttester,
@@ -836,7 +910,7 @@ func (app *ApiServer) v1ClaimRewards(c *fiber.Ctx) error {
 			if err != nil {
 				var instrErr *spl.InstructionError
 				if errors.As(err, &instrErr) {
-					app.logger.Error("failed to claim challenge reward. transaction failed to send.",
+					logger.Error("failed to claim challenge reward. transaction failed to send.",
 						zap.String("handle", row.Handle.String),
 						zap.String("rewardId", row.ChallengeID),
 						zap.String("specifier", row.Specifier),
@@ -845,7 +919,7 @@ func (app *ApiServer) v1ClaimRewards(c *fiber.Ctx) error {
 						zap.Error(err),
 					)
 				} else {
-					app.logger.Error("failed to claim challenge reward.",
+					logger.Error("failed to claim challenge reward.",
 						zap.String("handle", row.Handle.String),
 						zap.String("rewardId", row.ChallengeID),
 						zap.String("specifier", row.Specifier),

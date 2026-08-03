@@ -1,0 +1,16 @@
+-- Drop the v_challenge_disbursements compatibility view.
+--
+-- The view exposed sol_reward_disbursements in the legacy challenge_disbursements
+-- column shape and resolved user_id from recipient_eth_address via users.wallet.
+-- Two problems made it a poor fit for most callers:
+--   1. It INNER JOINs users on the recipient wallet, so any disbursement whose
+--      recipient does not resolve to a current user is silently dropped. Callers
+--      that only ask "has this (challenge_id, specifier) been disbursed?" then
+--      wrongly treat a paid reward as still-claimable.
+--   2. Only one caller (the disbursements admin listing) actually needs the
+--      user_id resolution, and it now inlines the users join.
+--
+-- All callers have been migrated (see preceding PR), so the view has no
+-- remaining consumers. This migration must run only after that binary is
+-- deployed.
+DROP VIEW IF EXISTS v_challenge_disbursements;

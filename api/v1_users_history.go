@@ -62,7 +62,11 @@ func (app *ApiServer) v1UsersHistory(c *fiber.Ctx) error {
 		class = "track_activity_full"
 	}
 
-	filters := []string{}
+	filters := []string{
+		"tracks.is_delete = false",
+		"tracks.is_available = true",
+		"users.is_deactivated = false",
+	}
 	if params.Query != "" {
 		filters = append(filters, "tracks.title ILIKE '%' || @query || '%' OR users.name ILIKE '%' || @query || '%'")
 	}

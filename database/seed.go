@@ -215,6 +215,15 @@ var (
 			"updated_at":      time.Now(),
 			"txhash":          "tx123",
 		},
+		"event_routes": {
+			"slug":        nil,
+			"owner_id":    nil,
+			"event_id":    nil,
+			"is_current":  true,
+			"blockhash":   "block_abc123",
+			"blocknumber": 101,
+			"txhash":      "tx123",
+		},
 		"track_routes": {
 			"slug":         nil,
 			"title_slug":   nil,
@@ -225,6 +234,16 @@ var (
 			"blockhash":    "block_abc123",
 			"blocknumber":  101,
 			"txhash":       "tx123",
+		},
+		"track_collaborators": {
+			"track_id":             nil,
+			"collaborator_user_id": nil,
+			"invited_by":           nil,
+			"status":               "pending",
+			"created_at":           time.Now(),
+			"updated_at":           time.Now(),
+			"txhash":               "tx123",
+			"blocknumber":          101,
 		},
 		"playlist_routes": {
 			"slug":         nil,
@@ -244,6 +263,28 @@ var (
 			"text":        "",
 			"txhash":      "0x1",
 			"blockhash":   "0x2",
+		},
+		"comment_reactions": {
+			"comment_id":  nil,
+			"user_id":     nil,
+			"is_delete":   false,
+			"created_at":  time.Now(),
+			"updated_at":  time.Now(),
+			"txhash":      "0x1",
+			"blockhash":   "0x2",
+			"blocknumber": 101,
+		},
+		"subscriptions": {
+			"subscriber_id": nil,
+			"user_id":       nil,
+			"is_current":    true,
+			"is_delete":     false,
+			"created_at":    time.Now(),
+			"blockhash":     "block_abc123",
+			"blocknumber":   101,
+			"txhash":        "0x1",
+			"entity_type":   "User",
+			"entity_id":     nil,
 		},
 		"events": {
 			"txhash":      "0x1",
@@ -483,12 +524,61 @@ var (
 			"created_at": time.Now(),
 			"updated_at": time.Now(),
 		},
+		"artist_coin_stats_onchain": {
+			"mint":       nil,
+			"created_at": time.Now(),
+			"updated_at": time.Now(),
+		},
+		"artist_coin_price_history": {
+			"mint":      nil,
+			"timestamp": nil,
+			"price":     0.0,
+		},
+		"artist_coin_volume_accumulator": {
+			"mint":                nil,
+			"last_processed_slot": 0,
+			"total_volume":        0.0,
+			"total_volume_usd":    0.0,
+		},
+		"sol_meteora_dbc_pools": {
+			"account":                       nil,
+			"slot":                          1,
+			"config":                        "config-placeholder",
+			"creator":                       "creator-placeholder",
+			"base_mint":                     nil,
+			"base_vault":                    "base-vault-placeholder",
+			"quote_vault":                   "quote-vault-placeholder",
+			"base_reserve":                  0,
+			"quote_reserve":                 0,
+			"protocol_base_fee":             0,
+			"protocol_quote_fee":            0,
+			"partner_base_fee":              0,
+			"partner_quote_fee":             0,
+			"sqrt_price":                    0,
+			"activation_point":              0,
+			"pool_type":                     0,
+			"is_migrated":                   0,
+			"is_partner_withdraw_surplus":   0,
+			"is_protocol_withdraw_surplus":  0,
+			"migration_progress":            0,
+			"is_withdraw_leftover":          0,
+			"is_creator_withdraw_surplus":   0,
+			"migration_fee_withdraw_status": 0,
+			"finish_curve_timestamp":        0,
+			"creator_base_fee":              0,
+			"creator_quote_fee":             0,
+		},
 		"sol_token_account_balances": {
 			"account": nil,
 			"owner":   "owner-acc",
 			"mint":    nil,
 			"balance": nil,
 			"slot":    1,
+		},
+		"eth_wallet_balances": {
+			"wallet":      nil,
+			"balance":     nil,
+			"blocknumber": 101,
 		},
 		"sol_claimable_accounts": {
 			"signature":         nil,
@@ -497,6 +587,61 @@ var (
 			"mint":              nil,
 			"ethereum_address":  nil,
 			"account":           nil,
+		},
+		"sol_claimable_account_transfers": {
+			"signature":          nil,
+			"instruction_index":  0,
+			"amount":             nil,
+			"slot":               1,
+			"from_account":       nil,
+			"to_account":         nil,
+			"sender_eth_address": nil,
+		},
+		"sol_reward_disbursements": {
+			"signature":             nil,
+			"instruction_index":     0,
+			"amount":                nil,
+			"slot":                  1,
+			"user_bank":             "user-bank-placeholder",
+			"challenge_id":          nil,
+			"specifier":             nil,
+			"recipient_eth_address": nil,
+			"created_at":            time.Now(),
+		},
+		"sol_purchases": {
+			"signature":               nil,
+			"instruction_index":       0,
+			"amount":                  nil,
+			"slot":                    101,
+			"from_account":            "from-account-placeholder",
+			"content_type":            nil,
+			"content_id":              nil,
+			"buyer_user_id":           nil,
+			"access_type":             "stream",
+			"valid_after_blocknumber": 0,
+			"is_valid":                true,
+			"created_at":              time.Now(),
+		},
+		"sol_payments": {
+			"signature":         nil,
+			"instruction_index": 0,
+			"route_index":       0,
+			"to_account":        nil,
+			"amount":            nil,
+			"slot":              101,
+		},
+		"sol_transfer_memo_types": {
+			"signature":         nil,
+			"instruction_index": 0,
+			"slot":              101,
+			"memo_type":         nil,
+		},
+		"album_price_history": {
+			"playlist_id":       nil,
+			"splits":            "[]",
+			"total_price_cents": nil,
+			"blocknumber":       101,
+			"block_timestamp":   time.Now(),
 		},
 		"sol_token_account_balance_changes": {
 			"account":         nil,
@@ -626,6 +771,11 @@ var (
 			"user_id":       nil,
 			"pubkey_base64": nil,
 		},
+		"blocks": {
+			"blockhash":  nil,
+			"parenthash": nil,
+			"number":     nil,
+		},
 		"reward_codes": {
 			"code":           nil,
 			"mint":           nil,
@@ -723,12 +873,10 @@ func Seed(pool *pgxpool.Pool, fixtures FixtureMap) {
 	INSERT INTO public.blocks (
 		blockhash,
 		parenthash,
-		is_current,
 		number
 	) VALUES (
 		'block1',   -- blockhash
 		'block0',   -- parenthash
-		true,
 		101
 	) ON CONFLICT DO NOTHING;
 	`)
@@ -739,8 +887,10 @@ func Seed(pool *pgxpool.Pool, fixtures FixtureMap) {
 	// because map key iteration order is randomized...
 	// explicitly do the "entity" tables first
 	// so that data dependencies exist before attempting to do saves, follows, etc.
-	// (also do aggregates first so we can override the ones the entities autocreate)
-	entityTables := []string{"aggregate_user", "aggregate_track", "aggregate_playlist", "users", "tracks", "playlists", "sol_token_account_balances", "chat", "chat_member", "chat_message", "chat_blast", "sol_user_balances", "chat_blocked_users", "chat_permissions"}
+	// (also do aggregates first so we can override the ones the entities autocreate;
+	// aggregate_monthly_plays must precede plays so the handle_play trigger upserts
+	// the seeded row instead of racing a duplicate insert against it)
+	entityTables := []string{"blocks", "aggregate_user", "aggregate_track", "aggregate_playlist", "users", "tracks", "playlists", "aggregate_monthly_plays", "sol_token_account_balances", "chat", "chat_member", "chat_message", "chat_blast", "sol_user_balances", "chat_blocked_users", "chat_permissions"}
 	for _, tableName := range entityTables {
 		if rows, ok := fixtures[tableName]; ok {
 			SeedTable(pool, tableName, rows)

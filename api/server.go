@@ -44,6 +44,7 @@ import (
 	"github.com/mcuadros/go-defaults"
 	"github.com/segmentio/encoding/json"
 	"go.uber.org/zap"
+	"go.uber.org/zap/zapcore"
 )
 
 //go:embed swagger/swagger-v1.yaml
@@ -129,6 +130,50 @@ func NewApiServer(config config.Config) *ApiServer {
 
 	oauthTokenCache, err := otter.MustBuilder[string, oauthTokenCacheEntry](10_000).
 		WithTTL(60 * time.Second).
+		CollectStats().
+		Build()
+	if err != nil {
+		panic(err)
+	}
+
+	// Holds at most ~4 entries (one per Type/Time combination used by
+	// /v1/playlists/trending). The "qualified" set is request-independent
+	// and the underlying query takes 3+ seconds, so a short TTL trades
+	// trivial staleness for huge p95 wins.
+	qualifiedPlaylistsCache, err := otter.MustBuilder[string, []int32](32).
+		WithTTL(5 * time.Minute).
+		CollectStats().
+		Build()
+	if err != nil {
+		panic(err)
+	}
+
+	// Caches the candidate user-id list returned by the /v1/users/:userId/
+	// related collaborative-filter / genre-fallback query. The list is a
+	// recommendation, not authoritative state, so a 10-minute TTL is fine.
+	relatedUsersCache, err := otter.MustBuilder[string, []int32](20_000).
+		WithTTL(10 * time.Minute).
+		CollectStats().
+		Build()
+	if err != nil {
+		panic(err)
+	}
+
+	// Caches the normalized popular-genre slice returned by /v1/genres/popular,
+	// which otherwise runs a GROUP BY genre scan over the tracks table on every
+	// request. Keyed by (limit, offset, startTime bucket); the result is an
+	// approximate popularity ranking, so a 15-minute TTL is fine.
+	genresPopularCache, err := otter.MustBuilder[string, []PopularGenre](1_000).
+		WithTTL(genresPopularCacheTTL).
+		CollectStats().
+		Build()
+	if err != nil {
+		panic(err)
+	}
+
+	// Entries carry their own freshness window so expired sitemap XML can be
+	// served stale while a background refresh rebuilds it.
+	sitemapXMLCache, err := otter.MustBuilder[string, sitemapXMLCacheEntry](256).
 		CollectStats().
 		Build()
 	if err != nil {
@@ -248,6 +293,10 @@ func NewApiServer(config config.Config) *ApiServer {
 		resolveWalletCache:      &resolveWalletCache,
 		apiAccessKeySignerCache: &apiAccessKeySignerCache,
 		oauthTokenCache:         &oauthTokenCache,
+		qualifiedPlaylistsCache: &qualifiedPlaylistsCache,
+		relatedUsersCache:       &relatedUsersCache,
+		genresPopularCache:      &genresPopularCache,
+		sitemapXMLCache:         &sitemapXMLCache,
 		requestValidator:        requestValidator,
 		rewardAttester:          rewardAttester,
 		transactionSender:       transactionSender,
@@ -333,7 +382,8 @@ func NewApiServer(config config.Config) *ApiServer {
 
 				return fields
 			},
-			Fields: []string{"status", "method", "url", "route"},
+			Fields: []string{"status", "method", "path", "route"},
+			Levels: []zapcore.Level{zapcore.ErrorLevel, zapcore.WarnLevel, zapcore.DebugLevel},
 		}))
 	}
 
@@ -371,6 +421,7 @@ func NewApiServer(config config.Config) *ApiServer {
 	app.Use(app.resolveMyIdMiddleware)
 	app.Use(app.authMiddleware)
 	app.Use(app.solanaWalletMiddleware)
+	app.Use(app.id3Middleware)
 
 	v1 := app.Group("/v1")
 	v1Full := app.Group("/v1/full")
@@ -386,12 +437,14 @@ func NewApiServer(config config.Config) *ApiServer {
 		g.Get("/users/genre/top", app.v1UsersGenreTop)
 		g.Get("/users/account/:wallet", app.requireAuthMiddleware, app.v1UsersAccount)
 		g.Get("/users/verify_token", app.v1UsersVerifyToken)
+		g.Post("/users/me/ping", app.postV1UsersPing)
 
 		g.Use("/users/handle/:handle", app.requireHandleMiddleware)
 		g.Get("/users/handle/:handle", app.v1User)
 		g.Get("/users/handle/:handle/tracks", app.v1UserTracks)
 		g.Get("/users/handle/:handle/tracks/count", app.v1UserTracksCount)
 		g.Get("/users/handle/:handle/albums", app.v1UserAlbums)
+		g.Get("/users/handle/:handle/contests", app.v1UserContests)
 		g.Get("/users/handle/:handle/playlists", app.v1UserPlaylists)
 		g.Get("/users/handle/:handle/tracks/ai_attributed", app.v1UserTracksAiAttributed)
 		g.Get("/users/handle/:handle/tracks/ai-attributed", app.v1UserTracksAiAttributed)
@@ -411,6 +464,7 @@ func NewApiServer(config config.Config) *ApiServer {
 		g.Get("/users/:userId/balance/history", app.v1UsersBalanceHistory)
 		g.Get("/users/:userId/managers", app.v1UsersManagers)
 		g.Get("/users/:userId/managed_users", app.v1UsersManagedUsers)
+		g.Get("/users/:userId/collaboration_invites", app.v1UsersCollaborationInvites)
 		g.Get("/grantees/:address/users", app.v1GranteeUsers)
 		g.Post("/users/:userId/grants", app.requireAuthMiddleware, app.requireWriteScope, app.postV1UsersGrant)
 		g.Delete("/users/:userId/grants/:address", app.requireAuthMiddleware, app.requireWriteScope, app.deleteV1UsersGrant)
@@ -430,8 +484,10 @@ func NewApiServer(config config.Config) *ApiServer {
 		g.Get("/users/:userId/tracks/download_count", app.v1UserTracksDownloadCount)
 		g.Get("/users/:userId/tracks/remixed", app.v1UserTracksRemixed)
 		g.Get("/users/:userId/albums", app.v1UserAlbums)
+		g.Get("/users/:userId/contests", app.v1UserContests)
 		g.Get("/users/:userId/playlists", app.v1UserPlaylists)
 		g.Get("/users/:userId/feed", app.v1UsersFeed)
+		g.Get("/users/:userId/feed/for-you", app.v1FeedForYou)
 		g.Get("/users/:userId/connected_wallets", app.v1UsersConnectedWallets)
 		g.Get("/users/:userId/transactions/audio", app.v1UsersTransactionsAudio)
 		g.Get("/users/:userId/transactions/audio/count", app.v1UsersTransactionsAudioCount)
@@ -480,6 +536,7 @@ func NewApiServer(config config.Config) *ApiServer {
 		g.Get("/tracks/search", app.v1TracksSearch)
 		g.Get("/tracks/unclaimed_id", app.v1TracksUnclaimedId)
 
+		g.Get("/tracks/latest", app.v1TracksLatest)
 		g.Get("/tracks/trending", app.v1TracksTrending)
 		g.Get("/tracks/trending/ids", app.v1TracksTrendingIds)
 		g.Get("/tracks/trending/winners", app.v1TracksTrendingWinners)
@@ -513,6 +570,16 @@ func NewApiServer(config config.Config) *ApiServer {
 		g.Post("/tracks/:trackId/downloads", app.requireAuthMiddleware, app.requireWriteScope, app.postV1TrackDownload)
 		g.Put("/tracks/:trackId", app.requireAuthMiddleware, app.requireWriteScope, app.putV1Track)
 		g.Delete("/tracks/:trackId", app.requireAuthMiddleware, app.requireWriteScope, app.deleteV1Track)
+		g.Get("/fan_club/feed", app.v1FanClubFeed)
+		g.Get("/fan-club/feed", app.v1FanClubFeed)
+
+		g.Get("/events/:eventId/comments", app.v1EventComments)
+		g.Get("/events/:eventId/followers", app.v1EventsFollowers)
+		g.Get("/events/:eventId/follow_state", app.v1EventFollowState)
+		g.Get("/events/:eventId/follow-state", app.v1EventFollowState)
+		g.Post("/events/:eventId/follow", app.requireAuthMiddleware, app.requireWriteScope, app.postV1EventFollow)
+		g.Delete("/events/:eventId/follow", app.requireAuthMiddleware, app.requireWriteScope, app.deleteV1EventFollow)
+
 		g.Get("/tracks/:trackId/comments", app.v1TrackComments)
 		g.Get("/tracks/:trackId/comment_count", app.v1TrackCommentCount)
 		g.Get("/tracks/:trackId/comment-count", app.v1TrackCommentCount)
@@ -531,6 +598,7 @@ func NewApiServer(config config.Config) *ApiServer {
 		g.Get("/playlists/unclaimed-id", app.v1PlaylistsUnclaimedId)
 		g.Get("/playlists/trending", app.v1PlaylistsTrending)
 		g.Get("/playlists/top", app.v1PlaylistsTop)
+		g.Get("/playlists/new-releases", app.v1PlaylistsNewReleases)
 		g.Get("/playlists/by_permalink/:handle/:slug", app.v1PlaylistByPermalink)
 		g.Get("/playlists/by-permalink/:handle/:slug", app.v1PlaylistByPermalink)
 
@@ -578,6 +646,9 @@ func NewApiServer(config config.Config) *ApiServer {
 		g.Post("/oauth/token", app.v1OAuthToken)
 		g.Post("/oauth/revoke", app.v1OAuthRevoke)
 		g.Get("/me", app.requireAuthMiddleware, app.v1Me)
+		// Legacy alias for @audius/sdk <= 14, which calls /v1/oauth/me and
+		// expects the DecodedUserToken shape (userId, name, handle, ...).
+		g.Get("/oauth/me", app.requireAuthMiddleware, app.v1OAuthMe)
 
 		// Rewards
 		g.Post("/rewards/claim", app.v1ClaimRewards)
@@ -587,6 +658,9 @@ func NewApiServer(config config.Config) *ApiServer {
 		g.Get("/prizes", app.v1Prizes)
 		g.Post("/prizes/claim", app.v1PrizesClaim)
 		g.Get("/wallet/:wallet/prizes", app.v1WalletPrizes)
+
+		// Genres
+		g.Get("/genres/popular", app.v1GenresPopular)
 
 		// Resolve
 		g.Get("/resolve", app.v1Resolve)
@@ -610,6 +684,7 @@ func NewApiServer(config config.Config) *ApiServer {
 		// Events
 		g.Get("/events/unclaimed_id", app.v1EventsUnclaimedId)
 		g.Get("/events/unclaimed-id", app.v1EventsUnclaimedId)
+		g.Get("/events/remix-contests", app.v1EventsRemixContests)
 		g.Get("/events", app.v1Events)
 		g.Get("/events/all", app.v1Events)
 		g.Get("/events/entity", app.v1Events)
@@ -649,8 +724,8 @@ func NewApiServer(config config.Config) *ApiServer {
 		g.Get("/coins/:mint/members/count", app.v1CoinMembersCount)
 		g.Get("/coins/:mint/redeem", app.v1CoinsRedeem)
 		g.Get("/coins/:mint/redeem/:code", app.v1CoinsRedeemCode)
-		g.Post("/coins/:mint/redeem", app.requireAuthMiddleware, app.v1CoinsPostRedeem)
-		g.Post("/coins/:mint/redeem/:code", app.requireAuthMiddleware, app.v1CoinsPostRedeem)
+		g.Post("/coins/:mint/redeem", app.requireAuthMiddleware, app.requireWriteScope, app.v1CoinsPostRedeem)
+		g.Post("/coins/:mint/redeem/:code", app.requireAuthMiddleware, app.requireWriteScope, app.v1CoinsPostRedeem)
 		g.Post("/coins", app.v1CreateCoin)
 		g.Post("/coins/:mint", app.v1UpdateCoin)
 
@@ -722,6 +797,8 @@ func NewApiServer(config config.Config) *ApiServer {
 	app.Get("/content-nodes", app.contentNodes)
 	app.Get("/content/verbose", app.contentNodes)
 	app.Get("/content-nodes/verbose", app.contentNodes)
+	app.Get("/content/:cid", app.contentAssetRedirect)
+	app.Get("/content/:cid/:asset", app.contentAssetRedirect)
 
 	// Plans React app - serve static assets first, then SPA routing
 	app.Static("/plans/assets", "./static/plans/dist/assets")
@@ -781,6 +858,10 @@ type ApiServer struct {
 	resolveWalletCache      *otter.Cache[string, int]
 	apiAccessKeySignerCache *otter.Cache[string, apiAccessKeySignerEntry]
 	oauthTokenCache         *otter.Cache[string, oauthTokenCacheEntry]
+	qualifiedPlaylistsCache *otter.Cache[string, []int32]
+	relatedUsersCache       *otter.Cache[string, []int32]
+	genresPopularCache      *otter.Cache[string, []PopularGenre]
+	sitemapXMLCache         *otter.Cache[string, sitemapXMLCacheEntry]
 	requestValidator        *RequestValidator
 	rewardManagerClient     *reward_manager.RewardManagerClient
 	claimableTokensClient   *claimable_tokens.ClaimableTokensClient
@@ -800,6 +881,16 @@ type ApiServer struct {
 	validators              *Nodes
 	openAudioPool           *OpenAudioPool
 	newChainFlusher         *NewChainFlusher
+}
+
+// requestLogger returns app.logger annotated with the current request_id (set
+// by the requestid middleware) when available, so handler logs can be
+// correlated with access logs.
+func (app *ApiServer) requestLogger(c *fiber.Ctx) *zap.Logger {
+	if requestId, ok := c.Locals("requestId").(string); ok && requestId != "" {
+		return app.logger.With(zap.String("request_id", requestId))
+	}
+	return app.logger
 }
 
 func (app *ApiServer) home(c *fiber.Ctx) error {

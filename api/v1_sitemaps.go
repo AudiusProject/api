@@ -18,6 +18,8 @@ import (
 
 const sitemapLimit = 40_000
 const sitemapCountCacheTTL = 1 * time.Hour
+const sitemapXMLCacheTTL = 1 * time.Hour
+const sitemapCacheControl = "public, max-age=3600, stale-while-revalidate=86400, stale-if-error=86400"
 
 var sitemapPageRegex = regexp.MustCompile(`^(\d+)\.xml$`)
 
@@ -55,6 +57,12 @@ type cachedCount struct {
 	refreshing bool // true if a background refresh is already in flight
 }
 
+type sitemapXMLCacheEntry struct {
+	data       []byte
+	expiresAt  time.Time
+	refreshing bool
+}
+
 var (
 	sitemapCountCache = make(map[string]cachedCount)
 	sitemapCountMu    sync.Mutex
@@ -85,6 +93,49 @@ func setCachedCount(key string, value int64) {
 		value:     value,
 		expiresAt: time.Now().Add(sitemapCountCacheTTL),
 	}
+}
+
+func (app *ApiServer) getCachedSitemapXML(key string) (data []byte, exists bool, needsRefresh bool) {
+	if app.sitemapXMLCache == nil {
+		return nil, false, false
+	}
+	entry, ok := app.sitemapXMLCache.Get(key)
+	if !ok {
+		return nil, false, false
+	}
+	if time.Now().After(entry.expiresAt) && !entry.refreshing {
+		entry.refreshing = true
+		app.sitemapXMLCache.Set(key, entry)
+		return entry.data, true, true
+	}
+	return entry.data, true, false
+}
+
+func (app *ApiServer) setCachedSitemapXML(key string, data []byte) {
+	if app.sitemapXMLCache == nil {
+		return
+	}
+	app.sitemapXMLCache.Set(key, sitemapXMLCacheEntry{
+		data:      data,
+		expiresAt: time.Now().Add(sitemapXMLCacheTTL),
+	})
+}
+
+func (app *ApiServer) clearSitemapXMLRefreshing(key string) {
+	if app.sitemapXMLCache == nil {
+		return
+	}
+	entry, ok := app.sitemapXMLCache.Get(key)
+	if !ok {
+		return
+	}
+	entry.refreshing = false
+	app.sitemapXMLCache.Set(key, entry)
+}
+
+func setSitemapHeaders(c *fiber.Ctx) {
+	c.Set("Content-Type", "text/xml")
+	c.Set("Cache-Control", sitemapCacheControl)
 }
 
 type sitemapURL struct {
@@ -209,7 +260,7 @@ func (app *ApiServer) sitemapDefault(c *fiber.Ctx) error {
 	if err != nil {
 		return err
 	}
-	c.Set("Content-Type", "text/xml")
+	setSitemapHeaders(c)
 	return c.Send(data)
 }
 
@@ -219,7 +270,7 @@ func (app *ApiServer) sitemapDefaults(c *fiber.Ctx) error {
 	if err != nil {
 		return err
 	}
-	c.Set("Content-Type", "text/xml")
+	setSitemapHeaders(c)
 	return c.Send(data)
 }
 
@@ -232,11 +283,56 @@ func (app *ApiServer) sitemapTypeIndex(c *fiber.Ctx) error {
 		return fiber.NewError(400, fmt.Sprintf("Invalid sitemap type %s, should be one of track, playlist, user", entityType))
 	}
 
+	cacheKey := entityType + ":index.xml"
+	if data, ok, needsRefresh := app.getCachedSitemapXML(cacheKey); ok {
+		if needsRefresh {
+			go app.refreshSitemapTypeIndex(cacheKey, entityType)
+		}
+		setSitemapHeaders(c)
+		return c.Send(data)
+	}
+
 	count, err := app.getSitemapCount(c, entityType)
 	if err != nil {
 		return err
 	}
 
+	data, err := app.buildSitemapTypeIndex(entityType, count)
+	if err != nil {
+		return err
+	}
+	app.setCachedSitemapXML(cacheKey, data)
+	setSitemapHeaders(c)
+	return c.Send(data)
+}
+
+func (app *ApiServer) refreshSitemapTypeIndex(cacheKey string, entityType string) {
+	count, err := app.fetchSitemapCount(entityType)
+	if err != nil {
+		app.clearSitemapXMLRefreshing(cacheKey)
+		app.logger.Error(
+			"failed to refresh sitemap index",
+			zap.String("cache_key", cacheKey),
+			zap.String("type", entityType),
+			zap.Error(err),
+		)
+		return
+	}
+	data, err := app.buildSitemapTypeIndex(entityType, count)
+	if err != nil {
+		app.clearSitemapXMLRefreshing(cacheKey)
+		app.logger.Error(
+			"failed to build sitemap index",
+			zap.String("cache_key", cacheKey),
+			zap.String("type", entityType),
+			zap.Error(err),
+		)
+		return
+	}
+	app.setCachedSitemapXML(cacheKey, data)
+}
+
+func (app *ApiServer) buildSitemapTypeIndex(entityType string, count int64) ([]byte, error) {
 	pages := numPages(count, sitemapLimit)
 	entries := make([]sitemapEntry, pages)
 	for i := 1; i <= pages; i++ {
@@ -247,10 +343,9 @@ func (app *ApiServer) sitemapTypeIndex(c *fiber.Ctx) error {
 
 	data, err := buildSitemapIndex(entries)
 	if err != nil {
-		return err
+		return nil, err
 	}
-	c.Set("Content-Type", "text/xml")
-	return c.Send(data)
+	return data, nil
 }
 
 func (app *ApiServer) sitemapTypePage(c *fiber.Ctx) error {
@@ -266,8 +361,42 @@ func (app *ApiServer) sitemapTypePage(c *fiber.Ctx) error {
 		return fiber.NewError(400, "Page number must be >= 1")
 	}
 
+	cacheKey := entityType + ":" + fileName
+	if data, ok, needsRefresh := app.getCachedSitemapXML(cacheKey); ok {
+		if needsRefresh {
+			go app.refreshSitemapPage(cacheKey, entityType, pageNumber)
+		}
+		setSitemapHeaders(c)
+		return c.Send(data)
+	}
+
+	data, err := app.buildSitemapPage(c.Context(), entityType, pageNumber)
+	if err != nil {
+		return err
+	}
+	app.setCachedSitemapXML(cacheKey, data)
+	setSitemapHeaders(c)
+	return c.Send(data)
+}
+
+func (app *ApiServer) refreshSitemapPage(cacheKey string, entityType string, pageNumber int) {
+	data, err := app.buildSitemapPage(context.Background(), entityType, pageNumber)
+	if err != nil {
+		app.clearSitemapXMLRefreshing(cacheKey)
+		app.logger.Error(
+			"failed to refresh sitemap page",
+			zap.String("cache_key", cacheKey),
+			zap.String("type", entityType),
+			zap.Int("page", pageNumber),
+			zap.Error(err),
+		)
+		return
+	}
+	app.setCachedSitemapXML(cacheKey, data)
+}
+
+func (app *ApiServer) buildSitemapPage(ctx context.Context, entityType string, pageNumber int) ([]byte, error) {
 	offset := int32((pageNumber - 1) * sitemapLimit)
-	ctx := c.Context()
 	baseURL := app.audiusAppUrl
 
 	var slugs []string
@@ -280,7 +409,7 @@ func (app *ApiServer) sitemapTypePage(c *fiber.Ctx) error {
 			Offset: offset,
 		})
 		if e != nil {
-			return e
+			return nil, e
 		}
 		for _, r := range rows {
 			if r.Handle.Valid {
@@ -294,7 +423,7 @@ func (app *ApiServer) sitemapTypePage(c *fiber.Ctx) error {
 			Offset: offset,
 		})
 		if e != nil {
-			return e
+			return nil, e
 		}
 		for _, r := range rows {
 			if r.Handle.Valid {
@@ -312,7 +441,7 @@ func (app *ApiServer) sitemapTypePage(c *fiber.Ctx) error {
 			Offset: offset,
 		})
 		if e != nil {
-			return e
+			return nil, e
 		}
 		for _, h := range handles {
 			if h.Valid {
@@ -321,13 +450,12 @@ func (app *ApiServer) sitemapTypePage(c *fiber.Ctx) error {
 		}
 
 	default:
-		return fiber.NewError(400, fmt.Sprintf("Invalid sitemap type %s, should be one of track, playlist, user", entityType))
+		return nil, fiber.NewError(400, fmt.Sprintf("Invalid sitemap type %s, should be one of track, playlist, user", entityType))
 	}
 
 	data, err := buildURLSet(slugs, baseURL)
 	if err != nil {
-		return err
+		return nil, err
 	}
-	c.Set("Content-Type", "text/xml")
-	return c.Send(data)
+	return data, nil
 }

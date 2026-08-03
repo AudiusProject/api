@@ -35,8 +35,8 @@ begin
       count(*)
     from tracks t
     where t.is_current is true
-      and t.is_delete is false
-      and t.is_available is true
+      and t.is_delete = false
+      and t.is_available = true
       and t.stem_of is null
       and t.access_authorities is null
       and t.owner_id = new.owner_id
@@ -101,7 +101,7 @@ begin
       raise warning 'An error occurred in %: %', tg_name, sqlerrm;
   end;
 
-  -- If new remix is a submission to an active remix contest, check for milestone notifications
+  -- If new remix is a submission to an active remix contest, milestones and follower alerts
   begin
     if track_should_notify(OLD, new, TG_OP) AND new.remix_of is not null THEN
       declare
@@ -110,14 +110,15 @@ begin
         submission_count int;
         milestone int;
         parent_track_id int := (new.remix_of->'tracks'->0->>'parent_track_id')::int;
+        contest_follower int;
       begin
-        select event_id, user_id
+        select e.event_id, e.user_id
         into contest_event_id, contest_creator_id
-        from events
-        where event_type = 'remix_contest'
-          and is_deleted = false
-          and end_date > now()
-          and entity_id = parent_track_id
+        from events e
+        where e.event_type = 'remix_contest'
+          and e.is_deleted = false
+          and (e.end_date is null or e.end_date > now())
+          and e.entity_id = parent_track_id
         limit 1;
 
         if contest_event_id is not null then
@@ -127,6 +128,7 @@ begin
           join events e on e.event_type = 'remix_contest'
             and e.is_deleted = false
             and e.entity_id = parent_track_id
+            and e.event_id = contest_event_id
           where t.is_current = true
             and t.is_delete = false
             and t.remix_of is not null
@@ -155,8 +157,97 @@ begin
               on conflict do nothing;
             END IF;
           END LOOP;
+
+          -- Notify everyone following the contest (and the host) of a new submission,
+          -- excluding the submitter. The host is included even if they are not a
+          -- subscriber so they get a per-submission alert in addition to the
+          -- existing milestone-based artist_remix_contest_submissions notification.
+          for contest_follower in
+            select user_id from (
+              select s.subscriber_id as user_id
+                from subscriptions s
+               where s.entity_type = 'Event'
+                 and s.entity_id = contest_event_id
+                 and s.is_current = true
+                 and s.is_delete = false
+              union
+              select contest_creator_id as user_id
+            ) recipients
+            where user_id != new.owner_id
+          loop
+            insert into notification
+              (blocknumber, user_ids, timestamp, type, specifier, group_id, data)
+            values
+              (
+                new.blocknumber,
+                ARRAY [contest_follower],
+                new.updated_at,
+                'fan_remix_contest_submission',
+                contest_follower,
+                'fan_remix_contest_submission:' || contest_event_id || ':submission:' || new.track_id,
+                json_build_object(
+                  'event_id', contest_event_id,
+                  'entity_id', parent_track_id,
+                  'entity_user_id', contest_creator_id,
+                  'submission_track_id', new.track_id,
+                  'submitter_user_id', new.owner_id
+                )
+              )
+            on conflict do nothing;
+          end loop;
         end if;
       end;
+    end if;
+    exception
+      when others then
+        raise warning 'An error occurred in %: %', tg_name, sqlerrm;
+  end;
+
+  -- If a track with an active remix contest transitions from unlisted to public,
+  -- create fan_remix_contest_started notifications for the contest creator's
+  -- followers, the track's savers, and contest followers.
+  begin
+    if TG_OP = 'UPDATE' and OLD.is_unlisted = true and new.is_unlisted = false then
+      insert into notification
+        (blocknumber, user_ids, timestamp, type, specifier, group_id, data)
+      select
+        new.blocknumber,
+        ARRAY[u.user_id],
+        new.updated_at,
+        'fan_remix_contest_started',
+        u.user_id,
+        'fan_remix_contest_started:' || new.track_id || ':user:' || e.user_id,
+        json_build_object(
+          'entity_user_id', new.owner_id,
+          'entity_id', new.track_id
+        )
+      from events e
+      join lateral (
+        select f.follower_user_id as user_id
+          from follows f
+         where f.followee_user_id = e.user_id
+           and f.is_current = true
+           and f.is_delete = false
+        union
+        select s.user_id
+          from saves s
+         where s.save_item_id = new.track_id
+           and s.save_type = 'track'
+           and s.is_current = true
+           and s.is_delete = false
+        union
+        select sub.subscriber_id as user_id
+          from subscriptions sub
+         where sub.entity_type = 'Event'
+           and sub.entity_id = e.event_id
+           and sub.is_current = true
+           and sub.is_delete = false
+      ) u on true
+      where e.event_type = 'remix_contest'
+        and e.is_deleted = false
+        and (e.end_date is null or e.end_date > now())
+        and e.entity_id = new.track_id
+      on conflict do nothing;
     end if;
     exception
       when others then
@@ -166,9 +257,9 @@ begin
   return null;
 
 exception
-    when others then
-      raise warning 'An error occurred in %: %', tg_name, sqlerrm;
-      raise;
+  when others then
+    raise warning 'An error occurred in %: %', tg_name, sqlerrm;
+    raise;
 
 end;
 $$ language plpgsql;

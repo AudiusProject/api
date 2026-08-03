@@ -35,7 +35,7 @@ func (app *ApiServer) userPurchasesForDownload(c *fiber.Ctx) ([]UsdcPurchaseForD
 
 	sql := `
 		WITH purchases AS (
-			SELECT * FROM usdc_purchases
+			SELECT * FROM v_usdc_purchases
 			WHERE buyer_user_id = @buyerUserId
 		),
 		purchases_with_content AS (

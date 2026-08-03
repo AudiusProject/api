@@ -1,10 +1,10 @@
 package testdata
 
 var TrackFixtures = []map[string]any{
-	{"track_id": 100, "genre": "Electronic", "owner_id": 1, "title": "T1", "is_unlisted": "f", "is_downloadable": "t"},
+	{"track_id": 100, "genre": "Electronic", "owner_id": 1, "title": "T1", "is_unlisted": "f", "is_downloadable": "t", "track_cid": "QmT1TrackCid"},
 	{"track_id": 101, "genre": "Alternative", "owner_id": 1, "title": "T2", "is_unlisted": "f", "is_downloadable": "f"},
 	{"track_id": 102, "genre": "Alternative", "owner_id": 2, "title": "T3", "is_unlisted": "f", "is_downloadable": "f"},
-	{"track_id": 200, "genre": "Electronic", "owner_id": 2, "title": "Culca Canyon", "is_unlisted": "f", "is_downloadable": "f"},
+	{"track_id": 200, "genre": "Electronic", "owner_id": 2, "title": "Culca Canyon", "is_unlisted": "f", "is_downloadable": "f", "track_cid": "QmCulcaCanyonCid"},
 	{"track_id": 201, "genre": "Alternative", "owner_id": 2, "title": "Turkey Time DEMO", "is_unlisted": "t", "is_downloadable": "f"},
 	{"track_id": 202, "genre": "Alternative", "owner_id": 2, "title": "Turkey Time (live)", "is_unlisted": "f", "is_downloadable": "f"},
 	{"track_id": 300, "genre": "Electronic", "owner_id": 3, "title": "Follow Gated Download", "is_unlisted": "f",
@@ -134,6 +134,12 @@ var TrackFixtures = []map[string]any{
 	{"track_id": 702, "genre": "Electronic", "owner_id": 500, "title": "UserTracksTester Track 3", "created_at": "2021-01-04 00:00:00"},
 	// created before other track but later release date
 	{"track_id": 703, "genre": "Electronic", "owner_id": 500, "title": "UserTracksTester Track 2", "release_date": "2021-01-05 00:00:00", "created_at": "2021-01-02 00:00:00"},
+
+	// regression fixtures for v1_users_favorites: deleted track + track
+	// owned by a deactivated user. Both are favorited by user 1 (see
+	// SaveFixtures) and must NOT appear in their /favorites response.
+	{"track_id": 950, "genre": "Electronic", "owner_id": 1, "title": "Deleted Track", "is_unlisted": "f", "is_delete": "t"},
+	{"track_id": 951, "genre": "Electronic", "owner_id": 91, "title": "Track Owned By Deactivated User", "is_unlisted": "f"},
 }
 
 /*

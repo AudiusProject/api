@@ -1,5 +1,9 @@
 -- name: GetTracks :many
-WITH my_follows AS (
+-- MATERIALIZED forces this CTE to compute once per call. Without it the
+-- planner inlines and re-evaluates the follows JOIN aggregate_user + sort
+-- once per row in the followee_reposts/favorites SubPlans, which dominates
+-- runtime for users with many follows.
+WITH my_follows AS MATERIALIZED (
   SELECT
     followee_user_id as user_id,
     follower_count
@@ -9,7 +13,11 @@ WITH my_follows AS (
     AND follower_user_id = @my_id
     AND follows.is_delete = false
   ORDER BY follower_count DESC
-  LIMIT 5000
+  -- The two consumers (followee_reposts, followee_favorites) both
+  -- emit at most 3 rows ordered by follower_count DESC. Caring about
+  -- followees ranked >200 by follower_count is wasted work: they're
+  -- ~always dominated by the top-200 in social-proof terms.
+  LIMIT 200
 )
 SELECT
   t.track_id,
@@ -107,19 +115,24 @@ SELECT
     SELECT json_agg(
       json_build_object(
         'user_id', r.user_id::text,
-        'repost_item_id', repost_item_id::text, -- this is redundant
+        'repost_item_id', r.repost_item_id::text, -- this is redundant
         'repost_type', 'RepostType.track', -- some sqlalchemy bs
         'created_at', r.created_at -- this is not actually present in python response?
       )
     )
     FROM (
-      SELECT user_id, repost_item_id, reposts.created_at
-      FROM reposts
-      JOIN my_follows USING (user_id)
-      WHERE repost_item_id = t.track_id
-        AND repost_type = 'track'
-        AND reposts.is_delete = false
-      ORDER BY follower_count DESC
+      SELECT mf.user_id, lr.repost_item_id, lr.created_at, mf.follower_count
+      FROM my_follows mf
+      CROSS JOIN LATERAL (
+        SELECT reposts.repost_item_id, reposts.created_at
+        FROM reposts
+        WHERE reposts.user_id = mf.user_id
+          AND reposts.repost_item_id = t.track_id
+          AND reposts.repost_type = 'track'
+          AND reposts.is_delete = false
+        LIMIT 1
+      ) lr
+      ORDER BY mf.follower_count DESC
       LIMIT 3
     ) r
   )::jsonb as followee_reposts,
@@ -134,13 +147,18 @@ SELECT
       )
     )
     FROM (
-      SELECT user_id, save_item_id, saves.created_at
-      FROM saves
-      JOIN my_follows USING (user_id)
-      WHERE save_item_id = t.track_id
-        AND save_type = 'track'
-        AND saves.is_delete = false
-      ORDER BY follower_count DESC
+      SELECT mf.user_id, ls.save_item_id, ls.created_at, mf.follower_count
+      FROM my_follows mf
+      CROSS JOIN LATERAL (
+        SELECT saves.save_item_id, saves.created_at
+        FROM saves
+        WHERE saves.user_id = mf.user_id
+          AND saves.save_item_id = t.track_id
+          AND saves.save_type = 'track'
+          AND saves.is_delete = false
+        LIMIT 1
+      ) ls
+      ORDER BY mf.follower_count DESC
       LIMIT 3
     ) r
   )::jsonb as followee_favorites,
@@ -208,7 +226,11 @@ FROM tracks t
 JOIN aggregate_track using (track_id)
 LEFT JOIN aggregate_plays on play_item_id = t.track_id
 LEFT JOIN track_routes on t.track_id = track_routes.track_id and track_routes.is_current = true
-WHERE (is_unlisted = false OR t.owner_id = @my_id OR @include_unlisted::bool = TRUE)
+WHERE (is_unlisted = false OR t.owner_id = @my_id OR @include_unlisted::bool = TRUE
+    OR EXISTS (SELECT 1 FROM track_collaborators tc
+               WHERE tc.track_id = t.track_id
+                 AND tc.collaborator_user_id = @my_id
+                 AND tc.status IN ('pending', 'accepted')))
   AND t.track_id = ANY(@ids::int[])
   AND (t.access_authorities IS NULL
     OR (COALESCE(@authed_wallet, '') <> ''

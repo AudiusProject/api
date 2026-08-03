@@ -30,7 +30,12 @@ func CreateTestDatabase(t *testing.T, template string) *pgxpool.Pool {
 		testMutex.Lock()
 		defer testMutex.Unlock()
 
-		conn, err := pgx.Connect(ctx, "postgres://postgres:example@localhost:21300/"+template)
+		// Connect to the maintenance DB, not the template itself: CREATE DATABASE
+		// ... TEMPLATE fails with SQLSTATE 55006 if any session is connected to the
+		// source. go test runs each package as its own process, so a Go-level mutex
+		// can't prevent one process holding a template connection open while another
+		// clones it.
+		conn, err := pgx.Connect(ctx, "postgres://postgres:example@localhost:21300/postgres")
 		if err != nil {
 			panic(fmt.Errorf("failed to connect to database: %w", err))
 		}
@@ -55,7 +60,7 @@ func CreateTestDatabase(t *testing.T, template string) *pgxpool.Pool {
 			testMutex.Lock()
 			defer testMutex.Unlock()
 
-			conn, err := pgx.Connect(ctx, "postgres://postgres:example@localhost:21300/"+template)
+			conn, err := pgx.Connect(ctx, "postgres://postgres:example@localhost:21300/postgres")
 			require.NoError(t, err)
 			defer conn.Close(ctx)
 

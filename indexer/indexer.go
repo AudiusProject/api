@@ -3,193 +3,215 @@ package indexer
 import (
 	"context"
 	"fmt"
+	"net/http"
+	"strings"
 	"time"
 
 	"api.audius.co/config"
 	dbv1 "api.audius.co/database"
+	"api.audius.co/jobs"
 	"api.audius.co/logging"
 	"connectrpc.com/connect"
-	corev1 "github.com/OpenAudio/go-openaudio/pkg/api/core/v1"
+	corev1connect "github.com/OpenAudio/go-openaudio/pkg/api/core/v1/v1connect"
+	etl "github.com/OpenAudio/go-openaudio/pkg/etl"
+	em "github.com/OpenAudio/go-openaudio/pkg/etl/processors/entity_manager"
 	"github.com/OpenAudio/go-openaudio/pkg/sdk"
-	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgxpool"
 	"go.uber.org/zap"
 	"golang.org/x/sync/errgroup"
 )
 
+// CoreIndexer runs the OpenAudio ETL indexer plus the dependent api/-side
+// background jobs (aggregates, parity jobs, etc.). The block-fetching and
+// entity-manager dispatch loop that previously lived here was a stub that
+// only handled CreateUser — vendoring ETL via
+// `github.com/OpenAudio/go-openaudio/pkg/etl` gives us the full 31-entity-type
+// handler suite, materialized-view refresher, and scheduled-release publisher
+// in one package, kept in sync with upstream releases.
 type CoreIndexer struct {
 	aggregatesCalculator *AggregatesCalculator
+	etlIndexer           *etl.Indexer
 	pool                 dbv1.DbPool
 	openAudioSDK         *sdk.OpenAudioSDK
 	Config               config.Config
 	logger               *zap.Logger
-	closeCh              chan struct{}
 }
 
-const (
-	CoreIndexerCheckpointName = "api_core_indexer_last_height"
-)
+func NewIndexer(cfg config.Config) *CoreIndexer {
+	logger := logging.NewZapLogger(cfg).Named("CoreIndexer")
 
-func NewIndexer(config config.Config) *CoreIndexer {
-
-	connConfig, err := pgxpool.ParseConfig(config.WriteDbUrl)
+	connConfig, err := pgxpool.ParseConfig(cfg.WriteDbUrl)
 	if err != nil {
 		panic(fmt.Errorf("error parsing database URL: %w", err))
 	}
-
 	pool, err := pgxpool.NewWithConfig(context.Background(), connConfig)
 	if err != nil {
 		panic(fmt.Errorf("error connecting to database: %w", err))
 	}
 
-	openAudioSDK := sdk.NewOpenAudioSDK(config.AudiusdURL)
+	openAudioSDK := sdk.NewOpenAudioSDK(cfg.AudiusdURL)
+	aggregatesCalculator := NewAggregatesCalculator(cfg)
 
-	aggregatesCalculator := NewAggregatesCalculator(config)
+	// ETL needs the Connect/gRPC Core client (for block fetching) and a DB URL.
+	// SkipMigrations stays false (default): ETL's migrations are idempotent
+	// against api/'s schema — every migration uses CREATE TABLE IF NOT EXISTS /
+	// ADD COLUMN IF NOT EXISTS, and tracks state in its own `etl_db_migrations`
+	// table separate from api/'s `schema_version`. Verified by applying all 21
+	// current ETL migrations to a fresh DB seeded with api/'s schema: zero
+	// errors, only NOTICE messages for already-existing relations.
+	//
+	// Two optional ETL components are disabled here because they don't fit
+	// api/'s deployment:
+	//   - MaterializedViewRefresh: refreshes mv_dashboard_* views that don't
+	//     exist in api/'s schema (they were a go-openaudio-internal concern).
+	//   - PgNotifyListener: publishes block/play events on a PG NOTIFY channel
+	//     that api/ has no consumer for.
+	// ScheduledReleasePublisher stays enabled — it's the same job apps' Python
+	// `publish_scheduled_releases` celery task did and we want it running.
+	etlCfg := etl.DefaultConfig()
+	etlCfg.DisableMaterializedViewRefresh()
+	etlCfg.DisablePgNotifyListener()
+	etlCfg.ReadDataTypesEnv() // honors OPENAUDIO_ETL_ENTITY_MANAGER_DATA_TYPES if set
+	etlCfg.BlockStreamEnabled = cfg.CoreBlockStreamEnabled
 
-	ci := &CoreIndexer{
-		aggregatesCalculator: aggregatesCalculator,
-		pool:                 pool,
-		openAudioSDK:         openAudioSDK,
-		Config:               config,
-		logger: logging.NewZapLogger(config).
-			Named("CoreIndexer"),
+	etlIndexer := etl.New(openAudioSDK.Core, logger)
+	etlIndexer.SetConfig(etlCfg)
+	etlIndexer.SetDBURL(cfg.WriteDbUrl)
+	etlIndexer.SetCheckReadiness(true)
+
+	// When enabled, source blocks from the CoreService.StreamBlocks gRPC stream
+	// instead of polling GetBlocks. The ETL falls back to polling automatically
+	// if the endpoint doesn't support it, so this is safe to flip on per-env.
+	// Kept separate from the SDK's unary Core client (used for status + fallback).
+	if cfg.CoreBlockStreamEnabled {
+		etlIndexer.SetBlockStreamClient(newCoreStreamClient(cfg.AudiusdURL))
+		logger.Info("etl block source: gRPC stream", zap.String("endpoint", cfg.AudiusdURL))
 	}
 
-	return ci
+	// Restore the pre-vendor setPubkeyForUser behavior via the upstream
+	// post-create hook (go-openaudio #317). Recovers the EIP-712 pubkey
+	// from each User Create tx and writes it to user_pubkeys in the same
+	// DB transaction as the user row.
+	etlIndexer.SetUserCreatedHook(newUserPubkeyHook(cfg, logger))
+
+	// Index the user metadata `events` object (is_mobile_user, referrer)
+	// into user_events on User Create + Update. This is the on-chain
+	// source the mobile-install / referral challenge processors reconcile
+	// from. Registered on both actions since the fields can arrive on a
+	// create or a later profile update.
+	userEventsHook := newUserEventsHook(logger)
+	etlIndexer.SetUserCreatedHook(userEventsHook)
+	etlIndexer.RegisterPostHook(em.EntityTypeUser, em.ActionUpdate, userEventsHook)
+
+	// Write each on-chain play into the `plays` table, restoring the legacy
+	// Python `index_core_plays` behavior. The vendored ETL play processor
+	// only writes `etl_plays` (which nothing in api/ reads); this hook
+	// bridges plays into the `plays` table every downstream consumer (the
+	// on_play trigger's aggregates/milestones/notifications, the challenge
+	// processors, trending, hourly-play-count) depends on. Runs in the same
+	// DB tx as etl_plays, so the rows commit atomically.
+	etlIndexer.RegisterPlaysHook(newPlaysHook(logger))
+
+	return &CoreIndexer{
+		aggregatesCalculator: aggregatesCalculator,
+		etlIndexer:           etlIndexer,
+		pool:                 pool,
+		openAudioSDK:         openAudioSDK,
+		Config:               cfg,
+		logger:               logger,
+	}
 }
 
+// newCoreStreamClient builds a gRPC (HTTP/2) CoreService client for the block
+// stream. connect.WithGRPC requires HTTP/2, which the default transport
+// negotiates over TLS. This is separate from the SDK's unary Core client, which
+// the ETL still uses for status checks and the polling fallback.
+func newCoreStreamClient(audiusdURL string) corev1connect.CoreServiceClient {
+	baseURL := audiusdURL
+	if !strings.HasPrefix(baseURL, "http://") && !strings.HasPrefix(baseURL, "https://") {
+		baseURL = "https://" + baseURL
+	}
+	return corev1connect.NewCoreServiceClient(http.DefaultClient, baseURL, connect.WithGRPC())
+}
+
+// Start runs the ETL indexer alongside the aggregates calculator. Both are
+// long-lived; errgroup propagates the first error (and the ctx cancellation
+// it triggers) to all members.
+//
+// Caveat: etl.Indexer.Run() uses its own internal context.Background() rather
+// than honoring `ctx` — graceful shutdown via ctx cancellation isn't supported
+// by the upstream API today. Process termination (SIGTERM) still works the
+// way Go programs always do, and DB connections drain via pool finalizers on
+// process exit. Acceptable tradeoff to avoid forking ETL.
 func (ci *CoreIndexer) Start(ctx context.Context) error {
 	eg := errgroup.Group{}
 	eg.Go(func() error {
 		return ci.aggregatesCalculator.Start(ctx)
 	})
 	eg.Go(func() error {
-		return ci.run(ctx)
+		ci.logger.Info("Starting ETL indexer")
+		return ci.etlIndexer.Run()
 	})
+	ci.startParityJobs(ctx)
 	return eg.Wait()
 }
 
-func (ci *CoreIndexer) run(ctx context.Context) error {
-	go logging.SyncOnTicks(ctx, ci.logger, time.Second*10)
-	var height int64
-	err := ci.pool.QueryRow(context.Background(), `select last_checkpoint from indexing_checkpoints where tablename = $1`, CoreIndexerCheckpointName).Scan(&height)
-	if err != nil {
-		if err == pgx.ErrNoRows {
-			nodeInfo, err := ci.openAudioSDK.Core.GetNodeInfo(context.Background(), connect.NewRequest(&corev1.GetNodeInfoRequest{}))
-			if err != nil {
-				return err
-			}
-			height = nodeInfo.Msg.CurrentHeight
-		} else {
-			return err
-		}
-	} else {
-		// If we have a checkpoint, we need to start at the next block
-		height++
-	}
+// startParityJobs schedules the periodic jobs that mirror what the legacy
+// Python discovery-provider celery beat used to run. Each job's ScheduleEvery
+// launches its own goroutine and exits when ctx is cancelled, so we don't
+// need to add them to the errgroup — they self-manage.
+//
+// Intervals match apps' celery beat_schedule in src/app.py where applicable.
+// update_delist_statuses isn't in apps' beat (apps invokes it externally),
+// so we pick a conservative default.
+func (ci *CoreIndexer) startParityJobs(ctx context.Context) {
+	jobs.NewHourlyPlayCountsJob(ci.Config, ci.pool).
+		ScheduleEvery(ctx, 30*time.Second)
 
-	ci.logger.Info("Core indexer started", zap.Int64("blockHeight", height))
+	jobs.NewPrunePlaysJob(ci.Config, ci.pool).
+		ScheduleEvery(ctx, 30*time.Second)
 
-	for {
-		select {
-		case <-ctx.Done():
-			ci.logger.Info("Shutting down core indexer")
-			return ctx.Err()
-		default:
-		}
-		height = ci.attemptProcessNextBlock(ctx, height)
-	}
-}
+	jobs.NewUserListeningHistoryJob(ci.Config, ci.pool).
+		ScheduleEvery(ctx, 5*time.Second)
 
-// Attempts to process the next block, returning height+1 if we found and
-// processed a block, or height in all other cases.
-// Will log errors and will snack on panics (yum).
-func (ci *CoreIndexer) attemptProcessNextBlock(ctx context.Context, height int64) (newHeight int64) {
-	// By default, return the same height in case we panic
-	newHeight = height
-	defer func() {
-		if r := recover(); r != nil {
-			ci.logger.Error("panic in attemptProcessNextBlock", zap.Any("panic", r))
-			// Sleep for 5 seconds in case it's a transient error
-			time.Sleep(5 * time.Second)
-		}
-	}()
-	block, err := ci.openAudioSDK.Core.GetBlock(ctx, connect.NewRequest(&corev1.GetBlockRequest{
-		Height: height,
-	}))
-	if err != nil {
-		ci.logger.Error("failed to get block", zap.Error(err))
-		return
-	}
+	// Hourly to match discovery's effective cadence (trending_refresh_seconds
+	// default 3600). The vendored port dropped that gate, so a 10s schedule ran
+	// the multi-minute recompute continuously and IO-starved the block loop.
+	jobs.NewTrendingJob(ci.Config, ci.pool).
+		ScheduleEvery(ctx, 1*time.Hour)
 
-	if block.Msg.Block.Height < 0 {
-		ci.logger.Debug("No new blocks found, sleeping")
-		time.Sleep(1 * time.Second)
-		return
-	}
+	jobs.NewUpdateDelistStatusesJob(ci.Config, ci.pool).
+		ScheduleEvery(ctx, 5*time.Minute)
 
-	err = ci.handleBlock(block.Msg.Block)
-	if err != nil {
-		ci.logger.Error("failed to handle block", zap.Error(err))
-		return
-	}
+	// Drift backstop: recompute aggregate counts from source tables to correct
+	// any hot-path trigger delta divergence. 10m matches discovery's
+	// update_aggregates celery cadence. Column-disjoint from the score-only
+	// AggregatesCalculator, so they can run concurrently.
+	jobs.NewReconcileAggregatesJob(ci.Config, ci.pool).
+		ScheduleEvery(ctx, 10*time.Minute)
 
-	newHeight = height + 1
-	return
-}
+	// Reconcile derived challenge state from source tables. Per-challenge
+	// scanners live in api/jobs/challenges/.
+	jobs.NewIndexChallengesJob(ci.Config, ci.pool).
+		ScheduleEvery(ctx, 30*time.Second)
 
-func (ci *CoreIndexer) handleBlock(block *corev1.Block) error {
-	dbTx, err := ci.pool.Begin(context.Background())
-	if err != nil {
-		return err
-	}
-	defer dbTx.Rollback(context.Background())
+	// Time-based notifications that the legacy Python beat produced. Unlike
+	// the event-driven notifications (handled by DB triggers), these fire on
+	// a timer because they depend on elapsed time, not an indexed entity.
+	jobs.NewEngagementNotificationsJob(ci.Config, ci.pool).
+		ScheduleEvery(ctx, 10*time.Minute)
 
-	for _, tx := range block.Transactions {
-		if txData := tx.GetTransaction(); txData != nil {
-			logger := ci.logger.With(zap.String("txHash", tx.GetHash()), zap.Int64("blockHeight", block.Height))
-			switch txData.GetTransaction().(type) {
-			case *corev1.SignedTransaction_ManageEntity:
-				em := txData.GetManageEntity()
-				if em == nil {
-					ci.logger.Error("ManageEntity transaction with empty data", zap.Any("tx", tx))
-					continue
-				}
-				err := ci.handleManageEntity(dbTx, logger, em)
-				if err != nil {
-					logger.Error("Error processing manage entity tx", zap.Error(err))
-					continue
-				}
-			}
-		}
-	}
-	_, err = dbTx.Exec(context.Background(), `
-	insert into indexing_checkpoints values ($1, $2)
-	on conflict (tablename) do update set last_checkpoint = excluded.last_checkpoint
-	`, CoreIndexerCheckpointName, block.Height)
+	jobs.NewListenStreakReminderJob(ci.Config, ci.pool).
+		ScheduleEvery(ctx, 10*time.Second)
 
-	if err != nil {
-		return err
-	}
+	jobs.NewRemixContestNotificationsJob(ci.Config, ci.pool).
+		ScheduleEvery(ctx, 30*time.Second)
 
-	err = dbTx.Commit(context.Background())
-	if err != nil {
-		return err
-	}
-
-	ci.logger.Debug("Indexed block", zap.Int64("blockHeight", block.Height))
-
-	return nil
-}
-
-func (ci *CoreIndexer) handleManageEntity(dbTx dbv1.DBTX, logger *zap.Logger, em *corev1.ManageEntityLegacy) error {
-	operation := em.Action + em.EntityType
-	switch operation {
-	case "CreateUser":
-		return ci.createUser(dbTx, logger, em)
-	default:
-		return nil
-	}
+	// Backfill missing track bpm / musical_key from content-node audio
+	// analyses. Mirrors apps' repair_audio_analyses celery task, whose beat
+	// schedule ran every 3 minutes. Needs the SDK for content-node discovery.
+	jobs.NewRepairAudioAnalysesJob(ci.Config, ci.pool, ci.openAudioSDK).
+		ScheduleEvery(ctx, 3*time.Minute)
 }
 
 func (ci *CoreIndexer) Close() {

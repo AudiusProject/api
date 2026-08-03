@@ -29,7 +29,7 @@ func (app *ApiServer) v1UsersSalesAggregate(c *fiber.Ctx) error {
 			content_type,
 			COUNT(buyer_user_id) as purchase_count
 		FROM
-			usdc_purchases
+			v_usdc_purchases
 		WHERE
 			seller_user_id = @userId
 		GROUP BY

@@ -1,10 +1,9 @@
 INSERT INTO "blocks"
-("blockhash", "parenthash", "number", "is_current")
+("blockhash", "parenthash", "number")
 VALUES
 (
     '0x0',
     NULL,
-    0,
-    TRUE
+    0
 )
 on conflict do nothing;

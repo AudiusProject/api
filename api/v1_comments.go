@@ -23,29 +23,30 @@ type GetCommentsParams struct {
 }
 
 type CreateCommentRequest struct {
-	EntityType      string `json:"entityType" validate:"required,oneof=Track"`
+	EntityType      string `json:"entityType" validate:"required,oneof=Track FanClub Event"`
 	EntityId        int    `json:"entityId" validate:"required,min=1"`
 	Body            string `json:"body" validate:"required,max=500"`
 	CommentId       *int   `json:"commentId,omitempty" validate:"omitempty,min=1"`
 	ParentId        *int   `json:"parentId,omitempty" validate:"omitempty,min=1"`
 	TrackTimestampS *int   `json:"trackTimestampS,omitempty" validate:"omitempty,min=0"`
 	Mentions        []int  `json:"mentions,omitempty" validate:"omitempty,dive,min=1"`
+	VideoUrl        string `json:"videoUrl,omitempty" validate:"omitempty,max=2048"`
 }
 
 type UpdateCommentRequest struct {
-	EntityType string `json:"entityType" validate:"required,oneof=Track"`
+	EntityType string `json:"entityType" validate:"required,oneof=Track FanClub Event"`
 	EntityId   int    `json:"entityId" validate:"required,min=1"`
 	Body       string `json:"body" validate:"required,max=500"`
 	Mentions   []int  `json:"mentions,omitempty" validate:"omitempty,dive,min=1"`
 }
 
 type ReactCommentRequest struct {
-	EntityType string `json:"entityType" validate:"required,oneof=Track"`
+	EntityType string `json:"entityType" validate:"required,oneof=Track FanClub Event"`
 	EntityId   int    `json:"entityId" validate:"required,min=1"`
 }
 
 type PinCommentRequest struct {
-	EntityType string `json:"entityType" validate:"required,oneof=Track"`
+	EntityType string `json:"entityType" validate:"required,oneof=Track FanClub Event"`
 	EntityId   int    `json:"entityId" validate:"required,min=1"`
 }
 
@@ -174,6 +175,9 @@ func (app *ApiServer) postV1Comment(c *fiber.Ctx) error {
 			mentions = mentions[:10]
 		}
 		metadataMap["mentions"] = mentions
+	}
+	if req.VideoUrl != "" {
+		metadataMap["video_url"] = req.VideoUrl
 	}
 
 	metadataObj := map[string]interface{}{

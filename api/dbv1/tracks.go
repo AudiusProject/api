@@ -10,22 +10,30 @@ import (
 
 type TracksParams struct {
 	GetTracksParams
-	SolanaWallet string
 }
+
+// IncludeID3TagsCtxKey is the request-context key used to opt in to ID3 tag
+// query params on generated stream/preview URLs. The id3 middleware sets it
+// from the `?id3=true` query param.
+const IncludeID3TagsCtxKey = "includeID3Tags"
 
 // Track is the standard track type containing all track data
 type Track struct {
 	GetTracksRow
 
-	Permalink    string         `json:"permalink"`
-	IsStreamable bool           `json:"is_streamable"`
-	Artwork      *SquareImage   `json:"artwork"`
-	Stream       *MediaLink     `json:"stream"`
-	Download     *MediaLink     `json:"download"`
-	Preview      *MediaLink     `json:"preview"`
-	UserID       trashid.HashId `json:"user_id"`
-	User         User       `json:"user"`
-	Access       Access         `json:"access"`
+	Permalink     string         `json:"permalink"`
+	IsStreamable  bool           `json:"is_streamable"`
+	Artwork       *SquareImage   `json:"artwork"`
+	Stream        *MediaLink     `json:"stream"`
+	Download      *MediaLink     `json:"download"`
+	Preview       *MediaLink     `json:"preview"`
+	UserID        trashid.HashId `json:"user_id"`
+	User          User           `json:"user"`
+	Collaborators []User         `json:"collaborators"`
+	// PendingCollaborators is populated only on the requester's own tracks (so
+	// the owner's edit form can preserve still-pending invites); empty otherwise.
+	PendingCollaborators []User `json:"pending_collaborators"`
+	Access               Access `json:"access"`
 
 	FolloweeReposts    []*FolloweeRepost   `json:"followee_reposts"`
 	FolloweeFavorites  []*FolloweeFavorite `json:"followee_favorites"`
@@ -35,12 +43,14 @@ type Track struct {
 }
 
 func (q *Queries) TracksKeyed(ctx context.Context, arg TracksParams) (map[int32]Track, error) {
-	rawTracks, err := q.GetTracks(ctx, GetTracksParams(arg.GetTracksParams))
+	rawTracks, err := q.GetTracks(ctx, arg.GetTracksParams)
 	if err != nil {
 		return nil, err
 	}
 
 	userIds := []int32{}
+	trackIds := make([]int32, 0, len(rawTracks))
+	ownerByTrack := make(map[int32]int32, len(rawTracks))
 	collectSplitUserIds := func(usage *AccessGate) {
 		if usage == nil || usage.UsdcPurchase == nil {
 			return
@@ -52,6 +62,8 @@ func (q *Queries) TracksKeyed(ctx context.Context, arg TracksParams) (map[int32]
 
 	for _, rawTrack := range rawTracks {
 		userIds = append(userIds, rawTrack.UserID)
+		trackIds = append(trackIds, rawTrack.TrackID)
+		ownerByTrack[rawTrack.TrackID] = rawTrack.UserID
 
 		var remixOf RemixOf
 		json.Unmarshal(rawTrack.RemixOf, &remixOf)
@@ -61,6 +73,37 @@ func (q *Queries) TracksKeyed(ctx context.Context, arg TracksParams) (map[int32]
 
 		collectSplitUserIds(rawTrack.StreamConditions)
 		collectSplitUserIds(rawTrack.DownloadConditions)
+	}
+
+	// Fetch accepted + pending collaborators for these tracks in one query, and
+	// fold their user IDs into the bulk user fetch below so each is fully
+	// resolved. Accepted are embedded on every response; pending are embedded
+	// only on the requester's own tracks (for the owner's edit form), so their
+	// user IDs are only resolved for owned tracks.
+	myID := arg.MyID.(int32)
+	ownedTracks := map[int32]bool{}
+	for _, rawTrack := range rawTracks {
+		if rawTrack.UserID == myID {
+			ownedTracks[rawTrack.TrackID] = true
+		}
+	}
+	collaboratorRows, err := q.GetTrackCollaborators(ctx, trackIds)
+	if err != nil {
+		return nil, err
+	}
+	collaboratorsByTrack := map[int32][]int32{}
+	pendingByTrack := map[int32][]int32{}
+	for _, cr := range collaboratorRows {
+		switch cr.Status {
+		case "accepted":
+			collaboratorsByTrack[cr.TrackID] = append(collaboratorsByTrack[cr.TrackID], cr.CollaboratorUserID)
+			userIds = append(userIds, cr.CollaboratorUserID)
+		case "pending":
+			if ownedTracks[cr.TrackID] {
+				pendingByTrack[cr.TrackID] = append(pendingByTrack[cr.TrackID], cr.CollaboratorUserID)
+				userIds = append(userIds, cr.CollaboratorUserID)
+			}
+		}
 	}
 
 	userMap, err := q.UsersKeyed(ctx, GetUsersParams{
@@ -84,8 +127,9 @@ func (q *Queries) TracksKeyed(ctx context.Context, arg TracksParams) (map[int32]
 		userPtrMap[id] = &userCopy
 	}
 
-	// Get bulk access for all tracks
-	accessMap, err := q.GetBulkTrackAccess(ctx, arg.MyID.(int32), trackPtrs, userPtrMap, arg.SolanaWallet)
+	// Read solana wallet from context (set by middleware) for token gate checks
+	solanaWallet, _ := ctx.Value("solanaWallet").(string)
+	accessMap, err := q.GetBulkTrackAccess(ctx, arg.MyID.(int32), trackPtrs, userPtrMap, solanaWallet)
 	if err != nil {
 		return nil, err
 	}
@@ -125,16 +169,40 @@ func (q *Queries) TracksKeyed(ctx context.Context, arg TracksParams) (map[int32]
 			}
 		}
 
+		// Resolve accepted collaborators (order preserved from the query).
+		collaborators := []User{}
+		for _, cid := range uniqueCollaboratorIDs(collaboratorsByTrack[rawTrack.TrackID], ownerByTrack[rawTrack.TrackID]) {
+			if cu, ok := userMap[cid]; ok {
+				collaborators = append(collaborators, cu)
+			}
+		}
+
+		// Resolve pending collaborators (only present for the owner's own tracks).
+		pendingCollaborators := []User{}
+		for _, cid := range uniqueCollaboratorIDs(pendingByTrack[rawTrack.TrackID], ownerByTrack[rawTrack.TrackID]) {
+			if cu, ok := userMap[cid]; ok {
+				pendingCollaborators = append(pendingCollaborators, cu)
+			}
+		}
+
 		// Get access from the bulk access map
 		access := accessMap[rawTrack.TrackID]
 
-		id3Tags := &Id3Tags{
-			Title:  rawTrack.Title.String,
-			Artist: user.Name.String,
+		var id3Tags *Id3Tags
+		if includeID3Tags, _ := ctx.Value(IncludeID3TagsCtxKey).(bool); includeID3Tags {
+			id3Tags = &Id3Tags{
+				Title:  rawTrack.Title.String,
+				Artist: user.Name.String,
+			}
 		}
 
+		// A track row can have empty cid columns (e.g. an upload-v2 row whose
+		// track_cid/orig_file_cid backfill never ran). Signing an empty cid
+		// produces a content-node URL that is guaranteed to 404, so leave the
+		// media link nil instead and let the endpoints report the track as
+		// unavailable.
 		var stream *MediaLink
-		if access.Stream {
+		if access.Stream && rawTrack.TrackCid.String != "" {
 			stream, err = mediaLink(rawTrack.TrackCid.String, rawTrack.TrackID, arg.MyID.(int32), id3Tags)
 			if err != nil {
 				return nil, err
@@ -147,9 +215,11 @@ func (q *Queries) TracksKeyed(ctx context.Context, arg TracksParams) (map[int32]
 			if cid == "" {
 				cid = rawTrack.TrackCid.String
 			}
-			download, err = mediaLink(cid, rawTrack.TrackID, arg.MyID.(int32), nil)
-			if err != nil {
-				return nil, err
+			if cid != "" {
+				download, err = mediaLink(cid, rawTrack.TrackID, arg.MyID.(int32), nil)
+				if err != nil {
+					return nil, err
+				}
 			}
 		}
 
@@ -162,21 +232,23 @@ func (q *Queries) TracksKeyed(ctx context.Context, arg TracksParams) (map[int32]
 		}
 
 		track := Track{
-			GetTracksRow:       rawTrack,
-			IsStreamable:       !rawTrack.IsDelete && !user.IsDeactivated,
-			Permalink:          fmt.Sprintf("/%s/%s", user.Handle.String, rawTrack.Slug.String),
-			Artwork:            squareImageStruct(rawTrack.CoverArtSizes, rawTrack.CoverArt),
-			Stream:             stream,
-			Download:           download,
-			Preview:            preview,
-			User:               user,
-			UserID:             user.ID,
-			FolloweeFavorites:  fullFolloweeFavorites(rawTrack.FolloweeFavorites),
-			FolloweeReposts:    fullFolloweeReposts(rawTrack.FolloweeReposts),
-			RemixOf:            fullRemixOf,
-			StreamConditions:   rawTrack.StreamConditions,
-			DownloadConditions: rawTrack.DownloadConditions,
-			Access:             access,
+			GetTracksRow:         rawTrack,
+			IsStreamable:         !rawTrack.IsDelete && !user.IsDeactivated,
+			Permalink:            fmt.Sprintf("/%s/%s", user.Handle.String, rawTrack.Slug.String),
+			Artwork:              squareImageStruct(rawTrack.CoverArtSizes, rawTrack.CoverArt),
+			Stream:               stream,
+			Download:             download,
+			Preview:              preview,
+			User:                 user,
+			UserID:               user.ID,
+			Collaborators:        collaborators,
+			PendingCollaborators: pendingCollaborators,
+			FolloweeFavorites:    fullFolloweeFavorites(rawTrack.FolloweeFavorites),
+			FolloweeReposts:      fullFolloweeReposts(rawTrack.FolloweeReposts),
+			RemixOf:              fullRemixOf,
+			StreamConditions:     rawTrack.StreamConditions,
+			DownloadConditions:   rawTrack.DownloadConditions,
+			Access:               access,
 		}
 		trackMap[rawTrack.TrackID] = track
 	}
@@ -200,4 +272,21 @@ func (q *Queries) Tracks(ctx context.Context, arg TracksParams) ([]Track, error)
 	}
 
 	return tracks, nil
+}
+
+func uniqueCollaboratorIDs(collaboratorIDs []int32, ownerID int32) []int32 {
+	if len(collaboratorIDs) == 0 {
+		return nil
+	}
+
+	seen := map[int32]struct{}{ownerID: {}}
+	uniqueIDs := make([]int32, 0, len(collaboratorIDs))
+	for _, collaboratorID := range collaboratorIDs {
+		if _, ok := seen[collaboratorID]; ok {
+			continue
+		}
+		seen[collaboratorID] = struct{}{}
+		uniqueIDs = append(uniqueIDs, collaboratorID)
+	}
+	return uniqueIDs
 }

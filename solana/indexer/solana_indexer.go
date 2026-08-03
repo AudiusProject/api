@@ -55,9 +55,10 @@ func New(config config.Config) *SolanaIndexer {
 
 	// The min write pool size is set to the number of workers
 	// plus 1 for the connection that listens for artist_coins changes,
+	// plus 1 for the purchase revalidator's LISTEN connection,
 	// and add 10 as a buffer.
 	workerCount := int32(config.SolanaIndexerWorkers)
-	connConfig.MaxConns = workerCount + 1 + 10
+	connConfig.MaxConns = workerCount + 2 + 10
 
 	pool, err := pgxpool.NewWithConfig(context.Background(), connConfig)
 	if err != nil {
@@ -122,6 +123,14 @@ func (s *SolanaIndexer) Start(ctx context.Context) error {
 	statsJob.ScheduleEvery(statsCtx, 15*time.Minute)
 	go statsJob.Run(statsCtx)
 
+	// On-chain replacement for CoinStatsJob, running in shadow: it writes
+	// artist_coin_stats_onchain so its values can be validated against Birdeye
+	// (see artist_coin_stats_comparison) before cutover.
+	statsOnchainJob := jobs.NewCoinStatsOnchainJob(s.config, s.pool)
+	statsOnchainCtx := context.WithoutCancel(ctx)
+	statsOnchainJob.ScheduleEvery(statsOnchainCtx, 15*time.Minute)
+	go statsOnchainJob.Run(statsOnchainCtx)
+
 	audioPriceJob := jobs.NewAudioPriceJob(s.config, s.pool)
 	priceCtx := context.WithoutCancel(ctx)
 	audioPriceJob.ScheduleEvery(priceCtx, 5*time.Minute)
@@ -136,6 +145,29 @@ func (s *SolanaIndexer) Start(ctx context.Context) error {
 	balanceHistoryCtx := context.WithoutCancel(ctx)
 	balanceHistoryJob.ScheduleEvery(balanceHistoryCtx, 1*time.Hour)
 	go balanceHistoryJob.Run(balanceHistoryCtx)
+
+	backfillers := make(map[string]jobs.Backfillable)
+	for name, idx := range s.indexers {
+		if bf, ok := idx.(jobs.Backfillable); ok {
+			backfillers[name] = bf
+		}
+	}
+	if len(backfillers) > 0 {
+		gapJob := jobs.NewCheckpointGapBackfillJob(s.config, jobs.CheckpointGapBackfillJobConfig{
+			Pool:        s.pool,
+			Backfillers: backfillers,
+		})
+		gapCtx := context.WithoutCancel(ctx)
+		gapJob.ScheduleEvery(gapCtx, 1*time.Hour)
+	}
+
+	reclaimRentJob := jobs.NewReclaimRentJob(s.config, s.pool)
+	reclaimRentCtx := context.WithoutCancel(ctx)
+	reclaimRentLocation, err := time.LoadLocation("America/Los_Angeles")
+	if err != nil {
+		panic(fmt.Errorf("failed to load America/Los_Angeles timezone: %w", err))
+	}
+	reclaimRentJob.ScheduleDailyAt(reclaimRentCtx, 12, 0, reclaimRentLocation)
 
 	for _, indexer := range s.indexers {
 		go indexer.Start(ctx)
@@ -172,6 +204,7 @@ func (s *SolanaIndexer) ProcessRetryQueue(ctx context.Context) {
 	offset := 0
 	logger := s.logger.Named("RetryQueue")
 	count := 0
+	failedByIndexer := map[string]int{}
 	start := time.Now()
 	logger.Debug("starting to process retry queue...")
 	for {
@@ -193,7 +226,8 @@ func (s *SolanaIndexer) ProcessRetryQueue(ctx context.Context) {
 			}
 			err := indexer.HandleUpdate(ctx, item.UpdateMessage.SubscribeUpdate)
 			if err != nil {
-				logger.Error("failed to retry", zap.String("indexer", locker.NAME), zap.Error(err))
+				logger.Debug("retry queue item failed", zap.String("indexer", item.Indexer), zap.Error(err))
+				failedByIndexer[item.Indexer]++
 				offset++
 			} else {
 				err = common.DeleteFromRetryQueue(ctx, s.pool, item.ID)
@@ -208,6 +242,12 @@ func (s *SolanaIndexer) ProcessRetryQueue(ctx context.Context) {
 	if count == 0 {
 		logger.Debug("no unprocessed transactions to retry")
 		return
+	}
+
+	if len(failedByIndexer) > 0 {
+		logger.Warn("retry queue items failed",
+			zap.Int("failed", offset),
+			zap.Any("failed_by_indexer", failedByIndexer))
 	}
 
 	logger.Info("finished processing retry queue",

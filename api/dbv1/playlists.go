@@ -69,10 +69,11 @@ func (q *Queries) PlaylistsKeyed(ctx context.Context, arg PlaylistsParams) (map[
 
 	// fetch users + tracks in parallel
 	loaded, err := q.Parallel(ctx, ParallelParams{
-		UserIds:      userIds,
-		TrackIds:     trackIds,
-		MyID:         arg.MyID.(int32),
-		AuthedWallet: arg.AuthedWallet,
+		UserIds:         userIds,
+		TrackIds:        trackIds,
+		MyID:            arg.MyID.(int32),
+		AuthedWallet:    arg.AuthedWallet,
+		IncludeUnlisted: true,
 	})
 	if err != nil {
 		return nil, err

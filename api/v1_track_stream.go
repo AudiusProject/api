@@ -18,12 +18,6 @@ func (app *ApiServer) v1TrackStream(c *fiber.Ctx) error {
 		},
 	}
 
-	// If a verified Solana wallet is present, pass it through so
-	// GetBulkTrackAccess can check token gate balances for it.
-	if solWallet := app.tryGetSolanaWallet(c); solWallet != "" {
-		params.SolanaWallet = solWallet
-	}
-
 	tracks, err := app.queries.Tracks(c.Context(), params)
 	if err != nil {
 		return err
@@ -36,6 +30,11 @@ func (app *ApiServer) v1TrackStream(c *fiber.Ctx) error {
 	track := tracks[0]
 
 	if track.Access.Stream {
+		// Stream is nil when the track row has no cid to sign (e.g. an
+		// upload-v2 row that never got its track_cid backfilled).
+		if track.Stream == nil {
+			return fiber.NewError(fiber.StatusNotFound, "track audio is unavailable")
+		}
 		return app.redirectToStream(c, track.Stream)
 	}
 

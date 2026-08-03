@@ -53,15 +53,17 @@ func (app *ApiServer) v1TrackAccessInfo(c *fiber.Ctx) error {
 	myId := app.getMyId(c)
 	trackId := c.Locals("trackId").(int)
 
-	// Get the track with extended information
-	tracks, err := app.queries.Tracks(c.Context(), dbv1.TracksParams{
+	params := dbv1.TracksParams{
 		GetTracksParams: dbv1.GetTracksParams{
 			MyID:            myId,
 			Ids:             []int32{int32(trackId)},
 			AuthedWallet:    app.tryGetAuthedWallet(c),
 			IncludeUnlisted: true,
 		},
-	})
+	}
+
+	// Get the track with extended information (Solana wallet for token gates comes from context via middleware)
+	tracks, err := app.queries.Tracks(c.Context(), params)
 	if err != nil {
 		return err
 	}

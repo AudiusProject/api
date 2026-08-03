@@ -68,7 +68,7 @@ begin
                 from notification
                 where
                 type = 'reward_in_cooldown' and
-                new.user_id = any(user_ids) and
+                user_ids @> ARRAY[new.user_id] and
                 timestamp >= (new.completed_at - interval '1 hour')
                 limit 1;
 

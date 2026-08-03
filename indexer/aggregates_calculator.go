@@ -20,6 +20,8 @@ type AggregatesCalculator struct {
 	updateAggregatesJob *jobs.UpdateAggregatesJob
 }
 
+const aggregateScoreUpdateInterval = 10 * time.Minute
+
 func NewAggregatesCalculator(config config.Config) *AggregatesCalculator {
 	logger := logging.NewZapLogger(config).Named("AggregatesCalculator")
 	readPool, err := dbv1.NewDBPools([]string{config.ReadDbUrl}, logger, config.Env, config.ZapLevel)
@@ -46,7 +48,8 @@ func NewAggregatesCalculator(config config.Config) *AggregatesCalculator {
 func (a *AggregatesCalculator) Start(ctx context.Context) error {
 	a.logger.Info("Starting aggregates calculator")
 	go logging.SyncOnTicks(ctx, a.logger, time.Second*10)
-	// This job runs in a continous loop until the context is cancelled.
+	// This job scans all scoreable users. Keep the cadence bounded so a
+	// completed full pass does not immediately start another full pass.
 	for {
 		select {
 		case <-ctx.Done():
@@ -54,6 +57,20 @@ func (a *AggregatesCalculator) Start(ctx context.Context) error {
 			return ctx.Err()
 		default:
 			a.updateAggregatesJob.Run(ctx)
+		}
+
+		timer := time.NewTimer(aggregateScoreUpdateInterval)
+		select {
+		case <-ctx.Done():
+			if !timer.Stop() {
+				select {
+				case <-timer.C:
+				default:
+				}
+			}
+			a.logger.Info("Shutting down aggregates calculator")
+			return ctx.Err()
+		case <-timer.C:
 		}
 	}
 }

@@ -62,7 +62,10 @@ func (app *ApiServer) v1ChallengesUndisbursed(c *fiber.Ctx) error {
 	FROM user_challenges
 	JOIN challenges ON challenges.id = user_challenges.challenge_id
 	JOIN users ON users.user_id = user_challenges.user_id
-	LEFT JOIN challenge_disbursements ON
+	-- Anti-join raw sol_reward_disbursements by (challenge_id, specifier), not the
+	-- v_challenge_disbursements view: a paid specifier must never be offered for claim,
+	-- and the view drops disbursements whose recipient wallet doesn't resolve to a user.
+	LEFT JOIN sol_reward_disbursements AS challenge_disbursements ON
 		challenge_disbursements.challenge_id = user_challenges.challenge_id
 		AND challenge_disbursements.specifier = user_challenges.specifier
 	WHERE challenge_disbursements.challenge_id IS NULL

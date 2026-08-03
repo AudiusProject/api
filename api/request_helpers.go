@@ -140,7 +140,7 @@ func (app *ApiServer) getSignerFromApiAccessKey(ctx context.Context, apiAccessKe
 	err := app.pool.QueryRow(ctx, `
 		SELECT aak.api_key, ak.api_secret
 		FROM api_access_keys aak
-		JOIN api_keys ak ON LOWER(ak.api_key) = LOWER(aak.api_key)
+		JOIN api_keys ak ON ak.api_key = aak.api_key
 		WHERE aak.api_access_key = $1 AND aak.is_active = true
 	`, apiAccessKey).Scan(&parentApiKey, &apiSecret)
 	if err == nil && apiSecret != "" {
@@ -181,10 +181,11 @@ func (app *ApiServer) getSignerFromOAuthToken(c *fiber.Ctx, token string) *Signe
 	}
 
 	// Look up api_secret for the client_id (developer app address = api_key)
+	clientID := strings.ToLower(entry.ClientID)
 	var apiSecret string
 	err := app.pool.QueryRow(c.Context(), `
-		SELECT api_secret FROM api_keys WHERE LOWER(api_key) = LOWER($1)
-	`, entry.ClientID).Scan(&apiSecret)
+		SELECT api_secret FROM api_keys WHERE api_key = $1
+	`, clientID).Scan(&apiSecret)
 	if err != nil || apiSecret == "" {
 		return nil
 	}
@@ -202,7 +203,7 @@ func (app *ApiServer) getSignerFromOAuthToken(c *fiber.Ctx, token string) *Signe
 	}
 
 	return &Signer{
-		Address:    strings.ToLower(entry.ClientID),
+		Address:    clientID,
 		PrivateKey: privateKey,
 	}
 }

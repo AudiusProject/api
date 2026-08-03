@@ -29,6 +29,7 @@ type CoinRewardParams struct {
 }
 
 func (app *ApiServer) v1CoinsPostRedeem(c *fiber.Ctx) error {
+	logger := app.requestLogger(c)
 	// #region Validate Params
 	if app.config.LaunchpadDeterministicSecret == "" {
 		return fiber.NewError(fiber.StatusInternalServerError, "Claim authority base is not configured")
@@ -163,7 +164,9 @@ func (app *ApiServer) v1CoinsPostRedeem(c *fiber.Ctx) error {
 		redeemCode = coinTicker
 		// Check for challenge disbursement for the given code/userId
 		var count int
-		err := app.writePool.QueryRow(c.Context(), `SELECT count(*) FROM challenge_disbursements WHERE challenge_id = @code AND specifier = @specifier LIMIT 1;`, pgx.NamedArgs{
+		// Existence check against the raw table, not the view: a prior redemption must
+		// block a second one even if its recipient wallet doesn't resolve to a user.
+		err := app.writePool.QueryRow(c.Context(), `SELECT count(*) FROM sol_reward_disbursements WHERE challenge_id = @code AND specifier = @specifier LIMIT 1;`, pgx.NamedArgs{
 			"code":      redeemCode,
 			"specifier": specifier,
 		}).Scan(&count)
@@ -332,6 +335,14 @@ func (app *ApiServer) v1CoinsPostRedeem(c *fiber.Ctx) error {
 		})
 
 		if err != nil {
+			logger.Warn("validator attestation failed",
+				zap.String("validator", validator.Endpoint),
+				zap.String("validatorOwner", validator.Owner),
+				zap.String("handle", userHandle),
+				zap.String("rewardId", redeemCode),
+				zap.String("specifier", specifier),
+				zap.Error(err),
+			)
 			continue
 		}
 
@@ -342,6 +353,15 @@ func (app *ApiServer) v1CoinsPostRedeem(c *fiber.Ctx) error {
 		}
 		signatureBytes, err := hex.DecodeString(strings.TrimPrefix(signature, "0x"))
 		if err != nil {
+			logger.Warn("validator attestation signature decode failed",
+				zap.String("validator", validator.Endpoint),
+				zap.String("validatorOwner", validator.Owner),
+				zap.String("handle", userHandle),
+				zap.String("rewardId", redeemCode),
+				zap.String("specifier", specifier),
+				zap.String("attestation", response.Attestation),
+				zap.Error(err),
+			)
 			continue
 		}
 
@@ -375,7 +395,7 @@ func (app *ApiServer) v1CoinsPostRedeem(c *fiber.Ctx) error {
 	if err != nil {
 		var instrErr *spl.InstructionError
 		if errors.As(err, &instrErr) {
-			app.logger.Error("failed to claim challenge reward. transaction failed to send.",
+			logger.Error("failed to claim challenge reward. transaction failed to send.",
 				zap.String("handle", userHandle),
 				zap.String("rewardId", "code"),
 				zap.String("specifier", specifier),
@@ -384,7 +404,7 @@ func (app *ApiServer) v1CoinsPostRedeem(c *fiber.Ctx) error {
 				zap.Error(err),
 			)
 		} else {
-			app.logger.Error("failed to claim challenge reward.",
+			logger.Error("failed to claim challenge reward.",
 				zap.String("handle", userHandle),
 				zap.String("rewardId", "code"),
 				zap.String("specifier", specifier),

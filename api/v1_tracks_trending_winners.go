@@ -43,7 +43,7 @@ func (app *ApiServer) v1TracksTrendingWinners(c *fiber.Ctx) error {
 
 func (app *ApiServer) getTrendingWinnersIds(c *fiber.Ctx, weekParam string) ([]int32, error) {
 	args := pgx.NamedArgs{
-		"type": "TrendingType.TRACKS",
+		"type": "TRACKS",
 	}
 
 	var weekFilter string

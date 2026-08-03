@@ -68,12 +68,10 @@ func testAppWithFixtures(t *testing.T) *ApiServer {
 	INSERT INTO public.blocks (
 		blockhash,
 		parenthash,
-		is_current,
 		number
 	) VALUES (
 		'block1',   -- blockhash
 		'block0',   -- parenthash
-		true,
 		101
 	);
 	`)
@@ -83,7 +81,12 @@ func testAppWithFixtures(t *testing.T) *ApiServer {
 	database.SeedTable(app.pool.Replicas[0], "aggregate_track", testdata.AggregateTrack)
 	database.SeedTable(app.pool.Replicas[0], "aggregate_user", testdata.AggregateUser)
 	database.SeedTable(app.pool.Replicas[0], "aggregate_user_tips", testdata.AggregateUserTips)
-	database.SeedTable(app.pool.Replicas[0], "audio_transactions_history", testdata.AudioTransactionsHistory)
+	database.SeedTable(app.pool.Replicas[0], "sol_claimable_accounts", testdata.SolClaimableAccountsAudioFixtures)
+	database.SeedTable(app.pool.Replicas[0], "sol_claimable_accounts", testdata.SolClaimableAccountsUsdcFixtures)
+	database.SeedTable(app.pool.Replicas[0], "sol_token_account_balance_changes", testdata.SolTokenAccountBalanceChangesAudioFixtures)
+	database.SeedTable(app.pool.Replicas[0], "sol_token_account_balance_changes", testdata.SolTokenAccountBalanceChangesUsdcFixtures)
+	database.SeedTable(app.pool.Replicas[0], "sol_claimable_account_transfers", testdata.SolClaimableAccountTransfersAudioFixtures)
+	database.SeedTable(app.pool.Replicas[0], "sol_claimable_account_transfers", testdata.SolClaimableAccountTransfersUsdcFixtures)
 	database.SeedTable(app.pool.Replicas[0], "challenges", testdata.Challenges)
 	database.SeedTable(app.pool.Replicas[0], "challenge_listen_streak", testdata.ChallengeListenStreak)
 	database.SeedTable(app.pool.Replicas[0], "comments", testdata.Comment)
@@ -91,6 +94,7 @@ func testAppWithFixtures(t *testing.T) *ApiServer {
 	database.SeedTable(app.pool.Replicas[0], "associated_wallets", testdata.ConnectedWallets)
 	database.SeedTable(app.pool.Replicas[0], "developer_apps", testdata.DeveloperApps)
 	database.SeedTable(app.pool.Replicas[0], "events", testdata.Events)
+	database.SeedTable(app.pool.Replicas[0], "event_routes", testdata.EventRoutes)
 	database.SeedTable(app.pool.Replicas[0], "follows", testdata.Follows)
 	database.SeedTable(app.pool.Replicas[0], "grants", testdata.Grants)
 	database.SeedTable(app.pool.Replicas[0], "playlists", testdata.Playlists)
@@ -102,11 +106,12 @@ func testAppWithFixtures(t *testing.T) *ApiServer {
 	database.SeedTable(app.pool.Replicas[0], "track_trending_scores", testdata.TrackTrendingScoresFixtures)
 	database.SeedTable(app.pool.Replicas[0], "trending_results", testdata.TrendingResultsFixtures)
 	database.SeedTable(app.pool.Replicas[0], "track_routes", testdata.TrackRoutesFixtures)
-	database.SeedTable(app.pool.Replicas[0], "usdc_purchases", testdata.UsdcPurchasesFixtures)
-	database.SeedTable(app.pool.Replicas[0], "usdc_transactions_history", testdata.UsdcTransactionsHistoryFixtures)
-	database.SeedTable(app.pool.Replicas[0], "user_bank_accounts", testdata.UserBankAccountsFixtures)
+	database.SeedTable(app.pool.Replicas[0], "sol_purchases", testdata.SolPurchasesFixtures)
+	database.SeedTable(app.pool.Replicas[0], "sol_purchases", testdata.SolPurchasesUsdcFixtures)
+	database.SeedTable(app.pool.Replicas[0], "sol_payments", testdata.SolPaymentsFixtures)
+	database.SeedTable(app.pool.Replicas[0], "sol_payments", testdata.SolPaymentsUsdcFixtures)
+	database.SeedTable(app.pool.Replicas[0], "sol_transfer_memo_types", testdata.SolTransferMemoTypesUsdcFixtures)
 	database.SeedTable(app.pool.Replicas[0], "user_challenges", testdata.UserChallengesFixtures)
-	database.SeedTable(app.pool.Replicas[0], "usdc_user_bank_accounts", testdata.UserBankAccountsFixtures)
 	database.SeedTable(app.pool.Replicas[0], "users", testdata.UserFixtures)
 	database.SeedTable(app.pool.Replicas[0], "user_listening_history", testdata.UserListeningHistoryFixtures)
 	database.SeedTable(app.pool.Replicas[0], "artist_coins", testdata.ArtistCoinsFixtures)

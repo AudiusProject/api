@@ -1,11 +1,14 @@
 package api
 
 import (
+	"context"
 	"testing"
+	"time"
 
 	"api.audius.co/database"
 	"api.audius.co/trashid"
 	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 )
 
 func TestTrackRemixes(t *testing.T) {
@@ -228,6 +231,136 @@ func TestTrackRemixes(t *testing.T) {
 		"data.tracks.0.id": trashid.MustEncodeHashID(secondRemixTrackId),
 		"data.tracks.1.id": trashid.MustEncodeHashID(firstRemixTrackId),
 	})
+}
+
+// When an artist creates a remix contest while their track is still unlisted,
+// the on_event trigger skips the fan_remix_contest_started notifications because
+// the track is not yet public. When the artist later flips is_unlisted to false,
+// the on_track trigger must pick up the active contest and create the missing
+// notifications for the contest creator's followers and the track's savers.
+func TestFanRemixContestStartedOnUnlistedToPublic(t *testing.T) {
+	app := emptyTestApp(t)
+	ctx := context.Background()
+	require.NotNil(t, app.writePool, "test requires write pool")
+
+	ownerId := 9001
+	followerId := 9002
+	saverId := 9003
+	unrelatedUserId := 9004
+	trackId := 9101
+	eventId := 9201
+
+	now := time.Now().UTC()
+	fixtures := database.FixtureMap{
+		"users": []map[string]any{
+			{"user_id": ownerId, "handle": "fan_contest_owner"},
+			{"user_id": followerId, "handle": "fan_contest_follower"},
+			{"user_id": saverId, "handle": "fan_contest_saver"},
+			{"user_id": unrelatedUserId, "handle": "fan_contest_unrelated"},
+		},
+		"tracks": []map[string]any{
+			{
+				"track_id":    trackId,
+				"owner_id":    ownerId,
+				"title":       "Unlisted Contest Track",
+				"is_unlisted": true,
+				"created_at":  now,
+				"updated_at":  now,
+			},
+		},
+		"follows": []map[string]any{
+			{
+				"follower_user_id": followerId,
+				"followee_user_id": ownerId,
+				"created_at":       now.Add(-time.Hour),
+			},
+		},
+		"saves": []map[string]any{
+			{
+				"user_id":      saverId,
+				"save_item_id": trackId,
+				"save_type":    "track",
+				"created_at":   now.Add(-time.Hour),
+			},
+		},
+		"events": []map[string]any{
+			{
+				"event_id":   eventId,
+				"event_type": "remix_contest",
+				"entity_id":  trackId,
+				"user_id":    ownerId,
+				"created_at": now,
+				"end_date":   now.Add(7 * 24 * time.Hour),
+			},
+		},
+	}
+
+	database.Seed(app.pool.Replicas[0], fixtures)
+
+	// Sanity check: the on_event trigger should NOT have created fan notifications
+	// while the track was still unlisted.
+	var preFlipCount int
+	err := app.writePool.QueryRow(ctx, `
+		SELECT count(*) FROM notification
+		WHERE type = 'fan_remix_contest_started'
+		  AND group_id = 'fan_remix_contest_started:' || $1::int || ':user:' || $2::int
+	`, trackId, ownerId).Scan(&preFlipCount)
+	require.NoError(t, err)
+	assert.Equal(t, 0, preFlipCount, "no fan_remix_contest_started notifications should exist while track is unlisted")
+
+	// Flip the track to public. This should fire handle_track's new unlisted->public
+	// branch and create fan_remix_contest_started notifications.
+	_, err = app.writePool.Exec(ctx,
+		`UPDATE tracks SET is_unlisted = false WHERE track_id = $1 AND is_current = true`,
+		trackId,
+	)
+	require.NoError(t, err)
+
+	// Both the follower and the saver should have received a notification.
+	type notifRow struct {
+		Specifier string
+		GroupId   string
+		UserIds   []int32
+		EntityId  int
+		OwnerId   int
+	}
+	rows, err := app.writePool.Query(ctx, `
+		SELECT specifier, group_id, user_ids,
+		       (data->>'entity_id')::int,
+		       (data->>'entity_user_id')::int
+		FROM notification
+		WHERE type = 'fan_remix_contest_started'
+		  AND group_id = 'fan_remix_contest_started:' || $1::int || ':user:' || $2::int
+		ORDER BY specifier ASC
+	`, trackId, ownerId)
+	require.NoError(t, err)
+	defer rows.Close()
+
+	var got []notifRow
+	for rows.Next() {
+		var r notifRow
+		require.NoError(t, rows.Scan(&r.Specifier, &r.GroupId, &r.UserIds, &r.EntityId, &r.OwnerId))
+		got = append(got, r)
+	}
+	require.NoError(t, rows.Err())
+
+	require.Len(t, got, 2, "expected exactly one notification per notified user (follower, saver)")
+
+	notifiedUserIds := map[int32]bool{}
+	for _, r := range got {
+		assert.Equal(t,
+			"fan_remix_contest_started:9101:user:9001",
+			r.GroupId,
+			"group_id must match handle_event's format",
+		)
+		assert.Equal(t, trackId, r.EntityId)
+		assert.Equal(t, ownerId, r.OwnerId)
+		require.Len(t, r.UserIds, 1)
+		notifiedUserIds[r.UserIds[0]] = true
+	}
+	assert.True(t, notifiedUserIds[int32(followerId)], "follower should have been notified")
+	assert.True(t, notifiedUserIds[int32(saverId)], "saver should have been notified")
+	assert.False(t, notifiedUserIds[int32(unrelatedUserId)], "unrelated user should not have been notified")
 }
 
 func TestTrackRemixesInvalidParams(t *testing.T) {

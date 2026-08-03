@@ -217,6 +217,21 @@ func chatReadMessages(db dbv1.DBTX, ctx context.Context, userId int32, chatId st
 	return err
 }
 
+// chatReadAllMessages clears unread state for every chat this user belongs to.
+// The (last_active_at IS NULL OR last_active_at < $1) guard mirrors the
+// per-chat chat.read handler so out-of-order RPCs can't roll back a more
+// recent read. The unread_count > 0 filter keeps the write set small.
+func chatReadAllMessages(db dbv1.DBTX, ctx context.Context, userId int32, readTimestamp time.Time) error {
+	_, err := db.Exec(ctx, `
+		update chat_member
+		set unread_count = 0, last_active_at = $1
+		where user_id = $2
+		  and (last_active_at is null or last_active_at < $1)
+		  and unread_count > 0`,
+		readTimestamp.UTC(), userId)
+	return err
+}
+
 var permissions = []ChatPermission{
 	ChatPermissionFollowees,
 	ChatPermissionFollowers,
@@ -378,7 +393,7 @@ func getNewBlasts(tx dbv1.DBTX, ctx context.Context, arg getNewBlastsParams) ([]
 		OR from_user_id IN (
 			-- customer_audience
 			SELECT seller_user_id
-			FROM usdc_purchases p
+			FROM v_usdc_purchases p
 			WHERE blast.audience = 'customer_audience'
 				AND p.seller_user_id = blast.from_user_id
 				AND p.buyer_user_id = @user_id

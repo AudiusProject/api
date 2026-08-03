@@ -34,18 +34,35 @@ type Config struct {
 	ArchiverNodes                  []string
 	Rewards                        []rewards.Reward
 	AudiusdURL                     string
+	CoreBlockStreamEnabled         bool
 	OpenAudioURLs                  []string
 	ChainId                        string
 	BirdeyeToken                   string
-	SolanaIndexerWorkers           int
-	SolanaIndexerRetryInterval     time.Duration
-	CommsMessagePush               bool
-	AudiusdChainID                 uint
-	AudiusdEntityManagerAddress    string
-	AudiusAppUrl                   string
-	RewardCodeAuthorizedKeys       []string
-	LaunchpadDeterministicSecret   string
-	UnsplashKeys                   []string
+	// HTTP(S) JSON-RPC endpoint for the Ethereum mainnet provider (e.g. an
+	// Alchemy URL). Used by the eth-indexer for backfill `eth_getLogs` and
+	// targeted `balanceOf` reads. If empty, the indexer is a no-op.
+	EthRpcUrl string
+	// WebSocket JSON-RPC endpoint used by the eth-indexer for live
+	// subscriptions to AUDIO Transfer events. Auto-derived from EthRpcUrl
+	// (https:// -> wss://) if left unset.
+	EthWsUrl string
+	// AUDIO ERC-20 contract address on Ethereum mainnet. Override only when
+	// pointing at a non-mainnet deployment.
+	EthAudioContractAddress string
+	// Audius Staking proxy address — used to read totalStakedFor(holder).
+	EthStakingContractAddress string
+	// Audius DelegateManager address — used to read
+	// getTotalDelegatorStake(holder).
+	EthDelegateManagerContractAddress string
+	SolanaIndexerWorkers         int
+	SolanaIndexerRetryInterval   time.Duration
+	CommsMessagePush             bool
+	AudiusdChainID               uint
+	AudiusdEntityManagerAddress  string
+	AudiusAppUrl                 string
+	RewardCodeAuthorizedKeys     []string
+	LaunchpadDeterministicSecret string
+	UnsplashKeys                 []string
 	// Nodes that volunteer as STORE_ALL nodes and are always included in mirrors lists
 	StoreAllNodes []string
 	// Nodes that are truly dead and should not be included in rendezvous
@@ -58,6 +75,11 @@ type Config struct {
 	AudiusApiSecret string
 	// Shared secret for notifications-dashboard (or other internal jobs) to read notification campaign push open counts
 	NotificationCampaignOpenMetricsSecret string
+	// Audius account user id. In the public remix-contests list, hosts followed
+	// by this account sort ahead of other hosts within both the open and ended
+	// groups. Zero (the default when the env var is unset) disables follow-based
+	// prioritization (the list reduces to open-before-ended).
+	FeaturedAudienceUserID int32
 
 	// Genesis migration dual-write queue.
 	// NewChainURL is the bootstrap chain gRPC endpoint (e.g. http://bootstrap-node:50051).
@@ -88,8 +110,14 @@ var Cfg = Config{
 	AxiomDataset:                          os.Getenv("axiomDataset"),
 	NetworkTakeRate:                       10,
 	AudiusdURL:                            os.Getenv("audiusdUrl"),
+	CoreBlockStreamEnabled:                os.Getenv("coreBlockStreamEnabled") == "true",
 	OpenAudioURLs:                         []string{},
 	BirdeyeToken:                          os.Getenv("birdeyeToken"),
+	EthRpcUrl:                             os.Getenv("ethRpcUrl"),
+	EthWsUrl:                              os.Getenv("ethWsUrl"),
+	EthAudioContractAddress:               os.Getenv("ethAudioContractAddress"),
+	EthStakingContractAddress:             os.Getenv("ethStakingContractAddress"),
+	EthDelegateManagerContractAddress:     os.Getenv("ethDelegateManagerContractAddress"),
 	SolanaIndexerWorkers:                  50,
 	SolanaIndexerRetryInterval:            5 * time.Minute,
 	CommsMessagePush:                      true,
@@ -108,6 +136,27 @@ func init() {
 	Cfg.ZapLevel = zapLevel
 
 	Cfg.SolanaConfig = NewSolanaConfig()
+
+	// Default AUDIO ERC-20 + staking + delegate manager to mainnet addresses
+	// (from packages/sdk/src/sdk/config/production.ts).
+	if Cfg.EthAudioContractAddress == "" {
+		Cfg.EthAudioContractAddress = "0x18aAA7115705e8be94bfFEbDE57Af9BFc265B998"
+	}
+	if Cfg.EthStakingContractAddress == "" {
+		Cfg.EthStakingContractAddress = "0xe6D97B2099F142513be7A2a068bE040656Ae4591"
+	}
+	if Cfg.EthDelegateManagerContractAddress == "" {
+		Cfg.EthDelegateManagerContractAddress = "0x4d7968ebfD390D5E7926Cb3587C39eFf2F9FB225"
+	}
+	// Derive WS endpoint from the HTTP endpoint if not set explicitly.
+	if Cfg.EthWsUrl == "" && Cfg.EthRpcUrl != "" {
+		switch {
+		case strings.HasPrefix(Cfg.EthRpcUrl, "https://"):
+			Cfg.EthWsUrl = "wss://" + strings.TrimPrefix(Cfg.EthRpcUrl, "https://")
+		case strings.HasPrefix(Cfg.EthRpcUrl, "http://"):
+			Cfg.EthWsUrl = "ws://" + strings.TrimPrefix(Cfg.EthRpcUrl, "http://")
+		}
+	}
 
 	switch env := os.Getenv("ENV"); env {
 	case "dev":
@@ -184,13 +233,12 @@ func init() {
 		fallthrough
 	case "production":
 		Cfg.OpenAudioURLs = []string{
-			"creatornode.audius.co",
-			"creatornode2.audius.co",
+			"rpc.audius.co",
 		}
 		if Cfg.DelegatePrivateKey == "" {
 			log.Fatalf("Missing required %s env var: delegatePrivateKey", env)
 		}
-		Cfg.AntiAbuseOracles = []string{"https://discoveryprovider.audius.co"}
+		Cfg.AntiAbuseOracles = []string{"https://anti-abuse-oracle.audius.engineering"}
 		Cfg.ArchiverNodes = []string{"https://archiver.audius.engineering"}
 		Cfg.DeadNodes = []string{
 			"https://content.grassfed.network",
@@ -218,27 +266,22 @@ func init() {
 			"https://audius-content-13.cultur3stake.com",
 		}
 		Cfg.StoreAllNodes = []string{
-			"https://creatornode2.audius.co",
+			"https://v.monophonic.digital",
 		}
 		Cfg.UploadNodes = ProdUploadNodes
 		Cfg.Rewards = core_config.MakeRewards(core_config.ProdClaimAuthorities, core_config.ProdRewardExtensions)
-		Cfg.AudiusdURL = "creatornode.audius.co"
+		Cfg.AudiusdURL = "rpc.audius.co"
 		Cfg.ChainId = "audius-mainnet-alpha-beta"
 		Cfg.AudiusdChainID = core_config.ProdAcdcChainID
 		Cfg.AudiusdEntityManagerAddress = core_config.ProdAcdcAddress
 		Cfg.AudiusAppUrl = "https://audius.co"
-		Cfg.RewardCodeAuthorizedKeys = []string{"4oGhuh6MkypUTnwUzKbtnUwFzjfaMWAgKYudchPfbYu8", "DDT15s6MMNxE4jkyGN46wNYqrgLWofT6WAvWtjYYrCUq"}
+		Cfg.RewardCodeAuthorizedKeys = []string{"4oGhuh6MkypUTnwUzKbtnUwFzjfaMWAgKYudchPfbYu8", "Du1sGwqC5yJFeoKJ73m3DrFLaRnc7rHM7g1z3Xe8jy8d", "4mzunYiiFSRGGc5iS3SVQQNdek6JiCyvkFALwoWu2xhP"}
 		Cfg.VerifierAddress = "0xbeef8E42e8B5964fDD2b7ca8efA0d9aef38AA996"
 		Cfg.ArtistCoinRewardsStaticSenders = []Node{
 			{
 				DelegateWallet: "0xc8d0C29B6d540295e8fc8ac72456F2f4D41088c8",
 				Endpoint:       "https://creatornode.audius.co",
 				Owner:          "0xe5b256d302ea2f4e04B8F3bfD8695aDe147aB68d",
-			},
-			{
-				DelegateWallet: "0x159200F84c2cF000b3A014cD4D8244500CCc36ca",
-				Endpoint:       "https://audius-cn1.tikilabs.com",
-				Owner:          "0xe4882D9A38A2A1fc652996719AF0fb15CB968d0a",
 			},
 			{
 				DelegateWallet: "0x627d23D17a3eAaDB1D3823e73Ab80D474023Acab",
@@ -249,6 +292,11 @@ func init() {
 				DelegateWallet: "0x422541273087beC833c57D3c15B9e17F919bFB1F",
 				Endpoint:       "https://v.monophonic.digital",
 				Owner:          "0x6470Daf3bd32f5014512bCdF0D02232f5640a5BD",
+			},
+			{
+				DelegateWallet: "0xae5d0507b6653589a03ae5becb35eb0c160e7131",
+				Endpoint:       "https://audius.rickyrombo.com",
+				Owner:          "0x923EC9976bfEcFd0E8b7fEeaC9115F740f8ddB00",
 			},
 		}
 	default:
@@ -285,6 +333,19 @@ func init() {
 	// Override archiver upstream(s) when set (e.g. rollback to discovery or point at different archiver)
 	if v := os.Getenv("archiverNodes"); v != "" {
 		Cfg.ArchiverNodes = strings.Split(v, ",")
+	}
+
+	// Override anti-abuse oracle endpoint(s) when set, so the URL can be rotated without a code deploy.
+	if v := os.Getenv("antiAbuseOracles"); v != "" {
+		Cfg.AntiAbuseOracles = strings.Split(v, ",")
+	}
+
+	if v := os.Getenv("featuredAudienceUserId"); v != "" {
+		parsed, err := strconv.ParseInt(v, 10, 32)
+		if err != nil {
+			log.Fatalf("Invalid featuredAudienceUserId: %s", err)
+		}
+		Cfg.FeaturedAudienceUserID = int32(parsed)
 	}
 
 	// Genesis migration dual-write queue

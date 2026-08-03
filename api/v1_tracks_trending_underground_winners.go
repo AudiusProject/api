@@ -43,7 +43,7 @@ func (app *ApiServer) v1TracksTrendingUndergroundWinners(c *fiber.Ctx) error {
 
 func (app *ApiServer) getTrendingUndergroundWinnersIds(c *fiber.Ctx, weekParam string) ([]int32, error) {
 	args := pgx.NamedArgs{
-		"type": "TrendingType.UNDERGROUND_TRACKS",
+		"type": "UNDERGROUND_TRACKS",
 	}
 
 	var weekFilter string
