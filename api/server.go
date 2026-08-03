@@ -72,7 +72,7 @@ func NewApiServer(config config.Config) *ApiServer {
 		connectionStrings = []string{config.ReadDbUrl}
 	}
 
-	pool, err := dbv1.NewDBPools(connectionStrings, logger, config.Env, config.ZapLevel)
+	pool, err := dbv1.NewDBPools(connectionStrings, config.ReadDbMaxConns, logger, config.Env, config.ZapLevel)
 	if err != nil {
 		logger.Fatal("read db connect failed", zap.Error(err))
 	}

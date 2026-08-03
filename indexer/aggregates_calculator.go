@@ -24,7 +24,7 @@ const aggregateScoreUpdateInterval = 10 * time.Minute
 
 func NewAggregatesCalculator(config config.Config) *AggregatesCalculator {
 	logger := logging.NewZapLogger(config).Named("AggregatesCalculator")
-	readPool, err := dbv1.NewDBPools([]string{config.ReadDbUrl}, logger, config.Env, config.ZapLevel)
+	readPool, err := dbv1.NewDBPools([]string{config.ReadDbUrl}, config.ReadDbMaxConns, logger, config.Env, config.ZapLevel)
 	if err != nil {
 		panic(err)
 	}
