@@ -239,7 +239,11 @@ func (j *CoinStatsOnchainJob) queryAggregates(ctx context.Context, audioPrice fl
 			FROM artist_coin_prices
 		),
 		holders AS (
-			SELECT mint, COUNT(DISTINCT owner) AS holder
+			-- Count token accounts (not distinct owners) to match Birdeye's holder
+			-- metric. Distinct-owner would undercount: the claimable-tokens program
+			-- authority owns one account per user (the user-bank mechanism), so many
+			-- real holders share a single program owner.
+			SELECT mint, COUNT(*) AS holder
 			FROM sol_token_account_balances
 			WHERE balance > 0
 			GROUP BY mint
