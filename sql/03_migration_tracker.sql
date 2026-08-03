@@ -204,6 +204,10 @@ migrations/0227_notification_single_recipient_user_timestamp_idx.sql	f50ed8c909f
 migrations/0228_notification_multi_recipient_user_ids_idx.sql	43c58f2b7875cd09428fc8a9b01e1677	2026-07-28 05:42:28.131348+00
 functions/get_user_score.sql	20f79f8ffe7b3b2582c5a7e29a9db45a	2026-07-28 05:42:28.312865+00
 functions/handle_track_collaborator.sql	781dd365ffdf7619e234f5aff2544ba6	2026-07-28 05:42:29.217485+00
+migrations/0229_artist_coin_stats_onchain.sql	3e469a25759d4598603e4dc230466be3	2026-07-28 05:45:37.995068+00
+migrations/0230_artist_coin_price_history.sql	3f8e262d95c76c2b58d4eea8f2135840	2026-07-28 05:45:38.06593+00
+migrations/0231_artist_coin_volume_accumulator.sql	08ad700f8e10b84ee2c1b1e3eecbe033	2026-07-28 05:45:38.134036+00
+views/artist_coin_stats_comparison.sql	e323f13c890cf86ce06d164523c1ec5b	2026-07-28 05:45:38.857194+00
 \.
 
 
