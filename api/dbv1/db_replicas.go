@@ -19,14 +19,17 @@ type DBPools struct {
 
 // NewDBPools creates a new DBPools struct from a list of database connection strings.
 // It parses each connection string, configures SQL logging if not in test environment,
-// and creates connection pools for each replica.
-func NewDBPools(connectionStrings []string, logger *zap.Logger, env string, zapLevel zapcore.Level) (*DBPools, error) {
+// applies an optional per-replica connection limit, and creates connection pools.
+func NewDBPools(connectionStrings []string, maxConns int32, logger *zap.Logger, env string, zapLevel zapcore.Level) (*DBPools, error) {
 	var pools []*pgxpool.Pool
 
 	for _, connStr := range connectionStrings {
 		connConfig, err := pgxpool.ParseConfig(connStr)
 		if err != nil {
 			return nil, err
+		}
+		if maxConns > 0 {
+			connConfig.MaxConns = maxConns
 		}
 
 		// Configure SQL logging if not in test environment

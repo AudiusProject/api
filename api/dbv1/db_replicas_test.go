@@ -14,7 +14,7 @@ func TestNewDBPools(t *testing.T) {
 	logger := zap.NewNop()
 
 	// Test with empty connection strings
-	pools, err := NewDBPools([]string{}, logger, "test", zapcore.InfoLevel)
+	pools, err := NewDBPools([]string{}, 0, logger, "test", zapcore.InfoLevel)
 	if err != nil {
 		t.Fatalf("Expected no error for empty connection strings, got: %v", err)
 	}
@@ -23,9 +23,24 @@ func TestNewDBPools(t *testing.T) {
 	}
 
 	// Test with invalid connection string
-	_, err = NewDBPools([]string{"invalid://connection"}, logger, "test", zapcore.InfoLevel)
+	_, err = NewDBPools([]string{"invalid://connection"}, 0, logger, "test", zapcore.InfoLevel)
 	if err == nil {
 		t.Error("Expected error for invalid connection string, got nil")
+	}
+
+	pools, err = NewDBPools(
+		[]string{"postgresql://user:password@localhost/database"},
+		8,
+		logger,
+		"test",
+		zapcore.InfoLevel,
+	)
+	if err != nil {
+		t.Fatalf("Expected no error for valid connection string, got: %v", err)
+	}
+	defer pools.Close()
+	if got := pools.Replicas[0].Config().MaxConns; got != 8 {
+		t.Errorf("Expected max connections to be 8, got %d", got)
 	}
 }
 

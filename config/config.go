@@ -20,6 +20,7 @@ type Config struct {
 	ZapLevel                       zapcore.Level
 	ReadDbUrl                      string
 	ReadDbReplicas                 []string
+	ReadDbMaxConns                 int32
 	WriteDbUrl                     string
 	RunMigrations                  bool
 	EsUrl                          string
@@ -54,15 +55,15 @@ type Config struct {
 	// Audius DelegateManager address — used to read
 	// getTotalDelegatorStake(holder).
 	EthDelegateManagerContractAddress string
-	SolanaIndexerWorkers         int
-	SolanaIndexerRetryInterval   time.Duration
-	CommsMessagePush             bool
-	AudiusdChainID               uint
-	AudiusdEntityManagerAddress  string
-	AudiusAppUrl                 string
-	RewardCodeAuthorizedKeys     []string
-	LaunchpadDeterministicSecret string
-	UnsplashKeys                 []string
+	SolanaIndexerWorkers              int
+	SolanaIndexerRetryInterval        time.Duration
+	CommsMessagePush                  bool
+	AudiusdChainID                    uint
+	AudiusdEntityManagerAddress       string
+	AudiusAppUrl                      string
+	RewardCodeAuthorizedKeys          []string
+	LaunchpadDeterministicSecret      string
+	UnsplashKeys                      []string
 	// Nodes that volunteer as STORE_ALL nodes and are always included in mirrors lists
 	StoreAllNodes []string
 	// Nodes that are truly dead and should not be included in rendezvous
@@ -102,6 +103,7 @@ var Cfg = Config{
 	LogLevel:                              os.Getenv("logLevel"),
 	ReadDbUrl:                             os.Getenv("readDbUrl"),
 	ReadDbReplicas:                        strings.Split(os.Getenv("readDbReplicas"), ","),
+	ReadDbMaxConns:                        8,
 	WriteDbUrl:                            os.Getenv("writeDbUrl"),
 	RunMigrations:                         os.Getenv("runMigrations") == "true",
 	EsUrl:                                 os.Getenv("elasticsearchUrl"),
@@ -309,6 +311,14 @@ func init() {
 			log.Fatalf("Invalid commsMessagePush: %s", err)
 		}
 		Cfg.CommsMessagePush = commsMessagePushEnabled
+	}
+
+	if v := os.Getenv("readDbMaxConns"); v != "" {
+		parsed, err := strconv.ParseInt(v, 10, 32)
+		if err != nil || parsed <= 0 {
+			log.Fatalf("Invalid readDbMaxConns %q: must be a positive integer", v)
+		}
+		Cfg.ReadDbMaxConns = int32(parsed)
 	}
 
 	// Solana indexer config
