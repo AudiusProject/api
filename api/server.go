@@ -264,6 +264,11 @@ func NewApiServer(config config.Config) *ApiServer {
 		panic(err)
 	}
 
+	var newChainFlusher *NewChainFlusher
+	if config.NewChainFlushEnabled && config.NewChainURL != "" && writePool != nil {
+		newChainFlusher = NewNewChainFlusher(&config, writePool, logger)
+	}
+
 	app := &ApiServer{
 		App: fiber.New(fiber.Config{
 			JSONEncoder:    json.Marshal,
@@ -307,6 +312,7 @@ func NewApiServer(config config.Config) *ApiServer {
 		birdeyeClient:           birdeye.New(config.BirdeyeToken),
 		solanaRpcClient:         solanaRpc,
 		meteoraDbcClient:        meteoraDbcClient,
+		newChainFlusher:         newChainFlusher,
 	}
 
 	// Set up a custom decoder for HashIds so they can be parsed in lists
@@ -874,6 +880,7 @@ type ApiServer struct {
 	meteoraDbcClient        *meteora_dbc.Client
 	validators              *Nodes
 	openAudioPool           *OpenAudioPool
+	newChainFlusher         *NewChainFlusher
 }
 
 // requestLogger returns app.logger annotated with the current request_id (set
@@ -963,6 +970,14 @@ func (app *ApiServer) Serve() {
 		app.nodesPoller(ctx)
 		app.logger.Info("Started validators poller")
 	}()
+
+	if app.newChainFlusher != nil {
+		go func() {
+			app.logger.Info("Starting new chain flusher")
+			app.newChainFlusher.Start(ctx)
+			app.logger.Info("New chain flusher stopped")
+		}()
+	}
 
 	// Bind to both ipv4 and ipv6
 	listener, err := net.Listen("tcp", "[::]:1323")

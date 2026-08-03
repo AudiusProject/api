@@ -19,6 +19,7 @@ import (
 	"github.com/ethereum/go-ethereum/common/hexutil"
 	"github.com/gofiber/fiber/v2"
 	"go.uber.org/zap"
+	"google.golang.org/protobuf/proto"
 )
 
 const (
@@ -285,11 +286,35 @@ func (app *ApiServer) handleRelay(ctx context.Context, logger *zap.Logger, decod
 
 		msg := res.Msg.Transaction
 		endpointLogger.Info("transaction confirmed", zap.String("hash", msg.GetHash()))
+
+		// Enqueue for new chain if dual-write is enabled. Fire-and-forget:
+		// a queue failure must never fail the relay response to the client.
+		if app.config.NewChainQueueEnabled && app.writePool != nil {
+			go app.enqueueForNewChain(decodedTx, msg.GetHeight())
+		}
+
 		return msg, nil
 	}
 
 	logger.Error("all OpenAudio endpoints failed", zap.Error(lastErr))
 	return nil, fmt.Errorf("all endpoints failed, last error: %w", lastErr)
+}
+
+// enqueueForNewChain serializes a confirmed ManageEntityLegacy transaction and
+// inserts it into new_chain_queue. Called asynchronously; logs errors but never panics.
+func (app *ApiServer) enqueueForNewChain(tx *v1.ManageEntityLegacy, confirmedBlock int64) {
+	b, err := proto.Marshal(tx)
+	if err != nil {
+		app.logger.Warn("new_chain_queue: marshal failed", zap.Error(err))
+		return
+	}
+	_, err = app.writePool.Exec(context.Background(),
+		`INSERT INTO new_chain_queue (tx_data, confirmed_block) VALUES ($1, $2)`,
+		b, confirmedBlock,
+	)
+	if err != nil {
+		app.logger.Warn("new_chain_queue: insert failed", zap.Error(err))
+	}
 }
 
 func transactionToReceipt(tx *v1.Transaction, wallet string) map[string]interface{} {
