@@ -95,12 +95,6 @@ type coinAgg struct {
 	Liquidity float64  `db:"liquidity"`
 }
 
-type volumeRow struct {
-	Mint           string  `db:"mint"`
-	TotalVolume    float64 `db:"total_volume"`
-	TotalVolumeUsd float64 `db:"total_volume_usd"`
-}
-
 type priceRow struct {
 	Mint  string  `db:"mint"`
 	Price float64 `db:"price"`
@@ -138,16 +132,7 @@ func (j *CoinStatsOnchainJob) run(ctx context.Context) error {
 		return fmt.Errorf("error computing aggregates: %w", err)
 	}
 
-	// 2. Advance the all-time volume accumulator with trades in new slots.
-	if err := j.updateVolumeAccumulator(ctx, audioPrice); err != nil {
-		return fmt.Errorf("error updating volume accumulator: %w", err)
-	}
-	volumes, err := j.readVolumeAccumulator(ctx)
-	if err != nil {
-		return fmt.Errorf("error reading volume accumulator: %w", err)
-	}
-
-	// 3. Snapshot current on-chain prices (hourly bin) and read the ~24h-ago price.
+	// 2. Snapshot current on-chain prices (hourly bin) and read the ~24h-ago price.
 	if err := j.snapshotPrices(ctx, now); err != nil {
 		return fmt.Errorf("error snapshotting prices: %w", err)
 	}
@@ -194,9 +179,7 @@ func (j *CoinStatsOnchainJob) run(ctx context.Context) error {
 			}
 		}
 
-		vol := volumes[mint] // zero value if absent
-
-		if err := j.upsertStats(ctx, mint, agg, marketCap, totalSupply, vol, history, priceChange); err != nil {
+		if err := j.upsertStats(ctx, mint, agg, marketCap, totalSupply, history, priceChange); err != nil {
 			j.logger.Error("error upserting onchain stats", zap.String("mint", mint), zap.Error(err))
 		}
 	}
@@ -295,65 +278,6 @@ func (j *CoinStatsOnchainJob) queryAggregates(ctx context.Context, audioPrice fl
 		return nil, err
 	}
 	out := make(map[string]coinAgg, len(list))
-	for _, r := range list {
-		out[r.Mint] = r
-	}
-	return out, nil
-}
-
-// updateVolumeAccumulator adds trading volume from balance changes in new slots
-// (per-coin watermark) to the running accumulator, valued in USD at the current
-// AUDIO price so historical USD isn't repriced at today's rate.
-func (j *CoinStatsOnchainJob) updateVolumeAccumulator(ctx context.Context, audioPrice float64) error {
-	sql := `
-		WITH vaults AS (
-			SELECT base_mint AS mint, quote_vault AS vault FROM sol_meteora_dbc_pools
-			UNION
-			SELECT token_a_mint AS mint, token_b_vault AS vault FROM sol_meteora_damm_v2_pools
-		),
-		delta AS (
-			SELECT
-				v.mint,
-				SUM(ABS(c.change))::numeric / POWER(10, 8) AS vol_audio,
-				MAX(c.slot) AS max_slot
-			FROM vaults v
-			JOIN sol_token_account_balance_changes c
-				ON c.account = v.vault AND c.mint = @audio_mint
-			WHERE c.slot > COALESCE(
-				(SELECT last_processed_slot FROM artist_coin_volume_accumulator acc WHERE acc.mint = v.mint),
-				0
-			)
-			GROUP BY v.mint
-		)
-		INSERT INTO artist_coin_volume_accumulator (mint, last_processed_slot, total_volume, total_volume_usd, updated_at)
-		SELECT d.mint, d.max_slot, d.vol_audio, d.vol_audio * @audio_price, NOW()
-		FROM delta d
-		WHERE d.max_slot IS NOT NULL
-		ON CONFLICT (mint) DO UPDATE SET
-			total_volume        = artist_coin_volume_accumulator.total_volume + EXCLUDED.total_volume,
-			total_volume_usd    = artist_coin_volume_accumulator.total_volume_usd + EXCLUDED.total_volume_usd,
-			last_processed_slot = EXCLUDED.last_processed_slot,
-			updated_at          = NOW()
-	`
-	_, err := j.pool.Exec(ctx, sql, pgx.NamedArgs{
-		"audio_mint":  j.audioMint,
-		"audio_price": audioPrice,
-	})
-	return err
-}
-
-func (j *CoinStatsOnchainJob) readVolumeAccumulator(ctx context.Context) (map[string]volumeRow, error) {
-	rows, err := j.pool.Query(ctx,
-		`SELECT mint, total_volume, total_volume_usd FROM artist_coin_volume_accumulator`,
-	)
-	if err != nil {
-		return nil, err
-	}
-	list, err := pgx.CollectRows(rows, pgx.RowToStructByName[volumeRow])
-	if err != nil {
-		return nil, err
-	}
-	out := make(map[string]volumeRow, len(list))
 	for _, r := range list {
 		out[r.Mint] = r
 	}
@@ -481,18 +405,17 @@ func (j *CoinStatsOnchainJob) upsertStats(
 	agg coinAgg,
 	marketCap *float64,
 	totalSupply *float64,
-	vol volumeRow,
 	history24h *float64,
 	priceChange *float64,
 ) error {
 	sql := `
 		INSERT INTO artist_coin_stats_onchain (
 			mint, price, market_cap, liquidity, holder, total_supply,
-			total_volume, total_volume_usd, history_24h_price, price_change_24h_percent,
+			history_24h_price, price_change_24h_percent,
 			created_at, updated_at
 		) VALUES (
 			@mint, @price, @market_cap, @liquidity, @holder, @total_supply,
-			@total_volume, @total_volume_usd, @history_24h_price, @price_change_24h_percent,
+			@history_24h_price, @price_change_24h_percent,
 			NOW(), NOW()
 		)
 		ON CONFLICT (mint) DO UPDATE SET
@@ -502,8 +425,6 @@ func (j *CoinStatsOnchainJob) upsertStats(
 			liquidity                = EXCLUDED.liquidity,
 			holder                   = EXCLUDED.holder,
 			total_supply             = COALESCE(EXCLUDED.total_supply, artist_coin_stats_onchain.total_supply),
-			total_volume             = EXCLUDED.total_volume,
-			total_volume_usd         = EXCLUDED.total_volume_usd,
 			history_24h_price        = COALESCE(EXCLUDED.history_24h_price, artist_coin_stats_onchain.history_24h_price),
 			price_change_24h_percent = COALESCE(EXCLUDED.price_change_24h_percent, artist_coin_stats_onchain.price_change_24h_percent),
 			updated_at               = NOW()
@@ -515,8 +436,6 @@ func (j *CoinStatsOnchainJob) upsertStats(
 		"liquidity":                agg.Liquidity,
 		"holder":                   agg.Holder,
 		"total_supply":             totalSupply,
-		"total_volume":             vol.TotalVolume,
-		"total_volume_usd":         vol.TotalVolumeUsd,
 		"history_24h_price":        history24h,
 		"price_change_24h_percent": priceChange,
 	})

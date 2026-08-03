@@ -534,12 +534,6 @@ var (
 			"timestamp": nil,
 			"price":     0.0,
 		},
-		"artist_coin_volume_accumulator": {
-			"mint":                nil,
-			"last_processed_slot": 0,
-			"total_volume":        0.0,
-			"total_volume_usd":    0.0,
-		},
 		"sol_meteora_dbc_pools": {
 			"account":                       nil,
 			"slot":                          1,

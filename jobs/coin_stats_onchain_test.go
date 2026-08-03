@@ -79,13 +79,6 @@ func TestCoinStatsOnchainJob(t *testing.T) {
 			{"account": "acct5", "mint": coinMint, "owner": "owner1", "balance": 3, "slot": 1},
 			{"account": "acct4", "mint": coinMint, "owner": "owner4", "balance": 0, "slot": 1},
 		},
-		// Volume through the DBC quote vault (AUDIO leg): |1e8| + |-2e8| = 3e8 -> 3 AUDIO.
-		"sol_token_account_balance_changes": {
-			{"signature": "sig1", "mint": audioMint, "owner": "trader1", "account": quoteVault,
-				"change": 100_000_000, "balance": 100_000_000, "slot": 10, "block_timestamp": "2024-01-01 00:00:00"},
-			{"signature": "sig2", "mint": audioMint, "owner": "trader2", "account": quoteVault,
-				"change": -200_000_000, "balance": 0, "slot": 11, "block_timestamp": "2024-01-01 00:01:00"},
-		},
 		// Active DBC pool -> liquidity = base_reserve*price + quote_reserve*audioPrice
 		// = (1e9/1e6)*4.0 + (5e10/1e8)*2.0 = 1000*4 + 500*2 = 5000.
 		"sol_meteora_dbc_pools": {
@@ -119,17 +112,15 @@ func TestCoinStatsOnchainJob(t *testing.T) {
 		liquidity     float64
 		totalSupply   float64
 		marketCap     float64
-		totalVolume   float64
-		totalVolUSD   float64
 		history24h    float64
 		priceChange24 float64
 	)
 	err := pool.QueryRow(ctx, `
 		SELECT price, holder, liquidity, total_supply, market_cap,
-		       total_volume, total_volume_usd, history_24h_price, price_change_24h_percent
+		       history_24h_price, price_change_24h_percent
 		FROM artist_coin_stats_onchain WHERE mint = $1`, coinMint).
 		Scan(&price, &holder, &liquidity, &totalSupply, &marketCap,
-			&totalVolume, &totalVolUSD, &history24h, &priceChange24)
+			&history24h, &priceChange24)
 	require.NoError(t, err)
 
 	assert.InDelta(t, 4.0, price, 1e-9, "price from pools_price_usd")
@@ -137,8 +128,6 @@ func TestCoinStatsOnchainJob(t *testing.T) {
 	assert.InDelta(t, 5000.0, liquidity, 1e-6, "TVL = base_usd + quote_usd")
 	assert.InDelta(t, 1000.0, totalSupply, 1e-9, "supply from RPC")
 	assert.InDelta(t, 4000.0, marketCap, 1e-6, "price * supply")
-	assert.InDelta(t, 3.0, totalVolume, 1e-9, "AUDIO volume through vault")
-	assert.InDelta(t, 6.0, totalVolUSD, 1e-9, "volume * audioPrice")
 	assert.InDelta(t, 2.0, history24h, 1e-9, "24h-ago snapshot")
 	assert.InDelta(t, 100.0, priceChange24, 1e-6, "24h percent change")
 
