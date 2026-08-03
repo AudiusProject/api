@@ -7736,26 +7736,6 @@ COMMENT ON VIEW public.artist_coin_stats_comparison IS 'Compares Birdeye artist_
 
 
 --
--- Name: artist_coin_volume_accumulator; Type: TABLE; Schema: public; Owner: -
---
-
-CREATE TABLE public.artist_coin_volume_accumulator (
-    mint text NOT NULL,
-    last_processed_slot bigint DEFAULT 0 NOT NULL,
-    total_volume double precision DEFAULT 0 NOT NULL,
-    total_volume_usd double precision DEFAULT 0 NOT NULL,
-    updated_at timestamp without time zone DEFAULT CURRENT_TIMESTAMP NOT NULL
-);
-
-
---
--- Name: TABLE artist_coin_volume_accumulator; Type: COMMENT; Schema: public; Owner: -
---
-
-COMMENT ON TABLE public.artist_coin_volume_accumulator IS 'Running per-coin trading volume (AUDIO + USD) accumulated from pool quote-vault balance changes, watermarked by last_processed_slot. Written by CoinStatsOnchainJob.';
-
-
---
 -- Name: associated_wallets; Type: TABLE; Schema: public; Owner: -
 --
 
@@ -11385,14 +11365,6 @@ ALTER TABLE ONLY public.artist_coin_stats_onchain
 
 ALTER TABLE ONLY public.artist_coin_stats
     ADD CONSTRAINT artist_coin_stats_pkey PRIMARY KEY (mint);
-
-
---
--- Name: artist_coin_volume_accumulator artist_coin_volume_accumulator_pkey; Type: CONSTRAINT; Schema: public; Owner: -
---
-
-ALTER TABLE ONLY public.artist_coin_volume_accumulator
-    ADD CONSTRAINT artist_coin_volume_accumulator_pkey PRIMARY KEY (mint);
 
 
 --
