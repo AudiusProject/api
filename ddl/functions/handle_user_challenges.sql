@@ -1,7 +1,7 @@
 create or replace function handle_on_user_challenge() returns trigger as $$
 declare
   cooldown_days integer;
-  existing_notification integer;
+  existing_notification bigint;
   listen_streak_value integer;
 begin
     if (new.is_complete = true) then

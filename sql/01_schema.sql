@@ -2141,7 +2141,7 @@ CREATE FUNCTION public.handle_challenge_disbursement() RETURNS trigger
     AS $$
 declare
   reward_manager_tx reward_manager_txs%ROWTYPE;
-	existing_notification integer;
+	existing_notification bigint;
 	reward_code_exists boolean;
 begin
 
@@ -3235,7 +3235,7 @@ CREATE FUNCTION public.handle_on_user_challenge() RETURNS trigger
     AS $$
 declare
   cooldown_days integer;
-  existing_notification integer;
+  existing_notification bigint;
   listen_streak_value integer;
 begin
     if (new.is_complete = true) then
@@ -4376,7 +4376,7 @@ CREATE FUNCTION public.handle_sol_reward_disbursement() RETURNS trigger
     AS $$
 declare
   resolved_user_id integer;
-  existing_notification integer;
+  existing_notification bigint;
   reward_code_exists boolean;
 begin
   select users.user_id
@@ -8653,7 +8653,7 @@ CREATE TABLE public.muted_users (
 --
 
 CREATE TABLE public.notification (
-    id integer NOT NULL,
+    id bigint NOT NULL,
     specifier character varying NOT NULL,
     group_id character varying NOT NULL,
     type character varying NOT NULL,
@@ -8682,7 +8682,7 @@ CREATE TABLE public.notification_campaign_push_open (
 --
 
 CREATE SEQUENCE public.notification_id_seq
-    AS integer
+    AS bigint
     START WITH 1
     INCREMENT BY 1
     NO MINVALUE
@@ -14990,5 +14990,4 @@ ALTER TABLE ONLY public.users
 --
 -- PostgreSQL database dump complete
 --
-
 
