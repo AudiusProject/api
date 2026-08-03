@@ -11829,9 +11829,6 @@ components:
         marketCap:
           type: number
           description: Market capitalization in USD
-        totalVolumeUSD:
-          type: number
-          description: Total volume traded in USD (all time)
         holder:
           type: integer
           description: Number of holders
