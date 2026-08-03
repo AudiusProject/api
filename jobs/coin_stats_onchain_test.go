@@ -69,11 +69,14 @@ func TestCoinStatsOnchainJob(t *testing.T) {
 		"artist_coin_pools": {
 			{"address": "pool1", "base_mint": coinMint, "price_usd": 4.0},
 		},
-		// Holders: 3 distinct owners with balance > 0, one with 0 (excluded).
+		// Holders = token accounts with balance > 0 (matches Birdeye; NOT distinct
+		// owners). acct1 and acct5 share owner1 (e.g. the claimable-tokens program
+		// authority holding for two users), so this counts 4, not 3 distinct owners.
 		"sol_token_account_balances": {
 			{"account": "acct1", "mint": coinMint, "owner": "owner1", "balance": 10, "slot": 1},
 			{"account": "acct2", "mint": coinMint, "owner": "owner2", "balance": 5, "slot": 1},
 			{"account": "acct3", "mint": coinMint, "owner": "owner3", "balance": 1, "slot": 1},
+			{"account": "acct5", "mint": coinMint, "owner": "owner1", "balance": 3, "slot": 1},
 			{"account": "acct4", "mint": coinMint, "owner": "owner4", "balance": 0, "slot": 1},
 		},
 		// Volume through the DBC quote vault (AUDIO leg): |1e8| + |-2e8| = 3e8 -> 3 AUDIO.
@@ -130,7 +133,7 @@ func TestCoinStatsOnchainJob(t *testing.T) {
 	require.NoError(t, err)
 
 	assert.InDelta(t, 4.0, price, 1e-9, "price from pools_price_usd")
-	assert.Equal(t, 3, holder, "distinct owners with balance > 0")
+	assert.Equal(t, 4, holder, "token accounts with balance > 0 (owner1 has two)")
 	assert.InDelta(t, 5000.0, liquidity, 1e-6, "TVL = base_usd + quote_usd")
 	assert.InDelta(t, 1000.0, totalSupply, 1e-9, "supply from RPC")
 	assert.InDelta(t, 4000.0, marketCap, 1e-6, "price * supply")
