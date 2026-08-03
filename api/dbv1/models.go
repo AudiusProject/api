@@ -1394,7 +1394,7 @@ type MutedUser struct {
 }
 
 type Notification struct {
-	ID          int32       `json:"id"`
+	ID          int64       `json:"id"`
 	Specifier   string      `json:"specifier"`
 	GroupID     string      `json:"group_id"`
 	Type        string      `json:"type"`

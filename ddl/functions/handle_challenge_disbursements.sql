@@ -1,7 +1,7 @@
 create or replace function handle_challenge_disbursement() returns trigger as $$
 declare
   reward_manager_tx reward_manager_txs%ROWTYPE;
-	existing_notification integer;
+	existing_notification bigint;
 	reward_code_exists boolean;
 begin
 
@@ -67,7 +67,7 @@ end $$;
 create or replace function handle_sol_reward_disbursement() returns trigger as $$
 declare
   resolved_user_id integer;
-  existing_notification integer;
+  existing_notification bigint;
   reward_code_exists boolean;
 begin
   select users.user_id
