@@ -7,7 +7,7 @@ require (
 	github.com/AlecAivazis/survey/v2 v2.3.7
 	github.com/Doist/unfurlist v0.0.0-20250409100812-515f2735f8e5
 	github.com/OpenAudio/go-openaudio v1.8.2-0.20260727214803-1d9f69772e87
-	github.com/OpenAudio/go-openaudio/pkg/etl v1.6.3-0.20260727214803-1d9f69772e87
+	github.com/OpenAudio/go-openaudio/pkg/etl v1.6.4
 	github.com/aquasecurity/esquery v0.2.0
 	github.com/axiomhq/axiom-go v0.23.0
 	github.com/axiomhq/hyperloglog v0.2.5
@@ -45,6 +45,7 @@ require (
 	github.com/urfave/cli/v3 v3.5.0
 	go.uber.org/zap v1.27.0
 	golang.org/x/crypto v0.48.0
+	golang.org/x/net v0.50.0
 	golang.org/x/sync v0.19.0
 	google.golang.org/grpc v1.71.1
 	google.golang.org/protobuf v1.36.11
@@ -219,7 +220,6 @@ require (
 	go.uber.org/multierr v1.11.0 // indirect
 	go.uber.org/ratelimit v0.2.0 // indirect
 	golang.org/x/exp v0.0.0-20250408133849-7e4ce0ab07d0 // indirect
-	golang.org/x/net v0.50.0 // indirect
 	golang.org/x/sys v0.41.0 // indirect
 	golang.org/x/term v0.40.0 // indirect
 	golang.org/x/text v0.34.0 // indirect
