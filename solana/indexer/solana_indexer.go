@@ -118,14 +118,8 @@ func New(config config.Config) *SolanaIndexer {
 func (s *SolanaIndexer) Start(ctx context.Context) error {
 	go s.ScheduleProcessRetryQueue(ctx, s.config.SolanaIndexerRetryInterval)
 
-	statsJob := jobs.NewCoinStatsJob(s.config, s.pool)
-	statsCtx := context.WithoutCancel(ctx)
-	statsJob.ScheduleEvery(statsCtx, 15*time.Minute)
-	go statsJob.Run(statsCtx)
-
-	// On-chain replacement for CoinStatsJob, running in shadow: it writes
-	// artist_coin_stats_onchain so its values can be validated against Birdeye
-	// (see artist_coin_stats_comparison) before cutover.
+	// Derives artist_coin_stats from on-chain data (Meteora DBC/DAMM v2 pools,
+	// token-account balances, mint supply). Replaced the Birdeye-backed CoinStatsJob.
 	statsOnchainJob := jobs.NewCoinStatsOnchainJob(s.config, s.pool)
 	statsOnchainCtx := context.WithoutCancel(ctx)
 	statsOnchainJob.ScheduleEvery(statsOnchainCtx, 15*time.Minute)

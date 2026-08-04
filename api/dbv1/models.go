@@ -908,7 +908,7 @@ type ArtistCoinPool struct {
 	CreatorWalletAddress    pgtype.Text    `json:"creator_wallet_address"`
 }
 
-// View that provides artist coin prices using DAMM V2 pool if available, DBC pools if not and still applicable, artist_coin_pools.price_usd as fallback, and artist_coin_stats.price as final fallback (primarily for AUDIO and other tokens without pools). Makes use of the price of the quote token (AUDIO) from Birdeye if using a pool.
+// View that provides artist coin prices using DAMM V2 pool if available, DBC pools if not and still applicable, artist_coin_pools.price_usd as fallback, and artist_coin_stats.price as final fallback (primarily for AUDIO and other tokens without pools). Makes use of the price of the quote token (AUDIO) from artist_coin_stats (maintained on-chain by AudioPriceJob) if using a pool.
 type ArtistCoinPrice struct {
 	Mint          string        `json:"mint"`
 	DammV2Price   pgtype.Int4   `json:"damm_v2_price"`

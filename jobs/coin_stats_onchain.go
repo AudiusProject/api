@@ -31,9 +31,8 @@ type TokenSupplyFetcher interface {
 
 // CoinStatsOnchainJob derives artist-coin market stats from on-chain data
 // (Meteora DBC/DAMM v2 pools, token-account balances, mint supply) and writes
-// them to the artist_coin_stats_onchain shadow table. It is the on-chain
-// replacement for the Birdeye-backed CoinStatsJob; both run side by side until
-// the on-chain values are validated (see artist_coin_stats_comparison).
+// them to artist_coin_stats. It is the on-chain replacement for the former
+// Birdeye-backed CoinStatsJob.
 type CoinStatsOnchainJob struct {
 	pool      database.DbPool
 	rpcClient TokenSupplyFetcher
@@ -409,7 +408,7 @@ func (j *CoinStatsOnchainJob) upsertStats(
 	priceChange *float64,
 ) error {
 	sql := `
-		INSERT INTO artist_coin_stats_onchain (
+		INSERT INTO artist_coin_stats (
 			mint, price, market_cap, liquidity, holder, total_supply,
 			history_24h_price, price_change_24h_percent,
 			created_at, updated_at
@@ -419,14 +418,15 @@ func (j *CoinStatsOnchainJob) upsertStats(
 			NOW(), NOW()
 		)
 		ON CONFLICT (mint) DO UPDATE SET
-			-- Never overwrite a maintained price with NULL (e.g. AUDIO / pool-less coins).
-			price                    = COALESCE(EXCLUDED.price, artist_coin_stats_onchain.price),
-			market_cap               = COALESCE(EXCLUDED.market_cap, artist_coin_stats_onchain.market_cap),
+			-- Never overwrite a maintained price with NULL. AUDIO's price is set by
+			-- AudioPriceJob (from the AUDIO/USDC pool); pool-less coins keep their last price.
+			price                    = COALESCE(EXCLUDED.price, artist_coin_stats.price),
+			market_cap               = COALESCE(EXCLUDED.market_cap, artist_coin_stats.market_cap),
 			liquidity                = EXCLUDED.liquidity,
 			holder                   = EXCLUDED.holder,
-			total_supply             = COALESCE(EXCLUDED.total_supply, artist_coin_stats_onchain.total_supply),
-			history_24h_price        = COALESCE(EXCLUDED.history_24h_price, artist_coin_stats_onchain.history_24h_price),
-			price_change_24h_percent = COALESCE(EXCLUDED.price_change_24h_percent, artist_coin_stats_onchain.price_change_24h_percent),
+			total_supply             = COALESCE(EXCLUDED.total_supply, artist_coin_stats.total_supply),
+			history_24h_price        = COALESCE(EXCLUDED.history_24h_price, artist_coin_stats.history_24h_price),
+			price_change_24h_percent = COALESCE(EXCLUDED.price_change_24h_percent, artist_coin_stats.price_change_24h_percent),
 			updated_at               = NOW()
 	`
 	_, err := j.pool.Exec(ctx, sql, pgx.NamedArgs{

@@ -16092,8 +16092,8 @@ components:
     coin_insights:
       type: object
       description:
-        "Additional token information from Birdeye's defi token overview
-        API.
+        "Additional token information derived from on-chain market and pool
+        data.
 
         Includes price, volume, supply, market cap, and other on-chain and market
         data.

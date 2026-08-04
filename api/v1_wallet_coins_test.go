@@ -409,7 +409,7 @@ func TestWalletCoinsAudioPricingFromStats(t *testing.T) {
 			},
 		},
 		"artist_coin_stats": {
-			// AUDIO price from Birdeye (updated by AudioPriceJob)
+			// AUDIO price anchor (updated by AudioPriceJob from the AUDIO/USDC pool)
 			{
 				"mint":       audioMint,
 				"price":      0.25, // $0.25 per AUDIO

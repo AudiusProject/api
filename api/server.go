@@ -14,7 +14,6 @@ import (
 
 	comms "api.audius.co/api/comms"
 	"api.audius.co/api/dbv1"
-	"api.audius.co/birdeye"
 	"api.audius.co/config"
 	"api.audius.co/esindexer"
 	"api.audius.co/logging"
@@ -309,7 +308,6 @@ func NewApiServer(config config.Config) *ApiServer {
 		openAudioPool:           openAudioPool,
 		metricsCollector:        metricsCollector,
 		rateLimitMiddleware:     rateLimitMiddleware,
-		birdeyeClient:           birdeye.New(config.BirdeyeToken),
 		solanaRpcClient:         solanaRpc,
 		meteoraDbcClient:        meteoraDbcClient,
 		newChainFlusher:         newChainFlusher,
@@ -837,12 +835,6 @@ func NewApiServer(config config.Config) *ApiServer {
 	return app
 }
 
-type BirdeyeClient interface {
-	GetTokenOverview(ctx context.Context, mint string, frames string) (*birdeye.TokenOverview, error)
-	GetTokenAllTimeStats(ctx context.Context, mint string) (*birdeye.TokenAllTimeStats, error)
-	GetPrices(ctx context.Context, mints []string) (birdeye.TokenPriceMap, error)
-}
-
 type ApiServer struct {
 	*fiber.App
 	config                  *config.Config
@@ -875,7 +867,6 @@ type ApiServer struct {
 	skipAuthCheck           bool // set to true in a test if you don't care about auth middleware
 	metricsCollector        *MetricsCollector
 	rateLimitMiddleware     *RateLimitMiddleware
-	birdeyeClient           BirdeyeClient
 	solanaRpcClient         *rpc.Client
 	meteoraDbcClient        *meteora_dbc.Client
 	validators              *Nodes
