@@ -77,6 +77,12 @@ func (j *RemixContestNotificationsJob) Run(ctx context.Context) {
 	}
 }
 
+// RunE executes the job once and returns any error.
+// Intended for the cmd/remix_contest_notifications CronJob binary.
+func (j *RemixContestNotificationsJob) RunE(ctx context.Context) error {
+	return j.run(ctx)
+}
+
 func (j *RemixContestNotificationsJob) run(ctx context.Context) error {
 	start := time.Now()
 	j.mutex.Lock()
