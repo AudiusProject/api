@@ -22,8 +22,8 @@ github.com/Nvveen/Gotty v0.0.0-20120604004816-cd527374f1e5 h1:TngWCqHvy9oXAN6lEV
 github.com/Nvveen/Gotty v0.0.0-20120604004816-cd527374f1e5/go.mod h1:lmUJ/7eu/Q8D7ML55dXQrVaamCz2vxCfdQBasLZfHKk=
 github.com/OpenAudio/go-openaudio v1.8.2-0.20260727214803-1d9f69772e87 h1:HiLw4qrUkVWRADJjGsdHLlFMdJjhU5WCVNAfeKfww4s=
 github.com/OpenAudio/go-openaudio v1.8.2-0.20260727214803-1d9f69772e87/go.mod h1:lLRvUF5oWkxOyZx8rp/ecqxuMo3yzPvuvJbLSfvxguQ=
-github.com/OpenAudio/go-openaudio/pkg/etl v1.6.3-0.20260727214803-1d9f69772e87 h1:E3HoYAxTNrZ0x1H+PJ+sijy1yh3jMtnO6JTyZqWHJ9U=
-github.com/OpenAudio/go-openaudio/pkg/etl v1.6.3-0.20260727214803-1d9f69772e87/go.mod h1:6MIJhF06djJvPl6sfv3Vqp0f4IsyBsWPB4F+BsIamTc=
+github.com/OpenAudio/go-openaudio/pkg/etl v1.6.3 h1:s18nVxVRM1QW8mDmey7HKWI3/e7OrmnQrtd3o1OJLfs=
+github.com/OpenAudio/go-openaudio/pkg/etl v1.6.3/go.mod h1:iSy5fh/o7m7F/tUQ26ezbKTBJ8HjZz37eJrV+A2362U=
 github.com/StackExchange/wmi v1.2.1 h1:VIkavFPXSjcnS+O8yTq7NI32k0R5Aj+v39y29VYDOSA=
 github.com/StackExchange/wmi v1.2.1/go.mod h1:rcmrprowKIVzvc+NUiLncP2uuArMWLCbu9SBzvHz7e8=
 github.com/VictoriaMetrics/fastcache v1.12.2 h1:N0y9ASrJ0F6h0QaC3o6uJb3NIZ9VKLjCM7NQbSmF7WI=

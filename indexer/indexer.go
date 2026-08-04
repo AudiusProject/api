@@ -53,12 +53,19 @@ func NewIndexer(cfg config.Config) *CoreIndexer {
 	aggregatesCalculator := NewAggregatesCalculator(cfg)
 
 	// ETL needs the Connect/gRPC Core client (for block fetching) and a DB URL.
-	// SkipMigrations stays false (default): ETL's migrations are idempotent
-	// against api/'s schema — every migration uses CREATE TABLE IF NOT EXISTS /
-	// ADD COLUMN IF NOT EXISTS, and tracks state in its own `etl_db_migrations`
-	// table separate from api/'s `schema_version`. Verified by applying all 21
-	// current ETL migrations to a fresh DB seeded with api/'s schema: zero
-	// errors, only NOTICE messages for already-existing relations.
+	// SkipMigrations stays false (default), so bumping the pkg/etl module runs
+	// whatever migrations it brought with it against api/'s database, on the
+	// next indexer start. They track state in their own `etl_db_migrations`
+	// table, separate from api/'s `schema_version`, and only up-migrations run
+	// (RunDownMigrations is left false).
+	//
+	// That was originally justified by the migrations being purely additive —
+	// CREATE TABLE IF NOT EXISTS / ADD COLUMN IF NOT EXISTS, verified against a
+	// fresh DB seeded with api/'s schema. 0035 is the first one that is not: it
+	// deletes duplicate is_current rows from users before adding a unique index
+	// over them. Still idempotent, and intended to run here — but a pkg/etl bump
+	// is now a thing that can modify production data, so read the migrations a
+	// version brings before bumping.
 	//
 	// Two optional ETL components are disabled here because they don't fit
 	// api/'s deployment:
