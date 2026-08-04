@@ -13,13 +13,11 @@
 # The NOT EXISTS guard added in each INSERT provides belt-and-suspenders
 # idempotency, so concurrent or overlapping runs are safe.
 #
-# NOTE: Update namespace, image tag, and envFrom references to match your
-# cluster before applying. The job only requires writeDbUrl and ENV.
 apiVersion: batch/v1
 kind: CronJob
 metadata:
   name: remix-contest-notifications
-  namespace: default  # TODO: update to match your namespace
+  namespace: api
 spec:
   schedule: "*/20 * * * *"   # every 20 minutes
   concurrencyPolicy: Forbid   # skip run if previous pod is still active
@@ -33,13 +31,13 @@ spec:
           restartPolicy: OnFailure
           containers:
           - name: remix-contest-notifications
-            image: audius/api:latest  # TODO: pin to a specific tag or digest
+            image: audius/api@sha256:b1bd03d8d3afa7f074a633be135b994be9ec8c8b2ada47f1f225c1e0bfa8efc7
             command: ["/bin/remix-contest-notifications"]
             # Mount the same env vars as the main bridge Deployment.
             # Minimum required: writeDbUrl, ENV.
             envFrom:
             - secretRef:
-                name: api-env  # TODO: update to match your Secret name
+                name: bridge-secret-279d7978
             resources:
               requests:
                 cpu: 100m
