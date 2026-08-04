@@ -9,7 +9,8 @@ RUN go mod download
 COPY . .
 
 ARG TARGETARCH
-RUN CGO_ENABLED=0 GOOS=linux GOARCH=$TARGETARCH go build -o bridge main.go
+RUN CGO_ENABLED=0 GOOS=linux GOARCH=$TARGETARCH go build -o bridge main.go && \
+    CGO_ENABLED=0 GOOS=linux GOARCH=$TARGETARCH go build -o remix-contest-notifications ./cmd/remix_contest_notifications/
 
 FROM node:20-alpine AS plans-builder
 
@@ -28,6 +29,7 @@ RUN apk add --no-cache bash postgresql-client
 WORKDIR /app
 
 COPY --from=builder /app/bridge /bin/bridge
+COPY --from=builder /app/remix-contest-notifications /bin/remix-contest-notifications
 COPY --from=builder /app/ddl ./ddl
 COPY --from=builder /app/static/swagger-ui ./static/swagger-ui
 COPY --from=plans-builder /app/static/plans/dist ./static/plans/dist
