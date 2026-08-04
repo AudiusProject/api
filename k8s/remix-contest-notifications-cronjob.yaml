@@ -1,0 +1,49 @@
+# Kubernetes CronJob for remix-contest-notifications.
+#
+# This job emits four time-based remix-contest notifications:
+#   fan_remix_contest_ended / fan_remix_contest_ending_soon
+#   artist_remix_contest_ended / artist_remix_contest_ending_soon
+#
+# Previously this ran as a 30-second goroutine inside the bridge process,
+# which caused Postgres sequence burn (~18M IDs/day) because every INSERT
+# attempt against an ON CONFLICT target consumes a sequence ID before the
+# conflict check fires. Running it as a CronJob at 20-minute intervals
+# cuts the scan frequency from 2880x/day to 72x/day per event window.
+#
+# The NOT EXISTS guard added in each INSERT provides belt-and-suspenders
+# idempotency, so concurrent or overlapping runs are safe.
+#
+# NOTE: Update namespace, image tag, and envFrom references to match your
+# cluster before applying. The job only requires writeDbUrl and ENV.
+apiVersion: batch/v1
+kind: CronJob
+metadata:
+  name: remix-contest-notifications
+  namespace: default  # TODO: update to match your namespace
+spec:
+  schedule: "*/20 * * * *"   # every 20 minutes
+  concurrencyPolicy: Forbid   # skip run if previous pod is still active
+  successfulJobsHistoryLimit: 3
+  failedJobsHistoryLimit: 3
+  jobTemplate:
+    spec:
+      backoffLimit: 2
+      template:
+        spec:
+          restartPolicy: OnFailure
+          containers:
+          - name: remix-contest-notifications
+            image: audius/api:latest  # TODO: pin to a specific tag or digest
+            command: ["/bin/remix-contest-notifications"]
+            # Mount the same env vars as the main bridge Deployment.
+            # Minimum required: writeDbUrl, ENV.
+            envFrom:
+            - secretRef:
+                name: api-env  # TODO: update to match your Secret name
+            resources:
+              requests:
+                cpu: 100m
+                memory: 128Mi
+              limits:
+                cpu: 500m
+                memory: 256Mi
