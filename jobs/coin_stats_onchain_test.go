@@ -61,7 +61,8 @@ func TestCoinStatsOnchainJob(t *testing.T) {
 			{"ticker": "COIN1", "decimals": 6, "user_id": 1, "mint": coinMint},
 			{"ticker": "AUDIO", "decimals": 8, "user_id": 1, "mint": audioMint},
 		},
-		// AUDIO USD anchor (normally maintained by AudioPriceJob).
+		// AUDIO USD anchor (normally maintained by AudioPriceJob). Also the
+		// pre-existing row used to verify the job never clobbers AUDIO's price.
 		"artist_coin_stats": {
 			{"mint": audioMint, "price": 2.0},
 		},
@@ -84,10 +85,6 @@ func TestCoinStatsOnchainJob(t *testing.T) {
 		"sol_meteora_dbc_pools": {
 			{"account": "dbcpool1", "base_mint": coinMint, "quote_vault": quoteVault,
 				"base_reserve": 1_000_000_000, "quote_reserve": 50_000_000_000, "is_migrated": 0},
-		},
-		// Pre-existing on-chain AUDIO row to verify its price is not clobbered.
-		"artist_coin_stats_onchain": {
-			{"mint": audioMint, "price": 2.0},
 		},
 		// A ~25h-old price snapshot so the 24h change is computable: (4.0-2.0)/2.0*100 = 100%.
 		"artist_coin_price_history": {
@@ -118,7 +115,7 @@ func TestCoinStatsOnchainJob(t *testing.T) {
 	err := pool.QueryRow(ctx, `
 		SELECT price, holder, liquidity, total_supply, market_cap,
 		       history_24h_price, price_change_24h_percent
-		FROM artist_coin_stats_onchain WHERE mint = $1`, coinMint).
+		FROM artist_coin_stats WHERE mint = $1`, coinMint).
 		Scan(&price, &holder, &liquidity, &totalSupply, &marketCap,
 			&history24h, &priceChange24)
 	require.NoError(t, err)
@@ -134,7 +131,7 @@ func TestCoinStatsOnchainJob(t *testing.T) {
 	// AUDIO's maintained price must not be clobbered (on-chain price is NULL for it).
 	var audioPrice float64
 	err = pool.QueryRow(ctx,
-		`SELECT price FROM artist_coin_stats_onchain WHERE mint = $1`, audioMint).Scan(&audioPrice)
+		`SELECT price FROM artist_coin_stats WHERE mint = $1`, audioMint).Scan(&audioPrice)
 	require.NoError(t, err)
 	assert.InDelta(t, 2.0, audioPrice, 1e-9, "AUDIO price preserved")
 }

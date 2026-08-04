@@ -38,7 +38,6 @@ type Config struct {
 	CoreBlockStreamEnabled         bool
 	OpenAudioURLs                  []string
 	ChainId                        string
-	BirdeyeToken                   string
 	// HTTP(S) JSON-RPC endpoint for the Ethereum mainnet provider (e.g. an
 	// Alchemy URL). Used by the eth-indexer for backfill `eth_getLogs` and
 	// targeted `balanceOf` reads. If empty, the indexer is a no-op.
@@ -114,7 +113,6 @@ var Cfg = Config{
 	AudiusdURL:                            os.Getenv("audiusdUrl"),
 	CoreBlockStreamEnabled:                os.Getenv("coreBlockStreamEnabled") == "true",
 	OpenAudioURLs:                         []string{},
-	BirdeyeToken:                          os.Getenv("birdeyeToken"),
 	EthRpcUrl:                             os.Getenv("ethRpcUrl"),
 	EthWsUrl:                              os.Getenv("ethWsUrl"),
 	EthAudioContractAddress:               os.Getenv("ethAudioContractAddress"),

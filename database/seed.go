@@ -524,11 +524,6 @@ var (
 			"created_at": time.Now(),
 			"updated_at": time.Now(),
 		},
-		"artist_coin_stats_onchain": {
-			"mint":       nil,
-			"created_at": time.Now(),
-			"updated_at": time.Now(),
-		},
 		"artist_coin_price_history": {
 			"mint":      nil,
 			"timestamp": nil,
