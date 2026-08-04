@@ -1,22 +1,60 @@
 package jobs
 
 import (
+	"bytes"
 	"context"
 	"fmt"
 	"sync"
 	"time"
 
-	"api.audius.co/birdeye"
 	"api.audius.co/config"
 	"api.audius.co/database"
 	"api.audius.co/logging"
+	"api.audius.co/solana/spl/programs/meteora_damm_v2"
+	bin "github.com/gagliardetto/binary"
+	"github.com/gagliardetto/solana-go"
+	"github.com/gagliardetto/solana-go/rpc"
 	"go.uber.org/zap"
 )
 
+// dammV2PoolFetcher reads and decodes a Meteora DAMM v2 pool account.
+// Abstracted so tests can inject a fake without a live RPC.
+type dammV2PoolFetcher interface {
+	GetPool(ctx context.Context, addr solana.PublicKey) (*meteora_damm_v2.Pool, error)
+}
+
+type rpcDammV2Fetcher struct{ rpc *rpc.Client }
+
+func (f rpcDammV2Fetcher) GetPool(ctx context.Context, addr solana.PublicKey) (*meteora_damm_v2.Pool, error) {
+	res, err := f.rpc.GetAccountInfo(ctx, addr)
+	if err != nil {
+		return nil, err
+	}
+	if res == nil || res.Value == nil || res.Value.Data == nil {
+		return nil, fmt.Errorf("pool account %s not found", addr)
+	}
+	data := res.Value.Data.GetBinary()
+	if len(data) < 8 || !bytes.Equal(data[:8], meteora_damm_v2.POOL_DISCRIMINATOR) {
+		return nil, fmt.Errorf("account %s is not a DAMM v2 pool", addr)
+	}
+	var pool meteora_damm_v2.Pool
+	if err := bin.NewBorshDecoder(data).Decode(&pool); err != nil {
+		return nil, fmt.Errorf("failed to decode DAMM v2 pool %s: %w", addr, err)
+	}
+	return &pool, nil
+}
+
+// AudioPriceJob maintains the AUDIO USD anchor (artist_coin_stats.price for the
+// AUDIO mint) that the artist_coin_prices view uses to convert every coin's
+// AUDIO-denominated pool price to USD. It reads the on-chain Meteora DAMM v2
+// AUDIO/USDC pool rather than Birdeye.
 type AudioPriceJob struct {
-	birdeyeClient *birdeye.Client
-	pool          database.DbPool
-	logger        *zap.Logger
+	pool      database.DbPool
+	fetcher   dammV2PoolFetcher
+	audioMint string
+	usdcMint  string
+	poolAddr  solana.PublicKey
+	logger    *zap.Logger
 
 	mutex     sync.Mutex
 	isRunning bool
@@ -24,12 +62,19 @@ type AudioPriceJob struct {
 
 func NewAudioPriceJob(config config.Config, pool database.DbPool) *AudioPriceJob {
 	logger := logging.NewZapLogger(config).Named("AudioPriceJob")
-	birdeyeClient := birdeye.New(config.BirdeyeToken)
+
+	var fetcher dammV2PoolFetcher
+	if len(config.SolanaConfig.RpcProviders) > 0 {
+		fetcher = rpcDammV2Fetcher{rpc: rpc.New(config.SolanaConfig.RpcProviders[0])}
+	}
 
 	return &AudioPriceJob{
-		birdeyeClient: birdeyeClient,
-		logger:        logger,
-		pool:          pool,
+		pool:      pool,
+		fetcher:   fetcher,
+		audioMint: config.SolanaConfig.MintAudio.String(),
+		usdcMint:  config.SolanaConfig.MintUSDC.String(),
+		poolAddr:  config.SolanaConfig.AudioUsdcPool,
+		logger:    logger,
 	}
 }
 
@@ -61,8 +106,8 @@ func (j *AudioPriceJob) Run(ctx context.Context) {
 	}
 }
 
-// Gets the price for AUDIO from Birdeye and updates artist_coin_stats table.
-// Ensures only one instance runs at a time.
+// Reads the AUDIO/USDC DAMM v2 pool on-chain, derives AUDIO's USD price, and
+// updates artist_coin_stats. Ensures only one instance runs at a time.
 func (j *AudioPriceJob) run(ctx context.Context) error {
 	j.mutex.Lock()
 	if j.isRunning {
@@ -77,25 +122,41 @@ func (j *AudioPriceJob) run(ctx context.Context) error {
 		j.mutex.Unlock()
 	}()
 
-	audioMint := "9LzCMqDgTKYz9Drzqnpgee3SGa89up3a247ypMj2xrqM" // AUDIO mint
-	priceData, err := j.birdeyeClient.GetPrice(ctx, audioMint)
-	if err != nil {
-		return fmt.Errorf("failed to get prices: %w", err)
+	// No AUDIO/USDC pool on dev — nothing to anchor from.
+	if j.poolAddr.IsZero() {
+		j.logger.Debug("no AUDIO/USDC pool configured; skipping AUDIO price update")
+		return nil
+	}
+	if j.fetcher == nil {
+		return fmt.Errorf("no RPC client configured")
 	}
 
+	poolState, err := j.fetcher.GetPool(ctx, j.poolAddr)
+	if err != nil {
+		return fmt.Errorf("failed to fetch AUDIO/USDC pool: %w", err)
+	}
+
+	// Guard the orientation this job assumes: token A = AUDIO, token B = USDC, so
+	// price_from_sqrt_price returns token-B-per-token-A = USDC-per-AUDIO = AUDIO/USD.
+	if poolState.TokenAMint.String() != j.audioMint || poolState.TokenBMint.String() != j.usdcMint {
+		return fmt.Errorf("unexpected AUDIO/USDC pool ordering: tokenA=%s tokenB=%s",
+			poolState.TokenAMint, poolState.TokenBMint)
+	}
+
+	sqrtPrice := poolState.SqrtPrice.BigInt()
+
+	// AUDIO USD = price_from_sqrt_price(sqrt, 8 [AUDIO decimals], 6 [USDC decimals])
+	// (USDC ≈ $1). Reuses the same SQL function the artist_coin_prices view uses.
 	_, err = j.pool.Exec(ctx, `
 		UPDATE artist_coin_stats
-		SET price = $1,
+		SET price = price_from_sqrt_price($1::numeric, 8, 6),
 		    updated_at = NOW()
 		WHERE mint = $2
-	`, priceData.Value, audioMint)
+	`, sqrtPrice.String(), j.audioMint)
 	if err != nil {
-		return fmt.Errorf("failed to update artist coin prices: %w", err)
+		return fmt.Errorf("failed to update AUDIO price: %w", err)
 	}
 
-	j.logger.Debug("Updated AUDIO price",
-		zap.Float64("price", priceData.Value),
-	)
-
+	j.logger.Debug("Updated AUDIO price on-chain", zap.String("pool", j.poolAddr.String()))
 	return nil
 }
