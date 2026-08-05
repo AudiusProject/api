@@ -348,6 +348,12 @@ func init() {
 		Cfg.AntiAbuseOracles = strings.Split(v, ",")
 	}
 
+	// Override the Audius app base URL when set, so developer apps running against a
+	// non-default frontend (local override, preview deploy) get the right redirect_uri base.
+	if v := os.Getenv("audiusAppUrl"); v != "" {
+		Cfg.AudiusAppUrl = strings.TrimSuffix(v, "/")
+	}
+
 	if v := os.Getenv("featuredAudienceUserId"); v != "" {
 		parsed, err := strconv.ParseInt(v, 10, 32)
 		if err != nil {
