@@ -14851,3 +14851,32 @@ ALTER TABLE ONLY public.users
 -- PostgreSQL database dump complete
 --
 
+
+--
+-- Partial unique indexes created by pkg/etl migration 0030, not by ddl/.
+--
+-- The ETL module's migrations run at indexer start, so these exist in every
+-- deployed database — but `make test-schema` seeds from this dump and then
+-- applies only ddl/ migrations, so nothing in that loop can ever introduce
+-- them. They were therefore absent from CI while present in production, which
+-- is how ddl 0236 came to be written against saves_pkey instead of the
+-- constraint that actually binds it.
+--
+-- Added here so the seeded schema matches a deployed one. Because regeneration
+-- starts from this file, they persist through future `make test-schema` runs.
+--
+-- users_current_uniq_idx is deliberately NOT included: pkg/etl 0035 has not run
+-- in production yet, and ddl 0237 is specified to run before it does.
+--
+
+CREATE UNIQUE INDEX IF NOT EXISTS saves_current_uniq_idx
+  ON public.saves (user_id, save_item_id, save_type) WHERE (is_current = true);
+
+CREATE UNIQUE INDEX IF NOT EXISTS reposts_current_uniq_idx
+  ON public.reposts (user_id, repost_item_id, repost_type) WHERE (is_current = true);
+
+CREATE UNIQUE INDEX IF NOT EXISTS follows_current_uniq_idx
+  ON public.follows (follower_user_id, followee_user_id) WHERE (is_current = true);
+
+CREATE UNIQUE INDEX IF NOT EXISTS subscriptions_current_uniq_idx
+  ON public.subscriptions (subscriber_id, user_id) WHERE (is_current = true);
