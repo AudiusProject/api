@@ -15,7 +15,9 @@ import (
 	"api.audius.co/esindexer"
 	eth_indexer "api.audius.co/eth/indexer"
 	core_indexer "api.audius.co/indexer"
+	"api.audius.co/logging"
 	solana_indexer "api.audius.co/solana/indexer"
+	etldb "github.com/OpenAudio/go-openaudio/pkg/etl/db"
 )
 
 func main() {
@@ -108,7 +110,29 @@ func main() {
 		}
 	case "migrate":
 		{
-			// no-op, handled prior to switch/case
+			// ddl migrations already ran above. Apply the ETL module's too, so a
+			// database migrated by this command matches a deployed one.
+			//
+			// They are otherwise only ever applied at indexer start, which left
+			// `make test-schema` unable to produce them: that target seeds from
+			// sql/01_schema.sql, runs this command, and dumps the result, so
+			// ETL-created objects could never enter the loop no matter how often
+			// it was regenerated. The four partial unique indexes from pkg/etl
+			// 0030 were consequently absent under test while present in every
+			// deployment — which is how ddl 0236 came to be written against the
+			// wrong constraint and still passed CI.
+			//
+			// Ordering is the useful side effect: ddl migrations run before these,
+			// in one process, so a ddl migration that has to precede an ETL one
+			// (0237 before 0035) is sequenced here rather than across two pods.
+			//
+			// Idempotent and tracked separately in etl_db_migrations, so the
+			// indexer applying them again at startup is a no-op.
+			logger := logging.NewZapLogger(config.Cfg).Named("migrate")
+			if err := etldb.RunMigrations(logger, config.Cfg.WriteDbUrl, false); err != nil {
+				fmt.Println("etl migration failed:", err)
+				os.Exit(1)
+			}
 			os.Exit(0)
 		}
 	default:
