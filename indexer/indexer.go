@@ -59,13 +59,15 @@ func NewIndexer(cfg config.Config) *CoreIndexer {
 	// table, separate from api/'s `schema_version`, and only up-migrations run
 	// (RunDownMigrations is left false).
 	//
-	// They are all additive DDL — CREATE TABLE IF NOT EXISTS / ADD COLUMN IF
-	// NOT EXISTS / CREATE INDEX — and none of them touches row data. That is a
-	// deliberate line rather than a coincidence: a module bump reaches this
-	// database automatically, so anything that repairs data belongs in ddl/,
-	// where it goes through review and the pre-roll migrate Job. 0035 is the
-	// worked example — it adds users_current_uniq_idx, while the delete that
-	// makes that index creatable lives in ddl 0237.
+	// None of them touches row data, which is the line being held: a module bump
+	// reaches this database automatically, so anything that repairs data belongs
+	// in ddl/, where it goes through review and the pre-roll migrate Job. 0035
+	// is the worked example — it adds users_current_uniq_idx, while the delete
+	// that makes that index creatable lives in ddl 0237.
+	//
+	// They are not, however, purely additive: 0026 drops a constraint and 0027
+	// drops and recreates playlist_seen's primary key. A bump can alter the
+	// schema here, so read what a version brings before taking it.
 	//
 	// The corollary is that an ETL migration can depend on a ddl one having
 	// run. 0035 fails with a unique violation if ddl 0237 has not removed the

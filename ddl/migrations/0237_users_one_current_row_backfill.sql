@@ -38,16 +38,35 @@
 BEGIN;
 SET LOCAL lock_timeout = '5s';
 
-WITH ranked AS (
+-- Restricted to the offending user_ids so row_number() is computed over a
+-- handful of rows rather than all 3.15M current ones. Identifying them still
+-- costs a scan of users: this runs before users_current_uniq_idx exists (that
+-- is pkg/etl 0035, which runs later, at indexer start) and no other index
+-- covers is_current. A few seconds in a one-time pre-roll migration, and it
+-- takes only RowExclusiveLock, so concurrent DML is not blocked.
+--
+-- txhash is compared under the C collation so the tiebreak cannot vary with
+-- database collation. It never fires in practice — blocknumber decides every
+-- real case — but should be deterministic if it ever does.
+WITH dupes AS MATERIALIZED (
+    SELECT user_id
+    FROM users
+    WHERE is_current = true
+    GROUP BY user_id
+    HAVING count(*) > 1
+),
+ranked AS (
     SELECT
         user_id,
         txhash,
         row_number() OVER (
             PARTITION BY user_id
-            ORDER BY blocknumber DESC NULLS LAST, updated_at DESC NULLS LAST, txhash DESC
+            ORDER BY blocknumber DESC NULLS LAST, updated_at DESC NULLS LAST,
+                     txhash COLLATE "C" DESC
         ) AS rn
     FROM users
     WHERE is_current = true
+      AND user_id IN (SELECT user_id FROM dupes)
 )
 DELETE FROM users u
 USING ranked r
