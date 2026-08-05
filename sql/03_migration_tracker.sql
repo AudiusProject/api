@@ -106,7 +106,6 @@ functions/compute_user_score.sql	814b5fa3d1383d3e216943b4ff8c4877	2026-05-27 00:
 functions/country_to_iso_alpha2.sql	218832f0607aeca4fce99815a07f7a85	2026-05-27 00:22:35.592939+00
 functions/find_track.sql	f09431015118f31aa7b4ac49d14e7639	2026-05-27 00:22:35.667572+00
 functions/handle_artist_coins.sql	21ed1610d80cceca2262efb1338060ed	2026-05-27 00:22:35.905536+00
-functions/handle_challenge_disbursements.sql	1bbf82cc035971d828ed96f3ea1a23d6	2026-05-29 22:00:00+00
 functions/handle_chat_blast.sql	ccd276957c1b68bfc82fb5a11bac09ee	2026-05-27 00:22:36.155215+00
 functions/handle_chat_message.sql	31bebee3d0437133f1f53c2eadb7b391	2026-05-27 00:22:36.229275+00
 functions/handle_chat_message_reaction.sql	b898313aa8f31c61df7f1e6dd791ef31	2026-05-27 00:22:36.304728+00
@@ -125,7 +124,6 @@ functions/handle_supporter_rank_ups.sql	dea497f1859ade282b4f7d33687e6fe7	2026-05
 functions/handle_usdc_purchase.sql	c35bccc2789ae0641d413d28a131ef8d	2026-05-27 00:22:37.800109+00
 functions/handle_user.sql	169778112e5362ee20af56d9b8f274c5	2026-05-27 00:22:37.955619+00
 functions/handle_user_balance_changes.sql	1ae7f99f4f37194cdf27dc3189ebc858	2026-05-27 00:22:38.02983+00
-functions/handle_user_challenges.sql	8a1287bc971c83e7440b88da7c86e93d	2026-05-29 22:00:00.1+00
 functions/handle_user_tip.sql	e4bde4e7e04b0ed8254690959513bd69	2026-05-27 00:22:38.167097+00
 functions/is_country_eur.sql	c5641d570edb9cd47cd4e38d883e941a	2026-05-27 00:22:38.234372+00
 functions/notify_pending_purchase_revalidation.sql	beb9eebc6bd34ab069c7b90a51bb8bb3	2026-05-27 00:22:38.378429+00
@@ -133,7 +131,6 @@ functions/price_from_sqrt_price.sql	1b217f211adba88e3f12d1d6c81fc97d	2026-05-27 
 functions/refresh_all_user_scores.sql	04935173f102e5e28b5c384e312102c1	2026-05-27 00:22:38.539364+00
 functions/update_sol_user_balance.sql	4a297a671c74a683814ff217bd097589	2026-05-27 00:22:38.619283+00
 functions/user_mint_balance_at.sql	6d227781d4d97500e0ec2bb76e8fa295	2026-05-27 00:22:38.701765+00
-views/artist_coin_prices.sql	10a65b64b7d13aaabe18ad1055e9fd7b	2026-05-27 00:22:38.820919+00
 views/v_challenge_disbursements.sql	74a0a05af6a02f82af3695d5c3ade45c	2026-05-27 00:22:38.899214+00
 views/v_usdc_purchases.sql	322a527e132aed647c39b70d63aa6b51	2026-05-27 00:22:39.061667+00
 migrations/0204_backfill_eth_wallet_balances_tracked.sql	d8b752794c42edb94f0d43633e14208c	2026-05-28 00:56:10.178339+00
@@ -166,6 +163,8 @@ functions/handle_track.sql	c2d4c5674b0cb1db907ad625fd957c91	2026-07-28 05:42:29.
 functions/notify_on_row.sql	a326d476636de01dd939047526b0cb92	2026-07-28 05:42:29.345724+00
 preflight/0001_initial_block.sql	6cc3c0833c195a1104bed5bf849c0266	2026-07-28 05:42:29.588508+00
 functions/handle_comment_reaction.sql	8153e3cdb922265857b6beaf20d29733	2026-05-30 01:37:22.856663+00
+functions/handle_user_challenges.sql	202037a6ec14955885a479648e2cc57a	2026-08-05 00:50:26.86158+00
+views/artist_coin_prices.sql	fbfb4b530235c4b95f851bf5be2a063d	2026-08-05 00:50:27.089199+00
 functions/handle_comment_thread.sql	6eb74eb92cf3a01421498df96c6832f3	2026-05-30 01:37:22.955997+00
 functions/handle_eth_wallet_balance_change.sql	3e31160b4bc55e951d9dfa4d994c180b	2026-05-30 01:37:23.054573+00
 functions/handle_fan_club_text_post.sql	531bf682bcfd67c6866faf8ccdf7603b	2026-05-30 01:37:23.160142+00
@@ -208,6 +207,14 @@ migrations/0229_artist_coin_stats_onchain.sql	3e469a25759d4598603e4dc230466be3	2
 migrations/0230_artist_coin_price_history.sql	3f8e262d95c76c2b58d4eea8f2135840	2026-07-28 05:45:38.06593+00
 migrations/0231_artist_coin_volume_accumulator.sql	08ad700f8e10b84ee2c1b1e3eecbe033	2026-07-28 05:45:38.134036+00
 views/artist_coin_stats_comparison.sql	e323f13c890cf86ce06d164523c1ec5b	2026-07-28 05:45:38.857194+00
+migrations/0232_new_chain_queue.sql	50ba5b4bee289fddc17316c505dab465	2026-08-05 00:50:25.543262+00
+migrations/0233_comments_track_entity_created_at_idx.sql	a35b92644e65c68f924c0ed638c3ea90	2026-08-05 00:50:25.665626+00
+migrations/0233_notification_id_bigint.sql	5ae9ed5cae27021c6865b3508aa62a7d	2026-08-05 00:50:25.786408+00
+migrations/0234_drop_artist_coin_volume_accumulator.sql	e161882135bb98d95349fc01b5dd08d8	2026-08-05 00:50:25.877491+00
+migrations/0235_drop_coin_stats_shadow.sql	ecbd5cd4d2edd02bbb86d760c9768388	2026-08-05 00:50:25.971214+00
+migrations/0236_saves_reposts_album_to_playlist.sql	5bd5036831dbfa656352dfd937c3fe5c	2026-08-05 00:50:26.077564+00
+migrations/0237_users_one_current_row_backfill.sql	b48ab562bc1ab92d12a17795a59cdf84	2026-08-05 00:50:26.167093+00
+functions/handle_challenge_disbursements.sql	32db00f1ecfcfbda0094c0a5e1e6e300	2026-08-05 00:50:26.417396+00
 \.
 
 

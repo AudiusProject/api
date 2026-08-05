@@ -41,8 +41,8 @@ apidiff::
 	open http://localhost:1323/apidiff.html
 
 test-schema::
-	@set -a; \
-	writeDbUrl=postgresql://postgres:example@localhost:21300/postgres; \
+	@set -a -e; \
+	writeDbUrl='postgresql://postgres:example@localhost:21300/postgres?sslmode=disable'; \
 	echo "\033[0;32mBringing down any existing containers to start fresh...\033[0m"; \
 	docker compose down --volumes; \
 	docker compose up -d --wait; \

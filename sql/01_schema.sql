@@ -130,6 +130,17 @@ CREATE TYPE public.delist_user_reason AS ENUM (
 
 
 --
+-- Name: etl_proof_status; Type: TYPE; Schema: public; Owner: -
+--
+
+CREATE TYPE public.etl_proof_status AS ENUM (
+    'unresolved',
+    'pass',
+    'fail'
+);
+
+
+--
 -- Name: event_entity_type; Type: TYPE; Schema: public; Owner: -
 --
 
@@ -5811,6 +5822,44 @@ $$;
 
 
 --
+-- Name: notify_new_block(); Type: FUNCTION; Schema: public; Owner: -
+--
+
+CREATE FUNCTION public.notify_new_block() RETURNS trigger
+    LANGUAGE plpgsql
+    AS $$
+begin
+  perform pg_notify('new_block', json_build_object(
+    'block_height', new.block_height,
+    'proposer_address', new.proposer_address
+  )::text);
+  return new;
+end;
+$$;
+
+
+--
+-- Name: notify_new_plays(); Type: FUNCTION; Schema: public; Owner: -
+--
+
+CREATE FUNCTION public.notify_new_plays() RETURNS trigger
+    LANGUAGE plpgsql
+    AS $$
+begin
+  perform pg_notify('new_plays', json_build_object(
+    'user_id', new.user_id,
+    'track_id', new.track_id,
+    'city', new.city,
+    'region', new.region,
+    'country', new.country,
+    'block_height', new.block_height
+  )::text);
+  return new;
+end;
+$$;
+
+
+--
 -- Name: notify_pending_purchase_revalidation(); Type: FUNCTION; Schema: public; Owner: -
 --
 
@@ -8403,6 +8452,489 @@ COMMENT ON TABLE public.eth_wallet_balances IS 'AUDIO ERC-20 balances (in wei) f
 
 
 --
+-- Name: etl_addresses; Type: TABLE; Schema: public; Owner: -
+--
+
+CREATE TABLE public.etl_addresses (
+    id integer NOT NULL,
+    address text NOT NULL,
+    pub_key bytea,
+    first_seen_block_height bigint,
+    created_at timestamp without time zone NOT NULL
+);
+
+
+--
+-- Name: etl_addresses_id_seq; Type: SEQUENCE; Schema: public; Owner: -
+--
+
+CREATE SEQUENCE public.etl_addresses_id_seq
+    AS integer
+    START WITH 1
+    INCREMENT BY 1
+    NO MINVALUE
+    NO MAXVALUE
+    CACHE 1;
+
+
+--
+-- Name: etl_addresses_id_seq; Type: SEQUENCE OWNED BY; Schema: public; Owner: -
+--
+
+ALTER SEQUENCE public.etl_addresses_id_seq OWNED BY public.etl_addresses.id;
+
+
+--
+-- Name: etl_blocks; Type: TABLE; Schema: public; Owner: -
+--
+
+CREATE TABLE public.etl_blocks (
+    id integer NOT NULL,
+    proposer_address text NOT NULL,
+    block_height bigint NOT NULL,
+    block_time timestamp without time zone NOT NULL
+);
+
+
+--
+-- Name: etl_blocks_id_seq; Type: SEQUENCE; Schema: public; Owner: -
+--
+
+CREATE SEQUENCE public.etl_blocks_id_seq
+    AS integer
+    START WITH 1
+    INCREMENT BY 1
+    NO MINVALUE
+    NO MAXVALUE
+    CACHE 1;
+
+
+--
+-- Name: etl_blocks_id_seq; Type: SEQUENCE OWNED BY; Schema: public; Owner: -
+--
+
+ALTER SEQUENCE public.etl_blocks_id_seq OWNED BY public.etl_blocks.id;
+
+
+--
+-- Name: etl_db_migrations; Type: TABLE; Schema: public; Owner: -
+--
+
+CREATE TABLE public.etl_db_migrations (
+    version bigint NOT NULL,
+    dirty boolean NOT NULL
+);
+
+
+--
+-- Name: etl_manage_entities; Type: TABLE; Schema: public; Owner: -
+--
+
+CREATE TABLE public.etl_manage_entities (
+    id integer NOT NULL,
+    address text NOT NULL,
+    entity_type text NOT NULL,
+    entity_id bigint NOT NULL,
+    action text NOT NULL,
+    metadata text,
+    signature text NOT NULL,
+    signer text NOT NULL,
+    nonce text NOT NULL,
+    block_height bigint NOT NULL,
+    tx_hash text NOT NULL,
+    created_at timestamp without time zone NOT NULL
+);
+
+
+--
+-- Name: etl_manage_entities_id_seq; Type: SEQUENCE; Schema: public; Owner: -
+--
+
+CREATE SEQUENCE public.etl_manage_entities_id_seq
+    AS integer
+    START WITH 1
+    INCREMENT BY 1
+    NO MINVALUE
+    NO MAXVALUE
+    CACHE 1;
+
+
+--
+-- Name: etl_manage_entities_id_seq; Type: SEQUENCE OWNED BY; Schema: public; Owner: -
+--
+
+ALTER SEQUENCE public.etl_manage_entities_id_seq OWNED BY public.etl_manage_entities.id;
+
+
+--
+-- Name: etl_plays; Type: TABLE; Schema: public; Owner: -
+--
+
+CREATE TABLE public.etl_plays (
+    id integer NOT NULL,
+    user_id text NOT NULL,
+    track_id text NOT NULL,
+    city text NOT NULL,
+    region text NOT NULL,
+    country text NOT NULL,
+    played_at timestamp without time zone NOT NULL,
+    block_height bigint NOT NULL,
+    tx_hash text NOT NULL,
+    listened_at timestamp without time zone NOT NULL,
+    recorded_at timestamp without time zone NOT NULL
+);
+
+
+--
+-- Name: etl_plays_id_seq; Type: SEQUENCE; Schema: public; Owner: -
+--
+
+CREATE SEQUENCE public.etl_plays_id_seq
+    AS integer
+    START WITH 1
+    INCREMENT BY 1
+    NO MINVALUE
+    NO MAXVALUE
+    CACHE 1;
+
+
+--
+-- Name: etl_plays_id_seq; Type: SEQUENCE OWNED BY; Schema: public; Owner: -
+--
+
+ALTER SEQUENCE public.etl_plays_id_seq OWNED BY public.etl_plays.id;
+
+
+--
+-- Name: etl_sla_node_reports; Type: TABLE; Schema: public; Owner: -
+--
+
+CREATE TABLE public.etl_sla_node_reports (
+    id integer NOT NULL,
+    sla_rollup_id integer NOT NULL,
+    address text NOT NULL,
+    num_blocks_proposed integer NOT NULL,
+    challenges_received integer NOT NULL,
+    challenges_failed integer NOT NULL,
+    block_height bigint NOT NULL,
+    tx_hash text NOT NULL,
+    created_at timestamp without time zone NOT NULL
+);
+
+
+--
+-- Name: etl_sla_node_reports_id_seq; Type: SEQUENCE; Schema: public; Owner: -
+--
+
+CREATE SEQUENCE public.etl_sla_node_reports_id_seq
+    AS integer
+    START WITH 1
+    INCREMENT BY 1
+    NO MINVALUE
+    NO MAXVALUE
+    CACHE 1;
+
+
+--
+-- Name: etl_sla_node_reports_id_seq; Type: SEQUENCE OWNED BY; Schema: public; Owner: -
+--
+
+ALTER SEQUENCE public.etl_sla_node_reports_id_seq OWNED BY public.etl_sla_node_reports.id;
+
+
+--
+-- Name: etl_sla_rollups; Type: TABLE; Schema: public; Owner: -
+--
+
+CREATE TABLE public.etl_sla_rollups (
+    id integer NOT NULL,
+    block_start bigint NOT NULL,
+    block_end bigint NOT NULL,
+    block_height bigint NOT NULL,
+    validator_count integer NOT NULL,
+    block_quota integer NOT NULL,
+    bps double precision NOT NULL,
+    tps double precision NOT NULL,
+    tx_hash text NOT NULL,
+    created_at timestamp without time zone NOT NULL
+);
+
+
+--
+-- Name: etl_sla_rollups_id_seq; Type: SEQUENCE; Schema: public; Owner: -
+--
+
+CREATE SEQUENCE public.etl_sla_rollups_id_seq
+    AS integer
+    START WITH 1
+    INCREMENT BY 1
+    NO MINVALUE
+    NO MAXVALUE
+    CACHE 1;
+
+
+--
+-- Name: etl_sla_rollups_id_seq; Type: SEQUENCE OWNED BY; Schema: public; Owner: -
+--
+
+ALTER SEQUENCE public.etl_sla_rollups_id_seq OWNED BY public.etl_sla_rollups.id;
+
+
+--
+-- Name: etl_storage_proof_verifications; Type: TABLE; Schema: public; Owner: -
+--
+
+CREATE TABLE public.etl_storage_proof_verifications (
+    id integer NOT NULL,
+    height bigint NOT NULL,
+    proof bytea NOT NULL,
+    block_height bigint NOT NULL,
+    tx_hash text NOT NULL,
+    created_at timestamp without time zone NOT NULL
+);
+
+
+--
+-- Name: etl_storage_proof_verifications_id_seq; Type: SEQUENCE; Schema: public; Owner: -
+--
+
+CREATE SEQUENCE public.etl_storage_proof_verifications_id_seq
+    AS integer
+    START WITH 1
+    INCREMENT BY 1
+    NO MINVALUE
+    NO MAXVALUE
+    CACHE 1;
+
+
+--
+-- Name: etl_storage_proof_verifications_id_seq; Type: SEQUENCE OWNED BY; Schema: public; Owner: -
+--
+
+ALTER SEQUENCE public.etl_storage_proof_verifications_id_seq OWNED BY public.etl_storage_proof_verifications.id;
+
+
+--
+-- Name: etl_storage_proofs; Type: TABLE; Schema: public; Owner: -
+--
+
+CREATE TABLE public.etl_storage_proofs (
+    id integer NOT NULL,
+    height bigint NOT NULL,
+    address text NOT NULL,
+    prover_addresses text[] NOT NULL,
+    cid text NOT NULL,
+    proof_signature bytea,
+    proof bytea,
+    status public.etl_proof_status DEFAULT 'unresolved'::public.etl_proof_status NOT NULL,
+    block_height bigint NOT NULL,
+    tx_hash text NOT NULL,
+    created_at timestamp without time zone NOT NULL
+);
+
+
+--
+-- Name: etl_storage_proofs_id_seq; Type: SEQUENCE; Schema: public; Owner: -
+--
+
+CREATE SEQUENCE public.etl_storage_proofs_id_seq
+    AS integer
+    START WITH 1
+    INCREMENT BY 1
+    NO MINVALUE
+    NO MAXVALUE
+    CACHE 1;
+
+
+--
+-- Name: etl_storage_proofs_id_seq; Type: SEQUENCE OWNED BY; Schema: public; Owner: -
+--
+
+ALTER SEQUENCE public.etl_storage_proofs_id_seq OWNED BY public.etl_storage_proofs.id;
+
+
+--
+-- Name: etl_transactions; Type: TABLE; Schema: public; Owner: -
+--
+
+CREATE TABLE public.etl_transactions (
+    id integer NOT NULL,
+    tx_hash text NOT NULL,
+    block_height bigint NOT NULL,
+    tx_index integer NOT NULL,
+    tx_type text NOT NULL,
+    address text,
+    created_at timestamp without time zone NOT NULL
+);
+
+
+--
+-- Name: etl_transactions_id_seq; Type: SEQUENCE; Schema: public; Owner: -
+--
+
+CREATE SEQUENCE public.etl_transactions_id_seq
+    AS integer
+    START WITH 1
+    INCREMENT BY 1
+    NO MINVALUE
+    NO MAXVALUE
+    CACHE 1;
+
+
+--
+-- Name: etl_transactions_id_seq; Type: SEQUENCE OWNED BY; Schema: public; Owner: -
+--
+
+ALTER SEQUENCE public.etl_transactions_id_seq OWNED BY public.etl_transactions.id;
+
+
+--
+-- Name: etl_validator_deregistrations; Type: TABLE; Schema: public; Owner: -
+--
+
+CREATE TABLE public.etl_validator_deregistrations (
+    id integer NOT NULL,
+    comet_address text NOT NULL,
+    comet_pubkey bytea NOT NULL,
+    block_height bigint NOT NULL,
+    tx_hash text NOT NULL
+);
+
+
+--
+-- Name: etl_validator_deregistrations_id_seq; Type: SEQUENCE; Schema: public; Owner: -
+--
+
+CREATE SEQUENCE public.etl_validator_deregistrations_id_seq
+    AS integer
+    START WITH 1
+    INCREMENT BY 1
+    NO MINVALUE
+    NO MAXVALUE
+    CACHE 1;
+
+
+--
+-- Name: etl_validator_deregistrations_id_seq; Type: SEQUENCE OWNED BY; Schema: public; Owner: -
+--
+
+ALTER SEQUENCE public.etl_validator_deregistrations_id_seq OWNED BY public.etl_validator_deregistrations.id;
+
+
+--
+-- Name: etl_validator_misbehavior_deregistrations; Type: TABLE; Schema: public; Owner: -
+--
+
+CREATE TABLE public.etl_validator_misbehavior_deregistrations (
+    id integer NOT NULL,
+    comet_address text NOT NULL,
+    pub_key bytea NOT NULL,
+    block_height bigint NOT NULL,
+    tx_hash text NOT NULL,
+    created_at timestamp without time zone NOT NULL
+);
+
+
+--
+-- Name: etl_validator_misbehavior_deregistrations_id_seq; Type: SEQUENCE; Schema: public; Owner: -
+--
+
+CREATE SEQUENCE public.etl_validator_misbehavior_deregistrations_id_seq
+    AS integer
+    START WITH 1
+    INCREMENT BY 1
+    NO MINVALUE
+    NO MAXVALUE
+    CACHE 1;
+
+
+--
+-- Name: etl_validator_misbehavior_deregistrations_id_seq; Type: SEQUENCE OWNED BY; Schema: public; Owner: -
+--
+
+ALTER SEQUENCE public.etl_validator_misbehavior_deregistrations_id_seq OWNED BY public.etl_validator_misbehavior_deregistrations.id;
+
+
+--
+-- Name: etl_validator_registrations; Type: TABLE; Schema: public; Owner: -
+--
+
+CREATE TABLE public.etl_validator_registrations (
+    id integer NOT NULL,
+    address text NOT NULL,
+    endpoint text NOT NULL,
+    comet_address text NOT NULL,
+    eth_block text NOT NULL,
+    node_type text NOT NULL,
+    spid text NOT NULL,
+    comet_pubkey bytea NOT NULL,
+    voting_power bigint NOT NULL,
+    block_height bigint NOT NULL,
+    tx_hash text NOT NULL
+);
+
+
+--
+-- Name: etl_validator_registrations_id_seq; Type: SEQUENCE; Schema: public; Owner: -
+--
+
+CREATE SEQUENCE public.etl_validator_registrations_id_seq
+    AS integer
+    START WITH 1
+    INCREMENT BY 1
+    NO MINVALUE
+    NO MAXVALUE
+    CACHE 1;
+
+
+--
+-- Name: etl_validator_registrations_id_seq; Type: SEQUENCE OWNED BY; Schema: public; Owner: -
+--
+
+ALTER SEQUENCE public.etl_validator_registrations_id_seq OWNED BY public.etl_validator_registrations.id;
+
+
+--
+-- Name: etl_validators; Type: TABLE; Schema: public; Owner: -
+--
+
+CREATE TABLE public.etl_validators (
+    id integer NOT NULL,
+    address text NOT NULL,
+    endpoint text NOT NULL,
+    comet_address text NOT NULL,
+    node_type text NOT NULL,
+    spid text NOT NULL,
+    voting_power bigint NOT NULL,
+    status text NOT NULL,
+    registered_at bigint NOT NULL,
+    deregistered_at bigint,
+    created_at timestamp without time zone NOT NULL,
+    updated_at timestamp without time zone NOT NULL
+);
+
+
+--
+-- Name: etl_validators_id_seq; Type: SEQUENCE; Schema: public; Owner: -
+--
+
+CREATE SEQUENCE public.etl_validators_id_seq
+    AS integer
+    START WITH 1
+    INCREMENT BY 1
+    NO MINVALUE
+    NO MAXVALUE
+    CACHE 1;
+
+
+--
+-- Name: etl_validators_id_seq; Type: SEQUENCE OWNED BY; Schema: public; Owner: -
+--
+
+ALTER SEQUENCE public.etl_validators_id_seq OWNED BY public.etl_validators.id;
+
+
+--
 -- Name: event_routes; Type: TABLE; Schema: public; Owner: -
 --
 
@@ -8525,6 +9057,108 @@ CREATE TABLE public.muted_users (
 
 
 --
+-- Name: mv_dashboard_transaction_stats; Type: MATERIALIZED VIEW; Schema: public; Owner: -
+--
+
+CREATE MATERIALIZED VIEW public.mv_dashboard_transaction_stats AS
+ WITH latest_block_time AS (
+         SELECT etl_blocks.block_time
+           FROM public.etl_blocks
+          ORDER BY etl_blocks.block_height DESC
+         LIMIT 1
+        ), time_periods AS (
+         SELECT lbt.block_time AS now_time,
+            (lbt.block_time - '24:00:00'::interval) AS h24_ago,
+            (lbt.block_time - '48:00:00'::interval) AS h48_ago,
+            (lbt.block_time - '7 days'::interval) AS d7_ago,
+            (lbt.block_time - '30 days'::interval) AS d30_ago
+           FROM latest_block_time lbt
+        )
+ SELECT count(*) FILTER (WHERE (t.created_at >= tp.h24_ago)) AS transactions_24h,
+    count(*) FILTER (WHERE ((t.created_at >= tp.h48_ago) AND (t.created_at < tp.h24_ago))) AS transactions_previous_24h,
+    count(*) FILTER (WHERE (t.created_at >= tp.d7_ago)) AS transactions_7d,
+    count(*) FILTER (WHERE (t.created_at >= tp.d30_ago)) AS transactions_30d,
+    count(*) AS total_transactions
+   FROM (time_periods tp
+     CROSS JOIN public.etl_transactions t)
+  WHERE (t.created_at <= tp.now_time)
+  WITH NO DATA;
+
+
+--
+-- Name: mv_dashboard_transaction_types; Type: MATERIALIZED VIEW; Schema: public; Owner: -
+--
+
+CREATE MATERIALIZED VIEW public.mv_dashboard_transaction_types AS
+ WITH latest_block_time AS (
+         SELECT etl_blocks.block_time
+           FROM public.etl_blocks
+          ORDER BY etl_blocks.block_height DESC
+         LIMIT 1
+        )
+ SELECT t.tx_type,
+    count(*) AS transaction_count
+   FROM (public.etl_transactions t
+     CROSS JOIN latest_block_time lbt)
+  WHERE (t.created_at <= lbt.block_time)
+  GROUP BY t.tx_type
+  ORDER BY (count(*)) DESC
+  WITH NO DATA;
+
+
+--
+-- Name: new_chain_queue; Type: TABLE; Schema: public; Owner: -
+--
+
+CREATE TABLE public.new_chain_queue (
+    id bigint NOT NULL,
+    created_at timestamp with time zone DEFAULT now() NOT NULL,
+    tx_data bytea NOT NULL,
+    confirmed_block bigint
+);
+
+
+--
+-- Name: TABLE new_chain_queue; Type: COMMENT; Schema: public; Owner: -
+--
+
+COMMENT ON TABLE public.new_chain_queue IS 'Queue of ManageEntity transactions to be forwarded to the new Core chain (audius-mainnet-v2) during genesis migration.';
+
+
+--
+-- Name: COLUMN new_chain_queue.tx_data; Type: COMMENT; Schema: public; Owner: -
+--
+
+COMMENT ON COLUMN public.new_chain_queue.tx_data IS 'Protobuf-serialized ManageEntityLegacy message.';
+
+
+--
+-- Name: COLUMN new_chain_queue.confirmed_block; Type: COMMENT; Schema: public; Owner: -
+--
+
+COMMENT ON COLUMN public.new_chain_queue.confirmed_block IS 'Block height on the old chain where this transaction was confirmed. NULL if confirmation was not recorded (e.g. relay restart).';
+
+
+--
+-- Name: new_chain_queue_id_seq; Type: SEQUENCE; Schema: public; Owner: -
+--
+
+CREATE SEQUENCE public.new_chain_queue_id_seq
+    START WITH 1
+    INCREMENT BY 1
+    NO MINVALUE
+    NO MAXVALUE
+    CACHE 1;
+
+
+--
+-- Name: new_chain_queue_id_seq; Type: SEQUENCE OWNED BY; Schema: public; Owner: -
+--
+
+ALTER SEQUENCE public.new_chain_queue_id_seq OWNED BY public.new_chain_queue.id;
+
+
+--
 -- Name: notification; Type: TABLE; Schema: public; Owner: -
 --
 
@@ -8558,7 +9192,6 @@ CREATE TABLE public.notification_campaign_push_open (
 --
 
 CREATE SEQUENCE public.notification_id_seq
-    AS bigint
     START WITH 1
     INCREMENT BY 1
     NO MINVALUE
@@ -11002,6 +11635,104 @@ ALTER TABLE ONLY public.eth_blocks ALTER COLUMN last_scanned_block SET DEFAULT n
 
 
 --
+-- Name: etl_addresses id; Type: DEFAULT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.etl_addresses ALTER COLUMN id SET DEFAULT nextval('public.etl_addresses_id_seq'::regclass);
+
+
+--
+-- Name: etl_blocks id; Type: DEFAULT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.etl_blocks ALTER COLUMN id SET DEFAULT nextval('public.etl_blocks_id_seq'::regclass);
+
+
+--
+-- Name: etl_manage_entities id; Type: DEFAULT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.etl_manage_entities ALTER COLUMN id SET DEFAULT nextval('public.etl_manage_entities_id_seq'::regclass);
+
+
+--
+-- Name: etl_plays id; Type: DEFAULT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.etl_plays ALTER COLUMN id SET DEFAULT nextval('public.etl_plays_id_seq'::regclass);
+
+
+--
+-- Name: etl_sla_node_reports id; Type: DEFAULT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.etl_sla_node_reports ALTER COLUMN id SET DEFAULT nextval('public.etl_sla_node_reports_id_seq'::regclass);
+
+
+--
+-- Name: etl_sla_rollups id; Type: DEFAULT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.etl_sla_rollups ALTER COLUMN id SET DEFAULT nextval('public.etl_sla_rollups_id_seq'::regclass);
+
+
+--
+-- Name: etl_storage_proof_verifications id; Type: DEFAULT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.etl_storage_proof_verifications ALTER COLUMN id SET DEFAULT nextval('public.etl_storage_proof_verifications_id_seq'::regclass);
+
+
+--
+-- Name: etl_storage_proofs id; Type: DEFAULT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.etl_storage_proofs ALTER COLUMN id SET DEFAULT nextval('public.etl_storage_proofs_id_seq'::regclass);
+
+
+--
+-- Name: etl_transactions id; Type: DEFAULT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.etl_transactions ALTER COLUMN id SET DEFAULT nextval('public.etl_transactions_id_seq'::regclass);
+
+
+--
+-- Name: etl_validator_deregistrations id; Type: DEFAULT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.etl_validator_deregistrations ALTER COLUMN id SET DEFAULT nextval('public.etl_validator_deregistrations_id_seq'::regclass);
+
+
+--
+-- Name: etl_validator_misbehavior_deregistrations id; Type: DEFAULT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.etl_validator_misbehavior_deregistrations ALTER COLUMN id SET DEFAULT nextval('public.etl_validator_misbehavior_deregistrations_id_seq'::regclass);
+
+
+--
+-- Name: etl_validator_registrations id; Type: DEFAULT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.etl_validator_registrations ALTER COLUMN id SET DEFAULT nextval('public.etl_validator_registrations_id_seq'::regclass);
+
+
+--
+-- Name: etl_validators id; Type: DEFAULT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.etl_validators ALTER COLUMN id SET DEFAULT nextval('public.etl_validators_id_seq'::regclass);
+
+
+--
+-- Name: new_chain_queue id; Type: DEFAULT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.new_chain_queue ALTER COLUMN id SET DEFAULT nextval('public.new_chain_queue_id_seq'::regclass);
+
+
+--
 -- Name: notification id; Type: DEFAULT; Schema: public; Owner: -
 --
 
@@ -11576,6 +12307,126 @@ ALTER TABLE ONLY public.eth_wallet_balances
 
 
 --
+-- Name: etl_addresses etl_addresses_pkey; Type: CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.etl_addresses
+    ADD CONSTRAINT etl_addresses_pkey PRIMARY KEY (id);
+
+
+--
+-- Name: etl_blocks etl_blocks_pkey; Type: CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.etl_blocks
+    ADD CONSTRAINT etl_blocks_pkey PRIMARY KEY (id);
+
+
+--
+-- Name: etl_db_migrations etl_db_migrations_pkey; Type: CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.etl_db_migrations
+    ADD CONSTRAINT etl_db_migrations_pkey PRIMARY KEY (version);
+
+
+--
+-- Name: etl_manage_entities etl_manage_entities_pkey; Type: CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.etl_manage_entities
+    ADD CONSTRAINT etl_manage_entities_pkey PRIMARY KEY (id);
+
+
+--
+-- Name: etl_plays etl_plays_pkey; Type: CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.etl_plays
+    ADD CONSTRAINT etl_plays_pkey PRIMARY KEY (id);
+
+
+--
+-- Name: etl_sla_node_reports etl_sla_node_reports_pkey; Type: CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.etl_sla_node_reports
+    ADD CONSTRAINT etl_sla_node_reports_pkey PRIMARY KEY (id);
+
+
+--
+-- Name: etl_sla_rollups etl_sla_rollups_pkey; Type: CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.etl_sla_rollups
+    ADD CONSTRAINT etl_sla_rollups_pkey PRIMARY KEY (id);
+
+
+--
+-- Name: etl_storage_proof_verifications etl_storage_proof_verifications_pkey; Type: CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.etl_storage_proof_verifications
+    ADD CONSTRAINT etl_storage_proof_verifications_pkey PRIMARY KEY (id);
+
+
+--
+-- Name: etl_storage_proofs etl_storage_proofs_pkey; Type: CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.etl_storage_proofs
+    ADD CONSTRAINT etl_storage_proofs_pkey PRIMARY KEY (id);
+
+
+--
+-- Name: etl_transactions etl_transactions_pkey; Type: CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.etl_transactions
+    ADD CONSTRAINT etl_transactions_pkey PRIMARY KEY (id);
+
+
+--
+-- Name: etl_validator_deregistrations etl_validator_deregistrations_pkey; Type: CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.etl_validator_deregistrations
+    ADD CONSTRAINT etl_validator_deregistrations_pkey PRIMARY KEY (id);
+
+
+--
+-- Name: etl_validator_misbehavior_deregistrations etl_validator_misbehavior_deregistrations_pkey; Type: CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.etl_validator_misbehavior_deregistrations
+    ADD CONSTRAINT etl_validator_misbehavior_deregistrations_pkey PRIMARY KEY (id);
+
+
+--
+-- Name: etl_validator_registrations etl_validator_registrations_pkey; Type: CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.etl_validator_registrations
+    ADD CONSTRAINT etl_validator_registrations_pkey PRIMARY KEY (id);
+
+
+--
+-- Name: etl_validators etl_validators_endpoint_key; Type: CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.etl_validators
+    ADD CONSTRAINT etl_validators_endpoint_key UNIQUE (endpoint);
+
+
+--
+-- Name: etl_validators etl_validators_pkey; Type: CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.etl_validators
+    ADD CONSTRAINT etl_validators_pkey PRIMARY KEY (id);
+
+
+--
 -- Name: events events_pkey; Type: CONSTRAINT; Schema: public; Owner: -
 --
 
@@ -11629,6 +12480,14 @@ ALTER TABLE ONLY public.milestones
 
 ALTER TABLE ONLY public.muted_users
     ADD CONSTRAINT muted_users_pkey PRIMARY KEY (muted_user_id, user_id);
+
+
+--
+-- Name: new_chain_queue new_chain_queue_pkey; Type: CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.new_chain_queue
+    ADD CONSTRAINT new_chain_queue_pkey PRIMARY KEY (id);
 
 
 --
@@ -11716,7 +12575,7 @@ ALTER TABLE ONLY public.playlist_routes
 --
 
 ALTER TABLE ONLY public.playlist_seen
-    ADD CONSTRAINT playlist_seen_pkey PRIMARY KEY (playlist_id, seen_at, user_id);
+    ADD CONSTRAINT playlist_seen_pkey PRIMARY KEY (user_id, playlist_id, seen_at);
 
 
 --
@@ -12256,14 +13115,6 @@ ALTER TABLE ONLY public.trending_results
 
 
 --
--- Name: developer_apps unique_developer_apps_address; Type: CONSTRAINT; Schema: public; Owner: -
---
-
-ALTER TABLE ONLY public.developer_apps
-    ADD CONSTRAINT unique_developer_apps_address UNIQUE (address);
-
-
---
 -- Name: associated_wallets unique_user_wallet_chain; Type: CONSTRAINT; Schema: public; Owner: -
 --
 
@@ -12580,6 +13431,13 @@ COMMENT ON INDEX public.comments_blocknumber_idx IS 'Range scans by blocknumber 
 
 
 --
+-- Name: comments_track_entity_created_at_idx; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX comments_track_entity_created_at_idx ON public.comments USING btree (entity_id, created_at DESC) INCLUDE (comment_id, user_id) WHERE ((entity_type = 'Track'::text) AND (is_delete = false));
+
+
+--
 -- Name: comments_user_track_created_at_idx; Type: INDEX; Schema: public; Owner: -
 --
 
@@ -12601,6 +13459,363 @@ COMMENT ON INDEX public.eth_wallet_balances_updated_at_idx IS 'Supports stalenes
 
 
 --
+-- Name: etl_blocks_block_height_desc_idx; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX etl_blocks_block_height_desc_idx ON public.etl_blocks USING btree (block_height DESC);
+
+
+--
+-- Name: etl_blocks_block_height_idx; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX etl_blocks_block_height_idx ON public.etl_blocks USING btree (block_height);
+
+
+--
+-- Name: etl_blocks_block_time_height_idx; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX etl_blocks_block_time_height_idx ON public.etl_blocks USING btree (block_time DESC, block_height DESC);
+
+
+--
+-- Name: etl_blocks_block_time_idx; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX etl_blocks_block_time_idx ON public.etl_blocks USING btree (block_time);
+
+
+--
+-- Name: etl_blocks_block_time_range_idx; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX etl_blocks_block_time_range_idx ON public.etl_blocks USING btree (block_time, block_height);
+
+
+--
+-- Name: etl_blocks_id_desc_idx; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX etl_blocks_id_desc_idx ON public.etl_blocks USING btree (id DESC);
+
+
+--
+-- Name: etl_manage_entities_cursor_idx; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX etl_manage_entities_cursor_idx ON public.etl_manage_entities USING btree (block_height, id);
+
+
+--
+-- Name: etl_manage_entities_tx_hash_action_entity_idx; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX etl_manage_entities_tx_hash_action_entity_idx ON public.etl_manage_entities USING btree (tx_hash, action, entity_type);
+
+
+--
+-- Name: etl_manage_entities_tx_hash_idx; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX etl_manage_entities_tx_hash_idx ON public.etl_manage_entities USING btree (tx_hash);
+
+
+--
+-- Name: etl_plays_cursor_idx; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX etl_plays_cursor_idx ON public.etl_plays USING btree (block_height, id);
+
+
+--
+-- Name: etl_plays_tx_hash_idx; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX etl_plays_tx_hash_idx ON public.etl_plays USING btree (tx_hash);
+
+
+--
+-- Name: etl_sla_node_reports_address_lower_idx; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX etl_sla_node_reports_address_lower_idx ON public.etl_sla_node_reports USING btree (lower(address));
+
+
+--
+-- Name: etl_sla_node_reports_address_sla_rollup_idx; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX etl_sla_node_reports_address_sla_rollup_idx ON public.etl_sla_node_reports USING btree (address, sla_rollup_id);
+
+
+--
+-- Name: etl_sla_node_reports_cursor_idx; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX etl_sla_node_reports_cursor_idx ON public.etl_sla_node_reports USING btree (block_height, id);
+
+
+--
+-- Name: etl_sla_node_reports_sla_rollup_id_idx; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX etl_sla_node_reports_sla_rollup_id_idx ON public.etl_sla_node_reports USING btree (sla_rollup_id);
+
+
+--
+-- Name: etl_sla_rollups_block_height_desc_idx; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX etl_sla_rollups_block_height_desc_idx ON public.etl_sla_rollups USING btree (block_height DESC, id DESC);
+
+
+--
+-- Name: etl_sla_rollups_cursor_idx; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX etl_sla_rollups_cursor_idx ON public.etl_sla_rollups USING btree (block_height, id);
+
+
+--
+-- Name: etl_sla_rollups_latest_covering_idx; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX etl_sla_rollups_latest_covering_idx ON public.etl_sla_rollups USING btree (block_height DESC, id DESC, block_start, block_end, validator_count, block_quota, bps, tps);
+
+
+--
+-- Name: etl_sla_rollups_tx_hash_idx; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX etl_sla_rollups_tx_hash_idx ON public.etl_sla_rollups USING btree (tx_hash);
+
+
+--
+-- Name: etl_storage_proof_verifications_cursor_idx; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX etl_storage_proof_verifications_cursor_idx ON public.etl_storage_proof_verifications USING btree (block_height, id);
+
+
+--
+-- Name: etl_storage_proof_verifications_tx_hash_idx; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX etl_storage_proof_verifications_tx_hash_idx ON public.etl_storage_proof_verifications USING btree (tx_hash);
+
+
+--
+-- Name: etl_storage_proofs_cursor_idx; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX etl_storage_proofs_cursor_idx ON public.etl_storage_proofs USING btree (block_height, id);
+
+
+--
+-- Name: etl_storage_proofs_height_address_idx; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX etl_storage_proofs_height_address_idx ON public.etl_storage_proofs USING btree (height, address);
+
+
+--
+-- Name: etl_storage_proofs_height_idx; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX etl_storage_proofs_height_idx ON public.etl_storage_proofs USING btree (height);
+
+
+--
+-- Name: etl_storage_proofs_height_range_idx; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX etl_storage_proofs_height_range_idx ON public.etl_storage_proofs USING btree (height, address) WHERE (height >= 0);
+
+
+--
+-- Name: etl_storage_proofs_status_fail_idx; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX etl_storage_proofs_status_fail_idx ON public.etl_storage_proofs USING btree (height, address) WHERE (status = 'fail'::public.etl_proof_status);
+
+
+--
+-- Name: etl_storage_proofs_status_unresolved_idx; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX etl_storage_proofs_status_unresolved_idx ON public.etl_storage_proofs USING btree (height, address) WHERE (status = 'unresolved'::public.etl_proof_status);
+
+
+--
+-- Name: etl_storage_proofs_tx_hash_idx; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX etl_storage_proofs_tx_hash_idx ON public.etl_storage_proofs USING btree (tx_hash);
+
+
+--
+-- Name: etl_transactions_address_filter_idx; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX etl_transactions_address_filter_idx ON public.etl_transactions USING btree (lower(address), tx_type, created_at, block_height DESC, tx_index DESC);
+
+
+--
+-- Name: etl_transactions_address_idx; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX etl_transactions_address_idx ON public.etl_transactions USING btree (address);
+
+
+--
+-- Name: etl_transactions_address_lower_idx; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX etl_transactions_address_lower_idx ON public.etl_transactions USING btree (lower(address));
+
+
+--
+-- Name: etl_transactions_block_height_desc_idx; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX etl_transactions_block_height_desc_idx ON public.etl_transactions USING btree (block_height DESC, tx_index DESC);
+
+
+--
+-- Name: etl_transactions_created_at_idx; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX etl_transactions_created_at_idx ON public.etl_transactions USING btree (created_at);
+
+
+--
+-- Name: etl_transactions_created_at_type_idx; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX etl_transactions_created_at_type_idx ON public.etl_transactions USING btree (created_at, tx_type);
+
+
+--
+-- Name: etl_transactions_cursor_idx; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX etl_transactions_cursor_idx ON public.etl_transactions USING btree (block_height, id);
+
+
+--
+-- Name: etl_transactions_id_desc_idx; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX etl_transactions_id_desc_idx ON public.etl_transactions USING btree (id DESC);
+
+
+--
+-- Name: etl_transactions_tx_hash_idx; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE UNIQUE INDEX etl_transactions_tx_hash_idx ON public.etl_transactions USING btree (tx_hash);
+
+
+--
+-- Name: etl_transactions_tx_type_idx; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX etl_transactions_tx_type_idx ON public.etl_transactions USING btree (tx_type);
+
+
+--
+-- Name: etl_validator_deregistrations_comet_address_idx; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX etl_validator_deregistrations_comet_address_idx ON public.etl_validator_deregistrations USING btree (comet_address);
+
+
+--
+-- Name: etl_validator_deregistrations_cursor_idx; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX etl_validator_deregistrations_cursor_idx ON public.etl_validator_deregistrations USING btree (block_height, id);
+
+
+--
+-- Name: etl_validator_deregistrations_tx_hash_idx; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX etl_validator_deregistrations_tx_hash_idx ON public.etl_validator_deregistrations USING btree (tx_hash);
+
+
+--
+-- Name: etl_validator_misbehavior_deregistrations_cursor_idx; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX etl_validator_misbehavior_deregistrations_cursor_idx ON public.etl_validator_misbehavior_deregistrations USING btree (block_height, id);
+
+
+--
+-- Name: etl_validator_registrations_comet_address_idx; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX etl_validator_registrations_comet_address_idx ON public.etl_validator_registrations USING btree (comet_address);
+
+
+--
+-- Name: etl_validator_registrations_cursor_idx; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX etl_validator_registrations_cursor_idx ON public.etl_validator_registrations USING btree (block_height, id);
+
+
+--
+-- Name: etl_validator_registrations_tx_hash_idx; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX etl_validator_registrations_tx_hash_idx ON public.etl_validator_registrations USING btree (tx_hash);
+
+
+--
+-- Name: etl_validators_active_reports_idx; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX etl_validators_active_reports_idx ON public.etl_validators USING btree (status, comet_address) WHERE (status = 'active'::text);
+
+
+--
+-- Name: etl_validators_address_lower_idx; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX etl_validators_address_lower_idx ON public.etl_validators USING btree (lower(address));
+
+
+--
+-- Name: etl_validators_comet_address_idx; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX etl_validators_comet_address_idx ON public.etl_validators USING btree (comet_address);
+
+
+--
+-- Name: etl_validators_comet_address_lower_idx; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX etl_validators_comet_address_lower_idx ON public.etl_validators USING btree (lower(comet_address));
+
+
+--
+-- Name: etl_validators_status_covering_idx; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX etl_validators_status_covering_idx ON public.etl_validators USING btree (status, comet_address, endpoint, node_type, spid, voting_power) WHERE (status = 'active'::text);
+
+
+--
+-- Name: etl_validators_status_idx; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX etl_validators_status_idx ON public.etl_validators USING btree (status);
+
+
+--
 -- Name: event_routes_event_id_idx; Type: INDEX; Schema: public; Owner: -
 --
 
@@ -12619,6 +13834,13 @@ CREATE INDEX fix_tracks_top_genre_users_idx ON public.tracks USING btree (track_
 --
 
 CREATE INDEX follows_blocknumber_idx ON public.follows USING btree (blocknumber);
+
+
+--
+-- Name: follows_current_uniq_idx; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE UNIQUE INDEX follows_current_uniq_idx ON public.follows USING btree (follower_user_id, followee_user_id) WHERE (is_current = true);
 
 
 --
@@ -12720,6 +13942,13 @@ CREATE INDEX idx_chain_blockhash ON public.core_indexed_blocks USING btree (bloc
 
 
 --
+-- Name: idx_chain_id_height; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX idx_chain_id_height ON public.core_indexed_blocks USING btree (chain_id, height);
+
+
+--
 -- Name: idx_challenge_disbursements_created_at; Type: INDEX; Schema: public; Owner: -
 --
 
@@ -12752,6 +13981,13 @@ CREATE INDEX idx_chat_message_reactions_message_id ON public.chat_message_reacti
 --
 
 CREATE INDEX idx_chat_message_user_id ON public.chat_message USING btree (user_id, created_at);
+
+
+--
+-- Name: idx_dashboard_wallet_users_user_id; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX idx_dashboard_wallet_users_user_id ON public.dashboard_wallet_users USING btree (user_id);
 
 
 --
@@ -12843,6 +14079,13 @@ CREATE INDEX idx_genre_related_artists ON public.aggregate_user USING btree (dom
 --
 
 CREATE INDEX idx_grants_grantee_address ON public.grants USING btree (grantee_address, is_revoked, created_at DESC) WHERE (is_current = true);
+
+
+--
+-- Name: idx_grants_user_id; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX idx_grants_user_id ON public.grants USING btree (user_id);
 
 
 --
@@ -12990,6 +14233,20 @@ COMMENT ON INDEX public.idx_sol_reward_manager_inits_mint IS 'Index to quickly f
 --
 
 CREATE INDEX idx_track_collaborators_collaborator ON public.track_collaborators USING btree (collaborator_user_id, status, track_id);
+
+
+--
+-- Name: idx_track_downloads_track_id; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX idx_track_downloads_track_id ON public.track_downloads USING btree (track_id);
+
+
+--
+-- Name: idx_track_downloads_user_id; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX idx_track_downloads_user_id ON public.track_downloads USING btree (user_id);
 
 
 --
@@ -13189,6 +14446,13 @@ COMMENT ON INDEX public.ix_notification_cooldown_user_ids IS 'Partial GIN for th
 
 
 --
+-- Name: ix_oauth_redirect_uris_client_id; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX ix_oauth_redirect_uris_client_id ON public.oauth_redirect_uris USING btree (client_id);
+
+
+--
 -- Name: ix_playlist_trending_scores_playlist_id; Type: INDEX; Schema: public; Owner: -
 --
 
@@ -13336,6 +14600,27 @@ CREATE INDEX milestones_name_idx ON public.milestones USING btree (name, id);
 
 
 --
+-- Name: mv_dashboard_transaction_stats_24h_idx; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX mv_dashboard_transaction_stats_24h_idx ON public.mv_dashboard_transaction_stats USING btree (transactions_24h);
+
+
+--
+-- Name: mv_dashboard_transaction_types_idx; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX mv_dashboard_transaction_types_idx ON public.mv_dashboard_transaction_types USING btree (tx_type, transaction_count);
+
+
+--
+-- Name: new_chain_queue_confirmed_block_idx; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX new_chain_queue_confirmed_block_idx ON public.new_chain_queue USING btree (confirmed_block);
+
+
+--
 -- Name: notification_multi_recipient_user_ids_idx; Type: INDEX; Schema: public; Owner: -
 --
 
@@ -13382,6 +14667,13 @@ CREATE INDEX playlist_created_at_idx ON public.playlists USING btree (created_at
 --
 
 CREATE INDEX playlist_owner_idx ON public.playlists USING btree (playlist_owner_id, created_at);
+
+
+--
+-- Name: playlist_routes_owner_title_slug_idx; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX playlist_routes_owner_title_slug_idx ON public.playlist_routes USING btree (owner_id, title_slug, collision_id);
 
 
 --
@@ -13438,6 +14730,13 @@ CREATE INDEX related_artists_related_artist_id_idx ON public.related_artists USI
 --
 
 CREATE INDEX remixes_child_idx ON public.remixes USING btree (child_track_id, parent_track_id);
+
+
+--
+-- Name: reposts_current_uniq_idx; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE UNIQUE INDEX reposts_current_uniq_idx ON public.reposts USING btree (user_id, repost_item_id, repost_type) WHERE (is_current = true);
 
 
 --
@@ -13508,6 +14807,13 @@ CREATE INDEX rpclog_method_idx ON public.rpclog USING btree (method);
 --
 
 CREATE INDEX rpclog_wallet_idx ON public.rpclog USING btree (wallet);
+
+
+--
+-- Name: saves_current_uniq_idx; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE UNIQUE INDEX saves_current_uniq_idx ON public.saves USING btree (user_id, save_item_id, save_type) WHERE (is_current = true);
 
 
 --
@@ -13917,6 +15223,13 @@ COMMENT ON INDEX public.sol_user_balances_mint_user_id_idx IS 'Index for quick a
 
 
 --
+-- Name: subscriptions_current_uniq_idx; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE UNIQUE INDEX subscriptions_current_uniq_idx ON public.subscriptions USING btree (subscriber_id, user_id) WHERE (is_current = true);
+
+
+--
 -- Name: subscriptions_entity_type_entity_id_idx; Type: INDEX; Schema: public; Owner: -
 --
 
@@ -13984,6 +15297,13 @@ CREATE INDEX track_owner_idx ON public.tracks USING btree (owner_id, created_at)
 --
 
 CREATE INDEX track_routes_owner_title_slug_collision_idx ON public.track_routes USING btree (owner_id, title_slug, collision_id DESC);
+
+
+--
+-- Name: track_routes_owner_title_slug_idx; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX track_routes_owner_title_slug_idx ON public.track_routes USING btree (owner_id, title_slug, collision_id);
 
 
 --
@@ -14103,6 +15423,13 @@ CREATE INDEX user_events_user_id_idx ON public.user_events USING btree (user_id)
 --
 
 CREATE INDEX user_payout_wallet_history_wallet_idx ON public.user_payout_wallet_history USING btree (spl_usdc_payout_wallet, block_timestamp);
+
+
+--
+-- Name: users_current_uniq_idx; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE UNIQUE INDEX users_current_uniq_idx ON public.users USING btree (user_id) WHERE (is_current = true);
 
 
 --
@@ -14561,6 +15888,20 @@ CREATE TRIGGER trigger_grant_change AFTER INSERT OR UPDATE ON public.grants FOR 
 
 
 --
+-- Name: etl_blocks trigger_notify_new_block; Type: TRIGGER; Schema: public; Owner: -
+--
+
+CREATE TRIGGER trigger_notify_new_block AFTER INSERT ON public.etl_blocks FOR EACH ROW EXECUTE FUNCTION public.notify_new_block();
+
+
+--
+-- Name: etl_plays trigger_notify_new_plays; Type: TRIGGER; Schema: public; Owner: -
+--
+
+CREATE TRIGGER trigger_notify_new_plays AFTER INSERT ON public.etl_plays FOR EACH ROW EXECUTE FUNCTION public.notify_new_plays();
+
+
+--
 -- Name: track_collaborators trigger_track_collaborator_change; Type: TRIGGER; Schema: public; Owner: -
 --
 
@@ -14669,6 +16010,14 @@ ALTER TABLE ONLY public.dashboard_wallet_users
 
 ALTER TABLE ONLY public.developer_apps
     ADD CONSTRAINT developer_apps_blocknumber_fkey FOREIGN KEY (blocknumber) REFERENCES public.blocks(number) ON DELETE CASCADE;
+
+
+--
+-- Name: etl_sla_node_reports etl_sla_node_reports_sla_rollup_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.etl_sla_node_reports
+    ADD CONSTRAINT etl_sla_node_reports_sla_rollup_id_fkey FOREIGN KEY (sla_rollup_id) REFERENCES public.etl_sla_rollups(id);
 
 
 --
@@ -14850,4 +16199,5 @@ ALTER TABLE ONLY public.users
 --
 -- PostgreSQL database dump complete
 --
+
 
