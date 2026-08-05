@@ -106,7 +106,11 @@ func (j *ListenStreakReminderJob) run(ctx context.Context) error {
 			@now
 		FROM challenge_listen_streak cls
 		WHERE cls.last_listen_date BETWEEN @window_start AND @window_end
-		ON CONFLICT (group_id, specifier) DO NOTHING
+				AND NOT EXISTS (
+			SELECT 1 FROM notification
+			WHERE group_id = 'listen_streak_reminder:' || cls.user_id::text || ':' || to_char(cls.last_listen_date, 'YYYY-MM-DD')
+		)
+ON CONFLICT (group_id, specifier) DO NOTHING
 	`, pgx.NamedArgs{
 		"now":          now,
 		"window_start": windowStart,

@@ -23,6 +23,12 @@ import (
 // current/visible, and insert one notification per recipient. uq_notification
 // (group_id, specifier) — where specifier is the recipient user id — provides
 // idempotency, so a recipient is notified at most once per (event, type).
+//
+// Each step also filters out events that already have any notification row for
+// their group_id prefix. This prevents Postgres from burning a sequence ID on
+// every conflict when the job re-scans the same events each run — without this
+// guard, a 72-hour ending-soon window and a 30-second job interval causes
+// ~8 640 wasted INSERT attempts per event per day.
 type RemixContestNotificationsJob struct {
 	pool   database.DbPool
 	logger *zap.Logger
@@ -69,6 +75,12 @@ func (j *RemixContestNotificationsJob) Run(ctx context.Context) {
 	if err := j.run(ctx); err != nil {
 		j.logger.Error("Job run failed", zap.Error(err))
 	}
+}
+
+// RunE executes the job once and returns any error.
+// Intended for the cmd/remix_contest_notifications CronJob binary.
+func (j *RemixContestNotificationsJob) RunE(ctx context.Context) error {
+	return j.run(ctx)
 }
 
 func (j *RemixContestNotificationsJob) run(ctx context.Context) error {
@@ -166,7 +178,11 @@ func (j *RemixContestNotificationsJob) fanEnded(ctx context.Context, now time.Ti
 			AND e.end_date IS NOT NULL
 			AND e.end_date BETWEEN @window_start AND @window_end
 			AND aud.user_id <> e.user_id
-		ON CONFLICT (group_id, specifier) DO NOTHING
+				AND NOT EXISTS (
+			SELECT 1 FROM notification
+			WHERE group_id = 'fan_remix_contest_ended:' || e.event_id::text
+		)
+ON CONFLICT (group_id, specifier) DO NOTHING
 	`, pgx.NamedArgs{
 		"now":          now,
 		"window_start": now.Add(-remixContestEndedWindowHours),
@@ -210,7 +226,11 @@ func (j *RemixContestNotificationsJob) fanEndingSoon(ctx context.Context, now ti
 			AND e.end_date IS NOT NULL
 			AND e.end_date BETWEEN @window_start AND @window_end
 			AND aud.user_id <> e.user_id
-		ON CONFLICT (group_id, specifier) DO NOTHING
+				AND NOT EXISTS (
+			SELECT 1 FROM notification
+			WHERE group_id = 'fan_remix_contest_ending_soon:' || e.event_id::text
+		)
+ON CONFLICT (group_id, specifier) DO NOTHING
 	`, pgx.NamedArgs{
 		"now":          now,
 		"window_start": now,
@@ -240,7 +260,11 @@ func (j *RemixContestNotificationsJob) artistEnded(ctx context.Context, now time
 		WHERE e.event_type = 'remix_contest' AND NOT e.is_deleted
 			AND e.end_date IS NOT NULL
 			AND e.end_date BETWEEN @window_start AND @window_end
-		ON CONFLICT (group_id, specifier) DO NOTHING
+				AND NOT EXISTS (
+			SELECT 1 FROM notification
+			WHERE group_id = 'artist_remix_contest_ended:' || e.event_id::text
+		)
+ON CONFLICT (group_id, specifier) DO NOTHING
 	`, pgx.NamedArgs{
 		"now":          now,
 		"window_start": now.Add(-remixContestEndedWindowHours),
@@ -270,7 +294,11 @@ func (j *RemixContestNotificationsJob) artistEndingSoon(ctx context.Context, now
 		WHERE e.event_type = 'remix_contest' AND NOT e.is_deleted
 			AND e.end_date IS NOT NULL
 			AND e.end_date BETWEEN @window_start AND @window_end
-		ON CONFLICT (group_id, specifier) DO NOTHING
+				AND NOT EXISTS (
+			SELECT 1 FROM notification
+			WHERE group_id = 'artist_remix_contest_ending_soon:' || e.event_id::text
+		)
+ON CONFLICT (group_id, specifier) DO NOTHING
 	`, pgx.NamedArgs{
 		"now":          now,
 		"window_start": now,
