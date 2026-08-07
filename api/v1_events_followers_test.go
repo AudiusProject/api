@@ -514,7 +514,12 @@ func TestEventsFollowers_ReturnsOnlyLiveEventSubscribers(t *testing.T) {
 	app := emptyTestApp(t)
 
 	database.Seed(app.pool.Replicas[0], database.FixtureMap{
-		"users": testEventFollowersBaseUsers(),
+		"users": append(testEventFollowersBaseUsers(), map[string]any{
+			"user_id":   4,
+			"handle":    "legacyfan",
+			"handle_lc": "legacyfan",
+			"name":      "Legacy Fan",
+		}),
 		"tracks": {
 			{
 				"track_id":   1,
@@ -560,8 +565,15 @@ func TestEventsFollowers_ReturnsOnlyLiveEventSubscribers(t *testing.T) {
 			},
 			// Legacy user-type subscription with a colliding numeric id —
 			// must NOT show up.
+			//
+			// Seeded from subscriber 4 (not 1) so it doesn't share
+			// (subscriber_id, user_id) with the deleted-event row below:
+			// production's subscriptions_current_uniq_idx currently keys
+			// current rows on that pair alone. Once go-openaudio#469 widens
+			// the index to include entity_type, same-subscriber coexistence
+			// becomes legal and is worth covering here again.
 			{
-				"subscriber_id": 1,
+				"subscriber_id": 4,
 				"user_id":       200,
 				"entity_type":   "User",
 				"entity_id":     nil,
