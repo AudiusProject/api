@@ -31,9 +31,6 @@ func TestUsersSubscribers(t *testing.T) {
 	}
 
 	database.Seed(app.pool.Replicas[0], fixtures)
-	// The last row is an Event subscription whose event id collides with the
-	// artist's user id (user_id mirrors the event id for Event rows). Its
-	// subscriber follows event 1, not user 1, and must NOT be listed.
 	_, err := app.pool.Exec(t.Context(), `
 		INSERT INTO subscriptions (user_id, subscriber_id, is_current, is_delete, txhash, entity_type, entity_id)
 		VALUES

@@ -20,9 +20,6 @@ func (app *ApiServer) v1UsersSubscribers(c *fiber.Ctx) error {
 		FROM
 			subscriptions
 		WHERE
-			-- user_id is overloaded: it mirrors the event id for Event
-			-- subscriptions, so an unqualified match would count followers of
-			-- an event whose id collides with this user's id.
 			entity_type = 'User'
 			AND user_id = @userId
 			AND is_current = true

@@ -44,9 +44,6 @@ jobs:
           done
 
       - name: Run tests
-        # -count=1 defeats Go's test-result cache. The test schema lives in a
-        # dockerized Postgres the cache can't see, so a sql/-only change can
-        # otherwise ride a stale green (how #1011 merged with a failing test).
         run: go test -count=1 -cover ./...
 
 

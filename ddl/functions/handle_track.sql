@@ -52,9 +52,6 @@ begin
           from subscriptions
           where is_current and
           not is_delete and
-          -- user_id is overloaded: it mirrors the event id for Event
-          -- subscriptions, so an unqualified match can pick up followers of an
-          -- event whose id collides with this artist's user id.
           entity_type = 'User' and
           user_id=new.owner_id
       ) into subscriber_user_ids;

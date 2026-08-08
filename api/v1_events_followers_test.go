@@ -172,13 +172,6 @@ func TestEventFollowState_CountsOnlyLiveEventSubscriptions(t *testing.T) {
 			},
 			// A legacy user-type subscription with matching numeric id —
 			// must NOT be counted.
-			//
-			// Seeded from subscriber 5 so it doesn't share
-			// (subscriber_id, user_id) with subscriber 2's Event row above:
-			// production's subscriptions_current_uniq_idx currently keys
-			// current rows on that pair alone. Once go-openaudio#469 widens
-			// the index to include entity_type, same-subscriber coexistence
-			// becomes legal and is worth covering here again.
 			{
 				"subscriber_id": 5,
 				"user_id":       200,
@@ -572,13 +565,6 @@ func TestEventsFollowers_ReturnsOnlyLiveEventSubscribers(t *testing.T) {
 			},
 			// Legacy user-type subscription with a colliding numeric id —
 			// must NOT show up.
-			//
-			// Seeded from subscriber 4 (not 1) so it doesn't share
-			// (subscriber_id, user_id) with the deleted-event row below:
-			// production's subscriptions_current_uniq_idx currently keys
-			// current rows on that pair alone. Once go-openaudio#469 widens
-			// the index to include entity_type, same-subscriber coexistence
-			// becomes legal and is worth covering here again.
 			{
 				"subscriber_id": 4,
 				"user_id":       200,
