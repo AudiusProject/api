@@ -173,7 +173,7 @@ func TestEventFollowState_CountsOnlyLiveEventSubscriptions(t *testing.T) {
 			// A legacy user-type subscription with matching numeric id —
 			// must NOT be counted.
 			{
-				"subscriber_id": 2,
+				"subscriber_id": 5,
 				"user_id":       200,
 				"entity_type":   "User",
 				"entity_id":     nil,
@@ -514,7 +514,12 @@ func TestEventsFollowers_ReturnsOnlyLiveEventSubscribers(t *testing.T) {
 	app := emptyTestApp(t)
 
 	database.Seed(app.pool.Replicas[0], database.FixtureMap{
-		"users": testEventFollowersBaseUsers(),
+		"users": append(testEventFollowersBaseUsers(), map[string]any{
+			"user_id":   4,
+			"handle":    "legacyfan",
+			"handle_lc": "legacyfan",
+			"name":      "Legacy Fan",
+		}),
 		"tracks": {
 			{
 				"track_id":   1,
@@ -561,7 +566,7 @@ func TestEventsFollowers_ReturnsOnlyLiveEventSubscribers(t *testing.T) {
 			// Legacy user-type subscription with a colliding numeric id —
 			// must NOT show up.
 			{
-				"subscriber_id": 1,
+				"subscriber_id": 4,
 				"user_id":       200,
 				"entity_type":   "User",
 				"entity_id":     nil,

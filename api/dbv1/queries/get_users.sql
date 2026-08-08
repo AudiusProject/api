@@ -23,6 +23,7 @@ current_user_subscribed_targets AS (
   FROM subscriptions s
   JOIN input_users i ON i.user_id = s.user_id
   WHERE @my_id > 0
+    AND s.entity_type = 'User'
     AND s.subscriber_id = @my_id
     AND s.is_delete = false
   GROUP BY s.user_id

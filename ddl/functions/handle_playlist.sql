@@ -60,6 +60,7 @@ begin
           from subscriptions
           where is_current and
           not is_delete and
+          entity_type = 'User' and
           user_id=new.playlist_owner_id
       ) into subscriber_user_ids;
       if array_length(subscriber_user_ids, 1)	> 0 then

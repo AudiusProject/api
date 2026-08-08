@@ -52,6 +52,7 @@ begin
           from subscriptions
           where is_current and
           not is_delete and
+          entity_type = 'User' and
           user_id=new.owner_id
       ) into subscriber_user_ids;
 

@@ -20,7 +20,8 @@ func (app *ApiServer) v1UsersSubscribers(c *fiber.Ctx) error {
 		FROM
 			subscriptions
 		WHERE
-			user_id = @userId
+			entity_type = 'User'
+			AND user_id = @userId
 			AND is_current = true
 			AND is_delete = false
 		ORDER BY

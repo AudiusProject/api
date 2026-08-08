@@ -44,7 +44,7 @@ jobs:
           done
 
       - name: Run tests
-        run: go test -cover ./...
+        run: go test -count=1 -cover ./...
 
 
       - name: Shutdown

@@ -18,6 +18,7 @@ func TestUsersSubscribers(t *testing.T) {
 			{"user_id": 3, "handle": "subscriber3", "name": "Subscriber 3"},
 			{"user_id": 4, "handle": "deletedsub", "name": "Deleted Sub"},
 			{"user_id": 5, "handle": "oldsub", "name": "Old Sub"},
+			{"user_id": 6, "handle": "eventonlyfan", "name": "Event Only Fan"},
 		},
 		"aggregate_user": []map[string]any{
 			{"user_id": 1, "track_count": 1},
@@ -25,17 +26,19 @@ func TestUsersSubscribers(t *testing.T) {
 			{"user_id": 3, "track_count": 1},
 			{"user_id": 4, "track_count": 1},
 			{"user_id": 5, "track_count": 1},
+			{"user_id": 6, "track_count": 1},
 		},
 	}
 
 	database.Seed(app.pool.Replicas[0], fixtures)
 	_, err := app.pool.Exec(t.Context(), `
-		INSERT INTO subscriptions (user_id, subscriber_id, is_current, is_delete, txhash)
+		INSERT INTO subscriptions (user_id, subscriber_id, is_current, is_delete, txhash, entity_type, entity_id)
 		VALUES
-			(1, 3, TRUE, FALSE, 'tx-sub-3'),
-			(1, 2, TRUE, FALSE, 'tx-sub-2'),
-			(1, 4, TRUE, TRUE, 'tx-sub-deleted'),
-			(1, 5, FALSE, FALSE, 'tx-sub-not-current')
+			(1, 3, TRUE, FALSE, 'tx-sub-3', 'User', NULL),
+			(1, 2, TRUE, FALSE, 'tx-sub-2', 'User', NULL),
+			(1, 4, TRUE, TRUE, 'tx-sub-deleted', 'User', NULL),
+			(1, 5, FALSE, FALSE, 'tx-sub-not-current', 'User', NULL),
+			(1, 6, TRUE, FALSE, 'tx-sub-event-collision', 'Event', 1)
 	`)
 	assert.NoError(t, err)
 

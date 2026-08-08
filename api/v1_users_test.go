@@ -5,6 +5,7 @@ import (
 	"testing"
 
 	"api.audius.co/api/dbv1"
+	"api.audius.co/database"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
@@ -85,6 +86,51 @@ func TestUserQuery(t *testing.T) {
 		user := users[0]
 		assert.Equal(t, int64(1), user.CurrentUserFolloweeFollowCount)
 	}
+}
+
+func TestUserQuery_DoesCurrentUserSubscribeIgnoresEventSubscriptions(t *testing.T) {
+	app := emptyTestApp(t)
+
+	database.Seed(app.pool.Replicas[0], database.FixtureMap{
+		"users": []map[string]any{
+			{"user_id": 1, "handle": "artist", "name": "Artist"},
+			{"user_id": 2, "handle": "eventhost", "name": "Event Host"},
+			{"user_id": 3, "handle": "viewer", "name": "Viewer"},
+		},
+		"subscriptions": []map[string]any{
+			{
+				"subscriber_id": 3,
+				"user_id":       1,
+				"entity_type":   "User",
+				"entity_id":     nil,
+				"is_current":    true,
+				"is_delete":     false,
+				"txhash":        "tx-user-sub",
+			},
+			{
+				"subscriber_id": 3,
+				"user_id":       2,
+				"entity_type":   "Event",
+				"entity_id":     2,
+				"is_current":    true,
+				"is_delete":     false,
+				"txhash":        "tx-event-collision",
+			},
+		},
+	})
+
+	users, err := app.queries.Users(t.Context(), dbv1.GetUsersParams{
+		MyID: 3,
+		Ids:  []int32{1, 2},
+	})
+	assert.NoError(t, err)
+	require.Len(t, users, 2)
+	byID := map[int32]dbv1.User{}
+	for _, user := range users {
+		byID[user.UserID] = user
+	}
+	assert.True(t, byID[1].DoesCurrentUserSubscribe)
+	assert.False(t, byID[2].DoesCurrentUserSubscribe)
 }
 
 func TestGetUsers(t *testing.T) {
