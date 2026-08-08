@@ -47,6 +47,7 @@ type CreateUserRequest struct {
 	ProfileType         *string          `json:"profile_type,omitempty" validate:"omitempty,oneof=label"`
 	AllowAiAttribution  *bool            `json:"allow_ai_attribution,omitempty"`
 	SplUsdcPayoutWallet *string          `json:"spl_usdc_payout_wallet,omitempty"`
+	CoinFlairMint       *string          `json:"coin_flair_mint,omitempty"`
 	PlaylistLibrary     *PlaylistLibrary `json:"playlist_library,omitempty" validate:"omitempty"`
 	Events              *Events          `json:"events,omitempty"`
 }

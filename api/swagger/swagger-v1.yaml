@@ -13708,6 +13708,9 @@ components:
         spl_usdc_payout_wallet:
           type: string
           description: Solana USDC payout wallet address
+        coin_flair_mint:
+          type: string
+          description: Coin flair mint address
         playlist_library:
           $ref: "#/components/schemas/user_playlist_library"
         events:
