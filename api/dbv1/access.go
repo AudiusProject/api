@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"math"
+	"strconv"
 
 	"golang.org/x/sync/errgroup"
 )
@@ -11,6 +12,50 @@ import (
 type Access struct {
 	Stream   bool `json:"stream"`
 	Download bool `json:"download"`
+}
+
+// trackRemoval is one track's departure from one album. Buying the album
+// before this moment keeps access to the track afterwards, so the pair and the
+// timestamp have to travel together: two tracks can leave the same album on
+// different days, and a purchase between those days covers only one of them.
+type trackRemoval struct {
+	TrackID     int32 `json:"track_id"`
+	PlaylistID  int32 `json:"playlist_id"`
+	RemovalTime int64 `json:"removal_time"`
+}
+
+// parseTrackRemovals reads tracks.playlists_previously_containing_track.
+//
+// The indexer writes it as a jsonb object keyed by playlist id, with the
+// removal recorded as a unix timestamp under "time":
+//
+//	{"1284768821": {"time": 1725873897}}
+//
+// Anything unparseable yields no removals, which denies access rather than
+// granting it.
+func parseTrackRemovals(trackID int32, raw json.RawMessage) []trackRemoval {
+	if len(raw) == 0 {
+		return nil
+	}
+	var record map[string]struct {
+		Time int64 `json:"time"`
+	}
+	if err := json.Unmarshal(raw, &record); err != nil {
+		return nil
+	}
+	removals := make([]trackRemoval, 0, len(record))
+	for playlistID, entry := range record {
+		id, err := strconv.ParseInt(playlistID, 10, 32)
+		if err != nil {
+			continue
+		}
+		removals = append(removals, trackRemoval{
+			TrackID:     trackID,
+			PlaylistID:  int32(id),
+			RemovalTime: entry.Time,
+		})
+	}
+	return removals
 }
 
 func (q *Queries) GetPlaylistAccess(
@@ -101,11 +146,8 @@ func (q *Queries) GetBulkTrackAccess(
 	trackIDs := make(map[int32]struct{})
 	playlistIDs := make(map[int32]struct{})
 	tokenGateTokenMints := make(map[string]struct{})
-	prevPlaylistData := make(map[int32][]byte) // trackID -> JSON of previous playlists
-	prevPlaylistsMap := make(map[int32][]struct {
-		PlaylistID  int32  `json:"playlist_id"`
-		RemovalTime string `json:"removal_time"`
-	})
+	// trackID -> the albums this track has left, and when
+	prevRemovals := make(map[int32][]trackRemoval)
 
 	// Collect records that need to be fetched
 	for _, track := range tracks {
@@ -129,15 +171,8 @@ func (q *Queries) GetBulkTrackAccess(
 				for _, playlistID := range track.PlaylistsContainingTrack {
 					playlistIDs[playlistID] = struct{}{}
 				}
-				if len(track.PlaylistsPreviouslyContainingTrack) > 0 {
-					prevPlaylistData[track.TrackID] = track.PlaylistsPreviouslyContainingTrack
-					var prevPlaylists []struct {
-						PlaylistID  int32  `json:"playlist_id"`
-						RemovalTime string `json:"removal_time"`
-					}
-					if err := json.Unmarshal(track.PlaylistsPreviouslyContainingTrack, &prevPlaylists); err == nil {
-						prevPlaylistsMap[track.TrackID] = prevPlaylists
-					}
+				if removals := parseTrackRemovals(track.TrackID, track.PlaylistsPreviouslyContainingTrack); len(removals) > 0 {
+					prevRemovals[track.TrackID] = removals
 				}
 			}
 		}
@@ -157,15 +192,8 @@ func (q *Queries) GetBulkTrackAccess(
 				for _, playlistID := range track.PlaylistsContainingTrack {
 					playlistIDs[playlistID] = struct{}{}
 				}
-				if len(track.PlaylistsPreviouslyContainingTrack) > 0 {
-					prevPlaylistData[track.TrackID] = track.PlaylistsPreviouslyContainingTrack
-					var prevPlaylists []struct {
-						PlaylistID  int32  `json:"playlist_id"`
-						RemovalTime string `json:"removal_time"`
-					}
-					if err := json.Unmarshal(track.PlaylistsPreviouslyContainingTrack, &prevPlaylists); err == nil {
-						prevPlaylistsMap[track.TrackID] = prevPlaylists
-					}
+				if removals := parseTrackRemovals(track.TrackID, track.PlaylistsPreviouslyContainingTrack); len(removals) > 0 {
+					prevRemovals[track.TrackID] = removals
 				}
 			}
 		}
@@ -202,7 +230,8 @@ func (q *Queries) GetBulkTrackAccess(
 	tippedUsers := make(map[int32]bool)
 	purchasedTracks := make(map[int32]bool)
 	purchasedPlaylists := make(map[int32]bool)
-	prevPurchasedPlaylists := make(map[int32]bool)
+	// tracks whose access survives via an album bought before the track left it
+	prevPurchasedTracks := make(map[int32]bool)
 	userTokenBalances := make(map[string]int64)
 	walletTokenBalances := make(map[string]int64)
 	coinDecimals := make(map[string]int32)
@@ -377,35 +406,39 @@ func (q *Queries) GetBulkTrackAccess(
 	}
 
 	// Query for previously purchased playlists
-	if len(prevPlaylistData) > 0 {
-		// Collect all previous playlist IDs
-		prevPlaylistIDs := make([]int32, 0)
-		for _, prevPlaylists := range prevPlaylistsMap {
-			for _, prevPlaylist := range prevPlaylists {
-				prevPlaylistIDs = append(prevPlaylistIDs, prevPlaylist.PlaylistID)
-			}
+	if len(prevRemovals) > 0 {
+		// Flatten to (track, album, removal time) triples. Matching has to be
+		// done on the pair: a purchase covers a track only if it predates that
+		// track's removal from that album, not the album's earliest removal.
+		flat := make([]trackRemoval, 0, len(prevRemovals))
+		for _, removals := range prevRemovals {
+			flat = append(flat, removals...)
 		}
 
-		if len(prevPlaylistIDs) > 0 {
+		if len(flat) > 0 {
+			payload, err := json.Marshal(flat)
+			if err != nil {
+				return nil, err
+			}
 			g.Go(func() error {
 				rows, err := q.db.Query(ctx, `
-					SELECT up.content_id
-					FROM v_usdc_purchases up
-					JOIN jsonb_each_text($2) AS prev_playlists(playlist_id, removal_time)
-					ON up.content_id = prev_playlists.playlist_id::integer
-					WHERE up.buyer_user_id = $1
-					AND up.content_type = 'album'
-					AND up.content_id = ANY($3)
-					AND up.created_at <= to_timestamp(prev_playlists.removal_time::numeric)
-				`, myId, prevPlaylistData, prevPlaylistIDs)
+					SELECT DISTINCT r.track_id
+					FROM jsonb_to_recordset($2::jsonb)
+						AS r(track_id int, playlist_id int, removal_time bigint)
+					JOIN v_usdc_purchases up
+					  ON up.content_id = r.playlist_id
+					 AND up.content_type = 'album'
+					 AND up.buyer_user_id = $1
+					WHERE up.created_at <= to_timestamp(r.removal_time)
+				`, myId, payload)
 				if err != nil {
 					return err
 				}
 				defer rows.Close()
 				for rows.Next() {
-					var playlistID int32
-					if err := rows.Scan(&playlistID); err == nil {
-						prevPurchasedPlaylists[playlistID] = true
+					var trackID int32
+					if err := rows.Scan(&trackID); err == nil {
+						prevPurchasedTracks[trackID] = true
 					}
 				}
 				return rows.Err()
@@ -474,14 +507,10 @@ func (q *Queries) GetBulkTrackAccess(
 					}
 				}
 
-				// Check previous playlist purchases
-				if !hasAccess && len(track.PlaylistsPreviouslyContainingTrack) > 0 {
-					for _, prevPlaylist := range prevPlaylistsMap[track.TrackID] {
-						if prevPurchasedPlaylists[prevPlaylist.PlaylistID] {
-							hasAccess = true
-							break
-						}
-					}
+				// Bought an album that used to contain this track, before it
+				// left: access survives the removal.
+				if !hasAccess {
+					hasAccess = prevPurchasedTracks[track.TrackID]
 				}
 			}
 			result[track.TrackID] = Access{
@@ -521,14 +550,10 @@ func (q *Queries) GetBulkTrackAccess(
 					}
 				}
 
-				// Check previous playlist purchases
-				if !hasAccess && len(track.PlaylistsPreviouslyContainingTrack) > 0 {
-					for _, prevPlaylist := range prevPlaylistsMap[track.TrackID] {
-						if prevPurchasedPlaylists[prevPlaylist.PlaylistID] {
-							hasAccess = true
-							break
-						}
-					}
+				// Bought an album that used to contain this track, before it
+				// left: access survives the removal.
+				if !hasAccess {
+					hasAccess = prevPurchasedTracks[track.TrackID]
 				}
 			}
 			// If there are download conditions, there is always stream access
