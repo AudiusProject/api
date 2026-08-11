@@ -2,13 +2,13 @@ package api
 
 import (
 	"context"
-	"crypto/ed25519"
 	"crypto/rand"
 	"fmt"
 	"math/big"
 	"strconv"
 	"time"
 
+	"api.audius.co/launchpad"
 	"api.audius.co/utils"
 	"connectrpc.com/connect"
 	v1 "github.com/OpenAudio/go-openaudio/pkg/api/core/v1"
@@ -17,7 +17,6 @@ import (
 	"github.com/gagliardetto/solana-go"
 	"github.com/gofiber/fiber/v2"
 	"github.com/jackc/pgx/v5"
-	"github.com/mr-tron/base58"
 	"go.uber.org/zap"
 )
 
@@ -234,19 +233,18 @@ func (app *ApiServer) createAndInsertRewardCode(ctx context.Context, code, mint 
 // already exists is reused; only the very first reward for a brand-new
 // mint triggers CreateRewardPool).
 //
-// Three keys are involved:
+// Two keys are involved:
 //   - The per-mint claim authority eth key (secp256k1, from
 //     DeriveEthAddressForMint). Signs the cometbft envelope and is the
-//     pool's sole initial authority.
-//   - The RM ed25519 keypair (from DeriveRewardManagerKeypair). Same
-//     keypair the solana-relay used to init the Solana reward manager
-//     state account; its public key IS the rewards_manager_pubkey.
-//     Signs the CreateRewardPool envelope's rm_owner_signature, which
-//     proves possession of the RM keypair and prevents pool-creation
-//     frontrunning.
+//     pool's sole initial authority. Derived from
+//     app.config.LaunchpadDeterministicSecret + the mint.
+//   - The RM ed25519 keypair (from DeriveRewardManagerKeypair). Only
+//     needed on the pool-creation path, to sign the CreateRewardPool
+//     envelope's rm_owner_signature. See launchpad.PrepareRewardPool:
+//     the rewards_manager_pubkey itself is read from indexed Solana state
+//     rather than derived, because derivation follows the launchpad secret
+//     and the Solana reward manager account does not.
 //
-// Both are derived from app.config.LaunchpadDeterministicSecret +
-// the mint, so they're available everywhere the secret is configured.
 // When the secret is empty, this function is a no-op and returns ""
 // (matches existing behavior for dev environments without launchpad
 // configuration).
@@ -283,13 +281,6 @@ func (app *ApiServer) createRewardCode(ctx context.Context, code, mint string, a
 		return "", fmt.Errorf("failed to convert eth claim-authority key: %w", err)
 	}
 
-	// Derive the RM ed25519 keypair matching what the solana-relay used
-	// to init the Solana reward manager state account. The base58-encoded
-	// public key IS the rewards_manager_pubkey cometbft carries for this
-	// mint's pool.
-	rmKey := utils.DeriveRewardManagerKeypair(app.config.LaunchpadDeterministicSecret, mintPubKey)
-	rewardsManagerPubkey := base58.Encode(rmKey.Public().(ed25519.PublicKey))
-
 	oap := sdk.NewOpenAudioSDK(app.config.AudiusdURL)
 	oap.SetPrivKey(envelopeKey)
 
@@ -299,32 +290,22 @@ func (app *ApiServer) createRewardCode(ctx context.Context, code, mint string, a
 	}
 	deadline := statusResp.Msg.ChainInfo.CurrentHeight + rewardPoolDeadlineWindow
 
-	// First reward against this mint? Create the pool. Pre-existing pool
-	// is the common case (every subsequent reward for the same mint).
-	if _, err := oap.Rewards.GetRewardPool(ctx, rewardsManagerPubkey); err != nil {
-		if connect.CodeOf(err) != connect.CodeNotFound {
-			return "", fmt.Errorf("failed to look up reward pool for RM %s: %w", rewardsManagerPubkey, err)
-		}
-		app.logger.Info("createRewardCode: Creating reward pool",
-			zap.String("mint", mint),
-			zap.String("rewards_manager_pubkey", rewardsManagerPubkey),
-			zap.String("claim_authority", claimAuthority))
-		if _, createErr := oap.Rewards.CreateRewardPool(ctx, &v1.CreateRewardPool{
-			RewardsManagerPubkey: rewardsManagerPubkey,
-			Authorities:          []string{claimAuthority},
-		}, rmKey, deadline); createErr != nil {
-			// Race window: two concurrent first-reward requests for the
-			// same brand-new mint can both observe NotFound and both
-			// submit CreateRewardPool. The second one will fail because
-			// the pool now exists. Re-fetch and treat "pool exists" as
-			// success — equivalent to having lost the race cleanly.
-			// Anything else is a real error.
-			if _, getErr := oap.Rewards.GetRewardPool(ctx, rewardsManagerPubkey); getErr != nil {
-				return "", fmt.Errorf("failed to create reward pool: %w", createErr)
-			}
-			app.logger.Info("createRewardCode: Lost CreateRewardPool race; pool now exists",
-				zap.String("rewards_manager_pubkey", rewardsManagerPubkey))
-		}
+	// Resolve the reward manager from indexed Solana state and ensure its
+	// pool exists. Deriving the reward manager from the launchpad secret
+	// instead would, after a secret rotation, point an already-launched
+	// mint at a reward manager that has no Solana account.
+	rewardsManagerPubkey, err := launchpad.PrepareRewardPool(
+		ctx,
+		app.logger,
+		app.pool,
+		oap.Rewards,
+		app.config.LaunchpadDeterministicSecret,
+		mintPubKey,
+		claimAuthority,
+		deadline,
+	)
+	if err != nil {
+		return "", err
 	}
 
 	reward, err := oap.Rewards.CreateReward(ctx, &v1.CreateReward{

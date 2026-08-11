@@ -2,7 +2,6 @@ package main
 
 import (
 	"context"
-	"crypto/ed25519"
 	"encoding/csv"
 	"errors"
 	"flag"
@@ -13,6 +12,7 @@ import (
 	"time"
 
 	"api.audius.co/config"
+	"api.audius.co/launchpad"
 	"api.audius.co/utils"
 	"connectrpc.com/connect"
 	v1 "github.com/OpenAudio/go-openaudio/pkg/api/core/v1"
@@ -20,7 +20,6 @@ import (
 	"github.com/OpenAudio/go-openaudio/pkg/sdk"
 	"github.com/gagliardetto/solana-go"
 	"github.com/jackc/pgx/v5/pgxpool"
-	"github.com/mr-tron/base58"
 	"go.uber.org/zap"
 )
 
@@ -275,15 +274,10 @@ func processCode(ctx context.Context, logger *zap.Logger, pool *pgxpool.Pool, cf
 	oap := sdk.NewOpenAudioSDK(cfg.AudiusdURL)
 	oap.SetPrivKey(privateKey)
 
-	// Derive the RM ed25519 keypair matching what the solana-relay used to
-	// init the Solana reward manager state account. The base58-encoded
-	// public key IS the rewards_manager_pubkey cometbft carries for this
-	// mint's pool.
-	rmKey := utils.DeriveRewardManagerKeypair(cfg.LaunchpadDeterministicSecret, mintPubKey)
-	rewardsManagerPubkey := base58.Encode(rmKey.Public().(ed25519.PublicKey))
-
-	// Ensure pool exists for this mint, then create the reward.
-	rewardAddress, err := ensurePoolAndCreateReward(ctx, logger, pool, oap, code, amount, claimAuthority, rewardsManagerPubkey, rmKey)
+	// Ensure pool exists for this mint, then create the reward. The
+	// rewards_manager_pubkey comes from indexed Solana state, not from
+	// derivation — see launchpad.PrepareRewardPool.
+	rewardAddress, err := ensurePoolAndCreateReward(ctx, logger, pool, oap, cfg.LaunchpadDeterministicSecret, code, amount, claimAuthority, mintPubKey)
 	if err != nil {
 		return CodeResult{
 			Code:    code,
@@ -323,7 +317,7 @@ func checkCodeExists(ctx context.Context, pool *pgxpool.Pool, code string) (bool
 // via the cometbft error string and resolved by reading the previously
 // stored reward_address from the local DB — the idempotency guarantee
 // the prior implementation provided is preserved.
-func ensurePoolAndCreateReward(ctx context.Context, logger *zap.Logger, pool *pgxpool.Pool, oap *sdk.OpenAudioSDK, code string, amount int64, claimAuthority, rewardsManagerPubkey string, rmKey ed25519.PrivateKey) (string, error) {
+func ensurePoolAndCreateReward(ctx context.Context, logger *zap.Logger, pool *pgxpool.Pool, oap *sdk.OpenAudioSDK, launchpadDeterministicSecret, code string, amount int64, claimAuthority string, mintPubKey solana.PublicKey) (string, error) {
 	var statusResp *connect.Response[v1.GetStatusResponse]
 	if err := retryOperation(func() error {
 		var err error
@@ -334,37 +328,24 @@ func ensurePoolAndCreateReward(ctx context.Context, logger *zap.Logger, pool *pg
 	}
 	deadline := statusResp.Msg.ChainInfo.CurrentHeight + rewardPoolDeadlineWindow
 
-	// Pool existence check. The common case (any non-first reward for the
-	// mint) is "pool exists, skip the create." Brand-new mints fall into
-	// the create branch exactly once — except for the race where two
-	// concurrent first-reward requests for the same mint both observe
-	// NotFound and both submit CreateRewardPool; the second one's tx
-	// fails, but the post-failure GetRewardPool will now find the pool,
-	// which we treat as success.
+	// Resolve the mint's on-chain reward manager and make sure its pool
+	// exists. The common case (any non-first reward for the mint) is "pool
+	// exists, skip the create"; see launchpad.PrepareRewardPool for the
+	// creation path and the rotated-secret guard.
+	var rewardsManagerPubkey string
 	if err := retryOperation(func() error {
-		_, err := oap.Rewards.GetRewardPool(ctx, rewardsManagerPubkey)
-		if err == nil {
-			return nil
-		}
-		if connect.CodeOf(err) != connect.CodeNotFound {
-			return err
-		}
-		logger.Info("Creating reward pool", zap.String("rewards_manager_pubkey", rewardsManagerPubkey), zap.String("claim_authority", claimAuthority))
-		if _, createErr := oap.Rewards.CreateRewardPool(ctx, &v1.CreateRewardPool{
-			RewardsManagerPubkey: rewardsManagerPubkey,
-			Authorities:          []string{claimAuthority},
-		}, rmKey, deadline); createErr != nil {
-			// Race: another caller created the pool between our
-			// GetRewardPool and CreateRewardPool. Verify by re-fetching
-			// the pool; if it now exists we lost the race cleanly.
-			// Anything else is a real error.
-			if _, verifyErr := oap.Rewards.GetRewardPool(ctx, rewardsManagerPubkey); verifyErr != nil {
-				return createErr
-			}
-			logger.Info("Lost CreateRewardPool race; pool now exists",
-				zap.String("rewards_manager_pubkey", rewardsManagerPubkey))
-		}
-		return nil
+		var err error
+		rewardsManagerPubkey, err = launchpad.PrepareRewardPool(
+			ctx,
+			logger,
+			pool,
+			oap.Rewards,
+			launchpadDeterministicSecret,
+			mintPubKey,
+			claimAuthority,
+			deadline,
+		)
+		return err
 	}); err != nil {
 		return "", fmt.Errorf("failed to ensure reward pool: %w", err)
 	}
@@ -411,6 +392,12 @@ func retryOperation(operation func() error) error {
 		err := operation()
 		if err == nil {
 			return nil
+		}
+
+		// Deterministic failures: a rotated launchpad secret or a mint with
+		// no indexed reward manager will fail identically on every attempt.
+		if errors.Is(err, launchpad.ErrRewardManagerMismatch) || errors.Is(err, launchpad.ErrRewardManagerNotIndexed) {
+			return err
 		}
 
 		lastErr = err
