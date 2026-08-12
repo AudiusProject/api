@@ -304,6 +304,7 @@ func NewApiServer(config config.Config) *ApiServer {
 		solanaConfig:            &config.SolanaConfig,
 		antiAbuseOracles:        config.AntiAbuseOracles,
 		validators:              NewNodes(),
+		contentHosts:            newContentHostHealth(),
 		openAudioSDK:            openAudioSDK,
 		openAudioPool:           openAudioPool,
 		metricsCollector:        metricsCollector,
@@ -870,6 +871,7 @@ type ApiServer struct {
 	solanaRpcClient         *rpc.Client
 	meteoraDbcClient        *meteora_dbc.Client
 	validators              *Nodes
+	contentHosts            *contentHostHealth
 	openAudioPool           *OpenAudioPool
 	newChainFlusher         *NewChainFlusher
 }

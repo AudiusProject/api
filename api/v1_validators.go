@@ -88,7 +88,9 @@ func (app *ApiServer) updateNodes(ctx context.Context) {
 			rendezvousNodes = append(rendezvousNodes, n)
 		}
 	}
-	rendezvous.Refresh(rendezvousNodes)
+	// Registration doesn't mean the node is actually up — drop the ones that
+	// aren't, so we stop handing out asset URLs that can't be fetched.
+	rendezvous.Refresh(app.contentHosts.filterLive(ctx, rendezvousNodes, app.logger))
 }
 
 func (app *ApiServer) v1Validators(c *fiber.Ctx) error {
