@@ -242,6 +242,12 @@ func init() {
 		Cfg.ArchiverNodes = []string{"https://archiver.audius.engineering"}
 		Cfg.DeadNodes = []string{
 			"https://content.grassfed.network",
+			// Refusing connections since at least 2026-08-11 while still
+			// registered on chain as validator Id 99, so rendezvous kept
+			// ranking it. Clients recover via mirrors, so nothing breaks —
+			// this just stops ~8% of artists' image loads from spending a
+			// failed request on it first.
+			"https://audius.zeogrid.com",
 		}
 		Cfg.BlacklistedNodes = []string{
 			"https://audius-discovery-2.cultur3stake.com",
