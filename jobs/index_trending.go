@@ -155,7 +155,7 @@ const (
 	trendingI  = 0.01
 	trendingQ  = 100000.0
 	trendingY  = 3
-	trendingWk = 7
+	trendingWk = 10
 	trendingMo = 30
 
 	trendingAllTimeCheckpoint = "track_trending_scores_all_time"
