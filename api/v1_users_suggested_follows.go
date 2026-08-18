@@ -19,6 +19,17 @@ const (
 	// engagement history is unbounded, and everything downstream of it joins
 	// per-row, so this caps the worst case for heavy users. Recent engagement
 	// is also the better signal, so the cap costs little.
+	//
+	// Note this cap, not the decay below, is the effective window for anyone
+	// with a large library: a user who favorites 50 tracks a day is scored on
+	// their last ~40 days, well inside the decay's range. For everyone else the
+	// cap never binds and the decay does the shaping.
+	//
+	// Lowering it further is tempting for latency but trades against fill rate:
+	// the cap bounds the candidate pool *before* already-followed artists are
+	// filtered out, so a user who follows most of the artists they recently
+	// engaged with gets a short list. saves_user_created_at_active_idx
+	// (migration 0239) removes the reason to make that trade.
 	suggestedFollowsEngagementCap = 2000
 
 	// Engagement weight decays with e^(-age/tau). At tau = 180 days a favorite
