@@ -7107,6 +7107,57 @@ paths:
         "500":
           description: Server error
           content: {}
+  /users/{id}/suggested-follows:
+    get:
+      tags:
+        - users
+      description:
+        Gets artists to suggest the user follow, based on the tracks and
+        albums they have favorited or reposted but whose artist they do not
+        already follow. Returns an empty list for users with no favorites or
+        reposts.
+      operationId: Get Suggested Follows
+      security:
+        - {}
+        - OAuth2:
+            - read
+      parameters:
+        - name: id
+          in: path
+          description: A User ID
+          required: true
+          schema:
+            type: string
+        - name: offset
+          in: query
+          description:
+            The number of items to skip. Useful for pagination (page number
+            * limit)
+          schema:
+            type: integer
+        - name: limit
+          in: query
+          description: The number of items to fetch
+          schema:
+            type: integer
+        - name: user_id
+          in: query
+          description: The user ID of the user making the request
+          schema:
+            type: string
+      responses:
+        "200":
+          description: Success
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/related_artist_response"
+        "400":
+          description: Bad request
+          content: {}
+        "500":
+          description: Server error
+          content: {}
   /users/{id}/supporters:
     get:
       tags:
