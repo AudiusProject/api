@@ -158,6 +158,18 @@ func NewApiServer(config config.Config) *ApiServer {
 		panic(err)
 	}
 
+	// Caches the candidate user-id list returned by the /v1/users/:userId/
+	// suggested-follows query. Shorter TTL than relatedUsersCache: this list is
+	// per-viewer and shrinks as the user acts on it, so a follow should drop out
+	// of their suggestions promptly.
+	suggestedFollowsCache, err := otter.MustBuilder[string, []int32](20_000).
+		WithTTL(5 * time.Minute).
+		CollectStats().
+		Build()
+	if err != nil {
+		panic(err)
+	}
+
 	// Caches the normalized popular-genre slice returned by /v1/genres/popular,
 	// which otherwise runs a GROUP BY genre scan over the tracks table on every
 	// request. Keyed by (limit, offset, startTime bucket); the result is an
@@ -294,6 +306,7 @@ func NewApiServer(config config.Config) *ApiServer {
 		oauthTokenCache:         &oauthTokenCache,
 		qualifiedPlaylistsCache: &qualifiedPlaylistsCache,
 		relatedUsersCache:       &relatedUsersCache,
+		suggestedFollowsCache:   &suggestedFollowsCache,
 		genresPopularCache:      &genresPopularCache,
 		sitemapXMLCache:         &sitemapXMLCache,
 		requestValidator:        requestValidator,
@@ -472,6 +485,7 @@ func NewApiServer(config config.Config) *ApiServer {
 		g.Get("/users/:userId/mutuals", app.v1UsersMutuals)
 		g.Get("/users/:userId/reposts", app.v1UsersReposts)
 		g.Get("/users/:userId/related", app.v1UsersRelated)
+		g.Get("/users/:userId/suggested-follows", app.v1UsersSuggestedFollows)
 		g.Get("/users/:userId/supporting", app.v1UsersSupporting)
 		g.Get("/users/:userId/supporting/:supportedUserId", app.v1UsersSupporting)
 		g.Get("/users/:userId/supporters", app.v1UsersSupporters)
@@ -852,6 +866,7 @@ type ApiServer struct {
 	oauthTokenCache         *otter.Cache[string, oauthTokenCacheEntry]
 	qualifiedPlaylistsCache *otter.Cache[string, []int32]
 	relatedUsersCache       *otter.Cache[string, []int32]
+	suggestedFollowsCache   *otter.Cache[string, []int32]
 	genresPopularCache      *otter.Cache[string, []PopularGenre]
 	sitemapXMLCache         *otter.Cache[string, sitemapXMLCacheEntry]
 	requestValidator        *RequestValidator
