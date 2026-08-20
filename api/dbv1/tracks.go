@@ -196,13 +196,26 @@ func (q *Queries) TracksKeyed(ctx context.Context, arg TracksParams) (map[int32]
 			}
 		}
 
+		// A track is streamable unless it was deleted or its owner is no longer
+		// active - either the artist deactivated their own account or the
+		// account was delisted by the trusted notifier.
+		isStreamable := !rawTrack.IsDelete && !user.IsDeactivated
+
+		// Two reasons to leave a media link nil, both with the same effect: the
+		// URL should never be handed out, and the endpoints report the track as
+		// unavailable instead.
+		//
 		// A track row can have empty cid columns (e.g. an upload-v2 row whose
-		// track_cid/orig_file_cid backfill never ran). Signing an empty cid
-		// produces a content-node URL that is guaranteed to 404, so leave the
-		// media link nil instead and let the endpoints report the track as
-		// unavailable.
+		// track_cid/orig_file_cid backfill never ran), and signing an empty cid
+		// produces a content-node URL that is guaranteed to 404.
+		//
+		// A non-streamable track is worse: the cid is real, so the signed URL
+		// works. The stream and download endpoints reject these, but that only
+		// closes those two routes - anyone reading the track response could
+		// still fetch the audio straight from the content node. Preview is
+		// included because a preview clip is still the artist's audio.
 		var stream *MediaLink
-		if access.Stream && rawTrack.TrackCid.String != "" {
+		if isStreamable && access.Stream && rawTrack.TrackCid.String != "" {
 			stream, err = mediaLink(rawTrack.TrackCid.String, rawTrack.TrackID, arg.MyID.(int32), id3Tags)
 			if err != nil {
 				return nil, err
@@ -210,7 +223,7 @@ func (q *Queries) TracksKeyed(ctx context.Context, arg TracksParams) (map[int32]
 		}
 
 		var download *MediaLink
-		if rawTrack.IsDownloadable && access.Download {
+		if isStreamable && rawTrack.IsDownloadable && access.Download {
 			cid := rawTrack.OrigFileCid.String
 			if cid == "" {
 				cid = rawTrack.TrackCid.String
@@ -224,7 +237,7 @@ func (q *Queries) TracksKeyed(ctx context.Context, arg TracksParams) (map[int32]
 		}
 
 		var preview *MediaLink
-		if rawTrack.PreviewCid.String != "" {
+		if isStreamable && rawTrack.PreviewCid.String != "" {
 			preview, err = mediaLink(rawTrack.PreviewCid.String, rawTrack.TrackID, arg.MyID.(int32), id3Tags)
 			if err != nil {
 				return nil, err
@@ -233,7 +246,7 @@ func (q *Queries) TracksKeyed(ctx context.Context, arg TracksParams) (map[int32]
 
 		track := Track{
 			GetTracksRow:         rawTrack,
-			IsStreamable:         !rawTrack.IsDelete && !user.IsDeactivated,
+			IsStreamable:         isStreamable,
 			Permalink:            fmt.Sprintf("/%s/%s", user.Handle.String, rawTrack.Slug.String),
 			Artwork:              squareImageStruct(rawTrack.CoverArtSizes, rawTrack.CoverArt),
 			Stream:               stream,
