@@ -42,6 +42,13 @@ func (app *ApiServer) v1TrackDownload(c *fiber.Ctx) error {
 	}
 
 	track := tracks[0]
+
+	// Same guard as the stream endpoint: a deleted track, or one whose owner is
+	// no longer active, must not have its audio served here either.
+	if !track.IsStreamable {
+		return fiber.NewError(fiber.StatusNotFound, "track not found")
+	}
+
 	if !track.Access.Download {
 		return fiber.NewError(fiber.StatusForbidden, "you are not allowed to download this track")
 	}

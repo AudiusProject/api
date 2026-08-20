@@ -60,3 +60,62 @@ func TestGetTrackStreamWithID3(t *testing.T) {
 	assert.Contains(t, location, "id3=true")
 	assert.Contains(t, location, "id3_title=Culca+Canyon")
 }
+
+// A track whose owner is no longer active - the artist deactivated their own
+// account, or the account was delisted by the trusted notifier - reports
+// is_streamable=false on the track response. The stream endpoint must refuse
+// to serve the audio rather than redirecting to a signed content-node URL.
+func TestGetTrackStream_DeactivatedOwner(t *testing.T) {
+	app := emptyTestApp(t)
+	fixtures := database.FixtureMap{
+		"tracks": []map[string]any{
+			{
+				"track_id":  1,
+				"owner_id":  1,
+				"title":     "Deactivated Owner",
+				"track_cid": "QmDeactivatedOwnerCid",
+			},
+		},
+		"users": []map[string]any{
+			{
+				"user_id":        1,
+				"handle":         "testuser1",
+				"is_deactivated": true,
+			},
+		},
+	}
+	database.Seed(app.pool.Replicas[0], fixtures)
+	req := httptest.NewRequest("GET", "/v1/tracks/"+trashid.MustEncodeHashID(1)+"/stream", nil)
+	res, err := app.Test(req, -1)
+	assert.NoError(t, err)
+	assert.Equal(t, 404, res.StatusCode)
+	assert.Empty(t, res.Header.Get("Location"))
+}
+
+// A deleted track is likewise non-streamable and must not redirect.
+func TestGetTrackStream_DeletedTrack(t *testing.T) {
+	app := emptyTestApp(t)
+	fixtures := database.FixtureMap{
+		"tracks": []map[string]any{
+			{
+				"track_id":  1,
+				"owner_id":  1,
+				"title":     "Deleted",
+				"track_cid": "QmDeletedTrackCid",
+				"is_delete": true,
+			},
+		},
+		"users": []map[string]any{
+			{
+				"user_id": 1,
+				"handle":  "testuser1",
+			},
+		},
+	}
+	database.Seed(app.pool.Replicas[0], fixtures)
+	req := httptest.NewRequest("GET", "/v1/tracks/"+trashid.MustEncodeHashID(1)+"/stream", nil)
+	res, err := app.Test(req, -1)
+	assert.NoError(t, err)
+	assert.Equal(t, 404, res.StatusCode)
+	assert.Empty(t, res.Header.Get("Location"))
+}
