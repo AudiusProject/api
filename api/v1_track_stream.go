@@ -29,6 +29,16 @@ func (app *ApiServer) v1TrackStream(c *fiber.Ctx) error {
 
 	track := tracks[0]
 
+	// `is_streamable` is false when the track is deleted or its owner is no
+	// longer active - either the artist deactivated their own account or the
+	// account was delisted by the trusted notifier. The track response has
+	// always reported this, but nothing enforced it, so the audio stayed
+	// reachable to anyone holding the URL. Treat it as not found rather than
+	// forbidden so we don't distinguish these from a missing track.
+	if !track.IsStreamable {
+		return fiber.NewError(fiber.StatusNotFound, "track not found")
+	}
+
 	if track.Access.Stream {
 		// Stream is nil when the track row has no cid to sign (e.g. an
 		// upload-v2 row that never got its track_cid backfilled).
