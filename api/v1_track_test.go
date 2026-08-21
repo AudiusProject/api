@@ -4,6 +4,7 @@ import (
 	"testing"
 
 	"api.audius.co/api/dbv1"
+	"api.audius.co/database"
 	"api.audius.co/trashid"
 	"github.com/stretchr/testify/assert"
 )
@@ -18,8 +19,8 @@ func TestGetTrack(t *testing.T) {
 	assert.Equal(t, 200, status)
 
 	jsonAssert(t, body, map[string]any{
-		"data.id":        "eYJyn",
-		"data.title":     "Culca Canyon",
+		"data.id":         "eYJyn",
+		"data.title":      "Culca Canyon",
 		"data.play_count": 0,
 	})
 }
@@ -40,17 +41,17 @@ func TestGetTrackPersonalization(t *testing.T) {
 	// repost/save flags should be false.
 	_, body := testGet(t, app, "/v1/full/tracks/eYJyn?user_id=ML51L", &resp)
 	jsonAssert(t, body, map[string]any{
-		"data.id":                        "eYJyn",
-		"data.has_current_user_reposted": false,
-		"data.has_current_user_saved":    false,
+		"data.id":                         "eYJyn",
+		"data.has_current_user_reposted":  false,
+		"data.has_current_user_saved":     false,
 		"data.followee_reposts.0.user_id": trashid.MustEncodeHashID(1),
 	})
 
 	_, body = testGet(t, app, "/v1/full/tracks/eYZmn?user_id=ML51L", &resp)
 	jsonAssert(t, body, map[string]any{
-		"data.id":                          "eYZmn",
-		"data.has_current_user_reposted":   false,
-		"data.has_current_user_saved":      false,
+		"data.id":                           "eYZmn",
+		"data.has_current_user_reposted":    false,
+		"data.has_current_user_saved":       false,
 		"data.followee_favorites.0.user_id": trashid.MustEncodeHashID(1),
 	})
 
@@ -172,4 +173,81 @@ func TestGetTrackUsdcPurchaseSelfAccess(t *testing.T) {
 		"data.access.stream":   true,
 		"data.access.download": true,
 	})
+}
+
+// A track whose owner is no longer active - the artist deactivated their own
+// account, or the account was delisted by the trusted notifier - must not carry
+// signed content-node URLs in its response. The stream and download endpoints
+// already reject these, but the media links in the track response bypass those
+// endpoints entirely: the cid is real, so the signed URL serves the full audio
+// straight from the content node to anyone who reads the response.
+func TestGetTrack_NonStreamableOmitsMediaLinks(t *testing.T) {
+	for _, tc := range []struct {
+		name  string
+		track map[string]any
+		user  map[string]any
+	}{
+		{
+			name: "deactivated owner",
+			track: map[string]any{
+				"track_id": 1, "owner_id": 1, "title": "Deactivated Owner",
+				"track_cid": "QmTrackCid", "orig_file_cid": "QmOrigCid",
+				"preview_cid": "QmPreviewCid", "is_downloadable": true,
+			},
+			user: map[string]any{"user_id": 1, "handle": "testuser1", "is_deactivated": true},
+		},
+		{
+			name: "deleted track",
+			track: map[string]any{
+				"track_id": 1, "owner_id": 1, "title": "Deleted",
+				"track_cid": "QmTrackCid", "orig_file_cid": "QmOrigCid",
+				"preview_cid": "QmPreviewCid", "is_downloadable": true,
+				"is_delete": true,
+			},
+			user: map[string]any{"user_id": 1, "handle": "testuser1"},
+		},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			app := emptyTestApp(t)
+			database.Seed(app.pool.Replicas[0], database.FixtureMap{
+				"tracks": []map[string]any{tc.track},
+				"users":  []map[string]any{tc.user},
+			})
+
+			var resp struct{ Data dbv1.Track }
+			status, _ := testGet(t, app, "/v1/full/tracks/"+trashid.MustEncodeHashID(1), &resp)
+			assert.Equal(t, 200, status)
+
+			assert.False(t, resp.Data.IsStreamable)
+			assert.Nil(t, resp.Data.Stream)
+			assert.Nil(t, resp.Data.Download)
+			assert.Nil(t, resp.Data.Preview)
+		})
+	}
+}
+
+// The guard above is scoped to non-streamable tracks: an ordinary track with an
+// active owner must still get its signed media links.
+func TestGetTrack_StreamableKeepsMediaLinks(t *testing.T) {
+	app := emptyTestApp(t)
+	database.Seed(app.pool.Replicas[0], database.FixtureMap{
+		"tracks": []map[string]any{
+			{
+				"track_id": 1, "owner_id": 1, "title": "Active Owner",
+				"track_cid": "QmTrackCid", "orig_file_cid": "QmOrigCid",
+				"preview_cid": "QmPreviewCid", "is_downloadable": true,
+			},
+		},
+		"users": []map[string]any{{"user_id": 1, "handle": "testuser1"}},
+	})
+
+	var resp struct{ Data dbv1.Track }
+	status, _ := testGet(t, app, "/v1/full/tracks/"+trashid.MustEncodeHashID(1), &resp)
+	assert.Equal(t, 200, status)
+
+	assert.True(t, resp.Data.IsStreamable)
+	assert.NotNil(t, resp.Data.Stream)
+	assert.NotNil(t, resp.Data.Download)
+	assert.NotNil(t, resp.Data.Preview)
+	assert.Contains(t, resp.Data.Stream.Url, "signature=")
 }
