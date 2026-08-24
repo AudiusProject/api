@@ -170,6 +170,20 @@ func NewApiServer(config config.Config) *ApiServer {
 		panic(err)
 	}
 
+	// Caches the track-id list returned by the /v1/users/:userId/discover-weekly
+	// query. The mix is deterministic for the whole ISO week and the cache key
+	// carries the year/week, so entries are immutable for their lifetime and a
+	// long TTL is safe — a stale entry is the correct answer, not a stale one.
+	// Sized larger than the other recommendation caches because this is the
+	// most expensive query of the three and the least likely to be re-derived.
+	discoverWeeklyCache, err := otter.MustBuilder[string, []int32](50_000).
+		WithTTL(6 * time.Hour).
+		CollectStats().
+		Build()
+	if err != nil {
+		panic(err)
+	}
+
 	// Caches the normalized popular-genre slice returned by /v1/genres/popular,
 	// which otherwise runs a GROUP BY genre scan over the tracks table on every
 	// request. Keyed by (limit, offset, startTime bucket); the result is an
@@ -307,6 +321,7 @@ func NewApiServer(config config.Config) *ApiServer {
 		qualifiedPlaylistsCache: &qualifiedPlaylistsCache,
 		relatedUsersCache:       &relatedUsersCache,
 		suggestedFollowsCache:   &suggestedFollowsCache,
+		discoverWeeklyCache:     &discoverWeeklyCache,
 		genresPopularCache:      &genresPopularCache,
 		sitemapXMLCache:         &sitemapXMLCache,
 		requestValidator:        requestValidator,
@@ -486,6 +501,7 @@ func NewApiServer(config config.Config) *ApiServer {
 		g.Get("/users/:userId/reposts", app.v1UsersReposts)
 		g.Get("/users/:userId/related", app.v1UsersRelated)
 		g.Get("/users/:userId/suggested-follows", app.v1UsersSuggestedFollows)
+		g.Get("/users/:userId/discover-weekly", app.v1UsersDiscoverWeekly)
 		g.Get("/users/:userId/supporting", app.v1UsersSupporting)
 		g.Get("/users/:userId/supporting/:supportedUserId", app.v1UsersSupporting)
 		g.Get("/users/:userId/supporters", app.v1UsersSupporters)
@@ -867,6 +883,7 @@ type ApiServer struct {
 	qualifiedPlaylistsCache *otter.Cache[string, []int32]
 	relatedUsersCache       *otter.Cache[string, []int32]
 	suggestedFollowsCache   *otter.Cache[string, []int32]
+	discoverWeeklyCache     *otter.Cache[string, []int32]
 	genresPopularCache      *otter.Cache[string, []PopularGenre]
 	sitemapXMLCache         *otter.Cache[string, sitemapXMLCacheEntry]
 	requestValidator        *RequestValidator

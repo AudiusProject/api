@@ -7107,6 +7107,51 @@ paths:
         "500":
           description: Server error
           content: {}
+  /users/{id}/discover-weekly:
+    get:
+      tags:
+        - users
+      description:
+        Gets the user's Discover Weekly mix - a personalized set of tracks
+        they have not heard, weighted toward artists they do not already
+        follow. The mix is fixed for the calendar week (ISO week, UTC) and
+        rotates when the week rolls over. Unlike suggested-follows, this
+        returns results for users with no listening history.
+      operationId: Get Discover Weekly
+      security:
+        - {}
+        - OAuth2:
+            - read
+      parameters:
+        - name: id
+          in: path
+          description: A User ID
+          required: true
+          schema:
+            type: string
+        - name: limit
+          in: query
+          description: The number of tracks to fetch (default 30, max 50)
+          schema:
+            type: integer
+        - name: user_id
+          in: query
+          description: The user ID of the user making the request
+          schema:
+            type: string
+      responses:
+        "200":
+          description: Success
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/tracks_response"
+        "400":
+          description: Bad request
+          content: {}
+        "500":
+          description: Server error
+          content: {}
   /users/{id}/suggested-follows:
     get:
       tags:
