@@ -238,13 +238,21 @@ func (app *ApiServer) getDiscoverWeeklyTrackIds(
 		GROUP BY owner_id
 	),
 	-- Source 1: weekly trending tracks.
+	--
+	-- No genre predicate, deliberately. track_trending_scores holds two
+	-- populations: rows carrying a genre, which are the live list the trending
+	-- job refreshes (median track age ~4 days), and rows with a null/empty
+	-- genre, which are stale -- in production those resolve to tracks five to
+	-- six years old. GET /tracks/trending and /tracks/trending/underground read
+	-- the live rows by omitting the genre filter, so this does the same.
+	-- Matching on a null-or-empty genre instead reads the stale population and,
+	-- combined with the age cutoff below, returns nothing at all.
 	cand_trending AS (
 		SELECT tts.track_id, 'trending'::text AS source
 		FROM track_trending_scores tts
 		WHERE tts.type = 'TRACKS'
 		  AND tts.version = 'pnagD'
 		  AND tts.time_range = 'week'
-		  AND (tts.genre IS NULL OR tts.genre = '')
 		ORDER BY tts.score DESC, tts.track_id DESC
 		LIMIT 400
 	),
@@ -258,7 +266,6 @@ func (app *ApiServer) getDiscoverWeeklyTrackIds(
 		WHERE tts.type = 'TRACKS'
 		  AND tts.version = 'pnagD'
 		  AND tts.time_range = 'week'
-		  AND (tts.genre IS NULL OR tts.genre = '')
 		  AND au.follower_count < 1500
 		  AND au.following_count < 1500
 		ORDER BY tts.score DESC, tts.track_id DESC
