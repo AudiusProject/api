@@ -360,3 +360,44 @@ func TestV1UsersDiscoverWeeklyRequiresValidUserId(t *testing.T) {
 	status, _ := testGet(t, app, "/v1/users/not-a-real-id/discover-weekly", &resp)
 	assert.Equal(t, 400, status)
 }
+
+// Regression for the bug that shipped in #1025 and returned an empty mix for
+// every user in production.
+//
+// track_trending_scores holds two populations: rows carrying a genre, which
+// the trending job keeps current, and rows with a null/empty genre, which are
+// stale and resolve to tracks five to six years old. The original query
+// matched only the null-genre rows, so every candidate then failed the
+// 365-day age cutoff and the mix came back empty.
+//
+// Every other test here seeds score rows without a genre, so none of them
+// could catch it. This one seeds a genre-carrying row specifically -- the
+// shape that actually reaches the query in production.
+func TestV1UsersDiscoverWeeklyReadsGenreCarryingTrendingRows(t *testing.T) {
+	app := emptyTestApp(t)
+
+	fixtures := database.FixtureMap{
+		"users": []map[string]any{
+			{"user_id": 1, "handle": "me", "handle_lc": "me", "wallet": "0x0000000000000000000000000000000000000001"},
+			{"user_id": 2, "handle": "artist", "handle_lc": "artist", "wallet": "0x0000000000000000000000000000000000000002"},
+		},
+		"aggregate_user": []map[string]any{
+			{"user_id": 1, "follower_count": 0, "following_count": 0},
+			{"user_id": 2, "follower_count": 5000, "following_count": 10},
+		},
+		"tracks":          []map[string]any{{"track_id": 200, "owner_id": 2, "title": "genred track", "genre": "Rock"}},
+		"aggregate_track": []map[string]any{{"track_id": 200, "save_count": 100, "repost_count": 50}},
+		"track_trending_scores": []map[string]any{
+			{"track_id": 200, "score": 1_000_000_000, "time_range": "week", "genre": "Rock"},
+		},
+	}
+	database.Seed(app.pool.Replicas[0], fixtures)
+
+	var resp struct {
+		Data []dbv1.Track
+	}
+	status, _ := testGet(t, app, "/v1/users/7eP5n/discover-weekly", &resp)
+	assert.Equal(t, 200, status)
+	assert.Len(t, resp.Data, 1,
+		"a score row carrying a genre must still be a candidate")
+}
