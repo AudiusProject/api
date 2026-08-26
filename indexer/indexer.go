@@ -94,6 +94,25 @@ func NewIndexer(cfg config.Config) *CoreIndexer {
 	etlIndexer.SetDBURL(cfg.WriteDbUrl)
 	etlIndexer.SetCheckReadiness(true)
 
+	// Chain cutover bounds. Unset (0) is normal operation: resume from the last
+	// indexed block, and never stop.
+	//
+	// The resume path is MAX(block_height) FROM etl_blocks, which carries no
+	// chain_id. Pointed at a new chain it resolves to the old chain's height and
+	// waits for a block that will not exist for years — a silent stall, not an
+	// error. There is a chain-aware fallback to core_indexed_blocks, but it only
+	// runs when etl_blocks is empty, so it never fires on a database that has
+	// indexed the old chain. An explicit start height is the way across.
+	if cfg.EtlStartingBlockHeight > 0 {
+		etlIndexer.SetStartingBlockHeight(cfg.EtlStartingBlockHeight)
+		logger.Info("etl: explicit starting block height",
+			zap.Int64("height", cfg.EtlStartingBlockHeight))
+	}
+	if cfg.EtlEndingBlockHeight > 0 {
+		etlIndexer.SetEndingBlockHeight(cfg.EtlEndingBlockHeight)
+		logger.Info("etl: will stop after block", zap.Int64("height", cfg.EtlEndingBlockHeight))
+	}
+
 	// When enabled, source blocks from the CoreService.StreamBlocks gRPC stream
 	// instead of polling GetBlocks. The ETL falls back to polling automatically
 	// if the endpoint doesn't support it, so this is safe to flip on per-env.

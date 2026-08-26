@@ -128,11 +128,33 @@ type queueRow struct {
 	txRaw []byte
 }
 
+// fetchBatch returns the next rows to send, oldest first.
+//
+// NewChainFlushToBlock, when set, is a ceiling: rows confirmed above it are left
+// pending. It is the mirror of NewChainFlushFromBlock and exists for the indexer
+// cutover, where the old-chain indexer stops at a height L and everything
+// confirmed at or below L must be on the new chain before the new indexer starts
+// (ROLLOUT.md, Runbook step 12).
+//
+// A filter, not a stop. Enqueue is dispatched asynchronously, so confirmed_block
+// is only roughly ordered by id — halting at the first row above the ceiling
+// would strand a row below it, which would then flush after the boundary was
+// recorded and be indexed twice.
+//
+// Rows with a NULL confirmed_block are held while the ceiling is set: they
+// cannot be placed relative to L, and holding is the recoverable choice —
+// they flush once the ceiling is lifted. Drain or inspect them before the
+// cutover rather than discovering them during it.
 func (f *NewChainFlusher) fetchBatch(ctx context.Context, limit int) ([]queueRow, error) {
-	rows, err := f.writePool.Query(ctx,
-		`SELECT id, tx_data FROM new_chain_queue ORDER BY id LIMIT $1`,
-		limit,
-	)
+	query := `SELECT id, tx_data FROM new_chain_queue ORDER BY id LIMIT $1`
+	args := []any{limit}
+	if f.cfg.NewChainFlushToBlock > 0 {
+		query = `SELECT id, tx_data FROM new_chain_queue
+		         WHERE confirmed_block IS NOT NULL AND confirmed_block <= $2
+		         ORDER BY id LIMIT $1`
+		args = append(args, f.cfg.NewChainFlushToBlock)
+	}
+	rows, err := f.writePool.Query(ctx, query, args...)
 	if err != nil {
 		return nil, err
 	}
