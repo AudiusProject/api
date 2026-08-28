@@ -105,12 +105,13 @@ func NewIndexer(cfg config.Config) *CoreIndexer {
 	// indexed the old chain. An explicit start height is the way across.
 	if cfg.EtlStartingBlockHeight > 0 {
 		etlIndexer.SetStartingBlockHeight(cfg.EtlStartingBlockHeight)
-		logger.Info("etl: explicit starting block height",
+		logger.Warn("etl: starting from an explicit height, NOT resuming -- clear etlStartingBlockHeight once the cutover is done, or every restart re-indexes from here and duplicates plays",
 			zap.Int64("height", cfg.EtlStartingBlockHeight))
 	}
 	if cfg.EtlEndingBlockHeight > 0 {
 		etlIndexer.SetEndingBlockHeight(cfg.EtlEndingBlockHeight)
-		logger.Info("etl: will stop after block", zap.Int64("height", cfg.EtlEndingBlockHeight))
+		logger.Warn("etl: will stop after this block and not resume -- clear etlEndingBlockHeight once the cutover is done",
+			zap.Int64("height", cfg.EtlEndingBlockHeight))
 	}
 
 	// When enabled, source blocks from the CoreService.StreamBlocks gRPC stream
