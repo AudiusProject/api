@@ -93,7 +93,20 @@ type Config struct {
 	NewChainQueueEnabled       bool
 	NewChainFlushEnabled       bool
 	NewChainFlushFromBlock     int64
+	NewChainFlushToBlock       int64
 	NewChainInsecureSkipVerify bool
+
+	// Indexer cutover bounds. Both default to 0, meaning "unset" — the ETL
+	// treats a zero start as "resume from where you left off" and a zero end as
+	// "never stop", which is normal operation.
+	//
+	// They exist for the chain cutover, where the old-chain indexer must stop at
+	// a known height L and the new-chain indexer must begin at a known height,
+	// rather than resuming off MAX(block_height) — a query with no chain_id,
+	// which against a fresh chain resolves to the old chain's height and stalls
+	// silently. See cmd/genesis-writer/ROLLOUT.md, Runbook step 12.
+	EtlStartingBlockHeight int64
+	EtlEndingBlockHeight   int64
 }
 
 var Cfg = Config{
@@ -367,11 +380,26 @@ func init() {
 	Cfg.NewChainQueueEnabled = os.Getenv("newChainQueueEnabled") == "true"
 	Cfg.NewChainFlushEnabled = os.Getenv("newChainFlushEnabled") == "true"
 	Cfg.NewChainInsecureSkipVerify = os.Getenv("newChainInsecureSkipVerify") == "true"
-	if v := os.Getenv("newChainFlushFromBlock"); v != "" {
-		n, err := strconv.ParseInt(v, 10, 64)
-		if err != nil {
-			panic("Invalid newChainFlushFromBlock: " + err.Error())
-		}
-		Cfg.NewChainFlushFromBlock = n
+	Cfg.NewChainFlushFromBlock = mustParseInt64Env("newChainFlushFromBlock")
+	Cfg.NewChainFlushToBlock = mustParseInt64Env("newChainFlushToBlock")
+
+	// Indexer cutover bounds (see the struct fields).
+	Cfg.EtlStartingBlockHeight = mustParseInt64Env("etlStartingBlockHeight")
+	Cfg.EtlEndingBlockHeight = mustParseInt64Env("etlEndingBlockHeight")
+}
+
+// mustParseInt64Env reads an optional int64 env var, returning 0 when unset.
+// A malformed value panics rather than silently reading as 0: every caller here
+// is a cutover bound where 0 means "no bound", so a typo would quietly disable
+// the very limit it was meant to impose.
+func mustParseInt64Env(name string) int64 {
+	v := os.Getenv(name)
+	if v == "" {
+		return 0
 	}
+	n, err := strconv.ParseInt(v, 10, 64)
+	if err != nil {
+		panic("Invalid " + name + ": " + err.Error())
+	}
+	return n
 }
