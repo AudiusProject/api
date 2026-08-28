@@ -9116,7 +9116,9 @@ CREATE TABLE public.new_chain_queue (
     id bigint NOT NULL,
     created_at timestamp with time zone DEFAULT now() NOT NULL,
     tx_data bytea NOT NULL,
-    confirmed_block bigint
+    confirmed_block bigint,
+    flushed_at timestamp with time zone,
+    skip_reason text
 );
 
 
@@ -9139,6 +9141,20 @@ COMMENT ON COLUMN public.new_chain_queue.tx_data IS 'Protobuf-serialized ManageE
 --
 
 COMMENT ON COLUMN public.new_chain_queue.confirmed_block IS 'Block height on the old chain where this transaction was confirmed. NULL if confirmation was not recorded (e.g. relay restart).';
+
+
+--
+-- Name: COLUMN new_chain_queue.flushed_at; Type: COMMENT; Schema: public; Owner: -
+--
+
+COMMENT ON COLUMN public.new_chain_queue.flushed_at IS 'When this row was forwarded to the new chain, or when it was marked skipped. NULL means pending.';
+
+
+--
+-- Name: COLUMN new_chain_queue.skip_reason; Type: COMMENT; Schema: public; Owner: -
+--
+
+COMMENT ON COLUMN public.new_chain_queue.skip_reason IS 'Set when flushed_at was recorded without actually forwarding: ''backfilled'' (covered by the genesis backfill) or ''corrupt'' (tx_data failed to unmarshal).';
 
 
 --
@@ -14518,6 +14534,13 @@ CREATE INDEX ix_subscriptions_blocknumber ON public.subscriptions USING btree (b
 
 
 --
+-- Name: ix_subscriptions_entity_type_entity_id; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX ix_subscriptions_entity_type_entity_id ON public.subscriptions USING btree (entity_type, entity_id);
+
+
+--
 -- Name: ix_subscriptions_user_id; Type: INDEX; Schema: public; Owner: -
 --
 
@@ -14620,6 +14643,13 @@ CREATE INDEX mv_dashboard_transaction_types_idx ON public.mv_dashboard_transacti
 --
 
 CREATE INDEX new_chain_queue_confirmed_block_idx ON public.new_chain_queue USING btree (confirmed_block);
+
+
+--
+-- Name: new_chain_queue_pending_idx; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX new_chain_queue_pending_idx ON public.new_chain_queue USING btree (id) WHERE (flushed_at IS NULL);
 
 
 --
@@ -14830,6 +14860,13 @@ CREATE INDEX saves_item_idx ON public.saves USING btree (save_item_id, save_type
 --
 
 CREATE INDEX saves_new_blocknumber_idx ON public.saves USING btree (blocknumber);
+
+
+--
+-- Name: saves_user_created_at_active_idx; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX saves_user_created_at_active_idx ON public.saves USING btree (user_id, created_at DESC) INCLUDE (save_type, save_item_id) WHERE (is_delete = false);
 
 
 --
@@ -15228,7 +15265,7 @@ COMMENT ON INDEX public.sol_user_balances_mint_user_id_idx IS 'Index for quick a
 -- Name: subscriptions_current_uniq_idx; Type: INDEX; Schema: public; Owner: -
 --
 
-CREATE UNIQUE INDEX subscriptions_current_uniq_idx ON public.subscriptions USING btree (subscriber_id, user_id) WHERE (is_current = true);
+CREATE UNIQUE INDEX subscriptions_current_uniq_idx ON public.subscriptions USING btree (subscriber_id, user_id, entity_type) WHERE (is_current = true);
 
 
 --
