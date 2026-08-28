@@ -747,6 +747,7 @@ func NewApiServer(config config.Config) *ApiServer {
 		g.Get("/coins/volume-leaders", app.v1CoinsVolumeLeaders)
 		g.Get("/coins/:mint", app.v1Coin)
 		g.Get("/coins/ticker/:ticker", app.v1CoinByTicker)
+		g.Get("/coins/:mint/metadata", app.v1CoinMetadata)
 		g.Get("/coins/:mint/insights", app.v1CoinInsights)
 		g.Get("/coins/:mint/members", app.v1CoinsMembers)
 		g.Get("/coins/:mint/members/count", app.v1CoinMembersCount)
