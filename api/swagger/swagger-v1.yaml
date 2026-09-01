@@ -7107,17 +7107,17 @@ paths:
         "500":
           description: Server error
           content: {}
-  /users/{id}/discover-weekly:
+  /users/{id}/weekly-rotation:
     get:
       tags:
         - users
       description:
-        Gets the user's Discover Weekly mix - a personalized set of tracks
+        Gets the user's Weekly Rotation mix - a personalized set of tracks
         they have not heard, weighted toward artists they do not already
         follow. The mix is fixed for the calendar week (ISO week, UTC) and
         rotates when the week rolls over. Unlike suggested-follows, this
         returns results for users with no listening history.
-      operationId: Get Discover Weekly
+      operationId: Get Weekly Rotation
       security:
         - {}
         - OAuth2:
