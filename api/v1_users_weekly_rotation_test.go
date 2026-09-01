@@ -11,7 +11,7 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-// discoverWeeklyFixtures builds a graph covering every filter and both
+// weeklyRotationFixtures builds a graph covering every filter and both
 // candidate sources.
 //
 //	user 1  = me (the viewer). Plays rock, so rock is my affinity genre.
@@ -24,7 +24,7 @@ import (
 //	user 8  = artist with a gated track   -> filtered
 //	user 9  = artist with an ancient track-> filtered (age)
 //	user 10 = artist with two good tracks -> one-per-artist cap
-func discoverWeeklyFixtures() database.FixtureMap {
+func weeklyRotationFixtures() database.FixtureMap {
 	now := time.Now()
 	daysAgo := func(d int) time.Time { return now.AddDate(0, 0, -d) }
 
@@ -123,7 +123,7 @@ func discoverWeeklyFixtures() database.FixtureMap {
 }
 
 // titles pulls the track titles out of a response, in order.
-func discoverWeeklyTitles(tracks []dbv1.Track) []string {
+func weeklyRotationTitles(tracks []dbv1.Track) []string {
 	out := make([]string, len(tracks))
 	for i, t := range tracks {
 		out[i] = t.Title.String
@@ -131,18 +131,18 @@ func discoverWeeklyTitles(tracks []dbv1.Track) []string {
 	return out
 }
 
-func TestV1UsersDiscoverWeekly(t *testing.T) {
+func TestV1UsersWeeklyRotation(t *testing.T) {
 	app := emptyTestApp(t)
-	database.Seed(app.pool.Replicas[0], discoverWeeklyFixtures())
+	database.Seed(app.pool.Replicas[0], weeklyRotationFixtures())
 
 	var resp struct {
 		Data []dbv1.Track
 	}
 
-	status, _ := testGet(t, app, "/v1/users/7eP5n/discover-weekly", &resp)
+	status, _ := testGet(t, app, "/v1/users/7eP5n/weekly-rotation", &resp)
 	assert.Equal(t, 200, status)
 
-	titles := discoverWeeklyTitles(resp.Data)
+	titles := weeklyRotationTitles(resp.Data)
 
 	// Every filter, asserted as absence rather than ordering so the week
 	// jitter can't make this flaky.
@@ -176,7 +176,7 @@ func TestV1UsersDiscoverWeekly(t *testing.T) {
 // (0.70 vs 1.25, a 1.79x ratio) is wider than the jitter band can close
 // (1.35x at the extremes), so this ordering is guaranteed rather than
 // merely likely.
-func TestV1UsersDiscoverWeeklyDemotesFollowedArtists(t *testing.T) {
+func TestV1UsersWeeklyRotationDemotesFollowedArtists(t *testing.T) {
 	app := emptyTestApp(t)
 
 	fixtures := database.FixtureMap{
@@ -213,7 +213,7 @@ func TestV1UsersDiscoverWeeklyDemotesFollowedArtists(t *testing.T) {
 	var resp struct {
 		Data []dbv1.Track
 	}
-	status, _ := testGet(t, app, "/v1/users/7eP5n/discover-weekly", &resp)
+	status, _ := testGet(t, app, "/v1/users/7eP5n/weekly-rotation", &resp)
 	assert.Equal(t, 200, status)
 	require.Len(t, resp.Data, 2)
 
@@ -227,7 +227,7 @@ func TestV1UsersDiscoverWeeklyDemotesFollowedArtists(t *testing.T) {
 // This is the case that separates the surface from suggested-follows, which
 // correctly returns nothing for a cold account: a mix that is empty on
 // first open has no reason to exist.
-func TestV1UsersDiscoverWeeklyColdStart(t *testing.T) {
+func TestV1UsersWeeklyRotationColdStart(t *testing.T) {
 	app := emptyTestApp(t)
 
 	fixtures := database.FixtureMap{
@@ -254,7 +254,7 @@ func TestV1UsersDiscoverWeeklyColdStart(t *testing.T) {
 	var resp struct {
 		Data []dbv1.Track
 	}
-	status, _ := testGet(t, app, "/v1/users/7eP5n/discover-weekly", &resp)
+	status, _ := testGet(t, app, "/v1/users/7eP5n/weekly-rotation", &resp)
 	assert.Equal(t, 200, status)
 	assert.Len(t, resp.Data, 1, "no listening history still yields a mix")
 	assert.Equal(t, "a track", resp.Data[0].Title.String)
@@ -264,10 +264,10 @@ func TestV1UsersDiscoverWeeklyColdStart(t *testing.T) {
 // halves matter: the first is the product promise, the second is the only
 // thing keeping the mix from being the same 30 tracks forever.
 //
-// Goes through getDiscoverWeeklyTrackIds rather than the HTTP handler
+// Goes through getWeeklyRotationTrackIds rather than the HTTP handler
 // because the handler derives the period from the wall clock, and the point
 // here is to vary it.
-func TestV1UsersDiscoverWeeklyStableWithinWeek(t *testing.T) {
+func TestV1UsersWeeklyRotationStableWithinWeek(t *testing.T) {
 	app := emptyTestApp(t)
 
 	fixtures := database.FixtureMap{
@@ -311,26 +311,26 @@ func TestV1UsersDiscoverWeeklyStableWithinWeek(t *testing.T) {
 
 	ctx := context.Background()
 
-	weekA1, err := app.getDiscoverWeeklyTrackIds(ctx, 1, 2026, 10, 20)
+	weekA1, err := app.getWeeklyRotationTrackIds(ctx, 1, 2026, 10, 20)
 	require.NoError(t, err)
 	require.NotEmpty(t, weekA1)
 
 	// Same period, recomputed: byte-identical.
-	app.discoverWeeklyCache.Clear()
-	weekA2, err := app.getDiscoverWeeklyTrackIds(ctx, 1, 2026, 10, 20)
+	app.weeklyRotationCache.Clear()
+	weekA2, err := app.getWeeklyRotationTrackIds(ctx, 1, 2026, 10, 20)
 	require.NoError(t, err)
 	assert.Equal(t, weekA1, weekA2,
 		"the mix is deterministic for a given (user, year, week)")
 
 	// Next week: same candidates, different mix.
-	weekB, err := app.getDiscoverWeeklyTrackIds(ctx, 1, 2026, 11, 20)
+	weekB, err := app.getWeeklyRotationTrackIds(ctx, 1, 2026, 11, 20)
 	require.NoError(t, err)
 	require.NotEmpty(t, weekB)
 	assert.NotEqual(t, weekA1, weekB,
 		"the week seed rotates the mix when the week rolls over")
 
 	// And a different listener gets a different mix in the same week.
-	weekAOther, err := app.getDiscoverWeeklyTrackIds(ctx, 2, 2026, 10, 20)
+	weekAOther, err := app.getWeeklyRotationTrackIds(ctx, 2, 2026, 10, 20)
 	require.NoError(t, err)
 	assert.NotEqual(t, weekA1, weekAOther,
 		"the seed is per-listener, not global")
@@ -352,12 +352,12 @@ func padWallet(n int) string {
 
 // The path :userId goes through requireUserIdMiddleware, so a junk hash id
 // is a 400 rather than a silent fallback to user 0.
-func TestV1UsersDiscoverWeeklyRequiresValidUserId(t *testing.T) {
+func TestV1UsersWeeklyRotationRequiresValidUserId(t *testing.T) {
 	app := emptyTestApp(t)
 	var resp struct {
 		Data []dbv1.Track
 	}
-	status, _ := testGet(t, app, "/v1/users/not-a-real-id/discover-weekly", &resp)
+	status, _ := testGet(t, app, "/v1/users/not-a-real-id/weekly-rotation", &resp)
 	assert.Equal(t, 400, status)
 }
 
@@ -373,7 +373,7 @@ func TestV1UsersDiscoverWeeklyRequiresValidUserId(t *testing.T) {
 // Every other test here seeds score rows without a genre, so none of them
 // could catch it. This one seeds a genre-carrying row specifically -- the
 // shape that actually reaches the query in production.
-func TestV1UsersDiscoverWeeklyReadsGenreCarryingTrendingRows(t *testing.T) {
+func TestV1UsersWeeklyRotationReadsGenreCarryingTrendingRows(t *testing.T) {
 	app := emptyTestApp(t)
 
 	fixtures := database.FixtureMap{
@@ -396,7 +396,7 @@ func TestV1UsersDiscoverWeeklyReadsGenreCarryingTrendingRows(t *testing.T) {
 	var resp struct {
 		Data []dbv1.Track
 	}
-	status, _ := testGet(t, app, "/v1/users/7eP5n/discover-weekly", &resp)
+	status, _ := testGet(t, app, "/v1/users/7eP5n/weekly-rotation", &resp)
 	assert.Equal(t, 200, status)
 	assert.Len(t, resp.Data, 1,
 		"a score row carrying a genre must still be a candidate")

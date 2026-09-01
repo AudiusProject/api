@@ -10,7 +10,7 @@ import (
 	"github.com/jackc/pgx/v5"
 )
 
-type GetUsersDiscoverWeeklyParams struct {
+type GetUsersWeeklyRotationParams struct {
 	Limit int `query:"limit" default:"30" validate:"min=1,max=50"`
 }
 
@@ -19,20 +19,20 @@ const (
 	// allowed to reach much further back than the For You feed (48h
 	// half-life), but a track from 2019 that never found an audience is
 	// usually not a hidden gem — it's an abandoned upload.
-	discoverWeeklyMaxAgeDays = 365
+	weeklyRotationMaxAgeDays = 365
 
 	// Week-seeded jitter band. Scores across the candidate pool are tightly
 	// clustered, so without a deterministic per-week perturbation the same
 	// user would get a near-identical mix every week. +/-15% is enough to
 	// rotate the ordering among comparable candidates without letting a weak
 	// track outrank a genuinely better one.
-	discoverWeeklyJitterFloor = 0.85
-	discoverWeeklyJitterRange = 0.30
+	weeklyRotationJitterFloor = 0.85
+	weeklyRotationJitterRange = 0.30
 )
 
 /*
 Returns a fixed-size, taste-matched track mix that is stable for the
-calendar week — the "Discover Weekly" surface.
+calendar week — the "Weekly Rotation" surface.
 
 Distinct from GET /v1/users/{id}/feed/for-you in three ways that matter:
 
@@ -81,7 +81,7 @@ FILTERS. Track liveness (is_delete / is_unlisted / is_available /
 stem_of), owner liveness (is_deactivated / is_available), gated tracks
 excluded entirely (a mix the listener can't play through is worse than a
 shorter mix), own uploads, anything played, anything saved, and anything
-older than discoverWeeklyMaxAgeDays.
+older than weeklyRotationMaxAgeDays.
 
 DIVERSITY. One track per artist, hard. For You allows 3 because a feed is
 expected to show you more from someone you follow; a 30-track mix with two
@@ -96,8 +96,8 @@ Query params:
   - user_id (optional): the caller, for viewer-relative fields on the
     returned tracks. Independent of the path id, same as elsewhere.
 */
-func (app *ApiServer) v1UsersDiscoverWeekly(c *fiber.Ctx) error {
-	params := GetUsersDiscoverWeeklyParams{}
+func (app *ApiServer) v1UsersWeeklyRotation(c *fiber.Ctx) error {
+	params := GetUsersWeeklyRotationParams{}
 	if err := app.ParseAndValidateQueryParams(c, &params); err != nil {
 		return err
 	}
@@ -105,9 +105,9 @@ func (app *ApiServer) v1UsersDiscoverWeekly(c *fiber.Ctx) error {
 	userId := app.getUserId(c)
 	myId := app.getMyId(c)
 
-	year, week := discoverWeeklyPeriod(time.Now().UTC())
+	year, week := weeklyRotationPeriod(time.Now().UTC())
 
-	trackIds, err := app.getDiscoverWeeklyTrackIds(
+	trackIds, err := app.getWeeklyRotationTrackIds(
 		c.Context(),
 		userId,
 		year,
@@ -133,22 +133,22 @@ func (app *ApiServer) v1UsersDiscoverWeekly(c *fiber.Ctx) error {
 	return v1TracksResponse(c, tracks)
 }
 
-// discoverWeeklyPeriod returns the ISO year and ISO week that `t` falls in.
+// weeklyRotationPeriod returns the ISO year and ISO week that `t` falls in.
 // The mix is keyed on this pair, so it changes exactly once a week at the
 // ISO week boundary (Monday 00:00 UTC).
-func discoverWeeklyPeriod(t time.Time) (int, int) {
+func weeklyRotationPeriod(t time.Time) (int, int) {
 	return t.ISOWeek()
 }
 
-func (app *ApiServer) getDiscoverWeeklyTrackIds(
+func (app *ApiServer) getWeeklyRotationTrackIds(
 	ctx context.Context,
 	userId int32,
 	year int,
 	week int,
 	limit int,
 ) ([]int32, error) {
-	cacheKey := fmt.Sprintf("discover_weekly:%d:%d:%d:%d", userId, year, week, limit)
-	if hit, ok := app.discoverWeeklyCache.Get(cacheKey); ok {
+	cacheKey := fmt.Sprintf("weekly_rotation:%d:%d:%d:%d", userId, year, week, limit)
+	if hit, ok := app.weeklyRotationCache.Get(cacheKey); ok {
 		return hit, nil
 	}
 
@@ -383,9 +383,9 @@ func (app *ApiServer) getDiscoverWeeklyTrackIds(
 		"userId":      userId,
 		"seedKey":     fmt.Sprintf("%d:%d:%d", userId, year, week),
 		"limit":       limit,
-		"maxAgeDays":  discoverWeeklyMaxAgeDays,
-		"jitterFloor": discoverWeeklyJitterFloor,
-		"jitterRange": discoverWeeklyJitterRange,
+		"maxAgeDays":  weeklyRotationMaxAgeDays,
+		"jitterFloor": weeklyRotationJitterFloor,
+		"jitterRange": weeklyRotationJitterRange,
 	})
 	if err != nil {
 		return nil, err
@@ -395,6 +395,6 @@ func (app *ApiServer) getDiscoverWeeklyTrackIds(
 		return nil, err
 	}
 
-	app.discoverWeeklyCache.Set(cacheKey, ids)
+	app.weeklyRotationCache.Set(cacheKey, ids)
 	return ids, nil
 }
