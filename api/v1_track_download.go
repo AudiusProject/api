@@ -44,8 +44,11 @@ func (app *ApiServer) v1TrackDownload(c *fiber.Ctx) error {
 	track := tracks[0]
 
 	// Same guard as the stream endpoint: a deleted track, or one whose owner is
-	// no longer active, must not have its audio served here either.
-	if !track.IsStreamable {
+	// no longer active, must not have its audio served here either. This checks
+	// IsAudioAllowed rather than IsStreamable because a download falls back to
+	// orig_file_cid - a row that never got its track_cid is unstreamable but
+	// still perfectly downloadable.
+	if !track.IsAudioAllowed {
 		return fiber.NewError(fiber.StatusNotFound, "track not found")
 	}
 

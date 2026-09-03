@@ -21,15 +21,21 @@ const IncludeID3TagsCtxKey = "includeID3Tags"
 type Track struct {
 	GetTracksRow
 
-	Permalink     string         `json:"permalink"`
-	IsStreamable  bool           `json:"is_streamable"`
-	Artwork       *SquareImage   `json:"artwork"`
-	Stream        *MediaLink     `json:"stream"`
-	Download      *MediaLink     `json:"download"`
-	Preview       *MediaLink     `json:"preview"`
-	UserID        trashid.HashId `json:"user_id"`
-	User          User           `json:"user"`
-	Collaborators []User         `json:"collaborators"`
+	Permalink    string `json:"permalink"`
+	IsStreamable bool   `json:"is_streamable"`
+	// IsAudioAllowed reports whether the track and its owner are in good
+	// standing - not deleted, not deactivated, not delisted. It is the gate on
+	// serving the artist's audio in any form. IsStreamable narrows it further
+	// by also requiring a cid to stream, so downloads (which fall back to
+	// orig_file_cid) must check this rather than IsStreamable.
+	IsAudioAllowed bool           `json:"-"`
+	Artwork        *SquareImage   `json:"artwork"`
+	Stream         *MediaLink     `json:"stream"`
+	Download       *MediaLink     `json:"download"`
+	Preview        *MediaLink     `json:"preview"`
+	UserID         trashid.HashId `json:"user_id"`
+	User           User           `json:"user"`
+	Collaborators  []User         `json:"collaborators"`
 	// PendingCollaborators is populated only on the requester's own tracks (so
 	// the owner's edit form can preserve still-pending invites); empty otherwise.
 	PendingCollaborators []User `json:"pending_collaborators"`
@@ -196,26 +202,31 @@ func (q *Queries) TracksKeyed(ctx context.Context, arg TracksParams) (map[int32]
 			}
 		}
 
-		// A track is streamable unless it was deleted or its owner is no longer
-		// active - either the artist deactivated their own account or the
-		// account was delisted by the trusted notifier.
-		isStreamable := !rawTrack.IsDelete && !user.IsDeactivated
+		// The artist's audio is off-limits once the track was deleted or its
+		// owner stopped being active - either the artist deactivated their own
+		// account or the account was delisted by the trusted notifier. The cid
+		// in those rows is real, so a signed URL would still work: the stream
+		// and download endpoints reject these, but that only closes two routes,
+		// and anyone reading the track response could otherwise fetch the audio
+		// straight from the content node. Preview is included because a preview
+		// clip is still the artist's audio.
+		isAudioAllowed := !rawTrack.IsDelete && !user.IsDeactivated
 
-		// Two reasons to leave a media link nil, both with the same effect: the
-		// URL should never be handed out, and the endpoints report the track as
-		// unavailable instead.
+		// Streaming needs one more thing: a transcoded cid to point at. An
+		// upload that never got its track_cid written has audio sitting on the
+		// content node that no reader can address - nothing to sign, nothing to
+		// play, and signing an empty cid just produces a URL guaranteed to 404.
+		// Such rows used to report is_streamable=true, so every client treated
+		// them as healthy: the player spun on a dead URL, and mobile's
+		// share-to-story fed that URL to ffmpeg and failed with a generic
+		// "something went wrong". Say plainly that there is nothing to stream.
 		//
-		// A track row can have empty cid columns (e.g. an upload-v2 row whose
-		// track_cid/orig_file_cid backfill never ran), and signing an empty cid
-		// produces a content-node URL that is guaranteed to 404.
-		//
-		// A non-streamable track is worse: the cid is real, so the signed URL
-		// works. The stream and download endpoints reject these, but that only
-		// closes those two routes - anyone reading the track response could
-		// still fetch the audio straight from the content node. Preview is
-		// included because a preview clip is still the artist's audio.
+		// Downloads are deliberately not gated on this - they fall back to
+		// orig_file_cid, which a row missing its track_cid still has.
+		isStreamable := isAudioAllowed && rawTrack.TrackCid.String != ""
+
 		var stream *MediaLink
-		if isStreamable && access.Stream && rawTrack.TrackCid.String != "" {
+		if isStreamable && access.Stream {
 			stream, err = mediaLink(rawTrack.TrackCid.String, rawTrack.TrackID, arg.MyID.(int32), id3Tags)
 			if err != nil {
 				return nil, err
@@ -223,7 +234,7 @@ func (q *Queries) TracksKeyed(ctx context.Context, arg TracksParams) (map[int32]
 		}
 
 		var download *MediaLink
-		if isStreamable && rawTrack.IsDownloadable && access.Download {
+		if isAudioAllowed && rawTrack.IsDownloadable && access.Download {
 			cid := rawTrack.OrigFileCid.String
 			if cid == "" {
 				cid = rawTrack.TrackCid.String
@@ -237,7 +248,7 @@ func (q *Queries) TracksKeyed(ctx context.Context, arg TracksParams) (map[int32]
 		}
 
 		var preview *MediaLink
-		if isStreamable && rawTrack.PreviewCid.String != "" {
+		if isAudioAllowed && rawTrack.PreviewCid.String != "" {
 			preview, err = mediaLink(rawTrack.PreviewCid.String, rawTrack.TrackID, arg.MyID.(int32), id3Tags)
 			if err != nil {
 				return nil, err
@@ -247,6 +258,7 @@ func (q *Queries) TracksKeyed(ctx context.Context, arg TracksParams) (map[int32]
 		track := Track{
 			GetTracksRow:         rawTrack,
 			IsStreamable:         isStreamable,
+			IsAudioAllowed:       isAudioAllowed,
 			Permalink:            fmt.Sprintf("/%s/%s", user.Handle.String, rawTrack.Slug.String),
 			Artwork:              squareImageStruct(rawTrack.CoverArtSizes, rawTrack.CoverArt),
 			Stream:               stream,
