@@ -52,6 +52,11 @@ func (app *ApiServer) v1TrackStream(c *fiber.Ctx) error {
 }
 
 func (app *ApiServer) redirectToStream(c *fiber.Ctx, stream *dbv1.MediaLink) error {
+	// Temporary, for the genesis migration: prefer hosts that stay on the old
+	// chain so plays are not split across two chains while the fleet migrates.
+	// No-op when unconfigured. See withPlayRoutingHosts.
+	stream = withPlayRoutingHosts(stream, app.config.PlayRoutingHosts)
+
 	streamURL := tryFindWorkingUrl(stream)
 
 	if skipPlayCount := c.Query("skip_play_count"); skipPlayCount != "" {
