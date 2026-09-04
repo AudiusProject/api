@@ -1,16 +1,28 @@
 package api
 
 import (
+	"path"
+	"strings"
+
 	"api.audius.co/api/dbv1"
 	"github.com/gofiber/fiber/v2"
 )
 
 func createFilename(track *dbv1.Track) string {
-	filename := track.OrigFilename.String
-	if filename == "" && track.OrigFileCid.String == "" {
-		filename = track.Title.String + ".mp3"
+	// The original upload is what a download serves whenever the row kept one,
+	// so its own name is the right one.
+	if track.OrigFileCid.String != "" && track.OrigFilename.String != "" {
+		return track.OrigFilename.String
 	}
-	return filename
+
+	// Otherwise the bytes are the mp3 transcode, and the name must not promise
+	// the format the artist uploaded: a .wav name on mp3 bytes is a file most
+	// editors refuse to open. Only the recorded filename is stripped of its
+	// extension - a title is free text and "Vol. 2" has no extension to trim.
+	if name := track.OrigFilename.String; name != "" {
+		return strings.TrimSuffix(name, path.Ext(name)) + ".mp3"
+	}
+	return track.Title.String + ".mp3"
 }
 
 type trackDownloadParams struct {
@@ -49,15 +61,27 @@ func (app *ApiServer) v1TrackDownload(c *fiber.Ctx) error {
 		return fiber.NewError(fiber.StatusNotFound, "track not found")
 	}
 
-	if !track.Access.Download {
-		return fiber.NewError(fiber.StatusForbidden, "you are not allowed to download this track")
+	// track.Download is only populated for tracks the public may download, so
+	// an artist who left downloads off - about four in five tracks - could not
+	// get their own file back. The edit page's "Download File" button and the
+	// replace-file flow both come through here, and both were 404ing for the
+	// owner of the track, surfacing as a generic "something went wrong".
+	downloadLink := track.Download
+	if downloadLink == nil {
+		downloadLink, err = app.ownerDownloadLink(c, &track)
+		if err != nil {
+			return err
+		}
 	}
 
-	if track.Download == nil {
+	if downloadLink == nil {
+		if !track.Access.Download {
+			return fiber.NewError(fiber.StatusForbidden, "you are not allowed to download this track")
+		}
 		return fiber.NewError(fiber.StatusNotFound, "track is not downloadable")
 	}
 
-	downloadUrl := tryFindWorkingUrl(track.Download)
+	downloadUrl := tryFindWorkingUrl(downloadLink)
 
 	q := downloadUrl.Query()
 	q.Set("skip_play_count", "true")
@@ -69,4 +93,26 @@ func (app *ApiServer) v1TrackDownload(c *fiber.Ctx) error {
 	downloadUrl.RawQuery = q.Encode()
 
 	return c.Redirect(downloadUrl.String(), fiber.StatusFound)
+}
+
+// ownerDownloadLink signs a download link for a requester who has proven they
+// own the track, or manage the account that does. Ownership comes from the
+// wallet recovered from the request signature, not from the user_id query
+// param behind myId: user_id is the caller's own claim, and it is only
+// trustworthy here because this route sits off authMiddleware's advisory-
+// user_id allowlist. Handing out an artist's original master should not rest
+// on that list continuing to exclude this route. Returns nil - not an error -
+// for everyone else, which leaves the caller's 404 in place.
+func (app *ApiServer) ownerDownloadLink(c *fiber.Ctx, track *dbv1.Track) (*dbv1.MediaLink, error) {
+	wallet := app.tryGetAuthedWallet(c)
+	if wallet == "" {
+		return nil, nil
+	}
+
+	ownerId := track.GetTracksRow.UserID
+	if !app.isAuthorizedRequest(c.Context(), ownerId, wallet) {
+		return nil, nil
+	}
+
+	return track.SignDownloadLink(ownerId)
 }

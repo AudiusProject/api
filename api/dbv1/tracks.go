@@ -224,11 +224,7 @@ func (q *Queries) TracksKeyed(ctx context.Context, arg TracksParams) (map[int32]
 
 		var download *MediaLink
 		if isStreamable && rawTrack.IsDownloadable && access.Download {
-			cid := rawTrack.OrigFileCid.String
-			if cid == "" {
-				cid = rawTrack.TrackCid.String
-			}
-			if cid != "" {
+			if cid := rawTrack.DownloadCid(); cid != "" {
 				download, err = mediaLink(cid, rawTrack.TrackID, arg.MyID.(int32), nil)
 				if err != nil {
 					return nil, err
