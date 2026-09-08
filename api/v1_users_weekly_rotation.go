@@ -28,6 +28,13 @@ const (
 	// track outrank a genuinely better one.
 	weeklyRotationJitterFloor = 0.85
 	weeklyRotationJitterRange = 0.30
+
+	// The mix rolls over on Wednesday 00:00 UTC, not at the ISO week boundary
+	// (Monday). Product call: Monday already belongs to the other weekly
+	// surfaces, and Friday is Spotify's day. Expressed as an offset from the
+	// ISO week's Monday so the period is still identified by (iso_year,
+	// iso_week) everywhere -- cache keys, seed, share links.
+	weeklyRotationRolloverOffsetDays = 2
 )
 
 /*
@@ -54,6 +61,19 @@ on the table; instead the query is fully deterministic given
 rolls. Nothing here uses random() — the week-to-week variation comes from
 `week_seed` below, which is a hash of (track_id, user_id, year, week).
 Same inputs, same mix, all week.
+
+The listener's own history (plays, saves, reposts, follows) is read as of
+the period's rollover instant, not as of the request. Without that anchor
+the mix quietly ate itself: the moment someone played a track *from* the
+mix, that track met the played-exclusion and vanished on the next cache
+miss, so a link shared on Wednesday showed a different, shorter list by
+Thursday. The mix is a shareable artifact; it has to survive being
+listened to. What still drifts is the candidate pool (trending refreshes
+continuously) and engagement counts, which can reorder comparable tracks
+mid-week -- accepted, since freezing those needs a stored snapshot.
+
+The period rolls over on Wednesday 00:00 UTC, see
+weeklyRotationRolloverOffsetDays.
 
 SCORING.
 
@@ -105,7 +125,7 @@ func (app *ApiServer) v1UsersWeeklyRotation(c *fiber.Ctx) error {
 	userId := app.getUserId(c)
 	myId := app.getMyId(c)
 
-	year, week := weeklyRotationPeriod(time.Now().UTC())
+	year, week := weeklyRotationPeriod(time.Now())
 
 	trackIds, err := app.getWeeklyRotationTrackIds(
 		c.Context(),
@@ -133,11 +153,29 @@ func (app *ApiServer) v1UsersWeeklyRotation(c *fiber.Ctx) error {
 	return v1TracksResponse(c, tracks)
 }
 
-// weeklyRotationPeriod returns the ISO year and ISO week that `t` falls in.
-// The mix is keyed on this pair, so it changes exactly once a week at the
-// ISO week boundary (Monday 00:00 UTC).
+// weeklyRotationPeriod returns the (ISO year, ISO week) pair that identifies
+// the rotation period `t` falls in. Periods run Wednesday 00:00 UTC to the
+// following Wednesday: shifting `t` back by the rollover offset maps each
+// period onto the ISO week whose Monday it started counting from, so the
+// pair still reads as a normal ISO week everywhere it's used as a key.
 func weeklyRotationPeriod(t time.Time) (int, int) {
-	return t.ISOWeek()
+	return t.UTC().AddDate(0, 0, -weeklyRotationRolloverOffsetDays).ISOWeek()
+}
+
+// weeklyRotationPeriodStart is the inverse: the instant the (year, week)
+// period began, i.e. Wednesday 00:00 UTC of that ISO week. Everything the
+// listener did before this instant counts as history for the mix;
+// everything after it does not.
+func weeklyRotationPeriodStart(year, week int) time.Time {
+	// ISO week 1 is the week containing January 4th.
+	jan4 := time.Date(year, time.January, 4, 0, 0, 0, 0, time.UTC)
+	weekday := int(jan4.Weekday())
+	if weekday == 0 {
+		weekday = 7 // Sunday: Go says 0, ISO says 7
+	}
+	mondayOfWeek1 := jan4.AddDate(0, 0, -(weekday - 1))
+	monday := mondayOfWeek1.AddDate(0, 0, (week-1)*7)
+	return monday.AddDate(0, 0, weeklyRotationRolloverOffsetDays)
 }
 
 func (app *ApiServer) getWeeklyRotationTrackIds(
@@ -160,12 +198,17 @@ func (app *ApiServer) getWeeklyRotationTrackIds(
 	-- listener has hundreds of thousands of play rows and an unbounded scan
 	-- is what put the older recommendation endpoints over the upstream
 	-- timeout (see PRs #805, #806).
+	--
+	-- Every history CTE is cut off at @periodStart, the rollover instant,
+	-- so playing (or saving) a track from this week's mix doesn't remove it
+	-- from this week's mix. See STABILITY in the handler doc.
 	my_played AS (
 		SELECT DISTINCT play_item_id AS track_id
 		FROM (
 			SELECT play_item_id
 			FROM plays
 			WHERE user_id = @userId
+			  AND created_at < @periodStart
 			ORDER BY created_at DESC
 			LIMIT 10000
 		) p
@@ -177,6 +220,7 @@ func (app *ApiServer) getWeeklyRotationTrackIds(
 		  AND save_type = 'track'
 		  AND is_current = true
 		  AND is_delete = false
+		  AND created_at < @periodStart
 	),
 	-- Capped the same way as the For You feed's follow_set, and for the
 	-- same reason: a power user with thousands of follows otherwise pulls a
@@ -187,6 +231,7 @@ func (app *ApiServer) getWeeklyRotationTrackIds(
 		WHERE follower_user_id = @userId
 		  AND is_current = true
 		  AND is_delete = false
+		  AND created_at < @periodStart
 		ORDER BY created_at DESC
 		LIMIT 500
 	),
@@ -200,6 +245,7 @@ func (app *ApiServer) getWeeklyRotationTrackIds(
 			SELECT play_item_id AS track_id
 			FROM plays
 			WHERE user_id = @userId
+			  AND created_at < @periodStart
 			ORDER BY created_at DESC
 			LIMIT 1000
 		) p
@@ -218,6 +264,7 @@ func (app *ApiServer) getWeeklyRotationTrackIds(
 				SELECT save_item_id AS track_id FROM saves
 				WHERE user_id = @userId AND save_type = 'track'
 				  AND is_current = true AND is_delete = false
+				  AND created_at < @periodStart
 				ORDER BY created_at DESC
 				LIMIT 200
 			) s
@@ -230,6 +277,7 @@ func (app *ApiServer) getWeeklyRotationTrackIds(
 				SELECT repost_item_id AS track_id FROM reposts
 				WHERE user_id = @userId AND repost_type = 'track'
 				  AND is_current = true AND is_delete = false
+				  AND created_at < @periodStart
 				ORDER BY created_at DESC
 				LIMIT 200
 			) r
@@ -382,6 +430,7 @@ func (app *ApiServer) getWeeklyRotationTrackIds(
 	rows, err := app.pool.Query(ctx, sql, pgx.NamedArgs{
 		"userId":      userId,
 		"seedKey":     fmt.Sprintf("%d:%d:%d", userId, year, week),
+		"periodStart": weeklyRotationPeriodStart(year, week),
 		"limit":       limit,
 		"maxAgeDays":  weeklyRotationMaxAgeDays,
 		"jitterFloor": weeklyRotationJitterFloor,

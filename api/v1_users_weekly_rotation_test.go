@@ -75,16 +75,21 @@ func weeklyRotationFixtures() database.FixtureMap {
 	// My listening history: a rock track by user 6, which both establishes
 	// Rock as my affinity genre and makes track 600 an already-played
 	// exclusion.
+	//
+	// History only counts if it predates the period's rollover, and the
+	// rollover is at most seven days back, so everything here is dated
+	// eight days ago. See TestV1UsersWeeklyRotationKeepsTracksPlayedThisPeriod
+	// for the other side of that line.
 	plays := []map[string]any{
-		{"id": 1, "user_id": 1, "play_item_id": 600, "created_at": daysAgo(1)},
+		{"id": 1, "user_id": 1, "play_item_id": 600, "created_at": daysAgo(8)},
 	}
 
 	saves := []map[string]any{
-		{"user_id": 1, "save_item_id": 700, "save_type": "track"},
+		{"user_id": 1, "save_item_id": 700, "save_type": "track", "created_at": daysAgo(8)},
 	}
 
 	follows := []map[string]any{
-		{"follower_user_id": 1, "followee_user_id": 4},
+		{"follower_user_id": 1, "followee_user_id": 4, "created_at": daysAgo(8)},
 	}
 
 	// Every candidate needs a trending row to be retrieved at all.
@@ -201,7 +206,7 @@ func TestV1UsersWeeklyRotationDemotesFollowedArtists(t *testing.T) {
 			{"track_id": 300, "save_count": 100, "repost_count": 50},
 		},
 		"follows": []map[string]any{
-			{"follower_user_id": 1, "followee_user_id": 2},
+			{"follower_user_id": 1, "followee_user_id": 2, "created_at": time.Now().AddDate(0, 0, -8)},
 		},
 		"track_trending_scores": []map[string]any{
 			{"track_id": 200, "score": 1_000_000_000, "time_range": "week"},
@@ -400,4 +405,103 @@ func TestV1UsersWeeklyRotationReadsGenreCarryingTrendingRows(t *testing.T) {
 	assert.Equal(t, 200, status)
 	assert.Len(t, resp.Data, 1,
 		"a score row carrying a genre must still be a candidate")
+}
+
+// Playing a track from the mix must not remove it from the mix. The
+// played-exclusion is anchored at the period's rollover, so a play dated
+// now -- inside the current period -- is invisible to it. Without the
+// anchor the mix shrank as it was listened to, which made a shared link
+// show a different list by the next day.
+func TestV1UsersWeeklyRotationKeepsTracksPlayedThisPeriod(t *testing.T) {
+	app := emptyTestApp(t)
+
+	fixtures := database.FixtureMap{
+		"users": []map[string]any{
+			{"user_id": 1, "handle": "me", "handle_lc": "me", "wallet": "0x0000000000000000000000000000000000000001"},
+			{"user_id": 2, "handle": "artist", "handle_lc": "artist", "wallet": "0x0000000000000000000000000000000000000002"},
+			{"user_id": 3, "handle": "other", "handle_lc": "other", "wallet": "0x0000000000000000000000000000000000000003"},
+		},
+		"aggregate_user": []map[string]any{
+			{"user_id": 1, "follower_count": 0, "following_count": 0},
+			{"user_id": 2, "follower_count": 5000, "following_count": 10},
+			{"user_id": 3, "follower_count": 5000, "following_count": 10},
+		},
+		"tracks": []map[string]any{
+			{"track_id": 200, "owner_id": 2, "title": "played this week", "genre": "Rock"},
+			{"track_id": 300, "owner_id": 3, "title": "played last week", "genre": "Rock"},
+		},
+		"aggregate_track": []map[string]any{
+			{"track_id": 200, "save_count": 100, "repost_count": 50},
+			{"track_id": 300, "save_count": 100, "repost_count": 50},
+		},
+		"plays": []map[string]any{
+			// Inside the current period: does not count as history.
+			{"id": 1, "user_id": 1, "play_item_id": 200, "created_at": time.Now()},
+			// Before any possible rollover: counts, and excludes track 300.
+			{"id": 2, "user_id": 1, "play_item_id": 300, "created_at": time.Now().AddDate(0, 0, -8)},
+		},
+		"track_trending_scores": []map[string]any{
+			{"track_id": 200, "score": 1_000_000_000, "time_range": "week"},
+			{"track_id": 300, "score": 1_000_000_000, "time_range": "week"},
+		},
+	}
+	database.Seed(app.pool.Replicas[0], fixtures)
+
+	var resp struct {
+		Data []dbv1.Track
+	}
+	status, _ := testGet(t, app, "/v1/users/7eP5n/weekly-rotation", &resp)
+	assert.Equal(t, 200, status)
+
+	titles := weeklyRotationTitles(resp.Data)
+	assert.Contains(t, titles, "played this week", "a play inside the period leaves the mix alone")
+	assert.NotContains(t, titles, "played last week", "a play before the rollover still excludes")
+}
+
+// Pure period math, no database. The period is identified by an ISO
+// (year, week) pair but starts on that week's Wednesday, so the two
+// functions have to agree with each other across the rollover and across
+// a year boundary.
+func TestWeeklyRotationPeriod(t *testing.T) {
+	utc := func(y int, m time.Month, d, h int) time.Time {
+		return time.Date(y, m, d, h, 0, 0, 0, time.UTC)
+	}
+
+	// 2026-09-09 is a Wednesday.
+	rollover := utc(2026, time.September, 9, 0)
+
+	y, w := weeklyRotationPeriod(rollover)
+	assert.Equal(t, [2]int{2026, 37}, [2]int{y, w}, "the rollover instant opens ISO week 37's period")
+	assert.Equal(t, rollover, weeklyRotationPeriodStart(y, w))
+
+	y, w = weeklyRotationPeriod(rollover.Add(-time.Second))
+	assert.Equal(t, [2]int{2026, 36}, [2]int{y, w}, "one second earlier is still the previous period")
+	assert.Equal(t, utc(2026, time.September, 2, 0), weeklyRotationPeriodStart(y, w))
+
+	y, w = weeklyRotationPeriod(utc(2026, time.September, 7, 12)) // the Monday
+	assert.Equal(t, [2]int{2026, 36}, [2]int{y, w}, "Monday and Tuesday belong to the period that started the previous Wednesday")
+
+	// Non-UTC input is normalised: 2026-09-08 20:00 PDT is 2026-09-09 03:00 UTC.
+	pdt := time.FixedZone("PDT", -7*3600)
+	y, w = weeklyRotationPeriod(time.Date(2026, time.September, 8, 20, 0, 0, 0, pdt))
+	assert.Equal(t, [2]int{2026, 37}, [2]int{y, w})
+
+	// Year boundary: ISO week 1 of 2027 starts Monday 2027-01-04, so its
+	// period starts Wednesday 2027-01-06, and the days before that belong
+	// to 2026's last ISO week (53).
+	y, w = weeklyRotationPeriod(utc(2027, time.January, 6, 0))
+	assert.Equal(t, [2]int{2027, 1}, [2]int{y, w})
+	assert.Equal(t, utc(2027, time.January, 6, 0), weeklyRotationPeriodStart(2027, 1))
+
+	y, w = weeklyRotationPeriod(utc(2027, time.January, 5, 23))
+	assert.Equal(t, [2]int{2026, 53}, [2]int{y, w})
+	assert.Equal(t, utc(2026, time.December, 30, 0), weeklyRotationPeriodStart(2026, 53))
+
+	// Round trip across a whole year of hours.
+	for tm := utc(2026, time.January, 1, 0); tm.Before(utc(2027, time.January, 1, 0)); tm = tm.Add(time.Hour) {
+		py, pw := weeklyRotationPeriod(tm)
+		start := weeklyRotationPeriodStart(py, pw)
+		require.False(t, tm.Before(start), "%v is before its own period start %v", tm, start)
+		require.True(t, tm.Before(start.AddDate(0, 0, 7)), "%v is past the end of its period starting %v", tm, start)
+	}
 }
