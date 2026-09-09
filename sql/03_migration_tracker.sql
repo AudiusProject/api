@@ -114,7 +114,6 @@ functions/handle_comms_rpc_log.sql	bca8170b77a97b521b050f49873d43d4	2026-05-27 0
 functions/handle_dbc_pools.sql	5d8727fa203bb5f204868f4209a2022a	2026-05-27 00:22:36.618827+00
 functions/handle_manager_request.sql	426004c1b9ac2be9e5721afb580679be	2026-05-27 00:22:36.848838+00
 functions/handle_play.sql	c710d1ef4805d7f99817baffc6ed8e25	2026-05-27 00:22:36.924069+00
-functions/handle_playlist.sql	4b338726d86db94fb3339e8407968cdf	2026-05-27 00:22:36.987976+00
 functions/handle_playlist_track.sql	bbb4dce9244617aa2d6580aae05d154a	2026-05-27 00:22:37.057245+00
 functions/handle_reaction.sql	679796675e687b45288c517c568692d4	2026-05-27 00:22:37.13432+00
 functions/handle_share.sql	84efa350bfd7f5501ccd34a93f6207a6	2026-05-27 00:22:37.371581+00
@@ -159,13 +158,13 @@ functions/handle_event.sql	f15d9cc1838fa327b5df7e6b10c5ad7c	2026-07-28 05:42:28.
 functions/handle_follow.sql	cf954862ef38daf93740ca1a88f24863	2026-07-28 05:42:28.792892+00
 functions/handle_repost.sql	e7cfd188b5aec2b01584dc8db1e9bc00	2026-07-28 05:42:28.962664+00
 functions/handle_save.sql	05422848c57572704f78f27171e94058	2026-07-28 05:42:29.039008+00
-functions/handle_track.sql	c2d4c5674b0cb1db907ad625fd957c91	2026-07-28 05:42:29.145055+00
 functions/notify_on_row.sql	a326d476636de01dd939047526b0cb92	2026-07-28 05:42:29.345724+00
 preflight/0001_initial_block.sql	6cc3c0833c195a1104bed5bf849c0266	2026-07-28 05:42:29.588508+00
 functions/handle_comment_reaction.sql	8153e3cdb922265857b6beaf20d29733	2026-05-30 01:37:22.856663+00
 functions/handle_user_challenges.sql	202037a6ec14955885a479648e2cc57a	2026-08-05 00:50:26.86158+00
 views/artist_coin_prices.sql	fbfb4b530235c4b95f851bf5be2a063d	2026-08-05 00:50:27.089199+00
 functions/handle_comment_thread.sql	6eb74eb92cf3a01421498df96c6832f3	2026-05-30 01:37:22.955997+00
+functions/handle_track.sql	e7f09963e58d4462c8a43dbd4b11a275	2026-08-28 04:26:42.202584+00
 functions/handle_eth_wallet_balance_change.sql	3e31160b4bc55e951d9dfa4d994c180b	2026-05-30 01:37:23.054573+00
 functions/handle_fan_club_text_post.sql	531bf682bcfd67c6866faf8ccdf7603b	2026-05-30 01:37:23.160142+00
 functions/handle_tastemaker.sql	04690b53bd094a59717ef3a5b5d2c0a0	2026-05-30 01:37:23.34542+00
@@ -215,6 +214,10 @@ migrations/0235_drop_coin_stats_shadow.sql	ecbd5cd4d2edd02bbb86d760c9768388	2026
 migrations/0236_saves_reposts_album_to_playlist.sql	5bd5036831dbfa656352dfd937c3fe5c	2026-08-05 00:50:26.077564+00
 migrations/0237_users_one_current_row_backfill.sql	b48ab562bc1ab92d12a17795a59cdf84	2026-08-05 00:50:26.167093+00
 functions/handle_challenge_disbursements.sql	32db00f1ecfcfbda0094c0a5e1e6e300	2026-08-05 00:50:26.417396+00
+migrations/0238_backfill_track_playlist_reverse_index.sql	876450b97109942a25da304c101004fe	2026-08-28 04:26:41.602282+00
+migrations/0238_new_chain_queue_cursor.sql	2643e6250dd6b3ca4abb00fd8f417fca	2026-08-28 04:26:41.677782+00
+migrations/0239_saves_user_created_at_idx.sql	8a73b4eab0aa290ab720a706ec06e249	2026-08-28 04:26:41.748552+00
+functions/handle_playlist.sql	17abfed3041b8039dde8dfbfd025c5ff	2026-08-28 04:26:42.053363+00
 \.
 
 
