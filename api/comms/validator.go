@@ -576,6 +576,13 @@ func hasNewBlastFromUser(pool *dbv1.DBPools, ctx context.Context, userID int32, 
 		where
 		blast.from_user_id = $2
 		and blast.created_at > (select t from last_permission_change)
+		-- the blaster's own inbox settings: a blast grants reply rights only
+		-- while it is newer than the blaster's most recent settings change
+		and blast.created_at > (
+			select coalesce(max(updated_at), to_timestamp(0))
+			from chat_permissions
+			where user_id = $2
+		)
 		and chat_allowed(blast.from_user_id, $1)
 		and not exists (
 			select 1 from chat_member cm

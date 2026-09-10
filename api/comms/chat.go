@@ -255,7 +255,7 @@ func updatePermissions(db dbv1.DBTX, ctx context.Context, userId int32, permit C
     insert into chat_permissions (user_id, permits, allowed, updated_at)
     values ($1, $2, $3, $4)
     on conflict (user_id, permits)
-    do update set allowed = $3 where chat_permissions.updated_at < $4
+    do update set allowed = $3, updated_at = $4 where chat_permissions.updated_at < $4
     `, userId, permit, permitAllowed, messageTimestamp.UTC())
 	return err
 }
