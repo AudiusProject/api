@@ -28,14 +28,18 @@ func (app *ApiServer) getChat(c *fiber.Ctx) error {
 	NULL AS audience_content_id,
 	(
 		SELECT json_agg(json_build_object(
-			'user_id', chat_member.user_id,
-			'cleared_history_at', chat_member.cleared_history_at
+			'user_id', m.user_id,
+			'cleared_history_at', m.cleared_history_at
 		))
-		FROM chat_member
-		WHERE chat_member.chat_id = chat.chat_id
-	)::jsonb AS members
+		FROM chat_member m
+		WHERE m.chat_id = chat.chat_id
+	)::jsonb AS members,
+	ucp.category::text AS category
 	FROM chat_member
 	JOIN chat ON chat.chat_id = chat_member.chat_id
+	LEFT JOIN user_conversation_preferences ucp
+		ON ucp.user_id = chat_member.user_id
+		AND ucp.chat_id = chat_member.chat_id
 	WHERE chat_member.user_id = @user_id AND chat_member.chat_id = @chat_id
 
 	-- Query blasts as well
@@ -58,7 +62,8 @@ func (app *ApiServer) getChat(c *fiber.Ctx) error {
 			audience,
 			audience_content_type,
 			audience_content_id,
-			json_build_array()::jsonb AS members
+			json_build_array()::jsonb AS members,
+			NULL::text AS category
 		FROM chat_blast b
 		WHERE from_user_id = @user_id
 			AND concat_ws(':', audience, audience_content_type,

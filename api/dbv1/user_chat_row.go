@@ -23,6 +23,8 @@ type UserChatRow struct {
 	AudienceContentType    *string           `db:"audience_content_type" json:"audience_content_type,omitempty"`
 	AudienceContentID      *trashid.HashId   `db:"audience_content_id" json:"audience_content_id,omitempty"`
 	ChatMembers            []UserChatMembers `db:"members" json:"chat_members"`
+	// Per-user inbox category ("priority" | "general"); nil = uncategorized.
+	Category *string `db:"category" json:"category"`
 }
 
 type UserChatMembers struct {

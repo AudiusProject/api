@@ -70,6 +70,8 @@ func (vtor *Validator) Validate(ctx context.Context, userId int32, rawRpc RawRPC
 	case RPCMethodChatReadAll:
 		// No params to validate; ban check above already gates this call.
 		return nil
+	case RPCMethodChatSetCategory:
+		return vtor.validateChatSetCategory(userId, rawRpc)
 	case RPCMethodChatPermit:
 		return vtor.validateChatPermit(userId, rawRpc)
 	case RPCMethodChatBlock:
@@ -239,6 +241,32 @@ func (vtor *Validator) validateChatRead(userId int32, rpc RawRPC) error {
 	err := json.Unmarshal(rpc.Params, &params)
 	if err != nil {
 		return err
+	}
+
+	// validate userId is a member of chatId in good standing
+	err = validateChatMembership(vtor.pool, context.Background(), userId, params.ChatID)
+	if err != nil {
+		return err
+	}
+
+	return nil
+}
+
+func (vtor *Validator) validateChatSetCategory(userId int32, rpc RawRPC) error {
+	// validate rpc.params valid
+	var params ChatSetCategoryRPCParams
+	err := json.Unmarshal(rpc.Params, &params)
+	if err != nil {
+		return err
+	}
+
+	// validate category is one of the known values (nil clears the category)
+	if params.Category != nil {
+		switch ChatCategory(*params.Category) {
+		case ChatCategoryPriority, ChatCategoryGeneral:
+		default:
+			return fmt.Errorf("invalid chat category %q: must be %q, %q, or null", *params.Category, ChatCategoryPriority, ChatCategoryGeneral)
+		}
 	}
 
 	// validate userId is a member of chatId in good standing

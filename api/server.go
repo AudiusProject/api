@@ -790,6 +790,7 @@ func NewApiServer(config config.Config) *ApiServer {
 
 	comms.Get("/chats", app.getChats)
 	comms.Get("/chats/unread", app.getUnreadCount)
+	comms.Get("/chats/unread_by_category", app.getUnreadCountByCategory)
 	comms.Get("/chats/permissions", app.getChatPermissions)
 	comms.Get("/chats/blockers", app.getChatBlockers)
 	comms.Get("/chats/blockees", app.getChatBlockees)
