@@ -48,7 +48,10 @@ func (row UserChatRow) MarshalJSON() ([]byte, error) {
 		clearedHistoryAt = row.ClearedHistoryAt.Time.UTC().Format(time.RFC3339Nano)
 	}
 
-	recheckPermissions := false
+	// A thread whose latest message is a blast may hold nothing but blast
+	// seeds; whether the viewer may reply then depends on the other member's
+	// current inbox settings rather than on the thread existing.
+	recheckPermissions := row.LastMessageIsPlaintext
 	for _, member := range row.ChatMembers {
 		if member.ClearedHistoryAt.Valid && (row.LastMessageAt == nil || member.ClearedHistoryAt.Time.After(*row.LastMessageAt)) {
 			recheckPermissions = true
