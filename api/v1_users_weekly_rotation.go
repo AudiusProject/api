@@ -6,6 +6,7 @@ import (
 	"time"
 
 	"api.audius.co/api/dbv1"
+	"api.audius.co/weeklyrotation"
 	"github.com/gofiber/fiber/v2"
 	"github.com/jackc/pgx/v5"
 )
@@ -28,13 +29,6 @@ const (
 	// track outrank a genuinely better one.
 	weeklyRotationJitterFloor = 0.85
 	weeklyRotationJitterRange = 0.30
-
-	// The mix rolls over on Wednesday 00:00 UTC, not at the ISO week boundary
-	// (Monday). Product call: Monday already belongs to the other weekly
-	// surfaces, and Friday is Spotify's day. Expressed as an offset from the
-	// ISO week's Monday so the period is still identified by (iso_year,
-	// iso_week) everywhere -- cache keys, seed, share links.
-	weeklyRotationRolloverOffsetDays = 2
 )
 
 /*
@@ -73,7 +67,7 @@ continuously) and engagement counts, which can reorder comparable tracks
 mid-week -- accepted, since freezing those needs a stored snapshot.
 
 The period rolls over on Wednesday 00:00 UTC, see
-weeklyRotationRolloverOffsetDays.
+weeklyrotation.RolloverOffsetDays.
 
 SCORING.
 
@@ -125,7 +119,7 @@ func (app *ApiServer) v1UsersWeeklyRotation(c *fiber.Ctx) error {
 	userId := app.getUserId(c)
 	myId := app.getMyId(c)
 
-	year, week := weeklyRotationPeriod(time.Now())
+	year, week := weeklyrotation.Period(time.Now())
 
 	trackIds, err := app.getWeeklyRotationTrackIds(
 		c.Context(),
@@ -151,31 +145,6 @@ func (app *ApiServer) v1UsersWeeklyRotation(c *fiber.Ctx) error {
 	}
 
 	return v1TracksResponse(c, tracks)
-}
-
-// weeklyRotationPeriod returns the (ISO year, ISO week) pair that identifies
-// the rotation period `t` falls in. Periods run Wednesday 00:00 UTC to the
-// following Wednesday: shifting `t` back by the rollover offset maps each
-// period onto the ISO week whose Monday it started counting from, so the
-// pair still reads as a normal ISO week everywhere it's used as a key.
-func weeklyRotationPeriod(t time.Time) (int, int) {
-	return t.UTC().AddDate(0, 0, -weeklyRotationRolloverOffsetDays).ISOWeek()
-}
-
-// weeklyRotationPeriodStart is the inverse: the instant the (year, week)
-// period began, i.e. Wednesday 00:00 UTC of that ISO week. Everything the
-// listener did before this instant counts as history for the mix;
-// everything after it does not.
-func weeklyRotationPeriodStart(year, week int) time.Time {
-	// ISO week 1 is the week containing January 4th.
-	jan4 := time.Date(year, time.January, 4, 0, 0, 0, 0, time.UTC)
-	weekday := int(jan4.Weekday())
-	if weekday == 0 {
-		weekday = 7 // Sunday: Go says 0, ISO says 7
-	}
-	mondayOfWeek1 := jan4.AddDate(0, 0, -(weekday - 1))
-	monday := mondayOfWeek1.AddDate(0, 0, (week-1)*7)
-	return monday.AddDate(0, 0, weeklyRotationRolloverOffsetDays)
 }
 
 func (app *ApiServer) getWeeklyRotationTrackIds(
@@ -430,7 +399,7 @@ func (app *ApiServer) getWeeklyRotationTrackIds(
 	rows, err := app.pool.Query(ctx, sql, pgx.NamedArgs{
 		"userId":      userId,
 		"seedKey":     fmt.Sprintf("%d:%d:%d", userId, year, week),
-		"periodStart": weeklyRotationPeriodStart(year, week),
+		"periodStart": weeklyrotation.PeriodStart(year, week),
 		"limit":       limit,
 		"maxAgeDays":  weeklyRotationMaxAgeDays,
 		"jitterFloor": weeklyRotationJitterFloor,
