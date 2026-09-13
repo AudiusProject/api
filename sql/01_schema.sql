@@ -3,8 +3,8 @@
 --
 
 
--- Dumped from database version 17.10 (Debian 17.10-1.pgdg13+1)
--- Dumped by pg_dump version 17.10 (Debian 17.10-1.pgdg13+1)
+-- Dumped from database version 17.9 (Debian 17.9-1.pgdg13+1)
+-- Dumped by pg_dump version 17.9 (Debian 17.9-1.pgdg13+1)
 
 SET statement_timeout = 0;
 SET lock_timeout = 0;
@@ -11208,6 +11208,26 @@ CREATE TABLE public.user_challenges (
 
 
 --
+-- Name: user_conversation_preferences; Type: TABLE; Schema: public; Owner: -
+--
+
+CREATE TABLE public.user_conversation_preferences (
+    user_id integer NOT NULL,
+    chat_id text NOT NULL,
+    category text NOT NULL,
+    updated_at timestamp without time zone NOT NULL,
+    CONSTRAINT user_conversation_preferences_category_check CHECK ((category = ANY (ARRAY['priority'::text, 'general'::text])))
+);
+
+
+--
+-- Name: TABLE user_conversation_preferences; Type: COMMENT; Schema: public; Owner: -
+--
+
+COMMENT ON TABLE public.user_conversation_preferences IS 'Per-user inbox category (priority | general) for a direct-message chat, set via the chat.set_category RPC. Absence of a row means the chat is uncategorized for that user.';
+
+
+--
 -- Name: user_delist_statuses; Type: TABLE; Schema: public; Owner: -
 --
 
@@ -13216,6 +13236,14 @@ ALTER TABLE ONLY public.user_challenges
 
 
 --
+-- Name: user_conversation_preferences user_conversation_preferences_pkey; Type: CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.user_conversation_preferences
+    ADD CONSTRAINT user_conversation_preferences_pkey PRIMARY KEY (user_id, chat_id);
+
+
+--
 -- Name: user_delist_statuses user_delist_statuses_pkey; Type: CONSTRAINT; Schema: public; Owner: -
 --
 
@@ -14529,6 +14557,13 @@ CREATE INDEX ix_subscriptions_blocknumber ON public.subscriptions USING btree (b
 
 
 --
+-- Name: ix_subscriptions_entity_type_entity_id; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX ix_subscriptions_entity_type_entity_id ON public.subscriptions USING btree (entity_type, entity_id);
+
+
+--
 -- Name: ix_subscriptions_user_id; Type: INDEX; Schema: public; Owner: -
 --
 
@@ -14841,6 +14876,13 @@ CREATE INDEX saves_item_idx ON public.saves USING btree (save_item_id, save_type
 --
 
 CREATE INDEX saves_new_blocknumber_idx ON public.saves USING btree (blocknumber);
+
+
+--
+-- Name: saves_user_created_at_active_idx; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX saves_user_created_at_active_idx ON public.saves USING btree (user_id, created_at DESC) INCLUDE (save_type, save_item_id) WHERE (is_delete = false);
 
 
 --
@@ -15239,7 +15281,7 @@ COMMENT ON INDEX public.sol_user_balances_mint_user_id_idx IS 'Index for quick a
 -- Name: subscriptions_current_uniq_idx; Type: INDEX; Schema: public; Owner: -
 --
 
-CREATE UNIQUE INDEX subscriptions_current_uniq_idx ON public.subscriptions USING btree (subscriber_id, user_id) WHERE (is_current = true);
+CREATE UNIQUE INDEX subscriptions_current_uniq_idx ON public.subscriptions USING btree (subscriber_id, user_id, entity_type) WHERE (is_current = true);
 
 
 --

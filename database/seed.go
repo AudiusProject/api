@@ -716,6 +716,12 @@ var (
 			"allowed":    true,
 			"updated_at": time.Now(),
 		},
+		"user_conversation_preferences": {
+			"user_id":    nil,
+			"chat_id":    nil,
+			"category":   nil,
+			"updated_at": time.Now(),
+		},
 		"dashboard_wallet_users": {
 			"wallet":      nil,
 			"user_id":     nil,

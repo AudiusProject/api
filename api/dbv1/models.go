@@ -190,6 +190,49 @@ func (ns NullDelistUserReason) Value() (driver.Value, error) {
 	return string(ns.DelistUserReason), nil
 }
 
+type EtlProofStatus string
+
+const (
+	EtlProofStatusUnresolved EtlProofStatus = "unresolved"
+	EtlProofStatusPass       EtlProofStatus = "pass"
+	EtlProofStatusFail       EtlProofStatus = "fail"
+)
+
+func (e *EtlProofStatus) Scan(src interface{}) error {
+	switch s := src.(type) {
+	case []byte:
+		*e = EtlProofStatus(s)
+	case string:
+		*e = EtlProofStatus(s)
+	default:
+		return fmt.Errorf("unsupported scan type for EtlProofStatus: %T", src)
+	}
+	return nil
+}
+
+type NullEtlProofStatus struct {
+	EtlProofStatus EtlProofStatus `json:"etl_proof_status"`
+	Valid          bool           `json:"valid"` // Valid is true if EtlProofStatus is not NULL
+}
+
+// Scan implements the Scanner interface.
+func (ns *NullEtlProofStatus) Scan(value interface{}) error {
+	if value == nil {
+		ns.EtlProofStatus, ns.Valid = "", false
+		return nil
+	}
+	ns.Valid = true
+	return ns.EtlProofStatus.Scan(value)
+}
+
+// Value implements the driver Valuer interface.
+func (ns NullEtlProofStatus) Value() (driver.Value, error) {
+	if !ns.Valid {
+		return nil, nil
+	}
+	return string(ns.EtlProofStatus), nil
+}
+
 type EventEntityType string
 
 const (
@@ -918,6 +961,14 @@ type ArtistCoinPrice struct {
 	Price         int32         `json:"price"`
 }
 
+// Hourly USD price snapshots per artist coin, used to compute 24h price change.
+type ArtistCoinPriceHistory struct {
+	Mint      string    `json:"mint"`
+	Timestamp time.Time `json:"timestamp"`
+	Price     float64   `json:"price"`
+	CreatedAt time.Time `json:"created_at"`
+}
+
 type ArtistCoinStat struct {
 	Mint                         string        `json:"mint"`
 	MarketCap                    pgtype.Float8 `json:"market_cap"`
@@ -1321,6 +1372,159 @@ type EthWalletBalance struct {
 	CreatedAt   time.Time      `json:"created_at"`
 }
 
+type EtlAddress struct {
+	ID                   int32       `json:"id"`
+	Address              string      `json:"address"`
+	PubKey               []byte      `json:"pub_key"`
+	FirstSeenBlockHeight pgtype.Int8 `json:"first_seen_block_height"`
+	CreatedAt            time.Time   `json:"created_at"`
+}
+
+type EtlBlock struct {
+	ID              int32     `json:"id"`
+	ProposerAddress string    `json:"proposer_address"`
+	BlockHeight     int64     `json:"block_height"`
+	BlockTime       time.Time `json:"block_time"`
+}
+
+type EtlDbMigration struct {
+	Version int64 `json:"version"`
+	Dirty   bool  `json:"dirty"`
+}
+
+type EtlManageEntity struct {
+	ID          int32       `json:"id"`
+	Address     string      `json:"address"`
+	EntityType  string      `json:"entity_type"`
+	EntityID    int64       `json:"entity_id"`
+	Action      string      `json:"action"`
+	Metadata    pgtype.Text `json:"metadata"`
+	Signature   string      `json:"signature"`
+	Signer      string      `json:"signer"`
+	Nonce       string      `json:"nonce"`
+	BlockHeight int64       `json:"block_height"`
+	TxHash      string      `json:"tx_hash"`
+	CreatedAt   time.Time   `json:"created_at"`
+}
+
+type EtlPlay struct {
+	ID          int32     `json:"id"`
+	UserID      string    `json:"user_id"`
+	TrackID     string    `json:"track_id"`
+	City        string    `json:"city"`
+	Region      string    `json:"region"`
+	Country     string    `json:"country"`
+	PlayedAt    time.Time `json:"played_at"`
+	BlockHeight int64     `json:"block_height"`
+	TxHash      string    `json:"tx_hash"`
+	ListenedAt  time.Time `json:"listened_at"`
+	RecordedAt  time.Time `json:"recorded_at"`
+}
+
+type EtlSlaNodeReport struct {
+	ID                 int32     `json:"id"`
+	SlaRollupID        int32     `json:"sla_rollup_id"`
+	Address            string    `json:"address"`
+	NumBlocksProposed  int32     `json:"num_blocks_proposed"`
+	ChallengesReceived int32     `json:"challenges_received"`
+	ChallengesFailed   int32     `json:"challenges_failed"`
+	BlockHeight        int64     `json:"block_height"`
+	TxHash             string    `json:"tx_hash"`
+	CreatedAt          time.Time `json:"created_at"`
+}
+
+type EtlSlaRollup struct {
+	ID             int32     `json:"id"`
+	BlockStart     int64     `json:"block_start"`
+	BlockEnd       int64     `json:"block_end"`
+	BlockHeight    int64     `json:"block_height"`
+	ValidatorCount int32     `json:"validator_count"`
+	BlockQuota     int32     `json:"block_quota"`
+	Bps            float64   `json:"bps"`
+	Tps            float64   `json:"tps"`
+	TxHash         string    `json:"tx_hash"`
+	CreatedAt      time.Time `json:"created_at"`
+}
+
+type EtlStorageProof struct {
+	ID              int32          `json:"id"`
+	Height          int64          `json:"height"`
+	Address         string         `json:"address"`
+	ProverAddresses []string       `json:"prover_addresses"`
+	Cid             string         `json:"cid"`
+	ProofSignature  []byte         `json:"proof_signature"`
+	Proof           []byte         `json:"proof"`
+	Status          EtlProofStatus `json:"status"`
+	BlockHeight     int64          `json:"block_height"`
+	TxHash          string         `json:"tx_hash"`
+	CreatedAt       time.Time      `json:"created_at"`
+}
+
+type EtlStorageProofVerification struct {
+	ID          int32     `json:"id"`
+	Height      int64     `json:"height"`
+	Proof       []byte    `json:"proof"`
+	BlockHeight int64     `json:"block_height"`
+	TxHash      string    `json:"tx_hash"`
+	CreatedAt   time.Time `json:"created_at"`
+}
+
+type EtlTransaction struct {
+	ID          int32       `json:"id"`
+	TxHash      string      `json:"tx_hash"`
+	BlockHeight int64       `json:"block_height"`
+	TxIndex     int32       `json:"tx_index"`
+	TxType      string      `json:"tx_type"`
+	Address     pgtype.Text `json:"address"`
+	CreatedAt   time.Time   `json:"created_at"`
+}
+
+type EtlValidator struct {
+	ID             int32       `json:"id"`
+	Address        string      `json:"address"`
+	Endpoint       string      `json:"endpoint"`
+	CometAddress   string      `json:"comet_address"`
+	NodeType       string      `json:"node_type"`
+	Spid           string      `json:"spid"`
+	VotingPower    int64       `json:"voting_power"`
+	Status         string      `json:"status"`
+	RegisteredAt   int64       `json:"registered_at"`
+	DeregisteredAt pgtype.Int8 `json:"deregistered_at"`
+	CreatedAt      time.Time   `json:"created_at"`
+	UpdatedAt      time.Time   `json:"updated_at"`
+}
+
+type EtlValidatorDeregistration struct {
+	ID           int32  `json:"id"`
+	CometAddress string `json:"comet_address"`
+	CometPubkey  []byte `json:"comet_pubkey"`
+	BlockHeight  int64  `json:"block_height"`
+	TxHash       string `json:"tx_hash"`
+}
+
+type EtlValidatorMisbehaviorDeregistration struct {
+	ID           int32     `json:"id"`
+	CometAddress string    `json:"comet_address"`
+	PubKey       []byte    `json:"pub_key"`
+	BlockHeight  int64     `json:"block_height"`
+	TxHash       string    `json:"tx_hash"`
+	CreatedAt    time.Time `json:"created_at"`
+}
+
+type EtlValidatorRegistration struct {
+	ID           int32  `json:"id"`
+	Address      string `json:"address"`
+	Endpoint     string `json:"endpoint"`
+	CometAddress string `json:"comet_address"`
+	EthBlock     string `json:"eth_block"`
+	NodeType     string `json:"node_type"`
+	Spid         string `json:"spid"`
+	CometPubkey  []byte `json:"comet_pubkey"`
+	VotingPower  int64  `json:"voting_power"`
+	BlockHeight  int64  `json:"block_height"`
+	TxHash       string `json:"tx_hash"`
+}
+
 type Event struct {
 	EventID     int32               `json:"event_id"`
 	EventType   EventType           `json:"event_type"`
@@ -1335,6 +1539,16 @@ type Event struct {
 	Txhash      string              `json:"txhash"`
 	Blockhash   string              `json:"blockhash"`
 	Blocknumber pgtype.Int4         `json:"blocknumber"`
+}
+
+type EventRoute struct {
+	Slug        string `json:"slug"`
+	OwnerID     int32  `json:"owner_id"`
+	EventID     int32  `json:"event_id"`
+	IsCurrent   bool   `json:"is_current"`
+	Blockhash   string `json:"blockhash"`
+	Blocknumber int32  `json:"blocknumber"`
+	Txhash      string `json:"txhash"`
 }
 
 type Follow struct {
@@ -1391,6 +1605,29 @@ type MutedUser struct {
 	Txhash      string      `json:"txhash"`
 	Blockhash   string      `json:"blockhash"`
 	Blocknumber pgtype.Int4 `json:"blocknumber"`
+}
+
+type MvDashboardTransactionStat struct {
+	Transactions24h         int64 `json:"transactions_24h"`
+	TransactionsPrevious24h int64 `json:"transactions_previous_24h"`
+	Transactions7d          int64 `json:"transactions_7d"`
+	Transactions30d         int64 `json:"transactions_30d"`
+	TotalTransactions       int64 `json:"total_transactions"`
+}
+
+type MvDashboardTransactionType struct {
+	TxType           string `json:"tx_type"`
+	TransactionCount int64  `json:"transaction_count"`
+}
+
+// Queue of ManageEntity transactions to be forwarded to the new Core chain (audius-mainnet-v2) during genesis migration.
+type NewChainQueue struct {
+	ID        int64              `json:"id"`
+	CreatedAt pgtype.Timestamptz `json:"created_at"`
+	// Protobuf-serialized ManageEntityLegacy message.
+	TxData []byte `json:"tx_data"`
+	// Block height on the old chain where this transaction was confirmed. NULL if confirmation was not recorded (e.g. relay restart).
+	ConfirmedBlock pgtype.Int8 `json:"confirmed_block"`
 }
 
 type Notification struct {
@@ -2294,6 +2531,7 @@ type TagTrackUser struct {
 	OwnerID int32       `json:"owner_id"`
 }
 
+// Collaborator credits on a track. Owner invites via track metadata (status=pending); the collaborator accepts/declines on-chain (accepted/rejected). Indexed by ETL (go-openaudio).
 type TrackCollaborator struct {
 	TrackID            int32       `json:"track_id"`
 	CollaboratorUserID int32       `json:"collaborator_user_id"`
@@ -2566,6 +2804,14 @@ type UserChallenge struct {
 	CompletedAt          *time.Time         `json:"completed_at"`
 }
 
+// Per-user inbox category (priority | general) for a direct-message chat, set via the chat.set_category RPC. Absence of a row means the chat is uncategorized for that user.
+type UserConversationPreference struct {
+	UserID    int32     `json:"user_id"`
+	ChatID    string    `json:"chat_id"`
+	Category  string    `json:"category"`
+	UpdatedAt time.Time `json:"updated_at"`
+}
+
 type UserDelistStatus struct {
 	CreatedAt pgtype.Timestamptz `json:"created_at"`
 	UserID    int32              `json:"user_id"`
@@ -2662,6 +2908,8 @@ type UserRow struct {
 	ProfileType            *string         `json:"profile_type"`
 	// The mint of the coin which the user has selected as their preferred flair. NULL for auto, empty string for none.
 	CoinFlairMint pgtype.Text `json:"coin_flair_mint"`
+	// Timestamp of the user's most recent app-open event, updated by POST /v1/users/me/ping.
+	LastActiveAt pgtype.Timestamptz `json:"last_active_at"`
 }
 
 // Tracks some features used in user score calculation
