@@ -1,7 +1,6 @@
 package api
 
 import (
-	"fmt"
 	"time"
 
 	"github.com/gofiber/fiber/v2"
@@ -25,16 +24,25 @@ type ChallengeInfo struct {
 }
 
 func getWeeklyPoolWindowStart() time.Time {
-	now := time.Now().UTC()
+	return weeklyPoolWindowStartAt(time.Now())
+}
 
-	if now.Weekday() == time.Monday && now.Hour() < 16 {
-		year, month, day := now.AddDate(0, 0, -7).Date()
-		return time.Date(year, month, day, 16, 0, 0, 0, time.UTC)
-	} else {
-		// get monday of this week
-		year, month, day := now.AddDate(0, 0, -int(now.Weekday())+1).Date()
-		return time.Date(year, month, day, 16, 0, 0, 0, time.UTC)
+// weeklyPoolWindowStartAt returns the most recent Monday 16:00 UTC at or
+// before `now`: the instant the current weekly reward pool opened.
+//
+// Go numbers Sunday as 0, so the naive "subtract Weekday, add one" walk to
+// Monday landed on the *following* Monday all day Sunday, putting the window
+// start in the future and reporting the full pool as remaining every Sunday.
+func weeklyPoolWindowStartAt(now time.Time) time.Time {
+	now = now.UTC()
+	daysSinceMonday := (int(now.Weekday()) + 6) % 7 // Monday=0 ... Sunday=6
+	year, month, day := now.AddDate(0, 0, -daysSinceMonday).Date()
+	start := time.Date(year, month, day, 16, 0, 0, 0, time.UTC)
+	if now.Before(start) {
+		// Monday before 16:00: still last week's pool.
+		start = start.AddDate(0, 0, -7)
 	}
+	return start
 }
 
 func (app *ApiServer) v1ChallengesInfo(c *fiber.Ctx) error {
@@ -44,7 +52,6 @@ func (app *ApiServer) v1ChallengesInfo(c *fiber.Ctx) error {
 	}
 
 	weeklyPoolWindowStart := getWeeklyPoolWindowStart()
-	fmt.Println("weeklyPoolWindowStart", weeklyPoolWindowStart)
 
 	sql := `
 	  SELECT
