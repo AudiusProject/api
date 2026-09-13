@@ -8439,6 +8439,7 @@ paths:
                 - comment_mention
                 - comment_reaction
                 - listen_streak_reminder
+                - weekly_rotation
                 - fan_remix_contest_started
                 - fan_remix_contest_ended
                 - fan_remix_contest_ending_soon
@@ -17264,6 +17265,7 @@ components:
         - $ref: "#/components/schemas/comment_mention_notification"
         - $ref: "#/components/schemas/comment_reaction_notification"
         - $ref: "#/components/schemas/listen_streak_reminder_notification"
+        - $ref: "#/components/schemas/weekly_rotation_notification"
         - $ref: "#/components/schemas/fan_remix_contest_started_notification"
         - $ref: "#/components/schemas/fan_remix_contest_ended_notification"
         - $ref: "#/components/schemas/fan_remix_contest_ending_soon_notification"
@@ -17313,6 +17315,7 @@ components:
           comment_mention: "#/components/schemas/comment_mention_notification"
           comment_reaction: "#/components/schemas/comment_reaction_notification"
           listen_streak_reminder: "#/components/schemas/listen_streak_reminder_notification"
+          weekly_rotation: "#/components/schemas/weekly_rotation_notification"
           fan_remix_contest_started: "#/components/schemas/fan_remix_contest_started_notification"
           fan_remix_contest_ended: "#/components/schemas/fan_remix_contest_ended_notification"
           fan_remix_contest_ending_soon: "#/components/schemas/fan_remix_contest_ending_soon_notification"
@@ -17946,6 +17949,26 @@ components:
           type: array
           items:
             $ref: "#/components/schemas/listen_streak_reminder_notification_action"
+    weekly_rotation_notification:
+      required:
+        - actions
+        - group_id
+        - is_seen
+        - type
+      type: object
+      properties:
+        type:
+          type: string
+        group_id:
+          type: string
+        is_seen:
+          type: boolean
+        seen_at:
+          type: integer
+        actions:
+          type: array
+          items:
+            $ref: "#/components/schemas/weekly_rotation_notification_action"
     comment_thread_notification_action:
       required:
         - data
@@ -19165,6 +19188,22 @@ components:
           type: integer
         data:
           $ref: "#/components/schemas/listen_streak_reminder_notification_action_data"
+    weekly_rotation_notification_action:
+      required:
+        - data
+        - specifier
+        - timestamp
+        - type
+      type: object
+      properties:
+        specifier:
+          type: string
+        type:
+          type: string
+        timestamp:
+          type: integer
+        data:
+          $ref: "#/components/schemas/weekly_rotation_notification_action_data"
     comment_reaction_notification_action_data:
       required:
         - entity_id
@@ -19658,6 +19697,17 @@ components:
       type: object
       properties:
         streak:
+          type: integer
+    weekly_rotation_notification_action_data:
+      description: The rotation period being announced, as an ISO (year, week) pair; the mix itself is served by GET /v1/users/{id}/weekly-rotation.
+      required:
+        - year
+        - week
+      type: object
+      properties:
+        year:
+          type: integer
+        week:
           type: integer
     artist_remix_contest_submissions_notification_action_data:
       required:
