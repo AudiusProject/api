@@ -58,7 +58,7 @@ func main() {
 					txSig := solana.MustSignatureFromBase58(cmd.StringArg("signature"))
 
 					// Fetch the transaction from the RPC
-					maxSupportedTransactionVersion := uint64(0)
+					maxSupportedTransactionVersion := uint64(1)
 					txRes, err := rpcClient.GetTransaction(ctx, txSig, &rpc.GetTransactionOpts{
 						Commitment:                     rpc.CommitmentConfirmed,
 						MaxSupportedTransactionVersion: &maxSupportedTransactionVersion,
@@ -167,7 +167,7 @@ func main() {
 						s := solana.MustSignatureFromBase58(sigArg)
 						txSig = &s
 
-						maxSupportedTransactionVersion := uint64(0)
+						maxSupportedTransactionVersion := uint64(1)
 						txRes, err := rpcClient.GetTransaction(ctx, *txSig, &rpc.GetTransactionOpts{
 							Commitment:                     rpc.CommitmentConfirmed,
 							MaxSupportedTransactionVersion: &maxSupportedTransactionVersion,

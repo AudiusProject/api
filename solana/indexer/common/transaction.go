@@ -32,7 +32,7 @@ func FetchTransactionWithCache(
 			signature,
 			&rpc.GetTransactionOpts{
 				Commitment:                     rpc.CommitmentConfirmed,
-				MaxSupportedTransactionVersion: &rpc.MaxSupportedTransactionVersion0,
+				MaxSupportedTransactionVersion: &rpc.MaxSupportedTransactionVersion1,
 			},
 		)
 	}, 5, 1*time.Second)
