@@ -452,7 +452,7 @@ func findMigrationOrInitForPosition(ctx context.Context, rpcClient *rpc.Client, 
 
 	fmt.Printf("Checking %d transactions for DBC migrations or inits...\n", len(signatures))
 
-	version := uint64(0)
+	version := uint64(1)
 	for _, sig := range signatures {
 		signature := sig.Signature.String()
 		txRes, err := rpcClient.GetTransaction(ctx, sig.Signature, &rpc.GetTransactionOpts{
