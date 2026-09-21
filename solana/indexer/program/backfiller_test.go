@@ -344,6 +344,17 @@ func TestBackfillFresh(t *testing.T) {
 	mockTransactionResponses, err := fake_rpc_client.ZipTransactionResultsAndTransactions(mockTransactionResponses, mockTransactions)
 	require.NoError(t, err, "failed to zip transaction results and transactions")
 	rpcFake := fake_rpc_client.NewWithTransactions(mockTransactionResponses)
+	getBlockWithOpts := rpcFake.GetBlockWithOptsFunc
+	getBlockCalls := 0
+	rpcFake.GetBlockWithOptsFunc = func(ctx context.Context, slot uint64, opts *rpc.GetBlockOpts) (*rpc.GetBlockResult, error) {
+		getBlockCalls++
+		if assert.NotNil(t, opts) {
+			assert.Equal(t, rpc.CommitmentConfirmed, opts.Commitment)
+			assert.NotNil(t, opts.MaxSupportedTransactionVersion)
+			assert.Equal(t, rpc.MaxSupportedTransactionVersion1, *opts.MaxSupportedTransactionVersion)
+		}
+		return getBlockWithOpts(ctx, slot, opts)
+	}
 
 	poolMock, err := pgxmock.NewPool()
 	require.NoError(t, err, "failed to create mock database pool")
@@ -395,6 +406,7 @@ func TestBackfillFresh(t *testing.T) {
 	err = s.Start(context.Background(), 100, 200)
 
 	assert.NoError(t, err)
+	assert.Equal(t, 2, getBlockCalls)
 	assert.NoError(t, poolMock.ExpectationsWereMet())
 	processorMock.AssertExpectations(t)
 }
