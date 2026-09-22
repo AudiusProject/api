@@ -159,15 +159,15 @@ func newCoreStreamClient(audiusdURL string) corev1connect.CoreServiceClient {
 // way Go programs always do, and DB connections drain via pool finalizers on
 // process exit. Acceptable tradeoff to avoid forking ETL.
 func (ci *CoreIndexer) Start(ctx context.Context) error {
-	eg := errgroup.Group{}
+	eg, gCtx := errgroup.WithContext(ctx)
 	eg.Go(func() error {
-		return ci.aggregatesCalculator.Start(ctx)
+		return ci.aggregatesCalculator.Start(gCtx)
 	})
 	eg.Go(func() error {
 		ci.logger.Info("Starting ETL indexer")
 		return ci.etlIndexer.Run()
 	})
-	ci.startParityJobs(ctx)
+	ci.startParityJobs(gCtx)
 	return eg.Wait()
 }
 
