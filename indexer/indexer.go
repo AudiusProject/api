@@ -2,6 +2,7 @@ package indexer
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"net/http"
 	"strings"
@@ -12,6 +13,7 @@ import (
 	"api.audius.co/jobs"
 	"api.audius.co/logging"
 	"connectrpc.com/connect"
+	corev1 "github.com/OpenAudio/go-openaudio/pkg/api/core/v1"
 	corev1connect "github.com/OpenAudio/go-openaudio/pkg/api/core/v1/v1connect"
 	etl "github.com/OpenAudio/go-openaudio/pkg/etl"
 	em "github.com/OpenAudio/go-openaudio/pkg/etl/processors/entity_manager"
@@ -19,6 +21,12 @@ import (
 	"github.com/jackc/pgx/v5/pgxpool"
 	"go.uber.org/zap"
 	"golang.org/x/sync/errgroup"
+)
+
+const (
+	coreReadyTimeout      = 15 * time.Minute
+	coreReadyPollInterval = 2 * time.Second
+	coreReadyLogEvery     = 15
 )
 
 // CoreIndexer runs the OpenAudio ETL indexer plus the dependent api/-side
@@ -164,11 +172,49 @@ func (ci *CoreIndexer) Start(ctx context.Context) error {
 		return ci.aggregatesCalculator.Start(gCtx)
 	})
 	eg.Go(func() error {
+		if err := ci.awaitCoreReady(gCtx, coreReadyTimeout, coreReadyPollInterval); err != nil {
+			return err
+		}
 		ci.logger.Info("Starting ETL indexer")
 		return ci.etlIndexer.Run()
 	})
 	ci.startParityJobs(gCtx)
 	return eg.Wait()
+}
+
+func (ci *CoreIndexer) awaitCoreReady(ctx context.Context, timeout, pollInterval time.Duration) error {
+	ctx, cancel := context.WithTimeout(ctx, timeout)
+	defer cancel()
+
+	var lastErr error
+	for attempt := 1; ; attempt++ {
+		_, err := ci.openAudioSDK.Core.GetNodeInfo(ctx, connect.NewRequest(&corev1.GetNodeInfoRequest{}))
+		if err == nil {
+			if attempt > 1 {
+				ci.logger.Info("core service ready", zap.Int("attempts", attempt))
+			}
+			return nil
+		}
+		lastErr = err
+
+		if attempt == 1 || attempt%coreReadyLogEvery == 0 {
+			ci.logger.Warn("waiting for core service",
+				zap.Int("attempt", attempt),
+				zap.Duration("timeout", timeout),
+				zap.Error(err))
+		}
+
+		timer := time.NewTimer(pollInterval)
+		select {
+		case <-ctx.Done():
+			timer.Stop()
+			if errors.Is(ctx.Err(), context.Canceled) {
+				return ctx.Err()
+			}
+			return fmt.Errorf("core service not ready after %s: %w", timeout, lastErr)
+		case <-timer.C:
+		}
+	}
 }
 
 // startParityJobs schedules the periodic jobs that mirror what the legacy
