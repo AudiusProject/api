@@ -30,9 +30,7 @@ func getWeeklyPoolWindowStart() time.Time {
 // weeklyPoolWindowStartAt returns the most recent Monday 16:00 UTC at or
 // before `now`: the instant the current weekly reward pool opened.
 //
-// Go numbers Sunday as 0, so the naive "subtract Weekday, add one" walk to
-// Monday landed on the *following* Monday all day Sunday, putting the window
-// start in the future and reporting the full pool as remaining every Sunday.
+// Go's Weekday has Sunday=0, so it is remapped to Monday=0..Sunday=6.
 func weeklyPoolWindowStartAt(now time.Time) time.Time {
 	now = now.UTC()
 	daysSinceMonday := (int(now.Weekday()) + 6) % 7 // Monday=0 ... Sunday=6
