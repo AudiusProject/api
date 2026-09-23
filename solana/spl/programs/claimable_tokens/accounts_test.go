@@ -13,7 +13,7 @@ func TestDeriveUserBankAccount(t *testing.T) {
 	ethAddress := common.HexToAddress("0xa507da823bf0c5dc44a759d0d398b7f52097da19")
 	expectedUserBankAccount := solana.MustPublicKeyFromBase58("9oJLynXRLkWZkTXXExPXVbza5n8CzTZLvtJ1Y3pEJ2Pk")
 
-	userBankAccount, err := deriveUserBankAccount(mint, ethAddress)
+	userBankAccount, err := DeriveUserBankAccount(mint, ethAddress)
 	require.NoError(t, err)
 	require.Equal(t, expectedUserBankAccount.String(), userBankAccount.String())
 }

@@ -63,7 +63,7 @@ func (cc *ClaimableTokensClient) GetOrCreateUserBank(
 	ethAddress common.Address,
 	mint solana.PublicKey,
 ) (*solana.PublicKey, error) {
-	userBank, err := deriveUserBankAccount(mint, ethAddress)
+	userBank, err := DeriveUserBankAccount(mint, ethAddress)
 	if err != nil {
 		return nil, err
 	}

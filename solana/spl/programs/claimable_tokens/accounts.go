@@ -19,7 +19,9 @@ func DeriveAuthority(mint solana.PublicKey) (solana.PublicKey, uint8, error) {
 	return solana.FindProgramAddress([][]byte{mint.Bytes()[:32]}, ProgramID)
 }
 
-func deriveUserBankAccount(mint solana.PublicKey, ethAddress common.Address) (solana.PublicKey, error) {
+// DeriveUserBankAccount derives the claimable token account for an Ethereum
+// address and SPL mint.
+func DeriveUserBankAccount(mint solana.PublicKey, ethAddress common.Address) (solana.PublicKey, error) {
 	ethAddressBytes := ethAddress.Bytes()
 	seed := base58.Encode(ethAddressBytes)
 	authority, _, err := DeriveAuthority(mint)

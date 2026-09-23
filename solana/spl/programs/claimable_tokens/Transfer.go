@@ -165,7 +165,7 @@ func NewTransferInstruction(
 	payer solana.PublicKey,
 	destination solana.PublicKey,
 ) (*Transfer, error) {
-	senderUserBank, err := deriveUserBankAccount(mint, senderEthAddress)
+	senderUserBank, err := DeriveUserBankAccount(mint, senderEthAddress)
 	if err != nil {
 		return nil, err
 	}
