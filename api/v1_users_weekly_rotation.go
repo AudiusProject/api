@@ -293,12 +293,12 @@ func (app *ApiServer) getWeeklyRotationTrackIds(
 		UNION ALL
 		SELECT track_id, source FROM cand_trending
 	),
-	-- One row per track. Underground sorts before trending so a track that
-	-- qualifies for both keeps the upweighted source.
+	-- One row per track. A track in both sources keeps 'underground' so it
+	-- gets the upweight.
 	deduped AS (
 		SELECT DISTINCT ON (track_id) track_id, source
 		FROM candidates
-		ORDER BY track_id, source ASC
+		ORDER BY track_id, (source = 'underground') DESC
 	),
 	filtered AS (
 		SELECT

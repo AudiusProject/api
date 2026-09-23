@@ -38,7 +38,7 @@ func (app *ApiServer) v1CoinMetadata(c *fiber.Ctx) error {
 		       artist_coins.logo_uri,
 		       users.handle
 		FROM artist_coins
-		LEFT JOIN users ON users.user_id = artist_coins.user_id
+		LEFT JOIN users ON users.user_id = artist_coins.user_id AND users.is_current = true
 		WHERE artist_coins.mint = $1
 	`, mint).Scan(&name, &ticker, &description, &logoUri, &handle)
 	if err != nil {

@@ -457,3 +457,40 @@ func TestV1UsersWeeklyRotationKeepsTracksPlayedThisPeriod(t *testing.T) {
 	assert.Contains(t, titles, "played this week", "a play inside the period leaves the mix alone")
 	assert.NotContains(t, titles, "played last week", "a play before the rollover still excludes")
 }
+
+// A track in both the trending and underground sources keeps the underground
+// upweight. Week 9 is pinned because its seeds put the trending-only track
+// about 1% ahead, so without the upweight it would sort first.
+func TestV1UsersWeeklyRotationPrefersUndergroundSource(t *testing.T) {
+	app := emptyTestApp(t)
+
+	fixtures := database.FixtureMap{
+		"users": []map[string]any{
+			{"user_id": 1, "handle": "me", "handle_lc": "me", "wallet": "0x0000000000000000000000000000000000000001"},
+			{"user_id": 2, "handle": "small", "handle_lc": "small", "wallet": "0x0000000000000000000000000000000000000002"},
+			{"user_id": 3, "handle": "big", "handle_lc": "big", "wallet": "0x0000000000000000000000000000000000000003"},
+		},
+		"aggregate_user": []map[string]any{
+			{"user_id": 1, "follower_count": 0, "following_count": 0},
+			{"user_id": 2, "follower_count": 100, "following_count": 50},
+			{"user_id": 3, "follower_count": 5000, "following_count": 10},
+		},
+		"tracks": []map[string]any{
+			{"track_id": 200, "owner_id": 2, "title": "underground track", "genre": "Rock"},
+			{"track_id": 300, "owner_id": 3, "title": "trending track", "genre": "Rock"},
+		},
+		"aggregate_track": []map[string]any{
+			{"track_id": 200, "save_count": 100, "repost_count": 50},
+			{"track_id": 300, "save_count": 100, "repost_count": 50},
+		},
+		"track_trending_scores": []map[string]any{
+			{"track_id": 200, "score": 1_000_000_000, "time_range": "week"},
+			{"track_id": 300, "score": 1_000_000_000, "time_range": "week"},
+		},
+	}
+	database.Seed(app.pool.Replicas[0], fixtures)
+
+	ids, err := app.getWeeklyRotationTrackIds(context.Background(), 1, 2026, 9, 10)
+	require.NoError(t, err)
+	assert.Equal(t, []int32{200, 300}, ids)
+}
