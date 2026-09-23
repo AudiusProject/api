@@ -4,6 +4,7 @@ import (
 	"testing"
 
 	"api.audius.co/solana/spl/programs/claimable_tokens"
+	"github.com/ethereum/go-ethereum/common"
 	"github.com/gagliardetto/solana-go"
 	"github.com/test-go/testify/assert"
 	"github.com/test-go/testify/require"
@@ -30,4 +31,41 @@ func TestDecodeInstruction(t *testing.T) {
 
 	claimable_tokens.SetProgramID(originalProgramId)
 
+}
+
+func TestDecodeSetAuthorityInstruction(t *testing.T) {
+	// Real tx: 2RuRg4MCAJHF5dQifhGzkZ6qD7XQGbGop4Z48fxgweHawi5FNKiwiTVYwfQ7hzgU1MgJkjaKV7SWumr8ztGa98cf
+	accounts := []*solana.AccountMeta{
+		solana.Meta(solana.MustPublicKeyFromBase58("8teuqGNB7RhwC2JoDT961J3jStBfXeu4nRxyubu36Kpe")).WRITE(),
+		solana.Meta(solana.MustPublicKeyFromBase58("5ZiE3vAkrdXBgyFL7KqG3RoEGBws4CjRcXVbABDLZTgx")),
+		solana.Meta(solana.SysVarInstructionsPubkey),
+		solana.Meta(solana.SysVarRecentBlockHashesPubkey),
+		solana.Meta(solana.TokenProgramID),
+	}
+
+	decoded, err := claimable_tokens.DecodeInstruction(
+		accounts,
+		[]byte{claimable_tokens.Instruction_SetAuthority},
+	)
+	require.NoError(t, err)
+	require.IsType(t, &claimable_tokens.SetAuthority{}, decoded.Impl)
+	assert.Equal(t, accounts, decoded.Accounts())
+}
+
+func TestDecodeCloseInstruction(t *testing.T) {
+	ethAddress := common.HexToAddress("0x65b2681094e762CAD2349e6C1e2FbC8d54b9c046")
+	accounts := []*solana.AccountMeta{
+		solana.Meta(solana.NewWallet().PublicKey()).WRITE(),
+		solana.Meta(solana.NewWallet().PublicKey()),
+		solana.Meta(solana.NewWallet().PublicKey()).WRITE(),
+		solana.Meta(solana.TokenProgramID),
+	}
+	data := append([]byte{claimable_tokens.Instruction_Close}, ethAddress.Bytes()...)
+
+	decoded, err := claimable_tokens.DecodeInstruction(accounts, data)
+	require.NoError(t, err)
+	closeInstruction, ok := decoded.Impl.(*claimable_tokens.Close)
+	require.True(t, ok)
+	assert.Equal(t, ethAddress, closeInstruction.EthAddress)
+	assert.Equal(t, accounts, decoded.Accounts())
 }
