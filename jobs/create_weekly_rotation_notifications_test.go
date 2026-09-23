@@ -24,16 +24,18 @@ func seedWeeklyRotationListeners(pool *pgxpool.Pool, now time.Time) {
 			{"user_id": 4, "handle": "four", "wallet": "0x04"},
 			{"user_id": 5, "handle": "five", "wallet": "0x05"},
 		},
-		"challenge_listen_streak": {
+		"plays": {
 			// Listened this week -> notified.
-			{"user_id": 1, "listen_streak": 5, "last_listen_date": now.Add(-2 * 24 * time.Hour)},
+			{"id": 1, "user_id": 1, "play_item_id": 100, "created_at": now.Add(-2 * 24 * time.Hour)},
 			// Last listen too long ago -> not notified.
-			{"user_id": 2, "listen_streak": 1, "last_listen_date": now.Add(-40 * 24 * time.Hour)},
+			{"id": 2, "user_id": 2, "play_item_id": 100, "created_at": now.Add(-40 * 24 * time.Hour)},
 			// Deactivated -> not notified even though active.
-			{"user_id": 3, "listen_streak": 9, "last_listen_date": now.Add(-24 * time.Hour)},
-			// Listened right at the edge of the window -> notified.
-			{"user_id": 4, "listen_streak": 1, "last_listen_date": now.Add(-29 * 24 * time.Hour)},
-			// user 5 has never listened: no streak row -> not notified.
+			{"id": 3, "user_id": 3, "play_item_id": 100, "created_at": now.Add(-24 * time.Hour)},
+			// Listened near the edge of the window -> notified.
+			{"id": 4, "user_id": 4, "play_item_id": 100, "created_at": now.Add(-29 * 24 * time.Hour)},
+			// Anonymous play -> no one to notify.
+			{"id": 5, "user_id": nil, "play_item_id": 100, "created_at": now.Add(-time.Hour)},
+			// user 5 has never listened -> not notified.
 		},
 	})
 }
