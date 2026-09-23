@@ -7,6 +7,7 @@ import (
 	"api.audius.co/database"
 	"api.audius.co/trashid"
 	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 )
 
 func TestGetNewBlasts(t *testing.T) {
@@ -538,6 +539,36 @@ func TestGetNewBlastsWithPermissions(t *testing.T) {
 		// only the blast after the permission change should be included
 		assert.Contains(t, string(body), "blast_after_permission_change")
 	})
+}
+
+func TestGetNewBlastsAfterSenderClosesInbox(t *testing.T) {
+	app := emptyTestApp(t)
+
+	// chat_permissions.updated_at is timestamp without time zone, written as UTC
+	now := time.Now().UTC()
+	fixtures := database.FixtureMap{
+		"users": {
+			{"user_id": 1, "handle": "artist1", "wallet": "0x7d273271690538cf855e5b3002a0dd8c154bb060", "created_at": now.Add(-time.Hour), "updated_at": now.Add(-time.Hour), "is_current": true},
+			{"user_id": 2, "handle": "fan1", "wallet": "0xc3d1d41e6872ffbd15c473d14fc3a9250be5b5e0", "created_at": now.Add(-time.Hour), "updated_at": now.Add(-time.Hour), "is_current": true},
+		},
+		"follows": {
+			{"follower_user_id": 2, "followee_user_id": 1, "created_at": now.Add(-time.Hour), "is_current": true, "is_delete": false},
+		},
+		"chat_blast": {
+			{"blast_id": "blast_before_close", "from_user_id": 1, "audience": "follower_audience", "plaintext": "before close", "created_at": now.Add(-10 * time.Minute)},
+			{"blast_id": "blast_after_close", "from_user_id": 1, "audience": "follower_audience", "plaintext": "after close", "created_at": now.Add(-2 * time.Minute)},
+		},
+		// the artist (sender) closed their inbox between the two blasts
+		"chat_permissions": {
+			{"user_id": 1, "permits": "none", "allowed": true, "updated_at": now.Add(-5 * time.Minute)},
+		},
+	}
+	database.Seed(app.pool.Replicas[0], fixtures)
+
+	status, body := testGetWithWallet(t, app, "/comms/blasts", "0xc3d1d41e6872ffbd15c473d14fc3a9250be5b5e0")
+	require.Equal(t, 200, status)
+	assert.Contains(t, string(body), "blast_after_close")
+	assert.NotContains(t, string(body), "blast_before_close")
 }
 
 func TestGetNewBlastsWithExistingChats(t *testing.T) {

@@ -108,6 +108,12 @@ func (app *ApiServer) getNewBlasts(c *fiber.Ctx) error {
 	)
 	SELECT * FROM all_new
 	WHERE created_at > (select t from last_permission_change)
+	-- a blast is dropped once the sender changes their own inbox settings
+	AND created_at > (
+		SELECT COALESCE(MAX(cp.updated_at), to_timestamp(0))
+		FROM chat_permissions cp
+		WHERE cp.user_id = all_new.from_user_id
+	)
 	AND chat_allowed(from_user_id, @user_id)
 	ORDER BY created_at
 	;`
