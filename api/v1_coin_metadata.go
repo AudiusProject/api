@@ -62,9 +62,8 @@ func (app *ApiServer) v1CoinMetadata(c *fiber.Ctx) error {
 	if description != nil && *description != "" {
 		metadata.Description = *description
 	} else if handle != nil {
-		// The launchpad never persists a description - the Fan Club page builds
-		// this same sentence client-side, and storing it would make the page cite
-		// itself. Regenerate it here so wallets and explorers still get one.
+		// Launchpad coins store no description. Rebuild the default the web
+		// client shows so wallets and explorers still get one.
 		metadata.Description = defaultCoinDescription(*handle, ticker, appUrl)
 	}
 	if logoUri != nil {

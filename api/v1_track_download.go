@@ -9,16 +9,14 @@ import (
 )
 
 func createFilename(track *dbv1.Track) string {
-	// The original upload is what a download serves whenever the row kept one,
-	// so its own name is the right one.
+	// Downloads serve the original upload when the row has one, so use its name.
 	if track.OrigFileCid.String != "" && track.OrigFilename.String != "" {
 		return track.OrigFilename.String
 	}
 
-	// Otherwise the bytes are the mp3 transcode, and the name must not promise
-	// the format the artist uploaded: a .wav name on mp3 bytes is a file most
-	// editors refuse to open. Only the recorded filename is stripped of its
-	// extension - a title is free text and "Vol. 2" has no extension to trim.
+	// Otherwise the bytes are the mp3 transcode, so swap the recorded
+	// filename's extension for .mp3. Titles are used as-is since they have no
+	// real extension.
 	if name := track.OrigFilename.String; name != "" {
 		return strings.TrimSuffix(name, path.Ext(name)) + ".mp3"
 	}
@@ -61,11 +59,9 @@ func (app *ApiServer) v1TrackDownload(c *fiber.Ctx) error {
 		return fiber.NewError(fiber.StatusNotFound, "track not found")
 	}
 
-	// track.Download is only populated for tracks the public may download, so
-	// an artist who left downloads off - about four in five tracks - could not
-	// get their own file back. The edit page's "Download File" button and the
-	// replace-file flow both come through here, and both were 404ing for the
-	// owner of the track, surfacing as a generic "something went wrong".
+	// track.Download is only set when the public may download. Fall back to an
+	// owner-signed link so the artist or their manager can always fetch their
+	// own file (used by the edit page's "Download File" and replace-file flows).
 	downloadLink := track.Download
 	if downloadLink == nil {
 		downloadLink, err = app.ownerDownloadLink(c, &track)
@@ -95,14 +91,11 @@ func (app *ApiServer) v1TrackDownload(c *fiber.Ctx) error {
 	return c.Redirect(downloadUrl.String(), fiber.StatusFound)
 }
 
-// ownerDownloadLink signs a download link for a requester who has proven they
-// own the track, or manage the account that does. Ownership comes from the
-// wallet recovered from the request signature, not from the user_id query
-// param behind myId: user_id is the caller's own claim, and it is only
-// trustworthy here because this route sits off authMiddleware's advisory-
-// user_id allowlist. Handing out an artist's original master should not rest
-// on that list continuing to exclude this route. Returns nil - not an error -
-// for everyone else, which leaves the caller's 404 in place.
+// ownerDownloadLink signs a download link when the wallet recovered from the
+// request signature owns the track or holds an approved grant from the owner.
+// It checks the signature rather than the user_id query param so it does not
+// depend on authMiddleware's user_id handling for this route. Returns nil for
+// anyone else.
 func (app *ApiServer) ownerDownloadLink(c *fiber.Ctx, track *dbv1.Track) (*dbv1.MediaLink, error) {
 	wallet := app.tryGetAuthedWallet(c)
 	if wallet == "" {

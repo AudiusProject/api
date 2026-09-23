@@ -171,11 +171,9 @@ func NewApiServer(config config.Config) *ApiServer {
 	}
 
 	// Caches the track-id list returned by the /v1/users/:userId/weekly-rotation
-	// query. The mix is deterministic for the whole ISO week and the cache key
-	// carries the year/week, so entries are immutable for their lifetime and a
-	// long TTL is safe — a stale entry is the correct answer, not a stale one.
-	// Sized larger than the other recommendation caches because this is the
-	// most expensive query of the three and the least likely to be re-derived.
+	// query. The key includes the period, so entries stay correct for their
+	// whole TTL. Sized larger than the other recommendation caches because this
+	// is the most expensive query of the three.
 	weeklyRotationCache, err := otter.MustBuilder[string, []int32](50_000).
 		WithTTL(6 * time.Hour).
 		CollectStats().

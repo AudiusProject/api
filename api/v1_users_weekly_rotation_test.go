@@ -72,14 +72,10 @@ func weeklyRotationFixtures() database.FixtureMap {
 		{"track_id": 1200, "owner_id": 2, "title": "deleted", "genre": "Rock", "created_at": daysAgo(5), "is_delete": true},
 	}
 
-	// My listening history: a rock track by user 6, which both establishes
-	// Rock as my affinity genre and makes track 600 an already-played
-	// exclusion.
+	// My listening history: a rock track by user 6, which makes Rock my
+	// affinity genre and track 600 an already-played exclusion.
 	//
-	// History only counts if it predates the period's rollover, and the
-	// rollover is at most seven days back, so everything here is dated
-	// eight days ago. See TestV1UsersWeeklyRotationKeepsTracksPlayedThisPeriod
-	// for the other side of that line.
+	// History must predate the period start, so fixtures are dated 8 days ago.
 	plays := []map[string]any{
 		{"id": 1, "user_id": 1, "play_item_id": 600, "created_at": daysAgo(8)},
 	}
@@ -177,10 +173,9 @@ func TestV1UsersWeeklyRotation(t *testing.T) {
 	assert.Equal(t, 1, twoTrackCount, "an artist never occupies two slots")
 }
 
-// A followed artist is demoted, not removed. The discovery weight gap
-// (0.70 vs 1.25, a 1.79x ratio) is wider than the jitter band can close
-// (1.35x at the extremes), so this ordering is guaranteed rather than
-// merely likely.
+// Followed artists are demoted, not removed. The discovery weight gap
+// (0.70 vs 1.25, 1.79x) is wider than the jitter band (1.35x at most), so the
+// ordering is deterministic.
 func TestV1UsersWeeklyRotationDemotesFollowedArtists(t *testing.T) {
 	app := emptyTestApp(t)
 
@@ -229,9 +224,6 @@ func TestV1UsersWeeklyRotationDemotesFollowedArtists(t *testing.T) {
 }
 
 // A listener with no plays, saves, follows, or reposts still gets a mix.
-// This is the case that separates the surface from suggested-follows, which
-// correctly returns nothing for a cold account: a mix that is empty on
-// first open has no reason to exist.
 func TestV1UsersWeeklyRotationColdStart(t *testing.T) {
 	app := emptyTestApp(t)
 
@@ -265,13 +257,9 @@ func TestV1UsersWeeklyRotationColdStart(t *testing.T) {
 	assert.Equal(t, "a track", resp.Data[0].Title.String)
 }
 
-// The mix must not move within a week and must move between weeks. Both
-// halves matter: the first is the product promise, the second is the only
-// thing keeping the mix from being the same 30 tracks forever.
-//
-// Goes through getWeeklyRotationTrackIds rather than the HTTP handler
-// because the handler derives the period from the wall clock, and the point
-// here is to vary it.
+// The mix is identical within a period and changes across periods and
+// listeners. Calls getWeeklyRotationTrackIds directly because the handler
+// takes the period from the wall clock.
 func TestV1UsersWeeklyRotationStableWithinWeek(t *testing.T) {
 	app := emptyTestApp(t)
 
@@ -282,9 +270,8 @@ func TestV1UsersWeeklyRotationStableWithinWeek(t *testing.T) {
 		"aggregate_track":       []map[string]any{},
 		"track_trending_scores": []map[string]any{},
 	}
-	// A pool of equally-strong candidates by distinct artists. Equal scores
-	// mean the week seed is the only thing deciding the order, which is
-	// exactly what this test is about.
+	// Equal-score candidates by distinct artists, so only the week seed
+	// decides the order.
 	for i := 0; i < 40; i++ {
 		userId := 100 + i
 		trackId := 1000 + i
@@ -366,18 +353,8 @@ func TestV1UsersWeeklyRotationRequiresValidUserId(t *testing.T) {
 	assert.Equal(t, 400, status)
 }
 
-// Regression for the bug that shipped in #1025 and returned an empty mix for
-// every user in production.
-//
-// track_trending_scores holds two populations: rows carrying a genre, which
-// the trending job keeps current, and rows with a null/empty genre, which are
-// stale and resolve to tracks five to six years old. The original query
-// matched only the null-genre rows, so every candidate then failed the
-// 365-day age cutoff and the mix came back empty.
-//
-// Every other test here seeds score rows without a genre, so none of them
-// could catch it. This one seeds a genre-carrying row specifically -- the
-// shape that actually reaches the query in production.
+// Candidates must come from genre-carrying trending rows, which are the live
+// population in production. The other tests seed genre-less rows.
 func TestV1UsersWeeklyRotationReadsGenreCarryingTrendingRows(t *testing.T) {
 	app := emptyTestApp(t)
 
@@ -407,11 +384,7 @@ func TestV1UsersWeeklyRotationReadsGenreCarryingTrendingRows(t *testing.T) {
 		"a score row carrying a genre must still be a candidate")
 }
 
-// Playing a track from the mix must not remove it from the mix. The
-// played-exclusion is anchored at the period's rollover, so a play dated
-// now -- inside the current period -- is invisible to it. Without the
-// anchor the mix shrank as it was listened to, which made a shared link
-// show a different list by the next day.
+// Plays inside the current period don't exclude tracks from the mix.
 func TestV1UsersWeeklyRotationKeepsTracksPlayedThisPeriod(t *testing.T) {
 	app := emptyTestApp(t)
 
