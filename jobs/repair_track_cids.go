@@ -52,6 +52,16 @@ type RepairTrackCidsJob struct {
 
 	mutex     sync.Mutex
 	isRunning bool
+
+	// retries holds tracks a pass could not repair (transcode not finished,
+	// no quorum, or an error). They are skipped until their backoff expires so
+	// they don't fill every batch. In memory only: a restart retries them once.
+	retries map[int64]trackCidRetry
+}
+
+type trackCidRetry struct {
+	failures int
+	next     time.Time
 }
 
 const (
@@ -72,6 +82,11 @@ const (
 	// its own. A track that cannot reach quorum is left alone for the next pass
 	// rather than repaired from one node's word.
 	trackCidQuorum = 2
+
+	// Backoff for tracks a pass could not repair: doubles from
+	// trackCidRetryBase per failure, capped at trackCidRetryMax.
+	trackCidRetryBase = time.Hour
+	trackCidRetryMax  = 24 * time.Hour
 )
 
 func NewRepairTrackCidsJob(cfg config.Config, pool database.DbPool, oaSDK *sdk.OpenAudioSDK) *RepairTrackCidsJob {
@@ -122,7 +137,7 @@ func (j *RepairTrackCidsJob) run(ctx context.Context) error {
 		j.mutex.Unlock()
 	}()
 
-	tracks, err := j.queryTracks(ctx)
+	tracks, err := j.queryTracks(ctx, j.backedOffTrackIDs(time.Now()))
 	if err != nil {
 		return fmt.Errorf("query tracks: %w", err)
 	}
@@ -146,10 +161,12 @@ func (j *RepairTrackCidsJob) run(ctx context.Context) error {
 		if err != nil {
 			j.logger.Error("repairing track cid failed",
 				zap.Int64("track_id", t.TrackID), zap.Error(err))
-			continue
 		}
 		if ok {
 			repaired++
+			delete(j.retries, t.TrackID)
+		} else {
+			j.recordFailure(t.TrackID, time.Now())
 		}
 	}
 
@@ -164,22 +181,26 @@ type cidlessTrack struct {
 	AudioUploadID string
 }
 
-// queryTracks selects tracks that have no playable audio pointer but do carry
-// the upload id needed to find one. Deleted tracks are skipped - their audio is
-// meant to be unreachable - as are stems and rows with no audio_upload_id,
-// which are legacy uploads with nothing to look up.
-func (j *RepairTrackCidsJob) queryTracks(ctx context.Context) ([]cidlessTrack, error) {
+// queryTracks selects tracks with no track_cid but an audio_upload_id to look
+// up. Skips deleted tracks (their audio must stay unreachable), stems, rows
+// with no audio_upload_id (legacy uploads), and the ids in skip.
+func (j *RepairTrackCidsJob) queryTracks(ctx context.Context, skip []int64) ([]cidlessTrack, error) {
+	if skip == nil {
+		skip = []int64{}
+	}
 	rows, err := j.pool.Query(ctx, `
 		SELECT track_id, audio_upload_id
 		FROM tracks
 		WHERE is_current = true
 		  AND is_delete = false
+		  AND stem_of IS NULL
 		  AND track_cid IS NULL
 		  AND audio_upload_id IS NOT NULL
 		  AND audio_upload_id <> ''
+		  AND NOT (track_id = ANY($2::bigint[]))
 		ORDER BY created_at DESC
 		LIMIT $1
-	`, trackCidBatchSize)
+	`, trackCidBatchSize, skip)
 	if err != nil {
 		return nil, err
 	}
@@ -194,6 +215,33 @@ func (j *RepairTrackCidsJob) queryTracks(ctx context.Context) ([]cidlessTrack, e
 		out = append(out, t)
 	}
 	return out, rows.Err()
+}
+
+// backedOffTrackIDs returns the tracks still inside their retry backoff at now.
+func (j *RepairTrackCidsJob) backedOffTrackIDs(now time.Time) []int64 {
+	ids := make([]int64, 0, len(j.retries))
+	for id, r := range j.retries {
+		if now.Before(r.next) {
+			ids = append(ids, id)
+		}
+	}
+	return ids
+}
+
+// recordFailure pushes a track's next attempt out by the backoff for its
+// failure count.
+func (j *RepairTrackCidsJob) recordFailure(trackID int64, now time.Time) {
+	if j.retries == nil {
+		j.retries = map[int64]trackCidRetry{}
+	}
+	r := j.retries[trackID]
+	r.failures++
+	delay := trackCidRetryMax
+	if r.failures <= 5 {
+		delay = min(trackCidRetryBase<<(r.failures-1), trackCidRetryMax)
+	}
+	r.next = now.Add(delay)
+	j.retries[trackID] = r
 }
 
 // selectContentNodes takes up to trackCidMaxNodes random registered

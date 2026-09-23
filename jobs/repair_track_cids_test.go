@@ -219,11 +219,13 @@ func TestRepairTrackCidsJob_QueryTracksSelectsOnlyRepairable(t *testing.T) {
 			{"track_id": 101, "owner_id": 1, "title": "Has Cid", "audio_upload_id": "up-2", "track_cid": "QmAlready"},
 			{"track_id": 102, "owner_id": 1, "title": "Deleted", "audio_upload_id": "up-3", "is_delete": true},
 			{"track_id": 103, "owner_id": 1, "title": "No Upload Id"},
+			{"track_id": 104, "owner_id": 1, "title": "Stem", "audio_upload_id": "up-4", "stem_of": `{"parent_track_id": 100, "category": "other"}`},
+			{"track_id": 105, "owner_id": 1, "title": "Backed Off", "audio_upload_id": "up-5"},
 		},
 	})
 
 	job := newTrackCidJob(pool)
-	tracks, err := job.queryTracks(context.Background())
+	tracks, err := job.queryTracks(context.Background(), []int64{105})
 	require.NoError(t, err)
 
 	ids := []int64{}
@@ -231,6 +233,25 @@ func TestRepairTrackCidsJob_QueryTracksSelectsOnlyRepairable(t *testing.T) {
 		ids = append(ids, tr.TrackID)
 	}
 	assert.Equal(t, []int64{100}, ids, fmt.Sprintf("got %+v", tracks))
+}
+
+// Tracks that could not be repaired are skipped with a growing backoff.
+func TestRepairTrackCidsJob_BackoffAfterFailure(t *testing.T) {
+	job := newTrackCidJob(nil)
+	now := time.Now()
+
+	job.recordFailure(100, now)
+	assert.Equal(t, []int64{100}, job.backedOffTrackIDs(now))
+	assert.Empty(t, job.backedOffTrackIDs(now.Add(trackCidRetryBase)))
+
+	job.recordFailure(100, now)
+	assert.Equal(t, []int64{100}, job.backedOffTrackIDs(now.Add(trackCidRetryBase)))
+	assert.Empty(t, job.backedOffTrackIDs(now.Add(2*trackCidRetryBase)))
+
+	for i := 0; i < 10; i++ {
+		job.recordFailure(100, now)
+	}
+	assert.Empty(t, job.backedOffTrackIDs(now.Add(trackCidRetryMax)), "backoff is capped")
 }
 
 // The indexer writing real metadata must always beat the repair job.
