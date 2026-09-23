@@ -198,3 +198,32 @@ func TestGetTrackDownload_FilenameFallsBackToMp3(t *testing.T) {
 	assert.Contains(t, location, "tracks/cidstream/QmTranscode")
 	assert.Contains(t, location, "filename=Vol.+2.mp3")
 }
+
+// The owner can download a track with no track_cid and downloads off; the link
+// falls back to orig_file_cid.
+func TestGetTrackDownload_OwnerOfCidlessTrack(t *testing.T) {
+	app := emptyTestApp(t)
+	database.Seed(app.pool.Replicas[0], database.FixtureMap{
+		"tracks": []map[string]any{
+			{
+				"track_id":        1,
+				"owner_id":        1,
+				"title":           "No Track Cid",
+				"orig_file_cid":   "QmOriginal",
+				"orig_filename":   "NoCid.wav",
+				"is_downloadable": false,
+			},
+		},
+		"users": []map[string]any{
+			{"user_id": 1, "handle": "artist", "wallet": ownerWallet},
+		},
+	})
+	path := "/v1/tracks/" + trashid.MustEncodeHashID(1) + "/download"
+
+	status, location := downloadWithWallet(t, app, path, ownerWallet)
+	assert.Equal(t, 302, status)
+	assert.Contains(t, location, "tracks/cidstream/QmOriginal")
+
+	status, _ = downloadWithWallet(t, app, path, "")
+	assert.Equal(t, 404, status, "anonymous")
+}
