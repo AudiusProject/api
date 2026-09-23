@@ -250,12 +250,36 @@ func isInPermitList(permit ChatPermission, permitList []ChatPermission) bool {
 	return false
 }
 
+// chatSetCategory sets (or, when category is nil, clears) the calling user's
+// inbox category for a chat. Like updatePermissions/chatUnblock it is guarded
+// by the RPC timestamp so a late-arriving RPC can't clobber newer state.
+func chatSetCategory(db dbv1.DBTX, ctx context.Context, userId int32, chatId string, category *string, messageTimestamp time.Time) error {
+	var err error
+	if category != nil {
+		_, err = db.Exec(ctx, `
+		insert into user_conversation_preferences
+			(user_id, chat_id, category, updated_at)
+		values
+			($1, $2, $3, $4)
+		on conflict (user_id, chat_id)
+		do update set category = excluded.category, updated_at = excluded.updated_at
+		where user_conversation_preferences.updated_at < excluded.updated_at`,
+			userId, chatId, *category, messageTimestamp.UTC())
+	} else {
+		_, err = db.Exec(ctx, `
+		delete from user_conversation_preferences
+		where user_id = $1 and chat_id = $2 and updated_at < $3`,
+			userId, chatId, messageTimestamp.UTC())
+	}
+	return err
+}
+
 func updatePermissions(db dbv1.DBTX, ctx context.Context, userId int32, permit ChatPermission, permitAllowed bool, messageTimestamp time.Time) error {
 	_, err := db.Exec(ctx, `
     insert into chat_permissions (user_id, permits, allowed, updated_at)
     values ($1, $2, $3, $4)
     on conflict (user_id, permits)
-    do update set allowed = $3 where chat_permissions.updated_at < $4
+    do update set allowed = $3, updated_at = $4 where chat_permissions.updated_at < $4
     `, userId, permit, permitAllowed, messageTimestamp.UTC())
 	return err
 }

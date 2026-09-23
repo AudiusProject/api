@@ -159,15 +159,15 @@ func newCoreStreamClient(audiusdURL string) corev1connect.CoreServiceClient {
 // way Go programs always do, and DB connections drain via pool finalizers on
 // process exit. Acceptable tradeoff to avoid forking ETL.
 func (ci *CoreIndexer) Start(ctx context.Context) error {
-	eg := errgroup.Group{}
+	eg, gCtx := errgroup.WithContext(ctx)
 	eg.Go(func() error {
-		return ci.aggregatesCalculator.Start(ctx)
+		return ci.aggregatesCalculator.Start(gCtx)
 	})
 	eg.Go(func() error {
 		ci.logger.Info("Starting ETL indexer")
 		return ci.etlIndexer.Run()
 	})
-	ci.startParityJobs(ctx)
+	ci.startParityJobs(gCtx)
 	return eg.Wait()
 }
 
@@ -218,6 +218,11 @@ func (ci *CoreIndexer) startParityJobs(ctx context.Context) {
 
 	jobs.NewListenStreakReminderJob(ci.Config, ci.pool).
 		ScheduleEvery(ctx, 10*time.Second)
+
+	// Announces the Wednesday Weekly Rotation rollover. Paced: each run
+	// inserts one batch, so the interval sets the fan-out rate.
+	jobs.NewWeeklyRotationNotificationsJob(ci.Config, ci.pool).
+		ScheduleEvery(ctx, 30*time.Second)
 
 	// Backfill missing track bpm / musical_key from content-node audio
 	// analyses. Mirrors apps' repair_audio_analyses celery task, whose beat

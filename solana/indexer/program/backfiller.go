@@ -48,7 +48,7 @@ func (s *Backfiller) Start(ctx context.Context, fromSlot uint64, toSlot uint64) 
 		block, err := s.rpcClient.GetBlockWithOpts(ctx, toSlot, &rpc.GetBlockOpts{
 			TransactionDetails:             rpc.TransactionDetailsSignatures,
 			Commitment:                     rpc.CommitmentConfirmed,
-			MaxSupportedTransactionVersion: &rpc.MaxSupportedTransactionVersion0,
+			MaxSupportedTransactionVersion: &rpc.MaxSupportedTransactionVersion1,
 		})
 		if err != nil {
 			return fmt.Errorf("failed to get block: %w", err)
@@ -63,7 +63,7 @@ func (s *Backfiller) Start(ctx context.Context, fromSlot uint64, toSlot uint64) 
 		block, err := s.rpcClient.GetBlockWithOpts(ctx, fromSlot, &rpc.GetBlockOpts{
 			TransactionDetails:             rpc.TransactionDetailsSignatures,
 			Commitment:                     rpc.CommitmentConfirmed,
-			MaxSupportedTransactionVersion: &rpc.MaxSupportedTransactionVersion0,
+			MaxSupportedTransactionVersion: &rpc.MaxSupportedTransactionVersion1,
 		})
 		if err != nil {
 			return fmt.Errorf("failed to get block: %w", err)

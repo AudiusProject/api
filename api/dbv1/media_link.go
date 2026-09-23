@@ -93,3 +93,27 @@ func generateSignature(data map[string]interface{}) (string, error) {
 
 	return hexutil.Encode(signature), nil
 }
+
+// DownloadCid is the blob a download serves: the artist's original upload when
+// the row kept one, otherwise the transcode. Empty when the row has neither,
+// which happens on uploads whose cid backfill never ran - signing an empty cid
+// only produces a content-node URL guaranteed to 404.
+func (t *GetTracksRow) DownloadCid() string {
+	if t.OrigFileCid.String != "" {
+		return t.OrigFileCid.String
+	}
+	return t.TrackCid.String
+}
+
+// SignDownloadLink signs a download URL for this track without consulting
+// is_downloadable or the download gates. Nothing here re-checks access, so the
+// caller must already have established that the requester may bypass them -
+// today only a wallet-verified owner or account manager does, see
+// ApiServer.ownerDownloadLink. Returns nil when the row has no cid to sign.
+func (t *Track) SignDownloadLink(userId int32) (*MediaLink, error) {
+	cid := t.DownloadCid()
+	if cid == "" {
+		return nil, nil
+	}
+	return mediaLink(cid, t.TrackID, userId, nil)
+}

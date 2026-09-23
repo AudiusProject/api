@@ -75,16 +75,21 @@ func weeklyRotationFixtures() database.FixtureMap {
 	// My listening history: a rock track by user 6, which both establishes
 	// Rock as my affinity genre and makes track 600 an already-played
 	// exclusion.
+	//
+	// History only counts if it predates the period's rollover, and the
+	// rollover is at most seven days back, so everything here is dated
+	// eight days ago. See TestV1UsersWeeklyRotationKeepsTracksPlayedThisPeriod
+	// for the other side of that line.
 	plays := []map[string]any{
-		{"id": 1, "user_id": 1, "play_item_id": 600, "created_at": daysAgo(1)},
+		{"id": 1, "user_id": 1, "play_item_id": 600, "created_at": daysAgo(8)},
 	}
 
 	saves := []map[string]any{
-		{"user_id": 1, "save_item_id": 700, "save_type": "track"},
+		{"user_id": 1, "save_item_id": 700, "save_type": "track", "created_at": daysAgo(8)},
 	}
 
 	follows := []map[string]any{
-		{"follower_user_id": 1, "followee_user_id": 4},
+		{"follower_user_id": 1, "followee_user_id": 4, "created_at": daysAgo(8)},
 	}
 
 	// Every candidate needs a trending row to be retrieved at all.
@@ -201,7 +206,7 @@ func TestV1UsersWeeklyRotationDemotesFollowedArtists(t *testing.T) {
 			{"track_id": 300, "save_count": 100, "repost_count": 50},
 		},
 		"follows": []map[string]any{
-			{"follower_user_id": 1, "followee_user_id": 2},
+			{"follower_user_id": 1, "followee_user_id": 2, "created_at": time.Now().AddDate(0, 0, -8)},
 		},
 		"track_trending_scores": []map[string]any{
 			{"track_id": 200, "score": 1_000_000_000, "time_range": "week"},
@@ -400,4 +405,55 @@ func TestV1UsersWeeklyRotationReadsGenreCarryingTrendingRows(t *testing.T) {
 	assert.Equal(t, 200, status)
 	assert.Len(t, resp.Data, 1,
 		"a score row carrying a genre must still be a candidate")
+}
+
+// Playing a track from the mix must not remove it from the mix. The
+// played-exclusion is anchored at the period's rollover, so a play dated
+// now -- inside the current period -- is invisible to it. Without the
+// anchor the mix shrank as it was listened to, which made a shared link
+// show a different list by the next day.
+func TestV1UsersWeeklyRotationKeepsTracksPlayedThisPeriod(t *testing.T) {
+	app := emptyTestApp(t)
+
+	fixtures := database.FixtureMap{
+		"users": []map[string]any{
+			{"user_id": 1, "handle": "me", "handle_lc": "me", "wallet": "0x0000000000000000000000000000000000000001"},
+			{"user_id": 2, "handle": "artist", "handle_lc": "artist", "wallet": "0x0000000000000000000000000000000000000002"},
+			{"user_id": 3, "handle": "other", "handle_lc": "other", "wallet": "0x0000000000000000000000000000000000000003"},
+		},
+		"aggregate_user": []map[string]any{
+			{"user_id": 1, "follower_count": 0, "following_count": 0},
+			{"user_id": 2, "follower_count": 5000, "following_count": 10},
+			{"user_id": 3, "follower_count": 5000, "following_count": 10},
+		},
+		"tracks": []map[string]any{
+			{"track_id": 200, "owner_id": 2, "title": "played this week", "genre": "Rock"},
+			{"track_id": 300, "owner_id": 3, "title": "played last week", "genre": "Rock"},
+		},
+		"aggregate_track": []map[string]any{
+			{"track_id": 200, "save_count": 100, "repost_count": 50},
+			{"track_id": 300, "save_count": 100, "repost_count": 50},
+		},
+		"plays": []map[string]any{
+			// Inside the current period: does not count as history.
+			{"id": 1, "user_id": 1, "play_item_id": 200, "created_at": time.Now()},
+			// Before any possible rollover: counts, and excludes track 300.
+			{"id": 2, "user_id": 1, "play_item_id": 300, "created_at": time.Now().AddDate(0, 0, -8)},
+		},
+		"track_trending_scores": []map[string]any{
+			{"track_id": 200, "score": 1_000_000_000, "time_range": "week"},
+			{"track_id": 300, "score": 1_000_000_000, "time_range": "week"},
+		},
+	}
+	database.Seed(app.pool.Replicas[0], fixtures)
+
+	var resp struct {
+		Data []dbv1.Track
+	}
+	status, _ := testGet(t, app, "/v1/users/7eP5n/weekly-rotation", &resp)
+	assert.Equal(t, 200, status)
+
+	titles := weeklyRotationTitles(resp.Data)
+	assert.Contains(t, titles, "played this week", "a play inside the period leaves the mix alone")
+	assert.NotContains(t, titles, "played last week", "a play before the rollover still excludes")
 }

@@ -23,6 +23,8 @@ type UserChatRow struct {
 	AudienceContentType    *string           `db:"audience_content_type" json:"audience_content_type,omitempty"`
 	AudienceContentID      *trashid.HashId   `db:"audience_content_id" json:"audience_content_id,omitempty"`
 	ChatMembers            []UserChatMembers `db:"members" json:"chat_members"`
+	// Per-user inbox category ("priority" | "general"); nil = uncategorized.
+	Category *string `db:"category" json:"category"`
 }
 
 type UserChatMembers struct {
@@ -48,7 +50,10 @@ func (row UserChatRow) MarshalJSON() ([]byte, error) {
 		clearedHistoryAt = row.ClearedHistoryAt.Time.UTC().Format(time.RFC3339Nano)
 	}
 
-	recheckPermissions := false
+	// A thread whose latest message is a blast may hold nothing but blast
+	// seeds; whether the viewer may reply then depends on the other member's
+	// current inbox settings rather than on the thread existing.
+	recheckPermissions := row.LastMessageIsPlaintext
 	for _, member := range row.ChatMembers {
 		if member.ClearedHistoryAt.Valid && (row.LastMessageAt == nil || member.ClearedHistoryAt.Time.After(*row.LastMessageAt)) {
 			recheckPermissions = true

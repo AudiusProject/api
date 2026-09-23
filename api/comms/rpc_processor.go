@@ -277,6 +277,16 @@ select last_active_at from chat_member where chat_id = $1 and user_id = $2`
 			if err != nil {
 				return err
 			}
+		case RPCMethodChatSetCategory:
+			var params ChatSetCategoryRPCParams
+			err = json.Unmarshal(rawRpc.Params, &params)
+			if err != nil {
+				return err
+			}
+			err = chatSetCategory(tx, ctx, userId, params.ChatID, params.Category, messageTs)
+			if err != nil {
+				return err
+			}
 		case RPCMethodChatPermit:
 			var params ChatPermitRPCParams
 			err = json.Unmarshal(rawRpc.Params, &params)

@@ -102,6 +102,18 @@ type ChatReadAllRPC struct {
 
 type ChatReadAllRPCParams struct{}
 
+type ChatSetCategoryRPC struct {
+	Method ChatSetCategoryRPCMethod `json:"method"`
+	Params ChatSetCategoryRPCParams `json:"params"`
+}
+
+// ChatSetCategoryRPCParams sets the calling user's inbox category for a chat.
+// Category is "priority" or "general"; null clears it (chat becomes uncategorized).
+type ChatSetCategoryRPCParams struct {
+	ChatID   string  `json:"chat_id"`
+	Category *string `json:"category"`
+}
+
 type ChatBlockRPC struct {
 	Method ChatBlockRPCMethod `json:"method"`
 	Params ChatBlockRPCParams `json:"params"`
@@ -149,6 +161,7 @@ type RPCPayloadRequestParams struct {
 	MessageID           *string              `json:"message_id,omitempty"`
 	ParentMessageID     *string              `json:"parent_message_id,omitempty"`
 	Reaction            *string              `json:"reaction"`
+	Category            *string              `json:"category"`
 	UserID              *string              `json:"user_id,omitempty"`
 	Allow               *bool                `json:"allow,omitempty"`
 	Permit              *ChatPermission      `json:"permit,omitempty"`
@@ -164,6 +177,7 @@ type UserChat struct {
 	Audience               ChatBlastAudience `json:"audience"`
 	AudienceContentID      *string           `json:"audience_content_id,omitempty"`
 	AudienceContentType    *string           `json:"audience_content_type,omitempty"`
+	Category               *string           `json:"category"`
 	ChatID                 string            `json:"chat_id"`
 	ChatMembers            []ChatMember      `json:"chat_members"`
 	ClearedHistoryAt       string            `json:"cleared_history_at"`
@@ -298,6 +312,7 @@ type RPCPayloadParams struct {
 	MessageID           *string              `json:"message_id,omitempty"`
 	ParentMessageID     *string              `json:"parent_message_id,omitempty"`
 	Reaction            *string              `json:"reaction"`
+	Category            *string              `json:"category"`
 	UserID              *string              `json:"user_id,omitempty"`
 	Allow               *bool                `json:"allow,omitempty"`
 	Permit              *ChatPermission      `json:"permit,omitempty"`
@@ -380,6 +395,12 @@ const (
 	MethodChatReadAll ChatReadAllRPCMethod = "chat.read_all"
 )
 
+type ChatSetCategoryRPCMethod string
+
+const (
+	MethodChatSetCategory ChatSetCategoryRPCMethod = "chat.set_category"
+)
+
 type ChatBlockRPCMethod string
 
 const (
@@ -411,6 +432,14 @@ const (
 	ChatPermissionVerified  ChatPermission = "verified"
 )
 
+// Per-user inbox category for a chat. A chat with no category is "uncategorized".
+type ChatCategory string
+
+const (
+	ChatCategoryPriority ChatCategory = "priority"
+	ChatCategoryGeneral  ChatCategory = "general"
+)
+
 type RPCMethod string
 
 const (
@@ -424,6 +453,7 @@ const (
 	RPCMethodChatReact           RPCMethod = "chat.react"
 	RPCMethodChatRead            RPCMethod = "chat.read"
 	RPCMethodChatReadAll         RPCMethod = "chat.read_all"
+	RPCMethodChatSetCategory     RPCMethod = "chat.set_category"
 	RPCMethodChatUnblock         RPCMethod = "chat.unblock"
 	RPCMethodUserValidateCanChat RPCMethod = "user.validate_can_chat"
 )

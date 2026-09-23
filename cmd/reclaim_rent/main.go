@@ -251,7 +251,7 @@ func processBatch(ctx context.Context, rpcClient *rpc.Client, batch []DatabaseAc
 	return &txSig, nil
 }
 
-func getEmptyTokenAccounts(ctx context.Context, client *rpc.Client, mint solana.PublicKey, owner solana.PublicKey, pageKey *string) (rpc.GetProgramAccountsV2Result, error) {
+func getEmptyTokenAccounts(ctx context.Context, client *rpc.Client, mint solana.PublicKey, owner solana.PublicKey, pageKey *string) (getProgramAccountsV2Result, error) {
 	mintOffset := uint64(0)
 	ownerOffset := uint64(32)
 	balanceOffset := uint64(64)
@@ -261,7 +261,7 @@ func getEmptyTokenAccounts(ctx context.Context, client *rpc.Client, mint solana.
 	dataSliceLength := uint64(0)
 	limit := uint64(10000)
 
-	return client.GetProgramAccountsV2WithOpts(ctx, solana.TokenProgramID, &rpc.GetProgramAccountsV2Opts{
+	return getProgramAccountsV2WithOpts(ctx, client, solana.TokenProgramID, &getProgramAccountsV2Opts{
 		GetProgramAccountsOpts: rpc.GetProgramAccountsOpts{
 			DataSlice: &rpc.DataSlice{
 				Offset: &dataSliceOffset,
