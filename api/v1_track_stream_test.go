@@ -120,11 +120,7 @@ func TestGetTrackStream_DeletedTrack(t *testing.T) {
 	assert.Empty(t, res.Header.Get("Location"))
 }
 
-// The track response must say plainly that a row with no track_cid has nothing
-// to stream. It used to report is_streamable=true with a null stream link,
-// which left every client believing the track was healthy: the player spun on a
-// dead URL, and mobile's share-to-story handed that URL to ffmpeg and failed
-// with a generic error rather than explaining the track had no audio.
+// A track with no track_cid reports is_streamable=false and a null stream.
 func TestGetTrack_NoCidIsNotStreamable(t *testing.T) {
 	app := emptyTestApp(t)
 	fixtures := database.FixtureMap{
@@ -154,8 +150,7 @@ func TestGetTrack_NoCidIsNotStreamable(t *testing.T) {
 	})
 }
 
-// Losing is_streamable must not cost the artist their downloads: a download
-// falls back to orig_file_cid, which a row missing its track_cid still has.
+// A track with no track_cid is still downloadable via orig_file_cid.
 func TestGetTrackDownload_NoTrackCidStillDownloadable(t *testing.T) {
 	app := emptyTestApp(t)
 	fixtures := database.FixtureMap{

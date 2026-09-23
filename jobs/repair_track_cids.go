@@ -20,22 +20,14 @@ import (
 	"go.uber.org/zap"
 )
 
-// RepairTrackCidsJob backfills tracks whose audio finished transcoding but
-// whose track_cid never made it onto the track entity.
+// RepairTrackCidsJob backfills track_cid for tracks whose audio finished
+// transcoding but were indexed without the cid.
 //
-// track_cid is taken verbatim from the uploader's metadata at index time. The
-// client is supposed to poll the content node until the transcode finishes and
-// then include the resulting cid when it writes the track, but when that
-// handshake falls through the track is indexed with a NULL track_cid. The audio
-// is fine and sitting on the content node - there is simply no cid on the row
-// pointing at it, so nothing can be signed and nothing can be played. The
-// track is silently dead: it looks normal, collects favorites and reposts, and
-// never accumulates a single play.
-//
-// The content node is the authoritative source for what it produced, and it
-// still holds the upload record keyed by the track's audio_upload_id. This job
-// reconciles the gap from there, the same way RepairAudioAnalysesJob recovers
-// bpm / musical_key.
+// track_cid comes from the uploader's metadata at index time. When the client
+// writes the track without it, the row has nothing to sign and the track is
+// unplayable. The content node still has the upload record keyed by
+// audio_upload_id, so this job reads the cid from there, like
+// RepairAudioAnalysesJob does for bpm / musical_key.
 //
 // Each pass:
 //  1. Selects up to trackCidBatchSize current, undeleted tracks with a NULL
@@ -72,15 +64,10 @@ const (
 	// trackCidNodeTimeout matches RepairAudioAnalysesJob's per-request budget.
 	trackCidNodeTimeout = 5 * time.Second
 	// trackCidQuorum is how many distinct content nodes must report the same
-	// cid before it is written.
-	//
-	// This is a higher bar than the bpm / musical_key repair asks for, and
-	// deliberately so: those fill in a display field, while track_cid decides
-	// which bytes every listener receives for this track. Upload records are
-	// replicated across mirrors, so agreement is cheap to obtain and means a
-	// single misbehaving or out-of-date node cannot repoint a track's audio on
-	// its own. A track that cannot reach quorum is left alone for the next pass
-	// rather than repaired from one node's word.
+	// cid before it is written. Stricter than the bpm / musical_key repair
+	// because track_cid selects the audio every listener gets, so one stale or
+	// faulty node can't set it. Upload records are replicated, so quorum is
+	// cheap. Tracks without quorum are retried later.
 	trackCidQuorum = 2
 
 	// Backoff for tracks a pass could not repair: doubles from
@@ -298,8 +285,7 @@ func (j *RepairTrackCidsJob) repairTrackCid(ctx context.Context, t cidlessTrack,
 	for _, node := range nodes {
 		cid, ok := j.fetchTranscodedCid(ctx, node, t.AudioUploadID)
 		if !ok || cid == "" {
-			// Transport error, no record, or a transcode that has not finished:
-			// nothing to count. Ask the next node.
+			// Transport error, no record, or transcode not finished.
 			continue
 		}
 
@@ -319,8 +305,7 @@ func (j *RepairTrackCidsJob) repairTrackCid(ctx context.Context, t cidlessTrack,
 	}
 
 	if len(votes) > 1 {
-		// Nodes disagreed about what this upload transcoded to. Never guess
-		// which one is right; leave the row alone and say so loudly.
+		// Nodes disagree on the cid. Leave the row for manual review.
 		j.logger.Warn("content nodes disagree on transcoded cid; leaving track unrepaired",
 			zap.Int64("track_id", t.TrackID),
 			zap.String("audio_upload_id", t.AudioUploadID),

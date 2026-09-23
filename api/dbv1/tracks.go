@@ -23,11 +23,9 @@ type Track struct {
 
 	Permalink    string `json:"permalink"`
 	IsStreamable bool   `json:"is_streamable"`
-	// IsAudioAllowed reports whether the track and its owner are in good
-	// standing - not deleted, not deactivated, not delisted. It is the gate on
-	// serving the artist's audio in any form. IsStreamable narrows it further
-	// by also requiring a cid to stream, so downloads (which fall back to
-	// orig_file_cid) must check this rather than IsStreamable.
+	// IsAudioAllowed is false when the track is deleted or its owner is
+	// deactivated or delisted. IsStreamable also requires a track_cid, so
+	// downloads (which fall back to orig_file_cid) check this instead.
 	IsAudioAllowed bool           `json:"-"`
 	Artwork        *SquareImage   `json:"artwork"`
 	Stream         *MediaLink     `json:"stream"`
@@ -202,27 +200,13 @@ func (q *Queries) TracksKeyed(ctx context.Context, arg TracksParams) (map[int32]
 			}
 		}
 
-		// The artist's audio is off-limits once the track was deleted or its
-		// owner stopped being active - either the artist deactivated their own
-		// account or the account was delisted by the trusted notifier. The cid
-		// in those rows is real, so a signed URL would still work: the stream
-		// and download endpoints reject these, but that only closes two routes,
-		// and anyone reading the track response could otherwise fetch the audio
-		// straight from the content node. Preview is included because a preview
-		// clip is still the artist's audio.
+		// No media links (stream, download or preview) for a deleted track or
+		// an inactive owner. The cid is real, so a signed link in the response
+		// would bypass the stream and download endpoint checks.
 		isAudioAllowed := !rawTrack.IsDelete && !user.IsDeactivated
 
-		// Streaming needs one more thing: a transcoded cid to point at. An
-		// upload that never got its track_cid written has audio sitting on the
-		// content node that no reader can address - nothing to sign, nothing to
-		// play, and signing an empty cid just produces a URL guaranteed to 404.
-		// Such rows used to report is_streamable=true, so every client treated
-		// them as healthy: the player spun on a dead URL, and mobile's
-		// share-to-story fed that URL to ffmpeg and failed with a generic
-		// "something went wrong". Say plainly that there is nothing to stream.
-		//
-		// Downloads are deliberately not gated on this - they fall back to
-		// orig_file_cid, which a row missing its track_cid still has.
+		// Streaming also needs a track_cid; without one there is nothing to
+		// play. Downloads don't, since they fall back to orig_file_cid.
 		isStreamable := isAudioAllowed && rawTrack.TrackCid.String != ""
 
 		var stream *MediaLink

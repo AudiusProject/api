@@ -20,9 +20,7 @@ func TestTranscodedCid(t *testing.T) {
 	done := uploadRecord{Status: "done", TranscodeResults: map[string]string{"320": "QmDone"}}
 	assert.Equal(t, "QmDone", done.transcodedCid())
 
-	// An upload still in flight has nothing to offer, even if a partial result
-	// is already present - writing that would point the track at a half-built
-	// blob.
+	// An unfinished upload yields no cid, even with a partial result present.
 	busy := uploadRecord{Status: "busy", TranscodeResults: map[string]string{"320": "QmPartial"}}
 	assert.Equal(t, "", busy.transcodedCid())
 
@@ -107,8 +105,7 @@ func trackCidOf(t *testing.T, pool *pgxpool.Pool, trackID int64) *string {
 	return cid
 }
 
-// The whole point of the job: an upload that transcoded fine but was indexed
-// without its cid gets its audio pointer back.
+// A cidless track is repaired when nodes reach quorum.
 func TestRepairTrackCidsJob_RepairsOnQuorum(t *testing.T) {
 	pool := database.CreateTestDatabase(t, "test_jobs")
 	defer pool.Close()
@@ -134,8 +131,7 @@ func TestRepairTrackCidsJob_RepairsOnQuorum(t *testing.T) {
 	assert.Equal(t, trackCidQuorum, calls, "stop asking nodes once quorum is reached")
 }
 
-// track_cid decides which bytes every listener receives, so one node's word is
-// never enough to set it.
+// One node is not enough to set track_cid.
 func TestRepairTrackCidsJob_SingleNodeCannotRepair(t *testing.T) {
 	pool := database.CreateTestDatabase(t, "test_jobs")
 	defer pool.Close()
@@ -152,8 +148,7 @@ func TestRepairTrackCidsJob_SingleNodeCannotRepair(t *testing.T) {
 	assert.Nil(t, trackCidOf(t, pool, 100))
 }
 
-// Disagreement means something is wrong upstream. Leave the row alone rather
-// than picking a winner.
+// Disagreeing nodes leave the row unchanged.
 func TestRepairTrackCidsJob_DisagreementLeavesTrackAlone(t *testing.T) {
 	pool := database.CreateTestDatabase(t, "test_jobs")
 	defer pool.Close()
@@ -204,8 +199,8 @@ func TestRepairTrackCidsJob_SkipsUnreachableNodes(t *testing.T) {
 	assert.Equal(t, "QmAgreed", *cid)
 }
 
-// A track that already has audio is not a candidate, and neither is a deleted
-// one - its audio is meant to stay unreachable.
+// Only current, undeleted, non-stem tracks with no track_cid, an upload id,
+// and no active backoff are candidates.
 func TestRepairTrackCidsJob_QueryTracksSelectsOnlyRepairable(t *testing.T) {
 	pool := database.CreateTestDatabase(t, "test_jobs")
 	defer pool.Close()
@@ -254,7 +249,7 @@ func TestRepairTrackCidsJob_BackoffAfterFailure(t *testing.T) {
 	assert.Empty(t, job.backedOffTrackIDs(now.Add(trackCidRetryMax)), "backoff is capped")
 }
 
-// The indexer writing real metadata must always beat the repair job.
+// applyTrackCid never overwrites an existing cid.
 func TestApplyTrackCidDoesNotOverwriteExistingCid(t *testing.T) {
 	pool := database.CreateTestDatabase(t, "test_jobs")
 	defer pool.Close()

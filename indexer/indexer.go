@@ -230,10 +230,9 @@ func (ci *CoreIndexer) startParityJobs(ctx context.Context) {
 	jobs.NewRepairAudioAnalysesJob(ci.Config, ci.pool, ci.openAudioSDK).
 		ScheduleEvery(ctx, 3*time.Minute)
 
-	// Backfill track_cid for uploads that transcoded successfully but were
-	// indexed without their cid, leaving the track unplayable. Same
-	// content-node source as the analysis repair above. Runs less often
-	// because these are rare and each pass costs a lookup per candidate.
+	// Backfill track_cid for uploads that transcoded but were indexed without
+	// it. Runs less often than the analysis repair since these are rare and
+	// each candidate costs a content-node lookup.
 	jobs.NewRepairTrackCidsJob(ci.Config, ci.pool, ci.openAudioSDK).
 		ScheduleEvery(ctx, 15*time.Minute)
 }
