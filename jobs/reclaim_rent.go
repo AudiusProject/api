@@ -2,6 +2,7 @@ package jobs
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"sync"
 	"time"
@@ -30,8 +31,8 @@ const (
 type ReclaimRentJob struct {
 	cfg               config.Config
 	pool              database.DbPool
-	rpcClient         *rpc.Client
-	transactionSender *spl.TransactionSender
+	rpcClient         reclaimRentRPCClient
+	transactionSender reclaimRentTransactionSender
 	mints             []solana.PublicKey
 	logger            *zap.Logger
 
@@ -39,16 +40,34 @@ type ReclaimRentJob struct {
 	isRunning bool
 }
 
+type reclaimRentRPCClient interface {
+	GetMultipleAccountsWithOpts(
+		context.Context,
+		[]solana.PublicKey,
+		*rpc.GetMultipleAccountsOpts,
+	) (*rpc.GetMultipleAccountsResult, error)
+}
+
+type reclaimRentTransactionSender interface {
+	GetFeePayer() (*solana.Wallet, error)
+	SendTransactionWithRetries(
+		context.Context,
+		*solana.TransactionBuilder,
+		rpc.CommitmentType,
+		rpc.TransactionOpts,
+	) (*solana.Signature, error)
+}
+
 func NewReclaimRentJob(cfg config.Config, pool database.DbPool) *ReclaimRentJob {
 	logger := logging.NewZapLogger(cfg).Named("ReclaimRentJob")
 
-	var rpcClient *rpc.Client
-	if len(cfg.SolanaConfig.RpcProviders) > 0 {
+	var rpcClient reclaimRentRPCClient
+	if len(cfg.SolanaConfig.RpcProviders) > 0 && cfg.SolanaConfig.RpcProviders[0] != "" {
 		rpcClient = rpc.New(cfg.SolanaConfig.RpcProviders[0])
 	}
 
-	var transactionSender *spl.TransactionSender
-	if len(cfg.SolanaConfig.RpcProviders) > 0 {
+	var transactionSender reclaimRentTransactionSender
+	if rpcClient != nil {
 		transactionSender = spl.NewTransactionSender(cfg.SolanaConfig.FeePayers, cfg.SolanaConfig.RpcProviders)
 	}
 
@@ -102,7 +121,8 @@ func (j *ReclaimRentJob) Run(ctx context.Context) {
 
 // Closes zero-balance claimable token accounts created in the last 7 days
 // for the configured AUDIO and USDC mints, returning the rent lamports to the
-// fee payer that signs each transaction. Ensures only one instance runs at a time.
+// destination required by the claimable-tokens program. Ensures only one
+// instance runs at a time.
 func (j *ReclaimRentJob) run(ctx context.Context) error {
 	j.mutex.Lock()
 	if j.isRunning {
@@ -126,6 +146,7 @@ func (j *ReclaimRentJob) run(ctx context.Context) error {
 		return nil
 	}
 
+	var runErrors []error
 	for _, mint := range j.mints {
 		if mint.IsZero() {
 			continue
@@ -135,14 +156,37 @@ func (j *ReclaimRentJob) run(ctx context.Context) error {
 				zap.String("mint", mint.String()),
 				zap.Error(err),
 			)
+			runErrors = append(runErrors, fmt.Errorf("process mint %s: %w", mint, err))
 		}
 	}
-	return nil
+	return errors.Join(runErrors...)
 }
 
 type reclaimRentAccount struct {
 	Account         string `db:"account"`
 	EthereumAddress string `db:"ethereum_address"`
+}
+
+type reclaimRentFilterStats struct {
+	MissingAccount      int
+	InvalidOwner        int
+	InvalidData         int
+	MintMismatch        int
+	NonZeroBalance      int
+	InvalidEthAddress   int
+	AddressMismatch     int
+	WrongCloseAuthority int
+}
+
+func (s *reclaimRentFilterStats) add(other reclaimRentFilterStats) {
+	s.MissingAccount += other.MissingAccount
+	s.InvalidOwner += other.InvalidOwner
+	s.InvalidData += other.InvalidData
+	s.MintMismatch += other.MintMismatch
+	s.NonZeroBalance += other.NonZeroBalance
+	s.InvalidEthAddress += other.InvalidEthAddress
+	s.AddressMismatch += other.AddressMismatch
+	s.WrongCloseAuthority += other.WrongCloseAuthority
 }
 
 func (j *ReclaimRentJob) processMint(ctx context.Context, mint solana.PublicKey) error {
@@ -156,7 +200,19 @@ func (j *ReclaimRentJob) processMint(ctx context.Context, mint solana.PublicKey)
 
 	cutoff := time.Now().Add(-reclaimRentLookback)
 	offset := 0
+	totalCandidates := 0
+	totalClosable := 0
 	totalClosed := 0
+	totalFailed := 0
+	var filterStats reclaimRentFilterStats
+	var firstProcessError error
+	processErrorCount := 0
+	recordProcessError := func(err error) {
+		processErrorCount++
+		if firstProcessError == nil {
+			firstProcessError = err
+		}
+	}
 	for {
 		accounts, err := j.fetchCandidates(ctx, mint.String(), cutoff, reclaimRentDbPageSize, offset)
 		if err != nil {
@@ -166,12 +222,16 @@ func (j *ReclaimRentJob) processMint(ctx context.Context, mint solana.PublicKey)
 			break
 		}
 		offset += len(accounts)
+		totalCandidates += len(accounts)
 
-		filtered, err := j.filterOnChain(ctx, accounts)
+		filtered, pageFilterStats, err := j.filterOnChain(ctx, accounts, mint, authority)
 		if err != nil {
 			logger.Error("filterOnChain failed", zap.Error(err))
+			recordProcessError(err)
 			continue
 		}
+		filterStats.add(pageFilterStats)
+		totalClosable += len(filtered)
 
 		for i := 0; i < len(filtered); i += reclaimRentBatchSize {
 			end := i + reclaimRentBatchSize
@@ -185,6 +245,18 @@ func (j *ReclaimRentJob) processMint(ctx context.Context, mint solana.PublicKey)
 					zap.Error(err),
 					zap.Int("batch_size", len(batch)),
 				)
+				totalFailed += len(batch)
+				recordProcessError(err)
+				continue
+			}
+			if sig == nil {
+				err := errors.New("transaction sender returned a nil signature")
+				logger.Error("processBatch failed",
+					zap.Error(err),
+					zap.Int("batch_size", len(batch)),
+				)
+				totalFailed += len(batch)
+				recordProcessError(err)
 				continue
 			}
 			logger.Info("Reclaimed batch",
@@ -194,7 +266,29 @@ func (j *ReclaimRentJob) processMint(ctx context.Context, mint solana.PublicKey)
 			totalClosed += len(batch)
 		}
 	}
-	logger.Info("Done processing mint", zap.Int("total_closed", totalClosed))
+	logger.Info("Done processing mint",
+		zap.Int("db_candidates", totalCandidates),
+		zap.Int("onchain_closable", totalClosable),
+		zap.Int("total_closed", totalClosed),
+		zap.Int("total_failed", totalFailed),
+		zap.Int("processing_errors", processErrorCount),
+		zap.Int("skipped_missing", filterStats.MissingAccount),
+		zap.Int("skipped_invalid_owner", filterStats.InvalidOwner),
+		zap.Int("skipped_invalid_data", filterStats.InvalidData),
+		zap.Int("skipped_mint_mismatch", filterStats.MintMismatch),
+		zap.Int("skipped_nonzero_balance", filterStats.NonZeroBalance),
+		zap.Int("skipped_invalid_eth_address", filterStats.InvalidEthAddress),
+		zap.Int("skipped_address_mismatch", filterStats.AddressMismatch),
+		zap.Int("skipped_wrong_close_authority", filterStats.WrongCloseAuthority),
+	)
+	if firstProcessError != nil {
+		return fmt.Errorf(
+			"%d processing operation(s) failed (%d close attempts affected): %w",
+			processErrorCount,
+			totalFailed,
+			firstProcessError,
+		)
+	}
 	return nil
 }
 
@@ -222,33 +316,85 @@ func (j *ReclaimRentJob) fetchCandidates(ctx context.Context, mint string, since
 	return pgx.CollectRows(rows, pgx.RowToStructByName[reclaimRentAccount])
 }
 
-func (j *ReclaimRentJob) filterOnChain(ctx context.Context, batch []reclaimRentAccount) ([]reclaimRentAccount, error) {
+func (j *ReclaimRentJob) filterOnChain(
+	ctx context.Context,
+	batch []reclaimRentAccount,
+	mint solana.PublicKey,
+	authority solana.PublicKey,
+) ([]reclaimRentAccount, reclaimRentFilterStats, error) {
+	var stats reclaimRentFilterStats
 	pubkeys := make([]solana.PublicKey, 0, len(batch))
 	for _, acct := range batch {
-		pubkeys = append(pubkeys, solana.MustPublicKeyFromBase58(acct.Account))
+		pubkey, err := solana.PublicKeyFromBase58(acct.Account)
+		if err != nil {
+			return nil, stats, fmt.Errorf("invalid account public key %q: %w", acct.Account, err)
+		}
+		pubkeys = append(pubkeys, pubkey)
 	}
 	res, err := j.rpcClient.GetMultipleAccountsWithOpts(ctx, pubkeys, &rpc.GetMultipleAccountsOpts{
 		Encoding: solana.EncodingBase64,
 	})
 	if err != nil {
-		return nil, fmt.Errorf("failed to get accounts: %w", err)
+		return nil, stats, fmt.Errorf("failed to get accounts: %w", err)
+	}
+	if len(res.Value) != len(batch) {
+		return nil, stats, fmt.Errorf("RPC returned %d accounts for a batch of %d", len(res.Value), len(batch))
 	}
 
 	filtered := make([]reclaimRentAccount, 0, len(batch))
 	for i, info := range res.Value {
 		if info == nil {
+			stats.MissingAccount++
+			continue
+		}
+		if !info.Owner.Equals(solana.TokenProgramID) {
+			stats.InvalidOwner++
+			continue
+		}
+		if info.Data == nil {
+			stats.InvalidData++
 			continue
 		}
 		var ta token.Account
 		if err := bin.NewBorshDecoder(info.Data.GetBinary()).Decode(&ta); err != nil {
+			stats.InvalidData++
+			continue
+		}
+		if !ta.Mint.Equals(mint) {
+			stats.MintMismatch++
 			continue
 		}
 		if ta.Amount != 0 {
+			stats.NonZeroBalance++
+			continue
+		}
+		if !common.IsHexAddress(batch[i].EthereumAddress) {
+			stats.InvalidEthAddress++
+			continue
+		}
+		expectedUserBank, err := claimable_tokens.DeriveUserBankAccount(
+			mint,
+			common.HexToAddress(batch[i].EthereumAddress),
+		)
+		if err != nil {
+			return nil, stats, fmt.Errorf("derive user bank for %q: %w", batch[i].Account, err)
+		}
+		if !pubkeys[i].Equals(expectedUserBank) {
+			stats.AddressMismatch++
+			continue
+		}
+
+		closeAuthority := ta.Owner
+		if ta.CloseAuthority != nil {
+			closeAuthority = *ta.CloseAuthority
+		}
+		if !closeAuthority.Equals(authority) {
+			stats.WrongCloseAuthority++
 			continue
 		}
 		filtered = append(filtered, batch[i])
 	}
-	return filtered, nil
+	return filtered, stats, nil
 }
 
 func (j *ReclaimRentJob) processBatch(ctx context.Context, batch []reclaimRentAccount, authority solana.PublicKey) (*solana.Signature, error) {
@@ -262,11 +408,19 @@ func (j *ReclaimRentJob) processBatch(ctx context.Context, batch []reclaimRentAc
 	}
 
 	builder := solana.NewTransactionBuilder().SetFeePayer(payer.PublicKey())
+	rentDestination := solana.MustPublicKeyFromBase58(claimable_tokens.DefaultRentDestinationAddress)
 	for _, acct := range batch {
+		userBank, err := solana.PublicKeyFromBase58(acct.Account)
+		if err != nil {
+			return nil, fmt.Errorf("invalid account public key %q: %w", acct.Account, err)
+		}
+		if !common.IsHexAddress(acct.EthereumAddress) {
+			return nil, fmt.Errorf("invalid Ethereum address %q for account %s", acct.EthereumAddress, acct.Account)
+		}
 		inst := claimable_tokens.NewCloseInstructionBuilder().
-			SetUserBank(solana.MustPublicKeyFromBase58(acct.Account)).
+			SetUserBank(userBank).
 			SetAuthority(authority).
-			SetDestination(payer.PublicKey()).
+			SetDestination(rentDestination).
 			SetEthAddress(common.HexToAddress(acct.EthereumAddress))
 		builder.AddInstruction(inst.Build())
 	}
