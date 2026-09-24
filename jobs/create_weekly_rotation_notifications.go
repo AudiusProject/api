@@ -87,6 +87,13 @@ func (j *WeeklyRotationNotificationsJob) Run(ctx context.Context) {
 	}
 }
 
+// weeklyRotationWindowExtensions lengthens the send window for specific
+// periods. 2026-39 went out with a stale recipient list; the fix merged after
+// its window closed. Remove once that period has passed.
+var weeklyRotationWindowExtensions = map[string]time.Duration{
+	"2026-39": 48 * time.Hour,
+}
+
 // sendWindow returns the instants between which the period containing
 // `now` is announced.
 func (j *WeeklyRotationNotificationsJob) sendWindow(now time.Time) (start, end time.Time) {
@@ -96,7 +103,11 @@ func (j *WeeklyRotationNotificationsJob) sendWindow(now time.Time) (start, end t
 		return periodStart, periodStart.AddDate(0, 0, 7)
 	}
 	start = periodStart.Add(weeklyRotationSendHourUTC * time.Hour)
-	return start, start.Add(weeklyRotationSendWindow)
+	window := weeklyRotationSendWindow
+	if extra, ok := weeklyRotationWindowExtensions[weeklyrotation.PeriodKey(year, week)]; ok {
+		window += extra
+	}
+	return start, start.Add(window)
 }
 
 func (j *WeeklyRotationNotificationsJob) run(ctx context.Context) error {

@@ -184,3 +184,17 @@ func TestWeeklyRotationNotifications_Pacing(t *testing.T) {
 	require.NoError(t, job.run(ctx))
 	assert.Equal(t, 2, countNotifications(t, ctx, pool, "weekly_rotation"))
 }
+
+func TestWeeklyRotationNotifications_WindowExtension(t *testing.T) {
+	job := NewWeeklyRotationNotificationsJob(newTestConfig(), nil)
+
+	// 2026-09-23 is the Wednesday that opens period 2026-39.
+	start, end := job.sendWindow(time.Date(2026, time.September, 24, 19, 0, 0, 0, time.UTC))
+	assert.Equal(t, time.Date(2026, time.September, 23, 16, 0, 0, 0, time.UTC), start)
+	assert.Equal(t, time.Date(2026, time.September, 26, 16, 0, 0, 0, time.UTC), end)
+
+	// Other periods keep the normal window.
+	start, end = job.sendWindow(weeklyRotationSendInstant)
+	assert.Equal(t, weeklyRotationSendInstant, start)
+	assert.Equal(t, weeklyRotationSendInstant.Add(weeklyRotationSendWindow), end)
+}
