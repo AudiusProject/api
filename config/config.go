@@ -89,6 +89,18 @@ type Config struct {
 	// confirmed_block < NewChainFlushFromBlock before sending — trimming rows already
 	// covered by the backfill.
 	// NewChainInsecureSkipVerify disables TLS verification for the new chain endpoint (e.g. localstack).
+	// PlayRoutingHosts, when non-empty, are tried first when resolving a track
+	// stream URL. Plays are recorded by whichever node serves the audio, never
+	// through the relay, so this is what decides which chain a play lands on.
+	//
+	// It exists for the genesis migration: while the fleet is split across two
+	// chains, an already-migrated node writes its plays to the new chain even
+	// though the indexer is still reading the old one, and every play in that
+	// window goes to a chain nobody reads. Pointing this at nodes that stay on
+	// the old chain keeps plays where the indexer is. Cleared at the cutover.
+	// See cmd/genesis-writer/ROLLOUT.md, Runbook steps 5 and 13.
+	PlayRoutingHosts []string
+
 	NewChainURL                string
 	NewChainQueueEnabled       bool
 	NewChainFlushEnabled       bool
@@ -360,6 +372,15 @@ func init() {
 			log.Fatalf("Invalid featuredAudienceUserId: %s", err)
 		}
 		Cfg.FeaturedAudienceUserID = int32(parsed)
+	}
+
+	// Genesis migration: temporary play routing (see the struct field).
+	if v := strings.TrimSpace(os.Getenv("playRoutingHosts")); v != "" {
+		for _, h := range strings.Split(v, ",") {
+			if h = strings.TrimSpace(h); h != "" {
+				Cfg.PlayRoutingHosts = append(Cfg.PlayRoutingHosts, h)
+			}
+		}
 	}
 
 	// Genesis migration dual-write queue
