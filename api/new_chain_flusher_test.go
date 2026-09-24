@@ -147,7 +147,7 @@ func TestNewChainFlusherTrim(t *testing.T) {
 	insertQueueRow(t, f, sampleTx(2), &block99)  // should be trimmed
 	insertQueueRow(t, f, sampleTx(3), &block100) // kept (boundary)
 	insertQueueRow(t, f, sampleTx(4), &block200) // kept
-	insertQueueRow(t, f, sampleTx(5), nil)        // NULL confirmed_block — kept
+	insertQueueRow(t, f, sampleTx(5), nil)       // NULL confirmed_block — kept
 
 	require.Equal(t, 5, queueDepth(t, f))
 
@@ -216,9 +216,9 @@ func TestNewChainFlusherTrimThenSend(t *testing.T) {
 	cfg := &config.Config{NewChainFlushFromBlock: 50}
 	f, mock := newTestFlusher(t, cfg)
 
-	block10 := int64(10)  // pre-backfill — trimmed
-	block49 := int64(49)  // pre-backfill — trimmed
-	block50 := int64(50)  // post-backfill — flushed
+	block10 := int64(10)   // pre-backfill — trimmed
+	block49 := int64(49)   // pre-backfill — trimmed
+	block50 := int64(50)   // post-backfill — flushed
 	block100 := int64(100) // post-backfill — flushed
 	insertQueueRow(t, f, sampleTx(1), &block10)
 	insertQueueRow(t, f, sampleTx(2), &block49)
@@ -243,4 +243,91 @@ func TestNewChainFlusherTrimThenSend(t *testing.T) {
 		receivedIDs[i] = me.EntityId
 	}
 	require.ElementsMatch(t, []int64{3, 4}, receivedIDs)
+}
+
+// The ceiling is the mirror of NewChainFlushFromBlock: rows confirmed above it
+// stay pending. It exists so everything confirmed at or below the indexer's stop
+// height L can be landed on the new chain before the new indexer starts, without
+// letting anything above L across the boundary first.
+func TestNewChainFlusherCeilingHoldsRowsAboveIt(t *testing.T) {
+	cfg := &config.Config{NewChainFlushToBlock: 100}
+	f, _ := newTestFlusher(t, cfg)
+
+	block50 := int64(50)
+	block100 := int64(100)
+	block101 := int64(101)
+	block200 := int64(200)
+	insertQueueRow(t, f, sampleTx(1), &block50)  // below ceiling — eligible
+	insertQueueRow(t, f, sampleTx(2), &block100) // at ceiling — eligible, inclusive
+	insertQueueRow(t, f, sampleTx(3), &block101) // above — held
+	insertQueueRow(t, f, sampleTx(4), &block200) // above — held
+
+	batch, err := f.fetchBatch(context.Background(), 100)
+	require.NoError(t, err)
+	require.Len(t, batch, 2, "only rows confirmed at or below the ceiling are eligible")
+	require.Equal(t, []int64{1, 2}, entityIDsOf(t, batch))
+}
+
+// A row below the ceiling sitting behind one above it must still be returned.
+// Enqueue is fire-and-forget, so confirmed_block is only roughly ordered by id;
+// a halt-on-first-above-ceiling would strand this row, and it would then flush
+// after the boundary was recorded and be indexed a second time.
+func TestNewChainFlusherCeilingFiltersRatherThanHalts(t *testing.T) {
+	cfg := &config.Config{NewChainFlushToBlock: 100}
+	f, _ := newTestFlusher(t, cfg)
+
+	above := int64(200)
+	below := int64(50)
+	insertQueueRow(t, f, sampleTx(1), &above) // lower id, above the ceiling
+	insertQueueRow(t, f, sampleTx(2), &below) // higher id, below it
+
+	batch, err := f.fetchBatch(context.Background(), 100)
+	require.NoError(t, err)
+	require.Equal(t, []int64{2}, entityIDsOf(t, batch),
+		"the row below the ceiling must be reachable past one above it")
+}
+
+// NULL confirmed_block cannot be placed relative to the ceiling, so it is held
+// while one is set and flushes once it is lifted. Holding is the recoverable
+// choice: sending it early could double-index, dropping it would lose the write.
+func TestNewChainFlusherCeilingHoldsNullConfirmedBlock(t *testing.T) {
+	cfg := &config.Config{NewChainFlushToBlock: 100}
+	f, _ := newTestFlusher(t, cfg)
+
+	insertQueueRow(t, f, sampleTx(1), nil)
+
+	batch, err := f.fetchBatch(context.Background(), 100)
+	require.NoError(t, err)
+	require.Empty(t, batch, "NULL confirmed_block is held while a ceiling is set")
+
+	// Lifting the ceiling releases it.
+	f.cfg.NewChainFlushToBlock = 0
+	batch, err = f.fetchBatch(context.Background(), 100)
+	require.NoError(t, err)
+	require.Equal(t, []int64{1}, entityIDsOf(t, batch))
+}
+
+// With no ceiling configured the flusher is unbounded, as in normal operation.
+func TestNewChainFlusherNoCeilingSendsEverything(t *testing.T) {
+	cfg := &config.Config{}
+	f, _ := newTestFlusher(t, cfg)
+
+	block50 := int64(50)
+	insertQueueRow(t, f, sampleTx(1), &block50)
+	insertQueueRow(t, f, sampleTx(2), nil)
+
+	batch, err := f.fetchBatch(context.Background(), 100)
+	require.NoError(t, err)
+	require.Equal(t, []int64{1, 2}, entityIDsOf(t, batch))
+}
+
+func entityIDsOf(t *testing.T, batch []queueRow) []int64 {
+	t.Helper()
+	var ids []int64
+	for _, r := range batch {
+		var me corev1.ManageEntityLegacy
+		require.NoError(t, proto.Unmarshal(r.txRaw, &me))
+		ids = append(ids, me.EntityId)
+	}
+	return ids
 }
