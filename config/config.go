@@ -240,8 +240,28 @@ func init() {
 		}
 		Cfg.AntiAbuseOracles = []string{"https://anti-abuse-oracle.audius.engineering"}
 		Cfg.ArchiverNodes = []string{"https://archiver.audius.engineering"}
+		// Registered on chain but not serving content. Rendezvous ranks by
+		// eth registration, which says a node is entitled to serve — not
+		// that it does — so these keep getting handed out as image hosts.
+		// Clients recover via artwork.mirrors and StoreAllNodes, so nothing
+		// breaks; this just stops those loads from burning a request on a
+		// host that can't answer.
+		//
+		// Every entry below is also absent from core's non-jailed validator
+		// set (`/core/nodes`), which is the same conclusion the network has
+		// already reached on its own. See the discussion on #1017 — that
+		// list is the durable fix; this one is the stopgap.
+		//
+		// Verified 2026-08-11:
 		Cfg.DeadNodes = []string{
-			"https://content.grassfed.network",
+			"https://content.grassfed.network",    // connection refused
+			"https://audius.zeogrid.com",          // connection refused
+			"https://cn0.mainnet.audiusindex.org", // 521 on health + content
+			"https://cn3.mainnet.audiusindex.org", // 521 on health + content
+			"https://cn4.mainnet.audiusindex.org", // 521 on health + content
+			// health_check 200 but 502 on every content CID tried — the case
+			// a naive health probe would wave through.
+			"https://audius-nodes.com",
 		}
 		Cfg.BlacklistedNodes = []string{
 			"https://audius-discovery-2.cultur3stake.com",
