@@ -175,12 +175,8 @@ func TestGetTrackUsdcPurchaseSelfAccess(t *testing.T) {
 	})
 }
 
-// A track whose owner is no longer active - the artist deactivated their own
-// account, or the account was delisted by the trusted notifier - must not carry
-// signed content-node URLs in its response. The stream and download endpoints
-// already reject these, but the media links in the track response bypass those
-// endpoints entirely: the cid is real, so the signed URL serves the full audio
-// straight from the content node to anyone who reads the response.
+// A non-streamable track (deleted, or owner deactivated) must not carry signed
+// media links in its response.
 func TestGetTrack_NonStreamableOmitsMediaLinks(t *testing.T) {
 	for _, tc := range []struct {
 		name  string
@@ -226,8 +222,7 @@ func TestGetTrack_NonStreamableOmitsMediaLinks(t *testing.T) {
 	}
 }
 
-// The guard above is scoped to non-streamable tracks: an ordinary track with an
-// active owner must still get its signed media links.
+// A streamable track keeps its signed media links.
 func TestGetTrack_StreamableKeepsMediaLinks(t *testing.T) {
 	app := emptyTestApp(t)
 	database.Seed(app.pool.Replicas[0], database.FixtureMap{

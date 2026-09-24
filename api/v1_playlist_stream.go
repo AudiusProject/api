@@ -51,9 +51,7 @@ func (app *ApiServer) v1PlaylistStream(c *fiber.Ctx) error {
 			continue
 		}
 
-		// Leave deleted tracks, and tracks whose owner is no longer active, out
-		// of the m3u8 entirely rather than emitting a URL the stream endpoint
-		// will now reject.
+		// Skip tracks the stream endpoint rejects (deleted, or owner deactivated).
 		if !track.IsStreamable {
 			continue
 		}

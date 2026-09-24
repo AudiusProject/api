@@ -17,6 +17,8 @@ func TestV1CoinMetadata(t *testing.T) {
 		"users": {
 			{"user_id": 1, "handle": "bearartist", "is_current": true},
 			{"user_id": 2, "handle": "bareartist", "is_current": true},
+			// Superseded row from before a handle change.
+			{"user_id": 2, "handle": "oldbare", "is_current": false, "txhash": "0xold"},
 		},
 		"artist_coins": {
 			{

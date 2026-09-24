@@ -201,19 +201,10 @@ func (q *Queries) TracksKeyed(ctx context.Context, arg TracksParams) (map[int32]
 		// account was delisted by the trusted notifier.
 		isStreamable := !rawTrack.IsDelete && !user.IsDeactivated
 
-		// Two reasons to leave a media link nil, both with the same effect: the
-		// URL should never be handed out, and the endpoints report the track as
-		// unavailable instead.
-		//
-		// A track row can have empty cid columns (e.g. an upload-v2 row whose
-		// track_cid/orig_file_cid backfill never ran), and signing an empty cid
-		// produces a content-node URL that is guaranteed to 404.
-		//
-		// A non-streamable track is worse: the cid is real, so the signed URL
-		// works. The stream and download endpoints reject these, but that only
-		// closes those two routes - anyone reading the track response could
-		// still fetch the audio straight from the content node. Preview is
-		// included because a preview clip is still the artist's audio.
+		// Media links stay nil when there is no cid to sign (the URL would 404)
+		// or the track is not streamable (the cid is real, so a signed URL would
+		// bypass the stream and download endpoint checks). Previews count as
+		// the artist's audio too.
 		var stream *MediaLink
 		if isStreamable && access.Stream && rawTrack.TrackCid.String != "" {
 			stream, err = mediaLink(rawTrack.TrackCid.String, rawTrack.TrackID, arg.MyID.(int32), id3Tags)
