@@ -35,7 +35,7 @@ func init() {
 	reclaimRentCmd.Flags().StringP("rpc", "r", "https://api.mainnet-beta.solana.com", "The Solana RPC endpoint to use")
 	reclaimRentCmd.Flags().StringP("database", "c", "postgres://postgres:postgres@localhost:5432/discovery_provider_1?sslmode=disable", "Database connection string")
 	reclaimRentCmd.Flags().StringP("keypair", "k", "~/.config/solana/id.json", "The wallet to use as fee payer for transactions")
-	reclaimRentCmd.Flags().StringP("destination", "d", "", "The recipient of reclaimed rent (defaults to fee payer)")
+	reclaimRentCmd.Flags().StringP("destination", "d", claimable_tokens.DefaultRentDestinationAddress, "The recipient of reclaimed rent (must match the claimable-tokens program)")
 	reclaimRentCmd.Flags().StringP("program", "p", claimable_tokens.ProgramID.String(), "The claimable tokens program ID")
 	reclaimRentCmd.Flags().StringP("created-after", "", "", "Filter accounts created after this date (RFC3339 format, e.g., 2024-01-01T00:00:00Z)")
 }
@@ -77,12 +77,13 @@ func reclaimRent(cmd *cobra.Command, args []string) error {
 	if err != nil {
 		return fmt.Errorf("failed to get destination flag: %w", err)
 	}
-	var destination solana.PublicKey
-	if destinationFlag == "" {
-		destination = keypair.PublicKey()
-	} else {
-		destination = solana.MustPublicKeyFromBase58(destinationFlag)
+	if destinationFlag != claimable_tokens.DefaultRentDestinationAddress {
+		return fmt.Errorf(
+			"destination must be %s; the claimable-tokens program rejects other addresses",
+			claimable_tokens.DefaultRentDestinationAddress,
+		)
 	}
+	destination := solana.MustPublicKeyFromBase58(destinationFlag)
 
 	programIDFlag, err := cmd.Flags().GetString("program")
 	if err != nil {

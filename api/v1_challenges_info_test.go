@@ -90,7 +90,7 @@ func TestWeeklyPoolWindowStartAt(t *testing.T) {
 		{"Monday at 16:00 opens the week", thisMonday, thisMonday},
 		{"Wednesday", utc(2026, time.September, 9, 12), thisMonday},
 		{"Saturday", utc(2026, time.September, 12, 23), thisMonday},
-		{"Sunday (Go weekday 0) is the end of the week, not the start of the next", utc(2026, time.September, 13, 21), thisMonday},
+		{"Sunday", utc(2026, time.September, 13, 21), thisMonday},
 		{"Sunday just before the next Monday", utc(2026, time.September, 13, 23), thisMonday},
 	}
 	for _, tc := range cases {

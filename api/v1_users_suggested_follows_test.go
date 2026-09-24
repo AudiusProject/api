@@ -93,7 +93,7 @@ func TestV1UsersSuggestedFollows(t *testing.T) {
 		assert.Equal(t, "onerepost", resp.Data[1].Handle.String)
 	}
 
-	// Offset walks the same ordering rather than reshuffling it.
+	// Offset continues the same ordering.
 	{
 		status, _ := testGet(t, app, "/v1/users/7eP5n/suggested-follows?limit=2&offset=2", &resp)
 		assert.Equal(t, 200, status)
@@ -102,8 +102,7 @@ func TestV1UsersSuggestedFollows(t *testing.T) {
 		assert.Equal(t, "albumowner", resp.Data[1].Handle.String)
 	}
 
-	// A user with no favorites or reposts gets nothing rather than an error --
-	// the caller is expected to fall back to a non-personalized surface.
+	// A user with no favorites or reposts gets an empty list.
 	{
 		status, _ := testGet(t, app, "/v1/users/ML51L/suggested-follows", &resp)
 		assert.Equal(t, 200, status)
@@ -111,9 +110,7 @@ func TestV1UsersSuggestedFollows(t *testing.T) {
 	}
 }
 
-// The decay term is the only reason a single favorite can outrank another
-// single favorite, so it needs a case of its own -- the fixtures above all
-// share a created_at and would pass with the decay removed entirely.
+// The fixtures above share a created_at, so the decay term needs its own case.
 func TestV1UsersSuggestedFollowsRecencyDecay(t *testing.T) {
 	app := emptyTestApp(t)
 
@@ -145,8 +142,8 @@ func TestV1UsersSuggestedFollowsRecencyDecay(t *testing.T) {
 		Data []dbv1.User
 	}
 
-	// Equal raw engagement (one favorite each), so recency alone decides. User 2
-	// sorts first on user_id, which makes this fail loudly if decay stops working.
+	// Equal engagement, so recency decides. Without decay, user 2 would sort
+	// first on user_id.
 	status, _ := testGet(t, app, "/v1/users/7eP5n/suggested-follows", &resp)
 	assert.Equal(t, 200, status)
 	assert.Len(t, resp.Data, 2)

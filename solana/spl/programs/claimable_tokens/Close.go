@@ -9,6 +9,10 @@ import (
 	"github.com/gagliardetto/treeout"
 )
 
+// DefaultRentDestinationAddress is the only destination accepted by the
+// deployed claimable-tokens program's Close instruction.
+const DefaultRentDestinationAddress = "2HYDf9XvHRKhquxK1z4ETJ8ywueZcqEazyFZdRfLqGcT"
+
 type Close struct {
 	EthAddress common.Address
 

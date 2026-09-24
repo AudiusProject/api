@@ -38,7 +38,7 @@ func (app *ApiServer) v1CoinMetadata(c *fiber.Ctx) error {
 		       artist_coins.logo_uri,
 		       users.handle
 		FROM artist_coins
-		LEFT JOIN users ON users.user_id = artist_coins.user_id
+		LEFT JOIN users ON users.user_id = artist_coins.user_id AND users.is_current = true
 		WHERE artist_coins.mint = $1
 	`, mint).Scan(&name, &ticker, &description, &logoUri, &handle)
 	if err != nil {
@@ -62,9 +62,8 @@ func (app *ApiServer) v1CoinMetadata(c *fiber.Ctx) error {
 	if description != nil && *description != "" {
 		metadata.Description = *description
 	} else if handle != nil {
-		// The launchpad never persists a description - the Fan Club page builds
-		// this same sentence client-side, and storing it would make the page cite
-		// itself. Regenerate it here so wallets and explorers still get one.
+		// Launchpad coins store no description. Rebuild the default the web
+		// client shows so wallets and explorers still get one.
 		metadata.Description = defaultCoinDescription(*handle, ticker, appUrl)
 	}
 	if logoUri != nil {

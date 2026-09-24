@@ -154,7 +154,7 @@ func NewCreateTokenAccountInstruction(
 	if err != nil {
 		return nil, err
 	}
-	userBank, err := deriveUserBankAccount(mint, ethAddress)
+	userBank, err := DeriveUserBankAccount(mint, ethAddress)
 	if err != nil {
 		return nil, err
 	}

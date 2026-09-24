@@ -1203,10 +1203,8 @@ BEGIN
     RETURN TRUE;
   END IF;
 
-  -- existing chat takes priority over permissions.
-  -- A blast message only counts if the blast is newer than to_user's most
-  -- recent inbox settings change: otherwise an artist who blasts and then
-  -- closes their inbox would still be reachable by every blast recipient.
+  -- existing chat takes priority over permissions; blast messages only count
+  -- if newer than to_user's last inbox settings change
   SELECT COUNT(*) > 0 INTO can_message
   FROM chat_member member_a
   JOIN chat_member member_b USING (chat_id)

@@ -59,6 +59,15 @@ func TestChatBlastThenCloseInbox(t *testing.T) {
 			assert.ErrorContains(t, err, "Not permitted to send messages to this user")
 		}
 	}
+	pendingBlastIds := func(userId int32) []string {
+		blasts, err := getNewBlasts(pool, ctx, getNewBlastsParams{UserID: userId})
+		require.NoError(t, err)
+		ids := []string{}
+		for _, b := range blasts {
+			ids = append(ids, b.BlastID)
+		}
+		return ids
+	}
 	upgrade := func(follower int32, ts time.Time) string {
 		chatId := trashid.ChatID(int(follower), 1)
 		err := chatCreate(pool, ctx, follower, ts, ChatCreateRPCParams{
@@ -95,11 +104,12 @@ func TestChatBlastThenCloseInbox(t *testing.T) {
 	// artist closes their inbox
 	require.NoError(t, chatSetPermissions(pool, ctx, 1, ChatPermissionAll, []ChatPermission{ChatPermissionNone}, boolPtr(true), t3))
 
-	// 201 can no longer start a thread off the old blast
+	// 201 can no longer start a thread off the old blast, and no longer sees it as pending
 	assertChatCreateAllowed(t, ctx, validator, 201, 1, false)
 	assert.False(t, chatAllowed(201, 1))
+	assert.Empty(t, pendingBlastIds(201))
 
-	// 202's thread holds nothing but the blast seed, so it grants no reply rights
+	// 202's thread only has the blast seed, so 202 can't reply
 	assertMessageAllowed(202, chatId_202, false)
 	assert.False(t, chatAllowed(202, 1))
 
@@ -123,9 +133,10 @@ func TestChatBlastThenCloseInbox(t *testing.T) {
 	require.NoError(t, err)
 
 	assertChatCreateAllowed(t, ctx, validator, 201, 1, true)
+	assert.Equal(t, []string{"b_closed"}, pendingBlastIds(201))
 	assert.True(t, chatAllowed(202, 1), "new blast fanned into 202's thread re-opens replies")
 
-	// closing the inbox once more after that blast shuts the door again
+	// closing the inbox again blocks replies to the second blast
 	require.NoError(t, chatSetPermissions(pool, ctx, 1, ChatPermissionAll, []ChatPermission{ChatPermissionNone}, boolPtr(true), t5))
 	assertChatCreateAllowed(t, ctx, validator, 201, 1, false)
 	assert.False(t, chatAllowed(202, 1))

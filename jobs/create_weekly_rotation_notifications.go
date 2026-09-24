@@ -14,44 +14,16 @@ import (
 	"go.uber.org/zap"
 )
 
-// WeeklyRotationNotificationsJob tells listeners their Weekly Rotation has
-// rolled over.
+// WeeklyRotationNotificationsJob inserts one weekly_rotation notification per
+// recent listener per period (weeklyrotation.Period); pedalboard turns the row
+// into a push, gated by the push_weekly_rotation remote-config variable.
 //
-// The mix itself is computed on demand by GET /v1/users/:id/weekly-rotation
-// and rolls over every Wednesday 00:00 UTC (weeklyrotation.Period), so there
-// is nothing to precompute here. This job only fans out one
-// `weekly_rotation` notification row per eligible listener per period; the
-// pedalboard notifications app turns the row into a push (gated there by
-// the push_weekly_rotation remote-config variable), and the clients render
-// it in the notification feed.
-//
-// WHO. Anyone who has listened in the last weeklyRotationActiveWindow and
-// whose account is live. Recency comes from challenge_listen_streak, which
-// is one row per listener with a last_listen_date and cheap to scan, unlike
-// plays. Recent listening is a proxy for "has a non-empty mix": the
-// endpoint's affinity and history terms need plays to work with, and
-// computing every user's mix here just to check would cost far more than
-// the pushes are worth.
-//
-// WHEN. From weeklyRotationSendHourUTC on the Wednesday the period opens,
-// for weeklyRotationSendWindow. The mix is ready at 00:00 UTC, but a push at
-// 5pm Pacific on a Tuesday reads as noise; 16:00 UTC is 9am Pacific / noon
-// Eastern. Someone who only becomes eligible after the window closes waits
-// for the next Wednesday rather than getting "your rotation is ready" on a
-// Saturday. Stage sends throughout the period so the flow can be exercised
-// without waiting for a Wednesday, mirroring ListenStreakReminderJob.
-//
-// PACING. Each run inserts at most batchSize rows, walking user_id upward
-// from a per-period cursor. Every row costs the notifications app an
-// identity lookup and an SNS publish, and a single INSERT of the whole
-// listener base would land there as one burst. At the scheduled interval
-// this drains a few hundred thousand listeners inside the window without
-// spiking anything. The cursor is in-memory: after a restart the job
-// rescans from the start and the NOT EXISTS skips what was already sent.
-//
-// IDEMPOTENCY. group_id = weekly_rotation:<YYYY-WW>:<user_id> and specifier
-// = user_id, so uq_notification (group_id, specifier) makes reruns,
-// restarts and concurrent replicas safe.
+// Recipients are live users with a play in the last weeklyRotationActiveWindow.
+// Sends start at weeklyRotationSendHourUTC on rollover Wednesday and last for
+// weeklyRotationSendWindow; stage sends all period. Each run inserts up to
+// batchSize rows, walking user_id upward from an in-memory cursor, so one pass
+// covers the listeners eligible when it reaches them. uq_notification
+// (group_id, specifier) makes reruns, restarts and multiple replicas safe.
 type WeeklyRotationNotificationsJob struct {
 	pool      database.DbPool
 	logger    *zap.Logger
@@ -71,8 +43,7 @@ const (
 	// weeklyRotationSendHourUTC is the hour (UTC) on rollover day the fan-out
 	// begins.
 	weeklyRotationSendHourUTC = 16
-	// weeklyRotationSendWindow is how long after that the job keeps picking
-	// up newly eligible listeners.
+	// weeklyRotationSendWindow is how long after that the job keeps sending.
 	weeklyRotationSendWindow = 24 * time.Hour
 	// weeklyRotationActiveWindow is how recently someone must have listened
 	// to be told about their mix.
@@ -116,6 +87,13 @@ func (j *WeeklyRotationNotificationsJob) Run(ctx context.Context) {
 	}
 }
 
+// weeklyRotationWindowExtensions lengthens the send window for specific
+// periods. 2026-39 went out with a stale recipient list; the fix merged after
+// its window closed. Remove once that period has passed.
+var weeklyRotationWindowExtensions = map[string]time.Duration{
+	"2026-39": 48 * time.Hour,
+}
+
 // sendWindow returns the instants between which the period containing
 // `now` is announced.
 func (j *WeeklyRotationNotificationsJob) sendWindow(now time.Time) (start, end time.Time) {
@@ -125,7 +103,11 @@ func (j *WeeklyRotationNotificationsJob) sendWindow(now time.Time) (start, end t
 		return periodStart, periodStart.AddDate(0, 0, 7)
 	}
 	start = periodStart.Add(weeklyRotationSendHourUTC * time.Hour)
-	return start, start.Add(weeklyRotationSendWindow)
+	window := weeklyRotationSendWindow
+	if extra, ok := weeklyRotationWindowExtensions[weeklyrotation.PeriodKey(year, week)]; ok {
+		window += extra
+	}
+	return start, start.Add(window)
 }
 
 func (j *WeeklyRotationNotificationsJob) run(ctx context.Context) error {
@@ -168,14 +150,18 @@ func (j *WeeklyRotationNotificationsJob) run(ctx context.Context) error {
 			'weekly_rotation',
 			jsonb_build_object('year', @year::int, 'week', @week::int),
 			@now
-		FROM challenge_listen_streak cls
-		JOIN users u ON u.user_id = cls.user_id
-		WHERE cls.last_listen_date >= @active_since
-			AND u.user_id > @after_user_id
+		FROM users u
+		WHERE u.user_id > @after_user_id
 			AND u.is_current
 			AND NOT u.is_deactivated
 			AND u.is_available
 			AND u.handle IS NOT NULL
+			-- Matches ix_plays_user_hour's expression so this is an index range scan.
+			AND EXISTS (
+				SELECT 1 FROM plays p
+				WHERE p.user_id = u.user_id
+					AND date_trunc('hour', p.created_at) >= date_trunc('hour', @active_since::timestamp)
+			)
 			AND NOT EXISTS (
 				SELECT 1 FROM notification n
 				WHERE n.group_id = @group_prefix || u.user_id::text
@@ -189,7 +175,7 @@ func (j *WeeklyRotationNotificationsJob) run(ctx context.Context) error {
 		"year":          year,
 		"week":          week,
 		"now":           now,
-		"active_since":  now.Add(-weeklyRotationActiveWindow),
+		"active_since":  now.Add(-weeklyRotationActiveWindow).UTC(),
 		"after_user_id": j.cursorUserId,
 		"batch_size":    j.batchSize,
 	})

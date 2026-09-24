@@ -7114,8 +7114,8 @@ paths:
       description:
         Gets the user's Weekly Rotation mix - a personalized set of tracks
         they have not heard, weighted toward artists they do not already
-        follow. The mix is fixed for the calendar week (ISO week, UTC) and
-        rotates when the week rolls over. Unlike suggested-follows, this
+        follow. The mix is fixed for the week and rolls over Wednesday
+        00:00 UTC. Unlike suggested-follows, this
         returns results for users with no listening history.
       operationId: Get Weekly Rotation
       security:
@@ -7157,9 +7157,9 @@ paths:
       tags:
         - users
       description:
-        Gets artists to suggest the user follow, based on the tracks and
-        albums they have favorited or reposted but whose artist they do not
-        already follow. Returns an empty list for users with no favorites or
+        Gets artists to suggest the user follow, based on the tracks, albums
+        and playlists they have favorited or reposted but whose owner they do
+        not already follow. Returns an empty list for users with no favorites or
         reposts.
       operationId: Get Suggested Follows
       security:

@@ -14,12 +14,9 @@ import (
 	"time"
 )
 
-// RolloverOffsetDays is how far the period boundary sits after the ISO
-// week's Monday. The mix rolls over on Wednesday 00:00 UTC, not at the ISO
-// week boundary: Monday already belongs to the other weekly surfaces and
-// Friday is Spotify's day. Expressed as an offset so the period is still
-// identified by an (iso_year, iso_week) pair everywhere -- cache keys, the
-// deterministic seed, share links, notification group ids.
+// RolloverOffsetDays shifts the period start from the ISO Monday to Wednesday
+// 00:00 UTC. Periods are still keyed by (iso_year, iso_week) in cache keys,
+// the seed, share links and notification group ids.
 const RolloverOffsetDays = 2
 
 // Period returns the (ISO year, ISO week) pair that identifies the period

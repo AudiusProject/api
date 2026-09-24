@@ -82,9 +82,8 @@ const (
 	managerWallet  = "0x4954d18926ba0ed9378938444731be4e622537b2"
 )
 
-// seedNonDownloadableTrack sets up the shape most tracks on the network have:
-// an artist who never turned downloads on, whose original upload is still
-// sitting on the content node.
+// seedNonDownloadableTrack seeds a track with downloads off and an original
+// upload kept.
 func seedNonDownloadableTrack(t *testing.T) *ApiServer {
 	app := emptyTestApp(t)
 	database.Seed(app.pool.Replicas[0], database.FixtureMap{
@@ -120,8 +119,7 @@ func downloadWithWallet(t *testing.T, app *ApiServer, path string, wallet string
 	return res.StatusCode, res.Header.Get("Location")
 }
 
-// An artist must be able to get their own upload back even with downloads off
-// for everyone else - that is what the edit page's "Download File" button does.
+// The owner can download their own track with downloads off.
 func TestGetTrackDownload_OwnerOfNonDownloadableTrack(t *testing.T) {
 	app := seedNonDownloadableTrack(t)
 	path := "/v1/tracks/" + trashid.MustEncodeHashID(1) + "/download"
@@ -150,10 +148,8 @@ func TestGetTrackDownload_ManagerOfNonDownloadableTrack(t *testing.T) {
 	assert.Contains(t, location, "tracks/cidstream/QmOriginal")
 }
 
-// Everyone else still gets the 404 the artist asked for by leaving downloads
-// off. Claiming to be the owner through the user_id query param must not be
-// enough: the bypass keys on the recovered signature, and the auth middleware
-// separately refuses a user_id no signature backs (403 rather than 404).
+// Non-owners get 404. A user_id param naming the owner without a matching
+// signature gets 403 from the auth middleware.
 func TestGetTrackDownload_NonOwnerOfNonDownloadableTrack(t *testing.T) {
 	app := seedNonDownloadableTrack(t)
 	trackPath := "/v1/tracks/" + trashid.MustEncodeHashID(1) + "/download"
@@ -172,8 +168,7 @@ func TestGetTrackDownload_NonOwnerOfNonDownloadableTrack(t *testing.T) {
 	assert.Equal(t, 403, status, "user_id claiming to be the owner, signed by another wallet")
 }
 
-// With no original kept, the download serves the mp3 transcode, so the name it
-// is served under has to say mp3 rather than the format that was uploaded.
+// With no original kept, the download serves the mp3 transcode under a .mp3 name.
 func TestGetTrackDownload_FilenameFallsBackToMp3(t *testing.T) {
 	app := emptyTestApp(t)
 	database.Seed(app.pool.Replicas[0], database.FixtureMap{
