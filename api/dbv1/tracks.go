@@ -21,15 +21,19 @@ const IncludeID3TagsCtxKey = "includeID3Tags"
 type Track struct {
 	GetTracksRow
 
-	Permalink     string         `json:"permalink"`
-	IsStreamable  bool           `json:"is_streamable"`
-	Artwork       *SquareImage   `json:"artwork"`
-	Stream        *MediaLink     `json:"stream"`
-	Download      *MediaLink     `json:"download"`
-	Preview       *MediaLink     `json:"preview"`
-	UserID        trashid.HashId `json:"user_id"`
-	User          User           `json:"user"`
-	Collaborators []User         `json:"collaborators"`
+	Permalink    string `json:"permalink"`
+	IsStreamable bool   `json:"is_streamable"`
+	// IsAudioAllowed is false when the track is deleted or its owner is
+	// deactivated or delisted. IsStreamable also requires a track_cid, so
+	// downloads (which fall back to orig_file_cid) check this instead.
+	IsAudioAllowed bool           `json:"-"`
+	Artwork        *SquareImage   `json:"artwork"`
+	Stream         *MediaLink     `json:"stream"`
+	Download       *MediaLink     `json:"download"`
+	Preview        *MediaLink     `json:"preview"`
+	UserID         trashid.HashId `json:"user_id"`
+	User           User           `json:"user"`
+	Collaborators  []User         `json:"collaborators"`
 	// PendingCollaborators is populated only on the requester's own tracks (so
 	// the owner's edit form can preserve still-pending invites); empty otherwise.
 	PendingCollaborators []User `json:"pending_collaborators"`
@@ -196,17 +200,17 @@ func (q *Queries) TracksKeyed(ctx context.Context, arg TracksParams) (map[int32]
 			}
 		}
 
-		// A track is streamable unless it was deleted or its owner is no longer
-		// active - either the artist deactivated their own account or the
-		// account was delisted by the trusted notifier.
-		isStreamable := !rawTrack.IsDelete && !user.IsDeactivated
+		// No media links (stream, download or preview) for a deleted track or
+		// an inactive owner. The cid is real, so a signed link in the response
+		// would bypass the stream and download endpoint checks.
+		isAudioAllowed := !rawTrack.IsDelete && !user.IsDeactivated
 
-		// Media links stay nil when there is no cid to sign (the URL would 404)
-		// or the track is not streamable (the cid is real, so a signed URL would
-		// bypass the stream and download endpoint checks). Previews count as
-		// the artist's audio too.
+		// Streaming also needs a track_cid; without one there is nothing to
+		// play. Downloads don't, since they fall back to orig_file_cid.
+		isStreamable := isAudioAllowed && rawTrack.TrackCid.String != ""
+
 		var stream *MediaLink
-		if isStreamable && access.Stream && rawTrack.TrackCid.String != "" {
+		if isStreamable && access.Stream {
 			stream, err = mediaLink(rawTrack.TrackCid.String, rawTrack.TrackID, arg.MyID.(int32), id3Tags)
 			if err != nil {
 				return nil, err
@@ -214,7 +218,7 @@ func (q *Queries) TracksKeyed(ctx context.Context, arg TracksParams) (map[int32]
 		}
 
 		var download *MediaLink
-		if isStreamable && rawTrack.IsDownloadable && access.Download {
+		if isAudioAllowed && rawTrack.IsDownloadable && access.Download {
 			if cid := rawTrack.DownloadCid(); cid != "" {
 				download, err = mediaLink(cid, rawTrack.TrackID, arg.MyID.(int32), nil)
 				if err != nil {
@@ -224,7 +228,7 @@ func (q *Queries) TracksKeyed(ctx context.Context, arg TracksParams) (map[int32]
 		}
 
 		var preview *MediaLink
-		if isStreamable && rawTrack.PreviewCid.String != "" {
+		if isAudioAllowed && rawTrack.PreviewCid.String != "" {
 			preview, err = mediaLink(rawTrack.PreviewCid.String, rawTrack.TrackID, arg.MyID.(int32), id3Tags)
 			if err != nil {
 				return nil, err
@@ -234,6 +238,7 @@ func (q *Queries) TracksKeyed(ctx context.Context, arg TracksParams) (map[int32]
 		track := Track{
 			GetTracksRow:         rawTrack,
 			IsStreamable:         isStreamable,
+			IsAudioAllowed:       isAudioAllowed,
 			Permalink:            fmt.Sprintf("/%s/%s", user.Handle.String, rawTrack.Slug.String),
 			Artwork:              squareImageStruct(rawTrack.CoverArtSizes, rawTrack.CoverArt),
 			Stream:               stream,

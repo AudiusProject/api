@@ -229,6 +229,12 @@ func (ci *CoreIndexer) startParityJobs(ctx context.Context) {
 	// schedule ran every 3 minutes. Needs the SDK for content-node discovery.
 	jobs.NewRepairAudioAnalysesJob(ci.Config, ci.pool, ci.openAudioSDK).
 		ScheduleEvery(ctx, 3*time.Minute)
+
+	// Backfill track_cid for uploads that transcoded but were indexed without
+	// it. Runs less often than the analysis repair since these are rare and
+	// each candidate costs a content-node lookup.
+	jobs.NewRepairTrackCidsJob(ci.Config, ci.pool, ci.openAudioSDK).
+		ScheduleEvery(ctx, 15*time.Minute)
 }
 
 func (ci *CoreIndexer) Close() {

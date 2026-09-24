@@ -119,3 +119,62 @@ func TestGetTrackStream_DeletedTrack(t *testing.T) {
 	assert.Equal(t, 404, res.StatusCode)
 	assert.Empty(t, res.Header.Get("Location"))
 }
+
+// A track with no track_cid reports is_streamable=false and a null stream.
+func TestGetTrack_NoCidIsNotStreamable(t *testing.T) {
+	app := emptyTestApp(t)
+	fixtures := database.FixtureMap{
+		"tracks": []map[string]any{
+			{
+				"track_id":        1,
+				"owner_id":        1,
+				"title":           "No Cid",
+				"orig_file_cid":   "QmNoCidOriginal",
+				"is_downloadable": true,
+			},
+		},
+		"users": []map[string]any{
+			{
+				"user_id": 1,
+				"handle":  "testuser1",
+			},
+		},
+	}
+	database.Seed(app.pool.Replicas[0], fixtures)
+
+	status, body := testGet(t, app, "/v1/tracks/"+trashid.MustEncodeHashID(1))
+	assert.Equal(t, 200, status)
+	jsonAssert(t, body, map[string]any{
+		"data.is_streamable": false,
+		"data.stream":        nil,
+	})
+}
+
+// A track with no track_cid is still downloadable via orig_file_cid.
+func TestGetTrackDownload_NoTrackCidStillDownloadable(t *testing.T) {
+	app := emptyTestApp(t)
+	fixtures := database.FixtureMap{
+		"tracks": []map[string]any{
+			{
+				"track_id":        1,
+				"owner_id":        1,
+				"title":           "No Track Cid",
+				"orig_file_cid":   "QmNoCidOriginal",
+				"orig_filename":   "NoCid.wav",
+				"is_downloadable": true,
+			},
+		},
+		"users": []map[string]any{
+			{
+				"user_id": 1,
+				"handle":  "testuser1",
+			},
+		},
+	}
+	database.Seed(app.pool.Replicas[0], fixtures)
+	req := httptest.NewRequest("GET", "/v1/tracks/"+trashid.MustEncodeHashID(1)+"/download", nil)
+	res, err := app.Test(req, -1)
+	assert.NoError(t, err)
+	assert.Equal(t, 302, res.StatusCode)
+	assert.Contains(t, res.Header.Get("Location"), "QmNoCidOriginal")
+}

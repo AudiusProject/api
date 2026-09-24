@@ -1,0 +1,354 @@
+package jobs
+
+import (
+	"context"
+	"encoding/json"
+	"fmt"
+	"io"
+	"math/rand"
+	"net/http"
+	"strings"
+	"sync"
+	"time"
+
+	"api.audius.co/config"
+	"api.audius.co/database"
+	"api.audius.co/logging"
+	connect "connectrpc.com/connect"
+	ethv1 "github.com/OpenAudio/go-openaudio/pkg/api/eth/v1"
+	"github.com/OpenAudio/go-openaudio/pkg/sdk"
+	"go.uber.org/zap"
+)
+
+// RepairTrackCidsJob backfills track_cid for tracks whose audio finished
+// transcoding but were indexed without the cid.
+//
+// track_cid comes from the uploader's metadata at index time. When the client
+// writes the track without it, the row has nothing to sign and the track is
+// unplayable. The content node still has the upload record keyed by
+// audio_upload_id, so this job reads the cid from there, like
+// RepairAudioAnalysesJob does for bpm / musical_key.
+//
+// Each pass:
+//  1. Selects up to trackCidBatchSize current, undeleted tracks with a NULL
+//     track_cid and an audio_upload_id to look up (newest first).
+//  2. Picks up to trackCidMaxNodes random registered content nodes.
+//  3. Queries nodes for each upload record until trackCidQuorum of them agree
+//     on the same transcoded cid.
+//  4. Writes track_cid, committing per track.
+type RepairTrackCidsJob struct {
+	pool       database.DbPool
+	logger     *zap.Logger
+	sdk        *sdk.OpenAudioSDK
+	httpClient *http.Client
+
+	mutex     sync.Mutex
+	isRunning bool
+
+	// retries holds tracks a pass could not repair (transcode not finished,
+	// no quorum, or an error). They are skipped until their backoff expires so
+	// they don't fill every batch. In memory only: a restart retries them once.
+	retries map[int64]trackCidRetry
+}
+
+type trackCidRetry struct {
+	failures int
+	next     time.Time
+}
+
+const (
+	// trackCidBatchSize matches RepairAudioAnalysesJob's batch.
+	trackCidBatchSize = 1000
+	// trackCidMaxNodes bounds how many nodes a single pass will ask.
+	trackCidMaxNodes = 5
+	// trackCidNodeTimeout matches RepairAudioAnalysesJob's per-request budget.
+	trackCidNodeTimeout = 5 * time.Second
+	// trackCidQuorum is how many distinct content nodes must report the same
+	// cid before it is written. Stricter than the bpm / musical_key repair
+	// because track_cid selects the audio every listener gets, so one stale or
+	// faulty node can't set it. Upload records are replicated, so quorum is
+	// cheap. Tracks without quorum are retried later.
+	trackCidQuorum = 2
+
+	// Backoff for tracks a pass could not repair: doubles from
+	// trackCidRetryBase per failure, capped at trackCidRetryMax.
+	trackCidRetryBase = time.Hour
+	trackCidRetryMax  = 24 * time.Hour
+)
+
+func NewRepairTrackCidsJob(cfg config.Config, pool database.DbPool, oaSDK *sdk.OpenAudioSDK) *RepairTrackCidsJob {
+	return &RepairTrackCidsJob{
+		pool:       pool,
+		logger:     logging.NewZapLogger(cfg).Named("RepairTrackCidsJob"),
+		sdk:        oaSDK,
+		httpClient: &http.Client{Timeout: trackCidNodeTimeout},
+	}
+}
+
+// ScheduleEvery runs the job every `interval` until the context is cancelled.
+func (j *RepairTrackCidsJob) ScheduleEvery(ctx context.Context, interval time.Duration) *RepairTrackCidsJob {
+	go func() {
+		ticker := time.NewTicker(interval)
+		defer ticker.Stop()
+		for {
+			select {
+			case <-ticker.C:
+				j.Run(ctx)
+			case <-ctx.Done():
+				j.logger.Info("Job shutting down")
+				return
+			}
+		}
+	}()
+	return j
+}
+
+// Run executes the job once.
+func (j *RepairTrackCidsJob) Run(ctx context.Context) {
+	if err := j.run(ctx); err != nil {
+		j.logger.Error("Job run failed", zap.Error(err))
+	}
+}
+
+func (j *RepairTrackCidsJob) run(ctx context.Context) error {
+	j.mutex.Lock()
+	if j.isRunning {
+		j.mutex.Unlock()
+		return fmt.Errorf("job is already running")
+	}
+	j.isRunning = true
+	j.mutex.Unlock()
+	defer func() {
+		j.mutex.Lock()
+		j.isRunning = false
+		j.mutex.Unlock()
+	}()
+
+	tracks, err := j.queryTracks(ctx, j.backedOffTrackIDs(time.Now()))
+	if err != nil {
+		return fmt.Errorf("query tracks: %w", err)
+	}
+	if len(tracks) == 0 {
+		return nil
+	}
+
+	nodes, err := j.selectContentNodes(ctx)
+	if err != nil {
+		return fmt.Errorf("select content nodes: %w", err)
+	}
+	if len(nodes) < trackCidQuorum {
+		j.logger.Warn("not enough content nodes to reach quorum; skipping pass",
+			zap.Int("nodes", len(nodes)), zap.Int("quorum", trackCidQuorum))
+		return nil
+	}
+
+	repaired := 0
+	for _, t := range tracks {
+		ok, err := j.repairTrackCid(ctx, t, nodes)
+		if err != nil {
+			j.logger.Error("repairing track cid failed",
+				zap.Int64("track_id", t.TrackID), zap.Error(err))
+		}
+		if ok {
+			repaired++
+			delete(j.retries, t.TrackID)
+		} else {
+			j.recordFailure(t.TrackID, time.Now())
+		}
+	}
+
+	j.logger.Info("Repaired track cids",
+		zap.Int("candidates", len(tracks)),
+		zap.Int("repaired", repaired))
+	return nil
+}
+
+type cidlessTrack struct {
+	TrackID       int64
+	AudioUploadID string
+}
+
+// queryTracks selects tracks with no track_cid but an audio_upload_id to look
+// up. Skips deleted tracks (their audio must stay unreachable), stems, rows
+// with no audio_upload_id (legacy uploads), and the ids in skip.
+func (j *RepairTrackCidsJob) queryTracks(ctx context.Context, skip []int64) ([]cidlessTrack, error) {
+	if skip == nil {
+		skip = []int64{}
+	}
+	rows, err := j.pool.Query(ctx, `
+		SELECT track_id, audio_upload_id
+		FROM tracks
+		WHERE is_current = true
+		  AND is_delete = false
+		  AND stem_of IS NULL
+		  AND track_cid IS NULL
+		  AND audio_upload_id IS NOT NULL
+		  AND audio_upload_id <> ''
+		  AND NOT (track_id = ANY($2::bigint[]))
+		ORDER BY created_at DESC
+		LIMIT $1
+	`, trackCidBatchSize, skip)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	var out []cidlessTrack
+	for rows.Next() {
+		var t cidlessTrack
+		if err := rows.Scan(&t.TrackID, &t.AudioUploadID); err != nil {
+			return nil, err
+		}
+		out = append(out, t)
+	}
+	return out, rows.Err()
+}
+
+// backedOffTrackIDs returns the tracks still inside their retry backoff at now.
+func (j *RepairTrackCidsJob) backedOffTrackIDs(now time.Time) []int64 {
+	ids := make([]int64, 0, len(j.retries))
+	for id, r := range j.retries {
+		if now.Before(r.next) {
+			ids = append(ids, id)
+		}
+	}
+	return ids
+}
+
+// recordFailure pushes a track's next attempt out by the backoff for its
+// failure count.
+func (j *RepairTrackCidsJob) recordFailure(trackID int64, now time.Time) {
+	if j.retries == nil {
+		j.retries = map[int64]trackCidRetry{}
+	}
+	r := j.retries[trackID]
+	r.failures++
+	delay := trackCidRetryMax
+	if r.failures <= 5 {
+		delay = min(trackCidRetryBase<<(r.failures-1), trackCidRetryMax)
+	}
+	r.next = now.Add(delay)
+	j.retries[trackID] = r
+}
+
+// selectContentNodes takes up to trackCidMaxNodes random registered
+// content-node endpoints. Mirrors RepairAudioAnalysesJob.selectContentNodes.
+func (j *RepairTrackCidsJob) selectContentNodes(ctx context.Context) ([]string, error) {
+	resp, err := j.sdk.Eth.GetRegisteredEndpoints(ctx, connect.NewRequest(&ethv1.GetRegisteredEndpointsRequest{}))
+	if err != nil {
+		return nil, err
+	}
+	if resp == nil || resp.Msg == nil {
+		return nil, fmt.Errorf("GetRegisteredEndpoints returned nil response")
+	}
+
+	var endpoints []string
+	for _, node := range resp.Msg.Endpoints {
+		if node.ServiceType != "content-node" {
+			continue
+		}
+		ep := strings.TrimRight(strings.ToLower(strings.TrimSpace(node.Endpoint)), "/")
+		if ep != "" {
+			endpoints = append(endpoints, ep)
+		}
+	}
+
+	rand.Shuffle(len(endpoints), func(a, b int) {
+		endpoints[a], endpoints[b] = endpoints[b], endpoints[a]
+	})
+	if len(endpoints) > trackCidMaxNodes {
+		endpoints = endpoints[:trackCidMaxNodes]
+	}
+	return endpoints, nil
+}
+
+// uploadRecord is the subset of mediorum's /uploads/:id payload this job needs.
+type uploadRecord struct {
+	Status           string            `json:"status"`
+	TranscodeResults map[string]string `json:"results"`
+}
+
+// transcodedCid returns the 320kbps cid of a finished transcode, or "" when the
+// upload has not produced one yet.
+func (u uploadRecord) transcodedCid() string {
+	if u.Status != "done" {
+		return ""
+	}
+	return strings.TrimSpace(u.TranscodeResults["320"])
+}
+
+// repairTrackCid asks content nodes for one track's upload record and writes
+// the transcoded cid once trackCidQuorum nodes agree on it. Returns true when
+// the track was repaired.
+func (j *RepairTrackCidsJob) repairTrackCid(ctx context.Context, t cidlessTrack, nodes []string) (bool, error) {
+	votes := make(map[string]int, 2)
+	for _, node := range nodes {
+		cid, ok := j.fetchTranscodedCid(ctx, node, t.AudioUploadID)
+		if !ok || cid == "" {
+			// Transport error, no record, or transcode not finished.
+			continue
+		}
+
+		votes[cid]++
+		if votes[cid] < trackCidQuorum {
+			continue
+		}
+
+		if err := j.applyTrackCid(ctx, t.TrackID, cid); err != nil {
+			return false, fmt.Errorf("update track %d: %w", t.TrackID, err)
+		}
+		j.logger.Info("repaired track cid",
+			zap.Int64("track_id", t.TrackID),
+			zap.String("audio_upload_id", t.AudioUploadID),
+			zap.String("track_cid", cid))
+		return true, nil
+	}
+
+	if len(votes) > 1 {
+		// Nodes disagree on the cid. Leave the row for manual review.
+		j.logger.Warn("content nodes disagree on transcoded cid; leaving track unrepaired",
+			zap.Int64("track_id", t.TrackID),
+			zap.String("audio_upload_id", t.AudioUploadID),
+			zap.Any("votes", votes))
+	}
+	return false, nil
+}
+
+// fetchTranscodedCid GETs one node's upload record. ok=false signals a
+// transport/non-2xx error; ok=true with an empty cid means the node answered
+// but the upload has not finished transcoding.
+func (j *RepairTrackCidsJob) fetchTranscodedCid(ctx context.Context, node, uploadID string) (cid string, ok bool) {
+	endpoint := fmt.Sprintf("%s/uploads/%s", node, uploadID)
+	req, err := http.NewRequestWithContext(ctx, http.MethodGet, endpoint, nil)
+	if err != nil {
+		return "", false
+	}
+	resp, err := j.httpClient.Do(req)
+	if err != nil {
+		return "", false
+	}
+	defer resp.Body.Close()
+	if resp.StatusCode < 200 || resp.StatusCode >= 300 {
+		io.Copy(io.Discard, io.LimitReader(resp.Body, 512))
+		return "", false
+	}
+	body, err := io.ReadAll(resp.Body)
+	if err != nil {
+		return "", false
+	}
+	var parsed uploadRecord
+	if err := json.Unmarshal(body, &parsed); err != nil {
+		return "", false
+	}
+	return parsed.transcodedCid(), true
+}
+
+// applyTrackCid writes the cid, re-checking that the row is still cidless so a
+// concurrent indexer write of the real metadata always wins.
+func (j *RepairTrackCidsJob) applyTrackCid(ctx context.Context, trackID int64, cid string) error {
+	_, err := j.pool.Exec(ctx, `
+		UPDATE tracks SET track_cid = $2
+		WHERE track_id = $1 AND is_current = true AND track_cid IS NULL
+	`, trackID, cid)
+	return err
+}
