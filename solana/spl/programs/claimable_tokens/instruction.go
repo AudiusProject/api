@@ -118,6 +118,12 @@ var InstructionImplDef = bin.NewVariantDefinition(
 		{
 			Name: "Transfer", Type: (*Transfer)(nil),
 		},
+		{
+			Name: "SetAuthority", Type: (*SetAuthority)(nil),
+		},
+		{
+			Name: "Close", Type: (*Close)(nil),
+		},
 	},
 )
 
