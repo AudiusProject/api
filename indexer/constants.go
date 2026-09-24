@@ -26,6 +26,10 @@ const (
 	Action_React        = "React"
 	Action_Unreact      = "Unreact"
 	Action_Report       = "Report"
+	// Action_SubmitToContest entries a track in an open-contest event.
+	// EntityType is Event, EntityId is the contest event_id, and the
+	// submitted track_id rides on the metadata JSON ({"track_id": <id>}).
+	Action_SubmitToContest = "SubmitToContest"
 )
 
 const (
