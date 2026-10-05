@@ -26,6 +26,20 @@ const (
 	// weak track outrank a clearly better one.
 	weeklyRotationJitterFloor = 0.85
 	weeklyRotationJitterRange = 0.30
+
+	// Every period's mix is stored at this size (the max limit), so any
+	// limit is a prefix of the same list.
+	weeklyRotationStoredSize = 50
+
+	// Tracks in the first weeklyRotationSeenSize slots (what clients show)
+	// of the last weeklyRotationLookbackPeriods mixes are not repeated.
+	// Without this an unplayed track that keeps trending comes back every
+	// week.
+	weeklyRotationSeenSize        = 30
+	weeklyRotationLookbackPeriods = 2
+
+	// Long-form sets and DJ mixes stay in the mix but never open it.
+	weeklyRotationLongFormSeconds = 15 * 60
 )
 
 /*
@@ -38,16 +52,20 @@ Differences from GET /v1/users/{id}/feed/for-you:
   - Followed artists are demoted instead of boosted.
   - Played and saved tracks are excluded instead of soft-penalized.
 
-STABILITY. Nothing is precomputed or stored. The query is deterministic given
-(user_id, iso_year, iso_week) and the result is cached until the period rolls.
-The week-to-week variation comes from week_seed, a hash of (track_id, user_id,
-year, week); nothing uses random().
+STABILITY. The first request in a period computes the mix and stores it in
+weekly_rotation_mixes keyed by (user_id, period_start); every later request
+in that period, on any node, returns the stored list. Tracks deleted or
+unlisted since are dropped on read. Without a write pool (some local setups)
+the mix is computed on every cache miss.
 
-The listener's history (plays, saves, reposts, follows) is read as of the
-period start, so listening to the mix doesn't change it mid-week. The
-candidate pool and engagement counts are still live, so comparable tracks can
-reorder during the week. Unsaves and unfollows during the period can still add
-tracks.
+The query is deterministic given (user_id, iso_year, iso_week). The
+week-to-week variation comes from week_seed, a hash of (track_id, user_id,
+year, week); nothing uses random(). The listener's history (plays, saves,
+reposts, follows) is read as of the period start.
+
+NO REPEATS. Tracks shown in the previous weeklyRotationLookbackPeriods stored
+mixes are excluded. Trending moves slowly, so without this a track the
+listener skipped kept its slot week after week.
 
 SCORING.
 
@@ -67,10 +85,12 @@ SCORING.
 
 FILTERS. Track liveness (is_delete / is_unlisted / is_available / stem_of),
 owner liveness (is_deactivated / is_available), gated tracks, own uploads,
-anything played, anything saved, and anything older than
-weeklyRotationMaxAgeDays.
+anything played, anything saved, anything in a recent mix, and anything
+older than weeklyRotationMaxAgeDays.
 
-DIVERSITY. One track per artist (For You allows 3).
+DIVERSITY. One track per artist (For You allows 3). The first track is never
+longer than weeklyRotationLongFormSeconds, so the mix doesn't open with an
+hour-long set.
 
 Path:
   - id (required): the user being personalized for. Resolved by
@@ -125,9 +145,116 @@ func (app *ApiServer) getWeeklyRotationTrackIds(
 	week int,
 	limit int,
 ) ([]int32, error) {
-	cacheKey := fmt.Sprintf("weekly_rotation:%d:%d:%d:%d", userId, year, week, limit)
-	if hit, ok := app.weeklyRotationCache.Get(cacheKey); ok {
-		return hit, nil
+	cacheKey := fmt.Sprintf("weekly_rotation:%d:%d:%d", userId, year, week)
+	ids, ok := app.weeklyRotationCache.Get(cacheKey)
+	if !ok {
+		var err error
+		ids, err = app.loadWeeklyRotationMix(ctx, userId, year, week)
+		if err != nil {
+			return nil, err
+		}
+		app.weeklyRotationCache.Set(cacheKey, ids)
+	}
+	if len(ids) > limit {
+		ids = ids[:limit]
+	}
+	return ids, nil
+}
+
+// loadWeeklyRotationMix returns the stored mix for the period, computing and
+// storing it on first request. See STABILITY in the handler doc.
+func (app *ApiServer) loadWeeklyRotationMix(
+	ctx context.Context,
+	userId int32,
+	year int,
+	week int,
+) ([]int32, error) {
+	if app.writePool == nil {
+		return app.computeWeeklyRotationMix(ctx, userId, year, week, nil)
+	}
+
+	periodStart := weeklyrotation.PeriodStart(year, week)
+
+	var stored []int32
+	err := app.writePool.QueryRow(ctx, `
+		SELECT track_ids FROM weekly_rotation_mixes
+		WHERE user_id = $1 AND period_start = $2
+	`, userId, periodStart).Scan(&stored)
+	if err == nil {
+		return app.filterLiveWeeklyRotationTracks(ctx, stored)
+	}
+	if err != pgx.ErrNoRows {
+		return nil, err
+	}
+
+	var recent []int32
+	err = app.writePool.QueryRow(ctx, `
+		SELECT COALESCE(ARRAY_AGG(DISTINCT id), '{}')
+		FROM weekly_rotation_mixes m, UNNEST(m.track_ids[1:$4]) AS id
+		WHERE m.user_id = $1
+		  AND m.period_start >= $2::date - $3::int * 7
+		  AND m.period_start < $2::date
+	`, userId, periodStart, weeklyRotationLookbackPeriods, weeklyRotationSeenSize).Scan(&recent)
+	if err != nil {
+		return nil, err
+	}
+
+	ids, err := app.computeWeeklyRotationMix(ctx, userId, year, week, recent)
+	if err != nil || len(ids) == 0 {
+		return ids, err
+	}
+
+	// Another node may have stored this period's mix first. Theirs wins so
+	// every node serves the same list.
+	err = app.writePool.QueryRow(ctx, `
+		INSERT INTO weekly_rotation_mixes (user_id, period_start, track_ids)
+		VALUES ($1, $2, $3)
+		ON CONFLICT (user_id, period_start)
+		DO UPDATE SET track_ids = weekly_rotation_mixes.track_ids
+		RETURNING track_ids
+	`, userId, periodStart, ids).Scan(&stored)
+	if err != nil {
+		return nil, err
+	}
+	return stored, nil
+}
+
+// filterLiveWeeklyRotationTracks drops tracks from a stored mix that have
+// been deleted or unlisted, or whose owner was deactivated, since it was
+// stored. Order is preserved.
+func (app *ApiServer) filterLiveWeeklyRotationTracks(
+	ctx context.Context,
+	ids []int32,
+) ([]int32, error) {
+	rows, err := app.pool.Query(ctx, `
+		SELECT t.track_id
+		FROM UNNEST($1::int[]) WITH ORDINALITY AS m(track_id, ord)
+		JOIN tracks t ON t.track_id = m.track_id AND t.is_current = true
+		JOIN users u  ON u.user_id = t.owner_id AND u.is_current = true
+		WHERE t.is_delete = false
+		  AND t.is_unlisted = false
+		  AND t.is_available = true
+		  AND u.is_deactivated = false
+		  AND u.is_available = true
+		ORDER BY m.ord
+	`, ids)
+	if err != nil {
+		return nil, err
+	}
+	return pgx.CollectRows(rows, pgx.RowTo[int32])
+}
+
+// computeWeeklyRotationMix ranks the mix for a period, leaving out
+// excludeTrackIds. Returns up to weeklyRotationStoredSize track ids.
+func (app *ApiServer) computeWeeklyRotationMix(
+	ctx context.Context,
+	userId int32,
+	year int,
+	week int,
+	excludeTrackIds []int32,
+) ([]int32, error) {
+	if excludeTrackIds == nil {
+		excludeTrackIds = []int32{}
 	}
 
 	sql := `
@@ -263,6 +390,7 @@ func (app *ApiServer) getWeeklyRotationTrackIds(
 			t.track_id,
 			t.owner_id,
 			t.genre,
+			COALESCE(t.duration, 0) AS duration,
 			d.source,
 			ga.share AS genre_share,
 			(fs.user_id IS NOT NULL) AS is_followed,
@@ -292,11 +420,13 @@ func (app *ApiServer) getWeeklyRotationTrackIds(
 		  AND u.is_available = true
 		  AND NOT EXISTS (SELECT 1 FROM my_played mp WHERE mp.track_id = t.track_id)
 		  AND NOT EXISTS (SELECT 1 FROM my_saved ms WHERE ms.track_id = t.track_id)
+		  AND t.track_id <> ALL(@excludeTrackIds::int[])
 	),
 	scored AS (
 		SELECT
 			track_id,
 			owner_id,
+			duration,
 			LN(1 + 3 * save_count + 2 * repost_count + 1 * play_count) / 12.0
 				AS quality_score,
 			CASE
@@ -328,19 +458,20 @@ func (app *ApiServer) getWeeklyRotationTrackIds(
 		SELECT
 			track_id,
 			owner_id,
+			duration,
 			quality_score * genre_affinity * discovery_weight
 				* source_weight * week_seed AS score
 		FROM scored
 	),
 	-- One track per artist.
 	capped AS (
-		SELECT track_id, owner_id, score,
+		SELECT track_id, owner_id, duration, score,
 		       ROW_NUMBER() OVER (
 		           PARTITION BY owner_id ORDER BY score DESC, track_id DESC
 		       ) AS rn_artist
 		FROM final_scored
 	)
-	SELECT track_id
+	SELECT track_id, duration
 	FROM capped
 	WHERE rn_artist = 1
 	-- track_id breaks score ties so the mix is byte-stable for the week.
@@ -349,22 +480,39 @@ func (app *ApiServer) getWeeklyRotationTrackIds(
 	`
 
 	rows, err := app.pool.Query(ctx, sql, pgx.NamedArgs{
-		"userId":      userId,
-		"seedKey":     fmt.Sprintf("%d:%d:%d", userId, year, week),
-		"periodStart": weeklyrotation.PeriodStart(year, week),
-		"limit":       limit,
-		"maxAgeDays":  weeklyRotationMaxAgeDays,
-		"jitterFloor": weeklyRotationJitterFloor,
-		"jitterRange": weeklyRotationJitterRange,
+		"userId":          userId,
+		"seedKey":         fmt.Sprintf("%d:%d:%d", userId, year, week),
+		"periodStart":     weeklyrotation.PeriodStart(year, week),
+		"excludeTrackIds": excludeTrackIds,
+		"limit":           weeklyRotationStoredSize,
+		"maxAgeDays":      weeklyRotationMaxAgeDays,
+		"jitterFloor":     weeklyRotationJitterFloor,
+		"jitterRange":     weeklyRotationJitterRange,
 	})
 	if err != nil {
 		return nil, err
 	}
-	ids, err := pgx.CollectRows(rows, pgx.RowTo[int32])
+	type rankedTrack struct {
+		TrackID  int32
+		Duration int32
+	}
+	ranked, err := pgx.CollectRows(rows, pgx.RowToStructByPos[rankedTrack])
 	if err != nil {
 		return nil, err
 	}
 
-	app.weeklyRotationCache.Set(cacheKey, ids)
+	// Open with the best track that isn't a long-form set.
+	for i, t := range ranked {
+		if t.Duration <= weeklyRotationLongFormSeconds {
+			copy(ranked[1:i+1], ranked[:i])
+			ranked[0] = t
+			break
+		}
+	}
+
+	ids := make([]int32, len(ranked))
+	for i, t := range ranked {
+		ids[i] = t.TrackID
+	}
 	return ids, nil
 }

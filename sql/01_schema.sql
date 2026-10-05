@@ -11575,6 +11575,25 @@ CREATE TABLE public.volume_leader_exclusions (
 
 
 --
+-- Name: weekly_rotation_mixes; Type: TABLE; Schema: public; Owner: -
+--
+
+CREATE TABLE public.weekly_rotation_mixes (
+    user_id integer NOT NULL,
+    period_start date NOT NULL,
+    track_ids integer[] NOT NULL,
+    created_at timestamp without time zone DEFAULT now() NOT NULL
+);
+
+
+--
+-- Name: TABLE weekly_rotation_mixes; Type: COMMENT; Schema: public; Owner: -
+--
+
+COMMENT ON TABLE public.weekly_rotation_mixes IS 'Ranked Weekly Rotation track ids per listener per period (period_start = Wednesday 00:00 UTC), written on first request of the period.';
+
+
+--
 -- Name: aggregate_daily_app_name_metrics id; Type: DEFAULT; Schema: public; Owner: -
 --
 
@@ -13327,6 +13346,14 @@ ALTER TABLE ONLY public.users
 
 ALTER TABLE ONLY public.volume_leader_exclusions
     ADD CONSTRAINT volume_leader_exclusions_pkey PRIMARY KEY (address);
+
+
+--
+-- Name: weekly_rotation_mixes weekly_rotation_mixes_pkey; Type: CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.weekly_rotation_mixes
+    ADD CONSTRAINT weekly_rotation_mixes_pkey PRIMARY KEY (user_id, period_start);
 
 
 --

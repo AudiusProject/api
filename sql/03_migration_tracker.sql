@@ -100,7 +100,6 @@ migrations/0202_tracks_isrc_normalized_idx.sql	e7ad196cd1b8dc78243e2a7155487266	
 migrations/0203_eth_wallet_balances.sql	d6d43a0c638ebdf0ff7f141f1466b163	2026-05-27 00:22:35.087858+00
 functions/calculate_artist_coin_fee_earnings.sql	08de06d6cf1e4953acf6311ca94a1b5c	2026-05-27 00:22:35.194282+00
 functions/calculate_artist_coin_locker.sql	d1b2d3b8736d58b87fcb875d97114093	2026-05-27 00:22:35.269564+00
-functions/chat_allowed.sql	b00fe55b99ded6b8981c86874f638eb8	2026-05-27 00:22:35.349986+00
 functions/chat_blast_audience.sql	3202f26a9bdf02f6d0e967e275aea7ee	2026-05-27 00:22:35.429591+00
 functions/compute_user_score.sql	814b5fa3d1383d3e216943b4ff8c4877	2026-05-27 00:22:35.517899+00
 functions/country_to_iso_alpha2.sql	218832f0607aeca4fce99815a07f7a85	2026-05-27 00:22:35.592939+00
@@ -218,6 +217,8 @@ migrations/0238_backfill_track_playlist_reverse_index.sql	876450b97109942a25da30
 migrations/0239_saves_user_created_at_idx.sql	8a73b4eab0aa290ab720a706ec06e249	2026-09-10 19:20:26.027654+00
 migrations/0240_user_conversation_preferences.sql	76aa7750514e2a1c74ed3c31e1b55dcd	2026-09-10 19:20:26.092795+00
 functions/handle_playlist.sql	17abfed3041b8039dde8dfbfd025c5ff	2026-09-10 19:20:26.309846+00
+migrations/0241_weekly_rotation_mixes.sql	53690c9aa07d583a6f60452e8daf0926	2026-10-05 16:48:44.236686+00
+functions/chat_allowed.sql	96b6ddc1d82a52e55de7341383572805	2026-10-05 16:48:44.371948+00
 \.
 
 
