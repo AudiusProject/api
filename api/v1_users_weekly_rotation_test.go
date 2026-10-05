@@ -2,6 +2,7 @@ package api
 
 import (
 	"context"
+	"fmt"
 	"testing"
 	"time"
 
@@ -320,6 +321,10 @@ func TestV1UsersWeeklyRotationStableWithinWeek(t *testing.T) {
 	require.NotEmpty(t, weekB)
 	assert.NotEqual(t, weekA1, weekB,
 		"the week seed rotates the mix when the week rolls over")
+	for _, id := range weekB {
+		assert.NotContains(t, weekA1, id,
+			"a track from last week's mix is not repeated")
+	}
 
 	// And a different listener gets a different mix in the same week.
 	weekAOther, err := app.getWeeklyRotationTrackIds(ctx, 2, 2026, 10, 20)
@@ -466,4 +471,90 @@ func TestV1UsersWeeklyRotationPrefersUndergroundSource(t *testing.T) {
 	ids, err := app.getWeeklyRotationTrackIds(context.Background(), 1, 2026, 9, 10)
 	require.NoError(t, err)
 	assert.Equal(t, []int32{200, 300}, ids)
+}
+
+// weeklyRotationTrackFixtures seeds listener 1 (no history) and one trending
+// track per entry, each by its own artist. Entries need track_id, title and
+// save_count; any other track columns pass through.
+func weeklyRotationTrackFixtures(tracks []map[string]any) database.FixtureMap {
+	fixtures := database.FixtureMap{
+		"users":                 []map[string]any{{"user_id": 1, "handle": "me", "handle_lc": "me", "wallet": "0x0000000000000000000000000000000000000001"}},
+		"aggregate_user":        []map[string]any{{"user_id": 1, "follower_count": 0, "following_count": 0}},
+		"tracks":                []map[string]any{},
+		"aggregate_track":       []map[string]any{},
+		"track_trending_scores": []map[string]any{},
+	}
+	for i, track := range tracks {
+		userId := 100 + i
+		handle := fmt.Sprintf("artist%d", userId)
+		fixtures["users"] = append(fixtures["users"], map[string]any{
+			"user_id": userId, "handle": handle, "handle_lc": handle, "wallet": "0x" + padWallet(userId),
+		})
+		fixtures["aggregate_user"] = append(fixtures["aggregate_user"], map[string]any{
+			"user_id": userId, "follower_count": 5000, "following_count": 10,
+		})
+		fixtures["aggregate_track"] = append(fixtures["aggregate_track"], map[string]any{
+			"track_id": track["track_id"], "save_count": track["save_count"],
+		})
+		fixtures["track_trending_scores"] = append(fixtures["track_trending_scores"], map[string]any{
+			"track_id": track["track_id"], "score": 1_000_000_000, "time_range": "week",
+		})
+		row := map[string]any{"owner_id": userId, "genre": "Rock"}
+		for k, v := range track {
+			if k != "save_count" {
+				row[k] = v
+			}
+		}
+		fixtures["tracks"] = append(fixtures["tracks"], row)
+	}
+	return fixtures
+}
+
+// The mix is stored on first request, so later changes to the candidate pool
+// don't reshuffle it mid-week. A track deleted since drops out.
+func TestV1UsersWeeklyRotationStoredForThePeriod(t *testing.T) {
+	app := emptyTestApp(t)
+	database.Seed(app.pool.Replicas[0], weeklyRotationTrackFixtures([]map[string]any{
+		{"track_id": 200, "title": "first", "save_count": 1000},
+		{"track_id": 201, "title": "second", "save_count": 100},
+		{"track_id": 202, "title": "third", "save_count": 10},
+	}))
+
+	ctx := context.Background()
+	first, err := app.getWeeklyRotationTrackIds(ctx, 1, 2026, 10, 30)
+	require.NoError(t, err)
+	assert.Equal(t, []int32{200, 201, 202}, first)
+
+	// After the mix is stored: the weakest track becomes the strongest, and
+	// another is deleted.
+	_, err = app.pool.Exec(ctx, `UPDATE aggregate_track SET save_count = 1000000 WHERE track_id = 202`)
+	require.NoError(t, err)
+	_, err = app.pool.Exec(ctx, `UPDATE tracks SET is_delete = true WHERE track_id = 201`)
+	require.NoError(t, err)
+
+	app.weeklyRotationCache.Clear()
+	again, err := app.getWeeklyRotationTrackIds(ctx, 1, 2026, 10, 30)
+	require.NoError(t, err)
+	assert.Equal(t, []int32{200, 202}, again,
+		"stored order is kept and deleted tracks drop out")
+
+	var stored []int32
+	err = app.writePool.QueryRow(ctx,
+		`SELECT track_ids FROM weekly_rotation_mixes WHERE user_id = 1`).Scan(&stored)
+	require.NoError(t, err)
+	assert.Equal(t, []int32{200, 201, 202}, stored)
+}
+
+// A long-form set stays in the mix but doesn't open it.
+func TestV1UsersWeeklyRotationDoesNotOpenWithLongForm(t *testing.T) {
+	app := emptyTestApp(t)
+	database.Seed(app.pool.Replicas[0], weeklyRotationTrackFixtures([]map[string]any{
+		{"track_id": 200, "title": "two hour set", "save_count": 1000, "duration": 2 * 60 * 60},
+		{"track_id": 201, "title": "hour long mix", "save_count": 500, "duration": 60 * 60},
+		{"track_id": 202, "title": "song", "save_count": 10, "duration": 200},
+	}))
+
+	ids, err := app.getWeeklyRotationTrackIds(context.Background(), 1, 2026, 10, 30)
+	require.NoError(t, err)
+	assert.Equal(t, []int32{202, 200, 201}, ids)
 }
