@@ -32,6 +32,11 @@ func TestFetchTransactionWithCache_CacheMiss(t *testing.T) {
 	expected := &rpc.GetTransactionResult{}
 	fakeRpc := &fake_rpc_client.FakeRpcClient{
 		GetTransactionFunc: func(ctx context.Context, signature solana.Signature, opts *rpc.GetTransactionOpts) (*rpc.GetTransactionResult, error) {
+			if assert.NotNil(t, opts) {
+				assert.Equal(t, rpc.CommitmentConfirmed, opts.Commitment)
+				assert.NotNil(t, opts.MaxSupportedTransactionVersion)
+				assert.Equal(t, rpc.MaxSupportedTransactionVersion1, *opts.MaxSupportedTransactionVersion)
+			}
 			return expected, nil
 		},
 	}
