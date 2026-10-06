@@ -29,6 +29,12 @@ func TestV1TracksFeelingLucky(t *testing.T) {
 				"handle":  "user3",
 				"name":    "User 3",
 			},
+			{
+				"user_id":        4,
+				"handle":         "user4",
+				"name":           "User 4",
+				"is_deactivated": true,
+			},
 		},
 		"follows": []map[string]any{
 			{
@@ -56,6 +62,11 @@ func TestV1TracksFeelingLucky(t *testing.T) {
 				"title":    "Track 3",
 				"owner_id": 3,
 			},
+			{
+				"track_id": 4,
+				"title":    "Track 4",
+				"owner_id": 4,
+			},
 		},
 		"aggregate_plays": []map[string]any{
 			{
@@ -68,6 +79,10 @@ func TestV1TracksFeelingLucky(t *testing.T) {
 			},
 			{
 				"play_item_id": 3,
+				"count":        250,
+			},
+			{
+				"play_item_id": 4,
 				"count":        250,
 			},
 		},
@@ -89,6 +104,7 @@ func TestV1TracksFeelingLucky(t *testing.T) {
 
 		for _, track := range resp.Data {
 			assert.NotEqual(t, int32(1), track.TrackID, "Track 1 should not be returned (less than 250 plays)")
+			assert.NotEqual(t, int32(4), track.TrackID, "Track 4 should not be returned (owner deactivated)")
 		}
 	}
 
