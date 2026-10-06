@@ -11,12 +11,16 @@ import (
 
 func latestTestApp(t *testing.T) *ApiServer {
 	app := testAppWithFixtures(t)
+	database.SeedTable(app.pool.Replicas[0], "users", []map[string]any{
+		{"user_id": 8800, "handle": "latestdeactivated", "is_deactivated": true},
+	})
 	database.SeedTable(app.pool.Replicas[0], "tracks", []map[string]any{
 		{"track_id": 800, "genre": "LatestTestGenreA", "owner_id": 1, "title": "Latest Track Old", "is_unlisted": "f", "created_at": "2025-01-01 00:00:00"},
 		{"track_id": 801, "genre": "LatestTestGenreA", "owner_id": 1, "title": "Latest Track Mid", "is_unlisted": "f", "created_at": "2025-02-01 00:00:00"},
 		{"track_id": 802, "genre": "LatestTestGenreC", "owner_id": 1, "title": "Latest Track New", "is_unlisted": "f", "created_at": "2025-03-01 00:00:00"},
 		{"track_id": 803, "genre": "LatestTestGenreB", "owner_id": 1, "title": "Latest Track Visible", "is_unlisted": "f", "created_at": "2025-02-15 00:00:00"},
 		{"track_id": 804, "genre": "LatestTestGenreB", "owner_id": 1, "title": "Latest Track Hidden", "is_unlisted": "t", "created_at": "2025-02-20 00:00:00"},
+		{"track_id": 805, "genre": "LatestTestGenreD", "owner_id": 8800, "title": "Latest Track Deactivated Owner", "is_unlisted": "f", "created_at": "2025-02-25 00:00:00"},
 	})
 	return app
 }
@@ -71,4 +75,14 @@ func TestGetLatestExcludesUnlisted(t *testing.T) {
 	assert.Equal(t, 200, status)
 	assert.Equal(t, 1, len(resp.Data))
 	assert.Equal(t, trashid.MustEncodeHashID(803), resp.Data[0].ID)
+}
+
+func TestGetLatestExcludesDeactivatedOwner(t *testing.T) {
+	app := latestTestApp(t)
+	var resp struct {
+		Data []dbv1.Track
+	}
+	status, _ := testGet(t, app, "/v1/tracks/latest?genre=LatestTestGenreD", &resp)
+	assert.Equal(t, 200, status)
+	assert.Equal(t, 0, len(resp.Data))
 }

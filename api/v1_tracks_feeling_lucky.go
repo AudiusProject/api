@@ -23,14 +23,17 @@ func (app *ApiServer) v1TracksFeelingLucky(c *fiber.Ctx) error {
 	// to keep the query simple if we don't use follower filtering.
 	joins := []string{
 		"JOIN aggregate_plays ON aggregate_plays.play_item_id = tracks.track_id",
+		"JOIN users u ON u.user_id = tracks.owner_id",
 	}
 
 	filters := []string{
-		"is_current = true",
-		"is_available = true",
-		"is_delete = false",
-		"is_unlisted = false",
-		"stem_of IS NULL",
+		"tracks.is_current = true",
+		"tracks.is_available = true",
+		"tracks.is_delete = false",
+		"tracks.is_unlisted = false",
+		"tracks.stem_of IS NULL",
+		"u.is_deactivated = false",
+		"u.is_available = true",
 		"(tracks.access_authorities IS NULL OR (COALESCE(@authed_wallet, '') <> '' AND EXISTS (SELECT 1 FROM unnest(tracks.access_authorities) aa WHERE lower(aa) = lower(@authed_wallet))))",
 		"aggregate_plays.count >= 250",
 	}

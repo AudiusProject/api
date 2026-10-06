@@ -41,16 +41,19 @@ func (app *ApiServer) v1TracksLatest(c *fiber.Ctx) error {
 
 func (app *ApiServer) getLatestTrackIds(c *fiber.Ctx, genre string, limit int, offset int) ([]int32, error) {
 	sql := `
-		SELECT track_id
-		FROM tracks
-		WHERE is_current = true
-			AND is_delete = false
-			AND is_unlisted = false
-			AND is_available = true
-			AND (@genre = '' OR genre = @genre)
+		SELECT t.track_id
+		FROM tracks t
+		JOIN users u ON u.user_id = t.owner_id
+		WHERE t.is_current = true
+			AND t.is_delete = false
+			AND t.is_unlisted = false
+			AND t.is_available = true
+			AND u.is_deactivated = false
+			AND u.is_available = true
+			AND (@genre = '' OR t.genre = @genre)
 		ORDER BY
-			created_at DESC,
-			track_id DESC
+			t.created_at DESC,
+			t.track_id DESC
 		LIMIT @limit
 		OFFSET @offset
 		`
