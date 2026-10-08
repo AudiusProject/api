@@ -11,6 +11,10 @@ import (
 // tryFindWorkingUrl attempts to validate a media link by checking if it can serve content.
 // It tries the primary URL first, then falls back to mirrors if needed.
 // Returns the first valid URL found or the main URL if nothing works.
+//
+// The returned URL carries no probe artifacts: callers hand it straight to a
+// client, and a stray skip_play_count would stop the serving node from
+// recording the listen.
 func tryFindWorkingUrl(mediaLink *dbv1.MediaLink) *url.URL {
 	mainURL, err := url.Parse(mediaLink.Url)
 	if err != nil {
@@ -34,11 +38,18 @@ func tryFindWorkingUrl(mediaLink *dbv1.MediaLink) *url.URL {
 		Timeout: 5 * time.Second,
 	}
 	for _, u := range urls {
-		q := u.Query()
+		// Probe on a COPY. skip_play_count exists so this two-byte probe is not
+		// counted as a listen, but it belongs to the probe alone -- mutating u
+		// would carry the flag into the URL we hand the client, and the node
+		// serving /tracks/cidstream/:cid returns early from logTrackListen when
+		// it sees it. That silently suppressed the play for every caller of
+		// /v1/tracks/:id/stream.
+		probe := *u
+		q := probe.Query()
 		q.Set("skip_play_count", "true")
-		u.RawQuery = q.Encode()
+		probe.RawQuery = q.Encode()
 
-		req, err := http.NewRequest("GET", u.String(), nil)
+		req, err := http.NewRequest("GET", probe.String(), nil)
 		if err != nil {
 			continue
 		}
