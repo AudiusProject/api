@@ -97,8 +97,11 @@ type Config struct {
 	// chains, an already-migrated node writes its plays to the new chain even
 	// though the indexer is still reading the old one, and every play in that
 	// window goes to a chain nobody reads. Pointing this at nodes that stay on
-	// the old chain keeps plays where the indexer is. Cleared at the cutover.
-	// See cmd/genesis-writer/ROLLOUT.md, Runbook steps 5 and 13.
+	// the old chain keeps plays where the indexer is.
+	//
+	// Hardcoded for prod only, to the store-all nodes held back on the old chain
+	// as rollback anchors; empty everywhere else. Remove the prod entry at the
+	// cutover. See cmd/genesis-writer/ROLLOUT.md, Runbook steps 5 and 13.
 	PlayRoutingHosts []string
 
 	NewChainURL                string
@@ -280,6 +283,12 @@ func init() {
 		Cfg.StoreAllNodes = []string{
 			"https://v.monophonic.digital",
 		}
+		// Genesis migration: the two store-all nodes that stay on the old
+		// chain until the cutover. See PlayRoutingHosts.
+		Cfg.PlayRoutingHosts = []string{
+			"creatornode.audius.co",
+			"v.monophonic.digital",
+		}
 		Cfg.UploadNodes = ProdUploadNodes
 		Cfg.Rewards = core_config.MakeRewards(core_config.ProdClaimAuthorities, core_config.ProdRewardExtensions)
 		Cfg.AudiusdURL = "rpc.audius.co"
@@ -372,15 +381,6 @@ func init() {
 			log.Fatalf("Invalid featuredAudienceUserId: %s", err)
 		}
 		Cfg.FeaturedAudienceUserID = int32(parsed)
-	}
-
-	// Genesis migration: temporary play routing (see the struct field).
-	if v := strings.TrimSpace(os.Getenv("playRoutingHosts")); v != "" {
-		for _, h := range strings.Split(v, ",") {
-			if h = strings.TrimSpace(h); h != "" {
-				Cfg.PlayRoutingHosts = append(Cfg.PlayRoutingHosts, h)
-			}
-		}
 	}
 
 	// Genesis migration dual-write queue

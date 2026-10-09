@@ -17,8 +17,8 @@ func hostsOf(t *testing.T, link *dbv1.MediaLink) []string {
 	return append([]string{u.Host}, link.Mirrors...)
 }
 
-// Unconfigured, this must be exactly inert -- it ships ahead of the migration
-// and sits dormant in production until someone sets the env var.
+// With no hosts, which is every environment except prod, this must be exactly
+// inert.
 func TestPlayRoutingIsInertWhenUnconfigured(t *testing.T) {
 	link := &dbv1.MediaLink{Url: "https://node-a.example" + streamPath, Mirrors: []string{"node-b.example"}}
 	require.Same(t, link, withPlayRoutingHosts(link, nil))
@@ -73,7 +73,7 @@ func TestPlayRoutingDeduplicatesHosts(t *testing.T) {
 }
 
 // Hosts may be configured bare or as full URLs; both must normalise to the same
-// thing so a scheme in the env var does not silently create a duplicate.
+// thing so a scheme in the config does not silently create a duplicate.
 func TestPlayRoutingAcceptsBareHostsAndUrls(t *testing.T) {
 	link := &dbv1.MediaLink{Url: "https://node-a.example" + streamPath}
 	bare := withPlayRoutingHosts(link, []string{"creatornode.audius.co"})
