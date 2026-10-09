@@ -3,8 +3,8 @@
 --
 
 
--- Dumped from database version 17.9 (Debian 17.9-1.pgdg13+1)
--- Dumped by pg_dump version 17.9 (Debian 17.9-1.pgdg13+1)
+-- Dumped from database version 17.11 (Debian 17.11-1.pgdg13+2)
+-- Dumped by pg_dump version 17.11 (Debian 17.11-1.pgdg13+2)
 
 SET statement_timeout = 0;
 SET lock_timeout = 0;
@@ -9125,7 +9125,9 @@ CREATE TABLE public.new_chain_queue (
     id bigint NOT NULL,
     created_at timestamp with time zone DEFAULT now() NOT NULL,
     tx_data bytea NOT NULL,
-    confirmed_block bigint
+    confirmed_block bigint,
+    flushed_at timestamp with time zone,
+    skip_reason text
 );
 
 
@@ -9148,6 +9150,20 @@ COMMENT ON COLUMN public.new_chain_queue.tx_data IS 'Protobuf-serialized ManageE
 --
 
 COMMENT ON COLUMN public.new_chain_queue.confirmed_block IS 'Block height on the old chain where this transaction was confirmed. NULL if confirmation was not recorded (e.g. relay restart).';
+
+
+--
+-- Name: COLUMN new_chain_queue.flushed_at; Type: COMMENT; Schema: public; Owner: -
+--
+
+COMMENT ON COLUMN public.new_chain_queue.flushed_at IS 'When this row was forwarded to the new chain, or when it was marked skipped. NULL means pending.';
+
+
+--
+-- Name: COLUMN new_chain_queue.skip_reason; Type: COMMENT; Schema: public; Owner: -
+--
+
+COMMENT ON COLUMN public.new_chain_queue.skip_reason IS 'Set when flushed_at was recorded without actually forwarding: ''backfilled'' (covered by the genesis backfill) or ''corrupt'' (tx_data failed to unmarshal).';
 
 
 --
@@ -14691,6 +14707,13 @@ CREATE INDEX mv_dashboard_transaction_types_idx ON public.mv_dashboard_transacti
 --
 
 CREATE INDEX new_chain_queue_confirmed_block_idx ON public.new_chain_queue USING btree (confirmed_block);
+
+
+--
+-- Name: new_chain_queue_pending_idx; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX new_chain_queue_pending_idx ON public.new_chain_queue USING btree (id) WHERE (flushed_at IS NULL);
 
 
 --

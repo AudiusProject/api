@@ -3,8 +3,8 @@
 --
 
 
--- Dumped from database version 17.9 (Debian 17.9-1.pgdg13+1)
--- Dumped by pg_dump version 17.9 (Debian 17.9-1.pgdg13+1)
+-- Dumped from database version 17.11 (Debian 17.11-1.pgdg13+2)
+-- Dumped by pg_dump version 17.11 (Debian 17.11-1.pgdg13+2)
 
 SET statement_timeout = 0;
 SET lock_timeout = 0;
@@ -219,6 +219,7 @@ migrations/0240_user_conversation_preferences.sql	76aa7750514e2a1c74ed3c31e1b55d
 functions/handle_playlist.sql	17abfed3041b8039dde8dfbfd025c5ff	2026-09-10 19:20:26.309846+00
 migrations/0241_weekly_rotation_mixes.sql	53690c9aa07d583a6f60452e8daf0926	2026-10-05 16:48:44.236686+00
 functions/chat_allowed.sql	96b6ddc1d82a52e55de7341383572805	2026-10-05 16:48:44.371948+00
+migrations/0242_new_chain_queue_cursor.sql	2643e6250dd6b3ca4abb00fd8f417fca	2026-10-09 07:47:54.649227+00
 \.
 
 
