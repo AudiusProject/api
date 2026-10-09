@@ -89,6 +89,21 @@ type Config struct {
 	// confirmed_block < NewChainFlushFromBlock before sending — trimming rows already
 	// covered by the backfill.
 	// NewChainInsecureSkipVerify disables TLS verification for the new chain endpoint (e.g. localstack).
+	// PlayRoutingHosts, when non-empty, are tried first when resolving a track
+	// stream URL. Plays are recorded by whichever node serves the audio, never
+	// through the relay, so this is what decides which chain a play lands on.
+	//
+	// It exists for the genesis migration: while the fleet is split across two
+	// chains, an already-migrated node writes its plays to the new chain even
+	// though the indexer is still reading the old one, and every play in that
+	// window goes to a chain nobody reads. Pointing this at nodes that stay on
+	// the old chain keeps plays where the indexer is.
+	//
+	// Hardcoded for prod only, to the store-all nodes held back on the old chain
+	// as rollback anchors; empty everywhere else. Remove the prod entry at the
+	// cutover. See cmd/genesis-writer/ROLLOUT.md, Runbook steps 5 and 13.
+	PlayRoutingHosts []string
+
 	NewChainURL                string
 	NewChainQueueEnabled       bool
 	NewChainFlushEnabled       bool
@@ -267,6 +282,12 @@ func init() {
 		}
 		Cfg.StoreAllNodes = []string{
 			"https://v.monophonic.digital",
+		}
+		// Genesis migration: the two store-all nodes that stay on the old
+		// chain until the cutover. See PlayRoutingHosts.
+		Cfg.PlayRoutingHosts = []string{
+			"creatornode.audius.co",
+			"v.monophonic.digital",
 		}
 		Cfg.UploadNodes = ProdUploadNodes
 		Cfg.Rewards = core_config.MakeRewards(core_config.ProdClaimAuthorities, core_config.ProdRewardExtensions)
