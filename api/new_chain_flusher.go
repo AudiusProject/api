@@ -19,11 +19,18 @@ import (
 	"google.golang.org/protobuf/proto"
 )
 
-// NewChainFlusher reads rows from new_chain_queue and forwards them to the new
-// Core chain. On startup it deletes rows covered by the backfill (confirmed_block
-// < cfg.NewChainFlushFromBlock), then sends the rest in id order, one at a time.
-// Sequential processing is required to preserve transaction ordering across users
-// (dev apps can act on behalf of other users, creating cross-user dependencies).
+// NewChainFlusher reads pending rows from new_chain_queue and forwards them to
+// the new Core chain. On startup it marks rows covered by the backfill
+// (confirmed_block < cfg.NewChainFlushFromBlock) as skipped, then sends the rest
+// in id order, one at a time. Sequential processing is required to preserve
+// transaction ordering across users (dev apps can act on behalf of other users,
+// creating cross-user dependencies).
+//
+// Rows are never deleted — a forwarded row gets flushed_at set and stays put.
+// The genesis migration chain is regenerated before it ships, so a row deleted
+// on success would survive only on the chain being discarded. Keeping them makes
+// the queue a durable log: point the flusher at the rebuilt chain, set
+// NewChainFlushFromBlock to the new backfill's end height, and re-drive.
 type NewChainFlusher struct {
 	cfg         *config.Config
 	writePool   *pgxpool.Pool
@@ -130,7 +137,9 @@ type queueRow struct {
 
 func (f *NewChainFlusher) fetchBatch(ctx context.Context, limit int) ([]queueRow, error) {
 	rows, err := f.writePool.Query(ctx,
-		`SELECT id, tx_data FROM new_chain_queue ORDER BY id LIMIT $1`,
+		`SELECT id, tx_data FROM new_chain_queue
+		 WHERE flushed_at IS NULL
+		 ORDER BY id LIMIT $1`,
 		limit,
 	)
 	if err != nil {
@@ -152,9 +161,12 @@ func (f *NewChainFlusher) fetchBatch(ctx context.Context, limit int) ([]queueRow
 func (f *NewChainFlusher) flushRow(ctx context.Context, row queueRow) error {
 	var tx v1.ManageEntityLegacy
 	if err := proto.Unmarshal(row.txRaw, &tx); err != nil {
-		// Corrupt row — delete it and move on rather than retrying forever.
-		f.logger.Error("corrupt queue row, deleting", zap.Int64("id", row.id), zap.Error(err))
-		_, _ = f.writePool.Exec(ctx, `DELETE FROM new_chain_queue WHERE id = $1`, row.id)
+		// Corrupt row — mark it skipped and move on rather than retrying forever.
+		// It stays in the table so the bad payload can still be inspected.
+		f.logger.Error("corrupt queue row, skipping", zap.Int64("id", row.id), zap.Error(err))
+		_, _ = f.writePool.Exec(ctx,
+			`UPDATE new_chain_queue SET flushed_at = now(), skip_reason = 'corrupt' WHERE id = $1`,
+			row.id)
 		return nil
 	}
 
@@ -191,26 +203,35 @@ func (f *NewChainFlusher) flushRow(ctx context.Context, row queueRow) error {
 		}
 	}
 
-	_, err := f.writePool.Exec(ctx, `DELETE FROM new_chain_queue WHERE id = $1`, row.id)
+	_, err := f.writePool.Exec(ctx,
+		`UPDATE new_chain_queue SET flushed_at = now() WHERE id = $1`,
+		row.id)
 	return err
 }
 
-// trimBackfillRows deletes all queue rows whose confirmed_block is before the
-// configured flush-from block, i.e. rows already covered by the genesis backfill.
-// Rows with a NULL confirmed_block are kept: NULL < $1 evaluates to NULL (falsy) in SQL.
+// trimBackfillRows marks every pending row whose confirmed_block is before the
+// configured flush-from block as skipped, i.e. already covered by the genesis
+// backfill. Rows with a NULL confirmed_block are left pending: NULL < $1
+// evaluates to NULL (falsy) in SQL.
+//
+// Only pending rows are touched, so re-running with a higher flush-from block
+// after a chain regeneration marks the newly-covered rows without disturbing
+// the record of what was already sent.
 func (f *NewChainFlusher) trimBackfillRows(ctx context.Context) error {
 	if f.cfg.NewChainFlushFromBlock <= 0 {
 		return nil
 	}
 	tag, err := f.writePool.Exec(ctx,
-		`DELETE FROM new_chain_queue WHERE confirmed_block < $1`,
+		`UPDATE new_chain_queue
+		 SET flushed_at = now(), skip_reason = 'backfilled'
+		 WHERE confirmed_block < $1 AND flushed_at IS NULL`,
 		f.cfg.NewChainFlushFromBlock,
 	)
 	if err != nil {
 		return err
 	}
-	f.logger.Info("trimmed backfill-covered rows",
-		zap.Int64("deleted", tag.RowsAffected()),
+	f.logger.Info("marked backfill-covered rows as skipped",
+		zap.Int64("skipped", tag.RowsAffected()),
 		zap.Int64("flush_from_block", f.cfg.NewChainFlushFromBlock),
 	)
 	return nil
