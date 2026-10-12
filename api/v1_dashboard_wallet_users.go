@@ -10,7 +10,7 @@ import (
 
 type DashboardWalletUsersParams struct {
 	// TODO: wallets should be an array of strings rather than a comma separated string
-	// but for backwards compat with discovery node, is as so
+	// but is kept this way for backwards compat with the legacy API
 	Wallets string `query:"wallets" validate:"required"`
 }
 

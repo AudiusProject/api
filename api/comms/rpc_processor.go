@@ -84,7 +84,9 @@ func NewProcessor(pool *dbv1.DBPools, writePool *pgxpool.Pool, config *config.Co
 	}
 
 	if config.CommsMessagePush && writePool != nil {
-		proc.startPgNotifyListeners()
+		if err := proc.startPgNotifyListeners(); err != nil {
+			return nil, err
+		}
 	}
 
 	return proc, nil
@@ -120,7 +122,10 @@ func (proc *RPCProcessor) Apply(ctx context.Context, rpcLog *RpcLog) error {
 	var err error
 
 	var exists int
-	proc.pool.QueryRow(ctx, `select count(*) from rpc_log where sig = $1`, rpcLog.Sig).Scan(&exists)
+	if err := proc.pool.QueryRow(ctx, `select count(*) from rpc_log where sig = $1`, rpcLog.Sig).Scan(&exists); err != nil {
+		// Not fatal: the rpc_log insert below also guards against duplicates
+		logger.Warn("failed to check rpc_log for duplicate", zap.Error(err))
+	}
 	if exists == 1 {
 		logger.Debug("rpc already in log, skipping duplicate", zap.String("sig", rpcLog.Sig))
 		return nil
@@ -189,7 +194,7 @@ func (proc *RPCProcessor) Apply(ctx context.Context, rpcLog *RpcLog) error {
 		if err != nil {
 			return err
 		}
-		defer tx.Rollback(ctx)
+		defer func() { _ = tx.Rollback(ctx) }()
 
 		logger.Debug("begin tx", zap.Duration("took", takeSplit()), zap.String("sig", rpcLog.Sig))
 
@@ -431,7 +436,9 @@ func (proc *RPCProcessor) startPgNotifyListeners() error {
 			if err != nil {
 				return nil, err
 			}
-			return conn.Conn(), nil
+			// Hijack removes the connection from the pool: the listener owns it
+			// and closes it on reconnect, so it must not hold a pool slot.
+			return conn.Hijack(), nil
 		},
 		LogError: func(ctx context.Context, err error) {
 			proc.logger.Error("Comms RPC pg_notify listener error", zap.Error(err))

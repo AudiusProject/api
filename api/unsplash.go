@@ -70,22 +70,21 @@ func (app *ApiServer) unsplash(c *fiber.Ctx) error {
 
 		// If successful, proxy the response
 		if resp.StatusCode >= 200 && resp.StatusCode < 300 {
-			defer resp.Body.Close()
+			respBody, err := io.ReadAll(resp.Body)
+			_ = resp.Body.Close()
+			if err != nil {
+				continue
+			}
 
 			for key, values := range resp.Header {
 				for _, value := range values {
 					c.Set(key, value)
 				}
 			}
-			c.Status(resp.StatusCode)
-			body, err := io.ReadAll(resp.Body)
-			if err != nil {
-				continue
-			}
-			return c.Send(body)
+			return c.Status(resp.StatusCode).Send(respBody)
 		}
 
-		resp.Body.Close()
+		_ = resp.Body.Close()
 	}
 	// All keys failed
 	return fiber.NewError(fiber.StatusBadGateway, "All Unsplash keys failed")

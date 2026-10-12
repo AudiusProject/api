@@ -81,7 +81,7 @@ func NewApiServer(config config.Config) *ApiServer {
 	if config.WriteDbUrl != "" {
 		writeConnConfig, err := pgxpool.ParseConfig(config.WriteDbUrl)
 		if err != nil {
-			logger.Error("write db connect failed", zap.Error(err))
+			logger.Fatal("write db config parse failed", zap.Error(err))
 		}
 
 		if config.Env != "test" {
@@ -936,10 +936,8 @@ func (app *ApiServer) servePlans(c *fiber.Ctx) error {
 func decodeIdList(c *fiber.Ctx) []int32 {
 	var ids []int32
 	for _, b := range c.Request().URI().QueryArgs().PeekMulti("id") {
+		// DecodeHashId accepts both hash ids and plain numeric ids
 		if id, err := trashid.DecodeHashId(string(b)); err == nil {
-			ids = append(ids, int32(id))
-		}
-		if id, err := strconv.Atoi(string(b)); err == nil {
 			ids = append(ids, int32(id))
 		}
 	}
@@ -961,7 +959,7 @@ func (app *ApiServer) Serve() {
 	flushTicker := time.NewTicker(time.Second * 15)
 	go func() {
 		for range flushTicker.C {
-			app.logger.Sync()
+			_ = app.logger.Sync()
 		}
 	}()
 
@@ -978,15 +976,14 @@ func (app *ApiServer) Serve() {
 			app.metricsCollector.Shutdown()
 		}
 
-		// Shutdown HLL aggregator if it exists
-		// Removed hllAggregator
-
-		app.Shutdown()
+		if err := app.Shutdown(); err != nil {
+			app.logger.Error("Failed to shut down server", zap.Error(err))
+		}
 		app.pool.Close()
 		if app.writePool != nil {
 			app.writePool.Close()
 		}
-		app.logger.Sync()
+		_ = app.logger.Sync()
 	}()
 
 	go func() {

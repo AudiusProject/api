@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"net/http"
+	"time"
 
 	"api.audius.co/api/dbv1"
 	"api.audius.co/rendezvous"
@@ -34,8 +35,8 @@ func inspectTrack(track dbv1.Track, original bool) (*inspectResponse, error) {
 	var info blobInspect
 	var lastErr error
 
+	client := &http.Client{Timeout: 10 * time.Second}
 	for _, host := range hosts {
-		client := &http.Client{}
 		req, err := http.NewRequest("GET", fmt.Sprintf("%s/internal/blobs/info/%s", host, cid), nil)
 		if err != nil {
 			lastErr = err
@@ -47,14 +48,16 @@ func inspectTrack(track dbv1.Track, original bool) (*inspectResponse, error) {
 			lastErr = err
 			continue
 		}
-		defer resp.Body.Close()
 
 		if resp.StatusCode != http.StatusOK {
+			_ = resp.Body.Close()
 			lastErr = fmt.Errorf("host %s returned status %d", host, resp.StatusCode)
 			continue
 		}
 
-		if err := json.NewDecoder(resp.Body).Decode(&info); err != nil {
+		err = json.NewDecoder(resp.Body).Decode(&info)
+		_ = resp.Body.Close()
+		if err != nil {
 			lastErr = err
 			continue
 		}

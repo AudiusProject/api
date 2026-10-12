@@ -10,6 +10,7 @@ import (
 	"github.com/jackc/pgerrcode"
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgconn"
+	"go.uber.org/zap"
 )
 
 type CreateCoinBody struct {
@@ -157,7 +158,13 @@ func (app *ApiServer) v1CreateCoin(c *fiber.Ctx) error {
 
 	// Update the pool for the new coin
 	coinJob := jobs.NewCoinDBCJob(*app.config, app.writePool)
-	coinJob.UpdatePoolForBaseMint(c.Context(), result.Mint, true)
+	if _, err := coinJob.UpdatePoolForBaseMint(c.Context(), result.Mint, true); err != nil {
+		// The coin was created; a failed pool refresh is picked up by the job later.
+		app.requestLogger(c).Warn("failed to update pool for new coin",
+			zap.String("mint", result.Mint),
+			zap.Error(err),
+		)
+	}
 
 	return c.Status(fiber.StatusCreated).JSON(fiber.Map{
 		"data": result,

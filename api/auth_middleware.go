@@ -116,11 +116,12 @@ func (app *ApiServer) tryGetAuthedWallet(c *fiber.Ctx) string {
 	return ""
 }
 
-// validateOAuthJWTTokenToUserId validates the OAuth JWT and returns the userId from the payload.
-func (app *ApiServer) validateOAuthJWTTokenToUserId(ctx context.Context, token string) (trashid.HashId, error) {
+// validateOAuthJWTToken validates the OAuth JWT and returns the lowercased
+// wallet that signed it and the userId from the payload.
+func (app *ApiServer) validateOAuthJWTToken(ctx context.Context, token string) (string, trashid.HashId, error) {
 	tokenParts := strings.Split(token, ".")
 	if len(tokenParts) != 3 {
-		return 0, fiber.NewError(fiber.StatusBadRequest, "Invalid JWT token format")
+		return "", 0, fiber.NewError(fiber.StatusBadRequest, "Invalid JWT token format")
 	}
 
 	base64Header := tokenParts[0]
@@ -133,7 +134,7 @@ func (app *ApiServer) validateOAuthJWTTokenToUserId(ctx context.Context, token s
 	}
 	signatureDecoded, err := base64.URLEncoding.DecodeString(paddedSignature)
 	if err != nil {
-		return 0, fiber.NewError(fiber.StatusBadRequest, "The JWT signature could not be decoded")
+		return "", 0, fiber.NewError(fiber.StatusBadRequest, "The JWT signature could not be decoded")
 	}
 	signatureHex := string(signatureDecoded)
 	signatureBytes := common.FromHex(signatureHex)
@@ -144,14 +145,14 @@ func (app *ApiServer) validateOAuthJWTTokenToUserId(ctx context.Context, token s
 	finalHash := crypto.Keccak256Hash(prefixedMessage)
 
 	if len(signatureBytes) != 65 {
-		return 0, fiber.NewError(fiber.StatusBadRequest, "The JWT signature was incorrectly signed")
+		return "", 0, fiber.NewError(fiber.StatusBadRequest, "The JWT signature was incorrectly signed")
 	}
 	if signatureBytes[64] >= 27 {
 		signatureBytes[64] -= 27
 	}
 	publicKey, err := crypto.SigToPub(finalHash.Bytes(), signatureBytes)
 	if err != nil {
-		return 0, fiber.NewError(fiber.StatusUnauthorized, "The JWT signature is invalid")
+		return "", 0, fiber.NewError(fiber.StatusUnauthorized, "The JWT signature is invalid")
 	}
 	recoveredAddr := crypto.PubkeyToAddress(*publicKey)
 	walletLower := strings.ToLower(recoveredAddr.Hex())
@@ -162,83 +163,61 @@ func (app *ApiServer) validateOAuthJWTTokenToUserId(ctx context.Context, token s
 	}
 	stringifiedPayload, err := base64.URLEncoding.DecodeString(paddedPayload)
 	if err != nil {
-		return 0, fiber.NewError(fiber.StatusBadRequest, "JWT payload could not be decoded")
+		return "", 0, fiber.NewError(fiber.StatusBadRequest, "JWT payload could not be decoded")
 	}
 	var payload map[string]interface{}
 	if err := json.Unmarshal(stringifiedPayload, &payload); err != nil {
-		return 0, fiber.NewError(fiber.StatusBadRequest, "JWT payload could not be unmarshalled")
+		return "", 0, fiber.NewError(fiber.StatusBadRequest, "JWT payload could not be unmarshalled")
 	}
 
 	userIdInterface, exists := payload["userId"]
 	if !exists {
-		return 0, fiber.NewError(fiber.StatusBadRequest, "JWT payload missing userId field")
+		return "", 0, fiber.NewError(fiber.StatusBadRequest, "JWT payload missing userId field")
 	}
 	userIdStr, ok := userIdInterface.(string)
 	if !ok {
-		return 0, fiber.NewError(fiber.StatusBadRequest, "JWT payload userId must be a string")
+		return "", 0, fiber.NewError(fiber.StatusBadRequest, "JWT payload userId must be a string")
 	}
 	jwtUserId, err := trashid.DecodeHashId(userIdStr)
 	if err != nil {
-		return 0, fiber.NewError(fiber.StatusBadRequest, "Invalid JWT payload userId")
+		return "", 0, fiber.NewError(fiber.StatusBadRequest, "Invalid JWT payload userId")
 	}
 
 	walletUserId, err := app.queries.GetUserForWallet(ctx, walletLower)
 	if err != nil {
 		if err == pgx.ErrNoRows {
-			return 0, fiber.NewError(fiber.StatusUnauthorized, "The JWT signature is invalid - invalid wallet")
+			return "", 0, fiber.NewError(fiber.StatusUnauthorized, "The JWT signature is invalid - invalid wallet")
 		}
-		return 0, err
+		return "", 0, err
 	}
 
 	if int32(walletUserId) != int32(jwtUserId) {
 		isManager, err := app.isActiveManager(ctx, int32(jwtUserId), int32(walletUserId))
 		if err != nil {
-			return 0, err
+			return "", 0, err
 		}
 		if !isManager {
-			return 0, fiber.NewError(fiber.StatusForbidden, "The JWT signature is invalid - the wallet does not match the user")
+			return "", 0, fiber.NewError(fiber.StatusForbidden, "The JWT signature is invalid - the wallet does not match the user")
 		}
 	}
 
-	return trashid.HashId(jwtUserId), nil
+	return walletLower, trashid.HashId(jwtUserId), nil
+}
+
+// validateOAuthJWTTokenToUserId validates the OAuth JWT and returns the userId from the payload.
+func (app *ApiServer) validateOAuthJWTTokenToUserId(ctx context.Context, token string) (trashid.HashId, error) {
+	_, userId, err := app.validateOAuthJWTToken(ctx, token)
+	return userId, err
 }
 
 // validateOAuthJWTTokenToWalletAndUserId validates the OAuth JWT and returns (wallet, userId).
 // Used by auth middleware when Bearer token is not an api_access_key.
-func (app *ApiServer) validateOAuthJWTTokenToWalletAndUserId(ctx context.Context, token string) (wallet string, userId int32, err error) {
-	id, err := app.validateOAuthJWTTokenToUserId(ctx, token)
+func (app *ApiServer) validateOAuthJWTTokenToWalletAndUserId(ctx context.Context, token string) (string, int32, error) {
+	wallet, userId, err := app.validateOAuthJWTToken(ctx, token)
 	if err != nil {
 		return "", 0, err
 	}
-	tokenParts := strings.Split(token, ".")
-	if len(tokenParts) != 3 {
-		return "", 0, fiber.NewError(fiber.StatusBadRequest, "Invalid JWT token format")
-	}
-	base64Payload, base64Signature := tokenParts[1], tokenParts[2]
-	paddedSignature := base64Signature
-	if len(paddedSignature)%4 != 0 {
-		paddedSignature += strings.Repeat("=", 4-len(paddedSignature)%4)
-	}
-	signatureDecoded, err := base64.URLEncoding.DecodeString(paddedSignature)
-	if err != nil {
-		return "", 0, fiber.NewError(fiber.StatusBadRequest, "The JWT signature could not be decoded")
-	}
-	signatureBytes := common.FromHex(string(signatureDecoded))
-	if len(signatureBytes) != 65 {
-		return "", 0, fiber.NewError(fiber.StatusBadRequest, "The JWT signature was incorrectly signed")
-	}
-	if signatureBytes[64] >= 27 {
-		signatureBytes[64] -= 27
-	}
-	message := fmt.Sprintf("%s.%s", tokenParts[0], base64Payload)
-	prefixedMessage := []byte(fmt.Sprintf("\x19Ethereum Signed Message:\n%d%s", len(message), message))
-	finalHash := crypto.Keccak256Hash(prefixedMessage)
-	publicKey, err := crypto.SigToPub(finalHash.Bytes(), signatureBytes)
-	if err != nil {
-		return "", 0, fiber.NewError(fiber.StatusUnauthorized, "The JWT signature is invalid")
-	}
-	recoveredAddr := crypto.PubkeyToAddress(*publicKey)
-	return strings.ToLower(recoveredAddr.Hex()), int32(id), nil
+	return wallet, int32(userId), nil
 }
 
 // Middleware to set authedUserId and authedWallet in context

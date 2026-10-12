@@ -845,9 +845,10 @@ func collectNotificationRelatedIds(action json.RawMessage, userIds, trackIds, pl
 		if !val.Exists() || val.Type != gjson.Number {
 			continue
 		}
-		if itemType == "track" {
+		switch itemType {
+		case "track":
 			*trackIds = append(*trackIds, int32(val.Int()))
-		} else if itemType == "playlist" || itemType == "album" {
+		case "playlist", "album":
 			*playlistIds = append(*playlistIds, int32(val.Int()))
 		}
 	}

@@ -275,8 +275,8 @@ func (q *Queries) FullTips(ctx context.Context, arg GetTipsParams) ([]FullTip, e
 			}
 		}
 
-		sender, _ := userMap[int32(row.SenderUserId)]
-		receiver, _ := userMap[int32(row.ReceiverUserId)]
+		sender := userMap[int32(row.SenderUserId)]
+		receiver := userMap[int32(row.ReceiverUserId)]
 
 		tips[i] = FullTip{
 			// Convert from 1e8 (solana) to 1e18 (eth): multiply by 1e10

@@ -10,6 +10,7 @@ import (
 	"api.audius.co/trashid"
 	"github.com/jackc/pgx/v5/pgxpool"
 	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 )
 
 /*
@@ -188,16 +189,16 @@ func TestChatBlastFollowers(t *testing.T) {
 		assert.Equal(t, FollowerAudience, *outgoingMsg.ChatMessageRPC.Params.Audience, "Audience should match the blast audience")
 	}
 
-	pool.QueryRow(ctx, `select count(*) from chat_blast`).Scan(&count)
+	require.NoError(t, pool.QueryRow(ctx, `select count(*) from chat_blast`).Scan(&count))
 	assert.Equal(t, 1, count)
 
-	pool.QueryRow(ctx, `select count(*) from chat where chat_id = $1`, chatId_101_1).Scan(&count)
+	require.NoError(t, pool.QueryRow(ctx, `select count(*) from chat where chat_id = $1`, chatId_101_1).Scan(&count))
 	assert.Equal(t, 0, count)
 
-	pool.QueryRow(ctx, `select count(*) from chat_member where chat_id = $1`, chatId_101_1).Scan(&count)
+	require.NoError(t, pool.QueryRow(ctx, `select count(*) from chat_member where chat_id = $1`, chatId_101_1).Scan(&count))
 	assert.Equal(t, 0, count)
 
-	pool.QueryRow(ctx, `select count(*) from chat_message where chat_id = $1`, chatId_101_1).Scan(&count)
+	require.NoError(t, pool.QueryRow(ctx, `select count(*) from chat_message where chat_id = $1`, chatId_101_1).Scan(&count))
 	assert.Equal(t, 0, count)
 
 	// user 1 gets chat list...
@@ -295,19 +296,19 @@ func TestChatBlastFollowers(t *testing.T) {
 		})
 		assert.NoError(t, err)
 
-		pool.QueryRow(ctx, `select count(*) from chat where chat_id = $1`, chatId_101_1).Scan(&count)
+		require.NoError(t, pool.QueryRow(ctx, `select count(*) from chat where chat_id = $1`, chatId_101_1).Scan(&count))
 		assert.Equal(t, 1, count)
 
-		pool.QueryRow(ctx, `select count(*) from chat_member where chat_id = $1`, chatId_101_1).Scan(&count)
+		require.NoError(t, pool.QueryRow(ctx, `select count(*) from chat_member where chat_id = $1`, chatId_101_1).Scan(&count))
 		assert.Equal(t, 2, count)
 
-		pool.QueryRow(ctx, `select count(*) from chat_member where is_hidden = false and chat_id = $1 and user_id = 101`, chatId_101_1).Scan(&count)
+		require.NoError(t, pool.QueryRow(ctx, `select count(*) from chat_member where is_hidden = false and chat_id = $1 and user_id = 101`, chatId_101_1).Scan(&count))
 		assert.Equal(t, 1, count)
 
-		pool.QueryRow(ctx, `select count(*) from chat_member where is_hidden = true and chat_id = $1 and user_id = 1`, chatId_101_1).Scan(&count)
+		require.NoError(t, pool.QueryRow(ctx, `select count(*) from chat_member where is_hidden = true and chat_id = $1 and user_id = 1`, chatId_101_1).Scan(&count))
 		assert.Equal(t, 1, count)
 
-		pool.QueryRow(ctx, `select count(*) from chat_message where chat_id = $1`, chatId_101_1).Scan(&count)
+		require.NoError(t, pool.QueryRow(ctx, `select count(*) from chat_message where chat_id = $1`, chatId_101_1).Scan(&count))
 		assert.Equal(t, 1, count)
 
 		messages = mustGetMessagesAndReactions(t, pool, ctx, 101, chatId_101_1)
@@ -380,14 +381,14 @@ func TestChatBlastFollowers(t *testing.T) {
 		assert.Equal(t, FollowerAudience, *outgoingMsg.ChatMessageRPC.Params.Audience, "Audience should match the blast audience")
 	}
 
-	pool.QueryRow(ctx, `select count(*) from chat_blast`).Scan(&count)
+	require.NoError(t, pool.QueryRow(ctx, `select count(*) from chat_blast`).Scan(&count))
 	assert.Equal(t, 2, count)
 
 	// user 101 above should have second blast added to the chat history...
 	{
 		chatId := trashid.ChatID(101, 1)
 
-		pool.QueryRow(ctx, `select count(*) from chat_message where chat_id = $1`, chatId).Scan(&count)
+		require.NoError(t, pool.QueryRow(ctx, `select count(*) from chat_message where chat_id = $1`, chatId).Scan(&count))
 		assert.Equal(t, 2, count)
 
 		messages = mustGetMessagesAndReactions(t, pool, ctx, 1, chatId)
@@ -410,7 +411,7 @@ func TestChatBlastFollowers(t *testing.T) {
 		// user 101 reacts
 		{
 			heart := "heart"
-			chatReactMessage(pool, ctx, 101, chatId, messages[0].MessageID, &heart, t5)
+			require.NoError(t, chatReactMessage(pool, ctx, 101, chatId, messages[0].MessageID, &heart, t5))
 
 			// reaction shows up
 			messages = mustGetMessagesAndReactions(t, pool, ctx, 1, chatId)

@@ -103,11 +103,12 @@ func (app *ApiServer) v1ExploreBestSelling(c *fiber.Ctx) error {
 		// related
 		trackIds := []int32{}
 		playlistIds := []int32{}
-		for _, c := range items {
-			if c.ContentType == "track" {
-				trackIds = append(trackIds, int32(c.ContentID))
-			} else if c.ContentType == "album" {
-				playlistIds = append(playlistIds, int32(c.ContentID))
+		for _, item := range items {
+			switch item.ContentType {
+			case "track":
+				trackIds = append(trackIds, int32(item.ContentID))
+			case "album":
+				playlistIds = append(playlistIds, int32(item.ContentID))
 			}
 		}
 		related, err := app.queries.Parallel(c.Context(), dbv1.ParallelParams{

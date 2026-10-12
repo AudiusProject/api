@@ -86,10 +86,10 @@ func SearchAndPluck(esClient *elasticsearch.Client, index, dsl string, limit, of
 	if err != nil {
 		return nil, err
 	}
-	defer res.Body.Close()
+	defer func() { _ = res.Body.Close() }()
 
 	if res.IsError() {
-		return nil, fmt.Errorf("Search %s failed: %s", index, res.String())
+		return nil, fmt.Errorf("search %s failed: %s", index, res.String())
 	}
 
 	body, err := io.ReadAll(res.Body)

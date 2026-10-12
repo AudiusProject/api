@@ -51,7 +51,8 @@ func NewNewChainFlusher(cfg *config.Config, writePool *pgxpool.Pool, logger *zap
 			Transport: &http2.Transport{
 				AllowHTTP: true,
 				DialTLSContext: func(ctx context.Context, network, addr string, _ *tls.Config) (net.Conn, error) {
-					return net.Dial(network, addr)
+					var d net.Dialer
+					return d.DialContext(ctx, network, addr)
 				},
 			},
 		}

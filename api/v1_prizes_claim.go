@@ -248,8 +248,13 @@ func (app *ApiServer) v1PrizesClaim(c *fiber.Ctx) error {
 		prizes = append(prizes, prize)
 		totalWeight += prize.Weight
 	}
+	if err := prizeRows.Err(); err != nil {
+		app.logger.Error("Failed to read prizes", zap.Error(err))
+		return fiber.NewError(fiber.StatusInternalServerError, "Database error")
+	}
 
-	if len(prizes) == 0 {
+	// rng.Intn panics on a non-positive bound, so all-zero weights count as no prizes
+	if len(prizes) == 0 || totalWeight <= 0 {
 		app.logger.Error("No prizes available")
 		return fiber.NewError(fiber.StatusInternalServerError, "No prizes available")
 	}
@@ -500,6 +505,10 @@ func (app *ApiServer) v1Prizes(c *fiber.Ctx) error {
 		}
 		prizes = append(prizes, publicPrize)
 	}
+	if err := prizeRows.Err(); err != nil {
+		app.logger.Error("Failed to read prizes", zap.Error(err))
+		return fiber.NewError(fiber.StatusInternalServerError, "Database error")
+	}
 
 	return c.JSON(fiber.Map{
 		"data": prizes,
@@ -558,6 +567,10 @@ func (app *ApiServer) v1WalletPrizes(c *fiber.Ctx) error {
 		// Users receive full action_data when claiming via /v1/prizes/claim
 
 		prizes = append(prizes, prize)
+	}
+	if err := prizeRows.Err(); err != nil {
+		app.logger.Error("Failed to read claimed prizes", zap.Error(err))
+		return fiber.NewError(fiber.StatusInternalServerError, "Database error")
 	}
 
 	return c.JSON(fiber.Map{
