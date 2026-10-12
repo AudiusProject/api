@@ -39,11 +39,11 @@ import (
 // the agreed scoping; promote to a config knob if/when multi-notifier
 // support is needed.
 type UpdateDelistStatusesJob struct {
-	pool       database.DbPool
-	logger     *zap.Logger
-	endpoint   string
+	pool        database.DbPool
+	logger      *zap.Logger
+	endpoint    string
 	delegateKey string
-	httpClient *http.Client
+	httpClient  *http.Client
 
 	mutex     sync.Mutex
 	isRunning bool
@@ -171,7 +171,7 @@ func (j *UpdateDelistStatusesJob) processEntity(ctx context.Context, entity stri
 		pollURL += "&cursor=" + url.QueryEscape(cursorBefore.UTC().Format("2006-01-02T15:04:05.999999Z"))
 	}
 
-	resp, err := signedHTTPGet(j.httpClient, pollURL, j.delegateKey)
+	resp, err := signedHTTPGet(ctx, j.httpClient, pollURL, j.delegateKey)
 	if err != nil {
 		return fmt.Errorf("signed GET: %w", err)
 	}
@@ -180,7 +180,7 @@ func (j *UpdateDelistStatusesJob) processEntity(ctx context.Context, entity stri
 		return fmt.Errorf("notifier returned non-2xx: %w", drainResponse(resp))
 	}
 	body, err := io.ReadAll(resp.Body)
-	resp.Body.Close()
+	_ = resp.Body.Close()
 	if err != nil {
 		return fmt.Errorf("read body: %w", err)
 	}
@@ -205,7 +205,7 @@ func (j *UpdateDelistStatusesJob) processUsersBatch(ctx context.Context, body []
 	if err != nil {
 		return err
 	}
-	defer tx.Rollback(ctx)
+	defer func() { _ = tx.Rollback(ctx) }()
 
 	// Insert raw audit-log rows.
 	if err := insertUserDelistStatuses(ctx, tx, users); err != nil {
@@ -299,7 +299,7 @@ func (j *UpdateDelistStatusesJob) processTracksBatch(ctx context.Context, body [
 	if err != nil {
 		return err
 	}
-	defer tx.Rollback(ctx)
+	defer func() { _ = tx.Rollback(ctx) }()
 
 	if err := insertTrackDelistStatuses(ctx, tx, tracks); err != nil {
 		return fmt.Errorf("insert track_delist_statuses: %w", err)
@@ -496,4 +496,3 @@ func parseDelistTimestamp(s string) (time.Time, error) {
 	}
 	return time.Time{}, fmt.Errorf("unrecognized timestamp: %q", s)
 }
-

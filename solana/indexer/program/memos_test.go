@@ -64,7 +64,7 @@ func TestParseTransferTypeMemo(t *testing.T) {
 		{"Prepare Withdrawal", TransferTypePrepareWithdrawal},
 		{"Internal Transfer", TransferTypeInternalTransfer},
 		{"Recover Withdrawal", TransferTypeRecoverWithdrawal},
-		{"withdrawal", TransferTypeUnknown},   // case-sensitive
+		{"withdrawal", TransferTypeUnknown}, // case-sensitive
 		{"track:1:2:3:download", TransferTypeUnknown},
 		{"", TransferTypeUnknown},
 	}

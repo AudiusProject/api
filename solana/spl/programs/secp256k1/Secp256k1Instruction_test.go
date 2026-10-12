@@ -48,7 +48,7 @@ func TestUnmarshal(t *testing.T) {
 
 	ix := secp256k1.NewSecp256k1InstructionBuilder()
 	decoder := bin.NewBorshDecoder(data)
-	ix.UnmarshalWithDecoder(decoder)
+	require.NoError(t, ix.UnmarshalWithDecoder(decoder))
 
 	require.Len(t, ix.SignatureDatas, 1)
 	require.Equal(t, ethAddress, ix.SignatureDatas[0].EthAddress.Bytes())
@@ -64,7 +64,7 @@ func TestUnmarshalVerifySignature(t *testing.T) {
 
 	ix := secp256k1.NewSecp256k1InstructionBuilder()
 	decoder := bin.NewBorshDecoder(data)
-	ix.UnmarshalWithDecoder(decoder)
+	require.NoError(t, ix.UnmarshalWithDecoder(decoder))
 
 	hash := crypto.Keccak256(ix.SignatureDatas[0].Message)
 	recoveredWallet, err := crypto.SigToPub(hash, ix.SignatureDatas[0].Signature)

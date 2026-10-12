@@ -39,7 +39,7 @@ func CreateTestDatabase(t *testing.T, template string) *pgxpool.Pool {
 		if err != nil {
 			panic(fmt.Errorf("failed to connect to database: %w", err))
 		}
-		defer conn.Close(ctx)
+		defer func() { _ = conn.Close(ctx) }()
 
 		_, err = conn.Exec(ctx, "CREATE DATABASE "+dbName+" TEMPLATE "+template)
 		if err != nil {
@@ -62,7 +62,7 @@ func CreateTestDatabase(t *testing.T, template string) *pgxpool.Pool {
 
 			conn, err := pgx.Connect(ctx, "postgres://postgres:example@localhost:21300/postgres")
 			require.NoError(t, err)
-			defer conn.Close(ctx)
+			defer func() { _ = conn.Close(ctx) }()
 
 			_, err = conn.Exec(ctx, "DROP DATABASE IF EXISTS "+dbName)
 			require.NoError(t, err)

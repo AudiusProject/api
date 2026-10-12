@@ -36,10 +36,10 @@ const (
 // Memo string constants — these match the strings the legacy Python indexer
 // (and the Audius web clients) write into the memo instruction at send time.
 const (
-	memoWithdrawal         = "Withdrawal"
-	memoPrepareWithdrawal  = "Prepare Withdrawal"
-	memoInternalTransfer   = "Internal Transfer"
-	memoRecoverWithdrawal  = "Recover Withdrawal"
+	memoWithdrawal        = "Withdrawal"
+	memoPrepareWithdrawal = "Prepare Withdrawal"
+	memoInternalTransfer  = "Internal Transfer"
+	memoRecoverWithdrawal = "Recover Withdrawal"
 )
 
 // parseTransferTypeMemo returns the TransferType that matches the memo's

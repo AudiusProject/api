@@ -23,7 +23,7 @@ type Instruction struct {
 }
 
 func init() {
-	solana.RegisterInstructionDecoder(ProgramID, registryDecodeInstruction)
+	solana.MustRegisterInstructionDecoder(ProgramID, registryDecodeInstruction)
 }
 
 func SetProgramID(pubkey solana.PublicKey) {
@@ -106,7 +106,7 @@ var InstructionImplDef = bin.NewVariantDefinition(
 )
 
 func (inst *Instruction) UnmarshalWithDecoder(decoder *bin.Decoder) error {
-	return inst.BaseVariant.UnmarshalBinaryVariant(decoder, InstructionImplDef)
+	return inst.UnmarshalBinaryVariant(decoder, InstructionImplDef)
 }
 
 // ----- bin.BinaryMarshaler Implementation -----

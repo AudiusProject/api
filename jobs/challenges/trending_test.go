@@ -58,14 +58,12 @@ func TestTrending_IdempotentSameWeek(t *testing.T) {
 	// User_challenges: one row per rank with amount = 1000 (top-5).
 	for _, userID := range []int{500, 501, 502} {
 		weekDate := time.Date(time.Now().UTC().Year(), time.Now().UTC().Month(), time.Now().UTC().Day(), 0, 0, 0, 0, time.UTC).Format("2006-01-02")
-		var rank int32 = 1
 		// We don't know which rank each user got; iterate.
 		for r := int32(1); r <= 3; r++ {
 			specifier := fmt.Sprintf("%s:%d", weekDate, r)
 			ucRow, ok := queryUserChallenge(t, pool, "tt", specifier)
 			if ok && ucRow.UserID == int64(userID) {
-				rank = r
-				assert.Equal(t, int32(1000), ucRow.Amount, "rank %d should pay 1000", rank)
+				assert.Equal(t, int32(1000), ucRow.Amount, "rank %d should pay 1000", r)
 				assert.True(t, ucRow.IsComplete)
 				break
 			}
@@ -158,8 +156,8 @@ func TestTrending_UndergroundFiltersMainstream(t *testing.T) {
 	for i := 0; i < 3; i++ {
 		setCounts(730+i, 100, 100) // underground: eligible
 	}
-	setCounts(740, 5000, 50)   // excluded by follower cap
-	setCounts(741, 100, 5000)  // excluded by following cap
+	setCounts(740, 5000, 50)  // excluded by follower cap
+	setCounts(741, 100, 5000) // excluded by following cap
 
 	// Scores: mainstream 1000..979, underground 500/499/498, the two
 	// excluded low-score artists at 480/470 (below the top 20 cutoff but

@@ -21,11 +21,11 @@ import (
 // Account layout (matches Rust `delete_sender_public` in
 // apps/solana-programs/reward-manager/program/src/instruction.rs):
 //
-//	0. []         reward_manager state
-//	1. [writable] sender PDA being deleted
-//	2. [writable] refunder (rent recipient)
-//	3. []         sysvar instructions
-//	4..n. []      attester sender PDAs
+//  0. []         reward_manager state
+//  1. [writable] sender PDA being deleted
+//  2. [writable] refunder (rent recipient)
+//  3. []         sysvar instructions
+//     4..n. []      attester sender PDAs
 type DeleteSenderPublic struct {
 	// EthAddress is used to derive the sender PDA but is NOT serialized into
 	// the instruction data — the on-chain Instructions::DeleteSenderPublic

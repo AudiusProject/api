@@ -131,6 +131,9 @@ func (j *CheckpointGapBackfillJob) run(ctx context.Context) error {
 				)
 				break
 			}
+			// Count attempts, not successes, so failing gaps still respect the
+			// per-run cap.
+			processed++
 			j.logger.Info("backfilling checkpoint gap",
 				zap.String("name", name),
 				zap.Uint64("fromSlot", gap.from),
@@ -154,7 +157,6 @@ func (j *CheckpointGapBackfillJob) run(ctx context.Context) error {
 					zap.Error(err),
 				)
 			}
-			processed++
 		}
 	}
 	return nil

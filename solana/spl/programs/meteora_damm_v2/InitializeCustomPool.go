@@ -20,79 +20,79 @@ type InitializeCustomPool struct {
 }
 
 func (inst *InitializeCustomPool) GetCreator() *solana.AccountMeta {
-	return inst.AccountMetaSlice.Get(0)
+	return inst.Get(0)
 }
 
 func (inst *InitializeCustomPool) GetPositionNftMint() *solana.AccountMeta {
-	return inst.AccountMetaSlice.Get(1)
+	return inst.Get(1)
 }
 
 func (inst *InitializeCustomPool) GetPositionNftAccount() *solana.AccountMeta {
-	return inst.AccountMetaSlice.Get(2)
+	return inst.Get(2)
 }
 
 func (inst *InitializeCustomPool) GetPayer() *solana.AccountMeta {
-	return inst.AccountMetaSlice.Get(3)
+	return inst.Get(3)
 }
 
 func (inst *InitializeCustomPool) GetPoolAuthority() *solana.AccountMeta {
-	return inst.AccountMetaSlice.Get(4)
+	return inst.Get(4)
 }
 
 func (inst *InitializeCustomPool) GetPool() *solana.AccountMeta {
-	return inst.AccountMetaSlice.Get(5)
+	return inst.Get(5)
 }
 
 func (inst *InitializeCustomPool) GetPosition() *solana.AccountMeta {
-	return inst.AccountMetaSlice.Get(6)
+	return inst.Get(6)
 }
 
 func (inst *InitializeCustomPool) GetTokenAMint() *solana.AccountMeta {
-	return inst.AccountMetaSlice.Get(7)
+	return inst.Get(7)
 }
 
 func (inst *InitializeCustomPool) GetTokenBMint() *solana.AccountMeta {
-	return inst.AccountMetaSlice.Get(8)
+	return inst.Get(8)
 }
 
 func (inst *InitializeCustomPool) GetTokenAVault() *solana.AccountMeta {
-	return inst.AccountMetaSlice.Get(9)
+	return inst.Get(9)
 }
 
 func (inst *InitializeCustomPool) GetTokenBVault() *solana.AccountMeta {
-	return inst.AccountMetaSlice.Get(10)
+	return inst.Get(10)
 }
 
 func (inst *InitializeCustomPool) GetPayerTokenA() *solana.AccountMeta {
-	return inst.AccountMetaSlice.Get(11)
+	return inst.Get(11)
 }
 
 func (inst *InitializeCustomPool) GetPayerTokenB() *solana.AccountMeta {
-	return inst.AccountMetaSlice.Get(12)
+	return inst.Get(12)
 }
 
 func (inst *InitializeCustomPool) GetTokenAProgram() *solana.AccountMeta {
-	return inst.AccountMetaSlice.Get(13)
+	return inst.Get(13)
 }
 
 func (inst *InitializeCustomPool) GetTokenBProgram() *solana.AccountMeta {
-	return inst.AccountMetaSlice.Get(14)
+	return inst.Get(14)
 }
 
 func (inst *InitializeCustomPool) GetToken2022Program() *solana.AccountMeta {
-	return inst.AccountMetaSlice.Get(15)
+	return inst.Get(15)
 }
 
 func (inst *InitializeCustomPool) GetSystemProgram() *solana.AccountMeta {
-	return inst.AccountMetaSlice.Get(16)
+	return inst.Get(16)
 }
 
 func (inst *InitializeCustomPool) GetEventAuthority() *solana.AccountMeta {
-	return inst.AccountMetaSlice.Get(17)
+	return inst.Get(17)
 }
 
 func (inst *InitializeCustomPool) GetProgram() *solana.AccountMeta {
-	return inst.AccountMetaSlice.Get(18)
+	return inst.Get(18)
 }
 
 func (inst *InitializeCustomPool) RemainingAccounts() []*solana.AccountMeta {

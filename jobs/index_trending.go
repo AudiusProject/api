@@ -170,7 +170,7 @@ func (j *TrendingJob) computeTrendingTracks(ctx context.Context, trendingType, v
 	if err != nil {
 		return err
 	}
-	defer tx.Rollback(ctx)
+	defer func() { _ = tx.Rollback(ctx) }()
 
 	// Mirror apps' update_track_score_query shape: clear this (type, version)'s
 	// rolling rows and repopulate with plain bulk INSERTs, all inside the one
@@ -295,7 +295,7 @@ func (j *TrendingJob) computeTrendingTrackAllTime(ctx context.Context, trendingT
 	if err != nil {
 		return err
 	}
-	defer tx.Rollback(ctx)
+	defer func() { _ = tx.Rollback(ctx) }()
 
 	if _, err := tx.Exec(ctx,
 		`DELETE FROM track_trending_scores
@@ -363,7 +363,7 @@ func (j *TrendingJob) computeTrendingPlaylists(ctx context.Context, trendingType
 	if err != nil {
 		return err
 	}
-	defer tx.Rollback(ctx)
+	defer func() { _ = tx.Rollback(ctx) }()
 
 	// Clear this (type, version)'s rows and repopulate with plain bulk INSERTs in
 	// the single transaction opened above — same DELETE+INSERT strategy as

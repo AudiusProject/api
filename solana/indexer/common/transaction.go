@@ -70,6 +70,8 @@ func ResolveLookupTables(
 		}
 		addressTables[lu.AccountKey] = addresses
 	}
-	tx.Message.SetAddressTables(addressTables)
+	// SetAddressTables only fails if the tables are already set, in which case
+	// they're already resolved.
+	_ = tx.Message.SetAddressTables(addressTables)
 	return tx
 }

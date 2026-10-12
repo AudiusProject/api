@@ -192,7 +192,7 @@ func (ci *CoreIndexer) Start(ctx context.Context) error {
 }
 
 // startParityJobs schedules the periodic jobs that mirror what the legacy
-// Python discovery-provider celery beat used to run. Each job's ScheduleEvery
+// Python indexer's (apps/packages/discovery-provider) celery beat used to run. Each job's ScheduleEvery
 // launches its own goroutine and exits when ctx is cancelled, so we don't
 // need to add them to the errgroup — they self-manage.
 //
@@ -244,15 +244,15 @@ func (ci *CoreIndexer) startParityJobs(ctx context.Context) {
 	jobs.NewWeeklyRotationNotificationsJob(ci.Config, ci.pool).
 		ScheduleEvery(ctx, 30*time.Second)
 
-	// Backfill missing track bpm / musical_key from content-node audio
+	// Backfill missing track bpm / musical_key from validator node audio
 	// analyses. Mirrors apps' repair_audio_analyses celery task, whose beat
-	// schedule ran every 3 minutes. Needs the SDK for content-node discovery.
+	// schedule ran every 3 minutes. Needs the SDK for validator node discovery.
 	jobs.NewRepairAudioAnalysesJob(ci.Config, ci.pool, ci.openAudioSDK).
 		ScheduleEvery(ctx, 3*time.Minute)
 
 	// Backfill track_cid for uploads that transcoded but were indexed without
 	// it. Runs less often than the analysis repair since these are rare and
-	// each candidate costs a content-node lookup.
+	// each candidate costs a validator node lookup.
 	jobs.NewRepairTrackCidsJob(ci.Config, ci.pool, ci.openAudioSDK).
 		ScheduleEvery(ctx, 15*time.Minute)
 }
@@ -260,5 +260,5 @@ func (ci *CoreIndexer) startParityJobs(ctx context.Context) {
 func (ci *CoreIndexer) Close() {
 	ci.aggregatesCalculator.Close()
 	ci.pool.Close()
-	ci.logger.Sync()
+	_ = ci.logger.Sync() // best-effort flush; stdout sync can fail in containers
 }

@@ -35,8 +35,6 @@ func NewAudioMatchingSellerProcessor() Processor {
 
 func (p *AudioMatchingProcessor) ChallengeID() string { return p.ID }
 
-const usdcDecimals = 6
-
 func (p *AudioMatchingProcessor) checkpointName() string {
 	return "challenges:" + p.ID + ":last_slot"
 }
@@ -80,10 +78,10 @@ func (p *AudioMatchingProcessor) Reconcile(ctx context.Context, tx pgx.Tx) error
 		return fmt.Errorf("scan purchases: %w", err)
 	}
 	type purchaseRow struct {
-		slot       int64
-		buyerID    int64
-		sellerID   int64
-		contentID  int64
+		slot        int64
+		buyerID     int64
+		sellerID    int64
+		contentID   int64
 		amountMicro int64
 	}
 	var results []purchaseRow
