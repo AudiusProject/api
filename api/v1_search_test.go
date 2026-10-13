@@ -466,6 +466,31 @@ func TestSearch(t *testing.T) {
 		})
 	}
 
+	{
+		status, body := testGet(t, app, "/v1/playlists/search?query=old")
+		require.Equal(t, 200, status)
+		jsonAssert(t, body, map[string]any{
+			"data.#":               1,
+			"data.0.playlist_name": "Old and Busted",
+			"data.0.is_album":      false,
+		})
+	}
+
+	{
+		status, body := testGet(t, app, "/v1/playlists/search?query=old&type=album")
+		require.Equal(t, 200, status)
+		jsonAssert(t, body, map[string]any{
+			"data.#":               1,
+			"data.0.playlist_name": "My Old Album",
+			"data.0.is_album":      true,
+		})
+	}
+
+	{
+		status, _ := testGet(t, app, "/v1/playlists/search?type=invalid")
+		require.Equal(t, 400, status)
+	}
+
 	// playlists top endpoint
 	{
 		status, body := testGet(t, app, "/v1/playlists/top?type=album")
