@@ -1,7 +1,11 @@
 package api
 
 import (
+	"api.audius.co/database"
+	"context"
+	"github.com/stretchr/testify/require"
 	"testing"
+	"time"
 
 	"api.audius.co/api/dbv1"
 	"github.com/stretchr/testify/assert"
@@ -59,4 +63,51 @@ func TestGetUsersAccount(t *testing.T) {
 	assert.True(t, ok)
 	assert.Equal(t, "playlist", nestedPlaylist.Type)
 	assert.Equal(t, 345, int(nestedPlaylist.PlaylistID))
+}
+
+// Wallets can have an old deactivated account or an unfinished signup as well
+// as the active profile. Resolve the active, completed profile consistently.
+func TestGetUsersAccountSharedWallet(t *testing.T) {
+	for _, tc := range []struct {
+		name        string
+		users       []map[string]any
+		want        int32
+		deactivated bool
+	}{
+		{name: "active profile over older deactivated profile", users: []map[string]any{
+			{"user_id": 1, "handle": "old", "is_deactivated": true, "created_at": time.Date(2020, 1, 1, 0, 0, 0, 0, time.UTC)},
+			{"user_id": 2, "handle": "active", "created_at": time.Date(2021, 1, 1, 0, 0, 0, 0, time.UTC)},
+		}, want: 2},
+		{name: "completed profile over unfinished signup", users: []map[string]any{
+			{"user_id": 1, "created_at": time.Date(2020, 1, 1, 0, 0, 0, 0, time.UTC)},
+			{"user_id": 2, "handle": "active", "created_at": time.Date(2021, 1, 1, 0, 0, 0, 0, time.UTC)},
+		}, want: 2},
+		{name: "deactivated-only wallet remains deactivated", users: []map[string]any{
+			{"user_id": 1, "handle": "old", "is_deactivated": true},
+		}, want: 1, deactivated: true},
+		{name: "unfinished signup remains available", users: []map[string]any{
+			{"user_id": 1},
+		}, want: 1},
+		{name: "oldest completed active profile wins", users: []map[string]any{
+			{"user_id": 1, "handle": "first", "created_at": time.Date(2020, 1, 1, 0, 0, 0, 0, time.UTC)},
+			{"user_id": 2, "handle": "second", "created_at": time.Date(2021, 1, 1, 0, 0, 0, 0, time.UTC)},
+		}, want: 1},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			app := emptyTestApp(t)
+			const wallet = "0x7d273271690538cf855e5b3002a0dd8c154bb060"
+			for _, u := range tc.users {
+				u["wallet"] = wallet
+			}
+			database.Seed(app.pool.Replicas[0], database.FixtureMap{"users": tc.users})
+			resolved, err := app.queries.GetUserForWallet(context.Background(), wallet)
+			require.NoError(t, err)
+			assert.Equal(t, tc.want, int32(resolved))
+			var response struct{ Data dbv1.FullAccount }
+			status, _ := testGetWithWallet(t, app, "/v1/users/account/"+wallet, wallet, &response)
+			require.Equal(t, 200, status)
+			assert.Equal(t, tc.want, response.Data.User.UserID)
+			assert.Equal(t, tc.deactivated, response.Data.User.IsDeactivated)
+		})
+	}
 }
