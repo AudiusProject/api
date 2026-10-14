@@ -83,6 +83,103 @@ var unsupportedNotificationTypes = []string{
 	"remix",
 }
 
+// Share visibility rules between the list and badge. Count only notifications
+// that the list can display, after bounding the candidate scan.
+const notificationContentJoinsSQL = `
+-- Join with tracks table to filter out deleted tracks for "create" notifications that have track_id
+LEFT JOIN tracks t ON
+  n.type = 'create' AND
+  n.data ? 'track_id' AND
+  t.track_id = (n.data->>'track_id')::integer AND
+  t.is_current = true
+-- Join with playlists table to filter out deleted playlists for "create" notifications that have playlist_id
+LEFT JOIN playlists p ON
+  n.type = 'create' AND
+  n.data ? 'playlist_id' AND
+  p.playlist_id = (n.data->>'playlist_id')::integer AND
+  p.is_current = true
+`
+
+const notificationVisibilitySQL = `
+  -- Filter out notifications for deleted tracks (only for create notifications that have track_id)
+  (
+		n.type != 'create'
+		OR NOT (n.data ? 'track_id')
+		OR (t.is_delete = false AND t.is_unlisted = false)
+	)
+  -- Filter out notifications for deleted playlists (only for create notifications that have playlist_id)
+  AND (
+		n.type != 'create'
+		OR NOT (n.data ? 'playlist_id')
+		OR (p.is_delete = false AND p.is_private = false)
+	)
+	-- Filter out notifications from deleted/low score users
+	AND (
+		-- If notification has no user data fields, allow it through
+		NOT (
+			n.data ? 'user_id'
+			OR n.data ? 'follower_user_id'
+			OR n.data ? 'comment_user_id'
+			OR n.data ? 'entity_user_id'
+		)
+		OR (
+			-- If notification has user data fields, ensure ALL referenced users are valid and active with good score
+			(
+				n.data ? 'user_id'
+				OR n.data ? 'follower_user_id'
+				OR n.data ? 'comment_user_id'
+				OR n.data ? 'entity_user_id'
+			)
+			AND (
+				-- Check user_id if present
+				NOT (n.data ? 'user_id') OR EXISTS (
+					SELECT 1 FROM users u2
+					JOIN aggregate_user a2 ON u2.user_id = a2.user_id
+					WHERE u2.user_id = (n.data->>'user_id')::integer
+					AND u2.is_current = true
+					AND u2.is_deactivated = false
+					AND (
+						n.type in ('request_manager', 'approve_manager_request')
+						OR a2.score >= 0
+					)
+				)
+			)
+			AND (
+				-- Check follower_user_id if present
+				NOT (n.data ? 'follower_user_id') OR EXISTS (
+					SELECT 1 FROM users u2
+					JOIN aggregate_user a2 ON u2.user_id = a2.user_id
+					WHERE u2.user_id = (n.data->>'follower_user_id')::integer
+					AND u2.is_current = true
+					AND u2.is_deactivated = false
+					AND a2.score >= 0
+				)
+			)
+			AND (
+				-- Check comment_user_id if present
+				NOT (n.data ? 'comment_user_id') OR EXISTS (
+					SELECT 1 FROM users u2
+					JOIN aggregate_user a2 ON u2.user_id = a2.user_id
+					WHERE u2.user_id = (n.data->>'comment_user_id')::integer
+					AND u2.is_current = true
+					AND u2.is_deactivated = false
+					AND a2.score >= 0
+				)
+			)
+			AND (
+				-- Check entity_user_id if present (skip score check for fan club notifications since the entity user must be verified)
+				NOT (n.data ? 'entity_user_id') OR EXISTS (
+					SELECT 1 FROM users u2
+					JOIN aggregate_user a2 ON u2.user_id = a2.user_id
+					WHERE u2.user_id = (n.data->>'entity_user_id')::integer
+					AND u2.is_current = true
+					AND u2.is_deactivated = false
+					AND (n.type = 'fan_club_text_post' OR a2.score >= 0)
+				)
+			)
+		)
+	)`
+
 func (app *ApiServer) v1NotificationsUnreadPoll(c *fiber.Ctx, params GetNotificationsQueryParams) error {
 	sql := `
 WITH latest_seen AS (
@@ -94,7 +191,7 @@ WITH latest_seen AS (
 -- can use notification_single_recipient_user_timestamp_idx while
 -- multi-recipient arrays keep the existing overlap semantics.
 single_recipient_candidates AS MATERIALIZED (
-	SELECT n.type, n.group_id, n.timestamp
+	SELECT n.type, n.group_id, n.timestamp, n.data
 	FROM notification n
 	CROSS JOIN latest_seen
 	WHERE array_length(n.user_ids, 1) = 1
@@ -107,9 +204,11 @@ single_recipient_candidates AS MATERIALIZED (
 	LIMIT @candidate_limit
 ),
 single_recipient_groups AS MATERIALIZED (
-	SELECT type, group_id
-	FROM single_recipient_candidates
-	GROUP BY type, group_id
+	SELECT n.type, n.group_id
+	FROM single_recipient_candidates n
+	` + notificationContentJoinsSQL + `
+	WHERE ` + notificationVisibilitySQL + `
+	GROUP BY n.type, n.group_id
 	LIMIT @limit
 ),
 single_recipient_count AS MATERIALIZED (
@@ -119,7 +218,7 @@ single_recipient_count AS MATERIALIZED (
 -- Only touch the broader multi-recipient GIN path if the fast single-recipient
 -- path did not already satisfy the capped unread count.
 multi_recipient_candidates AS MATERIALIZED (
-	SELECT n.type, n.group_id, n.timestamp
+	SELECT n.type, n.group_id, n.timestamp, n.data
 	FROM notification n
 	CROSS JOIN latest_seen
 	WHERE (SELECT unread_count FROM single_recipient_count) < @limit
@@ -139,9 +238,11 @@ multi_recipient_candidates AS MATERIALIZED (
 	LIMIT @candidate_limit
 ),
 multi_recipient_groups AS MATERIALIZED (
-	SELECT type, group_id
-	FROM multi_recipient_candidates
-	GROUP BY type, group_id
+	SELECT n.type, n.group_id
+	FROM multi_recipient_candidates n
+	` + notificationContentJoinsSQL + `
+	WHERE ` + notificationVisibilitySQL + `
+	GROUP BY n.type, n.group_id
 	LIMIT GREATEST(@limit - (SELECT unread_count FROM single_recipient_count), 0)
 )
 SELECT COUNT(*)
@@ -482,18 +583,7 @@ FROM
     ` + notificationSourceCTE + ` n
 LEFT JOIN user_seen ON
   user_seen.seen_at >= n.timestamp AND user_seen.prev_seen_at < n.timestamp
--- Join with tracks table to filter out deleted tracks for "create" notifications that have track_id
-LEFT JOIN tracks t ON
-  n.type = 'create' AND
-  n.data ? 'track_id' AND
-  t.track_id = (n.data->>'track_id')::integer AND
-  t.is_current = true
--- Join with playlists table to filter out deleted playlists for "create" notifications that have playlist_id
-LEFT JOIN playlists p ON
-  n.type = 'create' AND
-  n.data ? 'playlist_id' AND
-  p.playlist_id = (n.data->>'playlist_id')::integer AND
-  p.is_current = true
+` + notificationContentJoinsSQL + `
 LEFT JOIN track_collaborators tc ON
   n.type = 'track_collaborator_invite' AND
   n.data ? 'track_id' AND
@@ -501,84 +591,7 @@ LEFT JOIN track_collaborators tc ON
   tc.track_id = (n.data->>'track_id')::integer AND
   tc.collaborator_user_id = (n.data->>'collaborator_user_id')::integer
 WHERE
-  -- Filter out notifications for deleted tracks (only for create notifications that have track_id)
-  (
-		n.type != 'create'
-		OR NOT (n.data ? 'track_id')
-		OR (t.is_delete = false AND t.is_unlisted = false)
-	)
-  -- Filter out notifications for deleted playlists (only for create notifications that have playlist_id)
-  AND (
-		n.type != 'create'
-		OR NOT (n.data ? 'playlist_id')
-		OR (p.is_delete = false AND p.is_private = false)
-	)
-	-- Filter out notifications from deleted/low score users
-	AND (
-		-- If notification has no user data fields, allow it through
-		NOT (
-			n.data ? 'user_id'
-			OR n.data ? 'follower_user_id'
-			OR n.data ? 'comment_user_id'
-			OR n.data ? 'entity_user_id'
-		)
-		OR (
-			-- If notification has user data fields, ensure ALL referenced users are valid and active with good score
-			(
-				n.data ? 'user_id'
-				OR n.data ? 'follower_user_id'
-				OR n.data ? 'comment_user_id'
-				OR n.data ? 'entity_user_id'
-			)
-			AND (
-				-- Check user_id if present
-				NOT (n.data ? 'user_id') OR EXISTS (
-					SELECT 1 FROM users u2
-					JOIN aggregate_user a2 ON u2.user_id = a2.user_id
-					WHERE u2.user_id = (n.data->>'user_id')::integer
-					AND u2.is_current = true
-					AND u2.is_deactivated = false
-					AND (
-						n.type in ('request_manager', 'approve_manager_request')
-						OR a2.score >= 0
-					)
-				)
-			)
-			AND (
-				-- Check follower_user_id if present
-				NOT (n.data ? 'follower_user_id') OR EXISTS (
-					SELECT 1 FROM users u2
-					JOIN aggregate_user a2 ON u2.user_id = a2.user_id
-					WHERE u2.user_id = (n.data->>'follower_user_id')::integer
-					AND u2.is_current = true
-					AND u2.is_deactivated = false
-					AND a2.score >= 0
-				)
-			)
-			AND (
-				-- Check comment_user_id if present
-				NOT (n.data ? 'comment_user_id') OR EXISTS (
-					SELECT 1 FROM users u2
-					JOIN aggregate_user a2 ON u2.user_id = a2.user_id
-					WHERE u2.user_id = (n.data->>'comment_user_id')::integer
-					AND u2.is_current = true
-					AND u2.is_deactivated = false
-					AND a2.score >= 0
-				)
-			)
-			AND (
-				-- Check entity_user_id if present (skip score check for fan club notifications since the entity user must be verified)
-				NOT (n.data ? 'entity_user_id') OR EXISTS (
-					SELECT 1 FROM users u2
-					JOIN aggregate_user a2 ON u2.user_id = a2.user_id
-					WHERE u2.user_id = (n.data->>'entity_user_id')::integer
-					AND u2.is_current = true
-					AND u2.is_deactivated = false
-					AND (n.type = 'fan_club_text_post' OR a2.score >= 0)
-				)
-			)
-		)
-	)
+  ` + notificationVisibilitySQL + `
 GROUP BY
   n.type, n.group_id, user_seen.seen_at, user_seen.prev_seen_at,
   CASE
