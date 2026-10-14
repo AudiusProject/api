@@ -259,6 +259,16 @@ func TestV1Notifications_NotDeletedTrack(t *testing.T) {
 		"data.notifications.0.type": "milestone",
 		"data.notifications.1.type": "create",
 	})
+	// The badge must apply the same visibility rules as the list, for both
+	// single-recipient and multi-recipient notification storage.
+	for _, recipients := range []string{"ARRAY[1]", "ARRAY[1, 2]"} {
+		_, err := app.pool.Exec(context.Background(), "UPDATE notification SET user_ids = "+recipients)
+		assert.NoError(t, err)
+		status, body := testGet(t, app, "/v1/notifications/"+trashid.MustEncodeHashID(1)+"?limit=0")
+		assert.Equal(t, 200, status)
+		jsonAssert(t, body, map[string]any{"data.unread_count": 2})
+	}
+
 }
 
 func TestV1Notifications_DeletedTrack(t *testing.T) {
@@ -301,6 +311,16 @@ func TestV1Notifications_DeletedTrack(t *testing.T) {
 		"data.notifications.#":      1,
 		"data.notifications.0.type": "milestone",
 	})
+	// The badge must apply the same visibility rules as the list, for both
+	// single-recipient and multi-recipient notification storage.
+	for _, recipients := range []string{"ARRAY[1]", "ARRAY[1, 2]"} {
+		_, err := app.pool.Exec(context.Background(), "UPDATE notification SET user_ids = "+recipients)
+		assert.NoError(t, err)
+		status, body := testGet(t, app, "/v1/notifications/"+trashid.MustEncodeHashID(1)+"?limit=0")
+		assert.Equal(t, 200, status)
+		jsonAssert(t, body, map[string]any{"data.unread_count": 1})
+	}
+
 }
 
 func TestV1Notifications_DeletedPlaylist(t *testing.T) {
@@ -343,6 +363,16 @@ func TestV1Notifications_DeletedPlaylist(t *testing.T) {
 		"data.notifications.#":      1,
 		"data.notifications.0.type": "milestone",
 	})
+	// The badge must apply the same visibility rules as the list, for both
+	// single-recipient and multi-recipient notification storage.
+	for _, recipients := range []string{"ARRAY[1]", "ARRAY[1, 2]"} {
+		_, err := app.pool.Exec(context.Background(), "UPDATE notification SET user_ids = "+recipients)
+		assert.NoError(t, err)
+		status, body := testGet(t, app, "/v1/notifications/"+trashid.MustEncodeHashID(1)+"?limit=0")
+		assert.Equal(t, 200, status)
+		jsonAssert(t, body, map[string]any{"data.unread_count": 1})
+	}
+
 }
 
 func TestV1Notifications_Comment(t *testing.T) {
@@ -417,6 +447,16 @@ func TestV1Notifications_DeactivatedUser(t *testing.T) {
 		"data.notifications.0.type":                "comment",
 		"data.notifications.0.actions.0.specifier": trashid.MustEncodeHashID(1235),
 	})
+	// The badge must apply the same visibility rules as the list, for both
+	// single-recipient and multi-recipient notification storage.
+	for _, recipients := range []string{"ARRAY[1]", "ARRAY[1, 2]"} {
+		_, err := app.pool.Exec(context.Background(), "UPDATE notification SET user_ids = "+recipients)
+		assert.NoError(t, err)
+		status, body := testGet(t, app, "/v1/notifications/"+trashid.MustEncodeHashID(1)+"?limit=0")
+		assert.Equal(t, 200, status)
+		jsonAssert(t, body, map[string]any{"data.unread_count": 1})
+	}
+
 }
 
 func TestV1Notifications_LowScore(t *testing.T) {
@@ -473,6 +513,16 @@ func TestV1Notifications_LowScore(t *testing.T) {
 		"data.notifications.0.type":                "comment",
 		"data.notifications.0.actions.0.specifier": trashid.MustEncodeHashID(1235),
 	})
+	// The badge must apply the same visibility rules as the list, for both
+	// single-recipient and multi-recipient notification storage.
+	for _, recipients := range []string{"ARRAY[1]", "ARRAY[1, 2]"} {
+		_, err := app.pool.Exec(context.Background(), "UPDATE notification SET user_ids = "+recipients)
+		assert.NoError(t, err)
+		status, body := testGet(t, app, "/v1/notifications/"+trashid.MustEncodeHashID(1)+"?limit=0")
+		assert.Equal(t, 200, status)
+		jsonAssert(t, body, map[string]any{"data.unread_count": 1})
+	}
+
 }
 
 func TestV1Notifications_LowScoreManagerRequest(t *testing.T) {
@@ -526,6 +576,16 @@ func TestV1Notifications_LowScoreManagerRequest(t *testing.T) {
 		"data.notifications.0.actions.0.data.user_id":         trashid.MustEncodeHashID(lowScoreGrantorUserID),
 		"data.notifications.0.actions.0.data.grantee_user_id": trashid.MustEncodeHashID(recipientUserID),
 	})
+	// The badge must apply the same visibility rules as the list, for both
+	// single-recipient and multi-recipient notification storage.
+	for _, recipients := range []string{"ARRAY[1]", "ARRAY[1, 2]"} {
+		_, err := app.pool.Exec(context.Background(), "UPDATE notification SET user_ids = "+recipients)
+		assert.NoError(t, err)
+		status, body := testGet(t, app, "/v1/notifications/"+trashid.MustEncodeHashID(1)+"?limit=0")
+		assert.Equal(t, 200, status)
+		jsonAssert(t, body, map[string]any{"data.unread_count": 1})
+	}
+
 }
 
 func TestV1Notifications_UnlistedTrack(t *testing.T) {
@@ -829,4 +889,24 @@ func TestV1Notifications_RelatedEntities(t *testing.T) {
 		"reposter must appear in related.users")
 	assert.Contains(t, gotUserIds, trashid.MustEncodeHashID(saver),
 		"saver must appear in related.users")
+}
+
+func TestV1Notifications_UnreadIgnoresOnlyHiddenNotifications(t *testing.T) {
+	app := emptyTestApp(t)
+	database.Seed(app.pool.Replicas[0], database.FixtureMap{
+		"tracks": []map[string]any{{"track_id": 123, "owner_id": 10, "is_delete": true}},
+		"notification": []map[string]any{{
+			"id": 1, "specifier": "123", "group_id": "create:track:123", "type": "create",
+			"user_ids": []int{1}, "data": []byte(`{"track_id":123}`),
+		}},
+	})
+	for _, recipients := range []string{"ARRAY[1]", "ARRAY[1, 2]"} {
+		_, err := app.pool.Exec(context.Background(), "UPDATE notification SET user_ids = "+recipients)
+		assert.NoError(t, err)
+		for _, suffix := range []string{"", "?limit=0"} {
+			status, body := testGet(t, app, "/v1/notifications/"+trashid.MustEncodeHashID(1)+suffix)
+			assert.Equal(t, 200, status)
+			jsonAssert(t, body, map[string]any{"data.notifications.#": 0, "data.unread_count": 0})
+		}
+	}
 }
