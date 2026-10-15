@@ -1744,7 +1744,7 @@ paths:
     get:
       tags:
         - playlists
-      description: Search for a playlist
+      description: Search for a playlist or album
       operationId: Search Playlists
       parameters:
         - name: offset
@@ -1801,6 +1801,15 @@ paths:
           description: Only include tracks that have downloads in the track results
           schema:
             type: string
+        - name: type
+          in: query
+          description: The type of content to search for
+          schema:
+            type: string
+            default: playlist
+            enum:
+              - playlist
+              - album
       responses:
         "200":
           description: Success
