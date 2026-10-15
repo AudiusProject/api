@@ -82,7 +82,7 @@ func (rh *RendezvousHasher) Rank(key string) []string {
 	hasher := sha256.New()
 	for idx, host := range rh.hosts {
 		hasher.Reset()
-		io.WriteString(hasher, host)
+		_, _ = io.WriteString(hasher, host) // hash.Hash writes never fail
 		hasher.Write(keyBytes)
 		tuples[idx] = HostTuple{host, hasher.Sum(nil)}
 	}

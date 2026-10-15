@@ -214,12 +214,16 @@ func (m *CommsWebsocketManager) WebsocketPush(senderUserId int32, receiverUserId
 		return
 	}
 
-	// Fanout
+	// Fanout. Copy the client set under the lock: removeClient mutates it, and
+	// ranging over the shared map after unlocking would race with that.
 	m.mu.RLock()
-	targets := m.clients[receiverUserId]
+	targets := make([]*Client, 0, len(m.clients[receiverUserId]))
+	for cl := range m.clients[receiverUserId] {
+		targets = append(targets, cl)
+	}
 	m.mu.RUnlock()
 
-	for cl := range targets {
+	for _, cl := range targets {
 		select {
 		case cl.send <- payload:
 			// ok

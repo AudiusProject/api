@@ -97,7 +97,7 @@ func generateSignature(data map[string]interface{}) (string, error) {
 // DownloadCid is the blob a download serves: the artist's original upload when
 // the row kept one, otherwise the transcode. Empty when the row has neither,
 // which happens on uploads whose cid backfill never ran - signing an empty cid
-// only produces a content-node URL guaranteed to 404.
+// only produces a validator node URL guaranteed to 404.
 func (t *GetTracksRow) DownloadCid() string {
 	if t.OrigFileCid.String != "" {
 		return t.OrigFileCid.String

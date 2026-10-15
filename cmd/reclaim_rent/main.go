@@ -235,12 +235,15 @@ func processBatch(ctx context.Context, rpcClient *rpc.Client, batch []DatabaseAc
 		return nil, fmt.Errorf("error building transaction: %v", err)
 	}
 
-	tx.Sign(func(key solana.PublicKey) *solana.PrivateKey {
+	_, err = tx.Sign(func(key solana.PublicKey) *solana.PrivateKey {
 		if key.Equals(keypair.PublicKey()) {
 			return &keypair
 		}
 		return nil
 	})
+	if err != nil {
+		return nil, fmt.Errorf("error signing transaction: %w", err)
+	}
 
 	txSig := tx.Signatures[0]
 	_, err = rpcClient.SendTransactionWithOpts(ctx, tx, rpc.TransactionOpts{
@@ -250,51 +253,6 @@ func processBatch(ctx context.Context, rpcClient *rpc.Client, batch []DatabaseAc
 		return nil, fmt.Errorf("error sending transaction %s: %v", txSig.String(), err)
 	}
 	return &txSig, nil
-}
-
-func getEmptyTokenAccounts(ctx context.Context, client *rpc.Client, mint solana.PublicKey, owner solana.PublicKey, pageKey *string) (getProgramAccountsV2Result, error) {
-	mintOffset := uint64(0)
-	ownerOffset := uint64(32)
-	balanceOffset := uint64(64)
-	balance := make([]byte, 8)
-
-	dataSliceOffset := uint64(0)
-	dataSliceLength := uint64(0)
-	limit := uint64(10000)
-
-	return getProgramAccountsV2WithOpts(ctx, client, solana.TokenProgramID, &getProgramAccountsV2Opts{
-		GetProgramAccountsOpts: rpc.GetProgramAccountsOpts{
-			DataSlice: &rpc.DataSlice{
-				Offset: &dataSliceOffset,
-				Length: &dataSliceLength,
-			},
-			Filters: []rpc.RPCFilter{
-				{
-					Memcmp: &rpc.RPCFilterMemcmp{
-						Offset: mintOffset,
-						Bytes:  mint[:],
-					},
-				},
-				{
-					Memcmp: &rpc.RPCFilterMemcmp{
-						Offset: ownerOffset,
-						Bytes:  owner[:],
-					},
-				},
-				{
-					Memcmp: &rpc.RPCFilterMemcmp{
-						Offset: balanceOffset,
-						Bytes:  balance,
-					},
-				},
-				{
-					DataSize: 165, // Standard SPL Token account size
-				},
-			},
-		},
-		PaginationKey: pageKey,
-		Limit:         &limit,
-	})
 }
 
 type DatabaseAccount struct {

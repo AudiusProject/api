@@ -210,18 +210,15 @@ func (app *ApiServer) relay(c *fiber.Ctx) error {
 		})
 	}
 
-	isUser := false
-	isApp := false
-
 	// check if wallet belongs to a user
-	isUser, err = app.queries.UserExists(ctx, wallet)
+	isUser, err := app.queries.UserExists(ctx, wallet)
 	if err != nil {
 		logger.Error("error querying users table", zap.Error(err))
 		return fiber.NewError(fiber.StatusInternalServerError, "failed to query users table: "+err.Error())
 	}
 
 	// check if wallet belongs to a developer app
-	isApp, err = app.queries.DeveloperAppExists(ctx, wallet)
+	isApp, err := app.queries.DeveloperAppExists(ctx, wallet)
 	if err != nil {
 		logger.Error("error querying developer_apps table", zap.Error(err))
 		return fiber.NewError(fiber.StatusInternalServerError, "failed to query developer_apps table: "+err.Error())

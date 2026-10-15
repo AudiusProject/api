@@ -50,7 +50,7 @@ func TestAnalysisResultCaseFallback(t *testing.T) {
 	if lower.bpm() != 120 || lower.key() != "A major" {
 		t.Errorf("lowercase: bpm=%v key=%q", lower.bpm(), lower.key())
 	}
-	// Legacy python content node served capitalized keys.
+	// The legacy Python storage service served capitalized keys.
 	upper := analysisResult{BPMCap: 90, KeyCap: "C minor"}
 	if upper.bpm() != 90 || upper.key() != "C minor" {
 		t.Errorf("uppercase: bpm=%v key=%q", upper.bpm(), upper.key())
@@ -59,7 +59,7 @@ func TestAnalysisResultCaseFallback(t *testing.T) {
 
 func TestFetchAnalysisModern(t *testing.T) {
 	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		w.Write([]byte(`{"audio_analysis_results":{"bpm":128.5,"key":"D flat minor"},"audio_analysis_error_count":1}`))
+		_, _ = w.Write([]byte(`{"audio_analysis_results":{"bpm":128.5,"key":"D flat minor"},"audio_analysis_error_count":1}`))
 	}))
 	defer srv.Close()
 
@@ -79,7 +79,7 @@ func TestFetchAnalysisModern(t *testing.T) {
 func TestFetchAnalysisLegacy(t *testing.T) {
 	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		// Legacy payload uses "results" + "error_count" and capitalized fields.
-		w.Write([]byte(`{"results":{"BPM":95,"Key":"C minor"},"error_count":2}`))
+		_, _ = w.Write([]byte(`{"results":{"BPM":95,"Key":"C minor"},"error_count":2}`))
 	}))
 	defer srv.Close()
 
@@ -112,7 +112,7 @@ func TestFetchAnalysisNon2xxIsNotOk(t *testing.T) {
 func TestFetchAnalysisEmptyResultsOkButNil(t *testing.T) {
 	// Node responded but has no analysis yet: ok=true, result=nil.
 	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		w.Write([]byte(`{"audio_analysis_error_count":0}`))
+		_, _ = w.Write([]byte(`{"audio_analysis_error_count":0}`))
 	}))
 	defer srv.Close()
 

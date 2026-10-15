@@ -17,7 +17,7 @@ import (
 func TestDecodeEvaluateAttestationsInstruction(t *testing.T) {
 	// Real tx: 4iCX6Au7yfVrUSZ1wtEEDiwA1fXrXScVDLQymNPgD5B8hJ5zaecJKteDxZm8ZiKwFC39QPPma5QxA1MPeecfDzEu
 	tx, _ := solana.TransactionFromBase64("AbmUQCJ3cqX8kzxlqFaVjFVCy0LRNTMH/N+pf3BG0+GvbWKA0BId1o8C8+1w5Hey0gnJUdF29n+TCrmZVTr18QqAAQACBgT8D+wyuUlpRD076vzPBw7SbQCcoUnIL4FAO1Cheug8tM4xwWCJGPcAbHZSSTxu3ZW1lAGZ+ZZ3EJ3qhIbOmi+KU9u7lVtr4y8SQZGMrj+TM+7+vHMCC2Yn6JF02t6mZpKtWHxI0iSbGVs0UaMrTIaDXpNEXS0kiGcZOjDdvWaeprnMXtc8hJJrkdlRLXyQ48tVpy7KyUGDZHRv8KcR61MDBkZv5SEXMv/srbpyw5vnvIzlu8X3EmssQ5s6QAAAANn180M7cF8TbhIPejJ/Xmwz9/w7Xjpp0csYl8AJuHcbAwQLAQcIBgIDCQAKCwwyBwDh9QUAAAAAEQAAAGM6MzIzZWE0YTA6MjAyNTI1Z12iwEoGNcZ/1YKtHoEuCvYS6PMFAAkD8EkCAAAAAAAFAAUCYcYAAAGtv9fEeSx2e/2pMcAwSMn+iGx4SYVRy6/X7iJmWA3q7wEHBgUGCAEDAA==")
-	tx.Message.SetAddressTables(stagingLookupTables)
+	require.NoError(t, tx.Message.SetAddressTables(stagingLookupTables))
 
 	expectedAttestations := "DAnkCx6M9Q2bPaMGkFwozrps6m9xggRWQMe5qCcpo7CS"
 	expectedState := "GaiG9LDYHfZGqeNaoGRzFEnLiwUT7WiC6sA6FDJX9ZPq"
@@ -58,7 +58,7 @@ func TestDecodeEvaluateAttestationsInstruction(t *testing.T) {
 	buf := new(bytes.Buffer)
 	encoder := text.NewTreeEncoder(buf, "")
 	decoded.EncodeToTree(encoder)
-	_, err = encoder.WriteString(encoder.Tree.String())
+	_, err = encoder.WriteString(encoder.String())
 	require.NoError(t, err)
 	s := buf.String()
 

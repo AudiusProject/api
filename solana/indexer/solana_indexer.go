@@ -167,14 +167,10 @@ func (s *SolanaIndexer) Start(ctx context.Context) error {
 		go indexer.Start(ctx)
 	}
 
-	for {
-		select {
-		case <-ctx.Done():
-			s.logger.Info("received shutdown signal, stopping solana indexer")
-			return nil
-		default:
-		}
-	}
+	// Block until shutdown; the indexers and jobs run in their own goroutines.
+	<-ctx.Done()
+	s.logger.Info("received shutdown signal, stopping solana indexer")
+	return nil
 }
 
 func (s *SolanaIndexer) ScheduleProcessRetryQueue(ctx context.Context, interval time.Duration) {

@@ -243,7 +243,7 @@ func TestSitemapCacheControlHeaders(t *testing.T) {
 	req := httptest.NewRequest("GET", "/sitemaps/track/index.xml", nil)
 	res, err := app.Test(req, -1)
 	require.NoError(t, err)
-	defer res.Body.Close()
+	defer func() { _ = res.Body.Close() }()
 
 	require.Equal(t, 200, res.StatusCode)
 	assert.Equal(t, sitemapCacheControl, res.Header.Get("Cache-Control"))
@@ -255,7 +255,7 @@ func TestSitemapErrorCacheControlHeaders(t *testing.T) {
 	req := httptest.NewRequest("GET", "/sitemaps/bogus/index.xml", nil)
 	res, err := app.Test(req, -1)
 	require.NoError(t, err)
-	defer res.Body.Close()
+	defer func() { _ = res.Body.Close() }()
 
 	require.Equal(t, 400, res.StatusCode)
 	assert.Equal(t, "no-store", res.Header.Get("Cache-Control"))

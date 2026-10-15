@@ -39,7 +39,7 @@ func (inst *Close) SetEthAddress(ethAddress common.Address) *Close {
 }
 
 func (inst *Close) UserBank() *solana.AccountMeta {
-	return inst.AccountMetaSlice.Get(0)
+	return inst.Get(0)
 }
 
 func (inst *Close) SetUserBank(userBank solana.PublicKey) *Close {
@@ -48,7 +48,7 @@ func (inst *Close) SetUserBank(userBank solana.PublicKey) *Close {
 }
 
 func (inst *Close) Authority() *solana.AccountMeta {
-	return inst.AccountMetaSlice.Get(1)
+	return inst.Get(1)
 }
 
 func (inst *Close) SetAuthority(authority solana.PublicKey) *Close {
@@ -57,7 +57,7 @@ func (inst *Close) SetAuthority(authority solana.PublicKey) *Close {
 }
 
 func (inst *Close) Destination() *solana.AccountMeta {
-	return inst.AccountMetaSlice.Get(2)
+	return inst.Get(2)
 }
 
 func (inst *Close) SetDestination(destination solana.PublicKey) *Close {
@@ -66,7 +66,7 @@ func (inst *Close) SetDestination(destination solana.PublicKey) *Close {
 }
 
 func (inst *Close) TokenProgram() *solana.AccountMeta {
-	return inst.AccountMetaSlice.Get(3)
+	return inst.Get(3)
 }
 
 func (inst *Close) SetTokenProgram(tokenProgram solana.PublicKey) *Close {
@@ -78,7 +78,7 @@ func (inst *Close) CloseAuthority() *solana.AccountMeta {
 	if len(inst.AccountMetaSlice) < 5 {
 		return nil
 	}
-	return inst.AccountMetaSlice.Get(4)
+	return inst.Get(4)
 }
 
 func (inst *Close) SetCloseAuthority(closeAuthority solana.PublicKey) *Close {

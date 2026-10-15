@@ -182,9 +182,11 @@ func main() {
 						fmt.Println("Transaction signature not specified. This may cause issues in indexing...")
 						fmt.Println("Are you sure you don't want to specify a transaction signature for the update? (y/n)")
 						var response string
-						fmt.Scanln(&response)
+						if _, err := fmt.Scanln(&response); err != nil {
+							return fmt.Errorf("failed to read confirmation: %w", err)
+						}
 						if response != "yes" && response != "y" {
-							return fmt.Errorf("Aborted by user")
+							return fmt.Errorf("aborted by user")
 						}
 					}
 

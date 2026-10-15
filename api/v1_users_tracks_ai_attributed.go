@@ -8,15 +8,6 @@ import (
 	"github.com/jackc/pgx/v5"
 )
 
-type GetUsersTracksAiAttributedParams struct {
-	Limit         int    `query:"limit" default:"20" validate:"min=1,max=100"`
-	Offset        int    `query:"offset" default:"0" validate:"min=0"`
-	Sort          string `query:"sort" default:"date" validate:"oneof=date plays"`
-	SortMethod    string `query:"sort_method" default:"" validate:"omitempty,oneof=title release_date plays reposts saves"`
-	FilterTracks  string `query:"filter_tracks" default:"all" validate:"oneof=all public"`
-	SortDirection string `query:"sort_direction" default:"desc" validate:"oneof=asc desc"`
-}
-
 func (app *ApiServer) v1UserTracksAiAttributed(c *fiber.Ctx) error {
 	params := GetUsersTracksParams{}
 	if err := app.ParseAndValidateQueryParams(c, &params); err != nil {

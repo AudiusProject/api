@@ -76,7 +76,7 @@ func runProcessor(t *testing.T, pool *pgxpool.Pool, p Processor) {
 	ctx := context.Background()
 	tx, err := pool.Begin(ctx)
 	require.NoError(t, err)
-	defer tx.Rollback(ctx)
+	defer func() { _ = tx.Rollback(ctx) }()
 	require.NoError(t, p.Reconcile(ctx, tx))
 	require.NoError(t, tx.Commit(ctx))
 }

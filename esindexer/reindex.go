@@ -2,6 +2,7 @@ package esindexer
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"log"
 	"os"
@@ -71,8 +72,9 @@ func Reindex(pool *pgxpool.Pool, esc *elasticsearch.Client, drop bool, collectio
 			os.Exit(0)
 		}()
 
-		esIndexer.listen(ctx)
-
+		if err := esIndexer.listen(ctx); err != nil && !errors.Is(err, context.Canceled) {
+			log.Printf("listen error: %v", err)
+		}
 	}
 
 	reindexAll := len(collections) == 0 || slices.Contains(collections, "all")
@@ -105,8 +107,9 @@ func Reindex(pool *pgxpool.Pool, esc *elasticsearch.Client, drop bool, collectio
 		panic(err)
 	}
 
-	esIndexer.bulk.Close(context.Background())
-
+	if err := esIndexer.bulk.Close(context.Background()); err != nil {
+		log.Printf("bulk indexer close error: %v", err)
+	}
 }
 
 func ReindexForTest(pool *pgxpool.Pool, esc *elasticsearch.Client) {
@@ -132,7 +135,9 @@ func ReindexForTest(pool *pgxpool.Pool, esc *elasticsearch.Client) {
 		panic(err)
 	}
 
-	esIndexer.bulk.Close(context.Background())
+	if err := esIndexer.bulk.Close(context.Background()); err != nil {
+		panic(err)
+	}
 }
 
 func ReindexLegacy(drop bool, collections ...string) {

@@ -27,7 +27,7 @@ func NewZapLogger(config config.Config) *zap.Logger {
 		level,
 	)
 
-	var core zapcore.Core = stdoutCore
+	core := stdoutCore
 
 	// axiom core, if token and dataset are provided
 	if config.AxiomToken != "" && config.AxiomDataset != "" {
@@ -54,21 +54,24 @@ func NewZapLogger(config config.Config) *zap.Logger {
 	return logger
 }
 
-func SyncOnTicks(ctx context.Context, logger *zap.Logger, tickDuration time.Duration) error {
+// SyncOnTicks flushes the logger every tickDuration until ctx is cancelled,
+// then flushes once more and returns.
+//
+// Errors from Sync are ignored: a specific error occurs when running in a
+// container where /dev/stdout is not a valid file descriptor. It only affects
+// stdout syncing, not Axiom.
+// See: https://github.com/uber-go/zap/issues/328#issuecomment-284337436
+func SyncOnTicks(ctx context.Context, logger *zap.Logger, tickDuration time.Duration) {
 	ticker := time.NewTicker(tickDuration)
 	defer ticker.Stop()
 
 	for {
 		select {
 		case <-ctx.Done():
-			logger.Sync()
-			return ctx.Err()
+			_ = logger.Sync()
+			return
 		case <-ticker.C:
-			// Ignore errors from sync as a specific error occurs when running
-			// in a container where /dev/stdout is not a valid file descriptor.
-			// It only affects stdout syncing, not Axiom.
-			// See: https://github.com/uber-go/zap/issues/328#issuecomment-284337436
-			logger.Sync()
+			_ = logger.Sync()
 		}
 	}
 }

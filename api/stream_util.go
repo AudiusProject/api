@@ -48,7 +48,7 @@ func tryFindWorkingUrl(mediaLink *dbv1.MediaLink) *url.URL {
 		if err != nil {
 			continue
 		}
-		resp.Body.Close()
+		_ = resp.Body.Close()
 
 		if resp.StatusCode == http.StatusPartialContent ||
 			resp.StatusCode == http.StatusOK ||

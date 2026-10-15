@@ -23,7 +23,7 @@ func (app *ApiServer) v1TrackSubsequent(c *fiber.Ctx) error {
 	}
 
 	/*
-		Mildly funky query that is meant to preserve legacy DN behavior on ordering. The most efficient
+		Mildly funky query that is meant to preserve legacy API behavior on ordering. The most efficient
 		way to do this ended up being separate CTEs for tracks within the same block and after, with a final
 		merge at the end.
 	*/

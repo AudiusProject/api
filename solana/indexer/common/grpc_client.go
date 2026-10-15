@@ -53,11 +53,18 @@ func NewGrpcClient(config GrpcConfig) GrpcClient {
 	}
 }
 
+// CloseGrpcClients closes every client in clients.
+func CloseGrpcClients(clients []GrpcClient) {
+	for _, client := range clients {
+		client.Close()
+	}
+}
+
 // Connect to a gRPC server
 // Assumes the caller holds the client mutex (c.mu).
 func (c *DefaultGrpcClient) connect() error {
 	if c.conn != nil {
-		c.conn.Close()
+		_ = c.conn.Close()
 		c.conn = nil
 	}
 
@@ -139,7 +146,7 @@ func (c *DefaultGrpcClient) Subscribe(
 	if err != nil {
 		cancel()
 		if c.conn != nil {
-			c.conn.Close()
+			_ = c.conn.Close()
 			c.conn = nil
 		}
 		return fmt.Errorf("failed to create subscribe stream: %w", err)
@@ -148,10 +155,10 @@ func (c *DefaultGrpcClient) Subscribe(
 
 	if err := c.stream.Send(c.subRequest); err != nil {
 		cancel()
-		c.stream.CloseSend()
+		_ = c.stream.CloseSend()
 		c.stream = nil
 		if c.conn != nil {
-			c.conn.Close()
+			_ = c.conn.Close()
 			c.conn = nil
 		}
 		return fmt.Errorf("failed to send subscription request: %w", err)
@@ -171,11 +178,11 @@ func (c *DefaultGrpcClient) Close() {
 		c.cancel = nil
 	}
 	if c.stream != nil {
-		c.stream.CloseSend()
+		_ = c.stream.CloseSend()
 		c.stream = nil
 	}
 	if c.conn != nil {
-		c.conn.Close()
+		_ = c.conn.Close()
 		c.conn = nil
 	}
 	c.running = false
@@ -187,11 +194,11 @@ func (c *DefaultGrpcClient) receiveLoop(ctx context.Context) {
 		c.mu.Lock()
 		c.running = false
 		if c.conn != nil {
-			c.conn.Close()
+			_ = c.conn.Close()
 			c.conn = nil
 		}
 		if c.stream != nil {
-			c.stream.CloseSend()
+			_ = c.stream.CloseSend()
 			c.stream = nil
 		}
 		c.mu.Unlock()
@@ -304,9 +311,11 @@ func (c *DefaultGrpcClient) attemptReconnect(ctx context.Context) bool {
 			subReq := c.subRequest // Use the initial request (potentially with internal slot sub)
 			lastKnownSlot := c.lastSlot
 			errorCb := c.errorCallback
-			c.mu.Unlock()
 
+			// connect mutates c.conn, so keep holding c.mu to avoid racing
+			// with Close.
 			if err := c.connect(); err != nil {
+				c.mu.Unlock()
 				errMsg := fmt.Sprintf("Reconnect connection failed on attempt %d/%d: %v", currentAttempt, attemptsToMake, err)
 				if errorCb != nil {
 					errorCb(fmt.Errorf("%s", errMsg))
@@ -314,7 +323,6 @@ func (c *DefaultGrpcClient) attemptReconnect(ctx context.Context) bool {
 				continue
 			}
 
-			c.mu.Lock()
 			geyserClient := pb.NewGeyserClient(c.conn)
 			streamCtx := ctx
 			if apiKey != "" { // Check if API key exists before adding metadata
@@ -343,7 +351,7 @@ func (c *DefaultGrpcClient) attemptReconnect(ctx context.Context) bool {
 			if err != nil {
 				errMsg := fmt.Sprintf("Failed to re-create stream on attempt %d/%d: %v", currentAttempt, attemptsToMake, err)
 				if c.conn != nil {
-					c.conn.Close()
+					_ = c.conn.Close()
 					c.conn = nil
 				}
 				c.mu.Unlock()
@@ -355,9 +363,9 @@ func (c *DefaultGrpcClient) attemptReconnect(ctx context.Context) bool {
 
 			if err := stream.Send(resubReq); err != nil {
 				errMsg := fmt.Sprintf("Failed to re-send subscription request on attempt %d/%d: %v", currentAttempt, attemptsToMake, err)
-				stream.CloseSend()
+				_ = stream.CloseSend()
 				if c.conn != nil {
-					c.conn.Close()
+					_ = c.conn.Close()
 					c.conn = nil
 				}
 				c.mu.Unlock()

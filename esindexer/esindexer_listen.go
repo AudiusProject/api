@@ -144,7 +144,12 @@ func (indexer *EsIndexer) listen(ctx context.Context) error {
 	go func() {
 		ticker := time.NewTicker(10 * time.Second)
 		defer ticker.Stop()
-		for range ticker.C {
+		for {
+			select {
+			case <-ctx.Done():
+				return
+			case <-ticker.C:
+			}
 			idMap := pending.take()
 			for collection, ids := range idMap {
 				if err := indexer.indexIds(collection, ids...); err != nil {

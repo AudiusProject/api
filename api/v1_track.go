@@ -107,12 +107,6 @@ type DDEXCopyright struct {
 	Text string `json:"text" validate:"required,min=1"`
 }
 
-type DDEXRightsController struct {
-	Name               string   `json:"name" validate:"required,min=1"`
-	Roles              []string `json:"roles" validate:"required,min=1,dive,min=1"`
-	RightsShareUnknown *string  `json:"rights_share_unknown,omitempty"`
-}
-
 type CreateTrackRequest struct {
 	TrackId                      *trashid.HashId            `json:"track_id,omitempty" validate:"omitempty,min=1"`
 	Title                        string                     `json:"title" validate:"required,min=1"`

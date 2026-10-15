@@ -39,12 +39,3 @@ const (
 	Entity_DeveloperApp     = "DeveloperApp"
 	Entity_Event            = "Event"
 )
-
-// Track field constraints applied at EM-event indexing time. Track genres are
-// arbitrary user-supplied strings (not an enum); enforce only a length cap.
-// Mirrors discovery-provider's `CHARACTER_LIMIT_GENRE` so that when the Go
-// indexer takes over track-entity event consumption from the Python
-// discovery-provider, the rule stays consistent.
-const (
-	MaxTrackGenreLength = 100
-)

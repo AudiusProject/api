@@ -126,12 +126,17 @@ func (ts *TransactionSender) AddPriorityFees(ctx context.Context, tx *solana.Tra
 		return err
 	}
 
-	sort.Slice(recentFees, func(i, j int) bool {
-		return recentFees[i].PrioritizationFee > recentFees[j].PrioritizationFee
-	})
+	// Some RPCs return no recent fees; fall back to the minimum rather than
+	// indexing into an empty slice.
+	lamportsPerCu := params.Minimum
+	if len(recentFees) > 0 {
+		sort.Slice(recentFees, func(i, j int) bool {
+			return recentFees[i].PrioritizationFee > recentFees[j].PrioritizationFee
+		})
 
-	percentileIndex := (len(recentFees) - 1) * params.Percentile / 100
-	lamportsPerCu := math.Max(float64(recentFees[percentileIndex].PrioritizationFee)*params.Multiplier, params.Minimum)
+		percentileIndex := (len(recentFees) - 1) * params.Percentile / 100
+		lamportsPerCu = math.Max(float64(recentFees[percentileIndex].PrioritizationFee)*params.Multiplier, params.Minimum)
+	}
 	if params.Maximum > 0 {
 		lamportsPerCu = math.Min(lamportsPerCu, params.Maximum)
 	}
@@ -195,8 +200,17 @@ func (ts *TransactionSender) SendTransactionWithRetries(ctx context.Context, txB
 	defer subscription.Unsubscribe()
 
 	subCtx, cancel := context.WithCancel(context.Background())
+	defer cancel()
 	resChan := make(chan *ws.SignatureResult)
 	errChan := make(chan error, 1)
+	// Only the first result is read; later senders must not block forever
+	// once this function has returned and cancelled subCtx.
+	sendErr := func(err error) {
+		select {
+		case errChan <- err:
+		case <-subCtx.Done():
+		}
+	}
 	go func() {
 		for {
 			select {
@@ -212,7 +226,7 @@ func (ts *TransactionSender) SendTransactionWithRetries(ctx context.Context, txB
 							SkipPreflight: true,
 						})
 						if err != nil {
-							errChan <- err
+							sendErr(err)
 							return
 						}
 					}()
@@ -225,30 +239,36 @@ func (ts *TransactionSender) SendTransactionWithRetries(ctx context.Context, txB
 	go func() {
 		got, err := subscription.Recv(subCtx)
 		if err != nil {
-			errChan <- err
+			sendErr(err)
 			return
 		}
 
 		if got == nil {
-			errChan <- errors.New("failed to get transaction signature status")
+			sendErr(errors.New("failed to get transaction signature status"))
 			return
 		}
 
 		if got.Value.Err != nil {
 			str, err := json.Marshal(got.Value.Err)
 			if err != nil {
-				errChan <- errors.New("failed to confirm transaction")
+				sendErr(errors.New("failed to confirm transaction"))
+				return
 			}
 
 			instErr := InstructionError{}
 			err = json.Unmarshal(str, &instErr)
 			if err != nil {
-				errChan <- fmt.Errorf("failed to confirm transaction: %s", str)
+				sendErr(fmt.Errorf("failed to confirm transaction: %s", str))
+				return
 			}
 
-			errChan <- fmt.Errorf("failed to confirm transaction: %w", &instErr)
+			sendErr(fmt.Errorf("failed to confirm transaction: %w", &instErr))
+			return
 		}
-		resChan <- got
+		select {
+		case resChan <- got:
+		case <-subCtx.Done():
+		}
 	}()
 
 	go func() {
@@ -259,11 +279,11 @@ func (ts *TransactionSender) SendTransactionWithRetries(ctx context.Context, txB
 			default:
 				res, err := ts.client.GetBlockHeight(subCtx, rpc.CommitmentConfirmed)
 				if err != nil {
-					errChan <- err
+					sendErr(err)
 					return
 				}
 				if latestBlockhashRes.Value.LastValidBlockHeight < res {
-					errChan <- errors.New("failed to confirm transaction: TransactionExpiredBlockHeightExceeded")
+					sendErr(errors.New("failed to confirm transaction: TransactionExpiredBlockHeightExceeded"))
 					return
 				}
 				time.Sleep(time.Second * 5)
@@ -273,10 +293,8 @@ func (ts *TransactionSender) SendTransactionWithRetries(ctx context.Context, txB
 
 	select {
 	case err := <-errChan:
-		cancel()
 		return nil, err
 	case <-resChan:
-		cancel()
 		return &signature, nil
 	}
 }

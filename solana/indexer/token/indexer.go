@@ -61,29 +61,38 @@ func (d *Indexer) Start(ctx context.Context) {
 
 	// Set up a worker pool for handling messages to keep up with high throughput
 	workerChan := make(chan *pb.SubscribeUpdate, WORKER_CHANNEL_SIZE)
+	// Workers exit when Start returns rather than on close(workerChan): gRPC
+	// receive goroutines may still be sending at that point, and a send on a
+	// closed channel panics.
+	workerCtx, stopWorkers := context.WithCancel(ctx)
+	defer stopWorkers()
 	for i := range WORKER_COUNT {
 		go func(workerID int) {
-			for updateMessage := range workerChan {
-				err := d.HandleUpdate(ctx, updateMessage)
-				if err != nil {
-					d.logger.Error("failed to handle token update", zap.Int("workerID", workerID), zap.Error(err))
+			for {
+				select {
+				case <-workerCtx.Done():
+					return
+				case updateMessage := <-workerChan:
+					err := d.HandleUpdate(ctx, updateMessage)
+					if err != nil {
+						d.logger.Error("failed to handle token update", zap.Int("workerID", workerID), zap.Error(err))
 
-					// Add messages that failed to process to the retry queue
-					if err := common.AddToRetryQueue(ctx, d.pool, NAME, updateMessage, err.Error()); err != nil {
-						d.logger.Error("failed to add to retry queue", zap.Error(err))
+						// Add messages that failed to process to the retry queue
+						if err := common.AddToRetryQueue(ctx, d.pool, NAME, updateMessage, err.Error()); err != nil {
+							d.logger.Error("failed to add to retry queue", zap.Error(err))
+						}
 					}
 				}
 			}
 		}(i)
 	}
 
-	// Ensure all gRPC clients are closed on shutdown and that the workers are closed
+	// Ensure all gRPC clients are closed on shutdown
 	var grpcClients []common.GrpcClient
 	defer (func() {
 		for _, client := range grpcClients {
 			client.Close()
 		}
-		close(workerChan)
 	})()
 
 	// Post messages to the worker pool
@@ -250,6 +259,14 @@ func (d *Indexer) subscribeToArtistCoins(ctx context.Context, handleUpdate func(
 	page := 0
 	pageSize := MAX_MINTS_PER_SUBSCRIPTION
 	grpcClients := make([]common.GrpcClient, 0)
+	// Close any clients already started if a later page fails, so they
+	// don't keep streaming in the background after an error is returned.
+	subscribed := false
+	defer func() {
+		if !subscribed {
+			common.CloseGrpcClients(grpcClients)
+		}
+	}()
 	total := 0
 	for !done {
 		mints, err := common.GetArtistCoinMints(ctx, d.pool, pageSize, page*pageSize)
@@ -258,6 +275,7 @@ func (d *Indexer) subscribeToArtistCoins(ctx context.Context, handleUpdate func(
 		}
 		if len(mints) == 0 {
 			d.logger.Info("no more artist coins to subscribe to, exiting")
+			subscribed = true
 			return grpcClients, nil
 		}
 		total += len(mints)
@@ -282,6 +300,7 @@ func (d *Indexer) subscribeToArtistCoins(ctx context.Context, handleUpdate func(
 		page++
 	}
 	d.logger.Info("subscribed to artist coins", zap.Int("count", total))
+	subscribed = true
 	return grpcClients, nil
 }
 

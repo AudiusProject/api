@@ -229,7 +229,9 @@ func (d *Indexer) HandleUpdate(ctx context.Context, msg *pb.SubscribeUpdate) err
 				tx = common.ResolveLookupTables(ctx, d.rpcClient, tx, txRes.Meta)
 
 				// Process the transaction
-				err = d.processTransaction(ctx, txRes.Slot, tx)
+				if err := d.processTransaction(ctx, txRes.Slot, tx); err != nil {
+					return fmt.Errorf("failed to process migration transaction %s: %w", txSig.String(), err)
+				}
 			}
 		}
 	}
@@ -242,6 +244,14 @@ func (d *Indexer) subscribe(ctx context.Context) ([]common.GrpcClient, error) {
 	pageSize := MAX_COINS_PER_SUBSCRIPTION
 	total := 0
 	grpcClients := make([]common.GrpcClient, 0)
+	// Close any clients already started if a later page fails, so they
+	// don't keep streaming in the background after an error is returned.
+	subscribed := false
+	defer func() {
+		if !subscribed {
+			common.CloseGrpcClients(grpcClients)
+		}
+	}()
 	for !done {
 		mints, err := common.GetArtistCoinMints(ctx, d.pool, pageSize, page*pageSize)
 		if err != nil {
@@ -249,6 +259,7 @@ func (d *Indexer) subscribe(ctx context.Context) ([]common.GrpcClient, error) {
 		}
 		if len(mints) == 0 {
 			d.logger.Info("no pool to subscribe to")
+			subscribed = true
 			return grpcClients, nil
 		}
 		total += len(mints)
@@ -284,6 +295,7 @@ func (d *Indexer) subscribe(ctx context.Context) ([]common.GrpcClient, error) {
 		page++
 	}
 	d.logger.Info("subscribed to pools", zap.Int("count", total))
+	subscribed = true
 	return grpcClients, nil
 }
 
@@ -380,7 +392,7 @@ func processDbcPoolUpdate(
 	if err != nil {
 		return fmt.Errorf("failed to begin transaction: %w", err)
 	}
-	defer sqlTx.Rollback(ctx)
+	defer func() { _ = sqlTx.Rollback(ctx) }()
 
 	err = upsertDbcPool(ctx, sqlTx, slot, account, pool)
 	if err != nil {
@@ -412,7 +424,7 @@ func processDbcConfigUpdate(
 	if err != nil {
 		return fmt.Errorf("failed to begin transaction: %w", err)
 	}
-	defer sqlTx.Rollback(ctx)
+	defer func() { _ = sqlTx.Rollback(ctx) }()
 
 	err = upsertDbcConfig(ctx, sqlTx, slot, account.String(), config)
 	if err != nil {

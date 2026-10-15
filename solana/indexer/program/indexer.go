@@ -59,15 +59,9 @@ func (d *Indexer) Start(ctx context.Context) {
 	}
 	defer client.Close()
 
-	// Wait for shutdown
-	for {
-		select {
-		case <-ctx.Done():
-			d.logger.Info("shutting down")
-			return
-		default:
-		}
-	}
+	// Block until shutdown; the subscription runs in its own goroutine.
+	<-ctx.Done()
+	d.logger.Info("shutting down")
 }
 
 // Backfill replays transactions for this indexer's subscribed programs across
@@ -204,7 +198,9 @@ func (d *Indexer) ProcessTransaction(ctx context.Context, slot uint64, meta *rpc
 	)
 
 	// Process balance changes for USDC (other tokens will be tracked by TokenIndexer)
-	common.ProcessBalanceChanges(ctx, d.pool, slot, meta, tx, blockTime, []string{d.config.SolanaConfig.MintUSDC.String()}, logger)
+	if err := common.ProcessBalanceChanges(ctx, d.pool, slot, meta, tx, blockTime, []string{d.config.SolanaConfig.MintUSDC.String()}, logger); err != nil {
+		return fmt.Errorf("failed to process balance changes: %w", err)
+	}
 
 	// Process individual instructions
 	for instructionIndex, instruction := range tx.Message.Instructions {
