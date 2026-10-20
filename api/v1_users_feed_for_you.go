@@ -28,21 +28,21 @@ type GetUsersFeedForYouParams struct {
 // below; the candidate retrieval / diversity passes carry over directly
 // so a learned model can drop in later.
 //
-// 1. CANDIDATE RETRIEVAL — six sources, three per entity type, each
-//    capped:
-//   - cand_in_network_track       — tracks uploaded in the last 14 days
+//  1. CANDIDATE RETRIEVAL — six sources, three per entity type, each
+//     capped:
+//     - cand_in_network_track       — tracks uploaded in the last 14 days
 //     by users I follow. Capped at 200.
-//   - cand_trending_track         — top week-trending tracks
+//     - cand_trending_track         — top week-trending tracks
 //     (track_trending_scores). Mirrors GET /tracks/trending. Capped at 100.
-//   - cand_underground_track      — week-trending tracks whose owner has
+//     - cand_underground_track      — week-trending tracks whose owner has
 //     < 1500 follower & following count
 //     (mirrors GET /tracks/trending/underground). Capped at 50.
-//   - cand_in_network_playlist    — playlists/albums created in the last
+//     - cand_in_network_playlist    — playlists/albums created in the last
 //     14 days by users I follow. Capped at 30.
-//   - cand_trending_playlist      — top week-trending playlists/albums
+//     - cand_trending_playlist      — top week-trending playlists/albums
 //     (playlist_trending_scores). Mirrors GET /playlists/trending.
 //     Capped at 30.
-//   - cand_underground_playlist   — week-trending playlists/albums whose
+//     - cand_underground_playlist   — week-trending playlists/albums whose
 //     owner has < 1500 follower & following count. Capped at 15.
 //
 // Per-source caps are smaller for playlists because they're heavier
@@ -303,7 +303,9 @@ func (app *ApiServer) v1FeedForYou(c *fiber.Ctx) error {
 		JOIN follow_set f ON f.user_id = t.owner_id
 		WHERE t.is_current = true
 		  AND t.is_delete = false
-		  AND t.is_unlisted = false
+		  AND (t.is_unlisted = false
+		       OR (t.owner_id = @scheduledOwnerId AND t.is_scheduled_release = true AND t.release_date > NOW()))
+		  AND (t.is_scheduled_release IS NOT TRUE OR t.release_date <= NOW() OR t.owner_id = @scheduledOwnerId)
 		  AND t.is_available = true
 		  AND t.stem_of IS NULL
 		  AND t.created_at >= NOW() - INTERVAL '14 days'
@@ -319,7 +321,9 @@ func (app *ApiServer) v1FeedForYou(c *fiber.Ctx) error {
 		JOIN tracks t ON t.track_id = tts.track_id
 		            AND t.is_current = true
 		            AND t.is_delete = false
-		            AND t.is_unlisted = false
+		            AND (t.is_unlisted = false
+		                 OR (t.owner_id = @scheduledOwnerId AND t.is_scheduled_release = true AND t.release_date > NOW()))
+		            AND (t.is_scheduled_release IS NOT TRUE OR t.release_date <= NOW() OR t.owner_id = @scheduledOwnerId)
 		            AND t.is_available = true
 		WHERE tts.type = 'TRACKS'
 		  AND tts.version = 'pnagD'
@@ -337,7 +341,9 @@ func (app *ApiServer) v1FeedForYou(c *fiber.Ctx) error {
 		JOIN tracks t ON t.track_id = tts.track_id
 		            AND t.is_current = true
 		            AND t.is_delete = false
-		            AND t.is_unlisted = false
+		            AND (t.is_unlisted = false
+		                 OR (t.owner_id = @scheduledOwnerId AND t.is_scheduled_release = true AND t.release_date > NOW()))
+		            AND (t.is_scheduled_release IS NOT TRUE OR t.release_date <= NOW() OR t.owner_id = @scheduledOwnerId)
 		            AND t.is_available = true
 		JOIN aggregate_user au ON au.user_id = t.owner_id
 		WHERE tts.type = 'TRACKS'
@@ -358,7 +364,9 @@ func (app *ApiServer) v1FeedForYou(c *fiber.Ctx) error {
 		JOIN follow_set f ON f.user_id = p.playlist_owner_id
 		WHERE p.is_current = true
 		  AND p.is_delete = false
-		  AND p.is_private = false
+		  AND (p.is_private = false
+		       OR (p.playlist_owner_id = @scheduledOwnerId AND p.is_scheduled_release = true AND p.release_date > NOW()))
+		  AND (p.is_scheduled_release IS NOT TRUE OR p.release_date <= NOW() OR p.playlist_owner_id = @scheduledOwnerId)
 		  AND p.created_at >= NOW() - INTERVAL '14 days'
 		ORDER BY p.created_at DESC
 		LIMIT 30
@@ -372,7 +380,9 @@ func (app *ApiServer) v1FeedForYou(c *fiber.Ctx) error {
 		JOIN playlists p ON p.playlist_id = pts.playlist_id
 		            AND p.is_current = true
 		            AND p.is_delete = false
-		            AND p.is_private = false
+		            AND (p.is_private = false
+		                 OR (p.playlist_owner_id = @scheduledOwnerId AND p.is_scheduled_release = true AND p.release_date > NOW()))
+		            AND (p.is_scheduled_release IS NOT TRUE OR p.release_date <= NOW() OR p.playlist_owner_id = @scheduledOwnerId)
 		WHERE pts.type = 'PLAYLISTS'
 		  AND pts.version = 'pnagD'
 		  AND pts.time_range = 'week'
@@ -388,7 +398,9 @@ func (app *ApiServer) v1FeedForYou(c *fiber.Ctx) error {
 		JOIN playlists p ON p.playlist_id = pts.playlist_id
 		            AND p.is_current = true
 		            AND p.is_delete = false
-		            AND p.is_private = false
+		            AND (p.is_private = false
+		                 OR (p.playlist_owner_id = @scheduledOwnerId AND p.is_scheduled_release = true AND p.release_date > NOW()))
+		            AND (p.is_scheduled_release IS NOT TRUE OR p.release_date <= NOW() OR p.playlist_owner_id = @scheduledOwnerId)
 		JOIN aggregate_user au ON au.user_id = p.playlist_owner_id
 		WHERE pts.type = 'PLAYLISTS'
 		  AND pts.version = 'pnagD'
@@ -445,7 +457,9 @@ func (app *ApiServer) v1FeedForYou(c *fiber.Ctx) error {
 		WHERE c.entity_type = 'track'
 		  AND t.is_current   = true
 		  AND t.is_delete    = false
-		  AND t.is_unlisted  = false
+		  AND (t.is_unlisted = false
+		       OR (t.owner_id = @scheduledOwnerId AND t.is_scheduled_release = true AND t.release_date > NOW()))
+		  AND (t.is_scheduled_release IS NOT TRUE OR t.release_date <= NOW() OR t.owner_id = @scheduledOwnerId)
 		  AND t.is_available = true
 		  AND t.stem_of IS NULL
 		  AND u.is_current     = true
@@ -484,7 +498,9 @@ func (app *ApiServer) v1FeedForYou(c *fiber.Ctx) error {
 		WHERE c.entity_type = 'playlist'
 		  AND p.is_current = true
 		  AND p.is_delete  = false
-		  AND p.is_private = false
+		  AND (p.is_private = false
+		       OR (p.playlist_owner_id = @scheduledOwnerId AND p.is_scheduled_release = true AND p.release_date > NOW()))
+		  AND (p.is_scheduled_release IS NOT TRUE OR p.release_date <= NOW() OR p.playlist_owner_id = @scheduledOwnerId)
 		  AND u.is_current     = true
 		  AND u.is_deactivated = false
 		  AND u.is_available   = true
@@ -570,10 +586,11 @@ func (app *ApiServer) v1FeedForYou(c *fiber.Ctx) error {
 	`
 
 	rows, err := app.pool.Query(c.Context(), sql, pgx.NamedArgs{
-		"userId":        userId,
-		"poolSize":      candidatePoolSize,
-		"maxPerArtist":  params.MaxPerArtist,
-		"authed_wallet": authedWallet,
+		"scheduledOwnerId": app.feedScheduledOwnerID(c),
+		"userId":           userId,
+		"poolSize":         candidatePoolSize,
+		"maxPerArtist":     params.MaxPerArtist,
+		"authed_wallet":    authedWallet,
 	})
 	if err != nil {
 		return err

@@ -82,7 +82,9 @@ func (app *ApiServer) v1UsersFeed(c *fiber.Ctx) error {
 			) r
 			JOIN tracks ON r.repost_item_id = tracks.track_id
 				AND tracks.is_delete = false
-				AND tracks.is_unlisted = false
+				AND (tracks.is_unlisted = false
+				     OR (tracks.owner_id = @scheduledOwnerId AND tracks.is_scheduled_release = true AND tracks.release_date > NOW()))
+				AND (tracks.is_scheduled_release IS NOT TRUE OR tracks.release_date <= NOW() OR tracks.owner_id = @scheduledOwnerId)
 				AND tracks.is_available = true
 			WHERE @filter in ('all', 'repost')
 			GROUP BY entity_id
@@ -111,7 +113,9 @@ func (app *ApiServer) v1UsersFeed(c *fiber.Ctx) error {
 			) r
 			JOIN playlists ON r.repost_item_id = playlists.playlist_id
 				AND playlists.is_delete = false
-				AND playlists.is_private = false
+				AND (playlists.is_private = false
+				     OR (playlists.playlist_owner_id = @scheduledOwnerId AND playlists.is_scheduled_release = true AND playlists.release_date > NOW()))
+				AND (playlists.is_scheduled_release IS NOT TRUE OR playlists.release_date <= NOW() OR playlists.playlist_owner_id = @scheduledOwnerId)
 			WHERE @filter in ('all', 'repost')
 			GROUP BY entity_type, entity_id
 		)
@@ -130,7 +134,9 @@ func (app *ApiServer) v1UsersFeed(c *fiber.Ctx) error {
 				WHERE owner_id = fs.user_id
 					AND created_at < @before
 					AND created_at >= @before::timestamp - INTERVAL '1 YEAR'
-					AND is_unlisted = false
+					AND (is_unlisted = false
+					     OR (owner_id = @scheduledOwnerId AND is_scheduled_release = true AND release_date > NOW()))
+					AND (is_scheduled_release IS NOT TRUE OR release_date <= NOW() OR owner_id = @scheduledOwnerId)
 					AND is_delete = false
 					AND stem_of IS NULL
 					AND (access_authorities IS NULL
@@ -158,7 +164,9 @@ func (app *ApiServer) v1UsersFeed(c *fiber.Ctx) error {
 					AND created_at < @before
 					AND created_at >= @before - INTERVAL '1 YEAR'
 					AND is_delete = false
-					AND is_private = false
+					AND (is_private = false
+					     OR (playlist_owner_id = @scheduledOwnerId AND is_scheduled_release = true AND release_date > NOW()))
+					AND (is_scheduled_release IS NOT TRUE OR release_date <= NOW() OR playlist_owner_id = @scheduledOwnerId)
 				ORDER BY created_at DESC
 				LIMIT 50
 				OFFSET 0
@@ -179,13 +187,14 @@ func (app *ApiServer) v1UsersFeed(c *fiber.Ctx) error {
 	`
 
 	rows, err := app.pool.Query(c.Context(), sql, pgx.NamedArgs{
-		"userId":        app.getUserId(c),
-		"before":        time.Now(),
-		"limit":         params.Limit,
-		"offset":        params.Offset,
-		"filter":        params.Filter, // original, repost
-		"followeeIds":   followeeIds,
-		"authed_wallet": app.tryGetAuthedWallet(c),
+		"scheduledOwnerId": app.feedScheduledOwnerID(c),
+		"userId":           app.getUserId(c),
+		"before":           time.Now(),
+		"limit":            params.Limit,
+		"offset":           params.Offset,
+		"filter":           params.Filter, // original, repost
+		"followeeIds":      followeeIds,
+		"authed_wallet":    app.tryGetAuthedWallet(c),
 	})
 	if err != nil {
 		return err

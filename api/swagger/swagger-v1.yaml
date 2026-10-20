@@ -11267,8 +11267,11 @@ components:
           description: International Standard Musical Work Code
         release_date:
           type: string
-          format: date
-          description: Release date
+          format: date-time
+          description: Release date and time
+        is_scheduled_release:
+          type: boolean
+          description: Whether the track is scheduled for release
         track_cid:
           type: string
           description: CID for the track audio file (required)
@@ -11503,8 +11506,11 @@ components:
           description: International Standard Musical Work Code
         release_date:
           type: string
-          format: date
-          description: Release date
+          format: date-time
+          description: Release date and time
+        is_scheduled_release:
+          type: boolean
+          description: Whether the track is scheduled for release
         track_cid:
           type: string
           description: CID for the track audio file
