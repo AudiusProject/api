@@ -124,6 +124,7 @@ type CreateTrackRequest struct {
 	Isrc                         *string                    `json:"isrc,omitempty"`
 	Iswc                         *string                    `json:"iswc,omitempty"`
 	ReleaseDate                  *string                    `json:"release_date,omitempty"`
+	IsScheduledRelease           *bool                      `json:"is_scheduled_release,omitempty"`
 	TrackCid                     string                     `json:"track_cid" validate:"required"`
 	CoverArtSizes                *string                    `json:"cover_art_sizes,omitempty"`
 	PreviewCid                   *string                    `json:"preview_cid,omitempty"`
@@ -166,6 +167,7 @@ type UpdateTrackRequest struct {
 	Isrc                         *string                    `json:"isrc,omitempty"`
 	Iswc                         *string                    `json:"iswc,omitempty"`
 	ReleaseDate                  *string                    `json:"release_date,omitempty"`
+	IsScheduledRelease           *bool                      `json:"is_scheduled_release,omitempty"`
 	Artwork                      *map[string]interface{}    `json:"artwork,omitempty"`
 	TrackCid                     *string                    `json:"track_cid,omitempty"`
 	CoverArtSizes                *string                    `json:"cover_art_sizes,omitempty"`
