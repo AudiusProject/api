@@ -174,6 +174,10 @@ func TestStemsZipFilename(t *testing.T) {
 	}
 	assert.Equal(t, "🍕DRUMS.wav", stemsZipFilename(track(map[string]string{"orig_cid": "Qm", "orig_filename": "  🍕DRUMS.wav"}), "audio/wav"))
 	assert.Equal(t, "Bass.wav", stemsZipFilename(track(map[string]string{"title": "Bass", "orig_cid": "Qm"}), "audio/x-wav"))
+	assert.Equal(t, "🍕DRUMS.wav", stemsZipFilename(track(map[string]string{"title": "  🍕DRUMS.wav", "orig_cid": "Qm"}), "audio/wav"))
+	assert.Equal(t, "Bass.wav", stemsZipFilename(track(map[string]string{"title": "Bass.WAV", "orig_cid": "Qm"}), "audio/wav"))
+	assert.Equal(t, "Bass.flac", stemsZipFilename(track(map[string]string{"title": "Bass.wav", "orig_cid": "Qm"}), "audio/flac"))
+	assert.Equal(t, "Mix v1.2.wav", stemsZipFilename(track(map[string]string{"title": "Mix v1.2", "orig_cid": "Qm"}), "audio/wav"))
 	assert.Equal(t, "Bass.mp3", stemsZipFilename(track(map[string]string{"title": "Bass"}), "audio/wav"))
 	assert.Equal(t, "a_b.mp3", stemsZipFilename(track(map[string]string{"title": "a/b"}), ""))
 }
