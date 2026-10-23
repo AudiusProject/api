@@ -22,11 +22,13 @@ import (
 type mockCoreService struct {
 	corev1connect.UnimplementedCoreServiceHandler
 	received []*corev1.ManageEntityLegacy
+	chainIDs []string
 	calls    atomic.Int32
 }
 
 func (m *mockCoreService) ForwardTransaction(_ context.Context, req *connect.Request[corev1.ForwardTransactionRequest]) (*connect.Response[corev1.ForwardTransactionResponse], error) {
 	m.calls.Add(1)
+	m.chainIDs = append(m.chainIDs, req.Msg.ChainId)
 	if me := req.Msg.Transaction.GetManageEntity(); me != nil {
 		m.received = append(m.received, me)
 	}
@@ -216,7 +218,7 @@ func TestNewChainFlusherTrim(t *testing.T) {
 // TestNewChainFlusherSends verifies that the flusher forwards all queued rows to
 // the new chain and marks them flushed — retaining them — on success.
 func TestNewChainFlusherSends(t *testing.T) {
-	cfg := &config.Config{} // no trim
+	cfg := &config.Config{NewChainID: "audius-mainnet-beta"} // no trim
 	f, mock := newTestFlusher(t, cfg)
 
 	block10 := int64(10)
@@ -251,6 +253,9 @@ func TestNewChainFlusherSends(t *testing.T) {
 		receivedIDs[i] = me.EntityId
 	}
 	require.ElementsMatch(t, []int64{1, 2, 3}, receivedIDs)
+
+	// Every forward names the new chain, or core refuses it.
+	require.Equal(t, []string{"audius-mainnet-beta", "audius-mainnet-beta", "audius-mainnet-beta"}, mock.chainIDs)
 }
 
 // TestNewChainFlusherTrimThenSend verifies the combined trim+flush flow:
