@@ -18,8 +18,8 @@ github.com/Netflix/go-expect v0.0.0-20220104043353-73e0943537d2 h1:+vx7roKuyA63n
 github.com/Netflix/go-expect v0.0.0-20220104043353-73e0943537d2/go.mod h1:HBCaDeC1lPdgDeDbhX8XFpy1jqjK0IBG8W5K+xYqA0w=
 github.com/Nvveen/Gotty v0.0.0-20120604004816-cd527374f1e5 h1:TngWCqHvy9oXAN6lEVMRuU21PR1EtLVZJmdB18Gu3Rw=
 github.com/Nvveen/Gotty v0.0.0-20120604004816-cd527374f1e5/go.mod h1:lmUJ/7eu/Q8D7ML55dXQrVaamCz2vxCfdQBasLZfHKk=
-github.com/OpenAudio/go-openaudio v1.12.2-0.20261023065237-8388df0b477c h1:saMd0Oljbar3hzuG5YA2NtYt76CbBj49EAGxevb6FTo=
-github.com/OpenAudio/go-openaudio v1.12.2-0.20261023065237-8388df0b477c/go.mod h1:lLRvUF5oWkxOyZx8rp/ecqxuMo3yzPvuvJbLSfvxguQ=
+github.com/OpenAudio/go-openaudio v1.12.2-0.20261023212013-9dce6d9790bd h1:ucVpU6mk8CYUfxg7Jb+FyvOScTw1lj0hJEILyxZfgI4=
+github.com/OpenAudio/go-openaudio v1.12.2-0.20261023212013-9dce6d9790bd/go.mod h1:lLRvUF5oWkxOyZx8rp/ecqxuMo3yzPvuvJbLSfvxguQ=
 github.com/OpenAudio/go-openaudio/pkg/etl v1.7.1-0.20260818221412-81f4af523801 h1:lYrbDv3cte0cW5AaT5oZ+u5cLPvy9pO7S05v5uwKVHQ=
 github.com/OpenAudio/go-openaudio/pkg/etl v1.7.1-0.20260818221412-81f4af523801/go.mod h1:z7X/5RziXEpASGTz7tD+P3pg4W5iCA1cKW7ogw8GShY=
 github.com/StackExchange/wmi v1.2.1 h1:VIkavFPXSjcnS+O8yTq7NI32k0R5Aj+v39y29VYDOSA=
