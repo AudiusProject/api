@@ -4381,6 +4381,66 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/stems_response"
+  /tracks/{track_id}/stems/download:
+    get:
+      tags:
+        - tracks
+      summary: Download a track's stems as one zip
+      description:
+        Streams every stem the requester may download, and optionally the
+        parent track, as a single uncompressed zip with a known
+        Content-Length. Files that can't be downloaded are left out.
+      operationId: Download Track Stems
+      security:
+        - {}
+        - OAuth2:
+            - read
+      parameters:
+        - name: track_id
+          in: path
+          description: A Track ID
+          required: true
+          schema:
+            type: string
+        - name: include_parent
+          in: query
+          description: Optional - also include the parent track's file
+          schema:
+            type: boolean
+            default: false
+        - name: user_id
+          in: query
+          description: The user ID of the user making the request
+          schema:
+            type: string
+        - name: user_signature
+          in: query
+          description:
+            Optional - signature from the requesting user's wallet. Needed
+            for gated stems and for an artist downloading their own files.
+          schema:
+            type: string
+        - name: user_data
+          in: query
+          description:
+            Optional - data which was used to generate the optional signature
+            argument.
+          schema:
+            type: string
+      responses:
+        "200":
+          description: Success
+          content:
+            application/zip: {}
+        "403":
+          description: Not allowed to download any of the stems
+          content: {}
+        "404":
+          description: Track not found, or no downloadable stems
+          content: {}
+        "429":
+          description: Too many downloads in progress
+          content: {}
   /tracks/{track_id}/shares:
     post:
       tags:

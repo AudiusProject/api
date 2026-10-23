@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"net/http"
+	"time"
 
 	"api.audius.co/api/dbv1"
 	"api.audius.co/rendezvous"
@@ -22,27 +23,28 @@ type inspectResponse struct {
 }
 
 func inspectTrack(track dbv1.Track, original bool) (*inspectResponse, error) {
-	var cid string
 	if original {
-		cid = track.OrigFileCid.String
-	} else {
-		cid = track.TrackCid.String
+		return inspectCid(track.OrigFileCid.String)
 	}
+	return inspectCid(track.TrackCid.String)
+}
 
+var inspectClient = &http.Client{Timeout: 10 * time.Second}
+
+func inspectCid(cid string) (*inspectResponse, error) {
 	hosts := rendezvous.GlobalHasher.Rank(cid)
 
 	var info blobInspect
 	var lastErr error
 
 	for _, host := range hosts {
-		client := &http.Client{}
 		req, err := http.NewRequest("GET", fmt.Sprintf("%s/internal/blobs/info/%s", host, cid), nil)
 		if err != nil {
 			lastErr = err
 			continue
 		}
 
-		resp, err := client.Do(req)
+		resp, err := inspectClient.Do(req)
 		if err != nil {
 			lastErr = err
 			continue

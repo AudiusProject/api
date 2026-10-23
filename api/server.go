@@ -593,6 +593,7 @@ func NewApiServer(config config.Config) *ApiServer {
 		g.Post("/tracks/:trackId/reposts", app.requireAuthMiddleware, app.requireWriteScope, app.postV1TrackRepost)
 		g.Delete("/tracks/:trackId/reposts", app.requireAuthMiddleware, app.requireWriteScope, app.deleteV1TrackRepost)
 		g.Get("/tracks/:trackId/stems", app.v1TrackStems)
+		g.Get("/tracks/:trackId/stems/download", app.v1TrackStemsDownload)
 		g.Get("/tracks/:trackId/favorites", app.v1TrackFavorites)
 		g.Post("/tracks/:trackId/favorites", app.requireAuthMiddleware, app.requireWriteScope, app.postV1TrackFavorite)
 		g.Delete("/tracks/:trackId/favorites", app.requireAuthMiddleware, app.requireWriteScope, app.deleteV1TrackFavorite)
