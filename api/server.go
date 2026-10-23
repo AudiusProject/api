@@ -289,7 +289,11 @@ func NewApiServer(config config.Config) *ApiServer {
 
 	var newChainFlusher *NewChainFlusher
 	if config.NewChainFlushEnabled && config.NewChainURL != "" && writePool != nil {
-		newChainFlusher = NewNewChainFlusher(&config, writePool, logger)
+		if config.NewChainID == "" {
+			logger.Error("new chain flusher not started: newChainId is not set, and the new chain refuses forwards without a chain ID")
+		} else {
+			newChainFlusher = NewNewChainFlusher(&config, writePool, logger)
+		}
 	}
 
 	app := &ApiServer{

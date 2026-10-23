@@ -193,6 +193,9 @@ func (f *NewChainFlusher) flushRow(ctx context.Context, row queueRow) error {
 		return nil
 	}
 
+	// The chain ID tells core which chain this forward is meant for. A node on
+	// any other chain refuses it, so a newChainUrl pointed at the wrong chain
+	// stalls here instead of writing the backlog there.
 	req := connect.NewRequest(&v1.ForwardTransactionRequest{
 		Transaction: &v1.SignedTransaction{
 			RequestId: uuid.NewString(),
@@ -200,6 +203,7 @@ func (f *NewChainFlusher) flushRow(ctx context.Context, row queueRow) error {
 				ManageEntity: &tx,
 			},
 		},
+		ChainId: f.cfg.NewChainID,
 	})
 
 	const (

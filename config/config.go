@@ -89,6 +89,10 @@ type Config struct {
 	// confirmed_block < NewChainFlushFromBlock before sending — trimming rows already
 	// covered by the backfill.
 	// NewChainInsecureSkipVerify disables TLS verification for the new chain endpoint (e.g. localstack).
+	// NewChainID is the chain the flusher stamps on every ForwardTransaction.
+	// Core refuses a forward whose chain ID differs from its own, and on the
+	// new chain also one with none, so the flusher does not start without it.
+	// Defaults per environment; newChainId overrides.
 	// PlayRoutingHosts, when non-empty, are tried first when resolving a track
 	// stream URL. Plays are recorded by whichever node serves the audio, never
 	// through the relay, so this is what decides which chain a play lands on.
@@ -105,6 +109,7 @@ type Config struct {
 	PlayRoutingHosts []string
 
 	NewChainURL                string
+	NewChainID                 string
 	NewChainQueueEnabled       bool
 	NewChainFlushEnabled       bool
 	NewChainFlushFromBlock     int64
@@ -207,6 +212,7 @@ func init() {
 		Cfg.Rewards = core_config.MakeRewards(core_config.DevClaimAuthorities, core_config.DevRewardExtensions)
 		Cfg.AudiusdURL = "https://node1.oap.devnet"
 		Cfg.ChainId = "openaudio-devnet"
+		Cfg.NewChainID = "openaudio-devnet"
 		Cfg.SolanaIndexerWorkers = 1
 		Cfg.DeadNodes = []string{}
 		Cfg.BlacklistedNodes = []string{}
@@ -306,6 +312,7 @@ func init() {
 		Cfg.Rewards = core_config.MakeRewards(core_config.ProdClaimAuthorities, core_config.ProdRewardExtensions)
 		Cfg.AudiusdURL = "rpc.audius.co"
 		Cfg.ChainId = "audius-mainnet-alpha-beta"
+		Cfg.NewChainID = "audius-mainnet-beta"
 		Cfg.AudiusdChainID = core_config.ProdAcdcChainID
 		Cfg.AudiusdEntityManagerAddress = core_config.ProdAcdcAddress
 		Cfg.AudiusAppUrl = "https://audius.co"
@@ -398,6 +405,9 @@ func init() {
 
 	// Genesis migration dual-write queue
 	Cfg.NewChainURL = os.Getenv("newChainUrl")
+	if v := os.Getenv("newChainId"); v != "" {
+		Cfg.NewChainID = v
+	}
 	Cfg.NewChainQueueEnabled = os.Getenv("newChainQueueEnabled") == "true"
 	Cfg.NewChainFlushEnabled = os.Getenv("newChainFlushEnabled") == "true"
 	Cfg.NewChainInsecureSkipVerify = os.Getenv("newChainInsecureSkipVerify") == "true"
