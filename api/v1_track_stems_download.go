@@ -240,20 +240,35 @@ var audioExtensions = map[string]string{
 	"audio/ogg":    ".ogg",
 }
 
-// stemsZipFilename is the download filename, except that an original with no
-// recorded filename gets its extension from the blob's content type rather
-// than createFilename's .mp3, since the bytes are the original upload.
+// stemsZipFilename is the download filename, except for an original with no
+// recorded filename. createFilename gives that title + ".mp3", but the bytes
+// are the original upload, so the extension comes from the blob's content
+// type. Such titles often already end in the upload's extension ("DRUMS.wav").
 func stemsZipFilename(t *dbv1.Track, contentType string) string {
 	name := sanitizeZipName(createFilename(t))
 	if t.OrigFileCid.String != "" && t.OrigFilename.String == "" {
 		if ext, ok := audioExtensions[strings.ToLower(contentType)]; ok {
-			name = strings.TrimSuffix(name, path.Ext(name)) + ext
+			title := sanitizeZipName(t.Title.String)
+			titleExt := strings.ToLower(path.Ext(title))
+			if isAudioExtension(titleExt) {
+				title = strings.TrimSuffix(title, path.Ext(title))
+			}
+			name = title + ext
 		}
 	}
 	if name == "" || strings.HasPrefix(name, ".") {
 		name = "track" + name
 	}
 	return name
+}
+
+func isAudioExtension(ext string) bool {
+	for _, e := range audioExtensions {
+		if e == ext {
+			return true
+		}
+	}
+	return false
 }
 
 func sanitizeZipName(name string) string {
