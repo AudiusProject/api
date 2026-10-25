@@ -96,11 +96,6 @@ type Config struct {
 	// cutover. See cmd/genesis-writer/ROLLOUT.md, Runbook steps 5 and 13.
 	PlayRoutingHosts []string
 
-	// NewChainID is the chain ID of the post-genesis chain
-	// (audius-mainnet-beta in prod). Defaults per environment; newChainId
-	// overrides.
-	NewChainID string
-
 	// Indexer cutover bounds. Both default to 0, meaning "unset" — the ETL
 	// treats a zero start as "resume from where you left off" and a zero end as
 	// "never stop", which is normal operation.
@@ -197,7 +192,6 @@ func init() {
 		Cfg.Rewards = core_config.MakeRewards(core_config.DevClaimAuthorities, core_config.DevRewardExtensions)
 		Cfg.AudiusdURL = "https://node1.oap.devnet"
 		Cfg.ChainId = "openaudio-devnet"
-		Cfg.NewChainID = "openaudio-devnet"
 		Cfg.SolanaIndexerWorkers = 1
 		Cfg.DeadNodes = []string{}
 		Cfg.BlacklistedNodes = []string{}
@@ -297,7 +291,6 @@ func init() {
 		Cfg.Rewards = core_config.MakeRewards(core_config.ProdClaimAuthorities, core_config.ProdRewardExtensions)
 		Cfg.AudiusdURL = "rpc.audius.co"
 		Cfg.ChainId = "audius-mainnet-alpha-beta"
-		Cfg.NewChainID = "audius-mainnet-beta"
 		Cfg.AudiusdChainID = core_config.ProdAcdcChainID
 		Cfg.AudiusdEntityManagerAddress = core_config.ProdAcdcAddress
 		Cfg.AudiusAppUrl = "https://audius.co"
@@ -386,10 +379,6 @@ func init() {
 			log.Fatalf("Invalid featuredAudienceUserId: %s", err)
 		}
 		Cfg.FeaturedAudienceUserID = int32(parsed)
-	}
-
-	if v := os.Getenv("newChainId"); v != "" {
-		Cfg.NewChainID = v
 	}
 
 	// Indexer cutover bounds (see the struct fields).
