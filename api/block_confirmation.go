@@ -55,6 +55,9 @@ func (app *ApiServer) BlockConfirmation(c *fiber.Ctx) error {
 		return err
 	}
 
+	// Clients poll this until their block is indexed; a cached "not yet"
+	// keeps them waiting after it has been.
+	c.Set(fiber.HeaderCacheControl, "no-store")
 	return c.JSON(fiber.Map{
 		"data": res,
 	})
