@@ -34,6 +34,10 @@ func (app *ApiServer) v1UnclaimedId(c *fiber.Ctx, tableName, idField string, low
 	}
 
 	id, _ := trashid.EncodeHashId(freeId)
+	// Each response must be a fresh id: a cached one hands the same id to
+	// concurrent callers, and every write after the first that uses it is
+	// rejected as a duplicate.
+	c.Set(fiber.HeaderCacheControl, "no-store")
 	return c.JSON(fiber.Map{
 		"data": id,
 	})
