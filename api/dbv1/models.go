@@ -1620,16 +1620,6 @@ type MvDashboardTransactionType struct {
 	TransactionCount int64  `json:"transaction_count"`
 }
 
-// Queue of ManageEntity transactions to be forwarded to the new Core chain (audius-mainnet-v2) during genesis migration.
-type NewChainQueue struct {
-	ID        int64              `json:"id"`
-	CreatedAt pgtype.Timestamptz `json:"created_at"`
-	// Protobuf-serialized ManageEntityLegacy message.
-	TxData []byte `json:"tx_data"`
-	// Block height on the old chain where this transaction was confirmed. NULL if confirmation was not recorded (e.g. relay restart).
-	ConfirmedBlock pgtype.Int8 `json:"confirmed_block"`
-}
-
 type Notification struct {
 	ID          int64       `json:"id"`
 	Specifier   string      `json:"specifier"`
