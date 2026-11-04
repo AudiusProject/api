@@ -93,3 +93,11 @@ func TestGetTrackWaveform_UnknownTrack(t *testing.T) {
 	require.NoError(t, err)
 	assert.Equal(t, 404, res.StatusCode)
 }
+
+func TestWaveformProbeOrder(t *testing.T) {
+	ranked := []string{"a", "b", "c", "d", "e"}
+	assert.Equal(t, []string{"a", "b", "c", "d"}, waveformProbeOrder(nil, ranked))
+	assert.Equal(t, []string{"w", "a", "b", "c"}, waveformProbeOrder([]string{"w"}, ranked))
+	assert.Equal(t, []string{"b", "a", "c", "d"}, waveformProbeOrder([]string{"b"}, ranked))
+	assert.Equal(t, []string{"w"}, waveformProbeOrder([]string{"w"}, nil))
+}

@@ -17,7 +17,8 @@ import (
 
 // Content nodes precompute a 750-bucket amplitude envelope per track
 // (GET /waveform/:cid). Only nodes that opt in compute them, so most lookups
-// miss. Proxying here keeps clients off the nodes and caches both outcomes.
+// miss. Proxying here keeps clients off the nodes and caches both outcomes,
+// so a single waveform node is not hit once per feed tile.
 
 const (
 	waveformProbeHosts   = 4
@@ -110,15 +111,32 @@ func (app *ApiServer) waveformHosts(cid string) []string {
 	if app.waveformHostsOverride != nil {
 		return app.waveformHostsOverride(cid)
 	}
-	return rendezvous.GlobalHasher.Rank(cid)
+	return waveformProbeOrder(app.config.WaveformHosts, rendezvous.GlobalHasher.Rank(cid))
+}
+
+// waveformProbeOrder puts the configured waveform hosts first, then fills up to
+// waveformProbeHosts from the rendezvous ranking.
+func waveformProbeOrder(configured, ranked []string) []string {
+	hosts := append([]string{}, configured...)
+	seen := make(map[string]bool, len(hosts))
+	for _, h := range hosts {
+		seen[h] = true
+	}
+	for _, h := range ranked {
+		if len(hosts) >= waveformProbeHosts {
+			break
+		}
+		if !seen[h] {
+			seen[h] = true
+			hosts = append(hosts, h)
+		}
+	}
+	return hosts
 }
 
 // fetchWaveform asks the top rendezvous hosts in parallel and takes the first
 // answer. localOnly stops each node from probing its own peers.
 func fetchWaveform(ctx context.Context, hosts []string, cid string) *waveform {
-	if len(hosts) > waveformProbeHosts {
-		hosts = hosts[:waveformProbeHosts]
-	}
 	if len(hosts) == 0 {
 		return nil
 	}

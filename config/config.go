@@ -108,6 +108,10 @@ type Config struct {
 	// cutover. See cmd/genesis-writer/ROLLOUT.md, Runbook steps 5 and 13.
 	PlayRoutingHosts []string
 
+	// WaveformHosts are asked for /waveform/:cid before the rendezvous hosts.
+	// Few nodes compute waveforms, so this names the ones that do.
+	WaveformHosts []string
+
 	NewChainURL                string
 	NewChainID                 string
 	NewChainQueueEnabled       bool
@@ -307,6 +311,9 @@ func init() {
 		Cfg.PlayRoutingHosts = []string{
 			"creatornode.audius.co",
 			"v.monophonic.digital",
+		}
+		Cfg.WaveformHosts = []string{
+			"https://audius.rickyrombo.com",
 		}
 		Cfg.UploadNodes = ProdUploadNodes
 		Cfg.Rewards = core_config.MakeRewards(core_config.ProdClaimAuthorities, core_config.ProdRewardExtensions)
