@@ -4361,6 +4361,36 @@ paths:
         "500":
           description: Server error
           content: {}
+  /tracks/{track_id}/waveform:
+    get:
+      tags:
+        - tracks
+      summary: Gets the waveform peaks for a track
+      description: Amplitude envelope precomputed by content nodes. 404 when no node has computed one for this track.
+      operationId: Get Track Waveform
+      parameters:
+        - name: track_id
+          in: path
+          description: A Track ID
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: Success
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/track_waveform_response"
+        "400":
+          description: Bad request
+          content: {}
+        "404":
+          description: No waveform for this track
+          content: {}
+        "500":
+          description: Server error
+          content: {}
   /tracks/{track_id}/stems:
     get:
       tags:
@@ -12539,6 +12569,27 @@ components:
       properties:
         data:
           $ref: "#/components/schemas/blob_info"
+    track_waveform_response:
+      type: object
+      properties:
+        data:
+          $ref: "#/components/schemas/track_waveform"
+    track_waveform:
+      required:
+        - duration_ms
+        - buckets
+        - peaks
+      type: object
+      properties:
+        duration_ms:
+          type: integer
+        buckets:
+          type: integer
+        peaks:
+          type: array
+          description: Amplitude per bucket, 0-255, scaled to the track's own peak
+          items:
+            type: integer
     repost:
       required:
         - repost_item_id

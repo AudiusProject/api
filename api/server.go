@@ -587,6 +587,7 @@ func NewApiServer(config config.Config) *ApiServer {
 		g.Get("/tracks/:trackId/stream", app.v1TrackStream)
 		g.Get("/tracks/:trackId/download", app.v1TrackDownload)
 		g.Get("/tracks/:trackId/inspect", app.v1TrackInspect)
+		g.Get("/tracks/:trackId/waveform", app.v1TrackWaveform)
 		g.Get("/tracks/:trackId/access-info", app.v1TrackAccessInfo)
 		g.Get("/tracks/:trackId/remixes", app.v1TrackRemixes)
 		g.Get("/tracks/:trackId/reposts", app.v1TrackReposts)
@@ -909,6 +910,7 @@ type ApiServer struct {
 	validators              *Nodes
 	openAudioPool           *OpenAudioPool
 	newChainFlusher         *NewChainFlusher
+	waveformHostsOverride   func(cid string) []string // set in tests to point at fake nodes
 }
 
 // requestLogger returns app.logger annotated with the current request_id (set
