@@ -9118,74 +9118,6 @@ CREATE MATERIALIZED VIEW public.mv_dashboard_transaction_types AS
 
 
 --
--- Name: new_chain_queue; Type: TABLE; Schema: public; Owner: -
---
-
-CREATE TABLE public.new_chain_queue (
-    id bigint NOT NULL,
-    created_at timestamp with time zone DEFAULT now() NOT NULL,
-    tx_data bytea NOT NULL,
-    confirmed_block bigint,
-    flushed_at timestamp with time zone,
-    skip_reason text
-);
-
-
---
--- Name: TABLE new_chain_queue; Type: COMMENT; Schema: public; Owner: -
---
-
-COMMENT ON TABLE public.new_chain_queue IS 'Queue of ManageEntity transactions to be forwarded to the new Core chain (audius-mainnet-v2) during genesis migration.';
-
-
---
--- Name: COLUMN new_chain_queue.tx_data; Type: COMMENT; Schema: public; Owner: -
---
-
-COMMENT ON COLUMN public.new_chain_queue.tx_data IS 'Protobuf-serialized ManageEntityLegacy message.';
-
-
---
--- Name: COLUMN new_chain_queue.confirmed_block; Type: COMMENT; Schema: public; Owner: -
---
-
-COMMENT ON COLUMN public.new_chain_queue.confirmed_block IS 'Block height on the old chain where this transaction was confirmed. NULL if confirmation was not recorded (e.g. relay restart).';
-
-
---
--- Name: COLUMN new_chain_queue.flushed_at; Type: COMMENT; Schema: public; Owner: -
---
-
-COMMENT ON COLUMN public.new_chain_queue.flushed_at IS 'When this row was forwarded to the new chain, or when it was marked skipped. NULL means pending.';
-
-
---
--- Name: COLUMN new_chain_queue.skip_reason; Type: COMMENT; Schema: public; Owner: -
---
-
-COMMENT ON COLUMN public.new_chain_queue.skip_reason IS 'Set when flushed_at was recorded without actually forwarding: ''backfilled'' (covered by the genesis backfill) or ''corrupt'' (tx_data failed to unmarshal).';
-
-
---
--- Name: new_chain_queue_id_seq; Type: SEQUENCE; Schema: public; Owner: -
---
-
-CREATE SEQUENCE public.new_chain_queue_id_seq
-    START WITH 1
-    INCREMENT BY 1
-    NO MINVALUE
-    NO MAXVALUE
-    CACHE 1;
-
-
---
--- Name: new_chain_queue_id_seq; Type: SEQUENCE OWNED BY; Schema: public; Owner: -
---
-
-ALTER SEQUENCE public.new_chain_queue_id_seq OWNED BY public.new_chain_queue.id;
-
-
---
 -- Name: notification; Type: TABLE; Schema: public; Owner: -
 --
 
@@ -11792,13 +11724,6 @@ ALTER TABLE ONLY public.etl_validators ALTER COLUMN id SET DEFAULT nextval('publ
 
 
 --
--- Name: new_chain_queue id; Type: DEFAULT; Schema: public; Owner: -
---
-
-ALTER TABLE ONLY public.new_chain_queue ALTER COLUMN id SET DEFAULT nextval('public.new_chain_queue_id_seq'::regclass);
-
-
---
 -- Name: notification id; Type: DEFAULT; Schema: public; Owner: -
 --
 
@@ -12546,14 +12471,6 @@ ALTER TABLE ONLY public.milestones
 
 ALTER TABLE ONLY public.muted_users
     ADD CONSTRAINT muted_users_pkey PRIMARY KEY (muted_user_id, user_id);
-
-
---
--- Name: new_chain_queue new_chain_queue_pkey; Type: CONSTRAINT; Schema: public; Owner: -
---
-
-ALTER TABLE ONLY public.new_chain_queue
-    ADD CONSTRAINT new_chain_queue_pkey PRIMARY KEY (id);
 
 
 --
@@ -14700,20 +14617,6 @@ CREATE INDEX mv_dashboard_transaction_stats_24h_idx ON public.mv_dashboard_trans
 --
 
 CREATE INDEX mv_dashboard_transaction_types_idx ON public.mv_dashboard_transaction_types USING btree (tx_type, transaction_count);
-
-
---
--- Name: new_chain_queue_confirmed_block_idx; Type: INDEX; Schema: public; Owner: -
---
-
-CREATE INDEX new_chain_queue_confirmed_block_idx ON public.new_chain_queue USING btree (confirmed_block);
-
-
---
--- Name: new_chain_queue_pending_idx; Type: INDEX; Schema: public; Owner: -
---
-
-CREATE INDEX new_chain_queue_pending_idx ON public.new_chain_queue USING btree (id) WHERE (flushed_at IS NULL);
 
 
 --
