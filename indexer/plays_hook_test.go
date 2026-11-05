@@ -18,9 +18,9 @@ import (
 // real DB. It calls indexPlays directly (not the hook wrapper) so a DB error
 // surfaces as a test failure instead of being swallowed by the PlaysHook
 // "log and continue" contract.
-func runPlaysHook(t *testing.T, pool *pgxpool.Pool, height int64, plays []*corev1.TrackPlay) {
+func runPlaysHook(t *testing.T, pool *pgxpool.Pool, height int64, plays []*corev1.TrackPlay) int {
 	t.Helper()
-	err := indexPlays(context.Background(), &etl.PlaysParams{
+	unsigned, err := indexPlays(context.Background(), &etl.PlaysParams{
 		Plays:       plays,
 		BlockHeight: height,
 		BlockTime:   time.Unix(1700000000, 0),
@@ -29,6 +29,7 @@ func runPlaysHook(t *testing.T, pool *pgxpool.Pool, height int64, plays []*corev
 		DBTX:        pool,
 	})
 	require.NoError(t, err)
+	return unsigned
 }
 
 func play(userID, trackID string) *corev1.TrackPlay {
@@ -110,6 +111,50 @@ func TestPlaysHook_SkipsNonIntegerTrackId(t *testing.T) {
 		`SELECT count(*) FROM plays WHERE play_item_id = 400`).Scan(&valid))
 	assert.Equal(t, 1, total, "only the integer-track_id play is written")
 	assert.Equal(t, 1, valid)
+}
+
+func TestPlaysHook_SkipsUnsignedPlays(t *testing.T) {
+	pool := database.CreateTestDatabase(t, "test_indexer")
+	database.Seed(pool, database.FixtureMap{})
+
+	unsignedPlay := play("b7x248_445", "500")
+	unsignedPlay.Signature = ""
+	unsignedNumericUser := play("100", "500")
+	unsignedNumericUser.Signature = ""
+
+	unsigned := runPlaysHook(t, pool, 1, []*corev1.TrackPlay{
+		unsignedPlay,
+		unsignedNumericUser,
+		play("101", "500"),
+	})
+	assert.Equal(t, 2, unsigned)
+
+	var total int
+	var userID *int64
+	require.NoError(t, pool.QueryRow(context.Background(),
+		`SELECT count(*), max(user_id) FROM plays WHERE play_item_id = 500`).Scan(&total, &userID))
+	assert.Equal(t, 1, total, "only the signed play is written")
+	require.NotNil(t, userID)
+	assert.Equal(t, int64(101), *userID)
+
+	var aggregate int64
+	require.NoError(t, pool.QueryRow(context.Background(),
+		`SELECT count FROM aggregate_plays WHERE play_item_id = 500`).Scan(&aggregate))
+	assert.Equal(t, int64(1), aggregate)
+}
+
+func TestPlaysHook_AllUnsignedIsNoOp(t *testing.T) {
+	pool := database.CreateTestDatabase(t, "test_indexer")
+	database.Seed(pool, database.FixtureMap{})
+
+	p := play("100", "600")
+	p.Signature = ""
+	assert.Equal(t, 1, runPlaysHook(t, pool, 1, []*corev1.TrackPlay{p}))
+
+	var total int
+	require.NoError(t, pool.QueryRow(context.Background(),
+		`SELECT count(*) FROM plays`).Scan(&total))
+	assert.Equal(t, 0, total)
 }
 
 func TestPlaysHook_EmptyIsNoOp(t *testing.T) {
