@@ -49,7 +49,15 @@ func newPlaysHook(logger *zap.Logger) etl.PlaysHook {
 	hookLogger := logger.Named("PlaysHook")
 	return func(ctx context.Context, params *etl.PlaysParams) error {
 		start := time.Now()
-		if err := indexPlays(ctx, params); err != nil {
+		unsigned, err := indexPlays(ctx, params)
+		if unsigned > 0 {
+			hookLogger.Warn("skipped unsigned plays",
+				zap.String("tx_hash", params.TxHash),
+				zap.Int64("block_height", params.BlockHeight),
+				zap.Int("unsigned", unsigned),
+				zap.Int("plays", len(params.Plays)))
+		}
+		if err != nil {
 			hookLogger.Warn("failed to index plays into plays table",
 				zap.String("tx_hash", params.TxHash),
 				zap.Int64("block_height", params.BlockHeight),
@@ -67,10 +75,10 @@ func newPlaysHook(logger *zap.Logger) etl.PlaysHook {
 	}
 }
 
-func indexPlays(ctx context.Context, params *etl.PlaysParams) error {
+func indexPlays(ctx context.Context, params *etl.PlaysParams) (int, error) {
 	plays := params.Plays
 	if len(plays) == 0 {
-		return nil
+		return 0, nil
 	}
 
 	// slot is shared by every play in this block (mirrors Python's shared
@@ -82,10 +90,16 @@ func indexPlays(ctx context.Context, params *etl.PlaysParams) error {
 	// Columns per row: user_id, source, play_item_id, created_at,
 	// updated_at, slot, signature, city, region, country.
 	var (
-		tuples []string
-		args   []any
+		tuples   []string
+		args     []any
+		unsigned int
 	)
 	for _, p := range plays {
+		if p.GetSignature() == "" {
+			unsigned++
+			continue
+		}
+
 		trackID, err := strconv.Atoi(p.GetTrackId())
 		if err != nil {
 			continue // non-integer track id: skip (matches Python)
@@ -117,7 +131,7 @@ func indexPlays(ctx context.Context, params *etl.PlaysParams) error {
 	}
 
 	if len(tuples) == 0 {
-		return nil
+		return unsigned, nil
 	}
 
 	sql := `INSERT INTO plays
@@ -125,5 +139,5 @@ func indexPlays(ctx context.Context, params *etl.PlaysParams) error {
 		VALUES ` + strings.Join(tuples, ",")
 
 	_, err := params.DBTX.Exec(ctx, sql, args...)
-	return err
+	return unsigned, err
 }
