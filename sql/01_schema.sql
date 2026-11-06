@@ -6614,6 +6614,7 @@ CREATE TABLE public.tracks (
     parental_warning public.parental_warning_type,
     territory_codes text[],
     access_authorities text[],
+    feedback_requested_at timestamp without time zone,
     CONSTRAINT check_territory_codes CHECK (public.validate_territory_codes(territory_codes))
 );
 
@@ -15429,6 +15430,12 @@ CREATE INDEX tracks_ai_attribution_user_id ON public.tracks USING btree (ai_attr
 
 CREATE INDEX tracks_blocknumber_idx ON public.tracks USING btree (blocknumber);
 
+
+--
+-- Name: tracks_feedback_requested_at_idx; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX tracks_feedback_requested_at_idx ON public.tracks USING btree (feedback_requested_at DESC, track_id DESC) WHERE ((feedback_requested_at IS NOT NULL) AND (is_current = true) AND (is_delete = false));
 
 --
 -- Name: tracks_isrc_normalized_idx; Type: INDEX; Schema: public; Owner: -
