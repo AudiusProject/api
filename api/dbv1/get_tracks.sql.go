@@ -231,7 +231,9 @@ SELECT
   cover_original_song_title,
   cover_original_artist,
   is_owned_by_user,
-  t.access_authorities
+  t.access_authorities,
+  t.feedback_requested_at,
+  (t.feedback_requested_at IS NOT NULL)::bool AS feedback_requested
 
 FROM tracks t
 JOIN aggregate_track using (track_id)
@@ -331,6 +333,8 @@ type GetTracksRow struct {
 	CoverOriginalArtist                pgtype.Text     `json:"cover_original_artist"`
 	IsOwnedByUser                      bool            `json:"is_owned_by_user"`
 	AccessAuthorities                  []string        `json:"access_authorities"`
+	FeedbackRequestedAt                *time.Time      `json:"feedback_requested_at"`
+	FeedbackRequested                  bool            `json:"feedback_requested"`
 }
 
 // MATERIALIZED forces this CTE to compute once per call. Without it the
@@ -426,6 +430,8 @@ func (q *Queries) GetTracks(ctx context.Context, arg GetTracksParams) ([]GetTrac
 			&i.CoverOriginalArtist,
 			&i.IsOwnedByUser,
 			&i.AccessAuthorities,
+			&i.FeedbackRequestedAt,
+			&i.FeedbackRequested,
 		); err != nil {
 			return nil, err
 		}

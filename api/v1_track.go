@@ -139,6 +139,7 @@ type CreateTrackRequest struct {
 	StreamConditions             *AccessConditions          `json:"stream_conditions,omitempty" validate:"omitempty"`
 	IsStreamGated                *bool                      `json:"is_stream_gated,omitempty"`
 	AccessAuthorities            *[]string                  `json:"access_authorities,omitempty"`
+	FeedbackRequested            *bool                      `json:"feedback_requested,omitempty"`
 	IsDownloadGated              *bool                      `json:"is_download_gated,omitempty"`
 	AiAttributionUserId          *trashid.HashId            `json:"ai_attribution_user_id,omitempty" validate:"omitempty,min=0"`
 	AllowedApiKeys               *[]string                  `json:"allowed_api_keys,omitempty"`
@@ -182,6 +183,7 @@ type UpdateTrackRequest struct {
 	StreamConditions             *AccessConditions          `json:"stream_conditions,omitempty" validate:"omitempty"`
 	IsStreamGated                *bool                      `json:"is_stream_gated,omitempty"`
 	AccessAuthorities            *[]string                  `json:"access_authorities,omitempty"`
+	FeedbackRequested            *bool                      `json:"feedback_requested,omitempty"`
 	IsDownloadGated              *bool                      `json:"is_download_gated,omitempty"`
 	AiAttributionUserId          *trashid.HashId            `json:"ai_attribution_user_id,omitempty" validate:"omitempty,min=0"`
 	AllowedApiKeys               *[]string                  `json:"allowed_api_keys,omitempty"`

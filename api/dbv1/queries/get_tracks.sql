@@ -220,7 +220,9 @@ SELECT
   cover_original_song_title,
   cover_original_artist,
   is_owned_by_user,
-  t.access_authorities
+  t.access_authorities,
+  t.feedback_requested_at,
+  (t.feedback_requested_at IS NOT NULL)::bool AS feedback_requested
 
 FROM tracks t
 JOIN aggregate_track using (track_id)
