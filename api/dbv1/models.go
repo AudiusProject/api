@@ -1628,6 +1628,10 @@ type NewChainQueue struct {
 	TxData []byte `json:"tx_data"`
 	// Block height on the old chain where this transaction was confirmed. NULL if confirmation was not recorded (e.g. relay restart).
 	ConfirmedBlock pgtype.Int8 `json:"confirmed_block"`
+	// When this row was forwarded to the new chain, or when it was marked skipped. NULL means pending.
+	FlushedAt pgtype.Timestamptz `json:"flushed_at"`
+	// Set when flushed_at was recorded without actually forwarding: 'backfilled' (covered by the genesis backfill) or 'corrupt' (tx_data failed to unmarshal).
+	SkipReason pgtype.Text `json:"skip_reason"`
 }
 
 type Notification struct {
@@ -2660,11 +2664,12 @@ type TrackRow struct {
 	// Artist of the original song if this track is a cover
 	CoverOriginalArtist pgtype.Text `json:"cover_original_artist"`
 	// Indicates whether the track is owned by the user for publishing payouts
-	IsOwnedByUser     bool                    `json:"is_owned_by_user"`
-	NoAiUse           pgtype.Bool             `json:"no_ai_use"`
-	ParentalWarning   NullParentalWarningType `json:"parental_warning"`
-	TerritoryCodes    []string                `json:"territory_codes"`
-	AccessAuthorities []string                `json:"access_authorities"`
+	IsOwnedByUser       bool                    `json:"is_owned_by_user"`
+	NoAiUse             pgtype.Bool             `json:"no_ai_use"`
+	ParentalWarning     NullParentalWarningType `json:"parental_warning"`
+	TerritoryCodes      []string                `json:"territory_codes"`
+	AccessAuthorities   []string                `json:"access_authorities"`
+	FeedbackRequestedAt *time.Time              `json:"feedback_requested_at"`
 }
 
 type TrackTrendingScore struct {
@@ -2987,4 +2992,12 @@ type VUserBalance struct {
 type VolumeLeaderExclusion struct {
 	Address     string      `json:"address"`
 	Description pgtype.Text `json:"description"`
+}
+
+// Ranked Weekly Rotation track ids per listener per period (period_start = Wednesday 00:00 UTC), written on first request of the period.
+type WeeklyRotationMix struct {
+	UserID      int32       `json:"user_id"`
+	PeriodStart pgtype.Date `json:"period_start"`
+	TrackIds    []int32     `json:"track_ids"`
+	CreatedAt   time.Time   `json:"created_at"`
 }
