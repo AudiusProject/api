@@ -226,6 +226,16 @@ func (proc *RPCProcessor) Apply(ctx context.Context, rpcLog *RpcLog) error {
 			if err != nil {
 				return err
 			}
+		case RPCMethodChatLeave:
+			var params ChatLeaveRPCParams
+			err = json.Unmarshal(rawRpc.Params, &params)
+			if err != nil {
+				return err
+			}
+			err = chatLeave(tx, ctx, userId, params.ChatID)
+			if err != nil {
+				return err
+			}
 		case RPCMethodChatMessage:
 			var params ChatMessageRPCParams
 			err = json.Unmarshal(rawRpc.Params, &params)
@@ -501,7 +511,14 @@ func (proc *RPCProcessor) handleChatMessageInserted(ctx context.Context, notific
 	}
 
 	// Get chat members to notify
-	userRows, err := proc.writePool.Query(ctx, `select user_id from chat_member where chat_id = $1 and is_hidden = false`, chatMessage.ChatID)
+	// skip members who blocked the sender (possible in groups)
+	userRows, err := proc.writePool.Query(ctx, `
+		select user_id from chat_member
+		where chat_id = $1 and is_hidden = false
+		and not exists (
+			select 1 from chat_blocked_users b
+			where b.blocker_user_id = chat_member.user_id and b.blockee_user_id = $2
+		)`, chatMessage.ChatID, chatMessage.UserID)
 	if err != nil {
 		proc.logger.Error("failed to load chat members for websocket push " + err.Error())
 		return err

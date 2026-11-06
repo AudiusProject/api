@@ -13,9 +13,15 @@ import (
 func chatCreate(db dbv1.DBTX, ctx context.Context, userId int32, ts time.Time, params ChatCreateRPCParams) error {
 	var err error
 
+	isGroup := len(params.Invites) > 2
+
 	// first find any blasts that should seed this chat ...
+	// blasts only seed 1:1 chats
 	var blasts []blastRow
 	for _, invite := range params.Invites {
+		if isGroup {
+			break
+		}
 		invitedUserId, err := trashid.DecodeHashId(invite.UserID)
 		if err != nil {
 			return err
@@ -37,12 +43,12 @@ func chatCreate(db dbv1.DBTX, ctx context.Context, userId int32, ts time.Time, p
 	// we keep the chat with the earliest relayed_at (created_at) timestamp
 	_, err = db.Exec(ctx, `
 		insert into chat
-			(chat_id, created_at, last_message_at)
+			(chat_id, created_at, last_message_at, is_group)
 		values
-			($1, $2, $2)
+			($1, $2, $2, $3)
 		on conflict (chat_id)
 		do update set created_at = $2, last_message_at = $2 where chat.created_at > $2
-		`, params.ChatID, ts.UTC())
+		`, params.ChatID, ts.UTC(), isGroup)
 	if err != nil {
 		return err
 	}
@@ -95,6 +101,16 @@ func chatCreate(db dbv1.DBTX, ctx context.Context, userId int32, ts time.Time, p
 
 func chatDelete(db dbv1.DBTX, ctx context.Context, userId int32, chatId string, messageTimestamp time.Time) error {
 	_, err := db.Exec(ctx, "update chat_member set cleared_history_at = $1, last_active_at = $1, unread_count = 0, is_hidden = true where chat_id = $2 and user_id = $3", messageTimestamp.UTC(), chatId, userId)
+	return err
+}
+
+// chatLeave removes a user from a group chat. Their messages stay.
+func chatLeave(db dbv1.DBTX, ctx context.Context, userId int32, chatId string) error {
+	_, err := db.Exec(ctx, "delete from chat_member where chat_id = $1 and user_id = $2", chatId, userId)
+	if err != nil {
+		return err
+	}
+	_, err = db.Exec(ctx, "delete from user_conversation_preferences where chat_id = $1 and user_id = $2", chatId, userId)
 	return err
 }
 
@@ -158,6 +174,11 @@ func chatUpdateLatestFields(db dbv1.DBTX, ctx context.Context, chatId string) er
 		where msg.created_at > COALESCE(member.last_active_at, '1970-01-01'::timestamp)
 		and msg.user_id != member.user_id
 		and msg.chat_id = member.chat_id
+		-- messages from users this member blocked (possible in groups) don't count
+		and not exists (
+			select 1 from chat_blocked_users b
+			where b.blocker_user_id = member.user_id and b.blockee_user_id = msg.user_id
+		)
 	)
 	WHERE member.chat_id = $1
 	`, chatId)

@@ -27,13 +27,16 @@ BEGIN
   END IF;
 
   -- existing chat takes priority over permissions; blast messages only count
-  -- if newer than to_user's last inbox settings change
+  -- if newer than to_user's last inbox settings change. Group chats don't
+  -- count: sharing a group is not consent to 1:1 messages.
   SELECT COUNT(*) > 0 INTO can_message
   FROM chat_member member_a
   JOIN chat_member member_b USING (chat_id)
+  JOIN chat USING (chat_id)
   JOIN chat_message USING (chat_id)
   WHERE member_a.user_id = from_user_id
     AND member_b.user_id = to_user_id
+    AND NOT chat.is_group
     AND (member_b.cleared_history_at IS NULL OR chat_message.created_at > member_b.cleared_history_at)
     AND (
       chat_message.blast_id IS NULL
