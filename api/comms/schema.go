@@ -46,6 +46,16 @@ type ChatDeleteRPCParams struct {
 	ChatID string `json:"chat_id"`
 }
 
+type ChatLeaveRPC struct {
+	Method ChatLeaveRPCMethod `json:"method"`
+	Params ChatLeaveRPCParams `json:"params"`
+}
+
+// ChatLeaveRPCParams removes the calling user from a group chat.
+type ChatLeaveRPCParams struct {
+	ChatID string `json:"chat_id"`
+}
+
 type ChatInviteRPC struct {
 	Method ChatInviteRPCMethod `json:"method"`
 	Params ChatInviteRPCParams `json:"params"`
@@ -365,6 +375,12 @@ const (
 	MethodChatDelete ChatDeleteRPCMethod = "chat.delete"
 )
 
+type ChatLeaveRPCMethod string
+
+const (
+	MethodChatLeave ChatLeaveRPCMethod = "chat.leave"
+)
+
 type ChatInviteRPCMethod string
 
 const (
@@ -448,6 +464,7 @@ const (
 	RPCMethodChatCreate          RPCMethod = "chat.create"
 	RPCMethodChatDelete          RPCMethod = "chat.delete"
 	RPCMethodChatInvite          RPCMethod = "chat.invite"
+	RPCMethodChatLeave           RPCMethod = "chat.leave"
 	RPCMethodChatMessage         RPCMethod = "chat.message"
 	RPCMethodChatPermit          RPCMethod = "chat.permit"
 	RPCMethodChatReact           RPCMethod = "chat.react"

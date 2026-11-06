@@ -49,6 +49,20 @@ ASSERT (SELECT chat_allowed(2,10) = FALSE);
 UPDATE chat_member SET cleared_history_at = now() where user_id = 10;
 ASSERT (SELECT chat_allowed(11, 10) = FALSE);
 
+-- USER 12 + 10 share only a group chat: that doesn't bypass 10's settings
+insert into chat (chat_id, created_at, last_message_at, is_group) values ('grp_test', now(), now(), true);
+insert into chat_member
+  (chat_id, user_id, invited_by_user_id, invite_code, created_at)
+values
+  ('grp_test', 10, 10, '', now()),
+  ('grp_test', 12, 10, '', now()),
+  ('grp_test', 13, 10, '', now());
+insert into chat_message
+  (message_id, chat_id, user_id, created_at)
+values
+  ('group_first', 'grp_test', 12, now() + interval '1 second');
+ASSERT (SELECT chat_allowed(12, 10) = FALSE);
+
 
 
 
