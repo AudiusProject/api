@@ -6,6 +6,7 @@ import (
 	"errors"
 	"fmt"
 	"net/http"
+	"strings"
 	"time"
 
 	"api.audius.co/api/dbv1"
@@ -61,6 +62,8 @@ func (vtor *Validator) Validate(ctx context.Context, userId int32, rawRpc RawRPC
 		return vtor.validateChatCreate(ctx, userId, rawRpc)
 	case RPCMethodChatDelete:
 		return vtor.validateChatDelete(userId, rawRpc)
+	case RPCMethodChatLeave:
+		return vtor.validateChatLeave(ctx, userId, rawRpc)
 	case RPCMethodChatMessage:
 		return vtor.validateChatMessage(ctx, userId, rawRpc)
 	case RPCMethodChatReact:
@@ -113,22 +116,33 @@ func (vtor *Validator) validateChatCreate(ctx context.Context, userId int32, rpc
 		return errors.New("Chat already exists")
 	}
 
-	if len(params.Invites) != 2 {
-		return errors.New("Chat must have 2 members")
+	// decode invites: unique users, creator included
+	users := make([]int32, 0, len(params.Invites))
+	seen := map[int32]bool{}
+	for _, invite := range params.Invites {
+		id, err := trashid.DecodeHashId(invite.UserID)
+		if err != nil {
+			return err
+		}
+		if seen[int32(id)] {
+			return errors.New("Chat members must be unique")
+		}
+		seen[int32(id)] = true
+		users = append(users, int32(id))
+	}
+	if !seen[userId] {
+		return errors.New("Chat creator must be a member")
 	}
 
-	user1, err := trashid.DecodeHashId(params.Invites[0].UserID)
-	if err != nil {
-		return err
+	isGroup := len(users) > 2
+	if len(users) < 2 {
+		return errors.New("Chat must have at least 2 members")
 	}
-	user2, err := trashid.DecodeHashId(params.Invites[1].UserID)
-	if err != nil {
-		return err
+	if len(users) > MaxGroupChatMembers {
+		return fmt.Errorf("Group chats can have at most %d members", MaxGroupChatMembers)
 	}
-
-	receiver := int32(user1)
-	if receiver == userId {
-		receiver = int32(user2)
+	if isGroup != IsGroupChatID(params.ChatID) {
+		return errors.New("Invalid chat id")
 	}
 
 	// Check that the creator is non-abusive
@@ -137,10 +151,27 @@ func (vtor *Validator) validateChatCreate(ctx context.Context, userId int32, rpc
 		return err
 	}
 
-	// if recipient is creating a chat from a blast
-	// we ignore the receiver's inbox settings
-	// because receiver has sent a blast to this user.
-	{
+	if isGroup {
+		// every invitee must accept messages from the creator; blasts
+		// don't open a group
+		for _, receiver := range users {
+			if receiver == userId {
+				continue
+			}
+			err = validatePermissions(vtor.pool, ctx, userId, receiver)
+			if err != nil {
+				return err
+			}
+		}
+	} else {
+		receiver := users[0]
+		if receiver == userId {
+			receiver = users[1]
+		}
+
+		// if recipient is creating a chat from a blast
+		// we ignore the receiver's inbox settings
+		// because receiver has sent a blast to this user.
 		hasBlast, err := hasNewBlastFromUser(vtor.pool, ctx, userId, receiver)
 		if err != nil {
 			return err
@@ -148,28 +179,56 @@ func (vtor *Validator) validateChatCreate(ctx context.Context, userId int32, rpc
 		if hasBlast {
 			return nil
 		}
-	}
 
-	// validate receiver permits chats from sender
-	err = validatePermissions(vtor.pool, ctx, userId, receiver)
-	if err != nil {
-		return err
-	}
-
-	// validate does not exceed new chat rate limit for any invited users
-	var users []int32
-	for _, invite := range params.Invites {
-		userId, err := trashid.DecodeHashId(invite.UserID)
+		// validate receiver permits chats from sender
+		err = validatePermissions(vtor.pool, ctx, userId, receiver)
 		if err != nil {
 			return err
 		}
-		users = append(users, int32(userId))
 	}
+
+	// validate does not exceed new chat rate limit for any invited users
 	err = vtor.validateNewChatRateLimit(vtor.pool, ctx, users)
 	if err != nil {
 		return err
 	}
 
+	return nil
+}
+
+// IsGroupChatID reports whether a chat id uses the group format.
+func IsGroupChatID(chatId string) bool {
+	rest, ok := strings.CutPrefix(chatId, GroupChatIDPrefix)
+	if !ok || len(rest) < 16 || len(rest) > 64 {
+		return false
+	}
+	for _, r := range rest {
+		if !(r >= 'a' && r <= 'z' || r >= 'A' && r <= 'Z' || r >= '0' && r <= '9') {
+			return false
+		}
+	}
+	return true
+}
+
+func (vtor *Validator) validateChatLeave(ctx context.Context, userId int32, rpc RawRPC) error {
+	var params ChatLeaveRPCParams
+	err := json.Unmarshal(rpc.Params, &params)
+	if err != nil {
+		return err
+	}
+
+	err = validateChatMembership(vtor.pool, ctx, userId, params.ChatID)
+	if err != nil {
+		return err
+	}
+
+	isGroup, err := isGroupChat(vtor.pool, ctx, params.ChatID)
+	if err != nil {
+		return err
+	}
+	if !isGroup {
+		return errors.New("Only group chats can be left")
+	}
 	return nil
 }
 
@@ -502,7 +561,28 @@ func validatePermissions(pool *dbv1.DBPools, ctx context.Context, sender int32, 
 
 }
 
+func isGroupChat(pool *dbv1.DBPools, ctx context.Context, chatId string) (bool, error) {
+	var isGroup bool
+	err := pool.QueryRow(ctx, `select is_group from chat where chat_id = $1`, chatId).Scan(&isGroup)
+	if err == pgx.ErrNoRows {
+		return false, errors.New("chat does not exist")
+	}
+	return isGroup, err
+}
+
 func validatePermittedToMessage(pool *dbv1.DBPools, ctx context.Context, userId int32, chatId string) error {
+	isGroup, err := isGroupChat(pool, ctx, chatId)
+	if err != nil {
+		return err
+	}
+
+	// Group members can always post. Members consented when they accepted the
+	// creator's invite, and blocks are applied per reader (unread counts,
+	// pushes, client display) so one member can't silence the group.
+	if isGroup {
+		return validateChatMembership(pool, ctx, userId, chatId)
+	}
+
 	// Single query that validates:
 	// 1. Chat has exactly 2 members
 	// 2. User is a member of the chat
@@ -534,7 +614,7 @@ func validatePermittedToMessage(pool *dbv1.DBPools, ctx context.Context, userId 
 	`
 
 	var isPermitted bool
-	err := pool.QueryRow(ctx, query, chatId, userId).Scan(&isPermitted)
+	err = pool.QueryRow(ctx, query, chatId, userId).Scan(&isPermitted)
 	if err != nil {
 		if err == pgx.ErrNoRows {
 			return errors.New("Chat must have 2 members")
