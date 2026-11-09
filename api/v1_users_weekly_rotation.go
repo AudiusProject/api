@@ -31,11 +31,10 @@ const (
 	// limit is a prefix of the same list.
 	weeklyRotationStoredSize = 50
 
-	// Tracks in the first weeklyRotationSeenSize slots (what clients show)
+	// Tracks in the first weeklyrotation.ShownSize slots (what clients show)
 	// of the last weeklyRotationLookbackPeriods mixes are not repeated.
 	// Without this an unplayed track that keeps trending comes back every
 	// week.
-	weeklyRotationSeenSize        = 30
 	weeklyRotationLookbackPeriods = 2
 
 	// Long-form sets and DJ mixes stay in the mix but never open it.
@@ -194,7 +193,7 @@ func (app *ApiServer) loadWeeklyRotationMix(
 		WHERE m.user_id = $1
 		  AND m.period_start >= $2::date - $3::int * 7
 		  AND m.period_start < $2::date
-	`, userId, periodStart, weeklyRotationLookbackPeriods, weeklyRotationSeenSize).Scan(&recent)
+	`, userId, periodStart, weeklyRotationLookbackPeriods, weeklyrotation.ShownSize).Scan(&recent)
 	if err != nil {
 		return nil, err
 	}

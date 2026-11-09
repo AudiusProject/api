@@ -8530,6 +8530,7 @@ paths:
                 - comment_reaction
                 - listen_streak_reminder
                 - weekly_rotation
+                - weekly_rotation_featured
                 - fan_remix_contest_started
                 - fan_remix_contest_ended
                 - fan_remix_contest_ending_soon
@@ -17383,6 +17384,7 @@ components:
         - $ref: "#/components/schemas/comment_reaction_notification"
         - $ref: "#/components/schemas/listen_streak_reminder_notification"
         - $ref: "#/components/schemas/weekly_rotation_notification"
+        - $ref: "#/components/schemas/weekly_rotation_featured_notification"
         - $ref: "#/components/schemas/fan_remix_contest_started_notification"
         - $ref: "#/components/schemas/fan_remix_contest_ended_notification"
         - $ref: "#/components/schemas/fan_remix_contest_ending_soon_notification"
@@ -17433,6 +17435,7 @@ components:
           comment_reaction: "#/components/schemas/comment_reaction_notification"
           listen_streak_reminder: "#/components/schemas/listen_streak_reminder_notification"
           weekly_rotation: "#/components/schemas/weekly_rotation_notification"
+          weekly_rotation_featured: "#/components/schemas/weekly_rotation_featured_notification"
           fan_remix_contest_started: "#/components/schemas/fan_remix_contest_started_notification"
           fan_remix_contest_ended: "#/components/schemas/fan_remix_contest_ended_notification"
           fan_remix_contest_ending_soon: "#/components/schemas/fan_remix_contest_ending_soon_notification"
@@ -18086,6 +18089,26 @@ components:
           type: array
           items:
             $ref: "#/components/schemas/weekly_rotation_notification_action"
+    weekly_rotation_featured_notification:
+      required:
+        - actions
+        - group_id
+        - is_seen
+        - type
+      type: object
+      properties:
+        type:
+          type: string
+        group_id:
+          type: string
+        is_seen:
+          type: boolean
+        seen_at:
+          type: integer
+        actions:
+          type: array
+          items:
+            $ref: "#/components/schemas/weekly_rotation_featured_notification_action"
     comment_thread_notification_action:
       required:
         - data
@@ -19321,6 +19344,22 @@ components:
           type: integer
         data:
           $ref: "#/components/schemas/weekly_rotation_notification_action_data"
+    weekly_rotation_featured_notification_action:
+      required:
+        - data
+        - specifier
+        - timestamp
+        - type
+      type: object
+      properties:
+        specifier:
+          type: string
+        type:
+          type: string
+        timestamp:
+          type: integer
+        data:
+          $ref: "#/components/schemas/weekly_rotation_featured_notification_action_data"
     comment_reaction_notification_action_data:
       required:
         - entity_id
@@ -19825,6 +19864,26 @@ components:
         year:
           type: integer
         week:
+          type: integer
+    weekly_rotation_featured_notification_action_data:
+      description: How many listeners' Weekly Rotations included the artist's tracks in the period that just closed (an ISO (year, week) pair). track_id is the most-featured track; when track_count is 1 it is the only one.
+      required:
+        - year
+        - week
+        - track_id
+        - track_count
+        - rotation_count
+      type: object
+      properties:
+        year:
+          type: integer
+        week:
+          type: integer
+        track_id:
+          type: integer
+        track_count:
+          type: integer
+        rotation_count:
           type: integer
     artist_remix_contest_submissions_notification_action_data:
       required:

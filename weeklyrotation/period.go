@@ -19,6 +19,11 @@ import (
 // the seed, share links and notification group ids.
 const RolloverOffsetDays = 2
 
+// ShownSize is how many slots of a stored mix clients show (the endpoint's
+// default limit). A track only counts as "in" someone's rotation, for repeat
+// suppression and for telling its artist, if it is within these slots.
+const ShownSize = 30
+
 // Period returns the (ISO year, ISO week) pair that identifies the period
 // containing t. Shifting t back by the rollover offset before taking the
 // ISO week means Wednesday..Tuesday map to one ISO week.
