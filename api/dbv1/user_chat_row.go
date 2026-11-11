@@ -23,6 +23,7 @@ type UserChatRow struct {
 	AudienceContentType    *string           `db:"audience_content_type" json:"audience_content_type,omitempty"`
 	AudienceContentID      *trashid.HashId   `db:"audience_content_id" json:"audience_content_id,omitempty"`
 	ChatMembers            []UserChatMembers `db:"members" json:"chat_members"`
+	IsGroup                bool              `db:"is_group" json:"is_group"`
 	// Per-user inbox category ("priority" | "general"); nil = uncategorized.
 	Category *string `db:"category" json:"category"`
 }
@@ -58,6 +59,10 @@ func (row UserChatRow) MarshalJSON() ([]byte, error) {
 		if member.ClearedHistoryAt.Valid && (row.LastMessageAt == nil || member.ClearedHistoryAt.Time.After(*row.LastMessageAt)) {
 			recheckPermissions = true
 		}
+	}
+	// Groups never recheck: membership is the permission.
+	if row.IsGroup {
+		recheckPermissions = false
 	}
 
 	return json.Marshal(&struct {

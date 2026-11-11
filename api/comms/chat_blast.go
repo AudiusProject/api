@@ -53,8 +53,10 @@ func chatBlast(db dbv1.DBTX, ctx context.Context, userId int32, ts time.Time, pa
 		JOIN chat_blast_audience(chat_blast.blast_id) USING (blast_id)
 		LEFT JOIN chat_member member_a on from_user_id = member_a.user_id
 		LEFT JOIN chat_member member_b on to_user_id = member_b.user_id and member_b.chat_id = member_a.chat_id
+		LEFT JOIN chat on chat.chat_id = member_b.chat_id
 		WHERE blast_id = $1
 		AND member_b.chat_id IS NOT NULL
+		AND NOT chat.is_group
 		AND chat_allowed(from_user_id, to_user_id)
 	),
 	insert_message AS (
