@@ -249,6 +249,11 @@ func (ci *CoreIndexer) startParityJobs(ctx context.Context) {
 	jobs.NewWeeklyRotationFeaturedNotificationsJob(ci.Config, ci.pool).
 		ScheduleEvery(ctx, 30*time.Second)
 
+	// Weekly recap for artists (plays, new followers, top city, saves) for
+	// the period that just closed. Same timing as the featured notification.
+	jobs.NewWeeklyArtistRecapNotificationsJob(ci.Config, ci.pool).
+		ScheduleEvery(ctx, 30*time.Second)
+
 	// Backfill missing track bpm / musical_key from content-node audio
 	// analyses. Mirrors apps' repair_audio_analyses celery task, whose beat
 	// schedule ran every 3 minutes. Needs the SDK for content-node discovery.
