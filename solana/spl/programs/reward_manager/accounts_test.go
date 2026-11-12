@@ -14,7 +14,7 @@ func TestDecodeAttestationsAccount(t *testing.T) {
 	require.NoError(t, err)
 
 	result := reward_manager.AttestationsAccountData{}
-	result.UnmarshalWithDecoder(bin.NewBinDecoder(testData))
+	require.NoError(t, result.UnmarshalWithDecoder(bin.NewBinDecoder(testData)))
 
 	require.Equal(t, uint8(1), result.Version)
 	require.Equal(t, "GaiG9LDYHfZGqeNaoGRzFEnLiwUT7WiC6sA6FDJX9ZPq", result.RewardManagerState.String())

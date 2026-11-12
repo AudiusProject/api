@@ -204,7 +204,9 @@ func (d *Indexer) ProcessTransaction(ctx context.Context, slot uint64, meta *rpc
 	)
 
 	// Process balance changes for USDC (other tokens will be tracked by TokenIndexer)
-	common.ProcessBalanceChanges(ctx, d.pool, slot, meta, tx, blockTime, []string{d.config.SolanaConfig.MintUSDC.String()}, logger)
+	if err := common.ProcessBalanceChanges(ctx, d.pool, slot, meta, tx, blockTime, []string{d.config.SolanaConfig.MintUSDC.String()}, logger); err != nil {
+		return fmt.Errorf("failed to process balance changes: %w", err)
+	}
 
 	// Process individual instructions
 	for instructionIndex, instruction := range tx.Message.Instructions {

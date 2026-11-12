@@ -2,6 +2,7 @@ package program
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"sync"
 	"time"
@@ -74,25 +75,29 @@ func (s *Backfiller) Start(ctx context.Context, fromSlot uint64, toSlot uint64) 
 		txRange.until = block.Signatures[0]
 	}
 
-	var wg sync.WaitGroup
-	for _, address := range []solana.PublicKey{
+	addresses := []solana.PublicKey{
 		reward_manager.ProgramID,
 		claimable_tokens.ProgramID,
 		payment_router.ProgramID,
-	} {
+	}
+	errs := make([]error, len(addresses))
+	var wg sync.WaitGroup
+	for i, address := range addresses {
 		wg.Add(1)
-		go func(address solana.PublicKey) {
+		go func() {
 			defer wg.Done()
-			s.backfillAddressTransactions(ctx, address, txRange, fromSlot, toSlot)
-		}(address)
+			errs[i] = s.backfillAddressTransactions(ctx, address, txRange, fromSlot, toSlot)
+		}()
 	}
 	wg.Wait()
 
-	return nil
+	// Surface incomplete backfills so callers (e.g. the checkpoint gap job)
+	// don't record the range as covered.
+	return errors.Join(errs...)
 }
 
 // Fetches and processes transactions for a given address within a given signature/slot range.
-func (s *Backfiller) backfillAddressTransactions(ctx context.Context, address solana.PublicKey, txRange transactionRange, fromSlot uint64, toSlot uint64) {
+func (s *Backfiller) backfillAddressTransactions(ctx context.Context, address solana.PublicKey, txRange transactionRange, fromSlot uint64, toSlot uint64) error {
 	var lastIndexedSig solana.Signature
 	foundIntersection := false
 	before := txRange.before
@@ -120,7 +125,7 @@ func (s *Backfiller) backfillAddressTransactions(ctx context.Context, address so
 		select {
 		case <-ctx.Done():
 			logger.Error("failed to find intersection", zap.Error(ctx.Err()))
-			return
+			return fmt.Errorf("backfill of %s interrupted: %w", address, ctx.Err())
 		default:
 		}
 
@@ -129,8 +134,10 @@ func (s *Backfiller) backfillAddressTransactions(ctx context.Context, address so
 			return s.rpcClient.GetSignaturesForAddressWithOpts(ctx, address, &opts)
 		}, 5, time.Second*1)
 		if err != nil {
+			// WithRetriesResult has already retried; give up rather than spin
+			// forever so the caller can retry the range later.
 			logger.Error("failed to get signatures for address", zap.Error(err))
-			continue
+			return fmt.Errorf("failed to get signatures for %s: %w", address, err)
 		}
 
 		if len(res) == 0 {
@@ -144,7 +151,7 @@ func (s *Backfiller) backfillAddressTransactions(ctx context.Context, address so
 			select {
 			case <-ctx.Done():
 				logger.Error("failed to process signature", zap.Error(ctx.Err()))
-				return
+				return fmt.Errorf("backfill of %s interrupted: %w", address, ctx.Err())
 			default:
 			}
 
@@ -173,7 +180,7 @@ func (s *Backfiller) backfillAddressTransactions(ctx context.Context, address so
 			// Skip existing transactions
 			var exists bool
 			checkSql := `SELECT EXISTS(SELECT 1 FROM sol_token_account_balance_changes WHERE signature = @signature)`
-			err := s.pool.QueryRow(context.Background(), checkSql, pgx.NamedArgs{
+			err := s.pool.QueryRow(ctx, checkSql, pgx.NamedArgs{
 				"signature": sig.Signature,
 			}).Scan(&exists)
 
@@ -230,6 +237,7 @@ func (s *Backfiller) backfillAddressTransactions(ctx context.Context, address so
 		logger.Error("failed to insert backfill checkpoint", zap.Error(err))
 	}
 	logger.Info("backfill completed", zap.String("checkpoint", checkpoint))
+	return nil
 }
 
 type transactionRangeRow struct {
