@@ -93,7 +93,13 @@ func (app *ApiServer) getChat(c *fiber.Ctx) error {
 		return err
 	}
 
-	rawRows, err := app.pool.Query(c.Context(), sql, pgx.NamedArgs{
+	// Clients fetch a chat right after creating it, and the read replica can
+	// lag the write by up to a second, so read from the primary.
+	query := app.pool.Query
+	if app.writePool != nil {
+		query = app.writePool.Query
+	}
+	rawRows, err := query(c.Context(), sql, pgx.NamedArgs{
 		"user_id": userId,
 		"chat_id": params.ChatID,
 	})
