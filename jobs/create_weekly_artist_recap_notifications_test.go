@@ -51,7 +51,7 @@ func seedWeeklyArtistRecap(t *testing.T, pool *pgxpool.Pool) {
 			{"track_id": 601, "owner_id": 60, "title": "g"},
 		},
 		"plays": {
-			// Artist 10: 4 plays this week, Atlanta leads; one anonymous.
+			// Artist 10: 4 plays this week, one anonymous.
 			play(1, 1, 101, "Atlanta", inWeek),
 			play(2, 2, 101, "Atlanta", inWeek),
 			play(3, 3, 102, "Berlin", inWeek),
@@ -59,7 +59,7 @@ func seedWeeklyArtistRecap(t *testing.T, pool *pgxpool.Pool) {
 			// Last week and next week don't count.
 			play(5, 1, 101, "Paris", beforeWeek),
 			play(6, 1, 101, "Paris", nextWeek),
-			// Artist 20: one play with no city.
+			// Artist 20: one play.
 			play(7, 1, 201, "", inWeek),
 			// Artist 30 is deactivated; 40 only played their own track.
 			play(8, 1, 301, "Atlanta", inWeek),
@@ -143,11 +143,9 @@ func TestWeeklyArtistRecapNotifications_FanOut(t *testing.T) {
 		"follower_count":      float64(2),
 		"save_count":          float64(3),
 		"rotation_save_count": float64(1),
-		"top_city":            "Atlanta",
 	}, got[0].data)
 	assert.WithinDuration(t, now, got[0].ts, time.Second)
 
-	// No city on record: top_city is left out.
 	assert.Equal(t, "20", got[1].specifier)
 	assert.Equal(t, map[string]any{
 		"year": float64(2026), "week": float64(37),

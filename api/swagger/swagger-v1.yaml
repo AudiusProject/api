@@ -20133,7 +20133,7 @@ components:
         week:
           type: string
     weekly_artist_recap_notification_action_data:
-      description: An artist's recap of the period that just closed (an ISO (year, week) pair, Wednesday to Wednesday UTC). Plays exclude the artist's own. rotation_save_count is how many of the saves came from listeners whose Weekly Rotation included the track. top_city is omitted when no play had a city.
+      description: An artist's recap of the period that just closed (an ISO (year, week) pair, Wednesday to Wednesday UTC). Plays exclude the artist's own. rotation_save_count is how many of the saves came from listeners whose Weekly Rotation included the track.
       required:
         - year
         - week
@@ -20155,8 +20155,6 @@ components:
           type: integer
         rotation_save_count:
           type: integer
-        top_city:
-          type: string
     artist_remix_contest_submissions_notification_action_data:
       required:
         - entity_id
