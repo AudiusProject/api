@@ -397,6 +397,14 @@ var (
 			"count":        0,
 			"country":      "US",
 		},
+		"aggregate_daily_city_plays": {
+			"play_item_id": nil,
+			"day":          time.Now(),
+			"country":      "",
+			"region":       "",
+			"city":         "",
+			"count":        1,
+		},
 		"core_indexed_blocks": {
 			"height":     1,
 			"chain_id":   "audius-mainnet-alpha-beta",

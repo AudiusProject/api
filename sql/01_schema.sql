@@ -7062,6 +7062,27 @@ ALTER SEQUENCE public.aggregate_monthly_app_name_metrics_id_seq OWNED BY public.
 
 
 --
+-- Name: aggregate_daily_city_plays; Type: TABLE; Schema: public; Owner: -
+--
+
+CREATE TABLE public.aggregate_daily_city_plays (
+    play_item_id integer NOT NULL,
+    day date NOT NULL,
+    country text NOT NULL,
+    region text NOT NULL,
+    city text NOT NULL,
+    count integer NOT NULL
+);
+
+
+--
+-- Name: TABLE aggregate_daily_city_plays; Type: COMMENT; Schema: public; Owner: -
+--
+
+COMMENT ON TABLE public.aggregate_daily_city_plays IS 'Plays per track per UTC day per listener city, excluding the track owner''s own plays and plays with no city. Filled by jobs.CityPlaysJob.';
+
+
+--
 -- Name: aggregate_monthly_plays; Type: TABLE; Schema: public; Owner: -
 --
 
@@ -11918,6 +11939,14 @@ ALTER TABLE ONLY public.aggregate_daily_unique_users_metrics
 
 ALTER TABLE ONLY public.aggregate_monthly_app_name_metrics
     ADD CONSTRAINT aggregate_monthly_app_name_metrics_pkey PRIMARY KEY (id);
+
+
+--
+-- Name: aggregate_daily_city_plays aggregate_daily_city_plays_pkey; Type: CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.aggregate_daily_city_plays
+    ADD CONSTRAINT aggregate_daily_city_plays_pkey PRIMARY KEY (play_item_id, day, country, region, city);
 
 
 --
