@@ -18,10 +18,10 @@ type GetUsersSupportingRouteParams struct {
 }
 
 type SupportedUser struct {
-	Rank           int           `json:"rank" db:"rank"`
-	SenderUserID   int32         `json:"-" db:"sender_user_id"`
-	ReceiverUserID int32         `json:"-" db:"receiver_user_id"`
-	Amount         string        `json:"amount" db:"amount"`
+	Rank           int       `json:"rank" db:"rank"`
+	SenderUserID   int32     `json:"-" db:"sender_user_id"`
+	ReceiverUserID int32     `json:"-" db:"receiver_user_id"`
+	Amount         string    `json:"amount" db:"amount"`
 	Receiver       dbv1.User `json:"receiver" db:"-"`
 }
 type MinSupportedUser struct {

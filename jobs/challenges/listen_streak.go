@@ -182,7 +182,7 @@ func (p *ListenStreakProcessor) Reconcile(ctx context.Context, tx pgx.Tx) error 
 			// In the first-7-day window, current_step_count = streak (1..7),
 			// is_complete when streak >= 7. After 7, this row is the
 			// endless +1-per-day reward (step_count = 1, amount = 1).
-			var stepCount int32 = listenStreakTarget
+			stepCount := listenStreakTarget
 			report := a.newStreak
 			if a.newStreak > listenStreakTarget {
 				stepCount = 1

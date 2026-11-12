@@ -15,6 +15,7 @@ import (
 )
 
 const testFanClubFeedMint = "FanClubMintTest11111111111111111111111"
+
 func testFanClubFeedBaseUsers() []map[string]any {
 	return []map[string]any{
 		{
@@ -385,11 +386,11 @@ func TestFanClubFeed_PublicPostVisibleToNonHolder(t *testing.T) {
 
 	// Non-holder can still see the message because is_members_only=false
 	jsonAssert(t, body, map[string]any{
-		"data.#":                          1,
-		"data.0.item_type":                "text_post",
-		"data.0.comment.message":          "public announcement",
-		"data.0.comment.id":               enc940,
-		"data.0.comment.is_members_only":  false,
+		"data.#":                         1,
+		"data.0.item_type":               "text_post",
+		"data.0.comment.message":         "public announcement",
+		"data.0.comment.id":              enc940,
+		"data.0.comment.is_members_only": false,
 	})
 }
 
@@ -431,10 +432,10 @@ func TestFanClubFeed_MembersOnlyPostRedactedForNonHolder(t *testing.T) {
 
 	// Non-holder cannot see the message because is_members_only=true
 	jsonAssert(t, body, map[string]any{
-		"data.#":                          1,
-		"data.0.item_type":                "text_post",
-		"data.0.comment.message":          nil,
-		"data.0.comment.is_members_only":  true,
+		"data.#":                         1,
+		"data.0.item_type":               "text_post",
+		"data.0.comment.message":         nil,
+		"data.0.comment.is_members_only": true,
 	})
 }
 
@@ -485,13 +486,13 @@ func TestFanClubFeed_MixedPublicAndMembersOnlyPosts(t *testing.T) {
 
 	// Both posts appear, but only the public one has a visible message
 	jsonAssert(t, body, map[string]any{
-		"data.#":                          2,
-		"data.0.item_type":                "text_post",
-		"data.0.comment.message":          "public post",
-		"data.0.comment.is_members_only":  false,
-		"data.1.item_type":                "text_post",
-		"data.1.comment.message":          nil,
-		"data.1.comment.is_members_only":  true,
+		"data.#":                         2,
+		"data.0.item_type":               "text_post",
+		"data.0.comment.message":         "public post",
+		"data.0.comment.is_members_only": false,
+		"data.1.item_type":               "text_post",
+		"data.1.comment.message":         nil,
+		"data.1.comment.is_members_only": true,
 	})
 }
 

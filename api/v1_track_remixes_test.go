@@ -192,6 +192,7 @@ func TestTrackRemixes(t *testing.T) {
 
 	// Sort by likes
 	status, body = testGet(t, app, baseUrl+"?sort_method=likes")
+	assert.Equal(t, 200, status)
 
 	// should be saves desc, then track_id desc for ties
 	jsonAssert(t, body, map[string]any{
@@ -204,6 +205,7 @@ func TestTrackRemixes(t *testing.T) {
 
 	// Sort by plays
 	status, body = testGet(t, app, baseUrl+"?sort_method=plays")
+	assert.Equal(t, 200, status)
 
 	// should be plays desc, then track_id desc for ties
 	jsonAssert(t, body, map[string]any{
@@ -216,6 +218,7 @@ func TestTrackRemixes(t *testing.T) {
 
 	// contest entries only
 	status, body = testGet(t, app, baseUrl+"?sort_method=recent&only_contest_entries=true")
+	assert.Equal(t, 200, status)
 
 	jsonAssert(t, body, map[string]any{
 		"data.tracks.#":    2,
@@ -225,6 +228,7 @@ func TestTrackRemixes(t *testing.T) {
 
 	// cosigns only
 	status, body = testGet(t, app, baseUrl+"?sort_method=recent&only_cosigns=true")
+	assert.Equal(t, 200, status)
 
 	jsonAssert(t, body, map[string]any{
 		"data.tracks.#":    2,

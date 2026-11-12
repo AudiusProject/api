@@ -8,7 +8,6 @@ import (
 	bin "github.com/gagliardetto/binary"
 	"github.com/gagliardetto/solana-go"
 	"github.com/gagliardetto/solana-go/text"
-	ag_text "github.com/gagliardetto/solana-go/text"
 	"github.com/gagliardetto/treeout"
 )
 
@@ -100,7 +99,7 @@ func (inst *Instruction) Data() ([]byte, error) {
 
 // ----- text.TextEncodable Implementation -----
 
-func (inst *Instruction) TextEncode(encoder *ag_text.Encoder, option *ag_text.Option) error {
+func (inst *Instruction) TextEncode(encoder *text.Encoder, option *text.Option) error {
 	return encoder.Encode(inst.Impl, option)
 }
 
@@ -147,7 +146,7 @@ var InstructionImplDef = bin.NewVariantDefinition(
 )
 
 func (inst *Instruction) UnmarshalWithDecoder(decoder *bin.Decoder) error {
-	return inst.BaseVariant.UnmarshalBinaryVariant(decoder, InstructionImplDef)
+	return inst.UnmarshalBinaryVariant(decoder, InstructionImplDef)
 }
 
 // ----- bin.BinaryMarshaler Implementation -----

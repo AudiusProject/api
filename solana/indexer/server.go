@@ -62,10 +62,10 @@ func (s *Server) Start(ctx context.Context) {
 	go func() {
 		<-ctx.Done()
 		s.logger.Info("received shutdown signal, stopping server")
-		if err := s.App.Shutdown(); err != nil {
+		if err := s.Shutdown(); err != nil {
 			s.logger.Error("failed to shutdown app", zap.Error(err))
 		}
-		s.logger.Sync()
+		_ = s.logger.Sync() // best-effort flush; stdout sync can fail in containers
 	}()
 
 	// Bind to both ipv4 and ipv6
@@ -74,7 +74,7 @@ func (s *Server) Start(ctx context.Context) {
 		s.logger.Fatal("Failed to create listener", zap.Error(err))
 	}
 
-	if err := s.App.Listener(listener); err != nil && err != http.ErrServerClosed {
+	if err := s.Listener(listener); err != nil && err != http.ErrServerClosed {
 		s.logger.Fatal("Failed to start server", zap.Error(err))
 	}
 }

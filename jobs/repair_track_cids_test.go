@@ -43,7 +43,7 @@ func newTrackCidJob(pool database.DbPool) *RepairTrackCidsJob {
 func TestFetchTranscodedCid(t *testing.T) {
 	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		assert.Equal(t, "/uploads/up-1", r.URL.Path)
-		w.Write([]byte(`{"status":"done","results":{"320":"QmGood"}}`))
+		_, _ = w.Write([]byte(`{"status":"done","results":{"320":"QmGood"}}`))
 	}))
 	defer srv.Close()
 
@@ -64,7 +64,7 @@ func TestFetchTranscodedCidNon2xxIsNotOk(t *testing.T) {
 
 func TestFetchTranscodedCidUnfinishedTranscode(t *testing.T) {
 	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		w.Write([]byte(`{"status":"busy","results":{}}`))
+		_, _ = w.Write([]byte(`{"status":"busy","results":{}}`))
 	}))
 	defer srv.Close()
 
@@ -73,13 +73,13 @@ func TestFetchTranscodedCidUnfinishedTranscode(t *testing.T) {
 	assert.Equal(t, "", cid, "but has no cid to offer yet")
 }
 
-// nodeServing returns a content node stub that reports the given upload record
+// nodeServing returns a validator node stub that reports the given upload record
 // JSON, and counts how many times it was asked.
 func nodeServing(t *testing.T, body string, calls *int) string {
 	t.Helper()
 	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		*calls++
-		w.Write([]byte(body))
+		_, _ = w.Write([]byte(body))
 	}))
 	t.Cleanup(srv.Close)
 	return srv.URL

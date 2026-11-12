@@ -15,13 +15,13 @@ import (
 // behavior for each branch of the CASE statement.
 
 const (
-	tthWAudioMint    = "9LzCMqDgTKYz9Drzqnpgee3SGa89up3a247ypMj2xrqM"
-	tthUserAWallet   = "0xtth_user_a"
-	tthUserBWallet   = "0xtth_user_b"
-	tthUserABank     = "TthUserABank____________________________________"
-	tthUserBBank     = "TthUserBBank____________________________________"
-	tthExternalAcct  = "TthExternalAccount______________________________"
-	tthClaimablePDA  = "claimable-tokens-pda"
+	tthWAudioMint   = "9LzCMqDgTKYz9Drzqnpgee3SGa89up3a247ypMj2xrqM"
+	tthUserAWallet  = "0xtth_user_a"
+	tthUserBWallet  = "0xtth_user_b"
+	tthUserABank    = "TthUserABank____________________________________"
+	tthUserBBank    = "TthUserBBank____________________________________"
+	tthExternalAcct = "TthExternalAccount______________________________"
+	tthClaimablePDA = "claimable-tokens-pda"
 )
 
 func tthBaseFixtures(extra database.FixtureMap) database.FixtureMap {

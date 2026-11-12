@@ -125,13 +125,13 @@ func TestEventComments_ReturnsTopLevelOnlyNewestFirst(t *testing.T) {
 	// this field the mobile/web row classifier mis-routes artist replies to the
 	// "Updates" feed instead of threading them under the parent comment.
 	jsonAssert(t, body, map[string]any{
-		"data.#":                          2,
-		"data.0.id":                       enc601,
-		"data.0.message":                  "thanks for joining",
-		"data.1.id":                       enc600,
-		"data.1.message":                  "first!",
-		"event_user_id":                   encUser1,
-		"data.1.replies.#":                1,
+		"data.#":                             2,
+		"data.0.id":                          enc601,
+		"data.0.message":                     "thanks for joining",
+		"data.1.id":                          enc600,
+		"data.1.message":                     "first!",
+		"event_user_id":                      encUser1,
+		"data.1.replies.#":                   1,
 		"data.1.replies.0.parent_comment_id": float64(600),
 	})
 }
@@ -194,10 +194,10 @@ func TestEventComments_IsArtistReactedResolvesViaEventOwner(t *testing.T) {
 	require.Equal(t, 200, status, string(body))
 
 	jsonAssert(t, body, map[string]any{
-		"data.#":                    1,
-		"data.0.message":            "here's my remix",
-		"data.0.react_count":        1,
-		"data.0.is_artist_reacted":  true,
+		"data.#":                   1,
+		"data.0.message":           "here's my remix",
+		"data.0.react_count":       1,
+		"data.0.is_artist_reacted": true,
 	})
 }
 

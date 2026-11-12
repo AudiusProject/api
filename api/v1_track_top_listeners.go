@@ -13,7 +13,7 @@ type GetTrackTopListenersParams struct {
 
 type UserWithPlayCount struct {
 	User  dbv1.User `json:"user"`
-	Count int64         `json:"count"`
+	Count int64     `json:"count"`
 }
 
 type MinUserWithPlayCount struct {

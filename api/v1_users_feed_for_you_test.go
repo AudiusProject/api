@@ -453,9 +453,9 @@ func TestV1FeedForYou_PerArtistCapIsShared(t *testing.T) {
 	database.Seed(app.pool.Replicas[0], feedForYouFixtures())
 
 	var (
-		_   dbv1.Track    // keep import alive even if Track shape is unused below
-		_   dbv1.Playlist // ditto for Playlist
-		_   = time.Time{} //
+		_ dbv1.Track    // keep import alive even if Track shape is unused below
+		_ dbv1.Playlist // ditto for Playlist
+		_ = time.Time{} //
 	)
 
 	var resp struct {

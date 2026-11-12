@@ -91,4 +91,3 @@ func TestMetricsGenresExcludesAccessAuthoritiesTracks(t *testing.T) {
 	}
 	assert.Equal(t, electronicCountBefore-1, electronicCountAfter, "genre count must exclude access_authorities tracks")
 }
-

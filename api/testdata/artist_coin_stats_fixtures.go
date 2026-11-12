@@ -6,4 +6,3 @@ var ArtistCoinStatsFixtures = []map[string]any{
 		"price": 1.0,                     // $1 per token
 	},
 }
-

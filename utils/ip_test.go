@@ -6,6 +6,7 @@ import (
 
 	"github.com/gofiber/fiber/v2"
 	"github.com/test-go/testify/assert"
+	"github.com/test-go/testify/require"
 )
 
 func TestGetIP_XForwardedFor(t *testing.T) {
@@ -20,7 +21,8 @@ func TestGetIP_XForwardedFor(t *testing.T) {
 		return c.SendString("ok")
 	})
 
-	app.Test(req)
+	_, err := app.Test(req)
+	require.NoError(t, err)
 	assert.Equal(t, "192.168.1.1", result)
 }
 
@@ -36,7 +38,8 @@ func TestGetIP_XRealIP(t *testing.T) {
 		return c.SendString("ok")
 	})
 
-	app.Test(req)
+	_, err := app.Test(req)
+	require.NoError(t, err)
 	assert.Equal(t, "10.0.0.1", result)
 }
 
@@ -50,7 +53,8 @@ func TestGetIP_DirectIP(t *testing.T) {
 		return c.SendString("ok")
 	})
 
-	app.Test(req)
+	_, err := app.Test(req)
+	require.NoError(t, err)
 	assert.Equal(t, "0.0.0.0", result)
 }
 
@@ -67,7 +71,8 @@ func TestGetIP_InvalidXForwardedFor(t *testing.T) {
 		return c.SendString("ok")
 	})
 
-	app.Test(req)
+	_, err := app.Test(req)
+	require.NoError(t, err)
 	assert.Equal(t, "10.0.0.1", result)
 }
 
@@ -84,6 +89,7 @@ func TestGetIP_MultipleXForwardedFor(t *testing.T) {
 		return c.SendString("ok")
 	})
 
-	app.Test(req)
+	_, err := app.Test(req)
+	require.NoError(t, err)
 	assert.Equal(t, "192.168.1.1", result)
 }

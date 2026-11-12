@@ -47,9 +47,9 @@ func ProcessBalanceChanges(
 
 		txLogger.Debug("balance change",
 			zap.String("account", row.account),
-			zap.String("mint", row.balanceChange.Mint),
-			zap.Uint64("balance", row.balanceChange.PostTokenBalance),
-			zap.Int64("change", row.balanceChange.Change),
+			zap.String("mint", row.Mint),
+			zap.Uint64("balance", row.PostTokenBalance),
+			zap.Int64("change", row.Change),
 		)
 	}
 	return nil
@@ -148,10 +148,10 @@ func insertBalanceChange(ctx context.Context, db database.DBTX, row balanceChang
 						ON CONFLICT DO NOTHING`
 	_, err := db.Exec(ctx, sql, pgx.NamedArgs{
 		"account":        row.account,
-		"owner":          row.balanceChange.Owner,
-		"mint":           row.balanceChange.Mint,
-		"change":         row.balanceChange.Change,
-		"balance":        row.balanceChange.PostTokenBalance,
+		"owner":          row.Owner,
+		"mint":           row.Mint,
+		"change":         row.Change,
+		"balance":        row.PostTokenBalance,
 		"signature":      row.signature,
 		"feePayer":       row.feePayer,
 		"slot":           row.slot,

@@ -1,11 +1,13 @@
 package api
 
 import (
+	"io"
 	"net/http/httptest"
 	"testing"
 
 	"api.audius.co/trashid"
 	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 )
 
 func TestGetPlaylistStream(t *testing.T) {
@@ -17,8 +19,8 @@ func TestGetPlaylistStream(t *testing.T) {
 	assert.Equal(t, "application/vnd.apple.mpegurl", res.Header.Get("Content-Type"))
 
 	// Read response body
-	body := make([]byte, res.ContentLength)
-	res.Body.Read(body)
+	body, err := io.ReadAll(res.Body)
+	require.NoError(t, err)
 	bodyStr := string(body)
 
 	// Check M3U8 format

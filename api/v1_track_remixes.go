@@ -42,7 +42,7 @@ func (app *ApiServer) v1TrackRemixes(c *fiber.Ctx) error {
 		orderClause = "t.created_at desc, t.track_id desc"
 	}
 
-	var filters []string = []string{
+	filters := []string{
 		"t.is_current = true",
 		"t.is_delete = false",
 		"t.is_unlisted = false",

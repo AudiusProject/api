@@ -46,18 +46,17 @@ func (gate PurchaseGate) ToFullPurchaseGate(cfg config.Config, userMap map[int32
 	for _, split := range gate.Splits {
 
 		user := userMap[split.UserID]
-		if user.PayoutWallet != "" {
-			amountF64 := price * (split.Percentage / 100)
-			amount := int64(amountF64)
-			splitMap[user.PayoutWallet] = amount
-			sum += amount
-			remainderMap[user.PayoutWallet] = amountF64 - float64(amount)
-		} else {
-			// if user is not in map, or payout_wallet no exist
-			// the rounding error will be split amongst other parties.
-			// this should not happen, so we log it out at least?
-			// todo: need a global logger of some sort here...
+		if user.PayoutWallet == "" {
+			// If the user is not in the map or has no payout wallet, their
+			// share is distributed amongst the other parties as rounding error.
+			// This should not happen.
+			continue
 		}
+		amountF64 := price * (split.Percentage / 100)
+		amount := int64(amountF64)
+		splitMap[user.PayoutWallet] = amount
+		sum += amount
+		remainderMap[user.PayoutWallet] = amountF64 - float64(amount)
 	}
 
 	// distribute rounding error across splits

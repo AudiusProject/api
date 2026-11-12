@@ -56,7 +56,8 @@ func (a *AggregatesCalculator) Start(ctx context.Context) error {
 			a.logger.Info("Shutting down aggregates calculator")
 			return ctx.Err()
 		default:
-			a.updateAggregatesJob.Run(ctx)
+			// Run logs its own errors; keep going on the next interval.
+			_ = a.updateAggregatesJob.Run(ctx)
 		}
 
 		timer := time.NewTimer(aggregateScoreUpdateInterval)

@@ -9,7 +9,6 @@ import (
 
 	"api.audius.co/utils"
 	"github.com/gofiber/fiber/v2"
-	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgxpool"
 	"github.com/maypok86/otter"
 	"go.uber.org/zap"
@@ -242,7 +241,7 @@ func (rlm *RateLimitMiddleware) getLimits(ctx context.Context, identifier string
 		FROM api_keys
 		WHERE api_key = $1
 	`, identifier).Scan(&rpsVal, &rpmVal)
-	if err == pgx.ErrNoRows || err != nil {
+	if err != nil {
 		return 0, 0, true
 	}
 	rlm.limitsCache.Set(identifier, apiKeysLimits{RPS: rpsVal, RPM: rpmVal})

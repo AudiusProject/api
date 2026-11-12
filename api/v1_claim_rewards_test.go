@@ -29,7 +29,7 @@ func TestFetchAttestations(t *testing.T) {
 		incrementURLCallCount(r.Host)
 		w.Header().Set("Content-Type", "application/json")
 		w.WriteHeader(200)
-		w.Write([]byte(`{"result": "aabbccddaabbccddaabbccddaabbccddaabbccddaabbccddaabbccddaabbccdd"}`))
+		_, _ = w.Write([]byte(`{"result": "aabbccddaabbccddaabbccddaabbccddaabbccddaabbccddaabbccddaabbccdd"}`))
 	}))
 	defer aaoServer.Close()
 
@@ -38,7 +38,7 @@ func TestFetchAttestations(t *testing.T) {
 		incrementURLCallCount(r.Host)
 		w.Header().Set("Content-Type", "application/json")
 		w.WriteHeader(200)
-		w.Write([]byte(`{"attestation": "aabbccddaabbccddaabbccddaabbccddaabbccddaabbccddaabbccddaabbccdd", "owner": "0x1111111111111111111111111111111111111111"}`))
+		_, _ = w.Write([]byte(`{"attestation": "aabbccddaabbccddaabbccddaabbccddaabbccddaabbccddaabbccddaabbccdd", "owner": "0x1111111111111111111111111111111111111111"}`))
 	}))
 	defer validator1.Close()
 
@@ -47,7 +47,7 @@ func TestFetchAttestations(t *testing.T) {
 		w.Header().Set("Content-Type", "application/json")
 		w.WriteHeader(200)
 		// Duplicate owner should not be selected
-		w.Write([]byte(`{"attestation": "aabbccddaabbccddaabbccddaabbccddaabbccddaabbccddaabbccddaabbccdd", "owner": "0x1111111111111111111111111111111111111111"}`))
+		_, _ = w.Write([]byte(`{"attestation": "aabbccddaabbccddaabbccddaabbccddaabbccddaabbccddaabbccddaabbccdd", "owner": "0x1111111111111111111111111111111111111111"}`))
 	}))
 	defer validator2.Close()
 
@@ -55,7 +55,7 @@ func TestFetchAttestations(t *testing.T) {
 		incrementURLCallCount(r.Host)
 		w.Header().Set("Content-Type", "application/json")
 		w.WriteHeader(200)
-		w.Write([]byte(`{"attestation": "aabbccddaabbccddaabbccddaabbccddaabbccddaabbccddaabbccddaabbccdd", "owner": "0x3333333333333333333333333333333333333333"}`))
+		_, _ = w.Write([]byte(`{"attestation": "aabbccddaabbccddaabbccddaabbccddaabbccddaabbccddaabbccddaabbccdd", "owner": "0x3333333333333333333333333333333333333333"}`))
 	}))
 	defer validator3.Close()
 
@@ -63,7 +63,7 @@ func TestFetchAttestations(t *testing.T) {
 		incrementURLCallCount(r.Host)
 		w.Header().Set("Content-Type", "application/json")
 		w.WriteHeader(400)
-		w.Write([]byte(`{"error": "unhappy validator"}`))
+		_, _ = w.Write([]byte(`{"error": "unhappy validator"}`))
 	}))
 	defer validator4.Close()
 
@@ -71,7 +71,7 @@ func TestFetchAttestations(t *testing.T) {
 		incrementURLCallCount(r.Host)
 		w.Header().Set("Content-Type", "application/json")
 		w.WriteHeader(200)
-		w.Write([]byte(`{"attestation": "aabbccddaabbccddaabbccddaabbccddaabbccddaabbccddaabbccddaabbccdd", "owner": "0x5555555555555555555555555555555555555555"}`))
+		_, _ = w.Write([]byte(`{"attestation": "aabbccddaabbccddaabbccddaabbccddaabbccddaabbccddaabbccddaabbccdd", "owner": "0x5555555555555555555555555555555555555555"}`))
 	}))
 	defer validator5.Close()
 

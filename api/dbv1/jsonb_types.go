@@ -45,10 +45,10 @@ type RemixOf struct {
 }
 
 type FullRemixOfTrack struct {
-	HasRemixAuthorReposted bool     `json:"has_remix_author_reposted"`
-	HasRemixAuthorSaved    bool     `json:"has_remix_author_saved"`
-	ParentTrackId          string   `json:"parent_track_id"`
-	User                   User `json:"user"`
+	HasRemixAuthorReposted bool   `json:"has_remix_author_reposted"`
+	HasRemixAuthorSaved    bool   `json:"has_remix_author_saved"`
+	ParentTrackId          string `json:"parent_track_id"`
+	User                   User   `json:"user"`
 }
 
 type FullRemixOf struct {

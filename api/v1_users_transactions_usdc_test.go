@@ -9,17 +9,17 @@ import (
 // USDC transactions are sourced from v_token_transactions_history. Every
 // legacy transaction_type now flows through end-to-end:
 //
-//   purchase_content       — sol_purchases row
-//   transfer               — bare sol_claimable_account_transfers (no memo)
-//   withdrawal             — claimable transfer with "Withdrawal" memo marker
-//   prepare_withdrawal     — claimable transfer with "Prepare Withdrawal" memo
-//                            (or Jupiter program touched in the tx)
-//   recover_withdrawal     — payment_router route with "Recover Withdrawal" memo
-//   internal_transfer      — claimable transfer with "Internal Transfer" memo
-//   purchase_stripe etc.   — supported on the AUDIO mint, validated by the
-//                            v_token_transactions_history view tests; USDC
-//                            top-ups arrive via payment_router (purchase_content)
-//                            so these query-types validate without rows.
+//	purchase_content       — sol_purchases row
+//	transfer               — bare sol_claimable_account_transfers (no memo)
+//	withdrawal             — claimable transfer with "Withdrawal" memo marker
+//	prepare_withdrawal     — claimable transfer with "Prepare Withdrawal" memo
+//	                         (or Jupiter program touched in the tx)
+//	recover_withdrawal     — payment_router route with "Recover Withdrawal" memo
+//	internal_transfer      — claimable transfer with "Internal Transfer" memo
+//	purchase_stripe etc.   — supported on the AUDIO mint, validated by the
+//	                         v_token_transactions_history view tests; USDC
+//	                         top-ups arrive via payment_router (purchase_content)
+//	                         so these query-types validate without rows.
 //
 // The fixtures in sol_usdc_transactions_fixtures.go seed one of each except
 // the purchase_* USDC variants (which aren't a thing on chain — USDC top-ups

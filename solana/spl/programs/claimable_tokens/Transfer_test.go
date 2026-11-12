@@ -45,7 +45,7 @@ func TestDecodeTransferInstruction(t *testing.T) {
 	buf := new(bytes.Buffer)
 	encoder := text.NewTreeEncoder(buf, "")
 	decoded.EncodeToTree(encoder)
-	_, err = encoder.WriteString(encoder.Tree.String())
+	_, err = encoder.WriteString(encoder.String())
 	require.NoError(t, err)
 	s := buf.String()
 

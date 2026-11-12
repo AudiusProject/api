@@ -47,7 +47,7 @@ var InstructionImplDef = bin.NewVariantDefinition(
 )
 
 func (inst *Instruction) UnmarshalWithDecoder(decoder *bin.Decoder) error {
-	return inst.BaseVariant.UnmarshalBinaryVariant(decoder, InstructionImplDef)
+	return inst.UnmarshalBinaryVariant(decoder, InstructionImplDef)
 }
 
 func (inst Instruction) MarshalWithEncoder(encoder *bin.Encoder) error {

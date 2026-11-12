@@ -9,9 +9,9 @@ import (
 
 type PlaylistsParams struct {
 	GetPlaylistsParams
-	OmitTracks     bool
-	TrackLimit     int    // 0 means use default (200), positive values set the limit
-	AuthedWallet   string // wallet that signed the request; tracks with matching access_authorities are shown
+	OmitTracks   bool
+	TrackLimit   int    // 0 means use default (200), positive values set the limit
+	AuthedWallet string // wallet that signed the request; tracks with matching access_authorities are shown
 }
 
 type Playlist struct {
@@ -20,14 +20,14 @@ type Playlist struct {
 	ID         string         `json:"id"`
 	Artwork    *SquareImage   `json:"artwork"`
 	UserID     trashid.HashId `json:"user_id"`
-	User       User       `json:"user"`
-	Tracks     []Track    `json:"tracks"`
+	User       User           `json:"user"`
+	Tracks     []Track        `json:"tracks"`
 	TrackCount int32          `json:"track_count"`
 	Access     Access         `json:"access"`
 	Permalink  string         `json:"permalink"`
 
-	FolloweeReposts   []*FolloweeRepost          `json:"followee_reposts"`
-	FolloweeFavorites []*FolloweeFavorite        `json:"followee_favorites"`
+	FolloweeReposts   []*FolloweeRepost      `json:"followee_reposts"`
+	FolloweeFavorites []*FolloweeFavorite    `json:"followee_favorites"`
 	PlaylistContents  []PlaylistContentsItem `json:"playlist_contents"`
 	AddedTimestamps   []PlaylistContentsItem `json:"added_timestamps"`
 }

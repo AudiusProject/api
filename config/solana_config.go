@@ -62,14 +62,14 @@ const (
 	StagePaymentRouterProgramID        = "sp28KA2bTnTA4oSZ3r9tTSKfmiXZtZQHnYYQqWfUyVa"
 
 	// Prod
-	ProdSolanaRelay                   = "https://discoveryprovider.audius.co/solana/relay"
-	ProdMintAudio                     = "9LzCMqDgTKYz9Drzqnpgee3SGa89up3a247ypMj2xrqM"
-	ProdMintUSDC                      = "EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v"
+	ProdSolanaRelay = "https://discoveryprovider.audius.co/solana/relay"
+	ProdMintAudio   = "9LzCMqDgTKYz9Drzqnpgee3SGa89up3a247ypMj2xrqM"
+	ProdMintUSDC    = "EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v"
 
 	// Meteora DAMM v2 AUDIO/USDC pool (mainnet). Stage uses the same mainnet
 	// mints/pool as prod; dev has no equivalent.
-	ProdAudioUsdcPool  = "Ha6tnG7LrhsTyw4tyarQ59HxAKqpdbEc2yQZp9mrDM4h"
-	StageAudioUsdcPool = "Ha6tnG7LrhsTyw4tyarQ59HxAKqpdbEc2yQZp9mrDM4h"
+	ProdAudioUsdcPool                 = "Ha6tnG7LrhsTyw4tyarQ59HxAKqpdbEc2yQZp9mrDM4h"
+	StageAudioUsdcPool                = "Ha6tnG7LrhsTyw4tyarQ59HxAKqpdbEc2yQZp9mrDM4h"
 	ProdRewardManagerProgramID        = "DDZDcYdQFEMwcu2Mwo75yGFjJ1mUQyyXLWzhZLEVFcei"
 	ProdRewardManagerState            = "71hWFVYokLaN1PNYzTAWi13EfJ7Xt9VbSWUKsXUT8mxE"
 	ProdRewardManagerLookupTable      = "4UQwpGupH66RgQrWRqmPM9Two6VJEE68VZ7GeqZ3mvVv"

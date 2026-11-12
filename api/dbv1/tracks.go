@@ -70,7 +70,8 @@ func (q *Queries) TracksKeyed(ctx context.Context, arg TracksParams) (map[int32]
 		ownerByTrack[rawTrack.TrackID] = rawTrack.UserID
 
 		var remixOf RemixOf
-		json.Unmarshal(rawTrack.RemixOf, &remixOf)
+		// remix_of is often null/empty; treat unparseable values as no parents
+		_ = json.Unmarshal(rawTrack.RemixOf, &remixOf)
 		for _, r := range remixOf.Tracks {
 			userIds = append(userIds, r.ParentUserId)
 		}
@@ -159,7 +160,7 @@ func (q *Queries) TracksKeyed(ctx context.Context, arg TracksParams) (map[int32]
 
 		var remixOf RemixOf
 		var fullRemixOf FullRemixOf
-		json.Unmarshal(rawTrack.RemixOf, &remixOf)
+		_ = json.Unmarshal(rawTrack.RemixOf, &remixOf)
 		fullRemixOf = FullRemixOf{
 			Tracks: make([]FullRemixOfTrack, len(remixOf.Tracks)),
 		}

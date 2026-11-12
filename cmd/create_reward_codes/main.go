@@ -101,7 +101,7 @@ func main() {
 
 	// Setup logger
 	logger, _ := zap.NewDevelopment()
-	defer logger.Sync()
+	defer func() { _ = logger.Sync() }()
 
 	// Connect to database
 	ctx := context.Background()
@@ -178,7 +178,7 @@ func readCodesFromCSV(filename string) ([]string, error) {
 	if err != nil {
 		return nil, err
 	}
-	defer file.Close()
+	defer func() { _ = file.Close() }()
 
 	reader := csv.NewReader(file)
 	reader.TrimLeadingSpace = true

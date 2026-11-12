@@ -151,7 +151,7 @@ func (j *IndexChallengesJob) runProcessor(ctx context.Context, p challenges.Proc
 	if err != nil {
 		return fmt.Errorf("begin tx: %w", err)
 	}
-	defer tx.Rollback(ctx)
+	defer func() { _ = tx.Rollback(ctx) }()
 	if err := p.Reconcile(ctx, tx); err != nil {
 		return err
 	}

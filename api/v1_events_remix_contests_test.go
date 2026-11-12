@@ -140,11 +140,11 @@ func TestRemixContestsDiscoveryPage(t *testing.T) {
 		assert.Equal(t, 200, status)
 
 		jsonAssert(t, body, map[string]any{
-			"data.#":            2,
-			"data.0.event_id":   activeEventHash,
-			"data.0.entity_id":  activeTrackHash,
-			"data.1.event_id":   endedEventHash,
-			"data.1.entity_id":  endedTrackHash,
+			"data.#":           2,
+			"data.0.event_id":  activeEventHash,
+			"data.0.entity_id": activeTrackHash,
+			"data.1.event_id":  endedEventHash,
+			"data.1.entity_id": endedTrackHash,
 		})
 	})
 
@@ -157,7 +157,7 @@ func TestRemixContestsDiscoveryPage(t *testing.T) {
 		jsonAssert(t, body, map[string]any{
 			"related.tracks.#": 2,
 		})
-		trackIds := pluckStrings(body,"related.tracks.#.id")
+		trackIds := pluckStrings(body, "related.tracks.#.id")
 		assert.ElementsMatch(t,
 			[]string{activeTrackHash, endedTrackHash},
 			trackIds,
@@ -168,7 +168,7 @@ func TestRemixContestsDiscoveryPage(t *testing.T) {
 		status, body := testGet(t, app, "/v1/events/remix-contests")
 		assert.Equal(t, 200, status)
 
-		userIds := pluckStrings(body,"related.users.#.id")
+		userIds := pluckStrings(body, "related.users.#.id")
 		assert.Contains(t, userIds, hostHash)
 		assert.Contains(t, userIds, ownerHash,
 			"track owner must be folded into related.users even when the contest host differs")

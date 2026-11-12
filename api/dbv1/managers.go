@@ -15,12 +15,12 @@ type FullManagedUserGrant struct {
 }
 
 type FullManager struct {
-	Manager User         `json:"manager"`
+	Manager User             `json:"manager"`
 	Grant   FullManagerGrant `json:"grant"`
 }
 
 type FullManagedUser struct {
-	User  User             `json:"user"`
+	User  User                 `json:"user"`
 	Grant FullManagedUserGrant `json:"grant"`
 }
 
