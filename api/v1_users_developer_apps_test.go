@@ -179,12 +179,12 @@ func TestV1UsersDeveloperAppsRedirectUrisOrdering(t *testing.T) {
 	assert.Equal(t, 200, status)
 	// app_address_1 has 2 redirect URIs; z was inserted first (lower id) so it must come first
 	jsonAssert(t, body, map[string]any{
-		"data.#":                  2,
-		"data.0.address":          "app_address_1",
-		"data.0.redirect_uris.#":  2,
-		"data.0.redirect_uris.0":  "https://z.example.com/callback",
-		"data.0.redirect_uris.1":  "https://a.example.com/callback",
-		"data.1.address":          "app_address_2",
+		"data.#":                 2,
+		"data.0.address":         "app_address_1",
+		"data.0.redirect_uris.#": 2,
+		"data.0.redirect_uris.0": "https://z.example.com/callback",
+		"data.0.redirect_uris.1": "https://a.example.com/callback",
+		"data.1.address":         "app_address_2",
 	})
 	// app_address_2 has no redirect URIs; must be an empty array, not null
 	assert.True(t, gjson.GetBytes(body, "data.1.redirect_uris").IsArray())

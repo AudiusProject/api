@@ -7,9 +7,9 @@ const wAudioMintTestData = "9LzCMqDgTKYz9Drzqnpgee3SGa89up3a247ypMj2xrqM"
 
 // Bank accounts used by the audio-transactions tests.
 const (
-	user1AudioBank        = "DsUGy77ssRh9EXzef3AZLLT9GQBuyqHRdhkBkfqQ3x1D"      // user 7eP5n (user_id=1)
-	user2AudioBank        = "User2AudioBank_______________________________"     // user_id=2 (tip counterpart)
-	externalAudioAccount  = "ExternalNonUserBank__________________________"     // not in sol_claimable_accounts (transfer counterpart)
+	user1AudioBank       = "DsUGy77ssRh9EXzef3AZLLT9GQBuyqHRdhkBkfqQ3x1D"  // user 7eP5n (user_id=1)
+	user2AudioBank       = "User2AudioBank_______________________________" // user_id=2 (tip counterpart)
+	externalAudioAccount = "ExternalNonUserBank__________________________" // not in sol_claimable_accounts (transfer counterpart)
 )
 
 // Mirrors the rows in AudioTransactionsHistory but in sol_* shape, used by

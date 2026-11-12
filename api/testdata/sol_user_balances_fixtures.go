@@ -7,4 +7,3 @@ var SolUserBalancesFixtures = []map[string]any{
 		"balance": 100,
 	},
 }
-

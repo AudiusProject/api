@@ -5,7 +5,6 @@ import (
 	"encoding/json"
 	"fmt"
 	"io"
-	"math/rand"
 	"net/http"
 	"strings"
 	"sync"
@@ -14,8 +13,6 @@ import (
 	"api.audius.co/config"
 	"api.audius.co/database"
 	"api.audius.co/logging"
-	connect "connectrpc.com/connect"
-	ethv1 "github.com/OpenAudio/go-openaudio/pkg/api/eth/v1"
 	"github.com/OpenAudio/go-openaudio/pkg/sdk"
 	"go.uber.org/zap"
 )
@@ -25,14 +22,14 @@ import (
 //
 // track_cid comes from the uploader's metadata at index time. When the client
 // writes the track without it, the row has nothing to sign and the track is
-// unplayable. The content node still has the upload record keyed by
+// unplayable. The validator node still has the upload record keyed by
 // audio_upload_id, so this job reads the cid from there, like
 // RepairAudioAnalysesJob does for bpm / musical_key.
 //
 // Each pass:
 //  1. Selects up to trackCidBatchSize current, undeleted tracks with a NULL
 //     track_cid and an audio_upload_id to look up (newest first).
-//  2. Picks up to trackCidMaxNodes random registered content nodes.
+//  2. Picks up to trackCidMaxNodes random registered validator nodes.
 //  3. Queries nodes for each upload record until trackCidQuorum of them agree
 //     on the same transcoded cid.
 //  4. Writes track_cid, committing per track.
@@ -63,7 +60,7 @@ const (
 	trackCidMaxNodes = 5
 	// trackCidNodeTimeout matches RepairAudioAnalysesJob's per-request budget.
 	trackCidNodeTimeout = 5 * time.Second
-	// trackCidQuorum is how many distinct content nodes must report the same
+	// trackCidQuorum is how many distinct validator nodes must report the same
 	// cid before it is written. Stricter than the bpm / musical_key repair
 	// because track_cid selects the audio every listener gets, so one stale or
 	// faulty node can't set it. Upload records are replicated, so quorum is
@@ -132,7 +129,7 @@ func (j *RepairTrackCidsJob) run(ctx context.Context) error {
 		return nil
 	}
 
-	nodes, err := j.selectContentNodes(ctx)
+	nodes, err := selectStorageNodes(ctx, j.sdk, trackCidMaxNodes)
 	if err != nil {
 		return fmt.Errorf("select content nodes: %w", err)
 	}
@@ -231,37 +228,6 @@ func (j *RepairTrackCidsJob) recordFailure(trackID int64, now time.Time) {
 	j.retries[trackID] = r
 }
 
-// selectContentNodes takes up to trackCidMaxNodes random registered
-// content-node endpoints. Mirrors RepairAudioAnalysesJob.selectContentNodes.
-func (j *RepairTrackCidsJob) selectContentNodes(ctx context.Context) ([]string, error) {
-	resp, err := j.sdk.Eth.GetRegisteredEndpoints(ctx, connect.NewRequest(&ethv1.GetRegisteredEndpointsRequest{}))
-	if err != nil {
-		return nil, err
-	}
-	if resp == nil || resp.Msg == nil {
-		return nil, fmt.Errorf("GetRegisteredEndpoints returned nil response")
-	}
-
-	var endpoints []string
-	for _, node := range resp.Msg.Endpoints {
-		if node.ServiceType != "content-node" {
-			continue
-		}
-		ep := strings.TrimRight(strings.ToLower(strings.TrimSpace(node.Endpoint)), "/")
-		if ep != "" {
-			endpoints = append(endpoints, ep)
-		}
-	}
-
-	rand.Shuffle(len(endpoints), func(a, b int) {
-		endpoints[a], endpoints[b] = endpoints[b], endpoints[a]
-	})
-	if len(endpoints) > trackCidMaxNodes {
-		endpoints = endpoints[:trackCidMaxNodes]
-	}
-	return endpoints, nil
-}
-
 // uploadRecord is the subset of mediorum's /uploads/:id payload this job needs.
 type uploadRecord struct {
 	Status           string            `json:"status"`
@@ -277,7 +243,7 @@ func (u uploadRecord) transcodedCid() string {
 	return strings.TrimSpace(u.TranscodeResults["320"])
 }
 
-// repairTrackCid asks content nodes for one track's upload record and writes
+// repairTrackCid asks validator nodes for one track's upload record and writes
 // the transcoded cid once trackCidQuorum nodes agree on it. Returns true when
 // the track was repaired.
 func (j *RepairTrackCidsJob) repairTrackCid(ctx context.Context, t cidlessTrack, nodes []string) (bool, error) {
@@ -327,9 +293,9 @@ func (j *RepairTrackCidsJob) fetchTranscodedCid(ctx context.Context, node, uploa
 	if err != nil {
 		return "", false
 	}
-	defer resp.Body.Close()
+	defer func() { _ = resp.Body.Close() }()
 	if resp.StatusCode < 200 || resp.StatusCode >= 300 {
-		io.Copy(io.Discard, io.LimitReader(resp.Body, 512))
+		_, _ = io.Copy(io.Discard, io.LimitReader(resp.Body, 512))
 		return "", false
 	}
 	body, err := io.ReadAll(resp.Body)

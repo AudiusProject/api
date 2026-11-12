@@ -202,7 +202,7 @@ func TestCommentMention_NotifiesMentionedUser(t *testing.T) {
 		"comments": {{
 			"comment_id": commentId, "user_id": fanId,
 			"entity_id": trackId, "entity_type": "Track",
-			"text": "@cm_mentioned check this out",
+			"text":      "@cm_mentioned check this out",
 			"is_delete": false, "is_visible": true,
 			"created_at": now, "updated_at": now,
 			"txhash": "tx-cm", "blockhash": "cm-blk-100", "blocknumber": 100,
@@ -269,7 +269,7 @@ func TestCommentMention_SkipsWhenMentionedMutedCommenter(t *testing.T) {
 		// Mentioned user has muted the commenter.
 		"muted_users": {{
 			"muted_user_id": fanId, "user_id": mentionId,
-			"is_delete": false,
+			"is_delete":  false,
 			"created_at": now, "updated_at": now,
 			"txhash": "seed-mute", "blockhash": "cm-blk-300", "blocknumber": 300,
 		}},
@@ -364,11 +364,11 @@ func TestCommentReaction_NotifiesCommentAuthor(t *testing.T) {
 	ctx := context.Background()
 
 	const (
-		ownerId      = 10001
-		authorId     = 10002
-		reacterId    = 10003
-		trackId      = 10101
-		commentId    = 10201
+		ownerId   = 10001
+		authorId  = 10002
+		reacterId = 10003
+		trackId   = 10101
+		commentId = 10201
 	)
 	now := time.Now().UTC()
 	database.Seed(app.pool.Replicas[0], database.FixtureMap{
@@ -425,12 +425,12 @@ func TestFanClubTextPost_FansOutToFollowersAndCoinHolders(t *testing.T) {
 	ctx := context.Background()
 
 	const (
-		artistId       = 11001
-		followerId     = 11002
-		coinHolderId   = 11003
-		bothId         = 11004 // both follower and coin holder — should still get only one row
-		strangerId     = 11005 // neither — should not get notified
-		commentId      = 11101
+		artistId     = 11001
+		followerId   = 11002
+		coinHolderId = 11003
+		bothId       = 11004 // both follower and coin holder — should still get only one row
+		strangerId   = 11005 // neither — should not get notified
+		commentId    = 11101
 	)
 	now := time.Now().UTC()
 	mint := "MintAlpha111"

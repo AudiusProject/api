@@ -81,7 +81,7 @@ func (app *ApiServer) getPopularGenres(ctx context.Context, limit, offset int, s
 		return nil, err
 	}
 
-	// Genre values are written upstream (by the discovery provider) and are not
+	// Genre values are written upstream (by the indexer) and are not
 	// normalized at rest, so the same logical genre can appear under several
 	// spellings ("Hip Hop", "hip-hop", "hiphop"). Collapse those variants to a
 	// canonical name here and sum their counts. NOTE: the SQL groups + paginates

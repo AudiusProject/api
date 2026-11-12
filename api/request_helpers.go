@@ -49,7 +49,7 @@ func (app *ApiServer) getApiSigner(c *fiber.Ctx) (*Signer, error) {
 	if strings.HasPrefix(authHeader, "Bearer ") {
 		token := strings.TrimSpace(strings.TrimPrefix(authHeader, "Bearer "))
 		if token == "" {
-			return nil, fmt.Errorf("Bearer token is empty")
+			return nil, fmt.Errorf("Bearer token is empty") //nolint:staticcheck // ST1005: user-facing message
 		}
 
 		if signer := app.getSignerFromApiAccessKey(c.Context(), token); signer != nil {
@@ -77,7 +77,7 @@ func (app *ApiServer) getApiSigner(c *fiber.Ctx) (*Signer, error) {
 
 	// Basic: decode credentials and use password as api_access_key or private key
 	if !strings.HasPrefix(authHeader, "Basic ") {
-		return nil, fmt.Errorf("Authorization must be Bearer or Basic")
+		return nil, fmt.Errorf("Authorization must be Bearer or Basic") //nolint:staticcheck // ST1005: user-facing message, asserted by tests
 	}
 
 	encodedCreds := strings.TrimPrefix(authHeader, "Basic ")

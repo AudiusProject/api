@@ -82,10 +82,11 @@ func TestHLL_AggregationWorks(t *testing.T) {
 	// Test aggregation
 	dateBucket := time.Now().Format("2006-01-02")
 	tx, err := pool.Begin(ctx)
-	defer tx.Rollback(ctx)
+	require.NoError(t, err)
+	defer func() { _ = tx.Rollback(ctx) }()
 	err = hll.AggregateSketch(ctx, tx, sketch, totalRequests, dateBucket)
 	assert.NoError(t, err)
-	err = tx.Commit(ctx)
+	require.NoError(t, tx.Commit(ctx))
 
 	// Verify data was stored
 	var sketchData []byte
@@ -152,7 +153,7 @@ func TestHLL_MergeExistingSketch(t *testing.T) {
 	// Aggregate again (should merge with existing)
 	tx, err = pool.Begin(ctx)
 	assert.NoError(t, err)
-	defer tx.Rollback(ctx)
+	defer func() { _ = tx.Rollback(ctx) }()
 
 	err = hll.AggregateSketch(ctx, tx, sketch2, totalRequests2, dateBucket)
 	assert.NoError(t, err)

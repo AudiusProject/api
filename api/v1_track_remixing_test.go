@@ -107,12 +107,14 @@ func TestV1TrackRemixing(t *testing.T) {
 	})
 
 	status, body = testGet(t, app, "/v1/full/tracks/"+trashid.MustEncodeHashID(11)+"/remixing")
+	assert.Equal(t, 200, status)
 
 	jsonAssert(t, body, map[string]any{
 		"data.#": 0,
 	})
 
 	status, body = testGet(t, app, "/v1/full/tracks/"+trashid.MustEncodeHashID(12)+"/remixing")
+	assert.Equal(t, 200, status)
 
 	jsonAssert(t, body, map[string]any{
 		"data.#": 0,

@@ -7,7 +7,6 @@ import (
 	"api.audius.co/database"
 	"api.audius.co/solana/indexer/fake_rpc_client"
 	"github.com/gagliardetto/solana-go/rpc"
-	"github.com/rpcpool/yellowstone-grpc/examples/golang/proto"
 	pb "github.com/rpcpool/yellowstone-grpc/examples/golang/proto"
 	"github.com/stretchr/testify/require"
 	"github.com/test-go/testify/assert"
@@ -18,7 +17,7 @@ func TestCheckpoints(t *testing.T) {
 	pool := database.CreateTestDatabase(t, "test_solana_indexer_common")
 	defer pool.Close()
 
-	req := proto.SubscribeRequest{}
+	req := pb.SubscribeRequest{}
 	id, err := InsertCheckpointStart(t.Context(), pool, "backfill", 100, &req)
 	assert.NoError(t, err, "failed to insert checkpoint start")
 	assert.NotEmpty(t, id, "checkpoint ID should not be empty")
@@ -60,7 +59,7 @@ func TestEnsureCheckpoints(t *testing.T) {
 
 	logger := zap.NewNop()
 	commitment := pb.CommitmentLevel_CONFIRMED
-	req := proto.SubscribeRequest{
+	req := pb.SubscribeRequest{
 		Commitment: &commitment,
 	}
 	checkpointId, slot, err := EnsureCheckpoint(t.Context(), "backfill", pool, rpcClientInit, &req, logger)

@@ -22,7 +22,6 @@ import (
 type MetricsCollector struct {
 	logger     *zap.Logger
 	writePool  *pgxpool.Pool
-	serverId   string
 	flushTimer *time.Ticker
 	stopCh     chan struct{}
 
@@ -271,7 +270,8 @@ func (rmc *MetricsCollector) flushMetrics() {
 		rmc.logger.Error("Failed to begin transaction for metrics flush", zap.Error(err))
 		return
 	}
-	defer tx.Rollback(ctx)
+	// Rollback is a no-op once Commit succeeds
+	defer func() { _ = tx.Rollback(ctx) }()
 
 	// Get current date bucket
 	date := time.Now().Format(time.DateOnly)

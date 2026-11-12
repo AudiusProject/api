@@ -133,4 +133,3 @@ func squareImageStruct(maybeCids ...pgtype.Text) *SquareImage {
 		Mirrors:    rest,
 	}
 }
-

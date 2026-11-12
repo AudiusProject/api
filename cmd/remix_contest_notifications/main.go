@@ -15,8 +15,9 @@ import (
 // idempotent via ON CONFLICT + NOT EXISTS guards so overlapping runs are safe.
 //
 // Required env vars (same as the main bridge):
-//   writeDbUrl - postgres connection string
-//   ENV        - "dev", "stage", or "prod"
+//
+//	writeDbUrl - postgres connection string
+//	ENV        - "dev", "stage", or "prod"
 func main() {
 	cfg := config.Cfg
 	ctx := context.Background()

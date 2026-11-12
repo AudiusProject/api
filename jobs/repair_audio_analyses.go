@@ -21,7 +21,7 @@ import (
 )
 
 // RepairAudioAnalysesJob backfills missing track bpm / musical_key by polling
-// content nodes for their stored audio-analysis results. It is a direct port
+// validator nodes for their stored audio-analysis results. It is a direct port
 // of apps' src/tasks/repair_audio_analyses.py celery task.
 //
 // The entity-manager indexer only records bpm / musical_key when the uploader
@@ -29,13 +29,13 @@ import (
 // analysis finished after indexing — or which were indexed before the indexer
 // learned to persist these fields — are left with NULL bpm / musical_key. This
 // recurring job reconciles those gaps from the authoritative source: the
-// content node that performed the analysis.
+// validator node that performed the analysis.
 //
 // Each pass:
 //  1. Selects up to repairBatchSize current tracks missing a non-custom bpm or
 //     musical_key, with fewer than 3 prior analysis errors and a streamable
 //     track_cid (newest first).
-//  2. Picks up to repairMaxNodes random registered content nodes.
+//  2. Picks up to repairMaxNodes random registered validator nodes.
 //  3. For each track, queries a node for the analysis (modern uploads endpoint
 //     when audio_upload_id is set, else the legacy blob-analysis endpoint),
 //     falling back to the next node on transport error.
@@ -120,7 +120,7 @@ func (j *RepairAudioAnalysesJob) run(ctx context.Context) error {
 		return nil
 	}
 
-	nodes, err := j.selectContentNodes(ctx)
+	nodes, err := selectStorageNodes(ctx, j.sdk, repairMaxNodes)
 	if err != nil {
 		return fmt.Errorf("select content nodes: %w", err)
 	}
@@ -202,13 +202,15 @@ func (j *RepairAudioAnalysesJob) queryTracks(ctx context.Context) ([]repairTrack
 	return out, rows.Err()
 }
 
-// selectContentNodes mirrors apps' select_content_nodes: take up to
-// repairMaxNodes random registered content-node endpoints (lowercased, trailing
-// slash trimmed). apps samples from redis-cached *healthy* nodes; we don't have
-// that cache here, so we sample from all registered content nodes and rely on
-// the per-request timeout + next-node fallback to skip unhealthy ones.
-func (j *RepairAudioAnalysesJob) selectContentNodes(ctx context.Context) ([]string, error) {
-	resp, err := j.sdk.Eth.GetRegisteredEndpoints(ctx, connect.NewRequest(&ethv1.GetRegisteredEndpointsRequest{}))
+// selectStorageNodes takes up to maxNodes random registered validator node
+// endpoints that serve media storage (registered under the legacy
+// "content-node" service type), lowercased with any trailing slash trimmed.
+// Mirrors apps' select_content_nodes. apps samples from redis-cached *healthy*
+// nodes; we don't have that cache here, so we sample from all registered nodes
+// and rely on the per-request timeout + next-node fallback to skip unhealthy
+// ones.
+func selectStorageNodes(ctx context.Context, oaSDK *sdk.OpenAudioSDK, maxNodes int) ([]string, error) {
+	resp, err := oaSDK.Eth.GetRegisteredEndpoints(ctx, connect.NewRequest(&ethv1.GetRegisteredEndpointsRequest{}))
 	if err != nil {
 		return nil, err
 	}
@@ -218,7 +220,7 @@ func (j *RepairAudioAnalysesJob) selectContentNodes(ctx context.Context) ([]stri
 
 	var endpoints []string
 	for _, node := range resp.Msg.Endpoints {
-		// Content nodes serve the audio-analysis endpoints (mediorum storage).
+		// Storage (mediorum) nodes serve the audio-analysis and upload endpoints.
 		if node.ServiceType != "content-node" {
 			continue
 		}
@@ -231,15 +233,15 @@ func (j *RepairAudioAnalysesJob) selectContentNodes(ctx context.Context) ([]stri
 	rand.Shuffle(len(endpoints), func(a, b int) {
 		endpoints[a], endpoints[b] = endpoints[b], endpoints[a]
 	})
-	if len(endpoints) > repairMaxNodes {
-		endpoints = endpoints[:repairMaxNodes]
+	if len(endpoints) > maxNodes {
+		endpoints = endpoints[:maxNodes]
 	}
 	return endpoints, nil
 }
 
 // analysisResult is the shape served by mediorum for both the modern uploads
-// endpoint and the legacy blob-analysis endpoint. The legacy python content
-// node used capitalized keys (Key/BPM); we accept both for parity.
+// endpoint and the legacy blob-analysis endpoint. The legacy Python storage
+// service used capitalized keys (Key/BPM); we accept both for parity.
 type analysisResult struct {
 	BPM    float64 `json:"bpm"`
 	BPMCap float64 `json:"BPM"`
@@ -273,7 +275,7 @@ type legacyAnalysis struct {
 	ErrorCount int             `json:"error_count"`
 }
 
-// repairTrack queries content nodes for one track's analysis and applies any
+// repairTrack queries validator nodes for one track's analysis and applies any
 // missing+valid bpm / musical_key plus the latest error count. Mirrors the
 // per-track body of apps' repair(). Returns true when the track was updated.
 func (j *RepairAudioAnalysesJob) repairTrack(ctx context.Context, t repairTrack, nodes []string) (bool, error) {
@@ -341,9 +343,9 @@ func (j *RepairAudioAnalysesJob) fetchAnalysis(ctx context.Context, endpoint str
 	if err != nil {
 		return nil, 0, false
 	}
-	defer resp.Body.Close()
+	defer func() { _ = resp.Body.Close() }()
 	if resp.StatusCode < 200 || resp.StatusCode >= 300 {
-		io.Copy(io.Discard, io.LimitReader(resp.Body, 512))
+		_, _ = io.Copy(io.Discard, io.LimitReader(resp.Body, 512))
 		return nil, 0, false
 	}
 	body, err := io.ReadAll(resp.Body)
