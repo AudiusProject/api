@@ -16,7 +16,7 @@ import (
 )
 
 // WeeklyArtistRecapNotificationsJob sends each artist a recap of the week
-// that just closed: plays, new followers, top listening city and saves, plus
+// that just closed: plays, new followers and saves, plus
 // how many of those saves came from listeners whose Weekly Rotation included
 // the track. One weekly_artist_recap notification per artist per week;
 // pedalboard turns the row into a push, gated by the push_weekly_artist_recap
@@ -56,7 +56,6 @@ type artistRecap struct {
 	FollowerCount     int64
 	SaveCount         int64
 	RotationSaveCount int64
-	TopCity           *string
 }
 
 const (
@@ -179,14 +178,12 @@ func (j *WeeklyArtistRecapNotificationsJob) run(ctx context.Context) error {
 	followers := make([]int64, len(batch))
 	saves := make([]int64, len(batch))
 	rotationSaves := make([]int64, len(batch))
-	cities := make([]*string, len(batch))
 	for k, r := range batch {
 		ownerIds[k] = r.OwnerId
 		plays[k] = r.PlayCount
 		followers[k] = r.FollowerCount
 		saves[k] = r.SaveCount
 		rotationSaves[k] = r.RotationSaveCount
-		cities[k] = r.TopCity
 	}
 
 	tag, err := j.pool.Exec(ctx, `
@@ -203,14 +200,13 @@ func (j *WeeklyArtistRecapNotificationsJob) run(ctx context.Context) error {
 				'play_count', r.play_count,
 				'follower_count', r.follower_count,
 				'save_count', r.save_count,
-				'rotation_save_count', r.rotation_save_count,
-				'top_city', r.top_city
+				'rotation_save_count', r.rotation_save_count
 			)),
 			@now
 		FROM UNNEST(
 			@owner_ids::int[], @plays::bigint[], @followers::bigint[],
-			@saves::bigint[], @rotation_saves::bigint[], @cities::text[]
-		) AS r(owner_id, play_count, follower_count, save_count, rotation_save_count, top_city)
+			@saves::bigint[], @rotation_saves::bigint[]
+		) AS r(owner_id, play_count, follower_count, save_count, rotation_save_count)
 		WHERE NOT EXISTS (
 			SELECT 1 FROM notification n
 			WHERE n.group_id = @group_prefix || r.owner_id::text
@@ -226,7 +222,6 @@ func (j *WeeklyArtistRecapNotificationsJob) run(ctx context.Context) error {
 		"followers":      followers,
 		"saves":          saves,
 		"rotation_saves": rotationSaves,
-		"cities":         cities,
 	})
 	if err != nil {
 		return fmt.Errorf("insert weekly_artist_recap notifications: %w", err)
@@ -253,7 +248,7 @@ func (j *WeeklyArtistRecapNotificationsJob) run(ctx context.Context) error {
 func (j *WeeklyArtistRecapNotificationsJob) loadRecaps(ctx context.Context, periodStart time.Time) ([]artistRecap, error) {
 	rows, err := j.pool.Query(ctx, `
 		WITH week_plays AS (
-			SELECT t.owner_id, NULLIF(TRIM(p.city), '') AS city
+			SELECT t.owner_id
 			FROM plays p
 			JOIN tracks t ON t.track_id = p.play_item_id AND t.is_current
 			WHERE p.created_at >= @start AND p.created_at < @end
@@ -263,16 +258,6 @@ func (j *WeeklyArtistRecapNotificationsJob) loadRecaps(ctx context.Context, peri
 			SELECT owner_id, COUNT(*) AS play_count
 			FROM week_plays
 			GROUP BY owner_id
-		),
-		top_city AS (
-			SELECT DISTINCT ON (owner_id) owner_id, city
-			FROM (
-				SELECT owner_id, city, COUNT(*) AS plays
-				FROM week_plays
-				WHERE city IS NOT NULL
-				GROUP BY owner_id, city
-			) c
-			ORDER BY owner_id, plays DESC, city
 		),
 		artists AS (
 			SELECT a.owner_id, a.play_count
@@ -317,12 +302,10 @@ func (j *WeeklyArtistRecapNotificationsJob) loadRecaps(ctx context.Context, peri
 			a.play_count,
 			COALESCE(nf.follower_count, 0),
 			COALESCE(sc.save_count, 0),
-			COALESCE(sc.rotation_save_count, 0),
-			tc.city
+			COALESCE(sc.rotation_save_count, 0)
 		FROM artists a
 		LEFT JOIN new_followers nf ON nf.owner_id = a.owner_id
 		LEFT JOIN save_counts sc ON sc.owner_id = a.owner_id
-		LEFT JOIN top_city tc ON tc.owner_id = a.owner_id
 		ORDER BY a.owner_id
 	`, pgx.NamedArgs{
 		"start":      periodStart,
@@ -334,7 +317,7 @@ func (j *WeeklyArtistRecapNotificationsJob) loadRecaps(ctx context.Context, peri
 	}
 	recaps, err := pgx.CollectRows(rows, func(row pgx.CollectableRow) (artistRecap, error) {
 		var r artistRecap
-		err := row.Scan(&r.OwnerId, &r.PlayCount, &r.FollowerCount, &r.SaveCount, &r.RotationSaveCount, &r.TopCity)
+		err := row.Scan(&r.OwnerId, &r.PlayCount, &r.FollowerCount, &r.SaveCount, &r.RotationSaveCount)
 		return r, err
 	})
 	if err != nil {

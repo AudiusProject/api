@@ -253,7 +253,7 @@ func (ci *CoreIndexer) startParityJobs(ctx context.Context) {
 	jobs.NewWeeklyRotationFeaturedNotificationsJob(ci.Config, ci.pool).
 		ScheduleEvery(ctx, 30*time.Second)
 
-	// Weekly recap for artists (plays, new followers, top city, saves) for
+	// Weekly recap for artists (plays, new followers, saves) for
 	// the period that just closed. Same timing as the featured notification.
 	jobs.NewWeeklyArtistRecapNotificationsJob(ci.Config, ci.pool).
 		ScheduleEvery(ctx, 30*time.Second)
