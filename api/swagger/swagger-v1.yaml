@@ -8578,6 +8578,7 @@ paths:
                 - weekly_rotation
                 - weekly_rotation_featured
                 - weekly_artist_recap
+                - trending_genre
                 - fan_remix_contest_started
                 - fan_remix_contest_ended
                 - fan_remix_contest_ending_soon
@@ -17448,6 +17449,7 @@ components:
         - $ref: "#/components/schemas/weekly_rotation_notification"
         - $ref: "#/components/schemas/weekly_rotation_featured_notification"
         - $ref: "#/components/schemas/weekly_artist_recap_notification"
+        - $ref: "#/components/schemas/trending_genre_notification"
         - $ref: "#/components/schemas/fan_remix_contest_started_notification"
         - $ref: "#/components/schemas/fan_remix_contest_ended_notification"
         - $ref: "#/components/schemas/fan_remix_contest_ending_soon_notification"
@@ -17500,6 +17502,7 @@ components:
           weekly_rotation: "#/components/schemas/weekly_rotation_notification"
           weekly_rotation_featured: "#/components/schemas/weekly_rotation_featured_notification"
           weekly_artist_recap: "#/components/schemas/weekly_artist_recap_notification"
+          trending_genre: "#/components/schemas/trending_genre_notification"
           fan_remix_contest_started: "#/components/schemas/fan_remix_contest_started_notification"
           fan_remix_contest_ended: "#/components/schemas/fan_remix_contest_ended_notification"
           fan_remix_contest_ending_soon: "#/components/schemas/fan_remix_contest_ending_soon_notification"
@@ -18173,6 +18176,26 @@ components:
           type: array
           items:
             $ref: "#/components/schemas/weekly_rotation_featured_notification_action"
+    trending_genre_notification:
+      required:
+        - actions
+        - group_id
+        - is_seen
+        - type
+      type: object
+      properties:
+        type:
+          type: string
+        group_id:
+          type: string
+        is_seen:
+          type: boolean
+        seen_at:
+          type: integer
+        actions:
+          type: array
+          items:
+            $ref: "#/components/schemas/trending_genre_notification_action"
     weekly_artist_recap_notification:
       required:
         - actions
@@ -19444,6 +19467,22 @@ components:
           type: integer
         data:
           $ref: "#/components/schemas/weekly_rotation_featured_notification_action_data"
+    trending_genre_notification_action:
+      required:
+        - data
+        - specifier
+        - timestamp
+        - type
+      type: object
+      properties:
+        specifier:
+          type: string
+        type:
+          type: string
+        timestamp:
+          type: integer
+        data:
+          $ref: "#/components/schemas/trending_genre_notification_action_data"
     weekly_artist_recap_notification_action:
       required:
         - data
@@ -19985,6 +20024,23 @@ components:
           type: integer
         rotation_count:
           type: integer
+    trending_genre_notification_action_data:
+      description: A track in the top 10 of its genre's weekly trending chart, snapshotted on Friday (week is that Friday's date, YYYY-MM-DD). Only genres with at least 10 tracks on the chart are included.
+      required:
+        - track_id
+        - genre
+        - rank
+        - week
+      type: object
+      properties:
+        track_id:
+          type: string
+        genre:
+          type: string
+        rank:
+          type: integer
+        week:
+          type: string
     weekly_artist_recap_notification_action_data:
       description: An artist's recap of the period that just closed (an ISO (year, week) pair, Wednesday to Wednesday UTC). Plays exclude the artist's own. rotation_save_count is how many of the saves came from listeners whose Weekly Rotation included the track. top_city is omitted when no play had a city.
       required:
