@@ -104,7 +104,15 @@ func (j *CityPlaysJob) run(ctx context.Context) error {
 	}
 	end := min(prev+j.batchSize, *maxId)
 
-	res, err := j.pool.Exec(ctx, `
+	// The counts and the checkpoint commit together, so a failed run is
+	// retried from the same place instead of counting plays twice.
+	tx, err := j.pool.Begin(ctx)
+	if err != nil {
+		return err
+	}
+	defer tx.Rollback(ctx)
+
+	res, err := tx.Exec(ctx, `
 		INSERT INTO aggregate_daily_city_plays (play_item_id, day, country, region, city, count)
 		SELECT
 			p.play_item_id,
@@ -126,8 +134,15 @@ func (j *CityPlaysJob) run(ctx context.Context) error {
 		return fmt.Errorf("upsert city plays: %w", err)
 	}
 
-	if err := saveCheckpoint(ctx, j.pool, CityPlaysCheckpoint, end); err != nil {
+	if _, err := tx.Exec(ctx, `
+		INSERT INTO indexing_checkpoints (tablename, last_checkpoint)
+		VALUES ($1, $2)
+		ON CONFLICT (tablename) DO UPDATE SET last_checkpoint = EXCLUDED.last_checkpoint
+	`, CityPlaysCheckpoint, end); err != nil {
 		return fmt.Errorf("save checkpoint: %w", err)
+	}
+	if err := tx.Commit(ctx); err != nil {
+		return err
 	}
 
 	j.logger.Debug("City plays updated",
