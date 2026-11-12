@@ -14,7 +14,7 @@ type Instruction struct {
 }
 
 func init() {
-	solana.RegisterInstructionDecoder(solana.Secp256k1ProgramID, registryDecodeInstruction)
+	solana.MustRegisterInstructionDecoder(solana.Secp256k1ProgramID, registryDecodeInstruction)
 }
 
 func (inst *Instruction) ProgramID() solana.PublicKey {

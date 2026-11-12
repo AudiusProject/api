@@ -23,12 +23,12 @@ type Instruction struct {
 var ProgramID = solana.MustPublicKeyFromBase58("paytYpX3LPN98TAeen6bFFeraGSuWnomZmCXjAsoqPa")
 
 func init() {
-	solana.RegisterInstructionDecoder(ProgramID, registryDecodeInstruction)
+	solana.MustRegisterInstructionDecoder(ProgramID, registryDecodeInstruction)
 }
 
 func SetProgramID(pubkey solana.PublicKey) {
 	ProgramID = pubkey
-	solana.RegisterInstructionDecoder(ProgramID, registryDecodeInstruction)
+	solana.MustRegisterInstructionDecoder(ProgramID, registryDecodeInstruction)
 }
 
 func DecodeInstruction(accounts []*solana.AccountMeta, data []byte) (*Instruction, error) {

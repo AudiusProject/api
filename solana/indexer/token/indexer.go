@@ -250,6 +250,14 @@ func (d *Indexer) subscribeToArtistCoins(ctx context.Context, handleUpdate func(
 	page := 0
 	pageSize := MAX_MINTS_PER_SUBSCRIPTION
 	grpcClients := make([]common.GrpcClient, 0)
+	// Close any clients already started if a later page fails, so they
+	// don't keep streaming in the background after an error is returned.
+	subscribed := false
+	defer func() {
+		if !subscribed {
+			common.CloseGrpcClients(grpcClients)
+		}
+	}()
 	total := 0
 	for !done {
 		mints, err := common.GetArtistCoinMints(ctx, d.pool, pageSize, page*pageSize)
@@ -258,6 +266,7 @@ func (d *Indexer) subscribeToArtistCoins(ctx context.Context, handleUpdate func(
 		}
 		if len(mints) == 0 {
 			d.logger.Info("no more artist coins to subscribe to, exiting")
+			subscribed = true
 			return grpcClients, nil
 		}
 		total += len(mints)
@@ -282,6 +291,7 @@ func (d *Indexer) subscribeToArtistCoins(ctx context.Context, handleUpdate func(
 		page++
 	}
 	d.logger.Info("subscribed to artist coins", zap.Int("count", total))
+	subscribed = true
 	return grpcClients, nil
 }
 

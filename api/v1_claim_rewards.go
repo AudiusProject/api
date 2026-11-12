@@ -45,7 +45,12 @@ const (
 	antiAbuseOracleAttestationPath = "/attestation"
 )
 
-var antiAbuseOracleMap map[string]string = make(map[string]string)
+// Cache of AAO endpoint -> AAO wallet address. Guarded by antiAbuseOracleMu
+// since it is written and read from concurrent requests.
+var (
+	antiAbuseOracleMap = make(map[string]string)
+	antiAbuseOracleMu  sync.RWMutex
+)
 
 type GetAntiAbuseOracleAttestationParams struct {
 	Claim                   rewards.RewardClaim
@@ -62,7 +67,7 @@ type AntiAbuseOracleAttestationResponseBody struct {
 }
 
 // Gets a reward claim attestation from Anti Abuse Oracle
-func getAntiAbuseOracleAttestation(args GetAntiAbuseOracleAttestationParams) (*SenderAttestation, error) {
+func getAntiAbuseOracleAttestation(ctx context.Context, args GetAntiAbuseOracleAttestationParams) (*SenderAttestation, error) {
 	attestationBody := AntiAbuseOracleAttestationRequestBody{
 		ChallengeID: args.Claim.RewardID,
 		Specifier:   args.Claim.Specifier,
@@ -82,12 +87,17 @@ func getAntiAbuseOracleAttestation(args GetAntiAbuseOracleAttestationParams) (*S
 	pathname := path.Join(antiAbuseOracleAttestationPath, args.Handle)
 	base.Path += pathname
 
-	resp, err := http.Post(base.String(), "application/json", bytes.NewBuffer(reqBody))
+	req, err := http.NewRequestWithContext(ctx, http.MethodPost, base.String(), bytes.NewBuffer(reqBody))
+	if err != nil {
+		return nil, err
+	}
+	req.Header.Set("Content-Type", "application/json")
+	resp, err := http.DefaultClient.Do(req)
 	if err != nil {
 		return nil, err
 	}
 
-	defer resp.Body.Close()
+	defer func() { _ = resp.Body.Close() }()
 	body, err := io.ReadAll(resp.Body)
 	if err != nil {
 		return nil, err
@@ -106,7 +116,9 @@ func getAntiAbuseOracleAttestation(args GetAntiAbuseOracleAttestationParams) (*S
 	if err != nil {
 		return nil, err
 	}
+	antiAbuseOracleMu.RLock()
 	address, exists := antiAbuseOracleMap[args.AntiAbuseOracleEndpoint]
+	antiAbuseOracleMu.RUnlock()
 	if !exists {
 		return nil, fmt.Errorf("failed to find AAO address for %s", args.AntiAbuseOracleEndpoint)
 	}
@@ -147,7 +159,7 @@ type ValidatorAttestationResponseBody struct {
 }
 
 // Gets a reward claim attestation from a validator.
-func getValidatorAttestation(args GetValidatorAttestationParams) (*SenderAttestation, error) {
+func getValidatorAttestation(ctx context.Context, args GetValidatorAttestationParams) (*SenderAttestation, error) {
 	query := url.Values{}
 	query.Add("reward_id", args.Claim.RewardID)
 	query.Add("specifier", args.Claim.Specifier)
@@ -164,12 +176,16 @@ func getValidatorAttestation(args GetValidatorAttestationParams) (*SenderAttesta
 	base.Path += validatorAttestationPath
 	base.RawQuery = query.Encode()
 
-	resp, err := http.Get(base.String())
+	req, err := http.NewRequestWithContext(ctx, http.MethodGet, base.String(), nil)
+	if err != nil {
+		return nil, err
+	}
+	resp, err := http.DefaultClient.Do(req)
 	if err != nil {
 		return nil, err
 	}
 
-	defer resp.Body.Close()
+	defer func() { _ = resp.Body.Close() }()
 	body, err := io.ReadAll(resp.Body)
 	if err != nil {
 		return nil, err
@@ -257,7 +273,7 @@ func fetchAttestations(
 				AntiAbuseOracleEndpoint: antiAbuseOracle.Endpoint,
 			}
 			var err error
-			aaoAttestation, err = getAntiAbuseOracleAttestation(getAntiAbuseAttestationParams)
+			aaoAttestation, err = getAntiAbuseOracleAttestation(ctx, getAntiAbuseAttestationParams)
 			return err
 		})
 	}
@@ -299,7 +315,6 @@ func fetchAttestations(
 		validatorGroup := &errgroup.Group{}
 
 		for i, node := range candidateNodes {
-			i, node := i, node // capture loop variables
 			validatorGroup.Go(func() error {
 				getValidatorAttestationParams := GetValidatorAttestationParams{
 					Validator:      node.Endpoint,
@@ -308,7 +323,7 @@ func fetchAttestations(
 					Signature:      signature,
 				}
 
-				attestation, err := getValidatorAttestation(getValidatorAttestationParams)
+				attestation, err := getValidatorAttestation(ctx, getValidatorAttestationParams)
 				results[i] = validatorResult{
 					node:        node,
 					attestation: attestation,
@@ -318,7 +333,8 @@ func fetchAttestations(
 			})
 		}
 
-		validatorGroup.Wait()
+		// Goroutines never return an error; failures are recorded in results
+		_ = validatorGroup.Wait()
 
 		for _, result := range results {
 			if result.err != nil {
@@ -651,13 +667,6 @@ func sendRewardClaimTransactions(
 	return txSignatures, nil
 }
 
-type RelayTransactionRequest struct {
-	Transaction string `json:"transaction"`
-}
-type RelayTransactionResponse struct {
-	Signature string `json:"signature"`
-}
-
 // Claims an individual reward.
 func claimReward(
 	ctx context.Context,
@@ -742,7 +751,10 @@ type HealthCheckResponse struct {
 func getAntiAbuseOracle(antiAbuseOracleEndpoints []string) (node *config.Node, err error) {
 	oracleEndpoint := antiAbuseOracleEndpoints[rand.IntN(len(antiAbuseOracleEndpoints))]
 
-	if value, exists := antiAbuseOracleMap[oracleEndpoint]; exists {
+	antiAbuseOracleMu.RLock()
+	value, exists := antiAbuseOracleMap[oracleEndpoint]
+	antiAbuseOracleMu.RUnlock()
+	if exists {
 		return &config.Node{
 			DelegateWallet: value,
 			Endpoint:       oracleEndpoint,
@@ -754,7 +766,7 @@ func getAntiAbuseOracle(antiAbuseOracleEndpoints []string) (node *config.Node, e
 		return nil, err
 	}
 
-	defer resp.Body.Close()
+	defer func() { _ = resp.Body.Close() }()
 	body, err := io.ReadAll(resp.Body)
 	if err != nil {
 		return nil, err
@@ -768,7 +780,9 @@ func getAntiAbuseOracle(antiAbuseOracleEndpoints []string) (node *config.Node, e
 		return nil, err
 	}
 
+	antiAbuseOracleMu.Lock()
 	antiAbuseOracleMap[oracleEndpoint] = health.AntiAbuseWalletPubkey
+	antiAbuseOracleMu.Unlock()
 	return &config.Node{
 		DelegateWallet: health.AntiAbuseWalletPubkey,
 		Endpoint:       oracleEndpoint,

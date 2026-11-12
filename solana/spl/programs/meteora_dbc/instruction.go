@@ -23,7 +23,7 @@ type Instruction struct {
 }
 
 func init() {
-	solana.RegisterInstructionDecoder(ProgramID, registryDecodeInstruction)
+	solana.MustRegisterInstructionDecoder(ProgramID, registryDecodeInstruction)
 }
 
 func SetProgramID(pubkey solana.PublicKey) {

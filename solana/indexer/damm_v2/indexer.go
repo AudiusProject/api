@@ -219,6 +219,14 @@ func (d *Indexer) subscribe(ctx context.Context) ([]common.GrpcClient, error) {
 	pageSize := MAX_POOLS_PER_SUBSCRIPTION
 	total := 0
 	grpcClients := make([]common.GrpcClient, 0)
+	// Close any clients already started if a later page fails, so they
+	// don't keep streaming in the background after an error is returned.
+	subscribed := false
+	defer func() {
+		if !subscribed {
+			common.CloseGrpcClients(grpcClients)
+		}
+	}()
 	for !done {
 		pools, err := getSubscribedDammV2Pools(ctx, d.pool, pageSize, page*pageSize)
 		if err != nil {
@@ -226,6 +234,7 @@ func (d *Indexer) subscribe(ctx context.Context) ([]common.GrpcClient, error) {
 		}
 		if len(pools) == 0 {
 			d.logger.Info("no pools to subscribe to")
+			subscribed = true
 			return grpcClients, nil
 		}
 		total += len(pools)
@@ -261,6 +270,7 @@ func (d *Indexer) subscribe(ctx context.Context) ([]common.GrpcClient, error) {
 		page++
 	}
 	d.logger.Info("subscribed to pools", zap.Int("count", total))
+	subscribed = true
 	return grpcClients, nil
 }
 
@@ -334,7 +344,7 @@ func processDammV2PoolUpdate(
 	if err != nil {
 		return err
 	}
-	defer tx.Rollback(ctx)
+	defer func() { _ = tx.Rollback(ctx) }()
 
 	account := solana.PublicKeyFromBytes(update.Account.Pubkey)
 	var pool meteora_damm_v2.Pool
@@ -378,7 +388,7 @@ func processDammV2PositionUpdate(
 	if err != nil {
 		return err
 	}
-	defer tx.Rollback(ctx)
+	defer func() { _ = tx.Rollback(ctx) }()
 
 	account := solana.PublicKeyFromBytes(update.Account.Pubkey)
 	var position meteora_damm_v2.PositionState

@@ -59,15 +59,9 @@ func (d *Indexer) Start(ctx context.Context) {
 	}
 	defer client.Close()
 
-	// Wait for shutdown
-	for {
-		select {
-		case <-ctx.Done():
-			d.logger.Info("shutting down")
-			return
-		default:
-		}
-	}
+	// Block until shutdown; the subscription runs in its own goroutine.
+	<-ctx.Done()
+	d.logger.Info("shutting down")
 }
 
 // Backfill replays transactions for this indexer's subscribed programs across

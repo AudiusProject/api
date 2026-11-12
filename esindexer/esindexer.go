@@ -58,7 +58,7 @@ func (indexer *EsIndexer) createIndex(collection string) error {
 		fmt.Println("create index error", cc.indexName, err)
 		return err
 	}
-	defer res.Body.Close()
+	defer func() { _ = res.Body.Close() }()
 
 	if res.IsError() {
 		problem, _ := io.ReadAll(res.Body)
@@ -211,11 +211,13 @@ func (indexer *EsIndexer) scriptedUpdateSocial(userId int64, fieldName string, e
 			}
 		}`, script, fieldName, entityId)),
 	)
-	defer resp.Body.Close()
-
 	if err != nil {
 		log.Printf("scripted update error: %v", err)
-	} else if resp.StatusCode != 200 {
+		return
+	}
+	defer func() { _ = resp.Body.Close() }()
+
+	if resp.StatusCode != 200 {
 		if err := indexer.indexIds("socials", userId); err != nil {
 			slog.Error("socials indexIds failed", "user", userId, "field", fieldName, "id", entityId, "err", err)
 		} else {

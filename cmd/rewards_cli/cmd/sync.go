@@ -332,7 +332,7 @@ func getAntiAbuseOracles(antiAbuseOracleEndpoints []string) ([]config.Node, erro
 				mu.Unlock()
 				return
 			}
-			defer resp.Body.Close()
+			defer func() { _ = resp.Body.Close() }()
 
 			body, err := io.ReadAll(resp.Body)
 			if err != nil {
@@ -402,8 +402,14 @@ func getSenderAttestations(ctx context.Context, nodes []config.Node, senderEthAd
 	var wg sync.WaitGroup
 	var mu sync.Mutex
 	for j := 0; j < maxAttempts && len(attestations) < 3 && len(mapped) > 0; j++ {
-		i := 0
+		// Snapshot this round's candidates: the goroutines below mutate
+		// mapped, and ranging over a map while it's written is a fatal race.
+		round := make([][]config.Node, 0, len(mapped))
 		for _, nodeList := range mapped {
+			round = append(round, nodeList)
+		}
+		i := 0
+		for _, nodeList := range round {
 			node := nodeList[0]
 			nl := nodeList
 			i++
@@ -432,7 +438,10 @@ func getSenderAttestations(ctx context.Context, nodes []config.Node, senderEthAd
 				i = 0
 			}
 
-			if len(attestations) >= 3 {
+			mu.Lock()
+			enough := len(attestations) >= 3
+			mu.Unlock()
+			if enough {
 				break
 			}
 		}

@@ -49,14 +49,16 @@ func inspectCid(cid string) (*inspectResponse, error) {
 			lastErr = err
 			continue
 		}
-		defer resp.Body.Close()
 
 		if resp.StatusCode != http.StatusOK {
+			_ = resp.Body.Close()
 			lastErr = fmt.Errorf("host %s returned status %d", host, resp.StatusCode)
 			continue
 		}
 
-		if err := json.NewDecoder(resp.Body).Decode(&info); err != nil {
+		err = json.NewDecoder(resp.Body).Decode(&info)
+		_ = resp.Body.Close()
+		if err != nil {
 			lastErr = err
 			continue
 		}
