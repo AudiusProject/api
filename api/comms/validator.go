@@ -113,7 +113,7 @@ func (vtor *Validator) validateChatCreate(ctx context.Context, userId int32, rpc
 		return err
 	}
 	if chatCount != 0 {
-		return errors.New("Chat already exists")
+		return errors.New("Chat already exists") //nolint:staticcheck // ST1005: user-facing message
 	}
 
 	// decode invites: unique users, creator included
@@ -443,7 +443,7 @@ func (vtor *Validator) validateNewChatRateLimit(pool *dbv1.DBPools, ctx context.
 	}
 	if numChats >= maxNumChats {
 		vtor.logger.Info("hit rate limit (new chats)", zap.Any("users", users))
-		return errors.New("An invited user has exceeded the maximum number of new chats")
+		return errors.New("An invited user has exceeded the maximum number of new chats") //nolint:staticcheck // ST1005: user-facing message
 	}
 
 	return nil
@@ -547,7 +547,7 @@ func validateChatMembership(pool *dbv1.DBPools, ctx context.Context, userId int3
 }
 
 func validatePermissions(pool *dbv1.DBPools, ctx context.Context, sender int32, receiver int32) error {
-	permissionFailure := errors.New("Not permitted to send messages to this user")
+	permissionFailure := errors.New("Not permitted to send messages to this user") //nolint:staticcheck // ST1005: user-facing message
 
 	ok := false
 	err := pool.QueryRow(ctx, `select chat_allowed($1, $2)`, sender, receiver).Scan(&ok)
@@ -617,13 +617,13 @@ func validatePermittedToMessage(pool *dbv1.DBPools, ctx context.Context, userId 
 	err = pool.QueryRow(ctx, query, chatId, userId).Scan(&isPermitted)
 	if err != nil {
 		if err == pgx.ErrNoRows {
-			return errors.New("Chat must have 2 members")
+			return errors.New("Chat must have 2 members") //nolint:staticcheck // ST1005: user-facing message
 		}
 		return err
 	}
 
 	if !isPermitted {
-		return errors.New("Not permitted to send messages to this user")
+		return errors.New("Not permitted to send messages to this user") //nolint:staticcheck // ST1005: user-facing message
 	}
 
 	return nil
@@ -645,12 +645,16 @@ func validateSenderPassesAbuseCheck(pool *dbv1.DBPools, ctx context.Context, log
 	}
 
 	url := fmt.Sprintf("%s/attestation/check?wallet=%s", aaoServer, wallet)
-	resp, err := http.Get(url)
+	req, err := http.NewRequestWithContext(ctx, http.MethodGet, url, nil)
+	if err != nil {
+		return err
+	}
+	resp, err := http.DefaultClient.Do(req)
 	if err != nil {
 		logger.Error("Error checking user attestation", zap.Error(err), zap.String("wallet", wallet))
 		return err
 	}
-	defer resp.Body.Close()
+	defer func() { _ = resp.Body.Close() }()
 
 	if resp.StatusCode < 200 || resp.StatusCode >= 300 {
 		logger.Warn("User failed AAO check", zap.Int32("userId", userId), zap.Int("status", resp.StatusCode), zap.String("aaoServer", aaoServer))

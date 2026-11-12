@@ -159,7 +159,11 @@ func (e *EthIndexer) runSubscriptionLoop(ctx context.Context) {
 			// Context cancelled — graceful exit.
 			return
 		}
-		e.connected.Store(false)
+		// A subscription that was established before failing starts a fresh
+		// backoff sequence rather than inheriting the previous one.
+		if e.connected.Swap(false) {
+			backoff = reconnectInitialBackoff
+		}
 		e.logger.Error("subscription loop ended, will reconnect",
 			zap.Error(err),
 			zap.Duration("backoff", backoff),
@@ -398,7 +402,6 @@ func (e *EthIndexer) filterTracked(ctx context.Context, candidates map[common.Ad
 	}
 	return tracked, rows.Err()
 }
-
 
 type balanceUpdate struct {
 	addr  common.Address

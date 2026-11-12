@@ -27,8 +27,12 @@ func initRequestValidator() *RequestValidator {
 		return name
 	}
 	requestValidator.RegisterTagNameFunc(tagNameFunc)
-	requestValidator.RegisterValidation("coin_ticker", isCoinTicker)
-	requestValidator.RegisterValidation("solana_address", isSolanaAddress)
+	if err := requestValidator.RegisterValidation("coin_ticker", isCoinTicker); err != nil {
+		panic(err)
+	}
+	if err := requestValidator.RegisterValidation("solana_address", isSolanaAddress); err != nil {
+		panic(err)
+	}
 	return &RequestValidator{validator: requestValidator}
 }
 
