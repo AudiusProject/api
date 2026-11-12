@@ -945,10 +945,8 @@ func (app *ApiServer) servePlans(c *fiber.Ctx) error {
 func decodeIdList(c *fiber.Ctx) []int32 {
 	var ids []int32
 	for _, b := range c.Request().URI().QueryArgs().PeekMulti("id") {
+		// DecodeHashId accepts both hash ids and plain numeric ids
 		if id, err := trashid.DecodeHashId(string(b)); err == nil {
-			ids = append(ids, int32(id))
-		}
-		if id, err := strconv.Atoi(string(b)); err == nil {
 			ids = append(ids, int32(id))
 		}
 	}

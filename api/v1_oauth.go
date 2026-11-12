@@ -171,14 +171,13 @@ func (app *ApiServer) v1OAuthAuthorize(c *fiber.Ctx) error {
 			app.logger.Error("Failed to query redirect URIs", zap.Error(err))
 			return oauthError(c, fiber.StatusInternalServerError, "server_error", "Failed to validate redirect_uri")
 		}
-		var registeredURIs []string
-		for rows.Next() {
-			var uri string
-			if err := rows.Scan(&uri); err == nil {
-				registeredURIs = append(registeredURIs, uri)
-			}
+		// A partial read must not fall through to the more permissive
+		// unregistered-client validation below, so read errors fail closed.
+		registeredURIs, err := pgx.CollectRows(rows, pgx.RowTo[string])
+		if err != nil {
+			app.logger.Error("Failed to read redirect URIs", zap.Error(err))
+			return oauthError(c, fiber.StatusInternalServerError, "server_error", "Failed to validate redirect_uri")
 		}
-		rows.Close()
 
 		if len(registeredURIs) > 0 {
 			allowed := false

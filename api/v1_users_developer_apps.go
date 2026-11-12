@@ -1,6 +1,7 @@
 package api
 
 import (
+	"context"
 	"crypto/ecdsa"
 	"crypto/rand"
 	"encoding/base64"
@@ -189,17 +190,7 @@ func (app *ApiServer) putV1UsersDeveloperApp(c *fiber.Ctx) error {
 		})
 	}
 
-	// Verify the app belongs to this user
-	var ownerUserID int32
-	err := app.pool.QueryRow(c.Context(), `
-		SELECT user_id FROM developer_apps
-		WHERE LOWER(address) = LOWER($1)
-		  AND is_current = true
-		  AND is_delete = false
-		ORDER BY created_at DESC
-		LIMIT 1
-	`, address).Scan(&ownerUserID)
-	if err != nil || ownerUserID != userID {
+	if !app.developerAppOwnedBy(c.Context(), address, userID) {
 		return c.Status(fiber.StatusNotFound).JSON(fiber.Map{
 			"error": "Developer app not found",
 		})
@@ -297,7 +288,9 @@ func (app *ApiServer) postV1UsersDeveloperApp(c *fiber.Ctx) error {
 		})
 	}
 	address := strings.ToLower(crypto.PubkeyToAddress(privateKey.PublicKey).Hex())
-	apiSecretHex := hex.EncodeToString(privateKey.D.Bytes())
+	// FromECDSA left-pads to 32 bytes; D.Bytes() drops leading zero bytes, which
+	// HexToECDSA would later reject.
+	apiSecretHex := hex.EncodeToString(crypto.FromECDSA(privateKey))
 
 	// Insert into api_keys
 	_, err = app.writePool.Exec(c.Context(), `
@@ -426,17 +419,7 @@ func (app *ApiServer) deleteV1UsersDeveloperApp(c *fiber.Ctx) error {
 	}
 	address = strings.ToLower(address)
 
-	// Verify the app belongs to this user
-	var ownerUserID int32
-	err := app.pool.QueryRow(c.Context(), `
-		SELECT user_id FROM developer_apps
-		WHERE LOWER(address) = LOWER($1)
-		  AND is_current = true
-		  AND is_delete = false
-		ORDER BY created_at DESC
-		LIMIT 1
-	`, address).Scan(&ownerUserID)
-	if err != nil || ownerUserID != userID {
+	if !app.developerAppOwnedBy(c.Context(), address, userID) {
 		return c.Status(fiber.StatusNotFound).JSON(fiber.Map{
 			"error": "Developer app not found",
 		})
@@ -550,17 +533,7 @@ func (app *ApiServer) postV1UsersDeveloperAppRegisterApiKey(c *fiber.Ctx) error 
 		})
 	}
 
-	// Verify the app belongs to this user
-	var ownerUserID int32
-	err := app.pool.QueryRow(c.Context(), `
-		SELECT user_id FROM developer_apps
-		WHERE LOWER(address) = LOWER($1)
-		  AND is_current = true
-		  AND is_delete = false
-		ORDER BY created_at DESC
-		LIMIT 1
-	`, apiKey).Scan(&ownerUserID)
-	if err != nil || ownerUserID != userID {
+	if !app.developerAppOwnedBy(c.Context(), apiKey, userID) {
 		return c.Status(fiber.StatusNotFound).JSON(fiber.Map{
 			"error": "Developer app not found",
 		})
@@ -572,7 +545,7 @@ func (app *ApiServer) postV1UsersDeveloperAppRegisterApiKey(c *fiber.Ctx) error 
 		})
 	}
 
-	_, err = app.writePool.Exec(c.Context(), `
+	_, err := app.writePool.Exec(c.Context(), `
 		INSERT INTO api_keys (api_key, api_secret, rps, rpm)
 		VALUES ($1, $2, 10, 500000)
 		ON CONFLICT (api_key) DO UPDATE SET api_secret = EXCLUDED.api_secret
@@ -617,17 +590,7 @@ func (app *ApiServer) postV1UsersDeveloperAppAccessKeyDeactivate(c *fiber.Ctx) e
 	}
 	apiAccessKey := strings.TrimSpace(body.ApiAccessKey)
 
-	// Verify the app belongs to this user
-	var ownerUserID int32
-	err := app.pool.QueryRow(c.Context(), `
-		SELECT user_id FROM developer_apps
-		WHERE LOWER(address) = LOWER($1)
-		  AND is_current = true
-		  AND is_delete = false
-		ORDER BY created_at DESC
-		LIMIT 1
-	`, address).Scan(&ownerUserID)
-	if err != nil || ownerUserID != userID {
+	if !app.developerAppOwnedBy(c.Context(), address, userID) {
 		return c.Status(fiber.StatusNotFound).JSON(fiber.Map{
 			"error": "Developer app not found",
 		})
@@ -680,17 +643,7 @@ func (app *ApiServer) postV1UsersDeveloperAppAccessKey(c *fiber.Ctx) error {
 	}
 	address = strings.ToLower(address)
 
-	// Verify the app belongs to this user
-	var ownerUserID int32
-	err := app.pool.QueryRow(c.Context(), `
-		SELECT user_id FROM developer_apps
-		WHERE LOWER(address) = LOWER($1)
-		  AND is_current = true
-		  AND is_delete = false
-		ORDER BY created_at DESC
-		LIMIT 1
-	`, address).Scan(&ownerUserID)
-	if err != nil || ownerUserID != userID {
+	if !app.developerAppOwnedBy(c.Context(), address, userID) {
 		return c.Status(fiber.StatusNotFound).JSON(fiber.Map{
 			"error": "Developer app not found",
 		})
@@ -711,7 +664,7 @@ func (app *ApiServer) postV1UsersDeveloperAppAccessKey(c *fiber.Ctx) error {
 	}
 	apiAccessKey := base64.URLEncoding.EncodeToString(apiAccessKeyBytes)
 
-	_, err = app.writePool.Exec(c.Context(), `
+	_, err := app.writePool.Exec(c.Context(), `
 		INSERT INTO api_access_keys (api_key, api_access_key, is_active)
 		VALUES ($1, $2, true)
 	`, address, apiAccessKey)
@@ -723,4 +676,19 @@ func (app *ApiServer) postV1UsersDeveloperAppAccessKey(c *fiber.Ctx) error {
 	}
 
 	return c.JSON(fiber.Map{"api_access_key": apiAccessKey})
+}
+
+// developerAppOwnedBy reports whether the current, non-deleted developer app at
+// address is owned by userID.
+func (app *ApiServer) developerAppOwnedBy(ctx context.Context, address string, userID int32) bool {
+	var ownerUserID int32
+	err := app.pool.QueryRow(ctx, `
+		SELECT user_id FROM developer_apps
+		WHERE LOWER(address) = LOWER($1)
+		  AND is_current = true
+		  AND is_delete = false
+		ORDER BY created_at DESC
+		LIMIT 1
+	`, address).Scan(&ownerUserID)
+	return err == nil && ownerUserID == userID
 }
