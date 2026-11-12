@@ -120,7 +120,10 @@ func getPayoutWallets(ctx context.Context, db database.DBTX, price dbv1.Purchase
 // Checks that all the splits got paid out appropriately for a given purchase.
 func validatePurchase(ctx context.Context, cfg config.Config, db database.DBTX, inst *payment_router.Route, memo parsedPurchaseMemo, timestamp time.Time) (*bool, error) {
 	var currentBlockNumber int
-	db.QueryRow(ctx, `SELECT MAX(number) FROM blocks`).Scan(&currentBlockNumber)
+	if err := db.QueryRow(ctx, `SELECT COALESCE(MAX(number), 0) FROM blocks`).Scan(&currentBlockNumber); err != nil {
+		// Leave the purchase pending (nil) so it gets revalidated later.
+		return nil, fmt.Errorf("failed to get current block number: %w", err)
+	}
 	if memo.ValidAfterBlocknumber > currentBlockNumber {
 		// Might not be valid _yet_, needs to wait until Core catches up
 		return nil, nil

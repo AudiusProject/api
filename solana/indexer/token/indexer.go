@@ -61,29 +61,38 @@ func (d *Indexer) Start(ctx context.Context) {
 
 	// Set up a worker pool for handling messages to keep up with high throughput
 	workerChan := make(chan *pb.SubscribeUpdate, WORKER_CHANNEL_SIZE)
+	// Workers exit when Start returns rather than on close(workerChan): gRPC
+	// receive goroutines may still be sending at that point, and a send on a
+	// closed channel panics.
+	workerCtx, stopWorkers := context.WithCancel(ctx)
+	defer stopWorkers()
 	for i := range WORKER_COUNT {
 		go func(workerID int) {
-			for updateMessage := range workerChan {
-				err := d.HandleUpdate(ctx, updateMessage)
-				if err != nil {
-					d.logger.Error("failed to handle token update", zap.Int("workerID", workerID), zap.Error(err))
+			for {
+				select {
+				case <-workerCtx.Done():
+					return
+				case updateMessage := <-workerChan:
+					err := d.HandleUpdate(ctx, updateMessage)
+					if err != nil {
+						d.logger.Error("failed to handle token update", zap.Int("workerID", workerID), zap.Error(err))
 
-					// Add messages that failed to process to the retry queue
-					if err := common.AddToRetryQueue(ctx, d.pool, NAME, updateMessage, err.Error()); err != nil {
-						d.logger.Error("failed to add to retry queue", zap.Error(err))
+						// Add messages that failed to process to the retry queue
+						if err := common.AddToRetryQueue(ctx, d.pool, NAME, updateMessage, err.Error()); err != nil {
+							d.logger.Error("failed to add to retry queue", zap.Error(err))
+						}
 					}
 				}
 			}
 		}(i)
 	}
 
-	// Ensure all gRPC clients are closed on shutdown and that the workers are closed
+	// Ensure all gRPC clients are closed on shutdown
 	var grpcClients []common.GrpcClient
 	defer (func() {
 		for _, client := range grpcClients {
 			client.Close()
 		}
-		close(workerChan)
 	})()
 
 	// Post messages to the worker pool

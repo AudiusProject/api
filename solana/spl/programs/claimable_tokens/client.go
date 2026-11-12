@@ -43,14 +43,20 @@ func (cc *ClaimableTokensClient) CreateUserBank(
 		SetFeePayer(payer.PublicKey()).
 		AddInstruction(inst.Build())
 
-	cc.sender.AddPriorityFees(ctx, tx, spl.AddPriorityFeesParams{
+	err = cc.sender.AddPriorityFees(ctx, tx, spl.AddPriorityFeesParams{
 		Percentile: 99,
 		Multiplier: 1,
 	})
-	cc.sender.AddComputeBudgetLimit(ctx, tx, spl.AddComputeBudgetLimitParams{
+	if err != nil {
+		return err
+	}
+	err = cc.sender.AddComputeBudgetLimit(ctx, tx, spl.AddComputeBudgetLimitParams{
 		Padding:    1000,
 		Multiplier: 1.2,
 	})
+	if err != nil {
+		return err
+	}
 	_, err = cc.sender.SendTransactionWithRetries(ctx, tx, rpc.CommitmentConfirmed, rpc.TransactionOpts{})
 	if err != nil {
 		return err

@@ -53,12 +53,6 @@ func (j *UpdateAggregatesJob) updateScores(ctx context.Context) error {
 	startTime := time.Now()
 	j.logger.Info("Starting user score update job")
 
-	type UserScoreRecord struct {
-		UserID    int32
-		CreatedAt time.Time
-		Score     int64
-	}
-
 	var lastUserID *int32
 	var lastCreatedAt *time.Time
 	processedCount := 0
@@ -184,7 +178,7 @@ func (j *UpdateAggregatesJob) updateScores(ctx context.Context) error {
 		score := int64(0)
 		userID := int32(0)
 		fetchedRows := 0
-		pgx.ForEachRow(res, []any{&userID, &createdAt, &score}, func() error {
+		_, err = pgx.ForEachRow(res, []any{&userID, &createdAt, &score}, func() error {
 			fetchedRows++
 			// We get dupes on some user_ids due to multiple is_current user rows.
 			// Upsert query will fail if we don't remove them.
@@ -195,7 +189,10 @@ func (j *UpdateAggregatesJob) updateScores(ctx context.Context) error {
 			}
 			return nil
 		})
-		res.Close()
+		if err != nil {
+			j.logger.Error("Failed to read batch", zap.Error(err))
+			return err
+		}
 
 		lastCreatedAt = &createdAt
 		lastUserID = &userID

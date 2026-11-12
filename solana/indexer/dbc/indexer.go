@@ -229,7 +229,9 @@ func (d *Indexer) HandleUpdate(ctx context.Context, msg *pb.SubscribeUpdate) err
 				tx = common.ResolveLookupTables(ctx, d.rpcClient, tx, txRes.Meta)
 
 				// Process the transaction
-				err = d.processTransaction(ctx, txRes.Slot, tx)
+				if err := d.processTransaction(ctx, txRes.Slot, tx); err != nil {
+					return fmt.Errorf("failed to process migration transaction %s: %w", txSig.String(), err)
+				}
 			}
 		}
 	}

@@ -39,7 +39,9 @@ func (data *Attestation) UnmarshalWithDecoder(decoder *bin.Decoder) error {
 	data.Claim.RecipientEthAddress = "0x" + hex.EncodeToString(recipientBytes)
 
 	// Read separator _
-	decoder.SkipBytes(uint(1))
+	if err := decoder.SkipBytes(uint(1)); err != nil {
+		return err
+	}
 
 	amount, err := decoder.ReadUint64(binary.LittleEndian)
 	if err != nil {
@@ -48,7 +50,9 @@ func (data *Attestation) UnmarshalWithDecoder(decoder *bin.Decoder) error {
 	data.Claim.Amount = amount
 
 	// Read separator _
-	decoder.SkipBytes(uint(1))
+	if err := decoder.SkipBytes(uint(1)); err != nil {
+		return err
+	}
 
 	disbursementIdBytes := []byte{}
 	bytesLeft := 32
@@ -81,10 +85,14 @@ func (data *Attestation) UnmarshalWithDecoder(decoder *bin.Decoder) error {
 	}
 
 	// Skip unused bytes
-	decoder.SkipBytes(uint(bytesLeft))
+	if err := decoder.SkipBytes(uint(bytesLeft)); err != nil {
+		return err
+	}
 
 	// claim padding
-	decoder.SkipBytes(uint(45))
+	if err := decoder.SkipBytes(uint(45)); err != nil {
+		return err
+	}
 
 	operatorBytes, err := decoder.ReadBytes(20)
 	if err != nil {
