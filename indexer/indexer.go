@@ -206,6 +206,10 @@ func (ci *CoreIndexer) startParityJobs(ctx context.Context) {
 	jobs.NewPrunePlaysJob(ci.Config, ci.pool).
 		ScheduleEvery(ctx, 30*time.Second)
 
+	// Backfills 250k play ids per run, then keeps up with new plays.
+	jobs.NewCityPlaysJob(ci.Config, ci.pool).
+		ScheduleEvery(ctx, 15*time.Second)
+
 	jobs.NewUserListeningHistoryJob(ci.Config, ci.pool).
 		ScheduleEvery(ctx, 5*time.Second)
 

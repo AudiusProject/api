@@ -7038,6 +7038,72 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/sales_aggregate_response"
+  /users/{id}/listener_cities:
+    get:
+      tags:
+        - users
+      description:
+        Gets the cities whose listeners played the user's tracks the most.
+        Plays by the user and plays with no known city are not counted.
+        Locations come from the listener's IP address and can be wrong for
+        VPN and mobile carrier traffic. Only the user or one of their
+        managers can call this.
+      operationId: Get Listener Cities
+      security:
+        - {}
+        - OAuth2:
+            - read
+      parameters:
+        - name: id
+          in: path
+          description: A User ID
+          required: true
+          schema:
+            type: string
+        - name: time
+          in: query
+          description:
+            Time range. week is the last 7 UTC days including today, month
+            the last 30. all covers every play since location rollups began
+            (plays older than about 400 days were already pruned).
+          schema:
+            type: string
+            default: month
+            enum:
+              - week
+              - month
+              - all
+        - name: limit
+          in: query
+          description: The number of cities to return (max 50)
+          schema:
+            type: integer
+            default: 10
+        - name: user_id
+          in: query
+          description: The user ID of the user making the request
+          schema:
+            type: string
+        - name: Encoded-Data-Message
+          in: header
+          description: The data that was signed by the user for signature recovery
+          schema:
+            type: string
+        - name: Encoded-Data-Signature
+          in: header
+          description: The signature of data, used for signature recovery
+          schema:
+            type: string
+      responses:
+        "200":
+          description: Success
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/listener_cities_response"
+        "403":
+          description: Not the user or one of their managers
+          content: {}
   /users/{id}/sales/download:
     get:
       tags:
@@ -13762,6 +13828,13 @@ components:
           type: integer
           description: The reward amount
           example: 100
+    listener_cities_response:
+      type: object
+      properties:
+        data:
+          type: array
+          items:
+            $ref: "#/components/schemas/listener_city"
     sales_aggregate_response:
       type: object
       properties:
@@ -15728,6 +15801,24 @@ components:
           type: array
           items:
             $ref: "#/components/schemas/challenge_response"
+    listener_city:
+      required:
+        - city
+        - region
+        - country
+        - play_count
+      type: object
+      properties:
+        city:
+          type: string
+        region:
+          type: string
+          description: Region or state name, empty when unknown
+        country:
+          type: string
+          description: Country name, empty when unknown
+        play_count:
+          type: integer
     sales_aggregate:
       required:
         - content_id
