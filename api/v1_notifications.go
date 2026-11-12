@@ -83,6 +83,25 @@ var unsupportedNotificationTypes = []string{
 	"remix",
 }
 
+// Shipped clients throw on notification types their generated SDK does not
+// know, which empties the whole list. Newer types are returned only when the
+// caller asks for them in `types`.
+var optInNotificationTypes = []string{
+	"weekly_rotation_featured",
+	"weekly_artist_recap",
+	"trending_genre",
+}
+
+func excludedNotificationTypes(requested []string) []string {
+	excluded := append([]string{}, unsupportedNotificationTypes...)
+	for _, t := range optInNotificationTypes {
+		if !slices.Contains(requested, t) {
+			excluded = append(excluded, t)
+		}
+	}
+	return excluded
+}
+
 // Share visibility rules between the list and badge. Count only notifications
 // that the list can display, after bounding the candidate scan.
 const notificationContentJoinsSQL = `
@@ -263,7 +282,7 @@ FROM (
 			"limit":             notificationUnreadPollLimit,
 			"candidate_limit":   notificationReadCandidateLimit,
 			"types":             params.Types,
-			"unsupported_types": unsupportedNotificationTypes,
+			"unsupported_types": excludedNotificationTypes(params.Types),
 		}).Scan(&unreadCount)
 	})
 	if err != nil {
@@ -624,7 +643,7 @@ limit @limit::int
 		"types":             params.Types,
 		"group_id_offset":   params.GroupID,
 		"timestamp_offset":  params.Timestamp,
-		"unsupported_types": unsupportedNotificationTypes,
+		"unsupported_types": excludedNotificationTypes(params.Types),
 	}
 
 	if usesCandidateLimit {

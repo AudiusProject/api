@@ -910,3 +910,49 @@ func TestV1Notifications_UnreadIgnoresOnlyHiddenNotifications(t *testing.T) {
 		}
 	}
 }
+
+func TestV1Notifications_OptInTypesHiddenUnlessRequested(t *testing.T) {
+	app := emptyTestApp(t)
+
+	fixtures := database.FixtureMap{
+		"notification": []map[string]any{
+			{
+				"id":        1,
+				"specifier": "1",
+				"group_id":  "weekly_rotation:2026-46:1",
+				"type":      "weekly_rotation",
+				"user_ids":  []int{1},
+				"data":      []byte(`{"year": 2026, "week": 46}`),
+				"timestamp": time.Now().Add(-2 * time.Hour),
+			},
+			{
+				"id":        2,
+				"specifier": "1",
+				"group_id":  "weekly_artist_recap:2026-45:1",
+				"type":      "weekly_artist_recap",
+				"user_ids":  []int{1},
+				"data":      []byte(`{"year": 2026, "week": 45, "play_count": 2}`),
+				"timestamp": time.Now().Add(-1 * time.Hour),
+			},
+		},
+	}
+	database.Seed(app.pool.Replicas[0], fixtures)
+
+	userPath := "/v1/notifications/" + trashid.MustEncodeHashID(1)
+
+	status, body := testGet(t, app, userPath)
+	assert.Equal(t, 200, status)
+	jsonAssert(t, body, map[string]any{
+		"data.notifications.#":      1,
+		"data.notifications.0.type": "weekly_rotation",
+		"data.unread_count":         1,
+	})
+
+	status, body = testGet(t, app, userPath+"?types=weekly_artist_recap&types=weekly_rotation")
+	assert.Equal(t, 200, status)
+	jsonAssert(t, body, map[string]any{
+		"data.notifications.#":      2,
+		"data.notifications.0.type": "weekly_artist_recap",
+		"data.unread_count":         2,
+	})
+}
