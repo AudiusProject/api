@@ -50,6 +50,9 @@ func (app *ApiServer) v1PlaylistsTop(c *fiber.Ctx) error {
 		OmitTracks:   true,
 		AuthedWallet: app.tryGetAuthedWallet(c),
 	})
+	if err != nil {
+		return err
+	}
 
 	return v1PlaylistsResponse(c, playlists)
 }

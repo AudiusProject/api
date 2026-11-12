@@ -14,7 +14,7 @@ type GetTracksRecentCommentsParams struct {
 func (app *ApiServer) v1TracksRecentComments(c *fiber.Ctx) error {
 	myId := app.getMyId(c)
 
-	var params = GetTracksRecentPremiumParams{}
+	var params = GetTracksRecentCommentsParams{}
 	if err := app.ParseAndValidateQueryParams(c, &params); err != nil {
 		return err
 	}

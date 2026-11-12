@@ -3,13 +3,14 @@ package dbv1
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 
 	"github.com/jackc/pgx/v5"
 )
 
 type FullAccount struct {
-	User            User              `json:"user"`
+	User            User                  `json:"user"`
 	Playlists       []FullAccountPlaylist `json:"playlists"`
 	PlaylistLibrary PlaylistLibrary       `json:"playlist_library"`
 	TrackSaveCount  int64                 `json:"track_save_count"`
@@ -41,6 +42,10 @@ func (q *Queries) FullAccount(ctx context.Context, wallet string) (*FullAccount,
 	}
 
 	accountFields, err := q.GetExtendedAccountFields(ctx, userId)
+	// A missing aggregate_user row yields no extended fields; use defaults
+	if err != nil && !errors.Is(err, pgx.ErrNoRows) {
+		return nil, err
+	}
 	playlistLibrary := PlaylistLibrary{}
 	if accountFields.PlaylistLibrary != nil {
 		err = json.Unmarshal(accountFields.PlaylistLibrary, &playlistLibrary)

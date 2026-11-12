@@ -23,11 +23,6 @@ import (
 	"go.uber.org/zap"
 )
 
-type CoinRewardParams struct {
-	Mint   string
-	Amount uint64
-}
-
 func (app *ApiServer) v1CoinsPostRedeem(c *fiber.Ctx) error {
 	logger := app.requestLogger(c)
 	// #region Validate Params
@@ -56,7 +51,7 @@ func (app *ApiServer) v1CoinsPostRedeem(c *fiber.Ctx) error {
 
 	mint, err := solana.PublicKeyFromBase58(mintString)
 	if err != nil {
-		return fmt.Errorf("Mint is invalid: %s", mintString)
+		return fiber.NewError(fiber.StatusBadRequest, "Mint is invalid: "+mintString)
 	}
 
 	// Derive claim authority key for mint
@@ -73,10 +68,6 @@ func (app *ApiServer) v1CoinsPostRedeem(c *fiber.Ctx) error {
 	claimAuthorityKey, err := oap_common.EthToEthKey(claimAuthorityPrivKeyString)
 	if err != nil {
 		return fiber.NewError(fiber.StatusInternalServerError, "Failed to convert private key: "+err.Error())
-	}
-
-	if err != nil {
-		return fmt.Errorf("failed to get claim authority: %w", err)
 	}
 
 	// Lookup user
@@ -258,6 +249,9 @@ func (app *ApiServer) v1CoinsPostRedeem(c *fiber.Ctx) error {
 	}
 
 	claimMessage, err := rewardClaim.Compile()
+	if err != nil {
+		return fmt.Errorf("failed to compile reward claim: %w", err)
+	}
 
 	attestations := make([]SenderAttestation, 0)
 
@@ -295,10 +289,12 @@ func (app *ApiServer) v1CoinsPostRedeem(c *fiber.Ctx) error {
 		}
 
 		claimAuthoritySignature, err := oap_rewards.SignClaim(claimAuthorityRewardClaim, claimAuthorityKey)
-		signatureBytes, err := hex.DecodeString(strings.TrimPrefix(claimAuthoritySignature, "0x"))
-
 		if err != nil {
 			return fmt.Errorf("failed to sign claim with claim authority: %w", err)
+		}
+		signatureBytes, err := hex.DecodeString(strings.TrimPrefix(claimAuthoritySignature, "0x"))
+		if err != nil {
+			return fmt.Errorf("failed to decode claim authority signature: %w", err)
 		}
 
 		attestation := SenderAttestation{
