@@ -269,8 +269,6 @@ func NewApiServer(config config.Config) *ApiServer {
 	}
 	openAudioPool := NewOpenAudioPool(openAudioURLs, httpClient)
 
-	skipAuthCheck, _ := strconv.ParseBool(os.Getenv("skipAuthCheck"))
-
 	// Initialize metrics collector if writePool is available
 	var metricsCollector *MetricsCollector
 	var rateLimitMiddleware *RateLimitMiddleware
@@ -308,7 +306,6 @@ func NewApiServer(config config.Config) *ApiServer {
 		commsRpcProcessor:       commsRpcProcessor,
 		env:                     config.Env,
 		audiusAppUrl:            config.AudiusAppUrl,
-		skipAuthCheck:           skipAuthCheck,
 		pool:                    pool,
 		writePool:               writePool,
 		queries:                 dbv1.New(pool),
