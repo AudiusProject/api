@@ -75,10 +75,10 @@ type Config struct {
 	AudiusApiSecret string
 	// Shared secret for notifications-dashboard (or other internal jobs) to read notification campaign push open counts
 	NotificationCampaignOpenMetricsSecret string
-	// Audius account user id. In the public remix-contests list, hosts followed
-	// by this account sort ahead of other hosts within both the open and ended
-	// groups. Zero (the default when the env var is unset) disables follow-based
-	// prioritization (the list reduces to open-before-ended).
+	// Audius account user id. In the public remix-contests list, this account
+	// and the hosts it follows sort ahead of other hosts within both the open
+	// and ended groups. Defaults to the Audius account in prod; zero elsewhere
+	// unless featuredAudienceUserId is set.
 	FeaturedAudienceUserID int32
 
 	// Genesis migration dual-write queue.
@@ -270,6 +270,7 @@ func init() {
 	case "prod":
 		fallthrough
 	case "production":
+		Cfg.FeaturedAudienceUserID = 51
 		Cfg.OpenAudioURLs = []string{
 			"rpc.audius.co",
 		}
