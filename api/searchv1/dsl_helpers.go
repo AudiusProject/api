@@ -38,6 +38,14 @@ func sortWithField(innerQuery map[string]any, sortField, direction string) strin
 	return dsl
 }
 
+// countScoreFunction scales a score by count+1. A plain field_value_factor
+// multiplies by the raw count, which zeroes out anything with a count of 0
+// and buries it below every other match, exact or not.
+func countScoreFunction(field string) string {
+	source := fmt.Sprintf("(doc['%s'].size() == 0 ? 0 : doc['%s'].value) + 1", field, field)
+	return fmt.Sprintf(`"script_score": {"script": {"source": %q}}`, source)
+}
+
 func BuildFunctionScoreDSL(scoreField string, weight float64, innerQuery map[string]any) string {
 	innerJson, err := json.Marshal(innerQuery)
 	if err != nil {
@@ -51,10 +59,7 @@ func BuildFunctionScoreDSL(scoreField string, weight float64, innerQuery map[str
 				"query": %s,
 				"functions": [
 					{
-						"field_value_factor": {
-							"field": %q,
-							"missing": 0
-						},
+						%s,
 						"weight": %g
 					}
 				],
@@ -62,7 +67,7 @@ func BuildFunctionScoreDSL(scoreField string, weight float64, innerQuery map[str
 				"score_mode": "multiply"
 			}
 		}
-	}`, innerJson, scoreField, weight)
+	}`, innerJson, countScoreFunction(scoreField), weight)
 
 	return dsl
 }
