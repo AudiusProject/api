@@ -490,6 +490,78 @@ func TestRemixContestsFollowFilterIgnoresStaleRows(t *testing.T) {
 	})
 }
 
+// TestRemixContestsFeaturesAudiusAndVerifiedHosts: a contest hosted by the
+// Audius account or by a verified host sorts ahead of other open contests,
+// even with fewer entries.
+func TestRemixContestsFeaturesAudiusAndVerifiedHosts(t *testing.T) {
+	app := emptyTestApp(t)
+
+	audiusUserID := 9300
+	verifiedHostID := 9301
+	plainHostID := 9302
+	remixerID := 9303
+
+	audiusTrackID := 8601
+	verifiedTrackID := 8602
+	plainTrackID := 8603
+
+	start := parseTime(t, "2024-01-02")
+	inWindow := parseTime(t, "2024-01-03")
+	end := parseTime(t, "2099-01-01")
+
+	fixtures := database.FixtureMap{
+		"events": []map[string]any{
+			{
+				"event_id": 801, "event_type": "remix_contest", "entity_type": "track",
+				"entity_id": plainTrackID, "user_id": plainHostID,
+				"created_at": start, "end_date": end,
+			},
+			{
+				"event_id": 802, "event_type": "remix_contest", "entity_type": "track",
+				"entity_id": verifiedTrackID, "user_id": verifiedHostID,
+				"created_at": start, "end_date": end,
+			},
+			{
+				"event_id": 803, "event_type": "remix_contest", "entity_type": "track",
+				"entity_id": audiusTrackID, "user_id": audiusUserID,
+				"created_at": start, "end_date": end,
+			},
+		},
+		"users": []map[string]any{
+			{"user_id": audiusUserID, "handle": "audius"},
+			{"user_id": verifiedHostID, "handle": "verified_host", "is_verified": true},
+			{"user_id": plainHostID, "handle": "plain_host"},
+			{"user_id": remixerID, "handle": "remixer"},
+		},
+		"tracks": []map[string]any{
+			{"track_id": audiusTrackID, "owner_id": audiusUserID, "created_at": start},
+			{"track_id": verifiedTrackID, "owner_id": verifiedHostID, "created_at": start},
+			{"track_id": plainTrackID, "owner_id": plainHostID, "created_at": start},
+			{"track_id": 8611, "owner_id": remixerID, "created_at": inWindow},
+			{"track_id": 8612, "owner_id": remixerID, "created_at": inWindow},
+		},
+		"remixes": []map[string]any{
+			{"parent_track_id": plainTrackID, "child_track_id": 8611},
+			{"parent_track_id": plainTrackID, "child_track_id": 8612},
+		},
+	}
+	database.Seed(app.pool.Replicas[0], fixtures)
+
+	prev := config.Cfg.FeaturedAudienceUserID
+	config.Cfg.FeaturedAudienceUserID = int32(audiusUserID)
+	t.Cleanup(func() { config.Cfg.FeaturedAudienceUserID = prev })
+
+	status, body := testGet(t, app, "/v1/events/remix-contests")
+	assert.Equal(t, 200, status)
+
+	jsonAssert(t, body, map[string]any{
+		"data.#":          3,
+		"data.0.event_id": trashid.MustEncodeHashID(802), // verified host, 0 entries
+		"data.1.event_id": trashid.MustEncodeHashID(803), // Audius account, 0 entries
+		"data.2.event_id": trashid.MustEncodeHashID(801), // 2 entries
+	})
+}
+
 // TestRemixContestsExcludesUnavailableContent covers server-side filtering
 // of contests whose track or host is not in a publishable state. The
 // frontend used to drop these on the client (the "deleted accounts surface

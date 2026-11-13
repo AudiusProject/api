@@ -18,13 +18,14 @@ type GetRemixContestsParams struct {
 
 // v1EventsRemixContests returns remix-contest events from the events table.
 // Sort priority:
-//  1. Open contests whose host is followed by the Audius account.
-//  2. Open contests whose host is not followed by the Audius account.
-//  3. Ended contests whose host is followed by the Audius account.
-//  4. Ended contests whose host is not followed by the Audius account.
+//  1. Open contests with a featured host.
+//  2. Open contests with any other host.
+//  3. Ended contests with a featured host.
+//  4. Ended contests with any other host.
 //
-// The Audius account is config.Cfg.FeaturedAudienceUserID; 0 disables the
-// follow-based tiebreak (groups collapse to open-vs-ended only).
+// A featured host is verified, is the Audius account, or is followed by the
+// Audius account. The Audius account is config.Cfg.FeaturedAudienceUserID;
+// 0 leaves verified as the only signal.
 // Within each group, results are sorted by entry count descending, then by
 // the active-first / soonest-ending sort, then event_id ASC as a stable tiebreak.
 // Supports pagination and an optional `status` filter (active | ended | all).
@@ -132,9 +133,10 @@ func (app *ApiServer) v1EventsRemixContests(c *fiber.Ctx) error {
 		ORDER BY
 			-- Primary: open (0) before ended (1).
 			CASE WHEN e.end_date IS NULL OR e.end_date > NOW() THEN 0 ELSE 1 END ASC,
-			-- Secondary: Audius-followed hosts (0) before unfollowed (1).
-			-- When @audius_user_id is 0 the tiebreak collapses (all rows score 1).
+			-- Secondary: featured hosts (0) before the rest (1).
 			CASE
+				WHEN u.is_verified THEN 0
+				WHEN @audius_user_id::int4 != 0 AND e.user_id = @audius_user_id::int4 THEN 0
 				WHEN @audius_user_id::int4 != 0
 					AND EXISTS (
 						SELECT 1 FROM follows f
