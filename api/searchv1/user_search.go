@@ -108,10 +108,7 @@ func buildUserFunctionScoreDSL(followerWeight float64, queryString string, inner
 				"query": %s,
 				"functions": [
 					{
-						"field_value_factor": {
-							"field": "follower_count",
-							"missing": 0
-						},
+						%s,
 						"weight": %g
 					},
 					{
@@ -147,7 +144,7 @@ func buildUserFunctionScoreDSL(followerWeight float64, queryString string, inner
 				"score_mode": "multiply"
 			}
 		}
-	}`, innerJson, followerWeight, queryNoSpaces, queryNoSpaces)
+	}`, innerJson, countScoreFunction("follower_count"), followerWeight, queryNoSpaces, queryNoSpaces)
 
 	return dsl
 }

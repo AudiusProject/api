@@ -36,6 +36,16 @@ func TestSearch(t *testing.T) {
 				"handle":  "find_infix_works",
 				"name":    "asdf",
 			},
+			{
+				"user_id": 1005,
+				"handle":  "zerofans",
+				"name":    "zerofans",
+			},
+			{
+				"user_id": 1006,
+				"handle":  "zerofansclub",
+				"name":    "zerofansclub",
+			},
 		},
 		"tracks": {
 			{
@@ -151,6 +161,7 @@ func TestSearch(t *testing.T) {
 		},
 		"follows": {
 			{"follower_user_id": 1001, "followee_user_id": 1002},
+			{"follower_user_id": 1001, "followee_user_id": 1006},
 		},
 		"reposts": {
 			{
@@ -208,6 +219,17 @@ func TestSearch(t *testing.T) {
 			"data.#":        2,
 			"data.0.handle": "StereoDave",
 			"data.1.handle": "StereoSteve",
+		})
+	}
+
+	// users: an exact handle match with no followers still ranks first
+	{
+		status, body := testGet(t, app, "/v1/users/search?query=zerofans")
+		require.Equal(t, 200, status)
+		jsonAssert(t, body, map[string]any{
+			"data.#":        2,
+			"data.0.handle": "zerofans",
+			"data.1.handle": "zerofansclub",
 		})
 	}
 
