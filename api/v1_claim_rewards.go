@@ -830,6 +830,9 @@ func (app *ApiServer) v1ClaimRewards(c *fiber.Ctx) error {
 	hashId := body.UserID
 	challengeId := body.ChallengeID
 	specifier := body.Specifier
+	if challengeId != "" && !isTrendingReward(challengeId) {
+		return fiber.NewError(fiber.StatusGone, "Only trending rewards can be claimed")
+	}
 
 	if hashId == "" {
 		return fiber.NewError(fiber.StatusBadRequest, "Missing user ID")

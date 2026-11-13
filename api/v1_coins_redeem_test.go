@@ -1,6 +1,7 @@
 package api
 
 import (
+	"context"
 	"testing"
 	"time"
 
@@ -52,73 +53,14 @@ func TestV1CoinsRedeem(t *testing.T) {
 
 	database.Seed(app.pool.Replicas[0], fixtures)
 
-	// Test /coins/:mint/redeem endpoint - should always return amount: 1
-	t.Run("GET /coins/:mint/redeem returns amount 1", func(t *testing.T) {
-		status, body := testGet(t, app, "/v1/coins/TestMint123/redeem")
-		assert.Equal(t, 200, status)
-
-		jsonAssert(t, body, map[string]any{
-			"amount": 1,
-		})
-	})
-
-	// Test /coins/:mint/redeem/:code endpoint with valid code
-	t.Run("GET /coins/:mint/redeem/:code with valid code", func(t *testing.T) {
-		status, body := testGet(t, app, "/v1/coins/TestMint123/redeem/CODE123")
-		assert.Equal(t, 200, status)
-
-		jsonAssert(t, body, map[string]any{
-			"code":   "CODE123",
-			"amount": 100,
-		})
-	})
-
-	// Test with another valid code
-	t.Run("GET /coins/:mint/redeem/:code with another valid code", func(t *testing.T) {
-		status, body := testGet(t, app, "/v1/coins/TestMint123/redeem/CODE456")
-		assert.Equal(t, 200, status)
-
-		jsonAssert(t, body, map[string]any{
-			"code":   "CODE456",
-			"amount": 250,
-		})
-	})
-
-	// Test with used code
-	t.Run("GET /coins/:mint/redeem/:code with used code returns 400 with error", func(t *testing.T) {
-		status, body := testGet(t, app, "/v1/coins/TestMint123/redeem/USEDCODE")
-		assert.Equal(t, 400, status)
-
-		jsonAssert(t, body, map[string]any{
-			"error": "used",
-		})
-	})
-
-	// Test with non-existent code
-	t.Run("GET /coins/:mint/redeem/:code with non-existent code returns 400", func(t *testing.T) {
-		status, body := testGet(t, app, "/v1/coins/TestMint123/redeem/NONEXISTENT")
-		assert.Equal(t, 400, status)
-		jsonAssert(t, body, map[string]any{
-			"error": "invalid",
-		})
-	})
-
-	// Test with wrong mint for existing code
-	t.Run("GET /coins/:mint/redeem/:code with wrong mint returns 400", func(t *testing.T) {
-		status, body := testGet(t, app, "/v1/coins/WrongMint/redeem/CODE123")
-		assert.Equal(t, 400, status)
-		jsonAssert(t, body, map[string]any{
-			"error": "invalid",
-		})
-	})
-
-	// Test redeem endpoint with different mint
-	t.Run("GET /coins/:mint/redeem works for any mint", func(t *testing.T) {
-		status, body := testGet(t, app, "/v1/coins/AnyMintAddress/redeem")
-		assert.Equal(t, 200, status)
-
-		jsonAssert(t, body, map[string]any{
-			"amount": 1,
-		})
-	})
+	for _, path := range []string{"/v1/coins/TestMint123/redeem", "/v1/coins/TestMint123/redeem/CODE123", "/v1/coins/TestMint123/redeem/USEDCODE"} {
+		status, _ := testGet(t, app, path)
+		assert.Equal(t, 410, status)
+		status, _ = testPost(t, app, path, []byte(`{}`), nil)
+		assert.Equal(t, 410, status)
+	}
+	var remaining int
+	err := app.pool.QueryRow(context.Background(), "SELECT remaining_uses FROM reward_codes WHERE code = 'CODE123'").Scan(&remaining)
+	assert.NoError(t, err)
+	assert.Equal(t, 1, remaining)
 }

@@ -1,14 +1,10 @@
 package api
 
 import (
-	"context"
 	"crypto/rand"
-	"encoding/json"
 	"fmt"
 	"testing"
-	"time"
 
-	"api.audius.co/database"
 	"github.com/gagliardetto/solana-go"
 	"github.com/stretchr/testify/assert"
 )
@@ -52,188 +48,10 @@ func buildSignedMemoTx(t *testing.T, privKey solana.PrivateKey, timestamp int64)
 	return encoded
 }
 
-func TestV1CreateRewardCode(t *testing.T) {
-	app := emptyTestApp(t)
-
-	fixtures := database.FixtureMap{
-		"artist_coins": {
-			{
-				"ticker":     "TEST",
-				"decimals":   8,
-				"user_id":    1,
-				"mint":       "TestMint123",
-				"name":       "Test Coin",
-				"created_at": time.Now().Add(-time.Second),
-			},
-		},
-	}
-
-	database.Seed(app.pool.Replicas[0], fixtures)
-
-	originalKeys := app.config.RewardCodeAuthorizedKeys
-	defer func() {
-		app.config.RewardCodeAuthorizedKeys = originalKeys
-	}()
-
-	t.Run("Successfully creates a reward code", func(t *testing.T) {
-		privKey, err := solana.NewRandomPrivateKey()
-		assert.NoError(t, err)
-		app.config.RewardCodeAuthorizedKeys = []string{privKey.PublicKey().String()}
-
-		signedTx := buildSignedMemoTx(t, privKey, time.Now().UnixMilli())
-
-		body, err := json.Marshal(CreateRewardCodeRequest{
-			SignedTransaction: signedTx,
-			Mint:              "TestMint123",
-			Amount:            500,
-		})
-		assert.NoError(t, err)
-
-		var resp CreateRewardCodeResponse
-		status, respBody := testPost(t, app, "/v1/rewards/code", body, map[string]string{
-			"Content-Type": "application/json",
-		}, &resp)
-		assert.Equal(t, 201, status, "Response body: %s", string(respBody))
-		assert.Equal(t, "TestMint123", resp.Mint)
-		assert.Equal(t, int64(500), resp.Amount)
-		assert.Len(t, resp.Code, codeLength)
-
-		var dbCode string
-		var dbRemainingUses int
-		err = app.pool.QueryRow(context.Background(),
-			"SELECT code, remaining_uses FROM reward_codes WHERE code = $1", resp.Code).
-			Scan(&dbCode, &dbRemainingUses)
-		assert.NoError(t, err)
-		assert.Equal(t, 1, dbRemainingUses)
-	})
-
-	t.Run("Successfully creates a reward code with second authorized signer", func(t *testing.T) {
-		_, err := solana.NewRandomPrivateKey()
-		assert.NoError(t, err)
-		privKey2, err := solana.NewRandomPrivateKey()
-		assert.NoError(t, err)
-		other, err := solana.NewRandomPrivateKey()
-		assert.NoError(t, err)
-		app.config.RewardCodeAuthorizedKeys = []string{other.PublicKey().String(), privKey2.PublicKey().String()}
-
-		signedTx := buildSignedMemoTx(t, privKey2, time.Now().UnixMilli())
-
-		body, err := json.Marshal(CreateRewardCodeRequest{
-			SignedTransaction: signedTx,
-			Mint:              "TestMint123",
-			Amount:            500,
-		})
-		assert.NoError(t, err)
-
-		var resp CreateRewardCodeResponse
-		status, respBody := testPost(t, app, "/v1/rewards/code", body, map[string]string{
-			"Content-Type": "application/json",
-		}, &resp)
-		assert.Equal(t, 201, status, "Response body: %s", string(respBody))
-	})
-
-	t.Run("Unauthorized signer returns 403", func(t *testing.T) {
-		signerKey, err := solana.NewRandomPrivateKey()
-		assert.NoError(t, err)
-		otherKey, err := solana.NewRandomPrivateKey()
-		assert.NoError(t, err)
-		// Authorize a different key than the signer
-		app.config.RewardCodeAuthorizedKeys = []string{otherKey.PublicKey().String()}
-
-		signedTx := buildSignedMemoTx(t, signerKey, time.Now().UnixMilli())
-
-		body, err := json.Marshal(CreateRewardCodeRequest{
-			SignedTransaction: signedTx,
-			Mint:              "TestMint123",
-			Amount:            100,
-		})
-		assert.NoError(t, err)
-
-		status, _ := testPost(t, app, "/v1/rewards/code", body, map[string]string{
-			"Content-Type": "application/json",
-		})
-		assert.Equal(t, 403, status)
-	})
-
-	t.Run("Missing signed_transaction returns 400", func(t *testing.T) {
-		body, err := json.Marshal(map[string]interface{}{
-			"mint":   "TestMint123",
-			"amount": 100,
-		})
-		assert.NoError(t, err)
-
-		status, _ := testPost(t, app, "/v1/rewards/code", body, map[string]string{
-			"Content-Type": "application/json",
-		})
-		assert.Equal(t, 400, status)
-	})
-
-	t.Run("Invalid base64 transaction returns 400", func(t *testing.T) {
-		privKey, err := solana.NewRandomPrivateKey()
-		assert.NoError(t, err)
-		app.config.RewardCodeAuthorizedKeys = []string{privKey.PublicKey().String()}
-
-		body, err := json.Marshal(CreateRewardCodeRequest{
-			SignedTransaction: "not-valid-base64!@#$",
-			Mint:              "TestMint123",
-			Amount:            100,
-		})
-		assert.NoError(t, err)
-
-		status, _ := testPost(t, app, "/v1/rewards/code", body, map[string]string{
-			"Content-Type": "application/json",
-		})
-		assert.Equal(t, 400, status)
-	})
-
-	t.Run("Timestamp out of range returns 400", func(t *testing.T) {
-		privKey, err := solana.NewRandomPrivateKey()
-		assert.NoError(t, err)
-		app.config.RewardCodeAuthorizedKeys = []string{privKey.PublicKey().String()}
-
-		// 24 hours in the past — outside the 12h drift window
-		staleTimestamp := time.Now().Add(-24 * time.Hour).UnixMilli()
-		signedTx := buildSignedMemoTx(t, privKey, staleTimestamp)
-
-		body, err := json.Marshal(CreateRewardCodeRequest{
-			SignedTransaction: signedTx,
-			Mint:              "TestMint123",
-			Amount:            100,
-		})
-		assert.NoError(t, err)
-
-		status, _ := testPost(t, app, "/v1/rewards/code", body, map[string]string{
-			"Content-Type": "application/json",
-		})
-		assert.Equal(t, 400, status)
-	})
-
-	t.Run("Replay prevention: duplicate signature returns 400", func(t *testing.T) {
-		privKey, err := solana.NewRandomPrivateKey()
-		assert.NoError(t, err)
-		app.config.RewardCodeAuthorizedKeys = []string{privKey.PublicKey().String()}
-
-		signedTx := buildSignedMemoTx(t, privKey, time.Now().UnixMilli())
-
-		body, err := json.Marshal(CreateRewardCodeRequest{
-			SignedTransaction: signedTx,
-			Mint:              "TestMint123",
-			Amount:            500,
-		})
-		assert.NoError(t, err)
-
-		// First request succeeds
-		status1, respBody1 := testPost(t, app, "/v1/rewards/code", body, map[string]string{
-			"Content-Type": "application/json",
-		})
-		assert.Equal(t, 201, status1, "First request should succeed. Body: %s", string(respBody1))
-
-		// Same transaction again should be rejected as a duplicate signature
-		status2, _ := testPost(t, app, "/v1/rewards/code", body, map[string]string{
-			"Content-Type": "application/json",
-		})
-		assert.Equal(t, 400, status2)
-	})
+func TestV1CreateRewardCodeRetired(t *testing.T) {
+	app := testAppWithFixtures(t)
+	status, _ := testPost(t, app, "/v1/rewards/code", []byte(`{}`), nil)
+	assert.Equal(t, 410, status)
 }
 
 func TestGenerateCode(t *testing.T) {

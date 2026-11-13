@@ -228,6 +228,7 @@ func (app *ApiServer) v1PrizesClaim(c *fiber.Ctx) error {
 		SELECT prize_id, name, COALESCE(description, ''), weight, metadata
 		FROM prizes
 		WHERE is_active = true
+        AND COALESCE(metadata::jsonb->>'type', '') <> 'coin_airdrop'
 		ORDER BY id
 	`)
 	if err != nil {
@@ -479,6 +480,7 @@ func (app *ApiServer) v1Prizes(c *fiber.Ctx) error {
 		SELECT prize_id, name, COALESCE(description, ''), weight, metadata
 		FROM prizes
 		WHERE is_active = true
+        AND COALESCE(metadata::jsonb->>'type', '') <> 'coin_airdrop'
 		ORDER BY id
 	`)
 	if err != nil {

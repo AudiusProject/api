@@ -665,71 +665,24 @@ func TestV1PrizesClaim(t *testing.T) {
 			"Content-Type": "application/json",
 		}, &resp)
 
-		assert.Equal(t, 200, status, "Response body: %s", string(respBody))
-		assert.Equal(t, prizeID, resp.PrizeID)
-		assert.Equal(t, prizeName, resp.PrizeName)
-		assert.Equal(t, validWallet, resp.Wallet)
-		assert.NotNil(t, resp.PrizeType, "Prize type should be set")
-		assert.Equal(t, "coin_airdrop", *resp.PrizeType)
-		assert.NotNil(t, resp.ActionData, "Action data should be set")
+		assert.Equal(t, 500, status, "Response body: %s", string(respBody))
+		assert.Contains(t, string(respBody), "No prizes available")
+		var claimed int
+		err = app.pool.QueryRow(ctx, "SELECT COUNT(*) FROM claimed_prizes WHERE signature = $1", signature).Scan(&claimed)
+		require.NoError(t, err)
+		assert.Zero(t, claimed, "An unavailable airdrop must not consume the prize claim")
 
-		// Parse action_data to verify it contains code and url
-		var actionData map[string]string
-		err = json.Unmarshal(resp.ActionData, &actionData)
-		assert.NoError(t, err, "Action data should be valid JSON")
-		assert.Contains(t, actionData, "code", "Action data should contain code")
-		assert.Contains(t, actionData, "url", "Action data should contain url")
-		assert.NotEmpty(t, actionData["code"], "Code should not be empty")
-		assert.NotEmpty(t, actionData["url"], "URL should not be empty")
-		assert.Contains(t, actionData["url"], "/coins/YAK/redeem/", "URL should contain redeem path")
-		assert.Contains(t, actionData["url"], actionData["code"], "URL should contain the code")
-
-		// Verify it was saved to database with correct prize_type and action_data
-		var dbPrizeID, dbPrizeName, dbWallet, dbPrizeType string
-		var dbActionData json.RawMessage
-		err = app.writePool.QueryRow(ctx, `
-			SELECT prize_id, prize_name, wallet, prize_type, action_data
-			FROM claimed_prizes 
-			WHERE signature = $1
-		`, signature).Scan(&dbPrizeID, &dbPrizeName, &dbWallet, &dbPrizeType, &dbActionData)
-		assert.NoError(t, err)
-		assert.Equal(t, prizeID, dbPrizeID)
-		assert.Equal(t, prizeName, dbPrizeName)
-		assert.Equal(t, validWallet, dbWallet)
-		assert.Equal(t, "coin_airdrop", dbPrizeType)
-
-		// Verify action_data in database matches response
-		var dbActionDataMap map[string]string
-		err = json.Unmarshal(dbActionData, &dbActionDataMap)
-		assert.NoError(t, err)
-		assert.Equal(t, actionData["code"], dbActionDataMap["code"])
-		assert.Equal(t, actionData["url"], dbActionDataMap["url"])
-
-		// Verify reward code was created in reward_codes table with correct amount
-		var dbCode, dbMint string
-		var dbAmount int64
-		var dbRemainingUses int
-		err = app.writePool.QueryRow(ctx, `
-			SELECT code, mint, amount, remaining_uses
-			FROM reward_codes
-			WHERE code = $1
-		`, actionData["code"]).Scan(&dbCode, &dbMint, &dbAmount, &dbRemainingUses)
-		assert.NoError(t, err, "Reward code should exist in database")
-		assert.Equal(t, actionData["code"], dbCode)
-		assert.Equal(t, yakMintAddress, dbMint)
-		assert.Equal(t, amount, dbAmount, "Reward code amount should match prize amount")
-		assert.Equal(t, 1, dbRemainingUses, "Remaining uses should be 1")
 	}
 
-	t.Run("Success - 1 YAK coin airdrop prize with redeem code", func(t *testing.T) {
+	t.Run("Retired - 1 YAK coin airdrop", func(t *testing.T) {
 		testCoinAirdropPrize(t, 1, "prize_1_yak", "1 YAK Airdrop", "airdrop_sig_1_yak")
 	})
 
-	t.Run("Success - 2 YAK coin airdrop prize with redeem code", func(t *testing.T) {
+	t.Run("Retired - 2 YAK coin airdrop", func(t *testing.T) {
 		testCoinAirdropPrize(t, 2, "prize_2_yak", "2 YAK Airdrop", "airdrop_sig_2_yak")
 	})
 
-	t.Run("Success - 3 YAK coin airdrop prize with redeem code", func(t *testing.T) {
+	t.Run("Retired - 3 YAK coin airdrop", func(t *testing.T) {
 		testCoinAirdropPrize(t, 3, "prize_3_yak", "3 YAK Airdrop", "airdrop_sig_3_yak")
 	})
 
@@ -1106,7 +1059,7 @@ func TestV1PrizesClaim(t *testing.T) {
 		status, body := testGet(t, app, "/v1/prizes", &response)
 
 		assert.Equal(t, 200, status, "Response body: %s", string(body))
-		assert.GreaterOrEqual(t, len(response.Data), 3, "Should return at least 3 prizes")
+		assert.GreaterOrEqual(t, len(response.Data), 2, "Non-coin prizes remain available")
 
 		// Find the download prize
 		var downloadPrize *PrizePublicResponse
@@ -1152,17 +1105,7 @@ func TestV1PrizesClaim(t *testing.T) {
 				break
 			}
 		}
-		require.NotNil(t, coinPrize, "Coin prize should be in response")
-		assert.Equal(t, "1 YAK", coinPrize.Name)
-		assert.Equal(t, "coin_airdrop", coinPrize.PublicMeta["type"])
-		// Amount can be shown (it's just a number), but no redeem code/URL
-		if coinPrize.PublicMeta != nil {
-			assert.Equal(t, float64(1), coinPrize.PublicMeta["amount"])
-			_, hasCode := coinPrize.PublicMeta["code"]
-			assert.False(t, hasCode, "code should not be in public metadata")
-			_, hasURL := coinPrize.PublicMeta["url"]
-			assert.False(t, hasURL, "url should not be in public metadata")
-		}
+		assert.Nil(t, coinPrize, "Retired coin airdrops must not be offered")
 	})
 
 	t.Run("GET /v1/prizes - URLs not leaked in public endpoint", func(t *testing.T) {
@@ -1196,7 +1139,7 @@ func TestV1PrizesClaim(t *testing.T) {
 		}
 		err = json.Unmarshal(body, &response)
 		require.NoError(t, err)
-		assert.GreaterOrEqual(t, len(response.Data), 3, "Should return at least 3 prizes")
+		assert.GreaterOrEqual(t, len(response.Data), 2, "Non-coin prizes remain available")
 
 		// Verify URLs are NOT in the response body
 		assert.NotContains(t, string(body), downloadURL, "Download URL should not be leaked")
@@ -1244,17 +1187,7 @@ func TestV1PrizesClaim(t *testing.T) {
 				break
 			}
 		}
-		require.NotNil(t, coinPrize, "Coin prize should be in response")
-		assert.Equal(t, "1 YAK", coinPrize.Name)
-		if coinPrize.PublicMeta != nil {
-			assert.Equal(t, "coin_airdrop", coinPrize.PublicMeta["type"])
-			// Amount can be shown (it's just a number), but no redeem code/URL
-			assert.Equal(t, float64(1), coinPrize.PublicMeta["amount"])
-			_, hasCode := coinPrize.PublicMeta["code"]
-			assert.False(t, hasCode, "code should not be in public metadata")
-			_, hasURL := coinPrize.PublicMeta["url"]
-			assert.False(t, hasURL, "url should not be in public metadata")
-		}
+		assert.Nil(t, coinPrize, "Retired coin airdrops must not be offered")
 	})
 
 	t.Run("GET /v1/wallet/:wallet/prizes - Success - returns claimed prizes (public, no auth required)", func(t *testing.T) {

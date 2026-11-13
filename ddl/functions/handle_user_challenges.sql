@@ -4,6 +4,11 @@ declare
   existing_notification bigint;
   listen_streak_value integer;
 begin
+    -- Retired challenges must not generate new claim prompts, including writes
+    -- from an older worker during a rolling deployment.
+    if new.challenge_id not in ('tt', 'tut') then
+        return new;
+    end if;
     if (new.is_complete = true) then
         -- attempt to insert a new notification, ignoring conflicts
         select challenges.cooldown_days into cooldown_days from challenges where id = new.challenge_id;

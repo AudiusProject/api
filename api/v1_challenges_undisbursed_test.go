@@ -1,72 +1,49 @@
 package api
 
 import (
+	"api.audius.co/api/dbv1"
 	"context"
+	"github.com/stretchr/testify/require"
 	"testing"
-
-	"github.com/stretchr/testify/assert"
 )
 
-func TestGetUndisbursedChallenges(t *testing.T) {
+func TestTrendingOnlyUndisbursed(t *testing.T) {
 	app := testAppWithFixtures(t)
-
-	// Set all users as verified so they can see all challenges
 	ctx := context.Background()
-	_, err := app.pool.Exec(ctx, `UPDATE users SET is_verified = true WHERE is_current = true`)
-	assert.NoError(t, err)
-
-	// Test basic functionality with no parameters
-	status, body := testGet(t, app, "/v1/challenges/undisbursed")
-	assert.Equal(t, 200, status)
-	jsonAssert(t, body, map[string]any{
-		"data.0.challenge_id":  "e",
-		"data.0.user_id":       "eP7kD",
-		"data.0.specifier":     "def",
-		"data.0.amount":        "3",
-		"data.0.handle":        "challenges_finished_streak",
-		"data.0.wallet":        "0x001",
-		"data.0.cooldown_days": 0,
-	})
-
-	// Test filtering by user_id
-	status, body = testGetWithWallet(t, app,
-		"/v1/challenges/undisbursed?user_id=L50xn",
-		"0x8A2c4dcb2Eb9c2C5bc6E28310E4B07011D230C0A",
-	)
-	assert.Equal(t, 200, status)
-	jsonAssert(t, body, map[string]any{
-		"data.0.user_id": "L50xn",
-	})
-
-	// Test filtering by user_id with path parameter
-	status, body = testGet(t, app, "/v1/challenges/undisbursed/L50xn")
-	assert.Equal(t, 200, status)
-	jsonAssert(t, body, map[string]any{
-		"data.0.user_id": "L50xn",
-	})
-
-	// Test filtering by challenge_id
-	status, body = testGet(t, app, "/v1/challenges/undisbursed?challenge_id=f")
-	assert.Equal(t, 200, status)
-	jsonAssert(t, body, map[string]any{
-		"data.0.challenge_id": "f",
-	})
-
-	// Test pagination with limit and offset
-	status, body = testGet(t, app, "/v1/challenges/undisbursed?limit=1&offset=1")
-	assert.Equal(t, 200, status)
-	// Verify we get the second item
-	jsonAssert(t, body, map[string]any{
-		"data.0.user_id": "L50xn",
-	})
-
-	// Test invalid parameters
-	status, _ = testGet(t, app, "/v1/challenges/undisbursed?limit=invalid")
-	assert.Equal(t, 400, status)
-
-	status, _ = testGet(t, app, "/v1/challenges/undisbursed?offset=invalid")
-	assert.Equal(t, 400, status)
-
-	status, _ = testGet(t, app, "/v1/challenges/undisbursed?completed_blocknumber=invalid")
-	assert.Equal(t, 400, status)
+	_, err := app.pool.Exec(ctx, `
+ INSERT INTO challenges (id,type,amount,active,step_count,cooldown_days) VALUES
+ ('tt','trending','1000',true,1,0), ('tut','trending','1000',true,1,0)
+ ON CONFLICT (id) DO UPDATE SET active = true;
+ INSERT INTO user_challenges (challenge_id,user_id,specifier,is_complete,current_step_count,amount,completed_blocknumber,completed_at)
+ VALUES ('tt',402,'2026-11-13:1',true,1,1000,200,now()), ('tut',402,'2026-11-13:6',true,1,100,200,now());
+ `)
+	require.NoError(t, err)
+	// Omitted IDs must not let a claim-all request pay old challenge fixtures.
+	rows, err := app.queries.GetUndisbursedChallenges(ctx, dbv1.GetUndisbursedChallengesParams{UserID: 402})
+	require.NoError(t, err)
+	require.Len(t, rows, 2)
+	for _, row := range rows {
+		require.True(t, isTrendingReward(row.ChallengeID))
+	}
+	// Explicit retired IDs are excluded at the SQL boundary as well.
+	rows, err = app.queries.GetUndisbursedChallenges(ctx, dbv1.GetUndisbursedChallengesParams{UserID: 402, ChallengeID: "e"})
+	require.NoError(t, err)
+	require.Empty(t, rows)
+	status, body := testGet(t, app, "/v1/challenges/undisbursed?challenge_id=tt&completed_blocknumber=199")
+	require.Equal(t, 200, status)
+	jsonAssert(t, body, map[string]any{"data.#": float64(1), "data.0.specifier": "2026-11-13:1"})
+	status, body = testGet(t, app, "/v1/challenges/undisbursed?challenge_id=e")
+	require.Equal(t, 200, status)
+	jsonAssert(t, body, map[string]any{"data.#": float64(0)})
+	// Active flags and payments must apply to both listing and actual claiming.
+	_, err = app.pool.Exec(ctx, `UPDATE challenges SET active = false WHERE id = 'tt';
+ INSERT INTO sol_reward_disbursements (signature,instruction_index,amount,slot,user_bank,challenge_id,specifier,recipient_eth_address)
+ VALUES ('paid-tut',0,10000000000,1,'test-bank','tut','2026-11-13:6','0x0000000000000000000000000000000000000001');`)
+	require.NoError(t, err)
+	rows, err = app.queries.GetUndisbursedChallenges(ctx, dbv1.GetUndisbursedChallengesParams{UserID: 402})
+	require.NoError(t, err)
+	require.Empty(t, rows)
+	status, body = testGet(t, app, "/v1/challenges/undisbursed")
+	require.Equal(t, 200, status)
+	jsonAssert(t, body, map[string]any{"data.#": float64(0)})
 }
