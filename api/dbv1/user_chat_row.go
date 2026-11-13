@@ -26,6 +26,8 @@ type UserChatRow struct {
 	IsGroup                bool              `db:"is_group" json:"is_group"`
 	// Per-user inbox category ("priority" | "general"); nil = uncategorized.
 	Category *string `db:"category" json:"category"`
+	// Whether the viewer has sent a non-blast message in the chat.
+	HasReplied bool `db:"has_replied" json:"has_replied"`
 }
 
 type UserChatMembers struct {

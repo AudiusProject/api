@@ -213,9 +213,21 @@ func TestPostMutateChatSetCategory(t *testing.T) {
 		status, body = testGetWithTestWallet(t, app, "/comms/chats", testWallet1)
 		require.Equal(t, 200, status)
 		jsonAssert(t, body, map[string]any{
-			"data.0.chat_id":  chatId,
-			"data.0.category": nil,
+			"data.0.chat_id":     chatId,
+			"data.0.category":    nil,
+			"data.0.has_replied": true,
 		})
+	}
+
+	// has_replied is per-viewer: user 1 sent msg1, user 2 has not replied
+	{
+		status, body := testGetWithTestWallet(t, app, chatUrl, testWallet1)
+		require.Equal(t, 200, status)
+		jsonAssert(t, body, map[string]any{"data.has_replied": true})
+
+		status, body = testGetWithWallet(t, app, chatUrl, "0x7d273271690538cf855e5b3002a0dd8c154bb060")
+		require.Equal(t, 200, status)
+		jsonAssert(t, body, map[string]any{"data.has_replied": false})
 	}
 
 	// set category to "priority"
@@ -291,6 +303,14 @@ func TestGetUnreadCountByCategory(t *testing.T) {
 	wallet := "0x7d273271690538cf855e5b3002a0dd8c154bb060"
 	url := "/comms/chats/unread_by_category"
 
+	// Seeded first: Seed inserts chat_message before chat_blast, and a blast
+	// copy references its blast.
+	database.Seed(app.writePool, database.FixtureMap{
+		"chat_blast": {
+			{"blast_id": "b1", "from_user_id": 1, "audience": "follower_audience", "plaintext": "hi fans", "created_at": now.Add(-time.Hour)},
+		},
+	})
+
 	// user 1 is the current user; user 2 is the other member of every chat
 	fixtures := database.FixtureMap{
 		"users": {
@@ -300,6 +320,16 @@ func TestGetUnreadCountByCategory(t *testing.T) {
 		"chat":                          {},
 		"chat_member":                   {},
 		"user_conversation_preferences": {},
+		"chat_message": {
+			// user 1 replied in chat_uncat_1
+			{"message_id": "m1", "chat_id": "chat_uncat_1", "user_id": 2, "created_at": now.Add(-time.Minute)},
+			{"message_id": "m2", "chat_id": "chat_uncat_1", "user_id": 1, "created_at": now.Add(-time.Second)},
+			// a blast copy from user 1 is not a reply
+			{"message_id": "m3", "chat_id": "chat_uncat_2", "user_id": 1, "created_at": now.Add(-time.Minute), "blast_id": "b1"},
+			{"message_id": "m4", "chat_id": "chat_uncat_2", "user_id": 2, "created_at": now.Add(-time.Second)},
+			// user 2 replying in chat_uncat_3 does not count for user 1
+			{"message_id": "m5", "chat_id": "chat_uncat_3", "user_id": 2, "created_at": now.Add(-time.Second)},
+		},
 	}
 
 	// (chat_id, category for user 1, unread_count for user 1)
@@ -344,9 +374,10 @@ func TestGetUnreadCountByCategory(t *testing.T) {
 	status, body := testGetWithWallet(t, app, url, wallet)
 	require.Equal(t, 200, status)
 	jsonAssert(t, body, map[string]any{
-		"data.priority":      2,
-		"data.general":       1,
-		"data.uncategorized": 3,
+		"data.priority":                2,
+		"data.general":                 1,
+		"data.uncategorized":           3,
+		"data.uncategorized_unreplied": 2,
 	})
 
 	// sanity: the plain unread endpoint agrees with the sum
@@ -367,7 +398,7 @@ func TestGetUnreadCountByCategory(t *testing.T) {
 		"data.general":       0,
 		"data.uncategorized": 0,
 	})
-	for _, key := range []string{"data.priority", "data.general", "data.uncategorized"} {
+	for _, key := range []string{"data.priority", "data.general", "data.uncategorized", "data.uncategorized_unreplied"} {
 		assert.True(t, gjson.GetBytes(body, key).Exists(), "%s must always be present", key)
 	}
 }
