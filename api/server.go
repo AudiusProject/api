@@ -682,7 +682,7 @@ func NewApiServer(config config.Config) *ApiServer {
 
 		// Rewards
 		g.Post("/rewards/claim", app.v1ClaimRewards)
-		g.Post("/rewards/code", app.v1CreateRewardCode)
+		g.Post("/rewards/code", programmableRewardsDisabled)
 
 		// Prizes
 		g.Get("/prizes", app.v1Prizes)
@@ -753,10 +753,10 @@ func NewApiServer(config config.Config) *ApiServer {
 		g.Get("/coins/:mint/insights", app.v1CoinInsights)
 		g.Get("/coins/:mint/members", app.v1CoinsMembers)
 		g.Get("/coins/:mint/members/count", app.v1CoinMembersCount)
-		g.Get("/coins/:mint/redeem", app.v1CoinsRedeem)
-		g.Get("/coins/:mint/redeem/:code", app.v1CoinsRedeemCode)
-		g.Post("/coins/:mint/redeem", app.requireAuthMiddleware, app.requireWriteScope, app.v1CoinsPostRedeem)
-		g.Post("/coins/:mint/redeem/:code", app.requireAuthMiddleware, app.requireWriteScope, app.v1CoinsPostRedeem)
+		g.Get("/coins/:mint/redeem", programmableRewardsDisabled)
+		g.Get("/coins/:mint/redeem/:code", programmableRewardsDisabled)
+		g.Post("/coins/:mint/redeem", programmableRewardsDisabled)
+		g.Post("/coins/:mint/redeem/:code", programmableRewardsDisabled)
 		g.Post("/coins", app.v1CreateCoin)
 		g.Post("/coins/:mint", app.v1UpdateCoin)
 

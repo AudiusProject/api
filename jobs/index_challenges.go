@@ -42,28 +42,8 @@ func NewIndexChallengesJob(cfg config.Config, pool database.DbPool) *IndexChalle
 		pool:   pool,
 		logger: logging.NewZapLogger(cfg).Named("IndexChallengesJob"),
 		processors: []challenges.Processor{
-			// Phase 1
-			&challenges.TrackUploadProcessor{},
-			&challenges.FirstPlaylistProcessor{},
-			&challenges.ProfileCompletionProcessor{},
-			&challenges.ProfileVerifiedProcessor{},
-			&challenges.ListenStreakProcessor{},
-			challenges.NewPlayCountMilestonesProcessor(),
 			challenges.NewTrendingTrackProcessor(),
 			challenges.NewTrendingUndergroundProcessor(),
-			// Phase 2
-			&challenges.FirstWeeklyCommentProcessor{},
-			&challenges.CommentPinProcessor{},
-			&challenges.CosignProcessor{},
-			&challenges.TastemakerProcessor{},
-			&challenges.RemixContestWinnerProcessor{},
-			challenges.NewAudioMatchingBuyerProcessor(),
-			challenges.NewAudioMatchingSellerProcessor(),
-			// Phase 3 (signal-driven)
-			&challenges.MobileInstallProcessor{},
-			challenges.NewReferralProcessor(),
-			challenges.NewVerifiedReferralProcessor(),
-			&challenges.ReferredProcessor{},
 		},
 	}
 }

@@ -44,6 +44,9 @@ func weeklyPoolWindowStartAt(now time.Time) time.Time {
 }
 
 func (app *ApiServer) v1ChallengesInfo(c *fiber.Ctx) error {
+	if !isTrendingReward(c.Params("challengeId")) {
+		return fiber.NewError(fiber.StatusGone, "User challenges are no longer supported")
+	}
 	params := GetChallengesInfoQueryParams{}
 	if err := app.ParseAndValidateQueryParams(c, &params); err != nil {
 		return err

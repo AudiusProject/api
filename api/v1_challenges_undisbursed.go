@@ -1,27 +1,12 @@
 package api
 
 import (
-	"fmt"
-	"strings"
 	"time"
 
 	"api.audius.co/trashid"
 	"github.com/gofiber/fiber/v2"
 	"github.com/jackc/pgx/v5"
 )
-
-// openRewards are challenge IDs available to unverified users
-var openRewards = []string{
-	"dvl", // daily volume rewards
-	"t",   // tastemaker
-	"tp",  // trending playlists
-	"tt",  // trending
-	"tut", // trending underground
-	"b",   // audio match buy (from verified user)
-	"rd",  // referred (by verified user)
-	"w",   // remix contest winner (from verified user)
-	"cs",  // cosign (from verified user)
-}
 
 type GetUndisbursedChallengesQueryParams struct {
 	ChallengeID          string `query:"challenge_id"`
@@ -41,13 +26,7 @@ func (app *ApiServer) v1ChallengesUndisbursed(c *fiber.Ctx) error {
 		return err
 	}
 
-	openRewardsPlaceholders := make([]string, len(openRewards))
-	for i, reward := range openRewards {
-		openRewardsPlaceholders[i] = fmt.Sprintf("'%s'", reward)
-	}
-	openRewardsInClause := strings.Join(openRewardsPlaceholders, ", ")
-
-	sql := fmt.Sprintf(`
+	sql := `
 	-- Get Undisbursed Challenges
 	SELECT user_challenges.challenge_id,
 		user_challenges.user_id,
@@ -71,13 +50,12 @@ func (app *ApiServer) v1ChallengesUndisbursed(c *fiber.Ctx) error {
 	WHERE challenge_disbursements.challenge_id IS NULL
 		AND user_challenges.is_complete
 		AND challenges.active
+        AND user_challenges.challenge_id IN ('tt', 'tut')
 		AND users.is_current
 		AND NOT users.is_deactivated
 		AND (@user_id = 0 OR user_challenges.user_id = @user_id)
 		AND (@completed_blocknumber = 0 OR user_challenges.completed_blocknumber > @completed_blocknumber)
 		AND (@challenge_id = '' OR user_challenges.challenge_id = @challenge_id)
-		-- Filter by verification status: unverified users only see openRewards, verified users see all
-		AND (users.is_verified = true OR user_challenges.challenge_id IN (%s))
 	ORDER BY
 		user_challenges.user_id ASC,
 		user_challenges.challenge_id ASC,
@@ -85,7 +63,7 @@ func (app *ApiServer) v1ChallengesUndisbursed(c *fiber.Ctx) error {
 	LIMIT COALESCE(@limit, 100)
 	OFFSET @offset
 	;
-	`, openRewardsInClause)
+	`
 
 	rows, err := app.pool.Query(c.Context(), sql, pgx.NamedArgs{
 		"user_id":               userId,
